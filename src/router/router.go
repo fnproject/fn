@@ -44,8 +44,8 @@ func main() {
 	r.HandleFunc("/", ProxyFunc)
 
 	http.Handle("/", r)
-port := 80
-fmt.Println("listening and serving on port", port)
+	port := 80
+	fmt.Println("listening and serving on port", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
 }
 
@@ -63,9 +63,10 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	destUrls = "http://" + destUrls
 	destUrl, err := url.Parse(destUrls)
 	if err != nil {
+		fmt.Println("error!", err)
 		panic(err)
 	}
-fmt.Println("proxying to", destUrl)
+	fmt.Println("proxying to", destUrl)
 	proxy := httputil.NewSingleHostReverseProxy(destUrl)
 	proxy.ServeHTTP(w, req)
 	// todo: how to handle destination failures. I got this in log output when testing a bad endpoint:

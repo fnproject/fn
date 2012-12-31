@@ -1,10 +1,31 @@
 require 'rest'
+require 'sinatra'
 
 rest = Rest::Client.new
 rest.logger.level = Logger::DEBUG
-response = rest.post("http://localhost:8080/", 
+
+public_dns = rest.get("http://169.254.169.254/latest/meta-data/public-hostname").body
+
+puts "public dns name: #{public_dns}"
+port = rand(50000..55000)
+puts "port: #{port}"
+
+
+response = rest.post(
+# "http://localhost:8080/",
+    "http://router.irondns.info/",
 	headers: {"Iron-Router"=>"YES!"},
-	body: {"host"=>"localhost", "dest"=>"localhost:8082"})
+	body: {"host"=>"routertest.irondns.info", "dest"=>"#{public_dns}:#{port}"})
 puts "body:"
 puts response.body
+
+STDOUT.flush
+
+ENV['PORT'] = port.to_s # for sinatra
+my_app = Sinatra.new do
+    set :port, port
+  get('/') { "hi" }
+  get('/*') { "you passed in #{params[:splat].inspect}" }
+end
+my_app.run!
 
