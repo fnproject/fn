@@ -8,6 +8,7 @@ For keeping a minimum running, perhaps when doing a routing table update, if des
 package main
 
 import (
+"reflect"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -85,7 +86,13 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	err = proxy.ServeHTTP(w, req)
 	if err != nil {
 		fmt.Println("Error proxying!", err)
+etype := reflect.TypeOf(err)
+ fmt.Println("err type:", etype)
 		w.WriteHeader(http.StatusInternalServerError)
+if err == net.OpError {
+  // start new worker
+  
+}
 		// start new worker if it's a connection error
 		return
 	}
