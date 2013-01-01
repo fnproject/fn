@@ -98,16 +98,16 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 func AddWorker(w http.ResponseWriter, req *http.Request) {
 	log.Println("AddWorker called!")
 
-	// get project id and token
-	projectId := req.FormValue("project_id")
-	token := req.FormValue("token")
-	fmt.Println("project_id:", projectId, "token:", token)
-
 	r2 := Route2{}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&r2)
 	// todo: do we need to close body?
 	fmt.Println("DECODED:", r2)
+
+	// get project id and token
+	projectId := req.FormValue("project_id")
+	token := req.FormValue("token")
+	fmt.Println("project_id:", projectId, "token:", token)
 
 	// todo: routing table should be in mongo (or IronCache?) so all routers can update/read from it.
 	// todo: one cache entry per host domain
