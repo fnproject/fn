@@ -11,19 +11,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/iron-io/iron_go/cache"
+	// "github.com/iron-io/iron_go/config"
 	"log"
 	"math/rand"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 )
 
 var routingTable = map[string]Route{}
+var icache = cache.New("routertest")
+
+func init() {
+	icache.Settings.UseConfigMap(map[string]interface{}{"token": "MWx0VfngzsCu0W8NAYw7S2lNrgo", "project_id": "50e227be8e7d14359b001373"})
+}
 
 type Route struct {
 	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
 	Destinations []string
+	ProjectId    string
+	Token        string // store this so we can queue up new workers on demand
+
 }
 
 // for adding new hosts
@@ -52,6 +61,11 @@ func main() {
 func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("HOST:", req.Host)
 	host := strings.Split(req.Host, ":")[0]
+
+	// We look up the destinations in the routing table and there can be 3 possible scenarios:
+	// 1) This host was never registered so we return 404
+	// 2) This host has active workers so we do the proxy
+	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	route := routingTable[host]
 	// choose random dest
 	if len(route.Destinations) == 0 {
@@ -67,14 +81,28 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		panic(err)
 	}
 	fmt.Println("proxying to", destUrl)
-	proxy := httputil.NewSingleHostReverseProxy(destUrl)
-	proxy.ServeHTTP(w, req)
+	proxy := NewSingleHostReverseProxy(destUrl)
+	err = proxy.ServeHTTP(w, req)
+	if err != nil {
+		fmt.Println("Error proxying!", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		// start new worker if it's a connection error
+		return
+	}
+	fmt.Println("Served!")
 	// todo: how to handle destination failures. I got this in log output when testing a bad endpoint:
 	// 2012/12/26 23:22:08 http: proxy error: dial tcp 127.0.0.1:8082: connection refused
 }
 
+// When a worker starts up, it calls this
 func AddWorker(w http.ResponseWriter, req *http.Request) {
 	log.Println("AddWorker called!")
+
+	// get project id and token
+	projectId := req.FormValue("project_id")
+	token := req.FormValue("token")
+	fmt.Println("project_id:", projectId, "token:", token)
+
 	r2 := Route2{}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&r2)
@@ -82,9 +110,12 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("DECODED:", r2)
 
 	// todo: routing table should be in mongo (or IronCache?) so all routers can update/read from it.
+	// todo: one cache entry per host domain
 	route := routingTable[r2.Host]
 	fmt.Println("ROUTE:", route)
 	route.Destinations = append(route.Destinations, r2.Dest)
+	route.ProjectId = projectId
+	route.Token = token
 	fmt.Println("ROUTE:", route)
 	routingTable[r2.Host] = route
 	fmt.Println("New routing table:", routingTable)

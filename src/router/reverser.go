@@ -1,4 +1,9 @@
-// I wanted to do some stuff to this so had to make a copy. Namely change the Host handling for virtual hosts.
+/* I wanted to do some stuff to this so had to make a copy. Namely:
+- change the Host handling for virtual hosts.
+- get errors if the proxy request fails
+
+
+*/
 
 // Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -83,7 +88,7 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) error {
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -115,8 +120,8 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
 		log.Printf("http: proxy error: %v", err)
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
+		//		rw.WriteHeader(http.StatusInternalServerError)
+		return err
 	}
 	defer res.Body.Close()
 
@@ -124,6 +129,9 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 	p.copyResponse(rw, res.Body)
+
+	return nil
+
 }
 
 func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
@@ -144,8 +152,8 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
 }
 
 type writeFlusher interface {
-io.Writer
-http.Flusher
+	io.Writer
+	http.Flusher
 }
 
 type maxLatencyWriter struct {
