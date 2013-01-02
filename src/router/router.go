@@ -98,6 +98,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 			if len(route.Destinations) > 1 {
 				fmt.Println("It's a network error, removing this destination from routing table.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
+				return
 			} else {
 				fmt.Println("It's a network error and no other destinations available so we're going to start new task.")
 			}
