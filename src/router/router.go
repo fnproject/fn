@@ -92,6 +92,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("err type:", etype)
 		w.WriteHeader(http.StatusInternalServerError)
 		if etype == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
+			fmt.Println("It's a network error, so we're going to start new task.")
 			// start new worker
 			payload := map[string]interface{}{
 				"token":      route.Token,
