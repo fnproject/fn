@@ -8,17 +8,19 @@ For keeping a minimum running, perhaps when doing a routing table update, if des
 package main
 
 import (
-"reflect"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/iron-io/iron_go/cache"
-	// "github.com/iron-io/iron_go/config"
+	"github.com/iron-io/iron_go/worker"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
+	"time"
 )
 
 var routingTable = map[string]Route{}
@@ -33,7 +35,7 @@ type Route struct {
 	Destinations []string
 	ProjectId    string
 	Token        string // store this so we can queue up new workers on demand
-
+	CodeName     string
 }
 
 // for adding new hosts
@@ -86,13 +88,39 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	err = proxy.ServeHTTP(w, req)
 	if err != nil {
 		fmt.Println("Error proxying!", err)
-etype := reflect.TypeOf(err)
- fmt.Println("err type:", etype)
+		etype := reflect.TypeOf(err)
+		fmt.Println("err type:", etype)
 		w.WriteHeader(http.StatusInternalServerError)
-if err == net.OpError {
-  // start new worker
-  
-}
+		if etype == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
+			// start new worker
+			payload := map[string]interface{}{
+				"token":      route.Token,
+				"project_id": route.ProjectId,
+				"code_name":  route.CodeName,
+			}
+			workerapi := worker.New()
+			workerapi.Settings.UseConfigMap(payload)
+			jsonPayload, err := json.Marshal(payload)
+			if err != nil {
+				fmt.Println("Couldn't marshal json!", err)
+				return
+			}
+			timeout := time.Second * 300
+			task := worker.Task{
+				CodeName: route.CodeName,
+				Payload:  string(jsonPayload),
+				Timeout:  &timeout, // let's have these die quickly while testing
+			}
+			tasks := make([]worker.Task, 1)
+			tasks[0] = task
+			taskIds, err := workerapi.TaskQueue(tasks...)
+			fmt.Println("Tasks queued.", taskIds)
+			if err != nil {
+				fmt.Println("Couldn't queue up worker!", err)
+				return
+			}
+
+		}
 		// start new worker if it's a connection error
 		return
 	}
@@ -114,7 +142,8 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	// get project id and token
 	projectId := req.FormValue("project_id")
 	token := req.FormValue("token")
-	fmt.Println("project_id:", projectId, "token:", token)
+	codeName := req.FormValue("code_name")
+	fmt.Println("project_id:", projectId, "token:", token, "code_name:", codeName)
 
 	// todo: routing table should be in mongo (or IronCache?) so all routers can update/read from it.
 	// todo: one cache entry per host domain
@@ -123,6 +152,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	route.Destinations = append(route.Destinations, r2.Dest)
 	route.ProjectId = projectId
 	route.Token = token
+	route.CodeName = codeName
 	fmt.Println("ROUTE:", route)
 	routingTable[r2.Host] = route
 	fmt.Println("New routing table:", routingTable)

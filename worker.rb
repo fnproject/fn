@@ -12,9 +12,13 @@ puts "public dns name: #{public_dns}"
 port = rand(50000..55000)
 puts "port: #{port}"
 
+project_id = params[:project_id] || "4fd2729368a0197d1102056b" # // this is my Default project
+token = params[:token] || "MWx0VfngzsCu0W8NAYw7S2lNrgo"
+code_name = params[:code_name] || "app_worker"
+
 response = rest.post(
 # "http://localhost:8080/",
-    "http://router.irondns.info/?project_id=#{params[:project_id]}&token=#{params[:token]}",
+    "http://router.irondns.info/?project_id=#{project_id}&token=#{token}&code_name=#{code_name}",
 	headers: {"Iron-Router"=>"YES!"},
 	body: {"host"=>"routertest.irondns.info", "dest"=>"#{public_dns}:#{port}"})
 puts "body:"
