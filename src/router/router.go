@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-var routingTable = map[string]Route{}
+var routingTable = map[string]*Route{}
 var icache = cache.New("routertest")
 
 func init() {
@@ -72,7 +72,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	route := routingTable[host]
 	// choose random dest
-	if route.Host == "" {
+	if route == nil { // route.Host == "" {
 		fmt.Fprintln(w, "Host not configured!")
 		return
 	}
@@ -159,6 +159,9 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	// todo: routing table should be in mongo (or IronCache?) so all routers can update/read from it.
 	// todo: one cache entry per host domain
 	route := routingTable[r2.Host]
+	if route == nil {
+		route = &Route{}
+	}
 	fmt.Println("ROUTE:", route)
 	route.Host = r2.Host
 	route.Destinations = append(route.Destinations, r2.Dest)
