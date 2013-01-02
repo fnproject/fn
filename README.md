@@ -30,7 +30,7 @@ This is just a simple prototype. To get to production would need:
 ## Testing for reals
 
 - start router.go on remote server (there's a test project on SD already). if logged in, go build ./src/router; sudo ./router
-- iron_worker upload app_worker
-- iron_worker queue app_worker
+- iron_worker upload sinatra
+- iron_worker queue sinatra
 - ruby client.rb
 - BOOM!

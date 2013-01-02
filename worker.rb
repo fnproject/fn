@@ -14,7 +14,7 @@ puts "port: #{port}"
 
 project_id = params[:project_id] || "4fd2729368a0197d1102056b" # // this is my Default project
 token = params[:token] || "MWx0VfngzsCu0W8NAYw7S2lNrgo"
-code_name = params[:code_name] || "app_worker"
+code_name = params[:code_name] || "sinatra"
 
 response = rest.post(
 # "http://localhost:8080/",
@@ -23,12 +23,13 @@ response = rest.post(
 	body: {"host"=>"routertest.irondns.info", "dest"=>"#{public_dns}:#{port}"})
 puts "body:"
 puts response.body
+puts "\n\n=======\n\n"
 
 STDOUT.flush
 
 # Now we start the actual worker
 ##################################################################3
-
+  
 ENV['PORT'] = port.to_s # for sinatra
 my_app = Sinatra.new do
     set :port, port

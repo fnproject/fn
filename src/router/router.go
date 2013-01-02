@@ -32,6 +32,7 @@ func init() {
 
 type Route struct {
 	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
+	Host         string
 	Destinations []string
 	ProjectId    string
 	Token        string // store this so we can queue up new workers on demand
@@ -71,14 +72,15 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	route := routingTable[host]
 	// choose random dest
-	if len(route.Destinations) == 0 {
-		fmt.Fprintln(w, "No matching routes!")
+	if route.Host == "" {
+		fmt.Fprintln(w, "Host not configured!")
 		return
 	}
-	destUrls := route.Destinations[rand.Intn(len(route.Destinations))]
+	destIndex := rand.Intn(len(route.Destinations))
+	destUrlString := route.Destinations[destIndex]
 	// todo: should check if http:// already exists.
-	destUrls = "http://" + destUrls
-	destUrl, err := url.Parse(destUrls)
+	destUrlString2 := "http://" + destUrlString
+	destUrl, err := url.Parse(destUrlString2)
 	if err != nil {
 		fmt.Println("error!", err)
 		panic(err)
@@ -93,7 +95,12 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		// can't figure out how to compare types so comparing strings.... lame. 
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
-			fmt.Println("It's a network error, so we're going to start new task.")
+			if len(route.Destinations) > 1 {
+				fmt.Println("It's a network error, removing this destination from routing table.")
+				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
+			} else {
+				fmt.Println("It's a network error and no other destinations available so we're going to start new task.")
+			}
 			// start new worker
 			payload := map[string]interface{}{
 				"token":      route.Token,
@@ -121,7 +128,6 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				fmt.Println("Couldn't queue up worker!", err)
 				return
 			}
-
 		}
 		// start new worker if it's a connection error
 		return
@@ -151,6 +157,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	// todo: one cache entry per host domain
 	route := routingTable[r2.Host]
 	fmt.Println("ROUTE:", route)
+	route.Host = r2.Host
 	route.Destinations = append(route.Destinations, r2.Dest)
 	route.ProjectId = projectId
 	route.Token = token

@@ -1,6 +1,0 @@
-runtime "ruby"
-
-gem 'rest'
-gem 'sinatra'
-
-exec 'worker.rb'
