@@ -15,7 +15,7 @@ import (
 	"github.com/iron-io/iron_go/worker"
 	"log"
 	"math/rand"
-	"net"
+	// "net"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -91,7 +91,8 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		etype := reflect.TypeOf(err)
 		fmt.Println("err type:", etype)
 		w.WriteHeader(http.StatusInternalServerError)
-		if etype == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
+		// can't figure out how to compare types so comparing strings.... lame. 
+		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
 			fmt.Println("It's a network error, so we're going to start new task.")
 			// start new worker
 			payload := map[string]interface{}{
