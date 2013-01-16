@@ -138,13 +138,23 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 			if len(route.Destinations) > 1 {
 				fmt.Println("It's a network error, removing this destination from routing table.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
-				putRoute(route)
+				err := putRoute(route)
+				if err != nil {
+					fmt.Println("couldn't update routing table 1", err)
+					common.SendError(w, 400, fmt.Sprintln("couldn't update routing table 1", err))
+					return
+				}
 				fmt.Println("New route:", route)
 				return
 			} else {
 				fmt.Println("It's a network error and no other destinations available so we're going to remove it and start new task.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
-				putRoute(route)
+				err := putRoute(route)
+				if err != nil {
+					fmt.Println("couldn't update routing table:", err)
+					common.SendError(w, 400, fmt.Sprintln("couldn't update routing table", err))
+					return
+				}
 				fmt.Println("New route:", route)
 			}
 			// start new worker
@@ -208,7 +218,12 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		route.Token = token
 		route.CodeName = codeName
 		// todo: do we need to close body?
-		putRoute(route)
+		err := putRoute(route)
+		if err != nil {
+			fmt.Println("couldn't register host:", err)
+			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
+			return
+		}
 		fmt.Println("registered route:", route)
 		fmt.Fprintln(w, "Host registered successfully.")
 
@@ -229,7 +244,12 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("ROUTE:", route)
 		route.Destinations = append(route.Destinations, r2.Dest)
 		fmt.Println("ROUTE new:", route)
-		putRoute(route)
+		err = putRoute(route)
+		if err != nil {
+			fmt.Println("couldn't register host:", err)
+			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
+			return
+		}
 		//		routingTable[r2.Host] = route
 		//		fmt.Println("New routing table:", routingTable)
 		fmt.Fprintln(w, "Worker added")
@@ -245,8 +265,9 @@ func getRoute(host string) (Route, error) {
 	return route, err
 }
 
-func putRoute(route Route) {
+func putRoute(route Route) (error) {
 	item := cache.Item{}
 	item.Value = route
-	icache.Put(route.Host, &item)
+	err := icache.Put(route.Host, &item)
+	return err
 }
