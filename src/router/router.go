@@ -116,7 +116,13 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	//		common.SendError(w, 400, fmt.Sprintln(w, "Host not configured!"))
 	//		return
 	//	}
-	destIndex := rand.Intn(len(route.Destinations))
+	dlen := len(route.Destinations)
+	if dlen == 0 {
+		fmt.Println("No workers running, starting new task.")
+		startNewWorker(route)
+		return
+	}
+	destIndex := rand.Intn(dlen)
 	destUrlString := route.Destinations[destIndex]
 	// todo: should check if http:// already exists.
 	destUrlString2 := "http://" + destUrlString
@@ -157,33 +163,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				}
 				fmt.Println("New route:", route)
 			}
-			// start new worker
-			payload := map[string]interface{}{
-				"token":      route.Token,
-				"project_id": route.ProjectId,
-				"code_name":  route.CodeName,
-			}
-			workerapi := worker.New()
-			workerapi.Settings.UseConfigMap(payload)
-			jsonPayload, err := json.Marshal(payload)
-			if err != nil {
-				fmt.Println("Couldn't marshal json!", err)
-				return
-			}
-			timeout := time.Second*120
-			task := worker.Task{
-				CodeName: route.CodeName,
-				Payload:  string(jsonPayload),
-				Timeout:  &timeout, // let's have these die quickly while testing
-			}
-			tasks := make([]worker.Task, 1)
-			tasks[0] = task
-			taskIds, err := workerapi.TaskQueue(tasks...)
-			fmt.Println("Tasks queued.", taskIds)
-			if err != nil {
-				fmt.Println("Couldn't queue up worker!", err)
-				return
-			}
+			startNewWorker(route)
 		}
 		// start new worker if it's a connection error
 		return
@@ -192,6 +172,39 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// todo: how to handle destination failures. I got this in log output when testing a bad endpoint:
 	// 2012/12/26 23:22:08 http: proxy error: dial tcp 127.0.0.1:8082: connection refused
 }
+
+func startNewWorker(route *Route) (error) {
+	fmt.Println("Starting a new worker")
+	// start new worker
+	payload := map[string]interface{}{
+		"token":      route.Token,
+		"project_id": route.ProjectId,
+		"code_name":  route.CodeName,
+	}
+	workerapi := worker.New()
+	workerapi.Settings.UseConfigMap(payload)
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("Couldn't marshal json!", err)
+		return err
+	}
+	timeout := time.Second*120
+	task := worker.Task{
+		CodeName: route.CodeName,
+		Payload:  string(jsonPayload),
+		Timeout:  &timeout, // let's have these die quickly while testing
+	}
+	tasks := make([]worker.Task, 1)
+	tasks[0] = task
+	taskIds, err := workerapi.TaskQueue(tasks...)
+	fmt.Println("Tasks queued.", taskIds)
+	if err != nil {
+		fmt.Println("Couldn't queue up worker!", err)
+		return err
+	}
+	return err
+}
+
 
 // When a worker starts up, it calls this
 func AddWorker(w http.ResponseWriter, req *http.Request) {
