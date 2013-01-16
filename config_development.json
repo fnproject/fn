@@ -1,5 +1,9 @@
-iron:
-  token: MWx0VfngzsCu0W8NAYw7S2lNrgo
-  project_id: 4fd2729368a0197d1102056b
+{
+  "iron": {
+    "token": "MWx0VfngzsCu0W8NAYw7S2lNrgo",
+    "project_id": "4fd2729368a0197d1102056b"
+  }
+}
+
 
 
