@@ -218,7 +218,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		route.Token = token
 		route.CodeName = codeName
 		// todo: do we need to close body?
-		err := putRoute(route)
+		err := putRoute(&route)
 		if err != nil {
 			fmt.Println("couldn't register host:", err)
 			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
@@ -256,16 +256,21 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func getRoute(host string) (Route, error) {
+func getRoute(host string) (*Route, error) {
 	rx, err := icache.Get(host)
+	if err != nil {
+		return nil, err
+	}
+	rx2 := []byte(rx.(string))
 	route := Route{}
+	err = json.Unmarshal(rx2, &route)
 	if err == nil {
 		route = rx.(Route)
 	}
-	return route, err
+	return &route, err
 }
 
-func putRoute(route Route) (error) {
+func putRoute(route *Route) (error) {
 	item := cache.Item{}
 	v, err := json.Marshal(route)
 	if err != nil {
