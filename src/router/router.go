@@ -188,7 +188,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	log.Println("AddWorker called!")
 
 	s, err := ioutil.ReadAll(req.Body)
-	fmt.Println("req.body:", err, s)
+	fmt.Println("req.body:", err, string(s))
 
 	// get project id and token
 	projectId := req.FormValue("project_id")
@@ -207,7 +207,6 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		route.CodeName = codeName
 		// todo: do we need to close body?
 		fmt.Println("registered route:", route)
-
 		putRoute(route)
 
 	} else {
@@ -216,7 +215,6 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		decoder.Decode(&r2)
 		// todo: do we need to close body?
 		fmt.Println("DECODED:", r2)
-
 		route, err := getRoute(r2.Host)
 		//		route := routingTable[r2.Host]
 		if err != nil {
@@ -227,7 +225,6 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("ROUTE:", route)
 		route.Destinations = append(route.Destinations, r2.Dest)
 		fmt.Println("ROUTE new:", route)
-
 		putRoute(route)
 		//		routingTable[r2.Host] = route
 		//		fmt.Println("New routing table:", routingTable)
