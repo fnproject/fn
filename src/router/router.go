@@ -106,6 +106,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 2) This host has active workers so we do the proxy
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	//	route := routingTable[host]
+ fmt.Println("getting route for host:", host)
 	route, err := getRoute(host)
 	// choose random dest
 	if err != nil {
