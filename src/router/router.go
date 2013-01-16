@@ -265,8 +265,8 @@ func getRoute(host string) (*Route, error) {
 	rx2 := []byte(rx.(string))
 	route := Route{}
 	err = json.Unmarshal(rx2, &route)
-	if err == nil {
-		route = rx.(Route)
+	if err != nil {
+		return nil, err
 	}
 	return &route, err
 }
