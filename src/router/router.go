@@ -142,7 +142,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		// can't figure out how to compare types so comparing strings.... lame. 
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
-			if len(route.Destinations) > 1 {
+			if len(route.Destinations) > 2 { // always want at least two running
 				fmt.Println("It's a network error, removing this destination from routing table.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 				err := putRoute(route)
@@ -154,7 +154,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				fmt.Println("New route:", route)
 				return
 			} else {
-				fmt.Println("It's a network error and no other destinations available so we're going to remove it and start new task.")
+				fmt.Println("It's a network error and less than two other workers available so we're going to remove it and start new task.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 				err := putRoute(route)
 				if err != nil {
@@ -189,7 +189,7 @@ func startNewWorker(route *Route) (error) {
 		fmt.Println("Couldn't marshal json!", err)
 		return err
 	}
-	timeout := time.Second*120
+	timeout := time.Second * time.Duration(1800 + rand.Intn(600)) // a little random factor in here to spread out worker deaths
 	task := worker.Task{
 		CodeName: route.CodeName,
 		Payload:  string(jsonPayload),
