@@ -214,10 +214,8 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 
 	} else {
 		r2 := Route2{}
-		decoder := json.NewDecoder(req.Body)
-		err := decoder.Decode(&r2)
-		if err != nil {
-			common.SendError(w, 400, fmt.Sprintln("Bad json:", err))
+		if !common.ReadJSON(w, req, &r2) {
+			return
 		}
 		// todo: do we need to close body?
 		fmt.Println("DECODED:", r2)
