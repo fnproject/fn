@@ -200,11 +200,10 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	routerHeader := req.Header.Get("Iron-Router")
 	if routerHeader == "register" {
 		route := Route{}
-		decoder := json.NewDecoder(req.Body)
-		err := decoder.Decode(&route)
-		if err != nil {
-			common.SendError(w, 400, fmt.Sprintln("Bad json:", err))
+		if !common.ReadJSON(w, r, &route) {
+			return
 		}
+		fmt.Println("body read into route:", route)
 		route.ProjectId = projectId
 		route.Token = token
 		route.CodeName = codeName
