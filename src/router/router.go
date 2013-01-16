@@ -24,7 +24,7 @@ import (
 	"time"
 	"runtime"
 	"flag"
-	"io/ioutil"
+//	"io/ioutil"
 )
 
 var config struct {
@@ -216,7 +216,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	} else {
 		r2 := Route2{}
 		decoder := json.NewDecoder(req.Body)
-		err = decoder.Decode(&r2)
+		err := decoder.Decode(&r2)
 		if err != nil {
 			common.SendError(w, 400, fmt.Sprintln("Bad json:", err))
 		}
