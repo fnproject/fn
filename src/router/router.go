@@ -24,6 +24,7 @@ import (
 	"time"
 	"runtime"
 	"flag"
+	"io/ioutil"
 )
 
 var config struct {
@@ -185,6 +186,9 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 // When a worker starts up, it calls this
 func AddWorker(w http.ResponseWriter, req *http.Request) {
 	log.Println("AddWorker called!")
+
+	s, err := ioutil.ReadAll(req.Body)
+	fmt.Println("req.body:", err, s)
 
 	// get project id and token
 	projectId := req.FormValue("project_id")
