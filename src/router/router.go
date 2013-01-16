@@ -120,13 +120,13 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	dlen := len(route.Destinations)
 	if dlen == 0 {
 		fmt.Println("No workers running, starting new task.")
-		_ := startNewWorker(route)
-		common.SendError(w, 500, fmt.Sprintln("No workers running, starting them up...", err))
+		startNewWorker(route)
+		common.SendError(w, 500, fmt.Sprintln("No workers running, starting them up..."))
 		return
 	}
 	if dlen == 1 {
 		fmt.Println("Only one worker running, starting a new task.")
-		_ := startNewWorker(route)
+		startNewWorker(route)
 	}
 	destIndex := rand.Intn(dlen)
 	destUrlString := route.Destinations[destIndex]
@@ -170,7 +170,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				fmt.Println("New route:", route)
 			}
 			// start new worker if it's a connection error
-			_ := startNewWorker(route)
+			startNewWorker(route)
 		}
 		return
 	}
