@@ -88,6 +88,7 @@ func main() {
 	s := r.Headers("Iron-Router", "").Subrouter()
 	s.HandleFunc("/", AddWorker)
 	r.HandleFunc("/addworker", AddWorker)
+	r.HandleFunc("/ping", Ping) // for health
 
 	r.HandleFunc("/", ProxyFunc)
 
@@ -298,4 +299,8 @@ func putRoute(route *Route) (error) {
 	item.Value = string(v)
 	err = icache.Put(route.Host, &item)
 	return err
+}
+
+func Ping(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintln(w, "pong")
 }
