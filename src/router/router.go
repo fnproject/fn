@@ -101,8 +101,9 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				fmt.Println("New routing table:", routingTable)
 				return
 			} else {
-				fmt.Println("It's a network error and no other destinations available so we're going to start new task.")
+				fmt.Println("It's a network error and no other destinations available so we're going to remove it and start new task.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
+				fmt.Println("New routing table:", routingTable)
 			}
 			// start new worker
 			payload := map[string]interface{}{
