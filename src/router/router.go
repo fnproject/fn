@@ -200,7 +200,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	routerHeader := req.Header.Get("Iron-Router")
 	if routerHeader == "register" {
 		route := Route{}
-		if !common.ReadJSON(w, r, &route) {
+		if !common.ReadJSON(w, req, &route) {
 			return
 		}
 		fmt.Println("body read into route:", route)
