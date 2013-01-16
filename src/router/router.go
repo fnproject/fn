@@ -110,7 +110,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	route, err := getRoute(host)
 	// choose random dest
 	if err != nil {
-		common.SendError(w, 400, fmt.Sprintln("Host not configured or error!", err))
+		common.SendError(w, 400, fmt.Sprintln("Host not registered or error!", err))
 		return
 	}
 	//	if route == nil { // route.Host == "" {
@@ -120,8 +120,13 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	dlen := len(route.Destinations)
 	if dlen == 0 {
 		fmt.Println("No workers running, starting new task.")
-		startNewWorker(route)
+		_ := startNewWorker(route)
+		common.SendError(w, 500, fmt.Sprintln("No workers running, starting them up...", err))
 		return
+	}
+	if dlen == 1 {
+		fmt.Println("Only one worker running, starting a new task.")
+		_ := startNewWorker(route)
 	}
 	destIndex := rand.Intn(dlen)
 	destUrlString := route.Destinations[destIndex]
@@ -148,7 +153,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				err := putRoute(route)
 				if err != nil {
 					fmt.Println("couldn't update routing table 1", err)
-					common.SendError(w, 400, fmt.Sprintln("couldn't update routing table 1", err))
+					common.SendError(w, 500, fmt.Sprintln("couldn't update routing table 1", err))
 					return
 				}
 				fmt.Println("New route:", route)
@@ -159,14 +164,14 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 				err := putRoute(route)
 				if err != nil {
 					fmt.Println("couldn't update routing table:", err)
-					common.SendError(w, 400, fmt.Sprintln("couldn't update routing table", err))
+					common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
 					return
 				}
 				fmt.Println("New route:", route)
 			}
-			startNewWorker(route)
+			// start new worker if it's a connection error
+			_ := startNewWorker(route)
 		}
-		// start new worker if it's a connection error
 		return
 	}
 	fmt.Println("Served!")
