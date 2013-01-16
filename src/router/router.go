@@ -109,7 +109,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	route, err := getRoute(host)
 	// choose random dest
 	if err != nil {
-		common.SendError(w, 400, fmt.Sprintln(w, "Host not configured or error!", err))
+		common.SendError(w, 400, fmt.Sprintln("Host not configured or error!", err))
 		return
 	}
 	//	if route == nil { // route.Host == "" {
@@ -187,8 +187,8 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 func AddWorker(w http.ResponseWriter, req *http.Request) {
 	log.Println("AddWorker called!")
 
-	s, err := ioutil.ReadAll(req.Body)
-	fmt.Println("req.body:", err, string(s))
+//	s, err := ioutil.ReadAll(req.Body)
+//	fmt.Println("req.body:", err, string(s))
 
 	// get project id and token
 	projectId := req.FormValue("project_id")
@@ -203,7 +203,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		decoder := json.NewDecoder(req.Body)
 		err := decoder.Decode(&route)
 		if err != nil {
-			common.SendError(w, 400, fmt.Sprintln(w, "Bad json:", err))
+			common.SendError(w, 400, fmt.Sprintln("Bad json:", err))
 		}
 		route.ProjectId = projectId
 		route.Token = token
@@ -218,14 +218,14 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		decoder := json.NewDecoder(req.Body)
 		err = decoder.Decode(&r2)
 		if err != nil {
-			common.SendError(w, 400, fmt.Sprintln(w, "Bad json:", err))
+			common.SendError(w, 400, fmt.Sprintln("Bad json:", err))
 		}
 		// todo: do we need to close body?
 		fmt.Println("DECODED:", r2)
 		route, err := getRoute(r2.Host)
 		//		route := routingTable[r2.Host]
 		if err != nil {
-			common.SendError(w, 400, fmt.Sprintln(w, "This host is not registered!", err))
+			common.SendError(w, 400, fmt.Sprintln("This host is not registered!", err))
 			return
 			//			route = &Route{}
 		}
