@@ -201,18 +201,25 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	if routerHeader == "register" {
 		route := Route{}
 		decoder := json.NewDecoder(req.Body)
-		decoder.Decode(&route)
+		err := decoder.Decode(&route)
+		if err != nil {
+			common.SendError(w, 400, fmt.Sprintln(w, "Bad json:", err))
+		}
 		route.ProjectId = projectId
 		route.Token = token
 		route.CodeName = codeName
 		// todo: do we need to close body?
-		fmt.Println("registered route:", route)
 		putRoute(route)
+		fmt.Println("registered route:", route)
+		fmt.Fprintln(w, "Host registered successfully.")
 
 	} else {
 		r2 := Route2{}
 		decoder := json.NewDecoder(req.Body)
-		decoder.Decode(&r2)
+		err = decoder.Decode(&r2)
+		if err != nil {
+			common.SendError(w, 400, fmt.Sprintln(w, "Bad json:", err))
+		}
 		// todo: do we need to close body?
 		fmt.Println("DECODED:", r2)
 		route, err := getRoute(r2.Host)
