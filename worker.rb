@@ -19,7 +19,7 @@ code_name = params[:code_name] || "sinatra"
 response = rest.post(
 # "http://localhost:8080/",
     "http://router.irondns.info/?project_id=#{project_id}&token=#{token}&code_name=#{code_name}",
-	headers: {"Iron-Router"=>"YES!"},
+	headers: {"Iron-Router"=>"YES!", "Content-Type"=>"application/json"},
 	body: {"host"=>"routertest.irondns.info", "dest"=>"#{public_dns}:#{port}"})
 puts "body:"
 puts response.body
