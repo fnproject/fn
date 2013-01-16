@@ -267,7 +267,11 @@ func getRoute(host string) (Route, error) {
 
 func putRoute(route Route) (error) {
 	item := cache.Item{}
-	item.Value = route
-	err := icache.Put(route.Host, &item)
+	v, err := json.Marshal(route)
+	if err != nil {
+		return err
+	}
+	item.Value = string(v)
+	err = icache.Put(route.Host, &item)
 	return err
 }
