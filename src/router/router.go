@@ -108,7 +108,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 2) This host has active workers so we do the proxy
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	//	route := routingTable[host]
- golog.Infoln("getting route for host:", host)
+ 	golog.Infoln("getting route for host:", host)
 	route, err := getRoute(host)
 	// choose random dest
 	if err != nil {
@@ -130,6 +130,11 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		golog.Infoln("Only one worker running, starting a new task.")
 		startNewWorker(route)
 	}
+	serveEndpoint(w, req, route)
+}
+
+func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
+	dlen := len(route.Destinations)
 	destIndex := rand.Intn(dlen)
 	destUrlString := route.Destinations[destIndex]
 	// todo: should check if http:// already exists.
@@ -147,7 +152,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		etype := reflect.TypeOf(err)
 		golog.Infoln("err type:", etype)
 		w.WriteHeader(http.StatusInternalServerError)
-		// can't figure out how to compare types so comparing strings.... lame. 
+		// can't figure out how to compare types so comparing strings.... lame.
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
 			if len(route.Destinations) > 3 { // always want at least two running
 				golog.Infoln("It's a network error, removing this destination from routing table.")
@@ -159,9 +164,9 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				fmt.Println("New route:", route)
-				return
+				// chooose another endpoint to serve
 			} else {
-				golog.Infoln("It's a network error and less than two other workers available so we're going to remove it and start new task.")
+				golog.Infoln("It's a network error and less than three other workers available so we're going to remove it and start new task.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 				err := putRoute(route)
 				if err != nil {
@@ -170,15 +175,15 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				golog.Infoln("New route:", route)
+				// start new worker if it's a connection error
+				startNewWorker(route)
 			}
-			// start new worker if it's a connection error
-			startNewWorker(route)
+			serveEndpoint(w, req, route)
+			return
 		}
 		return
 	}
 	golog.Infoln("Served!")
-	// todo: how to handle destination failures. I got this in log output when testing a bad endpoint:
-	// 2012/12/26 23:22:08 http: proxy error: dial tcp 127.0.0.1:8082: connection refused
 }
 
 func startNewWorker(route *Route) (error) {
