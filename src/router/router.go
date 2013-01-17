@@ -63,8 +63,6 @@ type Route2 struct {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	log.Println("Running on", runtime.NumCPU(), "CPUs")
 
 	var configFile string
 	var env string
@@ -83,6 +81,9 @@ func main() {
 	common.SetLogLevel(config.Logging.Level)
 	common.SetLogLocation(config.Logging.To, config.Logging.Prefix)
 
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	log.Println("Running on", runtime.NumCPU(), "CPUs")
+
 	icache.Settings.UseConfigMap(map[string]interface{}{"token": config.Iron.Token, "project_id": config.Iron.ProjectId})
 
 	r := mux.NewRouter()
@@ -95,7 +96,7 @@ func main() {
 
 	http.Handle("/", r)
 	port := 80
-	fmt.Println("listening and serving on port", port)
+	golog.Infoln("Router started, listening and serving on port", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
 }
 
