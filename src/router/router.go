@@ -14,6 +14,7 @@ import (
 	"github.com/iron-io/iron_go/cache"
 	"github.com/iron-io/iron_go/worker"
 	"github.com/iron-io/common"
+	"github.com/iron-io/golog"
 	"log"
 	"math/rand"
 	// "net"
@@ -99,7 +100,7 @@ func main() {
 }
 
 func ProxyFunc(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("HOST:", req.Host)
+	golog.Infoln("HOST:", req.Host)
 	host := strings.Split(req.Host, ":")[0]
 
 	// We look up the destinations in the routing table and there can be 3 possible scenarios:
@@ -107,7 +108,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 2) This host has active workers so we do the proxy
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	//	route := routingTable[host]
- fmt.Println("getting route for host:", host)
+ golog.Infoln("getting route for host:", host)
 	route, err := getRoute(host)
 	// choose random dest
 	if err != nil {
@@ -120,13 +121,13 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	//	}
 	dlen := len(route.Destinations)
 	if dlen == 0 {
-		fmt.Println("No workers running, starting new task.")
+		golog.Infoln("No workers running, starting new task.")
 		startNewWorker(route)
 		common.SendError(w, 500, fmt.Sprintln("No workers running, starting them up..."))
 		return
 	}
 	if dlen < 3 {
-		fmt.Println("Only one worker running, starting a new task.")
+		golog.Infoln("Only one worker running, starting a new task.")
 		startNewWorker(route)
 	}
 	destIndex := rand.Intn(dlen)
@@ -135,53 +136,53 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	destUrlString2 := "http://" + destUrlString
 	destUrl, err := url.Parse(destUrlString2)
 	if err != nil {
-		fmt.Println("error!", err)
+		golog.Infoln("error!", err)
 		panic(err)
 	}
-	fmt.Println("proxying to", destUrl)
+	golog.Infoln("proxying to", destUrl)
 	proxy := NewSingleHostReverseProxy(destUrl)
 	err = proxy.ServeHTTP(w, req)
 	if err != nil {
-		fmt.Println("Error proxying!", err)
+		golog.Infoln("Error proxying!", err)
 		etype := reflect.TypeOf(err)
-		fmt.Println("err type:", etype)
+		golog.Infoln("err type:", etype)
 		w.WriteHeader(http.StatusInternalServerError)
 		// can't figure out how to compare types so comparing strings.... lame. 
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
 			if len(route.Destinations) > 3 { // always want at least two running
-				fmt.Println("It's a network error, removing this destination from routing table.")
+				golog.Infoln("It's a network error, removing this destination from routing table.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 				err := putRoute(route)
 				if err != nil {
-					fmt.Println("couldn't update routing table 1", err)
+					golog.Infoln("couldn't update routing table 1", err)
 					common.SendError(w, 500, fmt.Sprintln("couldn't update routing table 1", err))
 					return
 				}
 				fmt.Println("New route:", route)
 				return
 			} else {
-				fmt.Println("It's a network error and less than two other workers available so we're going to remove it and start new task.")
+				golog.Infoln("It's a network error and less than two other workers available so we're going to remove it and start new task.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 				err := putRoute(route)
 				if err != nil {
-					fmt.Println("couldn't update routing table:", err)
+					golog.Infoln("couldn't update routing table:", err)
 					common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
 					return
 				}
-				fmt.Println("New route:", route)
+				golog.Infoln("New route:", route)
 			}
 			// start new worker if it's a connection error
 			startNewWorker(route)
 		}
 		return
 	}
-	fmt.Println("Served!")
+	golog.Infoln("Served!")
 	// todo: how to handle destination failures. I got this in log output when testing a bad endpoint:
 	// 2012/12/26 23:22:08 http: proxy error: dial tcp 127.0.0.1:8082: connection refused
 }
 
 func startNewWorker(route *Route) (error) {
-	fmt.Println("Starting a new worker")
+	golog.Infoln("Starting a new worker")
 	// start new worker
 	payload := map[string]interface{}{
 		"token":      route.Token,
@@ -192,7 +193,7 @@ func startNewWorker(route *Route) (error) {
 	workerapi.Settings.UseConfigMap(payload)
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println("Couldn't marshal json!", err)
+		golog.Infoln("Couldn't marshal json!", err)
 		return err
 	}
 	timeout := time.Second * time.Duration(1800 + rand.Intn(600)) // a little random factor in here to spread out worker deaths
@@ -204,9 +205,9 @@ func startNewWorker(route *Route) (error) {
 	tasks := make([]worker.Task, 1)
 	tasks[0] = task
 	taskIds, err := workerapi.TaskQueue(tasks...)
-	fmt.Println("Tasks queued.", taskIds)
+	golog.Infoln("Tasks queued.", taskIds)
 	if err != nil {
-		fmt.Println("Couldn't queue up worker!", err)
+		golog.Infoln("Couldn't queue up worker!", err)
 		return err
 	}
 	return err
@@ -224,7 +225,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 	projectId := req.FormValue("project_id")
 	token := req.FormValue("token")
 	codeName := req.FormValue("code_name")
-	fmt.Println("project_id:", projectId, "token:", token, "code_name:", codeName)
+	golog.Infoln("project_id:", projectId, "token:", token, "code_name:", codeName)
 
 	// check header for what operation to perform
 	routerHeader := req.Header.Get("Iron-Router")
@@ -233,18 +234,18 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 		if !common.ReadJSON(w, req, &route) {
 			return
 		}
-		fmt.Println("body read into route:", route)
+		golog.Infoln("body read into route:", route)
 		route.ProjectId = projectId
 		route.Token = token
 		route.CodeName = codeName
 		// todo: do we need to close body?
 		err := putRoute(&route)
 		if err != nil {
-			fmt.Println("couldn't register host:", err)
+			golog.Infoln("couldn't register host:", err)
 			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 			return
 		}
-		fmt.Println("registered route:", route)
+		golog.Infoln("registered route:", route)
 		fmt.Fprintln(w, "Host registered successfully.")
 
 	} else {
@@ -253,7 +254,7 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		// todo: do we need to close body?
-		fmt.Println("DECODED:", r2)
+		golog.Infoln("DECODED:", r2)
 		route, err := getRoute(r2.Host)
 		//		route := routingTable[r2.Host]
 		if err != nil {
@@ -261,12 +262,12 @@ func AddWorker(w http.ResponseWriter, req *http.Request) {
 			return
 			//			route = &Route{}
 		}
-		fmt.Println("ROUTE:", route)
+		golog.Infoln("ROUTE:", route)
 		route.Destinations = append(route.Destinations, r2.Dest)
-		fmt.Println("ROUTE new:", route)
+		golog.Infoln("ROUTE new:", route)
 		err = putRoute(route)
 		if err != nil {
-			fmt.Println("couldn't register host:", err)
+			golog.Infoln("couldn't register host:", err)
 			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 			return
 		}
