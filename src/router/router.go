@@ -69,7 +69,7 @@ func main() {
 	var env string
 	flag.StringVar(&configFile, "c", "", "Config file name")
 	// when this was e, it was erroring out.
-	flag.StringVar(&env, "e2", "development", "environment")
+	flag.StringVar(&env, "e", "development", "environment")
 
 	flag.Parse() // Scans the arg list and sets up flags
 
