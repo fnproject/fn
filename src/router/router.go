@@ -125,7 +125,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		common.SendError(w, 500, fmt.Sprintln("No workers running, starting them up..."))
 		return
 	}
-	if dlen == 1 {
+	if dlen < 3 {
 		fmt.Println("Only one worker running, starting a new task.")
 		startNewWorker(route)
 	}
@@ -148,7 +148,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		// can't figure out how to compare types so comparing strings.... lame. 
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
-			if len(route.Destinations) > 2 { // always want at least two running
+			if len(route.Destinations) > 3 { // always want at least two running
 				fmt.Println("It's a network error, removing this destination from routing table.")
 				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 				err := putRoute(route)
