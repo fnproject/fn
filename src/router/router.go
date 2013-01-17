@@ -154,28 +154,17 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 		w.WriteHeader(http.StatusInternalServerError)
 		// can't figure out how to compare types so comparing strings.... lame.
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
-			if len(route.Destinations) > 3 { // always want at least two running
-				golog.Infoln("It's a network error, removing this destination from routing table.")
-				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
-				err := putRoute(route)
-				if err != nil {
-					golog.Infoln("couldn't update routing table 1", err)
-					common.SendError(w, 500, fmt.Sprintln("couldn't update routing table 1", err))
-					return
-				}
-				fmt.Println("New route:", route)
-				// chooose another endpoint to serve
-			} else {
-				golog.Infoln("It's a network error and less than three other workers available so we're going to remove it and start new task.")
-				route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
-				err := putRoute(route)
-				if err != nil {
-					golog.Infoln("couldn't update routing table:", err)
-					common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
-					return
-				}
-				golog.Infoln("New route:", route)
-				// start new worker if it's a connection error
+			golog.Infoln("It's a network error and less than three other workers available so we're going to remove it and start new task.")
+			route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
+			err := putRoute(route)
+			if err != nil {
+				golog.Infoln("couldn't update routing table:", err)
+				common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
+				return
+			}
+			golog.Infoln("New route:", route)
+			if len(route.Destinations) < 3 {
+				// always want at least three running
 				startNewWorker(route)
 			}
 			serveEndpoint(w, req, route)
