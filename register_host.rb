@@ -18,7 +18,7 @@ response = rest.post(
 # "http://localhost:8080/",
     "http://router.irondns.info/1/#{project_id}/register",
 	headers: {"Iron-Router"=>"register", "Content-Type"=>"application/json",
-	"Authorization"=>"OAuth #{token}"},
+	"Authorization"=>"OAuth #{token}ssss"},
 	body: {"host"=>host_name, "code"=>code_name}
 	)
 puts "response body:"

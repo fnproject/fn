@@ -105,7 +105,7 @@ func main() {
 
 	r := mux.NewRouter()
 	//	s := r.Headers("Iron-Router", "").Subrouter()
-	s := r.Host("router.iron.io").Subrouter()
+	s := r.Host("router.irondns.info").Subrouter()
 	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", &common.AuthHandler{&WorkerHandler{}, ironAuth})
 	s.HandleFunc("/ping", Ping)
 	s.HandleFunc("/addworker", &WorkerHandler{})
