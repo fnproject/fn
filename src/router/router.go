@@ -95,6 +95,7 @@ func main() {
 	if err != nil {
 		log.Panicln(err)
 	}
+	// recompile?
 	err = session.DB(config.MongoAuth.Database).Login(config.MongoAuth.Username, config.MongoAuth.Password)
 	if err != nil {
 		log.Fatalln("Could not log in to db:", err)
