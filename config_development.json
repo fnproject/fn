@@ -9,13 +9,13 @@
     "prefix": "router"
   },
   "mongo_auth": {
-          "hosts": [
-              "irondbauth-staging-1.irondns.info:27017",
-              "irondbauth-staging-2.irondns.info:27017",
-              "irondbauth-staging-3.irondns.info:27017"
-          ],
-           "database": "simpleworker_staging",
-           "username": "sworker_stage",
-           "password": "sup3rwork3r"
-      }
+   "database": "ironworker",
+   "hosts": [
+    "irondbauth-staging-1.irondns.info:27017",
+    "irondbauth-staging-2.irondns.info:27017",
+    "irondbauth-staging-3.irondns.info:27017"
+   ],
+   "password": "badass_staging",
+   "username": "sw_db_king"
+  }
 }
