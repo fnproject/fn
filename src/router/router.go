@@ -112,6 +112,7 @@ func main() {
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
+	r.HandleFunc("/ping", Ping) // for ELB health check
 	r.HandleFunc("/", ProxyFunc)
 
 	http.Handle("/", r)
