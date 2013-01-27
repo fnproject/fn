@@ -105,12 +105,15 @@ func main() {
 	icache.Settings.UseConfigMap(map[string]interface{}{"token": config.Iron.Token, "project_id": config.Iron.ProjectId})
 
 	r := mux.NewRouter()
-	//	s := r.Headers("Iron-Router", "").Subrouter()
+
 	s := r.Host("router.irondns.info").Subrouter()
-	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", &common.AuthHandler{&WorkerHandler{}, ironAuth})
+	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", &common.AuthHandler{&Register{}, ironAuth})
 	s.HandleFunc("/ping", Ping)
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
+
+	s2 := r.Headers("Iron-Router", "").Subrouter()
+	s2.Handle("/", &WorkerHandler{})
 
 	r.HandleFunc("/ping", Ping) // for ELB health check
 	r.HandleFunc("/", ProxyFunc)
@@ -233,8 +236,10 @@ func startNewWorker(route *Route) (error) {
 	return err
 }
 
-// When a worker starts up, it calls this
-func Register(w http.ResponseWriter, req *http.Request) {
+type Register struct {}
+
+// This registers a new host
+func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println("Register called!")
 
 	//	s, err := ioutil.ReadAll(req.Body)
@@ -263,6 +268,12 @@ func Register(w http.ResponseWriter, req *http.Request) {
 		common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 		return
 	}
+	err = putRoute(&route)
+	if err != nil {
+		golog.Infoln("couldn't register host:", err)
+		common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
+		return
+	}
 	golog.Infoln("registered route:", route)
 	fmt.Fprintln(w, "Host registered successfully.")
 }
@@ -272,10 +283,7 @@ type WorkerHandler struct {
 
 // When a worker starts up, it calls this
 func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Println("AddWorker called!")
-
-	//	s, err := ioutil.ReadAll(req.Body)
-	//	fmt.Println("req.body:", err, string(s))
+	golog.Infoln("AddWorker called!")
 
 	// get project id and token
 	projectId := req.FormValue("project_id")
@@ -286,23 +294,6 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// check header for what operation to perform
 	routerHeader := req.Header.Get("Iron-Router")
 	if routerHeader == "register" {
-		route := Route{}
-		if !common.ReadJSON(w, req, &route) {
-			return
-		}
-		golog.Infoln("body read into route:", route)
-		route.ProjectId = projectId
-		route.Token = token
-		route.CodeName = codeName
-		// todo: do we need to close body?
-		err := putRoute(&route)
-		if err != nil {
-			golog.Infoln("couldn't register host:", err)
-			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
-			return
-		}
-		golog.Infoln("registered route:", route)
-		fmt.Fprintln(w, "Host registered successfully.")
 
 	} else {
 		r2 := Route2{}
