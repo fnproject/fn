@@ -11,43 +11,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/iron-io/iron_go/cache"
-	"github.com/iron-io/iron_go/worker"
 	"github.com/iron-io/common"
 	"github.com/iron-io/golog"
+	"github.com/iron-io/iron_go/cache"
+	"github.com/iron-io/iron_go/worker"
 	"labix.org/v2/mgo"
 	"log"
 	"math/rand"
 	// "net"
+	"flag"
 	"net/http"
 	"net/url"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
-	"runtime"
-	"flag"
 	//	"io/ioutil"
 )
 
 var config struct {
 	Iron struct {
-	Token      string `json:"token"`
-	ProjectId  string `json:"project_id"`
-} `json:"iron"`
-	MongoAuth     common.MongoConfig `json:"mongo_auth"`
-	Logging       struct {
-	To     string `json:"to"`
-	Level  string `json:"level"`
-	Prefix string `json:"prefix"`
-}
+		Token      string `json:"token"`
+		ProjectId  string `json:"project_id"`
+		SuperToken string `json:"super_token"`
+	} `json:"iron"`
+	MongoAuth common.MongoConfig `json:"mongo_auth"`
+	Logging   struct {
+		To     string `json:"to"`
+		Level  string `json:"level"`
+		Prefix string `json:"prefix"`
+	}
 }
 
 var version = "0.0.14"
+
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
 var (
-	ironAuth  *common.IronAuth
+	ironAuth *common.IronAuth
 )
 
 func init() {
@@ -56,11 +58,11 @@ func init() {
 
 type Route struct {
 	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
-	Host         string `json:"host"`
-	Destinations []string  `json:"destinations"`
-	ProjectId    string  `json:"project_id"`
-	Token        string  `json:"token"` // store this so we can queue up new workers on demand
-	CodeName     string  `json:"code_name"`
+	Host         string   `json:"host"`
+	Destinations []string `json:"destinations"`
+	ProjectId    string   `json:"project_id"`
+	Token        string   `json:"token"` // store this so we can queue up new workers on demand
+	CodeName     string   `json:"code_name"`
 }
 
 // for adding new hosts
@@ -196,8 +198,8 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 	golog.Infoln("Served!")
 }
 
-func removeDestination(route *Route, destIndex int, w http.ResponseWriter){
-	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
+func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
+	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
 	err := putRoute(route)
 	if err != nil {
 		golog.Infoln("Couldn't update routing table:", err)
@@ -212,11 +214,11 @@ func removeDestination(route *Route, destIndex int, w http.ResponseWriter){
 	}
 }
 
-func startNewWorker(route *Route) (error) {
+func startNewWorker(route *Route) error {
 	golog.Infoln("Starting a new worker")
 	// start new worker
 	payload := map[string]interface{}{
-		"token":      route.Token,
+		"token":      config.Iron.SuperToken,
 		"project_id": route.ProjectId,
 		"code_name":  route.CodeName,
 	}
@@ -227,7 +229,7 @@ func startNewWorker(route *Route) (error) {
 		golog.Infoln("Couldn't marshal json!", err)
 		return err
 	}
-	timeout := time.Second*time.Duration(1800 + rand.Intn(600)) // a little random factor in here to spread out worker deaths
+	timeout := time.Second * time.Duration(1800+rand.Intn(600)) // a little random factor in here to spread out worker deaths
 	task := worker.Task{
 		CodeName: route.CodeName,
 		Payload:  string(jsonPayload),
@@ -244,7 +246,7 @@ func startNewWorker(route *Route) (error) {
 	return err
 }
 
-type Register struct {}
+type Register struct{}
 
 // This registers a new host
 func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -297,8 +299,8 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// get project id and token
 	projectId := req.FormValue("project_id")
 	token := req.FormValue("token")
-	codeName := req.FormValue("code_name")
-	golog.Infoln("project_id:", projectId, "token:", token, "code_name:", codeName)
+	//	codeName := req.FormValue("code_name")
+	golog.Infoln("project_id:", projectId, "token:", token)
 
 	// check header for what operation to perform
 	routerHeader := req.Header.Get("Iron-Router")
@@ -312,11 +314,9 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// todo: do we need to close body?
 		golog.Infoln("DECODED:", r2)
 		route, err := getRoute(r2.Host)
-		//		route := routingTable[r2.Host]
 		if err != nil {
 			common.SendError(w, 400, fmt.Sprintln("This host is not registered!", err))
 			return
-			//			route = &Route{}
 		}
 		golog.Infoln("ROUTE:", route)
 		route.Destinations = append(route.Destinations, r2.Dest)
@@ -327,8 +327,6 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 			return
 		}
-		//		routingTable[r2.Host] = route
-		//		fmt.Println("New routing table:", routingTable)
 		fmt.Fprintln(w, "Worker added")
 	}
 }
@@ -347,7 +345,7 @@ func getRoute(host string) (*Route, error) {
 	return &route, err
 }
 
-func putRoute(route *Route) (error) {
+func putRoute(route *Route) error {
 	item := cache.Item{}
 	v, err := json.Marshal(route)
 	if err != nil {

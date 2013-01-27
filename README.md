@@ -22,16 +22,17 @@ This is just a simple prototype. To get to production would need:
 
 ## Testing
 
-- start helloserver.go
-- start router.go
-- ruby worker.rb a couple times
-- ruby client.rb
+- go build router.go
+- sudo ./router.go
+- ruby register_host.rb
+- not a good way to really test beyond that locally
 
 ## Testing for reals
 
 - start router.go on remote server (there's a test project on SD already: http://www.simpledeployer.com/projects/ea129e74-52fa-11e2-a91a-12313d008ea2/servers)
   - go build ./src/router; sudo ./router
 - iron_worker upload sinatra
-- iron_worker queue sinatra
-- ruby client.rb
+- ruby register_host.rb
+- visit http://routertest.iron.io (or ruby client.rb)
 - BOOM!
+
