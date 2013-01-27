@@ -16,7 +16,7 @@ code_name = @config[:iron][:code_name] || "sinatra"
 response = rest.post(
 # "http://localhost:8080/",
     "http://router.irondns.info/1/projects/#{project_id}/register",
-	headers: {"Iron-Router"=>"register", "Content-Type"=>"application/json",
+	headers: {"Content-Type"=>"application/json",
 	"Authorization"=>"OAuth #{token}"},
 	body: {"host"=>host_name, "code"=>code_name}
 	)

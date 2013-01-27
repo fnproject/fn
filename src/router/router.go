@@ -42,7 +42,7 @@ var config struct {
 }
 }
 
-var version = "0.0.13"
+var version = "0.0.14"
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
@@ -109,6 +109,7 @@ func main() {
 
 	r := mux.NewRouter()
 
+	// This has to stay above the r.Host() one.
 	s2 := r.Headers("Iron-Router", "").Subrouter()
 	s2.Handle("/", &WorkerHandler{})
 
@@ -249,15 +250,8 @@ type Register struct {}
 func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println("Register called!")
 
-	//	s, err := ioutil.ReadAll(req.Body)
-	//	fmt.Println("req.body:", err, string(s))
-
-	// get project id and token
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]
-	//	projectId := req.FormValue("project_id")
-	//	token := req.FormValue("token")
-	//	codeName := req.FormValue("code_name")
 	token := ironAuth.GetToken(req)
 	golog.Infoln("project_id:", projectId, "token:", token.Token)
 
@@ -268,6 +262,14 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	golog.Infoln("body read into route:", route)
 	route.ProjectId = projectId
 	route.Token = token.Token
+
+	route, err := getRoute(r2.Host)
+	if err == nil {
+		common.SendError(w, 400, fmt.Sprintln("This host is already registered. If you believe this is in error, please contact support@iron.io to resolve the issue.", err))
+		return
+		//			route = &Route{}
+	}
+
 	// todo: do we need to close body?
 	err := putRoute(&route)
 	if err != nil {
