@@ -16,9 +16,10 @@ project_id = params[:project_id] || "4fd2729368a0197d1102056b" # // this is my D
 token = params[:token] || "MWx0VfngzsCu0W8NAYw7S2lNrgo"
 code_name = params[:code_name] || "sinatra"
 
+query = "?project_id=#{project_id}&token=#{token}&code_name=#{code_name}"
 response = rest.post(
-# "http://localhost:8080/",
-    "http://router.irondns.info/?project_id=#{project_id}&token=#{token}&code_name=#{code_name}",
+#   "http://localhost:80/#{query}",
+    "http://router.irondns.info/#{query}",
 	headers: {"Iron-Router"=>"YES!", "Content-Type"=>"application/json"},
 	body: {"host"=>"routertest.irondns.info", "dest"=>"#{public_dns}:#{port}"})
 puts "body:"

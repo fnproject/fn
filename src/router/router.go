@@ -88,7 +88,7 @@ func main() {
 	common.SetLogLevel(config.Logging.Level)
 	common.SetLogLocation(config.Logging.To, config.Logging.Prefix)
 
-	golog.Infoln("Starting up router v", version)
+	golog.Infoln("Starting up router version", version)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.Println("Running on", runtime.NumCPU(), "CPUs")
@@ -115,7 +115,7 @@ func main() {
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
-	s2 := r.Headers("Iron-Router", "").Subrouter()
+	s2 := s.Headers("Iron-Router", "").Subrouter()
 	s2.Handle("/", &WorkerHandler{})
 
 	r.HandleFunc("/ping", Ping) // for ELB health check
