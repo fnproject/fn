@@ -42,7 +42,7 @@ var config struct {
 }
 }
 
-var version = "0.0.10"
+var version = "0.0.11"
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
