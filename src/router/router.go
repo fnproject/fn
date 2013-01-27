@@ -42,7 +42,7 @@ var config struct {
 }
 }
 
-var version = "0.0.11"
+var version = "0.0.12"
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
@@ -183,7 +183,7 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 		etype := reflect.TypeOf(err)
 		golog.Infoln("err type:", etype)
 		// can't figure out how to compare types so comparing strings.... lame.
-		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
+		if true || strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
 			golog.Infoln("It's a network error so we're going to remove destination.")
 			removeDestination(route, destIndex, w)
 			serveEndpoint(w, req, route)
