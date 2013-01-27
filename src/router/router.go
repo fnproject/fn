@@ -263,7 +263,7 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	route.ProjectId = projectId
 	route.Token = token.Token
 
-	route, err := getRoute(r2.Host)
+	_, err := getRoute(route.Host)
 	if err == nil {
 		common.SendError(w, 400, fmt.Sprintln("This host is already registered. If you believe this is in error, please contact support@iron.io to resolve the issue.", err))
 		return
@@ -271,7 +271,7 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// todo: do we need to close body?
-	err := putRoute(&route)
+	err = putRoute(&route)
 	if err != nil {
 		golog.Infoln("couldn't register host:", err)
 		common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
