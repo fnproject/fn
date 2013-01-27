@@ -42,7 +42,7 @@ var config struct {
 }
 }
 
-var version = "0.0.12"
+var version = "0.0.13"
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
@@ -109,14 +109,14 @@ func main() {
 
 	r := mux.NewRouter()
 
+	s2 := r.Headers("Iron-Router", "").Subrouter()
+	s2.Handle("/", &WorkerHandler{})
+
 	s := r.Host("router.irondns.info").Subrouter()
 	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", &common.AuthHandler{&Register{}, ironAuth})
 	s.HandleFunc("/ping", Ping)
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
-
-	s2 := s.Headers("Iron-Router", "").Subrouter()
-	s2.Handle("/", &WorkerHandler{})
 
 	r.HandleFunc("/ping", Ping) // for ELB health check
 	r.HandleFunc("/", ProxyFunc)
