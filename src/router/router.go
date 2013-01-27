@@ -42,6 +42,7 @@ var config struct {
 }
 }
 
+var version = "0.0.10"
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
@@ -86,6 +87,8 @@ func main() {
 	common.LoadConfig("iron_mq", configFile, &config)
 	common.SetLogLevel(config.Logging.Level)
 	common.SetLogLocation(config.Logging.To, config.Logging.Prefix)
+
+	golog.Infoln("Starting up router v", version)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.Println("Running on", runtime.NumCPU(), "CPUs")
