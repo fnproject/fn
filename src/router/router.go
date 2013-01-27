@@ -169,7 +169,7 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 	destUrlString2 := "http://" + destUrlString
 	destUrl, err := url.Parse(destUrlString2)
 	if err != nil {
-		// todo: should remove destination here
+		removeDestination(route, destIndex, w)
 		golog.Infoln("error!", err)
 		common.SendError(w, 500, fmt.Sprintln("Internal error occurred:", err))
 		return
@@ -185,19 +185,7 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 		// can't figure out how to compare types so comparing strings.... lame.
 		if strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
 			golog.Infoln("It's a network error so we're going to remove destination.")
-			route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
-			err := putRoute(route)
-			if err != nil {
-				golog.Infoln("Couldn't update routing table:", err)
-				common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
-				return
-			}
-			golog.Infoln("New route:", route)
-			if len(route.Destinations) < 3 {
-				golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
-				// always want at least three running
-				startNewWorker(route)
-			}
+			removeDestination(route, destIndex, w)
 			serveEndpoint(w, req, route)
 			return
 		}
@@ -205,6 +193,22 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 		return
 	}
 	golog.Infoln("Served!")
+}
+
+func removeDestination(route *Route, destIndex int, w http.ResponseWriter){
+	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
+	err := putRoute(route)
+	if err != nil {
+		golog.Infoln("Couldn't update routing table:", err)
+		common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
+		return
+	}
+	golog.Infoln("New route:", route)
+	if len(route.Destinations) < 3 {
+		golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
+		// always want at least three running
+		startNewWorker(route)
+	}
 }
 
 func startNewWorker(route *Route) (error) {
