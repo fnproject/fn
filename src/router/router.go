@@ -279,12 +279,6 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 		return
 	}
-	err = putRoute(&route)
-	if err != nil {
-		golog.Infoln("couldn't register host:", err)
-		common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
-		return
-	}
 	golog.Infoln("registered route:", route)
 	fmt.Fprintln(w, "Host registered successfully.")
 }
