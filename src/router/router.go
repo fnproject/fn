@@ -108,7 +108,11 @@ func main() {
 	}
 	ironAuth = common.NewIronAuth(session, config.MongoAuth.Database)
 
-	icache.Settings.UseConfigMap(map[string]interface{}{"token": config.Iron.Token, "project_id": config.Iron.ProjectId})
+	icache.Settings.UseConfigMap(map[string]interface{}{
+		"token": config.Iron.Token,
+		"project_id": config.Iron.ProjectId,
+		"host": config.Iron.Host,
+	})
 
 	r := mux.NewRouter()
 
