@@ -57,15 +57,6 @@ func init() {
 
 }
 
-type Route struct {
-	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
-	Host         string   `json:"host"`
-	Destinations []string `json:"destinations"`
-	ProjectId    string   `json:"project_id"`
-	Token        string   `json:"token"` // store this so we can queue up new workers on demand
-	CodeName     string   `json:"code_name"`
-}
-
 // for adding new hosts
 type Route2 struct {
 	Host string `json:"host"`
@@ -144,7 +135,7 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 2) This host has active workers so we do the proxy
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	//	route := routingTable[host]
-	golog.Infoln("getting route for host:", host)
+	golog.Infoln("getting route for host:", host, "--")
 	route, err := getRoute(host)
 	// choose random dest
 	if err != nil {
