@@ -20,19 +20,10 @@ This is just a simple prototype. To get to production would need:
 - Ability to start new workers based on some auto scaling scheme. 
 - Authentication (same as always).
 
-## Testing
-
-- go build router.go
-- sudo ./router.go
-- ruby register_host.rb
-- not a good way to really test beyond that locally
-
 ## Testing for reals
 
 - start router.go on remote server (there's a test project on SD already: http://www.simpledeployer.com/projects/ea129e74-52fa-11e2-a91a-12313d008ea2/servers)
   - go build ./src/router; sudo ./router
-- iron_worker upload sinatra
-- ruby register_host.rb
+- iron_worker upload -e staging --project-id 51034bc3c2e603384b00a092 --host routertest.iron.io sinatra
 - visit http://routertest.iron.io (or ruby client.rb)
 - BOOM!
-

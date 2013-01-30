@@ -34,6 +34,7 @@ var config struct {
 		Token      string `json:"token"`
 		ProjectId  string `json:"project_id"`
 		SuperToken string `json:"super_token"`
+		Host 	   string `json:"host"`
 	} `json:"iron"`
 	MongoAuth common.MongoConfig `json:"mongo_auth"`
 	Logging   struct {
