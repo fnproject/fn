@@ -31,17 +31,18 @@ import (
 
 var config struct {
 	Iron struct {
-		Token      string `json:"token"`
-		ProjectId  string `json:"project_id"`
-		SuperToken string `json:"super_token"`
-		Host 	   string `json:"host"`
-	} `json:"iron"`
+	Token       string `json:"token"`
+	ProjectId   string `json:"project_id"`
+	SuperToken  string `json:"super_token"`
+	Host 	   string `json:"host"`
+	WorkerHost  string `json:"worker_host"`
+} `json:"iron"`
 	MongoAuth common.MongoConfig `json:"mongo_auth"`
 	Logging   struct {
-		To     string `json:"to"`
-		Level  string `json:"level"`
-		Prefix string `json:"prefix"`
-	}
+	To     string `json:"to"`
+	Level  string `json:"level"`
+	Prefix string `json:"prefix"`
+}
 }
 
 var version = "0.0.15"
@@ -57,7 +58,6 @@ func init() {
 
 }
 
-
 type Route struct {
 	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
 	Host         string   `json:"host"`
@@ -66,7 +66,6 @@ type Route struct {
 	Token        string   `json:"token"` // store this so we can queue up new workers on demand
 	CodeName     string   `json:"code_name"`
 }
-
 
 // for adding new hosts
 type Route2 struct {
@@ -208,7 +207,7 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 }
 
 func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
-	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
+	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 	err := putRoute(route)
 	if err != nil {
 		golog.Infoln("Couldn't update routing table:", err)
@@ -230,6 +229,7 @@ func startNewWorker(route *Route) error {
 		"token":      config.Iron.SuperToken,
 		"project_id": route.ProjectId,
 		"code_name":  route.CodeName,
+		"host": config.Iron.WorkerHost,
 	}
 	workerapi := worker.New()
 	workerapi.Settings.UseConfigMap(payload)
@@ -238,7 +238,7 @@ func startNewWorker(route *Route) error {
 		golog.Infoln("Couldn't marshal json!", err)
 		return err
 	}
-	timeout := time.Second * time.Duration(1800+rand.Intn(600)) // a little random factor in here to spread out worker deaths
+	timeout := time.Second*time.Duration(1800 + rand.Intn(600)) // a little random factor in here to spread out worker deaths
 	task := worker.Task{
 		CodeName: route.CodeName,
 		Payload:  string(jsonPayload),

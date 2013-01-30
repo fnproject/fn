@@ -3,7 +3,8 @@
     "host": "staging-cache.iron.io",
     "project_id": "4fd29900b51c1e5a230001d6",
     "token": "FrGjgoBDbzwHG9IS-qhT1CmJBLo",
-    "super_token": "QpJzvVokpKwi9vjQfSU9ZTWUGhU"
+    "super_token": "QpJzvVokpKwi9vjQfSU9ZTWUGhU",
+    "worker_host": "staging-worker.iron.io"
   },
   "logging": {
     "to": "papertrail",
