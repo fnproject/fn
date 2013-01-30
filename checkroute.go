@@ -25,6 +25,16 @@ var config struct {
 }
 
 
+type Route struct {
+	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
+	Host         string   `json:"host"`
+	Destinations []string `json:"destinations"`
+	ProjectId    string   `json:"project_id"`
+	Token        string   `json:"token"` // store this so we can queue up new workers on demand
+	CodeName     string   `json:"code_name"`
+}
+
+
 var icache = cache.New("routing-table")
 
 func main(){
@@ -38,12 +48,28 @@ func main(){
 	common.SetLogLevel(config.Logging.Level)
 //	common.SetLogLocation(config.Logging.To, config.Logging.Prefix)
 
-	host := "routertest.irondns.info"
-	log.Println("CHECKING ROUTE")
+	icache.Settings.UseConfigMap(map[string]interface{}{
+		"token": config.Iron.Token,
+		"project_id": config.Iron.ProjectId,
+		"host": config.Iron.Host,
+	})
+	log.Println("icache settings:", icache.Settings)
 
+	host := "routertest5.irondns.info"
+
+//	r2 := Route{
+//		Host: host,
+//	}
+//	err2 := putRoute(&r2)
+//	log.Println("err2:", err2)
+
+	log.Println("CHECKING ROUTE")
 	route, err := getRoute(host)
 	log.Println("route:", route)
 	log.Println("err:", err)
+
+//	err = icache.Delete(host)
+//	log.Println("delete err:", err)
 
 
 }
@@ -62,4 +88,16 @@ func getRoute(host string) (*Route, error) {
 		return nil, err
 	}
 	return &route, err
+}
+
+
+func putRoute(route *Route) error {
+	item := cache.Item{}
+	v, err := json.Marshal(route)
+	if err != nil {
+		return err
+	}
+	item.Value = string(v)
+	err = icache.Put(route.Host, &item)
+	return err
 }
