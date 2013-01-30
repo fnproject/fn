@@ -148,6 +148,8 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	//	route := routingTable[host]
 	golog.Infoln("getting route for host:", host, "--")
 	route, err := getRoute(host)
+	golog.Infoln("route:", route)
+	golog.Infoln("err:", err)
 	// choose random dest
 	if err != nil {
 		common.SendError(w, 400, fmt.Sprintln("Host not registered or error!", err))
