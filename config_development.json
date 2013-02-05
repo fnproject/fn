@@ -1,9 +1,9 @@
 {
   "iron": {
     "host": "staging-cache.iron.io",
-    "project_id": "4fd29900b51c1e5a230001d6",
-    "token": "FrGjgoBDbzwHG9IS-qhT1CmJBLo",
-    "super_token": "QpJzvVokpKwi9vjQfSU9ZTWUGhU",
+    "project_id": "51115e38c2e6036f29000047",
+    "token": "aXSByTlaxM7z_xRDpZnIRTC0nSs",
+    "super_token": "Lfvq3ev2DfyRebBn07hXZEvH3pQ",
     "worker_host": "staging-worker.iron.io"
   },
   "logging": {
