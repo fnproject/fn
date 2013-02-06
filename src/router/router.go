@@ -149,7 +149,6 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	route, err := getRoute(host)
 	golog.Infoln("route:", route)
 	golog.Infoln("err:", err)
-	// choose random dest
 	if err != nil {
 		common.SendError(w, 400, fmt.Sprintln("Host not registered or error!", err))
 		return
@@ -158,6 +157,11 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	//		common.SendError(w, 400, fmt.Sprintln(w, "Host not configured!"))
 	//		return
 	//	}
+
+	serveEndpoint(w, req, route)
+}
+
+func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 	dlen := len(route.Destinations)
 	if dlen == 0 {
 		golog.Infoln("No workers running, starting new task.")
@@ -166,14 +170,9 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if dlen < 3 {
-		golog.Infoln("Only one worker running, starting a new task.")
+		golog.Infoln("Less than three workers running, starting a new task.")
 		startNewWorker(route)
 	}
-	serveEndpoint(w, req, route)
-}
-
-func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
-	dlen := len(route.Destinations)
 	destIndex := rand.Intn(dlen)
 	destUrlString := route.Destinations[destIndex]
 	// todo: should check if http:// already exists.
