@@ -213,12 +213,12 @@ func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
 		common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
 		return
 	}
-	golog.Infoln("New route:", route)
-	if len(route.Destinations) < 3 {
-		golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
-		// always want at least three running
-		startNewWorker(route)
-	}
+	golog.Infoln("New route after remove destination:", route)
+//	if len(route.Destinations) < 3 {
+//		golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
+//		// always want at least three running
+//		startNewWorker(route)
+//	}
 }
 
 func startNewWorker(route *Route) error {
