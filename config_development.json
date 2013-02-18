@@ -1,6 +1,6 @@
 {
   "iron": {
-    "host": "staging-cache.iron.io",
+    "cache_host": "staging-cache.iron.io",
     "project_id": "510d3381c2e603648d0005f5",
     "token": "liILas32ParkPtDfK9ztjWP_RI0",
     "super_token": "Lfvq3ev2DfyRebBn07hXZEvH3pQ",

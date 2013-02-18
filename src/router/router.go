@@ -34,7 +34,7 @@ var config struct {
 	Token       string `json:"token"`
 	ProjectId   string `json:"project_id"`
 	SuperToken  string `json:"super_token"`
-	Host 	   string `json:"host"`
+	CacheHost 	   string `json:"cache_host"`
 	WorkerHost  string `json:"worker_host"`
 } `json:"iron"`
 	MongoAuth common.MongoConfig `json:"mongo_auth"`
@@ -109,11 +109,14 @@ func main() {
 	}
 	ironAuth = common.NewIronAuth(session, config.MongoAuth.Database)
 
-	icache.Settings.UseConfigMap(map[string]interface{}{
+	cacheConfigMap := map[string]interface{}{
 		"token": config.Iron.Token,
 		"project_id": config.Iron.ProjectId,
-		"host": config.Iron.Host,
-	})
+	}
+	if config.Iron.CacheHost != "" {
+		cacheConfigMap["host"] = config.Iron.CacheHost
+	}
+	icache.Settings.UseConfigMap(cacheConfigMap)
 
 	r := mux.NewRouter()
 
