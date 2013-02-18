@@ -231,7 +231,9 @@ func startNewWorker(route *Route) error {
 		"token":      config.Iron.SuperToken,
 		"project_id": route.ProjectId,
 		"code_name":  route.CodeName,
-		"host": config.Iron.WorkerHost,
+	}
+	if config.Iron.WorkerHost != "" {
+		payload["host"] = config.Iron.WorkerHost
 	}
 	workerapi := worker.New()
 	workerapi.Settings.UseConfigMap(payload)
