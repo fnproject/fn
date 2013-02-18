@@ -209,6 +209,7 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 }
 
 func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
+	golog.Infoln("Removing destination", destIndex, "from route:", route)
 	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
 	err := putRoute(route)
 	if err != nil {
@@ -319,7 +320,7 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		// todo: do we need to close body?
-		golog.Infoln("DECODED:", r2)
+		golog.Infoln("Incoming body from worker:", r2)
 		route, err := getRoute(r2.Host)
 		if err != nil {
 			common.SendError(w, 400, fmt.Sprintln("This host is not registered!", err))
@@ -339,6 +340,7 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func getRoute(host string) (*Route, error) {
+	golog.Infoln("getRoute for host:", host)
 	rx, err := icache.Get(host)
 	if err != nil {
 		return nil, err
