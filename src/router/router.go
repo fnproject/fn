@@ -126,10 +126,11 @@ func main() {
 
 	s := r.Host("router.irondns.info").Subrouter()
 	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", &common.AuthHandler{&Register{}, ironAuth})
-	s.HandleFunc("/ping", Ping) // for ELB health check
+	s.HandleFunc("/ping", Ping)
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
+	r.HandleFunc("/elb-ping-router", Ping) // for ELB health check
 	// Now for everyone else:
 	r.HandleFunc("/", ProxyFunc)
 

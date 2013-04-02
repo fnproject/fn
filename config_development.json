@@ -9,7 +9,7 @@
   "logging": {
     "to": "papertrail",
     "level": "debug",
-    "prefix": "router"
+    "prefix": "router_staging"
   },
   "mongo_auth": {
    "database": "ironworker",
