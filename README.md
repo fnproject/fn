@@ -20,10 +20,11 @@ This is just a simple prototype. To get to production would need:
   - http://www.simpledeployer.com/projects/ea129e74-52fa-11e2-a91a-12313d008ea2/servers
   - this is on aws+sandbox@iron.io account
 - go build ./src/router; sudo ./router
-- iron_worker upload -e staging --project-id 51034bc3c2e603384b00a092 --host routertest.irondns.info sinatra
+- iron_worker upload -e staging --project-id 515b657bc731ff1e69000917 --host routertest-staging.irondns.info sinatra
 - visit http://routertest.iron.io (or ruby client.rb)
 - BOOM!
 
 ## Deploying to production
 
 - just deploy as normal from SD project
+- use routertest.irondns.info for host
