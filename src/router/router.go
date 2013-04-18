@@ -132,7 +132,8 @@ func main() {
 
 	r.HandleFunc("/elb-ping-router", Ping) // for ELB health check
 	// Now for everyone else:
-	r.HandleFunc("/", ProxyFunc)
+//	r.HandleFunc("/", ProxyFunc)
+	r.NotFoundHandler = http.HandlerFunc(ProxyFunc)
 
 	http.Handle("/", r)
 	port := 80
@@ -337,6 +338,7 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		fmt.Fprintln(w, "Worker added")
+		golog.Infoln("Worked added.")
 	}
 }
 
