@@ -1,7 +1,7 @@
 /*
 
 For keeping a minimum running, perhaps when doing a routing table update, if destination hosts are all
- expired or about to expire we start more. 
+ expired or about to expire we start more.
 
 */
 
@@ -9,49 +9,51 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/iron-io/common"
+	"github.com/iron-io/go/common"
+	"github.com/iron-io/go/common/auth/apiauth"
 	"github.com/iron-io/golog"
 	"github.com/iron-io/iron_go/cache"
 	"github.com/iron-io/iron_go/worker"
-	"labix.org/v2/mgo"
 	"log"
 	"math/rand"
-	// "net"
-	"flag"
 	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
 	"strings"
 	"time"
-	//	"io/ioutil"
 )
 
 var config struct {
+	Cache struct {
+		Host      string `json:"host"`
+		Token     string `json:"token"`
+		ProjectId string `json:"project_id"`
+	}
 	Iron struct {
-	Token       string `json:"token"`
-	ProjectId   string `json:"project_id"`
-	SuperToken  string `json:"super_token"`
-	CacheHost 	   string `json:"cache_host"`
-	WorkerHost  string `json:"worker_host"`
-} `json:"iron"`
-	MongoAuth common.MongoConfig `json:"mongo_auth"`
-	Logging   struct {
-	To     string `json:"to"`
-	Level  string `json:"level"`
-	Prefix string `json:"prefix"`
-}
+		Token      string `json:"token"`
+		ProjectId  string `json:"project_id"`
+		SuperToken string `json:"super_token"`
+		WorkerHost string `json:"worker_host"`
+		AuthHost   string `json:"auth_host"`
+	} `json:"iron"`
+	Logging struct {
+		To     string `json:"to"`
+		Level  string `json:"level"`
+		Prefix string `json:"prefix"`
+	}
 }
 
-var version = "0.0.15"
+var version = "0.0.16"
 
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
 var (
-	ironAuth *common.IronAuth
+	ironAuth common.Auth
 )
 
 func init() {
@@ -88,33 +90,22 @@ func main() {
 		configFile = "config_" + env + ".json"
 	}
 
-	common.LoadConfig("iron_mq", configFile, &config)
-	common.SetLogLevel(config.Logging.Level)
-	common.SetLogLocation(config.Logging.To, config.Logging.Prefix)
+	common.LoadConfig(configFile, &config)
+	common.SetLogging(common.LoggingConfig{To: config.Logging.To, Level: config.Logging.Level, Prefix: config.Logging.Prefix})
 
 	golog.Infoln("Starting up router version", version)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.Println("Running on", runtime.NumCPU(), "CPUs")
 
-	hosts := strings.Join(config.MongoAuth.Hosts, ",")
-	session, err := mgo.Dial(hosts)
-	if err != nil {
-		log.Panicln(err)
-	}
-	// recompile????
-	err = session.DB(config.MongoAuth.Database).Login(config.MongoAuth.Username, config.MongoAuth.Password)
-	if err != nil {
-		log.Fatalln("Could not log in to db:", err)
-	}
-	ironAuth = common.NewIronAuth(session, config.MongoAuth.Database)
+	ironAuth = apiauth.NewAPIAuth(config.Iron.AuthHost)
 
 	cacheConfigMap := map[string]interface{}{
-		"token": config.Iron.Token,
-		"project_id": config.Iron.ProjectId,
+		"token":      config.Cache.Token,
+		"project_id": config.Cache.ProjectId,
 	}
-	if config.Iron.CacheHost != "" {
-		cacheConfigMap["host"] = config.Iron.CacheHost
+	if config.Cache.Host != "" {
+		cacheConfigMap["host"] = config.Cache.Host
 	}
 	icache.Settings.UseConfigMap(cacheConfigMap)
 
@@ -125,25 +116,37 @@ func main() {
 	s2.Handle("/", &WorkerHandler{})
 
 	s := r.Host("router.irondns.info").Subrouter()
-	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", &common.AuthHandler{&Register{}, ironAuth})
+	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", common.AuthWrap(ironAuth, &Register{}))
 	s.HandleFunc("/ping", Ping)
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
 	r.HandleFunc("/elb-ping-router", Ping) // for ELB health check
 	// Now for everyone else:
-//	r.HandleFunc("/", ProxyFunc)
+	//	r.HandleFunc("/", ProxyFunc)
+	s3 := r.Queries("rhost", "").Subrouter()
+	s3.HandleFunc("/", ProxyFunc2)
 	r.NotFoundHandler = http.HandlerFunc(ProxyFunc)
 
 	http.Handle("/", r)
-	port := 80
+	port := 8080
 	golog.Infoln("Router started, listening and serving on port", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
+}
+
+func ProxyFunc2(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("proxy2")
+	ProxyFunc(w, req)
 }
 
 func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	golog.Infoln("HOST:", req.Host)
 	host := strings.Split(req.Host, ":")[0]
+	rhost := req.FormValue("rhost")
+	golog.Infoln("rhost:", rhost)
+	if rhost != "" {
+		host = rhost
+	}
 
 	// We look up the destinations in the routing table and there can be 3 possible scenarios:
 	// 1) This host was never registered so we return 404
@@ -212,7 +215,7 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 
 func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
 	golog.Infoln("Removing destination", destIndex, "from route:", route)
-	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex + 1:]...)
+	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
 	err := putRoute(route)
 	if err != nil {
 		golog.Infoln("Couldn't update routing table:", err)
@@ -220,11 +223,11 @@ func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
 		return
 	}
 	golog.Infoln("New route after remove destination:", route)
-//	if len(route.Destinations) < 3 {
-//		golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
-//		// always want at least three running
-//		startNewWorker(route)
-//	}
+	//	if len(route.Destinations) < 3 {
+	//		golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
+	//		// always want at least three running
+	//		startNewWorker(route)
+	//	}
 }
 
 func startNewWorker(route *Route) error {
@@ -245,7 +248,7 @@ func startNewWorker(route *Route) error {
 		golog.Infoln("Couldn't marshal json!", err)
 		return err
 	}
-	timeout := time.Second*time.Duration(1800 + rand.Intn(600)) // a little random factor in here to spread out worker deaths
+	timeout := time.Second * time.Duration(1800+rand.Intn(600)) // a little random factor in here to spread out worker deaths
 	task := worker.Task{
 		CodeName: route.CodeName,
 		Payload:  string(jsonPayload),
@@ -270,7 +273,7 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]
-	token := ironAuth.GetToken(req)
+	token := common.GetToken(req)
 	golog.Infoln("project_id:", projectId, "token:", token.Token)
 
 	route := Route{}

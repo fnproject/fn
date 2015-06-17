@@ -1,24 +1,20 @@
 {
+  "cache": {
+    "description": "using production cache even for dev/staging",
+    "host": "cache-aws-us-east-1.iron.io",
+    "project_id": "5577b5403864900009000006",
+    "token": "15iDumDYhHt_3hrwaGhPHLVyfA4"
+  },
   "iron": {
-    "cache_host": "staging-cache.iron.io",
-    "project_id": "510d3381c2e603648d0005f5",
-    "token": "liILas32ParkPtDfK9ztjWP_RI0",
-    "super_token": "Lfvq3ev2DfyRebBn07hXZEvH3pQ",
-    "worker_host": "staging-worker.iron.io"
+    "project_id": "515b5da6c731ff1e690008aa",
+    "token": "TXT6wq-pfkHSTvWbaJ_wPUmqVnE",
+    "super_token": "lJLWJFR3J339cCQRzW8igVbwI8o",
+    "worker_host": "staging-worker.iron.io",
+    "auth_host": "https://auth-staging.iron.io"
   },
   "logging": {
     "to": "papertrail",
     "level": "debug",
     "prefix": "router_staging"
-  },
-  "mongo_auth": {
-   "database": "ironworker",
-   "hosts": [
-    "irondbauth-staging-1.irondns.info:27017",
-    "irondbauth-staging-2.irondns.info:27017",
-    "irondbauth-staging-3.irondns.info:27017"
-   ],
-   "password": "badass_staging",
-   "username": "sw_db_king"
   }
 }

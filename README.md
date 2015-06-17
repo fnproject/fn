@@ -10,11 +10,16 @@ The idea here is that IronWorker backend can tell the router that it started a p
 
 This is just a simple prototype. To get to production would need:
 
-
 - Ability to start new workers based on some auto scaling scheme.
 - Authentication (same as always).
 
 ## Testing for reals on staging
+
+Using DockerJockey:
+
+`dj run -i --name mygoprog -v "$(pwd)":/app -w /app -p 8080:8080 treeder/golang-ubuntu:1.3.3on14.04 ./mygoprog`
+
+Or SimpleDeployer:
 
 - start router.go on remote server (there's a test project on SD already:
   - http://www.simpledeployer.com/projects/ea129e74-52fa-11e2-a91a-12313d008ea2/servers

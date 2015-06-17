@@ -3,4 +3,4 @@ runtime "ruby"
 gem 'rest'
 gem 'sinatra'
 
-exec 'worker.rb'
+exec 'sinatra.rb'

@@ -8,6 +8,7 @@ port = ENV['PORT'].to_i
 puts "STARTING SINATRA on port #{port}"
 my_app = Sinatra.new do
   set :port, port
+  set :bind, '0.0.0.0'
   post('/somepost') do
     puts "in somepost"
     p params
@@ -19,4 +20,4 @@ my_app = Sinatra.new do
 end
 my_app.run!
 
-# bump
+# bump....
