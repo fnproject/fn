@@ -47,7 +47,7 @@ var config struct {
 	}
 }
 
-var version = "0.0.16"
+var version = "0.0.17"
 
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
@@ -118,6 +118,7 @@ func main() {
 	s := r.Host("router.irondns.info").Subrouter()
 	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", common.AuthWrap(ironAuth, &Register{}))
 	s.HandleFunc("/ping", Ping)
+	s.HandleFunc("/version", Version)
 	s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
@@ -373,4 +374,8 @@ func putRoute(route *Route) error {
 
 func Ping(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, "pong")
+}
+
+func Version(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintln(w, version)
 }

@@ -3,4 +3,6 @@
 iron.json
 dj.config.json
 dj.cluster.*.json
-
+script.tar.gz
+router
+app.zip

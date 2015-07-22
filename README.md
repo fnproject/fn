@@ -6,6 +6,18 @@
 
 The idea here is that IronWorker backend can tell the router that it started a process and to start routing requests.
 
+## Usage
+
+```
+iron worker upload --name hello-sinatra --host YOURHOST treeder/hello-sinatra
+```
+
+Then hit the url:
+
+```
+http://router.iron.io/?rhost=YOURHOST
+```
+
 ## Todo
 
 This is just a simple prototype. To get to production would need:
@@ -15,9 +27,18 @@ This is just a simple prototype. To get to production would need:
 
 ## Testing for reals on staging
 
+### 1) Deploy router
+
 Using DockerJockey:
 
-`dj run -i --name mygoprog -v "$(pwd)":/app -w /app -p 8080:8080 treeder/golang-ubuntu:1.3.3on14.04 ./mygoprog`
+```
+dj run --on aws -i --name router -v "$(pwd)":/app -w /app -p 80:8080 treeder/golang-ubuntu:1.3.3on14.04 ./router
+```
+
+### 2) Update DNS
+
+Update DNS entry `router.iron.io` to point to the newly launched server after dj deploy.
+
 
 Or SimpleDeployer:
 
