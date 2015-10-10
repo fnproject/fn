@@ -6,3 +6,5 @@ dj.cluster.*.json
 script.tar.gz
 router
 app.zip
+/app
+vendor/

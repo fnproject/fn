@@ -1,0 +1,8 @@
+make app:
+curl -H "Content-Type: application/json" -X POST -d '{"name":"myapp","password":"xyz"}' http://localhost:8080/test/1/projects/123/apps
+
+register route:
+curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello.rb","image":"treeder/hello.rb", "type":"run"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
+
+get route:
+curl -i -X GET http://localhost:8080/hello.rb?app=myapp

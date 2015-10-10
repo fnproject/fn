@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/iron-io/go/common"
-	"github.com/iron-io/go/common/auth/apiauth"
 	"github.com/iron-io/golog"
 	"github.com/iron-io/iron_go/cache"
 	"github.com/iron-io/iron_go/worker"
@@ -47,32 +46,17 @@ var config struct {
 	}
 }
 
-var version = "0.0.17"
+var version = "0.0.19"
 
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
 
 var (
-	ironAuth common.Auth
+	ironAuth common.Auther
 )
 
 func init() {
 
-}
-
-type Route struct {
-	// TODO: Change destinations to a simple cache so it can expire entries after 55 minutes (the one we use in common?)
-	Host         string   `json:"host"`
-	Destinations []string `json:"destinations"`
-	ProjectId    string   `json:"project_id"`
-	Token        string   `json:"token"` // store this so we can queue up new workers on demand
-	CodeName     string   `json:"code_name"`
-}
-
-// for adding new hosts
-type Route2 struct {
-	Host string `json:"host"`
-	Dest string `json:"dest"`
 }
 
 func main() {
@@ -90,15 +74,15 @@ func main() {
 		configFile = "config_" + env + ".json"
 	}
 
-	common.LoadConfig(configFile, &config)
-	common.SetLogging(common.LoggingConfig{To: config.Logging.To, Level: config.Logging.Level, Prefix: config.Logging.Prefix})
+	common.LoadConfigFile(configFile, &config)
+	//	common.SetLogging(common.LoggingConfig{To: config.Logging.To, Level: config.Logging.Level, Prefix: config.Logging.Prefix})
 
 	golog.Infoln("Starting up router version", version)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.Println("Running on", runtime.NumCPU(), "CPUs")
 
-	ironAuth = apiauth.NewAPIAuth(config.Iron.AuthHost)
+	//	ironAuth = apiauth.New(config.Iron.AuthHost)
 
 	cacheConfigMap := map[string]interface{}{
 		"token":      config.Cache.Token,
@@ -115,8 +99,14 @@ func main() {
 	s2 := r.Headers("Iron-Router", "").Subrouter()
 	s2.Handle("/", &WorkerHandler{})
 
-	s := r.Host("router.irondns.info").Subrouter()
-	s.Handle("/1/projects/{project_id:[0-9a-fA-F]{24}}/register", common.AuthWrap(ironAuth, &Register{}))
+	// dev:
+	fmt.Println("Setting /test subrouter")
+	s := r.PathPrefix("/test").Subrouter()
+	// production:
+	// s := r.Host("router.irondns.info").Subrouter()
+	s.Handle("/1/projects/{project_id}/register", &Register{})
+	s.Handle("/1/projects/{project_id}/apps", &NewApp{})
+	s.HandleFunc("/1/projects/{project_id}/apps/{app_name}/routes", NewRoute)
 	s.HandleFunc("/ping", Ping)
 	s.HandleFunc("/version", Version)
 	s.Handle("/addworker", &WorkerHandler{})
@@ -125,6 +115,13 @@ func main() {
 	r.HandleFunc("/elb-ping-router", Ping) // for ELB health check
 	// Now for everyone else:
 	//	r.HandleFunc("/", ProxyFunc)
+
+	// for testing app responses, pass in app name
+	s4 := r.Queries("app", "").Subrouter()
+	s4.HandleFunc("/appsr", Ping)
+	s4.HandleFunc("/{rest:.*}", Run)
+	s4.NotFoundHandler = http.HandlerFunc(Run)
+
 	s3 := r.Queries("rhost", "").Subrouter()
 	s3.HandleFunc("/", ProxyFunc2)
 	r.NotFoundHandler = http.HandlerFunc(ProxyFunc)
@@ -303,6 +300,74 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, "Host registered successfully.")
 }
 
+type NewApp struct{}
+
+// This registers a new host
+func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log.Println("NewApp called!")
+
+	vars := mux.Vars(req)
+	projectId := vars["project_id"]
+	// token := common.GetToken(req)
+	golog.Infoln("project_id:", projectId)
+
+	app := App{}
+	if !common.ReadJSON(w, req, &app) {
+		return
+	}
+	golog.Infoln("body read into app:", app)
+	app.ProjectId = projectId
+
+	_, err := getApp(app.Name)
+	if err == nil {
+		common.SendError(w, 400, fmt.Sprintln("This app already exists. If you believe this is in error, please contact support@iron.io to resolve the issue.", err))
+		return
+		//			route = &Route{}
+	}
+
+	// todo: do we need to close body?
+	err = putApp(&app)
+	if err != nil {
+		golog.Infoln("couldn't create app:", err)
+		common.SendError(w, 400, fmt.Sprintln("Could not create app!", err))
+		return
+	}
+	golog.Infoln("registered app:", app)
+	fmt.Fprintln(w, "App created successfully.")
+}
+
+func NewRoute(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("NewRoute")
+	vars := mux.Vars(req)
+	projectId := vars["project_id"]
+	appName := vars["app_name"]
+	golog.Infoln("project_id:", projectId, "app_name", appName)
+
+	route := Route3{}
+	if !common.ReadJSON(w, req, &route) {
+		return
+	}
+	golog.Infoln("body read into route:", route)
+
+	// TODO: validate route
+
+	app, err := getApp(appName)
+	if err != nil {
+		common.SendError(w, 400, fmt.Sprintln("This app does not exist. Please create app first.", err))
+		return
+	}
+
+	app.Routes = append(app.Routes, route)
+	err = putApp(app)
+	if err != nil {
+		golog.Errorln("Couldn't create route!:", err)
+		common.SendError(w, 400, fmt.Sprintln("Could not create route!", err))
+		return
+	}
+	golog.Infoln("Route created:", route)
+	fmt.Fprintln(w, "Route created successfully.")
+}
+
 type WorkerHandler struct {
 }
 
@@ -369,6 +434,32 @@ func putRoute(route *Route) error {
 	}
 	item.Value = string(v)
 	err = icache.Put(route.Host, &item)
+	return err
+}
+
+func getApp(name string) (*App, error) {
+	golog.Infoln("getapp:", name)
+	rx, err := icache.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	rx2 := []byte(rx.(string))
+	app := App{}
+	err = json.Unmarshal(rx2, &app)
+	if err != nil {
+		return nil, err
+	}
+	return &app, err
+}
+
+func putApp(app *App) error {
+	item := cache.Item{}
+	v, err := json.Marshal(app)
+	if err != nil {
+		return err
+	}
+	item.Value = string(v)
+	err = icache.Put(app.Name, &item)
 	return err
 }
 
