@@ -1,4 +1,39 @@
 
+# MicroServices Gateway / API Gateway
+
+First things first, register an app:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{"name":"myapp","password":"xyz"}' http://localhost:8080/test/1/projects/123/apps
+```
+
+Now add routes to the app. First we'll add a route to the output of a docker container:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello.rb","image":"treeder/hello.rb", "type":"run"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
+```
+
+Now we'll route to the endpoints of an app running in a docker container:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello.rb","image":"treeder/hello.rb", "type":"run"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
+```
+
+Now test out your new routes.
+get route:
+curl -i -X GET http://localhost:8080/hello.rb?app=myapp
+
+## Building/Testing
+
+```sh
+dj go build
+dj go run
+```
+
+
+
+# Previous version:
+
 ## What's going on?
 
 - worker.rb connects to router and adds routes.

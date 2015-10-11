@@ -34,6 +34,11 @@ func Run(w http.ResponseWriter, req *http.Request) {
 		// TODO: copy/use gorilla's pattern matching here
 		if el.Path == req.URL.Path {
 			// Boom, run it!
+			err = checkAndPull(&el)
+			if err != nil {
+				common.SendError(w, 404, fmt.Sprintln("The image could not be pulled:", err))
+				return
+			}
 			cmd := exec.Command("docker", "run", "--rm", "-i", el.Image)
 			stdout, err := cmd.StdoutPipe()
 			if err != nil {
@@ -46,8 +51,7 @@ func Run(w http.ResponseWriter, req *http.Request) {
 			if err := cmd.Start(); err != nil {
 				log.Fatal(err)
 			}
-			// buff := bufio.NewWriter()
-			go io.Copy(buff, stdout) //  <---- commented out because we will print out with buff.Scan()
+			go io.Copy(buff, stdout)
 			go io.Copy(buff, stderr)
 
 			log.Printf("Waiting for command to finish...")
@@ -56,8 +60,37 @@ func Run(w http.ResponseWriter, req *http.Request) {
 			}
 			log.Printf("Command finished with error: %v", err)
 			buff.Flush()
+			golog.Infoln("Docker ran successfully:", b.String())
+			fmt.Fprintln(w, b.String())
+			return
 		}
 	}
-	golog.Infoln("Docker ran successfully:", b.String())
-	fmt.Fprintln(w, b.String())
+	common.SendError(w, 404, fmt.Sprintln("The requested endpoint does not exist."))
+}
+
+func checkAndPull(route *Route3) error {
+	var bout bytes.Buffer
+	buffout := bufio.NewWriter(&bout)
+	var berr bytes.Buffer
+	bufferr := bufio.NewWriter(&berr)
+	cmd := exec.Command("docker", "inspect", route.Image)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go io.Copy(buffout, stdout)
+	go io.Copy(bufferr, stderr)
+
+	log.Printf("Waiting for docker inspect to finish...")
+	err = cmd.Wait()
+	fmt.Println("stderr:", berr.String())
+	fmt.Println("stdout:", bout.String())
+	return err
 }
