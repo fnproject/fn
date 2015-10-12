@@ -24,7 +24,8 @@ type App struct {
 
 // this is for the new api gateway
 type Route3 struct {
-	Path  string `json:"path"`
-	Image string `json:"image"`
-	Type  string `json:"type"`
+	Path          string `json:"path"` // run/app
+	Image         string `json:"image"`
+	Type          string `json:"type"`
+	ContainerPath string `json:"cpath"`
 }

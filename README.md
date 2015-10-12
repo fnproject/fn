@@ -1,4 +1,9 @@
 
+
+
+PROBABLY NEEDS TO BE DOCKER IN DOCKER FOR IT TO WORK SMOOTHLY, MAYBE DROP THE DJ GO RUN THING
+AND DO IT NORMALLY.
+
 # MicroServices Gateway / API Gateway
 
 First things first, register an app:
@@ -13,22 +18,33 @@ Now add routes to the app. First we'll add a route to the output of a docker con
 curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello.rb","image":"treeder/hello.rb", "type":"run"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
 ```
 
-Now we'll route to the endpoints of an app running in a docker container:
+Test out the route:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello.rb","image":"treeder/hello.rb", "type":"run"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
+curl -i -X GET http://localhost:8080/hello.rb?app=myapp
 ```
 
-Now test out your new routes.
-get route:
-curl -i -X GET http://localhost:8080/hello.rb?app=myapp
+Now try mapping an app endpoint:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{"path":"/sinatra","image":"treeder/hello-sinatra", "type":"app", "cpath":"/"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
+```
+
+And test it out:
+
+```sh
+curl -i -X GET http://localhost:8080/sinatra?app=myapp
+```
+
 
 ## Building/Testing
 
 ```sh
 dj go build
-dj go run
+docker run --rm -it --privileged --net=host -v "$PWD":/app -v $HOME:/root:ro -w /app -p 8080:8080 treeder/go-dind sh -c 'rc default && ./app'
 ```
+
+Then run the commands above to use it.
 
 
 
