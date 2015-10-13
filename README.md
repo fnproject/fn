@@ -42,7 +42,7 @@ curl -i -X GET http://localhost:8080/sinatra?app=myapp
 
 ```sh
 dj go build
-docker run --rm -it --privileged --net=host -v "$PWD":/app -v $HOME:/root:ro -w /app -p 8080:8080 treeder/go-dind sh -c 'rc default && ./app'
+docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --rm -it --privileged --net=host -v "$PWD":/app -w /app -p 8080:8080 treeder/go-dind sh -c 'rc default && ./app'
 ```
 
 Then run the commands above to use it.
@@ -56,9 +56,13 @@ docker build -t iron/gateway:latest .
 Test it, the iron token and project id are for cache.
 
 ```sh
-docker run --rm -it --privileged --net=host -p 8080:8080 -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" -e "IRON_API_DEBUG=true" iron/gateway
+docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --rm -it --privileged --net=host -p 8080:8080 iron/gateway
 ```
 
+After deploying, running it with:
+
+```sh
+docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --name iron-gateway -d -it --privileged --net=host -p 8080:8080 iron/gateway
 
 # Previous version:
 
