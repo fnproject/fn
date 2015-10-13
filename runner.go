@@ -26,6 +26,7 @@ var runningImages map[string]*RunningApp
 
 func init() {
 	runningImages = make(map[string]*RunningApp)
+	fmt.Println("ENV:", os.Environ())
 }
 
 func Run(w http.ResponseWriter, req *http.Request) {

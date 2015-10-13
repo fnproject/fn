@@ -37,6 +37,7 @@ curl -i -X GET http://localhost:8080/sinatra?app=myapp
 ```
 
 
+
 ## Building/Testing
 
 ```sh
@@ -46,6 +47,17 @@ docker run --rm -it --privileged --net=host -v "$PWD":/app -v $HOME:/root:ro -w 
 
 Then run the commands above to use it.
 
+Build image:
+
+```sh
+docker build -t iron/gateway:latest .
+```
+
+Test it, the iron token and project id are for cache.
+
+```sh
+docker run --rm -it --privileged --net=host -p 8080:8080 -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" -e "IRON_API_DEBUG=true" iron/gateway
+```
 
 
 # Previous version:

@@ -84,14 +84,14 @@ func main() {
 
 	//	ironAuth = apiauth.New(config.Iron.AuthHost)
 
-	cacheConfigMap := map[string]interface{}{
-		"token":      config.Cache.Token,
-		"project_id": config.Cache.ProjectId,
-	}
-	if config.Cache.Host != "" {
-		cacheConfigMap["host"] = config.Cache.Host
-	}
-	icache.Settings.UseConfigMap(cacheConfigMap)
+	// cacheConfigMap := map[string]interface{}{
+	// 	"token":      config.Cache.Token,
+	// 	"project_id": config.Cache.ProjectId,
+	// }
+	// if config.Cache.Host != "" {
+	// 	cacheConfigMap["host"] = config.Cache.Host
+	// }
+	// icache.Settings.UseConfigMap(cacheConfigMap)
 
 	r := mux.NewRouter()
 
