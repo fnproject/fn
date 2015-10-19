@@ -129,7 +129,7 @@ func main() {
 	http.Handle("/", r)
 	port := 8080
 	golog.Infoln("Router started, listening and serving on port", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%v", port), nil))
 }
 
 func ProxyFunc2(w http.ResponseWriter, req *http.Request) {
@@ -305,6 +305,28 @@ type NewApp struct{}
 // This registers a new host
 func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println("NewApp called!")
+
+
+PUT THIS IN HERE
+if code.Host != params.Host {
+		log15.Debug("Host passed in.", "host", params.Host)
+		update = true
+		// todo: verify properly formatted host
+		// todo: delete/unregister old host if it was something else
+		// todo: don't register if it's blank host
+		// todo: this should call the register endpoint on the router rather than talking directly to IronCache
+		// todo: also, unregister should be added to router to remove endpoints.
+		if params.Host != nil && *params.Host != "" {
+			regOk := registerHost(w, r, code)
+			if !regOk {
+				return
+			}
+			// TODO: queue up 1 task for this worker to get things started
+		} else {
+			// todo: need a way to remove code.host/disable incoming
+		}
+	}
+
 
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]

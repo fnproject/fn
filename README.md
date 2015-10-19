@@ -36,6 +36,18 @@ And test it out:
 curl -i -X GET http://localhost:8080/sinatra?app=myapp
 ```
 
+And another:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{"path":"/sinatra/ping","image":"treeder/hello-sinatra", "type":"app", "cpath":"/ping"}' http://localhost:8080/test/1/projects/123/apps/myapp/routes
+```
+
+And test it out:
+
+```sh
+curl -i -X GET http://localhost:8080/sinatra?app=myapp
+```
+
 
 
 ## Building/Testing
@@ -62,7 +74,7 @@ docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd27
 After deploying, running it with:
 
 ```sh
-docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --name iron-gateway -d -it --privileged --net=host -p 8080:8080 iron/gateway
+docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --name irongateway -it --privileged --net=host -p 8080:8080 -d iron/gateway
 
 # Previous version:
 

@@ -79,7 +79,7 @@ func Run(w http.ResponseWriter, req *http.Request) {
 				}
 				fmt.Println("RunningApp:", ra)
 				// TODO: if connection fails, check if container still running?  If not, start it again
-				resp, err := http.Get(fmt.Sprintf("http://localhost:%v%v", ra.Port, el.ContainerPath))
+				resp, err := http.Get(fmt.Sprintf("http://0.0.0.0:%v%v", ra.Port, el.ContainerPath))
 				if err != nil {
 					common.SendError(w, 404, fmt.Sprintln("The requested app endpoint does not exist.", err))
 					return
