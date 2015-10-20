@@ -16,6 +16,7 @@ import (
 	"github.com/iron-io/golog"
 	"github.com/iron-io/iron_go/cache"
 	"github.com/iron-io/iron_go/worker"
+	"gopkg.in/inconshreveable/log15.v2"
 	"log"
 	"math/rand"
 	"net/http"
@@ -27,6 +28,10 @@ import (
 )
 
 var config struct {
+	CloudFlare struct {
+		Email   string `json:"email"`
+		AuthKey string `json:"auth_key"`
+	} `json:"cloudflare"`
 	Cache struct {
 		Host      string `json:"host"`
 		Token     string `json:"token"`
@@ -77,21 +82,11 @@ func main() {
 	common.LoadConfigFile(configFile, &config)
 	//	common.SetLogging(common.LoggingConfig{To: config.Logging.To, Level: config.Logging.Level, Prefix: config.Logging.Prefix})
 
+	log.Println("config:", config)
 	golog.Infoln("Starting up router version", version)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	log.Println("Running on", runtime.NumCPU(), "CPUs")
-
-	//	ironAuth = apiauth.New(config.Iron.AuthHost)
-
-	// cacheConfigMap := map[string]interface{}{
-	// 	"token":      config.Cache.Token,
-	// 	"project_id": config.Cache.ProjectId,
-	// }
-	// if config.Cache.Host != "" {
-	// 	cacheConfigMap["host"] = config.Cache.Host
-	// }
-	// icache.Settings.UseConfigMap(cacheConfigMap)
 
 	r := mux.NewRouter()
 
@@ -113,10 +108,8 @@ func main() {
 	s.HandleFunc("/", Ping)
 
 	r.HandleFunc("/elb-ping-router", Ping) // for ELB health check
-	// Now for everyone else:
-	//	r.HandleFunc("/", ProxyFunc)
 
-	// for testing app responses, pass in app name
+	// for testing app responses, pass in app name, can use localhost
 	s4 := r.Queries("app", "").Subrouter()
 	s4.HandleFunc("/appsr", Ping)
 	s4.HandleFunc("/{rest:.*}", Run)
@@ -124,7 +117,9 @@ func main() {
 
 	s3 := r.Queries("rhost", "").Subrouter()
 	s3.HandleFunc("/", ProxyFunc2)
-	r.NotFoundHandler = http.HandlerFunc(ProxyFunc)
+
+	// This is where all the main incoming traffic goes
+	r.NotFoundHandler = http.HandlerFunc(Run)
 
 	http.Handle("/", r)
 	port := 8080
@@ -306,28 +301,6 @@ type NewApp struct{}
 func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Println("NewApp called!")
 
-
-PUT THIS IN HERE
-if code.Host != params.Host {
-		log15.Debug("Host passed in.", "host", params.Host)
-		update = true
-		// todo: verify properly formatted host
-		// todo: delete/unregister old host if it was something else
-		// todo: don't register if it's blank host
-		// todo: this should call the register endpoint on the router rather than talking directly to IronCache
-		// todo: also, unregister should be added to router to remove endpoints.
-		if params.Host != nil && *params.Host != "" {
-			regOk := registerHost(w, r, code)
-			if !regOk {
-				return
-			}
-			// TODO: queue up 1 task for this worker to get things started
-		} else {
-			// todo: need a way to remove code.host/disable incoming
-		}
-	}
-
-
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]
 	// token := common.GetToken(req)
@@ -342,9 +315,16 @@ if code.Host != params.Host {
 
 	_, err := getApp(app.Name)
 	if err == nil {
-		common.SendError(w, 400, fmt.Sprintln("This app already exists. If you believe this is in error, please contact support@iron.io to resolve the issue.", err))
+		common.SendError(w, 400, fmt.Sprintln("An app with this name already exists.", err))
 		return
-		//			route = &Route{}
+	}
+
+	// create dns entry
+	// TODO: Add project id to this. eg: appname.projectid.iron.computer
+	log15.Debug("Creating dns entry.")
+	regOk := registerHost(w, req, &app)
+	if !regOk {
+		return
 	}
 
 	// todo: do we need to close body?
@@ -355,7 +335,8 @@ if code.Host != params.Host {
 		return
 	}
 	golog.Infoln("registered app:", app)
-	fmt.Fprintln(w, "App created successfully.")
+	v := map[string]interface{}{"app": app}
+	common.SendSuccess(w, "App created successfully.", v)
 }
 
 func NewRoute(w http.ResponseWriter, req *http.Request) {

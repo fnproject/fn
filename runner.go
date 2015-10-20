@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type RunningApp struct {
@@ -31,9 +32,16 @@ func init() {
 
 func Run(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("RUN!!!!")
-	// vars := mux.Vars(req)
+	golog.Infoln("HOST:", req.Host)
 	appName := req.FormValue("app")
 	golog.Infoln("app_name", appName, "path:", req.URL.Path)
+	if appName != "" {
+		// passed in the name
+	} else {
+		host := strings.Split(req.Host, ":")[0]
+		appName = strings.Split(host, ".")[0]
+		golog.Infoln("app_name from host", appName)
+	}
 
 	app, err := getApp(appName)
 	if err != nil {
@@ -110,7 +118,7 @@ func Run(w http.ResponseWriter, req *http.Request) {
 				go io.Copy(buff, stderr)
 
 				log.Printf("Waiting for command to finish...")
-				if err := cmd.Wait(); err != nil {
+				if err = cmd.Wait(); err != nil {
 					log.Fatal(err)
 				}
 				log.Printf("Command finished with error: %v", err)

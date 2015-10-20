@@ -17,9 +17,11 @@ type Route2 struct {
 
 // An app is that base object for api gateway
 type App struct {
-	Name      string   `json:"name"`
-	ProjectId string   `json:"project_id"`
-	Routes    []Route3 `json:"routes"`
+	Name         string   `json:"name"`
+	ProjectId    string   `json:"project_id"`
+	CloudFlareId string   `json:"-"`
+	Dns          string   `json:"dns"`
+	Routes       []Route3 `json:"routes"`
 }
 
 // this is for the new api gateway

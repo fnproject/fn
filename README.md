@@ -1,9 +1,5 @@
 
 
-
-PROBABLY NEEDS TO BE DOCKER IN DOCKER FOR IT TO WORK SMOOTHLY, MAYBE DROP THE DJ GO RUN THING
-AND DO IT NORMALLY.
-
 # MicroServices Gateway / API Gateway
 
 First things first, register an app:
@@ -71,10 +67,18 @@ Test it, the iron token and project id are for cache.
 docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --rm -it --privileged --net=host -p 8080:8080 iron/gateway
 ```
 
+Push it:
+
+```sh
+docker push iron/gateway
+```
+
+Get it on a server and point router.iron.computer (on cloudflare) to the machine.
+
 After deploying, running it with:
 
 ```sh
-docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --name irongateway -it --privileged --net=host -p 8080:8080 -d iron/gateway
+docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --name irongateway -it --privileged --net=host -p 8080:8080 -d --name irongateway iron/gateway
 
 # Previous version:
 

@@ -14,5 +14,9 @@
     "to": "papertrail",
     "level": "debug",
     "prefix": "router_staging"
-  }
+  },
+  "cloudflare": {
+      "email": "treeder@gmail.com",
+      "auth_key": "f94272c543f19f8fad0f4f5b3e2ddb74ad929"
+    }
 }
