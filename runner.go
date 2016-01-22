@@ -50,81 +50,22 @@ func Run(w http.ResponseWriter, req *http.Request) {
 	}
 	golog.Infoln("app", app)
 
-	var b bytes.Buffer
-	buff := bufio.NewWriter(&b)
-
 	// find route
 	for _, el := range app.Routes {
 		// TODO: copy/use gorilla's pattern matching here
 		if el.Path == req.URL.Path {
 			// Boom, run it!
-			err = checkAndPull(&el)
+			err = checkAndPull(el.Image)
 			if err != nil {
 				common.SendError(w, 404, fmt.Sprintln("The image could not be pulled:", err))
 				return
 			}
 			if el.Type == "app" {
-				ra := runningImages[el.Image]
-				if ra == nil {
-					ra = &RunningApp{}
-					ra.Route = &el
-					ra.Port = rand.Intn(9999-9000) + 9000
-					ra.ContainerName = fmt.Sprintf("c_%v", rand.Intn(10000))
-					runningImages[el.Image] = ra
-					// TODO: timeout 59 minutes. Mark it in ra as terminated.
-					cmd := exec.Command("docker", "run", "--name", ra.ContainerName, "--rm", "-i", "-p", fmt.Sprintf("%v:8080", ra.Port), el.Image)
-					// TODO: What should we do with the output here?  Store it? Send it to a log service?
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					// TODO: Need to catch interrupt and stop all containers that are started, see devo/dj for how to do this
-					if err := cmd.Start(); err != nil {
-						log.Fatal(err)
-					}
-					// TODO: What if the app fails to start? Don't want to keep starting the container
-				} else {
-					// TODO: check if it's still running?
-					// TODO: if ra.terminated, then start new container?
-				}
-				fmt.Println("RunningApp:", ra)
-				// TODO: if connection fails, check if container still running?  If not, start it again
-				resp, err := http.Get(fmt.Sprintf("http://0.0.0.0:%v%v", ra.Port, el.ContainerPath))
-				if err != nil {
-					common.SendError(w, 404, fmt.Sprintln("The requested app endpoint does not exist.", err))
-					return
-				}
-				defer resp.Body.Close()
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					common.SendError(w, 500, fmt.Sprintln("Error reading response body", err))
-					return
-				}
-				fmt.Fprintln(w, string(body))
+				DockerHost(&el, w)
 				return
 			} else { // "run"
 				// TODO: timeout 59 seconds
-				cmd := exec.Command("docker", "run", "--rm", "-i", el.Image)
-				stdout, err := cmd.StdoutPipe()
-				if err != nil {
-					log.Fatal(err)
-				}
-				stderr, err := cmd.StderrPipe()
-				if err != nil {
-					log.Fatal(err)
-				}
-				if err := cmd.Start(); err != nil {
-					log.Fatal(err)
-				}
-				go io.Copy(buff, stdout)
-				go io.Copy(buff, stderr)
-
-				log.Printf("Waiting for command to finish...")
-				if err = cmd.Wait(); err != nil {
-					log.Fatal(err)
-				}
-				log.Printf("Command finished with error: %v", err)
-				buff.Flush()
-				golog.Infoln("Docker ran successfully:", b.String())
-				fmt.Fprintln(w, b.String())
+				DockerRun(el.Image, w)
 				return
 			}
 		}
@@ -132,12 +73,79 @@ func Run(w http.ResponseWriter, req *http.Request) {
 	common.SendError(w, 404, fmt.Sprintln("The requested endpoint does not exist."))
 }
 
-func checkAndPull(route *Route3) error {
-	err := execAndPrint("docker", []string{"inspect", route.Image})
+// TODO: use Docker utils from docker-job for this and a few others in here
+func DockerRun(image string, w http.ResponseWriter) {
+	cmd := exec.Command("docker", "run", "--rm", "-i", image)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	var b bytes.Buffer
+	buff := bufio.NewWriter(&b)
+
+	go io.Copy(buff, stdout)
+	go io.Copy(buff, stderr)
+
+	log.Printf("Waiting for command to finish...")
+	if err = cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Command finished with error: %v", err)
+	buff.Flush()
+	golog.Infoln("Docker ran successfully:", b.String())
+	fmt.Fprintln(w, b.String())
+}
+func DockerHost(el *Route3, w http.ResponseWriter) {
+	ra := runningImages[el.Image]
+	if ra == nil {
+		ra = &RunningApp{}
+		ra.Route = el
+		ra.Port = rand.Intn(9999-9000) + 9000
+		ra.ContainerName = fmt.Sprintf("c_%v", rand.Intn(10000))
+		runningImages[el.Image] = ra
+		// TODO: timeout 59 minutes. Mark it in ra as terminated.
+		cmd := exec.Command("docker", "run", "--name", ra.ContainerName, "--rm", "-i", "-p", fmt.Sprintf("%v:8080", ra.Port), el.Image)
+		// TODO: What should we do with the output here?  Store it? Send it to a log service?
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		// TODO: Need to catch interrupt and stop all containers that are started, see devo/dj for how to do this
+		if err := cmd.Start(); err != nil {
+			log.Fatal(err)
+		}
+		// TODO: What if the app fails to start? Don't want to keep starting the container
+	} else {
+		// TODO: check if it's still running?
+		// TODO: if ra.terminated, then start new container?
+	}
+	fmt.Println("RunningApp:", ra)
+	// TODO: if connection fails, check if container still running?  If not, start it again
+	resp, err := http.Get(fmt.Sprintf("http://0.0.0.0:%v%v", ra.Port, el.ContainerPath))
+	if err != nil {
+		common.SendError(w, 404, fmt.Sprintln("The requested app endpoint does not exist.", err))
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		common.SendError(w, 500, fmt.Sprintln("Error reading response body", err))
+		return
+	}
+	fmt.Fprintln(w, string(body))
+}
+
+func checkAndPull(image string) error {
+	err := execAndPrint("docker", []string{"inspect", image})
 	if err != nil {
 		// image does not exist, so let's pull
 		fmt.Println("Image not found locally, will pull.", err)
-		err = execAndPrint("docker", []string{"pull", route.Image})
+		err = execAndPrint("docker", []string{"pull", image})
 	}
 	return err
 }
