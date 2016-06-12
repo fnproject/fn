@@ -79,6 +79,7 @@ After deploying, running it with:
 
 ```sh
 docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" --name irongateway -it --privileged --net=host -p 8080:8080 -d --name irongateway iron/gateway
+```
 
 # Previous version:
 
