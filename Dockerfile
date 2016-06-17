@@ -1,7 +1,7 @@
-FROM treeder/go-dind
+FROM iron/dind
 
 RUN mkdir /app
-ADD app /app/gateway
+ADD gateway /app/
 WORKDIR /app
 
-ENTRYPOINT rc default && sleep 1 && ./gateway && sleep 1
+CMD ["./gateway"]

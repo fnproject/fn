@@ -4,17 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	// "github.com/gorilla/mux"
 	"github.com/iron-io/go/common"
 	"github.com/iron-io/golog"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	log "github.com/Sirupsen/logrus"
 )
 
 type RunningApp struct {
@@ -95,13 +94,16 @@ func DockerRun(image string, w http.ResponseWriter) {
 
 	log.Printf("Waiting for command to finish...")
 	if err = cmd.Wait(); err != nil {
+		// this probably shouldn't be fatal?  test with iron/error image
 		log.Fatal(err)
 	}
+	log.WithFields(log.Fields{"metric": "ran", "value": 1, "type": "count"}).Infoln("")
 	log.Printf("Command finished with error: %v", err)
 	buff.Flush()
 	golog.Infoln("Docker ran successfully:", b.String())
 	fmt.Fprintln(w, b.String())
 }
+
 func DockerHost(el *Route3, w http.ResponseWriter) {
 	ra := runningImages[el.Image]
 	if ra == nil {
