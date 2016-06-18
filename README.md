@@ -15,7 +15,7 @@ curl -H "Content-Type: application/json" -X POST -d '{"name":"myapp"}' http://lo
 Now add routes to the app. First we'll add a route to the output of a docker container:
 
 ```sh
-iron add route myapp /hello iron/hello:0.0.1
+iron add route myapp /hello iron/hello
 # OR
 curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello", "image":"iron/hello", "type":"run"}' http://localhost:8080/api/v1/apps/myapp/routes
 ```
@@ -23,7 +23,7 @@ curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello", "image":"
 And how about a [slackbot](https://github.com/treeder/slackbots/tree/master/guppy) endpoint:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d '{"path":"/guppy","image":"treeder/guppy:0.0.2"}' http://localhost:8080/api/v1/apps/myapp/routes
+curl -H "Content-Type: application/json" -X POST -d '{"path":"/guppy","image":"treeder/guppy:0.0.2", "content_type": "application/json"}' http://localhost:8080/api/v1/apps/myapp/routes
 ```
 
 Test out the route:
@@ -59,6 +59,11 @@ You'all also get a custom URL like this when in production.
 ```
 appname.iron.computer
 ```
+
+## Updating Your Images
+
+Tag your images with a version, eg `treeder/guppy:0.0.5` then use that including the tag and update
+the route.
 
 ## Building/Testing
 
@@ -99,3 +104,5 @@ docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd27
 * [ ] Allow env vars for config on the app and routes (routes override apps). 
 * [ ] Provide a base url for each app, eg: appname.userid.iron.computer
 * [ ] Allow setting content-type on a route, then use that when responding
+* [ ] Maybe use STDERR for logs and STDOUT is used for the response.
+ 

@@ -30,4 +30,6 @@ type Route3 struct {
 	Image         string `json:"image"`
 	Type          string `json:"type"`
 	ContainerPath string `json:"cpath"`
+	// maybe user a header map for whatever user wants to send?
+	ContentType string `json:"content_type"`
 }

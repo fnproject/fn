@@ -32,7 +32,8 @@ func init() {
 func Run(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("RUN!!!!")
 	log.Infoln("HOST:", req.Host)
-	appName := req.FormValue("app")
+	rUrl := req.URL
+	appName := rUrl.Query().Get("app")
 	log.Infoln("app_name", appName, "path:", req.URL.Path)
 	if appName != "" {
 		// passed in the name
@@ -64,7 +65,7 @@ func Run(w http.ResponseWriter, req *http.Request) {
 				return
 			} else { // "run"
 				// TODO: timeout 59 seconds
-				DockerRun(el.Image, w, req)
+				DockerRun(el, w, req)
 				return
 			}
 		}
@@ -73,8 +74,9 @@ func Run(w http.ResponseWriter, req *http.Request) {
 }
 
 // TODO: use Docker utils from docker-job for this and a few others in here
-func DockerRun(image string, w http.ResponseWriter, req *http.Request) {
-
+func DockerRun(route *Route3, w http.ResponseWriter, req *http.Request) {
+	log.Infoln("route:", route)
+	image := route.Image
 	payload, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.WithError(err).Errorln("Error reading request body")
@@ -115,6 +117,9 @@ func DockerRun(image string, w http.ResponseWriter, req *http.Request) {
 	}
 	log.WithFields(log.Fields{"metric": "run", "value": 1, "type": "count"}).Infoln("job ran")
 	buff.Flush()
+	if route.ContentType != "" {
+		w.Header().Set("Content-Type", route.ContentType)
+	}
 	fmt.Fprintln(w, string(bytes.Trim(b.Bytes(), "\x00")))
 }
 
