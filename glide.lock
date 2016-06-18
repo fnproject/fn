@@ -1,5 +1,5 @@
 hash: a104a522dc2ba982d25101330bbd5d44778565128f0cb09f34061c167921046c
-updated: 2016-06-15T17:17:05.21953321-07:00
+updated: 2016-06-17T14:27:42.156301621-07:00
 imports:
 - name: github.com/amir/raidman
   version: 91c20f3f475cab75bb40ad7951d9bbdde357ade7
@@ -12,7 +12,7 @@ imports:
   subpackages:
   - statsd
 - name: github.com/dgrijalva/jwt-go
-  version: c04502f106d7c5b3fae17c5da49a1bbdd3006b3c
+  version: f0777076321ab64f6efc15a82d9d23b98539b943
 - name: github.com/golang/protobuf
   version: 0c1f6d65b5a189c2250d10e71a5506f06f9fa0a0
   subpackages:
@@ -29,7 +29,7 @@ imports:
   - semaphore
   - serverutil
 - name: github.com/iron-io/go
-  version: 277190779e20ad6bff386a5f7f6a8009d73fa475
+  version: 6b082f50f20cb0e0146bdf0ffbc6c07216eeea77
   subpackages:
   - common
   - common/httpshutdown
@@ -50,12 +50,14 @@ imports:
   version: 9056b7a9f2d1f2d96498d6d146acd1f9d5ed3d59
 - name: github.com/mattn/go-isatty
   version: 56b76bdf51f7708750eac80fa38b952bb9f32639
+- name: github.com/Sirupsen/logrus
+  version: f3cfb454f4c209e6668c95216c4744b8fddb2356
 - name: github.com/vmihailenco/bufio
   version: 24e7e48f60fc2d9e99e43c07485d9fff42051e66
 - name: github.com/vrischmann/envconfig
   version: 9e6e1c4d3b73427d03118518603bb904d9c55236
 - name: golang.org/x/net
-  version: 3f122ce3dbbe488b7e6a8bdb26f41edec852a40b
+  version: d7bf3545bb0dacf009c535b3d3fbf53ac0a339ab
   subpackages:
   - proxy
 - name: golang.org/x/sys

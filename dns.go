@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/iron-io/go/common"
-	"gopkg.in/inconshreveable/log15.v2"
 )
 
 type CloudFlareResult struct {
@@ -30,7 +30,7 @@ func registerHost(w http.ResponseWriter, r *http.Request, app *App) bool {
 	// WORKER_NAME.PROJECT_ID.iron.computer.
 	dnsHost := fmt.Sprintf("%v.%v.iron.computer", app.Name, 123)
 	app.Dns = dnsHost
-	log15.Info("registering dns", "dnsname", dnsHost)
+	log.Info("registering dns", "dnsname", dnsHost)
 
 	if app.CloudFlareId == "" {
 		// Tad hacky, but their go lib is pretty confusing.
@@ -53,7 +53,7 @@ func registerHost(w http.ResponseWriter, r *http.Request, app *App) bool {
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
 		if err != nil {
-			log15.Error("Could not register dns entry.", "err", err)
+			log.Error("Could not register dns entry.", "err", err)
 			common.SendError(w, 500, fmt.Sprint("Could not register dns entry.", err))
 			return false
 		}
@@ -61,14 +61,14 @@ func registerHost(w http.ResponseWriter, r *http.Request, app *App) bool {
 		// todo: get error message from body for bad status code
 		body, err := ioutil.ReadAll(resp.Body)
 		if resp.StatusCode != 200 {
-			log15.Error("Could not register dns entry 2.", "code", resp.StatusCode, "body", string(body))
+			log.Error("Could not register dns entry 2.", "code", resp.StatusCode, "body", string(body))
 			common.SendError(w, 500, fmt.Sprint("Could not register dns entry 2. ", resp.StatusCode))
 			return false
 		}
 		cfResult := CloudFlareResponse{}
 		err = json.Unmarshal(body, &cfResult)
 		if err != nil {
-			log15.Error("Could not parse DNS response.", "err", err, "code", resp.StatusCode, "body", string(body))
+			log.Error("Could not parse DNS response.", "err", err, "code", resp.StatusCode, "body", string(body))
 			common.SendError(w, 500, fmt.Sprint("Could not parse DNS response. ", resp.StatusCode))
 			return false
 		}
@@ -76,6 +76,6 @@ func registerHost(w http.ResponseWriter, r *http.Request, app *App) bool {
 		app.CloudFlareId = cfResult.Result.Id
 	}
 
-	log15.Info("host registered successfully with cloudflare", "app", app)
+	log.Info("host registered successfully with cloudflare", "app", app)
 	return true
 }

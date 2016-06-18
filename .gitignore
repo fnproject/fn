@@ -10,3 +10,5 @@ app.zip
 vendor/
 /microgateway
 /gateway
+
+private.sh

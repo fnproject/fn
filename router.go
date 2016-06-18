@@ -11,20 +11,19 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/iron-io/go/common"
-	"github.com/iron-io/golog"
-	"github.com/iron-io/iron_go/cache"
-	"github.com/iron-io/iron_go/worker"
-	"gopkg.in/inconshreveable/log15.v2"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
-	"runtime"
 	"strings"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/mux"
+	"github.com/iron-io/go/common"
+	"github.com/iron-io/iron_go/cache"
+	"github.com/iron-io/iron_go/worker"
 )
 
 var config struct {
@@ -82,11 +81,12 @@ func main() {
 	common.LoadConfigFile(configFile, &config)
 	//	common.SetLogging(common.LoggingConfig{To: config.Logging.To, Level: config.Logging.Level, Prefix: config.Logging.Prefix})
 
-	log.Println("config:", config)
-	golog.Infoln("Starting up router version", version)
+	// TODO: validate inputs, iron tokens, cloudflare stuff, etc
+	config.CloudFlare.Email = os.Getenv("CLOUDFLARE_EMAIL")
+	config.CloudFlare.AuthKey = os.Getenv("CLOUDFLARE_API_KEY")
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	log.Println("Running on", runtime.NumCPU(), "CPUs")
+	log.Println("config:", config)
+	log.Infoln("Starting up router version", version)
 
 	r := mux.NewRouter()
 
@@ -95,35 +95,34 @@ func main() {
 	s2.Handle("/", &WorkerHandler{})
 
 	// dev:
-	fmt.Println("Setting /test subrouter")
-	s := r.PathPrefix("/test").Subrouter()
+	s := r.PathPrefix("/api").Subrouter()
 	// production:
 	// s := r.Host("router.irondns.info").Subrouter()
-	s.Handle("/1/projects/{project_id}/register", &Register{})
-	s.Handle("/1/projects/{project_id}/apps", &NewApp{})
-	s.HandleFunc("/1/projects/{project_id}/apps/{app_name}/routes", NewRoute)
+	// s.Handle("/1/projects/{project_id}/register", &Register{})
+	s.Handle("/v1/apps", &NewApp{})
+	s.HandleFunc("/v1/apps/{app_name}/routes", NewRoute)
 	s.HandleFunc("/ping", Ping)
 	s.HandleFunc("/version", Version)
-	s.Handle("/addworker", &WorkerHandler{})
+	// s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
 	r.HandleFunc("/elb-ping-router", Ping) // for ELB health check
 
 	// for testing app responses, pass in app name, can use localhost
 	s4 := r.Queries("app", "").Subrouter()
-	s4.HandleFunc("/appsr", Ping)
+	// s4.HandleFunc("/appsr", Ping)
 	s4.HandleFunc("/{rest:.*}", Run)
 	s4.NotFoundHandler = http.HandlerFunc(Run)
 
-	s3 := r.Queries("rhost", "").Subrouter()
-	s3.HandleFunc("/", ProxyFunc2)
+	// s3 := r.Queries("rhost", "").Subrouter()
+	// s3.HandleFunc("/", ProxyFunc2)
 
 	// This is where all the main incoming traffic goes
 	r.NotFoundHandler = http.HandlerFunc(Run)
 
 	http.Handle("/", r)
 	port := 8080
-	golog.Infoln("Router started, listening and serving on port", port)
+	log.Infoln("Router started, listening and serving on port", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%v", port), nil))
 }
 
@@ -133,10 +132,10 @@ func ProxyFunc2(w http.ResponseWriter, req *http.Request) {
 }
 
 func ProxyFunc(w http.ResponseWriter, req *http.Request) {
-	golog.Infoln("HOST:", req.Host)
+	log.Infoln("HOST:", req.Host)
 	host := strings.Split(req.Host, ":")[0]
 	rhost := req.FormValue("rhost")
-	golog.Infoln("rhost:", rhost)
+	log.Infoln("rhost:", rhost)
 	if rhost != "" {
 		host = rhost
 	}
@@ -146,10 +145,10 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 	// 2) This host has active workers so we do the proxy
 	// 3) This host has no active workers so we queue one (or more) up and return a 503 or something with message that says "try again in a minute"
 	//	route := routingTable[host]
-	golog.Infoln("getting route for host:", host, "--")
+	log.Infoln("getting route for host:", host, "--")
 	route, err := getRoute(host)
-	golog.Infoln("route:", route)
-	golog.Infoln("err:", err)
+	log.Infoln("route:", route)
+	log.Infoln("err:", err)
 	if err != nil {
 		common.SendError(w, 400, fmt.Sprintln("Host not registered or error!", err))
 		return
@@ -165,13 +164,13 @@ func ProxyFunc(w http.ResponseWriter, req *http.Request) {
 func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 	dlen := len(route.Destinations)
 	if dlen == 0 {
-		golog.Infoln("No workers running, starting new task.")
+		log.Infoln("No workers running, starting new task.")
 		startNewWorker(route)
 		common.SendError(w, 500, fmt.Sprintln("No workers running, starting them up..."))
 		return
 	}
 	if dlen < 3 {
-		golog.Infoln("Less than three workers running, starting a new task.")
+		log.Infoln("Less than three workers running, starting a new task.")
 		startNewWorker(route)
 	}
 	destIndex := rand.Intn(dlen)
@@ -181,21 +180,21 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 	destUrl, err := url.Parse(destUrlString2)
 	if err != nil {
 		removeDestination(route, destIndex, w)
-		golog.Infoln("error!", err)
+		log.Infoln("error!", err)
 		common.SendError(w, 500, fmt.Sprintln("Internal error occurred:", err))
 		return
 	}
 	// todo: check destination runtime and remove it if it's expired so we don't send requests to an endpoint that is about to be killed
-	golog.Infoln("proxying to", destUrl)
+	log.Infoln("proxying to", destUrl)
 	proxy := NewSingleHostReverseProxy(destUrl)
 	err = proxy.ServeHTTP(w, req)
 	if err != nil {
-		golog.Infoln("Error proxying!", err)
+		log.Infoln("Error proxying!", err)
 		etype := reflect.TypeOf(err)
-		golog.Infoln("err type:", etype)
+		log.Infoln("err type:", etype)
 		// can't figure out how to compare types so comparing strings.... lame.
 		if true || strings.Contains(etype.String(), "net.OpError") { // == reflect.TypeOf(net.OpError{}) { // couldn't figure out a better way to do this
-			golog.Infoln("It's a network error so we're going to remove destination.")
+			log.Infoln("It's a network error so we're going to remove destination.")
 			removeDestination(route, destIndex, w)
 			serveEndpoint(w, req, route)
 			return
@@ -203,28 +202,28 @@ func serveEndpoint(w http.ResponseWriter, req *http.Request, route *Route) {
 		common.SendError(w, 500, fmt.Sprintln("Internal error occurred:", err))
 		return
 	}
-	golog.Infoln("Served!")
+	log.Infoln("Served!")
 }
 
 func removeDestination(route *Route, destIndex int, w http.ResponseWriter) {
-	golog.Infoln("Removing destination", destIndex, "from route:", route)
+	log.Infoln("Removing destination", destIndex, "from route:", route)
 	route.Destinations = append(route.Destinations[:destIndex], route.Destinations[destIndex+1:]...)
 	err := putRoute(route)
 	if err != nil {
-		golog.Infoln("Couldn't update routing table:", err)
+		log.Infoln("Couldn't update routing table:", err)
 		common.SendError(w, 500, fmt.Sprintln("couldn't update routing table", err))
 		return
 	}
-	golog.Infoln("New route after remove destination:", route)
+	log.Infoln("New route after remove destination:", route)
 	//	if len(route.Destinations) < 3 {
-	//		golog.Infoln("After network error, there are less than three destinations, so starting a new one. ")
+	//		log.Infoln("After network error, there are less than three destinations, so starting a new one. ")
 	//		// always want at least three running
 	//		startNewWorker(route)
 	//	}
 }
 
 func startNewWorker(route *Route) error {
-	golog.Infoln("Starting a new worker")
+	log.Infoln("Starting a new worker")
 	// start new worker
 	payload := map[string]interface{}{
 		"token":      config.Iron.SuperToken,
@@ -238,7 +237,7 @@ func startNewWorker(route *Route) error {
 	workerapi.Settings.UseConfigMap(payload)
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		golog.Infoln("Couldn't marshal json!", err)
+		log.Infoln("Couldn't marshal json!", err)
 		return err
 	}
 	timeout := time.Second * time.Duration(1800+rand.Intn(600)) // a little random factor in here to spread out worker deaths
@@ -250,9 +249,9 @@ func startNewWorker(route *Route) error {
 	tasks := make([]worker.Task, 1)
 	tasks[0] = task
 	taskIds, err := workerapi.TaskQueue(tasks...)
-	golog.Infoln("Tasks queued.", taskIds)
+	log.Infoln("Tasks queued.", taskIds)
 	if err != nil {
-		golog.Infoln("Couldn't queue up worker!", err)
+		log.Infoln("Couldn't queue up worker!", err)
 		return err
 	}
 	return err
@@ -267,13 +266,13 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]
 	token := common.GetToken(req)
-	golog.Infoln("project_id:", projectId, "token:", token.Token)
+	log.Infoln("project_id:", projectId, "token:", token.Token)
 
 	route := Route{}
 	if !common.ReadJSON(w, req, &route) {
 		return
 	}
-	golog.Infoln("body read into route:", route)
+	log.Infoln("body read into route:", route)
 	route.ProjectId = projectId
 	route.Token = token.Token
 
@@ -287,11 +286,11 @@ func (r *Register) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// todo: do we need to close body?
 	err = putRoute(&route)
 	if err != nil {
-		golog.Infoln("couldn't register host:", err)
+		log.Infoln("couldn't register host:", err)
 		common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 		return
 	}
-	golog.Infoln("registered route:", route)
+	log.Infoln("registered route:", route)
 	fmt.Fprintln(w, "Host registered successfully.")
 }
 
@@ -304,13 +303,13 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]
 	// token := common.GetToken(req)
-	golog.Infoln("project_id:", projectId)
+	log.Infoln("project_id:", projectId)
 
 	app := App{}
 	if !common.ReadJSON(w, req, &app) {
 		return
 	}
-	golog.Infoln("body read into app:", app)
+	log.Infoln("body read into app:", app)
 	app.ProjectId = projectId
 
 	_, err := getApp(app.Name)
@@ -319,9 +318,11 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	app.Routes = make(map[string]*Route3)
+
 	// create dns entry
 	// TODO: Add project id to this. eg: appname.projectid.iron.computer
-	log15.Debug("Creating dns entry.")
+	log.Debug("Creating dns entry.")
 	regOk := registerHost(w, req, &app)
 	if !regOk {
 		return
@@ -330,11 +331,11 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// todo: do we need to close body?
 	err = putApp(&app)
 	if err != nil {
-		golog.Infoln("couldn't create app:", err)
+		log.Infoln("couldn't create app:", err)
 		common.SendError(w, 400, fmt.Sprintln("Could not create app!", err))
 		return
 	}
-	golog.Infoln("registered app:", app)
+	log.Infoln("registered app:", app)
 	v := map[string]interface{}{"app": app}
 	common.SendSuccess(w, "App created successfully.", v)
 }
@@ -344,13 +345,13 @@ func NewRoute(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	projectId := vars["project_id"]
 	appName := vars["app_name"]
-	golog.Infoln("project_id:", projectId, "app_name", appName)
+	log.Infoln("project_id:", projectId, "app_name", appName)
 
-	route := Route3{}
+	route := &Route3{}
 	if !common.ReadJSON(w, req, &route) {
 		return
 	}
-	golog.Infoln("body read into route:", route)
+	log.Infoln("body read into route:", route)
 
 	// TODO: validate route
 
@@ -360,14 +361,19 @@ func NewRoute(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	app.Routes = append(app.Routes, route)
+	if route.Type == "" {
+		route.Type = "run"
+	}
+
+	// app.Routes = append(app.Routes, route)
+	app.Routes[route.Path] = route
 	err = putApp(app)
 	if err != nil {
-		golog.Errorln("Couldn't create route!:", err)
+		log.Errorln("Couldn't create route!:", err)
 		common.SendError(w, 400, fmt.Sprintln("Could not create route!", err))
 		return
 	}
-	golog.Infoln("Route created:", route)
+	log.Infoln("Route created:", route)
 	fmt.Fprintln(w, "Route created successfully.")
 }
 
@@ -376,13 +382,13 @@ type WorkerHandler struct {
 
 // When a worker starts up, it calls this
 func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	golog.Infoln("AddWorker called!")
+	log.Infoln("AddWorker called!")
 
 	// get project id and token
 	projectId := req.FormValue("project_id")
 	token := req.FormValue("token")
 	//	codeName := req.FormValue("code_name")
-	golog.Infoln("project_id:", projectId, "token:", token)
+	log.Infoln("project_id:", projectId, "token:", token)
 
 	// check header for what operation to perform
 	routerHeader := req.Header.Get("Iron-Router")
@@ -394,28 +400,28 @@ func (wh *WorkerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		// todo: do we need to close body?
-		golog.Infoln("Incoming body from worker:", r2)
+		log.Infoln("Incoming body from worker:", r2)
 		route, err := getRoute(r2.Host)
 		if err != nil {
 			common.SendError(w, 400, fmt.Sprintln("This host is not registered!", err))
 			return
 		}
-		golog.Infoln("ROUTE:", route)
+		log.Infoln("ROUTE:", route)
 		route.Destinations = append(route.Destinations, r2.Dest)
-		golog.Infoln("ROUTE new:", route)
+		log.Infoln("ROUTE new:", route)
 		err = putRoute(route)
 		if err != nil {
-			golog.Infoln("couldn't register host:", err)
+			log.Infoln("couldn't register host:", err)
 			common.SendError(w, 400, fmt.Sprintln("Could not register host!", err))
 			return
 		}
 		fmt.Fprintln(w, "Worker added")
-		golog.Infoln("Worked added.")
+		log.Infoln("Worked added.")
 	}
 }
 
 func getRoute(host string) (*Route, error) {
-	golog.Infoln("getRoute for host:", host)
+	log.Infoln("getRoute for host:", host)
 	rx, err := icache.Get(host)
 	if err != nil {
 		return nil, err
@@ -441,7 +447,7 @@ func putRoute(route *Route) error {
 }
 
 func getApp(name string) (*App, error) {
-	golog.Infoln("getapp:", name)
+	log.Infoln("getapp:", name)
 	rx, err := icache.Get(name)
 	if err != nil {
 		return nil, err

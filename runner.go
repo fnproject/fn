@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/iron-io/go/common"
-	"github.com/iron-io/golog"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -13,7 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
 	log "github.com/Sirupsen/logrus"
+	"github.com/iron-io/go/common"
 )
 
 type RunningApp struct {
@@ -31,15 +31,15 @@ func init() {
 
 func Run(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("RUN!!!!")
-	golog.Infoln("HOST:", req.Host)
+	log.Infoln("HOST:", req.Host)
 	appName := req.FormValue("app")
-	golog.Infoln("app_name", appName, "path:", req.URL.Path)
+	log.Infoln("app_name", appName, "path:", req.URL.Path)
 	if appName != "" {
 		// passed in the name
 	} else {
 		host := strings.Split(req.Host, ":")[0]
 		appName = strings.Split(host, ".")[0]
-		golog.Infoln("app_name from host", appName)
+		log.Infoln("app_name from host", appName)
 	}
 
 	app, err := getApp(appName)
@@ -47,7 +47,7 @@ func Run(w http.ResponseWriter, req *http.Request) {
 		common.SendError(w, 400, fmt.Sprintln("This app does not exist. Please create app first.", err))
 		return
 	}
-	golog.Infoln("app", app)
+	log.Infoln("app", app)
 
 	// find route
 	for _, el := range app.Routes {
@@ -60,11 +60,11 @@ func Run(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			if el.Type == "app" {
-				DockerHost(&el, w)
+				DockerHost(el, w)
 				return
 			} else { // "run"
 				// TODO: timeout 59 seconds
-				DockerRun(el.Image, w)
+				DockerRun(el.Image, w, req)
 				return
 			}
 		}
@@ -73,8 +73,18 @@ func Run(w http.ResponseWriter, req *http.Request) {
 }
 
 // TODO: use Docker utils from docker-job for this and a few others in here
-func DockerRun(image string, w http.ResponseWriter) {
-	cmd := exec.Command("docker", "run", "--rm", "-i", image)
+func DockerRun(image string, w http.ResponseWriter, req *http.Request) {
+
+	payload, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.WithError(err).Errorln("Error reading request body")
+		return
+	}
+	log.WithField("payload", "---"+string(payload)+"---").Infoln("incoming request")
+	log.WithField("image", image).Infoln("About to run using this image")
+
+	// TODO: swap all this out with Titan's running via API
+	cmd := exec.Command("docker", "run", "--rm", "-i", "-e", fmt.Sprintf("PAYLOAD=%v", string(payload)), image)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -94,14 +104,18 @@ func DockerRun(image string, w http.ResponseWriter) {
 
 	log.Printf("Waiting for command to finish...")
 	if err = cmd.Wait(); err != nil {
-		// this probably shouldn't be fatal?  test with iron/error image
-		log.Fatal(err)
+		// job failed
+		log.Infoln("job finished with err:", err)
+		log.WithFields(log.Fields{"metric": "run.errors", "value": 1, "type": "count"}).Infoln("failed run")
+		// TODO: wrap error in json "error": buff
+	} else {
+		log.Infoln("Docker ran successfully:", b.String())
+		// print
+		log.WithFields(log.Fields{"metric": "run.success", "value": 1, "type": "count"}).Infoln("successful run")
 	}
-	log.WithFields(log.Fields{"metric": "ran", "value": 1, "type": "count"}).Infoln("")
-	log.Printf("Command finished with error: %v", err)
+	log.WithFields(log.Fields{"metric": "run", "value": 1, "type": "count"}).Infoln("job ran")
 	buff.Flush()
-	golog.Infoln("Docker ran successfully:", b.String())
-	fmt.Fprintln(w, b.String())
+	fmt.Fprintln(w, string(bytes.Trim(b.Bytes(), "\x00")))
 }
 
 func DockerHost(el *Route3, w http.ResponseWriter) {
@@ -120,8 +134,8 @@ func DockerHost(el *Route3, w http.ResponseWriter) {
 		// TODO: Need to catch interrupt and stop all containers that are started, see devo/dj for how to do this
 		if err := cmd.Start(); err != nil {
 			log.Fatal(err)
+			// TODO: What if the app fails to start? Don't want to keep starting the container
 		}
-		// TODO: What if the app fails to start? Don't want to keep starting the container
 	} else {
 		// TODO: check if it's still running?
 		// TODO: if ra.terminated, then start new container?
