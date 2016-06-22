@@ -100,9 +100,7 @@ docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd27
 
 * [ ] Check if image exists when registering the endpoint, not at run time
 * [ ] Put stats into influxdb or something to show to user (requests, errors)
-* [ ] Store recent logs for user.  
+* [ ] Store recent logs. Get logs from STDERR, STDOUT is the response.  
 * [ ] Allow env vars for config on the app and routes (routes override apps). 
 * [ ] Provide a base url for each app, eg: appname.userid.iron.computer
 * [ ] Allow setting content-type on a route, then use that when responding
-* [ ] Maybe use STDERR for logs and STDOUT is used for the response.
- 
