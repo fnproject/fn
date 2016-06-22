@@ -99,7 +99,7 @@ docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd27
 ## TODOS
 
 * [ ] Check if image exists when registering the endpoint, not at run time
-* [ ] Put stats into influxdb or something to show to user (requests, errors). Or maybe try Keen's new Native Analytics??  Could be faster and easier route. 
+* [ ] Put stats into influxdb or something to show to user (requests, errors). Or maybe try Keen's new Native Analytics??  Could be faster and easier route: https://keen.io/native-analytics/
 * [ ] Store recent logs. Get logs from STDERR, STDOUT is the response.  
 * [ ] Allow env vars for config on the app and routes (routes override apps). 
 * [ ] Provide a base url for each app, eg: appname.userid.iron.computer
