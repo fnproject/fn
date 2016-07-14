@@ -8,7 +8,7 @@ tag="latest"
 
 ./build.sh
 
-if [ -z $(grep -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
+if [ -z $(grep -Eo -m1 "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
   echo "did not find semantic version in $version_file"
   exit 1
 fi
