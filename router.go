@@ -44,7 +44,7 @@ var config struct {
 	}
 }
 
-const Version = "0.0.21"
+const Version = "0.0.23"
 
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
@@ -113,7 +113,7 @@ func main() {
 	http.Handle("/", r)
 	port := 8080
 	log.Infoln("Router started, listening and serving on port", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("0.0.2.0:%v", port), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("0.0.4.0:%v", port), nil))
 }
 
 type NewApp struct{}

@@ -8,15 +8,14 @@ tag="latest"
 
 ./build.sh
 
-if [ -z $(grep -Eo -m1 "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
+if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
   echo "did not find semantic version in $version_file"
   exit 1
 fi
 
 perl -i -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
-version=$(grep -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
+version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
-
 git add -u
 git commit -m "$service: $version release"
 git tag -a "$version" -m "version $version"
