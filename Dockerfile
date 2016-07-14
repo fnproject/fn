@@ -1,7 +1,7 @@
 FROM iron/dind
 
 RUN mkdir /app
-ADD gateway /app/
+ADD functions /app/
 WORKDIR /app
 
-CMD ["./gateway"]
+CMD ["./functions"]

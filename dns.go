@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/iron-io/go/common"
 )
 
 type CloudFlareResult struct {
@@ -54,7 +53,7 @@ func registerHost(w http.ResponseWriter, r *http.Request, app *App) bool {
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Error("Could not register dns entry.", "err", err)
-			common.SendError(w, 500, fmt.Sprint("Could not register dns entry.", err))
+			SendError(w, 500, fmt.Sprint("Could not register dns entry.", err))
 			return false
 		}
 		defer resp.Body.Close()
@@ -62,14 +61,14 @@ func registerHost(w http.ResponseWriter, r *http.Request, app *App) bool {
 		body, err := ioutil.ReadAll(resp.Body)
 		if resp.StatusCode != 200 {
 			log.Error("Could not register dns entry 2.", "code", resp.StatusCode, "body", string(body))
-			common.SendError(w, 500, fmt.Sprint("Could not register dns entry 2. ", resp.StatusCode))
+			SendError(w, 500, fmt.Sprint("Could not register dns entry 2. ", resp.StatusCode))
 			return false
 		}
 		cfResult := CloudFlareResponse{}
 		err = json.Unmarshal(body, &cfResult)
 		if err != nil {
 			log.Error("Could not parse DNS response.", "err", err, "code", resp.StatusCode, "body", string(body))
-			common.SendError(w, 500, fmt.Sprint("Could not parse DNS response. ", resp.StatusCode))
+			SendError(w, 500, fmt.Sprint("Could not parse DNS response. ", resp.StatusCode))
 			return false
 		}
 		fmt.Println("cfresult:", cfResult)

@@ -11,5 +11,6 @@ app.zip
 vendor/
 /microgateway
 /gateway
+/functions
 
 private.sh

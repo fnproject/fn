@@ -1,20 +1,20 @@
 hash: a104a522dc2ba982d25101330bbd5d44778565128f0cb09f34061c167921046c
-updated: 2016-06-17T14:27:42.156301621-07:00
+updated: 2016-07-14T08:40:37.798125603-07:00
 imports:
 - name: github.com/amir/raidman
   version: 91c20f3f475cab75bb40ad7951d9bbdde357ade7
   subpackages:
   - proto
 - name: github.com/BurntSushi/toml
-  version: f0aeabca5a127c4078abb8c8d64298b147264b55
+  version: bec2dacf4b590d26237cfebff4471e21ce543494
 - name: github.com/cactus/go-statsd-client
   version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
   subpackages:
   - statsd
 - name: github.com/dgrijalva/jwt-go
-  version: f0777076321ab64f6efc15a82d9d23b98539b943
+  version: 01aeca54ebda6e0fbfafd0a524d234159c05ec20
 - name: github.com/golang/protobuf
-  version: 0c1f6d65b5a189c2250d10e71a5506f06f9fa0a0
+  version: 874264fbbb43f4d91e999fecb4b40143ed611400
   subpackages:
   - proto
 - name: github.com/gorilla/context
@@ -29,14 +29,13 @@ imports:
   - semaphore
   - serverutil
 - name: github.com/iron-io/go
-  version: 6b082f50f20cb0e0146bdf0ffbc6c07216eeea77
+  version: 1ed3de151aa27db91d6df5dc8c8ce164c833b57c
   subpackages:
   - common
   - common/httpshutdown
   - common/msgpack
   - common/semaphore
   - common/stats
-  - common/serverutil
 - name: github.com/iron-io/golog
   version: 5b80d97af5a2a5d386e7609efb82192ae99a7c67
 - name: github.com/iron-io/iron_go
@@ -51,17 +50,17 @@ imports:
 - name: github.com/mattn/go-isatty
   version: 56b76bdf51f7708750eac80fa38b952bb9f32639
 - name: github.com/Sirupsen/logrus
-  version: f3cfb454f4c209e6668c95216c4744b8fddb2356
+  version: 32055c351ea8b00b96d70f28db48d9840feaf0ec
 - name: github.com/vmihailenco/bufio
   version: 24e7e48f60fc2d9e99e43c07485d9fff42051e66
 - name: github.com/vrischmann/envconfig
   version: 9e6e1c4d3b73427d03118518603bb904d9c55236
 - name: golang.org/x/net
-  version: d7bf3545bb0dacf009c535b3d3fbf53ac0a339ab
+  version: a728288923b47049b2ce791836767ffbe964a5bd
   subpackages:
   - proxy
 - name: golang.org/x/sys
-  version: 62bee037599929a6e9146f29d10dd5208c43507d
+  version: b518c298ac9dc94b6ac0757394f50d10c5dfa25a
   subpackages:
   - unix
 - name: gopkg.in/inconshreveable/log15.v2

@@ -44,7 +44,7 @@ var config struct {
 	}
 }
 
-var version = "0.0.19"
+const Version = "0.0.19"
 
 //var routingTable = map[string]*Route{}
 var icache = cache.New("routing-table")
@@ -72,7 +72,7 @@ func main() {
 		configFile = "config_" + env + ".json"
 	}
 
-	common.LoadConfigFile(configFile, &config)
+	// common.LoadConfigFile(configFile, &config)
 	//	common.SetLogging(common.LoggingConfig{To: config.Logging.To, Level: config.Logging.Level, Prefix: config.Logging.Prefix})
 
 	// TODO: validate inputs, iron tokens, cloudflare stuff, etc
@@ -80,7 +80,7 @@ func main() {
 	config.CloudFlare.AuthKey = os.Getenv("CLOUDFLARE_API_KEY")
 
 	log.Println("config:", config)
-	log.Infoln("Starting up router version", version)
+	log.Infoln("Starting up router version", Version)
 
 	r := mux.NewRouter()
 
@@ -92,7 +92,7 @@ func main() {
 	s.Handle("/v1/apps", &NewApp{})
 	s.HandleFunc("/v1/apps/{app_name}/routes", NewRoute)
 	s.HandleFunc("/ping", Ping)
-	s.HandleFunc("/version", Version)
+	s.HandleFunc("/version", VersionHandler)
 	// s.Handle("/addworker", &WorkerHandler{})
 	s.HandleFunc("/", Ping)
 
@@ -128,7 +128,7 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Infoln("project_id:", projectId)
 
 	app := App{}
-	if !common.ReadJSON(w, req, &app) {
+	if !ReadJSON(w, req, &app) {
 		return
 	}
 	log.Infoln("body read into app:", app)
@@ -136,7 +136,7 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	_, err := getApp(app.Name)
 	if err == nil {
-		common.SendError(w, 400, fmt.Sprintln("An app with this name already exists.", err))
+		SendError(w, 400, fmt.Sprintln("An app with this name already exists.", err))
 		return
 	}
 
@@ -154,12 +154,12 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	err = putApp(&app)
 	if err != nil {
 		log.Infoln("couldn't create app:", err)
-		common.SendError(w, 400, fmt.Sprintln("Could not create app!", err))
+		SendError(w, 400, fmt.Sprintln("Could not create app!", err))
 		return
 	}
 	log.Infoln("registered app:", app)
 	v := map[string]interface{}{"app": app}
-	common.SendSuccess(w, "App created successfully.", v)
+	SendSuccess(w, "App created successfully.", v)
 }
 
 func NewRoute(w http.ResponseWriter, req *http.Request) {
@@ -170,7 +170,7 @@ func NewRoute(w http.ResponseWriter, req *http.Request) {
 	log.Infoln("project_id:", projectId, "app_name", appName)
 
 	route := &Route3{}
-	if !common.ReadJSON(w, req, &route) {
+	if !ReadJSON(w, req, &route) {
 		return
 	}
 	log.Infoln("body read into route:", route)
@@ -179,7 +179,7 @@ func NewRoute(w http.ResponseWriter, req *http.Request) {
 
 	app, err := getApp(appName)
 	if err != nil {
-		common.SendError(w, 400, fmt.Sprintln("This app does not exist. Please create app first.", err))
+		SendError(w, 400, fmt.Sprintln("This app does not exist. Please create app first.", err))
 		return
 	}
 
@@ -192,7 +192,7 @@ func NewRoute(w http.ResponseWriter, req *http.Request) {
 	err = putApp(app)
 	if err != nil {
 		log.Errorln("Couldn't create route!:", err)
-		common.SendError(w, 400, fmt.Sprintln("Could not create route!", err))
+		SendError(w, 400, fmt.Sprintln("Could not create route!", err))
 		return
 	}
 	log.Infoln("Route created:", route)
@@ -255,6 +255,6 @@ func Ping(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, "pong")
 }
 
-func Version(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintln(w, version)
+func VersionHandler(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintln(w, Version)
 }
