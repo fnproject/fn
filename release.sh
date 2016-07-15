@@ -3,7 +3,7 @@ set -ex
 
 user="iron"
 service="functions"
-version_file="router.go"
+version_file="version.go"
 tag="latest"
 
 ./build.sh
