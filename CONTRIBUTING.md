@@ -13,7 +13,7 @@ glide install
 Test it, the iron token and project id are for cache.
 
 ```sh
-docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" -e "CLOUDFLARE_EMAIL=treeder@gmail.com" -e "CLOUDFLARE_API_KEY=X" --rm -it --privileged -p 8080:8080 iron/functions
+docker run -e "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" -e "CLOUDFLARE_EMAIL=treeder@gmail.com" -e "CLOUDFLARE_API_KEY=x" --rm -it --privileged -p 8080:8080 iron/functions
 ```
 
 Push it:
@@ -30,6 +30,12 @@ After deploying, run it with:
 docker run -e --name functions -it --privileged -d -p 80:80 "IRON_TOKEN=GP8cqlKSrcpmqeR8x9WKD4qSAss" -e "IRON_PROJECT_ID=4fd2729368a0197d1102056b" -e PORT=80 iron/functions
 ```
 
+
+## Releasing
+
+```sh
+./release.sh
+```
 
 ## FOR INFLUX AND ANALYTICS
 
@@ -57,3 +63,4 @@ docker run -p 10000:10000 --link influxdb chronograf
 Open UI: http://localhost:10000
 
 Add server with host `influxdb`
+
