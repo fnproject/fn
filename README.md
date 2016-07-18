@@ -1,15 +1,25 @@
 Note: currently running at: http://gateway.iron.computer:8080/
 
-# MicroServices Gateway / API Gateway
+# IronFunctions
+
+First, let's fire up an IronFunctions instance. Copy the [example.env](example.env) file into a file named `.env` and fill in the missing values. 
+
+Then start your functions instance:
+
+```
+docker run --env-file .env --rm -it --privileged -p 8080:8080 iron/functions
+```
+
+## Usage
 
 First things first, create an app/service:
 
 TOOD: App or service??
 
 ```sh
-iron create app
+iron create app APP_NAME
 # OR
-curl -H "Content-Type: application/json" -X POST -d '{"name":"myapp"}' http://localhost:8080/api/v1/apps
+curl -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' http://localhost:8080/api/v1/apps
 ```
 
 Now add routes to the app. First we'll add a route to the output of a docker container:
