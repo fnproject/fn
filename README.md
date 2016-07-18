@@ -41,7 +41,15 @@ And how about a [slackbot](https://github.com/treeder/slackbots/tree/master/gupp
 curl -H "Content-Type: application/json" -X POST -d '{"path":"/guppy","image":"treeder/guppy:0.0.2", "content_type": "application/json"}' http://localhost:8080/api/v1/apps/myapp/routes
 ```
 
-You'all also get a custom URL like this when in production.
+### Using IronFunctions Hosted by Iron.io
+
+Simply point to https://functions.iron.io instead of localhost and add your Iron.io Authentication header (TODO: link), like this:
+
+```sh
+curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' https://functions.iron.io/api/v1/apps
+```
+
+And you'll get an ironfunctions.com host:
 
 ```
 APP_NAME.ironfunctions.com/PATH

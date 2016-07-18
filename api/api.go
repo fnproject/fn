@@ -102,7 +102,7 @@ func (r *NewApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infoln("registered app:", app)
-	v := map[string]interface{}{"app": app}
+	v := map[string]interface{}{"app": app, "msg": "App created successfully."}
 	SendSuccess(w, "App created successfully.", v)
 }
 
@@ -140,7 +140,8 @@ func NewRoute(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infoln("Route created:", route)
-	fmt.Fprintln(w, "Route created successfully.")
+	v := map[string]interface{}{"url": fmt.Sprintf("http://%v%v", app.Dns, route.Path), "msg": "Route created successfully."}
+	SendSuccess(w, "Route created successfully.", v)
 }
 
 func getRoute(host string) (*Route, error) {
