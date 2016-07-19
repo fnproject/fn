@@ -23,7 +23,7 @@ iron create app APP_NAME
 curl -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' http://localhost:8080/api/v1/apps
 ```
 
-### Create a Route 
+### Create a Route for your Function
 
 Now add routes to the app. First we'll add a route to the output of a docker container:
 
@@ -33,12 +33,22 @@ iron add route myapp /hello iron/hello
 curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello", "image":"iron/hello"}' http://localhost:8080/api/v1/apps/myapp/routes
 ```
 
-Surf to your function: http://localhost:8080/hello?app=APP_NAME . Boom! 
-
-And how about a [slackbot](https://github.com/treeder/slackbots/tree/master/guppy) endpoint:
+And how about a [slackbot](https://github.com/treeder/slackbots/tree/master/guppy) too:
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{"path":"/guppy","image":"treeder/guppy:0.0.2", "content_type": "application/json"}' http://localhost:8080/api/v1/apps/myapp/routes
+```
+
+### Calling your Function
+
+Surf to your function: http://localhost:8080/hello?app=APP_NAME . Boom! 
+
+#### To pass in data to your function,
+
+Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. 
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{"name":"Johnny"}' http://localhost:8080/hello?app=APP_NAME
 ```
 
 ### Using IronFunctions Hosted by Iron.io
@@ -55,7 +65,29 @@ And you'll get an ironfunctions.com host:
 APP_NAME.ironfunctions.com/PATH
 ```
 
-## Updating Your Images
+### Updating Your Images
 
 Tag your images with a version, eg `treeder/guppy:0.0.5` then use that including the tag and update
 the route.
+
+## Examples
+
+TODO: Link to examples in various languages
+TODO: Link to slackbots (easiest way to host slackbots?)
+
+## Operations
+
+This is info on how to run and manage IronFunctions. 
+
+### Logging
+
+Run logspout container on your server.  
+
+#### Monitoring
+
+TODO
+
+### Scaling
+
+TODO
+
