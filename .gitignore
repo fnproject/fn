@@ -12,6 +12,7 @@ vendor/
 /microgateway
 /gateway
 /functions
+bolt.db
 
 private.sh
 .env

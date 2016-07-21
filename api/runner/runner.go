@@ -1,26 +1,33 @@
-package api
+package runner
 
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/iron-io/go/common"
+	"github.com/Sirupsen/logrus"
+	"github.com/gin-gonic/gin"
+	"github.com/iron-io/functions/api/models"
 )
 
 type RunningApp struct {
-	Route         *Route3
+	Route         *models.Route
 	Port          int
 	ContainerName string
 }
+
+var (
+	ErrRunnerRouteNotFound = errors.New("Route not found on that application")
+)
 
 var runningImages map[string]*RunningApp
 
@@ -29,61 +36,56 @@ func init() {
 	fmt.Println("ENV:", os.Environ())
 }
 
-func Run(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("RUN!!!!")
-	log.Infoln("HOST:", req.Host)
-	rUrl := req.URL
-	appName := rUrl.Query().Get("app")
-	log.Infoln("app_name", appName, "path:", req.URL.Path)
-	if appName != "" {
-		// passed in the name
-	} else {
-		host := strings.Split(req.Host, ":")[0]
+func Run(c *gin.Context) error {
+	log := c.MustGet("log").(logrus.FieldLogger)
+	store := c.MustGet("store").(models.Datastore)
+
+	appName := c.Param("app")
+
+	if appName == "" {
+		host := strings.Split(c.Request.Host, ":")[0]
 		appName = strings.Split(host, ".")[0]
-		log.Infoln("app_name from host", appName)
 	}
 
-	app, err := getApp(appName)
+	filter := &models.RouteFilter{
+		AppName: appName,
+	}
+
+	routes, err := store.GetRoutes(filter)
 	if err != nil {
-		common.SendError(w, 400, fmt.Sprintln("This app does not exist. Please create app first.", err))
-		return
+		return err
 	}
-	log.Infoln("app", app)
 
-	// find route
-	for _, el := range app.Routes {
-		// TODO: copy/use gorilla's pattern matching here
-		if el.Path == req.URL.Path {
-			// Boom, run it!
+	route := c.Param("route")
+
+	log.WithFields(logrus.Fields{"app": appName}).Debug("Running app")
+
+	for _, el := range routes {
+		if el.Path == route {
 			err = checkAndPull(el.Image)
 			if err != nil {
-				common.SendError(w, 404, fmt.Sprintln("The image could not be pulled:", err))
-				return
+				return err
 			}
 			if el.Type == "app" {
-				DockerHost(el, w)
-				return
-			} else { // "run"
-				// TODO: timeout 59 seconds
-				DockerRun(el, w, req)
-				return
+				return DockerHost(el, c)
+			} else {
+				return DockerRun(el, c)
 			}
 		}
 	}
-	common.SendError(w, 404, fmt.Sprintln("The requested endpoint does not exist."))
+
+	return ErrRunnerRouteNotFound
 }
 
 // TODO: use Docker utils from docker-job for this and a few others in here
-func DockerRun(route *Route3, w http.ResponseWriter, req *http.Request) {
-	log.Infoln("route:", route)
+func DockerRun(route *models.Route, c *gin.Context) error {
 	image := route.Image
-	payload, err := ioutil.ReadAll(req.Body)
+	payload, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
-		log.WithError(err).Errorln("Error reading request body")
-		return
+		return err
 	}
-	log.WithField("payload", "---"+string(payload)+"---").Infoln("incoming request")
-	log.WithField("image", image).Infoln("About to run using this image")
+	// log.WithField("payload", "---"+string(payload)+"---").Infoln("incoming request")
+	// log.WithField("image", image).Infoln("About to run using this image")
 
 	// TODO: swap all this out with Titan's running via API
 	cmd := exec.Command("docker", "run", "--rm", "-i", "-e", fmt.Sprintf("PAYLOAD=%v", string(payload)), image)
@@ -107,23 +109,24 @@ func DockerRun(route *Route3, w http.ResponseWriter, req *http.Request) {
 	log.Printf("Waiting for command to finish...")
 	if err = cmd.Wait(); err != nil {
 		// job failed
-		log.Infoln("job finished with err:", err)
-		log.WithFields(log.Fields{"metric": "run.errors", "value": 1, "type": "count"}).Infoln("failed run")
+		// log.Infoln("job finished with err:", err)
+		// log.WithFields(log.Fields{"metric": "run.errors", "value": 1, "type": "count"}).Infoln("failed run")
+		return err
 		// TODO: wrap error in json "error": buff
-	} else {
-		log.Infoln("Docker ran successfully:", b.String())
-		// print
-		log.WithFields(log.Fields{"metric": "run.success", "value": 1, "type": "count"}).Infoln("successful run")
 	}
-	log.WithFields(log.Fields{"metric": "run", "value": 1, "type": "count"}).Infoln("job ran")
+
+	// log.Infoln("Docker ran successfully:", b.String())
+	// print
+	// log.WithFields(log.Fields{"metric": "run.success", "value": 1, "type": "count"}).Infoln("successful run")
+	// log.WithFields(log.Fields{"metric": "run", "value": 1, "type": "count"}).Infoln("job ran")
 	buff.Flush()
-	if route.ContentType != "" {
-		w.Header().Set("Content-Type", route.ContentType)
-	}
-	fmt.Fprintln(w, string(bytes.Trim(b.Bytes(), "\x00")))
+
+	c.Data(http.StatusOK, "", bytes.Trim(b.Bytes(), "\x00"))
+
+	return nil
 }
 
-func DockerHost(el *Route3, w http.ResponseWriter) {
+func DockerHost(el *models.Route, c *gin.Context) error {
 	ra := runningImages[el.Image]
 	if ra == nil {
 		ra = &RunningApp{}
@@ -134,11 +137,11 @@ func DockerHost(el *Route3, w http.ResponseWriter) {
 		// TODO: timeout 59 minutes. Mark it in ra as terminated.
 		cmd := exec.Command("docker", "run", "--name", ra.ContainerName, "--rm", "-i", "-p", fmt.Sprintf("%v:8080", ra.Port), el.Image)
 		// TODO: What should we do with the output here?  Store it? Send it to a log service?
-		cmd.Stdout = os.Stdout
+		// cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		// TODO: Need to catch interrupt and stop all containers that are started, see devo/dj for how to do this
 		if err := cmd.Start(); err != nil {
-			log.Fatal(err)
+			return err
 			// TODO: What if the app fails to start? Don't want to keep starting the container
 		}
 	} else {
@@ -149,16 +152,16 @@ func DockerHost(el *Route3, w http.ResponseWriter) {
 	// TODO: if connection fails, check if container still running?  If not, start it again
 	resp, err := http.Get(fmt.Sprintf("http://0.0.0.0:%v%v", ra.Port, el.ContainerPath))
 	if err != nil {
-		common.SendError(w, 404, fmt.Sprintln("The requested app endpoint does not exist.", err))
-		return
+		return err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		common.SendError(w, 500, fmt.Sprintln("Error reading response body", err))
-		return
+		return err
 	}
-	fmt.Fprintln(w, string(body))
+
+	c.Data(http.StatusOK, "", body)
+	return nil
 }
 
 func checkAndPull(image string) error {
@@ -193,7 +196,9 @@ func execAndPrint(cmdstr string, args []string) error {
 
 	log.Printf("Waiting for cmd to finish...")
 	err = cmd.Wait()
-	fmt.Println("stderr:", berr.String())
+	if berr.Len() != 0 {
+		fmt.Println("stderr:", berr.String())
+	}
 	fmt.Println("stdout:", bout.String())
 	return err
 }
