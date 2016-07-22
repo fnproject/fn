@@ -87,6 +87,10 @@ func DockerRun(route *models.Route, c *gin.Context) error {
 	// log.WithField("payload", "---"+string(payload)+"---").Infoln("incoming request")
 	// log.WithField("image", image).Infoln("About to run using this image")
 
+	for k, v := range route.Headers {
+		c.Header(k, v[0])
+	}
+
 	// TODO: swap all this out with Titan's running via API
 	cmd := exec.Command("docker", "run", "--rm", "-i", "-e", fmt.Sprintf("PAYLOAD=%v", string(payload)), image)
 	stdout, err := cmd.StdoutPipe()

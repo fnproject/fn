@@ -23,6 +23,12 @@ func handleRouteCreate(c *gin.Context) {
 
 	route.AppName = c.Param("app")
 
+	if err := route.Validate(); err != nil {
+		log.Error(err)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
+
 	route, err = store.StoreRoute(route)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)

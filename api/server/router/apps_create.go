@@ -21,6 +21,12 @@ func handleAppCreate(c *gin.Context) {
 		return
 	}
 
+	if err := app.Validate(); err != nil {
+		log.Error(err)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
+
 	app, err = store.StoreApp(app)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsCreate)

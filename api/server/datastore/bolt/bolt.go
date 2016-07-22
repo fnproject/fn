@@ -33,7 +33,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		log.WithError(err).Errorln("Error on bolt.Open")
 		return nil, err
 	}
-	bucketPrefix := "fns-"
+	bucketPrefix := "funcs-"
 	if url.Query()["bucket"] != nil {
 		bucketPrefix = url.Query()["bucket"][0]
 	}

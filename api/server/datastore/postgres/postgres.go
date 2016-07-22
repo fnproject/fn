@@ -11,44 +11,29 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const routesTableCreate = `CREATE TABLE IF NOT EXISTS routes (
-	name  character varying(256)  NOT NULL PRIMARY KEY,
+const routesTableCreate = `
+CREATE TABLE IF NOT EXISTS routes (
+	name character varying(256) NOT NULL PRIMARY KEY,
 	path text NOT NULL,
-    app_name  character varying(256)  NOT NULL,
+    app_name character varying(256) NOT NULL,
     image character varying(256) NOT NULL,
-    type  character varying(256)  NOT NULL,
+    type character varying(256) NOT NULL,
 	container_path text NOT NULL,
-	headers text NOT NULL,
+	headers text NOT NULL
 );`
 
 const appsTableCreate = `CREATE TABLE IF NOT EXISTS apps (
-    name character varying(256) NOT NULL PRIMARY KEY,
+    name character varying(256) NOT NULL PRIMARY KEY
 );`
 
-const routeSelector = `SELECT path, app_name, image, type, container_path, headers FROM routes`
+const routeSelector = `SELECT name, path, app_name, image, type, container_path, headers FROM routes`
 
-// Tries to read in properties into `route` from `scanner`. Bubbles up errors.
-// Capture sql.Row and sql.Rows
 type rowScanner interface {
 	Scan(dest ...interface{}) error
 }
 
-// Capture sql.DB and sql.Tx
 type rowQuerier interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
-}
-
-func scanRoute(scanner rowScanner, route *models.Route) error {
-	err := scanner.Scan(
-		&route.Name,
-		&route.Path,
-		&route.AppName,
-		&route.Image,
-		&route.Type,
-		&route.ContainerPath,
-		&route.Headers,
-	)
-	return err
 }
 
 type PostgresDatastore struct {
@@ -84,6 +69,86 @@ func New(url *url.URL) (models.Datastore, error) {
 	return pg, nil
 }
 
+func (ds *PostgresDatastore) StoreApp(app *models.App) (*models.App, error) {
+	_, err := ds.db.Exec(`
+	  INSERT INTO apps (name)
+		VALUES ($1)
+		RETURNING name;
+	`, app.Name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return app, nil
+}
+
+func (ds *PostgresDatastore) RemoveApp(appName string) error {
+	_, err := ds.db.Exec(`
+	  DELETE FROM apps
+	  WHERE name = $1
+	`, appName)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ds *PostgresDatastore) GetApp(name string) (*models.App, error) {
+	row := ds.db.QueryRow("SELECT name FROM apps WHERE name=$1", name)
+
+	var resName string
+	err := row.Scan(&resName)
+
+	res := &models.App{
+		Name: resName,
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func scanApp(scanner rowScanner, app *models.App) error {
+	err := scanner.Scan(
+		&app.Name,
+	)
+
+	return err
+}
+
+func (ds *PostgresDatastore) GetApps(filter *models.AppFilter) ([]*models.App, error) {
+	res := []*models.App{}
+
+	rows, err := ds.db.Query(`
+		SELECT DISTINCT *
+		FROM apps`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var app models.App
+		err := scanApp(rows, &app)
+
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, &app)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, error) {
 	var headers string
 
@@ -94,12 +159,19 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 
 	headers = string(hbyte)
 
-	err = ds.db.QueryRow(`
+	_, err = ds.db.Exec(`
 		INSERT INTO routes (
 			name, app_name, path, image,
 			type, container_path, headers
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (name) DO UPDATE SET
+			path = $3,
+			image = $4,
+			type = $5,
+			container_path = $6,
+			headers = $7;
+		`,
 		route.Name,
 		route.AppName,
 		route.Path,
@@ -107,7 +179,8 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 		route.Type,
 		route.ContainerPath,
 		headers,
-	).Scan(nil)
+	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -115,15 +188,36 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 }
 
 func (ds *PostgresDatastore) RemoveRoute(appName, routeName string) error {
-	err := ds.db.QueryRow(`
+	_, err := ds.db.Exec(`
 		DELETE FROM routes
-		WHERE name = $1`,
-		routeName,
-	).Scan(nil)
+		WHERE name = $1
+	`, routeName)
+
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func scanRoute(scanner rowScanner, route *models.Route) error {
+	var headerStr string
+	err := scanner.Scan(
+		&route.Name,
+		&route.Path,
+		&route.AppName,
+		&route.Image,
+		&route.Type,
+		&route.ContainerPath,
+		&headerStr,
+	)
+
+	if headerStr == "" {
+		return models.ErrRoutesNotFound
+	}
+
+	err = json.Unmarshal([]byte(headerStr), &route.Headers)
+
+	return err
 }
 
 func getRoute(qr rowQuerier, routeName string) (*models.Route, error) {
@@ -144,7 +238,6 @@ func (ds *PostgresDatastore) GetRoute(appName, routeName string) (*models.Route,
 	return getRoute(ds.db, routeName)
 }
 
-// TODO: Add pagination
 func (ds *PostgresDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	filterQuery := buildFilterQuery(filter)
@@ -167,79 +260,6 @@ func (ds *PostgresDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Ro
 		return nil, err
 	}
 	return res, nil
-}
-
-func (ds *PostgresDatastore) GetApp(name string) (*models.App, error) {
-	row := ds.db.QueryRow("SELECT * FROM groups WHERE name=$1", name)
-
-	var resName string
-	err := row.Scan(&resName)
-
-	res := &models.App{
-		Name: resName,
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (ds *PostgresDatastore) GetApps(filter *models.AppFilter) ([]*models.App, error) {
-	res := []*models.App{}
-
-	rows, err := ds.db.Query(`
-		SELECT DISTINCT *
-		 FROM apps
-		ORDER BY name`,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var app models.App
-		err := rows.Scan(&app)
-
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, &app)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (ds *PostgresDatastore) StoreApp(app *models.App) (*models.App, error) {
-	err := ds.db.QueryRow(`
-	  INSERT INTO apps (name)
-		VALUES ($1)
-	`, app.Name).Scan(&app.Name)
-	// ON CONFLICT (name) DO UPDATE SET created_at = $2;
-
-	if err != nil {
-		return nil, err
-	}
-
-	return app, nil
-}
-
-func (ds *PostgresDatastore) RemoveApp(appName string) error {
-	err := ds.db.QueryRow(`
-	  DELETE FROM apps
-	  WHERE name = $1
-	`, appName).Scan(nil)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func buildFilterQuery(filter *models.RouteFilter) string {

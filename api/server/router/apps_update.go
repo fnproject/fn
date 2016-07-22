@@ -9,7 +9,7 @@ import (
 )
 
 func handleAppUpdate(c *gin.Context) {
-	store := c.MustGet("store").(models.Datastore)
+	// store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
 	app := &models.App{}
@@ -21,14 +21,14 @@ func handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	app.Name = c.Param("app")
+	// app.Name = c.Param("app")
 
-	app, err = store.StoreApp(app)
-	if err != nil {
-		log.WithError(err).Debug(models.ErrAppsUpdate)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsUpdate))
-		return
-	}
+	// app, err = store.StoreApp(app)
+	// if err != nil {
+	// 	log.WithError(err).Debug(models.ErrAppsUpdate)
+	// 	c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsUpdate))
+	// 	return
+	// }
 
-	c.JSON(http.StatusOK, app)
+	c.JSON(http.StatusOK, simpleError(models.ErrAppNothingToUpdate))
 }

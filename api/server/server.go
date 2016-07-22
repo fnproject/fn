@@ -34,7 +34,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 func (s *Server) Start() {
 	if s.cfg.DatabaseURL == "" {
 		cwd, _ := os.Getwd()
-		s.cfg.DatabaseURL = fmt.Sprintf("bolt://%s/bolt.db?bucket=fns", cwd)
+		s.cfg.DatabaseURL = fmt.Sprintf("bolt://%s/bolt.db?bucket=funcs", cwd)
 	}
 
 	ds, err := datastore.New(s.cfg.DatabaseURL)
