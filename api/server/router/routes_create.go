@@ -29,6 +29,21 @@ func handleRouteCreate(c *gin.Context) {
 		return
 	}
 
+	app, err := store.GetApp(route.AppName)
+	if err != nil {
+		log.WithError(err).Error(models.ErrAppsGet)
+		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
+		return
+	}
+	if app == nil {
+		app, err = store.StoreApp(&models.App{Name: route.AppName})
+		if err != nil {
+			log.WithError(err).Error(models.ErrAppsCreate)
+			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
+			return
+		}
+	}
+
 	route, err = store.StoreRoute(route)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)
