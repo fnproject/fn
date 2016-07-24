@@ -34,7 +34,7 @@ func handleRunner(c *gin.Context) {
 
 	appName := c.Param("app")
 	if appName == "" {
-		host := strings.Split(c.Request.Header.Get("Host"), ":")[0]
+		host := strings.Split(c.Request.Host, ":")[0]
 		appName = strings.Split(host, ".")[0]
 	}
 
