@@ -11,12 +11,14 @@ import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/server"
 )
 
 func main() {
-	config := &server.Config{}
+	config := &models.Config{}
 	config.DatabaseURL = os.Getenv("DB")
+	config.API = os.Getenv("API")
 
 	err := config.Validate()
 	if err != nil {

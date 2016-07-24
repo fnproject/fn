@@ -29,7 +29,8 @@ func Start(engine *gin.Engine) {
 
 	}
 
-	engine.GET("/r/:app/*route", handleRunner)
+	engine.Any("/r/:app/*route", handleRunner)
+	engine.NoRoute(handleRunner)
 }
 
 func simpleError(err error) *models.Error {

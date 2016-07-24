@@ -266,6 +266,10 @@ func buildFilterQuery(filter *models.RouteFilter) string {
 	filterQuery := ""
 
 	filterQueries := []string{}
+	if filter.Path != "" {
+		filterQueries = append(filterQueries, fmt.Sprintf("path = '%s'", filter.Path))
+	}
+
 	if filter.AppName != "" {
 		filterQueries = append(filterQueries, fmt.Sprintf("app_name = '%s'", filter.AppName))
 	}
