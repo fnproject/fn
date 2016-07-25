@@ -120,7 +120,7 @@ Eg. /redis/do
 ```
 curl -X POST --data '{
     "name": "do",
-    "image": "$USERNAME/func-redis",
+    "image": "'$USERNAME'/func-redis",
     "path": "/do"
 }' http://$FUNCHOST/v1/apps/redis/routes
 ```
@@ -131,8 +131,8 @@ Now that we created our Function route, lets test it.
 
 ```
 curl -X POST --data '{
-    "redis":"$REDISHOST",
-    "redisAuth":"$REDISAUTH",
+    "redis":"'$REDISHOST'",
+    "redisAuth":"'$REDISAUTH'",
     "command": "SET",
     "args":["abc", "123"]
 }' http://$FUNCHOST/redis/exec
