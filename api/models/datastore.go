@@ -17,5 +17,6 @@ func ApplyAppFilter(app *App, filter *AppFilter) bool {
 }
 
 func ApplyRouteFilter(route *Route, filter *RouteFilter) bool {
-	return true
+	return (filter.Path != "" && route.Path == filter.Path) &&
+		(filter.AppName != "" && route.AppName == filter.AppName)
 }
