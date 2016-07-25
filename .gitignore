@@ -5,13 +5,13 @@ iron.json
 dj.config.json
 dj.cluster.*.json
 script.tar.gz
-router
 app.zip
 /app
 vendor/
 /microgateway
 /gateway
 /functions
+bolt.db
 
 private.sh
 .env
