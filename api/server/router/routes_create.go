@@ -12,31 +12,37 @@ func handleRouteCreate(c *gin.Context) {
 	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
-	route := &models.Route{}
+	wroute := &models.RouteWrapper{}
 
-	err := c.BindJSON(route)
+	err := c.BindJSON(wroute)
 	if err != nil {
-		log.WithError(err).Debug(models.ErrInvalidJSON)
+		log.WithError(err).Error(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
 		return
 	}
 
-	route.AppName = c.Param("app")
+	if wroute.Route == nil {
+		log.WithError(err).Error(models.ErrInvalidJSON)
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
+		return
+	}
 
-	if err := route.Validate(); err != nil {
+	wroute.Route.AppName = c.Param("app")
+
+	if err := wroute.Validate(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	app, err := store.GetApp(route.AppName)
+	app, err := store.GetApp(wroute.Route.AppName)
 	if err != nil {
 		log.WithError(err).Error(models.ErrAppsGet)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
 		return
 	}
 	if app == nil {
-		app, err = store.StoreApp(&models.App{Name: route.AppName})
+		app, err = store.StoreApp(&models.App{Name: wroute.Route.AppName})
 		if err != nil {
 			log.WithError(err).Error(models.ErrAppsCreate)
 			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
@@ -44,9 +50,9 @@ func handleRouteCreate(c *gin.Context) {
 		}
 	}
 
-	route, err = store.StoreRoute(route)
+	route, err := store.StoreRoute(wroute.Route)
 	if err != nil {
-		log.WithError(err).Debug(models.ErrRoutesCreate)
+		log.WithError(err).Error(models.ErrRoutesCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))
 		return
 	}
