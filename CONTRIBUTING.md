@@ -8,17 +8,17 @@ glide install
 To quick build and run (using default database):
 
 ```sh
-hack/api.sh
+api.sh
 ```
 
 To build the docker image:
 
 ```sh
-hack/build.sh
+build.sh
 ```
 
 ## Releasing
 
 ```sh
-hack/release.sh
+release.sh
 ```
