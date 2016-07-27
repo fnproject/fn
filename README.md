@@ -12,36 +12,9 @@ docker run --rm -it -p 8080:8080 iron/functions
 
 This command will quickly start our API using the default database `Bolt` running on `:8080`
 
-Now that we have our API up and running we can quickly create our first function
+## Usage
 
-```
-curl -H "Content-Type: application/json" -X POST -d '{
-    "name": "MyRoute"
-    "path": "/myroute"
-    "image": "iron/hello"
-}' http://localhost:8080/v1/apps/myapp/routes
-```
-
-Done. Now you have our first IronFunctions route ready.
-
-Now let's test our new route.
-
-```
-curl http://localhost:8080/r/myapp/myroute
-```
-
-## Configuring your API
-
-### Databases
-
-These are the current databases supported by IronFunctions:
-
-- [Running with BoltDB](/iron-io/functions/blob/master/docs/database/boltdb.md)
-- [Running with Postgres](/iron-io/functions/blob/master/docs/database/postgres.md)
-
-## API Usage
-
-### Creating applications
+### Creating a application
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -49,7 +22,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps
 ```
 
-### Creating routes in a application
+### Create a route for your Function
 
 Now add routes to the app. First we'll add a route to the output of a docker container:
 
@@ -65,7 +38,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 
 ```
 curl http://localhost:8080/r/myapp/hello
-``` 
+```
 
 ### To pass in data to your function,
 
@@ -89,7 +62,16 @@ And you'll get an ironfunctions.com host:
 
 ```
 APP_NAME.USER_ID.ironfunctions.com/PATH
-```
+``` 
+
+## Configuring your API
+
+### Databases
+
+These are the current databases supported by IronFunctions:
+
+- [Running with BoltDB](/iron-io/functions/blob/master/docs/database/boltdb.md)
+- [Running with Postgres](/iron-io/functions/blob/master/docs/database/postgres.md)
 
 ## [Examples](/iron-io/functions/blob/master/examples)
 
