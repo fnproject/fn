@@ -7,7 +7,7 @@
 First let's start our IronFunctions API
 
 ```
-docker run --rm -it -p 8080:8080 iron/functions
+docker run --rm --privileged -it -p 8080:8080 iron/functions
 ```
 
 This command will quickly start our API using the default database `Bolt` running on `:8080`
