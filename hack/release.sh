@@ -15,7 +15,8 @@ perl -i -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
 version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
 
-./build.sh
+docker run --rm -v "$PWD":/go/src/github.com/iron-io/functions -w /go/src/github.com/iron-io/functions iron/go:dev sh -c 'go build -o functions'
+docker build -t iron/functions:latest .
 
 git add -u
 git commit -m "$service: $version release"

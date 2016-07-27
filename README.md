@@ -1,54 +1,80 @@
-Note: currently running at: http://gateway.iron.computer:8080/
-
 # IronFunctions
 
-First, let's fire up an IronFunctions instance. Copy the [example.env](example.env) file into a file named `.env` and fill in the missing values. 
+## [Overview](/iron-io/functions/blob/master/OVERVIEW.md)
 
-Then start your functions instance:
+## Quick Start
+
+First let's start our IronFunctions API
 
 ```
-docker run --env-file .env --rm -it --privileged -p 8080:8080 iron/functions
+docker run --rm -it -p 8080:8080 iron/functions
 ```
 
-## Usage
+This command will quickly start our API using the default database `Bolt` running on `:8080`
 
-First things first, create an app/service:
-TOOD: App or service??
+Now that we have our API up and running we can quickly create our first function
 
-### Create App
+```
+curl -H "Content-Type: application/json" -X POST -d '{
+    "name": "MyRoute"
+    "path": "/myroute"
+    "image": "iron/hello"
+}' http://localhost:8080/v1/apps/myapp/routes
+```
+
+Done. Now you have our first IronFunctions route ready.
+
+Now let's test our new route.
+
+```
+curl http://localhost:8080/r/myapp/myroute
+```
+
+## Configuring your API
+
+### Databases
+
+These are the current databases supported by IronFunctions:
+
+- [Running with BoltDB](/iron-io/functions/blob/master/docs/database/boltdb.md)
+- [Running with Postgres](/iron-io/functions/blob/master/docs/database/postgres.md)
+
+## API Usage
+
+### Creating applications
 
 ```sh
-iron create app APP_NAME
-# OR
-curl -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' http://localhost:8080/api/v1/apps
+curl -H "Content-Type: application/json" -X POST -d '{
+    "name":"APP_NAME"
+}' http://localhost:8080/v1/apps
 ```
 
-### Create a Route for your Function
+### Creating routes in a application
 
 Now add routes to the app. First we'll add a route to the output of a docker container:
 
 ```sh
-iron add route myapp /hello iron/hello
-# OR
-curl -H "Content-Type: application/json" -X POST -d '{"path":"/hello", "image":"iron/hello"}' http://localhost:8080/api/v1/apps/myapp/routes
-```
-
-And how about a [slackbot](https://github.com/treeder/slackbots/tree/master/guppy) too:
-
-```sh
-curl -H "Content-Type: application/json" -X POST -d '{"path":"/guppy","image":"treeder/guppy:0.0.2", "content_type": "application/json"}' http://localhost:8080/api/v1/apps/myapp/routes
+curl -H "Content-Type: application/json" -X POST -d '{
+    "name": "hello",
+    "path":"/hello",
+    "image":"iron/hello"
+}' http://localhost:8080/v1/apps/myapp/routes
 ```
 
 ### Calling your Function
 
-Surf to your function: http://localhost:8080/hello?app=APP_NAME . Boom! 
+```
+curl http://localhost:8080/r/myapp/hello
+``` 
 
-#### To pass in data to your function,
+### To pass in data to your function,
 
 Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. 
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d '{"name":"Johnny"}' http://localhost:8080/hello?app=APP_NAME
+curl -H "Content-Type: application/json" -X POST -d '{
+    "name":"Johnny"
+}' http://localhost:8080/r/myapp/hello
 ```
 
 ### Using IronFunctions Hosted by Iron.io
@@ -56,38 +82,26 @@ curl -H "Content-Type: application/json" -X POST -d '{"name":"Johnny"}' http://l
 Simply point to https://functions.iron.io instead of localhost and add your Iron.io Authentication header (TODO: link), like this:
 
 ```sh
-curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' https://functions.iron.io/api/v1/apps
+curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' https://functions.iron.io/v1/apps
 ```
 
 And you'll get an ironfunctions.com host:
 
 ```
-APP_NAME.ironfunctions.com/PATH
+APP_NAME.USER_ID.ironfunctions.com/PATH
 ```
 
-### Updating Your Images
+## [Examples](/iron-io/functions/blob/master/examples)
 
-Tag your images with a version, eg `treeder/guppy:0.0.5` then use that including the tag and update
-the route.
-
-## Examples
-
-TODO: Link to examples in various languages
-TODO: Link to slackbots (easiest way to host slackbots?)
-
-## Operations
-
-This is info on how to run and manage IronFunctions. 
-
-### Logging
-
-Run logspout container on your server.  
-
-#### Monitoring
+## Logging
 
 TODO
 
-### Scaling
+## Monitoring
+
+TODO
+
+## Scaling
 
 TODO
 
