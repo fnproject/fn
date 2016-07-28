@@ -60,14 +60,14 @@ func handleRunner(c *gin.Context) {
 
 	for _, el := range routes {
 		if el.Path == route {
-			titanJob := runner.CreateTitanJob(&runner.RouteRunner{
+			run := runner.New(&runner.Config{
 				Route:    el,
 				Endpoint: config.API,
 				Payload:  string(payload),
 				Timeout:  30 * time.Second,
 			})
 
-			if err := titanJob.Wait(); err != nil {
+			if err := run.Start(); err != nil {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
 			} else {
@@ -75,7 +75,11 @@ func handleRunner(c *gin.Context) {
 					c.Header(k, v[0])
 				}
 
-				c.Data(http.StatusOK, "", bytes.Trim(titanJob.Result(), "\x00"))
+				if run.Status() == "success" {
+					c.Data(http.StatusOK, "", bytes.Trim(run.Result(), "\x00"))
+				} else {
+					c.Data(http.StatusInternalServerError, "", bytes.Trim(run.Result(), "\x00"))
+				}
 			}
 			return
 		}
