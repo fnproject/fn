@@ -1,7 +1,6 @@
 package router
 
 import (
-	"bytes"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -77,9 +76,9 @@ func handleRunner(c *gin.Context) {
 				}
 
 				if run.Status() == "success" {
-					c.Data(http.StatusOK, "", bytes.Trim(run.ReadOut(), "\x00"))
+					c.Data(http.StatusOK, "", run.ReadOut())
 				} else {
-					c.Data(http.StatusInternalServerError, "", bytes.Trim(run.ReadErr(), "\x00"))
+					c.Data(http.StatusInternalServerError, "", run.ReadErr())
 				}
 			}
 			return
