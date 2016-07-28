@@ -61,13 +61,14 @@ func handleRunner(c *gin.Context) {
 	for _, el := range routes {
 		if el.Path == route {
 			run := runner.New(&runner.Config{
+				Ctx:      c,
 				Route:    el,
 				Endpoint: config.API,
 				Payload:  string(payload),
 				Timeout:  30 * time.Second,
 			})
 
-			if err := run.Start(); err != nil {
+			if err := run.Run(); err != nil {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
 			} else {
@@ -76,9 +77,9 @@ func handleRunner(c *gin.Context) {
 				}
 
 				if run.Status() == "success" {
-					c.Data(http.StatusOK, "", bytes.Trim(run.Result(), "\x00"))
+					c.Data(http.StatusOK, "", bytes.Trim(run.ReadOut(), "\x00"))
 				} else {
-					c.Data(http.StatusInternalServerError, "", bytes.Trim(run.Result(), "\x00"))
+					c.Data(http.StatusInternalServerError, "", bytes.Trim(run.ReadErr(), "\x00"))
 				}
 			}
 			return

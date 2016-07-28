@@ -1,9 +1,8 @@
 package runner
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"time"
 
 	"golang.org/x/net/context"
@@ -15,10 +14,10 @@ import (
 	"github.com/iron-io/titan/runner/drivers"
 	"github.com/iron-io/titan/runner/drivers/docker"
 	"github.com/iron-io/titan/runner/drivers/mock"
-	titan_models "github.com/iron-io/titan/runner/tasker/client/models"
 )
 
 type Config struct {
+	Ctx      context.Context
 	Route    *models.Route
 	Endpoint string
 	Payload  string
@@ -28,7 +27,8 @@ type Config struct {
 type Runner struct {
 	cfg    *Config
 	status string
-	result []byte
+	out    bytes.Buffer
+	err    bytes.Buffer
 }
 
 func New(cfg *Config) *Runner {
@@ -37,68 +37,50 @@ func New(cfg *Config) *Runner {
 	}
 }
 
-func (r *Runner) Start() error {
-	image := r.cfg.Route.Image
-	payload := r.cfg.Payload
-	timeout := int32(r.cfg.Timeout.Seconds())
-
+func (r *Runner) Run() error {
 	var err error
 
 	runnerConfig := configloader.RunnerConfiguration()
 
 	au := agent.ConfigAuth{runnerConfig.Registries}
+
+	// TODO: Is this really required for Titan's driver?
+	// Can we remove it?
 	env := common.NewEnvironment(func(e *common.Environment) {})
+
+	// TODO: Create a drivers.New(runnerConfig) in Titan
 	driver, err := selectDriver(env, runnerConfig)
 	if err != nil {
 		return err
 	}
 
-	job := &titan_models.Job{
-		NewJob: titan_models.NewJob{
-			Image:   &image,
-			Payload: payload,
-			Timeout: &timeout,
-		},
+	ctask := &containerTask{
+		cfg:    r.cfg,
+		auth:   &au,
+		stdout: &r.out,
+		stderr: &r.err,
 	}
 
-	tempLog, err := ensureLogFile(job)
-	if err != nil {
-		return err
-	}
-	defer tempLog.Close()
-
-	wjob := &WrapperJob{
-		auth: &au,
-		m:    job,
-		log:  tempLog,
-	}
-
-	result, err := driver.Run(context.Background(), wjob)
+	result, err := driver.Run(r.cfg.Ctx, ctask)
 	if err != nil {
 		return err
 	}
 
-	b, _ := ioutil.ReadFile(tempLog.Name())
-	r.result = b
 	r.status = result.Status()
 
 	return nil
 }
 
-func (r Runner) Result() []byte {
-	return r.result
+func (r *Runner) ReadOut() []byte {
+	return r.out.Bytes()
+}
+
+func (r Runner) ReadErr() []byte {
+	return r.err.Bytes()
 }
 
 func (r Runner) Status() string {
 	return r.status
-}
-
-func ensureLogFile(job *titan_models.Job) (*os.File, error) {
-	log, err := ioutil.TempFile("", fmt.Sprintf("titan-log-%s", job.ID))
-	if err != nil {
-		return nil, fmt.Errorf("couldn't open task log for writing: %v", err)
-	}
-	return log, nil
 }
 
 func selectDriver(env *common.Environment, conf *agent.Config) (drivers.Driver, error) {
