@@ -1,6 +1,9 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type Apps []*App
 
@@ -20,13 +23,27 @@ type App struct {
 	Routes Routes `json:"routes,omitempty"`
 }
 
+const (
+	maxAppName = 30
+)
+
 var (
-	ErrAppsValidationName = errors.New("Missing app name")
+	ErrAppsValidationMissingName = errors.New("Missing app name")
+	ErrAppsValidationTooLongName = fmt.Errorf("App name must be %v characters or less", maxAppName)
+	ErrAppsValidationInvalidName = errors.New("Invalid app name")
 )
 
 func (a *App) Validate() error {
 	if a.Name == "" {
-		return ErrAppsValidationName
+		return ErrAppsValidationMissingName
+	}
+	if len(a.Name) > maxAppName {
+		return ErrAppsValidationTooLongName
+	}
+	for _, c := range a.Name {
+		if (c < '0' || '9' < c) && (c < 'A' || 'Z' > c) && (c < 'a' || 'z' < c) && c != '_' && c != '-' {
+			return ErrAppsValidationInvalidName
+		}
 	}
 	return nil
 }
