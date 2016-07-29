@@ -1,7 +1,6 @@
 package router
 
 import (
-	"bytes"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -60,14 +59,15 @@ func handleRunner(c *gin.Context) {
 
 	for _, el := range routes {
 		if el.Path == route {
-			titanJob := runner.CreateTitanJob(&runner.RouteRunner{
+			run := runner.New(&runner.Config{
+				Ctx:      c,
 				Route:    el,
 				Endpoint: config.API,
 				Payload:  string(payload),
 				Timeout:  30 * time.Second,
 			})
 
-			if err := titanJob.Wait(); err != nil {
+			if err := run.Run(); err != nil {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
 			} else {
@@ -75,7 +75,11 @@ func handleRunner(c *gin.Context) {
 					c.Header(k, v[0])
 				}
 
-				c.Data(http.StatusOK, "", bytes.Trim(titanJob.Result(), "\x00"))
+				if run.Status() == "success" {
+					c.Data(http.StatusOK, "", run.ReadOut())
+				} else {
+					c.Data(http.StatusInternalServerError, "", run.ReadErr())
+				}
 			}
 			return
 		}
