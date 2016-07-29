@@ -1,23 +1,24 @@
+## Building
 
-## Building/Testing
-
-Build:
-
-```sh
-# one time:
+First time or when a dependency changes or when the API changes, run:
+```
 glide install
-# then every time
-./build.sh
 ```
 
-Test it, the iron token and project id are for cache.
+To quick build and run (using default database):
 
 ```sh
-docker run --env-file .env --rm -it --privileged -p 8080:8080 iron/functions
+api.sh
+```
+
+To build the docker image:
+
+```sh
+build.sh
 ```
 
 ## Releasing
 
 ```sh
-./release.sh
+release.sh
 ```

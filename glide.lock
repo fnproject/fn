@@ -1,75 +1,71 @@
-hash: a104a522dc2ba982d25101330bbd5d44778565128f0cb09f34061c167921046c
-updated: 2016-07-14T08:40:37.798125603-07:00
+hash: 2101b4c83f12c75cbc3cb5be0a7d544dd3a7d21a27ef8a5ee8b014ded8cee034
+updated: 2016-07-27T16:56:51.792310167-03:00
 imports:
-- name: github.com/amir/raidman
-  version: 91c20f3f475cab75bb40ad7951d9bbdde357ade7
+- name: github.com/asaskevich/govalidator
+  version: 593d64559f7600f29581a3ee42177f5dbded27a9
+- name: github.com/boltdb/bolt
+  version: 5cc10bbbc5c141029940133bb33c9e969512a698
+- name: github.com/gin-gonic/gin
+  version: 4a6bc4aac4607e253bcda67c8c5bcda693d2388e
   subpackages:
-  - proto
-- name: github.com/BurntSushi/toml
-  version: bec2dacf4b590d26237cfebff4471e21ce543494
-- name: github.com/cactus/go-statsd-client
-  version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
-  subpackages:
-  - statsd
-- name: github.com/dgrijalva/jwt-go
-  version: 01aeca54ebda6e0fbfafd0a524d234159c05ec20
+  - binding
+  - render
+- name: github.com/go-openapi/analysis
+  version: abc9a6171f5bf03ada39aead1aa7fd7bbd44d50f
+- name: github.com/go-openapi/errors
+  version: d24ebc2075bad502fac3a8ae27aa6dd58e1952dc
+- name: github.com/go-openapi/jsonpointer
+  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
+- name: github.com/go-openapi/jsonreference
+  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
+- name: github.com/go-openapi/loads
+  version: 18441dfa706d924a39a030ee2c3b1d8d81917b38
+- name: github.com/go-openapi/runtime
+  version: 11e322eeecc1032d5a0a96c566ed53f2b5c26e22
+- name: github.com/go-openapi/spec
+  version: e9fab754f5629065e6b7a6100301226545d4477e
+- name: github.com/go-openapi/strfmt
+  version: dfda818c47a4ae5a1dde75ac776f34b2c95de993
+- name: github.com/go-openapi/swag
+  version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
+- name: github.com/go-openapi/validate
+  version: deaf2c9013bc1a7f4c774662259a506ba874d80f
 - name: github.com/golang/protobuf
-  version: 874264fbbb43f4d91e999fecb4b40143ed611400
+  version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
   - proto
-- name: github.com/gorilla/context
-  version: aed02d124ae4a0e94fea4541c8effd05bf0c8296
-- name: github.com/gorilla/mux
-  version: 9fa818a44c2bf1396a17f9d5a3c0f6dd39d2ff8e
-- name: github.com/iron-io/common
-  version: 7c9faec363c808052742b4c4b84876c4c2172308
+- name: github.com/iron-io/titan
+  version: 697a5466b096fee73202f5ddccf8213a2357e062
+  repo: git@github.com:iron-io/titan.git
+  vcs: git
   subpackages:
-  - httpshutdown
-  - msgpack
-  - semaphore
-  - serverutil
-- name: github.com/iron-io/go
-  version: 1ed3de151aa27db91d6df5dc8c8ce164c833b57c
+  - jobserver/models
+- name: github.com/lib/pq
+  version: 3cd0097429be7d611bb644ef85b42bfb102ceea4
   subpackages:
-  - common
-  - common/httpshutdown
-  - common/msgpack
-  - common/semaphore
-  - common/stats
-- name: github.com/iron-io/golog
-  version: 5b80d97af5a2a5d386e7609efb82192ae99a7c67
-- name: github.com/iron-io/iron_go
-  version: 920c950272e820d9e2562fcbf40303f05564f118
+  - oid
+- name: github.com/mailru/easyjson
+  version: 97eee20abef76a0591155412cf0d04f24b05098f
   subpackages:
-  - cache
-  - worker
-  - api
-  - config
-- name: github.com/mattn/go-colorable
-  version: 9056b7a9f2d1f2d96498d6d146acd1f9d5ed3d59
-- name: github.com/mattn/go-isatty
-  version: 56b76bdf51f7708750eac80fa38b952bb9f32639
+  - jlexer
+  - jwriter
+  - buffer
+- name: github.com/manucorporat/sse
+  version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
+- name: github.com/PuerkitoBio/purell
+  version: 1d5d1cfad45d42ec5f81fa8ef23de09cebc6dcc3
+- name: github.com/PuerkitoBio/urlesc
+  version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/Sirupsen/logrus
-  version: 32055c351ea8b00b96d70f28db48d9840feaf0ec
-- name: github.com/vmihailenco/bufio
-  version: 24e7e48f60fc2d9e99e43c07485d9fff42051e66
-- name: github.com/vrischmann/envconfig
-  version: 9e6e1c4d3b73427d03118518603bb904d9c55236
+  version: a283a10442df8dc09befd873fab202bf8a253d6a
 - name: golang.org/x/net
-  version: a728288923b47049b2ce791836767ffbe964a5bd
+  version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
-  - proxy
+  - context
 - name: golang.org/x/sys
-  version: b518c298ac9dc94b6ac0757394f50d10c5dfa25a
+  version: a646d33e2ee3172a661fc09bca23bb4889a41bc8
   subpackages:
   - unix
-- name: gopkg.in/inconshreveable/log15.v2
-  version: b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f
-  subpackages:
-  - stack
-  - term
-- name: gopkg.in/mgo.v2
-  version: 29cc868a5ca65f401ff318143f9408d02f4799cc
-  subpackages:
-  - bson
-devImports: []
+- name: gopkg.in/go-playground/validator.v8
+  version: c193cecd124b5cc722d7ee5538e945bdb3348435
+testImports: []

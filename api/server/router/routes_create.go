@@ -16,8 +16,14 @@ func handleRouteCreate(c *gin.Context) {
 
 	err := c.BindJSON(route)
 	if err != nil {
-		log.WithError(err).Debug(models.ErrInvalidJSON)
+		log.WithError(err).Error(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
+		return
+	}
+
+	if route == nil {
+		log.WithError(err).Error(models.ErrInvalidJSON)
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
 		return
 	}
 
@@ -46,7 +52,7 @@ func handleRouteCreate(c *gin.Context) {
 
 	route, err = store.StoreRoute(route)
 	if err != nil {
-		log.WithError(err).Debug(models.ErrRoutesCreate)
+		log.WithError(err).Error(models.ErrRoutesCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))
 		return
 	}

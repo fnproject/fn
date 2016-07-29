@@ -15,7 +15,7 @@ func Start(engine *gin.Engine) {
 		v1.POST("/apps", handleAppCreate)
 
 		v1.GET("/apps/:app", handleAppGet)
-		v1.POST("/apps/:app", handleAppUpdate)
+		v1.PUT("/apps/:app", handleAppUpdate)
 		v1.DELETE("/apps/:app", handleAppDestroy)
 
 		apps := v1.Group("/apps/:app")

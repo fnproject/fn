@@ -12,6 +12,7 @@ vendor/
 /gateway
 /functions
 bolt.db
+.glide/
 
 private.sh
 .env

@@ -27,5 +27,5 @@ func handleRouteList(c *gin.Context) {
 
 	log.WithFields(logrus.Fields{"routes": routes}).Debug("Got routes")
 
-	c.JSON(http.StatusOK, routes)
+	c.JSON(http.StatusOK, &models.RoutesWrapper{Routes: routes})
 }

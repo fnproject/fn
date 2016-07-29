@@ -12,22 +12,28 @@ func handleAppCreate(c *gin.Context) {
 	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
-	app := &models.App{}
+	wapp := &models.AppWrapper{}
 
-	err := c.BindJSON(app)
+	err := c.BindJSON(wapp)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
 		return
 	}
 
-	if err := app.Validate(); err != nil {
+	if wapp.App == nil {
+		log.Debug(models.ErrAppsMissingNew)
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsMissingNew))
+		return
+	}
+
+	if err := wapp.Validate(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	app, err = store.StoreApp(app)
+	app, err := store.StoreApp(wapp.App)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))

@@ -11,5 +11,5 @@ func (m *Error) Validate() error {
 }
 
 var (
-	ErrInvalidJSON = errors.New("Could not create app")
+	ErrInvalidJSON = errors.New("Invalid JSON")
 )

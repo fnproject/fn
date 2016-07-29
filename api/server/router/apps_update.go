@@ -21,14 +21,5 @@ func handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	// app.Name = c.Param("app")
-
-	// app, err = store.StoreApp(app)
-	// if err != nil {
-	// 	log.WithError(err).Debug(models.ErrAppsUpdate)
-	// 	c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsUpdate))
-	// 	return
-	// }
-
-	c.JSON(http.StatusOK, simpleError(models.ErrAppNothingToUpdate))
+	c.JSON(http.StatusOK, simpleError(models.ErrAppsNothingToUpdate))
 }

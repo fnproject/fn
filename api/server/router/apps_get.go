@@ -40,5 +40,5 @@ func handleAppGet(c *gin.Context) {
 
 	app.Routes = routes
 
-	c.JSON(http.StatusOK, app)
+	c.JSON(http.StatusOK, &models.AppWrapper{app})
 }
