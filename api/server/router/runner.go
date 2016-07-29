@@ -13,6 +13,11 @@ import (
 )
 
 func handleRunner(c *gin.Context) {
+	if strings.HasPrefix(c.Request.URL.Path, "/v1") {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
 	log := c.MustGet("log").(logrus.FieldLogger)
 	store := c.MustGet("store").(models.Datastore)
 	config := c.MustGet("config").(*models.Config)

@@ -8,17 +8,16 @@ import (
 	"github.com/iron-io/functions/api/models"
 )
 
-func handleRouteDestroy(c *gin.Context) {
+func handleAppDelete(c *gin.Context) {
 	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
 	appName := c.Param("app")
-	routeName := c.Param("route")
-	err := store.RemoveRoute(appName, routeName)
+	err := store.RemoveApp(appName)
 
 	if err != nil {
-		log.WithError(err).Debug(models.ErrRoutesRemoving)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesRemoving))
+		log.WithError(err).Debug(models.ErrAppsRemoving)
+		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
 		return
 	}
 

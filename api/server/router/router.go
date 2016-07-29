@@ -16,7 +16,7 @@ func Start(engine *gin.Engine) {
 
 		v1.GET("/apps/:app", handleAppGet)
 		v1.PUT("/apps/:app", handleAppUpdate)
-		v1.DELETE("/apps/:app", handleAppDestroy)
+		v1.DELETE("/apps/:app", handleAppDelete)
 
 		apps := v1.Group("/apps/:app")
 		{
@@ -24,7 +24,7 @@ func Start(engine *gin.Engine) {
 			apps.POST("/routes", handleRouteCreate)
 			apps.GET("/routes/:route", handleRouteGet)
 			apps.POST("/routes/:route", handleRouteUpdate)
-			apps.DELETE("/routes/:route", handleRouteDestroy)
+			apps.DELETE("/routes/:route", handleRouteDelete)
 		}
 
 	}
