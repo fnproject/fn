@@ -128,9 +128,8 @@ paths:
 
   /apps/{app}/routes:
     post:
-      summary: Enqueue Route
-      description: |
-        Enqueues route(s). If any of the routes is invalid, none of the routes are enqueued.
+      summary: Create new Route
+      description: Create a new route
       tags:
         - Routes
       parameters:
