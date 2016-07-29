@@ -26,6 +26,6 @@ func main() {
 	}
 	log.Printf("config: %+v", config)
 
-	api := server.New(config)
-	api.Start()
+	srv := api.New(config)
+	srv.Start()
 }
