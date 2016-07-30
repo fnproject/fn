@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
@@ -34,6 +36,15 @@ func handleRunner(c *gin.Context) {
 		}
 	}
 
+	if len(payload) > 0 {
+		var emptyJson map[string]interface{}
+		if err := json.Unmarshal(payload, &emptyJson); err != nil {
+			log.WithError(err).Error(models.ErrInvalidJSON)
+			c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
+			return
+		}
+	}
+
 	log.WithField("payload", string(payload)).Debug("Got payload")
 
 	appName := c.Param("app")
@@ -58,6 +69,11 @@ func handleRunner(c *gin.Context) {
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
+	}
+
+	if routes == nil || len(routes) == 0 {
+		log.WithError(err).Error(models.ErrRunnerRouteNotFound)
+		c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
 	}
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")
