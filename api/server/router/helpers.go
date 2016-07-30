@@ -19,6 +19,7 @@ func testRouter() *gin.Engine {
 	r.Use(func(c *gin.Context) {
 		c.Set("store", &datastore.Mock{})
 		c.Set("log", logrus.WithFields(logrus.Fields{}))
+		c.Set("config", &models.Config{})
 		c.Next()
 	})
 	Start(r)
