@@ -27,18 +27,5 @@ func handleAppGet(c *gin.Context) {
 		return
 	}
 
-	filter := &models.RouteFilter{
-		AppName: appName,
-	}
-
-	routes, err := store.GetRoutes(filter)
-	if err != nil {
-		log.WithError(err).Error(models.ErrRoutesGet)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesGet))
-		return
-	}
-
-	app.Routes = routes
-
 	c.JSON(http.StatusOK, &models.AppWrapper{app})
 }
