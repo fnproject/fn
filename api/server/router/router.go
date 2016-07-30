@@ -23,7 +23,7 @@ func Start(engine *gin.Engine) {
 			apps.GET("/routes", handleRouteList)
 			apps.POST("/routes", handleRouteCreate)
 			apps.GET("/routes/:route", handleRouteGet)
-			apps.POST("/routes/:route", handleRouteUpdate)
+			apps.PUT("/routes/:route", handleRouteUpdate)
 			apps.DELETE("/routes/:route", handleRouteDelete)
 		}
 
