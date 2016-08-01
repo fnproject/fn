@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/server/datastore"
 )
 
 func TestRouteRunnerGet(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
@@ -42,7 +43,7 @@ func TestRouteRunnerGet(t *testing.T) {
 }
 
 func TestRouteRunnerPost(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
@@ -69,6 +70,42 @@ func TestRouteRunnerPost(t *testing.T) {
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
+			}
+		}
+	}
+}
+
+func TestRouteRunnerExecution(t *testing.T) {
+	router := testRouter(&datastore.Mock{
+		FakeRoutes: []*models.Route{
+			{Path: "/myroute", Image: "iron/hello", Headers: map[string][]string{"X-Function": []string{"Test"}}},
+			{Path: "/myerror", Image: "iron/error", Headers: map[string][]string{"X-Function": []string{"Test"}}},
+		},
+	}, &models.Config{})
+
+	for i, test := range []struct {
+		path            string
+		body            string
+		expectedCode    int
+		expectedHeaders map[string][]string
+	}{
+		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": []string{"Test"}}},
+		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": []string{"Test"}}},
+	} {
+		body := bytes.NewBuffer([]byte(test.body))
+		_, rec := routerRequest(t, router, "GET", test.path, body)
+
+		if rec.Code != test.expectedCode {
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
+		}
+
+		if test.expectedHeaders != nil {
+			for name, header := range test.expectedHeaders {
+				if header[0] != rec.Header().Get(name) {
+					t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
+						i, name, header[0], rec.Header().Get(name))
+				}
 			}
 		}
 	}
