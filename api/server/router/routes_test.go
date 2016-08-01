@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/server/datastore"
 )
 
 func TestRouteCreate(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
@@ -51,7 +52,7 @@ func TestRouteCreate(t *testing.T) {
 }
 
 func TestRouteDelete(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
@@ -81,7 +82,7 @@ func TestRouteDelete(t *testing.T) {
 }
 
 func TestRouteList(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
@@ -110,7 +111,7 @@ func TestRouteList(t *testing.T) {
 }
 
 func TestRouteGet(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
@@ -139,7 +140,7 @@ func TestRouteGet(t *testing.T) {
 }
 
 func TestRouteUpdate(t *testing.T) {
-	router := testRouter()
+	router := testRouter(&datastore.Mock{}, &models.Config{})
 
 	for i, test := range []struct {
 		path          string
