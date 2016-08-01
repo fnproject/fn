@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"net/http"
@@ -9,7 +9,6 @@ import (
 )
 
 func handleRouteList(c *gin.Context) {
-	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
 	appName := c.Param("app")
@@ -18,7 +17,7 @@ func handleRouteList(c *gin.Context) {
 		AppName: appName,
 	}
 
-	routes, err := store.GetRoutes(filter)
+	routes, err := Api.Datastore.GetRoutes(filter)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesGet)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesGet))

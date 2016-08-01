@@ -5,9 +5,9 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/iron-io/functions/api/datastore/bolt"
+	"github.com/iron-io/functions/api/datastore/postgres"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/server/datastore/bolt"
-	"github.com/iron-io/functions/api/server/datastore/postgres"
 )
 
 func New(dbURL string) (models.Datastore, error) {

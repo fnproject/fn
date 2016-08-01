@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"net/http"
@@ -8,37 +8,39 @@ import (
 	"github.com/iron-io/functions/api/models"
 )
 
-func handleAppCreate(c *gin.Context) {
-	store := c.MustGet("store").(models.Datastore)
+func handleRouteUpdate(c *gin.Context) {
 	log := c.MustGet("log").(logrus.FieldLogger)
 
-	wapp := &models.AppWrapper{}
+	var wroute models.RouteWrapper
 
-	err := c.BindJSON(wapp)
+	err := c.BindJSON(&wroute)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
 		return
 	}
 
-	if wapp.App == nil {
-		log.Debug(models.ErrAppsMissingNew)
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsMissingNew))
+	if wroute.Route == nil {
+		log.WithError(err).Error(models.ErrInvalidJSON)
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
 		return
 	}
 
-	if err := wapp.Validate(); err != nil {
+	wroute.Route.AppName = c.Param("app")
+	wroute.Route.Name = c.Param("route")
+
+	if err := wroute.Validate(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	app, err := store.StoreApp(wapp.App)
+	route, err := Api.Datastore.StoreRoute(wroute.Route)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
 		return
 	}
 
-	c.JSON(http.StatusOK, app)
+	c.JSON(http.StatusOK, route)
 }

@@ -1,27 +1,28 @@
-package api
+package server
 
 import (
-	"fmt"
-	"os"
 	"path"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/server/datastore"
-	"github.com/iron-io/functions/api/server/router"
 )
 
+var Api *Server
+
 type Server struct {
-	router *gin.Engine
-	cfg    *models.Config
+	Router    *gin.Engine
+	Config    *models.Config
+	Datastore models.Datastore
 }
 
-func New(config *models.Config) *Server {
-	return &Server{
-		router: gin.Default(),
-		cfg:    config,
+func New(ds models.Datastore, config *models.Config) *Server {
+	Api = &Server{
+		Router:    gin.Default(),
+		Config:    config,
+		Datastore: ds,
 	}
+	return Api
 }
 
 func extractFields(c *gin.Context) logrus.Fields {
@@ -32,33 +33,46 @@ func extractFields(c *gin.Context) logrus.Fields {
 	return fields
 }
 
-func (s *Server) Start() {
-	if s.cfg.DatabaseURL == "" {
-		cwd, _ := os.Getwd()
-		s.cfg.DatabaseURL = fmt.Sprintf("bolt://%s/bolt.db?bucket=funcs", cwd)
-	}
-
-	if s.cfg.API == "" {
-		s.cfg.API = "http://localhost:8080"
-	}
-
-	ds, err := datastore.New(s.cfg.DatabaseURL)
-	if err != nil {
-		logrus.WithError(err).Fatalln("Invalid DB url.")
-	}
-
-	logrus.SetOutput(os.Stdout)
-	logrus.SetLevel(logrus.DebugLevel)
-
-	s.router.Use(func(c *gin.Context) {
-		c.Set("config", s.cfg)
-		c.Set("store", ds)
+func (s *Server) Run() {
+	s.Router.Use(func(c *gin.Context) {
 		c.Set("log", logrus.WithFields(extractFields(c)))
 		c.Next()
 	})
 
-	router.Start(s.router)
+	bindHandlers(s.Router)
 
 	// Default to :8080
-	s.router.Run()
+	s.Router.Run()
+}
+
+func bindHandlers(engine *gin.Engine) {
+	engine.GET("/", handlePing)
+	engine.GET("/version", handleVersion)
+
+	v1 := engine.Group("/v1")
+	{
+		v1.GET("/apps", handleAppList)
+		v1.POST("/apps", handleAppCreate)
+
+		v1.GET("/apps/:app", handleAppGet)
+		v1.PUT("/apps/:app", handleAppUpdate)
+		v1.DELETE("/apps/:app", handleAppDelete)
+
+		apps := v1.Group("/apps/:app")
+		{
+			apps.GET("/routes", handleRouteList)
+			apps.POST("/routes", handleRouteCreate)
+			apps.GET("/routes/:route", handleRouteGet)
+			apps.PUT("/routes/:route", handleRouteUpdate)
+			apps.DELETE("/routes/:route", handleRouteDelete)
+		}
+
+	}
+
+	engine.Any("/r/:app/*route", handleRunner)
+	engine.NoRoute(handleRunner)
+}
+
+func simpleError(err error) *models.Error {
+	return &models.Error{&models.ErrorBody{Message: err.Error()}}
 }

@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"net/http"
@@ -9,12 +9,11 @@ import (
 )
 
 func handleRouteDelete(c *gin.Context) {
-	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
 	appName := c.Param("app")
 	routeName := c.Param("route")
-	err := store.RemoveRoute(appName, routeName)
+	err := Api.Datastore.RemoveRoute(appName, routeName)
 
 	if err != nil {
 		log.WithError(err).Debug(models.ErrRoutesRemoving)

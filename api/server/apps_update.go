@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"net/http"
@@ -9,7 +9,6 @@ import (
 )
 
 func handleAppUpdate(c *gin.Context) {
-	// store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
 	app := &models.App{}
@@ -33,7 +32,7 @@ func handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	// app, err := store.StoreApp(wapp.App)
+	// app, err := Api.Datastore.StoreApp(wapp.App)
 	// if err != nil {
 	// 	log.WithError(err).Debug(models.ErrAppsCreate)
 	// 	c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
