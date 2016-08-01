@@ -22,7 +22,6 @@ func handleRunner(c *gin.Context) {
 
 	log := c.MustGet("log").(logrus.FieldLogger)
 	store := c.MustGet("store").(models.Datastore)
-	config := c.MustGet("config").(*models.Config)
 
 	var err error
 
@@ -37,8 +36,8 @@ func handleRunner(c *gin.Context) {
 	}
 
 	if len(payload) > 0 {
-		var emptyJson map[string]interface{}
-		if err := json.Unmarshal(payload, &emptyJson); err != nil {
+		var emptyJSON map[string]interface{}
+		if err := json.Unmarshal(payload, &emptyJSON); err != nil {
 			log.WithError(err).Error(models.ErrInvalidJSON)
 			c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
 			return
@@ -81,11 +80,10 @@ func handleRunner(c *gin.Context) {
 	for _, el := range routes {
 		if el.Path == route {
 			run := runner.New(&runner.Config{
-				Ctx:      c,
-				Route:    el,
-				Endpoint: config.API,
-				Payload:  string(payload),
-				Timeout:  30 * time.Second,
+				Ctx:     c,
+				Route:   el,
+				Payload: string(payload),
+				Timeout: 30 * time.Second,
 			})
 
 			if err := run.Run(); err != nil {
