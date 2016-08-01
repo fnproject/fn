@@ -2,18 +2,23 @@ package datastore
 
 import "github.com/iron-io/functions/api/models"
 
-type Mock struct{}
+type Mock struct {
+	FakeApp    *models.App
+	FakeApps   []*models.App
+	FakeRoute  *models.Route
+	FakeRoutes []*models.Route
+}
 
 func (m *Mock) GetApp(app string) (*models.App, error) {
-	return nil, nil
+	return m.FakeApp, nil
 }
 
 func (m *Mock) GetApps(appFilter *models.AppFilter) ([]*models.App, error) {
-	return nil, nil
+	return m.FakeApps, nil
 }
 
 func (m *Mock) StoreApp(app *models.App) (*models.App, error) {
-	return nil, nil
+	return m.FakeApp, nil
 }
 
 func (m *Mock) RemoveApp(app string) error {
@@ -21,15 +26,15 @@ func (m *Mock) RemoveApp(app string) error {
 }
 
 func (m *Mock) GetRoute(app, route string) (*models.Route, error) {
-	return nil, nil
+	return m.FakeRoute, nil
 }
 
 func (m *Mock) GetRoutes(routeFilter *models.RouteFilter) ([]*models.Route, error) {
-	return nil, nil
+	return m.FakeRoutes, nil
 }
 
 func (m *Mock) StoreRoute(route *models.Route) (*models.Route, error) {
-	return nil, nil
+	return m.FakeRoute, nil
 }
 
 func (m *Mock) RemoveRoute(app, route string) error {
