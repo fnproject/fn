@@ -16,7 +16,6 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/server"
-	"github.com/iron-io/titan/common"
 	"github.com/spf13/viper"
 )
 
@@ -24,9 +23,13 @@ func main() {
 	config := &models.Config{}
 
 	InitConfig()
-	common.SetLogLevel(viper.GetString("log_level"))
+	logLevel, err := log.ParseLevel(viper.GetString("log_level"))
+	if err != nil {
+		log.WithError(err).Fatalln("Invalid log level.")
+	}
+	log.SetLevel(logLevel)
 
-	err := config.Validate()
+	err = config.Validate()
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid config.")
 	}
