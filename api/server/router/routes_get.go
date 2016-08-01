@@ -22,6 +22,12 @@ func handleRouteGet(c *gin.Context) {
 		return
 	}
 
+	if route == nil {
+		log.Error(models.ErrRoutesNotFound)
+		c.JSON(http.StatusNotFound, simpleError(models.ErrRoutesNotFound))
+		return
+	}
+
 	log.WithFields(logrus.Fields{"route": route}).Debug("Got route")
 
 	c.JSON(http.StatusOK, &models.RouteWrapper{route})

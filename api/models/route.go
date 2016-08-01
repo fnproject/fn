@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"net/http"
+	"path"
 
 	apiErrors "github.com/go-openapi/errors"
 )
@@ -28,29 +29,34 @@ type Route struct {
 }
 
 var (
-	ErrRoutesValidationName    = errors.New("Missing route Name")
-	ErrRoutesValidationImage   = errors.New("Missing route Image")
-	ErrRoutesValidationAppName = errors.New("Missing route AppName")
-	ErrRoutesValidationPath    = errors.New("Missing route Path")
+	ErrRoutesValidationMissingName    = errors.New("Missing route Name")
+	ErrRoutesValidationMissingImage   = errors.New("Missing route Image")
+	ErrRoutesValidationMissingAppName = errors.New("Missing route AppName")
+	ErrRoutesValidationMissingPath    = errors.New("Missing route Path")
+	ErrRoutesValidationInvalidPath    = errors.New("Invalid Path format")
 )
 
 func (r *Route) Validate() error {
 	var res []error
 
 	if r.Name == "" {
-		res = append(res, ErrRoutesValidationAppName)
+		res = append(res, ErrRoutesValidationMissingName)
 	}
 
 	if r.Image == "" {
-		res = append(res, ErrRoutesValidationImage)
+		res = append(res, ErrRoutesValidationMissingImage)
 	}
 
 	if r.AppName == "" {
-		res = append(res, ErrRoutesValidationAppName)
+		res = append(res, ErrRoutesValidationMissingAppName)
 	}
 
 	if r.Path == "" {
-		res = append(res, ErrRoutesValidationPath)
+		res = append(res, ErrRoutesValidationMissingPath)
+	}
+
+	if !path.IsAbs(r.Path) {
+		res = append(res, ErrRoutesValidationInvalidPath)
 	}
 
 	if len(res) > 0 {

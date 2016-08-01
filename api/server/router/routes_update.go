@@ -12,17 +12,29 @@ func handleRouteUpdate(c *gin.Context) {
 	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
-	wroute := &models.RouteWrapper{}
-	appName := c.Param("app")
+	var wroute models.RouteWrapper
 
-	err := c.BindJSON(wroute)
+	err := c.BindJSON(&wroute)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
 		return
 	}
 
-	wroute.Route.AppName = appName
+	if wroute.Route == nil {
+		log.WithError(err).Error(models.ErrInvalidJSON)
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
+		return
+	}
+
+	wroute.Route.AppName = c.Param("app")
+	wroute.Route.Name = c.Param("route")
+
+	if err := wroute.Validate(); err != nil {
+		log.Error(err)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
 
 	route, err := store.StoreRoute(wroute.Route)
 	if err != nil {
