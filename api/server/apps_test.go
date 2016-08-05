@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"bytes"
@@ -6,12 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/server/datastore"
 )
 
 func TestAppCreate(t *testing.T) {
-	router := testRouter(&datastore.Mock{}, &models.Config{})
+	New(&datastore.Mock{}, &models.Config{})
+	router := testRouter()
 
 	for i, test := range []struct {
 		path          string
@@ -51,7 +52,8 @@ func TestAppCreate(t *testing.T) {
 }
 
 func TestAppDelete(t *testing.T) {
-	router := testRouter(&datastore.Mock{}, &models.Config{})
+	New(&datastore.Mock{}, &models.Config{})
+	router := testRouter()
 
 	for i, test := range []struct {
 		path          string
@@ -81,7 +83,8 @@ func TestAppDelete(t *testing.T) {
 }
 
 func TestAppList(t *testing.T) {
-	router := testRouter(&datastore.Mock{}, &models.Config{})
+	New(&datastore.Mock{}, &models.Config{})
+	router := testRouter()
 
 	for i, test := range []struct {
 		path          string
@@ -110,7 +113,8 @@ func TestAppList(t *testing.T) {
 }
 
 func TestAppGet(t *testing.T) {
-	router := testRouter(&datastore.Mock{}, &models.Config{})
+	New(&datastore.Mock{}, &models.Config{})
+	router := testRouter()
 
 	for i, test := range []struct {
 		path          string
@@ -139,7 +143,8 @@ func TestAppGet(t *testing.T) {
 }
 
 func TestAppUpdate(t *testing.T) {
-	router := testRouter(&datastore.Mock{}, &models.Config{})
+	New(&datastore.Mock{}, &models.Config{})
+	router := testRouter()
 
 	for i, test := range []struct {
 		path          string

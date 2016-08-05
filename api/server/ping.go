@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"net/http"
@@ -6,6 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func handleVersion(c *gin.Context) {
+func handlePing(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, "Not Implemented")
 }

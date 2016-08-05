@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"encoding/json"
@@ -11,30 +11,15 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/server/datastore"
 )
 
-func testRouter(ds models.Datastore, config *models.Config) *gin.Engine {
+func testRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(func(c *gin.Context) {
-		c.Set("store", ds)
 		c.Set("log", logrus.WithFields(logrus.Fields{}))
-		c.Set("config", config)
 		c.Next()
 	})
-	Start(r)
-	return r
-}
-
-func testRouterWithDefault() *gin.Engine {
-	r := gin.Default()
-	r.Use(func(c *gin.Context) {
-		c.Set("store", &datastore.Mock{})
-		c.Set("log", logrus.WithFields(logrus.Fields{}))
-		c.Set("config", &models.Config{})
-		c.Next()
-	})
-	Start(r)
+	bindHandlers(r)
 	return r
 }
 

@@ -1,4 +1,4 @@
-package router
+package server
 
 import (
 	"net/http"
@@ -9,11 +9,10 @@ import (
 )
 
 func handleAppGet(c *gin.Context) {
-	store := c.MustGet("store").(models.Datastore)
 	log := c.MustGet("log").(logrus.FieldLogger)
 
 	appName := c.Param("app")
-	app, err := store.GetApp(appName)
+	app, err := Api.Datastore.GetApp(appName)
 
 	if err != nil {
 		log.WithError(err).Error(models.ErrAppsGet)
