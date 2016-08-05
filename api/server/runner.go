@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/satori/go.uuid"
 )
 
 func handleRunner(c *gin.Context) {
@@ -21,6 +22,11 @@ func handleRunner(c *gin.Context) {
 	}
 
 	log := c.MustGet("log").(logrus.FieldLogger)
+
+	reqID := uuid.NewV5(uuid.Nil, c.Request.RemoteAddr+c.Request.URL.Path).String()
+	c.Set("reqID", reqID)
+
+	log = log.WithFields(logrus.Fields{"request_id": reqID})
 
 	var err error
 
@@ -83,6 +89,7 @@ func handleRunner(c *gin.Context) {
 				Route:   el,
 				Payload: string(payload),
 				Timeout: 30 * time.Second,
+				ID:      reqID,
 			})
 
 			if err := run.Run(); err != nil {

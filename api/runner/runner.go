@@ -17,6 +17,7 @@ import (
 )
 
 type Config struct {
+	ID      string
 	Ctx     context.Context
 	Route   *models.Route
 	Payload string
