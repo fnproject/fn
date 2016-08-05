@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -23,7 +24,7 @@ func handleRunner(c *gin.Context) {
 
 	log := c.MustGet("log").(logrus.FieldLogger)
 
-	reqID := uuid.NewV5(uuid.Nil, c.Request.RemoteAddr+c.Request.URL.Path).String()
+	reqID := uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", c.Request.RemoteAddr, c.Request.URL.Path, time.Now().Unix())).String()
 	c.Set("reqID", reqID)
 
 	log = log.WithFields(logrus.Fields{"request_id": reqID})
@@ -81,7 +82,6 @@ func handleRunner(c *gin.Context) {
 	}
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")
-
 	for _, el := range routes {
 		if el.Path == route {
 			run := runner.New(&runner.Config{
