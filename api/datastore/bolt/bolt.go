@@ -68,6 +68,10 @@ func New(url *url.URL) (models.Datastore, error) {
 }
 
 func (ds *BoltDatastore) StoreApp(app *models.App) (*models.App, error) {
+	if app == nil {
+		return nil, models.ErrDatastoreEmptyApp
+	}
+
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		bIm := tx.Bucket(ds.appsBucket)
 		buf, err := json.Marshal(app)
@@ -89,6 +93,10 @@ func (ds *BoltDatastore) StoreApp(app *models.App) (*models.App, error) {
 }
 
 func (ds *BoltDatastore) RemoveApp(appName string) error {
+	if appName == "" {
+		return models.ErrDatastoreEmptyAppName
+	}
+
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		bIm := tx.Bucket(ds.appsBucket)
 		err := bIm.Delete([]byte(appName))
@@ -130,6 +138,10 @@ func (ds *BoltDatastore) GetApps(filter *models.AppFilter) ([]*models.App, error
 }
 
 func (ds *BoltDatastore) GetApp(name string) (*models.App, error) {
+	if name == "" {
+		return nil, models.ErrDatastoreEmptyAppName
+	}
+
 	var res *models.App
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.appsBucket)
@@ -164,6 +176,10 @@ func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bol
 }
 
 func (ds *BoltDatastore) StoreRoute(route *models.Route) (*models.Route, error) {
+	if route == nil {
+		return nil, models.ErrDatastoreEmptyApp
+	}
+
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, route.AppName)
 		if err != nil {
@@ -188,6 +204,14 @@ func (ds *BoltDatastore) StoreRoute(route *models.Route) (*models.Route, error) 
 }
 
 func (ds *BoltDatastore) RemoveRoute(appName, routeName string) error {
+	if appName == "" {
+		return models.ErrDatastoreEmptyAppName
+	}
+
+	if routeName == "" {
+		return models.ErrDatastoreEmptyRouteName
+	}
+
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, appName)
 		if err != nil {
@@ -207,7 +231,15 @@ func (ds *BoltDatastore) RemoveRoute(appName, routeName string) error {
 }
 
 func (ds *BoltDatastore) GetRoute(appName, routeName string) (*models.Route, error) {
-	var route models.Route
+	if appName == "" {
+		return nil, models.ErrDatastoreEmptyAppName
+	}
+
+	if routeName == "" {
+		return nil, models.ErrDatastoreEmptyRouteName
+	}
+
+	var route *models.Route
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, appName)
 		if err != nil {
@@ -215,13 +247,12 @@ func (ds *BoltDatastore) GetRoute(appName, routeName string) (*models.Route, err
 		}
 
 		v := b.Get([]byte(routeName))
-		if v == nil {
-			return models.ErrRoutesNotFound
+		if v != nil {
+			err = json.Unmarshal(v, &route)
 		}
-		err = json.Unmarshal(v, &route)
 		return err
 	})
-	return &route, err
+	return route, err
 }
 
 func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route, error) {

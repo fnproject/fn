@@ -1,5 +1,7 @@
 package models
 
+import "errors"
+
 type Datastore interface {
 	GetApp(appName string) (*App, error)
 	GetApps(*AppFilter) ([]*App, error)
@@ -11,6 +13,13 @@ type Datastore interface {
 	StoreRoute(*Route) (*Route, error)
 	RemoveRoute(appName, routeName string) error
 }
+
+var (
+	ErrDatastoreEmptyAppName   = errors.New("Missing app name")
+	ErrDatastoreEmptyRouteName = errors.New("Missing route name")
+	ErrDatastoreEmptyApp       = errors.New("Missing app")
+	ErrDatastoreEmptyRoute     = errors.New("Missing route")
+)
 
 func ApplyAppFilter(app *App, filter *AppFilter) bool {
 	return true
