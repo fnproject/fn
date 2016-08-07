@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/satori/go.uuid"
 )
 
 func handleRunner(c *gin.Context) {
@@ -21,6 +23,11 @@ func handleRunner(c *gin.Context) {
 	}
 
 	log := c.MustGet("log").(logrus.FieldLogger)
+
+	reqID := uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", c.Request.RemoteAddr, c.Request.URL.Path, time.Now().Unix())).String()
+	c.Set("reqID", reqID)
+
+	log = log.WithFields(logrus.Fields{"request_id": reqID})
 
 	var err error
 
@@ -75,7 +82,6 @@ func handleRunner(c *gin.Context) {
 	}
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")
-
 	for _, el := range routes {
 		if el.Path == route {
 			run := runner.New(&runner.Config{
@@ -83,6 +89,7 @@ func handleRunner(c *gin.Context) {
 				Route:   el,
 				Payload: string(payload),
 				Timeout: 30 * time.Second,
+				ID:      reqID,
 			})
 
 			if err := run.Run(); err != nil {

@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ func TestRunnerHello(t *testing.T) {
 		{&models.Route{Image: "iron/hello"}, `{"name": "test"}`, "success", "Hello test!", ""},
 	} {
 		runner := New(&Config{
+			ID:      fmt.Sprintf("task-hello-%d-%d", i, time.Now().Unix()),
 			Ctx:     context.Background(),
 			Route:   test.route,
 			Timeout: 5 * time.Second,
@@ -57,6 +59,7 @@ func TestRunnerError(t *testing.T) {
 		{&models.Route{Image: "iron/error"}, `{"name": "test"}`, "error", "", "RuntimeError"},
 	} {
 		runner := New(&Config{
+			ID:      fmt.Sprintf("task-error-%d-%d", i, time.Now().Unix()),
 			Ctx:     context.Background(),
 			Route:   test.route,
 			Timeout: 5 * time.Second,
