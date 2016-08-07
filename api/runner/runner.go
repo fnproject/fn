@@ -11,7 +11,7 @@ import (
 	"github.com/iron-io/titan/common"
 	"github.com/iron-io/titan/runner/agent"
 	"github.com/iron-io/titan/runner/drivers"
-	driverscommon "github.com/iron-io/titan/runner/drivers/common"
+	driverscommon "github.com/iron-io/titan/runner/drivers"
 	"github.com/iron-io/titan/runner/drivers/docker"
 	"github.com/iron-io/titan/runner/drivers/mock"
 )
@@ -82,7 +82,7 @@ func (r Runner) Status() string {
 func selectDriver(driver string, env *common.Environment, conf *driverscommon.Config) (drivers.Driver, error) {
 	switch driver {
 	case "docker":
-		docker := docker.NewDocker(env, conf)
+		docker := docker.NewDocker(env, *conf)
 		return docker, nil
 	case "mock":
 		return mock.New(), nil

@@ -74,11 +74,13 @@ func handleRunner(c *gin.Context) {
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
+		return
 	}
 
 	if routes == nil || len(routes) == 0 {
 		log.WithError(err).Error(models.ErrRunnerRouteNotFound)
 		c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
+		return
 	}
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")

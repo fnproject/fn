@@ -8,11 +8,8 @@ For keeping a minimum running, perhaps when doing a routing table update, if des
 package main
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	log "github.com/Sirupsen/logrus"
+	"github.com/iron-io/functions/api/config"
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/server"
@@ -20,16 +17,11 @@ import (
 )
 
 func main() {
-	config := &models.Config{}
+	c := &models.Config{}
 
-	InitConfig()
-	logLevel, err := log.ParseLevel(viper.GetString("log_level"))
-	if err != nil {
-		log.WithError(err).Fatalln("Invalid log level.")
-	}
-	log.SetLevel(logLevel)
+	config.InitConfig()
 
-	err = config.Validate()
+	err := c.Validate()
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid config.")
 	}
@@ -39,17 +31,6 @@ func main() {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
 
-	srv := server.New(ds, config)
+	srv := server.New(ds, c)
 	srv.Run()
-}
-
-func InitConfig() {
-	cwd, _ := os.Getwd()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetDefault("log_level", "info")
-	viper.SetDefault("db", fmt.Sprintf("bolt://%s/bolt.db?bucket=funcs", cwd))
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
-	viper.AutomaticEnv() // picks up env vars automatically
-	viper.ReadInConfig()
 }

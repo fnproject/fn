@@ -1,10 +1,56 @@
-hash: 2101b4c83f12c75cbc3cb5be0a7d544dd3a7d21a27ef8a5ee8b014ded8cee034
-updated: 2016-07-27T16:56:51.792310167-03:00
+hash: 5ccf89905e13b7dc987cd203c1d7c1fddd32dcd776fe2e5f60d9f6f7b9908425
+updated: 2016-08-07T13:44:07.250867774-04:00
 imports:
+- name: github.com/amir/raidman
+  version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
+  subpackages:
+  - proto
 - name: github.com/asaskevich/govalidator
   version: 593d64559f7600f29581a3ee42177f5dbded27a9
 - name: github.com/boltdb/bolt
-  version: 5cc10bbbc5c141029940133bb33c9e969512a698
+  version: 94c8db596809690a3f7046fa83c7b0dda13a3222
+- name: github.com/BurntSushi/toml
+  version: 99064174e013895bbd9b025c31100bd1d9b590ca
+- name: github.com/cactus/go-statsd-client
+  version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
+  subpackages:
+  - statsd
+- name: github.com/docker/distribution
+  version: 9ca7921603852314b18a6ecc19f91806935f34bd
+  subpackages:
+  - digest
+  - manifest
+- name: github.com/docker/docker
+  version: 59311faaed4e3384fc8da738a57a25f17ae07e05
+  subpackages:
+  - opts
+  - pkg/archive
+  - pkg/fileutils
+  - pkg/homedir
+  - pkg/stdcopy
+  - pkg/parsers
+  - pkg/ulimit
+  - volume
+  - pkg/pools
+  - pkg/promise
+  - pkg/system
+  - pkg/ioutils
+  - pkg/units
+  - pkg/tarsum
+  - pkg/random
+- name: github.com/docker/go-units
+  version: eb879ae3e2b84e2a142af415b679ddeda47ec71c
+- name: github.com/docker/libtrust
+  version: 9cbd2a1374f46905c68a4eb3694a130610adc62a
+- name: github.com/fsnotify/fsnotify
+  version: a8a77c9133d2d6fd8334f3260d06f60e8d80a5fb
+- name: github.com/fsouza/go-dockerclient
+  version: 62035adb3375dad32558aa3b1bd2279e4504e000
+- name: github.com/garyburd/redigo
+  version: 4ed1111375cbeb698249ffe48dd463e9b0a63a7a
+  subpackages:
+  - redis
+  - internal
 - name: github.com/gin-gonic/gin
   version: 4a6bc4aac4607e253bcda67c8c5bcda693d2388e
   subpackages:
@@ -21,7 +67,9 @@ imports:
 - name: github.com/go-openapi/loads
   version: 18441dfa706d924a39a030ee2c3b1d8d81917b38
 - name: github.com/go-openapi/runtime
-  version: 11e322eeecc1032d5a0a96c566ed53f2b5c26e22
+  version: 499b9bceffc59518b28ff84e0717692883137578
+  subpackages:
+  - client
 - name: github.com/go-openapi/spec
   version: e9fab754f5629065e6b7a6100301226545d4477e
 - name: github.com/go-openapi/strfmt
@@ -34,38 +82,121 @@ imports:
   version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
   - proto
+- name: github.com/hashicorp/go-cleanhttp
+  version: ad28ea4487f05916463e2423a55166280e8254b5
+- name: github.com/hashicorp/hcl
+  version: d8c773c4cba11b11539e3d45f93daeaa5dcf1fa1
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/token
+  - json/parser
+  - hcl/scanner
+  - hcl/strconv
+  - json/scanner
+  - json/token
+- name: github.com/heroku/docker-registry-client
+  version: ddbd05bac47f55e533a7ed124211ef7e076b0bf3
+  subpackages:
+  - registry
 - name: github.com/iron-io/titan
-  version: 697a5466b096fee73202f5ddccf8213a2357e062
-  repo: git@github.com:iron-io/titan.git
+  version: a55b68c6ff4c750886542e788b87db80dda7c47a
+  repo: https://github.com/iron-io/titan.git
   vcs: git
   subpackages:
-  - jobserver/models
+  - common
+  - runner/agent
+  - runner/drivers
+  - runner/drivers/docker
+  - runner/drivers/mock
+  - runner/tasker
+  - common/stats
+  - runner/tasker/client/models
+  - runner/tasker/client/titan
+  - runner/tasker/client/titan/jobs
+  - runner/tasker/client/titan/groups
+  - runner/tasker/client/titan/runner
+- name: github.com/kr/fs
+  version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/lib/pq
-  version: 3cd0097429be7d611bb644ef85b42bfb102ceea4
+  version: 80f8150043c80fb52dee6bc863a709cdac7ec8f8
   subpackages:
   - oid
+- name: github.com/magiconair/properties
+  version: b3f6dd549956e8a61ea4a686a1c02a33d5bdda4b
 - name: github.com/mailru/easyjson
-  version: 97eee20abef76a0591155412cf0d04f24b05098f
+  version: d5b7844b561a7bc640052f1b935f7b800330d7e0
   subpackages:
   - jlexer
   - jwriter
   - buffer
 - name: github.com/manucorporat/sse
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
+- name: github.com/mitchellh/mapstructure
+  version: 21a35fb16463dfb7c8eee579c65d995d95e64d1e
+- name: github.com/opencontainers/runc
+  version: 142df3836b740af53dc6da59eed8dbc92f62917c
+  subpackages:
+  - libcontainer/user
+- name: github.com/pivotal-golang/bytefmt
+  version: 24c06ce13e176cf7a7a440c8cf3b64d91c36c8e2
+- name: github.com/pkg/errors
+  version: 2a9be18ecd8c148be18be08a811e33809206da19
+- name: github.com/pkg/sftp
+  version: a71e8f580e3b622ebff585309160b1cc549ef4d2
 - name: github.com/PuerkitoBio/purell
-  version: 1d5d1cfad45d42ec5f81fa8ef23de09cebc6dcc3
+  version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
+- name: github.com/satori/go.uuid
+  version: 0aa62d5ddceb50dbcb909d790b5345affd3669b6
 - name: github.com/Sirupsen/logrus
-  version: a283a10442df8dc09befd873fab202bf8a253d6a
+  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+  subpackages:
+  - hooks/syslog
+- name: github.com/spf13/afero
+  version: cc9c21814bb945440253108c4d3c65c85aac3c68
+  subpackages:
+  - mem
+  - sftp
+- name: github.com/spf13/cast
+  version: e31f36ffc91a2ba9ddb72a4b6a607ff9b3d3cb63
+- name: github.com/spf13/jwalterweatherman
+  version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
+- name: github.com/spf13/pflag
+  version: f676131e2660dc8cd88de99f7486d34aa8172635
+- name: github.com/spf13/viper
+  version: 346299ea79e446ebdddb834371ceba2e5926b732
+- name: golang.org/x/crypto
+  version: c10c31b5e94b6f7a0283272dc2bb27163dcea24b
+  subpackages:
+  - ssh
 - name: golang.org/x/net
   version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
   - context
+  - context/ctxhttp
+  - proxy
+  - idna
 - name: golang.org/x/sys
   version: a646d33e2ee3172a661fc09bca23bb4889a41bc8
   subpackages:
   - unix
+- name: golang.org/x/text
+  version: 2910a502d2bf9e43193af9d68ca516529614eed3
+  subpackages:
+  - transform
+  - unicode/norm
+  - secure/precis
+  - cases
+  - runes
+  - secure/bidirule
+  - width
+  - language
+  - unicode/bidi
+  - internal/tag
 - name: gopkg.in/go-playground/validator.v8
   version: c193cecd124b5cc722d7ee5538e945bdb3348435
+- name: gopkg.in/yaml.v2
+  version: e4d366fc3c7938e2958e662b4258c7a89e1f0e3e
 testImports: []

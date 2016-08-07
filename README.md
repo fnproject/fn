@@ -6,8 +6,8 @@
 
 First let's start our IronFunctions API
 
-```
-docker run --rm --privileged -it -p 8080:8080 iron/functions
+```sh
+docker run --rm --privileged -it -e "DB=bolt:///app/data/bolt.db" -v $PWD/data:/app/data -p 8080:8080 iron/functions
 ```
 
 This command will quickly start our API using the default database `Bolt` running on `:8080`
@@ -18,7 +18,7 @@ This command will quickly start our API using the default database `Bolt` runnin
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
-    "name":"APP_NAME"
+    "app": { "name":"myapp" }
 }' http://localhost:8080/v1/apps
 ```
 
@@ -28,19 +28,23 @@ Now add routes to the app. First we'll add a route to the output of a docker con
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
-    "name": "hello",
-    "path":"/hello",
-    "image":"iron/hello"
+    "route": {
+        "name": "hello",
+        "path":"/hello",
+        "image":"iron/hello"
+    }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
 
 ### Calling your Function
 
+Just hit the URL you got back from adding a route above:
+
 ```
 curl http://localhost:8080/r/myapp/hello
 ```
 
-### To pass in data to your function,
+### To pass in data to your function
 
 Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. 
 
@@ -55,12 +59,12 @@ curl -H "Content-Type: application/json" -X POST -d '{
 Simply point to https://functions.iron.io instead of localhost and add your Iron.io Authentication header (TODO: link), like this:
 
 ```sh
-curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -X POST -d '{"name":"APP_NAME"}' https://functions.iron.io/v1/apps
+curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -X POST -d '{"app": {"name":"myapp"}}' https://functions.iron.io/v1/apps
 ```
 
-And you'll get an ironfunctions.com host:
+And you'll get an ironfunctions.com host for your app:
 
-```
+```sh
 APP_NAME.USER_ID.ironfunctions.com/PATH
 ``` 
 

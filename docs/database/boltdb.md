@@ -7,5 +7,5 @@ BoltDB is the default database, you just need to run the API.
 To keep it persistent you add a volume flag to the command:
 
 ```
-docker run --rm -it -v $PWD/bold.db:/app/bolt.db -p 8080:8080 iron/functions
+docker run --rm -it --privileged -v $PWD/bolt.db:/app/bolt.db -p 8080:8080 iron/functions
 ```
