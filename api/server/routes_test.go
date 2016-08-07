@@ -23,12 +23,11 @@ func TestRouteCreate(t *testing.T) {
 		// errors
 		{"/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{"/v1/apps/a/routes", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{"/v1/apps/a/routes", `{ "route": { "name": "" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingName},
-		{"/v1/apps/a/routes", `{ "route": { "name": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
-		{"/v1/apps/a/routes", `{ "route": { "name": "myroute", "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
-		{"/v1/apps/a/routes", `{ "route": { "name": "myroute", "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
-		{"/v1/apps/$/routes", `{ "route": { "name": "myroute", "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{"/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{"/v1/apps/a/routes", `{ "route": { } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
+		{"/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
+		{"/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
+		{"/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
 		{"/v1/apps/a/routes", `{ "route": { "name": "myroute", "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
@@ -62,7 +61,7 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{"/v1/apps/a/routes", "", http.StatusNotFound, nil},
+		{"/v1/apps/a/routes", "", http.StatusTemporaryRedirect, nil},
 		{"/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
@@ -154,14 +153,12 @@ func TestRouteUpdate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{"/v1/apps/a/routes/myroute", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/v1/apps/a/routes/myroute", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{"/v1/apps/a/routes/myroute", `{ "route": {} }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
-		{"/v1/apps/a/routes/myroute", `{ "route": { "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
-		{"/v1/apps/a/routes/myroute", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
+		{"/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{"/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{"/v1/apps/a/routes/myroute/do", `{ "route": {} }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
 
 		// success
-		{"/v1/apps/a/routes/myroute", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{"/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "PUT", test.path, body)

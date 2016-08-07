@@ -27,7 +27,6 @@ func handleRouteUpdate(c *gin.Context) {
 	}
 
 	wroute.Route.AppName = c.Param("app")
-	log.Infoln("Route: ", c.Param("route"))
 	wroute.Route.Path = c.Param("route")
 
 	if err := wroute.Validate(); err != nil {
