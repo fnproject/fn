@@ -28,7 +28,6 @@ func TestBolt(t *testing.T) {
 	}
 
 	testRoute := &models.Route{
-		Name:    "test",
 		AppName: testApp.Name,
 		Path:    "/test",
 		Image:   "iron/hello",
@@ -114,12 +113,12 @@ func TestBolt(t *testing.T) {
 		t.Fatalf("Test GetRoute: expected error when using empty app name", err)
 	}
 
-	route, err := ds.GetRoute(testApp.Name, testRoute.Name)
+	route, err := ds.GetRoute(testApp.Name, testRoute.Path)
 	if err != nil {
 		t.Fatalf("Test GetRoute: error: %s", err)
 	}
-	if route.Name != testRoute.Name {
-		t.Fatalf("Test GetRoute: expected `route.Name` to be `%s` but it was `%s`", route.Name, testRoute.Name)
+	if route.Path != testRoute.Path {
+		t.Fatalf("Test GetRoute: expected `route.Name` to be `%s` but it was `%s`", route.Path, testRoute.Path)
 	}
 
 	// Testing list routes
@@ -130,8 +129,8 @@ func TestBolt(t *testing.T) {
 	if len(routes) == 0 {
 		t.Fatal("Test GetRoutes: expected result count to be greater than 0")
 	}
-	if routes[0].Name != testRoute.Name {
-		t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Name, routes[0].Name)
+	if routes[0].Path != testRoute.Path {
+		t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 	}
 
 	// Testing app delete
@@ -145,12 +144,12 @@ func TestBolt(t *testing.T) {
 		t.Fatalf("Test RemoveRoute: expected error when using empty route name", err)
 	}
 
-	err = ds.RemoveRoute(testRoute.AppName, testRoute.Name)
+	err = ds.RemoveRoute(testRoute.AppName, testRoute.Path)
 	if err != nil {
 		t.Fatalf("Test RemoveApp: error: %s", err)
 	}
 
-	route, err = ds.GetRoute(testRoute.AppName, testRoute.Name)
+	route, err = ds.GetRoute(testRoute.AppName, testRoute.Path)
 	if err != nil {
 		t.Fatalf("Test GetRoute: error: %s", err)
 	}

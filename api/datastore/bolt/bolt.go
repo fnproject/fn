@@ -191,7 +191,7 @@ func (ds *BoltDatastore) StoreRoute(route *models.Route) (*models.Route, error) 
 			return err
 		}
 
-		err = b.Put([]byte(route.Name), buf)
+		err = b.Put([]byte(route.Path), buf)
 		if err != nil {
 			return err
 		}

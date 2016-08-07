@@ -13,9 +13,8 @@ import (
 
 const routesTableCreate = `
 CREATE TABLE IF NOT EXISTS routes (
-	name character varying(256) NOT NULL PRIMARY KEY,
+	app_name character varying(256) NOT NULL,
 	path text NOT NULL,
-    app_name character varying(256) NOT NULL,
     image character varying(256) NOT NULL,
 	headers text NOT NULL
 );`
@@ -24,7 +23,7 @@ const appsTableCreate = `CREATE TABLE IF NOT EXISTS apps (
     name character varying(256) NOT NULL PRIMARY KEY
 );`
 
-const routeSelector = `SELECT name, path, app_name, image, headers FROM routes`
+const routeSelector = `SELECT app_name, path, image, headers FROM routes`
 
 type rowScanner interface {
 	Scan(dest ...interface{}) error
@@ -159,16 +158,15 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 
 	_, err = ds.db.Exec(`
 		INSERT INTO routes (
-			name, app_name, path, image,
+			app_name, path, image,
 			headers
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (name) DO UPDATE SET
-			path = $3,
-			image = $4,
-			headers = $5;
+			path = $1,
+			image = $2,
+			headers = $3;
 		`,
-		route.Name,
 		route.AppName,
 		route.Path,
 		route.Image,
@@ -196,9 +194,9 @@ func (ds *PostgresDatastore) RemoveRoute(appName, routeName string) error {
 func scanRoute(scanner rowScanner, route *models.Route) error {
 	var headerStr string
 	err := scanner.Scan(
-		&route.Name,
-		&route.Path,
+		// &route.Name,
 		&route.AppName,
+		&route.Path,
 		&route.Image,
 		&headerStr,
 	)

@@ -21,7 +21,6 @@ var (
 type Routes []*Route
 
 type Route struct {
-	Name    string      `json:"name"`
 	AppName string      `json:"appname"`
 	Path    string      `json:"path"`
 	Image   string      `json:"image"`
@@ -38,10 +37,6 @@ var (
 
 func (r *Route) Validate() error {
 	var res []error
-
-	if r.Name == "" {
-		res = append(res, ErrRoutesValidationMissingName)
-	}
 
 	if r.Image == "" {
 		res = append(res, ErrRoutesValidationMissingImage)

@@ -29,7 +29,6 @@ Now add routes to the app. First we'll add a route to the output of a docker con
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
-        "name": "hello",
         "path":"/hello",
         "image":"iron/hello"
     }
@@ -46,7 +45,7 @@ curl http://localhost:8080/r/myapp/hello
 
 ### To pass in data to your function
 
-Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. 
+Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. Try this:
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -65,8 +64,8 @@ curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -
 And you'll get an ironfunctions.com host for your app:
 
 ```sh
-APP_NAME.USER_ID.ironfunctions.com/PATH
-``` 
+myapp.USER_ID.ironfunctions.com/hello
+```
 
 ## Configuring your API
 

@@ -1,10 +1,3 @@
-/*
-
-For keeping a minimum running, perhaps when doing a routing table update, if destination hosts are all
- expired or about to expire we start more.
-
-*/
-
 package main
 
 import (
@@ -16,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// See comments below for how to extend Functions
 func main() {
 	c := &models.Config{}
 
