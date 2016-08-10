@@ -76,8 +76,10 @@ func (ds *PostgresDatastore) StoreApp(app *models.App) (*models.App, error) {
 	_, err := ds.db.Exec(`
 	  INSERT INTO apps (name)
 		VALUES ($1)
+		ON CONFLICT (name) DO NOTHING
 		RETURNING name;
 	`, app.Name)
+	// todo: after we support headers, the conflict should update the headers.
 
 	if err != nil {
 		return nil, err
@@ -240,6 +242,7 @@ func (ds *PostgresDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Ro
 	res := []*models.Route{}
 	filterQuery := buildFilterQuery(filter)
 	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery))
+	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
 		return nil, err
 	}
@@ -306,8 +309,9 @@ func (ds *PostgresDatastore) Get(key []byte) ([]byte, error) {
 
 	var value []byte
 	err := row.Scan(&value)
-
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
