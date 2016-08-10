@@ -90,3 +90,10 @@ TODO
 
 TODO
 
+## FAQ
+
+### Why isn't there monitoring and what not built in?
+
+We didn't want to prescribe how to operate IronFunctions, we wanted to get the core functionality released and stable while
+allowing hooks to customize/extend the core. Also, since we're assuming containers will be used for all deployments, users can
+use container based tools to log, monitor, etc. 

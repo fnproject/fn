@@ -23,6 +23,11 @@ const appsTableCreate = `CREATE TABLE IF NOT EXISTS apps (
     name character varying(256) NOT NULL PRIMARY KEY
 );`
 
+const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
+    key character varying(256) NOT NULL PRIMARY KEY,
+	value character varying(256) NOT NULL
+);`
+
 const routeSelector = `SELECT app_name, path, image, headers FROM routes`
 
 type rowScanner interface {
@@ -56,7 +61,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		db: db,
 	}
 
-	for _, v := range []string{routesTableCreate, appsTableCreate} {
+	for _, v := range []string{routesTableCreate, appsTableCreate, extrasTableCreate} {
 		_, err = db.Exec(v)
 		if err != nil {
 			return nil, err
@@ -158,14 +163,16 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 
 	_, err = ds.db.Exec(`
 		INSERT INTO routes (
-			app_name, path, image,
+			app_name, 
+			path, 
+			image,
 			headers
 		)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (name) DO UPDATE SET
-			path = $1,
-			image = $2,
-			headers = $3;
+			path = $2,
+			image = $3,
+			headers = $4;
 		`,
 		route.AppName,
 		route.Path,
@@ -273,4 +280,35 @@ func buildFilterQuery(filter *models.RouteFilter) string {
 	}
 
 	return filterQuery
+}
+
+func (ds *PostgresDatastore) Put(key, value []byte) error {
+	_, err := ds.db.Exec(`
+	    INSERT INTO extras (
+			key,
+			value
+		)
+		VALUES ($1, $2)
+		ON CONFLICT (key) DO UPDATE SET
+			value = $1;
+		`, value)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ds *PostgresDatastore) Get(key []byte) ([]byte, error) {
+	row := ds.db.QueryRow("SELECT value FROM extras WHERE key=$1", key)
+
+	var value []byte
+	err := row.Scan(&value)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
 }

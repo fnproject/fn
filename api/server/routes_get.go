@@ -3,13 +3,17 @@ package server
 import (
 	"net/http"
 
+	"golang.org/x/net/context"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	titancommon "github.com/iron-io/titan/common"
 )
 
 func handleRouteGet(c *gin.Context) {
-	log := c.MustGet("log").(logrus.FieldLogger)
+	ctx := c.MustGet("ctx").(context.Context)
+	log := titancommon.Logger(ctx)
 
 	appName := c.Param("app")
 	routeName := c.Param("route")

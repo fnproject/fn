@@ -12,6 +12,11 @@ type Datastore interface {
 	GetRoutes(*RouteFilter) (routes []*Route, err error)
 	StoreRoute(*Route) (*Route, error)
 	RemoveRoute(appName, routeName string) error
+
+	// The following provide a generic key value store for arbitrary data, can be used by extensions to store extra data
+	// todo: should we namespace these by app? Then when an app is deleted, it can delete any of this extra data too.
+	Put([]byte, []byte) error
+	Get([]byte) ([]byte, error)
 }
 
 var (

@@ -3,13 +3,16 @@ package server
 import (
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	titancommon "github.com/iron-io/titan/common"
 )
 
 func handleAppGet(c *gin.Context) {
-	log := c.MustGet("log").(logrus.FieldLogger)
+	ctx := c.MustGet("ctx").(context.Context)
+	log := titancommon.Logger(ctx)
 
 	appName := c.Param("app")
 	app, err := Api.Datastore.GetApp(appName)

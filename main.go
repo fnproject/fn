@@ -7,10 +7,11 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/server"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 )
 
-// See comments below for how to extend Functions
 func main() {
+	ctx := context.Background()
 	c := &models.Config{}
 
 	config.InitConfig()
@@ -20,11 +21,11 @@ func main() {
 		log.WithError(err).Fatalln("Invalid config.")
 	}
 
-	ds, err := datastore.New(viper.GetString("db"))
+	ds, err := datastore.New(viper.GetString("DB"))
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
 
 	srv := server.New(ds, c)
-	srv.Run()
+	srv.Run(ctx)
 }
