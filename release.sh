@@ -3,7 +3,7 @@ set -ex
 
 user="iron"
 service="functions"
-version_file="api/version.go"
+version_file="api/server/version.go"
 tag="latest"
 
 if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
