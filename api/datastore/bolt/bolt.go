@@ -15,6 +15,7 @@ type BoltDatastore struct {
 	routesBucket []byte
 	appsBucket   []byte
 	logsBucket   []byte
+	extrasBucket []byte
 	db           *bolt.DB
 	log          logrus.FieldLogger
 }
@@ -33,15 +34,17 @@ func New(url *url.URL) (models.Datastore, error) {
 		log.WithError(err).Errorln("Error on bolt.Open")
 		return nil, err
 	}
-	bucketPrefix := "funcs-"
+	// I don't think we need a prefix here do we? Made it blank. If we do, we should call the query param "prefix" instead of bucket.
+	bucketPrefix := ""
 	if url.Query()["bucket"] != nil {
 		bucketPrefix = url.Query()["bucket"][0]
 	}
 	routesBucketName := []byte(bucketPrefix + "routes")
 	appsBucketName := []byte(bucketPrefix + "apps")
 	logsBucketName := []byte(bucketPrefix + "logs")
+	extrasBucketName := []byte(bucketPrefix + "extras") // todo: think of a better name
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, name := range [][]byte{routesBucketName, appsBucketName, logsBucketName} {
+		for _, name := range [][]byte{routesBucketName, appsBucketName, logsBucketName, extrasBucketName} {
 			_, err := tx.CreateBucketIfNotExists(name)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{"name": name}).Error("create bucket")
@@ -59,6 +62,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		routesBucket: routesBucketName,
 		appsBucket:   appsBucketName,
 		logsBucket:   logsBucketName,
+		extrasBucket: extrasBucketName,
 		db:           db,
 		log:          log,
 	}
@@ -164,6 +168,7 @@ func (ds *BoltDatastore) GetApp(name string) (*models.App, error) {
 
 func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bolt.Bucket, error) {
 	var err error
+	// todo: should this be reversed?  Make a bucket for each app that contains sub buckets for routes, etc
 	bp := tx.Bucket(ds.routesBucket)
 	b := bp.Bucket([]byte(appName))
 	if b == nil {
@@ -287,4 +292,23 @@ func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route,
 		return nil, err
 	}
 	return res, nil
+}
+
+func (ds *BoltDatastore) Put(key, value []byte) error {
+	ds.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(ds.extrasBucket) // todo: maybe namespace by app?
+		err := b.Put(key, value)
+		return err
+	})
+	return nil
+}
+
+func (ds *BoltDatastore) Get(key []byte) ([]byte, error) {
+	var ret []byte
+	ds.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(ds.extrasBucket)
+		ret = b.Get(key)
+		return nil
+	})
+	return ret, nil
 }

@@ -3,13 +3,16 @@ package server
 import (
 	"net/http"
 
-	"github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	titancommon "github.com/iron-io/titan/common"
 )
 
 func handleAppUpdate(c *gin.Context) {
-	log := c.MustGet("log").(logrus.FieldLogger)
+	ctx := c.MustGet("ctx").(context.Context)
+	log := titancommon.Logger(ctx)
 
 	app := &models.App{}
 

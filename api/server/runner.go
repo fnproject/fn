@@ -7,14 +7,28 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"encoding/json"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
+	titancommon "github.com/iron-io/titan/common"
 	"github.com/satori/go.uuid"
 )
+
+func handleSpecial(c *gin.Context) {
+	ctx := c.MustGet("ctx").(context.Context)
+	log := titancommon.Logger(ctx)
+
+	err := Api.UseSpecialHandlers(c)
+	if err != nil {
+		log.WithError(err).Errorln("Error using special handler!")
+		// todo: what do we do here?
+	}
+}
 
 func handleRunner(c *gin.Context) {
 	if strings.HasPrefix(c.Request.URL.Path, "/v1") {
@@ -22,10 +36,11 @@ func handleRunner(c *gin.Context) {
 		return
 	}
 
-	log := c.MustGet("log").(logrus.FieldLogger)
+	ctx := c.MustGet("ctx").(context.Context)
+	log := titancommon.Logger(ctx)
 
 	reqID := uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", c.Request.RemoteAddr, c.Request.URL.Path, time.Now().Unix())).String()
-	c.Set("reqID", reqID)
+	c.Set("reqID", reqID) // todo: put this in the ctx instead of gin's
 
 	log = log.WithFields(logrus.Fields{"request_id": reqID})
 
@@ -54,8 +69,17 @@ func handleRunner(c *gin.Context) {
 
 	appName := c.Param("app")
 	if appName == "" {
-		host := strings.Split(c.Request.Host, ":")[0]
-		appName = strings.Split(host, ".")[0]
+		// check context, app can be added via special handlers
+		a, ok := c.Get("app")
+		if ok {
+			appName = a.(string)
+		}
+	}
+	// if still no appName, we gotta exit
+	if appName == "" {
+		log.WithError(err).Error(models.ErrAppsNotFound)
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsNotFound))
+		return
 	}
 
 	route := c.Param("route")
