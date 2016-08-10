@@ -26,7 +26,7 @@ func handleSpecial(c *gin.Context) {
 	err := Api.UseSpecialHandlers(c)
 	if err != nil {
 		log.WithError(err).Errorln("Error using special handler!")
-		// todo: what do we do here?
+		// todo: what do we do here? Should probably return a 500 or something
 	}
 }
 

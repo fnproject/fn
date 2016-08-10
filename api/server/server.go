@@ -73,6 +73,8 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 			return err
 		}
 	}
+	// now call the normal runner call
+	handleRunner(ginC)
 	return nil
 }
 
