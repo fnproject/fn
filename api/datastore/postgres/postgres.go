@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS routes (
 	app_name character varying(256) NOT NULL,
 	path text NOT NULL,
     image character varying(256) NOT NULL,
-	headers text NOT NULL
+	headers text NOT NULL,
+	PRIMARY KEY (app_name, path)
 );`
 
 const appsTableCreate = `CREATE TABLE IF NOT EXISTS apps (
@@ -169,7 +170,7 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 			headers
 		)
 		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (name) DO UPDATE SET
+		ON CONFLICT (app_name, path) DO UPDATE SET
 			path = $2,
 			image = $3,
 			headers = $4;
