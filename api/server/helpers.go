@@ -8,15 +8,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	titancommon "github.com/iron-io/titan/common"
 )
 
 func testRouter() *gin.Engine {
 	r := gin.Default()
+	ctx := context.Background()
 	r.Use(func(c *gin.Context) {
-		c.Set("log", logrus.WithFields(logrus.Fields{}))
+		ctx, _ := titancommon.LoggerWithFields(ctx, extractFields(c))
+		c.Set("ctx", ctx)
 		c.Next()
 	})
 	bindHandlers(r)

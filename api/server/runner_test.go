@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -20,7 +21,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{"/route", "", http.StatusNotFound, models.ErrRunnerRouteNotFound},
+		{"/route", "", http.StatusBadRequest, models.ErrAppsNotFound},
 		{"/r/app/route", "", http.StatusNotFound, models.ErrRunnerRouteNotFound},
 		{"/route?payload=test", "", http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/r/app/route?payload=test", "", http.StatusBadRequest, models.ErrInvalidJSON},
@@ -55,7 +56,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	}{
 		{"/route", `payload`, http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/r/app/route", `payload`, http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRunnerRouteNotFound},
+		{"/route", `{ "payload": "" }`, http.StatusBadRequest, models.ErrAppsNotFound},
 		{"/r/app/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRunnerRouteNotFound},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
@@ -68,8 +69,10 @@ func TestRouteRunnerPost(t *testing.T) {
 
 		if test.expectedError != nil {
 			resp := getErrorResponse(t, rec)
-
-			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+			respMsg := resp.Error.Message
+			expMsg := test.expectedError.Error()
+			fmt.Println(respMsg == expMsg)
+			if respMsg != expMsg && !strings.Contains(respMsg, expMsg) {
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}

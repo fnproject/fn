@@ -40,3 +40,11 @@ func (m *Mock) StoreRoute(route *models.Route) (*models.Route, error) {
 func (m *Mock) RemoveRoute(app, route string) error {
 	return nil
 }
+
+func (m *Mock) Put(key, value []byte) error {
+	return nil
+}
+
+func (m *Mock) Get(key []byte) ([]byte, error) {
+	return []byte{}, nil
+}
