@@ -21,6 +21,10 @@ func handleRouteList(c *gin.Context) {
 		AppName: appName,
 	}
 
+	if img := c.Query("image"); img != "" {
+		filter.Image = img
+	}
+
 	routes, err := Api.Datastore.GetRoutes(filter)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesGet)
