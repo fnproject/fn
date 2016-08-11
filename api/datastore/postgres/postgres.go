@@ -275,6 +275,10 @@ func buildFilterQuery(filter *models.RouteFilter) string {
 		filterQueries = append(filterQueries, fmt.Sprintf("app_name = '%s'", filter.AppName))
 	}
 
+	if filter.Image != "" {
+		filterQueries = append(filterQueries, fmt.Sprintf("image = '%s'", filter.Image))
+	}
+
 	for i, field := range filterQueries {
 		if i == 0 {
 			filterQuery = fmt.Sprintf("WHERE %s ", field)
