@@ -64,4 +64,5 @@ func (r *Route) Validate() error {
 type RouteFilter struct {
 	Path    string
 	AppName string
+	Image   string
 }
