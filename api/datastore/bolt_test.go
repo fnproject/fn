@@ -122,7 +122,19 @@ func TestBolt(t *testing.T) {
 	}
 
 	// Testing list routes
-	routes, err := ds.GetRoutes(&models.RouteFilter{AppName: testApp.Name})
+	routes, err := ds.GetRoutesByApp(testApp.Name, &models.RouteFilter{})
+	if err != nil {
+		t.Fatalf("Test GetRoutes: error: %s", err)
+	}
+	if len(routes) == 0 {
+		t.Fatal("Test GetRoutes: expected result count to be greater than 0")
+	}
+	if routes[0].Path != testRoute.Path {
+		t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
+	}
+
+	// Testing list routes
+	routes, err = ds.GetRoutes(&models.RouteFilter{Image: testRoute.Image})
 	if err != nil {
 		t.Fatalf("Test GetRoutes: error: %s", err)
 	}

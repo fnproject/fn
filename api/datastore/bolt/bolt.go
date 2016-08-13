@@ -260,10 +260,10 @@ func (ds *BoltDatastore) GetRoute(appName, routeName string) (*models.Route, err
 	return route, err
 }
 
-func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route, error) {
+func (ds *BoltDatastore) GetRoutesByApp(appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	err := ds.db.View(func(tx *bolt.Tx) error {
-		b, err := ds.getRouteBucketForApp(tx, filter.AppName)
+		b, err := ds.getRouteBucketForApp(tx, appName)
 		if err != nil {
 			return err
 		}
@@ -284,6 +284,43 @@ func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route,
 			if models.ApplyRouteFilter(&route, filter) {
 				i++
 				res = append(res, &route)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route, error) {
+	res := []*models.Route{}
+	err := ds.db.View(func(tx *bolt.Tx) error {
+		i := 0
+		rbucket := tx.Bucket(ds.routesBucket)
+
+		b := rbucket.Cursor()
+		var k, v []byte
+		k, v = b.First()
+
+		// Iterates all buckets
+		for ; k != nil && v == nil; k, v = b.Next() {
+			bucket := rbucket.Bucket(k)
+			r := bucket.Cursor()
+			var k2, v2 []byte
+			k2, v2 = r.Last()
+			// Iterate all routes
+			for ; k2 != nil; k2, v2 = r.Prev() {
+				var route models.Route
+				err := json.Unmarshal(v2, &route)
+				if err != nil {
+					return err
+				}
+				if models.ApplyRouteFilter(&route, filter) {
+					i++
+					res = append(res, &route)
+				}
 			}
 		}
 		return nil

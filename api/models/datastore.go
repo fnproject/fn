@@ -10,6 +10,7 @@ type Datastore interface {
 
 	GetRoute(appName, routeName string) (*Route, error)
 	GetRoutes(*RouteFilter) (routes []*Route, err error)
+	GetRoutesByApp(string, *RouteFilter) (routes []*Route, err error)
 	StoreRoute(*Route) (*Route, error)
 	RemoveRoute(appName, routeName string) error
 

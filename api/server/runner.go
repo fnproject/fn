@@ -88,13 +88,12 @@ func handleRunner(c *gin.Context) {
 	}
 
 	filter := &models.RouteFilter{
-		Path:    route,
-		AppName: appName,
+		Path: route,
 	}
 
 	log.WithFields(logrus.Fields{"app": appName, "path": route}).Debug("Finding route on datastore")
 
-	routes, err := Api.Datastore.GetRoutes(filter)
+	routes, err := Api.Datastore.GetRoutesByApp(appName, filter)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))

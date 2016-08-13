@@ -113,6 +113,8 @@ func bindHandlers(engine *gin.Engine) {
 		v1.PUT("/apps/:app", handleAppUpdate)
 		v1.DELETE("/apps/:app", handleAppDelete)
 
+		v1.GET("/routes", handleRouteList)
+
 		apps := v1.Group("/apps/:app")
 		{
 			apps.GET("/routes", handleRouteList)

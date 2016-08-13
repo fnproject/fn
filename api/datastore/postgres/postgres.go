@@ -263,6 +263,32 @@ func (ds *PostgresDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Ro
 	return res, nil
 }
 
+func (ds *PostgresDatastore) GetRoutesByApp(appName string, filter *models.RouteFilter) ([]*models.Route, error) {
+	res := []*models.Route{}
+	filter.AppName = appName
+	filterQuery := buildFilterQuery(filter)
+	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery))
+	// todo: check for no rows so we don't respond with a sql 500 err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var route models.Route
+		err := scanRoute(rows, &route)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, &route)
+
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func buildFilterQuery(filter *models.RouteFilter) string {
 	filterQuery := ""
 
