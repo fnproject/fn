@@ -33,6 +33,10 @@ func (m *Mock) GetRoutes(routeFilter *models.RouteFilter) ([]*models.Route, erro
 	return m.FakeRoutes, nil
 }
 
+func (m *Mock) GetRoutesByApp(appName string, routeFilter *models.RouteFilter) ([]*models.Route, error) {
+	return m.FakeRoutes, nil
+}
+
 func (m *Mock) StoreRoute(route *models.Route) (*models.Route, error) {
 	return m.FakeRoute, nil
 }
