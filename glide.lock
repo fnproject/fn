@@ -1,5 +1,5 @@
 hash: 5ccf89905e13b7dc987cd203c1d7c1fddd32dcd776fe2e5f60d9f6f7b9908425
-updated: 2016-08-07T13:44:07.250867774-04:00
+updated: 2016-08-16T14:52:37.933227014+12:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -100,7 +100,7 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/titan
-  version: a55b68c6ff4c750886542e788b87db80dda7c47a
+  version: e309e9971583fd1b9894b250a28cb194d90e8ac5
   repo: https://github.com/iron-io/titan.git
   vcs: git
   subpackages:
