@@ -23,6 +23,7 @@ type Config struct {
 	Payload    string
 	Timeout    time.Duration
 	RequestURL string
+	AppName    string
 }
 
 type Runner struct {

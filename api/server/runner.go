@@ -116,6 +116,7 @@ func handleRunner(c *gin.Context) {
 				Timeout:    30 * time.Second,
 				ID:         reqID,
 				RequestURL: c.Request.URL.String(),
+				AppName:    appName,
 			})
 
 			if err := run.Run(); err != nil {

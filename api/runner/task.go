@@ -24,6 +24,12 @@ func (t *containerTask) EnvVars() map[string]string {
 	return env
 }
 
+func (t *containerTask) Labels() map[string]string {
+	return map[string]string{
+		"LogName": t.cfg.AppName,
+	}
+}
+
 func (t *containerTask) Id() string                         { return t.cfg.ID }
 func (t *containerTask) Group() string                      { return "" }
 func (t *containerTask) Image() string                      { return t.cfg.Route.Image }
