@@ -15,6 +15,26 @@ import (
 	titancommon "github.com/iron-io/titan/common"
 )
 
+type appResponse struct {
+	Message string
+	App     models.AppWrapper
+}
+
+type appsResponse struct {
+	Message string
+	Apps    models.AppsWrapper
+}
+
+type routeResponse struct {
+	Message string
+	Route   models.RouteWrapper
+}
+
+type routesResponse struct {
+	Message string
+	Routes  models.RoutesWrapper
+}
+
 func testRouter() *gin.Engine {
 	r := gin.Default()
 	ctx := context.Background()
