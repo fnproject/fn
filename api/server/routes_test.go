@@ -30,7 +30,7 @@ func TestRouteCreate(t *testing.T) {
 		{"/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{"/v1/apps/a/routes", `{ "route": { "name": "myroute", "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{"/v1/apps/a/routes", `{ "route": { "name": "myroute", "image": "iron/hello", "path": "/myroute" } }`, http.StatusCreated, nil},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)

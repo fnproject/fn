@@ -14,9 +14,9 @@ func handleAppCreate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := titancommon.Logger(ctx)
 
-	wapp := &models.AppWrapper{}
+	var wapp models.AppWrapper
 
-	err := c.BindJSON(wapp)
+	err := c.BindJSON(&wapp)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
@@ -42,7 +42,7 @@ func handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	app, err := Api.Datastore.StoreApp(wapp.App)
+	_, err = Api.Datastore.StoreApp(wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
@@ -56,5 +56,5 @@ func handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, app)
+	c.JSON(http.StatusCreated, appResponse{"App  successfully created", wapp})
 }

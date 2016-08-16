@@ -38,12 +38,12 @@ func handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
-	route, err := Api.Datastore.StoreRoute(wroute.Route)
+	_, err = Api.Datastore.StoreRoute(wroute.Route)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
 		return
 	}
 
-	c.JSON(http.StatusOK, route)
+	c.JSON(http.StatusOK, routeResponse{"Route successfully updated", wroute})
 }

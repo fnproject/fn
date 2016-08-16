@@ -21,9 +21,9 @@ var (
 type Routes []*Route
 
 type Route struct {
-	AppName string      `json:"appname"`
-	Path    string      `json:"path"`
-	Image   string      `json:"image"`
+	AppName string      `json:"appname,omitempty"`
+	Path    string      `json:"path,omitempty"`
+	Image   string      `json:"image,omitempty"`
 	Headers http.Header `json:"headers,omitempty"`
 }
 
