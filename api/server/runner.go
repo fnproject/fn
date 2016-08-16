@@ -110,11 +110,12 @@ func handleRunner(c *gin.Context) {
 	for _, el := range routes {
 		if el.Path == route {
 			run := runner.New(&runner.Config{
-				Ctx:     c,
-				Route:   el,
-				Payload: string(payload),
-				Timeout: 30 * time.Second,
-				ID:      reqID,
+				Ctx:        c,
+				Route:      el,
+				Payload:    string(payload),
+				Timeout:    30 * time.Second,
+				ID:         reqID,
+				RequestURL: c.Request.URL.String(),
 			})
 
 			if err := run.Run(); err != nil {

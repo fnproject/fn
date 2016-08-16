@@ -17,11 +17,12 @@ import (
 )
 
 type Config struct {
-	ID      string
-	Ctx     context.Context
-	Route   *models.Route
-	Payload string
-	Timeout time.Duration
+	ID         string
+	Ctx        context.Context
+	Route      *models.Route
+	Payload    string
+	Timeout    time.Duration
+	RequestURL string
 }
 
 type Runner struct {

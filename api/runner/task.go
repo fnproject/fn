@@ -18,7 +18,8 @@ func (t *containerTask) Command() string { return "" }
 
 func (t *containerTask) EnvVars() map[string]string {
 	env := map[string]string{
-		"PAYLOAD": t.cfg.Payload,
+		"PAYLOAD":     t.cfg.Payload,
+		"REQUEST_URL": t.cfg.RequestURL,
 	}
 	return env
 }
