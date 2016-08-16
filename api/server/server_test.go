@@ -35,11 +35,11 @@ func TestFullStack(t *testing.T) {
 		body         string
 		expectedCode int
 	}{
-		{"POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusOK},
+		{"POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusCreated},
 		{"GET", "/v1/apps", ``, http.StatusOK},
 		{"GET", "/v1/apps/myapp", ``, http.StatusOK},
-		{"POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "iron/hello" } }`, http.StatusOK},
-		{"POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "iron/error" } }`, http.StatusOK},
+		{"POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "iron/hello" } }`, http.StatusCreated},
+		{"POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "iron/error" } }`, http.StatusCreated},
 		{"GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK},
 		{"GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK},
 		{"GET", "/v1/apps/myapp/routes", ``, http.StatusOK},

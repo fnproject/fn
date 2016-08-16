@@ -30,7 +30,7 @@ func TestAppCreate(t *testing.T) {
 		{"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{"/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
+		{"/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusCreated, nil},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
