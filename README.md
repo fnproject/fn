@@ -4,17 +4,20 @@
 
 ## Quick Start
 
+
+### Start the IronFunctions API
+
 First let's start our IronFunctions API
 
 ```sh
 docker run --rm --privileged -it -e "DB=bolt:///app/data/bolt.db" -v $PWD/data:/app/data -p 8080:8080 iron/functions
 ```
 
-This command will quickly start our API using the default database `Bolt` running on `:8080`
+This command will quickly start IronFunctions using the default database `Bolt` running on `:8080`.
 
-## Usage
+### Create an Application
 
-### Creating a application
+An application is essentially a grouping of functions, that put together, form an API. Here's how to create an app. 
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -22,9 +25,11 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps
 ```
 
-### Create a route for your Function
+Now that we have an app, we can add routes to functions. 
 
-Now add routes to the app. First we'll add a route to the output of a docker container:
+### Add a route to a Function
+
+
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -53,7 +58,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/r/myapp/hello
 ```
 
-### Using IronFunctions Hosted by Iron.io
+## Using IronFunctions Hosted by Iron.io
 
 Simply point to https://functions.iron.io instead of localhost and add your Iron.io Authentication header (TODO: link), like this:
 
@@ -67,33 +72,10 @@ And you'll get an ironfunctions.com host for your app:
 myapp.USER_ID.ironfunctions.com/hello
 ```
 
-## Configuring your API
+## Full Documentation
 
-### Databases
+http://docs-new.iron.io/docs
 
-These are the current databases supported by IronFunctions:
+## Join Our Community
 
-- [Running with BoltDB](/iron-io/functions/blob/master/docs/database/boltdb.md)
-- [Running with Postgres](/iron-io/functions/blob/master/docs/database/postgres.md)
-
-## [Examples](/iron-io/functions/blob/master/examples)
-
-## Logging
-
-TODO
-
-## Monitoring
-
-TODO
-
-## Scaling
-
-TODO
-
-## FAQ
-
-### Why isn't there monitoring and what not built in?
-
-We didn't want to prescribe how to operate IronFunctions, we wanted to get the core functionality released and stable while
-allowing hooks to customize/extend the core. Also, since we're assuming containers will be used for all deployments, users can
-use container based tools to log, monitor, etc. 
+[![Gitter](https://badges.gitter.im/iron-io/functions.svg)](https://gitter.im/iron-io/functions?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
