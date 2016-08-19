@@ -23,5 +23,5 @@ func handleAppDelete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, gin.H{"message": "App deleted"})
 }
