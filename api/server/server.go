@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/ifaces"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner"
 	titancommon "github.com/iron-io/titan/common"
 )
 
@@ -17,6 +18,7 @@ import (
 var Api *Server
 
 type Server struct {
+	Runner          *runner.Runner
 	Router          *gin.Engine
 	Config          *models.Config
 	Datastore       models.Datastore
@@ -24,11 +26,12 @@ type Server struct {
 	SpecialHandlers []ifaces.SpecialHandler
 }
 
-func New(ds models.Datastore, config *models.Config) *Server {
+func New(c *models.Config, ds models.Datastore, r *runner.Runner) *Server {
 	Api = &Server{
 		Router:    gin.Default(),
-		Config:    config,
+		Config:    c,
 		Datastore: ds,
+		Runner:    r,
 	}
 	return Api
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner"
 	titancommon "github.com/iron-io/titan/common"
 )
 
@@ -44,6 +45,14 @@ func testRouter() *gin.Engine {
 		c.Next()
 	})
 	bindHandlers(r)
+	return r
+}
+
+func testRunner(t *testing.T) *runner.Runner {
+	r, err := runner.New()
+	if err != nil {
+		t.Fatal("Test: failed to create new runner")
+	}
 	return r
 }
 

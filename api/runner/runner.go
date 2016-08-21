@@ -1,8 +1,8 @@
 package runner
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"time"
 
 	"golang.org/x/net/context"
@@ -24,24 +24,15 @@ type Config struct {
 	Timeout    time.Duration
 	RequestURL string
 	AppName    string
+	Stdout     io.Writer
+	Stderr     io.Writer
 }
 
 type Runner struct {
-	cfg    *Config
-	status string
-	out    bytes.Buffer
-	err    bytes.Buffer
+	driver drivers.Driver
 }
 
-func New(cfg *Config) *Runner {
-	return &Runner{
-		cfg: cfg,
-	}
-}
-
-func (r *Runner) Run() error {
-	var err error
-
+func New() (*Runner, error) {
 	// TODO: Is this really required for Titan's driver?
 	// Can we remove it?
 	env := common.NewEnvironment(func(e *common.Environment) {})
@@ -49,36 +40,28 @@ func (r *Runner) Run() error {
 	// TODO: Create a drivers.New(runnerConfig) in Titan
 	driver, err := selectDriver("docker", env, &driverscommon.Config{})
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	return &Runner{
+		driver: driver,
+	}, nil
+}
+
+func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error) {
+	var err error
 
 	ctask := &containerTask{
-		cfg:    r.cfg,
-		auth:   &agent.ConfigAuth{},
-		stdout: &r.out,
-		stderr: &r.err,
+		cfg:  cfg,
+		auth: &agent.ConfigAuth{},
 	}
 
-	result, err := driver.Run(r.cfg.Ctx, ctask)
+	result, err := r.driver.Run(ctx, ctask)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	r.status = result.Status()
-
-	return nil
-}
-
-func (r *Runner) ReadOut() []byte {
-	return r.out.Bytes()
-}
-
-func (r Runner) ReadErr() []byte {
-	return r.err.Bytes()
-}
-
-func (r Runner) Status() string {
-	return r.status
+	return result, nil
 }
 
 func selectDriver(driver string, env *common.Environment, conf *driverscommon.Config) (drivers.Driver, error) {

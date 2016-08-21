@@ -12,7 +12,7 @@ import (
 )
 
 func TestRouteRunnerGet(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -45,7 +45,7 @@ func TestRouteRunnerGet(t *testing.T) {
 }
 
 func TestRouteRunnerPost(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -81,12 +81,12 @@ func TestRouteRunnerPost(t *testing.T) {
 }
 
 func TestRouteRunnerExecution(t *testing.T) {
-	New(&datastore.Mock{
+	New(&models.Config{}, &datastore.Mock{
 		FakeRoutes: []*models.Route{
 			{Path: "/myroute", Image: "iron/hello", Headers: map[string][]string{"X-Function": []string{"Test"}}},
 			{Path: "/myerror", Image: "iron/error", Headers: map[string][]string{"X-Function": []string{"Test"}}},
 		},
-	}, &models.Config{})
+	}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -95,6 +95,10 @@ func TestRouteRunnerExecution(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
+		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": []string{"Test"}}},
+		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": []string{"Test"}}},
+
+		// Added same tests again to check if time is reduced by the auth cache
 		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": []string{"Test"}}},
 		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": []string{"Test"}}},
 	} {

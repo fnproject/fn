@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -81,7 +82,6 @@ func handleRunner(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsNotFound))
 		return
 	}
-
 	route := c.Param("route")
 	if route == "" {
 		route = c.Request.URL.Path
@@ -109,17 +109,19 @@ func handleRunner(c *gin.Context) {
 	log.WithField("routes", routes).Debug("Got routes from datastore")
 	for _, el := range routes {
 		if el.Path == route {
-			run := runner.New(&runner.Config{
-				Ctx:        c,
+			var stdout, stderr bytes.Buffer
+			cfg := &runner.Config{
 				Route:      el,
 				Payload:    string(payload),
 				Timeout:    30 * time.Second,
 				ID:         reqID,
 				RequestURL: c.Request.URL.String(),
 				AppName:    appName,
-			})
+				Stdout:     &stdout,
+				Stderr:     &stderr,
+			}
 
-			if err := run.Run(); err != nil {
+			if result, err := Api.Runner.Run(c, cfg); err != nil {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
 			} else {
@@ -127,10 +129,11 @@ func handleRunner(c *gin.Context) {
 					c.Header(k, v[0])
 				}
 
-				if run.Status() == "success" {
-					c.Data(http.StatusOK, "", run.ReadOut())
+				if result.Status() == "success" {
+					c.Data(http.StatusOK, "", stdout.Bytes())
 				} else {
-					c.Data(http.StatusInternalServerError, "", run.ReadErr())
+					log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
+					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
 			return
