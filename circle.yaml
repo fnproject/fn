@@ -1,0 +1,35 @@
+machine:
+  environment:
+    GOPATH: $HOME/go
+    GOROOT: $HOME/go
+    PATH: $GOROOT/bin:$HOME/bin:$PATH
+    GO15VENDOREXPERIMENT: 1
+    CHECKOUT_DIR: $HOME/$CIRCLE_PROJECT_REPONAME
+    GH_IRON: $GOROOT/src/github.com/iron-io
+    GO_PROJECT: ../go/src/github.com/iron-io/$CIRCLE_PROJECT_REPONAME
+  services:
+    - docker
+
+checkout:
+  post:
+    - echo "$GH_IRON"   
+    - mkdir -p "$GH_IRON"
+    - cp -R "$CHECKOUT_DIR" "$GH_IRON/$CIRCLE_PROJECT_REPONAME"
+
+dependencies:
+  pre:
+    - wget https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz
+    - tar -C $HOME -xvzf go1.7.linux-amd64.tar.gz
+    - wget https://github.com/Masterminds/glide/releases/download/0.10.2/glide-0.10.2-linux-amd64.tar.gz
+    - tar -C $HOME/bin -xvzf glide-0.10.2-linux-amd64.tar.gz --strip=1
+  override:
+    - go version
+    - glide --version
+    - glide install:
+        pwd: $GO_PROJECT
+
+test:
+  override:
+    # Test entire project without diving into vendor dir.
+    - go test -v ./api/...:
+        pwd: $GO_PROJECT
