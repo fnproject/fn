@@ -5,6 +5,7 @@ import (
 
 	dockercli "github.com/fsouza/go-dockerclient"
 	"github.com/iron-io/titan/runner/tasker"
+	"github.com/iron-io/titan/runner/drivers"
 )
 
 type containerTask struct {
@@ -37,6 +38,7 @@ func (t *containerTask) Volumes() [][2]string               { return [][2]string
 func (t *containerTask) WorkDir() string                    { return "" }
 
 func (t *containerTask) Close() {}
+func (t *containerTask) WriteStat(drivers.Stat) {} 
 
 func (t *containerTask) DockerAuth() []dockercli.AuthConfiguration {
 	return t.auth.Auth(t.Image())
