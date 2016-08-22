@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner"
 	titancommon "github.com/iron-io/titan/common"
 )
 
@@ -34,6 +35,17 @@ func handleRouteCreate(c *gin.Context) {
 	if err := wroute.Validate(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
+
+	run := runner.New(&runner.Config{
+			Ctx:     ctx,
+			Route:   wroute.Route,
+		})
+
+	err = run.EnsureUsableImage()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, simpleError(models.ErrUsableImage))
 		return
 	}
 

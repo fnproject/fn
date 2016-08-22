@@ -16,6 +16,7 @@ var (
 	ErrAppsNotFound        = errors.New("App not found")
 	ErrAppsNothingToUpdate = errors.New("Nothing to update")
 	ErrAppsMissingNew      = errors.New("Missing new application")
+	ErrUsableImage         = errors.New("Image not found")
 )
 
 type App struct {
