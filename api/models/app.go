@@ -17,6 +17,7 @@ var (
 	ErrAppsNothingToUpdate = errors.New("Nothing to update")
 	ErrAppsMissingNew      = errors.New("Missing new application")
 	ErrUsableImage         = errors.New("Image not found")
+	ErrNewRunnerDriver     = errors.New("Error creating the runner driver")
 )
 
 type App struct {

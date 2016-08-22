@@ -38,12 +38,17 @@ func handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	run := runner.New(&runner.Config{
+	run, err := runner.New()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, simpleError(models.ErrNewRunnerDriver))
+		return
+	}
+
+	err = run.EnsureUsableImage(&runner.Config{
 			Ctx:     ctx,
 			Route:   wroute.Route,
 		})
 
-	err = run.EnsureUsableImage()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrUsableImage))
 		return
