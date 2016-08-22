@@ -11,7 +11,7 @@ import (
 )
 
 func TestAppCreate(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -52,7 +52,7 @@ func TestAppCreate(t *testing.T) {
 }
 
 func TestAppDelete(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -83,7 +83,7 @@ func TestAppDelete(t *testing.T) {
 }
 
 func TestAppList(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -113,7 +113,7 @@ func TestAppList(t *testing.T) {
 }
 
 func TestAppGet(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -143,7 +143,7 @@ func TestAppGet(t *testing.T) {
 }
 
 func TestAppUpdate(t *testing.T) {
-	New(&datastore.Mock{}, &models.Config{})
+	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {

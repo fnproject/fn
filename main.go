@@ -5,6 +5,7 @@ import (
 	"github.com/iron-io/functions/api/config"
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/server"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -26,6 +27,11 @@ func main() {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
 
-	srv := server.New(ds, c)
+	runner, err := runner.New()
+	if err != nil {
+		log.WithError(err).Fatalln("Failed to create a runner")
+	}
+
+	srv := server.New(c, ds, runner)
 	srv.Run(ctx)
 }
