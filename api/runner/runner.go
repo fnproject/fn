@@ -64,6 +64,20 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	return result, nil
 }
 
+func (r Runner) EnsureUsableImage(cfg *Config) error {
+	ctask := &containerTask{
+		cfg:  cfg,
+		auth: &agent.ConfigAuth{},
+	}
+
+	err := r.driver.EnsureUsableImage(cfg.Ctx, ctask)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
 func selectDriver(driver string, env *common.Environment, conf *driverscommon.Config) (drivers.Driver, error) {
 	switch driver {
 	case "docker":
