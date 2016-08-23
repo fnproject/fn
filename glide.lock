@@ -100,7 +100,7 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/titan
-  version: e309e9971583fd1b9894b250a28cb194d90e8ac5
+  version: ae84854491055da1c2f3baa7c32193409f07f14f
   repo: https://github.com/iron-io/titan.git
   vcs: git
   subpackages:
