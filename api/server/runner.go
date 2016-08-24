@@ -111,14 +111,16 @@ func handleRunner(c *gin.Context) {
 		if el.Path == route {
 			var stdout, stderr bytes.Buffer
 			cfg := &runner.Config{
-				Route:      el,
-				Payload:    string(payload),
-				Timeout:    30 * time.Second,
-				ID:         reqID,
-				RequestURL: c.Request.URL.String(),
-				AppName:    appName,
-				Stdout:     &stdout,
-				Stderr:     &stderr,
+				Image:   el.Image,
+				Timeout: 30 * time.Second,
+				ID:      reqID,
+				AppName: appName,
+				Stdout:  &stdout,
+				Stderr:  &stderr,
+				Env: map[string]string{
+					"PAYLOAD":     string(payload),
+					"REQUEST_URL": c.Request.URL.String(),
+				},
 			}
 
 			if result, err := Api.Runner.Run(c, cfg); err != nil {
