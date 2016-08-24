@@ -1,7 +1,5 @@
 # IronFunctions
 
-## [Overview](/iron-io/functions/blob/master/OVERVIEW.md)
-
 ## Quick Start
 
 

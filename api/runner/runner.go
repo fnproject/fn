@@ -7,7 +7,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/titan/common"
 	"github.com/iron-io/titan/runner/agent"
 	"github.com/iron-io/titan/runner/drivers"
@@ -17,15 +16,13 @@ import (
 )
 
 type Config struct {
-	ID         string
-	Ctx        context.Context
-	Route      *models.Route
-	Payload    string
-	Timeout    time.Duration
-	RequestURL string
-	AppName    string
-	Stdout     io.Writer
-	Stderr     io.Writer
+	ID      string
+	Image   string
+	Timeout time.Duration
+	AppName string
+	Env     map[string]string
+	Stdout  io.Writer
+	Stderr  io.Writer
 }
 
 type Runner struct {
@@ -56,12 +53,31 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 		auth: &agent.ConfigAuth{},
 	}
 
+	closer, err := r.driver.Prepare(ctx, ctask)
+	if err != nil {
+		return nil, err
+	}
+	defer closer.Close()
+
 	result, err := r.driver.Run(ctx, ctask)
 	if err != nil {
 		return nil, err
 	}
 
 	return result, nil
+}
+
+func (r Runner) EnsureUsableImage(ctx context.Context, cfg *Config) error {
+	ctask := &containerTask{
+		cfg:  cfg,
+		auth: &agent.ConfigAuth{},
+	}
+
+	err := r.driver.EnsureUsableImage(ctx, ctask)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func selectDriver(driver string, env *common.Environment, conf *driverscommon.Config) (drivers.Driver, error) {
