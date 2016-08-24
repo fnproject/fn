@@ -78,4 +78,4 @@ http://docs-new.iron.io/docs
 
 ## Join Our Community
 
-[![Gitter](https://badges.gitter.im/iron-io/functions.svg)](https://gitter.im/iron-io/functions?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Slack Status](https://open-iron.herokuapp.com/badge.svg)](https://open-iron.herokuapp.com)
