@@ -38,11 +38,9 @@ func handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	err = Api.Runner.EnsureUsableImage(&runner.Config{
-			Ctx:     ctx,
-			Route:   wroute.Route,
-		})
-
+	err = Api.Runner.EnsureUsableImage(ctx, &runner.Config{
+		Image: wroute.Route.Image,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrUsableImage))
 		return

@@ -1,5 +1,5 @@
 hash: 5ccf89905e13b7dc987cd203c1d7c1fddd32dcd776fe2e5f60d9f6f7b9908425
-updated: 2016-08-16T14:52:37.933227014+12:00
+updated: 2016-08-24T14:50:27.724858484-03:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -8,13 +8,15 @@ imports:
 - name: github.com/asaskevich/govalidator
   version: 593d64559f7600f29581a3ee42177f5dbded27a9
 - name: github.com/boltdb/bolt
-  version: 94c8db596809690a3f7046fa83c7b0dda13a3222
-- name: github.com/BurntSushi/toml
-  version: 99064174e013895bbd9b025c31100bd1d9b590ca
+  version: 583e8937c61f1af6513608ccc75c97b6abdf4ff9
 - name: github.com/cactus/go-statsd-client
-  version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
+  version: 1c27c506c7a0584d017ca479f91b88d6a6538332
   subpackages:
   - statsd
+- name: github.com/dgrijalva/jwt-go
+  version: 63734eae1ef55eaac06fdc0f312615f2e321e273
+  subpackages:
+  - request
 - name: github.com/docker/distribution
   version: 9ca7921603852314b18a6ecc19f91806935f34bd
   subpackages:
@@ -28,24 +30,30 @@ imports:
   - pkg/fileutils
   - pkg/homedir
   - pkg/stdcopy
-  - pkg/parsers
-  - pkg/ulimit
-  - volume
+  - pkg/idtools
+  - pkg/ioutils
   - pkg/pools
   - pkg/promise
   - pkg/system
-  - pkg/ioutils
+  - pkg/longpath
+  - pkg/random
   - pkg/units
   - pkg/tarsum
-  - pkg/random
+- name: github.com/docker/engine-api
+  version: 2f8c367944a28130f3c2fb9f0aad7f1d5db952a9
+  subpackages:
+  - types/swarm
+  - types/filters
+  - types/mount
+  - types/versions
 - name: github.com/docker/go-units
   version: eb879ae3e2b84e2a142af415b679ddeda47ec71c
 - name: github.com/docker/libtrust
   version: 9cbd2a1374f46905c68a4eb3694a130610adc62a
 - name: github.com/fsnotify/fsnotify
-  version: a8a77c9133d2d6fd8334f3260d06f60e8d80a5fb
+  version: f12c6236fe7b5cf6bcf30e5935d08cb079d78334
 - name: github.com/fsouza/go-dockerclient
-  version: 62035adb3375dad32558aa3b1bd2279e4504e000
+  version: 0436d420da98515cfe6370c9c5cdde868415637b
 - name: github.com/garyburd/redigo
   version: 4ed1111375cbeb698249ffe48dd463e9b0a63a7a
   subpackages:
@@ -57,7 +65,7 @@ imports:
   - binding
   - render
 - name: github.com/go-openapi/analysis
-  version: abc9a6171f5bf03ada39aead1aa7fd7bbd44d50f
+  version: b44dc874b601d9e4e2f6e19140e794ba24bead3b
 - name: github.com/go-openapi/errors
   version: d24ebc2075bad502fac3a8ae27aa6dd58e1952dc
 - name: github.com/go-openapi/jsonpointer
@@ -71,11 +79,11 @@ imports:
   subpackages:
   - client
 - name: github.com/go-openapi/spec
-  version: e9fab754f5629065e6b7a6100301226545d4477e
+  version: 6aced65f8501fe1217321abf0749d354824ba2ff
 - name: github.com/go-openapi/strfmt
-  version: dfda818c47a4ae5a1dde75ac776f34b2c95de993
+  version: d65c7fdb29eca313476e529628176fe17e58c488
 - name: github.com/go-openapi/swag
-  version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
+  version: 0e04f5e499b19bf51031c01a00f098f25067d8dc
 - name: github.com/go-openapi/validate
   version: deaf2c9013bc1a7f4c774662259a506ba874d80f
 - name: github.com/golang/protobuf
@@ -85,7 +93,7 @@ imports:
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/hashicorp/hcl
-  version: d8c773c4cba11b11539e3d45f93daeaa5dcf1fa1
+  version: baeb59c710717b06aac1dbe2270e8192ec593244
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -100,7 +108,7 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/titan
-  version: ae84854491055da1c2f3baa7c32193409f07f14f
+  version: 58d1565025aa045bdf47b44e0eb81a52c70f7958
   repo: https://github.com/iron-io/titan.git
   vcs: git
   subpackages:
@@ -123,9 +131,9 @@ imports:
   subpackages:
   - oid
 - name: github.com/magiconair/properties
-  version: b3f6dd549956e8a61ea4a686a1c02a33d5bdda4b
+  version: 61b492c03cf472e0c6419be5899b8e0dc28b1b88
 - name: github.com/mailru/easyjson
-  version: d5b7844b561a7bc640052f1b935f7b800330d7e0
+  version: 34560e358dc05e2c28f6fda2f5c9e7494a4b9b19
   subpackages:
   - jlexer
   - jwriter
@@ -133,15 +141,20 @@ imports:
 - name: github.com/manucorporat/sse
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
 - name: github.com/mitchellh/mapstructure
-  version: 21a35fb16463dfb7c8eee579c65d995d95e64d1e
+  version: ca63d7c062ee3c9f34db231e352b60012b4fd0c1
 - name: github.com/opencontainers/runc
-  version: 142df3836b740af53dc6da59eed8dbc92f62917c
+  version: 46d9535096662d8d6a734e4fdfc1c27ab03bc328
   subpackages:
+  - libcontainer/system
   - libcontainer/user
+- name: github.com/pelletier/go-buffruneio
+  version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
+- name: github.com/pelletier/go-toml
+  version: 5a62685873ef617233ab5f1b825a6e4a758e16cf
 - name: github.com/pivotal-golang/bytefmt
   version: 24c06ce13e176cf7a7a440c8cf3b64d91c36c8e2
 - name: github.com/pkg/errors
-  version: 2a9be18ecd8c148be18be08a811e33809206da19
+  version: 17b591df37844cde689f4d5813e5cea0927d8dd2
 - name: github.com/pkg/sftp
   version: a71e8f580e3b622ebff585309160b1cc549ef4d2
 - name: github.com/PuerkitoBio/purell
@@ -155,7 +168,7 @@ imports:
   subpackages:
   - hooks/syslog
 - name: github.com/spf13/afero
-  version: cc9c21814bb945440253108c4d3c65c85aac3c68
+  version: 20500e2abd0d1f4564a499e83d11d6c73cd58c27
   subpackages:
   - mem
   - sftp
@@ -164,13 +177,17 @@ imports:
 - name: github.com/spf13/jwalterweatherman
   version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
 - name: github.com/spf13/pflag
-  version: f676131e2660dc8cd88de99f7486d34aa8172635
+  version: 103ce5cd2042f2fe629c1957abb64ab3e7f50235
 - name: github.com/spf13/viper
-  version: 346299ea79e446ebdddb834371ceba2e5926b732
+  version: 7fb2782df3d83e0036cc89f461ed0422628776f4
 - name: golang.org/x/crypto
   version: c10c31b5e94b6f7a0283272dc2bb27163dcea24b
   subpackages:
+  - bcrypt
+  - blowfish
   - ssh
+  - curve25519
+  - ed25519
 - name: golang.org/x/net
   version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
@@ -183,7 +200,7 @@ imports:
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 2910a502d2bf9e43193af9d68ca516529614eed3
+  version: d69c40b4be55797923cec7457fac7a244d91a9b6
   subpackages:
   - transform
   - unicode/norm
@@ -197,6 +214,13 @@ imports:
   - internal/tag
 - name: gopkg.in/go-playground/validator.v8
   version: c193cecd124b5cc722d7ee5538e945bdb3348435
+- name: gopkg.in/mgo.v2
+  version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
+  subpackages:
+  - bson
+  - internal/sasl
+  - internal/scram
+  - internal/json
 - name: gopkg.in/yaml.v2
   version: e4d366fc3c7938e2958e662b4258c7a89e1f0e3e
 testImports: []

@@ -30,12 +30,14 @@ func TestRunnerHello(t *testing.T) {
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &Config{
-			ID:      fmt.Sprintf("task-hello-%d-%d", i, time.Now().Unix()),
-			Route:   test.route,
+			ID:      fmt.Sprintf("hello-%d-%d", i, time.Now().Unix()),
+			Image:   test.route.Image,
 			Timeout: 5 * time.Second,
-			Payload: test.payload,
-			Stdout:  &stdout,
-			Stderr:  &stderr,
+			Env: map[string]string{
+				"PAYLOAD": test.payload,
+			},
+			Stdout: &stdout,
+			Stderr: &stderr,
 		}
 
 		result, err := runner.Run(ctx, cfg)
@@ -77,12 +79,14 @@ func TestRunnerError(t *testing.T) {
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &Config{
-			ID:      fmt.Sprintf("task-err-%d-%d", i, time.Now().Unix()),
-			Route:   test.route,
+			ID:      fmt.Sprintf("err-%d-%d", i, time.Now().Unix()),
+			Image:   test.route.Image,
 			Timeout: 5 * time.Second,
-			Payload: test.payload,
-			Stdout:  &stdout,
-			Stderr:  &stderr,
+			Env: map[string]string{
+				"PAYLOAD": test.payload,
+			},
+			Stdout: &stdout,
+			Stderr: &stderr,
 		}
 
 		result, err := runner.Run(ctx, cfg)
