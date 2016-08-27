@@ -87,13 +87,16 @@ func handleRunner(c *gin.Context) {
 		route = c.Request.URL.Path
 	}
 
-	filter := &models.RouteFilter{
-		Path: route,
-	}
-
 	log.WithFields(logrus.Fields{"app": appName, "path": route}).Debug("Finding route on datastore")
 
-	routes, err := Api.Datastore.GetRoutesByApp(appName, filter)
+	app, err := Api.Datastore.GetApp(appName)
+	if err != nil || app == nil {
+		log.WithError(err).Error(models.ErrAppsNotFound)
+		c.JSON(http.StatusNotFound, simpleError(models.ErrAppsNotFound))
+		return
+	}
+
+	routes, err := Api.Datastore.GetRoutesByApp(appName, &models.RouteFilter{})
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
@@ -108,8 +111,32 @@ func handleRunner(c *gin.Context) {
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")
 	for _, el := range routes {
-		if el.Path == route {
+		if params, match := matchRoute(el.Path, route); match {
 			var stdout, stderr bytes.Buffer
+
+			envVars := map[string]string{
+				"METHOD":      c.Request.Method,
+				"ROUTE":       el.Path,
+				"PAYLOAD":     string(payload),
+				"REQUEST_URL": c.Request.URL.String(),
+			}
+
+			// app config
+			for k, v := range app.Config {
+				envVars["CONFIG_"+strings.ToUpper(k)] = v
+			}
+
+			// route config
+			for k, v := range el.Config {
+				envVars["CONFIG_"+strings.ToUpper(k)] = v
+			}
+
+			// params
+			for _, param := range params {
+				envVars["PARAM_"+strings.ToUpper(param.Key)] = param.Value
+			}
+			fmt.Println(envVars)
+
 			cfg := &runner.Config{
 				Image:   el.Image,
 				Timeout: 30 * time.Second,
@@ -117,10 +144,7 @@ func handleRunner(c *gin.Context) {
 				AppName: appName,
 				Stdout:  &stdout,
 				Stderr:  &stderr,
-				Env: map[string]string{
-					"PAYLOAD":     string(payload),
-					"REQUEST_URL": c.Request.URL.String(),
-				},
+				Env:     envVars,
 			}
 
 			if result, err := Api.Runner.Run(c, cfg); err != nil {
@@ -142,4 +166,17 @@ func handleRunner(c *gin.Context) {
 		}
 	}
 
+}
+
+var fakeHandler = func(http.ResponseWriter, *http.Request, Params) {}
+
+func matchRoute(baseRoute, route string) (Params, bool) {
+	tree := &node{}
+	tree.addRoute(baseRoute, fakeHandler)
+	handler, p, _ := tree.getValue(route)
+	if handler == nil {
+		return nil, false
+	}
+
+	return p, true
 }
