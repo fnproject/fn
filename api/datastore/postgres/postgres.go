@@ -17,11 +17,13 @@ CREATE TABLE IF NOT EXISTS routes (
 	path text NOT NULL,
     image character varying(256) NOT NULL,
 	headers text NOT NULL,
+	config text NOT NULL,
 	PRIMARY KEY (app_name, path)
 );`
 
 const appsTableCreate = `CREATE TABLE IF NOT EXISTS apps (
     name character varying(256) NOT NULL PRIMARY KEY
+	config text NOT NULL,
 );`
 
 const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
@@ -73,13 +75,20 @@ func New(url *url.URL) (models.Datastore, error) {
 }
 
 func (ds *PostgresDatastore) StoreApp(app *models.App) (*models.App, error) {
-	_, err := ds.db.Exec(`
-	  INSERT INTO apps (name)
-		VALUES ($1)
-		ON CONFLICT (name) DO NOTHING
-		RETURNING name;
-	`, app.Name)
-	// todo: after we support headers, the conflict should update the headers.
+	cbyte, err := json.Marshal(app.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ds.db.Exec(`
+	  INSERT INTO apps (name, config)
+		VALUES ($1, $2)
+		ON CONFLICT (app_name) DO UPDATE SET
+			config = $2;
+	`,
+		app.Name,
+		string(cbyte),
+	)
 
 	if err != nil {
 		return nil, err
@@ -105,11 +114,14 @@ func (ds *PostgresDatastore) GetApp(name string) (*models.App, error) {
 	row := ds.db.QueryRow("SELECT name FROM apps WHERE name=$1", name)
 
 	var resName string
-	err := row.Scan(&resName)
+	var config string
+	err := row.Scan(&resName, &config)
 
 	res := &models.App{
 		Name: resName,
 	}
+
+	json.Unmarshal([]byte(config), &res.Config)
 
 	if err != nil {
 		return nil, err
@@ -155,32 +167,36 @@ func (ds *PostgresDatastore) GetApps(filter *models.AppFilter) ([]*models.App, e
 }
 
 func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, error) {
-	var headers string
-
 	hbyte, err := json.Marshal(route.Headers)
 	if err != nil {
 		return nil, err
 	}
 
-	headers = string(hbyte)
+	cbyte, err := json.Marshal(route.Config)
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = ds.db.Exec(`
 		INSERT INTO routes (
 			app_name, 
 			path, 
 			image,
-			headers
+			headers,
+			config
 		)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (app_name, path) DO UPDATE SET
 			path = $2,
 			image = $3,
 			headers = $4;
+			config = $5;
 		`,
 		route.AppName,
 		route.Path,
 		route.Image,
-		headers,
+		string(hbyte),
+		string(cbyte),
 	)
 
 	if err != nil {
@@ -189,11 +205,11 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 	return route, nil
 }
 
-func (ds *PostgresDatastore) RemoveRoute(appName, routeName string) error {
+func (ds *PostgresDatastore) RemoveRoute(appName, routePath string) error {
 	_, err := ds.db.Exec(`
 		DELETE FROM routes
-		WHERE name = $1
-	`, routeName)
+		WHERE path = $1
+	`, routePath)
 
 	if err != nil {
 		return err
@@ -203,27 +219,30 @@ func (ds *PostgresDatastore) RemoveRoute(appName, routeName string) error {
 
 func scanRoute(scanner rowScanner, route *models.Route) error {
 	var headerStr string
+	var configStr string
+
 	err := scanner.Scan(
-		// &route.Name,
 		&route.AppName,
 		&route.Path,
 		&route.Image,
 		&headerStr,
+		&configStr,
 	)
 
 	if headerStr == "" {
 		return models.ErrRoutesNotFound
 	}
 
-	err = json.Unmarshal([]byte(headerStr), &route.Headers)
+	json.Unmarshal([]byte(headerStr), &route.Headers)
+	json.Unmarshal([]byte(configStr), &route.Config)
 
 	return err
 }
 
-func getRoute(qr rowQuerier, routeName string) (*models.Route, error) {
+func getRoute(qr rowQuerier, routePath string) (*models.Route, error) {
 	var route models.Route
 
-	row := qr.QueryRow(fmt.Sprintf("%s WHERE name=$1", routeSelector), routeName)
+	row := qr.QueryRow(fmt.Sprintf("%s WHERE name=$1", routeSelector), routePath)
 	err := scanRoute(row, &route)
 
 	if err == sql.ErrNoRows {
@@ -234,8 +253,8 @@ func getRoute(qr rowQuerier, routeName string) (*models.Route, error) {
 	return &route, nil
 }
 
-func (ds *PostgresDatastore) GetRoute(appName, routeName string) (*models.Route, error) {
-	return getRoute(ds.db, routeName)
+func (ds *PostgresDatastore) GetRoute(appName, routePath string) (*models.Route, error) {
+	return getRoute(ds.db, routePath)
 }
 
 func (ds *PostgresDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route, error) {

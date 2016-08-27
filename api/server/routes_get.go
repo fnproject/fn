@@ -16,9 +16,9 @@ func handleRouteGet(c *gin.Context) {
 	log := titancommon.Logger(ctx)
 
 	appName := c.Param("app")
-	routeName := c.Param("route")
+	routePath := c.Param("route")
 
-	route, err := Api.Datastore.GetRoute(appName, routeName)
+	route, err := Api.Datastore.GetRoute(appName, routePath)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesGet)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesGet))

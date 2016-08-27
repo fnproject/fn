@@ -56,5 +56,5 @@ func handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, appResponse{"App  successfully created", wapp})
+	c.JSON(http.StatusCreated, appResponse{"App successfully created", wapp})
 }
