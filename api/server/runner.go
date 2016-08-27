@@ -135,7 +135,6 @@ func handleRunner(c *gin.Context) {
 			for _, param := range params {
 				envVars["PARAM_"+strings.ToUpper(param.Key)] = param.Value
 			}
-			fmt.Println(envVars)
 
 			cfg := &runner.Config{
 				Image:   el.Image,

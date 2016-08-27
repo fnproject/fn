@@ -154,13 +154,9 @@ func TestAppUpdate(t *testing.T) {
 	}{
 		// errors
 		{"/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/v1/apps/myapp", `{ "name": "" }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
-		{"/v1/apps/myapp", `{ "name": "1234567890123456789012345678901" }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
-		{"/v1/apps/myapp", `{ "name": "&&%@!#$#@$" }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
-		{"/v1/apps/myapp", `{ "name": "&&%@!#$#@$" }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{"/v1/apps/myapp", `{ "name": "teste" }`, http.StatusOK, nil},
+		{"/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "PUT", test.path, body)
