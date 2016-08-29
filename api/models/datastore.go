@@ -8,11 +8,11 @@ type Datastore interface {
 	StoreApp(*App) (*App, error)
 	RemoveApp(appName string) error
 
-	GetRoute(appName, routeName string) (*Route, error)
+	GetRoute(appName, routePath string) (*Route, error)
 	GetRoutes(*RouteFilter) (routes []*Route, err error)
 	GetRoutesByApp(string, *RouteFilter) (routes []*Route, err error)
 	StoreRoute(*Route) (*Route, error)
-	RemoveRoute(appName, routeName string) error
+	RemoveRoute(appName, routePath string) error
 
 	// The following provide a generic key value store for arbitrary data, can be used by extensions to store extra data
 	// todo: should we namespace these by app? Then when an app is deleted, it can delete any of this extra data too.
@@ -22,7 +22,7 @@ type Datastore interface {
 
 var (
 	ErrDatastoreEmptyAppName   = errors.New("Missing app name")
-	ErrDatastoreEmptyRouteName = errors.New("Missing route name")
+	ErrDatastoreEmptyRoutePath = errors.New("Missing route name")
 	ErrDatastoreEmptyApp       = errors.New("Missing app")
 	ErrDatastoreEmptyRoute     = errors.New("Missing route")
 )

@@ -26,7 +26,7 @@ func TestFullStack(t *testing.T) {
 	ds, close := prepareBolt(t)
 	defer close()
 
-	New(&models.Config{}, ds, testRunner(t))
+	New(ds, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {

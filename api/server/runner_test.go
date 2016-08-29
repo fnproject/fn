@@ -12,7 +12,11 @@ import (
 )
 
 func TestRouteRunnerGet(t *testing.T) {
-	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
+	New(&datastore.Mock{
+		FakeApps: []*models.App{
+			{Name: "myapp", Config: models.Config{}},
+		},
+	}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -22,7 +26,8 @@ func TestRouteRunnerGet(t *testing.T) {
 		expectedError error
 	}{
 		{"/route", "", http.StatusBadRequest, models.ErrAppsNotFound},
-		{"/r/app/route", "", http.StatusNotFound, models.ErrRunnerRouteNotFound},
+		{"/r/app/route", "", http.StatusNotFound, models.ErrAppsNotFound},
+		{"/r/myapp/route", "", http.StatusNotFound, models.ErrRunnerRouteNotFound},
 		{"/route?payload=test", "", http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/r/app/route?payload=test", "", http.StatusBadRequest, models.ErrInvalidJSON},
 	} {
@@ -45,7 +50,11 @@ func TestRouteRunnerGet(t *testing.T) {
 }
 
 func TestRouteRunnerPost(t *testing.T) {
-	New(&models.Config{}, &datastore.Mock{}, testRunner(t))
+	New(&datastore.Mock{
+		FakeApps: []*models.App{
+			{Name: "myapp", Config: models.Config{}},
+		},
+	}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -57,7 +66,8 @@ func TestRouteRunnerPost(t *testing.T) {
 		{"/route", `payload`, http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/r/app/route", `payload`, http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/route", `{ "payload": "" }`, http.StatusBadRequest, models.ErrAppsNotFound},
-		{"/r/app/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRunnerRouteNotFound},
+		{"/r/app/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrAppsNotFound},
+		{"/r/myapp/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRunnerRouteNotFound},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
@@ -81,10 +91,13 @@ func TestRouteRunnerPost(t *testing.T) {
 }
 
 func TestRouteRunnerExecution(t *testing.T) {
-	New(&models.Config{}, &datastore.Mock{
+	New(&datastore.Mock{
+		FakeApps: []*models.App{
+			{Name: "myapp", Config: models.Config{}},
+		},
 		FakeRoutes: []*models.Route{
-			{Path: "/myroute", Image: "iron/hello", Headers: map[string][]string{"X-Function": []string{"Test"}}},
-			{Path: "/myerror", Image: "iron/error", Headers: map[string][]string{"X-Function": []string{"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "iron/hello", Headers: map[string][]string{"X-Function": []string{"Test"}}},
+			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": []string{"Test"}}},
 		},
 	}, testRunner(t))
 	router := testRouter()
@@ -117,6 +130,31 @@ func TestRouteRunnerExecution(t *testing.T) {
 						i, name, header[0], rec.Header().Get(name))
 				}
 			}
+		}
+	}
+}
+
+func TestMatchRoute(t *testing.T) {
+	for i, test := range []struct {
+		baseRoute      string
+		route          string
+		expectedParams []Param
+	}{
+		{"/myroute/", `/myroute/`, nil},
+		{"/myroute/:mybigparam", `/myroute/1`, []Param{{"mybigparam", "1"}}},
+		{"/:param/*test", `/1/2`, []Param{{"param", "1"}, {"test", "/2"}}},
+	} {
+		if params, match := matchRoute(test.baseRoute, test.route); match {
+			if test.expectedParams != nil {
+				for j, param := range test.expectedParams {
+					if params[j].Key != param.Key || params[j].Value != param.Value {
+						fmt.Println(params[j])
+						t.Errorf("Test %d: expected param %d, key = %s, value = %s", i, j, param.Key, param.Value)
+					}
+				}
+			}
+		} else {
+			t.Errorf("Test %d: %s should match %s", i, test.route, test.baseRoute)
 		}
 	}
 }

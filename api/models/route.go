@@ -25,6 +25,7 @@ type Route struct {
 	Path    string      `json:"path,omitempty"`
 	Image   string      `json:"image,omitempty"`
 	Headers http.Header `json:"headers,omitempty"`
+	Config  `json:"config"`
 }
 
 var (

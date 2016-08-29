@@ -208,13 +208,13 @@ func (ds *BoltDatastore) StoreRoute(route *models.Route) (*models.Route, error) 
 	return route, nil
 }
 
-func (ds *BoltDatastore) RemoveRoute(appName, routeName string) error {
+func (ds *BoltDatastore) RemoveRoute(appName, routePath string) error {
 	if appName == "" {
 		return models.ErrDatastoreEmptyAppName
 	}
 
-	if routeName == "" {
-		return models.ErrDatastoreEmptyRouteName
+	if routePath == "" {
+		return models.ErrDatastoreEmptyRoutePath
 	}
 
 	err := ds.db.Update(func(tx *bolt.Tx) error {
@@ -223,7 +223,7 @@ func (ds *BoltDatastore) RemoveRoute(appName, routeName string) error {
 			return err
 		}
 
-		err = b.Delete([]byte(routeName))
+		err = b.Delete([]byte(routePath))
 		if err != nil {
 			return err
 		}
@@ -235,13 +235,13 @@ func (ds *BoltDatastore) RemoveRoute(appName, routeName string) error {
 	return nil
 }
 
-func (ds *BoltDatastore) GetRoute(appName, routeName string) (*models.Route, error) {
+func (ds *BoltDatastore) GetRoute(appName, routePath string) (*models.Route, error) {
 	if appName == "" {
 		return nil, models.ErrDatastoreEmptyAppName
 	}
 
-	if routeName == "" {
-		return nil, models.ErrDatastoreEmptyRouteName
+	if routePath == "" {
+		return nil, models.ErrDatastoreEmptyRoutePath
 	}
 
 	var route *models.Route
@@ -251,7 +251,7 @@ func (ds *BoltDatastore) GetRoute(appName, routeName string) (*models.Route, err
 			return err
 		}
 
-		v := b.Get([]byte(routeName))
+		v := b.Get([]byte(routePath))
 		if v != nil {
 			err = json.Unmarshal(v, &route)
 		}

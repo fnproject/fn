@@ -118,7 +118,7 @@ func TestBolt(t *testing.T) {
 		t.Fatalf("Test GetRoute: error: %s", err)
 	}
 	if route.Path != testRoute.Path {
-		t.Fatalf("Test GetRoute: expected `route.Name` to be `%s` but it was `%s`", route.Path, testRoute.Path)
+		t.Fatalf("Test GetRoute: expected `route.Path` to be `%s` but it was `%s`", route.Path, testRoute.Path)
 	}
 
 	// Testing list routes

@@ -20,16 +20,14 @@ var Api *Server
 type Server struct {
 	Runner          *runner.Runner
 	Router          *gin.Engine
-	Config          *models.Config
 	Datastore       models.Datastore
 	AppListeners    []ifaces.AppListener
 	SpecialHandlers []ifaces.SpecialHandler
 }
 
-func New(c *models.Config, ds models.Datastore, r *runner.Runner) *Server {
+func New(ds models.Datastore, r *runner.Runner) *Server {
 	Api = &Server{
 		Router:    gin.Default(),
-		Config:    c,
 		Datastore: ds,
 		Runner:    r,
 	}

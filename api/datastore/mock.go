@@ -9,46 +9,73 @@ type Mock struct {
 	FakeRoutes []*models.Route
 }
 
-func (m *Mock) GetApp(app string) (*models.App, error) {
-	return m.FakeApp, nil
+func (m *Mock) GetApp(appName string) (*models.App, error) {
+	app := m.FakeApp
+	if app == nil && m.FakeApps != nil {
+		for _, a := range m.FakeApps {
+			if a.Name == appName {
+				app = a
+			}
+		}
+	}
+
+	return app, nil
 }
 
 func (m *Mock) GetApps(appFilter *models.AppFilter) ([]*models.App, error) {
+	// TODO: improve this mock method
 	return m.FakeApps, nil
 }
 
 func (m *Mock) StoreApp(app *models.App) (*models.App, error) {
+	// TODO: improve this mock method
 	return m.FakeApp, nil
 }
 
-func (m *Mock) RemoveApp(app string) error {
+func (m *Mock) RemoveApp(appName string) error {
+	// TODO: improve this mock method
 	return nil
 }
 
-func (m *Mock) GetRoute(app, route string) (*models.Route, error) {
-	return m.FakeRoute, nil
+func (m *Mock) GetRoute(appName, routePath string) (*models.Route, error) {
+	route := m.FakeRoute
+	if route == nil && m.FakeRoutes != nil {
+		for _, r := range m.FakeRoutes {
+			if r.AppName == appName && r.Path == routePath {
+				route = r
+			}
+		}
+	}
+
+	return route, nil
 }
 
 func (m *Mock) GetRoutes(routeFilter *models.RouteFilter) ([]*models.Route, error) {
+	// TODO: improve this mock method
 	return m.FakeRoutes, nil
 }
 
 func (m *Mock) GetRoutesByApp(appName string, routeFilter *models.RouteFilter) ([]*models.Route, error) {
+	// TODO: improve this mock method
 	return m.FakeRoutes, nil
 }
 
 func (m *Mock) StoreRoute(route *models.Route) (*models.Route, error) {
+	// TODO: improve this mock method
 	return m.FakeRoute, nil
 }
 
-func (m *Mock) RemoveRoute(app, route string) error {
+func (m *Mock) RemoveRoute(appName, routePath string) error {
+	// TODO: improve this mock method
 	return nil
 }
 
 func (m *Mock) Put(key, value []byte) error {
+	// TODO: improve this mock method
 	return nil
 }
 
 func (m *Mock) Get(key []byte) ([]byte, error) {
+	// TODO: improve this mock method
 	return []byte{}, nil
 }

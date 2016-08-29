@@ -22,6 +22,7 @@ var (
 type App struct {
 	Name   string `json:"name"`
 	Routes Routes `json:"routes,omitempty"`
+	Config `json:"config"`
 }
 
 const (

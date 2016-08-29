@@ -15,8 +15,8 @@ func handleRouteDelete(c *gin.Context) {
 	log := titancommon.Logger(ctx)
 
 	appName := c.Param("app")
-	routeName := c.Param("route")
-	err := Api.Datastore.RemoveRoute(appName, routeName)
+	routePath := c.Param("route")
+	err := Api.Datastore.RemoveRoute(appName, routePath)
 
 	if err != nil {
 		log.WithError(err).Debug(models.ErrRoutesRemoving)

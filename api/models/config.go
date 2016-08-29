@@ -1,7 +1,6 @@
 package models
 
-type Config struct {
-}
+type Config map[string]string
 
 func (c *Config) Validate() error {
 	return nil
