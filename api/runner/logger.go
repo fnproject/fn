@@ -1,4 +1,3 @@
-// This reads STDERR output from a container and outputs it in a parseable structured log format, see: https://github.com/iron-io/functions/issues/76
 package runner
 
 import (
@@ -8,6 +7,7 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
+// FuncLogger reads STDERR output from a container and outputs it in a parseable structured log format, see: https://github.com/iron-io/functions/issues/76
 type FuncLogger struct {
 	r io.Reader
 	w io.Writer
