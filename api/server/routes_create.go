@@ -38,7 +38,7 @@ func handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	err = Api.Runner.EnsureUsableImage(ctx, &runner.Config{
+	err = Api.Runner.EnsureImageExists(ctx, &runner.Config{
 		Image: wroute.Route.Image,
 	})
 	if err != nil {
