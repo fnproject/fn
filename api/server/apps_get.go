@@ -29,5 +29,5 @@ func handleAppGet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &models.AppWrapper{app})
+	c.JSON(http.StatusOK, appResponse{"Successfully loaded app", app})
 }

@@ -23,5 +23,5 @@ func handleAppList(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &models.AppsWrapper{apps})
+	c.JSON(http.StatusOK, appsResponse{"Successfully listed applications", apps})
 }

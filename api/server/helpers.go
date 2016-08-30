@@ -17,23 +17,23 @@ import (
 )
 
 type appResponse struct {
-	Message string
-	App     models.AppWrapper
+	Message string      `json:"message"`
+	App     *models.App `json:"app"`
 }
 
 type appsResponse struct {
-	Message string
-	Apps    models.AppsWrapper
+	Message string      `json:"message"`
+	Apps    models.Apps `json:"apps"`
 }
 
 type routeResponse struct {
-	Message string
-	Route   models.RouteWrapper
+	Message string        `json:"message"`
+	Route   *models.Route `json:"route"`
 }
 
 type routesResponse struct {
-	Message string
-	Routes  models.RoutesWrapper
+	Message string        `json:"message"`
+	Routes  models.Routes `json:"routes"`
 }
 
 func testRouter() *gin.Engine {
