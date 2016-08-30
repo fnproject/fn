@@ -23,11 +23,9 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps
 ```
 
-Now that we have an app, we can add routes to functions. 
+Now that we have an app, we can map routes to functions. 
 
 ### Add a route to a Function
-
-
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
