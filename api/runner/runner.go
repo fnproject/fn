@@ -67,13 +67,13 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	return result, nil
 }
 
-func (r Runner) EnsureUsableImage(ctx context.Context, cfg *Config) error {
+func (r Runner) EnsureImageExists(ctx context.Context, cfg *Config) error {
 	ctask := &containerTask{
 		cfg:  cfg,
 		auth: &agent.ConfigAuth{},
 	}
 
-	err := r.driver.EnsureUsableImage(ctx, ctask)
+	err := r.driver.EnsureImageExists(ctx, ctask)
 	if err != nil {
 		return err
 	}
