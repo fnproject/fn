@@ -70,6 +70,10 @@ And you'll get an ironfunctions.com host for your app:
 myapp.USER_ID.ironfunctions.com/hello
 ```
 
+## API Reference
+
+https://swaggerhub.com/api/iron/functions
+
 ## Full Documentation
 
 http://docs-new.iron.io/docs
