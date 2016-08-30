@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS routes (
 );`
 
 const appsTableCreate = `CREATE TABLE IF NOT EXISTS apps (
-    name character varying(256) NOT NULL PRIMARY KEY
-	config text NOT NULL,
+    name character varying(256) NOT NULL PRIMARY KEY,
+	config text NOT NULL
 );`
 
 const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
