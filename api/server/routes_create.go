@@ -75,5 +75,5 @@ func handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", wroute})
+	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", wroute.Route})
 }
