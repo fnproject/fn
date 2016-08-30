@@ -103,12 +103,6 @@ func handleRunner(c *gin.Context) {
 		return
 	}
 
-	if routes == nil || len(routes) == 0 {
-		log.WithError(err).Error(models.ErrRunnerRouteNotFound)
-		c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
-		return
-	}
-
 	log.WithField("routes", routes).Debug("Got routes from datastore")
 	for _, el := range routes {
 		if params, match := matchRoute(el.Path, route); match {
@@ -165,6 +159,8 @@ func handleRunner(c *gin.Context) {
 		}
 	}
 
+	log.WithError(err).Error(models.ErrRunnerRouteNotFound)
+	c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
 }
 
 var fakeHandler = func(http.ResponseWriter, *http.Request, Params) {}
