@@ -31,7 +31,7 @@ const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
 	value character varying(256) NOT NULL
 );`
 
-const routeSelector = `SELECT app_name, path, image, headers FROM routes`
+const routeSelector = `SELECT app_name, path, image, headers, config FROM routes`
 
 type rowScanner interface {
 	Scan(dest ...interface{}) error
@@ -83,7 +83,7 @@ func (ds *PostgresDatastore) StoreApp(app *models.App) (*models.App, error) {
 	_, err = ds.db.Exec(`
 	  INSERT INTO apps (name, config)
 		VALUES ($1, $2)
-		ON CONFLICT (app_name) DO UPDATE SET
+		ON CONFLICT (name) DO UPDATE SET
 			config = $2;
 	`,
 		app.Name,
@@ -111,7 +111,7 @@ func (ds *PostgresDatastore) RemoveApp(appName string) error {
 }
 
 func (ds *PostgresDatastore) GetApp(name string) (*models.App, error) {
-	row := ds.db.QueryRow("SELECT name FROM apps WHERE name=$1", name)
+	row := ds.db.QueryRow("SELECT name, config FROM apps WHERE name=$1", name)
 
 	var resName string
 	var config string
@@ -185,11 +185,11 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 			headers,
 			config
 		)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (app_name, path) DO UPDATE SET
 			path = $2,
 			image = $3,
-			headers = $4;
+			headers = $4,
 			config = $5;
 		`,
 		route.AppName,
@@ -208,8 +208,8 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 func (ds *PostgresDatastore) RemoveRoute(appName, routePath string) error {
 	_, err := ds.db.Exec(`
 		DELETE FROM routes
-		WHERE path = $1
-	`, routePath)
+		WHERE path = $1 AND app_name = $2
+	`, routePath, appName)
 
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func scanRoute(scanner rowScanner, route *models.Route) error {
 func getRoute(qr rowQuerier, routePath string) (*models.Route, error) {
 	var route models.Route
 
-	row := qr.QueryRow(fmt.Sprintf("%s WHERE name=$1", routeSelector), routePath)
+	row := qr.QueryRow(fmt.Sprintf("%s WHERE path=$1", routeSelector), routePath)
 	err := scanRoute(row, &route)
 
 	if err == sql.ErrNoRows {
@@ -271,7 +271,7 @@ func (ds *PostgresDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Ro
 		var route models.Route
 		err := scanRoute(rows, &route)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		res = append(res, &route)
 
@@ -297,7 +297,7 @@ func (ds *PostgresDatastore) GetRoutesByApp(appName string, filter *models.Route
 		var route models.Route
 		err := scanRoute(rows, &route)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		res = append(res, &route)
 
