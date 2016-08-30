@@ -112,7 +112,9 @@ func handleRunner(c *gin.Context) {
 	log.WithField("routes", routes).Debug("Got routes from datastore")
 	for _, el := range routes {
 		if params, match := matchRoute(el.Path, route); match {
-			var stdout, stderr bytes.Buffer
+
+			var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
+			stderr := runner.NewFuncLogger(appName, route, el.Image, reqID)
 
 			envVars := map[string]string{
 				"METHOD":      c.Request.Method,
@@ -142,7 +144,7 @@ func handleRunner(c *gin.Context) {
 				ID:      reqID,
 				AppName: appName,
 				Stdout:  &stdout,
-				Stderr:  &stderr,
+				Stderr:  stderr,
 				Env:     envVars,
 			}
 
@@ -157,7 +159,7 @@ func handleRunner(c *gin.Context) {
 				if result.Status() == "success" {
 					c.Data(http.StatusOK, "", stdout.Bytes())
 				} else {
-					log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
+					// log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
