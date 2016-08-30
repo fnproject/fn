@@ -136,6 +136,11 @@ func handleRunner(c *gin.Context) {
 				envVars["PARAM_"+strings.ToUpper(param.Key)] = param.Value
 			}
 
+			// headers
+			for header, value := range c.Request.Header {
+				envVars["HEADER_"+strings.ToUpper(header)] = strings.Join(value, " ")
+			}
+
 			cfg := &runner.Config{
 				Image:   el.Image,
 				Timeout: 30 * time.Second,
