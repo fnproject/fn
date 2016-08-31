@@ -39,5 +39,5 @@ func handleAppUpdate(c *gin.Context) {
 	wapp.App = app
 
 	// Nothing to update right now in apps
-	c.JSON(http.StatusOK, appResponse{"App successfully updated", wapp})
+	c.JSON(http.StatusOK, appResponse{"App successfully updated", wapp.App})
 }

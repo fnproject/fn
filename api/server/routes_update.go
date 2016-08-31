@@ -45,5 +45,5 @@ func handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, routeResponse{"Route successfully updated", wroute})
+	c.JSON(http.StatusOK, routeResponse{"Route successfully updated", wroute.Route})
 }

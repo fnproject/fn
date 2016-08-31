@@ -33,5 +33,5 @@ func handleRouteGet(c *gin.Context) {
 
 	log.WithFields(logrus.Fields{"route": route}).Debug("Got route")
 
-	c.JSON(http.StatusOK, &models.RouteWrapper{route})
+	c.JSON(http.StatusOK, routeResponse{"Successfully loaded route", route})
 }
