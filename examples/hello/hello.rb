@@ -6,7 +6,7 @@ name = "World"
 # or using env vars: ENV['PAYLOAD']
 payload = ENV['PAYLOAD']
 
-puts 'ARGF: ' + payload.inspect
+STDERR.puts 'payload: ' + payload.inspect
 if payload != ""
     payload = JSON.parse(payload)
     name = payload['name']
