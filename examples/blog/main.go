@@ -10,6 +10,8 @@ import (
 	"github.com/iron-io/functions/examples/blog/routes"
 )
 
+var noAuth = map[string]interface{}{}
+
 func main() {
 	request := fmt.Sprintf("%s %s", os.Getenv("METHOD"), os.Getenv("ROUTE"))
 
@@ -23,30 +25,36 @@ func main() {
 		return
 	}
 
+	// PUBLIC REQUESTS
+	switch request {
+	case "GET /posts":
+		route.HandlePostList(db, noAuth)
+		return
+	case "GET /posts/:id":
+		route.HandlePostRead(db, noAuth)
+		return
+	}
+
+	// GETTING TOKEN
 	if os.Getenv("ROUTE") == "/token" {
 		route.HandleToken(db)
 		return
 	}
 
+	// AUTHENTICATION
 	auth, valid := route.Authentication()
 	if !valid {
 		route.SendError("Invalid authentication")
 		return
 	}
 
-	switch request {
-	case "GET /posts":
-		route.HandlePostList(db, auth)
-		break
-	case "POST /posts":
+	// AUTHENTICATED ONLY REQUESTS
+	if request == "POST /posts" {
 		route.HandlePostCreate(db, auth)
-		break
-	case "GET /posts/:id":
-		route.HandlePostRead(db, auth)
-		break
-	default:
-		route.SendError("Not found")
+		return
 	}
+
+	route.SendError("Not found")
 }
 
 func createUser(db *database.Database) bool {

@@ -24,6 +24,8 @@ func HandlePostCreate(db *database.Database, auth map[string]interface{}) {
 		return
 	}
 
+	post.User = auth["user"].(string)
+
 	SendResponse(Response{
 		"post": post,
 	})
