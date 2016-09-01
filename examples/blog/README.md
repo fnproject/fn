@@ -29,6 +29,8 @@ docker push $USERNAME/functions-blog
 
 ## Running it on IronFunctions
 
+First you need a running IronFunctions API
+
 ### First, let's define this environment variables
 
 ```
@@ -37,7 +39,7 @@ docker push $USERNAME/functions-blog
 FUNCAPI=YOUR_FUNCTIONS_ADDRESS
 
 # Set your mongoDB server address
-# Eg. 127.0.0.1:27017
+# Eg. 127.0.0.1:27017/blog
 MONGODB=YOUR_MONGODB_ADDRESS
 ```
 
@@ -54,7 +56,11 @@ curl -X POST --data '{
 }' http://$FUNCAPI/v1/apps
 ```
 
-Now, we can create our blog routes: `/posts` and `/posts/:id`
+Now, we can create our blog routes:
+
+- `/posts` - to create (authenticated) and list posts
+- `/posts/:id` - to read post
+- `/token` - to get a JWT
 
 ```
 curl -X POST --data '{
@@ -74,30 +80,55 @@ curl -X POST --data '{
 }' http://$FUNCAPI/v1/apps/blog/routes
 ```
 
-### Testing our Blog via API
+```
+curl -X POST --data '{
+    "route": {
+        "image": "'$USERNAME'/functions-blog",
+        "path": "/token"
+    }
+}' http://$FUNCAPI/v1/apps/blog/routes
+```
+
+### Testing your Blog
 
 Now that we created our IronFunction route, lets test our routes
 
 ```
-curl -X GET http://$FUNCAPI/r/blog/posts
-curl -X GET http://$FUNCAPI/r/blog/posts/123456
+curl -X POST http://$FUNCAPI/r/blog/posts
 ```
 
-These commands should return `{"error":"Invalid authentication"}` because we aren't sending any token.
+This command should return `{"error":"Invalid authentication"}` because we aren't sending any token.
 
 ## Authentication
 
 ### Creating a blog user
 
-First let's create our blog user.
-```
+First let's create our blog user. In this example an user `test` with password `test`.
 
 ```
-
-###
-
-To get authorized to access our Blog API endpoints we must request a new token with a valid user. 
-
+docker run --rm -e CONFIG_DB=$MONGODB -e NEWUSER='{ "username": "test", "password": "test" }' $USERNAME/functions-blog
 ```
 
+### Getting authorization token
+
+Now, to get authorized to post in our Blog API endpoints we must request a new token with a valid user. 
+
 ```
+curl -X POST --data '{ "username": "test", "password": "test" }' http://$FUNCAPI/r/blog/token
+```
+
+This will output a token like this:
+
+```
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDE2LTA5LTAxVDAwOjQzOjMxLjQwNjY5NTIxNy0wMzowMCIsInVzZXIiOiJ0ZXN0In0.aPKdH3QPauutFsFbSdQyF6q1hqTAas_BCbSYi5mFiSU"}
+```
+
+Let's save that token in the environment
+
+```
+BLOG_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDE2LTA5LTAxVDAwOjQzOjMxLjQwNjY5NTIxNy0wMzowMCIsInVzZXIiOiJ0ZXN0In0.aPKdH3QPauutFsFbSdQyF6q1hqTAas_BCbSYi5mFiSU
+```
+
+### Posting in your blog
+
+curl -X POST --header "Authentication: JWT $BLOG_TOKEN" --data '{ "title": "My New Post", "body": "Hello world!" }' http://$FUNCAPI/r/blog/posts
