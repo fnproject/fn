@@ -44,6 +44,8 @@ func handleRunner(c *gin.Context) {
 	c.Set("reqID", reqID) // todo: put this in the ctx instead of gin's
 
 	log = log.WithFields(logrus.Fields{"request_id": reqID})
+	// Request count metric
+	log.WithFields(logrus.Fields{"metric": "function-request", "type": "count", "value": 1}).Info()
 
 	var err error
 
@@ -147,6 +149,7 @@ func handleRunner(c *gin.Context) {
 				Env:     envVars,
 			}
 
+			metricStart := time.Now()
 			if result, err := Api.Runner.Run(c, cfg); err != nil {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
@@ -159,9 +162,19 @@ func handleRunner(c *gin.Context) {
 					c.Data(http.StatusOK, "", stdout.Bytes())
 				} else {
 					// log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
+					// Error count metric
+					log.WithFields(logrus.Fields{
+						"app": appName, "route": el.Path, "image": el.Image, "req_id": reqID,
+						"metric": "function-error", "type": "count", "value": 1}).Info()
+
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
+			// Execution time metric
+			metricElapsed := time.Since(metricStart)
+			log.WithFields(logrus.Fields{
+				"app": appName, "route": el.Path, "image": el.Image, "req_id": reqID,
+				"metric": "function-runner", "type": "time", "value": metricElapsed}).Info()
 			return
 		}
 	}
