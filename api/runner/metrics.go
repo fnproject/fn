@@ -11,7 +11,7 @@ import (
 func LogMetricGauge(ctx context.Context, name string, value int) {
 	log := titancommon.Logger(ctx)
 	log.WithFields(logrus.Fields{
-		"metric": name, "type": "count", "value": value}).Info()
+		"metric": name, "type": "gauge", "value": value}).Info()
 }
 
 func LogMetricCount(ctx context.Context, name string, value int) {
