@@ -8,20 +8,20 @@ import (
 	"golang.org/x/net/context"
 )
 
-func LogMetricGauge(ctx context.Context, name string, value int) {
+func LogMetric(ctx context.Context, name string, metricType string, value interface{}) {
 	log := titancommon.Logger(ctx)
 	log.WithFields(logrus.Fields{
-		"metric": name, "type": "gauge", "value": value}).Info()
+		"metric": name, "type": metricType, "value": value}).Info()
+}
+
+func LogMetricGauge(ctx context.Context, name string, value int) {
+	LogMetric(ctx, name, "gauge", value)
 }
 
 func LogMetricCount(ctx context.Context, name string, value int) {
-	log := titancommon.Logger(ctx)
-	log.WithFields(logrus.Fields{
-		"metric": name, "type": "count", "value": value}).Info()
+	LogMetric(ctx, name, "count", value)
 }
 
 func LogMetricTime(ctx context.Context, name string, time time.Duration) {
-	log := titancommon.Logger(ctx)
-	log.WithFields(logrus.Fields{
-		"metric": name, "type": "time", "value": time}).Info()
+	LogMetric(ctx, name, "time", time)
 }
