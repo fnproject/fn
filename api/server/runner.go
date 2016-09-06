@@ -44,8 +44,6 @@ func handleRunner(c *gin.Context) {
 	c.Set("reqID", reqID) // todo: put this in the ctx instead of gin's
 
 	log = log.WithFields(logrus.Fields{"request_id": reqID})
-	// Request count metric
-	log.WithFields(logrus.Fields{"metric": "function-request", "type": "count", "value": 1}).Info()
 
 	var err error
 
@@ -107,6 +105,14 @@ func handleRunner(c *gin.Context) {
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")
 	for _, el := range routes {
+		metricBaseName := "server.handleRunner." + appName + "."
+		log = log.WithFields(logrus.Fields{
+			"app": appName, "route": el.Path, "image": el.Image, "request_id": reqID})
+
+		// Request count metric
+		log.WithFields(logrus.Fields{
+			"metric": (metricBaseName + "requests"), "type": "count", "value": 1}).Info()
+
 		if params, match := matchRoute(el.Path, route); match {
 
 			var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
@@ -160,12 +166,14 @@ func handleRunner(c *gin.Context) {
 
 				if result.Status() == "success" {
 					c.Data(http.StatusOK, "", stdout.Bytes())
+					log.WithFields(logrus.Fields{
+						"metric": (metricBaseName + "succeeded"), "type": "count", "value": 1}).Info()
+
 				} else {
 					// log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
 					// Error count metric
 					log.WithFields(logrus.Fields{
-						"app": appName, "route": el.Path, "image": el.Image, "req_id": reqID,
-						"metric": "function-error", "type": "count", "value": 1}).Info()
+						"metric": (metricBaseName + "error"), "type": "count", "value": 1}).Info()
 
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
@@ -173,8 +181,7 @@ func handleRunner(c *gin.Context) {
 			// Execution time metric
 			metricElapsed := time.Since(metricStart)
 			log.WithFields(logrus.Fields{
-				"app": appName, "route": el.Path, "image": el.Image, "req_id": reqID,
-				"metric": "function-runner", "type": "time", "value": metricElapsed}).Info()
+				"metric": (metricBaseName + "time"), "type": "time", "value": metricElapsed}).Info()
 			return
 		}
 	}
