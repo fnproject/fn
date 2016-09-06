@@ -105,13 +105,12 @@ func handleRunner(c *gin.Context) {
 
 	log.WithField("routes", routes).Debug("Got routes from datastore")
 	for _, el := range routes {
-		metricBaseName := "server.handleRunner." + appName + "."
 		log = log.WithFields(logrus.Fields{
 			"app": appName, "route": el.Path, "image": el.Image, "request_id": reqID})
 
 		// Request count metric
-		log.WithFields(logrus.Fields{
-			"metric": (metricBaseName + "requests"), "type": "count", "value": 1}).Info()
+		metricBaseName := "server.handleRunner." + appName + "."
+		runner.LogMetricCount(ctx, (metricBaseName + "requests"), 1)
 
 		if params, match := matchRoute(el.Path, route); match {
 
@@ -166,22 +165,19 @@ func handleRunner(c *gin.Context) {
 
 				if result.Status() == "success" {
 					c.Data(http.StatusOK, "", stdout.Bytes())
-					log.WithFields(logrus.Fields{
-						"metric": (metricBaseName + "succeeded"), "type": "count", "value": 1}).Info()
+					runner.LogMetricCount(ctx, (metricBaseName + "succeeded"), 1)
 
 				} else {
 					// log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
 					// Error count metric
-					log.WithFields(logrus.Fields{
-						"metric": (metricBaseName + "error"), "type": "count", "value": 1}).Info()
+					runner.LogMetricCount(ctx, (metricBaseName + "error"), 1)
 
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
 			// Execution time metric
 			metricElapsed := time.Since(metricStart)
-			log.WithFields(logrus.Fields{
-				"metric": (metricBaseName + "time"), "type": "time", "value": metricElapsed}).Info()
+			runner.LogMetricTime(ctx, (metricBaseName + "time"), metricElapsed)
 			return
 		}
 	}
