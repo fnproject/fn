@@ -3,14 +3,18 @@ package runner
 import (
 	"io"
 
+	"golang.org/x/net/context"
+
 	dockercli "github.com/fsouza/go-dockerclient"
 	"github.com/iron-io/titan/runner/drivers"
 	"github.com/iron-io/titan/runner/tasker"
 )
 
 type containerTask struct {
-	auth tasker.Auther
-	cfg  *Config
+	ctx    context.Context
+	auth   tasker.Auther
+	cfg    *Config
+	canRun chan bool
 }
 
 func (t *containerTask) Command() string { return "" }
