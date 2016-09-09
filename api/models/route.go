@@ -24,6 +24,7 @@ type Route struct {
 	AppName string      `json:"appname,omitempty"`
 	Path    string      `json:"path,omitempty"`
 	Image   string      `json:"image,omitempty"`
+	Memory  uint64      `json:"memory,omitempty"`
 	Headers http.Header `json:"headers,omitempty"`
 	Config  `json:"config"`
 }
@@ -41,6 +42,10 @@ func (r *Route) Validate() error {
 
 	if r.Image == "" {
 		res = append(res, ErrRoutesValidationMissingImage)
+	}
+
+	if r.Memory == 0 {
+		r.Memory = 128
 	}
 
 	if r.AppName == "" {
