@@ -42,7 +42,7 @@ var (
 	ErrTimeOutNoMemory = errors.New("Task timed out. No available memory.")
 	ErrFullQueue       = errors.New("The runner queue is full")
 
-	WaitMemoryTimeout = 3 * time.Second
+	WaitMemoryTimeout = 10 * time.Second
 )
 
 func New() (*Runner, error) {
@@ -58,7 +58,7 @@ func New() (*Runner, error) {
 
 	r := &Runner{
 		driver:    driver,
-		taskQueue: make(chan *containerTask, 0),
+		taskQueue: make(chan *containerTask, 100),
 	}
 
 	go r.queueHandler()
@@ -97,6 +97,7 @@ func (r *Runner) queueHandler() {
 
 		if timedOut {
 			// Send to a signal to this task saying it cannot run
+			LogMetricCount(task.ctx, (metricBaseName + "timeout"), 1)
 			task.canRun <- false
 			continue
 		}
@@ -132,6 +133,7 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 		case r.taskQueue <- ctask:
 		default:
 			// If queue is full, return error
+			LogMetricCount(ctx, "queue.full", 1)
 			return nil, ErrFullQueue
 		}
 
@@ -229,7 +231,7 @@ func checkProc() (uint64, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		b := scanner.Text()
-		if !strings.HasPrefix(b, "MemFree") {
+		if !strings.HasPrefix(b, "MemAvailable") {
 			continue
 		}
 
