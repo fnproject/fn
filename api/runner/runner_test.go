@@ -11,7 +11,7 @@ import (
 )
 
 func TestRunnerHello(t *testing.T) {
-	runner, err := New()
+	runner, err := New(NewMetricLogger())
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
@@ -60,7 +60,7 @@ func TestRunnerHello(t *testing.T) {
 }
 
 func TestRunnerError(t *testing.T) {
-	runner, err := New()
+	runner, err := New(NewMetricLogger())
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
