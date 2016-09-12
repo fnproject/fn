@@ -178,6 +178,7 @@ func handleRunner(c *gin.Context) {
 			// Execution time metric
 			metricElapsed := time.Since(metricStart)
 			runner.LogMetricTime(ctx, (metricBaseName + "time"), metricElapsed)
+			runner.LogMetricTime(ctx, "server.handleRunner.exec_time", metricElapsed)
 			return
 		}
 	}
