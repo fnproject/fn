@@ -20,5 +20,5 @@ dependencies:
 
 test:
   override:
-    - ./test.sh
+    - ./test.sh:
         pwd: $GO_PROJECT
