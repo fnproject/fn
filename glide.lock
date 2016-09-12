@@ -1,5 +1,5 @@
-hash: 5ccf89905e13b7dc987cd203c1d7c1fddd32dcd776fe2e5f60d9f6f7b9908425
-updated: 2016-08-30T10:32:52.850687756-07:00
+hash: 3681d7248a9e90a7540f709e4844bbac6ae98806f0bdeb2f2945616655f78ad6
+updated: 2016-09-12T12:38:41.400655672-03:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -25,22 +25,22 @@ imports:
   - pkg/archive
   - pkg/fileutils
   - pkg/homedir
-  - pkg/ioutils
+  - pkg/stdcopy
   - pkg/parsers
+  - pkg/ulimit
+  - volume
   - pkg/pools
   - pkg/promise
-  - pkg/random
-  - pkg/stdcopy
   - pkg/system
-  - pkg/tarsum
-  - pkg/ulimit
+  - pkg/ioutils
   - pkg/units
-  - volume
+  - pkg/tarsum
+  - pkg/random
 - name: github.com/docker/engine-api
   version: 2f8c367944a28130f3c2fb9f0aad7f1d5db952a9
   subpackages:
-  - types/mount
   - types/swarm
+  - types/mount
 - name: github.com/docker/go-units
   version: eb879ae3e2b84e2a142af415b679ddeda47ec71c
 - name: github.com/docker/libtrust
@@ -52,8 +52,8 @@ imports:
 - name: github.com/garyburd/redigo
   version: 4ed1111375cbeb698249ffe48dd463e9b0a63a7a
   subpackages:
-  - internal
   - redis
+  - internal
 - name: github.com/gin-gonic/gin
   version: 4a6bc4aac4607e253bcda67c8c5bcda693d2388e
   subpackages:
@@ -92,10 +92,10 @@ imports:
   subpackages:
   - hcl/ast
   - hcl/parser
-  - hcl/scanner
-  - hcl/strconv
   - hcl/token
   - json/parser
+  - hcl/scanner
+  - hcl/strconv
   - json/scanner
   - json/token
 - name: github.com/heroku/docker-registry-client
@@ -103,22 +103,24 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/titan
-  version: 3bb6aacb244a24e38bba755cc863533810117a5c
-  repo: https://github.com/iron-io/titan.git
-  vcs: git
+  version: ""
   subpackages:
   - common
-  - common/stats
   - runner/agent
   - runner/drivers
   - runner/drivers/docker
   - runner/drivers/mock
   - runner/tasker
+  - common/stats
   - runner/tasker/client/models
   - runner/tasker/client/titan
-  - runner/tasker/client/titan/groups
   - runner/tasker/client/titan/jobs
+  - runner/tasker/client/titan/groups
   - runner/tasker/client/titan/runner
+- name: github.com/iron-io/worker
+  version: c397684f2430ddc09f2af0b86bc32abcf8d2a263
+  repo: git@github.com:iron-io/worker.git
+  vcs: git
 - name: github.com/kr/fs
   version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/lib/pq
@@ -130,9 +132,9 @@ imports:
 - name: github.com/mailru/easyjson
   version: 34560e358dc05e2c28f6fda2f5c9e7494a4b9b19
   subpackages:
-  - buffer
   - jlexer
   - jwriter
+  - buffer
 - name: github.com/manucorporat/sse
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
 - name: github.com/mitchellh/mapstructure
@@ -175,19 +177,18 @@ imports:
 - name: github.com/spf13/viper
   version: 7fb2782df3d83e0036cc89f461ed0422628776f4
 - name: golang.org/x/crypto
-  version: b13fc1fd382d01861b16b2e6474487d3d4d27f20
+  version: c10c31b5e94b6f7a0283272dc2bb27163dcea24b
   subpackages:
+  - ssh
   - curve25519
   - ed25519
-  - ed25519/internal/edwards25519
-  - ssh
 - name: golang.org/x/net
   version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
   - context
   - context/ctxhttp
-  - idna
   - proxy
+  - idna
 - name: golang.org/x/sys
   version: a646d33e2ee3172a661fc09bca23bb4889a41bc8
   subpackages:
@@ -195,16 +196,16 @@ imports:
 - name: golang.org/x/text
   version: d69c40b4be55797923cec7457fac7a244d91a9b6
   subpackages:
+  - transform
+  - unicode/norm
+  - secure/precis
   - cases
-  - internal/tag
-  - language
   - runes
   - secure/bidirule
-  - secure/precis
-  - transform
-  - unicode/bidi
-  - unicode/norm
   - width
+  - language
+  - unicode/bidi
+  - internal/tag
 - name: gopkg.in/go-playground/validator.v8
   version: c193cecd124b5cc722d7ee5538e945bdb3348435
 - name: gopkg.in/yaml.v2
