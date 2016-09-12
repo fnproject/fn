@@ -104,7 +104,7 @@ imports:
   - registry
 - name: github.com/iron-io/titan
   version: 3bb6aacb244a24e38bba755cc863533810117a5c
-  repo: git@github.com:iron-io/titan.git
+  repo: git@github.com:iron-io/worker.git
   vcs: git
   subpackages:
   - common
