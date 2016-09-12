@@ -6,8 +6,8 @@ import:
 - package: github.com/go-openapi/errors
 - package: github.com/go-openapi/strfmt
 - package: github.com/go-openapi/validate
-- package: github.com/iron-io/worker
-  repo: git@github.com:iron-io/worker.git
+- package: github.com/iron-io/titan
+  repo: git@github.com:iron-io/titan.git
   vcs: git
   version: master
 - package: github.com/lib/pq

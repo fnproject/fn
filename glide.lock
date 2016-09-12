@@ -103,7 +103,9 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/titan
-  version: ""
+  version: 3bb6aacb244a24e38bba755cc863533810117a5c
+  repo: https://github.com/iron-io/titan.git
+  vcs: git
   subpackages:
   - common
   - runner/agent
@@ -117,10 +119,6 @@ imports:
   - runner/tasker/client/titan/jobs
   - runner/tasker/client/titan/groups
   - runner/tasker/client/titan/runner
-- name: github.com/iron-io/worker
-  version: c397684f2430ddc09f2af0b86bc32abcf8d2a263
-  repo: git@github.com:iron-io/worker.git
-  vcs: git
 - name: github.com/kr/fs
   version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/lib/pq
