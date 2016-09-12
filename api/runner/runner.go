@@ -196,15 +196,20 @@ func dynamicSizing(reqMem uint64) int {
 		reqMem = 128
 	}
 
-	availableMemory, err := checkCgroup()
-	if err != nil {
-		logrus.WithError(err).Error("Error checking for cgroup memory limits, falling back to host memory available..")
-	}
-	if availableMemory > tooBig || availableMemory == 0 {
-		// Then -m flag probably wasn't set, so use max available on system
-		availableMemory, err = checkProc()
+	var availableMemory uint64
+	if os.Getenv("IGNORE_MEMORY") == "1" {
+		availableMemory = tooBig
+	} else {
+		availableMemory, err := checkCgroup()
+		if err != nil {
+			logrus.WithError(err).Error("Error checking for cgroup memory limits, falling back to host memory available..")
+		}
 		if availableMemory > tooBig || availableMemory == 0 {
-			logrus.WithError(err).Fatal("Your Linux version is too old (<3.14) then we can't get the proper information to . You must specify the maximum available memory by passing the -m command with docker run when starting the runner via docker, eg:  `docker run -m 2G ...`")
+			// Then -m flag probably wasn't set, so use max available on system
+			availableMemory, err = checkProc()
+			if availableMemory > tooBig || availableMemory == 0 {
+				logrus.WithError(err).Fatal("Your Linux version is too old (<3.14) then we can't get the proper information to . You must specify the maximum available memory by passing the -m command with docker run when starting the runner via docker, eg:  `docker run -m 2G ...`")
+			}
 		}
 	}
 
