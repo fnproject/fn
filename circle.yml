@@ -14,8 +14,14 @@ checkout:
 
 dependencies:
   pre:
-    # Source for glide image below is here: https://github.com/treeder/dockers/tree/master/glide
-    - "docker run -it -v $PWD:/go/src/github.com/iron-io/$CIRCLE_PROJECT_REPONAME -w /go/src/github.com/iron-io/$CIRCLE_PROJECT_REPONAME treeder/glide install":
+    - wget https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz
+    - tar -C $HOME -xvzf go1.7.linux-amd64.tar.gz
+    - wget https://github.com/Masterminds/glide/releases/download/0.10.2/glide-0.10.2-linux-amd64.tar.gz
+    - tar -C $HOME/bin -xvzf glide-0.10.2-linux-amd64.tar.gz --strip=1
+  override:
+    - go version
+    - glide --version
+    - glide install:
         pwd: $GO_PROJECT
 
 test:
