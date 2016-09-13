@@ -2,16 +2,15 @@
 
 ## Quick Start
 
-
 ### Start the IronFunctions API
 
 First let's start our IronFunctions API
 
 ```sh
-docker run --rm --privileged -it -e "DB=bolt:///app/data/bolt.db" -v $PWD/data:/app/data -p 8080:8080 iron/functions
+docker run --rm --name functions --privileged -it -e "DB=bolt:///app/data/bolt.db" -v $PWD/data:/app/data -p 8080:8080 iron/functions
 ```
 
-This command will quickly start IronFunctions using the default database `Bolt` running on `:8080`.
+This command will quickly start IronFunctions using an embedded `Bolt` database running on `:8080`. 
 
 ### Create an Application
 
@@ -53,6 +52,28 @@ curl -H "Content-Type: application/json" -X POST -d '{
     "name":"Johnny"
 }' http://localhost:8080/r/myapp/hello
 ```
+
+
+## Adding Asynchronous Data Processing Support
+
+Data processing is for functions that run in the background. This type of functionality is good for functions that are CPU heavy or take more than a few seconds to complete. 
+Architecturally, the main difference between synchronous you tried above and asynchronous is that requests
+to asynchronous functions are put in a queue and executed on separate `runner` machines so that they do not interfere with the fast synchronous responses required by an API. Also, since 
+it uses a queue, you can queue up millions of jobs without worrying about capacity as requests will just be queued up and run at some point in the future.  
+
+TODO: Add link to differences here in README.io docs here. 
+
+### Start Runner(s)
+
+Start a runner:
+
+```sh
+docker run --rm -it --link functions --privileged -e "API_URL=http://functions:8080" iron/functions-runner
+```
+
+You can start as many runners as you want. The more the merrier.
+
+For runner configuration, see the [Runner README](runner/README.md).
 
 ## Using IronFunctions Hosted by Iron.io
 
