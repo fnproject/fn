@@ -149,6 +149,10 @@ func (r *Runner) checkMemAndUse(req uint64) bool {
 func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error) {
 	var err error
 
+	if cfg.Memory == 0 {
+		cfg.Memory = 128
+	}
+
 	ctask := &containerTask{
 		ctx:    ctx,
 		cfg:    cfg,
