@@ -203,6 +203,7 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 
 	metricElapsed := time.Since(metricStart)
 	r.ml.LogTime(ctx, metricBaseName+"time", metricElapsed)
+	runner.LogMetricTime(ctx, "run.exec_time", metricElapsed)
 
 	return result, nil
 }
