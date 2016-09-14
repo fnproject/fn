@@ -44,7 +44,9 @@ func testRouter() *gin.Engine {
 		c.Set("ctx", ctx)
 		c.Next()
 	})
-	bindHandlers(r)
+	bindHandlers(r, func(ctx *gin.Context) {
+		handleRequest(ctx, nil)
+	})
 	return r
 }
 

@@ -13,6 +13,7 @@ func InitConfig() {
 	cwd, _ := os.Getwd()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetDefault("log_level", "info")
+	viper.SetDefault("mq", fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
 	viper.SetDefault("db", fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")

@@ -21,14 +21,16 @@ type Server struct {
 	Runner          *runner.Runner
 	Router          *gin.Engine
 	Datastore       models.Datastore
+	MQ              models.MessageQueue
 	AppListeners    []ifaces.AppListener
 	SpecialHandlers []ifaces.SpecialHandler
 }
 
-func New(ds models.Datastore, r *runner.Runner) *Server {
+func New(ds models.Datastore, mq models.MessageQueue, r *runner.Runner) *Server {
 	Api = &Server{
 		Router:    gin.Default(),
 		Datastore: ds,
+		MQ:        mq,
 		Runner:    r,
 	}
 	return Api
@@ -75,8 +77,15 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 		}
 	}
 	// now call the normal runner call
-	handleRunner(ginC)
+	handleRequest(ginC, nil)
 	return nil
+}
+
+func (s *Server) handleRequest(ginC *gin.Context) {
+	enqueue := func(task *models.Task) (*models.Task, error) {
+		return s.MQ.Push(task)
+	}
+	handleRequest(ginC, enqueue)
 }
 
 func extractFields(c *gin.Context) logrus.Fields {
@@ -95,14 +104,14 @@ func (s *Server) Run(ctx context.Context) {
 		c.Next()
 	})
 
-	bindHandlers(s.Router)
+	bindHandlers(s.Router, s.handleRequest)
 
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
 	s.Router.Run()
 }
 
-func bindHandlers(engine *gin.Engine) {
+func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context)) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 
@@ -127,7 +136,7 @@ func bindHandlers(engine *gin.Engine) {
 		}
 	}
 
-	engine.Any("/r/:app/*route", handleRunner)
+	engine.Any("/r/:app/*route", reqHandler)
 
 	// This final route is used for extensions, see Server.Add
 	engine.NoRoute(handleSpecial)

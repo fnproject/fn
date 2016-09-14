@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"path"
 
@@ -26,6 +27,7 @@ type Route struct {
 	Image   string      `json:"image,omitempty"`
 	Memory  uint64      `json:"memory,omitempty"`
 	Headers http.Header `json:"headers,omitempty"`
+	Type    string      `json:"type,omitempty"`
 	Config  `json:"config"`
 }
 
@@ -35,6 +37,8 @@ var (
 	ErrRoutesValidationMissingAppName = errors.New("Missing route AppName")
 	ErrRoutesValidationMissingPath    = errors.New("Missing route Path")
 	ErrRoutesValidationInvalidPath    = errors.New("Invalid Path format")
+	ErrRoutesValidationMissingType    = errors.New("Missing route Type")
+	ErrRoutesValidationInvalidType    = errors.New("Invalid route Type")
 )
 
 func (r *Route) Validate() error {
@@ -59,6 +63,16 @@ func (r *Route) Validate() error {
 	if !path.IsAbs(r.Path) {
 		res = append(res, ErrRoutesValidationInvalidPath)
 	}
+
+	if r.Type == "" {
+		r.Type = "sync"
+	}
+
+	if r.Type != "async" && r.Type != "sync" {
+		res = append(res, ErrRoutesValidationInvalidType)
+	}
+
+	fmt.Println(">>>", r.Type)
 
 	if len(res) > 0 {
 		return apiErrors.CompositeValidationError(res...)
