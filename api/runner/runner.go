@@ -98,7 +98,7 @@ func (r *Runner) queueHandler() {
 				timedOut = true
 				break
 			}
-			time.Sleep(time.Second)
+			time.Sleep(time.Microsecond)
 		}
 
 		metricBaseName := fmt.Sprintf("run.%s.", task.cfg.AppName)
