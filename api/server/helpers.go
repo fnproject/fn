@@ -49,7 +49,7 @@ func testRouter() *gin.Engine {
 }
 
 func testRunner(t *testing.T) *runner.Runner {
-	r, err := runner.New()
+	r, err := runner.New(runner.NewMetricLogger())
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}

@@ -7,7 +7,7 @@ import:
 - package: github.com/go-openapi/strfmt
 - package: github.com/go-openapi/validate
 - package: github.com/iron-io/titan
-  repo: https://github.com/iron-io/titan.git
+  repo: git@github.com:iron-io/worker.git
   vcs: git
   version: master
 - package: github.com/lib/pq

@@ -108,10 +108,6 @@ func handleRunner(c *gin.Context) {
 		log = log.WithFields(logrus.Fields{
 			"app": appName, "route": el.Path, "image": el.Image, "request_id": reqID})
 
-		// Request count metric
-		metricBaseName := "server.handleRunner." + appName + "."
-		runner.LogMetricCount(ctx, (metricBaseName + "requests"), 1)
-
 		if params, match := matchRoute(el.Path, route); match {
 
 			var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
@@ -152,9 +148,9 @@ func handleRunner(c *gin.Context) {
 				Stdout:  &stdout,
 				Stderr:  stderr,
 				Env:     envVars,
+				Memory:  el.Memory,
 			}
 
-			metricStart := time.Now()
 			if result, err := Api.Runner.Run(c, cfg); err != nil {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
@@ -165,20 +161,11 @@ func handleRunner(c *gin.Context) {
 
 				if result.Status() == "success" {
 					c.Data(http.StatusOK, "", stdout.Bytes())
-					runner.LogMetricCount(ctx, (metricBaseName + "succeeded"), 1)
-
 				} else {
-					// log.WithFields(logrus.Fields{"app": appName, "route": el, "req_id": reqID}).Debug(stderr.String())
-					// Error count metric
-					runner.LogMetricCount(ctx, (metricBaseName + "error"), 1)
 
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
 			}
-			// Execution time metric
-			metricElapsed := time.Since(metricStart)
-			runner.LogMetricTime(ctx, (metricBaseName + "time"), metricElapsed)
-			runner.LogMetricTime(ctx, "server.handleRunner.exec_time", metricElapsed)
 			return
 		}
 	}

@@ -20,7 +20,8 @@ func main() {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
 
-	runner, err := runner.New()
+	metricLogger := runner.NewMetricLogger()
+	runner, err := runner.New(metricLogger)
 	if err != nil {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}
