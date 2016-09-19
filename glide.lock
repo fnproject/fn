@@ -102,7 +102,7 @@ imports:
   version: ddbd05bac47f55e533a7ed124211ef7e076b0bf3
   subpackages:
   - registry
-- name: github.com/iron-io/titan
+- name: github.com/iron-io/worker
   version: 3bb6aacb244a24e38bba755cc863533810117a5c
   repo: git@github.com:iron-io/worker.git
   vcs: git
