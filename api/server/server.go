@@ -97,7 +97,8 @@ func (s *Server) Run(ctx context.Context) {
 
 	bindHandlers(s.Router)
 
-	// Default to :8080
+	// By default it serves on :8080 unless a
+	// PORT environment variable was defined.
 	s.Router.Run()
 }
 
