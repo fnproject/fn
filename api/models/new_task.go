@@ -20,7 +20,7 @@ type NewTask struct {
 	 */
 	Delay int32 `json:"delay,omitempty"`
 
-	/* Name of Docker image to use. This is optional and can be used to override the image defined at the group level.
+	/* Name of Docker image to use. This is optional and can be used to override the image defined at the route level.
 
 	Required: true
 	*/

@@ -234,6 +234,30 @@ paths:
         200:
           description: Route successfully deleted. Deletion succeeds even on routes that do not exist.
 
+  /tasks:
+    get:
+      summary: Get next task.
+      description: Gets the next task in the queue, ready for processing. Titan may return <=n tasks. Consumers should start processing tasks in order. Each returned task is set to `status` "running" and `started_at` is set to the current time. No other consumer can retrieve this task.
+      tags:
+        - Tasks
+      parameters:
+        - name: "n"
+          in: query
+          default: 1
+          description: Number of tasks to return.
+          type: integer
+          format: int32
+      responses:
+        200:
+          description: Task information
+          schema:
+            $ref: '#/definitions/TasksWrapper'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+
 definitions:
   Route:
     allOf:
@@ -305,7 +329,95 @@ definitions:
     properties:
       app:
         $ref: '#/definitions/App'
-  
+
+  Task:
+    allOf:
+      - $ref: "#/definitions/NewTask"
+      - $ref: "#/definitions/IdStatus"
+      - type: object
+        properties:
+          group_name:
+            type: string
+            description: "Group this task belongs to."
+            readOnly: true
+          error:
+            type: string
+            description: "The error message, if status is 'error'. This is errors due to things outside the task itself. Errors from user code will be found in the log."
+          reason:
+            type: string
+            description: |
+              Machine usable reason for task being in this state.
+              Valid values for error status are `timeout | killed | bad_exit`.
+              Valid values for cancelled status are `client_request`.
+              For everything else, this is undefined.
+            enum:
+              - timeout
+              - killed
+              - bad_exit
+              - client_request
+          created_at:
+            type: string
+            format: date-time
+            description: Time when task was submitted. Always in UTC.
+            readOnly: true
+          started_at:
+            type: string
+            format: date-time
+            description: Time when task started execution. Always in UTC.
+          completed_at:
+            type: string
+            format: date-time
+            description: Time when task completed, whether it was successul or failed. Always in UTC.
+          # We maintain a doubly linked list of the retried task to the
+          # original task.
+          retry_of:
+            type: string
+            description: If this field is set, then this task is a retry of the ID in this field.
+            readOnly: true
+          retry_at:
+            type: string
+            description: If this field is set, then this task was retried by the task referenced in this field.
+            readOnly: true
+          env_vars:
+            # this is a map: https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#model-with-mapdictionary-properties
+            type: object
+            description: Env vars for the task. Comes from the ones set on the Group. 
+            additionalProperties:
+              type: string
+
+  NewTasksWrapper:
+    type: object
+    required:
+      - tasks
+    properties:
+      tasks:
+        type: array
+        items:
+          $ref: '#/definitions/NewTask'
+
+  TasksWrapper:
+    type: object
+    required:
+      - tasks
+    properties:
+      tasks:
+        type: array
+        items:
+          $ref: '#/definitions/Task'
+      cursor:
+        type: string
+        description: Used to paginate results. If this is returned, pass it into the same query again to get more results. 
+      error:
+        $ref: '#/definitions/ErrorBody'
+
+  TaskWrapper:
+    type: object
+    required:
+      - task
+    properties:
+      task:
+        $ref: '#/definitions/Task'
+
   ErrorBody:
     type: object
     properties:

@@ -1,7 +1,11 @@
 package server
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"path"
+	"strings"
 
 	"golang.org/x/net/context"
 
@@ -81,11 +85,50 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 	return nil
 }
 
-func (s *Server) handleRequest(ginC *gin.Context) {
+func (s *Server) handleRunnerRequest(c *gin.Context) {
 	enqueue := func(task *models.Task) (*models.Task, error) {
 		return s.MQ.Push(task)
 	}
-	handleRequest(ginC, enqueue)
+	handleRequest(c, enqueue)
+}
+
+func (s *Server) handleTaskRequest(c *gin.Context, del bool) {
+	if !del {
+		task, err := s.MQ.Reserve()
+		if err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
+			return
+		}
+		c.JSON(http.StatusAccepted, task)
+	} else {
+		body, err := ioutil.ReadAll(c.Request.Body)
+		if err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+
+		bodyStr := strings.TrimSpace(string(body))
+		if bodyStr == "null" {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+
+		var task models.Task
+		if err = json.Unmarshal(body, &task); err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+		}
+
+		if err := s.MQ.Delete(&task); err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+		c.JSON(http.StatusAccepted, task)
+	}
 }
 
 func extractFields(c *gin.Context) logrus.Fields {
@@ -93,6 +136,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 	for _, param := range c.Params {
 		fields[param.Key] = param.Value
 	}
+
 	return fields
 }
 
@@ -104,14 +148,14 @@ func (s *Server) Run(ctx context.Context) {
 		c.Next()
 	})
 
-	bindHandlers(s.Router, s.handleRequest)
+	bindHandlers(s.Router, s.handleRunnerRequest, s.handleTaskRequest)
 
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
 	s.Router.Run()
 }
 
-func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context)) {
+func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHandler func(ginC *gin.Context, del bool)) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 
@@ -136,6 +180,15 @@ func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context)) {
 		}
 	}
 
+	taskHandlerDelete := func(ginC *gin.Context) {
+		taskHandler(ginC, true)
+	}
+	taskHandlerReserve := func(ginC *gin.Context) {
+		taskHandler(ginC, false)
+	}
+
+	engine.GET("/tasks", taskHandlerReserve)
+	engine.DELETE("/tasks", taskHandlerDelete)
 	engine.Any("/r/:app/*route", reqHandler)
 
 	// This final route is used for extensions, see Server.Add

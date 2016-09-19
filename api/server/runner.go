@@ -152,12 +152,6 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 				Memory:  el.Memory,
 			}
 
-			// Request count metric
-			metricBaseName := "server.handleRequest." + appName + "."
-			runner.LogMetricCount(ctx, (metricBaseName + "requests"), 1)
-
-			metricStart := time.Now()
-
 			var err error
 			var result drivers.RunResult
 			switch el.Type {
@@ -167,7 +161,7 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 				task := &models.Task{}
 				task.Image = &cfg.Image
 				task.ID = cfg.ID
-				task.GroupName = cfg.AppName
+				task.RouteName = cfg.AppName
 				task.Priority = &priority
 				// TODO: Push to queue
 				enqueue(task)
@@ -191,11 +185,6 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 				log.WithError(err).Error(models.ErrRunnerRunRoute)
 				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
 			}
-
-			// Execution time metric
-			metricElapsed := time.Since(metricStart)
-			runner.LogMetricTime(ctx, (metricBaseName + "time"), metricElapsed)
-			runner.LogMetricTime(ctx, "server.handleRunner.exec_time", metricElapsed)
 			return
 		}
 	}

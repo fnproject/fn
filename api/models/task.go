@@ -31,7 +31,7 @@ type Task struct {
 	*/
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
 
-	/* Env vars for the task. Comes from the ones set on the Group.
+	/* Env vars for the task. Comes from the ones set on the Route.
 	 */
 	EnvVars map[string]string `json:"env_vars,omitempty"`
 
@@ -39,11 +39,11 @@ type Task struct {
 	 */
 	Error string `json:"error,omitempty"`
 
-	/* Group this task belongs to.
+	/* Route this task belongs to.
 
 	Read Only: true
 	*/
-	GroupName string `json:"group_name,omitempty"`
+	RouteName string `json:"route_name,omitempty"`
 
 	/* Machine usable reason for task being in this state.
 	Valid values for error status are `timeout | killed | bad_exit`.
