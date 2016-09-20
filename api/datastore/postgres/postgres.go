@@ -187,7 +187,7 @@ func (ds *PostgresDatastore) StoreRoute(route *models.Route) (*models.Route, err
 			headers,
 			config
 		)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (app_name, path) DO UPDATE SET
 			path = $2,
 			image = $3,
