@@ -8,7 +8,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	titancommon "github.com/iron-io/titan/common"
+	titancommon "github.com/iron-io/worker/common"
 )
 
 func handleRouteGet(c *gin.Context) {

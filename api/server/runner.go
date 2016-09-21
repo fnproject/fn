@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
-	titancommon "github.com/iron-io/titan/common"
+	titancommon "github.com/iron-io/worker/common"
 	"github.com/satori/go.uuid"
 )
 

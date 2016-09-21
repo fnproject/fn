@@ -15,12 +15,12 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/iron-io/titan/common"
-	"github.com/iron-io/titan/runner/agent"
-	"github.com/iron-io/titan/runner/drivers"
-	driverscommon "github.com/iron-io/titan/runner/drivers"
-	"github.com/iron-io/titan/runner/drivers/docker"
-	"github.com/iron-io/titan/runner/drivers/mock"
+	"github.com/iron-io/worker/common"
+	"github.com/iron-io/worker/runner/agent"
+	"github.com/iron-io/worker/runner/drivers"
+	driverscommon "github.com/iron-io/worker/runner/drivers"
+	"github.com/iron-io/worker/runner/drivers/docker"
+	"github.com/iron-io/worker/runner/drivers/mock"
 )
 
 type Config struct {

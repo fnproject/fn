@@ -6,8 +6,8 @@ import (
 	"golang.org/x/net/context"
 
 	dockercli "github.com/fsouza/go-dockerclient"
-	"github.com/iron-io/titan/runner/drivers"
-	"github.com/iron-io/titan/runner/tasker"
+	"github.com/iron-io/worker/runner/drivers"
+	"github.com/iron-io/worker/runner/tasker"
 )
 
 type containerTask struct {

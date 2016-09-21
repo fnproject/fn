@@ -10,7 +10,7 @@ import (
 	"github.com/iron-io/functions/api/ifaces"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
-	titancommon "github.com/iron-io/titan/common"
+	titancommon "github.com/iron-io/worker/common"
 )
 
 // Would be nice to not have this is a global, but hard to pass things around to the
