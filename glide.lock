@@ -103,7 +103,7 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/worker
-  version: 3bb6aacb244a24e38bba755cc863533810117a5c
+  version: 15dcee7470fed6dcd956b5565e3dc1404cb1b96b
   repo: git@github.com:iron-io/worker.git
   vcs: git
   subpackages:
