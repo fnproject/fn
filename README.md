@@ -54,11 +54,9 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ```
 
 
-##### Adding a route with URL params:
+**Adding a route with URL params**
 
-A route can pass params to a function by URL.
-
-Example: This set the `PARAM_AUTHOR_ID` and `PARAM_NUM_PAGE` environment variables with value of params (`:author_id` and `:num_page`) passed in the URL.
+You can create a route with dynamic URL parameters that will be available inside your function by prefixing path segments with a `:`, for example:
 
 ```sh
 $ curl -H "Content-Type: application/json" -X POST -d '{
@@ -68,6 +66,8 @@ $ curl -H "Content-Type: application/json" -X POST -d '{
      }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
+
+`:author_id` and `:num_page` in the path will be passed into your function as `PARAM_AUTHOR_ID` and `PARAM_NUM_PAGE`.
 
 
 See the [Blog Example](https://github.com/iron-io/functions/blob/master/examples/blog/README.md#creating-our-blog-application-in-your-ironfunctions).
