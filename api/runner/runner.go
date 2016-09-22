@@ -199,7 +199,6 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	}
 
 	r.addUsedMem(-1 * int64(cfg.Memory))
-	r.ml.LogGauge(ctx, metricBaseName+"reserved_memory", int(r.usedMem))
 
 	if result.Status() == "success" {
 		r.ml.LogCount(ctx, metricBaseName+"succeeded", 1)
