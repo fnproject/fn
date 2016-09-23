@@ -102,7 +102,8 @@ func (r *Runner) queueHandler() {
 		}
 
 		metricBaseName := fmt.Sprintf("run.%s.", task.cfg.AppName)
-		r.ml.LogTime(task.ctx, metricBaseName+"waittime", waitTime)
+		r.ml.LogTime(task.ctx, metricBaseName+"wait_time", waitTime)
+		r.ml.LogTime(task.ctx, "run.wait_time", waitTime)
 
 		if timedOut {
 			// Send to a signal to this task saying it cannot run
