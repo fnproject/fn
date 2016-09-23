@@ -1,0 +1,5 @@
+:9000 {
+    proxy / {$LB_HOST01} {$LB_HOST02} {$LB_HOST03} {
+        policy least_conn
+    }
+}

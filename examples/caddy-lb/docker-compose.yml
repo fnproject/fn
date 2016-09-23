@@ -1,0 +1,23 @@
+ironfunctions01:
+  restart: always
+  image: iron/functions
+ironfunctions02:
+  restart: always
+  image: iron/functions
+ironfunctions03:
+  restart: always
+  image: iron/functions
+caddy:
+  image: abiosoft/caddy
+  volumes:
+    - ./Caddyfile:/etc/Caddyfile
+  ports:
+    - "9000:9000"
+  environment:
+    - LB_HOST01=ironfunctions01:8080
+    - LB_HOST02=ironfunctions02:8080
+    - LB_HOST03=ironfunctions03:8080
+  links:  
+   - ironfunctions01
+   - ironfunctions02
+   - ironfunctions03
