@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
-	"strings"
 
 	"golang.org/x/net/context"
 
@@ -92,8 +91,9 @@ func (s *Server) handleRunnerRequest(c *gin.Context) {
 	handleRequest(c, enqueue)
 }
 
-func (s *Server) handleTaskRequest(c *gin.Context, del bool) {
-	if !del {
+func (s *Server) handleTaskRequest(c *gin.Context) {
+	switch c.Request.Method {
+	case "GET":
 		task, err := s.MQ.Reserve()
 		if err != nil {
 			logrus.WithError(err)
@@ -101,25 +101,18 @@ func (s *Server) handleTaskRequest(c *gin.Context, del bool) {
 			return
 		}
 		c.JSON(http.StatusAccepted, task)
-	} else {
+	case "DELETE":
 		body, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
 			logrus.WithError(err)
 			c.JSON(http.StatusInternalServerError, err)
 			return
 		}
-
-		bodyStr := strings.TrimSpace(string(body))
-		if bodyStr == "null" {
-			logrus.WithError(err)
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
-
 		var task models.Task
 		if err = json.Unmarshal(body, &task); err != nil {
 			logrus.WithError(err)
 			c.JSON(http.StatusInternalServerError, err)
+			return
 		}
 
 		if err := s.MQ.Delete(&task); err != nil {
@@ -141,7 +134,6 @@ func extractFields(c *gin.Context) logrus.Fields {
 }
 
 func (s *Server) Run(ctx context.Context) {
-
 	s.Router.Use(func(c *gin.Context) {
 		ctx, _ := titancommon.LoggerWithFields(ctx, extractFields(c))
 		c.Set("ctx", ctx)
@@ -155,7 +147,7 @@ func (s *Server) Run(ctx context.Context) {
 	s.Router.Run()
 }
 
-func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHandler func(ginC *gin.Context, del bool)) {
+func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHandler func(ginC *gin.Context)) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 
@@ -180,15 +172,8 @@ func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHa
 		}
 	}
 
-	taskHandlerDelete := func(ginC *gin.Context) {
-		taskHandler(ginC, true)
-	}
-	taskHandlerReserve := func(ginC *gin.Context) {
-		taskHandler(ginC, false)
-	}
-
-	engine.GET("/tasks", taskHandlerReserve)
-	engine.DELETE("/tasks", taskHandlerDelete)
+	engine.DELETE("/tasks", taskHandler)
+	engine.GET("/tasks", taskHandler)
 	engine.Any("/r/:app/*route", reqHandler)
 
 	// This final route is used for extensions, see Server.Add

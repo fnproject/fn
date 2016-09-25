@@ -1,5 +1,5 @@
 hash: 168e1ab65d5e2e781369df5dc87655f682df5c5d9448dee547c6acce78720ecc
-updated: 2016-09-23T20:45:34.389837453+02:00
+updated: 2016-09-25T22:23:43.214193929+02:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -107,7 +107,7 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/worker
-  version: 1487ce7896770b3d052e0909f564441fe59ee1df
+  version: 15dcee7470fed6dcd956b5565e3dc1404cb1b96b
   repo: git@github.com:iron-io/worker.git
   vcs: git
   subpackages:
@@ -120,6 +120,7 @@ imports:
   - runner/tasker
   - runner/tasker/client/models
   - runner/tasker/client/titan
+  - runner/tasker/client/titan/jobs
   - runner/tasker/client/titan/groups
   - runner/tasker/client/titan/runner
   - runner/tasker/client/titan/tasks

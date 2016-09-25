@@ -53,7 +53,7 @@ func testRouter() *gin.Engine {
 		func(ctx *gin.Context) {
 			handleRequest(ctx, nil)
 		},
-		func(ctx *gin.Context, del bool) {})
+		func(ctx *gin.Context) {})
 	return r
 }
 

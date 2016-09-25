@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"path"
 
@@ -64,15 +63,13 @@ func (r *Route) Validate() error {
 		res = append(res, ErrRoutesValidationInvalidPath)
 	}
 
-	if r.Type == "" {
-		r.Type = "sync"
+	if r.Type == TypeNone {
+		r.Type = TypeSync
 	}
 
-	if r.Type != "async" && r.Type != "sync" {
+	if r.Type != TypeAsync && r.Type != TypeSync {
 		res = append(res, ErrRoutesValidationInvalidType)
 	}
-
-	fmt.Println(">>>", r.Type)
 
 	if len(res) > 0 {
 		return apiErrors.CompositeValidationError(res...)

@@ -7,8 +7,8 @@ import:
 - package: github.com/go-openapi/strfmt
 - package: github.com/go-openapi/validate
 - package: github.com/iron-io/worker
-  version: master
   repo: git@github.com:iron-io/worker.git
   vcs: git
+  version: master
 - package: github.com/lib/pq
 - package: github.com/google/btree

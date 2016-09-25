@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,12 +31,21 @@ func main() {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
 
-	mqType, err := mqs.New(viper.GetString("MQTYPE"))
+	mqType, err := mqs.New(viper.GetString("MQ"))
 	if err != nil {
-		log.WithError(err).Fatal("Error on init MQTYPE")
+		log.WithError(err).Fatal("Error on init MQ")
 	}
 
-	nasync := viper.GetInt("MQADR")
+	nasync := 1
+
+	if nasyncStr := strings.TrimSpace(viper.GetString("MQADR")); len(nasyncStr) > 0 {
+		var err error
+		nasync, err = strconv.Atoi(nasyncStr)
+		if err != nil {
+			log.WithError(err).Fatalln("Failed to parse number of async runners")
+		}
+	}
+
 	mqAdr := strings.TrimSpace(viper.GetString("MQADR"))
 	port := viper.GetInt("PORT")
 	if port == 0 {
@@ -86,24 +96,29 @@ func runAsyncRunners(mqAdr string) {
 			continue
 		}
 
-		bodyStr := strings.TrimSpace(string(body))
-		if bodyStr == "null" {
-			logAndWait(err)
-			continue
-		}
-
 		var task models.Task
+
 		if err := json.Unmarshal(body, &task); err != nil {
 			logAndWait(err)
 			continue
 		}
 
+		if task.ID == "" {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		log.Info("Picked up task:", task.ID)
 		var stdout bytes.Buffer                                                  // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
 		stderr := runner.NewFuncLogger(task.RouteName, "", *task.Image, task.ID) // TODO: missing path here, how do i get that?
 
+		if task.Timeout == nil {
+			timeout := int32(30)
+			task.Timeout = &timeout
+		}
 		cfg := &runner.Config{
 			Image:   *task.Image,
-			Timeout: time.Duration(*task.Timeout),
+			Timeout: time.Duration(*task.Timeout) * time.Second,
 			ID:      task.ID,
 			AppName: task.RouteName,
 			Stdout:  &stdout,
@@ -125,8 +140,18 @@ func runAsyncRunners(mqAdr string) {
 			continue
 		}
 
-		if _, err = http.NewRequest(http.MethodDelete, url, nil); err != nil {
+		log.Info("Processed task:", task.ID)
+		req, err := http.NewRequest(http.MethodDelete, url, bytes.NewBuffer(body))
+		if err != nil {
 			log.WithError(err)
 		}
+
+		c := &http.Client{}
+		if _, err := c.Do(req); err != nil {
+			log.WithError(err)
+			continue
+		}
+
+		log.Info("Deleted task:", task.ID)
 	}
 }

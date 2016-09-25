@@ -12,6 +12,15 @@ import (
 	"github.com/go-openapi/validate"
 )
 
+const (
+	// TypeNone ...
+	TypeNone = ""
+	// TypeSync ...
+	TypeSync = "sync"
+	// TypeAsync ...
+	TypeAsync = "async"
+)
+
 /*Task task
 
 swagger:model Task
