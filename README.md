@@ -54,6 +54,25 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ```
 
 
+**Adding a route with URL params**
+
+You can create a route with dynamic URL parameters that will be available inside your function by prefixing path segments with a `:`, for example:
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{
+     "route": {
+         "path":"/comments/:author_id/:num_page",
+         "image":"IMAGE_NAME"
+     }
+}' http://localhost:8080/v1/apps/myapp/routes
+```
+
+`:author_id` and `:num_page` in the path will be passed into your function as `PARAM_AUTHOR_ID` and `PARAM_NUM_PAGE`.
+
+
+See the [Blog Example](https://github.com/iron-io/functions/blob/master/examples/blog/README.md#creating-our-blog-application-in-your-ironfunctions).
+
+
 ## Adding Asynchronous Data Processing Support
 
 Data processing is for functions that run in the background. This type of functionality is good for functions that are CPU heavy or take more than a few seconds to complete. 
