@@ -52,6 +52,7 @@ func handleRouteCreate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
 		return
 	}
+
 	if app == nil {
 		newapp := &models.App{Name: wroute.Route.AppName}
 		if err := newapp.Validate(); err != nil {

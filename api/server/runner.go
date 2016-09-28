@@ -17,6 +17,7 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
 	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/worker/runner/drivers"
 	"github.com/satori/go.uuid"
 )
 
@@ -31,7 +32,7 @@ func handleSpecial(c *gin.Context) {
 	}
 }
 
-func handleRunner(c *gin.Context) {
+func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	if strings.HasPrefix(c.Request.URL.Path, "/v1") {
 		c.Status(http.StatusNotFound)
 		return
@@ -151,10 +152,23 @@ func handleRunner(c *gin.Context) {
 				Memory:  el.Memory,
 			}
 
-			if result, err := Api.Runner.Run(c, cfg); err != nil {
-				log.WithError(err).Error(models.ErrRunnerRunRoute)
-				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
-			} else {
+			var err error
+			var result drivers.RunResult
+			switch el.Type {
+			case "async":
+				// TODO: Create Task
+				priority := int32(0)
+				task := &models.Task{}
+				task.Image = &cfg.Image
+				task.ID = cfg.ID
+				task.RouteName = cfg.AppName
+				task.Priority = &priority
+				// TODO: Push to queue
+				enqueue(task)
+			default:
+				if result, err = Api.Runner.Run(c, cfg); err != nil {
+					break
+				}
 				for k, v := range el.Headers {
 					c.Header(k, v[0])
 				}
@@ -165,6 +179,11 @@ func handleRunner(c *gin.Context) {
 
 					c.AbortWithStatus(http.StatusInternalServerError)
 				}
+			}
+
+			if err != nil {
+				log.WithError(err).Error(models.ErrRunnerRunRoute)
+				c.JSON(http.StatusInternalServerError, simpleError(models.ErrRunnerRunRoute))
 			}
 			return
 		}

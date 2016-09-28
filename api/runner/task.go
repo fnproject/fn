@@ -30,7 +30,7 @@ func (t *containerTask) Labels() map[string]string {
 }
 
 func (t *containerTask) Id() string                         { return t.cfg.ID }
-func (t *containerTask) Group() string                      { return "" }
+func (t *containerTask) Route() string                      { return "" }
 func (t *containerTask) Image() string                      { return t.cfg.Image }
 func (t *containerTask) Timeout() uint                      { return uint(t.cfg.Timeout.Seconds()) }
 func (t *containerTask) Logger() (stdout, stderr io.Writer) { return t.cfg.Stdout, t.cfg.Stderr }

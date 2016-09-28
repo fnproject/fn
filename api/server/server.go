@@ -1,6 +1,9 @@
 package server
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"path"
 
 	"golang.org/x/net/context"
@@ -21,14 +24,16 @@ type Server struct {
 	Runner          *runner.Runner
 	Router          *gin.Engine
 	Datastore       models.Datastore
+	MQ              models.MessageQueue
 	AppListeners    []ifaces.AppListener
 	SpecialHandlers []ifaces.SpecialHandler
 }
 
-func New(ds models.Datastore, r *runner.Runner) *Server {
+func New(ds models.Datastore, mq models.MessageQueue, r *runner.Runner) *Server {
 	Api = &Server{
 		Router:    gin.Default(),
 		Datastore: ds,
+		MQ:        mq,
 		Runner:    r,
 	}
 	return Api
@@ -75,8 +80,48 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 		}
 	}
 	// now call the normal runner call
-	handleRunner(ginC)
+	handleRequest(ginC, nil)
 	return nil
+}
+
+func (s *Server) handleRunnerRequest(c *gin.Context) {
+	enqueue := func(task *models.Task) (*models.Task, error) {
+		return s.MQ.Push(task)
+	}
+	handleRequest(c, enqueue)
+}
+
+func (s *Server) handleTaskRequest(c *gin.Context) {
+	switch c.Request.Method {
+	case "GET":
+		task, err := s.MQ.Reserve()
+		if err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
+			return
+		}
+		c.JSON(http.StatusAccepted, task)
+	case "DELETE":
+		body, err := ioutil.ReadAll(c.Request.Body)
+		if err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+		var task models.Task
+		if err = json.Unmarshal(body, &task); err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+
+		if err := s.MQ.Delete(&task); err != nil {
+			logrus.WithError(err)
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+		c.JSON(http.StatusAccepted, task)
+	}
 }
 
 func extractFields(c *gin.Context) logrus.Fields {
@@ -84,25 +129,25 @@ func extractFields(c *gin.Context) logrus.Fields {
 	for _, param := range c.Params {
 		fields[param.Key] = param.Value
 	}
+
 	return fields
 }
 
 func (s *Server) Run(ctx context.Context) {
-
 	s.Router.Use(func(c *gin.Context) {
 		ctx, _ := titancommon.LoggerWithFields(ctx, extractFields(c))
 		c.Set("ctx", ctx)
 		c.Next()
 	})
 
-	bindHandlers(s.Router)
+	bindHandlers(s.Router, s.handleRunnerRequest, s.handleTaskRequest)
 
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
 	s.Router.Run()
 }
 
-func bindHandlers(engine *gin.Engine) {
+func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHandler func(ginC *gin.Context)) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 
@@ -127,7 +172,9 @@ func bindHandlers(engine *gin.Engine) {
 		}
 	}
 
-	engine.Any("/r/:app/*route", handleRunner)
+	engine.DELETE("/tasks", taskHandler)
+	engine.GET("/tasks", taskHandler)
+	engine.Any("/r/:app/*route", reqHandler)
 
 	// This final route is used for extensions, see Server.Add
 	engine.NoRoute(handleSpecial)
