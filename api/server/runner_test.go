@@ -9,6 +9,7 @@ import (
 
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/mqs"
 )
 
 func TestRouteRunnerGet(t *testing.T) {
@@ -16,7 +17,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
-	}, testRunner(t))
+	}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -54,7 +55,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
-	}, testRunner(t))
+	}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
@@ -99,7 +100,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/myroute", AppName: "myapp", Image: "iron/hello", Headers: map[string][]string{"X-Function": []string{"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": []string{"Test"}}},
 		},
-	}, testRunner(t))
+	}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
 	for i, test := range []struct {
