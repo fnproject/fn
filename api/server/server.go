@@ -86,6 +86,7 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 
 func (s *Server) handleRunnerRequest(c *gin.Context) {
 	enqueue := func(task *models.Task) (*models.Task, error) {
+		c.JSON(http.StatusAccepted, map[string]string{"call_id": task.ID})
 		return s.MQ.Push(task)
 	}
 	handleRequest(c, enqueue)

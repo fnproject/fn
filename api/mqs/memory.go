@@ -131,6 +131,7 @@ func (mq *MemoryMQ) Push(job *models.Task) (*models.Task, error) {
 	// Push the work onto the queue.
 	return mq.pushForce(job)
 }
+
 func (mq *MemoryMQ) pushTimeout(job *models.Task) error {
 
 	ji := &TaskItem{

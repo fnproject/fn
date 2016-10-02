@@ -59,7 +59,7 @@ func main() {
 	}
 
 	for i := 0; i < nasync; i++ {
-		go runner.RunAsyncRunners(mqAdr)
+		go runner.RunAsyncRunner(mqAdr)
 	}
 
 	quit := make(chan bool)
