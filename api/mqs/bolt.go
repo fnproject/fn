@@ -13,6 +13,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/worker/common"
+	"golang.org/x/net/context"
 )
 
 type BoltDbMQ struct {
@@ -201,7 +203,10 @@ func (mq *BoltDbMQ) delayTask(job *models.Task) (*models.Task, error) {
 	return job, err
 }
 
-func (mq *BoltDbMQ) Push(job *models.Task) (*models.Task, error) {
+func (mq *BoltDbMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	log.Println("push")
+
 	if job.Delay > 0 {
 		return mq.delayTask(job)
 	}
@@ -258,7 +263,7 @@ func resKeyToProperties(key []byte) (uint64, []byte) {
 	return reservedUntil, key[len(resKeyPrefix)+8:]
 }
 
-func (mq *BoltDbMQ) Reserve() (*models.Task, error) {
+func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	// Start a writable transaction.
 	tx, err := mq.db.Begin(true)
 	if err != nil {
@@ -308,13 +313,20 @@ func (mq *BoltDbMQ) Reserve() (*models.Task, error) {
 		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
+
+		_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+		log.Println("reserved")
+
 		return &job, nil
 	}
 
 	return nil, nil
 }
 
-func (mq *BoltDbMQ) Delete(job *models.Task) error {
+func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Task) error {
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	log.Println("delete")
+	defer log.Println("deleted")
 	return mq.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(timeoutName(int(*job.Priority)))
 		k := jobKey(job.ID)

@@ -11,6 +11,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/worker/common"
+	"golang.org/x/net/context"
 )
 
 type RedisMQ struct {
@@ -207,7 +209,9 @@ func (mq *RedisMQ) delayTask(conn redis.Conn, job *models.Task) (*models.Task, e
 	return job, nil
 }
 
-func (mq *RedisMQ) Push(job *models.Task) (*models.Task, error) {
+func (mq *RedisMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	defer log.Println("pushed")
 	conn := mq.pool.Get()
 	defer conn.Close()
 
@@ -221,7 +225,7 @@ func (mq *RedisMQ) checkNilResponse(err error) bool {
 }
 
 // Would be nice to switch to this model http://redis.io/commands/rpoplpush#pattern-reliable-queue
-func (mq *RedisMQ) Reserve() (*models.Task, error) {
+func (mq *RedisMQ) Reserve(ctx context.Context) (*models.Task, error) {
 
 	conn := mq.pool.Get()
 	defer conn.Close()
@@ -275,10 +279,16 @@ func (mq *RedisMQ) Reserve() (*models.Task, error) {
 		return nil, err
 	}
 
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	log.Println("reserved")
+
 	return &job, nil
 }
 
-func (mq *RedisMQ) Delete(job *models.Task) error {
+func (mq *RedisMQ) Delete(ctx context.Context, job *models.Task) error {
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	defer log.Println("deleted")
+
 	conn := mq.pool.Get()
 	defer conn.Close()
 	resId, err := conn.Do("HGET", "reservations", job.ID)

@@ -1,5 +1,9 @@
 package models
 
+import (
+	"golang.org/x/net/context"
+)
+
 // Titan uses a Message Queue to impose a total ordering on jobs that it will
 // execute in order. Tasks are added to the queue via the Push() interface. The
 // MQ must support a reserve-delete 2 step dequeue to allow Titan to implement
@@ -35,18 +39,18 @@ type MessageQueue interface {
 	// delays. That is, if jobs {A, C} are queued at t seconds, both with Delay
 	// = 5 seconds, and the same priority, then they may be available on the
 	// queue as [C, A] or [A, C].
-	Push(*Task) (*Task, error)
+	Push(context.Context, *Task) (*Task, error)
 
 	// Remove a job from the front of the queue, reserve it for a timeout and
 	// return it. MQ implementations MUST NOT lose jobs in case of errors. That
 	// is, in case of reservation failure, it should be possible to retrieve the
 	// job on a future reservation.
-	Reserve() (*Task, error)
+	Reserve(context.Context) (*Task, error)
 
 	// If a reservation is pending, consider it acknowledged and delete it. If
 	// the job does not have an outstanding reservation, error. If a job did not
 	// exist, succeed.
-	Delete(*Task) error
+	Delete(context.Context, *Task) error
 }
 
 type Enqueue func(*Task) (*Task, error)

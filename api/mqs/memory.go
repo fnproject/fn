@@ -9,6 +9,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/google/btree"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/worker/common"
+	"golang.org/x/net/context"
 )
 
 type MemoryMQ struct {
@@ -109,7 +111,8 @@ func (ji *TaskItem) Less(than btree.Item) bool {
 	return ji.StartAt.Before(ji2.StartAt)
 }
 
-func (mq *MemoryMQ) Push(job *models.Task) (*models.Task, error) {
+func (mq *MemoryMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
 
 	// It seems to me that using the job ID in the reservation is acceptable since each job can only have one outstanding reservation.
 	// job.MsgId = randSeq(20)
@@ -123,7 +126,7 @@ func (mq *MemoryMQ) Push(job *models.Task) (*models.Task, error) {
 		replaced := mq.BTree.ReplaceOrInsert(ji)
 		mq.Mutex.Unlock()
 		if replaced != nil {
-			logrus.Warn("Ooops! an item was replaced and therefore lost, not good.")
+			log.Warn("Ooops! an item was replaced and therefore lost, not good.")
 		}
 		return job, nil
 	}
@@ -163,16 +166,20 @@ func pickEarliestNonblocking(channels ...chan *models.Task) *models.Task {
 	}
 }
 
-func (mq *MemoryMQ) Reserve() (*models.Task, error) {
+func (mq *MemoryMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	job := pickEarliestNonblocking(mq.PriorityQueues[2], mq.PriorityQueues[1], mq.PriorityQueues[0])
 	if job == nil {
 		return nil, nil
 	}
 
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	log.Println("reserved")
 	return job, mq.pushTimeout(job)
 }
 
-func (mq *MemoryMQ) Delete(job *models.Task) error {
+func (mq *MemoryMQ) Delete(ctx context.Context, job *models.Task) error {
+	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+
 	mq.Mutex.Lock()
 	defer mq.Mutex.Unlock()
 	_, exists := mq.Timeouts[job.ID]
@@ -180,6 +187,8 @@ func (mq *MemoryMQ) Delete(job *models.Task) error {
 		return errors.New("Not reserved")
 	}
 
+	log.Println("delete")
 	delete(mq.Timeouts, job.ID)
+	log.Println("deleted")
 	return nil
 }
