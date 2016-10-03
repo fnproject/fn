@@ -46,9 +46,6 @@ func main() {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}
 
-	srv := server.New(ds, mqType, rnr)
-	go srv.Run(ctx)
-
 	nasync := 1
 	if nasyncStr := strings.TrimSpace(viper.GetString("NASYNC")); len(nasyncStr) > 0 {
 		var err error
@@ -62,7 +59,6 @@ func main() {
 		go runner.RunAsyncRunner(mqAdr)
 	}
 
-	quit := make(chan bool)
-	for _ = range quit {
-	}
+	srv := server.New(ds, mqType, rnr)
+	srv.Run(ctx)
 }
