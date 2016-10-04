@@ -142,3 +142,25 @@ func TestDeleteTask(t *testing.T) {
 		t.Error("expected no error, got", err)
 	}
 }
+
+func TestTasksrvURL(t *testing.T) {
+	tests := []struct {
+		port, in, out string
+	}{
+		{"8080", "//localhost", "http://localhost:8080/tasks"},
+		{"8080", "//localhost/", "http://localhost:8080/tasks"},
+		{"8080", "//localhost:8081", "http://localhost:8081/tasks"},
+		{"8080", "//localhost:8081/", "http://localhost:8081/tasks"},
+		{"8080", "http://localhost", "http://localhost:8080/tasks"},
+		{"8080", "http://localhost/", "http://localhost:8080/tasks"},
+		{"8080", "http://localhost:8081", "http://localhost:8081/tasks"},
+		{"8080", "http://localhost:8081/", "http://localhost:8081/tasks"},
+		{"8080", "http://localhost:8081/endpoint", "http://localhost:8081/endpoint"},
+	}
+
+	for _, tt := range tests {
+		if got := tasksrvURL(tt.in, tt.port); got != tt.out {
+			t.Errorf("port: %s\ttasksrv: %s\texpected: %s\tgot: %s", tt.port, tt.in, tt.out, got)
+		}
+	}
+}

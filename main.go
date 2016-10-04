@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"strconv"
+	"os"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/iron-io/functions/api/config"
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
@@ -15,30 +14,40 @@ import (
 	"golang.org/x/net/context"
 )
 
+func init() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.WithError(err)
+	}
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetDefault("log_level", "info")
+	viper.SetDefault("mq", fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
+	viper.SetDefault("db", fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
+	viper.SetDefault("port", 8080)
+	viper.SetDefault("tasksrv", fmt.Sprintf("http://localhost:%d", viper.GetInt("port")))
+	viper.SetDefault("NASYNC", 1)
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv() // picks up env vars automatically
+	viper.ReadInConfig()
+	logLevel, err := log.ParseLevel(viper.GetString("log_level"))
+	if err != nil {
+		log.WithError(err).Fatalln("Invalid log level.")
+	}
+	log.SetLevel(logLevel)
+}
+
 func main() {
 	ctx := context.Background()
-
-	config.InitConfig()
 
 	ds, err := datastore.New(viper.GetString("DB"))
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
-
 	mqType, err := mqs.New(viper.GetString("MQ"))
 	if err != nil {
 		log.WithError(err).Fatal("Error on init MQ")
 	}
-
-	mqAdr := strings.TrimSpace(viper.GetString("MQADR"))
-	port := viper.GetInt("PORT")
-	if port == 0 {
-		port = 8080
-	}
-	if mqAdr == "" {
-		mqAdr = fmt.Sprintf("localhost:%d", port)
-	}
-
 	metricLogger := runner.NewMetricLogger()
 
 	rnr, err := runner.New(metricLogger)
@@ -46,17 +55,9 @@ func main() {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}
 
-	nasync := 1
-	if nasyncStr := strings.TrimSpace(viper.GetString("NASYNC")); len(nasyncStr) > 0 {
-		var err error
-		nasync, err = strconv.Atoi(nasyncStr)
-		if err != nil {
-			log.WithError(err).Fatalln("Failed to parse number of async runners")
-		}
-	}
-
-	for i := 0; i < nasync; i++ {
-		go runner.RunAsyncRunner(mqAdr)
+	tasksrv, port := viper.GetString("PORT"), viper.GetString("TASKSVR")
+	for nasync, i := viper.GetInt("NASYNC"), 0; i < nasync; i++ {
+		go runner.RunAsyncRunner(tasksrv, port)
 	}
 
 	srv := server.New(ds, mqType, rnr)
