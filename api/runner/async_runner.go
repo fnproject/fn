@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/url"
 	"time"
 
-	"golang.org/x/net/context"
-
 	log "github.com/Sirupsen/logrus"
-
 	"github.com/iron-io/functions/api/models"
+	"golang.org/x/net/context"
 )
 
 func getTask(url string) (*models.Task, error) {
@@ -96,10 +95,10 @@ func runTask(task *models.Task) error {
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(mqAdr string) {
-	url := fmt.Sprintf("http://%s/tasks", mqAdr)
+func RunAsyncRunner(tasksrv, port string) {
+	u := tasksrvURL(tasksrv, port)
 	for {
-		task, err := getTask(url)
+		task, err := getTask(u)
 		if err != nil {
 			log.WithError(err)
 			time.Sleep(1 * time.Second)
@@ -115,10 +114,31 @@ func RunAsyncRunner(mqAdr string) {
 		log.Info("Processed task:", task.ID)
 
 		// Delete task from queue
-		if err := deleteTask(url, task); err != nil {
+		if err := deleteTask(u, task); err != nil {
 			log.WithError(err)
 		} else {
 			log.Info("Deleted task:", task.ID)
 		}
 	}
+}
+
+func tasksrvURL(tasksrv, port string) string {
+	parsed, err := url.Parse(tasksrv)
+	if err != nil {
+		log.Fatalf("cannot parse TASKSRV endpoint: %v", err)
+	}
+
+	if parsed.Scheme == "" {
+		parsed.Scheme = "http"
+	}
+
+	if parsed.Path == "" || parsed.Path == "/" {
+		parsed.Path = "/tasks"
+	}
+
+	if _, _, err := net.SplitHostPort(parsed.Host); err != nil {
+		parsed.Host = net.JoinHostPort(parsed.Host, port)
+	}
+
+	return parsed.String()
 }

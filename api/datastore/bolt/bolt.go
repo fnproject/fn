@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
@@ -29,7 +30,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		return nil, err
 	}
 	log.Infoln("Creating bolt db at ", url.Path)
-	db, err := bolt.Open(url.Path, 0600, nil)
+	db, err := bolt.Open(url.Path, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.WithError(err).Errorln("Error on bolt.Open")
 		return nil, err
