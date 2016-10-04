@@ -107,5 +107,3 @@ func TestRunnerError(t *testing.T) {
 		}
 	}
 }
-
-
