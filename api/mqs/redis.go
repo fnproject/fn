@@ -211,7 +211,8 @@ func (mq *RedisMQ) delayTask(conn redis.Conn, job *models.Task) (*models.Task, e
 
 func (mq *RedisMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-	defer log.Println("pushed")
+	defer log.Println("Pushed to MQ")
+
 	conn := mq.pool.Get()
 	defer conn.Close()
 
@@ -280,14 +281,14 @@ func (mq *RedisMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	}
 
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-	log.Println("reserved")
+	log.Println("Reserved")
 
 	return &job, nil
 }
 
 func (mq *RedisMQ) Delete(ctx context.Context, job *models.Task) error {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-	defer log.Println("deleted")
+	defer log.Println("Deleted")
 
 	conn := mq.pool.Get()
 	defer conn.Close()

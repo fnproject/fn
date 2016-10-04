@@ -205,7 +205,7 @@ func (mq *BoltDbMQ) delayTask(job *models.Task) (*models.Task, error) {
 
 func (mq *BoltDbMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-	log.Println("push")
+	log.Println("Pushed to MQ")
 
 	if job.Delay > 0 {
 		return mq.delayTask(job)
@@ -315,7 +315,7 @@ func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Task, error) {
 		}
 
 		_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-		log.Println("reserved")
+		log.Println("Reserved")
 
 		return &job, nil
 	}
@@ -325,8 +325,8 @@ func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Task, error) {
 
 func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Task) error {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-	log.Println("delete")
-	defer log.Println("deleted")
+	defer log.Println("Deleted")
+
 	return mq.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(timeoutName(int(*job.Priority)))
 		k := jobKey(job.ID)

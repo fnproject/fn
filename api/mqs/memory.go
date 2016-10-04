@@ -113,6 +113,7 @@ func (ji *TaskItem) Less(than btree.Item) bool {
 
 func (mq *MemoryMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
+	log.Println("Pushed to MQ")
 
 	// It seems to me that using the job ID in the reservation is acceptable since each job can only have one outstanding reservation.
 	// job.MsgId = randSeq(20)
@@ -173,7 +174,7 @@ func (mq *MemoryMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	}
 
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
-	log.Println("reserved")
+	log.Println("Reserved")
 	return job, mq.pushTimeout(job)
 }
 
@@ -187,8 +188,7 @@ func (mq *MemoryMQ) Delete(ctx context.Context, job *models.Task) error {
 		return errors.New("Not reserved")
 	}
 
-	log.Println("delete")
 	delete(mq.Timeouts, job.ID)
-	log.Println("deleted")
+	log.Println("Deleted")
 	return nil
 }
