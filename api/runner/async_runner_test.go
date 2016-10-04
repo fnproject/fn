@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"golang.org/x/net/context"
 )
 
 func getMockTask() models.Task {
@@ -27,17 +28,19 @@ func getMockTask() models.Task {
 }
 
 func getTestServer(mockTasks []*models.Task) *httptest.Server {
+	ctx := context.TODO()
+
 	mq, err := mqs.New("memory://test")
 	if err != nil {
 		panic(err)
 	}
 
 	for _, mt := range mockTasks {
-		mq.Push(mt)
+		mq.Push(ctx, mt)
 	}
 
 	getHandler := func(c *gin.Context) {
-		task, err := mq.Reserve()
+		task, err := mq.Reserve(ctx)
 		if err != nil {
 			logrus.WithError(err)
 			c.JSON(http.StatusInternalServerError, err)
@@ -60,7 +63,7 @@ func getTestServer(mockTasks []*models.Task) *httptest.Server {
 			return
 		}
 
-		if err := mq.Delete(&task); err != nil {
+		if err := mq.Delete(ctx, &task); err != nil {
 			logrus.WithError(err)
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return

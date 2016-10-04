@@ -13,6 +13,7 @@ import (
 	"github.com/iron-io/functions/api/ifaces"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/worker/common"
 	titancommon "github.com/iron-io/worker/common"
 )
 
@@ -87,15 +88,17 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 func (s *Server) handleRunnerRequest(c *gin.Context) {
 	enqueue := func(task *models.Task) (*models.Task, error) {
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": task.ID})
-		return s.MQ.Push(task)
+		ctx, _ := common.LoggerWithFields(c, logrus.Fields{"call_id": task.ID})
+		return s.MQ.Push(ctx, task)
 	}
 	handleRequest(c, enqueue)
 }
 
 func (s *Server) handleTaskRequest(c *gin.Context) {
+	ctx, _ := common.LoggerWithFields(c, nil)
 	switch c.Request.Method {
 	case "GET":
-		task, err := s.MQ.Reserve()
+		task, err := s.MQ.Reserve(ctx)
 		if err != nil {
 			logrus.WithError(err)
 			c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
@@ -116,7 +119,7 @@ func (s *Server) handleTaskRequest(c *gin.Context) {
 			return
 		}
 
-		if err := s.MQ.Delete(&task); err != nil {
+		if err := s.MQ.Delete(ctx, &task); err != nil {
 			logrus.WithError(err)
 			c.JSON(http.StatusInternalServerError, err)
 			return
