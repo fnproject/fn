@@ -100,7 +100,7 @@ func RunAsyncRunner(tasksrv, port string) {
 	for {
 		task, err := getTask(u)
 		if err != nil {
-			log.WithError(err)
+			log.WithError(err).Info("Cannot get task")
 			time.Sleep(1 * time.Second)
 			continue
 		}
