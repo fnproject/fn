@@ -15,12 +15,11 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/iron-io/worker/common"
-	"github.com/iron-io/worker/runner/agent"
-	"github.com/iron-io/worker/runner/drivers"
-	driverscommon "github.com/iron-io/worker/runner/drivers"
-	"github.com/iron-io/worker/runner/drivers/docker"
-	"github.com/iron-io/worker/runner/drivers/mock"
+	"github.com/iron-io/runner/common"
+	"github.com/iron-io/runner/drivers"
+	driverscommon "github.com/iron-io/runner/drivers"
+	"github.com/iron-io/runner/drivers/docker"
+	"github.com/iron-io/runner/drivers/mock"
 )
 
 type Config struct {
@@ -157,7 +156,7 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	ctask := &containerTask{
 		ctx:    ctx,
 		cfg:    cfg,
-		auth:   &agent.ConfigAuth{},
+		auth:   &common.ConfigAuth{},
 		canRun: make(chan bool),
 	}
 
@@ -216,7 +215,7 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 func (r Runner) EnsureImageExists(ctx context.Context, cfg *Config) error {
 	ctask := &containerTask{
 		cfg:  cfg,
-		auth: &agent.ConfigAuth{},
+		auth: &common.ConfigAuth{},
 	}
 
 	err := r.driver.EnsureImageExists(ctx, ctask)

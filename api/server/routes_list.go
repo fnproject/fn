@@ -8,12 +8,12 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 )
 
 func handleRouteList(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
-	log := titancommon.Logger(ctx)
+	log := common.Logger(ctx)
 
 	filter := &models.RouteFilter{}
 

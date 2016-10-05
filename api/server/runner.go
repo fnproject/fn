@@ -14,10 +14,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api/common"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
-	"github.com/iron-io/worker/runner/drivers"
+	"github.com/iron-io/runner/common"
+	"github.com/iron-io/runner/drivers"
 	"github.com/satori/go.uuid"
 )
 

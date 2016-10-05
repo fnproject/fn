@@ -7,12 +7,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 )
 
 func handleRouteDelete(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
-	log := titancommon.Logger(ctx)
+	log := common.Logger(ctx)
 
 	appName := c.Param("app")
 	routePath := c.Param("route")

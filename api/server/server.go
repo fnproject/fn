@@ -13,8 +13,7 @@ import (
 	"github.com/iron-io/functions/api/ifaces"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
-	"github.com/iron-io/worker/common"
-	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 )
 
 // Would be nice to not have this is a global, but hard to pass things around to the
@@ -139,7 +138,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 
 func (s *Server) Run(ctx context.Context) {
 	s.Router.Use(func(c *gin.Context) {
-		ctx, _ := titancommon.LoggerWithFields(ctx, extractFields(c))
+		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
 		c.Set("ctx", ctx)
 		c.Next()
 	})

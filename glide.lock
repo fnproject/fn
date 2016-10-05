@@ -1,70 +1,69 @@
-hash: 168e1ab65d5e2e781369df5dc87655f682df5c5d9448dee547c6acce78720ecc
-updated: 2016-09-25T22:23:43.214193929+02:00
+hash: b6cdce56dc2e984a24f1187c9db387710248cc5f7df40babf8d51998827e4245
+updated: 2016-10-05T19:32:26.015409662+02:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
   subpackages:
   - proto
 - name: github.com/asaskevich/govalidator
-  version: 593d64559f7600f29581a3ee42177f5dbded27a9
+  version: 7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877
 - name: github.com/boltdb/bolt
-  version: fff57c100f4dea1905678da7e90d92429dff2904
+  version: f0d021274dede8e672f17a2dbcb997c5f0760c41
 - name: github.com/cactus/go-statsd-client
-  version: 1c27c506c7a0584d017ca479f91b88d6a6538332
+  version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
   subpackages:
   - statsd
 - name: github.com/dgrijalva/jwt-go
   version: 24c63f56522a87ec5339cc3567883f1039378fdb
 - name: github.com/docker/distribution
-  version: 9ca7921603852314b18a6ecc19f91806935f34bd
+  version: c8d8e7e357a1e5cf39aec1cfd4b3aef82414b3fc
   subpackages:
+  - context
   - digest
   - manifest
+  - manifest/schema1
+  - reference
+  - uuid
 - name: github.com/docker/docker
-  version: 59311faaed4e3384fc8da738a57a25f17ae07e05
+  version: 694ba71e365c6b9aa7472a9ef29bbde3cba6dce2
   subpackages:
+  - api/types/filters
+  - api/types/mount
+  - api/types/swarm
+  - api/types/versions
   - opts
   - pkg/archive
   - pkg/fileutils
   - pkg/homedir
+  - pkg/idtools
   - pkg/ioutils
-  - pkg/parsers
+  - pkg/longpath
   - pkg/pools
   - pkg/promise
-  - pkg/random
   - pkg/stdcopy
   - pkg/system
-  - pkg/tarsum
-  - pkg/ulimit
-  - pkg/units
-  - volume
-- name: github.com/docker/engine-api
-  version: 4290f40c056686fcaa5c9caf02eac1dde9315adf
-  subpackages:
-  - types/mount
-  - types/swarm
 - name: github.com/docker/go-units
   version: f2145db703495b2e525c59662db69a7344b00bb8
 - name: github.com/docker/libtrust
   version: 9cbd2a1374f46905c68a4eb3694a130610adc62a
 - name: github.com/fsnotify/fsnotify
-  version: f12c6236fe7b5cf6bcf30e5935d08cb079d78334
+  version: c07fd863aee264025aa0ef438bf9d2046c803493
 - name: github.com/fsouza/go-dockerclient
-  version: 4efaf0ea3c8990e1648f68672d011289f0c0cb0a
+  version: 519179ce6c6db417b0f092abf47d7d73e4e0d900
 - name: github.com/garyburd/redigo
-  version: 4ed1111375cbeb698249ffe48dd463e9b0a63a7a
+  version: ffa8d46ada782d81cfda81a0fbd9f45ceae448e8
   subpackages:
   - internal
   - redis
 - name: github.com/gin-gonic/gin
-  version: 4a6bc4aac4607e253bcda67c8c5bcda693d2388e
+  version: f931d1ea80ae95a6fc739213cdd9399bd2967fb6
   subpackages:
   - binding
   - render
 - name: github.com/go-openapi/analysis
   version: b44dc874b601d9e4e2f6e19140e794ba24bead3b
 - name: github.com/go-openapi/errors
-  version: b6a74a9df33099a5a952e7d1dbfe93dfa6b7a076
+  version: 4178436c9f2430cdd945c50301cfb61563b56573
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -72,27 +71,29 @@ imports:
 - name: github.com/go-openapi/loads
   version: 18441dfa706d924a39a030ee2c3b1d8d81917b38
 - name: github.com/go-openapi/runtime
-  version: 499b9bceffc59518b28ff84e0717692883137578
-  subpackages:
-  - client
+  version: f6c2edcf343b34428165fe02674524a1977cad9e
 - name: github.com/go-openapi/spec
-  version: 2433d2f0fc794728337e0c5d65716e79e163f04d
+  version: 98bb9aa4969bd0b6228ad309844e0b3867e92748
 - name: github.com/go-openapi/strfmt
-  version: f827e8cf30538b3983710c9fb4dd76ea04e3c8e0
+  version: d65c7fdb29eca313476e529628176fe17e58c488
 - name: github.com/go-openapi/swag
-  version: 0e04f5e499b19bf51031c01a00f098f25067d8dc
+  version: c98c5a1cc708d9860aeeceea6391da6f223d479c
 - name: github.com/go-openapi/validate
-  version: e6da236c48ce621803fc5d3883d8739aad0ce318
+  version: 03d947b0268e1c2bb5c74ac4095447f140c9a112
 - name: github.com/golang/protobuf
   version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
   - proto
 - name: github.com/google/btree
-  version: 7d79101e329e5a3adf994758c578dab82b90c017
+  version: 7364763242911ab6d418d2722e237194938ebad0
+- name: github.com/gorilla/context
+  version: 14f550f51af52180c2eefed15e5fd18d63c0a64a
+- name: github.com/gorilla/mux
+  version: e444e69cbd2e2e3e0749a2f3c717cec491552bbf
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/hashicorp/hcl
-  version: 99df0eb941dd8ddbc83d3f3605a34f6a686ac85e
+  version: ef8133da8cda503718a74741312bf50821e6de79
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -103,27 +104,24 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/heroku/docker-registry-client
-  version: ddbd05bac47f55e533a7ed124211ef7e076b0bf3
+  version: e6568fe3de1cb83f1fe3107e7637c8be829ef149
   subpackages:
   - registry
-- name: github.com/iron-io/worker
-  version: 15dcee7470fed6dcd956b5565e3dc1404cb1b96b
-  repo: git@github.com:iron-io/worker.git
+- name: github.com/iron-io/runner
+  version: 4396e1218c6fb64140fe1de51be8d7e0a9525b8b
+  repo: git@github.com:iron-io/runner.git
   vcs: git
   subpackages:
   - common
   - common/stats
-  - runner/agent
-  - runner/drivers
-  - runner/drivers/docker
-  - runner/drivers/mock
-  - runner/tasker
-  - runner/tasker/client/models
-  - runner/tasker/client/titan
-  - runner/tasker/client/titan/jobs
-  - runner/tasker/client/titan/groups
-  - runner/tasker/client/titan/runner
-  - runner/tasker/client/titan/tasks
+  - drivers
+  - drivers/docker
+  - drivers/mock
+- name: github.com/iron-io/worker
+  version: 7a73b8e893c4d7ef4a6cbd3dea94b3d2b883cabc
+  subpackages:
+  - common
+  - common/stats
 - name: github.com/kr/fs
   version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/lib/pq
@@ -133,52 +131,53 @@ imports:
 - name: github.com/magiconair/properties
   version: 0723e352fa358f9322c938cc2dadda874e9151a9
 - name: github.com/mailru/easyjson
-  version: e978125a7e335d8f4db746a9ac5b44643f27416b
+  version: a5759050626e5d52afe79bbb6d77a59e98df5d2d
   subpackages:
   - buffer
   - jlexer
   - jwriter
 - name: github.com/manucorporat/sse
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
+- name: github.com/Microsoft/go-winio
+  version: ce2922f643c8fd76b46cadc7f404a06282678b34
 - name: github.com/mitchellh/mapstructure
   version: ca63d7c062ee3c9f34db231e352b60012b4fd0c1
 - name: github.com/opencontainers/runc
-  version: b1e602e8ba592a663a4eb63ed9c18d6b2b475fec
+  version: 02f8fa7863dd3f82909a73e2061897828460d52f
   subpackages:
+  - libcontainer/system
   - libcontainer/user
 - name: github.com/pelletier/go-buffruneio
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
-  version: 31055c2ff0bb0c7f9095aec0d220aed21108121e
-- name: github.com/pivotal-golang/bytefmt
-  version: 24c06ce13e176cf7a7a440c8cf3b64d91c36c8e2
+  version: 45932ad32dfdd20826f5671da37a5f3ce9f26a8d
 - name: github.com/pkg/errors
-  version: 17b591df37844cde689f4d5813e5cea0927d8dd2
+  version: 839d9e913e063e28dfd0e6c7b7512793e0a48be9
 - name: github.com/pkg/sftp
-  version: 8197a2e580736b78d704be0fc47b2324c0591a32
+  version: 4d0e916071f68db74f8a73926335f809396d6b42
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/satori/go.uuid
-  version: 0aa62d5ddceb50dbcb909d790b5345affd3669b6
+  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
 - name: github.com/Sirupsen/logrus
-  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+  version: 3ec0642a7fb6488f65b06f9040adc67e3990296a
   subpackages:
   - hooks/syslog
 - name: github.com/spf13/afero
-  version: 20500e2abd0d1f4564a499e83d11d6c73cd58c27
+  version: 52e4a6cfac46163658bd4f123c49b6ee7dc75f78
   subpackages:
   - mem
   - sftp
 - name: github.com/spf13/cast
-  version: e31f36ffc91a2ba9ddb72a4b6a607ff9b3d3cb63
+  version: 2580bc98dc0e62908119e4737030cc2fdfc45e4c
 - name: github.com/spf13/jwalterweatherman
   version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
 - name: github.com/spf13/pflag
   version: c7e63cf4530bcd3ba943729cee0efeff2ebea63f
 - name: github.com/spf13/viper
-  version: 16990631d4aa7e38f73dbbbf37fa13e67c648531
+  version: 382f87b929b84ce13e9c8a375a4b217f224e6c65
 - name: golang.org/x/crypto
   version: c10c31b5e94b6f7a0283272dc2bb27163dcea24b
   subpackages:
@@ -193,11 +192,12 @@ imports:
   - idna
   - proxy
 - name: golang.org/x/sys
-  version: 30de6d19a3bd89a5f38ae4028e23aaa5582648af
+  version: 8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9
   subpackages:
   - unix
+  - windows
 - name: golang.org/x/text
-  version: 04b8648d973c126ae60143b3e1473bc1576c7597
+  version: 098f51fb687dbaba1f6efabeafbb6461203f9e21
   subpackages:
   - cases
   - internal/tag
@@ -219,5 +219,5 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/yaml.v2
-  version: 31c299268d302dd0aa9a0dcf765a3d58971ac83f
+  version: a5b47d31c556af34a302ce5d659e6fea44d90de0
 testImports: []

@@ -9,7 +9,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/google/btree"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 	"golang.org/x/net/context"
 )
 

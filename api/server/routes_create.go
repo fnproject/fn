@@ -8,12 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
-	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 )
 
 func handleRouteCreate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
-	log := titancommon.Logger(ctx)
+	log := common.Logger(ctx)
 
 	var wroute models.RouteWrapper
 

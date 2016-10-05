@@ -6,13 +6,13 @@ import (
 	"golang.org/x/net/context"
 
 	dockercli "github.com/fsouza/go-dockerclient"
-	"github.com/iron-io/worker/runner/drivers"
-	"github.com/iron-io/worker/runner/tasker"
+	"github.com/iron-io/runner/common"
+	"github.com/iron-io/runner/drivers"
 )
 
 type containerTask struct {
 	ctx    context.Context
-	auth   tasker.Auther
+	auth   *common.ConfigAuth
 	cfg    *Config
 	canRun chan bool
 }

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 	"golang.org/x/net/context"
 )
 
@@ -24,7 +24,7 @@ func NewMetricLogger() *MetricLogger {
 type MetricLogger struct{}
 
 func (l *MetricLogger) Log(ctx context.Context, metric map[string]interface{}) {
-	log := titancommon.Logger(ctx)
+	log := common.Logger(ctx)
 	log.WithFields(logrus.Fields(metric)).Info()
 }
 

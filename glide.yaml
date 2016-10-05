@@ -2,13 +2,39 @@ package: github.com/iron-io/functions
 import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/boltdb/bolt
+- package: github.com/dgrijalva/jwt-go
+- package: github.com/fsouza/go-dockerclient
+- package: github.com/garyburd/redigo
+  subpackages:
+  - redis
 - package: github.com/gin-gonic/gin
 - package: github.com/go-openapi/errors
 - package: github.com/go-openapi/strfmt
+- package: github.com/go-openapi/swag
 - package: github.com/go-openapi/validate
-- package: github.com/iron-io/worker
-  repo: git@github.com:iron-io/worker.git
-  vcs: git
-  version: master
-- package: github.com/lib/pq
 - package: github.com/google/btree
+- package: github.com/iron-io/runner
+  version: master
+  repo: git@github.com:iron-io/runner.git
+  vcs: git
+  subpackages:
+  - common
+  - drivers
+  - drivers/docker
+  - drivers/mock
+- package: github.com/lib/pq
+- package: github.com/satori/go.uuid
+- package: github.com/spf13/viper
+- package: golang.org/x/crypto
+  subpackages:
+  - bcrypt
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: gopkg.in/mgo.v2
+  subpackages:
+  - bson
+- package: github.com/cactus/go-statsd-client
+  version: ^3.1.0
+  subpackages:
+  - statsd

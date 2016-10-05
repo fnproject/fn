@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
-	titancommon "github.com/iron-io/worker/common"
+	"github.com/iron-io/runner/common"
 )
 
 type appResponse struct {
@@ -45,7 +45,7 @@ func testRouter() *gin.Engine {
 	r := gin.Default()
 	ctx := context.Background()
 	r.Use(func(c *gin.Context) {
-		ctx, _ := titancommon.LoggerWithFields(ctx, extractFields(c))
+		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
 		c.Set("ctx", ctx)
 		c.Next()
 	})
