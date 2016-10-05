@@ -57,7 +57,6 @@ func main() {
 
 	tasksURL, port, nasync := viper.GetString("tasks_url"), viper.GetString("port"), viper.GetInt("nasync")
 	log.Info("async workers:", nasync)
-	log.Fatal(tasksURL)
 	for i := 0; i < nasync; i++ {
 		go runner.RunAsyncRunner(tasksURL, port)
 	}
