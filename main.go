@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/datastore"
@@ -38,7 +40,14 @@ func init() {
 }
 
 func main() {
-	ctx := context.Background()
+	ctx, halt := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		log.Info("Halting...")
+		halt()
+	}()
 
 	ds, err := datastore.New(viper.GetString("DB"))
 	if err != nil {
@@ -57,10 +66,14 @@ func main() {
 
 	tasksURL, port, nasync := viper.GetString("tasks_url"), viper.GetString("port"), viper.GetInt("nasync")
 	log.Info("async workers:", nasync)
-	for i := 0; i < nasync; i++ {
-		go runner.RunAsyncRunner(tasksURL, port)
+	var wgAsync sync.WaitGroup
+	if nasync > 0 {
+		wgAsync.Add(1)
+		go runner.RunAsyncRunner(ctx, &wgAsync, tasksURL, port, nasync)
 	}
 
 	srv := server.New(ds, mqType, rnr)
-	srv.Run(ctx)
+	go srv.Run(ctx)
+	<-ctx.Done()
+	wgAsync.Wait()
 }

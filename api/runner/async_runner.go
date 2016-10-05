@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -95,28 +96,50 @@ func runTask(task *models.Task) error {
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(tasksrv, port string) {
+func RunAsyncRunner(ctx context.Context, wgAsync *sync.WaitGroup, tasksrv, port string, n int) {
 	u := tasksrvURL(tasksrv, port)
+
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go startAsyncRunners(ctx, &wg, i, u, runTask)
+	}
+
+	wg.Wait()
+	<-ctx.Done()
+	wgAsync.Done()
+}
+
+func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(task *models.Task) error) {
+	defer wg.Done()
 	for {
-		task, err := getTask(u)
-		if err != nil {
-			log.WithError(err).Info("Cannot get task")
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		log.Info("Picked up task:", task.ID)
+		select {
+		case <-ctx.Done():
+			return
 
-		// Process Task
-		if err := runTask(task); err != nil {
-			log.WithError(err)
-			continue
-		}
-		log.Info("Processed task:", task.ID)
+		default:
+			task, err := getTask(url)
+			if err != nil {
+				log.WithError(err).Error("Could not fetch task")
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			log.Info("Picked up task:", task.ID)
 
-		// Delete task from queue
-		if err := deleteTask(u, task); err != nil {
-			log.WithError(err)
-		} else {
+			log.Info("Running task:", task.ID)
+			// Process Task
+			if err := runTask(task); err != nil {
+				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot run task")
+				continue
+			}
+			log.Info("Processed task:", task.ID)
+
+			// Delete task from queue
+			if err := deleteTask(url, task); err != nil {
+				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot delete task")
+				continue
+			}
+
 			log.Info("Deleted task:", task.ID)
 		}
 	}

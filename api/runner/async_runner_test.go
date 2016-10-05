@@ -7,7 +7,9 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
@@ -165,5 +167,23 @@ func TestTasksrvURL(t *testing.T) {
 		if got := tasksrvURL(tt.in, tt.port); got != tt.out {
 			t.Errorf("port: %s\ttasksrv: %s\texpected: %s\tgot: %s", tt.port, tt.in, tt.out, got)
 		}
+	}
+}
+
+func TestAsyncRunnersGracefulShutdown(t *testing.T) {
+	mockTask := getMockTask()
+	ts := getTestServer([]*models.Task{&mockTask})
+	defer ts.Close()
+
+	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go startAsyncRunners(ctx, &wg, 0, ts.URL+"/tasks", func(task *models.Task) error {
+		return nil
+	})
+	wg.Wait()
+
+	if err := ctx.Err(); err != context.DeadlineExceeded {
+		t.Errorf("async runners stopped unexpectedly. context error: %v", err)
 	}
 }
