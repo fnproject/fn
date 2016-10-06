@@ -14,9 +14,9 @@ import:
 - package: github.com/go-openapi/validate
 - package: github.com/google/btree
 - package: github.com/iron-io/runner
-  version: master
   repo: git@github.com:iron-io/runner.git
   vcs: git
+  version: master
   subpackages:
   - common
   - drivers
@@ -24,6 +24,7 @@ import:
   - drivers/mock
 - package: github.com/lib/pq
 - package: github.com/satori/go.uuid
+  version: v1.1.0
 - package: github.com/spf13/viper
 - package: golang.org/x/crypto
   subpackages:
@@ -38,3 +39,4 @@ import:
   version: ^3.1.0
   subpackages:
   - statsd
+- package: github.com/google/btree

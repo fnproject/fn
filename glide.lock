@@ -1,5 +1,5 @@
-hash: b6cdce56dc2e984a24f1187c9db387710248cc5f7df40babf8d51998827e4245
-updated: 2016-10-05T19:32:26.015409662+02:00
+hash: 1aa5da2af5bb907bf30c21c74a0e04b9192d5b1821b7902d4f6cdefe536af97c
+updated: 2016-10-06T21:48:04.862585926+02:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -28,8 +28,6 @@ imports:
   version: 694ba71e365c6b9aa7472a9ef29bbde3cba6dce2
   subpackages:
   - api/types/filters
-  - api/types/mount
-  - api/types/swarm
   - api/types/versions
   - opts
   - pkg/archive
@@ -42,6 +40,11 @@ imports:
   - pkg/promise
   - pkg/stdcopy
   - pkg/system
+- name: github.com/docker/engine-api
+  version: 4290f40c056686fcaa5c9caf02eac1dde9315adf
+  subpackages:
+  - types/mount
+  - types/swarm
 - name: github.com/docker/go-units
   version: f2145db703495b2e525c59662db69a7344b00bb8
 - name: github.com/docker/libtrust
@@ -49,7 +52,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: c07fd863aee264025aa0ef438bf9d2046c803493
 - name: github.com/fsouza/go-dockerclient
-  version: 519179ce6c6db417b0f092abf47d7d73e4e0d900
+  version: 4efaf0ea3c8990e1648f68672d011289f0c0cb0a
 - name: github.com/garyburd/redigo
   version: ffa8d46ada782d81cfda81a0fbd9f45ceae448e8
   subpackages:
@@ -117,11 +120,6 @@ imports:
   - drivers
   - drivers/docker
   - drivers/mock
-- name: github.com/iron-io/worker
-  version: 7a73b8e893c4d7ef4a6cbd3dea94b3d2b883cabc
-  subpackages:
-  - common
-  - common/stats
 - name: github.com/kr/fs
   version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/lib/pq
@@ -138,8 +136,6 @@ imports:
   - jwriter
 - name: github.com/manucorporat/sse
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
-- name: github.com/Microsoft/go-winio
-  version: ce2922f643c8fd76b46cadc7f404a06282678b34
 - name: github.com/mitchellh/mapstructure
   version: ca63d7c062ee3c9f34db231e352b60012b4fd0c1
 - name: github.com/opencontainers/runc
@@ -160,7 +156,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/satori/go.uuid
-  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
+  version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
   version: 3ec0642a7fb6488f65b06f9040adc67e3990296a
   subpackages:
@@ -195,7 +191,6 @@ imports:
   version: 8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9
   subpackages:
   - unix
-  - windows
 - name: golang.org/x/text
   version: 098f51fb687dbaba1f6efabeafbb6461203f9e21
   subpackages:

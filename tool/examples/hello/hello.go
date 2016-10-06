@@ -1,10 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"fmt"
+	"io/ioutil"
 )
 
 func main() {
-	fmt.Printf("Hello %v!\n", os.Getenv("PAYLOAD"))
+	bytes, _ := ioutil.ReadAll(os.Stdin)
+	fmt.Printf("Hello %v!\n", string(bytes))
 }

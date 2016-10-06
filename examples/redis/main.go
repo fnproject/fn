@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -17,12 +18,12 @@ type payload struct {
 }
 
 func main() {
-	// Getting ENV variable PAYLOAD
-	plEnv := os.Getenv("PAYLOAD")
+	// Getting stdin
+	plStdin, _ := ioutil.ReadAll(os.Stdin)
 
 	// Transforming JSON to a *payload
 	var pl payload
-	err := json.Unmarshal([]byte(plEnv), &pl)
+	err := json.Unmarshal(plStdin, &pl)
 	if err != nil {
 		log.Println("Invalid payload")
 		log.Fatal(err)

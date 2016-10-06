@@ -8,7 +8,7 @@ machine:
     GO_PROJECT: ../go/src/github.com/iron-io/$CIRCLE_PROJECT_REPONAME
   services:
     - docker
-
+    
 checkout:
   post:
     - mkdir -p "$GH_IRON"

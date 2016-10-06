@@ -29,6 +29,7 @@ type Config struct {
 	AppName string
 	Memory  uint64
 	Env     map[string]string
+	Input   io.Reader
 	Stdout  io.Writer
 	Stderr  io.Writer
 }
