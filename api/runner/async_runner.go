@@ -34,7 +34,7 @@ func getTask(url string) (*models.Task, error) {
 	}
 
 	if task.ID == "" {
-		return nil, errors.New("Invalid Task: ID empty")
+		return nil, nil
 	}
 	return &task, nil
 }
@@ -121,6 +121,10 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 			task, err := getTask(url)
 			if err != nil {
 				log.WithError(err).Error("Could not fetch task")
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			if task == nil {
 				time.Sleep(1 * time.Second)
 				continue
 			}
