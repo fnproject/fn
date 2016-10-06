@@ -16,18 +16,27 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	envLogLevel = "log_level"
+	envMQ       = "mq"
+	envDB       = "db"
+	envPort     = "port" // be careful, Gin expects this variable to be "port"
+	envAPIURL   = "tasks_url"
+	envNumAsync = "nasync"
+)
+
 func init() {
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.WithError(err)
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetDefault("log_level", "info")
-	viper.SetDefault("mq", fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
-	viper.SetDefault("db", fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
-	viper.SetDefault("port", 8080)
-	viper.SetDefault("tasks_url", fmt.Sprintf("http://localhost:%d", viper.GetInt("port")))
-	viper.SetDefault("nasync", 1)
+	viper.SetDefault(envLogLevel, "info")
+	viper.SetDefault(envMQ, fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
+	viper.SetDefault(envDB, fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
+	viper.SetDefault(envPort, 8080)
+	viper.SetDefault(envAPIURL, fmt.Sprintf("http://localhost:%d", viper.GetInt(envPort)))
+	viper.SetDefault(envNumAsync, 1)
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv() // picks up env vars automatically
@@ -49,11 +58,11 @@ func main() {
 		halt()
 	}()
 
-	ds, err := datastore.New(viper.GetString("DB"))
+	ds, err := datastore.New(viper.GetString(envDB))
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
-	mqType, err := mqs.New(viper.GetString("MQ"))
+	mqType, err := mqs.New(viper.GetString(envMQ))
 	if err != nil {
 		log.WithError(err).Fatal("Error on init MQ")
 	}
@@ -64,12 +73,12 @@ func main() {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}
 
-	tasksURL, port, nasync := viper.GetString("tasks_url"), viper.GetString("port"), viper.GetInt("nasync")
-	log.Info("async workers:", nasync)
+	apiURL, port, numAsync := viper.GetString(envAPIURL), viper.GetString(envPort), viper.GetInt(envNumAsync)
+	log.Info("async workers:", numAsync)
 	var wgAsync sync.WaitGroup
-	if nasync > 0 {
+	if numAsync > 0 {
 		wgAsync.Add(1)
-		go runner.RunAsyncRunner(ctx, &wgAsync, tasksURL, port, nasync)
+		go runner.RunAsyncRunner(ctx, &wgAsync, apiURL, port, numAsync)
 	}
 
 	srv := server.New(ds, mqType, rnr)
