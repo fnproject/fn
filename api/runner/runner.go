@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -238,10 +239,8 @@ func selectDriver(driver string, env *common.Environment, conf *driverscommon.Co
 func getAvailableMemory() int64 {
 	const tooBig = 322122547200 // #300GB or 0, biggest aws instance is 244GB
 
-	var availableMemory uint64
-	if os.Getenv("IGNORE_MEMORY") == "1" {
-		availableMemory = tooBig
-	} else {
+	var availableMemory uint64 = tooBig
+	if runtime.GOOS == "linux" {
 		availableMemory, err := checkCgroup()
 		if err != nil {
 			logrus.WithError(err).Error("Error checking for cgroup memory limits, falling back to host memory available..")
@@ -249,8 +248,9 @@ func getAvailableMemory() int64 {
 		if availableMemory > tooBig || availableMemory == 0 {
 			// Then -m flag probably wasn't set, so use max available on system
 			availableMemory, err = checkProc()
-			if availableMemory > tooBig || availableMemory == 0 {
-				logrus.WithError(err).Fatal("Your Linux version is too old (<3.14) then we can't get the proper information to . You must specify the maximum available memory by passing the -m command with docker run when starting the runner via docker, eg:  `docker run -m 2G ...`")
+			if err != errCantReadMemInfo &&
+				(availableMemory > tooBig || availableMemory == 0) {
+				logrus.WithError(err).Fatal("Cannot get the proper information to. You must specify the maximum available memory by passing the -m command with docker run when starting the runner via docker, eg:  `docker run -m 2G ...`")
 			}
 		}
 	}
@@ -272,6 +272,8 @@ func checkCgroup() (uint64, error) {
 	}
 	return strconv.ParseUint(limBytes, 10, 64)
 }
+
+var errCantReadMemInfo = errors.New("Didn't find MemAvailable in /proc/meminfo, kernel is probably < 3.14")
 
 func checkProc() (uint64, error) {
 	f, err := os.Open("/proc/meminfo")
@@ -309,5 +311,5 @@ func checkProc() (uint64, error) {
 		return c, nil
 	}
 
-	return 0, fmt.Errorf("Didn't find MemAvailable in /proc/meminfo, kernel is probably < 3.14")
+	return 0, errCantReadMemInfo
 }

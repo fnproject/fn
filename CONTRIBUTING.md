@@ -1,24 +1,35 @@
-## Building
+## Contributing
 
-First time or when a dependency changes or when the API changes, run:
+### Build
+
 ```
-glide install
-```
-
-To quick build and run (using default database):
-
-```sh
-api.sh
+make all
 ```
 
-To build the docker image:
+### Run Functions service
 
-```sh
-build.sh
+First let's start our IronFunctions API
+
+##### Run in Docker
+```
+make run-docker
 ```
 
-## Releasing
+will start Functions using an embedded `Bolt` database running on `:8080`. 
 
-```sh
-release.sh
+##### Running on Metal (recommended only on Linux)
+
 ```
+./functions
+```
+
+will start Functions with a default of 1 async runner
+
+### Contributing
+
+##### Code
+* Fork the repo
+* Fix an issue
+* Create a Pull Request
+* Sign the CLA
+* Good Job! Thanks for being awesome!

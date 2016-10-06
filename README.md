@@ -1,18 +1,14 @@
 # IronFunctions
 
-## Quick Start
+## Run functions
 
-### Start the IronFunctions API
+```docker run --rm --name functions --privileged -it -v $PWD/data:/app/data -p 8080:8080 iron/functions```
 
-First let's start our IronFunctions API
+*<b>Note</b>: A list of configurations via env variables can be found [here](docs/api.md).*
 
-```sh
-docker run --rm --name functions --privileged -it -e "DB=bolt:///app/data/bolt.db" -v $PWD/data:/app/data -p 8080:8080 iron/functions
-```
+## Using Functions
 
-This command will quickly start IronFunctions using an embedded `Bolt` database running on `:8080`. 
-
-### Create an Application
+#### Create an Application
 
 An application is essentially a grouping of functions, that put together, form an API. Here's how to create an app. 
 
@@ -24,7 +20,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 
 Now that we have an app, we can map routes to functions. 
 
-### Add a route to a Function
+#### Add a route to a Function
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -35,7 +31,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
 
-### Calling your Function
+#### Calling your Function
 
 Just hit the URL you got back from adding a route above:
 
@@ -43,7 +39,7 @@ Just hit the URL you got back from adding a route above:
 curl http://localhost:8080/r/myapp/hello
 ```
 
-### To pass in data to your function
+#### To pass in data to your function
 
 Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. Try this:
 
@@ -75,24 +71,19 @@ See the [Blog Example](https://github.com/iron-io/functions/blob/master/examples
 
 ## Adding Asynchronous Data Processing Support
 
-Data processing is for functions that run in the background. This type of functionality is good for functions that are CPU heavy or take more than a few seconds to complete. 
+Data processing is for functions that run in the background. This type of functionality is good for functions
+that are CPU heavy or take more than a few seconds to complete. 
 Architecturally, the main difference between synchronous you tried above and asynchronous is that requests
-to asynchronous functions are put in a queue and executed on separate `runner` machines so that they do not interfere with the fast synchronous responses required by an API. Also, since 
-it uses a queue, you can queue up millions of jobs without worrying about capacity as requests will just be queued up and run at some point in the future.  
+to asynchronous functions are put in a queue and executed on upon resource availablitiy on the same process
+or a remote functions process so that they do not interfere with the fast synchronous responses required by an API.
+Also, since it uses a queue, you can queue up millions of jobs without worrying about capacity as requests will
+just be queued up and run at some point in the future.  
 
 TODO: Add link to differences here in README.io docs here. 
 
-### Start Runner(s)
+#### Running remote functions process
 
-Start a runner:
-
-```sh
-docker run --rm -it --link functions --privileged -e "API_URL=http://functions:8080" iron/functions-runner
-```
-
-You can start as many runners as you want. The more the merrier.
-
-For runner configuration, see the [Runner README](runner/README.md).
+Coming soon...
 
 ## Using IronFunctions Hosted by Iron.io
 

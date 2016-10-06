@@ -21,8 +21,8 @@ const (
 	envMQ       = "mq"
 	envDB       = "db"
 	envPort     = "port" // be careful, Gin expects this variable to be "port"
-	envAPIURL   = "tasks_url"
-	envNumAsync = "nasync"
+	envAPIURL   = "api_url"
+	envNumAsync = "num_async"
 )
 
 func init() {
