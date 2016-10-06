@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,7 +14,6 @@ import (
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/server"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 )
 
 const (

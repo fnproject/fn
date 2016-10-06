@@ -1,8 +1,6 @@
 package models
 
-import (
-	"golang.org/x/net/context"
-)
+import "context"
 
 // Titan uses a Message Queue to impose a total ordering on jobs that it will
 // execute in order. Tasks are added to the queue via the Push() interface. The

@@ -1,9 +1,8 @@
 package server
 
 import (
+	"context"
 	"net/http"
-
-	"golang.org/x/net/context"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"

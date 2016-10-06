@@ -1,8 +1,9 @@
 package ifaces
 
 import (
+	"context"
+
 	"github.com/iron-io/functions/api/models"
-	"golang.org/x/net/context"
 )
 
 type AppListener interface {

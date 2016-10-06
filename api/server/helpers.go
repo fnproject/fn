@@ -1,14 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"golang.org/x/net/context"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
