@@ -16,18 +16,8 @@ Will output:
 Hello Johnny Utah!
 ```
 
-## Building Image
+## Try it
 
 ```
-# SET BELOW TO YOUR DOCKER HUB USERNAME
-USERNAME=YOUR_DOCKER_HUB_USERNAME
-# build it
-docker build -t $USERNAME/hello .
-# test it
-echo '{"name":"Johnny"}' | docker run --rm -i $USERNAME/hello
-# tag it
-docker run --rm -v "$PWD":/app treeder/bump patch
-docker tag $USERNAME/hello:latest $USERNAME/hello:`cat VERSION`
-# push it
-docker push $USERNAME/hello
+echo '{"name":"Johnny"}' | docker run --rm -i iron/hello
 ```
