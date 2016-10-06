@@ -1,9 +1,8 @@
 package server
 
 import (
+	"context"
 	"net/http"
-
-	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"

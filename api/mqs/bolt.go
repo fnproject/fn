@@ -1,6 +1,7 @@
 package mqs
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -14,7 +15,6 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/runner/common"
-	"golang.org/x/net/context"
 )
 
 type BoltDbMQ struct {
@@ -104,7 +104,7 @@ func NewBoltMQ(url *url.URL) (*BoltDbMQ, error) {
 func (mq *BoltDbMQ) Start() {
 	go func() {
 		// It would be nice to switch to a tick-less, next-event Timer based model.
-		for _ = range mq.ticker.C {
+		for range mq.ticker.C {
 			err := mq.db.Update(func(tx *bolt.Tx) error {
 				now := uint64(time.Now().UnixNano())
 				for i := 0; i < 3; i++ {

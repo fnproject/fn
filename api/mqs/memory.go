@@ -1,6 +1,7 @@
 package mqs
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"github.com/google/btree"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/runner/common"
-	"golang.org/x/net/context"
 )
 
 type MemoryMQ struct {
@@ -59,7 +59,7 @@ func NewMemoryMQ() *MemoryMQ {
 func (mq *MemoryMQ) start() {
 	// start goroutine to check for delayed jobs and put them onto regular queue when ready
 	go func() {
-		for _ = range mq.Ticker.C {
+		for range mq.Ticker.C {
 			ji := &TaskItem{
 				StartAt: time.Now(),
 			}
@@ -80,7 +80,7 @@ func (mq *MemoryMQ) start() {
 	// start goroutine to check for messages that have timed out and put them back onto regular queue
 	// TODO: this should be like the delayed messages above. Could even be the same thing as delayed messages, but remove them if job is completed.
 	go func() {
-		for _ = range mq.Ticker.C {
+		for range mq.Ticker.C {
 			ji := &TaskItem{
 				StartAt: time.Now(),
 			}

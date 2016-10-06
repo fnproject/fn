@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,7 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
-	"golang.org/x/net/context"
 )
 
 func getMockTask() models.Task {
@@ -97,7 +97,7 @@ func TestGetTask(t *testing.T) {
 
 func TestGetTaskError(t *testing.T) {
 	tests := []map[string]interface{}{
-		map[string]interface{}{
+		{
 			"url":   "/invalid",
 			"task":  getMockTask(),
 			"error": "invalid character 'p' after top-level value",

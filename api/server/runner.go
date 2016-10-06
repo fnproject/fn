@@ -2,15 +2,13 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
-
-	"golang.org/x/net/context"
-
-	"encoding/json"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"

@@ -1,11 +1,11 @@
 package runner
 
 import (
+	"context"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/runner/common"
-	"golang.org/x/net/context"
 )
 
 type Logger interface {

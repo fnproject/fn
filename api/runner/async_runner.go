@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -13,7 +14,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
-	"golang.org/x/net/context"
 )
 
 func getTask(url string) (*models.Task, error) {

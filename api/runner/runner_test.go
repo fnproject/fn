@@ -2,12 +2,12 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iron-io/functions/api/models"
-	"golang.org/x/net/context"
 )
 
 func TestRunnerHello(t *testing.T) {

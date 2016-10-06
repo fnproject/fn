@@ -97,8 +97,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		FakeRoutes: []*models.Route{
-			{Path: "/myroute", AppName: "myapp", Image: "iron/hello", Headers: map[string][]string{"X-Function": []string{"Test"}}},
-			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": []string{"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "iron/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		},
 	}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
@@ -109,12 +109,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": []string{"Test"}}},
-		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": []string{"Test"}}},
+		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 
 		// Added same tests again to check if time is reduced by the auth cache
-		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": []string{"Test"}}},
-		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": []string{"Test"}}},
+		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "GET", test.path, body)

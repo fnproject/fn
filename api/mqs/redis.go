@@ -1,6 +1,7 @@
 package mqs
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/runner/common"
-	"golang.org/x/net/context"
 )
 
 type RedisMQ struct {
@@ -162,7 +162,7 @@ func (mq *RedisMQ) start() {
 			logrus.WithError(err).Fatal("Could not start redis MQ reservation system")
 		}
 
-		for _ = range mq.ticker.C {
+		for range mq.ticker.C {
 			mq.processPendingReservations(conn)
 			mq.processDelayedTasks(conn)
 		}

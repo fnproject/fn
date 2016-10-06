@@ -1,9 +1,8 @@
 package runner
 
 import (
+	"context"
 	"io"
-
-	"golang.org/x/net/context"
 
 	dockercli "github.com/fsouza/go-dockerclient"
 	"github.com/iron-io/runner/common"
