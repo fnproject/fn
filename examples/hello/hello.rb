@@ -2,9 +2,7 @@ require 'json'
 
 name = "World"
 
-# payload = STDIN.read 
-# or using env vars: ENV['PAYLOAD']
-payload = ENV['PAYLOAD']
+payload = STDIN.read 
 
 STDERR.puts 'payload: ' + payload.inspect
 if payload != ""
