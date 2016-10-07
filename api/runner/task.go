@@ -20,7 +20,7 @@ func (t *containerTask) EnvVars() map[string]string {
 	return t.cfg.Env
 }
 func (t *containerTask) Input() io.Reader {
-	return t.cfg.Input
+	return t.cfg.Stdin
 }
 
 func (t *containerTask) Labels() map[string]string {

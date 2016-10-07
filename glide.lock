@@ -112,7 +112,7 @@ imports:
   subpackages:
   - registry
 - name: github.com/iron-io/runner
-  version: 1e9a5d73469d222c859fbd2c54ac99bc1c07f711
+  version: 165c16a9bec62628dc8a8f17e4cbdc6f30707366
   repo: git@github.com:iron-io/runner.git
   vcs: git
   subpackages:

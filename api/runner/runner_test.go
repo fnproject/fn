@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,11 +34,9 @@ func TestRunnerHello(t *testing.T) {
 			ID:      fmt.Sprintf("hello-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
 			Timeout: 5 * time.Second,
-			Env: map[string]string{
-				"PAYLOAD": test.payload,
-			},
-			Stdout: &stdout,
-			Stderr: &stderr,
+			Stdin:   strings.NewReader(test.payload),
+			Stdout:  &stdout,
+			Stderr:  &stderr,
 		}
 
 		result, err := runner.Run(ctx, cfg)
@@ -82,11 +81,9 @@ func TestRunnerError(t *testing.T) {
 			ID:      fmt.Sprintf("err-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
 			Timeout: 5 * time.Second,
-			Env: map[string]string{
-				"PAYLOAD": test.payload,
-			},
-			Stdout: &stdout,
-			Stderr: &stderr,
+			Stdin:   strings.NewReader(test.payload),
+			Stdout:  &stdout,
+			Stderr:  &stderr,
 		}
 
 		result, err := runner.Run(ctx, cfg)

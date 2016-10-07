@@ -141,7 +141,7 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 				Stderr:  stderr,
 				Env:     envVars,
 				Memory:  el.Memory,
-				Input:   payload,
+				Stdin:   payload,
 			}
 
 			var err error
