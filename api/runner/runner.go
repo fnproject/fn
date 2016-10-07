@@ -157,7 +157,6 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	ctask := &containerTask{
 		ctx:    ctx,
 		cfg:    cfg,
-		auth:   &common.ConfigAuth{},
 		canRun: make(chan bool),
 	}
 
@@ -215,15 +214,11 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 
 func (r Runner) EnsureImageExists(ctx context.Context, cfg *Config) error {
 	ctask := &containerTask{
-		cfg:  cfg,
-		auth: &common.ConfigAuth{},
+		cfg: cfg,
 	}
 
-	err := r.driver.EnsureImageExists(ctx, ctask)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := docker.CheckRegistry(ctask.Image(), ctask.DockerAuth())
+	return err
 }
 
 func selectDriver(driver string, env *common.Environment, conf *driverscommon.Config) (drivers.Driver, error) {

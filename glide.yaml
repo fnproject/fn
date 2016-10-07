@@ -3,7 +3,6 @@ import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/boltdb/bolt
 - package: github.com/dgrijalva/jwt-go
-- package: github.com/fsouza/go-dockerclient
 - package: github.com/garyburd/redigo
   subpackages:
   - redis
@@ -39,4 +38,37 @@ import:
   version: ^3.1.0
   subpackages:
   - statsd
-- package: github.com/google/btree
+- name: github.com/docker/docker
+  version: 0f5c9d301b9b1cca66b3ea0f9dec3b5317d3686d
+  subpackages:
+  - opts
+  - pkg/archive
+  - pkg/fileutils
+  - pkg/homedir
+  - pkg/stdcopy
+  - api/types/filters
+  - pkg/idtools
+  - pkg/ioutils
+  - pkg/pools
+  - pkg/promise
+  - pkg/system
+  - pkg/longpath
+  - api/types/versions
+  - pkg/units
+- name: github.com/docker/docker
+  version: 0f5c9d301b9b1cca66b3ea0f9dec3b5317d3686d
+  subpackages:
+  - opts
+  - pkg/archive
+  - pkg/fileutils
+  - pkg/homedir
+  - pkg/stdcopy
+  - api/types/filters
+  - pkg/idtools
+  - pkg/ioutils
+  - pkg/pools
+  - pkg/promise
+  - pkg/system
+  - pkg/longpath
+  - api/types/versions
+  - pkg/units
