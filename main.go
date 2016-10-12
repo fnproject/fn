@@ -35,7 +35,7 @@ func init() {
 	viper.SetDefault(envMQ, fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
 	viper.SetDefault(envDB, fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
 	viper.SetDefault(envPort, 8080)
-	viper.SetDefault(envAPIURL, fmt.Sprintf("http://localhost:%d", viper.GetInt(envPort)))
+	viper.SetDefault(envAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(envPort)))
 	viper.SetDefault(envNumAsync, 1)
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")

@@ -8,7 +8,7 @@ info:
   description: 
   version: "0.0.1"
 # the domain of the service
-host: "localhost:8080"
+host: "127.0.0.1:8080"
 # array of all schemes that your API supports
 schemes:
   - https

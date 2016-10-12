@@ -38,7 +38,7 @@ func testRouter() *gin.Engine {
 }
 
 func routerRequest(t *testing.T, router *gin.Engine, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
-	req, err := http.NewRequest(method, "http://localhost:8080"+path, body)
+	req, err := http.NewRequest(method, "http://127.0.0.1:8080"+path, body)
 	if err != nil {
 		t.Fatalf("Test: Could not create %s request to %s: %v", method, path, err)
 	}
@@ -50,7 +50,7 @@ func routerRequest(t *testing.T, router *gin.Engine, method, path string, body i
 }
 
 func newRouterRequest(t *testing.T, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
-	req, err := http.NewRequest(method, "http://localhost:8080"+path, body)
+	req, err := http.NewRequest(method, "http://127.0.0.1:8080"+path, body)
 	if err != nil {
 		t.Fatalf("Test: Could not create %s request to %s: %v", method, path, err)
 	}
