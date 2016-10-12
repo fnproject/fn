@@ -2,7 +2,9 @@
 
 ## Run functions
 
-```docker run --rm --name functions --privileged -it -v $PWD/data:/app/data -p 8080:8080 iron/functions```
+```sh
+docker run --rm --name functions --privileged -it -v $PWD/data:/app/data -p 8080:8080 iron/functions
+```
 
 *<b>Note</b>: A list of configurations via env variables can be found [here](docs/api.md).*
 
