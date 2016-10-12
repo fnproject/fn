@@ -1,6 +1,11 @@
+#!/bin/bash
+
+HOST="${1:-localhost:8080}"
+REQ="${2:-1}"
+
 curl -H "Content-Type: application/json" -X POST -d '{
     "app": { "name":"myapp" }
-}' http://localhost:8080/v1/apps
+}' http://$HOST/v1/apps
 
 curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
@@ -8,9 +13,11 @@ curl -H "Content-Type: application/json" -X POST -d '{
         "path":"/hello-async",
         "image":"iron/hello"
     }
-}' http://localhost:8080/v1/apps/myapp/routes
+}' http://$HOST/v1/apps/myapp/routes
 
-curl -H "Content-Type: application/json" -X POST -d '{
-    "name":"Johnny"
-}' http://localhost:8080/r/myapp/hello-async
-
+for i in `seq 1 $REQ`;
+do
+    curl -H "Content-Type: application/json" -X POST -d '{
+        "name":"Johnny"
+    }' http://$HOST/r/myapp/hello-async
+done;
