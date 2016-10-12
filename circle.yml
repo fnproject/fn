@@ -8,7 +8,7 @@ machine:
     GO_PROJECT: ../go/src/github.com/iron-io/$CIRCLE_PROJECT_REPONAME
   services:
     - docker
-    
+
 checkout:
   post:
     - mkdir -p "$GH_IRON"
@@ -16,11 +16,11 @@ checkout:
 
 dependencies:
   pre:
-    - wget https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz
+    - wget https://storage.googleapis.com/golang/go1.7.1.linux-amd64.tar.gz
     - mkdir -p $HOME/golang
-    - tar -C $HOME/golang -xvzf go1.7.linux-amd64.tar.gz
-    - wget https://github.com/Masterminds/glide/releases/download/0.10.2/glide-0.10.2-linux-amd64.tar.gz
-    - tar -C $HOME/bin -xvzf glide-0.10.2-linux-amd64.tar.gz --strip=1
+    - tar -C $HOME/golang -xvzf go1.7.1.linux-amd64.tar.gz
+    - wget https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
+    - tar -C $HOME/bin -xvzf glide-v0.12.3-linux-amd64.tar.gz --strip=1
   override:
     - which go && go version
     - glide --version
