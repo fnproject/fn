@@ -37,7 +37,7 @@ func getMockTask() models.Task {
 	task := &models.Task{}
 	task.Image = &image
 	task.ID = fmt.Sprintf("ID-%d", rand.Int31()%1000)
-	task.RouteName = fmt.Sprintf("RouteName-%d", rand.Int31()%1000)
+	task.AppName = fmt.Sprintf("RouteName-%d", rand.Int31()%1000)
 	task.Priority = &priority
 	return *task
 }

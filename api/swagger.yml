@@ -263,10 +263,6 @@ definitions:
     allOf:
       - type: object
         properties:
-          name:
-            type: string
-            description: "Route name"
-            readOnly: true
           app_name:
             type: string
             description: "App this route belongs to."

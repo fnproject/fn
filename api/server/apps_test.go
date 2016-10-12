@@ -27,7 +27,8 @@ func setLogBuffer() *bytes.Buffer {
 func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -70,8 +71,8 @@ func TestAppCreate(t *testing.T) {
 
 func TestAppDelete(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -104,8 +105,8 @@ func TestAppDelete(t *testing.T) {
 
 func TestAppList(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -137,8 +138,8 @@ func TestAppList(t *testing.T) {
 
 func TestAppGet(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -170,8 +171,8 @@ func TestAppGet(t *testing.T) {
 
 func TestAppUpdate(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string

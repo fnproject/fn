@@ -42,12 +42,11 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	}
 
 	ctx := c.MustGet("ctx").(context.Context)
-	log := common.Logger(ctx)
 
 	reqID := uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", c.Request.RemoteAddr, c.Request.URL.Path, time.Now().Unix())).String()
 	c.Set("reqID", reqID) // todo: put this in the ctx instead of gin's
 
-	ctx, log = common.LoggerWithFields(ctx, logrus.Fields{"call_id": reqID})
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": reqID})
 
 	var err error
 	var payload io.Reader
@@ -164,7 +163,8 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 				task := &models.Task{}
 				task.Image = &cfg.Image
 				task.ID = cfg.ID
-				task.RouteName = cfg.AppName
+				task.Path = el.Path
+				task.AppName = cfg.AppName
 				task.Priority = &priority
 				task.EnvVars = cfg.Env
 				task.Payload = string(pl)

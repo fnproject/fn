@@ -19,7 +19,7 @@ func NewFuncLogger(appName, path, function, requestID string) io.Writer {
 		r: r,
 		w: w,
 	}
-	log := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": appName, "path": path, "function": function, "request_id": requestID})
+	log := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": appName, "path": path, "function": function, "call_id": requestID})
 	go func(reader io.Reader) {
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

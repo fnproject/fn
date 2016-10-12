@@ -131,7 +131,6 @@ func extractFields(c *gin.Context) logrus.Fields {
 	for _, param := range c.Params {
 		fields[param.Key] = param.Value
 	}
-
 	return fields
 }
 
@@ -142,7 +141,7 @@ func (s *Server) Run(ctx context.Context) {
 		c.Next()
 	})
 
-	bindHandlers(s.Router, s.handleRunnerRequest, s.handleTaskRequest)
+	s.bindHandlers()
 
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
@@ -150,8 +149,9 @@ func (s *Server) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHandler func(ginC *gin.Context)) {
-	engine.Use(gin.Logger())
+func (s *Server) bindHandlers() {
+
+	engine := s.Router
 
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
@@ -177,9 +177,9 @@ func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHa
 		}
 	}
 
-	engine.DELETE("/tasks", taskHandler)
-	engine.GET("/tasks", taskHandler)
-	engine.Any("/r/:app/*route", reqHandler)
+	engine.DELETE("/tasks", s.handleTaskRequest)
+	engine.GET("/tasks", s.handleTaskRequest)
+	engine.Any("/r/:app/*route", s.handleRunnerRequest)
 
 	// This final route is used for extensions, see Server.Add
 	engine.NoRoute(handleSpecial)

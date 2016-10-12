@@ -47,9 +47,9 @@ The app `myapp` that we created above along with the `/hello` route we added wou
 curl http://localhost:8080/r/myapp/hello
 ```
 
-### To pass in data to your function
+### Passing data into a function
 
-Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. Try this:
+Your function will get the body of the HTTP request via STDIN, and the headers of the request will be passed in as env vars. Try this:
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -57,42 +57,44 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/r/myapp/hello
 ```
 
-### Add an asynchronous route 
+You should see it say `Hello Johnny!` now instead of `Hello World!`. 
 
-### Adding a route with URL params
+### Add an asynchronous function
 
-You can create a route with dynamic URL parameters that will be available inside your function by prefixing path segments with a `:`, for example:
+IronFunctions supports synchronous function calls like we just tried above, and asynchronous for background processing. 
+
+Asynchronous function calls are great for tasks that are CPU heavy or take more than a few seconds to complete. 
+For instance, image processing, video processing, data processing, ETL, etc.  
+Architecturally, the main difference between synchronous and asynchronous is that requests
+to asynchronous functions are put in a queue and executed on upon resource availability so that they do not interfere with the fast synchronous responses required for an API.
+Also, since it uses a message queue, you can queue up millions of function calls without worrying about capacity as requests will
+just be queued up and run at some point in the future.
+
+To add an asynchronous function, create another route with the `"type":"async"`, for example:
 
 ```sh
-$ curl -H "Content-Type: application/json" -X POST -d '{
-     "route": {
-         "path":"/comments/:author_id/:num_page",
-         "image":"IMAGE_NAME"
-     }
+curl -H "Content-Type: application/json" -X POST -d '{
+    "route": {
+        "type": "async",
+        "path":"/hello-async",
+        "image":"iron/hello"
+    }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
 
-`:author_id` and `:num_page` in the path will be passed into your function as `PARAM_AUTHOR_ID` and `PARAM_NUM_PAGE`.
+Now if you request this route, you will just get a `call_id` response:
 
+```json
+{"call_id":"572415fd-e26e-542b-846f-f1f5870034f2"}
+```
 
-See the [Blog Example](https://github.com/iron-io/functions/blob/master/examples/blog/README.md#creating-our-blog-application-in-your-ironfunctions).
+If you watch the logs, you will see the function actually runs in the background.
 
+## Writing Functions
 
-## Adding Asynchronous Data Processing Support
+TODO: 
 
-Data processing is for functions that run in the background. This type of functionality is good for functions
-that are CPU heavy or take more than a few seconds to complete. 
-Architecturally, the main difference between synchronous you tried above and asynchronous is that requests
-to asynchronous functions are put in a queue and executed on upon resource availablitiy on the same process
-or a remote functions process so that they do not interfere with the fast synchronous responses required by an API.
-Also, since it uses a queue, you can queue up millions of jobs without worrying about capacity as requests will
-just be queued up and run at some point in the future.  
-
-TODO: Add link to differences here in README.io docs here. 
-
-#### Running remote functions process
-
-Coming soon...
+See examples for now. 
 
 ## Using IronFunctions Hosted by Iron.io
 
@@ -111,10 +113,6 @@ myapp.USER_ID.ironfunctions.com/hello
 ## API Reference
 
 https://swaggerhub.com/api/iron/functions
-
-## Full Documentation
-
-http://docs-new.iron.io/docs
 
 ## Join Our Community
 

@@ -12,12 +12,16 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/runner/common"
 	"github.com/iron-io/runner/drivers"
 )
 
-func getTask(url string) (*models.Task, error) {
+func getTask(ctx context.Context, url string) (*models.Task, error) {
+	// log := common.Logger(ctx)
+	// log.Infoln("Getting task from URL:", url)
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -41,8 +45,8 @@ func getTask(url string) (*models.Task, error) {
 }
 
 func getCfg(task *models.Task) *Config {
-	var stdout bytes.Buffer                                           // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
-	stderr := NewFuncLogger(task.RouteName, "", *task.Image, task.ID) // TODO: missing path here, how do i get that?
+	// TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
+	stderr := NewFuncLogger(task.AppName, task.Path, *task.Image, task.ID) // TODO: missing path here, how do i get that?
 	if task.Timeout == nil {
 		timeout := int32(30)
 		task.Timeout = &timeout
@@ -51,8 +55,8 @@ func getCfg(task *models.Task) *Config {
 		Image:   *task.Image,
 		Timeout: time.Duration(*task.Timeout) * time.Second,
 		ID:      task.ID,
-		AppName: task.RouteName,
-		Stdout:  &stdout,
+		AppName: task.AppName,
+		Stdout:  stderr,
 		Stderr:  stderr,
 		Env:     task.EnvVars,
 	}
@@ -84,10 +88,9 @@ func deleteTask(url string, task *models.Task) error {
 	return nil
 }
 
-func runTask(task *models.Task) (drivers.RunResult, error) {
+func runTask(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
 	// Set up runner and process task
 	cfg := getCfg(task)
-	ctx := context.Background()
 	rnr, err := New(NewMetricLogger())
 	if err != nil {
 		return nil, err
@@ -96,8 +99,8 @@ func runTask(task *models.Task) (drivers.RunResult, error) {
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(ctx context.Context, tasksrv, port string, n int) {
-	u, h := tasksrvURL(tasksrv, port)
+func RunAsyncRunner(ctx context.Context, tasksrv string, n int) {
+	u, h := tasksrvURL(tasksrv)
 	if isHostOpen(h) {
 		return
 	}
@@ -105,7 +108,7 @@ func RunAsyncRunner(ctx context.Context, tasksrv, port string, n int) {
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		go startAsyncRunners(ctx, &wg, i, u, runTask)
+		go startAsyncRunners(ctx, &wg, i, u)
 	}
 
 	wg.Wait()
@@ -121,7 +124,8 @@ func isHostOpen(host string) bool {
 	return available
 }
 
-func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(task *models.Task) (drivers.RunResult, error)) {
+func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string) {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"async_runner": i})
 	defer wg.Done()
 	for {
 		select {
@@ -129,8 +133,12 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 			return
 
 		default:
-			task, err := getTask(url)
+			task, err := getTask(ctx, url)
 			if err != nil {
+				if err, ok := err.(net.Error); ok && err.Timeout() {
+					log.Infoln("Could not fetch task, timeout. Probably no tasks to run.")
+					continue
+				}
 				log.WithError(err).Error("Could not fetch task")
 				time.Sleep(1 * time.Second)
 				continue
@@ -139,33 +147,36 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			log.Debug("Picked up task:", task.ID)
 
+			ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": task.ID})
 			log.Debug("Running task:", task.ID)
 			// Process Task
-			if _, err := runTask(task); err != nil {
-				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot run task")
+			if _, err := runTask(ctx, task); err != nil {
+				log.WithError(err).Error("Cannot run task")
 				continue
 			}
-			log.Debug("Processed task:", task.ID)
+			log.Debug("Processed task")
 
 			// Delete task from queue
 			if err := deleteTask(url, task); err != nil {
-				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot delete task")
+				log.WithError(err).Error("Cannot delete task")
 				continue
 			}
-			log.Debug("Deleted task:", task.ID)
 
-			log.Info("Task complete:", task.ID)
+			log.Info("Task complete:")
 		}
 	}
 }
 
-func tasksrvURL(tasksrv, port string) (parsedURL, host string) {
+func tasksrvURL(tasksrv string) (parsedURL, host string) {
 	parsed, err := url.Parse(tasksrv)
 	if err != nil {
-		log.Fatalf("cannot parse TASKSRV endpoint: %v", err)
+		logrus.WithError(err).Fatalln("cannot parse TASKSRV endpoint")
 	}
+	// host, port, err := net.SplitHostPort(parsed.Host)
+	// if err != nil {
+	// 	log.WithError(err).Fatalln("net.SplitHostPort")
+	// }
 
 	if parsed.Scheme == "" {
 		parsed.Scheme = "http"
@@ -175,9 +186,9 @@ func tasksrvURL(tasksrv, port string) (parsedURL, host string) {
 		parsed.Path = "/tasks"
 	}
 
-	if _, _, err := net.SplitHostPort(parsed.Host); err != nil {
-		parsed.Host = net.JoinHostPort(parsed.Host, port)
-	}
+	// if _, _, err := net.SplitHostPort(parsed.Host); err != nil {
+	// 	parsed.Host = net.JoinHostPort(parsed.Host, parsed)
+	// }
 
 	return parsed.String(), parsed.Host
 }

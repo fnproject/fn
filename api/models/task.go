@@ -48,11 +48,13 @@ type Task struct {
 	 */
 	Error string `json:"error,omitempty"`
 
-	/* Route this task belongs to.
+	/* App this task belongs to.
 
 	Read Only: true
 	*/
-	RouteName string `json:"route_name,omitempty"`
+	AppName string `json:"route_name,omitempty"`
+
+	Path string `json:"path"`
 
 	/* Machine usable reason for task being in this state.
 	Valid values for error status are `timeout | killed | bad_exit`.

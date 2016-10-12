@@ -90,11 +90,11 @@ func main() {
 		srv.Run(ctx)
 	})
 
-	apiURL, port, numAsync := viper.GetString(envAPIURL), viper.GetString(envPort), viper.GetInt(envNumAsync)
+	apiURL, numAsync := viper.GetString(envAPIURL), viper.GetInt(envNumAsync)
 	log.Debug("async workers:", numAsync)
 	if numAsync > 0 {
 		svr.AddFunc(func(ctx context.Context) {
-			runner.RunAsyncRunner(ctx, apiURL, port, numAsync)
+			runner.RunAsyncRunner(ctx, apiURL, numAsync)
 		})
 	}
 
