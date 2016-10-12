@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"github.com/iron-io/runner/drivers"
 )
 
 func getMockTask() models.Task {
@@ -77,6 +78,22 @@ func getTestServer(mockTasks []*models.Task) *httptest.Server {
 	r.GET("/tasks", getHandler)
 	r.DELETE("/tasks", delHandler)
 	return httptest.NewServer(r)
+}
+
+var helloImage = "iron/hello"
+
+func TestRunTask(t *testing.T) {
+	mockTask := getMockTask()
+	mockTask.Image = &helloImage
+
+	result, err := runTask(&mockTask)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if result.Status() != "success" {
+		t.Errorf("TestRunTask failed to execute runTask")
+	}
 }
 
 func TestGetTask(t *testing.T) {
@@ -178,8 +195,8 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go startAsyncRunners(ctx, &wg, 0, ts.URL+"/tasks", func(task *models.Task) error {
-		return nil
+	go startAsyncRunners(ctx, &wg, 0, ts.URL+"/tasks", func(task *models.Task) (drivers.RunResult, error) {
+		return nil, nil
 	})
 	wg.Wait()
 

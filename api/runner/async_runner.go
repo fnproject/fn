@@ -14,6 +14,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/runner/drivers"
 )
 
 func getTask(url string) (*models.Task, error) {
@@ -83,16 +84,15 @@ func deleteTask(url string, task *models.Task) error {
 	return nil
 }
 
-func runTask(task *models.Task) error {
+func runTask(task *models.Task) (drivers.RunResult, error) {
 	// Set up runner and process task
 	cfg := getCfg(task)
 	ctx := context.Background()
 	rnr, err := New(NewMetricLogger())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = rnr.Run(ctx, cfg)
-	return err
+	return rnr.Run(ctx, cfg)
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
@@ -110,7 +110,7 @@ func RunAsyncRunner(ctx context.Context, wgAsync *sync.WaitGroup, tasksrv, port 
 	wgAsync.Done()
 }
 
-func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(task *models.Task) error) {
+func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(task *models.Task) (drivers.RunResult, error)) {
 	defer wg.Done()
 	for {
 		select {
@@ -132,7 +132,7 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 
 			log.Info("Running task:", task.ID)
 			// Process Task
-			if err := runTask(task); err != nil {
+			if _, err := runTask(task); err != nil {
 				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot run task")
 				continue
 			}
