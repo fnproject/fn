@@ -2,15 +2,17 @@
 
 ## Run functions
 
+To get started quickly with IronFunctions, you can just fire up an `iron/functions` container: 
+
 ```sh
 docker run --rm --name functions --privileged -it -v $PWD/data:/app/data -p 8080:8080 iron/functions
 ```
 
-*<b>Note</b>: A list of configurations via env variables can be found [here](docs/api.md).*
+** Note**: A list of configurations via env variables can be found [here](docs/api.md).*
 
 ## Using Functions
 
-#### Create an Application
+### Create an Application
 
 An application is essentially a grouping of functions, that put together, form an API. Here's how to create an app. 
 
@@ -22,7 +24,10 @@ curl -H "Content-Type: application/json" -X POST -d '{
 
 Now that we have an app, we can map routes to functions. 
 
-#### Add a route to a Function
+### Add a Route
+
+A route is a way to define a path in your application that maps to a function. In this example, we'll map
+`/path` to a simple `Hello World!` image called `iron/hello`. 
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -33,15 +38,16 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
 
-#### Calling your Function
+### Calling your Function
 
-Just hit the URL you got back from adding a route above:
+Calling your function is as simple as requesting a URL. Each app has it's own namespace and each route mapped to the app. 
+The app `myapp` that we created above along with the `/hello` route we added would be called via the following URL. 
 
 ```
 curl http://localhost:8080/r/myapp/hello
 ```
 
-#### To pass in data to your function
+### To pass in data to your function
 
 Your function will get the body of the request as is, and the headers of the request will be passed in as env vars. Try this:
 
@@ -51,8 +57,9 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/r/myapp/hello
 ```
 
+### Add an asynchronous route 
 
-**Adding a route with URL params**
+### Adding a route with URL params
 
 You can create a route with dynamic URL parameters that will be available inside your function by prefixing path segments with a `:`, for example:
 

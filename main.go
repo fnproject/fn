@@ -29,7 +29,7 @@ const (
 func init() {
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.WithError(err)
+		log.WithError(err).Fatalln("")
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetDefault(envLogLevel, "info")
