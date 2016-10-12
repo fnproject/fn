@@ -73,7 +73,7 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	}
 	// if still no appName, we gotta exit
 	if appName == "" {
-		log.WithError(err).Error(models.ErrAppsNotFound)
+		log.WithError(err).Error("Invalid app, blank")
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsNotFound))
 		return
 	}

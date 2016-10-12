@@ -52,7 +52,7 @@ type Task struct {
 
 	Read Only: true
 	*/
-	AppName string `json:"route_name,omitempty"`
+	AppName string `json:"app_name,omitempty"`
 
 	Path string `json:"path"`
 
