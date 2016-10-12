@@ -15,7 +15,6 @@ import:
 - package: github.com/iron-io/runner
   repo: https://github.com/iron-io/runner.git
   vcs: git
-  version: glide-up
   subpackages:
   - common
   - drivers
