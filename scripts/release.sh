@@ -15,7 +15,7 @@ perl -i -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
 version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
 
-./build.sh
+./scripts/build-docker.sh
 
 git add -u
 git commit -m "$service: $version release"

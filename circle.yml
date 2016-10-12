@@ -24,7 +24,7 @@ dependencies:
   override:
     - which go && go version
     - glide --version
-    - glide install:
+    - make dep:
         pwd: $GO_PROJECT
 
 test:
