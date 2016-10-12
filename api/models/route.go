@@ -16,6 +16,7 @@ var (
 	ErrRoutesList       = errors.New("Could not list routes from datastore")
 	ErrRoutesNotFound   = errors.New("Route not found")
 	ErrRoutesMissingNew = errors.New("Missing new route")
+	ErrInvalidPayload   = errors.New("Invalid payload")
 )
 
 type Routes []*Route

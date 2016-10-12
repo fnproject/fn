@@ -10,7 +10,16 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"github.com/iron-io/functions/api/runner"
 )
+
+func testRunner(t *testing.T) *runner.Runner {
+	r, err := runner.New(runner.NewMetricLogger())
+	if err != nil {
+		t.Fatal("Test: failed to create new runner")
+	}
+	return r
+}
 
 func TestRouteRunnerGet(t *testing.T) {
 	New(&datastore.Mock{
@@ -88,7 +97,6 @@ func TestRouteRunnerPost(t *testing.T) {
 }
 
 func TestRouteRunnerExecution(t *testing.T) {
-	t.Skip()
 	New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
