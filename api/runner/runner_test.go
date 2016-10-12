@@ -12,6 +12,7 @@ import (
 )
 
 func TestRunnerHello(t *testing.T) {
+	buf := setLogBuffer()
 	runner, err := New(NewMetricLogger())
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
@@ -41,24 +42,29 @@ func TestRunnerHello(t *testing.T) {
 
 		result, err := runner.Run(ctx, cfg)
 		if err != nil {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: error during Run() - %s", i, err)
 		}
 
 		if test.expectedStatus != result.Status() {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: expected result status to be `%s` but it was `%s`", i, test.expectedStatus, result.Status())
 		}
 
 		if !bytes.Contains(stdout.Bytes(), []byte(test.expectedOut)) {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: expected output log to contain `%s` in `%s`", i, test.expectedOut, stdout.String())
 		}
 
 		if !bytes.Contains(stderr.Bytes(), []byte(test.expectedErr)) {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: expected error log to contain `%s` in `%s`", i, test.expectedErr, stderr.String())
 		}
 	}
 }
 
 func TestRunnerError(t *testing.T) {
+	buf := setLogBuffer()
 	runner, err := New(NewMetricLogger())
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
@@ -88,18 +94,22 @@ func TestRunnerError(t *testing.T) {
 
 		result, err := runner.Run(ctx, cfg)
 		if err != nil {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: error during Run() - %s", i, err)
 		}
 
 		if test.expectedStatus != result.Status() {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: expected result status to be `%s` but it was `%s`", i, test.expectedStatus, result.Status())
 		}
 
 		if !bytes.Contains(stdout.Bytes(), []byte(test.expectedOut)) {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: expected output log to contain `%s` in `%s`", i, test.expectedOut, stdout.String())
 		}
 
 		if !bytes.Contains(stderr.Bytes(), []byte(test.expectedErr)) {
+			t.Log(buf.String())
 			t.Fatalf("Test %d: expected error log to contain `%s` in `%s`", i, test.expectedErr, stderr.String())
 		}
 	}

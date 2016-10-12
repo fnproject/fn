@@ -22,6 +22,7 @@ func testRunner(t *testing.T) *runner.Runner {
 }
 
 func TestRouteRunnerGet(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
@@ -42,6 +43,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		_, rec := routerRequest(t, router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -50,6 +52,7 @@ func TestRouteRunnerGet(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -58,6 +61,7 @@ func TestRouteRunnerGet(t *testing.T) {
 }
 
 func TestRouteRunnerPost(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
@@ -79,6 +83,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -89,6 +94,7 @@ func TestRouteRunnerPost(t *testing.T) {
 			expMsg := test.expectedError.Error()
 			fmt.Println(respMsg == expMsg)
 			if respMsg != expMsg && !strings.Contains(respMsg, expMsg) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -97,6 +103,7 @@ func TestRouteRunnerPost(t *testing.T) {
 }
 
 func TestRouteRunnerExecution(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
@@ -125,6 +132,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		_, rec := routerRequest(t, router, "GET", test.path, body)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -132,6 +140,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		if test.expectedHeaders != nil {
 			for name, header := range test.expectedHeaders {
 				if header[0] != rec.Header().Get(name) {
+					t.Log(buf.String())
 					t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
 						i, name, header[0], rec.Header().Get(name))
 				}
@@ -141,6 +150,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 }
 
 func TestMatchRoute(t *testing.T) {
+	buf := setLogBuffer()
 	for i, test := range []struct {
 		baseRoute      string
 		route          string
@@ -154,12 +164,14 @@ func TestMatchRoute(t *testing.T) {
 			if test.expectedParams != nil {
 				for j, param := range test.expectedParams {
 					if params[j].Key != param.Key || params[j].Value != param.Value {
+						t.Log(buf.String())
 						fmt.Println(params[j])
 						t.Errorf("Test %d: expected param %d, key = %s, value = %s", i, j, param.Key, param.Value)
 					}
 				}
 			}
 		} else {
+			t.Log(buf.String())
 			t.Errorf("Test %d: %s should match %s", i, test.route, test.baseRoute)
 		}
 	}

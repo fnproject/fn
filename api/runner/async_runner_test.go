@@ -1,10 +1,12 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +20,16 @@ import (
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/runner/drivers"
 )
+
+func setLogBuffer() *bytes.Buffer {
+	var buf bytes.Buffer
+	buf.WriteByte('\n')
+	logrus.SetOutput(&buf)
+	gin.DefaultErrorWriter = &buf
+	gin.DefaultWriter = &buf
+	log.SetOutput(&buf)
+	return &buf
+}
 
 func getMockTask() models.Task {
 	priority := int32(0)
@@ -97,6 +109,7 @@ func TestRunTask(t *testing.T) {
 }
 
 func TestGetTask(t *testing.T) {
+	buf := setLogBuffer()
 	mockTask := getMockTask()
 
 	ts := getTestServer([]*models.Task{&mockTask})
@@ -105,14 +118,18 @@ func TestGetTask(t *testing.T) {
 	url := ts.URL + "/tasks"
 	task, err := getTask(url)
 	if err != nil {
+		t.Log(buf.String())
 		t.Error("expected no error, got", err)
 	}
 	if task.ID != mockTask.ID {
+		t.Log(buf.String())
 		t.Errorf("expected task ID '%s', got '%s'", task.ID, mockTask.ID)
 	}
 }
 
 func TestGetTaskError(t *testing.T) {
+	buf := setLogBuffer()
+
 	tests := []map[string]interface{}{
 		{
 			"url":   "/invalid",
@@ -134,15 +151,18 @@ func TestGetTaskError(t *testing.T) {
 		url := ts.URL + test["url"].(string)
 		_, err := getTask(url)
 		if err == nil {
+			t.Log(buf.String())
 			t.Errorf("expected error '%s'", test["error"].(string))
 		}
 		if err.Error() != test["error"].(string) {
+			t.Log(buf.String())
 			t.Errorf("test %d: expected error '%s', got '%s'", i, test["error"].(string), err)
 		}
 	}
 }
 
 func TestDeleteTask(t *testing.T) {
+	buf := setLogBuffer()
 	mockTask := getMockTask()
 
 	ts := getTestServer([]*models.Task{&mockTask})
@@ -151,16 +171,19 @@ func TestDeleteTask(t *testing.T) {
 	url := ts.URL + "/tasks"
 	err := deleteTask(url, &mockTask)
 	if err == nil {
+		t.Log(buf.String())
 		t.Error("expected error 'Not reserver', got", err)
 	}
 
 	_, err = getTask(url)
 	if err != nil {
+		t.Log(buf.String())
 		t.Error("expected no error, got", err)
 	}
 
 	err = deleteTask(url, &mockTask)
 	if err != nil {
+		t.Log(buf.String())
 		t.Error("expected no error, got", err)
 	}
 }
@@ -188,6 +211,7 @@ func TestTasksrvURL(t *testing.T) {
 }
 
 func TestAsyncRunnersGracefulShutdown(t *testing.T) {
+	buf := setLogBuffer()
 	mockTask := getMockTask()
 	ts := getTestServer([]*models.Task{&mockTask})
 	defer ts.Close()
@@ -201,6 +225,7 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	wg.Wait()
 
 	if err := ctx.Err(); err != context.DeadlineExceeded {
+		t.Log(buf.String())
 		t.Errorf("async runners stopped unexpectedly. context error: %v", err)
 	}
 }

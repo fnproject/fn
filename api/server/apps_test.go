@@ -2,17 +2,30 @@ package server
 
 import (
 	"bytes"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/Sirupsen/logrus"
+	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
 )
 
-func TestAppCreate(t *testing.T) {
+func setLogBuffer() *bytes.Buffer {
+	var buf bytes.Buffer
+	buf.WriteByte('\n')
+	logrus.SetOutput(&buf)
+	gin.DefaultErrorWriter = &buf
+	gin.DefaultWriter = &buf
+	log.SetOutput(&buf)
+	return &buf
+}
 
+func TestAppCreate(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -38,6 +51,7 @@ func TestAppCreate(t *testing.T) {
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -46,6 +60,7 @@ func TestAppCreate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -54,6 +69,7 @@ func TestAppCreate(t *testing.T) {
 }
 
 func TestAppDelete(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -69,6 +85,7 @@ func TestAppDelete(t *testing.T) {
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -77,6 +94,7 @@ func TestAppDelete(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -85,6 +103,7 @@ func TestAppDelete(t *testing.T) {
 }
 
 func TestAppList(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -99,6 +118,7 @@ func TestAppList(t *testing.T) {
 		_, rec := routerRequest(t, router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -107,6 +127,7 @@ func TestAppList(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -115,6 +136,7 @@ func TestAppList(t *testing.T) {
 }
 
 func TestAppGet(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -129,6 +151,7 @@ func TestAppGet(t *testing.T) {
 		_, rec := routerRequest(t, router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -137,6 +160,7 @@ func TestAppGet(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -145,6 +169,7 @@ func TestAppGet(t *testing.T) {
 }
 
 func TestAppUpdate(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -164,6 +189,7 @@ func TestAppUpdate(t *testing.T) {
 		_, rec := routerRequest(t, router, "PUT", test.path, body)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -172,6 +198,7 @@ func TestAppUpdate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}

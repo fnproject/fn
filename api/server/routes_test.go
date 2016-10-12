@@ -12,6 +12,7 @@ import (
 )
 
 func TestRouteCreate(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -37,6 +38,7 @@ func TestRouteCreate(t *testing.T) {
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -45,6 +47,7 @@ func TestRouteCreate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -53,6 +56,7 @@ func TestRouteCreate(t *testing.T) {
 }
 
 func TestRouteDelete(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -68,6 +72,7 @@ func TestRouteDelete(t *testing.T) {
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -76,6 +81,7 @@ func TestRouteDelete(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -84,6 +90,7 @@ func TestRouteDelete(t *testing.T) {
 }
 
 func TestRouteList(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -98,6 +105,7 @@ func TestRouteList(t *testing.T) {
 		_, rec := routerRequest(t, router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -106,6 +114,7 @@ func TestRouteList(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -114,6 +123,7 @@ func TestRouteList(t *testing.T) {
 }
 
 func TestRouteGet(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -128,6 +138,7 @@ func TestRouteGet(t *testing.T) {
 		_, rec := routerRequest(t, router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -136,6 +147,7 @@ func TestRouteGet(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -144,6 +156,7 @@ func TestRouteGet(t *testing.T) {
 }
 
 func TestRouteUpdate(t *testing.T) {
+	buf := setLogBuffer()
 	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
 	router := testRouter()
 
@@ -165,6 +178,7 @@ func TestRouteUpdate(t *testing.T) {
 		_, rec := routerRequest(t, router, "PUT", test.path, body)
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -173,6 +187,7 @@ func TestRouteUpdate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}

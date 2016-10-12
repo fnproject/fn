@@ -86,6 +86,7 @@ func prepareBolt(t *testing.T) (models.Datastore, func()) {
 }
 
 func TestFullStack(t *testing.T) {
+	buf := setLogBuffer()
 	ds, close := prepareBolt(t)
 	defer close()
 
@@ -116,6 +117,7 @@ func TestFullStack(t *testing.T) {
 		_, rec := routerRequest(t, router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
