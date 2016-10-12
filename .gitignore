@@ -11,6 +11,7 @@ vendor/
 /microgateway
 /gateway
 /functions
+/functions-alpine
 bolt.db
 .glide/
 

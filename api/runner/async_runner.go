@@ -136,7 +136,7 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 			task, err := getTask(ctx, url)
 			if err != nil {
 				if err, ok := err.(net.Error); ok && err.Timeout() {
-					log.Infoln("Could not fetch task, timeout. Probably no tasks to run.")
+					log.WithError(err).Errorln("Could not fetch task, timeout.")
 					continue
 				}
 				log.WithError(err).Error("Could not fetch task")

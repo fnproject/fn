@@ -45,7 +45,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 Calling your function is as simple as requesting a URL. Each app has it's own namespace and each route mapped to the app. 
 The app `myapp` that we created above along with the `/hello` route we added would be called via the following URL. 
 
-```
+```sh
 curl http://localhost:8080/r/myapp/hello
 ```
 
@@ -84,7 +84,15 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
 
-Now if you request this route, you will just get a `call_id` response:
+Now if you request this route:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d '{
+    "name":"Johnny"
+}' http://localhost:8080/r/myapp/hello-async
+```
+
+You will get a `call_id` in the response:
 
 ```json
 {"call_id":"572415fd-e26e-542b-846f-f1f5870034f2"}
