@@ -98,7 +98,7 @@ func (s *Server) handleTaskRequest(c *gin.Context) {
 	case "GET":
 		task, err := s.MQ.Reserve(ctx)
 		if err != nil {
-			logrus.WithError(err)
+			logrus.WithError(err).Error()
 			c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
 			return
 		}
@@ -106,19 +106,19 @@ func (s *Server) handleTaskRequest(c *gin.Context) {
 	case "DELETE":
 		body, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logrus.WithError(err)
+			logrus.WithError(err).Error()
 			c.JSON(http.StatusInternalServerError, err)
 			return
 		}
 		var task models.Task
 		if err = json.Unmarshal(body, &task); err != nil {
-			logrus.WithError(err)
+			logrus.WithError(err).Error()
 			c.JSON(http.StatusInternalServerError, err)
 			return
 		}
 
 		if err := s.MQ.Delete(ctx, &task); err != nil {
-			logrus.WithError(err)
+			logrus.WithError(err).Error()
 			c.JSON(http.StatusInternalServerError, err)
 			return
 		}

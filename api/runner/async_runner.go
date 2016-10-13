@@ -128,23 +128,24 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			log.Info("Picked up task:", task.ID)
+			log.Debug("Picked up task:", task.ID)
 
-			log.Info("Running task:", task.ID)
+			log.Debug("Running task:", task.ID)
 			// Process Task
 			if _, err := runTask(task); err != nil {
 				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot run task")
 				continue
 			}
-			log.Info("Processed task:", task.ID)
+			log.Debug("Processed task:", task.ID)
 
 			// Delete task from queue
 			if err := deleteTask(url, task); err != nil {
 				log.WithError(err).WithFields(log.Fields{"async runner": i, "task_id": task.ID}).Error("Cannot delete task")
 				continue
 			}
+			log.Debug("Deleted task:", task.ID)
 
-			log.Info("Deleted task:", task.ID)
+			log.Info("Task complete:", task.ID)
 		}
 	}
 }

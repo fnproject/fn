@@ -15,7 +15,7 @@ func New(dbURL string) (models.Datastore, error) {
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"url": dbURL}).Fatal("bad DB URL")
 	}
-	logrus.WithFields(logrus.Fields{"db": u.Scheme}).Info("creating new datastore")
+	logrus.WithFields(logrus.Fields{"db": u.Scheme}).Debug("creating new datastore")
 	switch u.Scheme {
 	case "bolt":
 		return bolt.New(u)

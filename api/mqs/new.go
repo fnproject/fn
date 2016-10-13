@@ -15,7 +15,7 @@ func New(mqURL string) (models.MessageQueue, error) {
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"url": mqURL}).Fatal("bad MQ URL")
 	}
-	logrus.WithFields(logrus.Fields{"mq": u.Scheme}).Info("selecting MQ")
+	logrus.WithFields(logrus.Fields{"mq": u.Scheme}).Debug("selecting MQ")
 	switch u.Scheme {
 	case "memory":
 		return NewMemoryMQ(), nil

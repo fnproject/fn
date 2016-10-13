@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
@@ -46,6 +47,11 @@ func init() {
 		log.WithError(err).Fatalln("Invalid log level.")
 	}
 	log.SetLevel(logLevel)
+
+	gin.SetMode(gin.ReleaseMode)
+	if logLevel == log.DebugLevel {
+		gin.SetMode(gin.DebugMode)
+	}
 }
 
 func main() {
@@ -74,7 +80,7 @@ func main() {
 	}
 
 	apiURL, port, numAsync := viper.GetString(envAPIURL), viper.GetString(envPort), viper.GetInt(envNumAsync)
-	log.Info("async workers:", numAsync)
+	log.Debug("async workers:", numAsync)
 	var wgAsync sync.WaitGroup
 	if numAsync > 0 {
 		wgAsync.Add(1)
