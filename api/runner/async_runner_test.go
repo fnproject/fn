@@ -192,13 +192,8 @@ func TestTasksrvURL(t *testing.T) {
 	tests := []struct {
 		in, out string
 	}{
-		// we shouldn't be swapping out no port with 8080, those would be 80. Also, we shouldn't accept anything but a full URL (base URL) in API_URL
-		// {"//localhost", "http://localhost:8080/tasks"},
-		// {"//localhost/", "http://localhost:8080/tasks"},
 		{"//localhost:8081", "http://localhost:8081/tasks"},
 		{"//localhost:8081/", "http://localhost:8081/tasks"},
-		// {"http://localhost", "http://localhost:8080/tasks"},
-		// {"http://localhost/", "http://localhost:8080/tasks"},
 		{"http://localhost:8081", "http://localhost:8081/tasks"},
 		{"http://localhost:8081/", "http://localhost:8081/tasks"},
 		{"http://localhost:8081/endpoint", "http://localhost:8081/endpoint"},

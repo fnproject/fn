@@ -19,9 +19,6 @@ import (
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
-	// log := common.Logger(ctx)
-	// log.Infoln("Getting task from URL:", url)
-
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -164,7 +161,7 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 				continue
 			}
 
-			log.Info("Task complete:")
+			log.Info("Task complete")
 		}
 	}
 }
