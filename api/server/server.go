@@ -146,7 +146,8 @@ func (s *Server) Run(ctx context.Context) {
 
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
-	s.Router.Run()
+	go s.Router.Run()
+	<-ctx.Done()
 }
 
 func bindHandlers(engine *gin.Engine, reqHandler func(ginC *gin.Context), taskHandler func(ginC *gin.Context)) {

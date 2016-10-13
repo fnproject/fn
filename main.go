@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 
+	"cirello.io/supervisor"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/datastore"
@@ -79,16 +79,24 @@ func main() {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}
 
-	apiURL, port, numAsync := viper.GetString(envAPIURL), viper.GetString(envPort), viper.GetInt(envNumAsync)
-	log.Debug("async workers:", numAsync)
-	var wgAsync sync.WaitGroup
-	if numAsync > 0 {
-		wgAsync.Add(1)
-		go runner.RunAsyncRunner(ctx, &wgAsync, apiURL, port, numAsync)
+	svr := &supervisor.Supervisor{
+		Log: func(msg interface{}) {
+			log.Debug("supervisor: ", msg)
+		},
 	}
 
-	srv := server.New(ds, mqType, rnr)
-	go srv.Run(ctx)
-	<-ctx.Done()
-	wgAsync.Wait()
+	svr.AddFunc(func(ctx context.Context) {
+		srv := server.New(ds, mqType, rnr)
+		srv.Run(ctx)
+	})
+
+	apiURL, port, numAsync := viper.GetString(envAPIURL), viper.GetString(envPort), viper.GetInt(envNumAsync)
+	log.Debug("async workers:", numAsync)
+	if numAsync > 0 {
+		svr.AddFunc(func(ctx context.Context) {
+			runner.RunAsyncRunner(ctx, apiURL, port, numAsync)
+		})
+	}
+
+	svr.Serve(ctx)
 }

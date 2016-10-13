@@ -204,7 +204,7 @@ func TestTasksrvURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := tasksrvURL(tt.in, tt.port); got != tt.out {
+		if got, _ := tasksrvURL(tt.in, tt.port); got != tt.out {
 			t.Errorf("port: %s\ttasksrv: %s\texpected: %s\tgot: %s", tt.port, tt.in, tt.out, got)
 		}
 	}

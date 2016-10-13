@@ -96,8 +96,11 @@ func runTask(task *models.Task) (drivers.RunResult, error) {
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(ctx context.Context, wgAsync *sync.WaitGroup, tasksrv, port string, n int) {
-	u := tasksrvURL(tasksrv, port)
+func RunAsyncRunner(ctx context.Context, tasksrv, port string, n int) {
+	u, h := tasksrvURL(tasksrv, port)
+	if isHostOpen(h) {
+		return
+	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
@@ -107,7 +110,15 @@ func RunAsyncRunner(ctx context.Context, wgAsync *sync.WaitGroup, tasksrv, port 
 
 	wg.Wait()
 	<-ctx.Done()
-	wgAsync.Done()
+}
+
+func isHostOpen(host string) bool {
+	conn, err := net.Dial("tcp", host)
+	available := err == nil
+	if available {
+		conn.Close()
+	}
+	return available
 }
 
 func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(task *models.Task) (drivers.RunResult, error)) {
@@ -150,7 +161,7 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 	}
 }
 
-func tasksrvURL(tasksrv, port string) string {
+func tasksrvURL(tasksrv, port string) (parsedURL, host string) {
 	parsed, err := url.Parse(tasksrv)
 	if err != nil {
 		log.Fatalf("cannot parse TASKSRV endpoint: %v", err)
@@ -168,5 +179,5 @@ func tasksrvURL(tasksrv, port string) string {
 		parsed.Host = net.JoinHostPort(parsed.Host, port)
 	}
 
-	return parsed.String()
+	return parsed.String(), parsed.Host
 }

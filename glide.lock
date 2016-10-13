@@ -1,6 +1,8 @@
-hash: 5ebe9893c89f9d0b31b71bd27fb37bf4fae1662e6fbc429d566b0d75ca7ffcfc
-updated: 2016-10-11T18:10:30.697966926-07:00
+hash: 25de4b7591e695585ed10d0a2b6c6419576f5aab60e28b84f07fb77908eca9e1
+updated: 2016-10-13T19:37:24.59686575+02:00
 imports:
+- name: cirello.io/supervisor
+  version: dd9fbc61e43585f9b73af69d598816902b643fb0
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
   subpackages:
@@ -13,6 +15,16 @@ imports:
   version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
   subpackages:
   - statsd
+- name: github.com/cenkalti/backoff
+  version: 8edc80b07f38c27352fb186d971c628a6c32552b
+- name: github.com/dghubble/go-twitter
+  version: 12e5387804e84bf20dc60ba964f59437553e16a6
+  subpackages:
+  - twitter
+- name: github.com/dghubble/oauth1
+  version: 4385816142116aade2d97d0f320f9d3666e74cd9
+- name: github.com/dghubble/sling
+  version: c961a4334054e64299d16f8a31bd686ee2565ae4
 - name: github.com/dgrijalva/jwt-go
   version: 268038b363c7a8d7306b8e35bf77a1fde4b0c402
 - name: github.com/docker/distribution
@@ -86,6 +98,10 @@ imports:
   - proto
 - name: github.com/google/btree
   version: 925471ac9e2131377a91e1595defec898166fe49
+- name: github.com/google/go-querystring
+  version: 9235644dd9e52eeae6fa48efd539fdc351a0af53
+  subpackages:
+  - query
 - name: github.com/gorilla/context
   version: 14f550f51af52180c2eefed15e5fd18d63c0a64a
 - name: github.com/gorilla/mux
