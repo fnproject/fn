@@ -13,8 +13,8 @@ import (
 
 func TestRouteCreate(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -57,8 +57,8 @@ func TestRouteCreate(t *testing.T) {
 
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -91,8 +91,8 @@ func TestRouteDelete(t *testing.T) {
 
 func TestRouteList(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -124,8 +124,8 @@ func TestRouteList(t *testing.T) {
 
 func TestRouteGet(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -157,8 +157,8 @@ func TestRouteGet(t *testing.T) {
 
 func TestRouteUpdate(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string

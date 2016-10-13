@@ -108,7 +108,7 @@ func RunAsyncRunner(ctx context.Context, tasksrv string, n int) {
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		go startAsyncRunners(ctx, &wg, i, u)
+		go startAsyncRunners(ctx, &wg, i, u, runTask)
 	}
 
 	wg.Wait()
@@ -124,7 +124,8 @@ func isHostOpen(host string) bool {
 	return available
 }
 
-func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string) {
+// todo: not a big fan of this anonymous function for testing, should use an interface and make a Mock object for testing - TR
+func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(ctx context.Context, task *models.Task) (drivers.RunResult, error)) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"async_runner": i})
 	defer wg.Done()
 	for {

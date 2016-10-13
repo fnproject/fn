@@ -14,8 +14,8 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func testRouterAsync(enqueueFunc models.Enqueue) *gin.Engine {
-	r := gin.New()
+func testRouterAsync(s *Server, enqueueFunc models.Enqueue) *gin.Engine {
+	r := s.Router
 	r.Use(gin.Logger())
 	ctx := context.Background()
 	r.Use(func(c *gin.Context) {
@@ -23,16 +23,12 @@ func testRouterAsync(enqueueFunc models.Enqueue) *gin.Engine {
 		c.Set("ctx", ctx)
 		c.Next()
 	})
-	bindHandlers(r,
-		func(ctx *gin.Context) {
-			handleRequest(ctx, enqueueFunc)
-		},
-		func(ctx *gin.Context) {})
+	s.bindHandlers()
 	return r
 }
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
-	New(&datastore.Mock{
+	s := New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
@@ -71,7 +67,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		var wg sync.WaitGroup
 
 		wg.Add(1)
-		router := testRouterAsync(func(task *models.Task) (*models.Task, error) {
+		router := testRouterAsync(s, func(task *models.Task) (*models.Task, error) {
 			if test.body != task.Payload {
 				t.Errorf("Test %d: Expected task Payload to be the same as the test body", i)
 			}

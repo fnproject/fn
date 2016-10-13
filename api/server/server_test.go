@@ -20,8 +20,8 @@ import (
 
 var tmpBolt = "/tmp/func_test_bolt.db"
 
-func testRouter() *gin.Engine {
-	r := gin.New()
+func testRouter(s *Server) *gin.Engine {
+	r := s.Router
 	r.Use(gin.Logger())
 	ctx := context.Background()
 	r.Use(func(c *gin.Context) {
@@ -29,11 +29,7 @@ func testRouter() *gin.Engine {
 		c.Set("ctx", ctx)
 		c.Next()
 	})
-	bindHandlers(r,
-		func(ctx *gin.Context) {
-			handleRequest(ctx, nil)
-		},
-		func(ctx *gin.Context) {})
+	s.bindHandlers()
 	return r
 }
 
@@ -90,8 +86,8 @@ func TestFullStack(t *testing.T) {
 	ds, close := prepareBolt(t)
 	defer close()
 
-	New(ds, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	s := New(ds, &mqs.Mock{}, testRunner(t))
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		method       string

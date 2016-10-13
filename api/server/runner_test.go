@@ -23,12 +23,12 @@ func testRunner(t *testing.T) *runner.Runner {
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{
+	s := New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 	}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -62,12 +62,12 @@ func TestRouteRunnerGet(t *testing.T) {
 
 func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{
+	s := New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 	}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -104,7 +104,7 @@ func TestRouteRunnerPost(t *testing.T) {
 
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{
+	s := New(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
@@ -113,7 +113,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		},
 	}, &mqs.Mock{}, testRunner(t))
-	router := testRouter()
+	router := testRouter(s)
 
 	for i, test := range []struct {
 		path            string

@@ -98,7 +98,7 @@ func TestRunTask(t *testing.T) {
 	mockTask := getMockTask()
 	mockTask.Image = &helloImage
 
-	result, err := runTask(&mockTask)
+	result, err := runTask(context.Background(), &mockTask)
 	if err != nil {
 		t.Error(err)
 	}
@@ -116,7 +116,7 @@ func TestGetTask(t *testing.T) {
 	defer ts.Close()
 
 	url := ts.URL + "/tasks"
-	task, err := getTask(url)
+	task, err := getTask(context.Background(), url)
 	if err != nil {
 		t.Log(buf.String())
 		t.Error("expected no error, got", err)
@@ -149,7 +149,7 @@ func TestGetTaskError(t *testing.T) {
 
 	for i, test := range tests {
 		url := ts.URL + test["url"].(string)
-		_, err := getTask(url)
+		_, err := getTask(context.Background(), url)
 		if err == nil {
 			t.Log(buf.String())
 			t.Errorf("expected error '%s'", test["error"].(string))
@@ -175,7 +175,7 @@ func TestDeleteTask(t *testing.T) {
 		t.Error("expected error 'Not reserver', got", err)
 	}
 
-	_, err = getTask(url)
+	_, err = getTask(context.Background(), url)
 	if err != nil {
 		t.Log(buf.String())
 		t.Error("expected no error, got", err)
@@ -190,22 +190,23 @@ func TestDeleteTask(t *testing.T) {
 
 func TestTasksrvURL(t *testing.T) {
 	tests := []struct {
-		port, in, out string
+		in, out string
 	}{
-		{"8080", "//127.0.0.1", "http://127.0.0.1:8080/tasks"},
-		{"8080", "//127.0.0.1/", "http://127.0.0.1:8080/tasks"},
-		{"8080", "//127.0.0.1:8081", "http://127.0.0.1:8081/tasks"},
-		{"8080", "//127.0.0.1:8081/", "http://127.0.0.1:8081/tasks"},
-		{"8080", "http://127.0.0.1", "http://127.0.0.1:8080/tasks"},
-		{"8080", "http://127.0.0.1/", "http://127.0.0.1:8080/tasks"},
-		{"8080", "http://127.0.0.1:8081", "http://127.0.0.1:8081/tasks"},
-		{"8080", "http://127.0.0.1:8081/", "http://127.0.0.1:8081/tasks"},
-		{"8080", "http://127.0.0.1:8081/endpoint", "http://127.0.0.1:8081/endpoint"},
+		// we shouldn't be swapping out no port with 8080, those would be 80. Also, we shouldn't accept anything but a full URL (base URL) in API_URL
+		// {"//localhost", "http://localhost:8080/tasks"},
+		// {"//localhost/", "http://localhost:8080/tasks"},
+		{"//localhost:8081", "http://localhost:8081/tasks"},
+		{"//localhost:8081/", "http://localhost:8081/tasks"},
+		// {"http://localhost", "http://localhost:8080/tasks"},
+		// {"http://localhost/", "http://localhost:8080/tasks"},
+		{"http://localhost:8081", "http://localhost:8081/tasks"},
+		{"http://localhost:8081/", "http://localhost:8081/tasks"},
+		{"http://localhost:8081/endpoint", "http://localhost:8081/endpoint"},
 	}
 
 	for _, tt := range tests {
-		if got, _ := tasksrvURL(tt.in, tt.port); got != tt.out {
-			t.Errorf("port: %s\ttasksrv: %s\texpected: %s\tgot: %s", tt.port, tt.in, tt.out, got)
+		if got, _ := tasksrvURL(tt.in); got != tt.out {
+			t.Errorf("tasksrv: %s\texpected: %s\tgot: %s\t", tt.in, tt.out, got)
 		}
 	}
 }
@@ -219,7 +220,7 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go startAsyncRunners(ctx, &wg, 0, ts.URL+"/tasks", func(task *models.Task) (drivers.RunResult, error) {
+	go startAsyncRunners(ctx, &wg, 0, ts.URL+"/tasks", func(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
 		return nil, nil
 	})
 	wg.Wait()
