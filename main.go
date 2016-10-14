@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"strings"
 
-	"cirello.io/supervisor"
 	log "github.com/Sirupsen/logrus"
+	"github.com/ccirello/supervisor"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/mqs"

@@ -1,8 +1,6 @@
-hash: 25de4b7591e695585ed10d0a2b6c6419576f5aab60e28b84f07fb77908eca9e1
-updated: 2016-10-13T19:37:24.59686575+02:00
+hash: 4acb4372011661fa4731e89ffd27714eb7ca6285a3d53c2f16f87c3a564d4d4e
+updated: 2016-10-14T12:52:58.841636657+02:00
 imports:
-- name: cirello.io/supervisor
-  version: dd9fbc61e43585f9b73af69d598816902b643fb0
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
   subpackages:
@@ -15,6 +13,8 @@ imports:
   version: 91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d
   subpackages:
   - statsd
+- name: github.com/ccirello/supervisor
+  version: 341cd52503c550c397196693601273cc290cf1b4
 - name: github.com/cenkalti/backoff
   version: 8edc80b07f38c27352fb186d971c628a6c32552b
 - name: github.com/dghubble/go-twitter
