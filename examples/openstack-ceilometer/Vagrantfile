@@ -1,0 +1,31 @@
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  # setup cache
+  if Vagrant.has_plugin?("vagrant-cachier")
+    config.cache.scope = :box
+    # setup PIP cache
+    config.cache.enable :generic, { "pip" => { :cache_dir => "/var/cache/pip" } }
+    config.vm.provision "file", source: "pip.conf", destination: "/home/vagrant/.pip/pip.conf"
+  else
+    print "vagrant-cachier plugin has not been found."
+    print "You can install it by `vagrant plugin install vagrant-cachier`"
+  end
+
+  config.vm.box = "ubuntu/trusty64"
+  # https://bugs.launchpad.net/cloud-images/+bug/1573058
+  #config.vm.box = "bento/ubuntu-16.04"
+
+  # eth0: NAT network - is created by default by Vagrant
+  # eth1: host-only network - to access the VM using its IP address
+  config.vm.network :private_network, ip: "192.168.42.11"
+
+  config.vm.provider :virtualbox do |vb|
+      vb.memory = 6144
+      vb.cpus = 2
+  end
+
+  config.vm.provision :shell, :path => "devstack.sh", :privileged => false, :upload_path => "/home/vagrant/devstack.sh"
+
+end
