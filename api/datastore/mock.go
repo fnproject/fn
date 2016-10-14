@@ -56,8 +56,17 @@ func (m *Mock) GetRoutes(routeFilter *models.RouteFilter) ([]*models.Route, erro
 }
 
 func (m *Mock) GetRoutesByApp(appName string, routeFilter *models.RouteFilter) ([]*models.Route, error) {
-	// TODO: improve this mock method
-	return m.FakeRoutes, nil
+	var routes []*models.Route
+	route := m.FakeRoute
+	if route == nil && m.FakeRoutes != nil {
+		for _, r := range m.FakeRoutes {
+			if r.AppName == appName && r.Path == routeFilter.Path && r.AppName == routeFilter.AppName {
+				routes = append(routes, r)
+			}
+		}
+	}
+
+	return routes, nil
 }
 
 func (m *Mock) StoreRoute(route *models.Route) (*models.Route, error) {

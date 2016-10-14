@@ -3,7 +3,9 @@ package models
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"path"
+	"strings"
 
 	apiErrors "github.com/go-openapi/errors"
 )
@@ -32,13 +34,15 @@ type Route struct {
 }
 
 var (
-	ErrRoutesValidationMissingName    = errors.New("Missing route Name")
-	ErrRoutesValidationMissingImage   = errors.New("Missing route Image")
-	ErrRoutesValidationMissingAppName = errors.New("Missing route AppName")
-	ErrRoutesValidationMissingPath    = errors.New("Missing route Path")
-	ErrRoutesValidationInvalidPath    = errors.New("Invalid Path format")
-	ErrRoutesValidationMissingType    = errors.New("Missing route Type")
-	ErrRoutesValidationInvalidType    = errors.New("Invalid route Type")
+	ErrRoutesValidationFoundDynamicURL = errors.New("Dynamic URL is not allowed")
+	ErrRoutesValidationInvalidPath     = errors.New("Invalid Path format")
+	ErrRoutesValidationInvalidType     = errors.New("Invalid route Type")
+	ErrRoutesValidationMissingAppName  = errors.New("Missing route AppName")
+	ErrRoutesValidationMissingImage    = errors.New("Missing route Image")
+	ErrRoutesValidationMissingName     = errors.New("Missing route Name")
+	ErrRoutesValidationMissingPath     = errors.New("Missing route Path")
+	ErrRoutesValidationMissingType     = errors.New("Missing route Type")
+	ErrRoutesValidationPathMalformed   = errors.New("Path malformed")
 )
 
 func (r *Route) Validate() error {
@@ -60,7 +64,16 @@ func (r *Route) Validate() error {
 		res = append(res, ErrRoutesValidationMissingPath)
 	}
 
-	if !path.IsAbs(r.Path) {
+	u, err := url.Parse(r.Path)
+	if err != nil {
+		res = append(res, ErrRoutesValidationPathMalformed)
+	}
+
+	if strings.Contains(u.Path, ":") {
+		res = append(res, ErrRoutesValidationFoundDynamicURL)
+	}
+
+	if !path.IsAbs(u.Path) {
 		res = append(res, ErrRoutesValidationInvalidPath)
 	}
 
