@@ -1,0 +1,13 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    json (1.8.3)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  json (> 1.8.2)
+
+BUNDLED WITH
+   1.10.5

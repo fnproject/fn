@@ -1,0 +1,30 @@
+GIT
+  remote: https://github.com/iron-io/worker_ruby
+  revision: cc72095f82eb9530d1e161b2dda9092f4068e4eb
+  specs:
+    worker_ruby (0.5.7)
+      json (~> 1.8, >= 1.8.3)
+      typhoeus (~> 1.0, >= 1.0.1)
+
+GEM
+  remote: http://rubygems.org/
+  specs:
+    ethon (0.9.0)
+      ffi (>= 1.3.0)
+    ffi (1.9.14)
+    json (1.8.3)
+    power_assert (0.3.0)
+    test-unit (3.2.1)
+      power_assert
+    typhoeus (1.1.0)
+      ethon (>= 0.9.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  test-unit (> 3)
+  worker_ruby (>= 0.3.5)!
+
+BUNDLED WITH
+   1.12.5
