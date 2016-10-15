@@ -1,10 +1,11 @@
 # OpenStack Ceilometer Example
 
-This is an example how to call IronFunctions from OpenStack Ceilometer.
+This is an example of using OpenStack Ceilometer notifications as an event
+source for IronFunctions.
 
-For simplicity, we will use vagrant & devstack.
+For simplicity, we will use [vagrant](https://github.com/mitchellh/vagrant) & [devstack](https://github.com/openstack-dev/devstack).
 
-It's assumed that execution file is located in this directory (`functions`).
+It's assumed that IronFunctions is built and located in this directory (`functions`).
 
 ## Install OpenStack
 
@@ -19,9 +20,9 @@ The password: admin
 This is your host ip: 192.168.1.11
 ```
 
-## Run IronFunctions inside the 
+## Run IronFunctions inside the VM
 
-Login into vagrant's box and run IronFunctions binary:
+Login to Vagrant instance and start IronFunctions:
 
 ```bash
 $ vagrant ssh
@@ -38,10 +39,10 @@ INFO[0000] async workers:1
 ...
 ```
 
-Dont's exit this session. We will need this log later.
+Don't exit this session. We will need this log later.
 
 
-## Configure IronFunction
+## Configure IronFunctions
 
 Login again and add some configuration for calling IronFunctions:
 
@@ -53,7 +54,7 @@ $ curl -H "Content-Type: application/json" -X POST -d '{"route": {"path":"/hello
 {"message":"Route successfully created","route":{"appname":"myapp","path":"/hello","image":"iron/hello","memory":128,"type":"sync","config":null}}
 ```
 
-## Start an instance inside OpenStack
+## Start a Nova compute instance inside OpenStack
 
 ```bash
 $ . devstack/openrc admin admin
@@ -67,7 +68,7 @@ $ nova list --all-tenants
 +--------------------------------------+-------------+----------------------------------+--------+------------+-------------+------------------+
 ```
 
-## Create an Alarm in OpenStack Ceilometer
+## Use the OpenStack Ceilometer CLI to create an alarm threshold"
 
 ```bash
 $ ceilometer alarm-threshold-create \
@@ -89,9 +90,9 @@ $ ceilometer alarm-list
 +--------------------------------------+----------+-------+----------+---------+------------+--------------------------------------+------------------+
 ```
 
-## Add some load to the instance
+## Trigger the alarm we created in the previous step by adding load to the instance
 
-Login into just started instance:
+Login to Nova compute instance we created in previous step:
 
 ```bash
 host $ vagrant ssh
@@ -114,4 +115,4 @@ INFO[1633]                                               name=run.exec_time type
 [GIN] 2016/10/14 - 12:43:39 | 200 |   985.96401ms | 127.0.0.1 |   POST    /r/myapp/hello
 ```
 
-Hooray! `myapp/hello` was called by OpenStack Ceilometer!
+Hooray! `myapp/hello` was triggered by OpenStack Ceilometer!
