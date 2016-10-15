@@ -29,5 +29,5 @@ dependencies:
 
 test:
   override:
-    - scripts/test.sh:
+    - make test-docker:
         pwd: $GO_PROJECT

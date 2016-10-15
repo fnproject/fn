@@ -1,23 +1,33 @@
 # Just builds
+
+DIR := ${CURDIR}
+
 dep:
-	@ glide install --strip-vendor
+	glide install --strip-vendor
 
 build:
-	@ go build -o functions
+	go build -o functions
 
 build-docker:
-	sh scripts/build-docker.sh
-
-release:
-	sh scripts/release.sh
+	set -ex
+	docker run --rm -v $(DIR):/go/src/github.com/iron-io/functions -w /go/src/github.com/iron-io/functions iron/go:dev go build -o functions-alpine
+	docker build -t iron/functions:latest .
 
 test:
-	sh scripts/test.sh
+	go test -v $(shell glide nv | grep -v examples | grep -v tool)
 
-run-docker:
-	sh scripts/run-docker.sh
+test-docker:
+	docker run -ti --privileged --rm -e LOG_LEVEL=debug \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-v $(DIR):/go/src/github.com/iron-io/functions \
+	-w /go/src/github.com/iron-io/functions iron/go:dev go test \
+	-v $(shell glide nv | grep -v examples | grep -v tool)
 
-run-simple:
+run:
 	./functions
+
+run-docker: build-docker
+	set -ex
+	docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB=bolt:///app/data/bolt.db" -v $(DIR)/data:/app/data -p 8080:8080 iron/functions
 
 all: dep build
