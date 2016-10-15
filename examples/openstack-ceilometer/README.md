@@ -103,7 +103,7 @@ $ dd if=/dev/zero of=/dev/null
 
 ## Checking IronFunctions log
 
-In 5-10 minutes we should we in the IronFunctions's log:
+In 5-10 minutes we should see in the IronFunctions's log:
 
 ```
 INFO[1633]                                               name=run.myapp.requests type=count value=1
