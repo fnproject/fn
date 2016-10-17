@@ -1,5 +1,5 @@
 hash: 4acb4372011661fa4731e89ffd27714eb7ca6285a3d53c2f16f87c3a564d4d4e
-updated: 2016-10-14T12:52:58.841636657+02:00
+updated: 2016-10-17T09:57:41.118174867-07:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -28,7 +28,7 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 268038b363c7a8d7306b8e35bf77a1fde4b0c402
 - name: github.com/docker/distribution
-  version: 04c8db562da407630075b2452daee09b894a070a
+  version: 717ac0337f312fc7ca0fc35279f00001caf6dd0b
   subpackages:
   - context
   - digest
@@ -61,7 +61,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: f12c6236fe7b5cf6bcf30e5935d08cb079d78334
 - name: github.com/fsouza/go-dockerclient
-  version: 5e508da6ac33603fcc7dc200b670ba295f24d975
+  version: 6bb5d2ca867c937db2e4281f74ad0f4287b86437
 - name: github.com/garyburd/redigo
   version: 4ed1111375cbeb698249ffe48dd463e9b0a63a7a
   subpackages:
@@ -92,8 +92,6 @@ imports:
   version: 0e04f5e499b19bf51031c01a00f098f25067d8dc
 - name: github.com/go-openapi/validate
   version: e6da236c48ce621803fc5d3883d8739aad0ce318
-- name: github.com/go-resty/resty
-  version: 1a3bb60986d90e32c04575111b1ccb8eab24a3e5
 - name: github.com/golang/protobuf
   version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
@@ -125,6 +123,12 @@ imports:
   version: 2a2e6b9e3eed0a98d438f111ba7469744c07281d
   subpackages:
   - registry
+- name: github.com/iron-io/iron_go3
+  version: cd9cc95ce2d2bb25d2e4e10cd62fff1d97ad1906
+  subpackages:
+  - api
+  - config
+  - mq
 - name: github.com/iron-io/runner
   version: b953cea264b1a5a2db46beeaa73f495c19207e51
   repo: https://github.com/iron-io/runner.git
@@ -204,7 +208,6 @@ imports:
   - context/ctxhttp
   - idna
   - proxy
-  - publicsuffix
 - name: golang.org/x/sys
   version: 9eef40adf05b951699605195b829612bd7b69952
   subpackages:

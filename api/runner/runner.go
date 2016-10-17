@@ -51,8 +51,7 @@ var (
 )
 
 func New(metricLogger Logger) (*Runner, error) {
-	// TODO: Is this really required for Titan's driver?
-	// Can we remove it?
+	// TODO: Is this really required for the container drivers? Can we remove it?
 	env := common.NewEnvironment(func(e *common.Environment) {})
 
 	// TODO: Create a drivers.New(runnerConfig) in Titan

@@ -120,9 +120,14 @@ And you'll get an ironfunctions.com host for your app:
 myapp.USER_ID.ironfunctions.com/hello
 ```
 
-## API Reference
+## More Documentation
 
-https://swaggerhub.com/api/iron/functions
+* [IronFunctions Options](api.md)
+* [Running in Production](docs/production.md)
+* [Triggers](docs/triggers.md)
+* [Metrics](docs/metrics.md)
+* [Extending IronFunctions](docs/extending.md)
+* [API Reference](https://swaggerhub.com/api/iron/functions)
 
 ## Join Our Community
 

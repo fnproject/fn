@@ -42,14 +42,14 @@ func timeoutToIDKey(timeout []byte) []byte {
 	return b
 }
 
-var delayQueueName = []byte("titan_delay")
+var delayQueueName = []byte("functions_delay")
 
 func queueName(i int) []byte {
-	return []byte(fmt.Sprintf("titan_%d_queue", i))
+	return []byte(fmt.Sprintf("functions_%d_queue", i))
 }
 
 func timeoutName(i int) []byte {
-	return []byte(fmt.Sprintf("titan_%d_timeout", i))
+	return []byte(fmt.Sprintf("functions_%d_timeout", i))
 }
 
 func NewBoltMQ(url *url.URL) (*BoltDbMQ, error) {

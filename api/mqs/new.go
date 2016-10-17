@@ -3,6 +3,7 @@ package mqs
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
@@ -23,6 +24,9 @@ func New(mqURL string) (models.MessageQueue, error) {
 		return NewRedisMQ(u)
 	case "bolt":
 		return NewBoltMQ(u)
+	}
+	if strings.HasPrefix(u.Scheme, "ironmq") {
+		return NewIronMQ(u), nil
 	}
 
 	return nil, fmt.Errorf("mq type not supported %v", u.Scheme)
