@@ -14,8 +14,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.box = "ubuntu/trusty64"
-  # https://bugs.launchpad.net/cloud-images/+bug/1573058
-  #config.vm.box = "bento/ubuntu-16.04"
 
   # eth0: NAT network - is created by default by Vagrant
   # eth1: host-only network - to access the VM using its IP address

@@ -68,7 +68,7 @@ $ nova list --all-tenants
 +--------------------------------------+-------------+----------------------------------+--------+------------+-------------+------------------+
 ```
 
-## Use the OpenStack Ceilometer CLI to create an alarm threshold"
+## Use the OpenStack Ceilometer CLI to create an alarm threshold
 
 ```bash
 $ ceilometer alarm-threshold-create \
@@ -103,7 +103,9 @@ $ dd if=/dev/zero of=/dev/null
 
 ## Checking IronFunctions log
 
-In 5-10 minutes we should see in the IronFunctions's log:
+In 5-10 minutes the Ceilometer alarm will trigger an HTTP callback to the
+IronFunctions route we created earlier, and this can be seen from the
+IronFunctions API server log:
 
 ```
 INFO[1633]                                               name=run.myapp.requests type=count value=1
