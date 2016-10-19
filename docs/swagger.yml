@@ -1,6 +1,6 @@
 # This is the IronFunctions API spec
-# If you make changes here, remember to run `go generate` in routeserver/ and
-# tasker/ to make sure you use the changes.
+# If you make changes here, remember to run `go generate` in api/models/ and
+# api/server to make sure you use the changes.
 
 swagger: '2.0'
 info:
@@ -143,7 +143,7 @@ paths:
           description: Array of routes to post.
           required: true
           schema:
-            $ref: '#/definitions/NewRoutesWrapper'
+            $ref: '#/definitions/RoutesWrapper'
       responses:
         201:
           description: Route created
@@ -251,7 +251,7 @@ paths:
         200:
           description: Task information
           schema:
-            $ref: '#/definitions/TasksWrapper'
+            $ref:  '#/definitions/TaskWrapper'
         default:
           description: Unexpected error
           schema:
@@ -329,7 +329,6 @@ definitions:
   Task:
     allOf:
       - $ref: "#/definitions/NewTask"
-      - $ref: "#/definitions/IdStatus"
       - type: object
         properties:
           group_name:
@@ -381,39 +380,6 @@ definitions:
             additionalProperties:
               type: string
 
-  NewTasksWrapper:
-    type: object
-    required:
-      - tasks
-    properties:
-      tasks:
-        type: array
-        items:
-          $ref: '#/definitions/NewTask'
-
-  TasksWrapper:
-    type: object
-    required:
-      - tasks
-    properties:
-      tasks:
-        type: array
-        items:
-          $ref: '#/definitions/Task'
-      cursor:
-        type: string
-        description: Used to paginate results. If this is returned, pass it into the same query again to get more results. 
-      error:
-        $ref: '#/definitions/ErrorBody'
-
-  TaskWrapper:
-    type: object
-    required:
-      - task
-    properties:
-      task:
-        $ref: '#/definitions/Task'
-
   ErrorBody:
     type: object
     properties:
@@ -429,3 +395,27 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/ErrorBody'
+
+  NewTask:
+    type: object
+    required:
+      - image
+      - priority
+    properties:
+      image:
+        type: string
+        description: Name of Docker image to use. This is optional and can be used to override the image defined at the group level. 
+      payload:
+        type: string
+        # 256k
+        # maxLength breaks ruby generator too: https://github.com/iron-io/worker_ruby/blob/0aa9236ce5060af3f15758937712973f80dd54fe/lib/iron_titan/models/task.rb#L272
+        # maxLength: 268435456
+        description: Payload for the task. This is what you pass into each task to make it do something.
+
+  TaskWrapper:
+    type: object
+    required:
+      - task
+    properties:
+      task:
+        $ref: '#/definitions/Task'
