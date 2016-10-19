@@ -1,5 +1,13 @@
 # IronFunctions
 
+Welcome to IronFunctions!  The open source Functions as a Service platform.
+
+## Join Our Community
+
+First off, join the community!
+
+[![Slack Status](https://open-iron.herokuapp.com/badge.svg)](https://open-iron.herokuapp.com)
+
 ## Quickstart
 
 This guide will get you up and running in a few minutes.
@@ -48,6 +56,8 @@ The app `myapp` that we created above along with the `/hello` route we added wou
 ```sh
 curl http://localhost:8080/r/myapp/hello
 ```
+
+Or just surf to it: http://localhost:8080/r/myapp/hello
 
 ### Passing data into a function
 
@@ -98,36 +108,19 @@ You will get a `call_id` in the response:
 {"call_id":"572415fd-e26e-542b-846f-f1f5870034f2"}
 ```
 
-If you watch the logs, you will see the function actually runs in the background.
+If you watch the logs, you will see the function actually runs in the background:
+
+![async log](docs/async-logs.png)
+
+Read more on [logging](docs/logging.md).
 
 ## Writing Functions
 
 TODO: 
 
-See examples for now. 
-
-## Using IronFunctions Hosted by Iron.io
-
-Simply point to https://functions.iron.io instead of localhost and add your Iron.io Authentication header (TODO: link), like this:
-
-```sh
-curl -H "Authorization: Bearer IRON_TOKEN" -H "Content-Type: application/json" -X POST -d '{"app": {"name":"myapp"}}' https://functions.iron.io/v1/apps
-```
-
-And you'll get an ironfunctions.com host for your app:
-
-```sh
-myapp.USER_ID.ironfunctions.com/hello
-```
-
 ## More Documentation
 
-* [IronFunctions Options](api.md)
-* [Running in Production](docs/production.md)
-* [Triggers](docs/triggers.md)
-* [Metrics](docs/metrics.md)
-* [Extending IronFunctions](docs/extending.md)
-* [API Reference](https://swaggerhub.com/api/iron/functions)
+See [docs/](docs/) for full documentation. 
 
 ## Join Our Community
 

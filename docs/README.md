@@ -1,10 +1,12 @@
 
 # IronFunctions Documentation
 
-* [Running IronFunctions](api.md)
+* [IronFunctions Options](api.md)
+* [API Reference](https://app.swaggerhub.com/api/iron/functions/)
+* [Running in Production](production.md)
 * [Databases](databases/README.md)
 * [Message Queues](mqs/README.md)
-* [Running in Production](production.md)
-* [Triggers](triggers.md)
+* [Logging](logging.md)
 * [Metrics](metrics.md)
+* [Triggers](triggers.md)
 * [Extending IronFunctions](extending.md)
