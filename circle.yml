@@ -35,8 +35,6 @@ test:
 deployment:
   hub:
     branch: master
-    pwd: $GO_PROJECT
     commands:
-      - ./release.sh
-        
+      - cd $GO_PROJECT && ./release.sh
       
