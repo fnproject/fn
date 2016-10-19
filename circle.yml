@@ -31,3 +31,10 @@ test:
   override:
     - make test-docker:
         pwd: $GO_PROJECT
+
+deployment:
+  hub:
+    branch: master
+    commands:
+      - ./release.sh
+      
