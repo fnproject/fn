@@ -4,7 +4,7 @@ require 'http'
 require 'fileutils'
 require 'openssl'
 
-require_relative '../test/utils.rb'
+require_relative '../tests/utils.rb'
 
 gist_id = ENV['GIST_ID']
 gist_url = "https://api.github.com/gists/#{gist_id}"
@@ -146,5 +146,5 @@ end
 # Uncomment the following lines if we start using the Go lib
 # Dir.chdir("../")
 # stream_exec "glide up"
-Dir.chdir("../test/")
+Dir.chdir("../tests/")
 stream_exec "bundle update"
