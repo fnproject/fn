@@ -10,3 +10,4 @@
 * [Metrics](metrics.md)
 * [Triggers](triggers.md)
 * [Extending IronFunctions](extending.md)
+* [Docker Configuration](docker.md)

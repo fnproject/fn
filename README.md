@@ -116,7 +116,7 @@ Read more on [logging](docs/logging.md).
 
 ## Writing Functions
 
-TODO: 
+TODO:
 
 ## More Documentation
 
