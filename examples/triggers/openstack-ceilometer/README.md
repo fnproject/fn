@@ -90,6 +90,60 @@ $ ceilometer alarm-list
 +--------------------------------------+----------+-------+----------+---------+------------+--------------------------------------+------------------+
 ```
 
+## (Optional): Change the Ceilometer polling interval
+
+The default value for the Ceilometer polling interval is 600 seconds. For the purpose of this example let's change it to 60 seconds.
+
+```bash
+$ sed -i -- 's/interval: 600/interval: 60/g' /etc/ceilometer/pipeline.yaml
+```
+
+Next we need to restart some Ceilometer services:
+
+  * ceilometer-acentral
+  * ceilometer-collector
+  * ceilometer-acompute
+
+In Devstack, all OpenStack services are running under
+[screen](https://en.wikipedia.org/wiki/Screen). Thus, to restart processes
+listed above we need to do:
+
+  * `screen -r` to detach running screen session
+
+  * press `Ctrl+A` and then `Shift+'`, you will see a list of windows
+  * select window #17 `ceilometer-acentral`
+  * press `Ctrl+c` to stop current proccess
+  * press `up-arrow` to select previous command
+  * press `Enter` to start it again with a new config
+
+  * press `Ctrl+A` and then `Shift+'`, you will see a list of windows
+  * select window #22 `ceilometer-collector`
+  * press `Ctrl+c` to stop current proccess
+  * press `up-arrow` to select previous command
+  * press `Enter` to start it again with a new config
+
+  * press `Ctrl+A` and then `Shift+'`, you will see a list of windows
+  * select window #23 `ceilometer-acompute`
+  * press `Ctrl+c` to stop current proccess
+  * press `up-arrow` to select previous command
+  * press `Enter` to start it again with a new config
+
+Now we should see more frequent samples, for example:
+
+```bash
+$ ceilometer sample-list --meter cpu
++--------------------------------------+------+------------+---------------+------+----------------------------+
+| Resource ID                          | Name | Type       | Volume        | Unit | Timestamp                  |
++--------------------------------------+------+------------+---------------+------+----------------------------+
+| 35391242-4b40-43cb-a18d-0b0438282c0c | cpu  | cumulative | 13770000000.0 | ns   | 2016-10-14T12:37:49.768882 |
+| 35391242-4b40-43cb-a18d-0b0438282c0c | cpu  | cumulative | 13680000000.0 | ns   | 2016-10-14T12:36:49.868174 |
+| 35391242-4b40-43cb-a18d-0b0438282c0c | cpu  | cumulative | 13570000000.0 | ns   | 2016-10-14T12:35:50.206048 |
+| 35391242-4b40-43cb-a18d-0b0438282c0c | cpu  | cumulative | 13150000000.0 | ns   | 2016-10-14T12:27:12.947970 |
+| 35391242-4b40-43cb-a18d-0b0438282c0c | cpu  | cumulative | 12260000000.0 | ns   | 2016-10-14T12:17:13.246754 |
++--------------------------------------+------+------------+---------------+------+----------------------------+
+```
+
+
 ## Trigger the alarm we created in the previous step by adding load to the instance
 
 Login to Nova compute instance we created in previous step:
@@ -103,7 +157,7 @@ $ dd if=/dev/zero of=/dev/null
 
 ## Checking IronFunctions log
 
-In 5-10 minutes the Ceilometer alarm will trigger an HTTP callback to the
+In 1-2 minutes the Ceilometer alarm will trigger an HTTP callback to the
 IronFunctions route we created earlier, and this can be seen from the
 IronFunctions API server log:
 
