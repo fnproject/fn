@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: postgresql-master
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        role: datastore
+    spec:
+      containers:
+      - name: functions-postgresql
+        image: postgres
+        ports:
+        - containerPort: 5432

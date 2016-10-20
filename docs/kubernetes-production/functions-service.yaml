@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: functions
+  labels:
+    app: functions
+spec:
+  ports:
+  - port: 8080
+    targetPort: http-server
+  selector:
+    app: functions
+  type: LoadBalancer

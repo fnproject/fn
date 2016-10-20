@@ -1,0 +1,33 @@
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: functions
+  labels:
+    app: functions
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: functions
+    spec:
+      containers:
+      - name: functions
+        image: iron/functions
+        securityContext:
+          privileged: true
+        env:
+        - name: DOCKER_HOST
+          value: unix:///var/run/docker.sock
+        volumeMounts:
+        - mountPath: "/var/run/docker.sock"
+          name: docker-socket
+          readOnly: false
+        ports:
+        - name: http-server
+          containerPort: 8080
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: "/var/run/docker.sock"

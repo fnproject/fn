@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: functions-config
+data:
+  MQ: redis://redis-master.default
+  DB: postgres://postgres:mysecretpassword@postgresql-master.default/?sslmode=disable
