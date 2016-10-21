@@ -121,7 +121,3 @@ TODO:
 ## More Documentation
 
 See [docs/](docs/) for full documentation. 
-
-## Join Our Community
-
-[![Slack Status](https://open-iron.herokuapp.com/badge.svg)](https://open-iron.herokuapp.com)
