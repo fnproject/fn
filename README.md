@@ -114,6 +114,12 @@ If you watch the logs, you will see the function actually runs in the background
 
 Read more on [logging](docs/logging.md).
 
+## Client Libraries
+
+- [Go](https://github.com/iron-io/functions_go)
+- [Ruby](https://github.com/iron-io/functions_ruby)
+- [Javascript](https://github.com/iron-io/functions_js)
+
 ## Writing Functions
 
 TODO:
