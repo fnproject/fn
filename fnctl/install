@@ -58,7 +58,7 @@ else
     exit 1
 fi
 
-url='https://github.com/iron-io/fnctl/releases/download'
+url='https://github.com/iron-io/functions/releases/download'
 
 # perform some very rudimentary platform detection
 case "$(uname)" in
@@ -85,10 +85,10 @@ esac
 cat >&2 <<'EOF'
 
   Either your platform is not easily detectable or is not supported by this
-  installer script (yet - PRs welcome! [install.sh]).
+  installer script (yet - PRs welcome! [fnctl/install]).
   Please visit the following URL for more detailed installation instructions:
 
-    https://github.com/iron-io/ironcli
+    https://github.com/iron-io/functions
 
 EOF
 exit 1
