@@ -63,14 +63,14 @@ url='https://github.com/iron-io/functions/releases/download'
 # perform some very rudimentary platform detection
 case "$(uname)" in
   Linux)
-    $sh_c "$curl fnctl $url/$release/fnctl_linux"
-    $sh_c "chmod +x fnctl"
+    $sh_c "$curl /usr/local/bin/fnctl $url/$release/fnctl_linux"
+    $sh_c "chmod +x /usr/local/bin/fnctl"
     fnctl --version
     exit 0
     ;;
   Darwin)
-    $sh_c "$curl fnctl $url/$release/fnctl_mac"
-    $sh_c "chmod +x fnctl"
+    $sh_c "$curl /usr/local/bin/fnctl $url/$release/fnctl_mac"
+    $sh_c "chmod +x /usr/local/bin/fnctl"
     fnctl --version
     exit 0
     ;;
