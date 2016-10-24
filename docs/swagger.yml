@@ -5,8 +5,8 @@
 swagger: '2.0'
 info:
   title: IronFunctions
-  description: 
-  version: "0.0.8"
+  description:
+  version: "0.0.9"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -140,15 +140,15 @@ paths:
           type: string
         - name: body
           in: body
-          description: Array of routes to post.
+          description: One route to post.
           required: true
           schema:
-            $ref: '#/definitions/RoutesWrapper'
+            $ref: '#/definitions/RouteWrapper'
       responses:
         201:
           description: Route created
           schema:
-            $ref: '#/definitions/RoutesWrapper'
+            $ref: '#/definitions/RouteWrapper'
         400:
           description: One or more of the routes were invalid due to parameters being missing or invalid.
           schema:
@@ -269,9 +269,9 @@ definitions:
             readOnly: true
           path:
             type: string
-            description: URL path that will be matched to this route 
+            description: URL path that will be matched to this route
           image:
-            description: Name of Docker image to use in this route. You should include the image tag, which should be a version number, to be more accurate. Can be overridden on a per route basis with route.image. 
+            description: Name of Docker image to use in this route. You should include the image tag, which should be a version number, to be more accurate. Can be overridden on a per route basis with route.image.
             type: string
           headers:
             type: string
@@ -296,7 +296,7 @@ definitions:
           $ref: '#/definitions/Route'
       cursor:
         type: string
-        description: Used to paginate results. If this is returned, pass it into the same query again to get more results. 
+        description: Used to paginate results. If this is returned, pass it into the same query again to get more results.
       error:
         $ref: '#/definitions/ErrorBody'
 
@@ -376,7 +376,7 @@ definitions:
           env_vars:
             # this is a map: https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#model-with-mapdictionary-properties
             type: object
-            description: Env vars for the task. Comes from the ones set on the Group. 
+            description: Env vars for the task. Comes from the ones set on the Group.
             additionalProperties:
               type: string
 
@@ -404,7 +404,7 @@ definitions:
     properties:
       image:
         type: string
-        description: Name of Docker image to use. This is optional and can be used to override the image defined at the group level. 
+        description: Name of Docker image to use. This is optional and can be used to override the image defined at the group level.
       payload:
         type: string
         # 256k
