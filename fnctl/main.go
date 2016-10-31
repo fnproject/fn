@@ -21,6 +21,7 @@ func main() {
 		apps(),
 		routes(),
 		update(),
+		lambda(),
 	}
 	app.Run(os.Args)
 }

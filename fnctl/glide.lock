@@ -1,14 +1,12 @@
-hash: ba755dafecdd69ab73589e55d3b10216684aa885d65fa459fca69a0c4da6d959
-updated: 2016-10-20T18:19:35.100655097-07:00
+hash: 9bc670813e50a1c5d7dd9703d2a0b33bcf812dafdde28fc98886bb2a3c5e441b
+updated: 2016-10-26T15:13:34.156397533+01:00
 imports:
-- name: github.com/go-resty/resty
-  version: 1a3bb60986d90e32c04575111b1ccb8eab24a3e5
+- name: github.com/aws/aws-sdk-go
+  version: 32cdc88aa5cd2ba4afa049da884aaf9a3d103ef4
 - name: github.com/iron-io/functions_go
   version: 584f4a6e13b53370f036012347cf0571128209f0
+- name: github.com/iron-io/lambda
+  version: 197598b21c6918d143244cc69d4d443f062d3c78
 - name: github.com/urfave/cli
   version: 55f715e28c46073d0e217e2ce8eb46b0b45e3db6
-- name: golang.org/x/net
-  version: daba796358cd2742b75aae05761f1b898c9f6a5c
-  subpackages:
-  - publicsuffix
 testImports: []
