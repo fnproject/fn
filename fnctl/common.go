@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"text/tabwriter"
+	"time"
 
 	"github.com/urfave/cli"
 	yaml "gopkg.in/yaml.v2"
@@ -83,10 +84,6 @@ func isvalid(path string, info os.FileInfo) bool {
 }
 
 func walker(path string, info os.FileInfo, err error, w io.Writer, f func(path string) error) {
-	if !isvalid(path, info) {
-		return
-	}
-
 	fmt.Fprint(w, path, "\t")
 	if err := f(path); err != nil {
 		fmt.Fprintln(w, err)
@@ -98,6 +95,7 @@ func walker(path string, info os.FileInfo, err error, w io.Writer, f func(path s
 type commoncmd struct {
 	wd      string
 	verbose bool
+	force   bool
 
 	verbwriter io.Writer
 }
@@ -116,6 +114,11 @@ func (c *commoncmd) flags() []cli.Flag {
 			Usage:       "verbose mode",
 			Destination: &c.verbose,
 		},
+		cli.BoolFlag{
+			Name:        "f",
+			Usage:       "force updating of all functions that are already up-to-date",
+			Destination: &c.force,
+		},
 	}
 }
 
@@ -125,17 +128,64 @@ func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w
 		c.verbwriter = os.Stderr
 	}
 
+	var walked bool
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 0, '\t', 0)
 	fmt.Fprint(w, "path", "\t", "result", "\n")
 
 	err := filepath.Walk(c.wd, func(path string, info os.FileInfo, err error) error {
-		return walker(path, info, err, w)
+		if !isvalid(path, info) {
+			return nil
+		}
+
+		if !c.force && !isstale(path) {
+			return nil
+		}
+
+		e := walker(path, info, err, w)
+		now := time.Now()
+		os.Chtimes(path, now, now)
+		walked = true
+		return e
 	})
 	if err != nil {
 		fmt.Fprintf(c.verbwriter, "file walk error: %s\n", err)
 	}
 
+	if !walked {
+		fmt.Println("all functions are up-to-date.")
+		return
+	}
+
 	w.Flush()
+}
+
+// Theory of operation: this takes an optimistic approach to detect whether a
+// package must be rebuild/bump/published. It loads for all files mtime's and
+// compare with functions.json own mtime. If any file is younger than
+// functions.json, it triggers a rebuild.
+// The problem with this approach is that depending on the OS running it, the
+// time granularity of these timestamps might lead to false negatives - that is
+// a package that is stale but it is not recompiled. A more elegant solution
+// could be applied here, like https://golang.org/src/cmd/go/pkg.go#L1111
+func isstale(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return true
+	}
+
+	fnmtime := fi.ModTime()
+	dir := filepath.Dir(path)
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if info.ModTime().After(fnmtime) {
+			return errors.New("found stale package")
+		}
+		return nil
+	})
+	return err != nil
 }
 
 func (c commoncmd) buildfunc(path string) (*funcfile, error) {
