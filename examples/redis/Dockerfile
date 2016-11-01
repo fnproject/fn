@@ -1,8 +1,5 @@
-FROM golang:1.6.2
+FROM iron/go
 
-ADD . $GOPATH/src/func
-WORKDIR $GOPATH/src/func
+ADD func .
 
-RUN go get .
-
-ENTRYPOINT ["go", "run", "main.go"]
+ENTRYPOINT ["./func"]

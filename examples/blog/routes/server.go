@@ -13,8 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// import "github.com/iron-io/functions/examples/blog/database"
-
 var jwtSignKey = []byte("mysecretblog")
 
 type Response map[string]interface{}
@@ -32,9 +30,9 @@ func SendError(err interface{}) {
 
 func HandleToken(db *database.Database) {
 	var login *models.User
-	err := json.Unmarshal([]byte(os.Getenv("PAYLOAD")), &login)
-	if err != nil {
-		fmt.Println("Missing username and password")
+
+	if err := json.NewDecoder(os.Stdin).Decode(&login); err != nil {
+		fmt.Printf("Couldn't decode login JSON: %v\n", err)
 		return
 	}
 

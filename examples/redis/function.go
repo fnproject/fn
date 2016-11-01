@@ -11,10 +11,8 @@ import (
 )
 
 type payload struct {
-	Redis     string        `json:"redis"`
-	RedisAuth string        `json:"redisAuth"`
-	Command   string        `json:"command"`
-	Args      []interface{} `json:"args"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func main() {
@@ -31,7 +29,7 @@ func main() {
 	}
 
 	// Dialing redis server
-	c, err := redis.Dial("tcp", pl.Redis)
+	c, err := redis.Dial("tcp", os.Getenv("CONFIG_SERVER"))
 	if err != nil {
 		log.Println("Failed to dial redis server")
 		log.Fatal(err)
@@ -39,8 +37,8 @@ func main() {
 	}
 
 	// Authenticate to redis server if exists the password
-	if pl.RedisAuth != "" {
-		if _, err := c.Do("AUTH", pl.RedisAuth); err != nil {
+	if os.Getenv("CONFIG_REDIS_AUTH") != "" {
+		if _, err := c.Do("AUTH", os.Getenv("CONFIG_REDIS_AUTH")); err != nil {
 			log.Println("Failed to authenticate to redis server")
 			log.Fatal(err)
 			return
@@ -48,13 +46,19 @@ func main() {
 	}
 
 	// Check if payload command is valid
-	if pl.Command != "GET" && pl.Command != "SET" {
+	if os.Getenv("CONFIG_COMMAND") != "GET" && os.Getenv("CONFIG_COMMAND") != "SET" {
 		log.Println("Invalid command")
 		return
 	}
 
 	// Execute command on redis server
-	r, err := c.Do(pl.Command, pl.Args...)
+	var r interface{}
+	if os.Getenv("CONFIG_COMMAND") == "GET" {
+		r, err = c.Do("GET", pl.Key)
+	} else if os.Getenv("CONFIG_COMMAND") == "SET" {
+		r, err = c.Do("SET", pl.Key, pl.Value)
+	}
+
 	if err != nil {
 		log.Println("Failed to execute command on redis server")
 		log.Fatal(err)

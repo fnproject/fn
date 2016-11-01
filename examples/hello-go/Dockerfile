@@ -1,6 +1,5 @@
 FROM iron/go
 
-WORKDIR /function
-ADD hello .
+ADD func .
 
-ENTRYPOINT ["./hello"]
+ENTRYPOINT ["./func"]

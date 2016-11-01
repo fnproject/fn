@@ -1,9 +1,9 @@
 FROM iron/ruby:dev
 
-WORKDIR /worker
-ADD Gemfile* /worker/
+WORKDIR /function
+ADD Gemfile* /function/
 RUN bundle install
 
-ADD . /worker/
+ADD . /function/
 
-ENTRYPOINT ["ruby", "hello.rb"]
+ENTRYPOINT ["ruby", "function.rb"]

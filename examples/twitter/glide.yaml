@@ -1,0 +1,7 @@
+package: github.com/iron-io/functions/examples/twitter
+import:
+- package: github.com/dghubble/go-twitter
+  subpackages:
+  - twitter
+- package: github.com/dghubble/oauth1
+  version: ^0.4.0

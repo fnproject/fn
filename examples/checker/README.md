@@ -1,22 +1,78 @@
-This is a worker that we can use to check inputs to the job, such as env vars. 
+# Environment Checker Function Image
 
-Pass in checks via the payload:
+This images compares the payload info with the header.
 
-```json
-{
-  "env_vars": {
-    "foo": "bar"
-  }
-}
-```
+## Requirements
 
-That will check that there is an env var called foo with the value bar passed to the task. 
+- IronFunctions API
 
-## Building Image
+## Development
 
-Install [dj](https://github.com/treeder/dj/), then run:
+### Building image locally
 
 ```
-docker build -t iron/checker .
-docker run -e 'PAYLOAD={"env_vars": {"FOO": "bar"}}' -e "FOO=bar" iron/checker
+# SET BELOW TO YOUR DOCKER HUB USERNAME
+USERNAME=YOUR_DOCKER_HUB_USERNAME
+
+# build it
+./build.sh
+```
+
+### Publishing to DockerHub
+
+```
+# tagging
+docker run --rm -v "$PWD":/app treeder/bump patch
+docker tag $USERNAME/func-checker:latest $USERNAME/func-checker:`cat VERSION`
+
+# pushing to docker hub
+docker push $USERNAME/func-checker
+```
+
+### Testing image
+
+```
+./test.sh
+```
+
+## Running it on IronFunctions
+
+### Let's define some environment variables
+
+```
+# Set your Function server address
+# Eg. 127.0.0.1:8080
+FUNCAPI=YOUR_FUNCTIONS_ADDRESS
+```
+
+### Running with IronFunctions
+
+With this command we are going to create an application with name `checker`.
+
+```
+curl -X POST --data '{
+    "app": {
+        "name": "checker",
+    }
+}' http://$FUNCAPI/v1/apps
+```
+
+Now, we can create our route
+
+```
+curl -X POST --data '{
+    "route": {
+        "image": "'$USERNAME'/func-checker",
+        "path": "/check",
+        "config": { "TEST": "1" }
+    }
+}' http://$FUNCAPI/v1/apps/checker/routes
+```
+
+#### Testing function
+
+Now that we created our IronFunction route, let's test our new route
+
+```
+curl -X POST --data '{ "env_vars": { "config_test": "1" } }' http://$FUNCAPI/r/checker/check
 ```

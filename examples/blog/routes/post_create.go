@@ -12,13 +12,12 @@ import (
 func HandlePostCreate(db *database.Database, auth map[string]interface{}) {
 	var post *models.Post
 
-	err := json.Unmarshal([]byte(os.Getenv("PAYLOAD")), &post)
-	if err != nil {
-		fmt.Println("Invalid post")
+	if err := json.NewDecoder(os.Stdin).Decode(&post); err != nil {
+		fmt.Printf("Couldn't decode post JSON: %v\n", err)
 		return
 	}
 
-	post, err = db.SavePost(post)
+	post, err := db.SavePost(post)
 	if err != nil {
 		fmt.Println("Couldn't save that post")
 		return

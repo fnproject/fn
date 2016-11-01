@@ -1,8 +1,5 @@
-FROM iron/go:dev
+FROM iron/go
 
-ADD . $GOPATH/src/github.com/iron-io/functions/examples/twitter
-WORKDIR $GOPATH/src/github.com/iron-io/functions/examples/twitter
+ADD func .
 
-RUN go get .
-
-ENTRYPOINT ["go", "run", "main.go"]
+ENTRYPOINT ["./func"]

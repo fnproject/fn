@@ -1,0 +1,3 @@
+image: iron/func-hello-gp
+build:
+  - ./build.sh

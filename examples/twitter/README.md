@@ -1,13 +1,11 @@
-# Twitter Example
+# Twitter Function Image
 
 This function exemplifies an authentication in Twitter API and get latest tweets of an account.
 
 ## Requirements
 
-You need create or configure a [Twitter App](https://apps.twitter.com/) and configure Customer Access and Access Token.
-
-Reference: https://dev.twitter.com/oauth/overview/application-owner-access-tokens
-
+- IronFunctions API
+- Configure a [Twitter App](https://apps.twitter.com/) and [configure Customer Access and Access Token](https://dev.twitter.com/oauth/overview/application-owner-access-tokens).
 
 ## Development
 
@@ -15,37 +13,51 @@ Reference: https://dev.twitter.com/oauth/overview/application-owner-access-token
 
 ```
 # SET BELOW TO YOUR DOCKER HUB USERNAME
-export USERNAME=YOUR_DOCKER_HUB_USERNAME
+USERNAME=YOUR_DOCKER_HUB_USERNAME
 
 # build it
-docker build -t $USERNAME/functions-twitter .
+./build.sh
 ```
 
-### Publishing it
+### Publishing to DockerHub
 
 ```
-docker push $USERNAME/functions-twitter
+# tagging
+docker run --rm -v "$PWD":/app treeder/bump patch
+docker tag $USERNAME/func-twitter:latest $USERNAME/func-twitter:`cat VERSION`
+
+# pushing to docker hub
+docker push $USERNAME/func-twitter
+```
+
+### Testing image
+
+```
+./test.sh
 ```
 
 ## Running it on IronFunctions
 
-You need a running IronFunctions API
+### Let's define some environment variables
 
-### First, let's define this environment variables
+```
+# Set your Function server address
+# Eg. 127.0.0.1:8080
+FUNCAPI=YOUR_FUNCTIONS_ADDRESS
 
-Set your Twitter Credentials in environment variables.
-
-```sh
-export CUSTOMER_KEY="XXXXXX"
-export CUSTOMER_SECRET="XXXXXX"
-export ACCESS_TOKEN="XXXXXX"
-export ACCESS_SECRET="XXXXXX"
+CUSTOMER_KEY="XXXXXX"
+CUSTOMER_SECRET="XXXXXX"
+ACCESS_TOKEN="XXXXXX"
+ACCESS_SECRET="XXXXXX"
 ```
 
-### Create the application
-```sh
-curl -H "Content-Type: application/json" -X POST -d '{
-    "app": { 
+### Running with IronFunctions
+
+With this command we are going to create an application with name `twitter`.
+
+```
+curl -X POST --data '{
+    "app": {
         "name": "twitter",
         "config": { 
             "CUSTOMER_KEY": "'$CUSTOMER_KEY'",
@@ -54,27 +66,24 @@ curl -H "Content-Type: application/json" -X POST -d '{
             "ACCESS_SECRET": "'$ACCESS_SECRET'"
         }
     }
-}' http://localhost:8080/v1/apps
+}' http://$FUNCAPI/v1/apps
 ```
 
-### Add the route
-```sh
-curl -H "Content-Type: application/json" -X POST -d '{
+Now, we can create our route
+
+```
+curl -X POST --data '{
     "route": {
-        "path":"/tweets",
-        "image":"'$USERNAME/functions-twitter'"
+        "image": "'$USERNAME'/func-twitter",
+        "path": "/tweets",
     }
-}' http://localhost:8080/v1/apps/twitter/routes
+}' http://$FUNCAPI/v1/apps/twitter/routes
 ```
 
+#### Testing function
 
-### Calling the function
+Now that we created our IronFunction route, let's test our new route
 
-```sh
-# Latests tweets of default account (getiron)
-curl http://localhost:8080/r/twitter/tweets
-
-# Latests tweets of specific account
-curl -X POST --data '{"username": "getiron"}' http://localhost:8080/r/twitter/tweets
-
+```
+curl -X POST --data '{"username": "getiron"}' http://$FUNCAPI/r/twitter/tweets
 ```

@@ -1,0 +1,10 @@
+package: github.com/iron-io/functions/examples/blog
+import:
+- package: github.com/dgrijalva/jwt-go
+  version: ^3.0.0
+- package: golang.org/x/crypto
+  subpackages:
+  - bcrypt
+- package: gopkg.in/mgo.v2
+  subpackages:
+  - bson
