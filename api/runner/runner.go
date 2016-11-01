@@ -90,8 +90,7 @@ func (r *Runner) queueHandler() {
 		}
 
 		// Loop waiting for available memory
-		canRun := r.checkRequiredMem(task.cfg.Memory)
-		for ; !canRun; canRun = r.checkRequiredMem(task.cfg.Memory) {
+		for !r.checkRequiredMem(task.cfg.Memory) {
 			waitTime = time.Since(waitStart)
 			if waitTime > WaitMemoryTimeout {
 				timedOut = true
@@ -182,6 +181,7 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	} else {
 		r.ml.LogTime(ctx, metricBaseName+"waittime", 0)
 	}
+	defer r.addUsedMem(-1 * int64(cfg.Memory))
 
 	closer, err := r.driver.Prepare(ctx, ctask)
 	if err != nil {
@@ -195,8 +195,6 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	if err != nil {
 		return nil, err
 	}
-
-	r.addUsedMem(-1 * int64(cfg.Memory))
 
 	if result.Status() == "success" {
 		r.ml.LogCount(ctx, metricBaseName+"succeeded", 1)
@@ -248,6 +246,9 @@ func getAvailableMemory() int64 {
 				logrus.WithError(err).Fatal("Cannot get the proper information to. You must specify the maximum available memory by passing the -m command with docker run when starting the runner via docker, eg:  `docker run -m 2G ...`")
 			}
 		}
+	} else {
+		// This still lets 10-20 functions execute concurrently assuming a 2GB machine.
+		availableMemory = 2 * 1024 * 1024 * 1024
 	}
 
 	return int64(availableMemory)
