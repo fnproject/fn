@@ -1,12 +1,107 @@
-hash: 9bc670813e50a1c5d7dd9703d2a0b33bcf812dafdde28fc98886bb2a3c5e441b
-updated: 2016-10-26T15:13:34.156397533+01:00
+hash: 6c0bc544bcabed5a74a7eeefd53bd6e088f10f6deee1a9fa65bb8b5e512b93aa
+updated: 2016-10-31T15:05:00.722579591-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 32cdc88aa5cd2ba4afa049da884aaf9a3d103ef4
+  subpackages:
+  - aws/awserr
+  - aws/credentials
+- name: github.com/Azure/go-ansiterm
+  version: fa152c58bc15761d0200cb75fe958b89a9d4888e
+  subpackages:
+  - winterm
+- name: github.com/coreos/go-semver
+  version: 8ab6407b697782a06568d4b7f1db25550ec2e4c6
+  subpackages:
+  - semver
+- name: github.com/docker/docker
+  version: 8cced8702261224ffd726774812eb50e8a600e52
+  subpackages:
+  - api/types/blkiodev
+  - api/types/container
+  - api/types/filters
+  - api/types/mount
+  - api/types/strslice
+  - api/types/swarm
+  - api/types/versions
+  - opts
+  - pkg/archive
+  - pkg/fileutils
+  - pkg/homedir
+  - pkg/idtools
+  - pkg/ioutils
+  - pkg/jsonlog
+  - pkg/jsonmessage
+  - pkg/longpath
+  - pkg/pools
+  - pkg/promise
+  - pkg/stdcopy
+  - pkg/system
+  - pkg/term
+  - pkg/term/windows
+- name: github.com/docker/go-connections
+  version: f512407a188ecb16f31a33dbc9c4e4814afc1b03
+  subpackages:
+  - nat
+- name: github.com/docker/go-units
+  version: 8a7beacffa3009a9ac66bad506b18ffdd110cf97
+- name: github.com/fsouza/go-dockerclient
+  version: 3162ed100df52ad76c94cdf1b8b2a45d4f5e203d
+- name: github.com/giantswarm/semver-bump
+  version: 7ec6ac8985c24dd50b4942f9a908d13cdfe70f23
+  subpackages:
+  - bump
+  - storage
+- name: github.com/go-ini/ini
+  version: 6e4869b434bd001f6983749881c7ead3545887d8
+- name: github.com/go-resty/resty
+  version: 1a3bb60986d90e32c04575111b1ccb8eab24a3e5
+- name: github.com/hashicorp/go-cleanhttp
+  version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/iron-io/functions_go
   version: 584f4a6e13b53370f036012347cf0571128209f0
+- name: github.com/iron-io/iron_go3
+  version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
+  subpackages:
+  - api
+  - config
+  - worker
 - name: github.com/iron-io/lambda
   version: 197598b21c6918d143244cc69d4d443f062d3c78
+  subpackages:
+  - lambda
+- name: github.com/juju/errgo
+  version: 08cceb5d0b5331634b9826762a8fd53b29b86ad8
+  subpackages:
+  - errors
+- name: github.com/Microsoft/go-winio
+  version: ce2922f643c8fd76b46cadc7f404a06282678b34
+- name: github.com/opencontainers/runc
+  version: bc462c96bf7b15b68ab40e86335cefcb692707c1
+  subpackages:
+  - libcontainer/system
+  - libcontainer/user
+- name: github.com/satori/go.uuid
+  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
+- name: github.com/Sirupsen/logrus
+  version: 380f64d344b252a007a59baa61f31820f59cba89
 - name: github.com/urfave/cli
   version: 55f715e28c46073d0e217e2ce8eb46b0b45e3db6
+- name: golang.org/x/crypto
+  version: 9477e0b78b9ac3d0b03822fd95422e2fe07627cd
+  subpackages:
+  - ssh/terminal
+- name: golang.org/x/net
+  version: daba796358cd2742b75aae05761f1b898c9f6a5c
+  subpackages:
+  - context
+  - context/ctxhttp
+  - publicsuffix
+- name: golang.org/x/sys
+  version: c200b10b5d5e122be351b67af224adc6128af5bf
+  subpackages:
+  - unix
+  - windows
+- name: gopkg.in/yaml.v2
+  version: a5b47d31c556af34a302ce5d659e6fea44d90de0
 testImports: []
