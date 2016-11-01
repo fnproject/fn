@@ -1,0 +1,5 @@
+app: nodeapp
+route: /hello
+image: USERNAME/hello:0.0.1
+build:
+- docker run --rm -v "$PWD":/worker -w /worker iron/node:dev npm install

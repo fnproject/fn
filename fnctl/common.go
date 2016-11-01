@@ -215,9 +215,10 @@ func (c commoncmd) localbuild(path string, steps []string) error {
 	for _, cmd := range steps {
 		exe := exec.Command("/bin/sh", "-c", cmd)
 		exe.Dir = filepath.Dir(path)
-		out, err := exe.CombinedOutput()
-		fmt.Fprintf(c.verbwriter, "- %s:\n%s\n", cmd, out)
-		if err != nil {
+		exe.Stderr = c.verbwriter
+		exe.Stdout = c.verbwriter
+		fmt.Fprintf(c.verbwriter, "- %s:\n", cmd)
+		if err := exe.Run(); err != nil {
 			return fmt.Errorf("error running command %v (%v)", cmd, err)
 		}
 	}
@@ -226,9 +227,10 @@ func (c commoncmd) localbuild(path string, steps []string) error {
 }
 
 func (c commoncmd) dockerbuild(path, image string) error {
-	out, err := exec.Command("docker", "build", "-t", image, filepath.Dir(path)).CombinedOutput()
-	fmt.Fprintf(c.verbwriter, "%s\n", out)
-	if err != nil {
+	cmd := exec.Command("docker", "build", "-t", image, filepath.Dir(path))
+	cmd.Stderr = c.verbwriter
+	cmd.Stdout = c.verbwriter
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error running docker build: %v", err)
 	}
 

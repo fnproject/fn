@@ -24,6 +24,7 @@ func main() {
 		lambda(),
 		publish(),
 		routes(),
+		run(),
 	}
 	app.Run(os.Args)
 }

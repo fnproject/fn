@@ -1,0 +1,5 @@
+app: phpapp
+route: /hello
+image: USERNAME/hello:0.0.1
+build:
+- docker run --rm -v "$PWD":/worker -w /worker iron/php:dev composer install

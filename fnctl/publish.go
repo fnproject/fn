@@ -84,12 +84,12 @@ func (p *publishcmd) publish(path string) error {
 }
 
 func (p publishcmd) dockerpush(image string) error {
-	out, err := exec.Command("docker", "push", image).CombinedOutput()
-	fmt.Fprintf(p.verbwriter, "%s\n", out)
-	if err != nil {
+	cmd := exec.Command("docker", "push", image)
+	cmd.Stderr = p.verbwriter
+	cmd.Stdout = p.verbwriter
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error running docker push: %v", err)
 	}
-
 	return nil
 }
 

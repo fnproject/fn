@@ -1,0 +1,5 @@
+app: pythonapp
+route: /hello
+image: USERNAME/hello:0.0.1
+build:
+- docker run --rm -v "$PWD":/worker -w /worker iron/python:2-dev pip install -t packages -r requirements.txt
