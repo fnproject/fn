@@ -30,7 +30,7 @@ func handleSpecial(c *gin.Context) {
 	}
 }
 
-func toEnvName(envtype, name string) string {
+func ToEnvName(envtype, name string) string {
 	name = strings.ToUpper(strings.Replace(name, "-", "_", -1))
 	return fmt.Sprintf("%s_%s", envtype, name)
 }
@@ -128,22 +128,22 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 
 	// app config
 	for k, v := range app.Config {
-		envVars[toEnvName("CONFIG", k)] = v
+		envVars[ToEnvName("CONFIG", k)] = v
 	}
 
 	// route config
 	for k, v := range found.Config {
-		envVars[toEnvName("CONFIG", k)] = v
+		envVars[ToEnvName("CONFIG", k)] = v
 	}
 
 	// params
 	for _, param := range params {
-		envVars[toEnvName("PARAM", param.Key)] = param.Value
+		envVars[ToEnvName("PARAM", param.Key)] = param.Value
 	}
 
 	// headers
 	for header, value := range c.Request.Header {
-		envVars[toEnvName("HEADER", header)] = strings.Join(value, " ")
+		envVars[ToEnvName("HEADER", header)] = strings.Join(value, " ")
 	}
 
 	cfg := &runner.Config{

@@ -15,6 +15,7 @@ build-docker:
 
 test:
 	go test -v $(shell glide nv | grep -v examples | grep -v tool | grep -v fnctl)
+	cd fnctl && $(MAKE) test
 
 test-docker:
 	docker run -ti --privileged --rm -e LOG_LEVEL=debug \

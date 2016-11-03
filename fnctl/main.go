@@ -21,6 +21,7 @@ func main() {
 		apps(),
 		build(),
 		bump(),
+		call(),
 		lambda(),
 		publish(),
 		routes(),

@@ -9,3 +9,6 @@ docker: vendor
 
 vendor:
 	go get -u .
+
+test:
+	go test -v $(shell glide nv)
