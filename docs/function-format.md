@@ -1,0 +1,108 @@
+# Open Function Format
+
+This document will describe the details of how a function works, inputs/outputs, etc.
+
+## Input
+
+### STDIN and Environment Variables
+
+While wanting to keep things simple, flexible and expandable, we decided to go back to the basics, using Unix input and output. Standard in is easy to use in any
+language and doesn't require anything extra. It also allows streaming input so we can do things like keeping a container running some time and stream
+requests into the container. 
+
+Configuration values, environment information and other things will be passed in through environment variables.
+
+### Input Formats
+
+The goals of the input format are the following:
+
+* Very easy to use and parse
+* Streamable for increasing performance (more than one call per container execution)
+* Ability to build higher level abstractions on top (ie: Lambda syntax compatible)
+
+The format is still up for discussion and in order to move forward and remain flexible, it's likely we will just allow different input formats and the
+function creator can decide what they want, on a per function basis. Default being the simplest format to use.
+
+#### Default Input Format
+
+The default input format is simply the request body itself plus some environment variables. For instance, if someone were to post a JSON body, the unmodified body would 
+be sent in via STDIN. 
+
+Pros: 
+
+* Very simple to use
+
+Cons:
+
+* Not streamable
+
+#### HTTP/1 Input Format (Not implemented)
+
+`--input-format http`
+
+HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it's streamable. The basic format
+is:
+
+```
+REQUEST LINE
+HEADER
+BLANK LINE
+BODY
+```
+
+The header keys and values would be populated with information about the function call such as the request URL and query parameters.  
+
+Body length is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory.
+
+Pros:
+
+* Streamable
+* Common format
+
+Cons:
+
+* Requires a parsing library or fair amount of code to parse headers properly
+* Double parsing - headers + body (if body is to be parsed, such as json)
+
+#### JSON/HTTP Input Format (Not implemented)
+
+`--input-format json-http`
+
+The idea here is to keep the HTTP base structure, but make it a bit easier to parse by making the `request line` and `headers` a JSON struct. 
+Eg:
+
+```
+{
+  "request_url":"http://....",
+  "params": {
+    "blog_name": "yeezy"
+  }
+}
+BLANK LINE
+BODY
+```
+
+Pros:
+
+* Streamable
+* Easy to parse headers
+
+Cons:
+
+* New, unknown format
+
+## Output
+
+### STDOUT
+
+For synchronous: True to form, whatever is written to standard out is returned as the response. If you want to return some JSON output, just write it directly to STDOUT.
+
+TODO: How to change response headers? Perhaps a similar style as input? Headers, then body. Default headers can be defined on the route and overridden on output. 
+
+For asynchronous: STDOUT will be written to /dev/null until [further notice](https://github.com/iron-io/functions/issues/173). We do not want to write this 
+to the logs now, then change it later, otherwise people will start to depend on it. 
+
+### STDERR
+
+Standard error is reserved for logging, like it was meant to be. Anything you output to STDERR will show up in the logs. And if you use a log 
+collector like logspout, you can collect those logs in a central location. See [logging](logging.md).

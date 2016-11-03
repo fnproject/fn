@@ -1,7 +1,4 @@
-
-
-
-## IronFunctions Config Options
+# IronFunctions Configuration Options
 
 When starting IronFunctions, you can pass in the following configuration variables as environment variables. Use `-e VAR_NAME=VALUE` in 
 docker run.  For example:
@@ -39,5 +36,4 @@ docker run -e VAR_NAME=VALUE ...
 <td>LOG_LEVEL</td>
 <td>Set to `DEBUG` to enable debugging. Default is INFO.</td>
 </tr>
-
 </table>
