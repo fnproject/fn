@@ -32,7 +32,6 @@ type publishcmd struct {
 	*commoncmd
 	*functions.RoutesApi
 
-	dry      bool
 	skippush bool
 }
 
