@@ -342,7 +342,7 @@ func createDockerfile(opts createImageOptions, files ...fileLike) error {
 		if err != nil {
 			return err
 		}
-		fmt.Print(fmt.Sprintf("Copying file: %s", filepath.Join(opts.Name, fstat.Name())))
+		fmt.Print(fmt.Sprintf("Copying file: %s ... ", filepath.Join(opts.Name, fstat.Name())))
 		src, err := os.Create(filepath.Join(opts.Name, fstat.Name()))
 		if err != nil {
 			return err
