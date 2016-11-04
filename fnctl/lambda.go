@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -11,48 +12,365 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	aws_lambda "github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/iron-io/iron_go3/config"
 	lambdaImpl "github.com/iron-io/lambda/lambda"
 	"github.com/urfave/cli"
-
-	"github.com/aws/aws-sdk-go/aws"
-	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	aws_session "github.com/aws/aws-sdk-go/aws/session"
-	aws_lambda "github.com/aws/aws-sdk-go/service/lambda"
 )
 
-var availableRuntimes = []string{"nodejs", "python2.7", "java8"}
+func init() {
+	if len(runtimeCreateHandlers) != len(runtimeImportHandlers) {
+		panic("incomplete implementation of runtime support")
+	}
 
-type lambdaCmd struct {
-	settings  config.Settings
-	token     *string
-	projectID *string
-
-	functionName string
-	runtime      string
-	handler      string
-	fileNames    []string
-	payload      string
-	clientConext string
-	arn          string
-	version      string
-	downloadOnly bool
-	awsProfile   string
-	image        string
-	awsRegion    string
 }
 
-func (lcc *lambdaCmd) Config() error {
+func lambda() cli.Command {
+	var flags []cli.Flag
+
+	flags = append(flags, getFlags()...)
+
+	return cli.Command{
+		Name:      "lambda",
+		Usage:     "create and publish lambda functions",
+		ArgsUsage: "fnclt lambda",
+		Subcommands: []cli.Command{
+			{
+				Name:      "create-function",
+				Usage:     `create Docker image that can run your Lambda function, where files are the contents of the zip file to be uploaded to AWS Lambda.`,
+				ArgsUsage: "name runtime handler /path [/paths...]",
+				Action:    create,
+				Flags:     flags,
+			},
+			{
+				Name:      "test-function",
+				Usage:     `runs local dockerized Lambda function and writes output to stdout.`,
+				ArgsUsage: "name [--payload <value>]",
+				Action:    test,
+				Flags:     flags,
+			},
+			{
+				Name:      "aws-import",
+				Usage:     `converts an existing Lambda function to an image, where the function code is downloaded to a directory in the current working directory that has the same name as the Lambda function.`,
+				ArgsUsage: "arn region image/name [--profile <aws profile>] [--version <version>] [--download-only]",
+				Action:    awsImport,
+				Flags:     flags,
+			},
+		},
+	}
+}
+
+func getFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:  "payload",
+			Usage: "Payload to pass to the Lambda function. This is usually a JSON object.",
+			Value: "{}",
+		},
+		cli.StringFlag{
+			Name:  "version",
+			Usage: "Version of the function to import.",
+			Value: "$LATEST",
+		},
+		cli.BoolFlag{
+			Name:  "download-only",
+			Usage: "Only download the function into a directory. Will not create a Docker image.",
+		},
+	}
+}
+
+func create(c *cli.Context) error {
+	args := c.Args()
+	if len(args) < 4 {
+		return fmt.Errorf("Expected at least 4 arguments, NAME RUNTIME HANDLER and file %d", len(args))
+	}
+	functionName := args[0]
+	runtime := args[1]
+	handler := args[2]
+	fileNames := args[3:]
+
+	files := make([]fileLike, 0, len(fileNames))
+	opts := createImageOptions{
+		Name:          functionName,
+		Base:          fmt.Sprintf("iron/lambda-%s", runtime),
+		Package:       "",
+		Handler:       handler,
+		OutputStream:  newdockerJSONWriter(os.Stdout),
+		RawJSONStream: true,
+	}
+
+	if handler == "" {
+		return errors.New("No handler specified.")
+	}
+
+	rh, ok := runtimeCreateHandlers[runtime]
+	if !ok {
+		return fmt.Errorf("unsupported runtime %v", runtime)
+	}
+
+	if err := rh(fileNames, &opts); err != nil {
+		return err
+	}
+
+	for _, fileName := range fileNames {
+		file, err := os.Open(fileName)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		files = append(files, file)
+	}
+
+	return createDockerfile(opts, files...)
+
+}
+
+var runtimeCreateHandlers = map[string]func(filenames []string, opts *createImageOptions) error{
+	"nodejs":    func(filenames []string, opts *createImageOptions) error { return nil },
+	"python2.7": func(filenames []string, opts *createImageOptions) error { return nil },
+	"java8": func(filenames []string, opts *createImageOptions) error {
+		if len(filenames) != 1 {
+			return errors.New("Java Lambda functions can only include 1 file and it must be a JAR file.")
+		}
+
+		if filepath.Ext(filenames[0]) != ".jar" {
+			return errors.New("Java Lambda function package must be a JAR file.")
+		}
+
+		opts.Package = filepath.Base(filenames[0])
+		return nil
+	},
+}
+
+func test(c *cli.Context) error {
+	args := c.Args()
+	if len(args) < 1 {
+		return fmt.Errorf("Missing NAME argument")
+	}
+	functionName := args[0]
+
+	exists, err := lambdaImpl.ImageExists(functionName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("Function %s does not exist.", functionName)
+	}
+
+	payload := c.String("payload")
+	// Redirect output to stdout.
+	return lambdaImpl.RunImageWithPayload(functionName, payload)
+}
+
+func awsImport(c *cli.Context) error {
+	args := c.Args()
+	if len(args) < 3 {
+		return fmt.Errorf("Missing arguments ARN, REGION and/or IMAGE")
+	}
+
+	version := c.String("version")
+	downloadOnly := c.Bool("download-only")
+	profile := c.String("profile")
+	arn := args[0]
+	region := args[1]
+	image := args[2]
+
+	function, err := getFunction(profile, region, version, arn)
+	if err != nil {
+		return err
+	}
+	functionName := *function.Configuration.FunctionName
+
+	err = os.Mkdir(fmt.Sprintf("./%s", functionName), os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	tmpFileName, err := downloadToFile(*function.Code.Location)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFileName)
+
+	if downloadOnly {
+		// Since we are a command line program that will quit soon, it is OK to
+		// let the OS clean `files` up.
+		return err
+	}
+
+	opts := createImageOptions{
+		Name:          functionName,
+		Base:          fmt.Sprintf("iron/lambda-%s", *function.Configuration.Runtime),
+		Package:       "",
+		Handler:       *function.Configuration.Handler,
+		OutputStream:  newdockerJSONWriter(os.Stdout),
+		RawJSONStream: true,
+	}
+
+	runtime := *function.Configuration.Runtime
+	rh, ok := runtimeImportHandlers[runtime]
+	if !ok {
+		return fmt.Errorf("unsupported runtime %v", runtime)
+	}
+
+	files, err := rh(functionName, tmpFileName, &opts)
+	if err != nil {
+		return nil
+	}
+
+	if image != "" {
+		opts.Name = image
+	}
+
+	return createDockerfile(opts, files...)
+}
+
+var (
+	runtimeImportHandlers = map[string]func(functionName, tmpFileName string, opts *createImageOptions) ([]fileLike, error){
+		"nodejs":    basicImportHandler,
+		"python2.7": basicImportHandler,
+		"java8": func(functionName, tmpFileName string, opts *createImageOptions) ([]fileLike, error) {
+			fmt.Println("Found Java Lambda function. Going to assume code is a single JAR file.")
+			path := filepath.Join(functionName, "function.jar")
+			if err := os.Rename(tmpFileName, path); err != nil {
+				return nil, err
+			}
+			fd, err := os.Open(path)
+			if err != nil {
+				return nil, err
+			}
+
+			files := []fileLike{fd}
+			opts.Package = filepath.Base(files[0].(*os.File).Name())
+			return files, nil
+		},
+	}
+)
+
+func basicImportHandler(functionName, tmpFileName string, opts *createImageOptions) ([]fileLike, error) {
+	return unzipAndGetTopLevelFiles(functionName, tmpFileName)
+}
+
+const fnYAMLTemplate = `
+app: %s
+image: %s
+route: "/%s"
+`
+
+func createFunctionYaml(image string) error {
+	strs := strings.Split(image, "/")
+	data := []byte(fmt.Sprintf(fnYAMLTemplate, strs[0], image, strs[1]))
+	return ioutil.WriteFile(filepath.Join(image, "function.yaml"), data, 0644)
+}
+
+type createImageOptions struct {
+	Name          string
+	Base          string
+	Package       string // Used for Java, empty string for others.
+	Handler       string
+	OutputStream  io.Writer
+	RawJSONStream bool
+}
+
+type fileLike interface {
+	io.Reader
+	Stat() (os.FileInfo, error)
+}
+
+var errNoFiles = errors.New("No files to add to image")
+
+// Create a Dockerfile that adds each of the files to the base image. The
+// expectation is that the base image sets up the current working directory
+// inside the image correctly.  `handler` is set to be passed to node-lambda
+// for now, but we may have to change this to accomodate other stacks.
+func makeDockerfile(base string, pkg string, handler string, files ...fileLike) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("FROM %s\n", base))
+
+	for _, file := range files {
+		// FIXME(nikhil): Validate path, no parent paths etc.
+		info, err := file.Stat()
+		if err != nil {
+			return buf.Bytes(), err
+		}
+		buf.WriteString(fmt.Sprintf("ADD [\"%s\", \"./%s\"]\n", info.Name(), info.Name()))
+	}
+
+	buf.WriteString("CMD [")
+	if pkg != "" {
+		buf.WriteString(fmt.Sprintf("\"%s\", ", pkg))
+	}
+	// FIXME(nikhil): Validate handler.
+	buf.WriteString(fmt.Sprintf("\"%s\"", handler))
+	buf.WriteString("]\n")
+
+	return buf.Bytes(), nil
+}
+
+// Creates a docker image called `name`, using `base` as the base image.
+// `handler` is the runtime-specific name to use for a lambda invocation (i.e.
+// <module>.<function> for nodejs). `files` should be a list of files+dirs
+// *relative to the current directory* that are to be included in the image.
+func createDockerfile(opts createImageOptions, files ...fileLike) error {
+	if len(files) == 0 {
+		return errNoFiles
+	}
+
+	df, err := makeDockerfile(opts.Base, opts.Package, opts.Handler, files...)
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(fmt.Sprintf("Creating directory: %s ... ", opts.Name))
+	if err := os.MkdirAll(opts.Name, os.ModePerm); err != nil {
+		return err
+	}
+	fmt.Println("OK")
+
+	fmt.Print(fmt.Sprintf("Creating Dockerfile: %s ... ", filepath.Join(opts.Name, "Dockerfile")))
+	outputFile, err := os.Create(filepath.Join(opts.Name, "Dockerfile"))
+	if err != nil {
+		return err
+	}
+	fmt.Println("OK")
+
+	for _, f := range files {
+		fstat, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		fmt.Print(fmt.Sprintf("Copying file: %s", filepath.Join(opts.Name, fstat.Name())))
+		src, err := os.Create(filepath.Join(opts.Name, fstat.Name()))
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(src, f); err != nil {
+			return err
+		}
+		fmt.Println("OK")
+	}
+
+	if _, err = outputFile.Write(df); err != nil {
+		return err
+	}
+
+	fmt.Print("Creating function.yaml ... ")
+	if err := createFunctionYaml(opts.Name); err != nil {
+		return err
+	}
+	fmt.Println("OK")
 	return nil
 }
 
-type dockerJsonWriter struct {
+type dockerJSONWriter struct {
 	under io.Writer
 	w     io.Writer
 }
 
-func newDockerJsonWriter(under io.Writer) *dockerJsonWriter {
+func newdockerJSONWriter(under io.Writer) *dockerJSONWriter {
 	r, w := io.Pipe()
 	go func() {
 		err := jsonmessage.DisplayJSONMessagesStream(r, under, 1, true, nil)
@@ -61,77 +379,14 @@ func newDockerJsonWriter(under io.Writer) *dockerJsonWriter {
 			os.Exit(1)
 		}
 	}()
-	return &dockerJsonWriter{under, w}
+	return &dockerJSONWriter{under, w}
 }
 
-func (djw *dockerJsonWriter) Write(p []byte) (int, error) {
+func (djw *dockerJSONWriter) Write(p []byte) (int, error) {
 	return djw.w.Write(p)
 }
 
-func (lcc *lambdaCmd) getFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:        "function-name",
-			Usage:       "Name of function. This is usually follows Docker image naming conventions.",
-			Destination: &lcc.functionName,
-		},
-		cli.StringFlag{
-			Name:        "runtime",
-			Usage:       fmt.Sprintf("Runtime that your Lambda function depends on. Valid values are %s.", strings.Join(availableRuntimes, ", ")),
-			Destination: &lcc.runtime,
-		},
-		cli.StringFlag{
-			Name:        "handler",
-			Usage:       "function/class that is the entrypoint for this function. Of the form <module name>.<function name> for nodejs/Python, <full class name>::<function name base> for Java.",
-			Destination: &lcc.handler,
-		},
-		cli.StringFlag{
-			Name:        "payload",
-			Usage:       "Payload to pass to the Lambda function. This is usually a JSON object.",
-			Destination: &lcc.payload,
-			Value:       "{}",
-		},
-		cli.StringFlag{
-			Name:        "client-context",
-			Usage:       "",
-			Destination: &lcc.clientConext,
-		},
-
-		cli.StringFlag{
-			Name:        "image",
-			Usage:       "By default the name of the Docker image is the name of the Lambda function. Use this to set a custom name.",
-			Destination: &lcc.image,
-		},
-
-		cli.StringFlag{
-			Name:        "version",
-			Usage:       "Version of the function to import.",
-			Destination: &lcc.version,
-			Value:       "$LATEST",
-		},
-
-		cli.BoolFlag{
-			Name:        "download-only",
-			Usage:       "Only download the function into a directory. Will not create a Docker image.",
-			Destination: &lcc.downloadOnly,
-		},
-
-		cli.StringFlag{
-			Name:        "profile",
-			Usage:       "AWS Profile to load from credentials file.",
-			Destination: &lcc.awsProfile,
-		},
-
-		cli.StringFlag{
-			Name:        "region",
-			Usage:       "AWS region to use.",
-			Value:       "us-east-1",
-			Destination: &lcc.awsRegion,
-		},
-	}
-}
-
-func (lcc *lambdaCmd) downloadToFile(url string) (string, error) {
+func downloadToFile(url string) (string, error) {
 	downloadResp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -144,13 +399,17 @@ func (lcc *lambdaCmd) downloadToFile(url string) (string, error) {
 		return "", err
 	}
 
-	io.Copy(tmpFile, downloadResp.Body)
-	tmpFile.Close()
+	if _, err := io.Copy(tmpFile, downloadResp.Body); err != nil {
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return "", err
+	}
 	return tmpFile.Name(), nil
 }
 
-func (lcc *lambdaCmd) unzipAndGetTopLevelFiles(dst, src string) (files []lambdaImpl.FileLike, topErr error) {
-	files = make([]lambdaImpl.FileLike, 0)
+func unzipAndGetTopLevelFiles(dst, src string) (files []fileLike, topErr error) {
+	files = make([]fileLike, 0)
 
 	zipReader, err := zip.OpenReader(src)
 	if err != nil {
@@ -163,7 +422,9 @@ func (lcc *lambdaCmd) unzipAndGetTopLevelFiles(dst, src string) (files []lambdaI
 		path := filepath.Join(dst, f.Name)
 		fmt.Printf("Extracting '%s' to '%s'\n", f.Name, path)
 		if f.FileInfo().IsDir() {
-			os.Mkdir(path, 0644)
+			if err := os.Mkdir(path, 0644); err != nil {
+				return nil, err
+			}
 			// Only top-level dirs go into the list since that is what CreateImage expects.
 			if filepath.Dir(f.Name) == filepath.Base(f.Name) {
 				fd, topErr = os.Open(path)
@@ -185,237 +446,48 @@ func (lcc *lambdaCmd) unzipAndGetTopLevelFiles(dst, src string) (files []lambdaI
 				break
 			}
 
-			_, topErr = io.Copy(fd, zipFd)
-			if topErr != nil {
+			if _, topErr = io.Copy(fd, zipFd); topErr != nil {
 				// OK to skip closing fd here.
 				break
 			}
 
-			zipFd.Close()
+			if err := zipFd.Close(); err != nil {
+				return nil, err
+			}
 
 			// Only top-level files go into the list since that is what CreateImage expects.
 			if filepath.Dir(f.Name) == "." {
-				_, topErr = fd.Seek(0, 0)
-				if topErr != nil {
+				if _, topErr = fd.Seek(0, 0); topErr != nil {
 					break
 				}
 
 				files = append(files, fd)
 			} else {
-				fd.Close()
+				if err := fd.Close(); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
 	return
 }
 
-func (lcc *lambdaCmd) getFunction() (*aws_lambda.GetFunctionOutput, error) {
-	creds := aws_credentials.NewChainCredentials([]aws_credentials.Provider{
-		&aws_credentials.EnvProvider{},
-		&aws_credentials.SharedCredentialsProvider{
+func getFunction(awsProfile, awsRegion, version, arn string) (*aws_lambda.GetFunctionOutput, error) {
+	creds := credentials.NewChainCredentials([]credentials.Provider{
+		&credentials.EnvProvider{},
+		&credentials.SharedCredentialsProvider{
 			Filename: "", // Look in default location.
-			Profile:  lcc.awsProfile,
+			Profile:  awsProfile,
 		},
 	})
 
-	conf := aws.NewConfig().WithCredentials(creds).WithCredentialsChainVerboseErrors(true).WithRegion(lcc.awsRegion)
-	sess := aws_session.New(conf)
+	conf := aws.NewConfig().WithCredentials(creds).WithCredentialsChainVerboseErrors(true).WithRegion(awsRegion)
+	sess := session.New(conf)
 	conn := aws_lambda.New(sess)
 	resp, err := conn.GetFunction(&aws_lambda.GetFunctionInput{
-		FunctionName: aws.String(lcc.arn),
-		Qualifier:    aws.String(lcc.version),
+		FunctionName: aws.String(arn),
+		Qualifier:    aws.String(version),
 	})
 
 	return resp, err
-}
-
-func (lcc *lambdaCmd) init(c *cli.Context) {
-	handler := c.String("handler")
-	functionName := c.String("function-name")
-	runtime := c.String("runtime")
-	clientContext := c.String("client-context")
-	payload := c.String("payload")
-	version := c.String("version")
-	downloadOnly := c.Bool("download-only")
-	image := c.String("image")
-	profile := c.String("profile")
-	region := c.String("region")
-
-	if c.Command.Name == "aws-import" {
-		if len(c.Args()) > 0 {
-			lcc.arn = c.Args()[0]
-		}
-	} else {
-		lcc.fileNames = c.Args()
-	}
-	lcc.handler = handler
-	lcc.functionName = functionName
-	lcc.runtime = runtime
-	lcc.clientConext = clientContext
-	lcc.payload = payload
-	lcc.version = version
-	lcc.downloadOnly = downloadOnly
-	lcc.awsProfile = profile
-	lcc.image = image
-	lcc.awsRegion = region
-}
-
-func (lcc *lambdaCmd) create(c *cli.Context) error {
-	lcc.init(c)
-
-	files := make([]lambdaImpl.FileLike, 0, len(lcc.fileNames))
-	opts := lambdaImpl.CreateImageOptions{
-		Name:          lcc.functionName,
-		Base:          fmt.Sprintf("iron/lambda-%s", lcc.runtime),
-		Package:       "",
-		Handler:       lcc.handler,
-		OutputStream:  newDockerJsonWriter(os.Stdout),
-		RawJSONStream: true,
-	}
-
-	if lcc.handler == "" {
-		return errors.New("No handler specified.")
-	}
-
-	// For Java we allow only 1 file and it MUST be a JAR.
-	if lcc.runtime == "java8" {
-		if len(lcc.fileNames) != 1 {
-			return errors.New("Java Lambda functions can only include 1 file and it must be a JAR file.")
-		}
-
-		if filepath.Ext(lcc.fileNames[0]) != ".jar" {
-			return errors.New("Java Lambda function package must be a JAR file.")
-		}
-
-		opts.Package = filepath.Base(lcc.fileNames[0])
-	}
-
-	for _, fileName := range lcc.fileNames {
-		file, err := os.Open(fileName)
-		defer file.Close()
-		if err != nil {
-			return err
-		}
-		files = append(files, file)
-	}
-
-	return lambdaImpl.CreateImage(opts, files...)
-}
-
-func (lcc *lambdaCmd) runTest(c *cli.Context) error {
-	lcc.init(c)
-	exists, err := lambdaImpl.ImageExists(lcc.functionName)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("Function %s does not exist.", lcc.functionName)
-	}
-
-	// Redirect output to stdout.
-	return lambdaImpl.RunImageWithPayload(lcc.functionName, lcc.payload)
-}
-
-func (lcc *lambdaCmd) awsImport(c *cli.Context) error {
-	lcc.init(c)
-	function, err := lcc.getFunction()
-	if err != nil {
-		return err
-	}
-	functionName := *function.Configuration.FunctionName
-
-	err = os.Mkdir(fmt.Sprintf("./%s", functionName), os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	tmpFileName, err := lcc.downloadToFile(*function.Code.Location)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpFileName)
-
-	var files []lambdaImpl.FileLike
-
-	if *function.Configuration.Runtime == "java8" {
-		fmt.Println("Found Java Lambda function. Going to assume code is a single JAR file.")
-		path := filepath.Join(functionName, "function.jar")
-		os.Rename(tmpFileName, path)
-		fd, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-
-		files = append(files, fd)
-	} else {
-		files, err = lcc.unzipAndGetTopLevelFiles(functionName, tmpFileName)
-		if err != nil {
-			return err
-		}
-	}
-
-	if lcc.downloadOnly {
-		// Since we are a command line program that will quit soon, it is OK to
-		// let the OS clean `files` up.
-		return err
-	}
-
-	opts := lambdaImpl.CreateImageOptions{
-		Name:          functionName,
-		Base:          fmt.Sprintf("iron/lambda-%s", *function.Configuration.Runtime),
-		Package:       "",
-		Handler:       *function.Configuration.Handler,
-		OutputStream:  newDockerJsonWriter(os.Stdout),
-		RawJSONStream: true,
-	}
-
-	if lcc.image != "" {
-		opts.Name = lcc.image
-	}
-
-	if *function.Configuration.Runtime == "java8" {
-		opts.Package = filepath.Base(files[0].(*os.File).Name())
-	}
-
-	err = lambdaImpl.CreateImage(opts, files...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func lambda() cli.Command {
-	lcc := lambdaCmd{}
-	var flags []cli.Flag
-
-	flags = append(flags, lcc.getFlags()...)
-
-	return cli.Command{
-		Name:      "lambda",
-		Usage:     "create and publish lambda functions",
-		ArgsUsage: "fnclt lambda",
-		Subcommands: []cli.Command{
-			{
-				Name:      "create-function",
-				Usage:     `Create Docker image that can run your Lambda function. The files are the contents of the zip file to be uploaded to AWS Lambda.`,
-				ArgsUsage: "--function-name NAME --runtime RUNTIME --handler HANDLER file [files...]",
-				Action:    lcc.create,
-				Flags:     flags,
-			},
-			{
-				Name:      "test-function",
-				Usage:     `Runs local Dockerized Lambda function and writes output to stdout.`,
-				ArgsUsage: "--function-name NAME [--client-context <value>] [--payload <value>]",
-				Action:    lcc.runTest,
-				Flags:     flags,
-			},
-			{
-				Name:      "aws-import",
-				Usage:     `Converts an existing Lambda function to an image. The function code is downloaded to a directory in the current working directory that has the same name as the Lambda function..`,
-				ArgsUsage: "[--region <region>] [--profile <aws profile>] [--version <version>] [--download-only] [--image <name>] ARN",
-				Action:    lcc.awsImport,
-				Flags:     flags,
-			},
-		},
-	}
 }

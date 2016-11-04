@@ -20,9 +20,12 @@ var (
 	validfn = [...]string{
 		"functions.yaml",
 		"functions.yml",
+		"function.yaml",
+		"function.yml",
 		"fn.yaml",
 		"fn.yml",
 		"functions.json",
+		"function.json",
 		"fn.json",
 	}
 
