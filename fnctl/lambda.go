@@ -288,7 +288,7 @@ var errNoFiles = errors.New("No files to add to image")
 // for now, but we may have to change this to accomodate other stacks.
 func makeDockerfile(base string, pkg string, handler string, files ...fileLike) ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("FROM %s\n", base))
+	fmt.Fprintf(&buf, "FROM %s\n", base)
 
 	for _, file := range files {
 		// FIXME(nikhil): Validate path, no parent paths etc.
@@ -296,16 +296,17 @@ func makeDockerfile(base string, pkg string, handler string, files ...fileLike) 
 		if err != nil {
 			return buf.Bytes(), err
 		}
-		buf.WriteString(fmt.Sprintf("ADD [\"%s\", \"./%s\"]\n", info.Name(), info.Name()))
+
+		fmt.Fprintf(&buf, "ADD [\"%s\", \"./%s\"]\n", info.Name(), info.Name())
 	}
 
-	buf.WriteString("CMD [")
+	fmt.Fprint(&buf, "CMD [")
 	if pkg != "" {
-		buf.WriteString(fmt.Sprintf("\"%s\", ", pkg))
+		fmt.Fprintf(&buf, "\"%s\", ", pkg)
 	}
 	// FIXME(nikhil): Validate handler.
-	buf.WriteString(fmt.Sprintf("\"%s\"", handler))
-	buf.WriteString("]\n")
+	fmt.Fprintf(&buf, `"%s"`, handler)
+	fmt.Fprint(&buf, "]\n")
 
 	return buf.Bytes(), nil
 }
@@ -324,13 +325,13 @@ func createDockerfile(opts createImageOptions, files ...fileLike) error {
 		return err
 	}
 
-	fmt.Print(fmt.Sprintf("Creating directory: %s ... ", opts.Name))
+	fmt.Printf("Creating directory: %s ... ", opts.Name)
 	if err := os.MkdirAll(opts.Name, os.ModePerm); err != nil {
 		return err
 	}
 	fmt.Println("OK")
 
-	fmt.Print(fmt.Sprintf("Creating Dockerfile: %s ... ", filepath.Join(opts.Name, "Dockerfile")))
+	fmt.Printf("Creating Dockerfile: %s ... ", filepath.Join(opts.Name, "Dockerfile"))
 	outputFile, err := os.Create(filepath.Join(opts.Name, "Dockerfile"))
 	if err != nil {
 		return err
@@ -342,7 +343,7 @@ func createDockerfile(opts createImageOptions, files ...fileLike) error {
 		if err != nil {
 			return err
 		}
-		fmt.Print(fmt.Sprintf("Copying file: %s ... ", filepath.Join(opts.Name, fstat.Name())))
+		fmt.Printf("Copying file: %s ... ", filepath.Join(opts.Name, fstat.Name()))
 		src, err := os.Create(filepath.Join(opts.Name, fstat.Name()))
 		if err != nil {
 			return err
