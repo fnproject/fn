@@ -38,10 +38,7 @@ func init() {
 	viper.SetDefault(envPort, 8080)
 	viper.SetDefault(envAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(envPort)))
 	viper.SetDefault(envNumAsync, 1)
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
 	viper.AutomaticEnv() // picks up env vars automatically
-	viper.ReadInConfig()
 	logLevel, err := log.ParseLevel(viper.GetString("log_level"))
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid log level.")
