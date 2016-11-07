@@ -32,7 +32,9 @@ func apps() cli.Command {
 }
 
 func (a *appsCmd) list(c *cli.Context) error {
-	resetBasePath(&a.Configuration)
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	wrapper, _, err := a.AppsGet()
 	if err != nil {
@@ -56,7 +58,9 @@ func (a *appsCmd) create(c *cli.Context) error {
 		return errors.New("error: app creating takes one argument, an app name")
 	}
 
-	resetBasePath(&a.Configuration)
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	appName := c.Args().Get(0)
 	body := functions.AppWrapper{App: functions.App{Name: appName}}

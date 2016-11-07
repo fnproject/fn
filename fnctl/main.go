@@ -30,29 +30,25 @@ func main() {
 	app.Run(os.Args)
 }
 
-func resetBasePath(c *functions.Configuration) {
-	var u url.URL
-	u.Scheme = c.Scheme
-	u.Host = c.Host
+func resetBasePath(c *functions.Configuration) error {
+	u, err := url.Parse(c.Host)
+	if err != nil {
+		return err
+	}
 	u.Path = "/v1"
 	c.BasePath = u.String()
+
+	return nil
 }
 
 func confFlags(c *functions.Configuration) []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
-			Name:        "host",
-			Usage:       "raw host path to functions api, e.g. functions.iron.io",
+			Name:        "endpoint",
+			Usage:       "url to functions api endpoint e.g. http://functions.iron.io",
 			Destination: &c.Host,
 			EnvVar:      "HOST",
-			Value:       "localhost:8080",
-		},
-		cli.StringFlag{
-			Name:        "scheme",
-			Usage:       "http/https",
-			Destination: &c.Scheme,
-			EnvVar:      "SCHEME",
-			Value:       "http",
+			Value:       "http://localhost:8080",
 		},
 	}
 }

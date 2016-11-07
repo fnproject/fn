@@ -73,7 +73,9 @@ func (a *routesCmd) list(c *cli.Context) error {
 		return errors.New("error: routes listing takes one argument, an app name")
 	}
 
-	resetBasePath(&a.Configuration)
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	appName := c.Args().Get(0)
 	wrapper, _, err := a.AppsAppRoutesGet(appName)
@@ -107,7 +109,9 @@ func (a *routesCmd) call(c *cli.Context) error {
 		return errors.New("error: routes listing takes three arguments: an app name and a route")
 	}
 
-	resetBasePath(&a.Configuration)
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	baseURL, err := url.Parse(a.Configuration.BasePath)
 	if err != nil {
@@ -160,7 +164,9 @@ func (a *routesCmd) create(c *cli.Context) error {
 		return errors.New("error: routes listing takes three arguments: an app name, a route path and an image")
 	}
 
-	resetBasePath(&a.Configuration)
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
@@ -189,7 +195,9 @@ func (a *routesCmd) delete(c *cli.Context) error {
 		return errors.New("error: routes listing takes three arguments: an app name and a path")
 	}
 
-	resetBasePath(&a.Configuration)
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)

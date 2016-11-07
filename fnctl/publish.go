@@ -93,7 +93,9 @@ func (p publishcmd) dockerpush(image string) error {
 }
 
 func (p *publishcmd) route(path string, ff *funcfile) error {
-	resetBasePath(&p.Configuration)
+	if err := resetBasePath(&p.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
 
 	an, r := extractAppNameRoute(path)
 	if ff.App == nil {
