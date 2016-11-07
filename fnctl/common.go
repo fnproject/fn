@@ -96,9 +96,10 @@ func walker(path string, info os.FileInfo, err error, w io.Writer, f func(path s
 }
 
 type commoncmd struct {
-	wd      string
-	verbose bool
-	force   bool
+	wd          string
+	verbose     bool
+	force       bool
+	recursively bool
 
 	verbwriter io.Writer
 }
@@ -122,6 +123,11 @@ func (c *commoncmd) flags() []cli.Flag {
 			Usage:       "force updating of all functions that are already up-to-date",
 			Destination: &c.force,
 		},
+		cli.BoolFlag{
+			Name:        "r",
+			Usage:       "recursively scan all functions",
+			Destination: &c.recursively,
+		},
 	}
 }
 
@@ -137,11 +143,16 @@ func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w
 	fmt.Fprint(w, "path", "\t", "result", "\n")
 
 	err := filepath.Walk(c.wd, func(path string, info os.FileInfo, err error) error {
+
+		if !c.recursively && path != c.wd && info.IsDir() {
+			return filepath.SkipDir
+		}
+
 		if !isvalid(path, info) {
 			return nil
 		}
 
-		if !c.force && !isstale(path) {
+		if c.recursively && !c.force && !isstale(path) {
 			return nil
 		}
 
