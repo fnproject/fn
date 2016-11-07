@@ -151,7 +151,7 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 	for _, e := range detectedEnv {
 		kv := strings.Split(e, "=")
 		name := kv[0]
-		req.Header.Set(name, kv[1])
+		req.Header.Set(name, os.Getenv(name))
 	}
 }
 
