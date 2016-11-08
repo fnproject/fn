@@ -36,7 +36,7 @@ func lambda() cli.Command {
 	return cli.Command{
 		Name:      "lambda",
 		Usage:     "create and publish lambda functions",
-		ArgsUsage: "fnclt lambda",
+		ArgsUsage: "fnctl lambda",
 		Subcommands: []cli.Command{
 			{
 				Name:      "create-function",

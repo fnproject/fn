@@ -1,7 +1,7 @@
 # Writing Functions
 
-This will give you the basic overview of writing base level functions. You can also use higher level abstractions that make it easier such
-as [lambda](lambda.md).
+This will give you the basic overview of writing base level functions. You can also use higher level 
+abstractions that make it easier such as [lambda](lambda/README.md).
 
 ## Code
 
@@ -20,7 +20,7 @@ STDOUT.write(JSON.generate(return_struct))
 db.update(return_struct)
 ```
 
-## Inputs 
+## Inputs
 
 Inputs are provided through standard input and environment variables. We'll just talk about the default input format here, but you can find others [here](function-format.md). 
 To read in the function body, just read from STDIN. 
@@ -62,20 +62,7 @@ In Ruby:
 STDERR.puts("hi")
 ```
 
-## Packaging
+## Next Steps
 
-Packaging a function is essentially just creating a Docker image for your function with an ENTRYPOINT.
-
-The basic Dockerfile for most languages is something like this:
-
-```
-# Choose base image
-FROM iron/go
-# Set th working directory
-WORKDIR /function
-# Add your binary or code to the working directory
-ADD hello /function/
-# Set what will run when a container is started for this image
-ENTRYPOINT ["./hello"]
-```
+* [Packaging your function](packaging.md)
 

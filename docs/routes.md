@@ -1,6 +1,16 @@
-# Function Memory Requirements
+# IronFunctions Routes
+
+Routes have a many-to-one mapping to an [app](apps.md). 
 
 A good practice to get the best performance on your IronFunctions API is define the required memory for each function.
+
+## Route level configuration
+
+When creating or updating a route, you can pass in a map of config variables. 
+
+Note: Route level configuration overrides app level configuration. 
+
+TODO: link to swagger doc on swaggerhub after it's updated.
 
 ## Understanding IronFunctions memory management
 
@@ -8,9 +18,9 @@ When IronFunctions starts it registers the total available memory in your system
 Every function starts the runner reduces the amount of memory used by that function from the available memory register.
 When the function finishes the runner returns the used memory to the available memory register.
 
-By default the required memory of a function is *128 mb*.
+Default memory is 128MB. 
 
-## Defining function's required memory
+## Defining function's memory requirement
 
 You can define the function's required memory in the route creation or updating it.
 

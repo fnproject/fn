@@ -18,7 +18,7 @@ func apps() cli.Command {
 	return cli.Command{
 		Name:      "apps",
 		Usage:     "list apps",
-		ArgsUsage: "fnclt apps",
+		ArgsUsage: "fnctl apps",
 		Flags:     append(confFlags(&a.Configuration), []cli.Flag{}...),
 		Action:    a.list,
 		Subcommands: []cli.Command{

@@ -1,4 +1,3 @@
-
 # Message Queues
 
 A message queue is used to coordinate asynchronous function calls that run through IronFunctions.

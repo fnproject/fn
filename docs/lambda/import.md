@@ -23,7 +23,7 @@ region. You can use the `aws` tool to set this up. Full instructions are in the
 The aws-import command is constructed as follows:
 
 ```bash
-fnclt lambda aws-import <arn> <region> <image>
+fnctl lambda aws-import <arn> <region> <image>
 ```
 
 * arn: describes the ARN formats which uniquely identify the AWS lambda resource
@@ -31,9 +31,11 @@ fnclt lambda aws-import <arn> <region> <image>
 * image: the name of the created docker image which should have the format <username>/<image-name>
 
 Assuming you have a lambda with the following arn `arn:aws:lambda:us-west-2:123141564251:function:my-function`, the following command:
-```bash
-fnclt lambda aws-import arn:aws:lambda:us-west-2:123141564251:function:my-function us-east-1 user/my-function
+
+```sh
+fnctl lambda aws-import arn:aws:lambda:us-west-2:123141564251:function:my-function us-east-1 user/my-function
 ```
+
 will import the function code from the region `us-east-1` to a directory called `./my-function`. It will
 then create a docker image called `my-function`.
 

@@ -2,7 +2,6 @@ require 'json'
 
 name = "World"
 
-
 payload = STDIN.read
 if payload != ""
     payload = JSON.parse(payload)
