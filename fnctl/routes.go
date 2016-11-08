@@ -43,6 +43,22 @@ func routes() cli.Command {
 				Usage:     "create a route",
 				ArgsUsage: "appName /path image/name",
 				Action:    r.create,
+				Flags: []cli.Flag{
+					cli.Int64Flag{
+						Name:  "memory",
+						Usage: "memory in MiB",
+						Value: 128,
+					},
+					cli.StringFlag{
+						Name:  "type",
+						Usage: "route type - sync or async",
+						Value: "sync",
+					},
+					cli.StringSliceFlag{
+						Name:  "config",
+						Usage: "route configuration",
+					},
+				},
 			},
 			{
 				Name:      "delete",
@@ -176,8 +192,16 @@ func (a *routesCmd) create(c *cli.Context) error {
 			AppName: appName,
 			Path:    route,
 			Image:   image,
+			Memory:  c.Int64("memory"),
+			Type_:   c.String("type"),
 		},
 	}
+	configs := make(map[string]string)
+	for _, v := range c.StringSlice("config") {
+		kv := strings.SplitN(v, "=", 2)
+		configs[kv[0]] = kv[1]
+	}
+	body.Route.Config = configs
 	wrapper, _, err := a.AppsAppRoutesPost(appName, body)
 	if err != nil {
 		return fmt.Errorf("error creating route: %v", err)

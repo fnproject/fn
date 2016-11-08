@@ -8,6 +8,7 @@ import:
   - bump
   - storage
 - package: github.com/iron-io/functions_go
+  version: ec65bad1ceb32b29f106483ecdd3e7588b5fde30
 - package: github.com/iron-io/iron_go3
   subpackages:
   - config

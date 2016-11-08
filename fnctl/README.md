@@ -146,3 +146,26 @@ path    	    result
 their version according to [semver](http://semver.org/) rules. In their absence,
 it will skip.
 
+## Route level configuration
+
+When creating a route, you can configure it to tweak its behavior, the possible
+choices are: `memory`, `type` and `config`.
+
+Thus a more complete example of route creation will look like:
+```sh
+fnctl routes create --memory 256 --type async --config DB_URL=http://example.org/ otherapp /hello iron/hello
+```
+
+`--memory` is number of usable MiB for this function. If during the execution it
+exceeds this maximum threshold, it will halt and return an error in the logs.
+
+`--type` is the type of the function. Either `sync`, in which the client waits
+until the request is successfully completed, or `async`, in which the clients
+dispatches a new request, gets a task ID back and closes the HTTP connection.
+
+`--config` is a map of values passed to the route runtime in the form of
+environment variables prefixed with `CONFIG_`.
+
+Repeated calls to `fnctl route create` will trigger an update of the given
+route, thus you will be able to change any of these attributes later in time
+if necessary.

@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description:
-  version: "0.0.9"
+  version: "0.0.12"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -276,6 +276,20 @@ definitions:
           headers:
             type: string
             description: Map of http headers that will be sent with the response
+          memory:
+            type: integer
+            format: int64
+            description: Max usable memory for this route (MiB).
+          type:
+            enum:
+              - sync
+              - async
+            description: Route type
+          config:
+            type: object
+            description: Route configuration
+            additionalProperties:
+              type: string
 
   App:
     type: object
