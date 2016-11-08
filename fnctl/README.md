@@ -96,11 +96,32 @@ and `other`), each subdirectory of these firsts are considered part of the route
 which instructs `fnctl` on how to act with that particular update, and a
 Dockerfile which it is going to use to build the image and push to Docker Hub.
 
-```
-$ cat functions.yaml
+## Functions files (functions.yaml)
+
+Functions files are used to assist fnctl to execute bulk updates of your
+functions. The files can be named as:
+
+- functions.yaml
+- functions.yml
+- function.yaml
+- function.yml
+- functions.json
+- function.json
+- fn.yaml
+- fn.yml
+- fn.json
+
+An example of a function file:
+```yaml
 app: myapp
 image: iron/hello
 route: "/custom/route"
+type: sync
+memory: 128
+config:
+  key: value
+  key2: value2
+  keyN: valueN
 build:
 - make
 - make test
@@ -114,6 +135,19 @@ route updated to use it.
 
 `route` (optional) allows you to overwrite the calculated route from the path
 position. You may use it to override the calculated route.
+
+`type` (optional) allows you to set the type of the route. `sync`, for functions
+whose response are sent back to the requester; or `async`, for functions that
+are started and return a task ID to customer while it executes in background.
+Default: `sync`.
+
+`memory` (optional) allows you to set a maximum memory threshold for this
+function. If this function exceeds this limit during execution, it is stopped
+and error message is logged. Default: `128`.
+
+`config` (optional) is a set of configurations to be passed onto the route
+setup. These configuration options shall override application configuration
+during functions execution.
 
 `build` (optional) is an array of shell calls which are used to helping building
 the image. These calls are executed before `fnctl` calls `docker build` and

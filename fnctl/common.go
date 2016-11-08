@@ -34,10 +34,13 @@ var (
 )
 
 type funcfile struct {
-	App   *string
-	Image string
-	Route *string
-	Build []string
+	App    *string
+	Image  string
+	Route  *string
+	Type   string
+	Memory int64
+	Config map[string]string
+	Build  []string
 }
 
 func parsefuncfile(path string) (*funcfile, error) {

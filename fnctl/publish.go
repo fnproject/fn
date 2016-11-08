@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,16 +108,22 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 
 	body := functions.RouteWrapper{
 		Route: functions.Route{
-			Path:  *ff.Route,
-			Image: ff.Image,
+			Path:   *ff.Route,
+			Image:  ff.Image,
+			Memory: ff.Memory,
+			Type_:  ff.Type,
+			Config: ff.Config,
 		},
 	}
 
 	fmt.Fprintf(p.verbwriter, "updating API with appName: %s route: %s image: %s \n", *ff.App, *ff.Route, ff.Image)
 
-	_, _, err := p.AppsAppRoutesPost(*ff.App, body)
+	wrapper, resp, err := p.AppsAppRoutesPost(*ff.App, body)
 	if err != nil {
 		return fmt.Errorf("error getting routes: %v", err)
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		return fmt.Errorf("error storing this route: %s", wrapper.Error_.Message)
 	}
 
 	return nil
