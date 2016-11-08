@@ -1,16 +1,16 @@
 # IronFunctions
 
-[![CircleCI](https://circleci.com/gh/iron-io/functions.svg?style=svg)](https://circleci.com/gh/iron-io/functions) 
+[![CircleCI](https://circleci.com/gh/iron-io/functions.svg?style=svg)](https://circleci.com/gh/iron-io/functions)
 [![GoDoc](https://godoc.org/github.com/iron-io/functions?status.svg)](https://godoc.org/github.com/iron-io/functions)
 
-Welcome to IronFunctions!  The open source serverless platform.
+Welcome to IronFunctions! The open source serverless platform.
 
 ## What is IronFunctions?
 
-IronFunctions is an open source serverless platform, or as we like to refer to it, Functions as a 
-Service -- FaaS -- platform that you can run anywhere. 
+IronFunctions is an open source serverless platform, or as we like to refer to it, Functions as a
+Service (FaaS) platform that you can run anywhere.
 
-* [Run anywhere](docs/faq.md#where-can-run-ironfunctions)
+* [Run anywhere](docs/faq.md#where-can-i-run-ironfunctions)
   * Public cloud, hybrid, on-premise
   * [Import Lambda functions](docs/lambda/import.md) from AWS and run them wherever you want
 * [Any language](docs/faq.md#which-languages-are-supported)
@@ -20,7 +20,7 @@ Service -- FaaS -- platform that you can run anywhere.
 
 ## What is Serverless/FaaS?
 
-Serverless is a new paradigm in computing that enables simplicity, efficiency and scalability for both developers 
+Serverless is a new paradigm in computing that enables simplicity, efficiency and scalability for both developers
 and operators. It's important to distinguish the two, because the benefits differ:
 
 ### Benefits for developers
@@ -32,8 +32,8 @@ The main benefits that most people refer to are on the developer side and they i
 * Pay by the milliseconds your code is executing -- unlike a typical application that runs 24/7, and you're paying
   24/7, functions only run when needed
 
-Since you'll be running IronFunctions yourself, the paying part may not apply, but it does apply to 
-cost savings on your infrastructure bills as you'll read below. 
+Since you'll be running IronFunctions yourself, the paying part may not apply, but it does apply to
+cost savings on your infrastructure bills as you'll read below.
 
 ### Benefits for operators
 
@@ -41,7 +41,7 @@ If you will be operating IronFunctions (the person who has to manage the servers
 then the benefits are different, but related.
 
 * Extremely efficient use of resources
-  * Unlike an app/API/microservice that consumes resources 24/7 whether they 
+  * Unlike an app/API/microservice that consumes resources 24/7 whether they
     are in use or not, functions are time sliced across your infrastructure and only consume resources while they are
     actually doing something
 * Easy to manage and scale
@@ -50,7 +50,7 @@ then the benefits are different, but related.
   * Scaling is the same for all functions, you don't scale each app independently
   * Scaling is simply adding more IronFunctions nodes
 
-There is a lot more reading you can do on the topic, just search for ["what is serverless"](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=what%20is%20serverless) 
+There is a lot more reading you can do on the topic, just search for ["what is serverless"](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=what%20is%20serverless)
 and you'll find plenty of information. We have pretty thorough post on the Iron.io blog called [What is Serverless Computing and Why is it Important].
 
 ## Join Our Community
@@ -105,7 +105,7 @@ Now that we have an app, we can map routes to functions.
 
 A route is a way to define a path in your application that maps to a function. In this example, we'll map
 `/hello` to a simple `Hello World!` function called `iron/hello` which is a function we already made that you
-can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello-go). 
+can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello-go).
 You can read more about [writing your own functions here](docs/writing.md).
 
 ```sh
@@ -128,7 +128,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ### Calling your Function
 
 Calling your function is as simple as requesting a URL. Each app has it's own namespace and each route mapped to the app.
-The app `myapp` that we created above along with the `/hello` route we added would be called via the following 
+The app `myapp` that we created above along with the `/hello` route we added would be called via the following
 URL: http://localhost:8080/r/myapp/hello
 
 Either surf to it in your browser or use `fnctl`:
