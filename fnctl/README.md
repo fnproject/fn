@@ -26,6 +26,10 @@ myapp
 $ fnctl apps create otherapp                       # create new app
 otherapp created
 
+$ fnctl apps describe otherapp                     # describe an app
+app: otherapp
+no specific configuration
+
 $ fnctl apps
 myapp
 otherapp
@@ -179,6 +183,23 @@ path    	    result
 `fnctl bump` will scan all IronFunctions for files named `VERSION` and bump
 their version according to [semver](http://semver.org/) rules. In their absence,
 it will skip.
+
+## Application level configuration
+
+When creating an application, you can configure it to tweak its behavior and its
+routes' with an appropriate flag, `config`.
+
+Thus a more complete example of an application creation will look like:
+```sh
+fnctl apps create --config DB_URL=http://example.org/ otherapp
+```
+
+`--config` is a map of values passed to the route runtime in the form of
+environment variables prefixed with `CONFIG_`.
+
+Repeated calls to `fnctl apps create` will trigger an update of the given
+route, thus you will be able to change any of these attributes later in time
+if necessary.
 
 ## Route level configuration
 
