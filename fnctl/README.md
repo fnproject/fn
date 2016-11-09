@@ -157,7 +157,7 @@ during functions execution.
 the image. These calls are executed before `fnctl` calls `docker build` and
 `docker push`.
 
-## Build and Bump
+## Build, Bump, Push
 
 When dealing with a lot of functions you might find yourself making lots of
 individual calls. `fnctl` offers two command to help you with that: `build` and
@@ -183,6 +183,9 @@ path    	    result
 `fnctl bump` will scan all IronFunctions for files named `VERSION` and bump
 their version according to [semver](http://semver.org/) rules. In their absence,
 it will skip.
+
+`fnctl push` will scan all IronFunctions and push their images to Docker Hub,
+and update their routes accordingly.
 
 ## Application level configuration
 

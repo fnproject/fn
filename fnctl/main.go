@@ -24,6 +24,7 @@ func main() {
 		call(),
 		lambda(),
 		publish(),
+		push(),
 		routes(),
 		run(),
 	}
