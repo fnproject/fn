@@ -32,5 +32,5 @@ The IronMQ connector uses HTTPS by default. To use HTTP set the scheme to
 
 ## What about message queue X?
 
-We're happy to add more and we love pull requests, so feel free to add one! Copy one of the implementations above as a starting point. 
+We're happy to add more and we love pull requests, so feel free to add one! Copy one of the implementations above as a starting point.
 

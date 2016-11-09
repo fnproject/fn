@@ -2,7 +2,7 @@
 
 ## Configuration
 
-When starting IronFunctions, you can pass in the following configuration variables as environment variables. Use `-e VAR_NAME=VALUE` in 
+When starting IronFunctions, you can pass in the following configuration variables as environment variables. Use `-e VAR_NAME=VALUE` in
 docker run.  For example:
 
 ```

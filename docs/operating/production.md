@@ -1,4 +1,3 @@
-
 # Running IronFunctions in Production
 
 The [QuickStart guide](/README.md) is intended to quickly get started and kick the tires. To run in production and be ready to scale, you need
@@ -10,11 +9,11 @@ to use more production ready components.
 
 Here's a rough diagram of what a production deployment looks like:
 
-![IronFunctions Architecture Diagram](architecture.svg)
+![IronFunctions Architecture Diagram](/docs/assets/architecture.svg)
 
 ## Load Balancer
 
-Any load balancer will work, put every instance of IronFunctions that you run behind the load balancer. 
+Any load balancer will work, put every instance of IronFunctions that you run behind the load balancer.
 
 **Note**: We will work on a smart load balancer that can direct traffic in a smarter way. See [#151](https://github.com/iron-io/functions/issues/151).
 
@@ -34,13 +33,13 @@ The message queue is pluggable and we currently support a few options that can b
 ## Logging, Metrics and Monitoring
 
 Logging is a particularly important part of IronFunctions. It not only emits logs, but metrics are also emitted to the logs. Ops teams can then decide how they want
-to use the logs and metrics without us prescribing a particular technology. For instance, you can [logspout-statsd](https://github.com/iron-io/logspout-statsd) to capture metrics 
+to use the logs and metrics without us prescribing a particular technology. For instance, you can [logspout-statsd](https://github.com/iron-io/logspout-statsd) to capture metrics
 from the logs and forward them to statsd.
 
 [More about Metrics](metrics.md)
 
 ## Scaling
 
-There are metrics emitted to the logs that can be used to notify you when to scale. The most important being the `wait_time` metrics for both the 
-synchronous and asynchronous functions. If `wait_time` increases, you'll want to start more IronFunctions instances. 
+There are metrics emitted to the logs that can be used to notify you when to scale. The most important being the `wait_time` metrics for both the
+synchronous and asynchronous functions. If `wait_time` increases, you'll want to start more IronFunctions instances.
 

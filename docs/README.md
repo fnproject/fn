@@ -1,11 +1,13 @@
 # IronFunctions Documentation
 
+* [FAQ](faq.md)
+
 ## For Developers
 
 If you are a developer using IronFunctions through the API, this section is for you.
 
 * [Quickstart](https://github.com/iron-io/functions#quickstart)
-* [CLI tool - fnctl](../fnctl/README.md)
+* [fnctl (CLI Tool)](/fnctl/README.md)
 * [Writing functions](writing.md)
 * [Writing Lambda functions](docs/lambda/create.md)
 * [Packaging functions](packaging.md)
@@ -16,11 +18,13 @@ If you are a developer using IronFunctions through the API, this section is for 
 
 If you are operating IronFunctions, this section is for you.
 
-* [Running in Production](production.md)
+* [Running in Production](operating/production.md)
 * [Databases](databases/README.md)
 * [Message Queues](mqs/README.md)
-* [Logging](logging.md)
-* [Metrics](metrics.md)
-* [Triggers](triggers.md)
-* [Extending IronFunctions](extending.md)
-* [Docker Configuration](docker.md)
+* [Logging](operating/logging.md)
+* [Metrics](operating/metrics.md)
+* [Triggers](operating/triggers.md)
+* [Extending IronFunctions](operating/extending.md)
+* [Docker Configuration](operating/docker.md)
+* [Operating On Windows](operating/windows.md)
+

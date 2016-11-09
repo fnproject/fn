@@ -201,7 +201,7 @@ You will get a `call_id` in the response:
 
 If you watch the logs, you will see the function actually runs in the background:
 
-![async log](docs/async-log.png)
+![async log](docs/assets/async-log.png)
 
 Read more on [logging](docs/logging.md).
 

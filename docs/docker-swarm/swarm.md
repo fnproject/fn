@@ -1,4 +1,6 @@
-# HOWTO run IronFunction as a scheduler on top of Docker Standalone Swarm cluster
+# Docker Swarm and IronFunctions
+
+How to run IronFunction as a scheduler on top of Docker Standalone Swarm cluster.
 
 ## Quick installation
 
@@ -106,8 +108,8 @@ $ docker run -d --name functions-00 \
         --network=functions-network \
         -p 8080:8080 \
         -v /var/run/docker.sock:/var/run/docker.sock \
-	-e 'MQ=redis://functions-redis' \
-	-e 'DB=postgres://postgres:mysecretpassword@functions-postgres/?sslmode=disable' \
+        -e 'MQ=redis://functions-redis' \
+        -e 'DB=postgres://postgres:mysecretpassword@functions-postgres/?sslmode=disable' \
         iron/functions
 ```
 
