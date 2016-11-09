@@ -134,7 +134,7 @@ URL: http://localhost:8080/r/myapp/hello
 Either surf to it in your browser or use `fnctl`:
 
 ```sh
-fnctl routes run myapp /hello
+fnctl call myapp /hello
 ```
 
 Or using a cURL:
@@ -149,7 +149,7 @@ Your function will get the body of the HTTP request via STDIN, and the headers o
 as env vars. You can test a function with the CLI tool:
 
 ```sh
-echo '{"name":"Johnny"}' | fnctl routes run myapp /hello
+echo '{"name":"Johnny"}' | fnctl call myapp /hello
 ```
 
 Or using cURL:
