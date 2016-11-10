@@ -112,7 +112,7 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 			Image:  ff.Image,
 			Memory: ff.Memory,
 			Type_:  ff.Type,
-			Config: ff.Config,
+			Config: expandEnvConfig(ff.Config),
 		},
 	}
 
@@ -127,6 +127,13 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 	}
 
 	return nil
+}
+
+func expandEnvConfig(configs map[string]string) map[string]string {
+	for k, v := range configs {
+		configs[k] = os.ExpandEnv(v)
+	}
+	return configs
 }
 
 func extractAppNameRoute(path string) (appName, route string) {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -252,4 +253,13 @@ func (c commoncmd) dockerbuild(path, image string) error {
 	}
 
 	return nil
+}
+
+func extractEnvConfig(configs []string) map[string]string {
+	c := make(map[string]string)
+	for _, v := range configs {
+		kv := strings.SplitN(v, "=", 2)
+		c[kv[0]] = os.ExpandEnv(kv[1])
+	}
+	return c
 }
