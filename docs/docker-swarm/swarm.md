@@ -108,8 +108,8 @@ $ docker run -d --name functions-00 \
         --network=functions-network \
         -p 8080:8080 \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -e 'MQ=redis://functions-redis' \
-        -e 'DB=postgres://postgres:mysecretpassword@functions-postgres/?sslmode=disable' \
+        -e 'MQ_URL=redis://functions-redis' \
+        -e 'DB_URL=postgres://postgres:mysecretpassword@functions-postgres/?sslmode=disable' \
         iron/functions
 ```
 

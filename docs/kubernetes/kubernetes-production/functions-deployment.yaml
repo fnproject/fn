@@ -20,16 +20,16 @@ spec:
         env:
         - name: DOCKER_HOST
           value: unix:///var/run/docker.sock
-        - name: MQ
+        - name: MQ_URL
           valueFrom:
             configMapKeyRef:
               name: functions-config
-              key: MQ
-        - name: DB
+              key: MQ_URL
+        - name: DB_URL
           valueFrom:
             configMapKeyRef:
               name: functions-config
-              key: DB
+              key: DB_URL
         volumeMounts:
         - mountPath: "/var/run/docker.sock"
           name: docker-socket

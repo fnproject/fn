@@ -15,11 +15,11 @@ docker run -e VAR_NAME=VALUE ...
 <th>Description</th>
 </tr>
 <tr>
-<td>DB</td>
+<td>DB_URL</td>
 <td>The database URL to use in URL format. See [Databases](databases/README.md) for more information. Default: BoltDB in current working directory `bolt.db`.</td>
 </tr>
 <tr>
-<td>MQ</td>
+<td>MQ_URL</td>
 <td>The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. Default: BoltDB in current working directory `queue.db`.</td>
 </tr>
 <tr>

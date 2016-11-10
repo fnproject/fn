@@ -19,8 +19,8 @@ import (
 
 const (
 	envLogLevel = "log_level"
-	envMQ       = "mq"
-	envDB       = "db"
+	envMQ       = "mq_url"
+	envDB       = "db_url"
 	envPort     = "port" // be careful, Gin expects this variable to be "port"
 	envAPIURL   = "api_url"
 	envNumAsync = "num_async"
