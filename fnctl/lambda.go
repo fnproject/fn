@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -79,7 +81,25 @@ func getFlags() []cli.Flag {
 			Name:  "download-only",
 			Usage: "Only download the function into a directory. Will not create a Docker image.",
 		},
+		cli.StringSliceFlag{
+			Name:  "config",
+			Usage: "function configuration",
+		},
 	}
+}
+
+func transcribeEnvConfig(configs []string) map[string]string {
+	c := make(map[string]string)
+	for _, v := range configs {
+		kv := strings.SplitN(v, "=", 2)
+		if len(kv) == 1 {
+			// TODO: Make sure it is compatible cross platform
+			c[kv[0]] = fmt.Sprintf("$%s", kv[0])
+		} else {
+			c[kv[0]] = kv[1]
+		}
+	}
+	return c
 }
 
 func create(c *cli.Context) error {
@@ -100,6 +120,7 @@ func create(c *cli.Context) error {
 		Handler:       handler,
 		OutputStream:  newdockerJSONWriter(os.Stdout),
 		RawJSONStream: true,
+		Config:        transcribeEnvConfig(c.StringSlice("config")),
 	}
 
 	if handler == "" {
@@ -125,7 +146,6 @@ func create(c *cli.Context) error {
 	}
 
 	return createDockerfile(opts, files...)
-
 }
 
 var runtimeCreateHandlers = map[string]func(filenames []string, opts *createImageOptions) error{
@@ -208,6 +228,7 @@ func awsImport(c *cli.Context) error {
 		Handler:       *function.Configuration.Handler,
 		OutputStream:  newdockerJSONWriter(os.Stdout),
 		RawJSONStream: true,
+		Config:        transcribeEnvConfig(c.StringSlice("config")),
 	}
 
 	runtime := *function.Configuration.Runtime
@@ -254,16 +275,21 @@ func basicImportHandler(functionName, tmpFileName string, opts *createImageOptio
 	return unzipAndGetTopLevelFiles(functionName, tmpFileName)
 }
 
-const fnYAMLTemplate = `
-app: %s
-image: %s
-route: "/%s"
-`
+func createFunctionYaml(opts createImageOptions) error {
+	strs := strings.Split(opts.Name, "/")
+	route := fmt.Sprintf("/%s", strs[1])
+	funcDesc := &funcfile{
+		App:    &strs[0],
+		Image:  opts.Name,
+		Route:  &route,
+		Config: opts.Config,
+	}
 
-func createFunctionYaml(image string) error {
-	strs := strings.Split(image, "/")
-	data := []byte(fmt.Sprintf(fnYAMLTemplate, strs[0], image, strs[1]))
-	return ioutil.WriteFile(filepath.Join(image, "function.yaml"), data, 0644)
+	out, err := yaml.Marshal(funcDesc)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filepath.Join(opts.Name, "function.yaml"), out, 0644)
 }
 
 type createImageOptions struct {
@@ -273,6 +299,7 @@ type createImageOptions struct {
 	Handler       string
 	OutputStream  io.Writer
 	RawJSONStream bool
+	Config        map[string]string
 }
 
 type fileLike interface {
@@ -359,7 +386,7 @@ func createDockerfile(opts createImageOptions, files ...fileLike) error {
 	}
 
 	fmt.Print("Creating function.yaml ... ")
-	if err := createFunctionYaml(opts.Name); err != nil {
+	if err := createFunctionYaml(opts); err != nil {
 		return err
 	}
 	fmt.Println("OK")
