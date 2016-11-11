@@ -71,7 +71,7 @@ func (p *publishcmd) publish(path string) error {
 		return nil
 	}
 
-	if err := p.dockerpush(funcfile.Image); err != nil {
+	if err := p.dockerpush(funcfile); err != nil {
 		return err
 	}
 
@@ -82,8 +82,8 @@ func (p *publishcmd) publish(path string) error {
 	return nil
 }
 
-func (p publishcmd) dockerpush(image string) error {
-	cmd := exec.Command("docker", "push", image)
+func (p publishcmd) dockerpush(ff *funcfile) error {
+	cmd := exec.Command("docker", "push", ff.FullImage())
 	cmd.Stderr = p.verbwriter
 	cmd.Stdout = p.verbwriter
 	if err := cmd.Run(); err != nil {
@@ -114,7 +114,7 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 	body := functions.RouteWrapper{
 		Route: functions.Route{
 			Path:   *ff.Route,
-			Image:  ff.Image,
+			Image:  ff.FullImage(),
 			Memory: *ff.Memory,
 			Type_:  *ff.Type,
 			Config: expandEnvConfig(ff.Config),

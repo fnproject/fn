@@ -35,27 +35,47 @@ var (
 )
 
 type funcfile struct {
-	App    *string           `yaml:"app,omitempty",json:"app,omitempty"`
-	Image  string            `yaml:"image,omitempty",json:"image,omitempty"`
-	Route  *string           `yaml:"route,omitempty",json:"route,omitempty"`
-	Type   *string           `yaml:"type,omitempty",json:"type,omitempty"`
-	Memory *int64            `yaml:"memory,omitempty",json:"memory,omitempty"`
-	Config map[string]string `yaml:"config,omitempty",json:"config,omitempty"`
-	Build  []string          `yaml:"build,omitempty",json:"build,omitempty"`
+	App     *string           `yaml:"app,omitempty",json:"app,omitempty"`
+	Image   string            `yaml:"image,omitempty",json:"image,omitempty"`
+	Version string            `yaml:"version,omitempty",json:"version,omitempty"`
+	Route   *string           `yaml:"route,omitempty",json:"route,omitempty"`
+	Type    *string           `yaml:"type,omitempty",json:"type,omitempty"`
+	Memory  *int64            `yaml:"memory,omitempty",json:"memory,omitempty"`
+	Config  map[string]string `yaml:"config,omitempty",json:"config,omitempty"`
+	Build   []string          `yaml:"build,omitempty",json:"build,omitempty"`
+}
+
+func (ff *funcfile) FullImage() string {
+	image := ff.Image
+	if ff.Version != "" {
+		image = fmt.Sprintf("%s:%s", image, ff.Version)
+	}
+	return image
 }
 
 func parsefuncfile(path string) (*funcfile, error) {
 	ext := filepath.Ext(path)
 	switch ext {
 	case ".json":
-		return funcfileJSON(path)
+		return decodeFuncfileJSON(path)
 	case ".yaml", ".yml":
-		return funcfileYAML(path)
+		return decodeFuncfileYAML(path)
 	}
 	return nil, errUnexpectedFileFormat
 }
 
-func funcfileJSON(path string) (*funcfile, error) {
+func storefuncfile(path string, ff *funcfile) error {
+	ext := filepath.Ext(path)
+	switch ext {
+	case ".json":
+		return encodeFuncfileJSON(path, ff)
+	case ".yaml", ".yml":
+		return encodeFuncfileYAML(path, ff)
+	}
+	return errUnexpectedFileFormat
+}
+
+func decodeFuncfileJSON(path string) (*funcfile, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s for parsing. Error: %v", path, err)
@@ -65,7 +85,7 @@ func funcfileJSON(path string) (*funcfile, error) {
 	return ff, err
 }
 
-func funcfileYAML(path string) (*funcfile, error) {
+func decodeFuncfileYAML(path string) (*funcfile, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s for parsing. Error: %v", path, err)
@@ -73,6 +93,22 @@ func funcfileYAML(path string) (*funcfile, error) {
 	ff := new(funcfile)
 	err = yaml.Unmarshal(b, ff)
 	return ff, err
+}
+
+func encodeFuncfileJSON(path string, ff *funcfile) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("could not open %s for encoding. Error: %v", path, err)
+	}
+	return json.NewEncoder(f).Encode(ff)
+}
+
+func encodeFuncfileYAML(path string, ff *funcfile) error {
+	b, err := yaml.Marshal(ff)
+	if err != nil {
+		return fmt.Errorf("could not encode function file. Error: %v", err)
+	}
+	return ioutil.WriteFile(path, b, os.FileMode(0644))
 }
 
 func isvalid(path string, info os.FileInfo) bool {
@@ -143,7 +179,7 @@ func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w
 
 	var walked bool
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 8, 0, '\t', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
 	fmt.Fprint(w, "path", "\t", "result", "\n")
 
 	err := filepath.Walk(c.wd, func(path string, info os.FileInfo, err error) error {
@@ -222,7 +258,7 @@ func (c commoncmd) buildfunc(path string) (*funcfile, error) {
 		return nil, err
 	}
 
-	if err := c.dockerbuild(path, funcfile.Image); err != nil {
+	if err := c.dockerbuild(path, funcfile); err != nil {
 		return nil, err
 	}
 
@@ -244,8 +280,8 @@ func (c commoncmd) localbuild(path string, steps []string) error {
 	return nil
 }
 
-func (c commoncmd) dockerbuild(path, image string) error {
-	cmd := exec.Command("docker", "build", "-t", image, filepath.Dir(path))
+func (c commoncmd) dockerbuild(path string, ff *funcfile) error {
+	cmd := exec.Command("docker", "build", "-t", ff.FullImage(), filepath.Dir(path))
 	cmd.Stderr = c.verbwriter
 	cmd.Stdout = c.verbwriter
 	if err := cmd.Run(); err != nil {

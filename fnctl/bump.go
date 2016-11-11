@@ -1,12 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
+	"strings"
 
 	bumper "github.com/giantswarm/semver-bump/bump"
 	"github.com/giantswarm/semver-bump/storage"
@@ -15,8 +13,6 @@ import (
 
 var (
 	initialVersion = "0.0.1"
-
-	errVersionFileNotFound = errors.New("no VERSION file found for this function")
 )
 
 func bump() cli.Command {
@@ -48,26 +44,56 @@ func (b *bumpcmd) walker(path string, info os.FileInfo, err error, w io.Writer) 
 func (b *bumpcmd) bump(path string) error {
 	fmt.Fprintln(b.verbwriter, "bumping version for", path)
 
-	dir := filepath.Dir(path)
-	versionfile := filepath.Join(dir, "VERSION")
-	if _, err := os.Stat(versionfile); os.IsNotExist(err) {
-		return errVersionFileNotFound
-	}
-
-	s, err := storage.NewVersionStorage("file", initialVersion)
+	funcfile, err := parsefuncfile(path)
 	if err != nil {
 		return err
 	}
 
-	version := bumper.NewSemverBumper(s, versionfile)
+	if funcfile.Version == "" {
+		img, ver := imageversion(funcfile.Image)
+		if ver == "" {
+			return nil
+		}
+		funcfile.Image = img
+		funcfile.Version = ver
+	} else if funcfile.Version != "" && strings.Contains(funcfile.Image, ":") {
+		return fmt.Errorf("cannot do version bump: this function has tag in its image name and version at same time. image: %s. version: %s", funcfile.Image, funcfile.Version)
+	}
+
+	s, err := storage.NewVersionStorage("local", funcfile.Version)
+	if err != nil {
+		return err
+	}
+
+	version := bumper.NewSemverBumper(s, "")
 	newver, err := version.BumpPatchVersion("", "")
 	if err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile(versionfile, []byte(newver.String()), 0666); err != nil {
-		return err
+	funcfile.Version = newver.String()
+
+	return storefuncfile(path, funcfile)
+}
+
+func imageversion(image string) (name, ver string) {
+	tagpos := strings.Index(image, ":")
+	if tagpos == -1 {
+		return image, initialVersion
 	}
 
-	return nil
+	imgname, imgver := image[:tagpos], image[tagpos+1:]
+
+	s, err := storage.NewVersionStorage("local", imgver)
+	if err != nil {
+		return imgname, ""
+	}
+
+	version := bumper.NewSemverBumper(s, "")
+	v, err := version.GetCurrentVersion()
+	if err != nil {
+		return imgname, ""
+	}
+
+	return imgname, v.String()
 }

@@ -52,7 +52,7 @@ func (p *pushcmd) push(path string) error {
 		return err
 	}
 
-	if err := p.dockerpush(funcfile.Image); err != nil {
+	if err := p.dockerpush(funcfile); err != nil {
 		return err
 	}
 
