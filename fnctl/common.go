@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,105 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"text/template"
 	"time"
 
 	"github.com/urfave/cli"
-	yaml "gopkg.in/yaml.v2"
 )
 
-var (
-	validfn = [...]string{
-		"functions.yaml",
-		"functions.yml",
-		"function.yaml",
-		"function.yml",
-		"fn.yaml",
-		"fn.yml",
-		"functions.json",
-		"function.json",
-		"fn.json",
-	}
-
-	errDockerFileNotFound   = errors.New("no Dockerfile found for this function")
-	errUnexpectedFileFormat = errors.New("unexpected file format for function file")
-)
-
-type funcfile struct {
-	App     *string           `yaml:"app,omitempty",json:"app,omitempty"`
-	Image   string            `yaml:"image,omitempty",json:"image,omitempty"`
-	Version string            `yaml:"version,omitempty",json:"version,omitempty"`
-	Route   *string           `yaml:"route,omitempty",json:"route,omitempty"`
-	Type    *string           `yaml:"type,omitempty",json:"type,omitempty"`
-	Memory  *int64            `yaml:"memory,omitempty",json:"memory,omitempty"`
-	Config  map[string]string `yaml:"config,omitempty",json:"config,omitempty"`
-	Build   []string          `yaml:"build,omitempty",json:"build,omitempty"`
-}
-
-func (ff *funcfile) FullImage() string {
-	image := ff.Image
-	if ff.Version != "" {
-		image = fmt.Sprintf("%s:%s", image, ff.Version)
-	}
-	return image
-}
-
-func parsefuncfile(path string) (*funcfile, error) {
-	ext := filepath.Ext(path)
-	switch ext {
-	case ".json":
-		return decodeFuncfileJSON(path)
-	case ".yaml", ".yml":
-		return decodeFuncfileYAML(path)
-	}
-	return nil, errUnexpectedFileFormat
-}
-
-func storefuncfile(path string, ff *funcfile) error {
-	ext := filepath.Ext(path)
-	switch ext {
-	case ".json":
-		return encodeFuncfileJSON(path, ff)
-	case ".yaml", ".yml":
-		return encodeFuncfileYAML(path, ff)
-	}
-	return errUnexpectedFileFormat
-}
-
-func decodeFuncfileJSON(path string) (*funcfile, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("could not open %s for parsing. Error: %v", path, err)
-	}
-	ff := new(funcfile)
-	err = json.NewDecoder(f).Decode(ff)
-	return ff, err
-}
-
-func decodeFuncfileYAML(path string) (*funcfile, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("could not open %s for parsing. Error: %v", path, err)
-	}
-	ff := new(funcfile)
-	err = yaml.Unmarshal(b, ff)
-	return ff, err
-}
-
-func encodeFuncfileJSON(path string, ff *funcfile) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("could not open %s for encoding. Error: %v", path, err)
-	}
-	return json.NewEncoder(f).Encode(ff)
-}
-
-func encodeFuncfileYAML(path string, ff *funcfile) error {
-	b, err := yaml.Marshal(ff)
-	if err != nil {
-		return fmt.Errorf("could not encode function file. Error: %v", err)
-	}
-	return ioutil.WriteFile(path, b, os.FileMode(0644))
-}
+var errDockerFileNotFound = errors.New("no Dockerfile found for this function")
 
 func isvalid(path string, info os.FileInfo) bool {
 	if info.IsDir() {
@@ -243,12 +150,6 @@ func isstale(path string) bool {
 }
 
 func (c commoncmd) buildfunc(path string) (*funcfile, error) {
-	dir := filepath.Dir(path)
-	dockerfile := filepath.Join(dir, "Dockerfile")
-	if _, err := os.Stat(dockerfile); os.IsNotExist(err) {
-		return nil, errDockerFileNotFound
-	}
-
 	funcfile, err := parsefuncfile(path)
 	if err != nil {
 		return nil, err
@@ -281,7 +182,19 @@ func (c commoncmd) localbuild(path string, steps []string) error {
 }
 
 func (c commoncmd) dockerbuild(path string, ff *funcfile) error {
-	cmd := exec.Command("docker", "build", "-t", ff.FullImage(), filepath.Dir(path))
+	dir := filepath.Dir(path)
+
+	dockerfile := filepath.Join(dir, "Dockerfile")
+	if _, err := os.Stat(dockerfile); os.IsNotExist(err) {
+		err := writeTmpDockerfile(dir, ff)
+		defer os.Remove(filepath.Join(dir, "Dockerfile"))
+		if err != nil {
+			return err
+		}
+	}
+
+	cmd := exec.Command("docker", "build", "-t", ff.FullImage(), ".")
+	cmd.Dir = dir
 	cmd.Stderr = c.verbwriter
 	cmd.Stdout = c.verbwriter
 	if err := cmd.Run(); err != nil {
@@ -289,6 +202,57 @@ func (c commoncmd) dockerbuild(path string, ff *funcfile) error {
 	}
 
 	return nil
+}
+
+var acceptableFnRuntimes = map[string]string{
+	"elixir":    "iron/elixir",
+	"erlang":    "iron/erlang",
+	"gcc":       "iron/gcc",
+	"go":        "iron/go",
+	"java":      "iron/java",
+	"leiningen": "iron/leiningen",
+	"mono":      "iron/mono",
+	"node":      "iron/node",
+	"perl":      "iron/perl",
+	"php":       "iron/php",
+	"python":    "iron/python",
+	"ruby":      "iron/ruby",
+	"scala":     "iron/scala",
+}
+
+const tplDockerfile = `FROM {{ .BaseImage }}
+
+ADD ./ /
+
+ENTRYPOINT ["{{ .Entrypoint }}"]
+`
+
+func writeTmpDockerfile(dir string, ff *funcfile) error {
+	if ff.Entrypoint == nil || *ff.Entrypoint == "" {
+		return errors.New("entrypoint is missing")
+	}
+
+	runtime, tag := ff.RuntimeTag()
+	rt, ok := acceptableFnRuntimes[runtime]
+	if !ok {
+		return fmt.Errorf("cannot use runtime %s", runtime)
+	}
+
+	if tag != "" {
+		rt = fmt.Sprintf("%s:%s", rt, tag)
+	}
+
+	fd, err := os.Create(filepath.Join(dir, "Dockerfile"))
+	if err != nil {
+		return err
+	}
+
+	t := template.Must(template.New("Dockerfile").Parse(tplDockerfile))
+	err = t.Execute(fd, struct {
+		BaseImage, Entrypoint string
+	}{rt, *ff.Entrypoint})
+	fd.Close()
+	return err
 }
 
 func extractEnvConfig(configs []string) map[string]string {
