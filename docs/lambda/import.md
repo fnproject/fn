@@ -36,8 +36,7 @@ Assuming you have a lambda with the following arn `arn:aws:lambda:us-west-2:1231
 fnctl lambda aws-import arn:aws:lambda:us-west-2:123141564251:function:my-function us-east-1 user/my-function
 ```
 
-will import the function code from the region `us-east-1` to a directory called `./my-function`. It will
-then create a docker image called `my-function`.
+will import the function code from the region `us-east-1` to a directory called `./user/my-function`. Inside the directory you will find the `function.yml`, `Dockerfile`, and all the files needed for running the function.
 
 Using Lambda with Docker Hub and IronFunctions requires that the Docker image be
 named `<Docker Hub username>/<image name>`. This is used to uniquely identify
@@ -48,3 +47,9 @@ If you only want to download the code, pass the `--download-only` flag. The
  `--profile` flag is available similar to the `aws` tool to help
 you tweak the settings on a command level. Finally, you can import a different version of your lambda function than the latest one
 by passing `--version <version>.`
+
+You can then publish the imported lambda as follows:
+```
+./fnctl publish -d ./user/my-function
+````
+Now the function can be reached via ```http://$HOSTNAME/r/user/my-function```
