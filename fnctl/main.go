@@ -30,6 +30,7 @@ ENVIRONMENT VARIABLES:
 		push(),
 		routes(),
 		run(),
+		initFn(),
 	}
 	app.Run(os.Args)
 }
