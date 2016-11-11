@@ -23,12 +23,10 @@ type routesCmd struct {
 func routes() cli.Command {
 	r := routesCmd{RoutesApi: functions.NewRoutesApi()}
 
-	flags := append(confFlags(&r.Configuration), []cli.Flag{}...)
 	return cli.Command{
 		Name:      "routes",
 		Usage:     "list routes",
 		ArgsUsage: "fnctl routes",
-		Flags:     flags,
 		Action:    r.list,
 		Subcommands: []cli.Command{
 			{
@@ -36,7 +34,7 @@ func routes() cli.Command {
 				Usage:     "call a route",
 				ArgsUsage: "appName /path",
 				Action:    r.call,
-				Flags:     append(flags, runflags()...),
+				Flags:     runflags(),
 			},
 			{
 				Name:      "create",
@@ -73,13 +71,11 @@ func routes() cli.Command {
 func call() cli.Command {
 	r := routesCmd{RoutesApi: functions.NewRoutesApi()}
 
-	flags := append([]cli.Flag{}, confFlags(&r.Configuration)...)
-	flags = append(flags, runflags()...)
 	return cli.Command{
 		Name:      "call",
 		Usage:     "call a remote function",
 		ArgsUsage: "appName /path",
-		Flags:     flags,
+		Flags:     runflags(),
 		Action:    r.call,
 	}
 }

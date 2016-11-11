@@ -18,7 +18,6 @@ func push() cli.Command {
 	}
 	var flags []cli.Flag
 	flags = append(flags, cmd.commoncmd.flags()...)
-	flags = append(flags, confFlags(&cmd.Configuration)...)
 	return cli.Command{
 		Name:   "push",
 		Usage:  "scan local directory for functions and push them.",

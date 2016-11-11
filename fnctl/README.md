@@ -45,6 +45,16 @@ $ fnctl routes delete otherapp hello              # delete route
 /hello deleted
 ```
 
+## Changing target host
+
+`fnctl` is configured by default to talk to a locally installed IronFunctions.
+You may reconfigure it to talk to a remote installation by updating a local
+environment variable (`$API_URL`):
+```sh
+$ export API_URL="http://myfunctions.example.org/"
+$ fnctl ...
+```
+
 ## Publish
 
 Also there is the publish command that is going to scan all local directory for
