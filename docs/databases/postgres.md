@@ -29,6 +29,6 @@ docker run -it --rm --link iron-postgres:postgres postgres \
 
 ```
 docker run --rm --link "iron-postgres:postgres" \
-    -e "DB=postgres://postgres:ironfunctions@postgres/funcs?sslmode=disable" \
+    -e "DB_URL=postgres://postgres:ironfunctions@postgres/funcs?sslmode=disable" \
     -it -p 8080:8080 iron/functions
 ```

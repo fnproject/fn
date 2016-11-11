@@ -29,6 +29,6 @@ run:
 
 run-docker: build-docker
 	set -ex
-	docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB=bolt:///app/data/bolt.db" -v $(DIR)/data:/app/data -p 8080:8080 iron/functions
+	docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v $(DIR)/data:/app/data -p 8080:8080 iron/functions
 
 all: dep build

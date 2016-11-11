@@ -10,7 +10,8 @@ function build () {
 }
 
 function run () {
-    docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB=bolt:///app/data/bolt.db" -v ${pwd}/data:/app/data -p 8080:8080 iron/functions
+    build
+    docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v ${pwd}/data:/app/data -p 8080:8080 iron/functions
 }
 
 switch ($cmd)
