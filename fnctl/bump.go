@@ -50,14 +50,14 @@ func (b *bumpcmd) bump(path string) error {
 	}
 
 	if funcfile.Version == "" {
-		img, ver := imageversion(funcfile.Image)
+		img, ver := imageversion(funcfile.Name)
 		if ver == "" {
 			return nil
 		}
-		funcfile.Image = img
+		funcfile.Name = img
 		funcfile.Version = ver
-	} else if funcfile.Version != "" && strings.Contains(funcfile.Image, ":") {
-		return fmt.Errorf("cannot do version bump: this function has tag in its image name and version at same time. image: %s. version: %s", funcfile.Image, funcfile.Version)
+	} else if funcfile.Version != "" && strings.Contains(funcfile.Name, ":") {
+		return fmt.Errorf("cannot do version bump: this function has tag in its image name and version at same time. name: %s. version: %s", funcfile.Name, funcfile.Version)
 	}
 
 	s, err := storage.NewVersionStorage("local", funcfile.Version)

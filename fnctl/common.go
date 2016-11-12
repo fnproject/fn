@@ -193,7 +193,7 @@ func (c commoncmd) dockerbuild(path string, ff *funcfile) error {
 		}
 	}
 
-	cmd := exec.Command("docker", "build", "-t", ff.FullImage(), ".")
+	cmd := exec.Command("docker", "build", "-t", ff.FullName(), ".")
 	cmd.Dir = dir
 	cmd.Stderr = c.verbwriter
 	cmd.Stdout = c.verbwriter

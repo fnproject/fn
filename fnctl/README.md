@@ -128,7 +128,7 @@ functions. The files can be named as:
 An example of a function file:
 ```yaml
 app: myapp
-image: iron/hello
+name: iron/hello
 route: "/custom/route"
 version: 0.0.1
 type: sync

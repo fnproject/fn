@@ -83,7 +83,7 @@ func (p *publishcmd) publish(path string) error {
 }
 
 func (p publishcmd) dockerpush(ff *funcfile) error {
-	cmd := exec.Command("docker", "push", ff.FullImage())
+	cmd := exec.Command("docker", "push", ff.FullName())
 	cmd.Stderr = p.verbwriter
 	cmd.Stdout = p.verbwriter
 	if err := cmd.Run(); err != nil {
@@ -114,14 +114,14 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 	body := functions.RouteWrapper{
 		Route: functions.Route{
 			Path:   *ff.Route,
-			Image:  ff.FullImage(),
+			Image:  ff.FullName(),
 			Memory: *ff.Memory,
 			Type_:  *ff.Type,
 			Config: expandEnvConfig(ff.Config),
 		},
 	}
 
-	fmt.Fprintf(p.verbwriter, "updating API with appName: %s route: %s image: %s \n", *ff.App, *ff.Route, ff.Image)
+	fmt.Fprintf(p.verbwriter, "updating API with app: %s route: %s name: %s \n", *ff.App, *ff.Route, ff.Name)
 
 	wrapper, resp, err := p.AppsAppRoutesPost(*ff.App, body)
 	if err != nil {

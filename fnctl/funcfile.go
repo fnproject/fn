@@ -30,7 +30,7 @@ var (
 
 type funcfile struct {
 	App        *string           `yaml:"app,omitempty",json:"app,omitempty"`
-	Image      string            `yaml:"image,omitempty",json:"image,omitempty"`
+	Name       string            `yaml:"name,omitempty",json:"name,omitempty"`
 	Version    string            `yaml:"version,omitempty",json:"version,omitempty"`
 	Runtime    *string           `yaml:"runtime,omitempty",json:"runtime,omitempty"`
 	Entrypoint *string           `yaml:"entrypoint,omitempty",json:"entrypoint,omitempty"`
@@ -41,12 +41,12 @@ type funcfile struct {
 	Build      []string          `yaml:"build,omitempty",json:"build,omitempty"`
 }
 
-func (ff *funcfile) FullImage() string {
-	image := ff.Image
+func (ff *funcfile) FullName() string {
+	fname := ff.Name
 	if ff.Version != "" {
-		image = fmt.Sprintf("%s:%s", image, ff.Version)
+		fname = fmt.Sprintf("%s:%s", fname, ff.Version)
 	}
-	return image
+	return fname
 }
 
 func (ff *funcfile) RuntimeTag() (runtime, tag string) {
