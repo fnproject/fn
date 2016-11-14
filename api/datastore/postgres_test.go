@@ -1,33 +1,47 @@
 package datastore
 
 import (
-	"bytes"
-	"log"
-	"os"
+	"database/sql"
+	"fmt"
+	"os/exec"
 	"testing"
+	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 )
 
-func setLogBuffer() *bytes.Buffer {
-	var buf bytes.Buffer
-	buf.WriteByte('\n')
-	logrus.SetOutput(&buf)
-	gin.DefaultErrorWriter = &buf
-	gin.DefaultWriter = &buf
-	log.SetOutput(&buf)
-	return &buf
+const tmpPostgres = "postgres://postgres@127.0.0.1:15432/funcs?sslmode=disable"
+
+func preparePostgresTest() func() {
+	fmt.Println("initializing postgres for test")
+	exec.Command("docker", "rm", "-f", "iron-postgres-test").Run()
+	exec.Command("docker", "run", "--name", "iron-postgres-test", "-p", "15432:5432", "-d", "postgres").Run()
+	for {
+		db, err := sql.Open("postgres", "postgres://postgres@127.0.0.1:15432?sslmode=disable")
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		db.Exec(`CREATE DATABASE funcs;`)
+		_, err = db.Exec(`GRANT ALL PRIVILEGES ON DATABASE funcs TO postgres;`)
+		if err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	fmt.Println("postgres for test ready")
+	return func() {
+		exec.Command("docker", "rm", "-f", "iron-postgres-test").Run()
+	}
 }
 
-const tmpBolt = "/tmp/func_test_bolt.db"
-
-func TestBolt(t *testing.T) {
+func TestPostgres(t *testing.T) {
+	close := preparePostgresTest()
+	defer close()
 	buf := setLogBuffer()
 
-	os.Remove(tmpBolt)
-	ds, err := New("bolt://" + tmpBolt)
+	ds, err := New(tmpPostgres)
 	if err != nil {
 		t.Fatalf("Error when creating datastore: %v", err)
 	}
@@ -58,7 +72,7 @@ func TestBolt(t *testing.T) {
 	_, err = ds.InsertApp(testApp)
 	if err != nil {
 		t.Log(buf.String())
-		t.Fatalf("Test InsertApp: error when Bolt was storing new app: %s", err)
+		t.Fatalf("Test InsertApp: error when storing new app: %s", err)
 	}
 
 	_, err = ds.InsertApp(testApp)
@@ -75,7 +89,7 @@ func TestBolt(t *testing.T) {
 	})
 	if err != nil {
 		t.Log(buf.String())
-		t.Fatalf("Test UpdateApp: error when Bolt was updating app: %v", err)
+		t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 	}
 
 	// Testing get app
@@ -122,9 +136,9 @@ func TestBolt(t *testing.T) {
 		t.Fatalf("Test RemoveApp: error: %s", err)
 	}
 	app, err = ds.GetApp(testApp.Name)
-	if err != nil {
+	if err != models.ErrAppsNotFound {
 		t.Log(buf.String())
-		t.Fatalf("Test GetApp: error: %s", err)
+		t.Fatalf("Test GetApp(removed): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 	}
 	if app != nil {
 		t.Log(buf.String())
@@ -140,7 +154,7 @@ func TestBolt(t *testing.T) {
 	})
 	if err != models.ErrAppsNotFound {
 		t.Log(buf.String())
-		t.Fatalf("Test UpdateApp inexistent: expected error to be %v, but it was %v", models.ErrAppsNotFound, err)
+		t.Fatalf("Test UpdateApp(inexistent): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 	}
 
 	// Insert app again to test routes
@@ -148,7 +162,7 @@ func TestBolt(t *testing.T) {
 
 	// Testing insert route
 	_, err = ds.InsertRoute(nil)
-	if err == models.ErrDatastoreEmptyRoute {
+	if err != models.ErrDatastoreEmptyRoute {
 		t.Log(buf.String())
 		t.Fatalf("Test InsertRoute(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
 	}
@@ -156,7 +170,7 @@ func TestBolt(t *testing.T) {
 	_, err = ds.InsertRoute(testRoute)
 	if err != nil {
 		t.Log(buf.String())
-		t.Fatalf("Test InsertRoute: error when Bolt was storing new route: %s", err)
+		t.Fatalf("Test InsertRoute: error when storing new route: %s", err)
 	}
 
 	_, err = ds.InsertRoute(testRoute)
@@ -252,9 +266,9 @@ func TestBolt(t *testing.T) {
 	}
 
 	route, err = ds.GetRoute(testRoute.AppName, testRoute.Path)
-	if err != nil {
+	if err != models.ErrRoutesNotFound {
 		t.Log(buf.String())
-		t.Fatalf("Test GetRoute: error: %s", err)
+		t.Fatalf("Test GetRoute: expected error `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
 	}
 	if route != nil {
 		t.Log(buf.String())

@@ -31,6 +31,8 @@ test:
   override:
     - make test-docker:
         pwd: $GO_PROJECT
+    - make test-datastore:
+        pwd: $GO_PROJECT
 
 deployment:
   release:

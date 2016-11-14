@@ -27,7 +27,12 @@ func (m *Mock) GetApps(appFilter *models.AppFilter) ([]*models.App, error) {
 	return m.FakeApps, nil
 }
 
-func (m *Mock) StoreApp(app *models.App) (*models.App, error) {
+func (m *Mock) InsertApp(app *models.App) (*models.App, error) {
+	// TODO: improve this mock method
+	return m.FakeApp, nil
+}
+
+func (m *Mock) UpdateApp(app *models.App) (*models.App, error) {
 	// TODO: improve this mock method
 	return m.FakeApp, nil
 }
@@ -69,7 +74,12 @@ func (m *Mock) GetRoutesByApp(appName string, routeFilter *models.RouteFilter) (
 	return routes, nil
 }
 
-func (m *Mock) StoreRoute(route *models.Route) (*models.Route, error) {
+func (m *Mock) InsertRoute(route *models.Route) (*models.Route, error) {
+	// TODO: improve this mock method
+	return m.FakeRoute, nil
+}
+
+func (m *Mock) UpdateRoute(route *models.Route) (*models.Route, error) {
 	// TODO: improve this mock method
 	return m.FakeRoute, nil
 }

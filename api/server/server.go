@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"path"
@@ -184,6 +185,8 @@ func (s *Server) bindHandlers() {
 	// This final route is used for extensions, see Server.Add
 	engine.NoRoute(handleSpecial)
 }
+
+var ErrInternalServerError = errors.New("Something unexpected happened on the server")
 
 func simpleError(err error) *models.Error {
 	return &models.Error{&models.ErrorBody{Message: err.Error()}}

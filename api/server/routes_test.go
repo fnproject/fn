@@ -13,27 +13,29 @@ import (
 
 func TestRouteCreate(t *testing.T) {
 	buf := setLogBuffer()
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter(s)
 
 	for i, test := range []struct {
+		mock          *datastore.Mock
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{"/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{"/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{"/v1/apps/a/routes", `{ "route": { } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
-		{"/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
-		{"/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
-		{"/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{&datastore.Mock{}, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
+		{&datastore.Mock{}, "/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{"/v1/apps/a/routes", `{ "route": { "name": "myroute", "image": "iron/hello", "path": "/myroute" } }`, http.StatusCreated, nil},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusCreated, nil},
 	} {
+		s := New(test.mock, &mqs.Mock{}, testRunner(t))
+		router := testRouter(s)
+
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 

@@ -72,18 +72,31 @@ func New(url *url.URL) (models.Datastore, error) {
 	return ds, nil
 }
 
-func (ds *BoltDatastore) StoreApp(app *models.App) (*models.App, error) {
+func (ds *BoltDatastore) InsertApp(app *models.App) (*models.App, error) {
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
 
+	if app.Name == "" {
+		return nil, models.ErrDatastoreEmptyAppName
+	}
+
+	appname := []byte(app.Name)
+
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		bIm := tx.Bucket(ds.appsBucket)
+
+		v := bIm.Get(appname)
+		if v != nil {
+			return models.ErrAppsAlreadyExists
+		}
+
 		buf, err := json.Marshal(app)
 		if err != nil {
 			return err
 		}
-		err = bIm.Put([]byte(app.Name), buf)
+
+		err = bIm.Put(appname, buf)
 		if err != nil {
 			return err
 		}
@@ -94,6 +107,62 @@ func (ds *BoltDatastore) StoreApp(app *models.App) (*models.App, error) {
 		}
 		return nil
 	})
+
+	return app, err
+}
+
+func (ds *BoltDatastore) UpdateApp(newapp *models.App) (*models.App, error) {
+	if newapp == nil {
+		return nil, models.ErrDatastoreEmptyApp
+	}
+
+	if newapp.Name == "" {
+		return nil, models.ErrDatastoreEmptyAppName
+	}
+
+	var app *models.App
+	appname := []byte(newapp.Name)
+
+	err := ds.db.Update(func(tx *bolt.Tx) error {
+		bIm := tx.Bucket(ds.appsBucket)
+
+		v := bIm.Get(appname)
+		if v == nil {
+			return models.ErrAppsNotFound
+		}
+
+		err := json.Unmarshal(v, &app)
+		if err != nil {
+			return err
+		}
+
+		// Update app fields
+		if newapp.Config != nil {
+			if app.Config == nil {
+				app.Config = map[string]string{}
+			}
+			for k, v := range newapp.Config {
+				app.Config[k] = v
+			}
+		}
+
+		buf, err := json.Marshal(app)
+		if err != nil {
+			return err
+		}
+
+		err = bIm.Put(appname, buf)
+		if err != nil {
+			return err
+		}
+		bjParent := tx.Bucket(ds.routesBucket)
+		_, err = bjParent.CreateBucketIfNotExists([]byte(app.Name))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	return app, err
 }
 
@@ -181,10 +250,20 @@ func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bol
 	return b, nil
 }
 
-func (ds *BoltDatastore) StoreRoute(route *models.Route) (*models.Route, error) {
+func (ds *BoltDatastore) InsertRoute(route *models.Route) (*models.Route, error) {
 	if route == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
+
+	if route.AppName == "" {
+		return nil, models.ErrDatastoreEmptyAppName
+	}
+
+	if route.Path == "" {
+		return nil, models.ErrDatastoreEmptyRoutePath
+	}
+
+	routePath := []byte(route.Path)
 
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, route.AppName)
@@ -192,12 +271,93 @@ func (ds *BoltDatastore) StoreRoute(route *models.Route) (*models.Route, error) 
 			return err
 		}
 
+		v := b.Get(routePath)
+		if v != nil {
+			return models.ErrRoutesAlreadyExists
+		}
+
 		buf, err := json.Marshal(route)
 		if err != nil {
 			return err
 		}
 
-		err = b.Put([]byte(route.Path), buf)
+		err = b.Put(routePath, buf)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return route, nil
+}
+
+func (ds *BoltDatastore) UpdateRoute(newroute *models.Route) (*models.Route, error) {
+	if newroute == nil {
+		return nil, models.ErrDatastoreEmptyRoute
+	}
+
+	if newroute.AppName == "" {
+		return nil, models.ErrDatastoreEmptyAppName
+	}
+
+	if newroute.Path == "" {
+		return nil, models.ErrDatastoreEmptyRoutePath
+	}
+
+	routePath := []byte(newroute.Path)
+
+	var route *models.Route
+
+	err := ds.db.Update(func(tx *bolt.Tx) error {
+		b, err := ds.getRouteBucketForApp(tx, newroute.AppName)
+		if err != nil {
+			return err
+		}
+
+		v := b.Get(routePath)
+		if v == nil {
+			return models.ErrRoutesNotFound
+		}
+
+		err = json.Unmarshal(v, &route)
+		if err != nil {
+			return err
+		}
+		// Update route fields
+		if newroute.Image != "" {
+			route.Image = newroute.Image
+		}
+		if route.Memory != 0 {
+			route.Memory = newroute.Memory
+		}
+		if route.Type != "" {
+			route.Type = newroute.Type
+		}
+		if newroute.Headers != nil {
+			if route.Config == nil {
+				route.Config = map[string]string{}
+			}
+			for k, v := range newroute.Headers {
+				route.Headers[k] = v
+			}
+		}
+		if newroute.Config != nil {
+			if route.Config == nil {
+				route.Config = map[string]string{}
+			}
+			for k, v := range newroute.Config {
+				route.Config[k] = v
+			}
+		}
+
+		buf, err := json.Marshal(route)
+		if err != nil {
+			return err
+		}
+
+		err = b.Put(routePath, buf)
 		if err != nil {
 			return err
 		}

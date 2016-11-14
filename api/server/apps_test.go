@@ -26,28 +26,29 @@ func setLogBuffer() *bytes.Buffer {
 
 func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
-	New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter(s)
 
 	for i, test := range []struct {
+		mock          *datastore.Mock
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{"/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{"/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{"/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
-		{"/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
-		{"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
-		{"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{&datastore.Mock{}, "/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{&datastore.Mock{}, "/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{&datastore.Mock{}, "/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
+		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
+		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{"/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusCreated, nil},
+		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusCreated, nil},
 	} {
+		s := New(test.mock, &mqs.Mock{}, testRunner(t))
+		router := testRouter(s)
+
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 
@@ -171,21 +172,27 @@ func TestAppGet(t *testing.T) {
 
 func TestAppUpdate(t *testing.T) {
 	buf := setLogBuffer()
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
-	router := testRouter(s)
 
 	for i, test := range []struct {
+		mock          *datastore.Mock
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{"/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{&datastore.Mock{}, "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// success
-		{"/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+		{&datastore.Mock{
+			FakeApp: &models.App{
+				Name: "myapp",
+			},
+		}, "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
+		s := New(test.mock, &mqs.Mock{}, testRunner(t))
+		router := testRouter(s)
+
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "PUT", test.path, body)
 

@@ -5,13 +5,15 @@ import "errors"
 type Datastore interface {
 	GetApp(appName string) (*App, error)
 	GetApps(*AppFilter) ([]*App, error)
-	StoreApp(*App) (*App, error)
+	InsertApp(app *App) (*App, error)
+	UpdateApp(app *App) (*App, error)
 	RemoveApp(appName string) error
 
 	GetRoute(appName, routePath string) (*Route, error)
 	GetRoutes(*RouteFilter) (routes []*Route, err error)
 	GetRoutesByApp(string, *RouteFilter) (routes []*Route, err error)
-	StoreRoute(*Route) (*Route, error)
+	InsertRoute(route *Route) (*Route, error)
+	UpdateRoute(route *Route) (*Route, error)
 	RemoveRoute(appName, routePath string) error
 
 	// The following provide a generic key value store for arbitrary data, can be used by extensions to store extra data

@@ -13,6 +13,7 @@ var (
 	ErrAppsRemoving        = errors.New("Could not remove app from datastore")
 	ErrAppsGet             = errors.New("Could not get app from datastore")
 	ErrAppsList            = errors.New("Could not list apps from datastore")
+	ErrAppsAlreadyExists   = errors.New("App already exists")
 	ErrAppsNotFound        = errors.New("App not found")
 	ErrAppsNothingToUpdate = errors.New("Nothing to update")
 	ErrAppsMissingNew      = errors.New("Missing new application")

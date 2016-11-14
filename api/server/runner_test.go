@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -92,7 +91,6 @@ func TestRouteRunnerPost(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 			respMsg := resp.Error.Message
 			expMsg := test.expectedError.Error()
-			fmt.Println(respMsg == expMsg)
 			if respMsg != expMsg && !strings.Contains(respMsg, expMsg) {
 				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
@@ -165,7 +163,6 @@ func TestMatchRoute(t *testing.T) {
 				for j, param := range test.expectedParams {
 					if params[j].Key != param.Key || params[j].Value != param.Value {
 						t.Log(buf.String())
-						fmt.Println(params[j])
 						t.Errorf("Test %d: expected param %d, key = %s, value = %s", i, j, param.Key, param.Value)
 					}
 				}

@@ -53,6 +53,7 @@ func handleRouteCreate(c *gin.Context) {
 	}
 
 	if app == nil {
+		// Create a new application and add the route to that new application
 		newapp := &models.App{Name: wroute.Route.AppName}
 		if err := newapp.Validate(); err != nil {
 			log.Error(err)
@@ -60,7 +61,7 @@ func handleRouteCreate(c *gin.Context) {
 			return
 		}
 
-		app, err = Api.Datastore.StoreApp(newapp)
+		app, err = Api.Datastore.InsertApp(newapp)
 		if err != nil {
 			log.WithError(err).Error(models.ErrAppsCreate)
 			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
@@ -68,7 +69,7 @@ func handleRouteCreate(c *gin.Context) {
 		}
 	}
 
-	_, err = Api.Datastore.StoreRoute(wroute.Route)
+	_, err = Api.Datastore.InsertRoute(wroute.Route)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))
