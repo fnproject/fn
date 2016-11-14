@@ -8,7 +8,7 @@ docker: vendor
 	docker push iron/fnctl
 
 vendor:
-	glide install
+	glide install -v
 
 test:
 	go test -v $(shell glide nv)

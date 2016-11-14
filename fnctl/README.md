@@ -1,22 +1,17 @@
 # IronFunctions CLI
 
-## Build
+## Init
 
-Ensure you have Go configured and installed in your environment. Once it is
-done, run:
+usage: fnctl init [--runtime node] [--entrypoint "node hello.js"] <name>
 
-```sh
-$ make
-```
+Init will help you create a function.yaml file for the current directory.
 
-It will build fnctl compatible with your local environment. You can test this
-CLI, right away with:
-
-```sh
-$ ./fnctl
-```
+If there's a Dockerfile found, this will generate the basic file with just the image name.
+It will then try to decipher the runtime based on the files in the current directory, if it can't figure it out, it will ask.
+It will then take a best guess for what the entrypoint will be based on the language, it it can't guess, it will ask.
 
 ## Basic
+
 You can operate IronFunctions from the command line.
 
 ```sh
@@ -47,7 +42,7 @@ $ fnctl routes delete otherapp hello              # delete route
 
 ## Changing target host
 
-`fnctl` is configured by default to talk to a locally installed IronFunctions.
+`fnctl` is configured by default to talk http://localhost:8080.
 You may reconfigure it to talk to a remote installation by updating a local
 environment variable (`$API_URL`):
 ```sh
@@ -240,3 +235,19 @@ environment variables prefixed with `CONFIG_`.
 Repeated calls to `fnctl route create` will trigger an update of the given
 route, thus you will be able to change any of these attributes later in time
 if necessary.
+
+## Build
+
+Ensure you have Go configured and installed in your environment. Once it is
+done, run:
+
+```sh
+$ make
+```
+
+It will build fnctl compatible with your local environment. You can test this
+CLI, right away with:
+
+```sh
+$ ./fnctl
+```

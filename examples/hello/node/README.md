@@ -1,40 +1,18 @@
 ## Quick Example for a NodeJS Function (4 minutes)
 
-This example will show you how to test and deploy Go (Golang) code to IronFunctions.
-
-### 1. Prepare the `functions.yaml` file:
-
-At functions.yaml you will find:
-```yml
-app: nodeapp
-route: /hello
-image: USERNAME/hello:0.0.1
-build:
-- docker run --rm -v "$PWD":/worker -w /worker iron/node:dev npm install
-```
-
-The important step here is to ensure you replace `USERNAME` with your Docker Hub account name. Some points of note:
-the application name is `nodeapp` and the route for incoming requests is `/hello`. These informations are relevant for
-the moment you try to test this function.
-
-### 2. Build:
+This example will show you how to test and deploy a Node function to IronFunctions.
 
 ```sh
-fnctl publish
+fnctl init <YOUR_DOCKERHUB_USERNAME>/hello
+fnctl build
+# test it
+cat hello.payload.json | fnctl run
+# push it to Docker Hub for use with IronFunctions
+fnctl push
+# Create a route to this function on IronFunctions
+fnctl routes create myapp /hello YOUR_DOCKERHUB_USERNAME/hello:0.0.X
+# todo: Image name could be optional if we read the function file for creating the route. Then command could be:
+fnctl routes create myapp /hello
 ```
 
-`-v` is optional, but it allows you to see how this function is being built.
-
-### 3. Queue jobs for your function
-
-Now you can start jobs on your function. Let's quickly queue up a job to try it out.
-
-```sh
-cat hello.payload.json | fnctl run nodeapp /hello
-```
-
-Here's a curl example to show how easy it is to do in any language:
-
-```sh
-curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/nodeapp/hello
-```
+Now surf to: http://localhost:8080/r/myapp/hello

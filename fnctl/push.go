@@ -20,7 +20,7 @@ func push() cli.Command {
 	flags = append(flags, cmd.commoncmd.flags()...)
 	return cli.Command{
 		Name:   "push",
-		Usage:  "scan local directory for functions and push them.",
+		Usage:  "push function to Docker Hub",
 		Flags:  flags,
 		Action: cmd.scan,
 	}
@@ -55,10 +55,5 @@ func (p *pushcmd) push(path string) error {
 	if err := p.dockerpush(funcfile); err != nil {
 		return err
 	}
-
-	if err := p.route(path, funcfile); err != nil {
-		return err
-	}
-
 	return nil
 }

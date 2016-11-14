@@ -83,9 +83,10 @@ func (p *publishcmd) publish(path string) error {
 }
 
 func (p publishcmd) dockerpush(ff *funcfile) error {
+	fmt.Printf("Pushing function %v to Docker Hub.\n", ff.FullName())
 	cmd := exec.Command("docker", "push", ff.FullName())
-	cmd.Stderr = p.verbwriter
-	cmd.Stdout = p.verbwriter
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error running docker push: %v", err)
 	}

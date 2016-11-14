@@ -1,5 +1,0 @@
-app: goapp
-route: /hello
-image: USERNAME/hello:0.0.1
-build:
-- docker run --rm -v "$PWD":/go/src/ -w /go/src/ -e "GOPATH=/go/src/vendor:/go" iron/go:dev go build -o hello

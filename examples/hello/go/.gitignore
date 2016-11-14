@@ -3,3 +3,5 @@ vendor/
 /go
 /app
 /__uberscript__
+
+function.yaml

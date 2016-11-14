@@ -50,16 +50,8 @@ func (b *bumpcmd) bump(path string) error {
 	}
 
 	if funcfile.Version == "" {
-		img, ver := imageversion(funcfile.Name)
-		if ver == "" {
-			return nil
-		}
-		funcfile.Name = img
-		funcfile.Version = ver
-	} else if funcfile.Version != "" && strings.Contains(funcfile.Name, ":") {
-		return fmt.Errorf("cannot do version bump: this function has tag in its image name and version at same time. name: %s. version: %s", funcfile.Name, funcfile.Version)
+		funcfile.Version = initialVersion
 	}
-
 	s, err := storage.NewVersionStorage("local", funcfile.Version)
 	if err != nil {
 		return err
@@ -73,7 +65,12 @@ func (b *bumpcmd) bump(path string) error {
 
 	funcfile.Version = newver.String()
 
-	return storefuncfile(path, funcfile)
+	err = storefuncfile(path, funcfile)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Bumped to version", funcfile.Version)
+	return nil
 }
 
 func imageversion(image string) (name, ver string) {

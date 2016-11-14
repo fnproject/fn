@@ -14,15 +14,9 @@ import (
 
 var (
 	validfn = [...]string{
-		"functions.yaml",
-		"functions.yml",
 		"function.yaml",
 		"function.yml",
-		"fn.yaml",
-		"fn.yml",
-		"functions.json",
 		"function.json",
-		"fn.json",
 	}
 
 	errUnexpectedFileFormat = errors.New("unexpected file format for function file")
@@ -61,6 +55,15 @@ func (ff *funcfile) RuntimeTag() (runtime, tag string) {
 	}
 
 	return rt[:tagpos], rt[tagpos+1:]
+}
+
+func findFuncfile() (*funcfile, error) {
+	for _, fn := range validfn {
+		if exists(fn) {
+			return parsefuncfile(fn)
+		}
+	}
+	return nil, newNotFoundError("could not find function file")
 }
 
 func parsefuncfile(path string) (*funcfile, error) {
