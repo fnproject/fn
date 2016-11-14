@@ -13,7 +13,7 @@ func TestImageversion(t *testing.T) {
 		wantVer  string
 	}{
 		{"tag absent", args{"owner/imagename"}, "owner/imagename", initialVersion},
-		{"non semver tag", args{"owner/imagename:tag"}, "owner/imagename", ""},
+		{"non semver tag", args{"owner/imagename:tag"}, "owner/imagename", "0.0.1"},
 		{"semver tag (M.m.p)", args{"owner/imagename:0.0.1"}, "owner/imagename", "0.0.1"},
 		{"semver tag (vM.m.p)", args{"owner/imagename:v0.0.1"}, "owner/imagename", "0.0.1"},
 	}

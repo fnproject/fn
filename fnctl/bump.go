@@ -49,9 +49,11 @@ func (b *bumpcmd) bump(path string) error {
 		return err
 	}
 
+	funcfile.Name = cleanImageName(funcfile.Name)
 	if funcfile.Version == "" {
 		funcfile.Version = initialVersion
 	}
+
 	s, err := storage.NewVersionStorage("local", funcfile.Version)
 	if err != nil {
 		return err
@@ -73,6 +75,12 @@ func (b *bumpcmd) bump(path string) error {
 	return nil
 }
 
+func cleanImageName(name string) string {
+	if i := strings.Index(name, ":"); i != -1 {
+		name = name[:i]
+	}
+	return name
+}
 func imageversion(image string) (name, ver string) {
 	tagpos := strings.Index(image, ":")
 	if tagpos == -1 {
@@ -83,13 +91,13 @@ func imageversion(image string) (name, ver string) {
 
 	s, err := storage.NewVersionStorage("local", imgver)
 	if err != nil {
-		return imgname, ""
+		return imgname, initialVersion
 	}
 
 	version := bumper.NewSemverBumper(s, "")
 	v, err := version.GetCurrentVersion()
 	if err != nil {
-		return imgname, ""
+		return imgname, initialVersion
 	}
 
 	return imgname, v.String()
