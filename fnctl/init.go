@@ -12,7 +12,6 @@ It will then take a best guess for what the entrypoint will be based on the lang
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -24,29 +23,16 @@ import (
 
 var (
 	fileExtToRuntime = map[string]string{
-		".c":     "gcc",
-		".class": "java",
-		".clj":   "leiningen",
-		".cpp":   "gcc",
-		".erl":   "erlang",
-		".ex":    "elixir",
-		".go":    "go",
-		".h":     "gcc",
-		".java":  "java",
-		".js":    "node",
-		".php":   "php",
-		".pl":    "perl",
-		".py":    "python",
-		".scala": "scala",
-		".rb":    "ruby",
+		".go": "go",
+		".js": "node",
 	}
 
-	fnRuntimes []string
+	fnInitRuntimes []string
 )
 
 func init() {
-	for rt := range acceptableFnRuntimes {
-		fnRuntimes = append(fnRuntimes, rt)
+	for rt := range fileExtToRuntime {
+		fnInitRuntimes = append(fnInitRuntimes, rt)
 	}
 }
 
@@ -62,19 +48,19 @@ func initFn() cli.Command {
 
 	return cli.Command{
 		Name:        "init",
-		Usage:       "create a local function.yaml file",
-		Description: "Creates a function.yaml file in the current directory.  ",
-		ArgsUsage:   "<DOCKERHUB_USERNAME:FUNCTION_NAME>",
+		Usage:       "create a local func.yaml file",
+		Description: "Creates a func.yaml file in the current directory.  ",
+		ArgsUsage:   "<DOCKERHUB_USERNAME/FUNCTION_NAME>",
 		Action:      a.init,
 		Flags: []cli.Flag{
 			cli.BoolFlag{
 				Name:        "force, f",
-				Usage:       "overwrite existing function.yaml",
+				Usage:       "overwrite existing func.yaml",
 				Destination: &a.force,
 			},
 			cli.StringFlag{
 				Name:        "runtime",
-				Usage:       "choose an existing runtime - " + strings.Join(fnRuntimes, ", "),
+				Usage:       "choose an existing runtime - " + strings.Join(fnInitRuntimes, ", "),
 				Destination: a.runtime,
 			},
 			cli.StringFlag{
@@ -89,12 +75,8 @@ func initFn() cli.Command {
 func (a *initFnCmd) init(c *cli.Context) error {
 	if !a.force {
 		ff, err := findFuncfile()
-		if err != nil {
-			if _, ok := err.(*NotFoundError); ok {
-				// great, we're about to make one
-			} else {
-				return err
-			}
+		if _, ok := err.(*NotFoundError); !ok && err != nil {
+			return err
 		}
 		if ff != nil {
 			return errors.New("function file already exists")
@@ -106,11 +88,6 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		return err
 	}
 
-	/*
-	 Now we can make some guesses for the entrypoint based on runtime.
-	 If Go, use ./foldername, if ruby, use ruby and a filename. If node, node + filename
-	*/
-
 	ff := &funcfile{
 		Name:       a.name,
 		Runtime:    a.runtime,
@@ -118,10 +95,10 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		Entrypoint: a.entrypoint,
 	}
 
-	if err := encodeFuncfileYAML("function.yaml", ff); err != nil {
+	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
 		return err
 	}
-	fmt.Println("function.yaml created.")
+	fmt.Println("func.yaml created.")
 	return nil
 }
 
@@ -132,21 +109,18 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	}
 
 	a.name = c.Args().First()
-	if a.name == "" {
-		// todo: also check that it's valid image name format
-		return errors.New("Please specify a name for your function in the following format <DOCKERHUB_USERNAME>:<FUNCTION_NAME>")
+	if a.name == "" || strings.Contains(a.name, ":") {
+		return errors.New("Please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
 	}
 
 	if exists("Dockerfile") {
-		// then don't need anything else
 		fmt.Println("Dockerfile found, will use that to build.")
 		return nil
 	}
 
 	var rt string
-	var filename string
 	if a.runtime == nil || *a.runtime == "" {
-		filename, rt, err = detectRuntime(pwd)
+		rt, err = detectRuntime(pwd)
 		if err != nil {
 			return err
 		}
@@ -158,7 +132,7 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	}
 
 	if a.entrypoint == nil || *a.entrypoint == "" {
-		ep, err := detectEntrypoint(filename, *a.runtime, pwd)
+		ep, err := detectEntrypoint(*a.runtime)
 		if err != nil {
 			return fmt.Errorf("could not detect entrypoint for %v, use --entrypoint to add it explicitly. %v", *a.runtime, err)
 		}
@@ -168,70 +142,20 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	return nil
 }
 
-// detectRuntime this looks at the files in the directory and if it finds a support file extension, it
-// returns the filename and runtime for that extension.
-func detectRuntime(path string) (filename string, runtime string, err error) {
-	err = filepath.Walk(path, func(_ string, info os.FileInfo, _ error) error {
-		if info.IsDir() {
-			return nil
+func detectRuntime(path string) (runtime string, err error) {
+	for ext, runtime := range fileExtToRuntime {
+		fn := filepath.Join(path, fmt.Sprintf("func%s", ext))
+		if exists(fn) {
+			return runtime, nil
 		}
-
-		ext := strings.ToLower(filepath.Ext(info.Name()))
-		if ext == "" {
-			return nil
-		}
-		var ok bool
-		runtime, ok = fileExtToRuntime[ext]
-		if ok {
-			// first match, exiting - http://stackoverflow.com/a/36713726/105562
-			filename = info.Name()
-			return io.EOF
-		}
-		return nil
-	})
-	if err != nil {
-		if err == io.EOF {
-			return filename, runtime, nil
-		}
-		return "", "", fmt.Errorf("file walk error: %s\n", err)
 	}
-	return "", "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
+	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
 }
 
-func detectEntrypoint(filename, runtime, pwd string) (string, error) {
+func detectEntrypoint(runtime string) (string, error) {
 	helper, err := langs.GetLangHelper(runtime)
 	if err != nil {
 		return "", err
 	}
-	return helper.Entrypoint(filename)
-}
-
-func scoreExtension(path string) (string, error) {
-	scores := map[string]uint{
-		"": 0,
-	}
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, _ error) error {
-		if info.IsDir() {
-			return nil
-		}
-
-		ext := strings.ToLower(filepath.Ext(info.Name()))
-		if ext == "" {
-			return nil
-		}
-		scores[ext]++
-		return nil
-	})
-	if err != nil {
-		return "", fmt.Errorf("file walk error: %s\n", err)
-	}
-
-	biggest := ""
-	for ext, score := range scores {
-		if score > scores[biggest] {
-			biggest = ext
-		}
-	}
-	return biggest, nil
-
+	return helper.Entrypoint(), nil
 }

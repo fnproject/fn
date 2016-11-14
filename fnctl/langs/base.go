@@ -14,7 +14,7 @@ func GetLangHelper(lang string) (LangHelper, error) {
 }
 
 type LangHelper interface {
-	Entrypoint(filename string) (string, error)
+	Entrypoint() string
 	HasPreBuild() bool
 	PreBuild() error
 	AfterBuild() error

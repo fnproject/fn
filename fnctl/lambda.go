@@ -289,7 +289,7 @@ func createFunctionYaml(opts createImageOptions) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(opts.Name, "function.yaml"), out, 0644)
+	return ioutil.WriteFile(filepath.Join(opts.Name, "func.yaml"), out, 0644)
 }
 
 type createImageOptions struct {
@@ -385,7 +385,7 @@ func createDockerfile(opts createImageOptions, files ...fileLike) error {
 		return err
 	}
 
-	fmt.Print("Creating function.yaml ... ")
+	fmt.Print("Creating func.yaml ... ")
 	if err := createFunctionYaml(opts); err != nil {
 		return err
 	}

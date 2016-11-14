@@ -18,8 +18,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-var errDockerFileNotFound = errors.New("no Dockerfile found for this function")
-
 func isFuncfile(path string, info os.FileInfo) bool {
 	if info.IsDir() {
 		return false

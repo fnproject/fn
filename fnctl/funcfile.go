@@ -14,9 +14,9 @@ import (
 
 var (
 	validfn = [...]string{
-		"function.yaml",
-		"function.yml",
-		"function.json",
+		"func.yaml",
+		"func.yml",
+		"func.json",
 	}
 
 	errUnexpectedFileFormat = errors.New("unexpected file format for function file")

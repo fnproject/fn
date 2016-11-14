@@ -1,12 +1,10 @@
 package langs
 
-import "fmt"
-
 type NodeLangHelper struct {
 }
 
-func (lh *NodeLangHelper) Entrypoint(filename string) (string, error) {
-	return fmt.Sprintf("node %v", filename), nil
+func (lh *NodeLangHelper) Entrypoint() string {
+	return "node func.js"
 }
 
 func (lh *NodeLangHelper) HasPreBuild() bool {
