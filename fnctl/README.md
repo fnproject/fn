@@ -6,14 +6,22 @@
 
 Init will help you create a [function file](../docs/function-file.md) (func.yaml) in the current directory.
 
+To make things simple, we try to use convention over configuration, so `init` will look for a file named `func.{language-extension}`. For example, 
+if you are using Node, put the code that you want to execute in the file `func.js`. If you are using Python, use `func.py`. Ruby, use `func.rb`. Go, `func.go`. Etc.
+
+Run:
+
 ```sh
-fnctl init [--runtime node] [--entrypoint "node hello.js"] <name>
+fnctl init <DOCKER_HUB_USERNAME>/<FUNCTION_NAME>
 ```
 
-`--runtime` and `--entrypoint` are optional, init will try to figure out it out based on the files in the current directory.
-If it can't figure it out, it will tell you.
+If you want to override the convention with configuration, you can do that as well using:
 
-If there's a Dockerfile found, it will use that as is
+```sh
+fnctl init [--runtime node] [--entrypoint "node hello.js"] <DOCKER_HUB_USERNAME>/<FUNCTION_NAME>
+```
+
+Or, if you want full control, just make a Dockerfile. If `init` finds a Dockerfile, it will use that instead of runtime and entrypoint. 
 
 ### Build, Bump, Run, Push
 

@@ -1,3 +1,4 @@
+require_relative 'bundle/bundler/setup'
 require 'json'
 
 name = "World"
@@ -8,4 +9,4 @@ if payload != ""
     name = payload['name']
 end
 
-puts "Hello #{name}!"
+puts "Hello #{name} from Ruby!"

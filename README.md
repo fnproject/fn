@@ -116,7 +116,8 @@ func main() {
 }
 ```
 
-Copy and paste the code above into a file called `hello.go`, then run:
+Copy and paste the code above into a file called `func.go`, then run the following commands to build your function
+and deploy it. 
 
 ```sh
 # create func.yaml file, replace $USERNAME with your Docker Hub username. 
@@ -135,6 +136,10 @@ fnctl routes create myapp /hello
 
 You can find a bunch of examples in various languages in the [examples](examples/) directory. You can also
 write your functions in AWS's [Lambda format](docs/lambda/README.md).
+
+## Usage
+
+This is a more detailed explanation of the main commands you'll use in IronFunctions as a developer. 
 
 ### Create an Application
 

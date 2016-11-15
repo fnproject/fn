@@ -25,6 +25,7 @@ var (
 	fileExtToRuntime = map[string]string{
 		".go": "go",
 		".js": "node",
+		".rb": "ruby",
 	}
 
 	fnInitRuntimes []string

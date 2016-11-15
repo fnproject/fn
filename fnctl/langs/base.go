@@ -9,6 +9,8 @@ func GetLangHelper(lang string) (LangHelper, error) {
 		return &GoLangHelper{}, nil
 	case "node":
 		return &NodeLangHelper{}, nil
+	case "ruby":
+		return &RubyLangHelper{}, nil
 	}
 	return nil, fmt.Errorf("No language helper found for %v", lang)
 }

@@ -20,3 +20,8 @@ Now you can call your function on IronFunctions:
  ```sh
  curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
  ```
+
+## Dependencies
+
+Be sure you're dependencies are in the `vendor/` directory and that's it. 
+
