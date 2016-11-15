@@ -3,6 +3,8 @@
 This will give you the basic overview of writing base level functions. You can also use higher level 
 abstractions that make it easier such as [lambda](lambda/README.md).
 
+Also, for complete examples in various languages, see the [examples directory](/examples).
+
 ## Code
 
 The most basic code layout in any language is as follows, this is pseudo code and is not meant to run.

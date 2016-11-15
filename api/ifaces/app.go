@@ -9,7 +9,6 @@ type App interface {
 }
 
 type Route interface {
-	// AppName() string      `json:"appname"`
 	Path() string
 	Image() string
 	Headers() http.Header

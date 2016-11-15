@@ -10,6 +10,7 @@ If you are a developer using IronFunctions through the API, this section is for 
 * [fnctl (CLI Tool)](/fnctl/README.md)
 * [Writing functions](writing.md)
 * [Writing Lambda functions](docs/lambda/create.md)
+* [Function file (func.yaml)](docs/function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
 * [API Reference](https://app.swaggerhub.com/api/iron/functions/)

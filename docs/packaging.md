@@ -7,7 +7,17 @@ Packaging a function has two parts:
 
 Once it's pushed to a registry, you can use it by referencing it when adding a route. 
 
-## Creating an image
+## Using fnctl
+
+This is the easiest way to build, package and publish your functions.
+
+
+
+
+
+## 
+
+### Creating an image
 
 The basic Dockerfile for most languages is along these lines:
 
@@ -35,7 +45,7 @@ Or using [fnctl](../fnctl/README.md):
 fnctl build
 ```
 
-## Push your image
+### Push your image
 
 This part is simple:
 

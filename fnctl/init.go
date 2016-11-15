@@ -75,7 +75,7 @@ func initFn() cli.Command {
 func (a *initFnCmd) init(c *cli.Context) error {
 	if !a.force {
 		ff, err := findFuncfile()
-		if _, ok := err.(*NotFoundError); !ok && err != nil {
+		if _, ok := err.(*notFoundError); !ok && err != nil {
 			return err
 		}
 		if ff != nil {

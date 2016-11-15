@@ -13,5 +13,5 @@ type Person struct {
 func main() {
 	p := &Person{Name: "World"}
 	json.NewDecoder(os.Stdin).Decode(p)
-	fmt.Println("Hello", p.Name, "!!!")
+	fmt.Printf("Hello %v!", p.Name)
 }

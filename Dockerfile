@@ -1,7 +1,7 @@
 FROM iron/dind
 
-RUN mkdir /app
-ADD functions-alpine /app/functions
 WORKDIR /app
+
+ADD functions-alpine /app/functions
 
 CMD ["./functions"]

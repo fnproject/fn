@@ -10,9 +10,9 @@ base [function format](function-format.md).
 
 Anywhere. Any cloud, on-premise, on your laptop. As long as you can run a Docker container, you can run IronFunctions.
 
-## Which orchestration platforms does IronFunctions support?
+## Which orchestration tools does IronFunctions support?
 
-IronFunctions can run using any orchestration tool, any server 
+IronFunctions can be deployed using any orchestration tool. 
 
 ## Does IronFunctions require Docker?
 

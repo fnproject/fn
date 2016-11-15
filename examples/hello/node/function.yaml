@@ -1,0 +1,4 @@
+name: treeder/node4
+version: 0.0.2
+runtime: node
+entrypoint: node hello.js

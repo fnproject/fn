@@ -2,13 +2,15 @@
 
 This example will show you how to test and deploy Go (Golang) code to IronFunctions.
 
-### 1. Prepare the `functions.yaml` file:
+### 1. Prepare the `func.yaml` file:
 
-At functions.yaml you will find:
+At func.yaml you will find:
+
 ```yml
 app: pythonapp
 route: /hello
-image: USERNAME/hello:0.0.1
+image: USERNAME/hello
+version: 0.0.1
 build:
 - docker run --rm -v "$PWD":/worker -w /worker iron/python:2-dev pip install -t packages -r requirements.txt
 ```

@@ -4,4 +4,4 @@ vendor/
 /app
 /__uberscript__
 
-function.yaml
+func.yaml

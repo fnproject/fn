@@ -38,7 +38,7 @@ func (r *runCmd) run(c *cli.Context) error {
 	if image == "" {
 		ff, err := findFuncfile()
 		if err != nil {
-			if _, ok := err.(*NotFoundError); ok {
+			if _, ok := err.(*notFoundError); ok {
 				return errors.New("error: image name is missing or no function file found")
 			} else {
 				return err

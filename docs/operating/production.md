@@ -9,7 +9,7 @@ to use more production ready components.
 
 Here's a rough diagram of what a production deployment looks like:
 
-![IronFunctions Architecture Diagram](/docs/assets/architecture.svg)
+![IronFunctions Architecture Diagram](../assets/architecture.png)
 
 ## Load Balancer
 
