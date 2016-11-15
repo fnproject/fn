@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-# Install script to install fnctl 
+# Install script to install fnctl
 
-release='0.1.0'
+release='0.1.2'
 
 command_exists() {
   command -v "$@" > /dev/null 2>&1
