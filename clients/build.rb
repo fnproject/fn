@@ -6,20 +6,7 @@ require 'openssl'
 
 require_relative '../tests/utils.rb'
 
-gist_id = ENV['GIST_ID']
-gist_url = "https://api.github.com/gists/#{gist_id}"
-puts gist_url
-HTTP.auth("Token #{ENV['GITHUB_TOKEN']}")
-    .patch(gist_url, :json => {
-        "files"=> {
-            "swagger.yml" => {
-                "content" => File.read('../docs/swagger.yml')
-            }
-        }
-    })
-
-swaggerUrl = "https://gist.githubusercontent.com/#{ENV['GITHUB_USERNAME']}/#{gist_id}/raw/"
-# swaggerRaw = open(swaggerUrl){|f| f.read}
+swaggerUrl = "https://raw.githubusercontent.com/iron-io/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
 puts "VERSION: #{version}"
@@ -58,7 +45,7 @@ languages.each do |l|
   deploy = []
   case l
   when 'go'
-    clone(lshort) 
+    clone(lshort)
     glob_pattern = ['functions', "**", "*.go"]
     copy_dir = "."
     options['packageName'] = 'functions'
@@ -82,7 +69,7 @@ languages.each do |l|
     # copy_dir = "javascript-client/."
     clone(lshort)
     options['projectName'] = "iron_functions"
-    deploy << "npm publish"    
+    deploy << "npm publish"
    else
     puts "Skipping #{l}"
     next
@@ -117,7 +104,7 @@ languages.each do |l|
   destdir = "tmp/functions_#{lshort}"
   puts "Trying cp", "tmp/#{lv}/#{l}-client/#{copy_dir}", destdir
   FileUtils.cp_r("tmp/#{lv}/#{l}-client/#{copy_dir}", destdir)
-  # Write a version file, this ensures there's always a change. 
+  # Write a version file, this ensures there's always a change.
   File.open("#{destdir}/VERSION", 'w') { |file| file.write(version) }
 
   # Commit and push
@@ -135,7 +122,7 @@ languages.each do |l|
     if ex.last_line.include?("nothing to commit") || ex.last_line.include?("already exists") || ex.last_line.include?("no changes added to commit")
        # ignore this
        puts "Ignoring error"
-    else 
+    else
        raise ex
     end
   end
