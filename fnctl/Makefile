@@ -12,3 +12,8 @@ vendor:
 
 test:
 	go test -v $(shell glide nv)
+
+release: docker
+	GOOS=linux go build -o fnctl_linux
+	GOOS=darwin go build -o fnctl_mac
+	GOOS=windows go build -o fnctl.exe
