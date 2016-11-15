@@ -17,9 +17,9 @@ fnctl routes create myapp /hello
 
 Now you can call your function on IronFunctions:
 
- ```sh
- curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
- ```
+```sh
+curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
+```
 
 ## Dependencies
 

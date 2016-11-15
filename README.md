@@ -135,8 +135,16 @@ fnctl apps create myapp
 fnctl routes create myapp /hello
 ```
 
-You can find a bunch of examples in various languages in the [examples](examples/) directory. You can also
-write your functions in AWS's [Lambda format](docs/lambda/README.md).
+Now you can call your function:
+
+```sh
+curl http://localhost:8080/r/myapp/hello
+```
+
+Or surf to it: http://localhost:8080/r/myapp/hello
+
+See below for more details. And tou can find a bunch of examples in various languages in the [examples](examples/) directory. You can also
+write your functions in AWS's [Lambda format](docs/lambda/README.md). 
 
 ## Usage
 
