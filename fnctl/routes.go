@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -63,6 +64,35 @@ func routes() cli.Command {
 				Usage:     "delete a route",
 				ArgsUsage: "appName /path",
 				Action:    r.delete,
+			},
+			{
+				Name:   "config",
+				Usage:  "operate a route configuration set",
+				Action: r.configList,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "shell",
+						Usage: "output in shell format",
+					},
+					cli.BoolFlag{
+						Name:  "json",
+						Usage: "output in JSON format",
+					},
+				},
+				Subcommands: []cli.Command{
+					{
+						Name:        "set",
+						Description: "store a configuration key for this route",
+						Usage:       "<app> <key> <value>",
+						Action:      r.configSet,
+					},
+					{
+						Name:        "unset",
+						Description: "remove a configuration key for this route",
+						Usage:       "<app> <key> <value>",
+						Action:      r.configUnset,
+					},
+				},
 			},
 		},
 	}
@@ -235,5 +265,129 @@ func (a *routesCmd) delete(c *cli.Context) error {
 	}
 
 	fmt.Println(route, "deleted")
+	return nil
+}
+
+func (a *routesCmd) configList(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
+		return errors.New("error: route configuration description takes two arguments: an app name and a route")
+	}
+
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
+
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	if err != nil {
+		return fmt.Errorf("error loading route information: %v", err)
+	}
+
+	config := wrapper.Route.Config
+	if len(config) == 0 {
+		return errors.New("this route has no configurations")
+	}
+
+	if c.Bool("json") {
+		if err := json.NewEncoder(os.Stdout).Encode(config); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else if c.Bool("shell") {
+		for k, v := range config {
+			fmt.Print("export ", k, "=", v, "\n")
+		}
+	} else {
+		fmt.Println(wrapper.Route.AppName, wrapper.Route.Path, "configuration:")
+		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
+		for k, v := range config {
+			fmt.Fprint(w, k, ":\t", v, "\n")
+		}
+		w.Flush()
+	}
+	return nil
+}
+
+func (a *routesCmd) configSet(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
+		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
+	}
+
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
+
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+	key := c.Args().Get(2)
+	value := c.Args().Get(3)
+
+	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	if err != nil {
+		return fmt.Errorf("error creating app: %v", err)
+	}
+
+	config := wrapper.Route.Config
+
+	if config == nil {
+		config = make(map[string]string)
+	}
+
+	config[key] = value
+	wrapper.Route.Config = config
+
+	if _, err := a.AppsAppRoutesRouteDelete(appName, route); err != nil {
+		return fmt.Errorf("error deleting to force update route: %v", err)
+	}
+
+	if _, _, err := a.AppsAppRoutesPost(appName, *wrapper); err != nil {
+		return fmt.Errorf("error updating route configuration: %v", err)
+	}
+
+	fmt.Println(wrapper.Route.AppName, wrapper.Route.Path, "updated", key, "with", value)
+	return nil
+}
+
+func (a *routesCmd) configUnset(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
+		return errors.New("error: route configuration setting takes four arguments: an app name, a route and a key")
+	}
+
+	if err := resetBasePath(&a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
+
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+	key := c.Args().Get(2)
+
+	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	if err != nil {
+		return fmt.Errorf("error creating app: %v", err)
+	}
+
+	config := wrapper.Route.Config
+
+	if config == nil {
+		config = make(map[string]string)
+	}
+
+	if _, ok := config[key]; !ok {
+		return fmt.Errorf("configuration key %s not found", key)
+	}
+
+	delete(config, key)
+	wrapper.Route.Config = config
+
+	if _, err := a.AppsAppRoutesRouteDelete(appName, route); err != nil {
+		return fmt.Errorf("error deleting to force update route: %v", err)
+	}
+
+	if _, _, err := a.AppsAppRoutesPost(appName, *wrapper); err != nil {
+		return fmt.Errorf("error updating route configuration: %v", err)
+	}
+
+	fmt.Println(wrapper.Route.AppName, wrapper.Route.Path, "removed", key)
 	return nil
 }
