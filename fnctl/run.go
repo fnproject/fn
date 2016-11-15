@@ -36,7 +36,6 @@ func runflags() []cli.Flag {
 func (r *runCmd) run(c *cli.Context) error {
 	image := c.Args().First()
 	if image == "" {
-		// check for a funcfile
 		ff, err := findFuncfile()
 		if err != nil {
 			if _, ok := err.(*NotFoundError); ok {

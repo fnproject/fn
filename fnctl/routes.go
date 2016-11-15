@@ -172,8 +172,8 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 }
 
 func (a *routesCmd) create(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: routes listing takes three arguments: an app name, a route path and an image")
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
+		return errors.New("error: routes creation takes three arguments: an app name, a route path and an image")
 	}
 
 	if err := resetBasePath(&a.Configuration); err != nil {
@@ -183,6 +183,18 @@ func (a *routesCmd) create(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
 	image := c.Args().Get(2)
+	if image == "" {
+		ff, err := findFuncfile()
+		if err != nil {
+			if _, ok := err.(*NotFoundError); ok {
+				return errors.New("error: image name is missing or no function file found")
+			} else {
+				return err
+			}
+		}
+		image = ff.FullName()
+	}
+
 	body := functions.RouteWrapper{
 		Route: functions.Route{
 			AppName: appName,
