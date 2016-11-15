@@ -10,10 +10,10 @@ Init will help you create a [function file](../docs/function-file.md) (func.yaml
 fnctl init [--runtime node] [--entrypoint "node hello.js"] <name>
 ```
 
-`--runtime` and `--entrypoint` are optional, init will try to figure out it out based on the files in the current directory. 
-If it can't figure it out, it will tell you. 
+`--runtime` and `--entrypoint` are optional, init will try to figure out it out based on the files in the current directory.
+If it can't figure it out, it will tell you.
 
-If there's a Dockerfile found, it will use that as is 
+If there's a Dockerfile found, it will use that as is
 
 ### Build, Bump, Run, Push
 
@@ -35,13 +35,13 @@ Run will help you test your function. Functions read input from STDIN, so you ca
 
 ```sh
 cat `payload.json` | fnctl run
-``` 
+```
 
-Push will push the function image to Docker Hub. 
+Push will push the function image to Docker Hub.
 
 ```sh
 fnctl push
-``` 
+```
 
 ## Using the API
 
@@ -175,7 +175,7 @@ It means that first subdirectory are always considered app names (e.g. `myapp`
 and `other`), each subdirectory of these firsts are considered part of the route
 (e.g. `route1/subroute1`).
 
-`fnctl update` expects that each directory to contain a file `func.yaml`
+`fnctl publish` expects that each directory to contain a file `func.yaml`
 which instructs `fnctl` on how to act with that particular update, and a
 Dockerfile which it is going to use to build the image and push to Docker Hub.
 
