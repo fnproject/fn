@@ -1,11 +1,7 @@
 #!/bin/sh
 set -e
-#
-# This script is meant for quick & easy install via:
-#   'curl -sSL https://fn.iron.io/install | sh'
-# or:
-#   'wget -qO- https://fn.iron.io/install | sh'
-#
+
+# Install script to install fnctl 
 
 release='0.1.0'
 
