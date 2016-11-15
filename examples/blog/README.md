@@ -116,12 +116,12 @@ This command should return `{"error":"Invalid authentication"}` because we aren'
 First let's create our blog user. In this example an user `test` with password `test`.
 
 ```
-docker run --rm -e CONFIG_DB=$MONGODB -e NEWUSER='{ "username": "test", "password": "test" }' $USERNAME/functions-blog
+docker run --rm -e DB=$MONGODB -e NEWUSER='{ "username": "test", "password": "test" }' $USERNAME/functions-blog
 ```
 
 ##### Getting authorization token
 
-Now, to get authorized to post in our Blog API endpoints we must request a new token with a valid user. 
+Now, to get authorized to post in our Blog API endpoints we must request a new token with a valid user.
 
 ```
 curl -X POST --data '{ "username": "test", "password": "test" }' http://$FUNCAPI/r/blog/token

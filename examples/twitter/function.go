@@ -36,8 +36,8 @@ func main() {
 	fmt.Println("Looking for tweets of the account:", username)
 
 	// Twitter auth config
-	config := oauth1.NewConfig(os.Getenv("CONFIG_CUSTOMER_KEY"), os.Getenv("CONFIG_CUSTOMER_SECRET"))
-	token := oauth1.NewToken(os.Getenv("CONFIG_ACCESS_TOKEN"), os.Getenv("CONFIG_ACCESS_SECRET"))
+	config := oauth1.NewConfig(os.Getenv("CUSTOMER_KEY"), os.Getenv("CUSTOMER_SECRET"))
+	token := oauth1.NewToken(os.Getenv("ACCESS_TOKEN"), os.Getenv("ACCESS_SECRET"))
 
 	httpClient := config.Client(oauth1.NoContext, token)
 

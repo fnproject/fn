@@ -7,7 +7,7 @@ Applications are the top level object that groups routes together to create an A
 When creating or updating an app, you can pass in a map of config variables.
 
 `config` is a map of values passed to the route runtime in the form of
-environment variables prefixed with `CONFIG_`.
+environment variables.
 
 Note: Route level configuration overrides app level configuration.
 

@@ -49,21 +49,21 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		expectedCode int
 		expectedEnv  map[string]string
 	}{
-		{"/r/myapp/myroute", ``, map[string][]string{}, http.StatusOK, map[string]string{"CONFIG_TEST": "true", "CONFIG_APP": "true"}},
+		{"/r/myapp/myroute", ``, map[string][]string{}, http.StatusOK, map[string]string{"TEST": "true", "APP": "true"}},
 		{
 			"/r/myapp/myroute/1",
 			``,
 			map[string][]string{"X-Function": []string{"test"}},
 			http.StatusOK,
 			map[string]string{
-				"CONFIG_TEST":       "true",
-				"CONFIG_APP":        "true",
+				"TEST":              "true",
+				"APP":               "true",
 				"PARAM_PARAM":       "1",
 				"HEADER_X_FUNCTION": "test",
 			},
 		},
-		{"/r/myapp/myerror", ``, map[string][]string{}, http.StatusOK, map[string]string{"CONFIG_TEST": "true", "CONFIG_APP": "true"}},
-		{"/r/myapp/myroute", `{ "name": "test" }`, map[string][]string{}, http.StatusOK, map[string]string{"CONFIG_TEST": "true", "CONFIG_APP": "true"}},
+		{"/r/myapp/myerror", ``, map[string][]string{}, http.StatusOK, map[string]string{"TEST": "true", "APP": "true"}},
+		{"/r/myapp/myroute", `{ "name": "test" }`, map[string][]string{}, http.StatusOK, map[string]string{"TEST": "true", "APP": "true"}},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 

@@ -20,7 +20,7 @@ dispatches a new request, gets a task ID back and closes the HTTP connection.
 Default: `sync`.
 
 `config` is a map of values passed to the route runtime in the form of
-environment variables prefixed with `CONFIG_`.
+environment variables.
 
 Note: Route level configuration overrides app level configuration.
 

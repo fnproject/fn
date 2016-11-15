@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Dialing redis server
-	c, err := redis.Dial("tcp", os.Getenv("CONFIG_SERVER"))
+	c, err := redis.Dial("tcp", os.Getenv("SERVER"))
 	if err != nil {
 		log.Println("Failed to dial redis server")
 		log.Fatal(err)
@@ -37,8 +37,8 @@ func main() {
 	}
 
 	// Authenticate to redis server if exists the password
-	if os.Getenv("CONFIG_REDIS_AUTH") != "" {
-		if _, err := c.Do("AUTH", os.Getenv("CONFIG_REDIS_AUTH")); err != nil {
+	if os.Getenv("REDIS_AUTH") != "" {
+		if _, err := c.Do("AUTH", os.Getenv("REDIS_AUTH")); err != nil {
 			log.Println("Failed to authenticate to redis server")
 			log.Fatal(err)
 			return
@@ -46,16 +46,16 @@ func main() {
 	}
 
 	// Check if payload command is valid
-	if os.Getenv("CONFIG_COMMAND") != "GET" && os.Getenv("CONFIG_COMMAND") != "SET" {
+	if os.Getenv("COMMAND") != "GET" && os.Getenv("COMMAND") != "SET" {
 		log.Println("Invalid command")
 		return
 	}
 
 	// Execute command on redis server
 	var r interface{}
-	if os.Getenv("CONFIG_COMMAND") == "GET" {
+	if os.Getenv("COMMAND") == "GET" {
 		r, err = c.Do("GET", pl.Key)
-	} else if os.Getenv("CONFIG_COMMAND") == "SET" {
+	} else if os.Getenv("COMMAND") == "SET" {
 		r, err = c.Do("SET", pl.Key, pl.Value)
 	}
 

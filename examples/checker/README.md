@@ -74,5 +74,5 @@ curl -X POST --data '{
 Now that we created our IronFunction route, let's test our new route
 
 ```
-curl -X POST --data '{ "env_vars": { "config_test": "1" } }' http://$FUNCAPI/r/checker/check
+curl -X POST --data '{ "env_vars": { "test": "1" } }' http://$FUNCAPI/r/checker/check
 ```

@@ -6,7 +6,7 @@
 
 Init will help you create a [function file](../docs/function-file.md) (func.yaml) in the current directory.
 
-To make things simple, we try to use convention over configuration, so `init` will look for a file named `func.{language-extension}`. For example, 
+To make things simple, we try to use convention over configuration, so `init` will look for a file named `func.{language-extension}`. For example,
 if you are using Node, put the code that you want to execute in the file `func.js`. If you are using Python, use `func.py`. Ruby, use `func.rb`. Go, `func.go`. Etc.
 
 Run:
@@ -21,7 +21,7 @@ If you want to override the convention with configuration, you can do that as we
 fnctl init [--runtime node] [--entrypoint "node hello.js"] <DOCKER_HUB_USERNAME>/<FUNCTION_NAME>
 ```
 
-Or, if you want full control, just make a Dockerfile. If `init` finds a Dockerfile, it will use that instead of runtime and entrypoint. 
+Or, if you want full control, just make a Dockerfile. If `init` finds a Dockerfile, it will use that instead of runtime and entrypoint.
 
 ### Build, Bump, Run, Push
 
@@ -92,7 +92,7 @@ fnctl apps create --config DB_URL=http://example.org/ otherapp
 ```
 
 `--config` is a map of values passed to the route runtime in the form of
-environment variables prefixed with `CONFIG_`.
+environment variables.
 
 Repeated calls to `fnctl apps create` will trigger an update of the given
 route, thus you will be able to change any of these attributes later in time
@@ -116,7 +116,7 @@ until the request is successfully completed, or `async`, in which the clients
 dispatches a new request, gets a task ID back and closes the HTTP connection.
 
 `--config` is a map of values passed to the route runtime in the form of
-environment variables prefixed with `CONFIG_`.
+environment variables.
 
 Repeated calls to `fnctl route create` will trigger an update of the given
 route, thus you will be able to change any of these attributes later in time

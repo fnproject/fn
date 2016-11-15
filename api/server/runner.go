@@ -128,12 +128,10 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 
 	// app config
 	for k, v := range app.Config {
-		envVars[ToEnvName("CONFIG", k)] = v
+		envVars[ToEnvName("", k)] = v
 	}
-
-	// route config
 	for k, v := range found.Config {
-		envVars[ToEnvName("CONFIG", k)] = v
+		envVars[ToEnvName("", k)] = v
 	}
 
 	// params

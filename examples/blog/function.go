@@ -15,7 +15,7 @@ var noAuth = map[string]interface{}{}
 func main() {
 	request := fmt.Sprintf("%s %s", os.Getenv("METHOD"), os.Getenv("ROUTE"))
 
-	dbURI := os.Getenv("CONFIG_DB")
+	dbURI := os.Getenv("DB")
 	if dbURI == "" {
 		dbURI = "127.0.0.1/blog"
 	}
