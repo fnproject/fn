@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -35,8 +34,8 @@ func (b *bumpcmd) scan(c *cli.Context) error {
 	return nil
 }
 
-func (b *bumpcmd) walker(path string, info os.FileInfo, err error, w io.Writer) error {
-	walker(path, info, err, w, b.bump)
+func (b *bumpcmd) walker(path string, info os.FileInfo, err error) error {
+	walker(path, info, err, b.bump)
 	return nil
 }
 
@@ -67,10 +66,10 @@ func (b *bumpcmd) bump(path string) error {
 
 	funcfile.Version = newver.String()
 
-	err = storefuncfile(path, funcfile)
-	if err != nil {
+	if err := storefuncfile(path, funcfile); err != nil {
 		return err
 	}
+
 	fmt.Println("Bumped to version", funcfile.Version)
 	return nil
 }
@@ -79,26 +78,6 @@ func cleanImageName(name string) string {
 	if i := strings.Index(name, ":"); i != -1 {
 		name = name[:i]
 	}
+
 	return name
-}
-func imageversion(image string) (name, ver string) {
-	tagpos := strings.Index(image, ":")
-	if tagpos == -1 {
-		return image, initialVersion
-	}
-
-	imgname, imgver := image[:tagpos], image[tagpos+1:]
-
-	s, err := storage.NewVersionStorage("local", imgver)
-	if err != nil {
-		return imgname, initialVersion
-	}
-
-	version := bumper.NewSemverBumper(s, "")
-	v, err := version.GetCurrentVersion()
-	if err != nil {
-		return imgname, initialVersion
-	}
-
-	return imgname, v.String()
 }

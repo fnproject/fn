@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	functions "github.com/iron-io/functions_go"
@@ -35,8 +34,8 @@ func (p *pushcmd) scan(c *cli.Context) error {
 	return nil
 }
 
-func (p *pushcmd) walker(path string, info os.FileInfo, err error, w io.Writer) error {
-	walker(path, info, err, w, p.push)
+func (p *pushcmd) walker(path string, info os.FileInfo, err error) error {
+	walker(path, info, err, p.push)
 	return nil
 }
 
@@ -55,5 +54,7 @@ func (p *pushcmd) push(path string) error {
 	if err := p.dockerpush(funcfile); err != nil {
 		return err
 	}
+
+	fmt.Printf("Function %v pushed successfully to Docker Hub.\n", funcfile.FullName())
 	return nil
 }

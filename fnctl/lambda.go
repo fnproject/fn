@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -21,6 +19,7 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	lambdaImpl "github.com/iron-io/lambda/lambda"
 	"github.com/urfave/cli"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func init() {

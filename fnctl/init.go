@@ -98,6 +98,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
 		return err
 	}
+
 	fmt.Println("func.yaml created.")
 	return nil
 }
@@ -149,6 +150,7 @@ func detectRuntime(path string) (runtime string, err error) {
 			return runtime, nil
 		}
 	}
+
 	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
 }
 
@@ -157,5 +159,6 @@ func detectEntrypoint(runtime string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return helper.Entrypoint(), nil
 }

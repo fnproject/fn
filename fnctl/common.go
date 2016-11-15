@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 	"text/template"
 	"time"
 
@@ -33,12 +32,9 @@ func isFuncfile(path string, info os.FileInfo) bool {
 	return false
 }
 
-func walker(path string, info os.FileInfo, err error, w io.Writer, f func(path string) error) {
-	fmt.Fprint(w, path, "\t")
+func walker(path string, info os.FileInfo, err error, f func(path string) error) {
 	if err := f(path); err != nil {
-		fmt.Fprintln(w, err)
-	} else {
-		// fmt.Fprintln(w, "done")
+		fmt.Fprintln(os.Stderr, path, err)
 	}
 }
 
@@ -78,7 +74,7 @@ func (c *commoncmd) flags() []cli.Flag {
 	}
 }
 
-func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w io.Writer) error) {
+func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error) error) {
 	c.verbwriter = ioutil.Discard
 	if c.verbose {
 		c.verbwriter = os.Stderr
@@ -86,11 +82,7 @@ func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w
 
 	var walked bool
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
-	// fmt.Fprint(w, "path", "\t", "result", "\n")
-
 	err := filepath.Walk(c.wd, func(path string, info os.FileInfo, err error) error {
-		// fmt.Println("walking", info.Name())
 		if !c.recursively && path != c.wd && info.IsDir() {
 			return filepath.SkipDir
 		}
@@ -103,7 +95,7 @@ func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w
 			return nil
 		}
 
-		e := walker(path, info, err, w)
+		e := walker(path, info, err)
 		now := time.Now()
 		os.Chtimes(path, now, now)
 		walked = true
@@ -117,8 +109,6 @@ func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error, w
 		fmt.Println("No function file found.")
 		return
 	}
-
-	w.Flush()
 }
 
 // Theory of operation: this takes an optimistic approach to detect whether a
@@ -146,6 +136,7 @@ func isstale(path string) bool {
 		}
 		return nil
 	})
+
 	return err != nil
 }
 

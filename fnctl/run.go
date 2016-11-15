@@ -40,9 +40,8 @@ func (r *runCmd) run(c *cli.Context) error {
 		if err != nil {
 			if _, ok := err.(*notFoundError); ok {
 				return errors.New("error: image name is missing or no function file found")
-			} else {
-				return err
 			}
+			return err
 		}
 		image = ff.FullName()
 	}

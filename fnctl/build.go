@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/urfave/cli"
@@ -28,18 +27,20 @@ func (b *buildcmd) scan(c *cli.Context) error {
 	return nil
 }
 
-func (b *buildcmd) walker(path string, info os.FileInfo, err error, w io.Writer) error {
-	walker(path, info, err, w, b.build)
+func (b *buildcmd) walker(path string, info os.FileInfo, err error) error {
+	walker(path, info, err, b.build)
 	return nil
 }
 
 // build will take the found valid function and build it
 func (b *buildcmd) build(path string) error {
 	fmt.Fprintln(b.verbwriter, "building", path)
+
 	ff, err := b.buildfunc(path)
 	if err != nil {
 		return err
 	}
+
 	fmt.Printf("Function %v built successfully.\n", ff.FullName())
 	return nil
 }

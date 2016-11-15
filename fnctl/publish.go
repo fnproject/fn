@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -50,8 +49,8 @@ func (p *publishcmd) scan(c *cli.Context) error {
 	return nil
 }
 
-func (p *publishcmd) walker(path string, info os.FileInfo, err error, w io.Writer) error {
-	walker(path, info, err, w, p.publish)
+func (p *publishcmd) walker(path string, info os.FileInfo, err error) error {
+	walker(path, info, err, p.publish)
 	return nil
 }
 
@@ -75,15 +74,10 @@ func (p *publishcmd) publish(path string) error {
 		return err
 	}
 
-	if err := p.route(path, funcfile); err != nil {
-		return err
-	}
-
-	return nil
+	return p.route(path, funcfile)
 }
 
 func (p publishcmd) dockerpush(ff *funcfile) error {
-	fmt.Printf("Pushing function %v to Docker Hub.\n", ff.FullName())
 	cmd := exec.Command("docker", "push", ff.FullName())
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
