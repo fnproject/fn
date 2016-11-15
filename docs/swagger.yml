@@ -5,8 +5,8 @@
 swagger: '2.0'
 info:
   title: IronFunctions
-  description:
-  version: "0.0.14"
+  description: The open source serverless platform.
+  version: "0.1.0"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -313,9 +313,6 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Route'
-      cursor:
-        type: string
-        description: Used to paginate results. If this is returned, pass it into the same query again to get more results.
       error:
         $ref: '#/definitions/ErrorBody'
 
@@ -423,7 +420,6 @@ definitions:
     type: object
     required:
       - image
-      - priority
     properties:
       image:
         type: string

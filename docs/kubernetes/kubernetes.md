@@ -50,7 +50,7 @@ $ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp"
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
 $ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"iron/hello" } }' http://$IRON_FUNCTION/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"appname":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
 
 $ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$IRON_FUNCTION/r/myapp/hello-sync
 Hello Johnny!
@@ -103,7 +103,7 @@ $ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp"
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
 $ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"iron/hello" } }' http://$IRON_FUNCTION/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"appname":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
 
 $ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$IRON_FUNCTION/r/myapp/hello-sync
 Hello Johnny!

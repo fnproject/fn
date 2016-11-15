@@ -51,7 +51,7 @@ $ vagrant ssh
 $ curl -H "Content-Type: application/json" -X POST -d '{"app": { "name":"myapp" }}' http://localhost:8080/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 $ curl -H "Content-Type: application/json" -X POST -d '{"route": {"path":"/hello","image":"iron/hello"}}' http://localhost:8080/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"appname":"myapp","path":"/hello","image":"iron/hello","memory":128,"type":"sync","config":null}}
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello","image":"iron/hello","memory":128,"type":"sync","config":null}}
 ```
 
 ## Start a Nova compute instance inside OpenStack
