@@ -10,15 +10,15 @@ Welcome to IronFunctions! The open source serverless platform.
 IronFunctions is an open source serverless platform, or as we like to refer to it, Functions as a
 Service (FaaS) platform that you can run anywhere. 
 
+* Write once
+  * [Any language](docs/faq.md#which-languages-are-supported)
+  * [AWS Lambda format supported](docs/lambda/README.md)
 * [Run anywhere](docs/faq.md#where-can-i-run-ironfunctions)
-  * Public cloud, hybrid, on-premise
-  * [Import Lambda functions](docs/lambda/import.md) from AWS and run them wherever you want
-* [Any language](docs/faq.md#which-languages-are-supported)
-  * [AWS Lambda support](docs/lambda/README.md)
-* Easy to use
-* Easy to scale
-* Written in Go
-* API Gateway built in
+  * Public, private and hybrid cloud
+  * [Import functions directly from Lambda](docs/lambda/import.md) and run them wherever you want
+* Easy to use [for developers](docs/README.md#for-developers)
+* Easy to manage [for operators](docs/README.md#for-operators)
+* Written in [Go](https://golang.org)
 
 ## What is Serverless/FaaS?
 
@@ -79,7 +79,7 @@ docker run --rm -it --name functions --privileged -v $PWD/data:/app/data -p 8080
 ```
 
 This will start IronFunctions in single server mode, using an embedded database and message queue. You can find all the
-configuration options [here](docs/options.md). If you are on Windows, see [windows](docs/operating/windows.md).
+configuration options [here](docs/options.md). If you are on Windows, check [here](docs/operating/windows.md).
 
 ### CLI tool
 
