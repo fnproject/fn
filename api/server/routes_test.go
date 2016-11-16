@@ -25,7 +25,8 @@ func TestRouteCreate(t *testing.T) {
 		{&datastore.Mock{}, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
 		{&datastore.Mock{}, "/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
@@ -50,8 +51,8 @@ func TestRouteCreate(t *testing.T) {
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
-				t.Errorf("Test %d: Expected error message to have `%s`",
-					i, test.expectedError.Error())
+				t.Errorf("Test %d: Expected error message to have `%s`, but it was `%s`",
+					i, test.expectedError.Error(), resp.Error.Message)
 			}
 		}
 	}
@@ -171,7 +172,6 @@ func TestRouteUpdate(t *testing.T) {
 		// errors
 		{"/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{"/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{"/v1/apps/a/routes/myroute/do", `{ "route": {} }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingImage},
 
 		// success
 		{"/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},

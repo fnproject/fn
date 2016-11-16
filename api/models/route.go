@@ -49,10 +49,6 @@ var (
 func (r *Route) Validate() error {
 	var res []error
 
-	if r.Image == "" {
-		res = append(res, ErrRoutesValidationMissingImage)
-	}
-
 	if r.Memory == 0 {
 		r.Memory = 128
 	}

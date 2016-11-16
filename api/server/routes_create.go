@@ -37,6 +37,10 @@ func handleRouteCreate(c *gin.Context) {
 		return
 	}
 
+	if wroute.Route.Image == "" {
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesValidationMissingImage))
+		return
+	}
 	err = Api.Runner.EnsureImageExists(ctx, &runner.Config{
 		Image: wroute.Route.Image,
 	})

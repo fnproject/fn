@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/runner/common"
 )
 
@@ -31,10 +32,14 @@ func handleRouteUpdate(c *gin.Context) {
 	wroute.Route.AppName = c.Param("app")
 	wroute.Route.Path = c.Param("route")
 
-	if err := wroute.Validate(); err != nil {
-		log.Error(err)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
-		return
+	if wroute.Route.Image != "" {
+		err = Api.Runner.EnsureImageExists(ctx, &runner.Config{
+			Image: wroute.Route.Image,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, simpleError(models.ErrUsableImage))
+			return
+		}
 	}
 
 	_, err = Api.Datastore.UpdateRoute(wroute.Route)
