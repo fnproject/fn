@@ -19,7 +19,7 @@ make build-docker
 
 git add -u
 git commit -m "$service: $version release [skip ci]"
-git tag -a "$version" -m "version $version"
+git tag -f -a "$version" -m "version $version"
 git push
 git push --tags
 
