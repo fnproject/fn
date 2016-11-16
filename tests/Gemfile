@@ -1,4 +1,0 @@
-source "http://rubygems.org"
-
-gem 'test-unit', '>3'
-gem 'worker_ruby', '>=0.3.5', :git => 'https://github.com/iron-io/worker_ruby'

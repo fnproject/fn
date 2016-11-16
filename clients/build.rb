@@ -4,12 +4,16 @@ require 'http'
 require 'fileutils'
 require 'openssl'
 
-require_relative '../tests/utils.rb'
+require_relative 'utils.rb'
 
 swaggerUrl = "https://raw.githubusercontent.com/iron-io/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
 puts "VERSION: #{version}"
+
+# Can pass in a particular language to only do that one
+only = ARGV[0]
+puts "only building: #{only}" if only
 
 # Keep getting cert errors??  Had to do this to work around it:
 ctx = OpenSSL::SSL::SSLContext.new
@@ -31,7 +35,12 @@ def clone(lang)
 end
 
 FileUtils.mkdir_p 'tmp'
-languages = JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
+languages = nil
+if only
+  languages = [only]
+else 
+  languages = JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
+end
 languages.each do |l|
   puts l
   lshort = l
@@ -112,7 +121,11 @@ languages.each do |l|
     Dir.chdir("tmp/functions_#{lshort}")
     stream_exec "git add ."
     stream_exec "git commit -am \"Updated to api version #{version}\""
-    stream_exec "git tag -a #{version} -m \"Version #{version}\""
+    begin
+      stream_exec "git tag -a #{version} -m \"Version #{version}\""
+    rescue => ex 
+      puts "WARNING: Tag #{version} already exists."
+    end
     stream_exec "git push --follow-tags"
     deploy.each do |d|
       stream_exec d
