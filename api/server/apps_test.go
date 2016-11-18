@@ -12,6 +12,7 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"github.com/iron-io/functions/api/runner"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -24,9 +25,19 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
+func mockTasksConduit() chan runner.TaskRequest {
+	tasks := make(chan runner.TaskRequest)
+	go func() {
+		for range tasks {
+		}
+	}()
+	return tasks
+}
+
 func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
-
+	tasks := mockTasksConduit()
+	defer close(tasks)
 	for i, test := range []struct {
 		mock          *datastore.Mock
 		path          string
@@ -46,7 +57,7 @@ func TestAppCreate(t *testing.T) {
 		// success
 		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusCreated, nil},
 	} {
-		s := New(test.mock, &mqs.Mock{}, testRunner(t))
+		s := New(test.mock, &mqs.Mock{}, testRunner(t), tasks)
 		router := testRouter(s)
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -72,7 +83,10 @@ func TestAppCreate(t *testing.T) {
 
 func TestAppDelete(t *testing.T) {
 	buf := setLogBuffer()
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	tasks := mockTasksConduit()
+	defer close(tasks)
+
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 	router := testRouter(s)
 
 	for i, test := range []struct {
@@ -106,7 +120,10 @@ func TestAppDelete(t *testing.T) {
 
 func TestAppList(t *testing.T) {
 	buf := setLogBuffer()
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	tasks := mockTasksConduit()
+	defer close(tasks)
+
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 	router := testRouter(s)
 
 	for i, test := range []struct {
@@ -139,7 +156,10 @@ func TestAppList(t *testing.T) {
 
 func TestAppGet(t *testing.T) {
 	buf := setLogBuffer()
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t))
+	tasks := mockTasksConduit()
+	defer close(tasks)
+
+	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 	router := testRouter(s)
 
 	for i, test := range []struct {
@@ -172,6 +192,8 @@ func TestAppGet(t *testing.T) {
 
 func TestAppUpdate(t *testing.T) {
 	buf := setLogBuffer()
+	tasks := mockTasksConduit()
+	defer close(tasks)
 
 	for i, test := range []struct {
 		mock          *datastore.Mock
@@ -190,7 +212,7 @@ func TestAppUpdate(t *testing.T) {
 			},
 		}, "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
-		s := New(test.mock, &mqs.Mock{}, testRunner(t))
+		s := New(test.mock, &mqs.Mock{}, testRunner(t), tasks)
 		router := testRouter(s)
 
 		body := bytes.NewBuffer([]byte(test.body))

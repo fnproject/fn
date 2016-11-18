@@ -15,7 +15,6 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/runner/common"
-	"github.com/iron-io/runner/drivers"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -35,7 +34,7 @@ func ToEnvName(envtype, name string) string {
 	return fmt.Sprintf("%s_%s", envtype, name)
 }
 
-func handleRequest(c *gin.Context, enqueue models.Enqueue) {
+func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	if strings.HasPrefix(c.Request.URL.Path, "/v1") {
 		c.Status(http.StatusNotFound)
 		return
@@ -156,7 +155,6 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		Stdin:   payload,
 	}
 
-	var result drivers.RunResult
 	switch found.Type {
 	case "async":
 		// Read payload
@@ -182,7 +180,9 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		log.Info("Added new task to queue")
 
 	default:
-		if result, err = Api.Runner.Run(c, cfg); err != nil {
+
+		result, err := runner.RunTask(s.tasks, ctx, cfg)
+		if err != nil {
 			break
 		}
 		for k, v := range found.Headers {
@@ -194,6 +194,7 @@ func handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		} else {
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
+
 	}
 }
 

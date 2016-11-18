@@ -15,7 +15,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/runner/common"
-	"github.com/iron-io/runner/drivers"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
@@ -85,30 +84,14 @@ func deleteTask(url string, task *models.Task) error {
 	return nil
 }
 
-func runTask(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
-	// Set up runner and process task
-	cfg := getCfg(task)
-	rnr, err := New(NewMetricLogger())
-	if err != nil {
-		return nil, err
-	}
-	return rnr.Run(ctx, cfg)
-}
-
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(ctx context.Context, tasksrv string, n int) {
+func RunAsyncRunner(ctx context.Context, tasksrv string, tasks chan TaskRequest, rnr *Runner) {
 	u, h := tasksrvURL(tasksrv)
 	if isHostOpen(h) {
 		return
 	}
 
-	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go startAsyncRunners(ctx, &wg, i, u, runTask)
-	}
-
-	wg.Wait()
+	startAsyncRunners(ctx, u, tasks, rnr)
 	<-ctx.Done()
 }
 
@@ -121,16 +104,21 @@ func isHostOpen(host string) bool {
 	return available
 }
 
-// todo: not a big fan of this anonymous function for testing, should use an interface and make a Mock object for testing - TR
-func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url string, runTask func(ctx context.Context, task *models.Task) (drivers.RunResult, error)) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"async_runner": i})
-	defer wg.Done()
+func startAsyncRunners(ctx context.Context, url string, tasks chan TaskRequest, rnr *Runner) {
+	var wg sync.WaitGroup
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"runner": "async"})
 	for {
 		select {
 		case <-ctx.Done():
+			wg.Wait()
 			return
 
 		default:
+			if !rnr.hasAsyncAvailableMemory() {
+				log.Debug("memory full")
+				time.Sleep(1 * time.Second)
+				continue
+			}
 			task, err := getTask(ctx, url)
 			if err != nil {
 				if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -148,11 +136,16 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 
 			ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": task.ID})
 			log.Debug("Running task:", task.ID)
-			// Process Task
-			if _, err := runTask(ctx, task); err != nil {
-				log.WithError(err).Error("Cannot run task")
-				continue
-			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// Process Task
+				if _, err := RunTask(tasks, ctx, getCfg(task)); err != nil {
+					log.WithError(err).Error("Cannot run task")
+				}
+			}()
+
 			log.Debug("Processed task")
 
 			// Delete task from queue
@@ -160,8 +153,8 @@ func startAsyncRunners(ctx context.Context, wg *sync.WaitGroup, i int, url strin
 				log.WithError(err).Error("Cannot delete task")
 				continue
 			}
-
 			log.Info("Task complete")
+
 		}
 	}
 }

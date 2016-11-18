@@ -15,6 +15,7 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/runner/common"
 )
 
@@ -84,10 +85,15 @@ func prepareBolt(t *testing.T) (models.Datastore, func()) {
 
 func TestFullStack(t *testing.T) {
 	buf := setLogBuffer()
-	ds, close := prepareBolt(t)
-	defer close()
+	ds, closeBolt := prepareBolt(t)
+	defer closeBolt()
 
-	s := New(ds, &mqs.Mock{}, testRunner(t))
+	tasks := make(chan runner.TaskRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go runner.StartWorkers(ctx, testRunner(t), tasks)
+
+	s := New(ds, &mqs.Mock{}, testRunner(t), tasks)
 	router := testRouter(s)
 
 	for i, test := range []struct {
@@ -119,5 +125,4 @@ func TestFullStack(t *testing.T) {
 				i, test.expectedCode, rec.Code)
 		}
 	}
-
 }

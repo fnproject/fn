@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
-	"github.com/iron-io/runner/drivers"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -90,22 +88,6 @@ func getTestServer(mockTasks []*models.Task) *httptest.Server {
 	r.GET("/tasks", getHandler)
 	r.DELETE("/tasks", delHandler)
 	return httptest.NewServer(r)
-}
-
-var helloImage = "iron/hello"
-
-func TestRunTask(t *testing.T) {
-	mockTask := getMockTask()
-	mockTask.Image = &helloImage
-
-	result, err := runTask(context.Background(), &mockTask)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if result.Status() != "success" {
-		t.Errorf("TestRunTask failed to execute runTask")
-	}
 }
 
 func TestGetTask(t *testing.T) {
@@ -206,19 +188,35 @@ func TestTasksrvURL(t *testing.T) {
 	}
 }
 
+func testRunner(t *testing.T) *Runner {
+	r, err := New(NewMetricLogger())
+	if err != nil {
+		t.Fatal("Test: failed to create new runner")
+	}
+	return r
+}
+
 func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	buf := setLogBuffer()
 	mockTask := getMockTask()
 	ts := getTestServer([]*models.Task{&mockTask})
 	defer ts.Close()
 
-	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go startAsyncRunners(ctx, &wg, 0, ts.URL+"/tasks", func(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
-		return nil, nil
-	})
-	wg.Wait()
+	tasks := make(chan TaskRequest)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	defer close(tasks)
+	go func() {
+		for t := range tasks {
+			t.Response <- TaskResponse{
+				Result: nil,
+				Err:    nil,
+			}
+
+		}
+	}()
+
+	startAsyncRunners(ctx, ts.URL+"/tasks", tasks, testRunner(t))
 
 	if err := ctx.Err(); err != context.DeadlineExceeded {
 		t.Log(buf.String())

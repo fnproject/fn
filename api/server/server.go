@@ -27,14 +27,17 @@ type Server struct {
 	MQ              models.MessageQueue
 	AppListeners    []ifaces.AppListener
 	SpecialHandlers []ifaces.SpecialHandler
+
+	tasks chan runner.TaskRequest
 }
 
-func New(ds models.Datastore, mq models.MessageQueue, r *runner.Runner) *Server {
+func New(ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan runner.TaskRequest) *Server {
 	Api = &Server{
+		Runner:    r,
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
-		Runner:    r,
+		tasks:     tasks,
 	}
 	return Api
 }
@@ -80,7 +83,7 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 		}
 	}
 	// now call the normal runner call
-	handleRequest(ginC, nil)
+	s.handleRequest(ginC, nil)
 	return nil
 }
 
@@ -90,7 +93,7 @@ func (s *Server) handleRunnerRequest(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c, logrus.Fields{"call_id": task.ID})
 		return s.MQ.Push(ctx, task)
 	}
-	handleRequest(c, enqueue)
+	s.handleRequest(c, enqueue)
 }
 
 func (s *Server) handleTaskRequest(c *gin.Context) {

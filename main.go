@@ -23,7 +23,6 @@ const (
 	envDB       = "db_url"
 	envPort     = "port" // be careful, Gin expects this variable to be "port"
 	envAPIURL   = "api_url"
-	envNumAsync = "num_async"
 )
 
 func init() {
@@ -37,7 +36,6 @@ func init() {
 	viper.SetDefault(envDB, fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
 	viper.SetDefault(envPort, 8080)
 	viper.SetDefault(envAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(envPort)))
-	viper.SetDefault(envNumAsync, 1)
 	viper.AutomaticEnv() // picks up env vars automatically
 	logLevel, err := log.ParseLevel(viper.GetString("log_level"))
 	if err != nil {
@@ -82,18 +80,22 @@ func main() {
 		},
 	}
 
+	tasks := make(chan runner.TaskRequest)
+
 	svr.AddFunc(func(ctx context.Context) {
-		srv := server.New(ds, mqType, rnr)
+		runner.StartWorkers(ctx, rnr, tasks)
+	})
+
+	svr.AddFunc(func(ctx context.Context) {
+		srv := server.New(ds, mqType, rnr, tasks)
 		srv.Run(ctx)
 	})
 
-	apiURL, numAsync := viper.GetString(envAPIURL), viper.GetInt(envNumAsync)
-	log.Debug("async workers:", numAsync)
-	if numAsync > 0 {
-		svr.AddFunc(func(ctx context.Context) {
-			runner.RunAsyncRunner(ctx, apiURL, numAsync)
-		})
-	}
+	apiURL := viper.GetString(envAPIURL)
+	svr.AddFunc(func(ctx context.Context) {
+		runner.RunAsyncRunner(ctx, apiURL, tasks, rnr)
+	})
 
 	svr.Serve(ctx)
+	close(tasks)
 }

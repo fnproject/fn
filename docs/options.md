@@ -31,10 +31,6 @@ docker run -e VAR_NAME=VALUE ...
 <td>Sets the port to run on. Default: `8080`.</td>
 </tr>
 <tr>
-<td>NUM_ASYNC</td>
-<td>The number of async runners in the functions process (default 1).</td>
-</tr>
-<tr>
 <td>LOG_LEVEL</td>
 <td>Set to `DEBUG` to enable debugging. Default: INFO.</td>
 </tr>
@@ -47,7 +43,7 @@ a couple reasons why we did it this way:
 
 * It's clean. Once the container exits, there is nothing left behind including all the function images.
 * You can set resource restrictions for the entire IronFunctions instance. For instance, you can set `--memory` on
-the docker run command to set the max memory for the IronFunctions instance AND all of the functions it's running. 
+the docker run command to set the max memory for the IronFunctions instance AND all of the functions it's running.
 
 There are some reasons you may not want to use dind, such as using the image cache during testing or you're running
 [Windows](windows.md).

@@ -30,6 +30,8 @@ func testRouterAsync(s *Server, enqueueFunc models.Enqueue) *gin.Engine {
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
 	t.Skip()
+	tasks := mockTasksConduit()
+
 	// todo: I broke how this test works trying to clean up the code a bit. Is there a better way to do this test rather than having to override the default route behavior?
 	s := New(&datastore.Mock{
 		FakeApps: []*models.App{
@@ -40,7 +42,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "iron/error", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "iron/hello", Config: map[string]string{"test": "true"}},
 		},
-	}, &mqs.Mock{}, testRunner(t))
+	}, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		path         string
