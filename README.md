@@ -174,7 +174,7 @@ Now that we have an app, we can route endpoints to functions.
 
 A route is a way to define a path in your application that maps to a function. In this example, we'll map
 `/hello` to a simple `Hello World!` function called `iron/hello` which is a function we already made that you
-can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello-go).
+can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello/go).
 You can read more about [writing your own functions here](docs/writing.md).
 
 ```sh
