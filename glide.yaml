@@ -2,7 +2,6 @@ package: github.com/iron-io/functions
 import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/boltdb/bolt
-- package: github.com/dgrijalva/jwt-go
 - package: github.com/garyburd/redigo
   subpackages:
   - redis

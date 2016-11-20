@@ -61,8 +61,6 @@ imports:
   version: 4385816142116aade2d97d0f320f9d3666e74cd9
 - name: github.com/dghubble/sling
   version: c961a4334054e64299d16f8a31bd686ee2565ae4
-- name: github.com/dgrijalva/jwt-go
-  version: 9ed569b5d1ac936e6494082958d63a6aa4fff99a
 - name: github.com/docker/distribution
   version: 6edf9c507051be36d82afbd71a3f2a7cdbbf4394
   subpackages:
