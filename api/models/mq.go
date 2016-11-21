@@ -51,4 +51,4 @@ type MessageQueue interface {
 	Delete(context.Context, *Task) error
 }
 
-type Enqueue func(*Task) (*Task, error)
+type Enqueue func(context.Context, MessageQueue, *Task) (*Task, error)

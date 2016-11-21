@@ -21,10 +21,12 @@ import (
 
 var tmpBolt = "/tmp/func_test_bolt.db"
 
-func testRouter(s *Server) *gin.Engine {
+func testRouter(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan runner.TaskRequest) *gin.Engine {
+	ctx := context.Background()
+	s := New(ctx, ds, mq, rnr, tasks, DefaultEnqueue)
 	r := s.Router
 	r.Use(gin.Logger())
-	ctx := context.Background()
+
 	r.Use(func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
 		c.Set("ctx", ctx)
@@ -93,8 +95,7 @@ func TestFullStack(t *testing.T) {
 	defer cancel()
 	go runner.StartWorkers(ctx, testRunner(t), tasks)
 
-	s := New(ds, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
+	router := testRouter(ds, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		method       string

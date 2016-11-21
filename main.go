@@ -63,7 +63,8 @@ func main() {
 	if err != nil {
 		log.WithError(err).Fatalln("Invalid DB url.")
 	}
-	mqType, err := mqs.New(viper.GetString(envMQ))
+
+	mq, err := mqs.New(viper.GetString(envMQ))
 	if err != nil {
 		log.WithError(err).Fatal("Error on init MQ")
 	}
@@ -87,8 +88,9 @@ func main() {
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
-		srv := server.New(ds, mqType, rnr, tasks)
-		srv.Run(ctx)
+		srv := server.New(ctx, ds, mq, rnr, tasks, server.DefaultEnqueue)
+		srv.Run()
+		<-ctx.Done()
 	})
 
 	apiURL := viper.GetString(envAPIURL)

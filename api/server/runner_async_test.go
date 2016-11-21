@@ -12,13 +12,16 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/runner/common"
 )
 
-func testRouterAsync(s *Server, enqueueFunc models.Enqueue) *gin.Engine {
+func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan runner.TaskRequest, enqueue models.Enqueue) *gin.Engine {
+	ctx := context.Background()
+	s := New(ctx, ds, mq, rnr, tasks, enqueue)
 	r := s.Router
 	r.Use(gin.Logger())
-	ctx := context.Background()
+
 	r.Use(func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
 		c.Set("ctx", ctx)
@@ -31,9 +34,7 @@ func testRouterAsync(s *Server, enqueueFunc models.Enqueue) *gin.Engine {
 func TestRouteRunnerAsyncExecution(t *testing.T) {
 	t.Skip()
 	tasks := mockTasksConduit()
-
-	// todo: I broke how this test works trying to clean up the code a bit. Is there a better way to do this test rather than having to override the default route behavior?
-	s := New(&datastore.Mock{
+	ds := &datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
@@ -42,7 +43,8 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "iron/error", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "iron/hello", Config: map[string]string{"test": "true"}},
 		},
-	}, &mqs.Mock{}, testRunner(t), tasks)
+	}
+	mq := &mqs.Mock{}
 
 	for i, test := range []struct {
 		path         string
@@ -73,7 +75,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 
 		wg.Add(1)
 		fmt.Println("About to start router")
-		router := testRouterAsync(s, func(task *models.Task) (*models.Task, error) {
+		router := testRouterAsync(ds, mq, testRunner(t), tasks, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
 			if test.body != task.Payload {
 				t.Errorf("Test %d: Expected task Payload to be the same as the test body", i)
 			}

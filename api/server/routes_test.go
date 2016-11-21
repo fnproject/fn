@@ -36,8 +36,7 @@ func TestRouteCreate(t *testing.T) {
 		// success
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusCreated, nil},
 	} {
-		s := New(test.mock, &mqs.Mock{}, testRunner(t), tasks)
-		router := testRouter(s)
+		router := testRouter(test.mock, &mqs.Mock{}, testRunner(t), tasks)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
@@ -65,8 +64,7 @@ func TestRouteDelete(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
+	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -102,8 +100,7 @@ func TestRouteList(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
+	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -138,8 +135,7 @@ func TestRouteGet(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
+	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -174,8 +170,7 @@ func TestRouteUpdate(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	s := New(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
+	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		path          string

@@ -25,12 +25,11 @@ func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
 	tasks := mockTasksConduit()
 
-	s := New(&datastore.Mock{
+	router := testRouter(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 	}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -66,12 +65,11 @@ func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
 	tasks := mockTasksConduit()
 
-	s := New(&datastore.Mock{
+	router := testRouter(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 	}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
 
 	for i, test := range []struct {
 		path          string
@@ -114,7 +112,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 	go runner.StartWorkers(ctx, testRunner(t), tasks)
 
-	s := New(&datastore.Mock{
+	router := testRouter(&datastore.Mock{
 		FakeApps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
@@ -123,7 +121,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		},
 	}, &mqs.Mock{}, testRunner(t), tasks)
-	router := testRouter(s)
 
 	for i, test := range []struct {
 		path            string
