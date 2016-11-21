@@ -1,10 +1,10 @@
 # Creating Docker images out of Lambda functions
-Docker images created by running the `create-function` subcommand on a Lambda function are ready to execute. 
+Docker images created by running the `create-function` subcommand on a Lambda function are ready to execute.
 
 You can convert any Lambda function of type nodejs 0.10, python 2.7 and Java 8 into an
 IronFunction compatible Docker Image as follows:
 ```bash
-fnctl lambda create-function <name> <runtime> <handler> <files...>
+fn lambda create-function <name> <runtime> <handler> <files...>
 ```
 
 * name: the name of the created docker image which should have the format `<username>/<image-name>`
@@ -17,6 +17,6 @@ fnctl lambda create-function <name> <runtime> <handler> <files...>
 
 e.g:
 ```bash
-fnctl lambda create-function irontest/node-exec:1 nodejs node_exec.handler node_exec.js
+fn lambda create-function irontest/node-exec:1 nodejs node_exec.handler node_exec.js
 ```
 

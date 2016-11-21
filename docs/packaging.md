@@ -5,9 +5,9 @@ Packaging a function has two parts:
 * Create a Docker image for your function with an ENTRYPOINT
 * Push your Docker image to a registry (Docker Hub by default)
 
-Once it's pushed to a registry, you can use it by referencing it when adding a route. 
+Once it's pushed to a registry, you can use it by referencing it when adding a route.
 
-## Using fnctl
+## Using fn
 
 This is the easiest way to build, package and publish your functions.
 
@@ -15,7 +15,7 @@ This is the easiest way to build, package and publish your functions.
 
 
 
-## 
+##
 
 ### Creating an image
 
@@ -39,10 +39,10 @@ docker run --rm -v "$PWD":/go/src/$FUNCPKG -w /go/src/$FUNCPKG iron/go:dev go bu
 docker build -t $USERNAME/myfunction .
 ```
 
-Or using [fnctl](../fnctl/README.md):
+Or using [fn](../fn/README.md):
 
 ```sh
-fnctl build
+fn build
 ```
 
 ### Push your image
@@ -50,11 +50,11 @@ fnctl build
 This part is simple:
 
 ```sh
-docker push $USERNAME/myfunction 
+docker push $USERNAME/myfunction
 ```
 
-Or using [fnctl](../fnctl/README.md):
+Or using [fn](../fn/README.md):
 
 ```sh
-fnctl push
+fn push
 ```

@@ -4,15 +4,15 @@ This example will show you how to test and deploy a Node function to IronFunctio
 
 ```sh
 # create your func.yaml file
-fnctl init <YOUR_DOCKERHUB_USERNAME>/hello
+fn init <YOUR_DOCKERHUB_USERNAME>/hello
 # build the function
-fnctl build
+fn build
 # test it
-cat hello.payload.json | fnctl run
+cat hello.payload.json | fn run
 # push it to Docker Hub for use with IronFunctions
-fnctl push
+fn push
 # Create a route to this function on IronFunctions
-fnctl routes create myapp /hello
+fn routes create myapp /hello
 ```
 
 Now surf to: http://localhost:8080/r/myapp/hello
@@ -27,7 +27,7 @@ Run:
 docker run --rm -v "$PWD":/function -w /function iron/node:dev npm install
 ```
 
-Then everything should work. 
+Then everything should work.
 
 For example, using the `package.json` file in this directory which includes the [request](https://www.npmjs.com/package/request) package, you can add this to func.js and it will work:
 
@@ -35,7 +35,7 @@ For example, using the `package.json` file in this directory which includes the 
 var request = require('request');
 request('http://www.google.com', function (error, response, body) {
   if (!error && response.statusCode == 200) {
-    console.log(body) // Show the HTML for the Google homepage. 
+    console.log(body) // Show the HTML for the Google homepage.
   }
 })
 ```

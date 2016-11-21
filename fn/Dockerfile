@@ -7,7 +7,7 @@ RUN apk --update upgrade && \
     rm -rf /var/cache/apk/*
 
 COPY entrypoint.sh /
-COPY fnctl /
+COPY fn /
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

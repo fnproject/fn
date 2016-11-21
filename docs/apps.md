@@ -12,7 +12,7 @@ environment variables.
 Note: Route level configuration overrides app level configuration.
 
 ```sh
-fnctl apps create --config k1=v1 --config k2=v2 myapp
+fn apps create --config k1=v1 --config k2=v2 myapp
 ```
 
 Or using a cURL:

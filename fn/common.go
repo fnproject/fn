@@ -13,7 +13,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/iron-io/functions/fnctl/langs"
+	"github.com/iron-io/functions/fn/langs"
 	"github.com/urfave/cli"
 )
 

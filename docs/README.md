@@ -7,7 +7,7 @@
 If you are a developer using IronFunctions through the API, this section is for you.
 
 * [Quickstart](https://github.com/iron-io/functions#quickstart)
-* [fnctl (CLI Tool)](/fnctl/README.md)
+* [fn (CLI Tool)](/fn/README.md)
 * [Writing functions](writing.md)
 * [Writing Lambda functions](lambda/create.md)
 * [Function file (func.yaml)](function-file.md)

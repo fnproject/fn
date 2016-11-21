@@ -27,7 +27,7 @@ func routes() cli.Command {
 	return cli.Command{
 		Name:      "routes",
 		Usage:     "list routes",
-		ArgsUsage: "fnctl routes",
+		ArgsUsage: "fn routes",
 		Action:    r.list,
 		Subcommands: []cli.Command{
 			{

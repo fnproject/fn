@@ -23,13 +23,13 @@ This can be done as follows:
 export aws_access_key_id=<access-key>
 export aws_secret_access_key=<secret_key>
 
-./fnctl lambda create-function <user>/s3 nodejs example.run examples/s3/example.js examples/s3/example-payload.json --config aws_access_key_id --config aws_secret_access_key
+./fn lambda create-function <user>/s3 nodejs example.run examples/s3/example.js examples/s3/example-payload.json --config aws_access_key_id --config aws_secret_access_key
 ```
 
 or
 
 ```sh
-./fnctl lambda create-function <user>/s3 nodejs example.run ../../lambda/examples/s3/example.js ../../lambda/examples/s3/example-payload.json --config aws_access_key_id=<access-key> --config aws_secret_access_key=<secret_key>
+./fn lambda create-function <user>/s3 nodejs example.run ../../lambda/examples/s3/example.js ../../lambda/examples/s3/example-payload.json --config aws_access_key_id=<access-key> --config aws_secret_access_key=<secret_key>
 ```
 
 The various AWS SDKs will automatically pick these up.

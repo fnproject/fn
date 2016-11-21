@@ -1,4 +1,4 @@
-package: github.com/iron-io/functions/fnctl
+package: github.com/iron-io/functions/fn
 import:
 - package: github.com/docker/docker
   subpackages:

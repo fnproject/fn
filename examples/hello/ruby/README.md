@@ -4,17 +4,17 @@ This example will show you how to test and deploy a Ruby function to IronFunctio
 
 ```sh
 # create your func.yaml file
-fnctl init <YOUR_DOCKERHUB_USERNAME>/hello
+fn init <YOUR_DOCKERHUB_USERNAME>/hello
 # install dependencies, we need the json gem to run this
 docker run --rm -v "$PWD":/worker -w /worker iron/ruby:dev bundle install --standalone --clean
 # build the function
-fnctl build
+fn build
 # test it
-cat hello.payload.json | fnctl run
+cat hello.payload.json | fn run
 # push it to Docker Hub for use with IronFunctions
-fnctl push
+fn push
 # Create a route to this function on IronFunctions
-fnctl routes create myapp /hello
+fn routes create myapp /hello
 ```
 
 Now surf to: http://localhost:8080/r/myapp/hello

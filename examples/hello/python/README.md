@@ -22,7 +22,7 @@ the moment you try to test this function.
 ### 2. Build:
 
 ```sh
-fnctl publish
+fn publish
 ```
 
 `-v` is optional, but it allows you to see how this function is being built.
@@ -32,7 +32,7 @@ fnctl publish
 Now you can start jobs on your function. Let's quickly queue up a job to try it out.
 
 ```sh
-cat hello.payload.json | fnctl run pythonapp /hello
+cat hello.payload.json | fn run pythonapp /hello
 ```
 
 Here's a curl example to show how easy it is to do in any language:

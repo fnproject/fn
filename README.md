@@ -8,7 +8,7 @@ Welcome to IronFunctions! The open source serverless platform.
 ## What is IronFunctions?
 
 IronFunctions is an open source serverless platform, or as we like to refer to it, Functions as a
-Service (FaaS) platform that you can run anywhere. 
+Service (FaaS) platform that you can run anywhere.
 
 * Write once
   * [Any language](docs/faq.md#which-languages-are-supported)
@@ -53,8 +53,8 @@ then the benefits are different, but related.
   * Scaling is simply adding more IronFunctions nodes
 
 There is a lot more reading you can do on the topic, just search for ["what is serverless"](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=what%20is%20serverless)
-and you'll find plenty of information. We have pretty thorough post on the Iron.io blog called 
-[What is Serverless Computing and Why is it Important](https://www.iron.io/what-is-serverless-computing/). 
+and you'll find plenty of information. We have pretty thorough post on the Iron.io blog called
+[What is Serverless Computing and Why is it Important](https://www.iron.io/what-is-serverless-computing/).
 
 ## Join Our Community
 
@@ -87,13 +87,13 @@ configuration options [here](docs/options.md). If you are on Windows, check [her
 Install the IronFunctions CLI tool:
 
 ```sh
-curl -sSL http://get.iron.io/fnctl | sh
+curl -sSL http://get.iron.io/fn | sh
 ```
 
 ### Write a Function
 
-Functions are small, bite sized bits of code that do one simple thing. Forget about monoliths when using functions, 
-just focus on the task that you want the function to perform. 
+Functions are small, bite sized bits of code that do one simple thing. Forget about monoliths when using functions,
+just focus on the task that you want the function to perform.
 
 The following is a Go function that just returns "Hello ${NAME}!":
 
@@ -118,21 +118,21 @@ func main() {
 ```
 
 Copy and paste the code above into a file called `func.go`, then run the following commands to build your function
-and deploy it. 
+and deploy it.
 
 ```sh
-# create func.yaml file, replace $USERNAME with your Docker Hub username. 
-fnctl init $USERNAME/hello
+# create func.yaml file, replace $USERNAME with your Docker Hub username.
+fn init $USERNAME/hello
 # build the function
-fnctl build
+fn build
 # test it
-fnctl run
+fn run
 # push it to Docker Hub
-fnctl push
+fn push
 # create an app
-fnctl apps create myapp
+fn apps create myapp
 # create a route that maps /hello to your new function
-fnctl routes create myapp /hello
+fn routes create myapp /hello
 ```
 
 Now you can call your function:
@@ -144,18 +144,18 @@ curl http://localhost:8080/r/myapp/hello
 Or surf to it: http://localhost:8080/r/myapp/hello
 
 See below for more details. And you can find a bunch of examples in various languages in the [examples](examples/) directory. You can also
-write your functions in AWS's [Lambda format](docs/lambda/README.md). 
+write your functions in AWS's [Lambda format](docs/lambda/README.md).
 
 ## Usage
 
-This is a more detailed explanation of the main commands you'll use in IronFunctions as a developer. 
+This is a more detailed explanation of the main commands you'll use in IronFunctions as a developer.
 
 ### Create an Application
 
 An application is essentially a grouping of functions, that put together, form an API. Here's how to create an app.
 
 ```sh
-fnctl apps create myapp
+fn apps create myapp
 ```
 
 Or using a cURL:
@@ -178,7 +178,7 @@ can use -- yes, you can share functions! The source code for this function is in
 You can read more about [writing your own functions here](docs/writing.md).
 
 ```sh
-fnctl routes create myapp /hello iron/hello
+fn routes create myapp /hello iron/hello
 ```
 
 Or using cURL:
@@ -200,10 +200,10 @@ Calling your function is as simple as requesting a URL. Each app has it's own na
 The app `myapp` that we created above along with the `/hello` route we added would be called via the following
 URL: http://localhost:8080/r/myapp/hello
 
-Either surf to it in your browser or use `fnctl`:
+Either surf to it in your browser or use `fn`:
 
 ```sh
-fnctl call myapp /hello
+fn call myapp /hello
 ```
 
 Or using a cURL:
@@ -218,7 +218,7 @@ Your function will get the body of the HTTP request via STDIN, and the headers o
 as env vars. You can test a function with the CLI tool:
 
 ```sh
-echo '{"name":"Johnny"}' | fnctl call myapp /hello
+echo '{"name":"Johnny"}' | fn call myapp /hello
 ```
 
 Or using cURL:

@@ -75,7 +75,7 @@ func (r *runCmd) run(c *cli.Context) error {
 		// If something is piped in, it works fine.
 		// Turns out, this works just fine in our case as the piped stuff works properly and the non-piped doesn't hang either.
 		// See: https://github.com/golang/go/issues/14853#issuecomment-260170423
-		// log.Println("Warning: couldn't stat stdin, you are probably on Windows. Be sure to pipe something into this command, eg: 'echo \"hello\" | fnctl run'")
+		// log.Println("Warning: couldn't stat stdin, you are probably on Windows. Be sure to pipe something into this command, eg: 'echo \"hello\" | fn run'")
 	} else {
 		if (stat.Mode() & os.ModeCharDevice) == 0 {
 			// log.Println("data is being piped to stdin")

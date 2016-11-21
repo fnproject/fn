@@ -1,7 +1,7 @@
 Import existing AWS Lambda functions
 ====================================
 
-The [fnctl](https://github.com/iron-io/functions/fnctl/) tool includes a set of
+The [fn](https://github.com/iron-io/functions/fn/) tool includes a set of
 commands to act on Lambda functions. Most of these are described in
 [getting-started](./getting-started.md). One more subcommand is `aws-import`.
 
@@ -23,7 +23,7 @@ region. You can use the `aws` tool to set this up. Full instructions are in the
 The aws-import command is constructed as follows:
 
 ```bash
-fnctl lambda aws-import <arn> <region> <image>
+fn lambda aws-import <arn> <region> <image>
 ```
 
 * arn: describes the ARN formats which uniquely identify the AWS lambda resource
@@ -33,7 +33,7 @@ fnctl lambda aws-import <arn> <region> <image>
 Assuming you have a lambda with the following arn `arn:aws:lambda:us-west-2:123141564251:function:my-function`, the following command:
 
 ```sh
-fnctl lambda aws-import arn:aws:lambda:us-west-2:123141564251:function:my-function us-east-1 user/my-function
+fn lambda aws-import arn:aws:lambda:us-west-2:123141564251:function:my-function us-east-1 user/my-function
 ```
 
 will import the function code from the region `us-east-1` to a directory called `./user/my-function`. Inside the directory you will find the `function.yml`, `Dockerfile`, and all the files needed for running the function.
@@ -50,6 +50,6 @@ by passing `--version <version>.`
 
 You can then publish the imported lambda as follows:
 ```
-./fnctl publish -d ./user/my-function
+./fn publish -d ./user/my-function
 ````
 Now the function can be reached via ```http://$HOSTNAME/r/user/my-function```

@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-# Install script to install fnctl
+# Install script to install fn
 
-release='0.1.2'
+release='0.1.15'
 
 command_exists() {
   command -v "$@" > /dev/null 2>&1
@@ -19,8 +19,8 @@ case "$(uname -m)" in
     ;;
 esac
 
-if command_exists fnctl ; then
-  echo >&2 'Warning: "fnctl" command appears to already exist.'
+if command_exists fn ; then
+  echo >&2 'Warning: "fn" command appears to already exist.'
   echo >&2 'If you are just upgrading your functions cli client, ignore this and wait a few seconds.'
   echo >&2 'You may press Ctrl+C now to abort this process.'
   ( set -x; sleep 5 )
@@ -59,21 +59,21 @@ url='https://github.com/iron-io/functions/releases/download'
 # perform some very rudimentary platform detection
 case "$(uname)" in
   Linux)
-    $sh_c "$curl /usr/local/bin/fnctl $url/$release/fnctl_linux"
-    $sh_c "chmod +x /usr/local/bin/fnctl"
-    fnctl --version
+    $sh_c "$curl /usr/local/bin/fn $url/$release/fn_linux"
+    $sh_c "chmod +x /usr/local/bin/fn"
+    fn --version
     exit 0
     ;;
   Darwin)
-    $sh_c "$curl /usr/local/bin/fnctl $url/$release/fnctl_mac"
-    $sh_c "chmod +x /usr/local/bin/fnctl"
-    fnctl --version
+    $sh_c "$curl /usr/local/bin/fn $url/$release/fn_mac"
+    $sh_c "chmod +x /usr/local/bin/fn"
+    fn --version
     exit 0
     ;;
   WindowsNT)
-    $sh_c "$curl $url/$release/fnctl.exe"
+    $sh_c "$curl $url/$release/fn.exe"
     # TODO how to make executable? chmod?
-    fnctl.exe --version
+    fn.exe --version
     exit 0
     ;;
 esac
@@ -81,7 +81,7 @@ esac
 cat >&2 <<'EOF'
 
   Either your platform is not easily detectable or is not supported by this
-  installer script (yet - PRs welcome! [fnctl/install]).
+  installer script (yet - PRs welcome! [fn/install]).
   Please visit the following URL for more detailed installation instructions:
 
     https://github.com/iron-io/functions

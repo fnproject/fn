@@ -1,7 +1,7 @@
 package main
 
 /*
-usage: fnctl init <name>
+usage: fn init <name>
 
 If there's a Dockerfile found, this will generate the basic file with just the image name. exit
 It will then try to decipher the runtime based on the files in the current directory, if it can't figure it out, it will ask.
@@ -17,7 +17,7 @@ import (
 
 	"strings"
 
-	"github.com/iron-io/functions/fnctl/langs"
+	"github.com/iron-io/functions/fn/langs"
 	"github.com/urfave/cli"
 )
 

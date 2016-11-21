@@ -21,7 +21,7 @@ func apps() cli.Command {
 	return cli.Command{
 		Name:      "apps",
 		Usage:     "list apps",
-		ArgsUsage: "fnctl apps",
+		ArgsUsage: "fn apps",
 		Action:    a.list,
 		Subcommands: []cli.Command{
 			{

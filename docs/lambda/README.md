@@ -25,7 +25,7 @@ write a simple function and have an "executable" ready to go.
 ## How does it work?
 
 We provide base Docker images for the various runtimes that AWS Lambda
-supports. The `fnctl` tool helps package up your Lambda function into
+supports. The `fn` tool helps package up your Lambda function into
 a Docker image layered on the base image. We provide a bootstrap script and
 utilities that provide a AWS Lambda environment to your code. You can then run
 the Docker image on any platform that supports Docker. This allows you to
@@ -35,7 +35,7 @@ easily move Lambda functions to any cloud provider, or host it yourself.
 
 Write, package and run your Lambda functions with our [Getting started
 guide](./getting-started.md). [Here is the environment](./environment.md) that
-Lambda provides. `fnctl lambda` lists the commands to work with Lambda
+Lambda provides. `fn lambda` lists the commands to work with Lambda
 functions locally.
 
 You can [import](./import.md) existing Lambda functions hosted on Amazon!

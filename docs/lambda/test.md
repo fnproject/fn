@@ -11,7 +11,7 @@ docker run
 
 An example of a valid `test-function` command would look as follows:
 ```
-fnctl lambda test-function user/my-function --payload='{"firstName":"John", "lastName":"Yo" }'
+fn lambda test-function user/my-function --payload='{"firstName":"John", "lastName":"Yo" }'
 ```
 
 ## Payload

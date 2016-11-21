@@ -1,6 +1,6 @@
 # Function files
 
-Functions files are used to assist fnctl to help you when creating functions. 
+Functions files are used to assist fn to help you when creating functions.
 
 The files can be named as:
 
@@ -49,5 +49,5 @@ setup. These configuration options shall override application configuration
 during functions execution.
 
 `build` (optional) is an array of shell calls which are used to helping building
-the image. These calls are executed before `fnctl` calls `docker build` and
+the image. These calls are executed before `fn` calls `docker build` and
 `docker push`.
