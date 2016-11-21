@@ -26,6 +26,7 @@ var (
 		".go": "go",
 		".js": "node",
 		".rb": "ruby",
+		".py": "python",
 	}
 
 	fnInitRuntimes []string

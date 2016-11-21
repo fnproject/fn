@@ -232,7 +232,7 @@ var acceptableFnRuntimes = map[string]string{
 	"node":      "iron/node",
 	"perl":      "iron/perl",
 	"php":       "iron/php",
-	"python":    "iron/python",
+	"python":    "iron/python:2",
 	"ruby":      "iron/ruby",
 	"scala":     "iron/scala",
 }
