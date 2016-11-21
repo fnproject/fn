@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/iron-io/runner/drivers"
@@ -32,7 +33,7 @@ func (t *containerTask) Labels() map[string]string {
 func (t *containerTask) Id() string                         { return t.cfg.ID }
 func (t *containerTask) Route() string                      { return "" }
 func (t *containerTask) Image() string                      { return t.cfg.Image }
-func (t *containerTask) Timeout() uint                      { return uint(t.cfg.Timeout.Seconds()) }
+func (t *containerTask) Timeout() time.Duration             { return t.cfg.Timeout }
 func (t *containerTask) Logger() (stdout, stderr io.Writer) { return t.cfg.Stdout, t.cfg.Stderr }
 func (t *containerTask) Volumes() [][2]string               { return [][2]string{} }
 func (t *containerTask) WorkDir() string                    { return "" }

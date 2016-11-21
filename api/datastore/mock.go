@@ -65,7 +65,7 @@ func (m *Mock) GetRoutesByApp(appName string, routeFilter *models.RouteFilter) (
 	route := m.FakeRoute
 	if route == nil && m.FakeRoutes != nil {
 		for _, r := range m.FakeRoutes {
-			if r.AppName == appName && r.Path == routeFilter.Path && r.AppName == routeFilter.AppName {
+			if r.AppName == appName && (routeFilter.Path == "" || r.Path == routeFilter.Path) && (routeFilter.AppName == "" || r.AppName == routeFilter.AppName) {
 				routes = append(routes, r)
 			}
 		}

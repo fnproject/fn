@@ -182,7 +182,7 @@ func TestTasksrvURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got, _ := tasksrvURL(tt.in); got != tt.out {
+		if got := tasksrvURL(tt.in); got != tt.out {
 			t.Errorf("tasksrv: %s\texpected: %s\tgot: %s\t", tt.in, tt.out, got)
 		}
 	}

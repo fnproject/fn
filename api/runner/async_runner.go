@@ -86,22 +86,10 @@ func deleteTask(url string, task *models.Task) error {
 
 // RunAsyncRunner pulls tasks off a queue and processes them
 func RunAsyncRunner(ctx context.Context, tasksrv string, tasks chan TaskRequest, rnr *Runner) {
-	u, h := tasksrvURL(tasksrv)
-	if isHostOpen(h) {
-		return
-	}
+	u := tasksrvURL(tasksrv)
 
 	startAsyncRunners(ctx, u, tasks, rnr)
 	<-ctx.Done()
-}
-
-func isHostOpen(host string) bool {
-	conn, err := net.Dial("tcp", host)
-	available := err == nil
-	if available {
-		conn.Close()
-	}
-	return available
 }
 
 func startAsyncRunners(ctx context.Context, url string, tasks chan TaskRequest, rnr *Runner) {
@@ -159,15 +147,11 @@ func startAsyncRunners(ctx context.Context, url string, tasks chan TaskRequest, 
 	}
 }
 
-func tasksrvURL(tasksrv string) (parsedURL, host string) {
+func tasksrvURL(tasksrv string) string {
 	parsed, err := url.Parse(tasksrv)
 	if err != nil {
-		logrus.WithError(err).Fatalln("cannot parse TASKSRV endpoint")
+		logrus.WithError(err).Fatalln("cannot parse API_URL endpoint")
 	}
-	// host, port, err := net.SplitHostPort(parsed.Host)
-	// if err != nil {
-	// 	log.WithError(err).Fatalln("net.SplitHostPort")
-	// }
 
 	if parsed.Scheme == "" {
 		parsed.Scheme = "http"
@@ -177,9 +161,5 @@ func tasksrvURL(tasksrv string) (parsedURL, host string) {
 		parsed.Path = "/tasks"
 	}
 
-	// if _, _, err := net.SplitHostPort(parsed.Host); err != nil {
-	// 	parsed.Host = net.JoinHostPort(parsed.Host, parsed)
-	// }
-
-	return parsed.String(), parsed.Host
+	return parsed.String()
 }

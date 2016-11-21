@@ -10,7 +10,7 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleRouteCreate(c *gin.Context) {
+func (s *Server) handleRouteCreate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
@@ -79,6 +79,8 @@ func handleRouteCreate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))
 		return
 	}
+
+	s.resetcache(wroute.Route.AppName, 1)
 
 	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", wroute.Route})
 }

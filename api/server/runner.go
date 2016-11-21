@@ -76,12 +76,10 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsNotFound))
 		return
 	}
-	route := c.Param("route")
-	if route == "" {
-		route = c.Request.URL.Path
+	path := c.Param("route")
+	if path == "" {
+		path = c.Request.URL.Path
 	}
-
-	log.WithFields(logrus.Fields{"app": appName, "path": route}).Debug("Finding route on datastore")
 
 	app, err := Api.Datastore.GetApp(appName)
 	if err != nil || app == nil {
@@ -90,14 +88,20 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		return
 	}
 
-	routes, err := Api.Datastore.GetRoutesByApp(appName, &models.RouteFilter{AppName: appName, Path: route})
+	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on LRU cache")
+	route, ok := s.cacheget(appName, path)
+	if ok && s.serve(c, log, appName, route, app, path, reqID, payload, enqueue) {
+		s.refreshcache(appName, route)
+		return
+	}
+
+	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on datastore")
+	routes, err := s.loadroutes(models.RouteFilter{AppName: appName, Path: path})
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
 		return
 	}
-
-	log.WithField("routes", routes).Debug("Got routes from datastore")
 
 	if len(routes) == 0 {
 		log.WithError(err).Error(models.ErrRunnerRouteNotFound)
@@ -105,15 +109,35 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		return
 	}
 
-	found := routes[0]
-	log = log.WithFields(logrus.Fields{
-		"app": appName, "route": found.Path, "image": found.Image})
+	log.WithField("routes", len(routes)).Debug("Got routes from datastore")
+	route = routes[0]
+	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
+
+	if s.serve(c, log, appName, route, app, path, reqID, payload, enqueue) {
+		s.refreshcache(appName, route)
+		return
+	}
+
+	log.Error(models.ErrRunnerRouteNotFound)
+	c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
+}
+
+func (s *Server) loadroutes(filter models.RouteFilter) ([]*models.Route, error) {
+	resp, err := s.singleflight.do(
+		filter,
+		func() (interface{}, error) {
+			return Api.Datastore.GetRoutesByApp(filter.AppName, &filter)
+		},
+	)
+	return resp.([]*models.Route), err
+}
+
+func (s *Server) serve(c *gin.Context, log logrus.FieldLogger, appName string, found *models.Route, app *models.App, route, reqID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
+	log = log.WithFields(logrus.Fields{"app": appName, "route": found.Path, "image": found.Image})
 
 	params, match := matchRoute(found.Path, route)
 	if !match {
-		log.WithError(err).Error(models.ErrRunnerRouteNotFound)
-		c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
-		return
+		return false
 	}
 
 	var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
@@ -162,7 +186,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		if err != nil {
 			log.WithError(err).Error(models.ErrInvalidPayload)
 			c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidPayload))
-			return
+			return true
 		}
 
 		// Create Task
@@ -176,13 +200,12 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		task.EnvVars = cfg.Env
 		task.Payload = string(pl)
 		// Push to queue
-		enqueue(ctx, s.MQ, task)
+		enqueue(c, s.MQ, task)
 		log.Info("Added new task to queue")
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": task.ID})
 
 	default:
-
-		result, err := runner.RunTask(s.tasks, ctx, cfg)
+		result, err := runner.RunTask(s.tasks, c, cfg)
 		if err != nil {
 			break
 		}
@@ -197,6 +220,8 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		}
 
 	}
+
+	return true
 }
 
 var fakeHandler = func(http.ResponseWriter, *http.Request, Params) {}

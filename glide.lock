@@ -1,5 +1,5 @@
-hash: 4acb4372011661fa4731e89ffd27714eb7ca6285a3d53c2f16f87c3a564d4d4e
-updated: 2016-11-02T11:42:34.9563341-07:00
+hash: a35b8b9511d2059122e72773c169b4dbbf9554dd9075ad55352facf7eae09895
+updated: 2016-11-20T20:18:19.564468442+01:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -25,16 +25,11 @@ imports:
   - aws/signer/v4
   - private/endpoints
   - private/protocol
-  - private/protocol/query
-  - private/protocol/query/queryutil
+  - private/protocol/json/jsonutil
+  - private/protocol/jsonrpc
   - private/protocol/rest
-  - private/protocol/restxml
-  - private/protocol/xml/xmlutil
-  - private/waiter
-  - service/cloudfront/sign
-  - service/s3
-  - vendor/github.com/go-ini/ini
-  - vendor/github.com/jmespath/go-jmespath
+  - private/protocol/restjson
+  - service/lambda
 - name: github.com/Azure/go-ansiterm
   version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
@@ -61,8 +56,10 @@ imports:
   version: 4385816142116aade2d97d0f320f9d3666e74cd9
 - name: github.com/dghubble/sling
   version: c961a4334054e64299d16f8a31bd686ee2565ae4
+- name: github.com/dgrijalva/jwt-go
+  version: 9ed569b5d1ac936e6494082958d63a6aa4fff99a
 - name: github.com/docker/distribution
-  version: 6edf9c507051be36d82afbd71a3f2a7cdbbf4394
+  version: 99cb7c0946d2f5a38015443e515dc916295064d7
   subpackages:
   - context
   - digest
@@ -106,7 +103,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/fsouza/go-dockerclient
-  version: 5cfde1d138cd2cdc13e4aa36af631beb19dcbe9c
+  version: ece08f96ac5f26f4073ab5c38f198c3e5000c554
 - name: github.com/garyburd/redigo
   version: 80f7de34463b0ed3d7c61303e5619efe1b227f92
   subpackages:
@@ -177,8 +174,6 @@ imports:
   version: 2a2e6b9e3eed0a98d438f111ba7469744c07281d
   subpackages:
   - registry
-- name: github.com/iron-io/functions_go
-  version: 584f4a6e13b53370f036012347cf0571128209f0
 - name: github.com/iron-io/iron_go3
   version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
   subpackages:
@@ -191,7 +186,7 @@ imports:
   subpackages:
   - lambda
 - name: github.com/iron-io/runner
-  version: 272e153e728eb4e0c1c92d908c463424dec78a73
+  version: 4101fd406ada3497c832d6877653262e23a84f1f
   repo: https://github.com/iron-io/runner.git
   vcs: git
   subpackages:
@@ -200,6 +195,8 @@ imports:
   - drivers
   - drivers/docker
   - drivers/mock
+- name: github.com/jmespath/go-jmespath
+  version: 3433f3ea46d9f8019119e7dd41274e112a2359a9
 - name: github.com/juju/errgo
   version: 08cceb5d0b5331634b9826762a8fd53b29b86ad8
   subpackages:
@@ -233,6 +230,8 @@ imports:
   version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
 - name: github.com/pelletier/go-toml
   version: 45932ad32dfdd20826f5671da37a5f3ce9f26a8d
+- name: github.com/pivotal-golang/bytefmt
+  version: b12c1522f4cbb5f35861bd5dd2c39a4fa996441a
 - name: github.com/pkg/errors
   version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 - name: github.com/pkg/sftp
@@ -244,7 +243,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
-  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+  version: d26492970760ca5d33129d2d799e34be5c4782eb
   subpackages:
   - hooks/syslog
 - name: github.com/spf13/afero

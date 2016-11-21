@@ -9,7 +9,7 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleAppCreate(c *gin.Context) {
+func (s *Server) handleAppCreate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
@@ -54,6 +54,8 @@ func handleAppCreate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
+
+	s.resetcache(wapp.App.Name, 1)
 
 	c.JSON(http.StatusCreated, appResponse{"App successfully created", wapp.App})
 }
