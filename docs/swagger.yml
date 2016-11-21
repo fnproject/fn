@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.0"
+  version: "0.1.16"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -184,6 +184,45 @@ paths:
             $ref: '#/definitions/Error'
 
   /apps/{app}/routes/{route}:
+    put:
+      summary: Update a Route
+      description: Update a route
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          type: string
+        - name: route
+          in: path
+          description: route path.
+          required: true
+          type: string
+        - name: body
+          in: body
+          description: One route to post.
+          required: true
+          schema:
+            $ref: '#/definitions/RouteWrapper'
+      responses:
+        201:
+          description: Route updated
+          schema:
+            $ref: '#/definitions/RouteWrapper'
+        400:
+          description: One or more of the routes were invalid due to parameters being missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
+        500:
+          description: Could not accept routes due to internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
     get:
       summary: Gets route by name
       description: Gets a route by name.

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"path"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,7 @@ func handleRouteGet(c *gin.Context) {
 	log := common.Logger(ctx)
 
 	appName := c.Param("app")
-	routePath := c.Param("route")
+	routePath := path.Clean(c.Param("route"))
 
 	route, err := Api.Datastore.GetRoute(appName, routePath)
 	if err != nil {

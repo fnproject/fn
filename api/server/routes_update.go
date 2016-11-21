@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"path"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
@@ -30,7 +31,7 @@ func handleRouteUpdate(c *gin.Context) {
 	}
 
 	wroute.Route.AppName = c.Param("app")
-	wroute.Route.Path = c.Param("route")
+	wroute.Route.Path = path.Clean(c.Param("route"))
 
 	if wroute.Route.Image != "" {
 		err = Api.Runner.EnsureImageExists(ctx, &runner.Config{

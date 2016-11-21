@@ -64,7 +64,11 @@ func TestRouteDelete(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
+	router := testRouter(&datastore.Mock{
+		FakeRoutes: []*models.Route{
+			&models.Route{AppName: "a", Path: "/myroute"},
+		},
+	}, &mqs.Mock{}, testRunner(t), tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -74,6 +78,7 @@ func TestRouteDelete(t *testing.T) {
 	}{
 		{"/v1/apps/a/routes", "", http.StatusTemporaryRedirect, nil},
 		{"/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		{"/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
 	} {
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
 
