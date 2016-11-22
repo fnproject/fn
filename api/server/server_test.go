@@ -97,33 +97,36 @@ func TestFullStack(t *testing.T) {
 
 	router := testRouter(ds, &mqs.Mock{}, testRunner(t), tasks)
 
-	for i, test := range []struct {
+	for _, test := range []struct {
+		name         string
 		method       string
 		path         string
 		body         string
 		expectedCode int
 	}{
-		{"POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusCreated},
-		{"GET", "/v1/apps", ``, http.StatusOK},
-		{"GET", "/v1/apps/myapp", ``, http.StatusOK},
-		{"POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "iron/hello" } }`, http.StatusCreated},
-		{"POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "iron/error" } }`, http.StatusCreated},
-		{"GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK},
-		{"GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK},
-		{"GET", "/v1/apps/myapp/routes", ``, http.StatusOK},
-		{"POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK},
-		{"POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusInternalServerError},
-		{"DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK},
-		{"DELETE", "/v1/apps/myapp", ``, http.StatusOK},
-		{"GET", "/v1/apps/myapp", ``, http.StatusNotFound},
-		{"GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusInternalServerError},
+		{"create my app", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusCreated},
+		{"list apps", "GET", "/v1/apps", ``, http.StatusOK},
+		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK},
+		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "iron/hello" } }`, http.StatusCreated},
+		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "iron/error" } }`, http.StatusCreated},
+		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK},
+		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK},
+		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK},
+		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK},
+		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusInternalServerError},
+		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK},
+		{"delete app (fail)", "DELETE", "/v1/apps/myapp", ``, http.StatusBadRequest},
+		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK},
+		{"delete app (success)", "DELETE", "/v1/apps/myapp", ``, http.StatusOK},
+		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound},
+		{"get delete route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusInternalServerError},
 	} {
 		_, rec := routerRequest(t, router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
+			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
+				test.name, test.expectedCode, rec.Code)
 		}
 	}
 }

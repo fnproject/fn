@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.16"
+  version: "0.1.17"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -67,6 +67,20 @@ paths:
 
 
   /apps/{app}:
+    delete:
+      summary: "Delete an app."
+      description: "Delete an app."
+      tags:
+        - Apps
+      parameters:
+        - name: app
+          in: path
+          description: Name of the app.
+          required: true
+          type: string
+      responses:
+        200:
+          description: Apps successfully deleted.
     get:
       summary: "Get information for a app."
       description: "This gives more details about a app, such as statistics."
@@ -271,7 +285,7 @@ paths:
           type: string
       responses:
         200:
-          description: Route successfully deleted. Deletion succeeds even on routes that do not exist.
+          description: Route successfully deleted.
 
   /tasks:
     get:

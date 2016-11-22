@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"text/tabwriter"
 
@@ -78,6 +79,11 @@ func apps() cli.Command {
 						Action:    a.configUnset,
 					},
 				},
+			},
+			{
+				Name:   "delete",
+				Usage:  "delete an app",
+				Action: a.delete,
 			},
 		},
 	}
@@ -247,5 +253,28 @@ func (a *appsCmd) storeApp(appName string, config map[string]string) error {
 	if _, _, err := a.AppsPost(body); err != nil {
 		return fmt.Errorf("error updating app configuration: %v", err)
 	}
+	return nil
+}
+
+func (a *appsCmd) delete(c *cli.Context) error {
+	appName := c.Args().First()
+	if appName == "" {
+		return errors.New("error: deleting an app takes one argument, an app name")
+	}
+
+	if err := resetBasePath(a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
+
+	resp, err := a.AppsAppDelete(appName)
+	if err != nil {
+		return fmt.Errorf("error deleting app: %v", err)
+	}
+
+	if resp.StatusCode == http.StatusBadRequest {
+		return errors.New("could not delete this application - pending routes")
+	}
+
+	fmt.Println(appName, "deleted")
 	return nil
 }
