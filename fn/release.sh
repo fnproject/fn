@@ -2,6 +2,7 @@
 
 set -ex
 
+make vendor
 make release
 
 version=$1
