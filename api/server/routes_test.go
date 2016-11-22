@@ -64,22 +64,22 @@ func TestRouteDelete(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	router := testRouter(&datastore.Mock{
-		FakeRoutes: []*models.Route{
-			&models.Route{AppName: "a", Path: "/myroute"},
-		},
-	}, &mqs.Mock{}, testRunner(t), tasks)
-
 	for i, test := range []struct {
+		ds            models.Datastore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
-		{"/v1/apps/a/routes", "", http.StatusTemporaryRedirect, nil},
-		{"/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
-		{"/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
+		{&datastore.Mock{}, "/v1/apps/a/routes", "", http.StatusTemporaryRedirect, nil},
+		{&datastore.Mock{}, "/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
+		{&datastore.Mock{
+			Routes: []*models.Route{
+				{Path: "/myroute", AppName: "a"},
+			},
+		}, "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
+		router := testRouter(test.ds, &mqs.Mock{}, testRunner(t), tasks)
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
@@ -175,22 +175,31 @@ func TestRouteUpdate(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
-
 	for i, test := range []struct {
+		ds            models.Datastore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{"/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{"/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{&datastore.Mock{}, "/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{&datastore.Mock{}, "/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 
 		// success
-		{"/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{&datastore.Mock{
+			Routes: []*models.Route{
+				{
+					AppName: "a",
+					Path:    "/myroute/do",
+				},
+			},
+		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
+		router := testRouter(test.ds, &mqs.Mock{}, testRunner(t), tasks)
+
 		body := bytes.NewBuffer([]byte(test.body))
+
 		_, rec := routerRequest(t, router, "PUT", test.path, body)
 
 		if rec.Code != test.expectedCode {

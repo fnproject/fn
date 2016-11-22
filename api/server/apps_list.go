@@ -15,7 +15,7 @@ func handleAppList(c *gin.Context) {
 
 	filter := &models.AppFilter{}
 
-	apps, err := Api.Datastore.GetApps(filter)
+	apps, err := Api.Datastore.GetApps(ctx, filter)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsList))

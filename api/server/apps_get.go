@@ -14,15 +14,13 @@ func handleAppGet(c *gin.Context) {
 	log := common.Logger(ctx)
 
 	appName := c.Param("app")
-	app, err := Api.Datastore.GetApp(appName)
+	app, err := Api.Datastore.GetApp(ctx, appName)
 
-	if err != nil {
+	if err != nil && err != models.ErrAppsNotFound {
 		log.WithError(err).Error(models.ErrAppsGet)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
 		return
-	}
-
-	if app == nil {
+	} else if app == nil {
 		log.WithError(err).Error(models.ErrAppsNotFound)
 		c.JSON(http.StatusNotFound, simpleError(models.ErrAppsNotFound))
 		return

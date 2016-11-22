@@ -26,7 +26,7 @@ func TestRouteRunnerGet(t *testing.T) {
 	tasks := mockTasksConduit()
 
 	router := testRouter(&datastore.Mock{
-		FakeApps: []*models.App{
+		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 	}, &mqs.Mock{}, testRunner(t), tasks)
@@ -66,7 +66,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	tasks := mockTasksConduit()
 
 	router := testRouter(&datastore.Mock{
-		FakeApps: []*models.App{
+		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 	}, &mqs.Mock{}, testRunner(t), tasks)
@@ -113,10 +113,10 @@ func TestRouteRunnerExecution(t *testing.T) {
 	go runner.StartWorkers(ctx, testRunner(t), tasks)
 
 	router := testRouter(&datastore.Mock{
-		FakeApps: []*models.App{
+		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
-		FakeRoutes: []*models.Route{
+		Routes: []*models.Route{
 			{Path: "/myroute", AppName: "myapp", Image: "iron/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		},

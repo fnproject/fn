@@ -15,7 +15,7 @@ func handleAppDelete(c *gin.Context) {
 
 	appName := c.Param("app")
 
-	routes, err := Api.Datastore.GetRoutesByApp(appName, &models.RouteFilter{})
+	routes, err := Api.Datastore.GetRoutesByApp(ctx, appName, &models.RouteFilter{})
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
@@ -28,7 +28,7 @@ func handleAppDelete(c *gin.Context) {
 		return
 	}
 
-	if err := Api.Datastore.RemoveApp(appName); err != nil {
+	if err := Api.Datastore.RemoveApp(ctx, appName); err != nil {
 		log.WithError(err).Debug(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
 		return

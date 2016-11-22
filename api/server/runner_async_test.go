@@ -35,10 +35,10 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 	t.Skip()
 	tasks := mockTasksConduit()
 	ds := &datastore.Mock{
-		FakeApps: []*models.App{
+		Apps: []*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
-		FakeRoutes: []*models.Route{
+		Routes: []*models.Route{
 			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "iron/hello", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "iron/error", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "iron/hello", Config: map[string]string{"test": "true"}},

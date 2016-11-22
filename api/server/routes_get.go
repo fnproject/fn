@@ -18,15 +18,13 @@ func handleRouteGet(c *gin.Context) {
 	appName := c.Param("app")
 	routePath := path.Clean(c.Param("route"))
 
-	route, err := Api.Datastore.GetRoute(appName, routePath)
-	if err != nil {
+	route, err := Api.Datastore.GetRoute(ctx, appName, routePath)
+	if err != nil && err != models.ErrRoutesNotFound {
+
 		log.WithError(err).Error(models.ErrRoutesGet)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesGet))
 		return
-	}
-
-	if route == nil {
-		log.Error(models.ErrRoutesNotFound)
+	} else if route == nil {
 		c.JSON(http.StatusNotFound, simpleError(models.ErrRoutesNotFound))
 		return
 	}

@@ -1,25 +1,28 @@
 package models
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 type Datastore interface {
-	GetApp(appName string) (*App, error)
-	GetApps(*AppFilter) ([]*App, error)
-	InsertApp(app *App) (*App, error)
-	UpdateApp(app *App) (*App, error)
-	RemoveApp(appName string) error
+	GetApp(ctx context.Context, appName string) (*App, error)
+	GetApps(ctx context.Context, filter *AppFilter) ([]*App, error)
+	InsertApp(ctx context.Context, app *App) (*App, error)
+	UpdateApp(ctx context.Context, app *App) (*App, error)
+	RemoveApp(ctx context.Context, appName string) error
 
-	GetRoute(appName, routePath string) (*Route, error)
-	GetRoutes(*RouteFilter) (routes []*Route, err error)
-	GetRoutesByApp(string, *RouteFilter) (routes []*Route, err error)
-	InsertRoute(route *Route) (*Route, error)
-	UpdateRoute(route *Route) (*Route, error)
-	RemoveRoute(appName, routePath string) error
+	GetRoute(ctx context.Context, appName, routePath string) (*Route, error)
+	GetRoutes(ctx context.Context, filter *RouteFilter) (routes []*Route, err error)
+	GetRoutesByApp(ctx context.Context, appName string, filter *RouteFilter) (routes []*Route, err error)
+	InsertRoute(ctx context.Context, route *Route) (*Route, error)
+	UpdateRoute(ctx context.Context, route *Route) (*Route, error)
+	RemoveRoute(ctx context.Context, appName, routePath string) error
 
 	// The following provide a generic key value store for arbitrary data, can be used by extensions to store extra data
 	// todo: should we namespace these by app? Then when an app is deleted, it can delete any of this extra data too.
-	Put([]byte, []byte) error
-	Get([]byte) ([]byte, error)
+	Put(context.Context, []byte, []byte) error
+	Get(context.Context, []byte) ([]byte, error)
 }
 
 var (

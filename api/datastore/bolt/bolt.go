@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"context"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
 	"github.com/iron-io/functions/api/models"
@@ -72,7 +74,7 @@ func New(url *url.URL) (models.Datastore, error) {
 	return ds, nil
 }
 
-func (ds *BoltDatastore) InsertApp(app *models.App) (*models.App, error) {
+func (ds *BoltDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
@@ -111,7 +113,7 @@ func (ds *BoltDatastore) InsertApp(app *models.App) (*models.App, error) {
 	return app, err
 }
 
-func (ds *BoltDatastore) UpdateApp(newapp *models.App) (*models.App, error) {
+func (ds *BoltDatastore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
 	if newapp == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
@@ -166,7 +168,7 @@ func (ds *BoltDatastore) UpdateApp(newapp *models.App) (*models.App, error) {
 	return app, err
 }
 
-func (ds *BoltDatastore) RemoveApp(appName string) error {
+func (ds *BoltDatastore) RemoveApp(ctx context.Context, appName string) error {
 	if appName == "" {
 		return models.ErrDatastoreEmptyAppName
 	}
@@ -187,7 +189,7 @@ func (ds *BoltDatastore) RemoveApp(appName string) error {
 	return err
 }
 
-func (ds *BoltDatastore) GetApps(filter *models.AppFilter) ([]*models.App, error) {
+func (ds *BoltDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	res := []*models.App{}
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.appsBucket)
@@ -211,7 +213,7 @@ func (ds *BoltDatastore) GetApps(filter *models.AppFilter) ([]*models.App, error
 	return res, nil
 }
 
-func (ds *BoltDatastore) GetApp(name string) (*models.App, error) {
+func (ds *BoltDatastore) GetApp(ctx context.Context, name string) (*models.App, error) {
 	if name == "" {
 		return nil, models.ErrDatastoreEmptyAppName
 	}
@@ -250,7 +252,7 @@ func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bol
 	return b, nil
 }
 
-func (ds *BoltDatastore) InsertRoute(route *models.Route) (*models.Route, error) {
+func (ds *BoltDatastore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
 	if route == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
@@ -293,7 +295,7 @@ func (ds *BoltDatastore) InsertRoute(route *models.Route) (*models.Route, error)
 	return route, nil
 }
 
-func (ds *BoltDatastore) UpdateRoute(newroute *models.Route) (*models.Route, error) {
+func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
 	if newroute == nil {
 		return nil, models.ErrDatastoreEmptyRoute
 	}
@@ -369,7 +371,7 @@ func (ds *BoltDatastore) UpdateRoute(newroute *models.Route) (*models.Route, err
 	return route, nil
 }
 
-func (ds *BoltDatastore) RemoveRoute(appName, routePath string) error {
+func (ds *BoltDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	if appName == "" {
 		return models.ErrDatastoreEmptyAppName
 	}
@@ -396,7 +398,7 @@ func (ds *BoltDatastore) RemoveRoute(appName, routePath string) error {
 	return nil
 }
 
-func (ds *BoltDatastore) GetRoute(appName, routePath string) (*models.Route, error) {
+func (ds *BoltDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
 	if appName == "" {
 		return nil, models.ErrDatastoreEmptyAppName
 	}
@@ -421,7 +423,7 @@ func (ds *BoltDatastore) GetRoute(appName, routePath string) (*models.Route, err
 	return route, err
 }
 
-func (ds *BoltDatastore) GetRoutesByApp(appName string, filter *models.RouteFilter) ([]*models.Route, error) {
+func (ds *BoltDatastore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, appName)
@@ -455,7 +457,7 @@ func (ds *BoltDatastore) GetRoutesByApp(appName string, filter *models.RouteFilt
 	return res, nil
 }
 
-func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route, error) {
+func (ds *BoltDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		i := 0
@@ -492,7 +494,7 @@ func (ds *BoltDatastore) GetRoutes(filter *models.RouteFilter) ([]*models.Route,
 	return res, nil
 }
 
-func (ds *BoltDatastore) Put(key, value []byte) error {
+func (ds *BoltDatastore) Put(ctx context.Context, key, value []byte) error {
 	ds.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.extrasBucket) // todo: maybe namespace by app?
 		err := b.Put(key, value)
@@ -501,7 +503,7 @@ func (ds *BoltDatastore) Put(key, value []byte) error {
 	return nil
 }
 
-func (ds *BoltDatastore) Get(key []byte) ([]byte, error) {
+func (ds *BoltDatastore) Get(ctx context.Context, key []byte) ([]byte, error) {
 	var ret []byte
 	ds.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.extrasBucket)

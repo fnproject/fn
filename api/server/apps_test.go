@@ -85,17 +85,22 @@ func TestAppDelete(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
-
 	for i, test := range []struct {
+		ds            models.Datastore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
-		{"/v1/apps", "", http.StatusNotFound, nil},
-		{"/v1/apps/myapp", "", http.StatusOK, nil},
+		{&datastore.Mock{}, "/v1/apps", "", http.StatusNotFound, nil},
+		{&datastore.Mock{
+			Apps: []*models.App{{
+				Name: "myapp",
+			}},
+		}, "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
+		router := testRouter(test.ds, &mqs.Mock{}, testRunner(t), tasks)
+
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
@@ -203,9 +208,9 @@ func TestAppUpdate(t *testing.T) {
 
 		// success
 		{&datastore.Mock{
-			FakeApp: &models.App{
+			Apps: []*models.App{{
 				Name: "myapp",
-			},
+			}},
 		}, "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
 		router := testRouter(test.mock, &mqs.Mock{}, testRunner(t), tasks)

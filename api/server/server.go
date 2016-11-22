@@ -56,20 +56,20 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *ru
 		c.Set("ctx", ctx)
 		c.Next()
 	})
-	Api.primeCache()
+	Api.primeCache(ctx)
 
 	return Api
 }
 
-func (s *Server) primeCache() {
+func (s *Server) primeCache(ctx context.Context) {
 	logrus.Info("priming cache with known routes")
-	apps, err := s.Datastore.GetApps(nil)
+	apps, err := s.Datastore.GetApps(ctx, nil)
 	if err != nil {
 		logrus.WithError(err).Error("cannot prime cache - could not load application list")
 		return
 	}
 	for _, app := range apps {
-		routes, err := s.Datastore.GetRoutesByApp(app.Name, &models.RouteFilter{AppName: app.Name})
+		routes, err := s.Datastore.GetRoutesByApp(ctx, app.Name, &models.RouteFilter{AppName: app.Name})
 		if err != nil {
 			logrus.WithError(err).WithField("appName", app.Name).Error("cannot prime cache - could not load routes")
 			continue

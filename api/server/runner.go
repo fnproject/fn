@@ -81,7 +81,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		path = c.Request.URL.Path
 	}
 
-	app, err := Api.Datastore.GetApp(appName)
+	app, err := Api.Datastore.GetApp(ctx, appName)
 	if err != nil || app == nil {
 		log.WithError(err).Error(models.ErrAppsNotFound)
 		c.JSON(http.StatusNotFound, simpleError(models.ErrAppsNotFound))
@@ -96,7 +96,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	}
 
 	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on datastore")
-	routes, err := s.loadroutes(models.RouteFilter{AppName: appName, Path: path})
+	routes, err := s.loadroutes(ctx, models.RouteFilter{AppName: appName, Path: path})
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesList)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
@@ -122,11 +122,11 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
 }
 
-func (s *Server) loadroutes(filter models.RouteFilter) ([]*models.Route, error) {
+func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*models.Route, error) {
 	resp, err := s.singleflight.do(
 		filter,
 		func() (interface{}, error) {
-			return Api.Datastore.GetRoutesByApp(filter.AppName, &filter)
+			return Api.Datastore.GetRoutesByApp(ctx, filter.AppName, &filter)
 		},
 	)
 	return resp.([]*models.Route), err

@@ -17,14 +17,14 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 	appName := c.Param("app")
 	routePath := path.Clean(c.Param("route"))
 
-	route, err := Api.Datastore.GetRoute(appName, routePath)
+	route, err := Api.Datastore.GetRoute(ctx, appName, routePath)
 	if err != nil || route == nil {
 		log.Error(models.ErrRoutesNotFound)
 		c.JSON(http.StatusNotFound, simpleError(models.ErrRoutesNotFound))
 		return
 	}
 
-	if err := Api.Datastore.RemoveRoute(appName, routePath); err != nil {
+	if err := Api.Datastore.RemoveRoute(ctx, appName, routePath); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesRemoving))
 		return

@@ -7,10 +7,10 @@ import (
 )
 
 type Mock struct {
-	FakeApp    *models.App
-	FakeApps   []*models.App
-	FakeRoute  *models.Route
-	FakeRoutes []*models.Route
+	FakeApp   *models.App
+	Apps      []*models.App
+	FakeRoute *models.Route
+	Routes    []*models.Route
 }
 
 func (mock *Mock) Push(context.Context, *models.Task) (*models.Task, error) {
