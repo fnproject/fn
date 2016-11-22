@@ -13,7 +13,7 @@ vendor:
 test:
 	go test -v $(shell glide nv)
 
-release: docker
+release:
 	GOOS=linux go build -o fn_linux
 	GOOS=darwin go build -o fn_mac
 	GOOS=windows go build -o fn.exe

@@ -28,3 +28,6 @@ docker tag $user/$service:$tag $user/$service:$version
 
 docker push $user/$service:$version
 docker push $user/$service:$tag
+
+cd fn
+./release.sh $version
