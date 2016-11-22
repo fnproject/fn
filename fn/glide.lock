@@ -1,5 +1,5 @@
-hash: 30e4e556fec49a0c5bba030f272201870cb067d2b2c09d2e02240725e5bc09a2
-updated: 2016-11-21T19:58:04.868845654+01:00
+hash: 6c63305c6c0ef78521a6150d4368b6be3eda752e70370ce27272bb39d38e93b7
+updated: 2016-11-22T01:37:10.415995677+01:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 90dec2183a5f5458ee79cbaf4b8e9ab910bc81a6
@@ -77,7 +77,7 @@ imports:
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/iron-io/functions_go
-  version: 190cb886f033aac6d41e657eb91649b27cb52736
+  version: fd8bdc8fa9d6d2767fa97dc4b8dfcbff3f6081a7
 - name: github.com/iron-io/iron_go3
   version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
   subpackages:
