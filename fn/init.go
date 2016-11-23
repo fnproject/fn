@@ -27,6 +27,7 @@ var (
 		".js": "node",
 		".rb": "ruby",
 		".py": "python",
+		".rs": "rust",
 	}
 
 	fnInitRuntimes []string

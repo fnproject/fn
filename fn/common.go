@@ -235,6 +235,7 @@ var acceptableFnRuntimes = map[string]string{
 	"python":    "iron/python:2",
 	"ruby":      "iron/ruby",
 	"scala":     "iron/scala",
+	"rust":      "corey/rust-alpine",
 }
 
 const tplDockerfile = `FROM {{ .BaseImage }}
