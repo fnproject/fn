@@ -41,8 +41,8 @@ func init() {
 type initFnCmd struct {
 	name       string
 	force      bool
-	runtime    *string
-	entrypoint *string
+	runtime    string
+	entrypoint string
 }
 
 func initFn() cli.Command {
@@ -63,12 +63,12 @@ func initFn() cli.Command {
 			cli.StringFlag{
 				Name:        "runtime",
 				Usage:       "choose an existing runtime - " + strings.Join(fnInitRuntimes, ", "),
-				Destination: a.runtime,
+				Destination: &a.runtime,
 			},
 			cli.StringFlag{
 				Name:        "entrypoint",
 				Usage:       "entrypoint is the command to run to start this function - equivalent to Dockerfile ENTRYPOINT.",
-				Destination: a.entrypoint,
+				Destination: &a.entrypoint,
 			},
 		},
 	}
@@ -92,9 +92,9 @@ func (a *initFnCmd) init(c *cli.Context) error {
 
 	ff := &funcfile{
 		Name:       a.name,
-		Runtime:    a.runtime,
+		Runtime:    &a.runtime,
 		Version:    initialVersion,
-		Entrypoint: a.entrypoint,
+		Entrypoint: &a.entrypoint,
 	}
 
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
@@ -122,24 +122,24 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	}
 
 	var rt string
-	if a.runtime == nil || *a.runtime == "" {
+	if a.runtime == "" {
 		rt, err = detectRuntime(pwd)
 		if err != nil {
 			return err
 		}
-		a.runtime = &rt
+		a.runtime = rt
 		fmt.Printf("assuming %v runtime\n", rt)
 	}
-	if _, ok := acceptableFnRuntimes[*a.runtime]; !ok {
-		return fmt.Errorf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", *a.runtime)
+	if _, ok := acceptableFnRuntimes[a.runtime]; !ok {
+		return fmt.Errorf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
 	}
 
-	if a.entrypoint == nil || *a.entrypoint == "" {
-		ep, err := detectEntrypoint(*a.runtime)
+	if a.entrypoint == "" {
+		ep, err := detectEntrypoint(a.runtime)
 		if err != nil {
-			return fmt.Errorf("could not detect entrypoint for %v, use --entrypoint to add it explicitly. %v", *a.runtime, err)
+			return fmt.Errorf("could not detect entrypoint for %v, use --entrypoint to add it explicitly. %v", a.runtime, err)
 		}
-		a.entrypoint = &ep
+		a.entrypoint = ep
 	}
 
 	return nil
