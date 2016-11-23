@@ -44,7 +44,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 	_, err = Api.Datastore.InsertApp(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
+		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
