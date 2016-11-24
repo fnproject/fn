@@ -213,10 +213,9 @@ func scanApp(scanner rowScanner, app *models.App) error {
 func (ds *PostgresDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	res := []*models.App{}
 
-	rows, err := ds.db.Query(`
-		SELECT DISTINCT *
-		FROM apps`,
-	)
+	filterQuery := buildFilterAppQuery(filter)
+	rows, err := ds.db.Query(fmt.Sprintf("SELECT DISTINCT * FROM apps %s", filterQuery))
+
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +406,7 @@ func (ds *PostgresDatastore) GetRoute(ctx context.Context, appName, routePath st
 
 func (ds *PostgresDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
-	filterQuery := buildFilterQuery(filter)
+	filterQuery := buildFilterRouteQuery(filter)
 	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery))
 	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
@@ -433,7 +432,7 @@ func (ds *PostgresDatastore) GetRoutes(ctx context.Context, filter *models.Route
 func (ds *PostgresDatastore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	filter.AppName = appName
-	filterQuery := buildFilterQuery(filter)
+	filterQuery := buildFilterRouteQuery(filter)
 	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery))
 	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
@@ -456,7 +455,26 @@ func (ds *PostgresDatastore) GetRoutesByApp(ctx context.Context, appName string,
 	return res, nil
 }
 
-func buildFilterQuery(filter *models.RouteFilter) string {
+func buildFilterAppQuery(filter *models.AppFilter) string {
+	filterQuery := ""
+
+	filterQueries := []string{}
+	if filter.Name != "" {
+		filterQueries = append(filterQueries, fmt.Sprintf("name LIKE '%s'", filter.Name))
+	}
+
+	for i, field := range filterQueries {
+		if i == 0 {
+			filterQuery = fmt.Sprintf("WHERE %s ", field)
+		} else {
+			filterQuery = fmt.Sprintf("%s AND %s", filterQuery, field)
+		}
+	}
+
+	return filterQuery
+}
+
+func buildFilterRouteQuery(filter *models.RouteFilter) string {
 	filterQuery := ""
 
 	filterQueries := []string{}

@@ -225,6 +225,15 @@ func TestBolt(t *testing.T) {
 		t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 	}
 
+	apps, err = ds.GetApps(ctx, &models.AppFilter{Name: "Tes%"})
+	if err != nil {
+		t.Log(buf.String())
+		t.Fatalf("Test GetApps(filter): unexpected error %v", err)
+	}
+	if len(apps) == 0 {
+		t.Fatal("Test GetApps(filter): expected result count to be greater than 0")
+	}
+
 	// Testing app delete
 	err = ds.RemoveRoute(ctx, "", "")
 	if err != models.ErrDatastoreEmptyAppName {

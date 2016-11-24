@@ -53,4 +53,5 @@ func (a *App) Validate() error {
 }
 
 type AppFilter struct {
+	Name string
 }

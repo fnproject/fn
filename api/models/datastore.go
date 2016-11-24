@@ -31,9 +31,3 @@ var (
 	ErrDatastoreEmptyApp       = errors.New("Missing app")
 	ErrDatastoreEmptyRoute     = errors.New("Missing route")
 )
-
-func ApplyRouteFilter(route *Route, filter *RouteFilter) bool {
-	return (filter.Path == "" || route.Path == filter.Path) &&
-		(filter.AppName == "" || route.AppName == filter.AppName) &&
-		(filter.Image == "" || route.Image == filter.Image)
-}

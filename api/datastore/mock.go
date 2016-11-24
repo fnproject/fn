@@ -80,9 +80,7 @@ func (m *Mock) GetRoute(ctx context.Context, appName, routePath string) (*models
 
 func (m *Mock) GetRoutes(ctx context.Context, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	for _, r := range m.Routes {
-		if models.ApplyRouteFilter(r, routeFilter) {
-			routes = append(routes, r)
-		}
+		routes = append(routes, r)
 	}
 	return
 }
