@@ -9,11 +9,12 @@ import (
 
 	"context"
 
+	"regexp"
+	"strings"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
 	"github.com/iron-io/functions/api/models"
-	"regexp"
-	"strings"
 )
 
 type BoltDatastore struct {
@@ -342,8 +343,8 @@ func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route
 			route.Type = newroute.Type
 		}
 		if newroute.Headers != nil {
-			if route.Config == nil {
-				route.Config = map[string]string{}
+			if route.Headers == nil {
+				route.Headers = map[string][]string{}
 			}
 			for k, v := range newroute.Headers {
 				route.Headers[k] = v
