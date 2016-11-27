@@ -14,7 +14,7 @@ import (
 )
 
 func testRunner(t *testing.T) *runner.Runner {
-	r, err := runner.New(runner.NewMetricLogger())
+	r, err := runner.New(runner.NewFuncLogger(), runner.NewMetricLogger())
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}

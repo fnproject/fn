@@ -189,7 +189,7 @@ func TestTasksrvURL(t *testing.T) {
 }
 
 func testRunner(t *testing.T) *Runner {
-	r, err := New(NewMetricLogger())
+	r, err := New(NewFuncLogger(), NewMetricLogger())
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}

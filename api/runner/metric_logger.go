@@ -8,7 +8,7 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-type Logger interface {
+type MetricLogger interface {
 	Log(context.Context, map[string]interface{})
 	LogCount(context.Context, string, int)
 	LogGauge(context.Context, string, int)
@@ -17,18 +17,18 @@ type Logger interface {
 
 type Metric map[string]interface{}
 
-func NewMetricLogger() *MetricLogger {
-	return &MetricLogger{}
+func NewMetricLogger() MetricLogger {
+	return &DefaultMetricLogger{}
 }
 
-type MetricLogger struct{}
+type DefaultMetricLogger struct{}
 
-func (l *MetricLogger) Log(ctx context.Context, metric map[string]interface{}) {
+func (l *DefaultMetricLogger) Log(ctx context.Context, metric map[string]interface{}) {
 	log := common.Logger(ctx)
 	log.WithFields(logrus.Fields(metric)).Info()
 }
 
-func (l *MetricLogger) LogCount(ctx context.Context, name string, value int) {
+func (l *DefaultMetricLogger) LogCount(ctx context.Context, name string, value int) {
 	l.Log(ctx, Metric{
 		"name":  name,
 		"value": value,
@@ -36,7 +36,7 @@ func (l *MetricLogger) LogCount(ctx context.Context, name string, value int) {
 	})
 }
 
-func (l *MetricLogger) LogTime(ctx context.Context, name string, value time.Duration) {
+func (l *DefaultMetricLogger) LogTime(ctx context.Context, name string, value time.Duration) {
 	l.Log(ctx, Metric{
 		"name":  name,
 		"value": value,
@@ -44,7 +44,7 @@ func (l *MetricLogger) LogTime(ctx context.Context, name string, value time.Dura
 	})
 }
 
-func (l *MetricLogger) LogGauge(ctx context.Context, name string, value int) {
+func (l *DefaultMetricLogger) LogGauge(ctx context.Context, name string, value int) {
 	l.Log(ctx, Metric{
 		"name":  name,
 		"value": value,

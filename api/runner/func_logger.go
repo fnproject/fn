@@ -4,22 +4,29 @@ import (
 	"bufio"
 	"io"
 
+	"context"
 	"github.com/Sirupsen/logrus"
+	"github.com/iron-io/runner/common"
 )
 
-// FuncLogger reads STDERR output from a container and outputs it in a parseable structured log format, see: https://github.com/iron-io/functions/issues/76
-type FuncLogger struct {
-	r io.Reader
-	w io.Writer
+type FuncLogger interface {
+	Writer(context.Context, string, string, string, string) io.Writer
 }
 
-func NewFuncLogger(appName, path, function, requestID string) io.Writer {
+// FuncLogger reads STDERR output from a container and outputs it in a parseable structured log format, see: https://github.com/iron-io/functions/issues/76
+type DefaultFuncLogger struct {
+}
+
+func NewFuncLogger() FuncLogger {
+	return &DefaultFuncLogger{}
+}
+
+func (l *DefaultFuncLogger) Writer(ctx context.Context, appName, path, image, reqID string) io.Writer {
 	r, w := io.Pipe()
-	funcLogger := &FuncLogger{
-		r: r,
-		w: w,
-	}
-	log := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": appName, "path": path, "function": function, "call_id": requestID})
+
+	log := common.Logger(ctx)
+	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": appName, "path": path, "image": image, "call_id": reqID})
+
 	go func(reader io.Reader) {
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
@@ -29,9 +36,6 @@ func NewFuncLogger(appName, path, function, requestID string) io.Writer {
 			log.WithError(err).Println("There was an error with the scanner in attached container")
 		}
 	}(r)
-	return funcLogger
-}
 
-func (l *FuncLogger) Write(p []byte) (n int, err error) {
-	return l.w.Write(p)
+	return w
 }

@@ -68,9 +68,11 @@ func main() {
 	if err != nil {
 		log.WithError(err).Fatal("Error on init MQ")
 	}
-	metricLogger := runner.NewMetricLogger()
 
-	rnr, err := runner.New(metricLogger)
+	metricLogger := runner.NewMetricLogger()
+	funcLogger := runner.NewFuncLogger()
+
+	rnr, err := runner.New(funcLogger, metricLogger)
 	if err != nil {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}
