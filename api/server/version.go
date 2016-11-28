@@ -7,7 +7,7 @@ import (
 )
 
 // Version of IronFunctions
-var Version = "0.1.33"
+var Version = "0.1.34"
 
 func handleVersion(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"version": Version})
