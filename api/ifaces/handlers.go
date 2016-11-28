@@ -3,6 +3,7 @@ package ifaces
 import (
 	"net/http"
 
+	"context"
 	"github.com/iron-io/functions/api/models"
 )
 
@@ -13,6 +14,9 @@ type SpecialHandler interface {
 // Each handler can modify the context here so when it gets passed along, it will use the new info.
 // Not using Gin's Context so we don't lock ourselves into Gin, this is a subset of the Gin context.
 type HandlerContext interface {
+	// Context return the context object
+	Context() context.Context
+
 	// Request returns the underlying http.Request object
 	Request() *http.Request
 

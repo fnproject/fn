@@ -28,9 +28,23 @@ func handleAppDelete(c *gin.Context) {
 		return
 	}
 
-	if err := Api.Datastore.RemoveApp(ctx, appName); err != nil {
+	err = Api.FireAfterAppDelete(ctx, appName)
+	if err != nil {
+		log.WithError(err).Errorln(models.ErrAppsRemoving)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
+
+	if err = Api.Datastore.RemoveApp(ctx, appName); err != nil {
 		log.WithError(err).Debug(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
+		return
+	}
+
+	err = Api.FireAfterAppDelete(ctx, appName)
+	if err != nil {
+		log.WithError(err).Errorln(models.ErrAppsRemoving)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 

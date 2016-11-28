@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 )
@@ -10,6 +11,11 @@ import (
 type SpecialHandlerContext struct {
 	server     *Server
 	ginContext *gin.Context
+}
+
+func (c *SpecialHandlerContext) Context() context.Context {
+	ctx, _ := c.ginContext.Get("ctx")
+	return ctx.(context.Context)
 }
 
 func (c *SpecialHandlerContext) Request() *http.Request {

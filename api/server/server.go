@@ -25,12 +25,14 @@ import (
 var Api *Server
 
 type Server struct {
-	Runner          *runner.Runner
-	Router          *gin.Engine
-	MQ              models.MessageQueue
-	AppListeners    []ifaces.AppListener
-	SpecialHandlers []ifaces.SpecialHandler
-	Enqueue         models.Enqueue
+	Runner             *runner.Runner
+	Router             *gin.Engine
+	MQ                 models.MessageQueue
+	AppCreateListeners []ifaces.AppCreateListener
+	AppUpdateListeners []ifaces.AppUpdateListener
+	AppDeleteListeners []ifaces.AppDeleteListener
+	SpecialHandlers    []ifaces.SpecialHandler
+	Enqueue            models.Enqueue
 
 	tasks chan task.Request
 
@@ -92,31 +94,6 @@ func (s *Server) primeCache(ctx context.Context) {
 		}
 	}
 	logrus.Info("cached prime")
-}
-
-// AddAppListener adds a listener that will be notified on App changes.
-func (s *Server) AddAppListener(listener ifaces.AppListener) {
-	s.AppListeners = append(s.AppListeners, listener)
-}
-
-func (s *Server) FireBeforeAppUpdate(ctx context.Context, app *models.App) error {
-	for _, l := range s.AppListeners {
-		err := l.BeforeAppUpdate(ctx, app)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Server) FireAfterAppUpdate(ctx context.Context, app *models.App) error {
-	for _, l := range s.AppListeners {
-		err := l.AfterAppUpdate(ctx, app)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *Server) AddSpecialHandler(handler ifaces.SpecialHandler) {

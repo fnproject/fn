@@ -34,7 +34,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	err = Api.FireBeforeAppUpdate(ctx, wapp.App)
+	err = Api.FireBeforeAppCreate(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
@@ -48,7 +48,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	err = Api.FireAfterAppUpdate(ctx, wapp.App)
+	err = Api.FireAfterAppCreate(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))

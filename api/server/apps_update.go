@@ -29,10 +29,25 @@ func handleAppUpdate(c *gin.Context) {
 	}
 
 	wapp.App.Name = c.Param("app")
+
+	err = Api.FireAfterAppUpdate(ctx, wapp.App)
+	if err != nil {
+		log.WithError(err).Errorln(models.ErrAppsUpdate)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
+
 	app, err := Api.Datastore.UpdateApp(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsUpdate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsUpdate))
+		return
+	}
+
+	err = Api.FireAfterAppUpdate(ctx, wapp.App)
+	if err != nil {
+		log.WithError(err).Errorln(models.ErrAppsUpdate)
+		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
