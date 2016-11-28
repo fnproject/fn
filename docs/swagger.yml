@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.19"
+  version: "0.1.20"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -290,16 +290,9 @@ paths:
   /tasks:
     get:
       summary: Get next task.
-      description: Gets the next task in the queue, ready for processing. Titan may return <=n tasks. Consumers should start processing tasks in order. Each returned task is set to `status` "running" and `started_at` is set to the current time. No other consumer can retrieve this task.
+      description: Gets the next task in the queue, ready for processing. Consumers should start processing tasks in order. No other consumer can retrieve this task.
       tags:
         - Tasks
-      parameters:
-        - name: "n"
-          in: query
-          default: 1
-          description: Number of tasks to return.
-          type: integer
-          format: int32
       responses:
         200:
           description: Task information
