@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strings"
 
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
@@ -92,13 +92,17 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
-	an, r := extractAppNameRoute(path)
+	// TODO: This is just a nasty hack and should be cleaned up all the way
+	pathsSplit := strings.Split(ff.FullName(), "/")
+
 	if ff.App == nil {
-		ff.App = &an
+		ff.App = &pathsSplit[0]
 	}
 	if ff.Route == nil {
-		ff.Route = &r
+		path := "/" + strings.Split(pathsSplit[1], ":")[0]
+		ff.Route = &path
 	}
+
 	if ff.Memory == nil {
 		ff.Memory = new(int64)
 	}
@@ -108,11 +112,12 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 
 	body := functions.RouteWrapper{
 		Route: functions.Route{
-			Path:   *ff.Route,
-			Image:  ff.FullName(),
-			Memory: *ff.Memory,
-			Type_:  *ff.Type,
-			Config: expandEnvConfig(ff.Config),
+			Path:    *ff.Route,
+			Image:   ff.FullName(),
+			AppName: *ff.App,
+			Memory:  *ff.Memory,
+			Type_:   *ff.Type,
+			Config:  expandEnvConfig(ff.Config),
 		},
 	}
 
@@ -134,20 +139,6 @@ func expandEnvConfig(configs map[string]string) map[string]string {
 		configs[k] = os.ExpandEnv(v)
 	}
 	return configs
-}
-
-func extractAppNameRoute(path string) (appName, route string) {
-
-	// The idea here is to extract the root-most directory name
-	// as application name, it turns out that stdlib tools are great to
-	// extract the deepest one. Thus, we revert the string and use the
-	// stdlib as it is - and revert back to its normal content. Not fastest
-	// ever, but it is simple.
-
-	rpath := reverse(path)
-	rroute, rappName := filepath.Split(rpath)
-	route = filepath.Dir(reverse(rroute))
-	return reverse(rappName), route
 }
 
 func reverse(s string) string {
