@@ -1,5 +1,5 @@
-hash: 6c63305c6c0ef78521a6150d4368b6be3eda752e70370ce27272bb39d38e93b7
-updated: 2016-11-22T01:37:10.415995677+01:00
+hash: d922a297cf85195bc6d94a84ea2932bd74edad4037814331c41d83c9b1a94073
+updated: 2016-11-28T19:15:29.177008372+01:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 90dec2183a5f5458ee79cbaf4b8e9ab910bc81a6
@@ -64,7 +64,7 @@ imports:
 - name: github.com/docker/go-units
   version: 8a7beacffa3009a9ac66bad506b18ffdd110cf97
 - name: github.com/fsouza/go-dockerclient
-  version: 5cfde1d138cd2cdc13e4aa36af631beb19dcbe9c
+  version: ece08f96ac5f26f4073ab5c38f198c3e5000c554
 - name: github.com/giantswarm/semver-bump
   version: 7ec6ac8985c24dd50b4942f9a908d13cdfe70f23
   subpackages:
@@ -77,7 +77,7 @@ imports:
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/iron-io/functions_go
-  version: fd8bdc8fa9d6d2767fa97dc4b8dfcbff3f6081a7
+  version: 4349795996f44e4d352a3002f0486b7c23de47f7
 - name: github.com/iron-io/iron_go3
   version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
   subpackages:
@@ -104,7 +104,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
-  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+  version: d26492970760ca5d33129d2d799e34be5c4782eb
 - name: github.com/urfave/cli
   version: d86a009f5e13f83df65d0d6cee9a2e3f1445f0da
 - name: golang.org/x/crypto
