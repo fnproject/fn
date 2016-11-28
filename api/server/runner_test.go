@@ -126,18 +126,19 @@ func TestRouteRunnerExecution(t *testing.T) {
 	for i, test := range []struct {
 		path            string
 		body            string
+		method          string
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 
 		// Added same tests again to check if time is reduced by the auth cache
-		{"/r/myapp/myroute", ``, http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", ``, http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 	} {
-		body := bytes.NewBuffer([]byte(test.body))
-		_, rec := routerRequest(t, router, "GET", test.path, body)
+		body := strings.NewReader(test.body)
+		_, rec := routerRequest(t, router, test.method, test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -145,13 +146,65 @@ func TestRouteRunnerExecution(t *testing.T) {
 				i, test.expectedCode, rec.Code)
 		}
 
-		if test.expectedHeaders != nil {
-			for name, header := range test.expectedHeaders {
-				if header[0] != rec.Header().Get(name) {
-					t.Log(buf.String())
-					t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
-						i, name, header[0], rec.Header().Get(name))
-				}
+		if test.expectedHeaders == nil {
+			continue
+		}
+		for name, header := range test.expectedHeaders {
+			if header[0] != rec.Header().Get(name) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
+					i, name, header[0], rec.Header().Get(name))
+			}
+		}
+	}
+}
+
+func TestRouteRunnerTimeout(t *testing.T) {
+	t.Skip("doesn't work on old Ubuntu")
+	buf := setLogBuffer()
+
+	tasks := make(chan task.Request)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go runner.StartWorkers(ctx, testRunner(t), tasks)
+
+	router := testRouter(&datastore.Mock{
+		Apps: []*models.App{
+			{Name: "myapp", Config: models.Config{}},
+		},
+		Routes: []*models.Route{
+			{Path: "/sleeper", AppName: "myapp", Image: "iron/sleeper", Timeout: 1},
+		},
+	}, &mqs.Mock{}, testRunner(t), tasks)
+
+	for i, test := range []struct {
+		path            string
+		body            string
+		method          string
+		expectedCode    int
+		expectedHeaders map[string][]string
+	}{
+		{"/r/myapp/sleeper", `{"sleep": 0}`, "POST", http.StatusOK, nil},
+		{"/r/myapp/sleeper", `{"sleep": 2}`, "POST", http.StatusGatewayTimeout, nil},
+	} {
+		body := strings.NewReader(test.body)
+		_, rec := routerRequest(t, router, test.method, test.path, body)
+
+		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
+		}
+
+		if test.expectedHeaders == nil {
+			continue
+		}
+		for name, header := range test.expectedHeaders {
+			if header[0] != rec.Header().Get(name) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
+					i, name, header[0], rec.Header().Get(name))
 			}
 		}
 	}

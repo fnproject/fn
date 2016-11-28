@@ -10,6 +10,10 @@ import (
 	apiErrors "github.com/go-openapi/errors"
 )
 
+const (
+	defaultRouteTimeout = 30 // seconds
+)
+
 var (
 	ErrRoutesCreate        = errors.New("Could not create route")
 	ErrRoutesUpdate        = errors.New("Could not update route")
@@ -33,6 +37,7 @@ type Route struct {
 	Type           string      `json:"type,omitempty"`
 	Format         string      `json:"format,omitempty"`
 	MaxConcurrency int         `json:"max_concurrency,omitempty"`
+	Timeout        int32       `json:"timeout,omitempty"`
 	Config         `json:"config"`
 }
 
@@ -47,6 +52,7 @@ var (
 	ErrRoutesValidationMissingPath     = errors.New("Missing route Path")
 	ErrRoutesValidationMissingType     = errors.New("Missing route Type")
 	ErrRoutesValidationPathMalformed   = errors.New("Path malformed")
+	ErrRoutesValidationNegativeTimeout = errors.New("Negative timeout")
 )
 
 func (r *Route) Validate() error {
@@ -91,6 +97,12 @@ func (r *Route) Validate() error {
 
 	if r.MaxConcurrency == 0 && r.Format == FormatHTTP {
 		r.MaxConcurrency = 1
+	}
+
+	if r.Timeout == 0 {
+		r.Timeout = defaultRouteTimeout
+	} else if r.Timeout < 0 {
+		res = append(res, ErrRoutesValidationNegativeTimeout)
 	}
 
 	if len(res) > 0 {

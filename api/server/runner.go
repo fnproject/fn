@@ -179,7 +179,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		Memory:         found.Memory,
 		Stdin:          payload,
 		Stdout:         &stdout,
-		Timeout:        30 * time.Second,
+		Timeout:        time.Duration(found.Timeout) * time.Second,
 	}
 
 	switch found.Type {
@@ -216,12 +216,14 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 			c.Header(k, v[0])
 		}
 
-		if result.Status() == "success" {
+		switch result.Status() {
+		case "success":
 			c.Data(http.StatusOK, "", stdout.Bytes())
-		} else {
+		case "timeout":
+			c.AbortWithStatus(http.StatusGatewayTimeout)
+		default:
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
-
 	}
 
 	return true

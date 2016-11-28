@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -32,6 +33,7 @@ type funcfile struct {
 	Type           *string           `yaml:"type,omitempty",json:"type,omitempty"`
 	Memory         *int64            `yaml:"memory,omitempty",json:"memory,omitempty"`
 	Format         *string           `yaml:"format,omitempty",json:"format,omitempty"`
+	Timeout        *time.Duration    `yaml:"timeout,omitempty",json:"timeout,omitempty"`
 	MaxConcurrency *int              `yaml:"int,omitempty",json:"int,omitempty"`
 	Config         map[string]string `yaml:"config,omitempty",json:"config,omitempty"`
 	Build          []string          `yaml:"build,omitempty",json:"build,omitempty"`

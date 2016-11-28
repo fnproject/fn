@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.18"
+  version: "0.1.19"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -353,6 +353,10 @@ definitions:
             description: Route configuration - overrides application configuration
             additionalProperties:
               type: string
+          timeout:
+            type: integer
+            default: 60
+            description: Timeout for executions of this route. Value in Seconds
 
   App:
     type: object

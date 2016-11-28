@@ -11,6 +11,7 @@ import (
 	"path"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
@@ -73,6 +74,11 @@ func routes() cli.Command {
 						Name:  "max-concurrency,m",
 						Usage: "maximum concurrency for hot container",
 						Value: 1,
+					},
+					cli.DurationFlag{
+						Name:  "timeout",
+						Usage: "route timeout",
+						Value: 30 * time.Second,
 					},
 				},
 			},
@@ -239,8 +245,11 @@ func (a *routesCmd) create(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
 	image := c.Args().Get(2)
-	var format string
-	var maxC int
+	var (
+		format  string
+		maxC    int
+		timeout time.Duration
+	)
 	if image == "" {
 		ff, err := findFuncfile()
 		if err != nil {
@@ -257,6 +266,9 @@ func (a *routesCmd) create(c *cli.Context) error {
 		if ff.MaxConcurrency != nil {
 			maxC = *ff.MaxConcurrency
 		}
+		if ff.Timeout != nil {
+			timeout = *ff.Timeout
+		}
 	}
 
 	if f := c.String("format"); f != "" {
@@ -264,6 +276,9 @@ func (a *routesCmd) create(c *cli.Context) error {
 	}
 	if m := c.Int("max-concurrency"); m > 0 {
 		maxC = m
+	}
+	if t := c.Duration("timeout"); t > 0 {
+		timeout = t
 	}
 
 	body := functions.RouteWrapper{
@@ -276,6 +291,7 @@ func (a *routesCmd) create(c *cli.Context) error {
 			Config:         extractEnvConfig(c.StringSlice("config")),
 			Format:         format,
 			MaxConcurrency: int32(maxC),
+			Timeout:        int32(timeout.Seconds()),
 		},
 	}
 
