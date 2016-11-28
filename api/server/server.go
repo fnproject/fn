@@ -15,6 +15,7 @@ import (
 	"github.com/iron-io/functions/api/ifaces"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/functions/api/server/internal/routecache"
 	"github.com/iron-io/runner/common"
 )
@@ -31,7 +32,7 @@ type Server struct {
 	SpecialHandlers []ifaces.SpecialHandler
 	Enqueue         models.Enqueue
 
-	tasks chan runner.TaskRequest
+	tasks chan task.Request
 
 	mu        sync.Mutex // protects hotroutes
 	hotroutes map[string]*routecache.Cache
@@ -40,7 +41,7 @@ type Server struct {
 	Datastore    models.Datastore
 }
 
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan runner.TaskRequest, enqueue models.Enqueue) *Server {
+func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *Server {
 	Api = &Server{
 		Runner:    r,
 		Router:    gin.New(),

@@ -18,8 +18,11 @@ const routesTableCreate = `
 CREATE TABLE IF NOT EXISTS routes (
 	app_name character varying(256) NOT NULL,
 	path text NOT NULL,
-    image character varying(256) NOT NULL,
+	image character varying(256) NOT NULL,
+	format character varying(16) NOT NULL,
+	maxc integer NOT NULL,
 	memory integer NOT NULL,
+	type character varying(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
 	PRIMARY KEY (app_name, path)
@@ -35,7 +38,7 @@ const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
 	value character varying(256) NOT NULL
 );`
 
-const routeSelector = `SELECT app_name, path, image, memory, headers, config FROM routes`
+const routeSelector = `SELECT app_name, path, image, format, maxc, memory, type, headers, config FROM routes`
 
 type rowScanner interface {
 	Scan(dest ...interface{}) error
@@ -257,18 +260,24 @@ func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Rout
 
 	_, err = ds.db.Exec(`
 		INSERT INTO routes (
-			app_name, 
-			path, 
+			app_name,
+			path,
 			image,
+			format,
+			maxc,
 			memory,
+			type,
 			headers,
 			config
 		)
-		VALUES ($1, $2, $3, $4, $5, $6);`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 		route.AppName,
 		route.Path,
 		route.Image,
+		route.Format,
+		route.MaxConcurrency,
 		route.Memory,
+		route.Type,
 		string(hbyte),
 		string(cbyte),
 	)
@@ -301,14 +310,20 @@ func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, route *models.Rout
 	res, err := ds.db.Exec(`
 		UPDATE routes SET
 			image = $3,
-			memory = $4,
-			headers = $5,
-			config = $6
+			format = $4,
+			memory = $5,
+			maxc = $6,
+			type = $7,
+			headers = $8,
+			config = $9
 		WHERE app_name = $1 AND path = $2;`,
 		route.AppName,
 		route.Path,
 		route.Image,
+		route.Format,
 		route.Memory,
+		route.MaxConcurrency,
+		route.Type,
 		string(hbyte),
 		string(cbyte),
 	)
@@ -367,7 +382,10 @@ func scanRoute(scanner rowScanner, route *models.Route) error {
 		&route.AppName,
 		&route.Path,
 		&route.Image,
+		&route.Format,
 		&route.Memory,
+		&route.MaxConcurrency,
+		&route.Type,
 		&headerStr,
 		&configStr,
 	)

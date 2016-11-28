@@ -14,6 +14,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
 )
 
@@ -40,18 +41,18 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 	return &task, nil
 }
 
-func getCfg(task *models.Task) *Config {
-	// TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
-	if task.Timeout == nil {
+func getCfg(t *models.Task) *task.Config {
+	if t.Timeout == nil {
 		timeout := int32(30)
-		task.Timeout = &timeout
+		t.Timeout = &timeout
 	}
-	cfg := &Config{
-		Image:   *task.Image,
-		Timeout: time.Duration(*task.Timeout) * time.Second,
-		ID:      task.ID,
-		AppName: task.AppName,
-		Env:     task.EnvVars,
+
+	cfg := &task.Config{
+		Image:   *t.Image,
+		Timeout: time.Duration(*t.Timeout) * time.Second,
+		ID:      t.ID,
+		AppName: t.AppName,
+		Env:     t.EnvVars,
 	}
 	return cfg
 }
@@ -82,14 +83,14 @@ func deleteTask(url string, task *models.Task) error {
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(ctx context.Context, tasksrv string, tasks chan TaskRequest, rnr *Runner) {
+func RunAsyncRunner(ctx context.Context, tasksrv string, tasks chan task.Request, rnr *Runner) {
 	u := tasksrvURL(tasksrv)
 
 	startAsyncRunners(ctx, u, tasks, rnr)
 	<-ctx.Done()
 }
 
-func startAsyncRunners(ctx context.Context, url string, tasks chan TaskRequest, rnr *Runner) {
+func startAsyncRunners(ctx context.Context, url string, tasks chan task.Request, rnr *Runner) {
 	var wg sync.WaitGroup
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"runner": "async"})
 	for {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
 )
 
@@ -34,7 +34,7 @@ func handleRouteUpdate(c *gin.Context) {
 	wroute.Route.Path = path.Clean(c.Param("route"))
 
 	if wroute.Route.Image != "" {
-		err = Api.Runner.EnsureImageExists(ctx, &runner.Config{
+		err = Api.Runner.EnsureImageExists(ctx, &task.Config{
 			Image: wroute.Route.Image,
 		})
 		if err != nil {

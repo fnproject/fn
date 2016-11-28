@@ -12,7 +12,7 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
-	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -25,8 +25,8 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-func mockTasksConduit() chan runner.TaskRequest {
-	tasks := make(chan runner.TaskRequest)
+func mockTasksConduit() chan task.Request {
+	tasks := make(chan task.Request)
 	go func() {
 		for range tasks {
 		}

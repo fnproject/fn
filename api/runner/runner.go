@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -15,25 +14,13 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
 	"github.com/iron-io/runner/drivers"
 	driverscommon "github.com/iron-io/runner/drivers"
 	"github.com/iron-io/runner/drivers/docker"
 	"github.com/iron-io/runner/drivers/mock"
 )
-
-type Config struct {
-	ID      string
-	Image   string
-	Timeout time.Duration
-	AppName string
-	Path    string
-	Memory  uint64
-	Env     map[string]string
-	Stdin   io.Reader
-	Stdout  io.Writer
-	Stderr  io.Writer
-}
 
 type Runner struct {
 	driver       drivers.Driver
@@ -155,7 +142,7 @@ func (r *Runner) checkMemAndUse(req uint64) bool {
 	return true
 }
 
-func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error) {
+func (r *Runner) Run(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
 	var err error
 
 	if cfg.Memory == 0 {
@@ -224,7 +211,7 @@ func (r *Runner) Run(ctx context.Context, cfg *Config) (drivers.RunResult, error
 	return result, nil
 }
 
-func (r Runner) EnsureImageExists(ctx context.Context, cfg *Config) error {
+func (r Runner) EnsureImageExists(ctx context.Context, cfg *task.Config) error {
 	ctask := &containerTask{
 		cfg: cfg,
 	}

@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/drivers"
 )
 
 type containerTask struct {
 	ctx    context.Context
-	cfg    *Config
+	cfg    *task.Config
 	canRun chan bool
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/functions/api/server"
 	"github.com/spf13/viper"
 )
@@ -84,7 +85,7 @@ func main() {
 		},
 	}
 
-	tasks := make(chan runner.TaskRequest)
+	tasks := make(chan task.Request)
 
 	svr.AddFunc(func(ctx context.Context) {
 		runner.StartWorkers(ctx, rnr, tasks)

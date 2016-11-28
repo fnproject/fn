@@ -64,6 +64,16 @@ func routes() cli.Command {
 						Name:  "config,c",
 						Usage: "route configuration",
 					},
+					cli.StringFlag{
+						Name:  "format,f",
+						Usage: "hot container IO format - json or http",
+						Value: "",
+					},
+					cli.IntFlag{
+						Name:  "max-concurrency,m",
+						Usage: "maximum concurrency for hot container",
+						Value: 1,
+					},
 				},
 			},
 			{
@@ -229,6 +239,8 @@ func (a *routesCmd) create(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
 	image := c.Args().Get(2)
+	var format string
+	var maxC int
 	if image == "" {
 		ff, err := findFuncfile()
 		if err != nil {
@@ -239,16 +251,31 @@ func (a *routesCmd) create(c *cli.Context) error {
 			}
 		}
 		image = ff.FullName()
+		if ff.Format != nil {
+			format = *ff.Format
+		}
+		if ff.MaxConcurrency != nil {
+			maxC = *ff.MaxConcurrency
+		}
+	}
+
+	if f := c.String("format"); f != "" {
+		format = f
+	}
+	if m := c.Int("max-concurrency"); m > 0 {
+		maxC = m
 	}
 
 	body := functions.RouteWrapper{
 		Route: functions.Route{
-			AppName: appName,
-			Path:    route,
-			Image:   image,
-			Memory:  c.Int64("memory"),
-			Type_:   c.String("type"),
-			Config:  extractEnvConfig(c.StringSlice("config")),
+			AppName:        appName,
+			Path:           route,
+			Image:          image,
+			Memory:         c.Int64("memory"),
+			Type_:          c.String("type"),
+			Config:         extractEnvConfig(c.StringSlice("config")),
+			Format:         format,
+			MaxConcurrency: int32(maxC),
 		},
 	}
 

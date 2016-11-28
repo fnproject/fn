@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
 	uuid "github.com/satori/go.uuid"
 )
@@ -167,15 +168,18 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		envVars[ToEnvName("HEADER", header)] = strings.Join(value, " ")
 	}
 
-	cfg := &runner.Config{
-		Image:   found.Image,
-		Timeout: 30 * time.Second,
-		ID:      reqID,
-		AppName: appName,
-		Stdout:  &stdout,
-		Env:     envVars,
-		Memory:  found.Memory,
-		Stdin:   payload,
+	cfg := &task.Config{
+		AppName:        appName,
+		Path:           found.Path,
+		Env:            envVars,
+		Format:         found.Format,
+		ID:             reqID,
+		Image:          found.Image,
+		MaxConcurrency: found.MaxConcurrency,
+		Memory:         found.Memory,
+		Stdin:          payload,
+		Stdout:         &stdout,
+		Timeout:        30 * time.Second,
 	}
 
 	switch found.Type {

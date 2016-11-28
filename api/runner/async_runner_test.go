@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
+	"github.com/iron-io/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -202,13 +203,13 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	ts := getTestServer([]*models.Task{&mockTask})
 	defer ts.Close()
 
-	tasks := make(chan TaskRequest)
+	tasks := make(chan task.Request)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	defer close(tasks)
 	go func() {
 		for t := range tasks {
-			t.Response <- TaskResponse{
+			t.Response <- task.Response{
 				Result: nil,
 				Err:    nil,
 			}

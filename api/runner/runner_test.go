@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/runner/task"
 )
 
 func TestRunnerHello(t *testing.T) {
@@ -31,7 +32,7 @@ func TestRunnerHello(t *testing.T) {
 		{&models.Route{Image: "iron/hello"}, `{"name": "test"}`, "success", "Hello test!", ""},
 	} {
 		var stdout, stderr bytes.Buffer
-		cfg := &Config{
+		cfg := &task.Config{
 			ID:      fmt.Sprintf("hello-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
 			Timeout: 5 * time.Second,
@@ -84,7 +85,7 @@ func TestRunnerError(t *testing.T) {
 		{&models.Route{Image: "iron/error"}, `{"name": "test"}`, "error", "", "RuntimeError"},
 	} {
 		var stdout, stderr bytes.Buffer
-		cfg := &Config{
+		cfg := &task.Config{
 			ID:      fmt.Sprintf("err-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
 			Timeout: 5 * time.Second,

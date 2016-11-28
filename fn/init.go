@@ -40,10 +40,12 @@ func init() {
 }
 
 type initFnCmd struct {
-	name       string
-	force      bool
-	runtime    string
-	entrypoint string
+	name           string
+	force          bool
+	runtime        string
+	entrypoint     string
+	format         string
+	maxConcurrency int
 }
 
 func initFn() cli.Command {
@@ -71,6 +73,18 @@ func initFn() cli.Command {
 				Usage:       "entrypoint is the command to run to start this function - equivalent to Dockerfile ENTRYPOINT.",
 				Destination: &a.entrypoint,
 			},
+			cli.StringFlag{
+				Name:        "format",
+				Usage:       "hot container IO format - json or http",
+				Destination: &a.format,
+				Value:       "",
+			},
+			cli.IntFlag{
+				Name:        "max-concurrency",
+				Usage:       "maximum concurrency for hot container",
+				Destination: &a.maxConcurrency,
+				Value:       1,
+			},
 		},
 	}
 }
@@ -92,10 +106,12 @@ func (a *initFnCmd) init(c *cli.Context) error {
 	}
 
 	ff := &funcfile{
-		Name:       a.name,
-		Runtime:    &a.runtime,
-		Version:    initialVersion,
-		Entrypoint: &a.entrypoint,
+		Name:           a.name,
+		Runtime:        &a.runtime,
+		Version:        initialVersion,
+		Entrypoint:     &a.entrypoint,
+		Format:         &a.format,
+		MaxConcurrency: &a.maxConcurrency,
 	}
 
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {

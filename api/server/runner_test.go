@@ -11,6 +11,7 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 )
 
 func testRunner(t *testing.T) *runner.Runner {
@@ -106,7 +107,7 @@ func TestRouteRunnerPost(t *testing.T) {
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 
-	tasks := make(chan runner.TaskRequest)
+	tasks := make(chan task.Request)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

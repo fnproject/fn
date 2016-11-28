@@ -16,12 +16,13 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
 )
 
 var tmpBolt = "/tmp/func_test_bolt.db"
 
-func testRouter(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan runner.TaskRequest) *gin.Engine {
+func testRouter(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request) *gin.Engine {
 	ctx := context.Background()
 	s := New(ctx, ds, mq, rnr, tasks, DefaultEnqueue)
 	r := s.Router
@@ -90,7 +91,7 @@ func TestFullStack(t *testing.T) {
 	ds, closeBolt := prepareBolt(t)
 	defer closeBolt()
 
-	tasks := make(chan runner.TaskRequest)
+	tasks := make(chan task.Request)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go runner.StartWorkers(ctx, testRunner(t), tasks)

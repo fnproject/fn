@@ -13,10 +13,11 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
+	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
 )
 
-func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan runner.TaskRequest, enqueue models.Enqueue) *gin.Engine {
+func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *gin.Engine {
 	ctx := context.Background()
 	s := New(ctx, ds, mq, rnr, tasks, enqueue)
 	r := s.Router

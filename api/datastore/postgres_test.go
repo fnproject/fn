@@ -57,6 +57,8 @@ func TestPostgres(t *testing.T) {
 		AppName: testApp.Name,
 		Path:    "/test",
 		Image:   "iron/hello",
+		Type:    "sync",
+		Format:  "http",
 	}
 
 	// Testing insert app

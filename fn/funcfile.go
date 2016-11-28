@@ -23,16 +23,18 @@ var (
 )
 
 type funcfile struct {
-	App        *string           `yaml:"app,omitempty",json:"app,omitempty"`
-	Name       string            `yaml:"name,omitempty",json:"name,omitempty"`
-	Version    string            `yaml:"version,omitempty",json:"version,omitempty"`
-	Runtime    *string           `yaml:"runtime,omitempty",json:"runtime,omitempty"`
-	Entrypoint *string           `yaml:"entrypoint,omitempty",json:"entrypoint,omitempty"`
-	Route      *string           `yaml:"route,omitempty",json:"route,omitempty"`
-	Type       *string           `yaml:"type,omitempty",json:"type,omitempty"`
-	Memory     *int64            `yaml:"memory,omitempty",json:"memory,omitempty"`
-	Config     map[string]string `yaml:"config,omitempty",json:"config,omitempty"`
-	Build      []string          `yaml:"build,omitempty",json:"build,omitempty"`
+	App            *string           `yaml:"app,omitempty",json:"app,omitempty"`
+	Name           string            `yaml:"name,omitempty",json:"name,omitempty"`
+	Version        string            `yaml:"version,omitempty",json:"version,omitempty"`
+	Runtime        *string           `yaml:"runtime,omitempty",json:"runtime,omitempty"`
+	Entrypoint     *string           `yaml:"entrypoint,omitempty",json:"entrypoint,omitempty"`
+	Route          *string           `yaml:"route,omitempty",json:"route,omitempty"`
+	Type           *string           `yaml:"type,omitempty",json:"type,omitempty"`
+	Memory         *int64            `yaml:"memory,omitempty",json:"memory,omitempty"`
+	Format         *string           `yaml:"format,omitempty",json:"format,omitempty"`
+	MaxConcurrency *int              `yaml:"int,omitempty",json:"int,omitempty"`
+	Config         map[string]string `yaml:"config,omitempty",json:"config,omitempty"`
+	Build          []string          `yaml:"build,omitempty",json:"build,omitempty"`
 }
 
 func (ff *funcfile) FullName() string {
