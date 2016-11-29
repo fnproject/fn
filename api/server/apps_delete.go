@@ -28,7 +28,7 @@ func handleAppDelete(c *gin.Context) {
 		return
 	}
 
-	err = Api.FireAfterAppDelete(ctx, appName)
+	err = Api.FireBeforeAppDelete(ctx, appName)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
