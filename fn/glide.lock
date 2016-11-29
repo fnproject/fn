@@ -77,7 +77,7 @@ imports:
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/iron-io/functions_go
-  version: 4349795996f44e4d352a3002f0486b7c23de47f7
+  version: b08984bb641a31008c4867ef36d394f926491297
 - name: github.com/iron-io/iron_go3
   version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
   subpackages:
