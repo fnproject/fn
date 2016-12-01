@@ -33,7 +33,7 @@ type funcfile struct {
 	Memory         *int64              `yaml:"memory,omitempty",json:"memory,omitempty"`
 	Format         *string             `yaml:"format,omitempty",json:"format,omitempty"`
 	Timeout        *time.Duration      `yaml:"timeout,omitempty",json:"timeout,omitempty"`
-	MaxConcurrency *int                `yaml:"int,omitempty",json:"int,omitempty"`
+	MaxConcurrency *int                `yaml:"max_concurrency,omitempty",json:"max_concurrency,omitempty"`
 	Headers        map[string][]string `yaml:"headers,omitempty",json:"headers,omitempty"`
 	Config         map[string]string   `yaml:"config,omitempty",json:"config,omitempty"`
 	Build          []string            `yaml:"build,omitempty",json:"build,omitempty"`
