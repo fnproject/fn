@@ -19,4 +19,4 @@ import:
   - ssh/terminal
 - package: gopkg.in/yaml.v2
 - package: github.com/iron-io/functions_go
-  version: 4349795996f44e4d352a3002f0486b7c23de47f7
+  version: f3a87e2242f08fe6fbb7c385426c1a2fc7ccbb6d
