@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.20"
+  version: "0.1.21"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -20,6 +20,16 @@ consumes:
 produces:
   - application/json
 paths:
+  /version:
+    get:
+      summary: "Get daemon version."
+      tags:
+        - Version
+      responses:
+        200:
+          description: Daemon version.
+          schema:
+            $ref: '#/definitions/Version'
   /apps:
     get:
       summary: "Get all app names."
@@ -363,6 +373,13 @@ definitions:
         description: Application configuration
         additionalProperties:
           type: string
+
+  Version:
+    type: object
+    properties:
+      version:
+        type: string
+        readOnly: true
 
   RoutesWrapper:
     type: object

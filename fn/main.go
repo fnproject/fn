@@ -9,10 +9,12 @@ import (
 	"github.com/urfave/cli"
 )
 
+const fnversion = "0.1.39"
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "fn"
-	app.Version = "0.1.0"
+	app.Version = fnversion
 	app.Authors = []cli.Author{{Name: "iron.io"}}
 	app.Usage = "IronFunctions command line tools"
 	app.UsageText = `Check the manual at https://github.com/iron-io/functions/blob/master/fn/README.md
@@ -25,12 +27,13 @@ ENVIRONMENT VARIABLES:
 		build(),
 		bump(),
 		call(),
+		initFn(),
 		lambda(),
 		publish(),
 		push(),
 		routes(),
 		run(),
-		initFn(),
+		version(),
 	}
 	app.Run(os.Args)
 }
@@ -38,7 +41,7 @@ ENVIRONMENT VARIABLES:
 func resetBasePath(c *functions.Configuration) error {
 	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
-		apiURL = "http://localhost:8080/"
+		apiURL = "http://localhost:8080"
 	}
 
 	u, err := url.Parse(apiURL)

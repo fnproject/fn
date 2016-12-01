@@ -79,6 +79,10 @@ $ fn routes create otherapp /hello iron/hello   # create route
 
 $ fn routes delete otherapp hello              # delete route
 /hello deleted
+
+$ fn version                                   # shows version both of client and server
+Client version: 0.1.0
+Server version: 0.1.21
 ```
 
 ## Application level configuration
