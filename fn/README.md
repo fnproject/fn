@@ -80,6 +80,9 @@ $ fn routes create otherapp /hello iron/hello   # create route
 $ fn routes delete otherapp hello              # delete route
 /hello deleted
 
+$ fn routes headers set otherapp hello header-name value         # add HTTP header to response
+otherapp /hello headers updated header-name with value
+
 $ fn version                                   # shows version both of client and server
 Client version: 0.1.0
 Server version: 0.1.21
@@ -125,6 +128,23 @@ environment variables.
 Repeated calls to `fn route create` will trigger an update of the given
 route, thus you will be able to change any of these attributes later in time
 if necessary.
+
+## Route headers
+
+You can configure a route's HTTP response to return specific headers.
+
+A header configuration workflow example:
+```sh
+$ fn routes headers set otherapp hello header-name value
+otherapp /hello headers updated header-name with value
+
+$ fn routes headers view otherapp hello
+otherapp /hello headers:
+header-name: [value]
+
+$ fn routes headers unset otherapp hello header-name
+otherapp /hello removed header header-name
+```
 
 ## Changing target host
 
