@@ -9,7 +9,7 @@ if payload != ""
     i = payload['sleep'].to_i
     STDERR.puts "Sleeping for #{i} seconds..."
     sleep i
-    STDERR.puts "I'm awake!"
+    puts "I'm awake!" # sending this to stdout for sync response
   end
 else 
   STDERR.puts "ERROR: please pass in a sleep value: {\"sleep\": 5}"
