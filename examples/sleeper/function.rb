@@ -7,8 +7,10 @@ if payload != ""
   # payload contains checks
   if payload["sleep"] 
     i = payload['sleep'].to_i
-    puts "Sleeping for #{i} seconds..."
+    STDERR.puts "Sleeping for #{i} seconds..."
     sleep i
-    puts "I'm awake!"
+    STDERR.puts "I'm awake!"
   end
+else 
+  STDERR.puts "ERROR: please pass in a sleep value: {\"sleep\": 5}"
 end
