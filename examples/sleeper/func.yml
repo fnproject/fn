@@ -1,3 +1,0 @@
-image: iron/func-sleeper
-build:
-  - ./build.sh
