@@ -112,12 +112,11 @@ func (p *publishcmd) route(path string, ff *funcfile) error {
 
 	body := functions.RouteWrapper{
 		Route: functions.Route{
-			Path:    *ff.Route,
-			Image:   ff.FullName(),
-			AppName: *ff.App,
-			Memory:  *ff.Memory,
-			Type_:   *ff.Type,
-			Config:  expandEnvConfig(ff.Config),
+			Path:   *ff.Route,
+			Image:  ff.FullName(),
+			Memory: *ff.Memory,
+			Type_:  *ff.Type,
+			Config: expandEnvConfig(ff.Config),
 		},
 	}
 
