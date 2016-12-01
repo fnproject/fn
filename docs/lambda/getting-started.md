@@ -42,12 +42,12 @@ the name of the function to run, in the form that python expects
 (`module.function`). Where you would package the files into a `.zip` to upload
 to Lambda, we just pass the list of files to `fn`.
 
-## Publishing the function to IronFunctions
+## Deploying the function to IronFunctions
 
-Next we want to publish the function to our IronFunctions
+Next we want to deploy the function to our IronFunctions
 ```sh
-    $ fn publish -v -f -d ./irontest
-    publishing irontest/hello_world:1/function.yaml
+    $ fn deploy -v -d ./irontest irontest
+    deploying irontest/hello_world:1/function.yaml
     Sending build context to Docker daemon 4.096 kB
     Step 1 : FROM iron/lambda-python2.7
     latest: Pulling from iron/lambda-python2.7
@@ -82,7 +82,7 @@ Next we want to publish the function to our IronFunctions
     irontest/hello_world:1/function.yaml     done
 ```
 
-This will publish the generated function under the app `irontest` with `hello_world` as a route, e.g:
+This will deploy the generated function under the app `irontest` with `hello_world` as a route, e.g:
 `http://<hostname>/r/irontest/hello_world:1`,
 
 You should also now see the generated Docker image.
@@ -108,7 +108,7 @@ You should see the output.
 
 ## Calling the function from IronFunctions
 
-The `fn call` command can call the published version with a given payload.
+The `fn call` command can call the deployed version with a given payload.
 
 ```sh
     $ echo  '{ "first_name": "Jon", "last_name": "Snow" }' | ./fn call irontest /hello_world:1

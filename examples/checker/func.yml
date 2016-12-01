@@ -1,3 +1,0 @@
-image: iron/func-checker
-build:
-  - ./build.sh

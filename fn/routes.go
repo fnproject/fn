@@ -279,7 +279,7 @@ func (a *routesCmd) create(c *cli.Context) error {
 		timeout time.Duration
 	)
 	if image == "" {
-		ff, err := findFuncfile()
+		ff, err := loadFuncfile()
 		if err != nil {
 			if _, ok := err.(*notFoundError); ok {
 				return errors.New("error: image name is missing or no function file found")
@@ -512,7 +512,7 @@ func (a *routesCmd) headersList(c *cli.Context) error {
 		return errors.New("this route has no headers")
 	}
 
-	fmt.Println(wrapper.Route.AppName, wrapper.Route.Path, "headers:")
+	fmt.Println(appName, wrapper.Route.Path, "headers:")
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
 	for k, v := range headers {
 		fmt.Fprint(w, k, ":\t", v, "\n")
@@ -557,7 +557,7 @@ func (a *routesCmd) headersSet(c *cli.Context) error {
 		return fmt.Errorf("error updating route configuration: %v", err)
 	}
 
-	fmt.Println(wrapper.Route.AppName, wrapper.Route.Path, "headers updated", key, "with", value)
+	fmt.Println(appName, wrapper.Route.Path, "headers updated", key, "with", value)
 	return nil
 }
 
@@ -600,6 +600,6 @@ func (a *routesCmd) headersUnset(c *cli.Context) error {
 		return fmt.Errorf("error updating route configuration: %v", err)
 	}
 
-	fmt.Println(wrapper.Route.AppName, wrapper.Route.Path, "removed header", key)
+	fmt.Println(appName, wrapper.Route.Path, "removed header", key)
 	return nil
 }

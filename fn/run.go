@@ -36,7 +36,7 @@ func runflags() []cli.Flag {
 func (r *runCmd) run(c *cli.Context) error {
 	image := c.Args().First()
 	if image == "" {
-		ff, err := findFuncfile()
+		ff, err := loadFuncfile()
 		if err != nil {
 			if _, ok := err.(*notFoundError); ok {
 				return errors.New("error: image name is missing or no function file found")

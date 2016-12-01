@@ -276,11 +276,10 @@ func basicImportHandler(functionName, tmpFileName string, opts *createImageOptio
 
 func createFunctionYaml(opts createImageOptions) error {
 	strs := strings.Split(opts.Name, "/")
-	route := fmt.Sprintf("/%s", strs[1])
+	path := fmt.Sprintf("/%s", strs[1])
 	funcDesc := &funcfile{
-		App:    &strs[0],
 		Name:   opts.Name,
-		Route:  &route,
+		Path:   &path,
 		Config: opts.Config,
 	}
 

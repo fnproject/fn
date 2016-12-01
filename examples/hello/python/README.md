@@ -7,10 +7,9 @@ This example will show you how to test and deploy Go (Golang) code to IronFuncti
 At func.yaml you will find:
 
 ```yml
-app: pythonapp
-route: /hello
-image: USERNAME/hello
+name: USERNAME/hello
 version: 0.0.1
+path: /hello
 build:
 - docker run --rm -v "$PWD":/worker -w /worker iron/python:2-dev pip install -t packages -r requirements.txt
 ```
@@ -22,7 +21,14 @@ the moment you try to test this function.
 ### 2. Build:
 
 ```sh
-fn publish
+# build the function
+fn build
+# test it
+cat hello.payload.json | fn run
+# push it to Docker Hub
+fn push
+# Create a route to this function on IronFunctions
+fn routes create pythonapp /hello
 ```
 
 `-v` is optional, but it allows you to see how this function is being built.
@@ -32,7 +38,7 @@ fn publish
 Now you can start jobs on your function. Let's quickly queue up a job to try it out.
 
 ```sh
-cat hello.payload.json | fn run pythonapp /hello
+cat hello.payload.json | fn call pythonapp /hello
 ```
 
 Here's a curl example to show how easy it is to do in any language:

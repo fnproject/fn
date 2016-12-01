@@ -1,3 +1,0 @@
-image: iron/func-redis
-build:
-  - ./build.sh

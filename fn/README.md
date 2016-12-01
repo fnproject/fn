@@ -62,9 +62,8 @@ myapp
 $ fn apps create otherapp                       # create new app
 otherapp created
 
-$ fn apps describe otherapp                     # describe an app
-app: otherapp
-no specific configuration
+$ fn apps config otherapp                       # show app-specific configuration
+this application has no configurations
 
 $ fn apps
 myapp
@@ -156,60 +155,20 @@ $ export API_URL="http://myfunctions.example.org/"
 $ fn ...
 ```
 
-## Publish
+## Bulk deploy
 
-Also there is the publish command that is going to scan all local directory for
+Also there is the `deploy` command that is going to scan all local directory for
 functions, rebuild them and push them to Docker Hub and update them in
-IronFunction.
+IronFunction. It will use the `route` entry in the existing function file to
+see the update in the daemon.
+
 
 ```sh
-$ fn publish
-path    	    result
-/app/hello	    done
-/app/hello-sync	error: no Dockerfile found for this function
-/app/test	    done
+$ fn deploy APP
 ```
 
-It works by scanning all children directories of the current working directory,
-following this convention:
-
-<pre><code>┌───────┐
-│  ./   │
-└───┬───┘
-    │     ┌───────┐
-    ├────▶│ myapp │
-    │     └───┬───┘
-    │         │     ┌───────┐
-    │         ├────▶│route1 │
-    │         │     └───────┘
-    │         │         │     ┌─────────┐
-    │         │         ├────▶│subroute1│
-    │         │         │     └─────────┘
-    │
-    │     ┌───────┐
-    ├────▶│ other │
-    │     └───┬───┘
-    │         │     ┌───────┐
-    │         ├────▶│route1 │
-    │         │     └───────┘</code></pre>
-
-
-It will render this pattern of updates:
-
-```sh
-$ fn publish
-path    	            result
-/myapp/route1/subroute1	done
-/other/route1	        done
-```
-
-It means that first subdirectory are always considered app names (e.g. `myapp`
-and `other`), each subdirectory of these firsts are considered part of the route
-(e.g. `route1/subroute1`).
-
-`fn publish` expects that each directory to contain a file `func.yaml`
-which instructs `fn` on how to act with that particular update, and a
-Dockerfile which it is going to use to build the image and push to Docker Hub.
+`fn deploy` expects that each directory to contain a file `func.yaml`
+which instructs `fn` on how to act with that particular update.
 
 ## Contributing
 

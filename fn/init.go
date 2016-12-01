@@ -91,7 +91,7 @@ func initFn() cli.Command {
 
 func (a *initFnCmd) init(c *cli.Context) error {
 	if !a.force {
-		ff, err := findFuncfile()
+		ff, err := loadFuncfile()
 		if _, ok := err.(*notFoundError); !ok && err != nil {
 			return err
 		}
@@ -105,14 +105,22 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		return err
 	}
 
+	var ffmt *string
+	if a.format != "" {
+		ffmt = &a.format
+	}
+
 	ff := &funcfile{
 		Name:           a.name,
 		Runtime:        &a.runtime,
 		Version:        initialVersion,
 		Entrypoint:     &a.entrypoint,
-		Format:         &a.format,
+		Format:         ffmt,
 		MaxConcurrency: &a.maxConcurrency,
 	}
+
+	_, path := appNamePath(ff.FullName())
+	ff.Path = &path
 
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
 		return err
@@ -130,7 +138,7 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 
 	a.name = c.Args().First()
 	if a.name == "" || strings.Contains(a.name, ":") {
-		return errors.New("Please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
+		return errors.New("Please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
 	}
 
 	if exists("Dockerfile") {

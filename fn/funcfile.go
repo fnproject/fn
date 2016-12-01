@@ -24,12 +24,11 @@ var (
 )
 
 type funcfile struct {
-	App            *string             `yaml:"app,omitempty",json:"app,omitempty"`
 	Name           string              `yaml:"name,omitempty",json:"name,omitempty"`
 	Version        string              `yaml:"version,omitempty",json:"version,omitempty"`
 	Runtime        *string             `yaml:"runtime,omitempty",json:"runtime,omitempty"`
 	Entrypoint     *string             `yaml:"entrypoint,omitempty",json:"entrypoint,omitempty"`
-	Route          *string             `yaml:"route,omitempty",json:"route,omitempty"`
+	Path           *string             `yaml:"path,omitempty",json:"path,omitempty"`
 	Type           *string             `yaml:"type,omitempty",json:"type,omitempty"`
 	Memory         *int64              `yaml:"memory,omitempty",json:"memory,omitempty"`
 	Format         *string             `yaml:"format,omitempty",json:"format,omitempty"`
@@ -62,13 +61,22 @@ func (ff *funcfile) RuntimeTag() (runtime, tag string) {
 	return rt[:tagpos], rt[tagpos+1:]
 }
 
-func findFuncfile() (*funcfile, error) {
+func findFuncfile(path string) (string, error) {
 	for _, fn := range validfn {
-		if exists(fn) {
-			return parsefuncfile(fn)
+		fullfn := filepath.Join(path, fn)
+		if exists(fullfn) {
+			return fullfn, nil
 		}
 	}
-	return nil, newNotFoundError("could not find function file")
+	return "", newNotFoundError("could not find function file")
+}
+
+func loadFuncfile() (*funcfile, error) {
+	fn, err := findFuncfile(".")
+	if err != nil {
+		return nil, err
+	}
+	return parsefuncfile(fn)
 }
 
 func parsefuncfile(path string) (*funcfile, error) {

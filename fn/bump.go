@@ -15,35 +15,46 @@ var (
 )
 
 func bump() cli.Command {
-	cmd := bumpcmd{commoncmd: &commoncmd{}}
+	cmd := bumpcmd{}
 	flags := append([]cli.Flag{}, cmd.flags()...)
 	return cli.Command{
 		Name:   "bump",
 		Usage:  "bump function version",
 		Flags:  flags,
-		Action: cmd.scan,
+		Action: cmd.bump,
 	}
 }
 
 type bumpcmd struct {
-	*commoncmd
+	verbose bool
 }
 
-func (b *bumpcmd) scan(c *cli.Context) error {
-	b.commoncmd.scan(b.walker)
-	return nil
-}
-
-func (b *bumpcmd) walker(path string, info os.FileInfo, err error) error {
-	walker(path, info, err, b.bump)
-	return nil
+func (b *bumpcmd) flags() []cli.Flag {
+	return []cli.Flag{
+		cli.BoolFlag{
+			Name:        "v",
+			Usage:       "verbose mode",
+			Destination: &b.verbose,
+		},
+	}
 }
 
 // bump will take the found valid function and bump its version
-func (b *bumpcmd) bump(path string) error {
-	fmt.Fprintln(b.verbwriter, "bumping version for", path)
+func (b *bumpcmd) bump(c *cli.Context) error {
+	verbwriter := verbwriter(b.verbose)
 
-	funcfile, err := parsefuncfile(path)
+	path, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	fn, err := findFuncfile(path)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(verbwriter, "bumping version for", fn)
+
+	funcfile, err := parsefuncfile(fn)
 	if err != nil {
 		return err
 	}
@@ -66,7 +77,7 @@ func (b *bumpcmd) bump(path string) error {
 
 	funcfile.Version = newver.String()
 
-	if err := storefuncfile(path, funcfile); err != nil {
+	if err := storefuncfile(fn, funcfile); err != nil {
 		return err
 	}
 

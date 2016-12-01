@@ -9,7 +9,7 @@ Once it's pushed to a registry, you can use it by referencing it when adding a r
 
 ## Using fn
 
-This is the easiest way to build, package and publish your functions.
+This is the easiest way to build, package and deploy your functions.
 
 
 

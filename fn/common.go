@@ -11,159 +11,41 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/iron-io/functions/fn/langs"
-	"github.com/urfave/cli"
 )
 
-func isFuncfile(path string, info os.FileInfo) bool {
-	if info.IsDir() {
-		return false
+func verbwriter(verbose bool) io.Writer {
+	verbwriter := ioutil.Discard
+	if verbose {
+		verbwriter = os.Stderr
 	}
-
-	basefn := filepath.Base(path)
-	for _, fn := range validfn {
-		if basefn == fn {
-			return true
-		}
-	}
-
-	return false
+	return verbwriter
 }
 
-func walker(path string, info os.FileInfo, err error, f func(path string) error) {
-	if err := f(path); err != nil {
-		fmt.Fprintln(os.Stderr, path, err)
-	}
-}
-
-type commoncmd struct {
-	wd          string
-	verbose     bool
-	force       bool
-	recursively bool
-
-	verbwriter io.Writer
-}
-
-func (c *commoncmd) flags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:        "d",
-			Usage:       "working directory",
-			Destination: &c.wd,
-			EnvVar:      "WORK_DIR",
-			Value:       "./",
-		},
-		cli.BoolFlag{
-			Name:        "v",
-			Usage:       "verbose mode",
-			Destination: &c.verbose,
-		},
-		cli.BoolFlag{
-			Name:        "f",
-			Usage:       "force updating of all functions that are already up-to-date",
-			Destination: &c.force,
-		},
-		cli.BoolFlag{
-			Name:        "r",
-			Usage:       "recursively scan all functions",
-			Destination: &c.recursively,
-		},
-	}
-}
-
-func (c *commoncmd) scan(walker func(path string, info os.FileInfo, err error) error) {
-	c.verbwriter = ioutil.Discard
-	if c.verbose {
-		c.verbwriter = os.Stderr
-	}
-
-	var walked bool
-
-	err := filepath.Walk(c.wd, func(path string, info os.FileInfo, err error) error {
-		if !c.recursively && path != c.wd && info.IsDir() {
-			return filepath.SkipDir
-		}
-
-		if !isFuncfile(path, info) {
-			return nil
-		}
-
-		if c.recursively && !c.force && !isstale(path) {
-			return nil
-		}
-
-		e := walker(path, info, err)
-		now := time.Now()
-		os.Chtimes(path, now, now)
-		walked = true
-		return e
-	})
-	if err != nil {
-		fmt.Fprintf(c.verbwriter, "file walk error: %s\n", err)
-	}
-
-	if !walked {
-		fmt.Println("No function file found.")
-		return
-	}
-}
-
-// Theory of operation: this takes an optimistic approach to detect whether a
-// package must be rebuild/bump/published. It loads for all files mtime's and
-// compare with functions.json own mtime. If any file is younger than
-// functions.json, it triggers a rebuild.
-// The problem with this approach is that depending on the OS running it, the
-// time granularity of these timestamps might lead to false negatives - that is
-// a package that is stale but it is not recompiled. A more elegant solution
-// could be applied here, like https://golang.org/src/cmd/go/pkg.go#L1111
-func isstale(path string) bool {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return true
-	}
-
-	fnmtime := fi.ModTime()
-	dir := filepath.Dir(path)
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		if info.ModTime().After(fnmtime) {
-			return errors.New("found stale package")
-		}
-		return nil
-	})
-
-	return err != nil
-}
-
-func (c commoncmd) buildfunc(path string) (*funcfile, error) {
+func buildfunc(verbwriter io.Writer, path string) (*funcfile, error) {
 	funcfile, err := parsefuncfile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.localbuild(path, funcfile.Build); err != nil {
+	if err := localbuild(verbwriter, path, funcfile.Build); err != nil {
 		return nil, err
 	}
 
-	if err := c.dockerbuild(path, funcfile); err != nil {
+	if err := dockerbuild(verbwriter, path, funcfile); err != nil {
 		return nil, err
 	}
 
 	return funcfile, nil
 }
 
-func (c commoncmd) localbuild(path string, steps []string) error {
+func localbuild(verbwriter io.Writer, path string, steps []string) error {
 	for _, cmd := range steps {
 		exe := exec.Command("/bin/sh", "-c", cmd)
 		exe.Dir = filepath.Dir(path)
-		exe.Stderr = c.verbwriter
-		exe.Stdout = c.verbwriter
-		fmt.Fprintf(c.verbwriter, "- %s:\n", cmd)
+		exe.Stderr = verbwriter
+		exe.Stdout = verbwriter
 		if err := exe.Run(); err != nil {
 			return fmt.Errorf("error running command %v (%v)", cmd, err)
 		}
@@ -172,7 +54,7 @@ func (c commoncmd) localbuild(path string, steps []string) error {
 	return nil
 }
 
-func (c commoncmd) dockerbuild(path string, ff *funcfile) error {
+func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 	dir := filepath.Dir(path)
 
 	var helper langs.LangHelper
@@ -275,7 +157,6 @@ func writeTmpDockerfile(dir string, ff *funcfile) error {
 		buffer.WriteString(s)
 		buffer.WriteString("\"")
 	}
-	fmt.Println(buffer.String())
 
 	t := template.Must(template.New("Dockerfile").Parse(tplDockerfile))
 	err = t.Execute(fd, struct {
@@ -292,4 +173,26 @@ func extractEnvConfig(configs []string) map[string]string {
 		c[kv[0]] = os.ExpandEnv(kv[1])
 	}
 	return c
+}
+
+func dockerpush(ff *funcfile) error {
+	cmd := exec.Command("docker", "push", ff.FullName())
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running docker push: %v", err)
+	}
+	return nil
+}
+
+func appNamePath(img string) (string, string) {
+	sep := strings.Index(img, "/")
+	if sep < 0 {
+		return "", ""
+	}
+	tag := strings.Index(img[sep:], ":")
+	if tag < 0 {
+		tag = len(img[sep:])
+	}
+	return img[:sep], img[sep : sep+tag]
 }

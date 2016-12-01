@@ -9,7 +9,7 @@ fn init <YOUR_DOCKERHUB_USERNAME>/hello
 fn build
 # test it
 cat hello.payload.json | fn run
-# push it to Docker Hub for use with IronFunctions
+# push it to Docker Hub
 fn push
 # Create a route to this function on IronFunctions
 fn routes create myapp /hello

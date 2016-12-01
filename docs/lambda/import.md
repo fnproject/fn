@@ -48,8 +48,8 @@ If you only want to download the code, pass the `--download-only` flag. The
 you tweak the settings on a command level. Finally, you can import a different version of your lambda function than the latest one
 by passing `--version <version>.`
 
-You can then publish the imported lambda as follows:
+You can then deploy the imported lambda as follows:
 ```
-./fn publish -d ./user/my-function
+./fn deploy -d ./user/my-function user
 ````
 Now the function can be reached via ```http://$HOSTNAME/r/user/my-function```

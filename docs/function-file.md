@@ -23,16 +23,13 @@ build:
 - make test
 ```
 
-`app` (optional) is the application name to which this function will be pushed
-to.
-
-`image` is the name and tag to which this function will be pushed to and the
+`name` is the name and tag to which this function will be pushed to and the
 route updated to use it.
 
-`route` (optional) allows you to overwrite the calculated route from the path
+`path` (optional) allows you to overwrite the calculated route from the path
 position. You may use it to override the calculated route.
 
-`version` represents current version of the function. When publishing, it is
+`version` represents current version of the function. When deploying, it is
 appended to the image as a tag.
 
 `type` (optional) allows you to set the type of the route. `sync`, for functions

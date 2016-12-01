@@ -1,60 +1,59 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
-	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
 )
 
 func push() cli.Command {
-	cmd := pushcmd{
-		publishcmd: &publishcmd{
-			commoncmd: &commoncmd{},
-			RoutesApi: functions.NewRoutesApi(),
-		},
-	}
+	cmd := pushcmd{}
 	var flags []cli.Flag
-	flags = append(flags, cmd.commoncmd.flags()...)
+	flags = append(flags, cmd.flags()...)
 	return cli.Command{
 		Name:   "push",
 		Usage:  "push function to Docker Hub",
 		Flags:  flags,
-		Action: cmd.scan,
+		Action: cmd.push,
 	}
 }
 
 type pushcmd struct {
-	*publishcmd
+	verbose bool
 }
 
-func (p *pushcmd) scan(c *cli.Context) error {
-	p.commoncmd.scan(p.walker)
-	return nil
-}
-
-func (p *pushcmd) walker(path string, info os.FileInfo, err error) error {
-	walker(path, info, err, p.push)
-	return nil
+func (p *pushcmd) flags() []cli.Flag {
+	return []cli.Flag{
+		cli.BoolFlag{
+			Name:        "v",
+			Usage:       "verbose mode",
+			Destination: &p.verbose,
+		},
+	}
 }
 
 // push will take the found function and check for the presence of a
 // Dockerfile, and run a three step process: parse functions file,
 // push the container, and finally it will update function's route. Optionally,
 // the route can be overriden inside the functions file.
-func (p *pushcmd) push(path string) error {
-	fmt.Fprintln(p.verbwriter, "pushing", path)
+func (p *pushcmd) push(c *cli.Context) error {
+	verbwriter := verbwriter(p.verbose)
 
-	funcfile, err := parsefuncfile(path)
+	ff, err := loadFuncfile()
 	if err != nil {
+		if _, ok := err.(*notFoundError); ok {
+			return errors.New("error: image name is missing or no function file found")
+		}
 		return err
 	}
 
-	if err := p.dockerpush(funcfile); err != nil {
+	fmt.Fprintln(verbwriter, "pushing", ff.FullName())
+
+	if err := dockerpush(ff); err != nil {
 		return err
 	}
 
-	fmt.Printf("Function %v pushed successfully to Docker Hub.\n", funcfile.FullName())
+	fmt.Printf("Function %v pushed successfully to Docker Hub.\n", ff.FullName())
 	return nil
 }

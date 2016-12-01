@@ -11,10 +11,8 @@ docker run --rm -v "$PWD":/worker -w /worker iron/ruby:dev bundle install --stan
 fn build
 # test it
 cat slack.payload | fn run
-# push it to Docker Hub for use with IronFunctions
-fn push
 # Create a route to this function on IronFunctions
-fn routes create slackbot /guppy
+fn deploy slackbot
 # Change the route response header content-type to application/json
 curl -X PUT http://127.0.0.1:8080/v1/apps/slackbot/routes/guppy -d '{ "route": { "headers": { "Content-type": ["application/json"] } } }'
 ```

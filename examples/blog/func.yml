@@ -1,3 +1,0 @@
-image: iron/func-blog
-build:
-  - ./build.sh

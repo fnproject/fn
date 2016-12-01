@@ -1,3 +1,0 @@
-image: iron/func-error
-build:
-  - ./build.sh
