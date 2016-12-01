@@ -59,23 +59,10 @@ func (b *bumpcmd) bump(c *cli.Context) error {
 		return err
 	}
 
-	funcfile.Name = cleanImageName(funcfile.Name)
-	if funcfile.Version == "" {
-		funcfile.Version = initialVersion
-	}
-
-	s, err := storage.NewVersionStorage("local", funcfile.Version)
+	funcfile, err = bumpversion(*funcfile)
 	if err != nil {
 		return err
 	}
-
-	version := bumper.NewSemverBumper(s, "")
-	newver, err := version.BumpPatchVersion("", "")
-	if err != nil {
-		return err
-	}
-
-	funcfile.Version = newver.String()
 
 	if err := storefuncfile(fn, funcfile); err != nil {
 		return err
@@ -83,6 +70,28 @@ func (b *bumpcmd) bump(c *cli.Context) error {
 
 	fmt.Println("Bumped to version", funcfile.Version)
 	return nil
+}
+
+func bumpversion(funcfile funcfile) (*funcfile, error) {
+	funcfile.Name = cleanImageName(funcfile.Name)
+	if funcfile.Version == "" {
+		funcfile.Version = initialVersion
+		return &funcfile, nil
+	}
+
+	s, err := storage.NewVersionStorage("local", funcfile.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	version := bumper.NewSemverBumper(s, "")
+	newver, err := version.BumpPatchVersion("", "")
+	if err != nil {
+		return nil, err
+	}
+
+	funcfile.Version = newver.String()
+	return &funcfile, nil
 }
 
 func cleanImageName(name string) string {

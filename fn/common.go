@@ -23,17 +23,31 @@ func verbwriter(verbose bool) io.Writer {
 	return verbwriter
 }
 
-func buildfunc(verbwriter io.Writer, path string) (*funcfile, error) {
-	funcfile, err := parsefuncfile(path)
+func buildfunc(verbwriter io.Writer, fn string) (*funcfile, error) {
+	funcfile, err := parsefuncfile(fn)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := localbuild(verbwriter, path, funcfile.Build); err != nil {
+	if funcfile.Version == "" {
+		funcfile, err = bumpversion(*funcfile)
+		if err != nil {
+			return nil, err
+		}
+		if err := storefuncfile(fn, funcfile); err != nil {
+			return nil, err
+		}
+		funcfile, err = parsefuncfile(fn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := localbuild(verbwriter, fn, funcfile.Build); err != nil {
 		return nil, err
 	}
 
-	if err := dockerbuild(verbwriter, path, funcfile); err != nil {
+	if err := dockerbuild(verbwriter, fn, funcfile); err != nil {
 		return nil, err
 	}
 
