@@ -11,8 +11,10 @@ docker run --rm -v "$PWD":/worker -w /worker iron/ruby:dev bundle install --stan
 fn build
 # test it
 cat hello.payload.json | fn run
+# push it to Docker Hub
+fn push
 # Create a route to this function on IronFunctions
-fn deploy myapp
+fn routes create myapp /hello
 ```
 
 Now surf to: http://localhost:8080/r/myapp/hello
