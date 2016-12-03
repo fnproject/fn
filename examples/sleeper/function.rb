@@ -12,5 +12,5 @@ if payload != ""
     puts "I'm awake!" # sending this to stdout for sync response
   end
 else 
-  STDERR.puts "ERROR: please pass in a sleep value: {\"sleep\": 5}"
+  puts "ERROR: please pass in a sleep value: {\"sleep\": 5}"
 end
