@@ -482,16 +482,18 @@ func (ds *PostgresDatastore) GetRoutesByApp(ctx context.Context, appName string,
 func buildFilterAppQuery(filter *models.AppFilter) string {
 	filterQuery := ""
 
-	filterQueries := []string{}
-	if filter.Name != "" {
-		filterQueries = append(filterQueries, fmt.Sprintf("name LIKE '%s'", filter.Name))
-	}
+	if filter != nil {
+		filterQueries := []string{}
+		if filter.Name != "" {
+			filterQueries = append(filterQueries, fmt.Sprintf("name LIKE '%s'", filter.Name))
+		}
 
-	for i, field := range filterQueries {
-		if i == 0 {
-			filterQuery = fmt.Sprintf("WHERE %s ", field)
-		} else {
-			filterQuery = fmt.Sprintf("%s AND %s", filterQuery, field)
+		for i, field := range filterQueries {
+			if i == 0 {
+				filterQuery = fmt.Sprintf("WHERE %s ", field)
+			} else {
+				filterQuery = fmt.Sprintf("%s AND %s", filterQuery, field)
+			}
 		}
 	}
 
