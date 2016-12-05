@@ -28,6 +28,7 @@ var (
 		".rb": "ruby",
 		".py": "python",
 		".rs": "rust",
+		".cs": "dotnet",
 	}
 
 	fnInitRuntimes []string

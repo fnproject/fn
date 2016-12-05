@@ -15,6 +15,8 @@ func GetLangHelper(lang string) (LangHelper, error) {
 		return &PythonHelper{}, nil
 	case "rust":
 		return &RustLangHelper{}, nil
+	case "dotnet":
+		return &DotNetLangHelper{}, nil
 	}
 	return nil, fmt.Errorf("No language helper found for %v", lang)
 }
