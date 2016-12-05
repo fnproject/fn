@@ -15,7 +15,6 @@ import (
 
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 type routesCmd struct {
@@ -215,36 +214,37 @@ func (a *routesCmd) call(c *cli.Context) error {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+
 	baseURL, err := url.Parse(a.Configuration.BasePath)
 	if err != nil {
 		return fmt.Errorf("error parsing base path: %v", err)
 	}
 
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-
 	u, err := url.Parse("../")
 	u.Path = path.Join(u.Path, "r", appName, route)
+	content := stdin()
 
-	var content io.Reader
-	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
-		content = os.Stdin
-	}
+	return callfn(baseURL.ResolveReference(u).String(), content, os.Stdout, c.StringSlice("e"))
+}
 
-	req, err := http.NewRequest("POST", baseURL.ResolveReference(u).String(), content)
+func callfn(u string, content io.Reader, output io.Writer, env []string) error {
+	req, err := http.NewRequest("POST", u, content)
 	if err != nil {
 		return fmt.Errorf("error running route: %v", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 
-	envAsHeader(req, c.StringSlice("e"))
+	envAsHeader(req, env)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error running route: %v", err)
 	}
 
-	io.Copy(os.Stdout, resp.Body)
+	io.Copy(output, resp.Body)
 	return nil
 }
 
@@ -262,8 +262,8 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 }
 
 func (a *routesCmd) create(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: routes creation takes three arguments: an app name, a route path and an image")
+	if c.Args().Get(0) == "" {
+		return errors.New("error: routes creation takes at least one argument: an app name")
 	}
 
 	if err := resetBasePath(a.Configuration); err != nil {
@@ -297,6 +297,16 @@ func (a *routesCmd) create(c *cli.Context) error {
 		if ff.Timeout != nil {
 			timeout = *ff.Timeout
 		}
+		if ff.Path != nil {
+			route = *ff.Path
+		}
+	}
+
+	if route == "" {
+		return errors.New("error: route path is missing")
+	}
+	if image == "" {
+		return errors.New("error: function image name is missing")
 	}
 
 	if f := c.String("format"); f != "" {

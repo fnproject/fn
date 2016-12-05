@@ -1,0 +1,15 @@
+name: testframework
+version: 0.0.1
+runtime: go
+entrypoint: ./func
+path: /tests
+tests:
+- name: simple
+  out: |
+    hw
+- name: envvar
+  out: |
+    HEADER_ENVVAR: trololo
+    hw
+  env:
+    envvar: trololo

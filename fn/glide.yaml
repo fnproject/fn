@@ -1,5 +1,11 @@
 package: github.com/iron-io/functions/fn
 import:
+- package: github.com/aws/aws-sdk-go
+  subpackages:
+  - aws
+  - aws/credentials
+  - aws/session
+  - service/lambda
 - package: github.com/docker/docker
   subpackages:
   - pkg/jsonmessage
@@ -7,16 +13,10 @@ import:
   subpackages:
   - bump
   - storage
-- package: github.com/iron-io/iron_go3
-  subpackages:
-  - config
+- package: github.com/iron-io/functions_go
+  version: 429df8920abd7c47dfcd6777dba278d6122ab93d
 - package: github.com/iron-io/lambda
   subpackages:
   - lambda
 - package: github.com/urfave/cli
-- package: golang.org/x/crypto
-  subpackages:
-  - ssh/terminal
 - package: gopkg.in/yaml.v2
-- package: github.com/iron-io/functions_go
-  version: 429df8920abd7c47dfcd6777dba278d6122ab93d

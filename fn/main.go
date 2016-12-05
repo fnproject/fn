@@ -33,6 +33,7 @@ ENVIRONMENT VARIABLES:
 		push(),
 		routes(),
 		run(),
+		testfn(),
 		version(),
 	}
 	app.Run(os.Args)

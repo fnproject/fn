@@ -23,6 +23,14 @@ var (
 	errUnexpectedFileFormat = errors.New("unexpected file format for function file")
 )
 
+type fftest struct {
+	Name string            `yaml:"name,omitempty",json:"name,omitempty"`
+	In   *string           `yaml:"in,omitempty",json:"in,omitempty"`
+	Out  *string           `yaml:"out,omitempty",json:"out,omitempty"`
+	Err  *string           `yaml:"err,omitempty",json:"err,omitempty"`
+	Env  map[string]string `yaml:"env,omitempty",json:"env,omitempty"`
+}
+
 type funcfile struct {
 	Name           string              `yaml:"name,omitempty",json:"name,omitempty"`
 	Version        string              `yaml:"version,omitempty",json:"version,omitempty"`
@@ -37,6 +45,7 @@ type funcfile struct {
 	Headers        map[string][]string `yaml:"headers,omitempty",json:"headers,omitempty"`
 	Config         map[string]string   `yaml:"config,omitempty",json:"config,omitempty"`
 	Build          []string            `yaml:"build,omitempty",json:"build,omitempty"`
+	Tests          []fftest            `yaml:"tests,omitempty",json:"tests,omitempty"`
 }
 
 func (ff *funcfile) FullName() string {

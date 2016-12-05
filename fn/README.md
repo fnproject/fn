@@ -170,6 +170,42 @@ $ fn deploy APP
 `fn deploy` expects that each directory to contain a file `func.yaml`
 which instructs `fn` on how to act with that particular update.
 
+## Testing functions
+
+If you added `tests` to the `func.yaml` file, you can have them tested using
+`fn test`.
+
+```sh
+$ fn test
+```
+
+During local development cycles, you can easily force a build before test:
+```sh
+$ fn test -b
+```
+
+When preparing to deploy you application, remember adding `path` to `func.yaml`,
+it will simplify both the creation of the route, and the execution of remote
+tests:
+```yaml
+name: me/myapp
+version: 1.0.0
+path: /myfunc
+```
+
+Once you application is done and deployed, you can run tests remotely:
+```
+# test the function locally first
+$ fn test -b
+
+# push it to Docker Hub and IronFunctions
+$ fn push
+$ fn routes create myapp
+
+# test it remotely
+$ fn test --remote myapp
+```
+
 ## Contributing
 
 Ensure you have Go configured and installed in your environment. Once it is
