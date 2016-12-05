@@ -1,5 +1,5 @@
-hash: a35b8b9511d2059122e72773c169b4dbbf9554dd9075ad55352facf7eae09895
-updated: 2016-11-20T20:18:19.564468442+01:00
+hash: 6c658cad7ad8f9b9e4f9d817864d467e64e9fc664f713dd0dda8c82ce6685863
+updated: 2016-12-05T16:50:06.340678676+01:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -68,12 +68,15 @@ imports:
   - reference
   - uuid
 - name: github.com/docker/docker
-  version: fae5a9e053ad06bea0429babae2507762d8cc1de
+  version: fddb5a7f2ab29be441bc797f7e79fffc5cc531d3
   subpackages:
+  - api/types
   - api/types/blkiodev
   - api/types/container
   - api/types/filters
   - api/types/mount
+  - api/types/network
+  - api/types/registry
   - api/types/strslice
   - api/types/swarm
   - api/types/versions
@@ -103,7 +106,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/fsouza/go-dockerclient
-  version: ece08f96ac5f26f4073ab5c38f198c3e5000c554
+  version: 773542a4a30a7d9b5a3ddfca64e593508299ddda
 - name: github.com/garyburd/redigo
   version: 80f7de34463b0ed3d7c61303e5619efe1b227f92
   subpackages:
@@ -171,7 +174,7 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/heroku/docker-registry-client
-  version: 2a2e6b9e3eed0a98d438f111ba7469744c07281d
+  version: 5636cf1ddbed886e1f34d4d54ff7bf492ca6fff2
   subpackages:
   - registry
 - name: github.com/iron-io/iron_go3
@@ -186,9 +189,7 @@ imports:
   subpackages:
   - lambda
 - name: github.com/iron-io/runner
-  version: 4101fd406ada3497c832d6877653262e23a84f1f
-  repo: https://github.com/iron-io/runner.git
-  vcs: git
+  version: 6f0fb875e5f54ed0e0ce68ce3a1718639274abd3
   subpackages:
   - common
   - common/stats

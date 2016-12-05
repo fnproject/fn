@@ -12,13 +12,6 @@ import:
 - package: github.com/go-openapi/validate
 - package: github.com/google/btree
 - package: github.com/iron-io/runner
-  repo: https://github.com/iron-io/runner.git
-  vcs: git
-  subpackages:
-  - common
-  - drivers
-  - drivers/docker
-  - drivers/mock
 - package: github.com/lib/pq
 - package: github.com/satori/go.uuid
   version: v1.1.0
