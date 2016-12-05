@@ -42,13 +42,27 @@ Default: `sync`.
 function. If this function exceeds this limit during execution, it is stopped
 and error message is logged. Default: `128`.
 
+`headers` (optional) is a set of HTTP headers to be returned in the response of
+this function calls.
+
 `config` (optional) is a set of configurations to be passed onto the route
 setup. These configuration options shall override application configuration
 during functions execution.
 
-`build` (optional) is an array of shell calls which are used to helping building
-the image. These calls are executed before `fn` calls `docker build` and
-`docker push`.
+`build` (optional) is an array of local shell calls which are used to help
+building the function.
+
+## Hot containers
+
+Hot containers support also adds two extra options to this configuration file.
+
+`format` (optional) is one of the streaming formats covered at [function-format.md](function-format.md).
+
+`max_concurrency` (optional) is the maximum of hot containers per node to be
+started for a certain function. It defaults to one per function. If you
+understand you need more processing power, make sure to raise this number.
+Keep in mind that if there is not available memory to execute the configured
+workload, it will fail to start new hot containers.
 
 ## Testing functions
 
@@ -76,4 +90,3 @@ available for local machine tests.
 
 `env` (optional) is a map of environment variables that are injected during
 tests.
-
