@@ -16,14 +16,6 @@ the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e DB_U
 
 [More on BoltDB](databases/boltdb.md)
 
-## [Redis](http://redis.io/)
-
-URL: `redis://localhost:6379/`
-
-Use a Redis instance as your database. Be sure to enable [peristence](http://redis.io/topics/persistence).
-
-[More on Redis](databases/redis.md)
-
 ## [PostgreSQL](http://www.postgresql.org/)
 
 URL: `postgres://user123:pass456@ec2-117-21-174-214.compute-1.amazonaws.com:6212/db982398`
