@@ -93,7 +93,5 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	s.resetcache(wroute.Route.AppName, 1)
-
 	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", wroute.Route})
 }

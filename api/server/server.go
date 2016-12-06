@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"path"
-	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
@@ -16,7 +14,6 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
-	"github.com/iron-io/functions/api/server/internal/routecache"
 	"github.com/iron-io/runner/common"
 )
 
@@ -36,9 +33,6 @@ type Server struct {
 
 	tasks chan task.Request
 
-	mu        sync.Mutex // protects hotroutes
-	hotroutes map[string]*routecache.Cache
-
 	singleflight singleflight // singleflight assists Datastore
 	Datastore    models.Datastore
 }
@@ -49,7 +43,6 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *ru
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
-		hotroutes: make(map[string]*routecache.Cache),
 		tasks:     tasks,
 		Enqueue:   enqueue,
 	}
@@ -59,41 +52,8 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *ru
 		c.Set("ctx", ctx)
 		c.Next()
 	})
-	Api.primeCache(ctx)
 
 	return Api
-}
-
-func (s *Server) primeCache(ctx context.Context) {
-	logrus.Info("priming cache with known routes")
-	apps, err := s.Datastore.GetApps(ctx, nil)
-	if err != nil {
-		logrus.WithError(err).Error("cannot prime cache - could not load application list")
-		return
-	}
-	for _, app := range apps {
-		routes, err := s.Datastore.GetRoutesByApp(ctx, app.Name, &models.RouteFilter{AppName: app.Name})
-		if err != nil {
-			logrus.WithError(err).WithField("appName", app.Name).Error("cannot prime cache - could not load routes")
-			continue
-		}
-
-		entries := len(routes)
-		// The idea here is to prevent both extremes: cache being too small that is ineffective,
-		// or too large that it takes too much memory. Up to 1k routes, the cache will try to hold
-		// all routes in the memory, thus taking up to 48K per application. After this threshold,
-		// it will keep 1024 routes + 20% of the total entries - in a hybrid incarnation of Pareto rule
-		// 1024+20% of the remaining routes will likelly be responsible for 80% of the workload.
-		if entries > cacheParetoThreshold {
-			entries = int(math.Ceil(float64(entries-1024)*0.2)) + 1024
-		}
-		s.hotroutes[app.Name] = routecache.New(entries)
-
-		for i := 0; i < entries; i++ {
-			s.refreshcache(app.Name, routes[i])
-		}
-	}
-	logrus.Info("cached prime")
 }
 
 func (s *Server) AddSpecialHandler(handler ifaces.SpecialHandler) {
@@ -123,41 +83,6 @@ func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Ta
 
 func (s *Server) handleRunnerRequest(c *gin.Context) {
 	s.handleRequest(c, s.Enqueue)
-}
-
-// cacheParetoThreshold is both the mark from which the LRU starts caching only
-// the most likely hot routes, and also as a stopping mark for the cache priming
-// during start.
-const cacheParetoThreshold = 1024
-
-func (s *Server) cacheget(appname, path string) (*models.Route, bool) {
-	s.mu.Lock()
-	cache, ok := s.hotroutes[appname]
-	if !ok {
-		s.mu.Unlock()
-		return nil, false
-	}
-	route, ok := cache.Get(path)
-	s.mu.Unlock()
-	return route, ok
-}
-
-func (s *Server) refreshcache(appname string, route *models.Route) {
-	s.mu.Lock()
-	cache := s.hotroutes[appname]
-	cache.Refresh(route)
-	s.mu.Unlock()
-}
-
-func (s *Server) resetcache(appname string, delta int) {
-	s.mu.Lock()
-	hr, ok := s.hotroutes[appname]
-	if !ok {
-		s.hotroutes[appname] = routecache.New(0)
-		hr = s.hotroutes[appname]
-	}
-	s.hotroutes[appname] = routecache.New(hr.MaxEntries + delta)
-	s.mu.Unlock()
 }
 
 func (s *Server) handleTaskRequest(c *gin.Context) {

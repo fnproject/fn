@@ -89,13 +89,6 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		return
 	}
 
-	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on LRU cache")
-	route, ok := s.cacheget(appName, path)
-	if ok && s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
-		s.refreshcache(appName, route)
-		return
-	}
-
 	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on datastore")
 	routes, err := s.loadroutes(ctx, models.RouteFilter{AppName: appName, Path: path})
 	if err != nil {
@@ -111,11 +104,10 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	}
 
 	log.WithField("routes", len(routes)).Debug("Got routes from datastore")
-	route = routes[0]
+	route := routes[0]
 	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
 
 	if s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
-		s.refreshcache(appName, route)
 		return
 	}
 
