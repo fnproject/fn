@@ -14,12 +14,13 @@ import (
 
 func TestRunnerHello(t *testing.T) {
 	buf := setLogBuffer()
-	runner, err := New(NewFuncLogger(), NewMetricLogger())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runner, err := New(ctx, NewFuncLogger(), NewMetricLogger())
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
-
-	ctx := context.Background()
 
 	for i, test := range []struct {
 		route          *models.Route
@@ -67,12 +68,13 @@ func TestRunnerHello(t *testing.T) {
 func TestRunnerError(t *testing.T) {
 	t.Skip()
 	buf := setLogBuffer()
-	runner, err := New(NewFuncLogger(), NewMetricLogger())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runner, err := New(ctx, NewFuncLogger(), NewMetricLogger())
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
-
-	ctx := context.Background()
 
 	for i, test := range []struct {
 		route          *models.Route

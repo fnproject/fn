@@ -76,7 +76,8 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 
 		wg.Add(1)
 		fmt.Println("About to start router")
-		router := testRouterAsync(ds, mq, testRunner(t), tasks, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
+		rnr, cancel := testRunner(t)
+		router := testRouterAsync(ds, mq, rnr, tasks, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
 			if test.body != task.Payload {
 				t.Errorf("Test %d: Expected task Payload to be the same as the test body", i)
 			}
@@ -109,5 +110,6 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		}
 
 		wg.Wait()
+		cancel()
 	}
 }

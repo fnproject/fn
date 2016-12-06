@@ -94,9 +94,13 @@ func TestFullStack(t *testing.T) {
 	tasks := make(chan task.Request)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go runner.StartWorkers(ctx, testRunner(t), tasks)
 
-	router := testRouter(ds, &mqs.Mock{}, testRunner(t), tasks)
+	rnr, rnrcancel := testRunner(t)
+	defer rnrcancel()
+
+	go runner.StartWorkers(ctx, rnr, tasks)
+
+	router := testRouter(ds, &mqs.Mock{}, rnr, tasks)
 
 	for _, test := range []struct {
 		name         string

@@ -14,23 +14,27 @@ import (
 	"github.com/iron-io/functions/api/runner/task"
 )
 
-func testRunner(t *testing.T) *runner.Runner {
-	r, err := runner.New(runner.NewFuncLogger(), runner.NewMetricLogger())
+func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r, err := runner.New(ctx, runner.NewFuncLogger(), runner.NewMetricLogger())
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}
-	return r
+	return r, cancel
 }
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
 	tasks := mockTasksConduit()
 
+	rnr, cancel := testRunner(t)
+	defer cancel()
+
 	router := testRouter(&datastore.Mock{
 		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
-	}, &mqs.Mock{}, testRunner(t), tasks)
+	}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -66,11 +70,14 @@ func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
 	tasks := mockTasksConduit()
 
+	rnr, cancel := testRunner(t)
+	defer cancel()
+
 	router := testRouter(&datastore.Mock{
 		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
-	}, &mqs.Mock{}, testRunner(t), tasks)
+	}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -111,7 +118,10 @@ func TestRouteRunnerExecution(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go runner.StartWorkers(ctx, testRunner(t), tasks)
+	rnr, cancelrnr := testRunner(t)
+	defer cancelrnr()
+
+	go runner.StartWorkers(ctx, rnr, tasks)
 
 	router := testRouter(&datastore.Mock{
 		Apps: []*models.App{
@@ -121,7 +131,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/myroute", AppName: "myapp", Image: "iron/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "iron/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		},
-	}, &mqs.Mock{}, testRunner(t), tasks)
+	}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path            string
@@ -167,7 +177,9 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go runner.StartWorkers(ctx, testRunner(t), tasks)
+	rnr, cancelrnr := testRunner(t)
+	defer cancelrnr()
+	go runner.StartWorkers(ctx, rnr, tasks)
 
 	router := testRouter(&datastore.Mock{
 		Apps: []*models.App{
@@ -176,7 +188,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		Routes: []*models.Route{
 			{Path: "/sleeper", AppName: "myapp", Image: "iron/sleeper", Timeout: 1},
 		},
-	}, &mqs.Mock{}, testRunner(t), tasks)
+	}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path            string

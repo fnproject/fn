@@ -73,7 +73,7 @@ func main() {
 	metricLogger := runner.NewMetricLogger()
 	funcLogger := runner.NewFuncLogger()
 
-	rnr, err := runner.New(funcLogger, metricLogger)
+	rnr, err := runner.New(ctx, funcLogger, metricLogger)
 	if err != nil {
 		log.WithError(err).Fatalln("Failed to create a runner")
 	}

@@ -189,12 +189,13 @@ func TestTasksrvURL(t *testing.T) {
 	}
 }
 
-func testRunner(t *testing.T) *Runner {
-	r, err := New(NewFuncLogger(), NewMetricLogger())
+func testRunner(t *testing.T) (*Runner, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r, err := New(ctx, NewFuncLogger(), NewMetricLogger())
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}
-	return r
+	return r, cancel
 }
 
 func TestAsyncRunnersGracefulShutdown(t *testing.T) {
@@ -217,7 +218,9 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 		}
 	}()
 
-	startAsyncRunners(ctx, ts.URL+"/tasks", tasks, testRunner(t))
+	rnr, cancel := testRunner(t)
+	defer cancel()
+	startAsyncRunners(ctx, ts.URL+"/tasks", tasks, rnr)
 
 	if err := ctx.Err(); err != context.DeadlineExceeded {
 		t.Log(buf.String())

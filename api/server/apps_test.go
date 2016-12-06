@@ -57,7 +57,8 @@ func TestAppCreate(t *testing.T) {
 		// success
 		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusCreated, nil},
 	} {
-		router := testRouter(test.mock, &mqs.Mock{}, testRunner(t), tasks)
+		rnr, cancel := testRunner(t)
+		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
@@ -77,6 +78,7 @@ func TestAppCreate(t *testing.T) {
 					i, test.expectedError.Error())
 			}
 		}
+		cancel()
 	}
 }
 
@@ -99,7 +101,8 @@ func TestAppDelete(t *testing.T) {
 			}},
 		}, "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
-		router := testRouter(test.ds, &mqs.Mock{}, testRunner(t), tasks)
+		rnr, cancel := testRunner(t)
+		router := testRouter(test.ds, &mqs.Mock{}, rnr, tasks)
 
 		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
 
@@ -118,6 +121,7 @@ func TestAppDelete(t *testing.T) {
 					i, test.expectedError.Error())
 			}
 		}
+		cancel()
 	}
 }
 
@@ -126,7 +130,9 @@ func TestAppList(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
+	rnr, cancel := testRunner(t)
+	defer cancel()
+	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -161,7 +167,9 @@ func TestAppGet(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, testRunner(t), tasks)
+	rnr, cancel := testRunner(t)
+	defer cancel()
+	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -213,7 +221,8 @@ func TestAppUpdate(t *testing.T) {
 			}},
 		}, "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
-		router := testRouter(test.mock, &mqs.Mock{}, testRunner(t), tasks)
+		rnr, cancel := testRunner(t)
+		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "PUT", test.path, body)
@@ -233,5 +242,7 @@ func TestAppUpdate(t *testing.T) {
 					i, test.expectedError.Error())
 			}
 		}
+
+		cancel()
 	}
 }
