@@ -15,15 +15,16 @@ const (
 )
 
 var (
+	ErrInvalidPayload      = errors.New("Invalid payload")
+	ErrRoutesAlreadyExists = errors.New("Route already exists")
 	ErrRoutesCreate        = errors.New("Could not create route")
-	ErrRoutesUpdate        = errors.New("Could not update route")
-	ErrRoutesRemoving      = errors.New("Could not remove route from datastore")
 	ErrRoutesGet           = errors.New("Could not get route from datastore")
 	ErrRoutesList          = errors.New("Could not list routes from datastore")
-	ErrRoutesAlreadyExists = errors.New("Route already exists")
-	ErrRoutesNotFound      = errors.New("Route not found")
 	ErrRoutesMissingNew    = errors.New("Missing new route")
-	ErrInvalidPayload      = errors.New("Invalid payload")
+	ErrRoutesNotFound      = errors.New("Route not found")
+	ErrRoutesPathImmutable = errors.New("Could not update route - path is immutable")
+	ErrRoutesRemoving      = errors.New("Could not remove route from datastore")
+	ErrRoutesUpdate        = errors.New("Could not update route")
 )
 
 type Routes []*Route

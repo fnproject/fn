@@ -203,7 +203,17 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			},
-		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello" } }`, http.StatusOK, nil},
+
+		// Addresses #381
+		{&datastore.Mock{
+			Routes: []*models.Route{
+				{
+					AppName: "a",
+					Path:    "/myroute/do",
+				},
+			},
+		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusForbidden, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		router := testRouter(test.ds, &mqs.Mock{}, rnr, tasks)

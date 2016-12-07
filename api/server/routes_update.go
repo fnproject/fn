@@ -30,6 +30,12 @@ func handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
+	if wroute.Route.Path != "" {
+		log.Debug(models.ErrRoutesPathImmutable)
+		c.JSON(http.StatusForbidden, simpleError(models.ErrRoutesPathImmutable))
+		return
+	}
+
 	wroute.Route.AppName = c.Param("app")
 	wroute.Route.Path = path.Clean(c.Param("route"))
 
