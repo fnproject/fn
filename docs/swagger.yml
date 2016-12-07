@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.23"
+  version: "0.1.24"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -316,51 +316,50 @@ paths:
 
 definitions:
   Route:
-    allOf:
-      - type: object
-        properties:
-          path:
+    type: object
+    properties:
+      path:
+        type: string
+        description: URL path that will be matched to this route
+        readOnly: true
+      image:
+        description: Name of Docker image to use in this route. You should include the image tag, which should be a version number, to be more accurate. Can be overridden on a per route basis with route.image.
+        type: string
+      headers:
+        type: object
+        description: Map of http headers that will be sent with the response
+        additionalProperties:
+          type: array
+          items:
             type: string
-            description: URL path that will be matched to this route
-            readOnly: true
-          image:
-            description: Name of Docker image to use in this route. You should include the image tag, which should be a version number, to be more accurate. Can be overridden on a per route basis with route.image.
-            type: string
-          headers:
-            type: object
-            description: Map of http headers that will be sent with the response
-            additionalProperties:
-              type: array
-              items:
-                type: string
-          memory:
-            type: integer
-            format: int64
-            description: Max usable memory for this route (MiB).
-          type:
-            enum:
-              - sync
-              - async
-            description: Route type
-          format:
-            enum:
-              - default
-              - http
-              - json
-            description: Payload format sent into function.
-          max_concurrency:
-            type: integer
-            format: int32
-            description: Maximum number of hot containers concurrency
-          config:
-            type: object
-            description: Route configuration - overrides application configuration
-            additionalProperties:
-              type: string
-          timeout:
-            type: integer
-            default: 60
-            description: Timeout for executions of this route. Value in Seconds
+      memory:
+        type: integer
+        format: int64
+        description: Max usable memory for this route (MiB).
+      type:
+        enum:
+          - sync
+          - async
+        description: Route type
+      format:
+        enum:
+          - default
+          - http
+          - json
+        description: Payload format sent into function.
+      max_concurrency:
+        type: integer
+        format: int32
+        description: Maximum number of hot containers concurrency
+      config:
+        type: object
+        description: Route configuration - overrides application configuration
+        additionalProperties:
+          type: string
+      timeout:
+        type: integer
+        default: 60
+        description: Timeout for executions of this route. Value in Seconds
 
   App:
     type: object

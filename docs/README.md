@@ -13,7 +13,7 @@ If you are a developer using IronFunctions through the API, this section is for 
 * [Function file (func.yaml)](function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
-* [API Reference](https://app.swaggerhub.com/api/iron/functions/)
+* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/iron-io/functions/master/docs/swagger.yml)
 
 ## For Operators
 
