@@ -10,6 +10,18 @@ We welcome all contributions!
 * Sign the CLA
 * Good Job! Thanks for being awesome!
 
+## Documentation
+
+When creating a Pull Request, make sure that you also update the documentation
+accordingly.
+
+Most of the times, when making some behavior more explicit or adding a feature,
+a documentation update is necessary.
+
+You will either update a file inside docs/ or create one. Prefer the former over
+the latter. If you are unsure, do not hesitate in open the PR with a comment
+asking for suggestions on how to address the documentation part.
+
 ## How to build and get up and running
 
 ### Build
