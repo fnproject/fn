@@ -23,7 +23,7 @@ const (
 
 const (
 	// FormatDefault ...
-	FormatDefault = ""
+	FormatDefault = "default"
 	// FormatHTTP ...
 	FormatHTTP = "http"
 )

@@ -86,12 +86,12 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 
 	}
 
-	_, err = Api.Datastore.InsertRoute(ctx, wroute.Route)
+	route, err := Api.Datastore.InsertRoute(ctx, wroute.Route)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))
 		return
 	}
 
-	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", wroute.Route})
+	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", route})
 }

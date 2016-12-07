@@ -345,8 +345,12 @@ func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route
 		if newroute.Timeout != 0 {
 			route.Timeout = newroute.Timeout
 		}
-		route.Format = newroute.Format
-		route.MaxConcurrency = newroute.MaxConcurrency
+		if newroute.Format != "" {
+			route.Format = newroute.Format
+		}
+		if newroute.MaxConcurrency != 0 {
+			route.MaxConcurrency = newroute.MaxConcurrency
+		}
 		if newroute.Headers != nil {
 			if route.Headers == nil {
 				route.Headers = map[string][]string{}
@@ -362,6 +366,10 @@ func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route
 			for k, v := range newroute.Config {
 				route.Config[k] = v
 			}
+		}
+
+		if err := route.Validate(); err != nil {
+			return err
 		}
 
 		buf, err := json.Marshal(route)

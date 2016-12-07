@@ -26,6 +26,7 @@ type Protocol string
 const (
 	Default Protocol = models.FormatDefault
 	HTTP    Protocol = models.FormatHTTP
+	Empty   Protocol = ""
 )
 
 // New creates a valid protocol handler from a I/O pipe representing containers
@@ -34,7 +35,7 @@ func New(p Protocol, in io.Writer, out io.Reader) (ContainerIO, error) {
 	switch p {
 	case HTTP:
 		return &HTTPProtocol{in, out}, nil
-	case Default:
+	case Default, Empty:
 		return &DefaultProtocol{}, nil
 	default:
 		return nil, errInvalidProtocol

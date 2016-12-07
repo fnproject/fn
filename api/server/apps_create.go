@@ -41,7 +41,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	_, err = Api.Datastore.InsertApp(ctx, wapp.App)
+	app, err := Api.Datastore.InsertApp(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
@@ -55,5 +55,5 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, appResponse{"App successfully created", wapp.App})
+	c.JSON(http.StatusCreated, appResponse{"App successfully created", app})
 }

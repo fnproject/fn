@@ -30,15 +30,15 @@ var (
 type Routes []*Route
 
 type Route struct {
-	AppName        string      `json:"app_name,omitempty"`
-	Path           string      `json:"path,omitempty"`
-	Image          string      `json:"image,omitempty"`
-	Memory         uint64      `json:"memory,omitempty"`
-	Headers        http.Header `json:"headers,omitempty"`
-	Type           string      `json:"type,omitempty"`
-	Format         string      `json:"format,omitempty"`
-	MaxConcurrency int         `json:"max_concurrency,omitempty"`
-	Timeout        int32       `json:"timeout,omitempty"`
+	AppName        string      `json:"app_name"`
+	Path           string      `json:"path"`
+	Image          string      `json:"image"`
+	Memory         uint64      `json:"memory"`
+	Headers        http.Header `json:"headers"`
+	Type           string      `json:"type"`
+	Format         string      `json:"format"`
+	MaxConcurrency int         `json:"max_concurrency"`
+	Timeout        int32       `json:"timeout"`
 	Config         `json:"config"`
 }
 
@@ -92,12 +92,24 @@ func (r *Route) Validate() error {
 		res = append(res, ErrRoutesValidationInvalidType)
 	}
 
+	if r.Format == "" {
+		r.Format = FormatDefault
+	}
+
 	if r.Format != FormatDefault && r.Format != FormatHTTP {
 		res = append(res, ErrRoutesValidationInvalidFormat)
 	}
 
-	if r.MaxConcurrency == 0 && r.Format == FormatHTTP {
+	if r.MaxConcurrency == 0 {
 		r.MaxConcurrency = 1
+	}
+
+	if r.Headers == nil {
+		r.Headers = http.Header{}
+	}
+
+	if r.Config == nil {
+		r.Config = map[string]string{}
 	}
 
 	if r.Timeout == 0 {
