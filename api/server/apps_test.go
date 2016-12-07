@@ -220,6 +220,13 @@ func TestAppUpdate(t *testing.T) {
 				Name: "myapp",
 			}},
 		}, "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+
+		// Addresses #380
+		{&datastore.Mock{
+			Apps: []*models.App{{
+				Name: "myapp",
+			}},
+		}, "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusForbidden, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)

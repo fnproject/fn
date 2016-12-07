@@ -13,11 +13,12 @@ var (
 	ErrAppsGet              = errors.New("Could not get app from datastore")
 	ErrAppsList             = errors.New("Could not list apps from datastore")
 	ErrAppsMissingNew       = errors.New("Missing new application")
+	ErrAppsNameImmutable    = errors.New("Could not update app - name is immutable")
 	ErrAppsNotFound         = errors.New("App not found")
 	ErrAppsNothingToUpdate  = errors.New("Nothing to update")
 	ErrAppsRemoving         = errors.New("Could not remove app from datastore")
-	ErrDeleteAppsWithRoutes = errors.New("Cannot remove apps with routes")
 	ErrAppsUpdate           = errors.New("Could not update app")
+	ErrDeleteAppsWithRoutes = errors.New("Cannot remove apps with routes")
 	ErrUsableImage          = errors.New("Image not found")
 )
 

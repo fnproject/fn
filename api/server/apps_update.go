@@ -28,6 +28,12 @@ func handleAppUpdate(c *gin.Context) {
 		return
 	}
 
+	if wapp.App.Name != "" {
+		log.Debug(models.ErrAppsNameImmutable)
+		c.JSON(http.StatusForbidden, simpleError(models.ErrAppsNameImmutable))
+		return
+	}
+
 	wapp.App.Name = c.Param("app")
 
 	err = Api.FireAfterAppUpdate(ctx, wapp.App)

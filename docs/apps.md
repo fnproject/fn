@@ -28,3 +28,8 @@ curl -H "Content-Type: application/json" -X POST -d '{
     }
 }' http://localhost:8080/v1/apps
 ```
+
+## Notes
+
+App names are immutable. When doing `PUT` calls, keep in mind that although you
+are able to update an app's configuration set, you cannot really rename it.

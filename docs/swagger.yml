@@ -116,7 +116,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     put:
-      summary: "Create/update a app."
+      summary: "Updates an app."
       description: "You can set app level settings here. "
       tags:
         - Apps
