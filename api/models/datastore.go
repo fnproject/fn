@@ -30,4 +30,5 @@ var (
 	ErrDatastoreEmptyRoutePath = errors.New("Missing route name")
 	ErrDatastoreEmptyApp       = errors.New("Missing app")
 	ErrDatastoreEmptyRoute     = errors.New("Missing route")
+	ErrDatastoreEmptyKey       = errors.New("Missing key")
 )

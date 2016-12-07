@@ -524,6 +524,10 @@ func buildFilterRouteQuery(filter *models.RouteFilter) string {
 }
 
 func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
+	if key == nil || len(key) == 0 {
+		return models.ErrDatastoreEmptyKey
+	}
+
 	_, err := ds.db.Exec(`
 	    INSERT INTO extras (
 			key,
@@ -531,7 +535,7 @@ func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
 		)
 		VALUES ($1, $2)
 		ON CONFLICT (key) DO UPDATE SET
-			value = $1;
+			value = $2;
 		`, string(key), string(value))
 
 	if err != nil {
@@ -542,6 +546,10 @@ func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
 }
 
 func (ds *PostgresDatastore) Get(ctx context.Context, key []byte) ([]byte, error) {
+	if key == nil || len(key) == 0 {
+		return nil, models.ErrDatastoreEmptyKey
+	}
+
 	row := ds.db.QueryRow("SELECT value FROM extras WHERE key=$1", key)
 
 	var value string

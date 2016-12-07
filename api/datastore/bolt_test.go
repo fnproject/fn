@@ -1,26 +1,12 @@
 package datastore
 
 import (
-	"bytes"
 	"context"
-	"log"
 	"os"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 )
-
-func setLogBuffer() *bytes.Buffer {
-	var buf bytes.Buffer
-	buf.WriteByte('\n')
-	logrus.SetOutput(&buf)
-	gin.DefaultErrorWriter = &buf
-	gin.DefaultWriter = &buf
-	log.SetOutput(&buf)
-	return &buf
-}
 
 const tmpBolt = "/tmp/func_test_bolt.db"
 
@@ -33,16 +19,6 @@ func TestBolt(t *testing.T) {
 	ds, err := New("bolt://" + tmpBolt)
 	if err != nil {
 		t.Fatalf("Error when creating datastore: %v", err)
-	}
-
-	testApp := &models.App{
-		Name: "Test",
-	}
-
-	testRoute := &models.Route{
-		AppName: testApp.Name,
-		Path:    "/test",
-		Image:   "iron/hello",
 	}
 
 	// Testing insert app
@@ -271,5 +247,44 @@ func TestBolt(t *testing.T) {
 	if route != nil {
 		t.Log(buf.String())
 		t.Fatalf("Test RemoveApp: failed to remove the route")
+	}
+
+	// Testing Put/Get
+	err = ds.Put(ctx, nil, nil)
+	if err != models.ErrDatastoreEmptyKey {
+		t.Log(buf.String())
+		t.Fatalf("Test Put(nil,nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyKey, err)
+	}
+
+	err = ds.Put(ctx, []byte("test"), []byte("success"))
+	if err != nil {
+		t.Log(buf.String())
+		t.Fatalf("Test Put: unexpected error: %v", err)
+	}
+
+	val, err := ds.Get(ctx, []byte("test"))
+	if err != nil {
+		t.Log(buf.String())
+		t.Fatalf("Test Put: unexpected error: %v", err)
+	}
+	if string(val) != "success" {
+		t.Log(buf.String())
+		t.Fatalf("Test Get: expected value to be `%v`, but it was `%v`", "success", string(val))
+	}
+
+	err = ds.Put(ctx, []byte("test"), nil)
+	if err != nil {
+		t.Log(buf.String())
+		t.Fatalf("Test Put: unexpected error: %v", err)
+	}
+
+	val, err = ds.Get(ctx, []byte("test"))
+	if err != nil {
+		t.Log(buf.String())
+		t.Fatalf("Test Put: unexpected error: %v", err)
+	}
+	if string(val) != "" {
+		t.Log(buf.String())
+		t.Fatalf("Test Get: expected value to be `%v`, but it was `%v`", "", string(val))
 	}
 }

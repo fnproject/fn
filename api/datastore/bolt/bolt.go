@@ -505,6 +505,10 @@ func (ds *BoltDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilt
 }
 
 func (ds *BoltDatastore) Put(ctx context.Context, key, value []byte) error {
+	if key == nil || len(key) == 0 {
+		return models.ErrDatastoreEmptyKey
+	}
+
 	ds.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.extrasBucket) // todo: maybe namespace by app?
 		err := b.Put(key, value)
@@ -514,6 +518,10 @@ func (ds *BoltDatastore) Put(ctx context.Context, key, value []byte) error {
 }
 
 func (ds *BoltDatastore) Get(ctx context.Context, key []byte) ([]byte, error) {
+	if key == nil || len(key) == 0 {
+		return nil, models.ErrDatastoreEmptyKey
+	}
+
 	var ret []byte
 	ds.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.extrasBucket)
