@@ -26,7 +26,7 @@ func (lh *DotNetLangHelper) PreBuild() error {
 	cmd := exec.Command(
 		"docker", "run",
 		"--rm", "-v",
-		wd+":/dotnet", "-w", "/dotnet", "microsoft/dotnet",
+		wd+":/dotnet", "-w", "/dotnet", "microsoft/dotnet:1.0.1-sdk-projectjson",
 		"/bin/sh", "-c", "dotnet restore && dotnet publish -c release -b /tmp -o .",
 	)
 	cmd.Stderr = os.Stderr

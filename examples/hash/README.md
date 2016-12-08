@@ -18,6 +18,12 @@ fn init <username>/<funcname>
 
 This will create the ```func.yaml``` file required by functions, which can be built by running:
 
+
+## Build the function docker image
+```bash
+fn build
+```
+
 ## Push to docker
 ```bash
 fn push

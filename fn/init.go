@@ -29,6 +29,7 @@ var (
 		".py": "python",
 		".rs": "rust",
 		".cs": "dotnet",
+		".fs": "dotnet",
 	}
 
 	fnInitRuntimes []string
