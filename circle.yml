@@ -39,7 +39,7 @@ deployment:
     branch: master
     owner: iron-io
     commands:
-      - git config user.email "circleci@iron.io"
-      - git config user.name "CircleCI"
+      - git config --global user.email "circleci@iron.io"
+      - git config --global user.name "CircleCI"
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - cd $GO_PROJECT && ./release.sh
