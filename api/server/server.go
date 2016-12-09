@@ -17,10 +17,6 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-// Would be nice to not have this is a global, but hard to pass things around to the
-// handlers in Gin without it.
-var Api *Server
-
 type Server struct {
 	Runner             *runner.Runner
 	Router             *gin.Engine
@@ -38,7 +34,7 @@ type Server struct {
 }
 
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *Server {
-	Api = &Server{
+	s := &Server{
 		Runner:    r,
 		Router:    gin.New(),
 		Datastore: ds,
@@ -47,13 +43,26 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *ru
 		Enqueue:   enqueue,
 	}
 
-	Api.Router.Use(func(c *gin.Context) {
+	s.Router.Use(prepareMiddleware(ctx))
+
+	return s
+}
+
+func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
+
+		if appName := c.Param("app"); appName != "" {
+			ctx = context.WithValue(ctx, "appName", appName)
+		}
+
+		if routePath := c.Param("route"); routePath != "" {
+			ctx = context.WithValue(ctx, "routePath", routePath)
+		}
+
 		c.Set("ctx", ctx)
 		c.Next()
-	})
-
-	return Api
+	}
 }
 
 func (s *Server) AddSpecialHandler(handler ifaces.SpecialHandler) {
@@ -71,8 +80,6 @@ func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
 			return err
 		}
 	}
-	// now call the normal runner call
-	s.handleRequest(ginC, nil)
 	return nil
 }
 
@@ -143,21 +150,21 @@ func (s *Server) bindHandlers() {
 
 	v1 := engine.Group("/v1")
 	{
-		v1.GET("/apps", handleAppList)
+		v1.GET("/apps", s.handleAppList)
 		v1.POST("/apps", s.handleAppCreate)
 
-		v1.GET("/apps/:app", handleAppGet)
-		v1.PUT("/apps/:app", handleAppUpdate)
-		v1.DELETE("/apps/:app", handleAppDelete)
+		v1.GET("/apps/:app", s.handleAppGet)
+		v1.PUT("/apps/:app", s.handleAppUpdate)
+		v1.DELETE("/apps/:app", s.handleAppDelete)
 
-		v1.GET("/routes", handleRouteList)
+		v1.GET("/routes", s.handleRouteList)
 
 		apps := v1.Group("/apps/:app")
 		{
-			apps.GET("/routes", handleRouteList)
+			apps.GET("/routes", s.handleRouteList)
 			apps.POST("/routes", s.handleRouteCreate)
-			apps.GET("/routes/*route", handleRouteGet)
-			apps.PUT("/routes/*route", handleRouteUpdate)
+			apps.GET("/routes/*route", s.handleRouteGet)
+			apps.PUT("/routes/*route", s.handleRouteUpdate)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)
 		}
 	}
@@ -167,7 +174,7 @@ func (s *Server) bindHandlers() {
 	engine.Any("/r/:app/*route", s.handleRunnerRequest)
 
 	// This final route is used for extensions, see Server.Add
-	engine.NoRoute(handleSpecial)
+	engine.NoRoute(s.handleSpecial)
 }
 
 var ErrInternalServerError = errors.New("Something unexpected happened on the server")

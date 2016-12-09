@@ -14,19 +14,23 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
-	appName := c.Param("app")
-	routePath := path.Clean(c.Param("route"))
+	appName := ctx.Value("appName").(string)
+	routePath := path.Clean(ctx.Value("routePath").(string))
 
-	route, err := Api.Datastore.GetRoute(ctx, appName, routePath)
+	route, err := s.Datastore.GetRoute(ctx, appName, routePath)
 	if err != nil || route == nil {
 		log.Error(models.ErrRoutesNotFound)
 		c.JSON(http.StatusNotFound, simpleError(models.ErrRoutesNotFound))
 		return
 	}
 
-	if err := Api.Datastore.RemoveRoute(ctx, appName, routePath); err != nil {
+	if err := s.Datastore.RemoveRoute(ctx, appName, routePath); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesRemoving)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesRemoving))
+		if err == models.ErrRoutesNotFound {
+			c.JSON(http.StatusNotFound, simpleError(models.ErrRoutesNotFound))
+		} else {
+			c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesRemoving))
+		}
 		return
 	}
 

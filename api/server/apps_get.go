@@ -9,12 +9,12 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleAppGet(c *gin.Context) {
+func (s *Server) handleAppGet(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
-	appName := c.Param("app")
-	app, err := Api.Datastore.GetApp(ctx, appName)
+	appName := ctx.Value("appName").(string)
+	app, err := s.Datastore.GetApp(ctx, appName)
 
 	if err != nil && err != models.ErrAppsNotFound {
 		log.WithError(err).Error(models.ErrAppsGet)

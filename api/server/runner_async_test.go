@@ -14,7 +14,6 @@ import (
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
-	"github.com/iron-io/runner/common"
 )
 
 func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *gin.Engine {
@@ -23,11 +22,7 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 	r := s.Router
 	r.Use(gin.Logger())
 
-	r.Use(func(c *gin.Context) {
-		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
-		c.Set("ctx", ctx)
-		c.Next()
-	})
+	r.Use(prepareMiddleware(ctx))
 	s.bindHandlers()
 	return r
 }

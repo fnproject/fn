@@ -29,7 +29,7 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	wroute.Route.AppName = c.Param("app")
+	wroute.Route.AppName = ctx.Value("appName").(string)
 
 	if err := wroute.Validate(); err != nil {
 		log.Error(err)
@@ -41,7 +41,7 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesValidationMissingImage))
 		return
 	}
-	err = Api.Runner.EnsureImageExists(ctx, &task.Config{
+	err = s.Runner.EnsureImageExists(ctx, &task.Config{
 		Image: wroute.Route.Image,
 	})
 	if err != nil {
@@ -49,7 +49,7 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	app, err := Api.Datastore.GetApp(ctx, wroute.Route.AppName)
+	app, err := s.Datastore.GetApp(ctx, wroute.Route.AppName)
 	if err != nil && err != models.ErrAppsNotFound {
 		log.WithError(err).Error(models.ErrAppsGet)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
@@ -63,21 +63,21 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 			return
 		}
 
-		err = Api.FireBeforeAppCreate(ctx, newapp)
+		err = s.FireBeforeAppCreate(ctx, newapp)
 		if err != nil {
 			log.WithError(err).Errorln(models.ErrAppsCreate)
 			c.JSON(http.StatusInternalServerError, simpleError(err))
 			return
 		}
 
-		_, err = Api.Datastore.InsertApp(ctx, newapp)
+		_, err = s.Datastore.InsertApp(ctx, newapp)
 		if err != nil {
 			log.WithError(err).Error(models.ErrAppsCreate)
 			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
 			return
 		}
 
-		err = Api.FireAfterAppCreate(ctx, newapp)
+		err = s.FireAfterAppCreate(ctx, newapp)
 		if err != nil {
 			log.WithError(err).Errorln(models.ErrAppsCreate)
 			c.JSON(http.StatusInternalServerError, simpleError(err))
@@ -86,7 +86,7 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 
 	}
 
-	route, err := Api.Datastore.InsertRoute(ctx, wroute.Route)
+	route, err := s.Datastore.InsertRoute(ctx, wroute.Route)
 	if err != nil {
 		log.WithError(err).Error(models.ErrRoutesCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))

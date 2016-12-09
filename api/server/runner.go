@@ -3,10 +3,12 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -19,15 +21,30 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-func handleSpecial(c *gin.Context) {
+func (s *Server) handleSpecial(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
-	err := Api.UseSpecialHandlers(c)
+	ctx = context.WithValue(ctx, "appName", "")
+	ctx = context.WithValue(ctx, "routePath", c.Request.URL.Path)
+	c.Set("ctx", ctx)
+
+	err := s.UseSpecialHandlers(c)
 	if err != nil {
 		log.WithError(err).Errorln("Error using special handler!")
-		// todo: what do we do here? Should probably return a 500 or something
+		c.JSON(http.StatusInternalServerError, simpleError(errors.New("Failed to run function")))
+		return
 	}
+
+	ctx = c.MustGet("ctx").(context.Context)
+	if ctx.Value("appName").(string) == "" {
+		log.WithError(err).Errorln("Specialhandler returned empty app name")
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRunnerRouteNotFound))
+		return
+	}
+
+	// now call the normal runner call
+	s.handleRequest(c, nil)
 }
 
 func ToEnvName(envtype, name string) string {
@@ -44,8 +61,6 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	ctx := c.MustGet("ctx").(context.Context)
 
 	reqID := uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", c.Request.RemoteAddr, c.Request.URL.Path, time.Now().Unix())).String()
-	c.Set("reqID", reqID) // todo: put this in the ctx instead of gin's
-
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": reqID})
 
 	var err error
@@ -63,26 +78,10 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		payload = strings.NewReader(reqPayload)
 	}
 
-	appName := c.Param("app")
-	if appName == "" {
-		// check context, app can be added via special handlers
-		a, ok := c.Get("app")
-		if ok {
-			appName = a.(string)
-		}
-	}
-	// if still no appName, we gotta exit
-	if appName == "" {
-		log.WithError(err).Error("Invalid app, blank")
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsNotFound))
-		return
-	}
-	path := c.Param("route")
-	if path == "" {
-		path = c.Request.URL.Path
-	}
+	appName := ctx.Value("appName").(string)
+	path := path.Clean(ctx.Value("routePath").(string))
 
-	app, err := Api.Datastore.GetApp(ctx, appName)
+	app, err := s.Datastore.GetApp(ctx, appName)
 	if err != nil || app == nil {
 		log.WithError(err).Error(models.ErrAppsNotFound)
 		c.JSON(http.StatusNotFound, simpleError(models.ErrAppsNotFound))
@@ -119,7 +118,7 @@ func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*
 	resp, err := s.singleflight.do(
 		filter,
 		func() (interface{}, error) {
-			return Api.Datastore.GetRoutesByApp(ctx, filter.AppName, &filter)
+			return s.Datastore.GetRoutesByApp(ctx, filter.AppName, &filter)
 		},
 	)
 	return resp.([]*models.Route), err

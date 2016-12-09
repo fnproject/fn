@@ -11,7 +11,7 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleRouteUpdate(c *gin.Context) {
+func (s *Server) handleRouteUpdate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
@@ -36,11 +36,11 @@ func handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
-	wroute.Route.AppName = c.Param("app")
-	wroute.Route.Path = path.Clean(c.Param("route"))
+	wroute.Route.AppName = ctx.Value("appName").(string)
+	wroute.Route.Path = path.Clean(ctx.Value("routePath").(string))
 
 	if wroute.Route.Image != "" {
-		err = Api.Runner.EnsureImageExists(ctx, &task.Config{
+		err = s.Runner.EnsureImageExists(ctx, &task.Config{
 			Image: wroute.Route.Image,
 		})
 		if err != nil {
@@ -49,7 +49,7 @@ func handleRouteUpdate(c *gin.Context) {
 		}
 	}
 
-	route, err := Api.Datastore.UpdateRoute(ctx, wroute.Route)
+	route, err := s.Datastore.UpdateRoute(ctx, wroute.Route)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrRoutesUpdate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesUpdate))

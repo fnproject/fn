@@ -9,13 +9,13 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleAppDelete(c *gin.Context) {
+func (s *Server) handleAppDelete(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
-	appName := c.Param("app")
+	appName := ctx.Value("appName").(string)
 
-	routes, err := Api.Datastore.GetRoutesByApp(ctx, appName, &models.RouteFilter{})
+	routes, err := s.Datastore.GetRoutesByApp(ctx, appName, &models.RouteFilter{})
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
@@ -28,20 +28,24 @@ func handleAppDelete(c *gin.Context) {
 		return
 	}
 
-	err = Api.FireBeforeAppDelete(ctx, appName)
+	err = s.FireBeforeAppDelete(ctx, appName)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	if err = Api.Datastore.RemoveApp(ctx, appName); err != nil {
+	if err = s.Datastore.RemoveApp(ctx, appName); err != nil {
 		log.WithError(err).Debug(models.ErrAppsRemoving)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
+		if err == models.ErrAppsNotFound {
+			c.JSON(http.StatusNotFound, simpleError(models.ErrAppsNotFound))
+		} else {
+			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsRemoving))
+		}
 		return
 	}
 
-	err = Api.FireAfterAppDelete(ctx, appName)
+	err = s.FireAfterAppDelete(ctx, appName)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsRemoving)
 		c.JSON(http.StatusInternalServerError, simpleError(err))

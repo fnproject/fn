@@ -10,7 +10,7 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleRouteList(c *gin.Context) {
+func (s *Server) handleRouteList(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
@@ -22,10 +22,10 @@ func handleRouteList(c *gin.Context) {
 
 	var routes []*models.Route
 	var err error
-	if app := c.Param("app"); app != "" {
-		routes, err = Api.Datastore.GetRoutesByApp(ctx, app, filter)
+	if appName, ok := ctx.Value("appName").(string); ok && appName != "" {
+		routes, err = s.Datastore.GetRoutesByApp(ctx, appName, filter)
 	} else {
-		routes, err = Api.Datastore.GetRoutes(ctx, filter)
+		routes, err = s.Datastore.GetRoutes(ctx, filter)
 	}
 
 	if err != nil {

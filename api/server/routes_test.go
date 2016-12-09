@@ -73,7 +73,6 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{&datastore.Mock{}, "/v1/apps/a/routes", "", http.StatusTemporaryRedirect, nil},
 		{&datastore.Mock{}, "/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
 		{&datastore.Mock{
 			Routes: []*models.Route{

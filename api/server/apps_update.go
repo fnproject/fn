@@ -9,7 +9,7 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleAppUpdate(c *gin.Context) {
+func (s *Server) handleAppUpdate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
@@ -34,23 +34,23 @@ func handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	wapp.App.Name = c.Param("app")
+	wapp.App.Name = ctx.Value("appName").(string)
 
-	err = Api.FireAfterAppUpdate(ctx, wapp.App)
+	err = s.FireAfterAppUpdate(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsUpdate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	app, err := Api.Datastore.UpdateApp(ctx, wapp.App)
+	app, err := s.Datastore.UpdateApp(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrAppsUpdate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsUpdate))
 		return
 	}
 
-	err = Api.FireAfterAppUpdate(ctx, wapp.App)
+	err = s.FireAfterAppUpdate(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsUpdate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))

@@ -34,21 +34,21 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	err = Api.FireBeforeAppCreate(ctx, wapp.App)
+	err = s.FireBeforeAppCreate(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	app, err := Api.Datastore.InsertApp(ctx, wapp.App)
+	app, err := s.Datastore.InsertApp(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	err = Api.FireAfterAppCreate(ctx, wapp.App)
+	err = s.FireAfterAppCreate(ctx, wapp.App)
 	if err != nil {
 		log.WithError(err).Errorln(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))

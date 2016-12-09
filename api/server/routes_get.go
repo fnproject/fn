@@ -11,14 +11,14 @@ import (
 	"github.com/iron-io/runner/common"
 )
 
-func handleRouteGet(c *gin.Context) {
+func (s *Server) handleRouteGet(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
-	appName := c.Param("app")
-	routePath := path.Clean(c.Param("route"))
+	appName := ctx.Value("appName").(string)
+	routePath := path.Clean(ctx.Value("routePath").(string))
 
-	route, err := Api.Datastore.GetRoute(ctx, appName, routePath)
+	route, err := s.Datastore.GetRoute(ctx, appName, routePath)
 	if err != nil && err != models.ErrRoutesNotFound {
 
 		log.WithError(err).Error(models.ErrRoutesGet)

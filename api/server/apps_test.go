@@ -94,7 +94,7 @@ func TestAppDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{&datastore.Mock{}, "/v1/apps", "", http.StatusNotFound, nil},
+		{&datastore.Mock{}, "/v1/apps/myapp", "", http.StatusNotFound, nil},
 		{&datastore.Mock{
 			Apps: []*models.App{{
 				Name: "myapp",
