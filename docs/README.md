@@ -14,6 +14,8 @@ If you are a developer using IronFunctions through the API, this section is for 
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
 * [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/iron-io/functions/master/docs/swagger.yml)
+* [Hot containers](hot-containers.md)
+
 
 ## For Operators
 
