@@ -72,3 +72,34 @@ _Triggers before and after every app deletion that happens in the API_
 Triggered during requests to the following routes:
 
 - DELETE /v1/apps/app
+
+## Special Handlers
+
+To understand how **Special Handlers** works you need to understand what are **Special Routes**.
+
+**Special Routes** are routes that doesn't match any other API route. 
+
+With **Special Handlers** you can change the behavior of special routes in order to define which function is going to be executed.
+
+For example, let's use special handlers to define `mydomain` as the `appname` for any request for `mydomain.com`.
+
+```
+type SpecialHandler struct{}
+
+func (h *SpecialHandler) Handle(c ifaces.HandlerContext) error {
+    host := c.Request().Host
+    if host == "mydomain.com" {
+        c.Set("app", "mydomain")
+    }
+}
+
+func main () {
+    sh := &SpecialHandler{}
+
+    srv := server.New(/* Here all required parameters to initialize the server */)
+    srv.AddSpecialHandler(sh)
+    srv.Run()
+}
+``` 
+
+With the code above, a request to `http://mydomain.com/hello` will trigger the function `/mydomain/hello`
