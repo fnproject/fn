@@ -101,7 +101,7 @@ For example, let's use special handlers to define `mydomain` as the `appname` fo
 ```
 type SpecialHandler struct{}
 
-func (h *SpecialHandler) Handle(c ifaces.HandlerContext) error {
+func (h *SpecialHandler) Handle(c server.HandlerContext) error {
     host := c.Request().Host
     if host == "mydomain.com" {
         c.Set("app", "mydomain")
