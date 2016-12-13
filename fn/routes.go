@@ -297,7 +297,7 @@ func (a *routesCmd) create(c *cli.Context) error {
 		if ff.Timeout != nil {
 			timeout = *ff.Timeout
 		}
-		if ff.Path != nil {
+		if route == "" && ff.Path != nil {
 			route = *ff.Path
 		}
 	}
