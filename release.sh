@@ -17,6 +17,8 @@ echo "Version: $version"
 
 make build-docker
 
+sed "s/release=.*/release=\"$version\"/g" fn/install.sh
+
 git add -u
 git commit -m "$service: $version release [skip ci]"
 git tag -f -a "$version" -m "version $version"
