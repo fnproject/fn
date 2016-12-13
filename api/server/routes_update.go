@@ -25,14 +25,14 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 	}
 
 	if wroute.Route == nil {
-		log.WithError(err).Error(models.ErrInvalidJSON)
+		log.Debug(models.ErrRoutesMissingNew)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
 		return
 	}
 
 	if wroute.Route.Path != "" {
 		log.Debug(models.ErrRoutesPathImmutable)
-		c.JSON(http.StatusForbidden, simpleError(models.ErrRoutesPathImmutable))
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesPathImmutable))
 		return
 	}
 
@@ -44,14 +44,19 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 			Image: wroute.Route.Image,
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, simpleError(models.ErrUsableImage))
+			log.WithError(err).Debug(models.ErrRoutesUpdate)
+			c.JSON(http.StatusBadRequest, simpleError(models.ErrUsableImage))
 			return
 		}
 	}
 
 	route, err := s.Datastore.UpdateRoute(ctx, wroute.Route)
-	if err != nil {
+	if err == models.ErrRoutesNotFound {
 		log.WithError(err).Debug(models.ErrRoutesUpdate)
+		c.JSON(http.StatusNotFound, simpleError(err))
+		return
+	} else if err != nil {
+		log.WithError(err).Error(models.ErrRoutesUpdate)
 		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesUpdate))
 		return
 	}

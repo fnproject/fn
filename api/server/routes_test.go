@@ -27,14 +27,14 @@ func TestRouteCreate(t *testing.T) {
 		{&datastore.Mock{}, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
 		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusInternalServerError, models.ErrRoutesValidationMissingPath},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusInternalServerError, models.ErrRoutesValidationInvalidPath},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
 		{&datastore.Mock{}, "/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusCreated, nil},
+		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)
@@ -212,7 +212,7 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			},
-		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusForbidden, nil},
+		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		router := testRouter(test.ds, &mqs.Mock{}, rnr, tasks)

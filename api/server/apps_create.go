@@ -36,24 +36,28 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 
 	err = s.FireBeforeAppCreate(ctx, wapp.App)
 	if err != nil {
-		log.WithError(err).Errorln(models.ErrAppsCreate)
+		log.WithError(err).Error(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
 	app, err := s.Datastore.InsertApp(ctx, wapp.App)
-	if err != nil {
-		log.WithError(err).Errorln(models.ErrAppsCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
+	if err == models.ErrAppsAlreadyExists {
+		log.WithError(err).Debug(models.ErrAppsCreate)
+		c.JSON(http.StatusConflict, simpleError(err))
+		return
+	} else if err != nil {
+		log.WithError(err).Error(models.ErrAppsCreate)
+		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 		return
 	}
 
 	err = s.FireAfterAppCreate(ctx, wapp.App)
 	if err != nil {
-		log.WithError(err).Errorln(models.ErrAppsCreate)
+		log.WithError(err).Error(models.ErrAppsCreate)
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
 	}
 
-	c.JSON(http.StatusCreated, appResponse{"App successfully created", app})
+	c.JSON(http.StatusOK, appResponse{"App successfully created", app})
 }

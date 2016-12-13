@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.25"
+  version: "0.1.26"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -66,8 +66,8 @@ paths:
           description: Parameters are missing or invalid.
           schema:
             $ref: '#/definitions/Error'
-        500:
-          description: Could not accept app due to internal error.
+        409:
+          description: App already exists.
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -149,8 +149,8 @@ paths:
           description: Parameters are missing or invalid.
           schema:
             $ref: '#/definitions/Error'
-        500:
-          description: Could not accept app due to internal error.
+        404:
+          description: App does not exist.
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -161,7 +161,7 @@ paths:
   /apps/{app}/routes:
     post:
       summary: Create new Route
-      description: Create a new route
+      description: Create a new route in an app, if app doesn't exists, it creates the app
       tags:
         - Routes
       parameters:
@@ -177,16 +177,16 @@ paths:
           schema:
             $ref: '#/definitions/RouteWrapper'
       responses:
-        201:
+        200:
           description: Route created
           schema:
             $ref: '#/definitions/RouteWrapper'
         400:
-          description: One or more of the routes were invalid due to parameters being missing or invalid.
+          description: Invalid route due to parameters being missing or invalid.
           schema:
             $ref: '#/definitions/Error'
-        500:
-          description: Could not accept routes due to internal error.
+        409:
+          description: Route already exists.
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -210,6 +210,10 @@ paths:
           description: Route information
           schema:
             $ref: '#/definitions/RoutesWrapper'
+        404:
+          description: App does not exist.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
@@ -239,16 +243,16 @@ paths:
           schema:
             $ref: '#/definitions/RouteWrapper'
       responses:
-        201:
+        200:
           description: Route updated
           schema:
             $ref: '#/definitions/RouteWrapper'
         400:
-          description: One or more of the routes were invalid due to parameters being missing or invalid.
+          description: Invalid route due to parameters being missing or invalid.
           schema:
             $ref: '#/definitions/Error'
-        500:
-          description: Could not accept routes due to internal error.
+        404:
+          description: App does not exist.
           schema:
             $ref: '#/definitions/Error'
         default:

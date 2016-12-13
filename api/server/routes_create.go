@@ -18,13 +18,13 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 
 	err := c.BindJSON(&wroute)
 	if err != nil {
-		log.WithError(err).Error(models.ErrInvalidJSON)
+		log.WithError(err).Debug(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
 		return
 	}
 
 	if wroute.Route == nil {
-		log.WithError(err).Error(models.ErrInvalidJSON)
+		log.WithError(err).Debug(models.ErrInvalidJSON)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
 		return
 	}
@@ -32,20 +32,22 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 	wroute.Route.AppName = ctx.Value("appName").(string)
 
 	if err := wroute.Validate(); err != nil {
-		log.Error(err)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
+		log.WithError(err).Debug(models.ErrRoutesCreate)
+		c.JSON(http.StatusBadRequest, simpleError(err))
 		return
 	}
 
 	if wroute.Route.Image == "" {
+		log.WithError(models.ErrRoutesValidationMissingImage).Debug(models.ErrRoutesCreate)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesValidationMissingImage))
 		return
 	}
+
 	err = s.Runner.EnsureImageExists(ctx, &task.Config{
 		Image: wroute.Route.Image,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrUsableImage))
+		c.JSON(http.StatusBadRequest, simpleError(models.ErrUsableImage))
 		return
 	}
 
@@ -65,33 +67,37 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 
 		err = s.FireBeforeAppCreate(ctx, newapp)
 		if err != nil {
-			log.WithError(err).Errorln(models.ErrAppsCreate)
-			c.JSON(http.StatusInternalServerError, simpleError(err))
+			log.WithError(err).Error(models.ErrAppsCreate)
+			c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 			return
 		}
 
 		_, err = s.Datastore.InsertApp(ctx, newapp)
 		if err != nil {
-			log.WithError(err).Error(models.ErrAppsCreate)
-			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsCreate))
+			log.WithError(err).Error(models.ErrRoutesCreate)
+			c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 			return
 		}
 
 		err = s.FireAfterAppCreate(ctx, newapp)
 		if err != nil {
-			log.WithError(err).Errorln(models.ErrAppsCreate)
-			c.JSON(http.StatusInternalServerError, simpleError(err))
+			log.WithError(err).Error(models.ErrRoutesCreate)
+			c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 			return
 		}
 
 	}
 
 	route, err := s.Datastore.InsertRoute(ctx, wroute.Route)
-	if err != nil {
+	if err == models.ErrRoutesAlreadyExists {
+		log.WithError(err).Debug(models.ErrRoutesCreate)
+		c.JSON(http.StatusConflict, simpleError(models.ErrRoutesAlreadyExists))
+		return
+	} else if err != nil {
 		log.WithError(err).Error(models.ErrRoutesCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesCreate))
+		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 		return
 	}
 
-	c.JSON(http.StatusCreated, routeResponse{"Route successfully created", route})
+	c.JSON(http.StatusOK, routeResponse{"Route successfully created", route})
 }
