@@ -195,15 +195,15 @@ func (r *Runner) Run(ctx context.Context, cfg *task.Config) (drivers.RunResult, 
 	}
 	defer r.addUsedMem(-1 * int64(cfg.Memory))
 
-	closer, err := r.driver.Prepare(ctx, ctask)
+	cookie, err := r.driver.Prepare(ctx, ctask)
 	if err != nil {
 		return nil, err
 	}
-	defer closer.Close()
+	defer cookie.Close()
 
 	metricStart := time.Now()
 
-	result, err := r.driver.Run(ctx, ctask)
+	result, err := cookie.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
