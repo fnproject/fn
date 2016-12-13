@@ -10,7 +10,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api/ifaces"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
@@ -18,19 +17,20 @@ import (
 )
 
 type Server struct {
-	Runner             *runner.Runner
-	Router             *gin.Engine
-	MQ                 models.MessageQueue
-	AppCreateListeners []ifaces.AppCreateListener
-	AppUpdateListeners []ifaces.AppUpdateListener
-	AppDeleteListeners []ifaces.AppDeleteListener
-	SpecialHandlers    []ifaces.SpecialHandler
-	Enqueue            models.Enqueue
+	Datastore models.Datastore
+	Runner    *runner.Runner
+	Router    *gin.Engine
+	MQ        models.MessageQueue
+	Enqueue   models.Enqueue
 
-	tasks chan task.Request
+	specialHandlers    []SpecialHandler
+	appCreateListeners []AppCreateListener
+	appUpdateListeners []AppUpdateListener
+	appDeleteListeners []AppDeleteListener
+	runnerListeners    []RunnerListener
 
+	tasks        chan task.Request
 	singleflight singleflight // singleflight assists Datastore
-	Datastore    models.Datastore
 }
 
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *Server {
@@ -63,24 +63,6 @@ func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
 		c.Set("ctx", ctx)
 		c.Next()
 	}
-}
-
-func (s *Server) AddSpecialHandler(handler ifaces.SpecialHandler) {
-	s.SpecialHandlers = append(s.SpecialHandlers, handler)
-}
-
-func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
-	c := &SpecialHandlerContext{
-		server:     s,
-		ginContext: ginC,
-	}
-	for _, l := range s.SpecialHandlers {
-		err := l.Handle(c)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Task) (*models.Task, error) {

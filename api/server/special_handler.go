@@ -1,9 +1,10 @@
-package ifaces
+package server
 
 import (
 	"net/http"
 
 	"context"
+	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
 )
 
@@ -26,4 +27,22 @@ type HandlerContext interface {
 	// Set and Get values on the context, this can be useful to change behavior for the rest of the request
 	Set(key string, value interface{})
 	Get(key string) (value interface{}, exists bool)
+}
+
+func (s *Server) AddSpecialHandler(handler SpecialHandler) {
+	s.specialHandlers = append(s.specialHandlers, handler)
+}
+
+func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
+	c := &SpecialHandlerContext{
+		server:     s,
+		ginContext: ginC,
+	}
+	for _, l := range s.specialHandlers {
+		err := l.Handle(c)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

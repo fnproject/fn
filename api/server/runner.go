@@ -78,8 +78,15 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		payload = strings.NewReader(reqPayload)
 	}
 
-	appName := ctx.Value("appName").(string)
-	path := path.Clean(ctx.Value("routePath").(string))
+	reqRoute := &models.Route{
+		AppName: ctx.Value("appName").(string),
+		Path:    path.Clean(ctx.Value("routePath").(string)),
+	}
+
+	s.FireBeforeDispatch(ctx, reqRoute)
+
+	appName := reqRoute.AppName
+	path := reqRoute.Path
 
 	app, err := s.Datastore.GetApp(ctx, appName)
 	if err != nil || app == nil {
@@ -107,6 +114,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
 
 	if s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
+		s.FireAfterDispatch(ctx, reqRoute)
 		return
 	}
 
