@@ -160,6 +160,10 @@ func (p *deploycmd) route(path string, ff *funcfile) error {
 		ff.Timeout = &dur
 	}
 
+	headers := make(map[string][]string)
+	for k, v := range ff.Headers {
+		headers[k] = []string{v}
+	}
 	body := functions.RouteWrapper{
 		Route: functions.Route{
 			Path:           *ff.Path,
@@ -167,7 +171,7 @@ func (p *deploycmd) route(path string, ff *funcfile) error {
 			Memory:         *ff.Memory,
 			Type_:          *ff.Type,
 			Config:         expandEnvConfig(ff.Config),
-			Headers:        ff.Headers,
+			Headers:        headers,
 			Format:         *ff.Format,
 			MaxConcurrency: int32(*ff.MaxConcurrency),
 			Timeout:        int32(ff.Timeout.Seconds()),
