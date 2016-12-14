@@ -5,9 +5,7 @@ This example will show you how to test and deploy a SlackBot command to IronFunc
 ```sh
 # create your func.yaml file
 fn init <YOUR_DOCKERHUB_USERNAME>/guppy
-# install dependencies, we need the json gem to run this
-docker run --rm -v "$PWD":/worker -w /worker iron/ruby:dev bundle install --standalone --clean
-# build the function
+# build the function - install dependencies from json gem
 fn build
 # test it
 cat slack.payload | fn run
@@ -16,7 +14,9 @@ fn push
 # Create a route to this function on IronFunctions
 fn routes create slackbot /guppy
 # Change the route response header content-type to application/json
-curl -X PUT http://127.0.0.1:8080/v1/apps/slackbot/routes/guppy -d '{ "route": { "headers": { "Content-type": ["application/json"] } } }'
+fn routes headers set slackbot /guppy Content-Type application/json
+# test it remotely
+cat slack.payload | fn call slackbot /guppy
 ```
 
 ## Create a Slash Command integration in Slack
