@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.26"
+  version: "0.1.27"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -123,7 +123,7 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-    put:
+    patch:
       summary: "Updates an app."
       description: "You can set app level settings here. "
       tags:
@@ -220,7 +220,7 @@ paths:
             $ref: '#/definitions/Error'
 
   /apps/{app}/routes/{route}:
-    put:
+    patch:
       summary: Update a Route
       description: Update a route
       tags:

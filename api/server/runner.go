@@ -66,7 +66,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	var err error
 	var payload io.Reader
 
-	if c.Request.Method == "POST" || c.Request.Method == "PUT" {
+	if c.Request.Method == "POST" {
 		payload = c.Request.Body
 		// Load complete body and close
 		defer func() {

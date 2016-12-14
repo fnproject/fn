@@ -136,7 +136,7 @@ func (s *Server) bindHandlers() {
 		v1.POST("/apps", s.handleAppCreate)
 
 		v1.GET("/apps/:app", s.handleAppGet)
-		v1.PUT("/apps/:app", s.handleAppUpdate)
+		v1.PATCH("/apps/:app", s.handleAppUpdate)
 		v1.DELETE("/apps/:app", s.handleAppDelete)
 
 		v1.GET("/routes", s.handleRouteList)
@@ -146,7 +146,7 @@ func (s *Server) bindHandlers() {
 			apps.GET("/routes", s.handleRouteList)
 			apps.POST("/routes", s.handleRouteCreate)
 			apps.GET("/routes/*route", s.handleRouteGet)
-			apps.PUT("/routes/*route", s.handleRouteUpdate)
+			apps.PATCH("/routes/*route", s.handleRouteUpdate)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)
 		}
 	}

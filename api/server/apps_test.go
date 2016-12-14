@@ -232,7 +232,7 @@ func TestAppUpdate(t *testing.T) {
 		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)
 
 		body := bytes.NewBuffer([]byte(test.body))
-		_, rec := routerRequest(t, router, "PUT", test.path, body)
+		_, rec := routerRequest(t, router, "PATCH", test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
