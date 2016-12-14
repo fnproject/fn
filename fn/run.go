@@ -29,7 +29,7 @@ func runflags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringSliceFlag{
 			Name:  "e",
-			Usage: "limit the environment variables sent to function, if ommited then all are sent.",
+			Usage: "select environment variables to be sent to function",
 		},
 	}
 }
