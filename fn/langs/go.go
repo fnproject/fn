@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -24,14 +25,28 @@ func (lh *GoLangHelper) PreBuild() error {
 	if err != nil {
 		return err
 	}
-	// todo: this won't work if the function is more complex since the import paths won't match up, need to fix
-	pbcmd := fmt.Sprintf("docker run --rm -v %s:/go/src/github.com/x/y -w /go/src/github.com/x/y iron/go:dev go build -o func", wd)
+
+	glidefn := filepath.Join(wd, "glide.lock")
+	if exists(glidefn) {
+		lh.deps(wd)
+	}
+
+	return lh.build(wd)
+}
+
+func (lh *GoLangHelper) AfterBuild() error {
+	return os.Remove("func")
+
+}
+
+func (lh *GoLangHelper) deps(wd string) error {
+	pkgname := filepath.Base(wd)
+	pbcmd := fmt.Sprintf("docker run --rm -v %s:/go/src/%s -w /go/src/%s iron/go:glide glide install -v", wd, pkgname, pkgname)
 	fmt.Println("Running prebuild command:", pbcmd)
 	parts := strings.Fields(pbcmd)
 	head := parts[0]
 	parts = parts[1:len(parts)]
 	cmd := exec.Command(head, parts...)
-	// cmd.Dir = dir
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
@@ -40,7 +55,19 @@ func (lh *GoLangHelper) PreBuild() error {
 	return nil
 }
 
-func (lh *GoLangHelper) AfterBuild() error {
-	return os.Remove("func")
-
+func (lh *GoLangHelper) build(wd string) error {
+	pkgname := filepath.Base(wd)
+	// todo: this won't work if the function is more complex since the import paths won't match up, need to fix
+	pbcmd := fmt.Sprintf("docker run --rm -v %s:/go/src/%s -w /go/src/%s iron/go:dev go build -o func", wd, pkgname, pkgname)
+	fmt.Println("Running prebuild command:", pbcmd)
+	parts := strings.Fields(pbcmd)
+	head := parts[0]
+	parts = parts[1:len(parts)]
+	cmd := exec.Command(head, parts...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running docker build: %v", err)
+	}
+	return nil
 }
