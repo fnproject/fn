@@ -4,8 +4,6 @@ import (
 	"net/http"
 
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api/models"
 )
 
 type SpecialHandler interface {
@@ -13,7 +11,6 @@ type SpecialHandler interface {
 }
 
 // Each handler can modify the context here so when it gets passed along, it will use the new info.
-// Not using Gin's Context so we don't lock ourselves into Gin, this is a subset of the Gin context.
 type HandlerContext interface {
 	// Context return the context object
 	Context() context.Context
@@ -21,28 +18,51 @@ type HandlerContext interface {
 	// Request returns the underlying http.Request object
 	Request() *http.Request
 
-	// Datastore returns the models.Datastore object. Not that this has arbitrary key value store methods that can be used to store extra data
-	Datastore() models.Datastore
+	// Response returns the http.ResponseWriter
+	Response() http.ResponseWriter
 
-	// Set and Get values on the context, this can be useful to change behavior for the rest of the request
+	// Overwrite value in the context
 	Set(key string, value interface{})
-	Get(key string) (value interface{}, exists bool)
+}
+
+type SpecialHandlerContext struct {
+	request  *http.Request
+	response http.ResponseWriter
+	ctx      context.Context
+}
+
+func (c *SpecialHandlerContext) Context() context.Context {
+	return c.ctx
+}
+
+func (c *SpecialHandlerContext) Request() *http.Request {
+	return c.request
+}
+
+func (c *SpecialHandlerContext) Response() http.ResponseWriter {
+	return c.response
+}
+
+func (c *SpecialHandlerContext) Set(key string, value interface{}) {
+	c.ctx = context.WithValue(c.ctx, key, value)
 }
 
 func (s *Server) AddSpecialHandler(handler SpecialHandler) {
 	s.specialHandlers = append(s.specialHandlers, handler)
 }
 
-func (s *Server) UseSpecialHandlers(ginC *gin.Context) error {
+// UseSpecialHandlers execute all special handlers
+func (s *Server) UseSpecialHandlers(ctx context.Context, req *http.Request, resp http.ResponseWriter) (context.Context, error) {
 	c := &SpecialHandlerContext{
-		server:     s,
-		ginContext: ginC,
+		request:  req,
+		response: resp,
+		ctx:      ctx,
 	}
 	for _, l := range s.specialHandlers {
 		err := l.Handle(c)
 		if err != nil {
-			return err
+			return c.ctx, err
 		}
 	}
-	return nil
+	return c.ctx, nil
 }

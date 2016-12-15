@@ -27,16 +27,15 @@ func (s *Server) handleSpecial(c *gin.Context) {
 
 	ctx = context.WithValue(ctx, "appName", "")
 	ctx = context.WithValue(ctx, "routePath", c.Request.URL.Path)
-	c.Set("ctx", ctx)
 
-	err := s.UseSpecialHandlers(c)
+	ctx, err := s.UseSpecialHandlers(ctx, c.Request, c.Writer)
 	if err != nil {
 		log.WithError(err).Errorln("Error using special handler!")
 		c.JSON(http.StatusInternalServerError, simpleError(errors.New("Failed to run function")))
 		return
 	}
 
-	ctx = c.MustGet("ctx").(context.Context)
+	c.Set("ctx", ctx)
 	if ctx.Value("appName").(string) == "" {
 		log.WithError(err).Errorln("Specialhandler returned empty app name")
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrRunnerRouteNotFound))
