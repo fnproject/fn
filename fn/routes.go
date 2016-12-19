@@ -453,7 +453,7 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 	config[key] = value
 	wrapper.Route.Config = config
 
-	if _, _, err := a.AppsAppRoutesRoutePut(appName, route, *wrapper); err != nil {
+	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
 		return fmt.Errorf("error updating route configuration: %v", err)
 	}
 
@@ -496,7 +496,7 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 	delete(config, key)
 	wrapper.Route.Config = config
 
-	if _, _, err := a.AppsAppRoutesRoutePut(appName, route, *wrapper); err != nil {
+	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
 		return fmt.Errorf("error updating route configuration: %v", err)
 	}
 
@@ -570,7 +570,7 @@ func (a *routesCmd) headersSet(c *cli.Context) error {
 	headers[key] = append(headers[key], value)
 	wrapper.Route.Headers = headers
 
-	if _, _, err := a.AppsAppRoutesRoutePut(appName, route, *wrapper); err != nil {
+	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
 		return fmt.Errorf("error updating route configuration: %v", err)
 	}
 
@@ -613,7 +613,7 @@ func (a *routesCmd) headersUnset(c *cli.Context) error {
 	delete(headers, key)
 	wrapper.Route.Headers = headers
 
-	if _, _, err := a.AppsAppRoutesRoutePut(appName, route, *wrapper); err != nil {
+	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
 		return fmt.Errorf("error updating route configuration: %v", err)
 	}
 
