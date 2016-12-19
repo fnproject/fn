@@ -99,6 +99,10 @@ func (a *appsCmd) list(c *cli.Context) error {
 		return fmt.Errorf("error getting app: %v", err)
 	}
 
+	if msg := wrapper.Error_.Message; msg != "" {
+		return errors.New(msg)
+	}
+
 	if len(wrapper.Apps) == 0 {
 		fmt.Println("no apps found")
 		return nil
@@ -129,6 +133,10 @@ func (a *appsCmd) create(c *cli.Context) error {
 		return fmt.Errorf("error creating app: %v", err)
 	}
 
+	if msg := wrapper.Error_.Message; msg != "" {
+		return errors.New(msg)
+	}
+
 	fmt.Println(wrapper.App.Name, "created")
 	return nil
 }
@@ -146,6 +154,10 @@ func (a *appsCmd) configList(c *cli.Context) error {
 	wrapper, _, err := a.AppsAppGet(appName)
 	if err != nil {
 		return fmt.Errorf("error creating app: %v", err)
+	}
+
+	if msg := wrapper.Error_.Message; msg != "" {
+		return errors.New(msg)
 	}
 
 	config := wrapper.App.Config
@@ -191,6 +203,10 @@ func (a *appsCmd) configSet(c *cli.Context) error {
 		return fmt.Errorf("error creating app: %v", err)
 	}
 
+	if msg := wrapper.Error_.Message; msg != "" {
+		return errors.New(msg)
+	}
+
 	config := wrapper.App.Config
 
 	if config == nil {
@@ -222,6 +238,10 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 	wrapper, _, err := a.AppsAppGet(appName)
 	if err != nil {
 		return fmt.Errorf("error creating app: %v", err)
+	}
+
+	if msg := wrapper.Error_.Message; msg != "" {
+		return errors.New(msg)
 	}
 
 	config := wrapper.App.Config

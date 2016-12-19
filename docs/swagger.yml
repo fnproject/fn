@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.27"
+  version: "0.1.28"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -434,6 +434,8 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/App'
+      error:
+        $ref: '#/definitions/ErrorBody'
 
   AppWrapper:
     type: object
@@ -442,6 +444,8 @@ definitions:
     properties:
       app:
         $ref: '#/definitions/App'
+      error:
+        $ref: '#/definitions/ErrorBody'
 
   Task:
     allOf:
