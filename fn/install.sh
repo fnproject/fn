@@ -3,7 +3,7 @@ set -e
 
 # Install script to install fn
 
-release="0.1.81"
+release="0.1.82"
 
 command_exists() {
   command -v "$@" > /dev/null 2>&1
