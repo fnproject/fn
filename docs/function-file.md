@@ -18,6 +18,9 @@ config:
   key: value
   key2: value2
   keyN: valueN
+headers:
+  content-type:
+   - text/plain
 build:
 - make
 - make test
