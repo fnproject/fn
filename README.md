@@ -305,7 +305,7 @@ These are the high level roadmap goals. See [milestones](https://github.com/iron
 You can get community support via:
 
 * [Stack Overflow](http://stackoverflow.com/questions/tagged/ironfunctions)
-* [Slack](https://get.iron.io/open-slack)
+* [Slack](http://get.iron.io/open-slack)
 
 You can get commercial support by contacting [Iron.io](https://iron.io/contact)
 
