@@ -39,7 +39,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 
 #### name (string)
 
-`name` is a property that references an unique app. 
+`name` is a property that references an unique app.
 
 App names are immutable. When updating apps with `PATCH` requests, keep in mind that although you
 are able to update an app's configuration set, you cannot really rename it.
@@ -47,7 +47,7 @@ are able to update an app's configuration set, you cannot really rename it.
 #### config (object)
 
 `config` is a map of values passed to the route runtime in the form of
-environment variables. 
+environment variables.
 
 Note: Route level configuration overrides app level configuration.
 
@@ -138,16 +138,16 @@ Note: Route level configuration overrides app level configuration.
 
 #### format (string)
 
-`format` defines if the function is running or not in `hot container` mode.
+`format` defines if the function is running or not in `hot function` mode.
 
-To define the function execution as `hot container` you set it as one of the following formats:
+To define the function execution as `hot function` you set it as one of the following formats:
 
 - `"http"`
 
-### 'Hot Container' Only Properties
+### 'Hot function' Only Properties
 
-This properties are only used if the function is in `hot container` mode
+This properties are only used if the function is in `hot function` mode
 
 #### max_concurrency (string)
 
-This property defines the maximum amount of concurrent hot containers instances the function should have (per IronFunction node). 
+This property defines the maximum amount of concurrent hot functions instances the function should have (per IronFunction node).

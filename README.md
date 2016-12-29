@@ -292,7 +292,7 @@ These are the high level roadmap goals. See [milestones](https://github.com/iron
   * Initial release of base framework
   * Lambda support
 * Alpha 2 - December 2016
-  * Streaming input for hot containers #214
+  * Streaming input for hot functions #214
   * Logging endpoint(s) for per function debugging #263
 * Beta 1 - January 2017
   * Smart Load Balancer #151

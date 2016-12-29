@@ -66,12 +66,12 @@ func routes() cli.Command {
 					},
 					cli.StringFlag{
 						Name:  "format,f",
-						Usage: "hot container IO format - json or http",
+						Usage: "hot function IO format - json or http",
 						Value: "",
 					},
 					cli.IntFlag{
 						Name:  "max-concurrency",
-						Usage: "maximum concurrency for hot container",
+						Usage: "maximum concurrency for hot function",
 						Value: 1,
 					},
 					cli.DurationFlag{

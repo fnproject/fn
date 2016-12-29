@@ -1,4 +1,4 @@
-# Hot containers
+# Hot functions
 
 IronFunctions is built on top of container technologies, for each incoming
 workload, it spins a new container, feed it with the payload and sends the
@@ -8,8 +8,8 @@ container. You may refer to [this blog](https://medium.com/travis-on-docker/the-
 In the case you need faster start times for your function, you may use a hot
 container instead.
 
-Hot containers are started once and kept alive while there is incoming workload.
-Thus, it means that once you decide to use a hot container, you must be able to
+hot functions are started once and kept alive while there is incoming workload.
+Thus, it means that once you decide to use a hot function, you must be able to
 tell the moment it should reading from standard input to start writing to
 standard output.
 
@@ -17,9 +17,9 @@ Currently, IronFunctions implements a HTTP-like protocol to operate hot
 containers, but instead of communication through a TCP/IP port, it uses standard
 input/output.
 
-## Implementing a hot container
+## Implementing a hot function
 
-In the [examples directory](https://github.com/iron-io/functions/blob/master/examples/hotcontainers/http/func.go), there is one simple implementation of a hot container
+In the [examples directory](https://github.com/iron-io/functions/blob/master/examples/hotcontainers/http/func.go), there is one simple implementation of a hot function
 which we are going to get in the details here.
 
 The basic cycle comprises three steps: read standard input up to a previosly
@@ -75,9 +75,9 @@ res.Write(os.Stdout)
 Rinse and repeat for each incoming workload.
 
 
-## Deploying a hot container
+## Deploying a hot function
 
-Once your functions is adapted to be handled as hot container, you must tell
+Once your functions is adapted to be handled as hot function, you must tell
 IronFunctions daemon that this function is now ready to be reused across
 requests:
 
@@ -99,5 +99,5 @@ requests:
 `format` (mandatory) either "default" or "http". If "http", then it is a hot
 container.
 
-`max_concurrency` (optional) - the number of simultaneous hot containers for
+`max_concurrency` (optional) - the number of simultaneous hot functions for
 this functions. This is a per-node configuration option. Default: 1

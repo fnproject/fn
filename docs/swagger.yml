@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: IronFunctions
   description: The open source serverless platform.
-  version: "0.1.28"
+  version: "0.1.29"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -370,7 +370,7 @@ definitions:
       max_concurrency:
         type: integer
         format: int32
-        description: Maximum number of hot containers concurrency
+        description: Maximum number of hot functions concurrency
       config:
         type: object
         description: Route configuration - overrides application configuration

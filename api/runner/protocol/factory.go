@@ -11,7 +11,7 @@ import (
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
 
-// ContainerIO defines the interface used to talk to a hot container.
+// ContainerIO defines the interface used to talk to a hot function.
 // Internally, a protocol must know when to alternate between stdin and stdout.
 // It returns any protocol error, if present.
 type ContainerIO interface {
@@ -22,7 +22,7 @@ type ContainerIO interface {
 // Protocol defines all protocols that operates a ContainerIO.
 type Protocol string
 
-// Hot container protocols
+// hot function protocols
 const (
 	Default Protocol = models.FormatDefault
 	HTTP    Protocol = models.FormatHTTP
@@ -43,7 +43,7 @@ func New(p Protocol, in io.Writer, out io.Reader) (ContainerIO, error) {
 }
 
 // IsStreamable says whether the given protocol can be used for streaming into
-// hot containers.
+// hot functions.
 func IsStreamable(p string) (bool, error) {
 	proto, err := New(Protocol(p), nil, nil)
 	if err != nil {

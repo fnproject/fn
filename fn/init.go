@@ -77,13 +77,13 @@ func initFn() cli.Command {
 			},
 			cli.StringFlag{
 				Name:        "format",
-				Usage:       "hot container IO format - json or http",
+				Usage:       "hot function IO format - json or http",
 				Destination: &a.format,
 				Value:       "",
 			},
 			cli.IntFlag{
 				Name:        "max-concurrency",
-				Usage:       "maximum concurrency for hot container",
+				Usage:       "maximum concurrency for hot function",
 				Destination: &a.maxConcurrency,
 				Value:       1,
 			},
