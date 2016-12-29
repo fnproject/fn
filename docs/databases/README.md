@@ -14,7 +14,7 @@ URL: `bolt:///functions/data/functions.db`
 Bolt is an embedded database which stores to disk. If you want to use this, be sure you don't lose the data directory by mounting
 the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e DB_URL=bolt:///functions/data/bolt.db ...`
 
-[More on BoltDB](databases/boltdb.md)
+[More on BoltDB](boltdb.md)
 
 ## [PostgreSQL](http://www.postgresql.org/)
 
@@ -22,7 +22,7 @@ URL: `postgres://user123:pass456@ec2-117-21-174-214.compute-1.amazonaws.com:6212
 
 Use a PostgreSQL database. If you're using IronFunctions in production, you should probably start here.
 
-[More on Postgres](databases/postgres.md)
+[More on Postgres](postgres.md)
 
 ## What about database X?
 
