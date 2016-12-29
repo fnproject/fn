@@ -33,7 +33,7 @@ type Server struct {
 	singleflight singleflight // singleflight assists Datastore
 }
 
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *Server {
+func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *runner.Runner, tasks chan task.Request, enqueue models.Enqueue, opts ...ServerOption) *Server {
 	s := &Server{
 		Runner:    r,
 		Router:    gin.New(),
@@ -44,6 +44,10 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, r *ru
 	}
 
 	s.Router.Use(prepareMiddleware(ctx))
+
+	for _, opt := range opts {
+		opt(s)
+	}
 
 	return s
 }

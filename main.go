@@ -92,7 +92,15 @@ func main() {
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
-		srv := server.New(ctx, ds, mq, rnr, tasks, server.DefaultEnqueue)
+		srv := server.New(
+			ctx,
+			ds,
+			mq,
+			rnr,
+			tasks,
+			server.DefaultEnqueue,
+			server.EnableShutdownEndpoint(halt),
+		)
 		srv.Run()
 		<-ctx.Done()
 	})
