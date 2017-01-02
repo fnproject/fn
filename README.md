@@ -76,7 +76,7 @@ This guide will get you up and running in a few minutes.
 To get started quickly with IronFunctions, just fire up an `iron/functions` container:
 
 ```sh
-docker run --rm -it --name functions --privileged -v $PWD/data:/app/data -p 8080:8080 iron/functions
+docker run --rm -it --name functions --privileged -v ${pwd}/data:/app/data -p 8080:8080 iron/functions
 ```
 
 This will start IronFunctions in single server mode, using an embedded database and message queue. You can find all the

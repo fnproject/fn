@@ -35,7 +35,7 @@ ENTRYPOINT ["./funcbin"]
 Then you simply build your function:
 
 ```sh
-docker run --rm -v "$PWD":/go/src/$FUNCPKG -w /go/src/$FUNCPKG iron/go:dev go build -o funcbin
+docker run --rm -v ${pwd}:/go/src/$FUNCPKG -w /go/src/$FUNCPKG iron/go:dev go build -o funcbin
 docker build -t $USERNAME/myfunction .
 ```
 
