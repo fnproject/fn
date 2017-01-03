@@ -1,5 +1,5 @@
-hash: f3c0e4634313b824f30782a3431b6fb8ad2feaf382c765e6f6930bfd50f53750
-updated: 2016-12-01T21:51:57.931016569+01:00
+hash: 9356255bb45ddb833b045e985b2dbf0721791b431849a4f36a50b0897e888c3c
+updated: 2016-12-29T19:40:42.322381915-02:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 90dec2183a5f5458ee79cbaf4b8e9ab910bc81a6
@@ -90,6 +90,8 @@ imports:
   - lambda
 - name: github.com/jmespath/go-jmespath
   version: 3433f3ea46d9f8019119e7dd41274e112a2359a9
+- name: github.com/jmoiron/jsonq
+  version: e874b168d07ecc7808bc950a17998a8aa3141d82
 - name: github.com/juju/errgo
   version: 08cceb5d0b5331634b9826762a8fd53b29b86ad8
   subpackages:

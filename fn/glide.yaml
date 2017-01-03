@@ -14,9 +14,10 @@ import:
   - bump
   - storage
 - package: github.com/iron-io/functions_go
-  version: 429df8920abd7c47dfcd6777dba278d6122ab93d
+  version: f38f2174656467ec3ed404b7294e9ee172573e43
 - package: github.com/iron-io/lambda
   subpackages:
   - lambda
 - package: github.com/urfave/cli
 - package: gopkg.in/yaml.v2
+- package: github.com/jmoiron/jsonq

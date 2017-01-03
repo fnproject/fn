@@ -114,36 +114,21 @@ Thus a more complete example of route creation will look like:
 fn routes create --memory 256 --type async --config DB_URL=http://example.org/ otherapp /hello iron/hello
 ```
 
-`--memory` is number of usable MiB for this function. If during the execution it
-exceeds this maximum threshold, it will halt and return an error in the logs.
+You can also update existent routes configurations using the command `fn routes update`
 
-`--type` is the type of the function. Either `sync`, in which the client waits
-until the request is successfully completed, or `async`, in which the clients
-dispatches a new request, gets a task ID back and closes the HTTP connection.
+For example:
 
-`--config` is a map of values passed to the route runtime in the form of
-environment variables.
-
-Repeated calls to `fn route create` will trigger an update of the given
-route, thus you will be able to change any of these attributes later in time
-if necessary.
-
-## Route headers
-
-You can configure a route's HTTP response to return specific headers.
-
-A header configuration workflow example:
 ```sh
-$ fn routes headers set otherapp hello header-name value
-otherapp /hello headers updated header-name with value
-
-$ fn routes headers view otherapp hello
-otherapp /hello headers:
-header-name: [value]
-
-$ fn routes headers unset otherapp hello header-name
-otherapp /hello removed header header-name
+fn routes update --memory 64 --type sync --image iron/hello
 ```
+
+To know exactly what configurations you can update just use the command
+
+```
+fn routes update --help
+```
+
+To understand how each configuration affect your function checkout the [Definitions](/docs/definitions.md#Routes) document.
 
 ## Changing target host
 

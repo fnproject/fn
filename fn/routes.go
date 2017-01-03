@@ -14,6 +14,7 @@ import (
 	"time"
 
 	functions "github.com/iron-io/functions_go"
+	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
 )
 
@@ -82,6 +83,52 @@ func routes() cli.Command {
 				},
 			},
 			{
+				Name:      "update",
+				Aliases:   []string{"u"},
+				Usage:     "update a route in an `app`",
+				ArgsUsage: "`app` /path",
+				Action:    r.update,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "image,i",
+						Usage: "image name",
+					},
+					cli.Int64Flag{
+						Name:  "memory,m",
+						Usage: "memory in MiB",
+						Value: 128,
+					},
+					cli.StringFlag{
+						Name:  "type,t",
+						Usage: "route type - sync or async",
+						Value: "sync",
+					},
+					cli.StringSliceFlag{
+						Name:  "config,c",
+						Usage: "route configuration",
+					},
+					cli.StringSliceFlag{
+						Name:  "headers",
+						Usage: "route response headers",
+					},
+					cli.StringFlag{
+						Name:  "format,f",
+						Usage: "hot container IO format - json or http",
+						Value: "",
+					},
+					cli.IntFlag{
+						Name:  "max-concurrency",
+						Usage: "maximum concurrency for hot container",
+						Value: 1,
+					},
+					cli.DurationFlag{
+						Name:  "timeout",
+						Usage: "route timeout",
+						Value: 30 * time.Second,
+					},
+				},
+			},
+			{
 				Name:      "delete",
 				Aliases:   []string{"d"},
 				Usage:     "delete a route from `app`",
@@ -89,69 +136,11 @@ func routes() cli.Command {
 				Action:    r.delete,
 			},
 			{
-				Name:  "config",
-				Usage: "operate a route configuration set",
-				Subcommands: []cli.Command{
-					{
-						Name:      "view",
-						Aliases:   []string{"v"},
-						Usage:     "view all configuration keys for this route",
-						ArgsUsage: "`app` /path",
-						Action:    r.configList,
-						Flags: []cli.Flag{
-							cli.BoolFlag{
-								Name:  "shell,s",
-								Usage: "output in shell format",
-							},
-							cli.BoolFlag{
-								Name:  "json,j",
-								Usage: "output in JSON format",
-							},
-						},
-					},
-					{
-						Name:      "set",
-						Aliases:   []string{"s"},
-						Usage:     "store a configuration key for this route",
-						ArgsUsage: "`app` /path <key> <value>",
-						Action:    r.configSet,
-					},
-					{
-						Name:      "unset",
-						Aliases:   []string{"u"},
-						Usage:     "remove a configuration key for this route",
-						ArgsUsage: "`app` /path <key>",
-						Action:    r.configUnset,
-					},
-				},
-			},
-
-			{
-				Name:  "headers",
-				Usage: "operate a route's header configuration",
-				Subcommands: []cli.Command{
-					{
-						Name:      "view",
-						Aliases:   []string{"v"},
-						Usage:     "view all route's headers",
-						ArgsUsage: "`app` /path",
-						Action:    r.headersList,
-					},
-					{
-						Name:      "set",
-						Aliases:   []string{"s"},
-						Usage:     "add header to a router",
-						ArgsUsage: "`app` /path <key> <value>",
-						Action:    r.headersSet,
-					},
-					{
-						Name:      "unset",
-						Aliases:   []string{"u"},
-						Usage:     "remove a configuration key for this route",
-						ArgsUsage: "`app` /path <key>",
-						Action:    r.headersUnset,
-					},
-				},
+				Name:      "inspect",
+				Aliases:   []string{"i"},
+				Usage:     "retrieve one or all routes properties",
+				ArgsUsage: "`app` /path [property.[key]]",
+				Action:    r.inspect,
 			},
 		},
 	}
@@ -376,6 +365,49 @@ func (a *routesCmd) delete(c *cli.Context) error {
 	return nil
 }
 
+func (a *routesCmd) update(c *cli.Context) error {
+	if c.Args().Get(0) == "" {
+		return errors.New("error: routes creation takes at least one argument: an app name")
+	}
+
+	if err := resetBasePath(a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
+	}
+
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+
+	if route == "" {
+		return errors.New("error: route path is missing")
+	}
+
+	headers := map[string][]string{}
+	for _, header := range c.StringSlice("headers") {
+		parts := strings.Split(header, "=")
+		headers[parts[0]] = strings.Split(parts[1], ";")
+	}
+
+	patchedRoute := &functions.Route{
+		Path:           route,
+		Image:          c.String("image"),
+		Memory:         c.Int64("memory"),
+		Type_:          c.String("type"),
+		Config:         extractEnvConfig(c.StringSlice("config")),
+		Headers:        headers,
+		Format:         c.String("format"),
+		MaxConcurrency: int32(c.Int64("max-concurrency")),
+		Timeout:        int32(c.Int64("timeout")),
+	}
+
+	err := a.patchRoute(appName, route, patchedRoute)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(appName, route, "updated")
+	return nil
+}
+
 func (a *routesCmd) configList(c *cli.Context) error {
 	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
 		return errors.New("error: route configuration description takes two arguments: an app name and a route")
@@ -421,21 +453,8 @@ func (a *routesCmd) configList(c *cli.Context) error {
 	return nil
 }
 
-func (a *routesCmd) configSet(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
-	}
-
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-	key := c.Args().Get(2)
-	value := c.Args().Get(3)
-
-	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+func (a *routesCmd) patchRoute(appName, routePath string, r *functions.Route) error {
+	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, routePath)
 	if err != nil {
 		return fmt.Errorf("error loading route: %v", err)
 	}
@@ -444,69 +463,57 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 		return errors.New(msg)
 	}
 
-	config := wrapper.Route.Config
-
-	if config == nil {
-		config = make(map[string]string)
+	wrapper.Route.Path = ""
+	if r != nil {
+		if r.Config != nil {
+			for k, v := range r.Config {
+				if v == "" {
+					delete(r.Config, k)
+					continue
+				}
+				wrapper.Route.Config[k] = v
+			}
+		}
+		if r.Headers != nil {
+			for k, v := range r.Headers {
+				if v[0] == "" {
+					delete(r.Headers, k)
+					continue
+				}
+				wrapper.Route.Headers[k] = v
+			}
+		}
+		if r.Image != "" {
+			wrapper.Route.Image = r.Image
+		}
+		if r.Format != "" {
+			wrapper.Route.Format = r.Format
+		}
+		if r.MaxConcurrency > 0 {
+			wrapper.Route.MaxConcurrency = r.MaxConcurrency
+		}
+		if r.Memory > 0 {
+			wrapper.Route.Memory = r.Memory
+		}
+		if r.Timeout > 0 {
+			wrapper.Route.Timeout = r.Timeout
+		}
 	}
 
-	config[key] = value
-	wrapper.Route.Config = config
-
-	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
-		return fmt.Errorf("error updating route configuration: %v", err)
-	}
-
-	fmt.Println(appName, wrapper.Route.Path, "updated", key, "with", value)
-	return nil
-}
-
-func (a *routesCmd) configUnset(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route and a key")
-	}
-
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-	key := c.Args().Get(2)
-
-	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
-	if err != nil {
-		return fmt.Errorf("error loading app: %v", err)
+	if wrapper, _, err = a.AppsAppRoutesRoutePatch(appName, routePath, *wrapper); err != nil {
+		return fmt.Errorf("error updating route: %v", err)
 	}
 
 	if msg := wrapper.Error_.Message; msg != "" {
 		return errors.New(msg)
 	}
 
-	config := wrapper.Route.Config
-
-	if config == nil {
-		config = make(map[string]string)
-	}
-
-	if _, ok := config[key]; !ok {
-		return fmt.Errorf("configuration key %s not found", key)
-	}
-
-	delete(config, key)
-	wrapper.Route.Config = config
-
-	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
-		return fmt.Errorf("error updating route configuration: %v", err)
-	}
-
-	fmt.Println(appName, wrapper.Route.Path, "removed", key)
 	return nil
 }
 
-func (a *routesCmd) headersList(c *cli.Context) error {
+func (a *routesCmd) inspect(c *cli.Context) error {
 	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: route configuration description takes two arguments: an app name and a route")
+		return errors.New("error: routes listing takes three arguments: an app name and a path")
 	}
 
 	if err := resetBasePath(a.Configuration); err != nil {
@@ -515,108 +522,37 @@ func (a *routesCmd) headersList(c *cli.Context) error {
 
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
-	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	prop := c.Args().Get(2)
+
+	wrapper, resp, err := a.AppsAppRoutesRouteGet(appName, route)
 	if err != nil {
-		return fmt.Errorf("error loading route information: %v", err)
+		return fmt.Errorf("error retrieving route: %v", err)
 	}
 
 	if msg := wrapper.Error_.Message; msg != "" {
 		return errors.New(msg)
 	}
 
-	headers := wrapper.Route.Headers
-	if len(headers) == 0 {
-		return errors.New("this route has no headers")
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "\t")
+
+	if prop == "" {
+		enc.Encode(wrapper.Route)
+		return nil
 	}
 
-	fmt.Println(appName, wrapper.Route.Path, "headers:")
-	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
-	for k, v := range headers {
-		fmt.Fprint(w, k, ":\t", v, "\n")
-	}
-	w.Flush()
-	return nil
-}
-
-func (a *routesCmd) headersSet(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
-	}
-
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-	key := c.Args().Get(2)
-	value := c.Args().Get(3)
-
-	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	var inspect struct{ Route map[string]interface{} }
+	err = json.Unmarshal(resp.Payload, &inspect)
 	if err != nil {
-		return fmt.Errorf("error loading route: %v", err)
+		return fmt.Errorf("error inspect route: %v", err)
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	headers := wrapper.Route.Headers
-
-	if headers == nil {
-		headers = make(map[string][]string)
-	}
-
-	headers[key] = append(headers[key], value)
-	wrapper.Route.Headers = headers
-
-	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
-		return fmt.Errorf("error updating route configuration: %v", err)
-	}
-
-	fmt.Println(appName, wrapper.Route.Path, "headers updated", key, "with", value)
-	return nil
-}
-
-func (a *routesCmd) headersUnset(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route and a key")
-	}
-
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-	key := c.Args().Get(2)
-
-	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	jq := jsonq.NewQuery(inspect.Route)
+	field, err := jq.Interface(strings.Split(prop, ".")...)
 	if err != nil {
-		return fmt.Errorf("error loading app: %v", err)
+		return errors.New("failed to inspect the property")
 	}
+	enc.Encode(field)
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	headers := wrapper.Route.Headers
-
-	if headers == nil {
-		headers = make(map[string][]string)
-	}
-
-	if _, ok := headers[key]; !ok {
-		return fmt.Errorf("configuration key %s not found", key)
-	}
-
-	delete(headers, key)
-	wrapper.Route.Headers = headers
-
-	if _, _, err := a.AppsAppRoutesRoutePatch(appName, route, *wrapper); err != nil {
-		return fmt.Errorf("error updating route configuration: %v", err)
-	}
-
-	fmt.Println(appName, wrapper.Route.Path, "removed header", key)
 	return nil
 }
