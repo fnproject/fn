@@ -55,12 +55,12 @@ func timeoutName(i int) []byte {
 func NewBoltMQ(url *url.URL) (*BoltDbMQ, error) {
 	dir := filepath.Dir(url.Path)
 	log := logrus.WithFields(logrus.Fields{"mq": url.Scheme, "dir": dir})
-	err := os.MkdirAll(dir, 0777)
+	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		log.WithError(err).Errorln("Could not create data directory for mq")
 		return nil, err
 	}
-	db, err := bolt.Open(url.Path, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open(url.Path, 0655, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.WithError(err).Errorln("Could not open BoltDB file for MQ")
 		return nil, err

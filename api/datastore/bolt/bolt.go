@@ -29,13 +29,13 @@ type BoltDatastore struct {
 func New(url *url.URL) (models.Datastore, error) {
 	dir := filepath.Dir(url.Path)
 	log := logrus.WithFields(logrus.Fields{"db": url.Scheme, "dir": dir})
-	err := os.MkdirAll(dir, 0777)
+	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		log.WithError(err).Errorln("Could not create data directory for db")
 		return nil, err
 	}
 	log.Infoln("Creating bolt db at ", url.Path)
-	db, err := bolt.Open(url.Path, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open(url.Path, 0655, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.WithError(err).Errorln("Error on bolt.Open")
 		return nil, err
