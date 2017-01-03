@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/gin-gonic/gin"
+	"github.com/iron-io/functions/api"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
@@ -36,8 +37,8 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
-	wroute.Route.AppName = ctx.Value("appName").(string)
-	wroute.Route.Path = path.Clean(ctx.Value("routePath").(string))
+	wroute.Route.AppName = c.MustGet(api.AppName).(string)
+	wroute.Route.Path = path.Clean(c.MustGet(api.Path).(string))
 
 	if wroute.Route.Image != "" {
 		err = s.Runner.EnsureImageExists(ctx, &task.Config{

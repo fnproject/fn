@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/iron-io/functions/api"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/runner/common"
@@ -29,7 +30,7 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	wroute.Route.AppName = ctx.Value("appName").(string)
+	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 
 	if err := wroute.Validate(); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)

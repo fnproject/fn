@@ -18,7 +18,16 @@ import (
 
 func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *gin.Engine {
 	ctx := context.Background()
-	s := New(ctx, ds, mq, rnr, tasks, enqueue)
+
+	s := &Server{
+		Runner:    rnr,
+		Router:    gin.New(),
+		Datastore: ds,
+		MQ:        mq,
+		tasks:     tasks,
+		Enqueue:   enqueue,
+	}
+
 	r := s.Router
 	r.Use(gin.Logger())
 

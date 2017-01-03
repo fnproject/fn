@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/gin-gonic/gin"
+	"github.com/iron-io/functions/api"
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/runner/common"
 )
@@ -14,8 +15,8 @@ func (s *Server) handleRouteGet(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 
-	appName := ctx.Value("appName").(string)
-	routePath := path.Clean(ctx.Value("routePath").(string))
+	appName := c.MustGet(api.AppName).(string)
+	routePath := path.Clean(c.MustGet(api.Path).(string))
 
 	route, err := s.Datastore.GetRoute(ctx, appName, routePath)
 	if err != nil && err != models.ErrRoutesNotFound {

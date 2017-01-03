@@ -23,7 +23,16 @@ var tmpBolt = "/tmp/func_test_bolt.db"
 
 func testRouter(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request) *gin.Engine {
 	ctx := context.Background()
-	s := New(ctx, ds, mq, rnr, tasks, DefaultEnqueue)
+
+	s := &Server{
+		Runner:    rnr,
+		Router:    gin.New(),
+		Datastore: ds,
+		MQ:        mq,
+		tasks:     tasks,
+		Enqueue:   DefaultEnqueue,
+	}
+
 	r := s.Router
 	r.Use(gin.Logger())
 
