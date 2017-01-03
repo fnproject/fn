@@ -96,10 +96,12 @@ func StartWorkers(ctx context.Context, rnr *Runner, tasks <-chan task.Request) {
 				continue
 			}
 
+			rnr.Start()
 			select {
 			case <-ctx.Done():
 				return
 			case p <- task:
+				rnr.Complete()
 			}
 		}
 	}
@@ -344,6 +346,8 @@ func (hc *htfn) serve(ctx context.Context) {
 
 func runTaskReq(rnr *Runner, wg *sync.WaitGroup, t task.Request) {
 	defer wg.Done()
+	rnr.Start()
+	defer rnr.Complete()
 	result, err := rnr.Run(t.Ctx, t.Config)
 	select {
 	case t.Response <- task.Response{result, err}:

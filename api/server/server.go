@@ -133,6 +133,7 @@ func (s *Server) bindHandlers() {
 
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
+	engine.GET("/stats", s.handleStats)
 
 	v1 := engine.Group("/v1")
 	{

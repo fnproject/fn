@@ -180,6 +180,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		Timeout:        time.Duration(found.Timeout) * time.Second,
 	}
 
+	s.Runner.Enqueue()
 	switch found.Type {
 	case "async":
 		// Read payload

@@ -30,6 +30,8 @@ type Runner struct {
 	availableMem int64
 	usedMem      int64
 	usedMemMutex sync.RWMutex
+
+	stats
 }
 
 var (
