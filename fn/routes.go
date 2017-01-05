@@ -27,7 +27,7 @@ func routes() cli.Command {
 
 	return cli.Command{
 		Name:      "routes",
-		Usage:     "operate routes",
+		Usage:     "manage routes",
 		ArgsUsage: "fn routes",
 		Subcommands: []cli.Command{
 			{
