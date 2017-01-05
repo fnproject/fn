@@ -288,10 +288,10 @@ See [docs/](docs/README.md) for full documentation.
 
 These are the high level roadmap goals. See [milestones](https://github.com/iron-io/functions/milestones) for detailed issues.
 
-* Alpha 1 - November 2016
+* ~~Alpha 1 - November 2016~~
   * Initial release of base framework
   * Lambda support
-* Alpha 2 - December 2016
+* ~~Alpha 2 - December 2016~~
   * Streaming input for hot functions #214
   * Logging endpoint(s) for per function debugging #263
 * Beta 1 - January 2017
