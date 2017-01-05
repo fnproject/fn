@@ -30,7 +30,7 @@ func TestRouteRunnerGet(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	router := testRouter(&datastore.Mock{
+	srv := testServer(&datastore.Mock{
 		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
@@ -46,7 +46,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		{"/r/app/route", "", http.StatusNotFound, models.ErrAppsNotFound},
 		{"/r/myapp/route", "", http.StatusNotFound, models.ErrRunnerRouteNotFound},
 	} {
-		_, rec := routerRequest(t, router, "GET", test.path, nil)
+		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -73,7 +73,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	router := testRouter(&datastore.Mock{
+	srv := testServer(&datastore.Mock{
 		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
@@ -90,7 +90,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		{"/r/myapp/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRunnerRouteNotFound},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
-		_, rec := routerRequest(t, router, "POST", test.path, body)
+		_, rec := routerRequest(t, srv.Router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -123,7 +123,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 	go runner.StartWorkers(ctx, rnr, tasks)
 
-	router := testRouter(&datastore.Mock{
+	srv := testServer(&datastore.Mock{
 		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
@@ -148,7 +148,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 	} {
 		body := strings.NewReader(test.body)
-		_, rec := routerRequest(t, router, test.method, test.path, body)
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -181,7 +181,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	defer cancelrnr()
 	go runner.StartWorkers(ctx, rnr, tasks)
 
-	router := testRouter(&datastore.Mock{
+	srv := testServer(&datastore.Mock{
 		Apps: []*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
@@ -201,7 +201,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		{"/r/myapp/sleeper", `{"sleep": 2}`, "POST", http.StatusGatewayTimeout, nil},
 	} {
 		body := strings.NewReader(test.body)
-		_, rec := routerRequest(t, router, test.method, test.path, body)
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())

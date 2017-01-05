@@ -62,5 +62,7 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
+	s.cacherefresh(route)
+
 	c.JSON(http.StatusOK, routeResponse{"Route successfully updated", route})
 }

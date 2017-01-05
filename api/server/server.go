@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
@@ -15,6 +16,7 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
+	"github.com/iron-io/functions/api/server/internal/routecache"
 	"github.com/iron-io/runner/common"
 )
 
@@ -41,9 +43,13 @@ type Server struct {
 	appDeleteListeners []AppDeleteListener
 	runnerListeners    []RunnerListener
 
+	mu           sync.Mutex // protects hotroutes
+	hotroutes    *routecache.Cache
 	tasks        chan task.Request
 	singleflight singleflight // singleflight assists Datastore
 }
+
+const cacheSize = 1024
 
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiURL string, opts ...ServerOption) *Server {
 	metricLogger := runner.NewMetricLogger()
@@ -56,12 +62,12 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 	}
 
 	tasks := make(chan task.Request)
-
 	s := &Server{
 		Runner:    rnr,
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
+		hotroutes: routecache.New(cacheSize),
 		tasks:     tasks,
 		Enqueue:   DefaultEnqueue,
 		apiURL:    apiURL,
@@ -72,7 +78,6 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 	for _, opt := range opts {
 		opt(s)
 	}
-
 	return s
 }
 
@@ -87,7 +92,6 @@ func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
 		if routePath := c.Param("route"); routePath != "" {
 			c.Set(api.Path, routePath)
 		}
-
 		c.Set("ctx", ctx)
 		c.Next()
 	}
@@ -96,6 +100,28 @@ func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
 func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Task) (*models.Task, error) {
 	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"call_id": task.ID})
 	return mq.Push(ctx, task)
+}
+
+func (s *Server) cacheget(appname, path string) (*models.Route, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	route, ok := s.hotroutes.Get(appname, path)
+	if !ok {
+		return nil, false
+	}
+	return route, ok
+}
+
+func (s *Server) cacherefresh(route *models.Route) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hotroutes.Refresh(route)
+}
+
+func (s *Server) cachedelete(appname, path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hotroutes.Delete(appname, path)
 }
 
 func (s *Server) handleRunnerRequest(c *gin.Context) {

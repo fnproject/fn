@@ -58,7 +58,8 @@ func TestAppCreate(t *testing.T) {
 		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
+		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
@@ -102,9 +103,9 @@ func TestAppDelete(t *testing.T) {
 		}, "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		router := testRouter(test.ds, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
 
-		_, rec := routerRequest(t, router, "DELETE", test.path, nil)
+		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -132,7 +133,7 @@ func TestAppList(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -142,7 +143,7 @@ func TestAppList(t *testing.T) {
 	}{
 		{"/v1/apps", "", http.StatusOK, nil},
 	} {
-		_, rec := routerRequest(t, router, "GET", test.path, nil)
+		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -169,7 +170,7 @@ func TestAppGet(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	router := testRouter(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -179,7 +180,7 @@ func TestAppGet(t *testing.T) {
 	}{
 		{"/v1/apps/myapp", "", http.StatusNotFound, nil},
 	} {
-		_, rec := routerRequest(t, router, "GET", test.path, nil)
+		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
@@ -229,10 +230,10 @@ func TestAppUpdate(t *testing.T) {
 		}, "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		router := testRouter(test.mock, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
 
 		body := bytes.NewBuffer([]byte(test.body))
-		_, rec := routerRequest(t, router, "PATCH", test.path, body)
+		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())

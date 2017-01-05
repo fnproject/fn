@@ -12,6 +12,7 @@ import (
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
+	"github.com/iron-io/functions/api/server/internal/routecache"
 )
 
 type testSpecialHandler struct{}
@@ -44,9 +45,10 @@ func TestSpecialHandlerSet(t *testing.T) {
 				{Path: "/test", Image: "iron/hello", AppName: "test"},
 			},
 		},
-		MQ:      &mqs.Mock{},
-		tasks:   tasks,
-		Enqueue: DefaultEnqueue,
+		MQ:        &mqs.Mock{},
+		tasks:     tasks,
+		Enqueue:   DefaultEnqueue,
+		hotroutes: routecache.New(2),
 	}
 
 	router := s.Router
