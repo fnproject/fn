@@ -15,6 +15,9 @@ var aliases = map[string]cli.Command{
 	"build":  build(),
 	"bump":   bump(),
 	"deploy": deploy(),
+	"push":   push(),
+	"run":    run(),
+	"call":   call(),
 }
 
 func aliasesFn() []cli.Command {
@@ -53,6 +56,9 @@ ALIASES:
      build    (images build)
      bump     (images bump)
      deploy   (images deploy)
+     run      (images run)
+     call     (routes call)
+     push     (images push)
 
 GLOBAL OPTIONS:
    {{range $index, $option := .VisibleFlags}}{{if $index}}
