@@ -30,7 +30,7 @@ func aliasesFn() []cli.Command {
 	return cmds
 }
 
-func main() {
+func newFn() *cli.App {
 	app := cli.NewApp()
 	app.Name = "fn"
 	app.Version = fnversion
@@ -77,6 +77,11 @@ GLOBAL OPTIONS:
 		version(),
 	}
 	app.Commands = append(app.Commands, aliasesFn()...)
+	return app
+}
+
+func main() {
+	app := newFn()
 	app.Run(os.Args)
 }
 
