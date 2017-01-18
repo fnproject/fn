@@ -15,6 +15,7 @@
 
 ### Bugfixes
 
+- [#483](https://github.com/iron-io/functions/pull/483): Listen for PORT before running async/sync workers in order to prevent errors.
 - [#429](https://github.com/iron-io/functions/issues/429): Broken docs after merge.
 - [#422](https://github.com/iron-io/functions/issues/422): The headers field in func.yaml expects an array of values for each header key.
 - [#421](https://github.com/iron-io/functions/issues/421): Can't update a route and show better error message.

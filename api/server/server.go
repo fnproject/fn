@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"path"
 	"sync"
@@ -18,6 +20,7 @@ import (
 	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/functions/api/server/internal/routecache"
 	"github.com/iron-io/runner/common"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -177,6 +180,15 @@ func (s *Server) Start(ctx context.Context) {
 }
 
 func (s *Server) startGears(ctx context.Context) {
+	// By default it serves on :8080 unless a
+	// PORT environment variable was defined.
+	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		logrus.WithError(err).Fatalln("Failed to serve functions API.")
+	}
+	logrus.Infof("Serving Functions API on address `%s`", listen)
+
 	svr := &supervisor.Supervisor{
 		MaxRestarts: supervisor.AlwaysRestart,
 		Log: func(msg interface{}) {
@@ -184,19 +196,22 @@ func (s *Server) startGears(ctx context.Context) {
 		},
 	}
 
-	// By default it serves on :8080 unless a
-	// PORT environment variable was defined.
 	svr.AddFunc(func(ctx context.Context) {
-		go s.Router.Run()
+		go func() {
+			err := http.Serve(listener, s.Router)
+			if err != nil {
+				logrus.Fatalf("Error serving API: %v", err)
+			}
+		}()
 		<-ctx.Done()
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
-		runner.StartWorkers(ctx, s.Runner, s.tasks)
+		runner.RunAsyncRunner(ctx, s.apiURL, s.tasks, s.Runner)
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
-		runner.RunAsyncRunner(ctx, s.apiURL, s.tasks, s.Runner)
+		runner.StartWorkers(ctx, s.Runner, s.tasks)
 	})
 
 	svr.Serve(ctx)

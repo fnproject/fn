@@ -34,7 +34,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		log.WithError(err).Errorln("Could not create data directory for db")
 		return nil, err
 	}
-	log.Infoln("Creating bolt db at ", url.Path)
+	log.WithFields(logrus.Fields{"path": url.Path}).Debug("Creating bolt db")
 	db, err := bolt.Open(url.Path, 0655, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.WithError(err).Errorln("Error on bolt.Open")
@@ -72,7 +72,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		db:           db,
 		log:          log,
 	}
-	log.WithFields(logrus.Fields{"prefix": bucketPrefix, "file": url.Path}).Info("BoltDB initialized")
+	log.WithFields(logrus.Fields{"prefix": bucketPrefix, "file": url.Path}).Debug("BoltDB initialized")
 
 	return ds, nil
 }

@@ -14,6 +14,7 @@ import (
 )
 
 func init() {
+	viper.AutomaticEnv() // picks up env vars automatically
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
@@ -24,7 +25,6 @@ func init() {
 	viper.SetDefault(server.EnvDBURL, fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
 	viper.SetDefault(server.EnvPort, 8080)
 	viper.SetDefault(server.EnvAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(server.EnvPort)))
-	viper.AutomaticEnv() // picks up env vars automatically
 	logLevel, err := logrus.ParseLevel(viper.GetString(server.EnvLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")

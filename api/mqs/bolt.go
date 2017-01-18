@@ -97,7 +97,7 @@ func NewBoltMQ(url *url.URL) (*BoltDbMQ, error) {
 		db:     db,
 	}
 	mq.Start()
-	log.WithFields(logrus.Fields{"file": url.Path}).Info("BoltDb initialized")
+	log.WithFields(logrus.Fields{"file": url.Path}).Debug("BoltDb initialized")
 	return mq, nil
 }
 
