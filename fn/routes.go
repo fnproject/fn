@@ -129,6 +129,26 @@ func routes() cli.Command {
 				},
 			},
 			{
+				Name:  "config",
+				Usage: "operate a route configuration set",
+				Subcommands: []cli.Command{
+					{
+						Name:      "set",
+						Aliases:   []string{"s"},
+						Usage:     "store a configuration key for this route",
+						ArgsUsage: "`app` /path <key> <value>",
+						Action:    r.configSet,
+					},
+					{
+						Name:      "unset",
+						Aliases:   []string{"u"},
+						Usage:     "remove a configuration key for this route",
+						ArgsUsage: "`app` /path <key>",
+						Action:    r.configUnset,
+					},
+				},
+			},
+			{
 				Name:      "delete",
 				Aliases:   []string{"d"},
 				Usage:     "delete a route from `app`",
@@ -387,8 +407,7 @@ func (a *routesCmd) update(c *cli.Context) error {
 		headers[parts[0]] = strings.Split(parts[1], ";")
 	}
 
-	patchedRoute := &functions.Route{
-		Path:           route,
+	patchRoute := &functions.Route{
 		Image:          c.String("image"),
 		Memory:         c.Int64("memory"),
 		Type_:          c.String("type"),
@@ -399,7 +418,7 @@ func (a *routesCmd) update(c *cli.Context) error {
 		Timeout:        int32(c.Int64("timeout")),
 	}
 
-	err := a.patchRoute(appName, route, patchedRoute)
+	err := a.patchRoute(appName, route, patchRoute)
 	if err != nil {
 		return err
 	}
@@ -408,9 +427,9 @@ func (a *routesCmd) update(c *cli.Context) error {
 	return nil
 }
 
-func (a *routesCmd) configList(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: route configuration description takes two arguments: an app name and a route")
+func (a *routesCmd) configSet(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
+		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
 	}
 
 	if err := resetBasePath(a.Configuration); err != nil {
@@ -419,37 +438,49 @@ func (a *routesCmd) configList(c *cli.Context) error {
 
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
-	wrapper, _, err := a.AppsAppRoutesRouteGet(appName, route)
+	key := c.Args().Get(2)
+	value := c.Args().Get(3)
+
+	patchRoute := functions.Route{
+		Config: make(map[string]string),
+	}
+
+	patchRoute.Config[key] = value
+
+	err := a.patchRoute(appName, route, &patchRoute)
 	if err != nil {
-		return fmt.Errorf("error loading route information: %v", err)
+		return err
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
+	fmt.Println(appName, route, "updated", key, "with", value)
+	return nil
+}
+
+func (a *routesCmd) configUnset(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
+		return errors.New("error: route configuration setting takes four arguments: an app name, a route and a key")
 	}
 
-	config := wrapper.Route.Config
-	if len(config) == 0 {
-		return errors.New("this route has no configurations")
+	if err := resetBasePath(a.Configuration); err != nil {
+		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
-	if c.Bool("json") {
-		if err := json.NewEncoder(os.Stdout).Encode(config); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if c.Bool("shell") {
-		for k, v := range config {
-			fmt.Print("export ", k, "=", v, "\n")
-		}
-	} else {
-		fmt.Println(appName, wrapper.Route.Path, "configuration:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
-		for k, v := range config {
-			fmt.Fprint(w, k, ":\t", v, "\n")
-		}
-		w.Flush()
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+	key := c.Args().Get(2)
+
+	patchRoute := functions.Route{
+		Config: make(map[string]string),
 	}
+
+	patchRoute.Config["-"+key] = ""
+
+	err := a.patchRoute(appName, route, &patchRoute)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(appName, route, "removed", key)
 	return nil
 }
 
@@ -467,8 +498,8 @@ func (a *routesCmd) patchRoute(appName, routePath string, r *functions.Route) er
 	if r != nil {
 		if r.Config != nil {
 			for k, v := range r.Config {
-				if v == "" {
-					delete(r.Config, k)
+				if string(k[0]) == "-" {
+					delete(r.Config, string(k[1:]))
 					continue
 				}
 				wrapper.Route.Config[k] = v
