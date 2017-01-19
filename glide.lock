@@ -1,5 +1,5 @@
-hash: 0c88334cb5d4f6721c7440fa441a4c7a9f095f3994a9bbe3068c1bc36ba564ac
-updated: 2016-12-13T23:57:51.142189878+01:00
+hash: 78692441d2595a5a303c64d4884fd4d04eebfd6a382ddd166176548d9da02645
+updated: 2017-01-18T21:41:13.698052314+01:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -8,7 +8,7 @@ imports:
 - name: github.com/asaskevich/govalidator
   version: 7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877
 - name: github.com/aws/aws-sdk-go
-  version: d5fd6983e17a1644149fb634fdcf69bd03cb8b21
+  version: 90dec2183a5f5458ee79cbaf4b8e9ab910bc81a6
   subpackages:
   - aws
   - aws/awserr
@@ -18,24 +18,18 @@ imports:
   - aws/corehandlers
   - aws/credentials
   - aws/credentials/ec2rolecreds
-  - aws/credentials/endpointcreds
-  - aws/credentials/stscreds
   - aws/defaults
   - aws/ec2metadata
-  - aws/endpoints
   - aws/request
   - aws/session
   - aws/signer/v4
+  - private/endpoints
   - private/protocol
   - private/protocol/json/jsonutil
   - private/protocol/jsonrpc
-  - private/protocol/query
-  - private/protocol/query/queryutil
   - private/protocol/rest
   - private/protocol/restjson
-  - private/protocol/xml/xmlutil
   - service/lambda
-  - service/sts
 - name: github.com/Azure/go-ansiterm
   version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
@@ -109,11 +103,11 @@ imports:
 - name: github.com/docker/go-units
   version: e30f1e79f3cd72542f2026ceec18d3bd67ab859c
 - name: github.com/docker/libtrust
-  version: aabc10ec26b754e797f9028f4589c5b7bd90dc20
+  version: fa567046d9b14f6aa788882a950d69651d230b21
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/fsouza/go-dockerclient
-  version: 4611598e6e6615762544f0805acd59dfede5c9a2
+  version: e085edda407c05214cc6e71e4881de47667e77ec
 - name: github.com/garyburd/redigo
   version: 0708def8b0cf3a05acdf44a7f28b864c2958921d
   subpackages:
@@ -151,6 +145,11 @@ imports:
   version: 3b6d86cd965820f968760d5d419cb4add096bdd7
 - name: github.com/go-openapi/validate
   version: 027696d4b54399770f1cdcc6c6daa56975f9e14e
+- name: github.com/golang/groupcache
+  version: 72d04f9fcdec7d3821820cc4a6f150eae553639a
+  subpackages:
+  - consistenthash
+  - singleflight
 - name: github.com/golang/protobuf
   version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
@@ -162,9 +161,9 @@ imports:
   subpackages:
   - query
 - name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+  version: 14f550f51af52180c2eefed15e5fd18d63c0a64a
 - name: github.com/gorilla/mux
-  version: 0a192a193177452756c362c20087ddafcf6829c4
+  version: e444e69cbd2e2e3e0749a2f3c717cec491552bbf
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
 - name: github.com/hashicorp/hcl
@@ -203,6 +202,8 @@ imports:
   - drivers/mock
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
+- name: github.com/jmoiron/jsonq
+  version: e874b168d07ecc7808bc950a17998a8aa3141d82
 - name: github.com/juju/errgo
   version: 08cceb5d0b5331634b9826762a8fd53b29b86ad8
   subpackages:

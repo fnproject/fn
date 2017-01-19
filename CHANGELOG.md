@@ -10,8 +10,9 @@
 - [#313](https://github.com/iron-io/functions/issues/313): fnctl: Add .NET core support?.
 - [#310](https://github.com/iron-io/functions/issues/310): fnctl: Add python support.
 - [#69](https://github.com/iron-io/functions/issues/69): Long(er) running containers for better performance aka Hot Containers.
-- [#472](https://github.com/iron-io/functions/pull/472): Add global lru for routes with keys being the appname + path
+- [#472](https://github.com/iron-io/functions/pull/472): Add global lru for routes with keys being the appname + path.
 - [#484](https://github.com/iron-io/functions/pull/484): Add triggers example for OpenStack project Picasso.
+- [#487](https://github.com/iron-io/functions/pull/487): Add initial load balancer.
 
 ### Bugfixes
 
