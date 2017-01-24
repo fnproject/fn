@@ -22,7 +22,7 @@ ctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
 def clone(lang)
   Dir.chdir 'tmp'
   ldir = "functions_#{lang}"
-  if !Dir.exists? ldir
+  if !Dir.exist? ldir
     cmd = "git clone https://github.com/iron-io/#{ldir}"
     stream_exec(cmd)
   else
@@ -84,18 +84,25 @@ languages.each do |l|
     next
   end
   p options
-  gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
-  json: {
-    swaggerUrl: swaggerUrl,
-    options: options,
-  },
-  ssl_context: ctx).body)
-  p gen
+  if l == 'go'
+    puts "SKIPPING GO, it's manual for now."
+    # This is using https://goswagger.io/ instead
+    # TODO: run this build command instead: this works if run manually
+    # glide install -v && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/iron-io/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/iron-io/functions/master/docs/swagger.yml -A functions
+  else
+    gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
+    json: {
+      swaggerUrl: swaggerUrl,
+      options: options,
+    },
+    ssl_context: ctx).body)
+    p gen
 
-  lv = "#{lshort}-#{version}"
-  zipfile = "tmp/#{lv}.zip"
-  stream_exec "curl -o #{zipfile} #{gen['link']} -k"
-  stream_exec "unzip -o #{zipfile} -d tmp/#{lv}"
+    lv = "#{lshort}-#{version}"
+    zipfile = "tmp/#{lv}.zip"
+    stream_exec "curl -o #{zipfile} #{gen['link']} -k"
+    stream_exec "unzip -o #{zipfile} -d tmp/#{lv}"
+  end
 
   # delete the skip_files
   skip_files.each do |sf|

@@ -24,6 +24,12 @@ ruby build.rb
 
 Boom. That's it.
 
+## Building with the Go Builder
+
+```sh
+go run main.go
+```
+
 ## Troubleshooting
 
 Sometimes this will fail due to github caching or something and versions will be off. Just bump version and retry.

@@ -4,20 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"text/tabwriter"
 
-	"github.com/iron-io/functions_go"
+	"context"
+	fnclient "github.com/iron-io/functions_go/client"
+	apiapps "github.com/iron-io/functions_go/client/apps"
+	"github.com/iron-io/functions_go/models"
 	"github.com/urfave/cli"
 )
 
 type appsCmd struct {
-	*functions.AppsApi
+	client *fnclient.Functions
 }
 
 func apps() cli.Command {
-	a := appsCmd{AppsApi: functions.NewAppsApi()}
+	a := appsCmd{client: apiClient()}
 
 	return cli.Command{
 		Name:      "apps",
@@ -90,25 +92,26 @@ func apps() cli.Command {
 }
 
 func (a *appsCmd) list(c *cli.Context) error {
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
+	resp, err := a.client.Apps.GetApps(&apiapps.GetAppsParams{
+		Context: context.Background(),
+	})
 
-	wrapper, _, err := a.AppsGet()
 	if err != nil {
-		return fmt.Errorf("error getting app: %v", err)
+		switch err.(type) {
+		case *apiapps.GetAppsAppNotFound:
+			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.GetAppsAppDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	if len(wrapper.Apps) == 0 {
+	if len(resp.Payload.Apps) == 0 {
 		fmt.Println("no apps found")
 		return nil
 	}
 
-	for _, app := range wrapper.Apps {
+	for _, app := range resp.Payload.Apps {
 		fmt.Println(app.Name)
 	}
 
@@ -120,24 +123,29 @@ func (a *appsCmd) create(c *cli.Context) error {
 		return errors.New("error: app creating takes one argument, an app name")
 	}
 
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
-	body := functions.AppWrapper{App: functions.App{
+	body := &models.AppWrapper{App: &models.App{
 		Name:   c.Args().Get(0),
 		Config: extractEnvConfig(c.StringSlice("config")),
 	}}
-	wrapper, _, err := a.AppsPost(body)
+
+	resp, err := a.client.Apps.PostApps(&apiapps.PostAppsParams{
+		Context: context.Background(),
+		Body:    body,
+	})
+
 	if err != nil {
-		return fmt.Errorf("error creating app: %v", err)
+		switch err.(type) {
+		case *apiapps.PostAppsBadRequest:
+			return fmt.Errorf("error: %v", err.(*apiapps.PostAppsBadRequest).Payload.Error.Message)
+		case *apiapps.PostAppsConflict:
+			return fmt.Errorf("error: %v", err.(*apiapps.PostAppsConflict).Payload.Error.Message)
+		case *apiapps.PostAppsDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.PostAppsDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	fmt.Println(wrapper.App.Name, "created")
+	fmt.Println(resp.Payload.App.Name, "created")
 	return nil
 }
 
@@ -146,21 +154,24 @@ func (a *appsCmd) configList(c *cli.Context) error {
 		return errors.New("error: app description takes one argument, an app name")
 	}
 
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
 	appName := c.Args().Get(0)
-	wrapper, _, err := a.AppsAppGet(appName)
+
+	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
+		Context: context.Background(),
+		App:     appName,
+	})
+
 	if err != nil {
-		return fmt.Errorf("error creating app: %v", err)
+		switch err.(type) {
+		case *apiapps.GetAppsAppNotFound:
+			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.GetAppsAppDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	config := wrapper.App.Config
+	config := resp.Payload.App.Config
 	if len(config) == 0 {
 		return errors.New("this application has no configurations")
 	}
@@ -171,11 +182,11 @@ func (a *appsCmd) configList(c *cli.Context) error {
 			os.Exit(1)
 		}
 	} else if c.Bool("shell") {
-		for k, v := range wrapper.App.Config {
+		for k, v := range resp.Payload.App.Config {
 			fmt.Print("export ", k, "=", v, "\n")
 		}
 	} else {
-		fmt.Println(wrapper.App.Name, "configuration:")
+		fmt.Println(resp.Payload.App.Name, "configuration:")
 		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
 		for k, v := range config {
 			fmt.Fprint(w, k, ":\t", v, "\n")
@@ -190,24 +201,26 @@ func (a *appsCmd) configSet(c *cli.Context) error {
 		return errors.New("error: application configuration setting takes three arguments: an app name, a key and a value")
 	}
 
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
 	appName := c.Args().Get(0)
 	key := c.Args().Get(1)
 	value := c.Args().Get(2)
 
-	wrapper, _, err := a.AppsAppGet(appName)
+	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
+		Context: context.Background(),
+		App:     appName,
+	})
+
 	if err != nil {
-		return fmt.Errorf("error creating app: %v", err)
+		switch err.(type) {
+		case *apiapps.GetAppsAppNotFound:
+			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.GetAppsAppDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	config := wrapper.App.Config
+	config := resp.Payload.App.Config
 
 	if config == nil {
 		config = make(map[string]string)
@@ -215,11 +228,11 @@ func (a *appsCmd) configSet(c *cli.Context) error {
 
 	config[key] = value
 
-	if err := a.storeApp(appName, config); err != nil {
+	if err := a.patchApp(appName, config); err != nil {
 		return fmt.Errorf("error updating app configuration: %v", err)
 	}
 
-	fmt.Println(wrapper.App.Name, "updated", key, "with", value)
+	fmt.Println(resp.Payload.App.Name, "updated", key, "with", value)
 	return nil
 }
 
@@ -228,23 +241,25 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 		return errors.New("error: application configuration setting takes three arguments: an app name, a key and a value")
 	}
 
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
-
 	appName := c.Args().Get(0)
 	key := c.Args().Get(1)
 
-	wrapper, _, err := a.AppsAppGet(appName)
+	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
+		Context: context.Background(),
+		App:     appName,
+	})
+
 	if err != nil {
-		return fmt.Errorf("error creating app: %v", err)
+		switch err.(type) {
+		case *apiapps.GetAppsAppNotFound:
+			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.GetAppsAppDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	if msg := wrapper.Error_.Message; msg != "" {
-		return errors.New(msg)
-	}
-
-	config := wrapper.App.Config
+	config := resp.Payload.App.Config
 
 	if config == nil {
 		config = make(map[string]string)
@@ -256,23 +271,37 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 
 	delete(config, key)
 
-	if err := a.storeApp(appName, config); err != nil {
+	if err := a.patchApp(appName, config); err != nil {
 		return fmt.Errorf("error updating app configuration: %v", err)
 	}
 
-	fmt.Println(wrapper.App.Name, "removed", key)
+	fmt.Println(resp.Payload.App.Name, "removed", key)
 	return nil
 }
 
-func (a *appsCmd) storeApp(appName string, config map[string]string) error {
-	body := functions.AppWrapper{App: functions.App{
-		Name:   appName,
+func (a *appsCmd) patchApp(appName string, config map[string]string) error {
+	body := &models.AppWrapper{App: &models.App{
 		Config: config,
 	}}
 
-	if _, _, err := a.AppsPost(body); err != nil {
-		return fmt.Errorf("error updating app configuration: %v", err)
+	_, err := a.client.Apps.PatchAppsApp(&apiapps.PatchAppsAppParams{
+		Context: context.Background(),
+		App:     appName,
+		Body:    body,
+	})
+
+	if err != nil {
+		switch err.(type) {
+		case *apiapps.PatchAppsAppBadRequest:
+			return errors.New(err.(*apiapps.PatchAppsAppBadRequest).Payload.Error.Message)
+		case *apiapps.PatchAppsAppNotFound:
+			return errors.New(err.(*apiapps.PatchAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.PatchAppsAppDefault:
+			return errors.New(err.(*apiapps.PatchAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
+
 	return nil
 }
 
@@ -282,17 +311,19 @@ func (a *appsCmd) delete(c *cli.Context) error {
 		return errors.New("error: deleting an app takes one argument, an app name")
 	}
 
-	if err := resetBasePath(a.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
-	}
+	_, err := a.client.Apps.DeleteAppsApp(&apiapps.DeleteAppsAppParams{
+		Context: context.Background(),
+		App:     appName,
+	})
 
-	resp, err := a.AppsAppDelete(appName)
 	if err != nil {
-		return fmt.Errorf("error deleting app: %v", err)
-	}
-
-	if resp.StatusCode == http.StatusBadRequest {
-		return errors.New("could not delete this application - pending routes")
+		switch err.(type) {
+		case *apiapps.DeleteAppsAppNotFound:
+			return errors.New(err.(*apiapps.DeleteAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.DeleteAppsAppDefault:
+			return errors.New(err.(*apiapps.DeleteAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
 	}
 
 	fmt.Println(appName, "deleted")
