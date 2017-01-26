@@ -91,7 +91,13 @@ func extractEnvVar(e string) ([]string, string) {
 	kv := strings.Split(e, "=")
 	name := toEnvName("HEADER", kv[0])
 	sh := []string{"-e", name}
-	env := fmt.Sprintf("%s=%s", name, os.Getenv(kv[0]))
+	var v string
+	if len(kv) > 1 {
+		v = kv[1]
+	} else {
+		v = os.Getenv(kv[0])
+	}
+	env := fmt.Sprintf("%s=%s", name, v)
 	return sh, env
 }
 
