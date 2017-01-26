@@ -67,7 +67,7 @@ func TestBolt(t *testing.T) {
 	app, err := ds.GetApp(ctx, testApp.Name)
 	if err != nil {
 		t.Log(buf.String())
-		t.Fatalf("Test GetApp: error: %s", err)
+		t.Fatalf("Test GetApp: unexpected error: %s", err)
 	}
 	if app.Name != testApp.Name {
 		t.Log(buf.String())
@@ -101,9 +101,9 @@ func TestBolt(t *testing.T) {
 		t.Fatalf("Test RemoveApp: error: %s", err)
 	}
 	app, err = ds.GetApp(ctx, testApp.Name)
-	if err != nil {
+	if err != models.ErrAppsNotFound {
 		t.Log(buf.String())
-		t.Fatalf("Test GetApp: error: %s", err)
+		t.Fatalf("Test GetApp: expected error to be `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 	}
 	if app != nil {
 		t.Log(buf.String())
@@ -240,11 +240,7 @@ func TestBolt(t *testing.T) {
 	}
 
 	route, err = ds.GetRoute(ctx, testRoute.AppName, testRoute.Path)
-	if err != nil {
-		t.Log(buf.String())
-		t.Fatalf("Test GetRoute: error: %s", err)
-	}
-	if route != nil {
+	if err != models.ErrRoutesNotFound {
 		t.Log(buf.String())
 		t.Fatalf("Test RemoveApp: failed to remove the route")
 	}

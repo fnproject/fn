@@ -45,13 +45,8 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 	}
 
 	app, err := s.Datastore.UpdateApp(ctx, wapp.App)
-	if err == models.ErrAppsNotFound {
-		log.WithError(err).Debug(models.ErrAppsUpdate)
-		c.JSON(http.StatusNotFound, simpleError(err))
-		return
-	} else if err != nil {
-		log.WithError(err).Error(models.ErrAppsUpdate)
-		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 

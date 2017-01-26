@@ -6,19 +6,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/runner/common"
 )
 
 func (s *Server) handleAppList(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
-	log := common.Logger(ctx)
 
 	filter := &models.AppFilter{}
 
 	apps, err := s.Datastore.GetApps(ctx, filter)
 	if err != nil {
-		log.WithError(err).Error(models.ErrAppsList)
-		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
+		handleErrorResponse(c, err)
 		return
 	}
 

@@ -7,12 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api"
 	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/runner/common"
 )
 
 func (s *Server) handleRouteList(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
-	log := common.Logger(ctx)
 
 	filter := &models.RouteFilter{}
 
@@ -28,13 +26,8 @@ func (s *Server) handleRouteList(c *gin.Context) {
 		routes, err = s.Datastore.GetRoutes(ctx, filter)
 	}
 
-	if err == models.ErrAppsNotFound {
-		log.WithError(err).Debug(models.ErrRoutesGet)
-		c.JSON(http.StatusNotFound, simpleError(err))
-		return
-	} else if err != nil {
-		log.WithError(err).Error(models.ErrRoutesGet)
-		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 

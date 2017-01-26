@@ -90,13 +90,8 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 	}
 
 	route, err := s.Datastore.InsertRoute(ctx, wroute.Route)
-	if err == models.ErrRoutesAlreadyExists {
-		log.WithError(err).Debug(models.ErrRoutesCreate)
-		c.JSON(http.StatusConflict, simpleError(models.ErrRoutesAlreadyExists))
-		return
-	} else if err != nil {
-		log.WithError(err).Error(models.ErrRoutesCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 

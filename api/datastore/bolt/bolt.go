@@ -229,6 +229,8 @@ func (ds *BoltDatastore) GetApp(ctx context.Context, name string) (*models.App, 
 				return err
 			}
 			res = app
+		} else {
+			return models.ErrAppsNotFound
 		}
 		return nil
 	})
@@ -239,15 +241,11 @@ func (ds *BoltDatastore) GetApp(ctx context.Context, name string) (*models.App, 
 }
 
 func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bolt.Bucket, error) {
-	var err error
 	// todo: should this be reversed?  Make a bucket for each app that contains sub buckets for routes, etc
 	bp := tx.Bucket(ds.routesBucket)
 	b := bp.Bucket([]byte(appName))
 	if b == nil {
-		b, err = bp.CreateBucket([]byte(appName))
-		if err != nil {
-			return nil, err
-		}
+		return nil, models.ErrAppsNotFound
 	}
 	return b, nil
 }
@@ -418,6 +416,10 @@ func (ds *BoltDatastore) GetRoute(ctx context.Context, appName, routePath string
 		}
 
 		v := b.Get([]byte(routePath))
+		if v == nil {
+			return models.ErrRoutesNotFound
+		}
+
 		if v != nil {
 			err = json.Unmarshal(v, &route)
 		}

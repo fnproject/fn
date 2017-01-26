@@ -132,7 +132,7 @@ func TestFullStack(t *testing.T) {
 		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"delete app (success)", "DELETE", "/v1/apps/myapp", ``, http.StatusOK, 0},
 		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0},
-		{"get delete route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusInternalServerError, 0},
+		{"get deleteds route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
 	} {
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 

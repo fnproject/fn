@@ -42,13 +42,8 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 	}
 
 	app, err := s.Datastore.InsertApp(ctx, wapp.App)
-	if err == models.ErrAppsAlreadyExists {
-		log.WithError(err).Debug(models.ErrAppsCreate)
-		c.JSON(http.StatusConflict, simpleError(err))
-		return
-	} else if err != nil {
-		log.WithError(err).Error(models.ErrAppsCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 
