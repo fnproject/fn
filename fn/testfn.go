@@ -134,7 +134,7 @@ func runlocaltest(target string, in, expectedOut, expectedErr *string, env map[s
 		restrictedEnv = append(restrictedEnv, k)
 	}
 
-	if err := runff(target, stdin, &stdout, &stderr, restrictedEnv); err != nil {
+	if err := runff(target, stdin, &stdout, &stderr, restrictedEnv, nil); err != nil {
 		return fmt.Errorf("%v\nstdout:%s\nstderr:%s\n", err, stdout.String(), stderr.String())
 	}
 

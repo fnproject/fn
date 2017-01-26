@@ -31,6 +31,10 @@ func runflags() []cli.Flag {
 			Name:  "e",
 			Usage: "select environment variables to be sent to function",
 		},
+		cli.StringSliceFlag{
+			Name:  "link",
+			Usage: "select container links for the function",
+		},
 	}
 }
 
@@ -47,10 +51,10 @@ func (r *runCmd) run(c *cli.Context) error {
 		image = ff.FullName()
 	}
 
-	return runff(image, stdin(), os.Stdout, os.Stderr, c.StringSlice("e"))
+	return runff(image, stdin(), os.Stdout, os.Stderr, c.StringSlice("e"), c.StringSlice("link"))
 }
 
-func runff(image string, stdin io.Reader, stdout, stderr io.Writer, restrictedEnv []string) error {
+func runff(image string, stdin io.Reader, stdout, stderr io.Writer, restrictedEnv []string, links []string) error {
 	sh := []string{"docker", "run", "--rm", "-i"}
 
 	var env []string
@@ -63,6 +67,10 @@ func runff(image string, stdin io.Reader, stdout, stderr io.Writer, restrictedEn
 		shellvar, envvar := extractEnvVar(e)
 		sh = append(sh, shellvar...)
 		env = append(env, envvar)
+	}
+
+	for _, l := range links {
+		sh = append(sh, "--link", l)
 	}
 
 	dockerenv := []string{"DOCKER_TLS_VERIFY", "DOCKER_HOST", "DOCKER_CERT_PATH", "DOCKER_MACHINE_NAME"}
