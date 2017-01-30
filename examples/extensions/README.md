@@ -1,12 +1,12 @@
 # Extensions Example
 
-This example adds extra endpoints to the API. 
+This example adds extra endpoints to the API. See [main.go](main.go) for example code. 
 
 ## Building and Running
 
 ```sh
-go build -o functions
-./functions
+go build
+./extensions
 ```
 
 Then test with:
