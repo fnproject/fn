@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"text/tabwriter"
 
 	"context"
+	"github.com/iron-io/functions_go"
 	fnclient "github.com/iron-io/functions_go/client"
 	apiapps "github.com/iron-io/functions_go/client/apps"
 	"github.com/iron-io/functions_go/models"
+	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
+	"strings"
 )
 
 type appsCmd struct {
@@ -40,32 +42,29 @@ func apps() cli.Command {
 				},
 			},
 			{
-				Name:    "list",
-				Aliases: []string{"l"},
-				Usage:   "list all apps",
-				Action:  a.list,
+				Name:      "inspect",
+				Aliases:   []string{"i"},
+				Usage:     "retrieve one or all apps properties",
+				ArgsUsage: "`app` [property.[key]]",
+				Action:    a.inspect,
+			},
+			{
+				Name:      "update",
+				Aliases:   []string{"u"},
+				Usage:     "update an `app`",
+				ArgsUsage: "`app`",
+				Action:    a.update,
+				Flags: []cli.Flag{
+					cli.StringSliceFlag{
+						Name:  "config,c",
+						Usage: "route configuration",
+					},
+				},
 			},
 			{
 				Name:  "config",
-				Usage: "operate an application configuration set",
+				Usage: "manage your apps's function configs",
 				Subcommands: []cli.Command{
-					{
-						Name:      "view",
-						Aliases:   []string{"v"},
-						Usage:     "view all configuration keys for this app",
-						ArgsUsage: "`app`",
-						Action:    a.configList,
-						Flags: []cli.Flag{
-							cli.BoolFlag{
-								Name:  "shell,s",
-								Usage: "output in shell format",
-							},
-							cli.BoolFlag{
-								Name:  "json,j",
-								Usage: "output in JSON format",
-							},
-						},
-					},
 					{
 						Name:      "set",
 						Aliases:   []string{"s"},
@@ -81,6 +80,12 @@ func apps() cli.Command {
 						Action:    a.configUnset,
 					},
 				},
+			},
+			{
+				Name:    "list",
+				Aliases: []string{"l"},
+				Usage:   "list all apps",
+				Action:  a.list,
 			},
 			{
 				Name:   "delete",
@@ -120,7 +125,7 @@ func (a *appsCmd) list(c *cli.Context) error {
 
 func (a *appsCmd) create(c *cli.Context) error {
 	if c.Args().First() == "" {
-		return errors.New("error: app creating takes one argument, an app name")
+		return errors.New("error: missing app name after create command")
 	}
 
 	body := &models.AppWrapper{App: &models.App{
@@ -149,50 +154,23 @@ func (a *appsCmd) create(c *cli.Context) error {
 	return nil
 }
 
-func (a *appsCmd) configList(c *cli.Context) error {
+func (a *appsCmd) update(c *cli.Context) error {
 	if c.Args().First() == "" {
-		return errors.New("error: app description takes one argument, an app name")
+		return errors.New("error: missing app name after update command")
 	}
 
-	appName := c.Args().Get(0)
+	appName := c.Args().First()
 
-	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
-		Context: context.Background(),
-		App:     appName,
-	})
+	patchedApp := &functions.App{
+		Config: extractEnvConfig(c.StringSlice("config")),
+	}
 
+	err := a.patchApp(appName, patchedApp)
 	if err != nil {
-		switch err.(type) {
-		case *apiapps.GetAppsAppNotFound:
-			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
-		case *apiapps.GetAppsAppDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return err
 	}
 
-	config := resp.Payload.App.Config
-	if len(config) == 0 {
-		return errors.New("this application has no configurations")
-	}
-
-	if c.Bool("json") {
-		if err := json.NewEncoder(os.Stdout).Encode(config); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if c.Bool("shell") {
-		for k, v := range resp.Payload.App.Config {
-			fmt.Print("export ", k, "=", v, "\n")
-		}
-	} else {
-		fmt.Println(resp.Payload.App.Name, "configuration:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
-		for k, v := range config {
-			fmt.Fprint(w, k, ":\t", v, "\n")
-		}
-		w.Flush()
-	}
+	fmt.Println("app", appName, "updated")
 	return nil
 }
 
@@ -205,34 +183,17 @@ func (a *appsCmd) configSet(c *cli.Context) error {
 	key := c.Args().Get(1)
 	value := c.Args().Get(2)
 
-	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
-		Context: context.Background(),
-		App:     appName,
-	})
-
-	if err != nil {
-		switch err.(type) {
-		case *apiapps.GetAppsAppNotFound:
-			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
-		case *apiapps.GetAppsAppDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %v", err)
+	app := &functions.App{
+		Config: make(map[string]string),
 	}
 
-	config := resp.Payload.App.Config
+	app.Config[key] = value
 
-	if config == nil {
-		config = make(map[string]string)
-	}
-
-	config[key] = value
-
-	if err := a.patchApp(appName, config); err != nil {
+	if err := a.patchApp(appName, app); err != nil {
 		return fmt.Errorf("error updating app configuration: %v", err)
 	}
 
-	fmt.Println(resp.Payload.App.Name, "updated", key, "with", value)
+	fmt.Println(appName, "updated", key, "with", value)
 	return nil
 }
 
@@ -244,6 +205,21 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	key := c.Args().Get(1)
 
+	app := &functions.App{
+		Config: make(map[string]string),
+	}
+
+	app.Config["-"+key] = ""
+
+	if err := a.patchApp(appName, app); err != nil {
+		return fmt.Errorf("error updating app configuration: %v", err)
+	}
+
+	fmt.Printf("removed key '%s' from app '%s' \n", key, appName)
+	return nil
+}
+
+func (a *appsCmd) patchApp(appName string, app *functions.App) error {
 	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
 		Context: context.Background(),
 		App:     appName,
@@ -259,32 +235,26 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	config := resp.Payload.App.Config
-
-	if config == nil {
-		config = make(map[string]string)
+	if resp.Payload.App.Config == nil {
+		resp.Payload.App.Config = map[string]string{}
 	}
 
-	if _, ok := config[key]; !ok {
-		return fmt.Errorf("configuration key %s not found", key)
+	resp.Payload.App.Name = ""
+	if app != nil {
+		if app.Config != nil {
+			for k, v := range app.Config {
+				if string(k[0]) == "-" {
+					delete(resp.Payload.App.Config, string(k[1:]))
+					continue
+				}
+				resp.Payload.App.Config[k] = v
+			}
+		}
 	}
 
-	delete(config, key)
+	body := &models.AppWrapper{App: resp.Payload.App}
 
-	if err := a.patchApp(appName, config); err != nil {
-		return fmt.Errorf("error updating app configuration: %v", err)
-	}
-
-	fmt.Println(resp.Payload.App.Name, "removed", key)
-	return nil
-}
-
-func (a *appsCmd) patchApp(appName string, config map[string]string) error {
-	body := &models.AppWrapper{App: &models.App{
-		Config: config,
-	}}
-
-	_, err := a.client.Apps.PatchAppsApp(&apiapps.PatchAppsAppParams{
+	_, err = a.client.Apps.PatchAppsApp(&apiapps.PatchAppsAppParams{
 		Context: context.Background(),
 		App:     appName,
 		Body:    body,
@@ -301,6 +271,59 @@ func (a *appsCmd) patchApp(appName string, config map[string]string) error {
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 	}
+
+	return nil
+}
+
+func (a *appsCmd) inspect(c *cli.Context) error {
+	if c.Args().Get(0) == "" {
+		return errors.New("error: missing app name after the inspect command")
+	}
+
+	appName := c.Args().First()
+	prop := c.Args().Get(1)
+
+	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
+		Context: context.Background(),
+		App:     appName,
+	})
+
+	if err != nil {
+		switch err.(type) {
+		case *apiapps.GetAppsAppNotFound:
+			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+		case *apiapps.GetAppsAppDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "\t")
+
+	if prop == "" {
+		enc.Encode(resp.Payload.App)
+		return nil
+	}
+
+	// TODO: we really need to marshal it here just to
+	// unmarshal as map[string]interface{}?
+	data, err := json.Marshal(resp.Payload.App)
+	if err != nil {
+		return fmt.Errorf("error inspect app: %v", err)
+	}
+	var inspect map[string]interface{}
+	err = json.Unmarshal(data, &inspect)
+	if err != nil {
+		return fmt.Errorf("error inspect app: %v", err)
+	}
+
+	jq := jsonq.NewQuery(inspect)
+	field, err := jq.Interface(strings.Split(prop, ".")...)
+	if err != nil {
+		return errors.New("failed to inspect that apps's field")
+	}
+	enc.Encode(field)
 
 	return nil
 }
@@ -326,6 +349,6 @@ func (a *appsCmd) delete(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	fmt.Println(appName, "deleted")
+	fmt.Println("app", appName, "deleted")
 	return nil
 }

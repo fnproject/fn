@@ -185,7 +185,9 @@ func extractEnvConfig(configs []string) map[string]string {
 	c := make(map[string]string)
 	for _, v := range configs {
 		kv := strings.SplitN(v, "=", 2)
-		c[kv[0]] = os.ExpandEnv(kv[1])
+		if len(kv) == 2 {
+			c[kv[0]] = os.ExpandEnv(kv[1])
+		}
 	}
 	return c
 }

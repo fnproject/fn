@@ -56,20 +56,20 @@ fn push
 You can operate IronFunctions from the command line.
 
 ```sh
-$ fn apps                                       # list apps
+$ fn apps list                                  # list apps
 myapp
 
 $ fn apps create otherapp                       # create new app
 otherapp created
 
-$ fn apps config otherapp                       # show app-specific configuration
-this application has no configurations
+$ fn apps inspect otherapp config               # show app-specific configuration
+{ ... }
 
 $ fn apps
 myapp
 otherapp
 
-$ fn routes myapp                               # list routes of an app
+$ fn routes list myapp                          # list routes of an app
 path	image
 /hello	iron/hello
 
@@ -189,6 +189,47 @@ $ fn routes create myapp
 
 # test it remotely
 $ fn test --remote myapp
+```
+
+## Other examples of usage
+
+### Creating a new function from source
+```
+fn init iron/hello --runtime ruby
+fn deploy myapp /hello
+```
+
+### Updating function
+```
+fn deploy myapp (discover route path if available in func.yaml)
+```
+
+### Testing function locally
+```
+fn run iron/hello
+```
+
+### Testing route
+```
+fn call myapp /hello
+```
+
+### App management
+```
+fn apps create myapp
+fn apps update myapp --headers "content-type=application/json"
+fn apps config set log_level info
+fn apps inspect myapp
+fn apps delete myapp
+```
+
+### Route management
+```
+fn routes create myapp /hello iron/hello
+fn routes update myapp /hello --timeout 30 --type async
+fn routes config set myapp /hello log_level info
+fn routes inspect myapp /hello
+fn routes delete myapp /hello
 ```
 
 ## Contributing

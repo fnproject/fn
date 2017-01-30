@@ -17,6 +17,7 @@ import (
 	fnclient "github.com/iron-io/functions_go/client"
 	apiroutes "github.com/iron-io/functions_go/client/routes"
 	"github.com/iron-io/functions_go/models"
+	fnmodels "github.com/iron-io/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
 )
@@ -100,12 +101,10 @@ func routes() cli.Command {
 					cli.Int64Flag{
 						Name:  "memory,m",
 						Usage: "memory in MiB",
-						Value: 128,
 					},
 					cli.StringFlag{
 						Name:  "type,t",
 						Usage: "route type - sync or async",
-						Value: "sync",
 					},
 					cli.StringSliceFlag{
 						Name:  "config,c",
@@ -118,17 +117,14 @@ func routes() cli.Command {
 					cli.StringFlag{
 						Name:  "format,f",
 						Usage: "hot container IO format - json or http",
-						Value: "",
 					},
 					cli.IntFlag{
-						Name:  "max-concurrency",
+						Name:  "max-concurrency,mc",
 						Usage: "maximum concurrency for hot container",
-						Value: 1,
 					},
 					cli.DurationFlag{
 						Name:  "timeout",
-						Usage: "route timeout",
-						Value: 30 * time.Second,
+						Usage: "route timeout (eg. 30s)",
 					},
 				},
 			},
@@ -273,8 +269,8 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 }
 
 func (a *routesCmd) create(c *cli.Context) error {
-	if c.Args().Get(0) == "" {
-		return errors.New("error: routes creation takes at least one argument: an app name")
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
+		return errors.New("error: routes creation takes at least three arguments: app name, route path and image name")
 	}
 
 	appName := c.Args().Get(0)
@@ -361,167 +357,75 @@ func (a *routesCmd) create(c *cli.Context) error {
 	return nil
 }
 
-func (a *routesCmd) delete(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: routes listing takes three arguments: an app name and a path")
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-
-	_, err := a.client.Routes.DeleteAppsAppRoutesRoute(&apiroutes.DeleteAppsAppRoutesRouteParams{
-		Context: context.Background(),
-		App:     appName,
-		Route:   route,
-	})
-	if err != nil {
-		switch err.(type) {
-		case *apiroutes.DeleteAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message)
-		case *apiroutes.DeleteAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %v", err)
-	}
-
-	fmt.Println(route, "deleted")
-	return nil
-}
-
-// _, err = a.client.Routes.PatchAppsAppRoutesRoute(&apiroutes.PatchAppsAppRoutesRouteParams{
-// 	Context: context.Background(),
-// 	App:     appName,
-// 	Route:   route,
-// 	Body:    resp.Payload,
-// })
-
-// if err != nil {
-// 	switch err.(type) {
-// 	case *apiroutes.PatchAppsAppRoutesRouteBadRequest:
-// 		return fmt.Errorf("error: %v", err.(*apiroutes.PatchAppsAppRoutesRouteBadRequest).Payload.Error.Message)
-// 	case *apiroutes.PatchAppsAppRoutesRouteNotFound:
-// 		return fmt.Errorf("error: %v", err.(*apiroutes.PatchAppsAppRoutesRouteNotFound).Payload.Error.Message)
-// 	case *apiroutes.PatchAppsAppRoutesRouteDefault:
-// 		return fmt.Errorf("unexpected error: %v", err.(*apiroutes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message)
-// 	}
-// 	return fmt.Errorf("unexpected error: %v", err)
-// }
-
-func (a *routesCmd) update(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: route configuration description takes two arguments: an app name and a route")
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-
+func (a *routesCmd) patchRoute(appName, routePath string, r *fnmodels.Route) error {
 	resp, err := a.client.Routes.GetAppsAppRoutesRoute(&apiroutes.GetAppsAppRoutesRouteParams{
 		Context: context.Background(),
 		App:     appName,
-		Route:   route,
-	})
-	if err != nil {
-		switch err.(type) {
-		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
-		case *apiroutes.GetAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %v", err)
-	}
-
-	config := resp.Payload.Route.Config
-	if len(config) == 0 {
-		return errors.New("this route has no configurations")
-	}
-
-	if c.Bool("json") {
-		if err := json.NewEncoder(os.Stdout).Encode(config); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	} else if c.Bool("shell") {
-		for k, v := range config {
-			fmt.Print("export ", k, "=", v, "\n")
-		}
-	} else {
-		fmt.Println(appName, resp.Payload.Route.Path, "configuration:")
-		w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, ' ', 0)
-		for k, v := range config {
-			fmt.Fprint(w, k, ":\t", v, "\n")
-		}
-		w.Flush()
-	}
-
-	// 	if route == "" {
-	// 		return errors.New("error: route path is missing")
-	// 	}
-
-	// 	headers := map[string][]string{}
-	// 	for _, header := range c.StringSlice("headers") {
-	// 		parts := strings.Split(header, "=")
-	// 		headers[parts[0]] = strings.Split(parts[1], ";")
-	// 	}
-
-	// 	patchRoute := &functions.Route{
-	// 		Image:          c.String("image"),
-	// 		Memory:         c.Int64("memory"),
-	// 		Type_:          c.String("type"),
-	// 		Config:         extractEnvConfig(c.StringSlice("config")),
-	// 		Headers:        headers,
-	// 		Format:         c.String("format"),
-	// 		MaxConcurrency: int32(c.Int64("max-concurrency")),
-	// 		Timeout:        int32(c.Int64("timeout")),
-	// 	}
-
-	// 	err := a.patchRoute(appName, route, patchRoute)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	fmt.Println(appName, route, "updated")
-	return nil
-}
-
-func (a *routesCmd) configSet(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
-	}
-
-	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-	key := c.Args().Get(2)
-	value := c.Args().Get(3)
-
-	resp, err := a.client.Routes.GetAppsAppRoutesRoute(&apiroutes.GetAppsAppRoutesRouteParams{
-		Context: context.Background(),
-		App:     appName,
-		Route:   route,
+		Route:   routePath,
 	})
 
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesRouteNotFound:
 			return fmt.Errorf("error: %v", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
-		case *apiroutes.GetAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message)
+		case *apiroutes.GetAppsAppRoutesDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	config := resp.Payload.Route.Config
-
-	if config == nil {
-		config = make(map[string]string)
+	if resp.Payload.Route.Config == nil {
+		resp.Payload.Route.Config = map[string]string{}
 	}
 
-	config[key] = value
-	resp.Payload.Route.Config = config
+	if resp.Payload.Route.Headers == nil {
+		resp.Payload.Route.Headers = map[string][]string{}
+	}
+
+	resp.Payload.Route.Path = ""
+	if r != nil {
+		if r.Config != nil {
+			for k, v := range r.Config {
+				if string(k[0]) == "-" {
+					delete(resp.Payload.Route.Config, string(k[1:]))
+					continue
+				}
+				resp.Payload.Route.Config[k] = v
+			}
+		}
+		if r.Headers != nil {
+			for k, v := range r.Headers {
+				if string(k[0]) == "-" {
+					delete(resp.Payload.Route.Headers, k)
+					continue
+				}
+				resp.Payload.Route.Headers[k] = v
+			}
+		}
+		if r.Image != "" {
+			resp.Payload.Route.Image = r.Image
+		}
+		if r.Format != "" {
+			resp.Payload.Route.Format = r.Format
+		}
+		if r.Type != "" {
+			resp.Payload.Route.Type = r.Type
+		}
+		if r.MaxConcurrency > 0 {
+			resp.Payload.Route.MaxConcurrency = r.MaxConcurrency
+		}
+		if r.Memory > 0 {
+			resp.Payload.Route.Memory = r.Memory
+		}
+		if r.Timeout != nil {
+			resp.Payload.Route.Timeout = r.Timeout
+		}
+	}
 
 	_, err = a.client.Routes.PatchAppsAppRoutesRoute(&apiroutes.PatchAppsAppRoutesRouteParams{
 		Context: context.Background(),
 		App:     appName,
-		Route:   route,
+		Route:   routePath,
 		Body:    resp.Payload,
 	})
 
@@ -537,20 +441,82 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	fmt.Println(appName, resp.Payload.Route.Path, "updated", key, "with", value)
+	return nil
+}
 
-	// patchRoute := functions.Route{
-	// 	Config: make(map[string]string),
-	// }
+func (a *routesCmd) update(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
+		return errors.New("error: route configuration description takes two arguments: an app name and a route")
+	}
 
-	// patchRoute.Config[key] = value
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
 
-	// err := a.patchRoute(appName, route, &patchRoute)
-	// if err != nil {
-	// 	return err
-	// }
+	var (
+		format  string
+		maxC    int
+		timeout time.Duration
+	)
 
-	// fmt.Println(appName, route, "updated", key, "with", value)
+	if f := c.String("format"); f != "" {
+		format = f
+	}
+	if m := c.Int("max-concurrency"); m > 0 {
+		maxC = m
+	}
+	if t := c.Duration("timeout"); t > 0 {
+		timeout = t
+	}
+
+	headers := map[string][]string{}
+	for _, header := range c.StringSlice("headers") {
+		parts := strings.Split(header, "=")
+		headers[parts[0]] = strings.Split(parts[1], ";")
+	}
+
+	to := int64(timeout.Seconds())
+	patchRoute := &fnmodels.Route{
+		Image:          c.String("image"),
+		Memory:         c.Int64("memory"),
+		Type:           c.String("type"),
+		Config:         extractEnvConfig(c.StringSlice("config")),
+		Headers:        headers,
+		Format:         format,
+		MaxConcurrency: int32(maxC),
+		Timeout:        &to,
+	}
+
+	err := a.patchRoute(appName, route, patchRoute)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(appName, route, "updated")
+	return nil
+}
+
+func (a *routesCmd) configSet(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
+		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
+	}
+
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+	key := c.Args().Get(2)
+	value := c.Args().Get(3)
+
+	patchRoute := fnmodels.Route{
+		Config: make(map[string]string),
+	}
+
+	patchRoute.Config[key] = value
+
+	err := a.patchRoute(appName, route, &patchRoute)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(appName, route, "updated", key, "with", value)
 	return nil
 }
 
@@ -563,36 +529,18 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 	route := c.Args().Get(1)
 	key := c.Args().Get(2)
 
-	resp, err := a.client.Routes.GetAppsAppRoutesRoute(&apiroutes.GetAppsAppRoutesRouteParams{
-		Context: context.Background(),
-		App:     appName,
-		Route:   route,
-	})
+	patchRoute := fnmodels.Route{
+		Config: make(map[string]string),
+	}
 
+	patchRoute.Config["-"+key] = ""
+
+	err := a.patchRoute(appName, route, &patchRoute)
 	if err != nil {
-		switch err.(type) {
-		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
-		case *apiroutes.GetAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return err
 	}
 
-	config := resp.Payload.Route.Config
-
-	if config == nil {
-		config = make(map[string]string)
-	}
-
-	if _, ok := config[key]; !ok {
-		return fmt.Errorf("configuration key %s not found", key)
-	}
-
-	delete(config, key)
-	resp.Payload.Route.Config = config
-
-	fmt.Println(appName, resp.Payload.Route.Path, "removed", key)
+	fmt.Printf("removed key '%s' from the route '%s%s'", key, appName, key)
 	return nil
 }
 
@@ -629,12 +577,49 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 		return nil
 	}
 
-	jq := jsonq.NewQuery(resp.Payload.Route)
+	data, err := json.Marshal(resp.Payload.Route)
+	if err != nil {
+		return fmt.Errorf("failed to inspect route: %v", err)
+	}
+	var inspect map[string]interface{}
+	err = json.Unmarshal(data, &inspect)
+	if err != nil {
+		return fmt.Errorf("failed to inspect route: %v", err)
+	}
+
+	jq := jsonq.NewQuery(inspect)
 	field, err := jq.Interface(strings.Split(prop, ".")...)
 	if err != nil {
-		return errors.New("failed to inspect the property")
+		return errors.New("failed to inspect that route's field")
 	}
 	enc.Encode(field)
 
+	return nil
+}
+
+func (a *routesCmd) delete(c *cli.Context) error {
+	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
+		return errors.New("error: routes listing takes three arguments: an app name and a path")
+	}
+
+	appName := c.Args().Get(0)
+	route := c.Args().Get(1)
+
+	_, err := a.client.Routes.DeleteAppsAppRoutesRoute(&apiroutes.DeleteAppsAppRoutesRouteParams{
+		Context: context.Background(),
+		App:     appName,
+		Route:   route,
+	})
+	if err != nil {
+		switch err.(type) {
+		case *apiroutes.DeleteAppsAppRoutesRouteNotFound:
+			return fmt.Errorf("error: %v", err.(*apiroutes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message)
+		case *apiroutes.DeleteAppsAppRoutesRouteDefault:
+			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %v", err)
+	}
+
+	fmt.Println(appName, route, "deleted")
 	return nil
 }
