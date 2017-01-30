@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"sync"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/ccirello/supervisor"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api"
+	"github.com/iron-io/functions/api/datastore"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
 	"github.com/iron-io/functions/api/server/internal/routecache"
@@ -39,11 +42,9 @@ type Server struct {
 
 	apiURL string
 
-	specialHandlers    []SpecialHandler
-	appCreateListeners []AppCreateListener
-	appUpdateListeners []AppUpdateListener
-	appDeleteListeners []AppDeleteListener
-	runnerListeners    []RunnerListener
+	specialHandlers []SpecialHandler
+	appListeners    []AppListener
+	runnerListeners []RunnerListener
 
 	mu           sync.Mutex // protects hotroutes
 	hotroutes    *routecache.Cache
@@ -53,6 +54,24 @@ type Server struct {
 
 const cacheSize = 1024
 
+// NewFromEnv creates a new IronFunctions server based on env vars.
+func NewFromEnv(ctx context.Context) *Server {
+	ds, err := datastore.New(viper.GetString(EnvDBURL))
+	if err != nil {
+		logrus.WithError(err).Fatalln("Error initializing datastore.")
+	}
+
+	mq, err := mqs.New(viper.GetString(EnvMQURL))
+	if err != nil {
+		logrus.WithError(err).Fatal("Error initializing message queue.")
+	}
+
+	apiURL := viper.GetString(EnvAPIURL)
+
+	return New(ctx, ds, mq, apiURL)
+}
+
+// New creates a new IronFunctions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiURL string, opts ...ServerOption) *Server {
 	metricLogger := runner.NewMetricLogger()
 	funcLogger := runner.NewFuncLogger()
@@ -76,6 +95,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 	}
 
 	s.Router.Use(prepareMiddleware(ctx))
+	s.bindHandlers()
 
 	for _, opt := range opts {
 		opt(s)
@@ -87,14 +107,17 @@ func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
 
-		if appName := c.Param("app"); appName != "" {
+		if appName := c.Param(api.CApp); appName != "" {
 			c.Set(api.AppName, appName)
 		}
 
-		if routePath := c.Param("route"); routePath != "" {
+		if routePath := c.Param(api.CRoute); routePath != "" {
 			c.Set(api.Path, routePath)
 		}
+
+		// todo: can probably replace the "ctx" value with the Go 1.7 context on the http.Request
 		c.Set("ctx", ctx)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }
@@ -173,7 +196,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 }
 
 func (s *Server) Start(ctx context.Context) {
-	s.bindHandlers()
+	ctx = contextWithSignal(ctx, os.Interrupt)
 	s.startGears(ctx)
 	close(s.tasks)
 }

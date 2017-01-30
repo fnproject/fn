@@ -6,6 +6,7 @@ import (
 )
 
 type Datastore interface {
+	// GetApp returns the app called appName or nil if it doesn't exist
 	GetApp(ctx context.Context, appName string) (*App, error)
 	GetApps(ctx context.Context, filter *AppFilter) ([]*App, error)
 	InsertApp(ctx context.Context, app *App) (*App, error)

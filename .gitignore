@@ -13,6 +13,7 @@ vendor/
 /gateway
 /functions
 /functions-alpine
+/functions.exe
 bolt.db
 .glide/
 

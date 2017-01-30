@@ -88,6 +88,12 @@ Triggered during requests to the following routes:
 - GET /r/:app/:route
 - POST /r/:app/:route
 
+## Adding API Endpoints
+
+You can add API endpoints by using the `AddEndpoint` and `AddEndpointFunc` methods to the IronFunctions server. 
+
+See examples of this in [/examples/extensions/main.go](/examples/extensions/main.go). 
+
 ## Special Handlers
 
 To understand how **Special Handlers** works you need to understand what are **Special Routes**.

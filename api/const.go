@@ -4,4 +4,8 @@ package api
 const (
 	AppName string = "app_name"
 	Path    string = "path"
+
+	// Short forms for API URLs
+	CApp   string = "app"
+	CRoute string = "route"
 )
