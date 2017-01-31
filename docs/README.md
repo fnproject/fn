@@ -24,6 +24,7 @@ If you are operating IronFunctions, this section is for you.
 * [Running in Production Overview](operating/production.md)
 * [Databases](databases/README.md)
 * [Message Queues](mqs/README.md)
+* [UI](operating/ui.md)
 * [Logging](operating/logging.md)
 * [Metrics](operating/metrics.md)
 * [Triggers](operating/triggers.md)

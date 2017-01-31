@@ -274,6 +274,14 @@ If you watch the logs, you will see the function actually runs in the background
 
 Read more on [logging](docs/logging.md).
 
+## Functions UI
+
+```sh
+docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" iron/functions-ui
+```
+
+For more information, see: https://github.com/iron-io/functions-ui
+
 ## Writing Functions
 
 See [Writing Functions](docs/writing.md).
