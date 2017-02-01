@@ -35,6 +35,10 @@ func runflags() []cli.Flag {
 			Name:  "link",
 			Usage: "select container links for the function",
 		},
+		cli.StringFlag{
+			Name: "method",
+			Usage: "http method for function",
+		},
 	}
 }
 
@@ -51,10 +55,10 @@ func (r *runCmd) run(c *cli.Context) error {
 		image = ff.FullName()
 	}
 
-	return runff(image, stdin(), os.Stdout, os.Stderr, c.StringSlice("e"), c.StringSlice("link"))
+	return runff(image, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"))
 }
 
-func runff(image string, stdin io.Reader, stdout, stderr io.Writer, restrictedEnv []string, links []string) error {
+func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method string, restrictedEnv []string, links []string) error {
 	sh := []string{"docker", "run", "--rm", "-i"}
 
 	var env []string
@@ -62,6 +66,15 @@ func runff(image string, stdin io.Reader, stdout, stderr io.Writer, restrictedEn
 	if len(restrictedEnv) > 0 {
 		detectedEnv = restrictedEnv
 	}
+
+	if method == "" {
+		if stdin == nil {
+			method = "GET"
+		} else {
+			method = "POST"
+		}
+	}
+	sh = append(sh, "-e", kvEq("METHOD", method))
 
 	for _, e := range detectedEnv {
 		shellvar, envvar := extractEnvVar(e)
@@ -97,8 +110,11 @@ func extractEnvVar(e string) ([]string, string) {
 	} else {
 		v = os.Getenv(kv[0])
 	}
-	env := fmt.Sprintf("%s=%s", name, v)
-	return sh, env
+	return sh, kvEq(name, v)
+}
+
+func kvEq(k, v string) string {
+	return fmt.Sprintf("%s=%s", k, v)
 }
 
 // From server.toEnvName()

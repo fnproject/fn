@@ -5,17 +5,15 @@ package main
 import (
 	"io"
 	"os"
-	"strings"
 	"syscall"
 	"unsafe"
 )
 
 func stdin() io.Reader {
-	var stdin io.Reader = os.Stdin
 	if isTerminal(int(os.Stdin.Fd())) {
-		stdin = strings.NewReader("")
+		return nil
 	}
-	return stdin
+	return os.Stdin
 }
 
 func isTerminal(fd int) bool {

@@ -231,11 +231,19 @@ func (a *routesCmd) call(c *cli.Context) error {
 	u.Path = path.Join(u.Path, "r", appName, route)
 	content := stdin()
 
-	return callfn(u.String(), content, os.Stdout, c.StringSlice("e"))
+	return callfn(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"))
 }
 
-func callfn(u string, content io.Reader, output io.Writer, env []string) error {
-	req, err := http.NewRequest("POST", u, content)
+func callfn(u string, content io.Reader, output io.Writer, method string, env []string) error {
+	if method == "" {
+		if content == nil {
+			method = "GET"
+		} else {
+			method = "POST"
+		}
+	}
+
+	req, err := http.NewRequest(method, u, content)
 	if err != nil {
 		return fmt.Errorf("error running route: %v", err)
 	}
