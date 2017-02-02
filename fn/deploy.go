@@ -138,9 +138,9 @@ func (p *deploycmd) route(path string, ff *funcfile) error {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
-	if ff.Path == nil {
+	if ff.path == nil {
 		_, path := appNamePath(ff.FullName())
-		ff.Path = &path
+		ff.path = &path
 	}
 
 	if ff.Memory == nil {
@@ -152,8 +152,8 @@ func (p *deploycmd) route(path string, ff *funcfile) error {
 	if ff.Format == nil {
 		ff.Format = new(string)
 	}
-	if ff.MaxConcurrency == nil {
-		ff.MaxConcurrency = new(int)
+	if ff.maxConcurrency == nil {
+		ff.maxConcurrency = new(int)
 	}
 	if ff.Timeout == nil {
 		dur := time.Duration(0)
@@ -166,19 +166,19 @@ func (p *deploycmd) route(path string, ff *funcfile) error {
 	}
 	body := functions.RouteWrapper{
 		Route: functions.Route{
-			Path:           *ff.Path,
+			Path:           *ff.path,
 			Image:          ff.FullName(),
 			Memory:         *ff.Memory,
 			Type_:          *ff.Type,
 			Config:         expandEnvConfig(ff.Config),
 			Headers:        headers,
 			Format:         *ff.Format,
-			MaxConcurrency: int32(*ff.MaxConcurrency),
+			MaxConcurrency: int32(*ff.maxConcurrency),
 			Timeout:        int32(ff.Timeout.Seconds()),
 		},
 	}
 
-	fmt.Fprintf(p.verbwriter, "updating API with app: %s route: %s name: %s \n", p.appName, *ff.Path, ff.Name)
+	fmt.Fprintf(p.verbwriter, "updating API with app: %s route: %s name: %s \n", p.appName, *ff.path, ff.Name)
 
 	wrapper, resp, err := p.AppsAppRoutesPost(p.appName, body)
 	if err != nil {

@@ -16,6 +16,7 @@ vendor/
 /functions.exe
 bolt.db
 .glide/
+/fnctl
 
 private.sh
 .env

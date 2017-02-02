@@ -118,11 +118,11 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		Version:        initialVersion,
 		Entrypoint:     &a.entrypoint,
 		Format:         ffmt,
-		MaxConcurrency: &a.maxConcurrency,
+		maxConcurrency: &a.maxConcurrency,
 	}
 
 	_, path := appNamePath(ff.FullName())
-	ff.Path = &path
+	ff.path = &path
 
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
 		return err

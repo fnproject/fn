@@ -279,7 +279,7 @@ func createFunctionYaml(opts createImageOptions) error {
 	path := fmt.Sprintf("/%s", strs[1])
 	funcDesc := &funcfile{
 		Name:   opts.Name,
-		Path:   &path,
+		path:   &path,
 		Config: opts.Config,
 	}
 

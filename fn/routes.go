@@ -301,14 +301,14 @@ func (a *routesCmd) create(c *cli.Context) error {
 		if ff.Format != nil {
 			format = *ff.Format
 		}
-		if ff.MaxConcurrency != nil {
-			maxC = *ff.MaxConcurrency
+		if ff.maxConcurrency != nil {
+			maxC = *ff.maxConcurrency
 		}
 		if ff.Timeout != nil {
 			timeout = *ff.Timeout
 		}
-		if route == "" && ff.Path != nil {
-			route = *ff.Path
+		if route == "" && ff.path != nil {
+			route = *ff.path
 		}
 	}
 
