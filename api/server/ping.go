@@ -7,5 +7,5 @@ import (
 )
 
 func handlePing(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, "Not Implemented")
+	c.JSON(http.StatusOK, gin.H{"hello": "world!", "goto": "https://github.com/iron-io/functions"})
 }
