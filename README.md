@@ -76,8 +76,10 @@ This guide will get you up and running in a few minutes.
 To get started quickly with IronFunctions, just fire up an `iron/functions` container:
 
 ```sh
-docker run --rm -it --name functions --privileged -v ${pwd}/data:/app/data -p 8080:8080 iron/functions
+docker run --rm -it --name functions --privileged -v ${PWD}/data:/app/data -p 8080:8080 iron/functions
 ```
+
+*where ${PWD}/data is the directory where the functions application data files will be stored*
 
 This will start IronFunctions in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/options.md). If you are on Windows, check [here](docs/operating/windows.md).
@@ -87,8 +89,10 @@ configuration options [here](docs/options.md). If you are on Windows, check [her
 Install the IronFunctions CLI tool:
 
 ```sh
-curl -sSL http://get.iron.io/fn | sh
+curl -LSs http://get.iron.io/fn | sh
 ```
+
+This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
 
 ### Write a Function
 
