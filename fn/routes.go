@@ -260,6 +260,7 @@ func callfn(u string, content io.Reader, output io.Writer, method string, env []
 	}
 
 	io.Copy(output, resp.Body)
+
 	return nil
 }
 

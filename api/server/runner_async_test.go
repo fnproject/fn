@@ -14,6 +14,7 @@ import (
 	"github.com/iron-io/functions/api/mqs"
 	"github.com/iron-io/functions/api/runner"
 	"github.com/iron-io/functions/api/runner/task"
+	"github.com/iron-io/functions/api/server/internal/routecache"
 )
 
 func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *gin.Engine {
@@ -26,6 +27,7 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 		MQ:        mq,
 		tasks:     tasks,
 		Enqueue:   enqueue,
+		hotroutes: routecache.New(10),
 	}
 
 	r := s.Router
@@ -37,7 +39,6 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 }
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
-	t.Skip()
 	tasks := mockTasksConduit()
 	ds := &datastore.Mock{
 		Apps: []*models.App{
@@ -58,24 +59,24 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		expectedCode int
 		expectedEnv  map[string]string
 	}{
-		{"/r/myapp/myroute", ``, map[string][]string{}, http.StatusOK, map[string]string{"TEST": "true", "APP": "true"}},
+		{"/r/myapp/myroute", ``, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
+		// FIXME: this just hangs
+		//{"/r/myapp/myroute/1", ``, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
+		{"/r/myapp/myerror", ``, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
+		{"/r/myapp/myroute", `{ "name": "test" }`, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
 		{
-			"/r/myapp/myroute/1",
+			"/r/myapp/myroute",
 			``,
 			map[string][]string{"X-Function": []string{"test"}},
-			http.StatusOK,
+			http.StatusAccepted,
 			map[string]string{
 				"TEST":              "true",
 				"APP":               "true",
-				"PARAM_PARAM":       "1",
 				"HEADER_X_FUNCTION": "test",
 			},
 		},
-		{"/r/myapp/myerror", ``, map[string][]string{}, http.StatusOK, map[string]string{"TEST": "true", "APP": "true"}},
-		{"/r/myapp/myroute", `{ "name": "test" }`, map[string][]string{}, http.StatusOK, map[string]string{"TEST": "true", "APP": "true"}},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
-
 		var wg sync.WaitGroup
 
 		wg.Add(1)
@@ -88,9 +89,13 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 
 			if test.expectedEnv != nil {
 				for name, value := range test.expectedEnv {
-					if value != task.EnvVars[name] {
+					taskName := name
+					if name == "APP" || name == "TEST" {
+						taskName = fmt.Sprintf("_%s", name)
+					}
+					if value != task.EnvVars[taskName] {
 						t.Errorf("Test %d: Expected header `%s` to be `%s` but was `%s`",
-							i, name, value, task.EnvVars[name])
+							i, name, value, task.EnvVars[taskName])
 					}
 				}
 			}

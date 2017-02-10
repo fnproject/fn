@@ -66,7 +66,6 @@ func TestRunnerHello(t *testing.T) {
 }
 
 func TestRunnerError(t *testing.T) {
-	t.Skip()
 	buf := setLogBuffer()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -83,8 +82,8 @@ func TestRunnerError(t *testing.T) {
 		expectedOut    string
 		expectedErr    string
 	}{
-		{&models.Route{Image: "iron/error"}, ``, "error", "", "RuntimeError"},
-		{&models.Route{Image: "iron/error"}, `{"name": "test"}`, "error", "", "RuntimeError"},
+		{&models.Route{Image: "iron/error"}, ``, "error", "", ""},
+		{&models.Route{Image: "iron/error"}, `{"name": "test"}`, "error", "", ""},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{

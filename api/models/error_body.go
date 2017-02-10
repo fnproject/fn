@@ -1,8 +1,8 @@
 package models
 
 type ErrorBody struct {
-	Fields  string `json:"fields,omitempty"`
-	Message string `json:"message,omitempty"`
+	Message   string `json:"message,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // Validate validates this error body
