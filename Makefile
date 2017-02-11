@@ -1,4 +1,5 @@
 # Just builds
+.PHONY: all test dep build
 
 DIR := ${CURDIR}
 

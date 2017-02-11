@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"encoding/json"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/iron-io/functions/api"
@@ -23,6 +21,11 @@ import (
 	"github.com/iron-io/runner/common"
 	uuid "github.com/satori/go.uuid"
 )
+
+type runnerResponse struct {
+	RequestID string            `json:"request_id,omitempty"`
+	Error     *models.ErrorBody `json:"error,omitempty"`
+}
 
 func (s *Server) handleSpecial(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
@@ -232,19 +235,19 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		case "success":
 			c.Data(http.StatusOK, "", stdout.Bytes())
 		case "timeout":
-			c.AbortWithStatus(http.StatusGatewayTimeout)
-		default:
-			errMsg := &models.ErrorBody{
-				Message:   result.Error(),
+			c.JSON(http.StatusGatewayTimeout, runnerResponse{
 				RequestID: cfg.ID,
-			}
-
-			errStr, err := json.Marshal(errMsg)
-			if err != nil {
-				c.AbortWithStatus(http.StatusInternalServerError)
-			}
-
-			c.Data(http.StatusInternalServerError, "", errStr)
+				Error: &models.ErrorBody{
+					Message: models.ErrRunnerTimeout.Error(),
+				},
+			})
+		default:
+			c.JSON(http.StatusInternalServerError, runnerResponse{
+				RequestID: cfg.ID,
+				Error: &models.ErrorBody{
+					Message: result.Error(),
+				},
+			})
 		}
 	}
 
