@@ -36,7 +36,7 @@ func TestRunnerHello(t *testing.T) {
 		cfg := &task.Config{
 			ID:      fmt.Sprintf("hello-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
-			Timeout: 5 * time.Second,
+			Timeout: 10 * time.Second,
 			Stdin:   strings.NewReader(test.payload),
 			Stdout:  &stdout,
 			Stderr:  &stderr,
@@ -89,7 +89,7 @@ func TestRunnerError(t *testing.T) {
 		cfg := &task.Config{
 			ID:      fmt.Sprintf("err-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
-			Timeout: 5 * time.Second,
+			Timeout: 10 * time.Second,
 			Stdin:   strings.NewReader(test.payload),
 			Stdout:  &stdout,
 			Stderr:  &stderr,
