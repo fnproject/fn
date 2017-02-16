@@ -23,20 +23,20 @@ fn init [--runtime node] [--entrypoint "node hello.js"] <DOCKER_HUB_USERNAME>/<F
 
 Or, if you want full control, just make a Dockerfile. If `init` finds a Dockerfile, it will use that instead of runtime and entrypoint.
 
-### Build, Bump, Run, Push
+### Bump, Build, Run, Push
 
-`fn` provides a few commands you'll use while creating and updating your functions: `build`, `bump`, `run` and `push`.
-
-Build will build the image for your function.
-
-```sh
-fn build
-```
+`fn` provides a few commands you'll use while creating and updating your functions: `bump`, `build`, `run` and `push`.
 
 Bump will bump the version number in your func.yaml file. Versions must be in [semver](http://semver.org/) format.
 
 ```sh
 fn bump
+```
+
+Build will build the image for your function, creating a Docker image tagged with the version number from func.yaml.
+
+```sh
+fn build
 ```
 
 Run will help you test your function. Functions read input from STDIN, so you can pipe the payload into the function like this:
