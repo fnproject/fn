@@ -5,11 +5,10 @@ import (
 	"net/url"
 	"os"
 
+	vers "github.com/iron-io/functions/api/version"
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
 )
-
-const fnversion = "0.1.40"
 
 var aliases = map[string]cli.Command{
 	"build":  build(),
@@ -33,7 +32,7 @@ func aliasesFn() []cli.Command {
 func newFn() *cli.App {
 	app := cli.NewApp()
 	app.Name = "fn"
-	app.Version = fnversion
+	app.Version = vers.Version
 	app.Authors = []cli.Author{{Name: "iron.io"}}
 	app.Description = "IronFunctions command line tools"
 	app.UsageText = `Check the manual at https://github.com/iron-io/functions/blob/master/fn/README.md`

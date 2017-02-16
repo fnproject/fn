@@ -4,11 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/iron-io/functions/api/version"
 )
 
-// Version of IronFunctions
-var Version = "0.2.17"
-
 func handleVersion(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"version": Version})
+	c.JSON(http.StatusOK, gin.H{"version": version.Version})
 }

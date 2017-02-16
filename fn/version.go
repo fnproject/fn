@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 
+	vers "github.com/iron-io/functions/api/version"
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
 )
@@ -34,7 +35,7 @@ func (r *versionCmd) version(c *cli.Context) error {
 	}
 	r.Configuration.BasePath = u.String()
 
-	fmt.Println("Client version:", fnversion)
+	fmt.Println("Client version:", vers.Version)
 	v, _, err := r.VersionGet()
 	if err != nil {
 		return err
