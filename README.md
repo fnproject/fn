@@ -200,7 +200,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 
 ### Calling your Function
 
-Calling your function is as simple as requesting a URL. Each app has it's own namespace and each route mapped to the app.
+Calling your function is as simple as requesting a URL. Each app has its own namespace and each route mapped to the app.
 The app `myapp` that we created above along with the `/hello` route we added would be called via the following
 URL: http://localhost:8080/r/myapp/hello
 
