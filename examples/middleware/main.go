@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	funcServer := server.NewEnv(ctx)
+	funcServer := server.NewFromEnv(ctx)
 
 	funcServer.AddMiddlewareFunc(func(ctx server.MiddlewareContext, w http.ResponseWriter, r *http.Request, app *models.App) error {
 		start := time.Now()
