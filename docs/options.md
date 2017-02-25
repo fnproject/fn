@@ -16,7 +16,7 @@ docker run -e VAR_NAME=VALUE ...
 </tr>
 <tr>
 <td>DB_URL</td>
-<td>The database URL to use in URL format. See [Databases](databases/README.md) for more information. Default: BoltDB in current working directory `bolt.db`.</td>
+<td>The database URL to use in URL format. See [Databases](operating/databases/README.md) for more information. Default: BoltDB in current working directory `bolt.db`.</td>
 </tr>
 <tr>
 <td>MQ_URL</td>
@@ -46,7 +46,7 @@ a couple reasons why we did it this way:
 the docker run command to set the max memory for the IronFunctions instance AND all of the functions it's running.
 
 There are some reasons you may not want to use dind, such as using the image cache during testing or you're running
-[Windows](windows.md).
+[Windows](operating/windows.md).
 
 ### Mount the Host Docker
 
