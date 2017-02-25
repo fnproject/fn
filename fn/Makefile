@@ -1,6 +1,8 @@
-all: vendor
-	go build -o fn
+all: vendor build	
 	./fn
+
+build: 
+	go build -o fn
 
 docker: vendor
 	GOOS=linux go build -o fn
@@ -17,3 +19,7 @@ release:
 	GOOS=linux go build -o fn_linux
 	GOOS=darwin go build -o fn_mac
 	GOOS=windows go build -o fn.exe
+
+# install locally
+install: build
+	sudo mv fn /usr/local/bin/

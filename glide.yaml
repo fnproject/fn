@@ -31,6 +31,8 @@ import:
 - package: github.com/ccirello/supervisor
   version: v0.5.1
 - package: github.com/iron-io/runner
+- package: github.com/iron-io/functions_go
+  version: master
 - package: github.com/golang/groupcache
   subpackages:
   - consistenthash

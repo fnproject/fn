@@ -67,13 +67,15 @@ See examples of this in [/examples/extensions/main.go](/examples/extensions/main
 
 ## Middleware
 
-Middleware enables you to add functionality to every API request. For every request, the chain of Middleware will be called 
-in order allowing you to modify or reject requests, as well as write output and cancel the chain. 
+Middleware enables you to add functionality to every API request. For every request, the chain of Middleware will be called
+in order allowing you to modify or reject requests, as well as write output and cancel the chain.
 
 NOTES:
 
 * middleware is responsible for writing output if it's going to cancel the chain.
 * cancel the chain by returning an error from your Middleware's Serve method.
+
+See examples of this in [/examples/Middleware/main.go](/examples/middleware/main.go).
 
 ## Special Handlers
 

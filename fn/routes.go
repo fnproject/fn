@@ -14,6 +14,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	fnclient "github.com/iron-io/functions_go/client"
 	apiroutes "github.com/iron-io/functions_go/client/routes"
 	"github.com/iron-io/functions_go/models"
@@ -53,7 +54,7 @@ func routes() cli.Command {
 				Name:      "create",
 				Aliases:   []string{"c"},
 				Usage:     "create a route in an `app`",
-				ArgsUsage: "`app` /path image/name",
+				ArgsUsage: "`app` /path [image]",
 				Action:    r.create,
 				Flags: []cli.Flag{
 					cli.Int64Flag{
@@ -91,7 +92,7 @@ func routes() cli.Command {
 				Name:      "update",
 				Aliases:   []string{"u"},
 				Usage:     "update a route in an `app`",
-				ArgsUsage: "`app` /path",
+				ArgsUsage: "`app` /path [image]",
 				Action:    r.update,
 				Flags: []cli.Flag{
 					cli.StringFlag{
@@ -179,8 +180,8 @@ func call() cli.Command {
 }
 
 func (a *routesCmd) list(c *cli.Context) error {
-	if c.Args().First() == "" {
-		return errors.New("error: routes listing takes one argument, an app name")
+	if len(c.Args()) < 1 {
+		return errors.New("error: routes listing takes one argument: an app name")
 	}
 
 	appName := c.Args().Get(0)
@@ -217,8 +218,8 @@ func (a *routesCmd) list(c *cli.Context) error {
 }
 
 func (a *routesCmd) call(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: routes listing takes three arguments: an app name and a route")
+	if len(c.Args()) < 2 {
+		return errors.New("error: routes listing takes three arguments: an app name and a path")
 	}
 
 	appName := c.Args().Get(0)
@@ -278,8 +279,9 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 }
 
 func (a *routesCmd) create(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: routes creation takes at least three arguments: app name, route path and image name")
+	// todo: @pedro , why aren't you just checking the length here?
+	if len(c.Args()) < 2 {
+		return errors.New("error: routes listing takes at least two arguments: an app name and a path")
 	}
 
 	appName := c.Args().Get(0)
@@ -291,6 +293,7 @@ func (a *routesCmd) create(c *cli.Context) error {
 		timeout time.Duration
 	)
 	if image == "" {
+		// todo: why do we only load the func file if image isn't set?  Don't we need to read the rest of these things regardless?
 		ff, err := loadFuncfile()
 		if err != nil {
 			if _, ok := err.(*notFoundError); ok {
@@ -454,18 +457,52 @@ func (a *routesCmd) patchRoute(appName, routePath string, r *fnmodels.Route) err
 }
 
 func (a *routesCmd) update(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: route configuration description takes two arguments: an app name and a route")
+	if len(c.Args()) < 2 {
+		return errors.New("error: route update takes at least two arguments: an app name and a path")
 	}
 
 	appName := c.Args().Get(0)
 	route := c.Args().Get(1)
-
+	image := c.Args().Get(2)
 	var (
 		format  string
 		maxC    int
 		timeout time.Duration
 	)
+	ff, err := loadFuncfile()
+	if err != nil {
+		if _, ok := err.(*notFoundError); ok {
+			if image == "" {
+				// the no image flag or func file
+				return errors.New("error: image name is missing or no function file found")
+			}
+			logrus.Warnln("func file not found, continuing...")
+		} else {
+			return err
+		}
+	}
+	if image != "" { // flags take precedence
+		image = ff.FullName()
+	}
+	if ff.Format != nil {
+		format = *ff.Format
+	}
+	if ff.maxConcurrency != nil {
+		maxC = *ff.maxConcurrency
+	}
+	if ff.Timeout != nil {
+		timeout = *ff.Timeout
+	}
+	if route == "" && ff.path != nil {
+		route = *ff.path
+	}
+
+	if route == "" {
+		return errors.New("error: route path is missing")
+	}
+	// if image == "" {
+	// return errors.New("error: function image name is missing")
+	// }
 
 	if f := c.String("format"); f != "" {
 		format = f
@@ -485,7 +522,7 @@ func (a *routesCmd) update(c *cli.Context) error {
 
 	to := int64(timeout.Seconds())
 	patchRoute := &fnmodels.Route{
-		Image:          c.String("image"),
+		Image:          image,
 		Memory:         c.Int64("memory"),
 		Type:           c.String("type"),
 		Config:         extractEnvConfig(c.StringSlice("config")),
@@ -495,7 +532,7 @@ func (a *routesCmd) update(c *cli.Context) error {
 		Timeout:        &to,
 	}
 
-	err := a.patchRoute(appName, route, patchRoute)
+	err = a.patchRoute(appName, route, patchRoute)
 	if err != nil {
 		return err
 	}
@@ -505,8 +542,8 @@ func (a *routesCmd) update(c *cli.Context) error {
 }
 
 func (a *routesCmd) configSet(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route, a key and a value")
+	if len(c.Args()) < 4 {
+		return errors.New("error: route configuration updates tak four arguments: an app name, a path, a key and a value")
 	}
 
 	appName := c.Args().Get(0)
@@ -530,8 +567,8 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 }
 
 func (a *routesCmd) configUnset(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: route configuration setting takes four arguments: an app name, a route and a key")
+	if len(c.Args()) < 3 {
+		return errors.New("error: route configuration updates take three arguments: an app name, a path and a key")
 	}
 
 	appName := c.Args().Get(0)
@@ -554,7 +591,7 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 }
 
 func (a *routesCmd) inspect(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
+	if len(c.Args()) < 2 {
 		return errors.New("error: routes listing takes three arguments: an app name and a path")
 	}
 
@@ -607,8 +644,8 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 }
 
 func (a *routesCmd) delete(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: routes listing takes three arguments: an app name and a path")
+	if len(c.Args()) < 2 {
+		return errors.New("error: routes delete takes two arguments: an app name and a path")
 	}
 
 	appName := c.Args().Get(0)

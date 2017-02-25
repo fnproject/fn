@@ -1,5 +1,5 @@
-hash: 78692441d2595a5a303c64d4884fd4d04eebfd6a382ddd166176548d9da02645
-updated: 2017-01-18T21:41:13.698052314+01:00
+hash: 01f9cff01b9ee5c1d8c37c86779ab6bbd91278394e526f921f399f10a0523698
+updated: 2017-02-21T08:50:25.925523311-08:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -107,7 +107,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/fsouza/go-dockerclient
-  version: e085edda407c05214cc6e71e4881de47667e77ec
+  version: 364c822d280c4f34afc3339e50d4fc0129d6b5ec
 - name: github.com/garyburd/redigo
   version: 0708def8b0cf3a05acdf44a7f28b864c2958921d
   subpackages:
@@ -135,8 +135,12 @@ imports:
   version: 36d33bfe519efae5632669801b180bf1a245da3b
 - name: github.com/go-openapi/loads
   version: 315567415dfd74b651f7a62cabfc82a57ed7b9ad
+  subpackages:
+  - fmts
 - name: github.com/go-openapi/runtime
   version: 14b161b40ece9dac8e244ab2fde2d209e108c6f5
+  subpackages:
+  - client
 - name: github.com/go-openapi/spec
   version: f7ae86df5bc115a2744343016c789a89f065a4bd
 - name: github.com/go-openapi/strfmt
@@ -145,6 +149,8 @@ imports:
   version: 3b6d86cd965820f968760d5d419cb4add096bdd7
 - name: github.com/go-openapi/validate
   version: 027696d4b54399770f1cdcc6c6daa56975f9e14e
+- name: github.com/go-resty/resty
+  version: ef723efa2a1b4fcdbafb5b1e7c6cf42065519728
 - name: github.com/golang/groupcache
   version: 72d04f9fcdec7d3821820cc4a6f150eae553639a
   subpackages:
@@ -178,9 +184,18 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/heroku/docker-registry-client
-  version: 36bd5f538a6b9e70f2d863c9a8f6bf955a98eddc
+  version: 95467b6cacee2a06f112a3cf7e47a70fad6000cf
   subpackages:
   - registry
+- name: github.com/iron-io/functions_go
+  version: 69e4dec8454c3c710045263c2ede76139c141146
+  subpackages:
+  - client
+  - client/apps
+  - client/routes
+  - client/tasks
+  - client/version
+  - models
 - name: github.com/iron-io/iron_go3
   version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
   subpackages:
@@ -239,6 +254,8 @@ imports:
   version: 017119f7a78a0b5fc0ea39ef6be09f03acf3345d
 - name: github.com/pivotal-golang/bytefmt
   version: b12c1522f4cbb5f35861bd5dd2c39a4fa996441a
+- name: github.com/pkg/errors
+  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 - name: github.com/PuerkitoBio/purell
   version: 0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4
 - name: github.com/PuerkitoBio/urlesc
@@ -246,7 +263,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
-  version: d26492970760ca5d33129d2d799e34be5c4782eb
+  version: c078b1e43f58d563c74cebe63c85789e76ddb627
   subpackages:
   - hooks/syslog
 - name: github.com/spf13/afero
@@ -275,6 +292,7 @@ imports:
   - context/ctxhttp
   - idna
   - proxy
+  - publicsuffix
 - name: golang.org/x/sys
   version: 478fcf54317e52ab69f40bb4c7a1520288d7f7ea
   subpackages:

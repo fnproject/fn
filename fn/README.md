@@ -226,6 +226,7 @@ fn apps delete myapp
 ### Route management
 ```
 fn routes create myapp /hello iron/hello
+# routes update will also update any changes in the func.yaml file too. 
 fn routes update myapp /hello --timeout 30 --type async
 fn routes config set myapp /hello log_level info
 fn routes inspect myapp /hello
