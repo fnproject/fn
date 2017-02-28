@@ -29,7 +29,7 @@ dependencies:
 
 test:
   override:
-    - make test-docker:
+    - make docker-test:
         pwd: $GO_PROJECT
     - make test-datastore:
         pwd: $GO_PROJECT
