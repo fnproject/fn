@@ -24,7 +24,7 @@ docker-build:
 	docker run --rm -v ${CURDIR}:/go/src/github.com/iron-io/functions -w /go/src/github.com/iron-io/functions iron/go:dev go build -o functions-alpine
 	docker build -t iron/functions:latest .
 
-docker-run: build-docker
+docker-run: docker-build
 	docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v ${CURDIR}/data:/app/data -p 8080:8080 iron/functions
 
 docker-test:
