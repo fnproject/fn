@@ -14,7 +14,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	fnclient "github.com/iron-io/functions_go/client"
 	apiroutes "github.com/iron-io/functions_go/client/routes"
 	"github.com/iron-io/functions_go/models"
@@ -179,6 +178,14 @@ func call() cli.Command {
 	}
 }
 
+func cleanRoutePath(p string) string {
+	p = path.Clean(p)
+	if !path.IsAbs(p) {
+		p = "/" + p
+	}
+	return p
+}
+
 func (a *routesCmd) list(c *cli.Context) error {
 	if len(c.Args()) < 1 {
 		return errors.New("error: routes listing takes one argument: an app name")
@@ -223,7 +230,7 @@ func (a *routesCmd) call(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
+	route := cleanRoutePath(c.Args().Get(1))
 
 	u := url.URL{
 		Scheme: "http",
@@ -278,6 +285,68 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
+func routeWithFlags(c *cli.Context, rt *models.Route) {
+	if i := c.String("image"); i != "" {
+		rt.Image = i
+	}
+
+	if f := c.String("format"); f != "" {
+		rt.Format = f
+	}
+
+	if t := c.String("type"); t != "" {
+		rt.Type = t
+	}
+
+	if m := c.Int("max-concurrency"); m > 0 {
+		rt.MaxConcurrency = int32(m)
+	}
+
+	if m := c.Int64("memory"); m > 0 {
+		rt.Memory = m
+	}
+
+	if t := c.Duration("timeout"); t > 0 {
+		to := int64(t.Seconds())
+		rt.Timeout = &to
+	}
+
+	if len(c.StringSlice("headers")) > 0 {
+		headers := map[string][]string{}
+		for _, header := range c.StringSlice("headers") {
+			parts := strings.Split(header, "=")
+			headers[parts[0]] = strings.Split(parts[1], ";")
+		}
+		rt.Headers = headers
+	}
+
+	if len(c.StringSlice("config")) > 0 {
+		rt.Config = extractEnvConfig(c.StringSlice("config"))
+	}
+}
+
+func routeWithFuncFile(c *cli.Context, rt *models.Route) {
+	ff, err := loadFuncfile()
+	if err == nil {
+		if rt.Image != "" { // flags take precedence
+			rt.Image = ff.FullName()
+		}
+		if ff.Format != nil {
+			rt.Format = *ff.Format
+		}
+		if ff.maxConcurrency != nil {
+			rt.MaxConcurrency = int32(*ff.maxConcurrency)
+		}
+		if ff.Timeout != nil {
+			to := int64(ff.Timeout.Seconds())
+			rt.Timeout = &to
+		}
+		if rt.Path == "" && ff.path != nil {
+			rt.Path = *ff.path
+		}
+	}
+}
+
 func (a *routesCmd) create(c *cli.Context) error {
 	// todo: @pedro , why aren't you just checking the length here?
 	if len(c.Args()) < 2 {
@@ -285,66 +354,25 @@ func (a *routesCmd) create(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
+	route := cleanRoutePath(c.Args().Get(1))
 	image := c.Args().Get(2)
-	var (
-		format  string
-		maxC    int
-		timeout time.Duration
-	)
-	if image == "" {
-		// todo: why do we only load the func file if image isn't set?  Don't we need to read the rest of these things regardless?
-		ff, err := loadFuncfile()
-		if err != nil {
-			if _, ok := err.(*notFoundError); ok {
-				return errors.New("error: image name is missing or no function file found")
-			}
-			return err
-		}
-		image = ff.FullName()
-		if ff.Format != nil {
-			format = *ff.Format
-		}
-		if ff.maxConcurrency != nil {
-			maxC = *ff.maxConcurrency
-		}
-		if ff.Timeout != nil {
-			timeout = *ff.Timeout
-		}
-		if route == "" && ff.path != nil {
-			route = *ff.path
-		}
-	}
 
-	if route == "" {
+	rt := &models.Route{}
+	rt.Path = route
+	rt.Image = image
+
+	routeWithFuncFile(c, rt)
+	routeWithFlags(c, rt)
+
+	if rt.Path == "" {
 		return errors.New("error: route path is missing")
 	}
-	if image == "" {
+	if rt.Image == "" {
 		return errors.New("error: function image name is missing")
 	}
 
-	if f := c.String("format"); f != "" {
-		format = f
-	}
-	if m := c.Int("max-concurrency"); m > 0 {
-		maxC = m
-	}
-	if t := c.Duration("timeout"); t > 0 {
-		timeout = t
-	}
-
-	to := int64(timeout.Seconds())
 	body := &models.RouteWrapper{
-		Route: &models.Route{
-			Path:           route,
-			Image:          image,
-			Memory:         c.Int64("memory"),
-			Type:           c.String("type"),
-			Config:         extractEnvConfig(c.StringSlice("config")),
-			Format:         format,
-			MaxConcurrency: int32(maxC),
-			Timeout:        &to,
-		},
+		Route: rt,
 	}
 
 	resp, err := a.client.Routes.PostAppsAppRoutes(&apiroutes.PostAppsAppRoutesParams{
@@ -462,77 +490,13 @@ func (a *routesCmd) update(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
-	image := c.Args().Get(2)
-	var (
-		format  string
-		maxC    int
-		timeout time.Duration
-	)
-	ff, err := loadFuncfile()
-	if err != nil {
-		if _, ok := err.(*notFoundError); ok {
-			if image == "" {
-				// the no image flag or func file
-				return errors.New("error: image name is missing or no function file found")
-			}
-			logrus.Warnln("func file not found, continuing...")
-		} else {
-			return err
-		}
-	}
-	if image != "" { // flags take precedence
-		image = ff.FullName()
-	}
-	if ff.Format != nil {
-		format = *ff.Format
-	}
-	if ff.maxConcurrency != nil {
-		maxC = *ff.maxConcurrency
-	}
-	if ff.Timeout != nil {
-		timeout = *ff.Timeout
-	}
-	if route == "" && ff.path != nil {
-		route = *ff.path
-	}
+	route := cleanRoutePath(c.Args().Get(1))
 
-	if route == "" {
-		return errors.New("error: route path is missing")
-	}
-	// if image == "" {
-	// return errors.New("error: function image name is missing")
-	// }
+	rt := &models.Route{}
+	routeWithFuncFile(c, rt)
+	routeWithFlags(c, rt)
 
-	if f := c.String("format"); f != "" {
-		format = f
-	}
-	if m := c.Int("max-concurrency"); m > 0 {
-		maxC = m
-	}
-	if t := c.Duration("timeout"); t > 0 {
-		timeout = t
-	}
-
-	headers := map[string][]string{}
-	for _, header := range c.StringSlice("headers") {
-		parts := strings.Split(header, "=")
-		headers[parts[0]] = strings.Split(parts[1], ";")
-	}
-
-	to := int64(timeout.Seconds())
-	patchRoute := &fnmodels.Route{
-		Image:          image,
-		Memory:         c.Int64("memory"),
-		Type:           c.String("type"),
-		Config:         extractEnvConfig(c.StringSlice("config")),
-		Headers:        headers,
-		Format:         format,
-		MaxConcurrency: int32(maxC),
-		Timeout:        &to,
-	}
-
-	err = a.patchRoute(appName, route, patchRoute)
+	err := a.patchRoute(appName, route, rt)
 	if err != nil {
 		return err
 	}
@@ -547,7 +511,7 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
+	route := cleanRoutePath(c.Args().Get(1))
 	key := c.Args().Get(2)
 	value := c.Args().Get(3)
 
@@ -572,7 +536,7 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
+	route := cleanRoutePath(c.Args().Get(1))
 	key := c.Args().Get(2)
 
 	patchRoute := fnmodels.Route{
@@ -596,7 +560,7 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
+	route := cleanRoutePath(c.Args().Get(1))
 	prop := c.Args().Get(2)
 
 	resp, err := a.client.Routes.GetAppsAppRoutesRoute(&apiroutes.GetAppsAppRoutesRouteParams{
@@ -649,7 +613,7 @@ func (a *routesCmd) delete(c *cli.Context) error {
 	}
 
 	appName := c.Args().Get(0)
-	route := c.Args().Get(1)
+	route := cleanRoutePath(c.Args().Get(1))
 
 	_, err := a.client.Routes.DeleteAppsAppRoutesRoute(&apiroutes.DeleteAppsAppRoutesRouteParams{
 		Context: context.Background(),
