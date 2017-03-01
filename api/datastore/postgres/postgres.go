@@ -12,6 +12,7 @@ import (
 	"github.com/iron-io/functions/api/models"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"bytes"
 )
 
 const routesTableCreate = `
@@ -117,37 +118,52 @@ func (ds *PostgresDatastore) InsertApp(ctx context.Context, app *models.App) (*m
 	return app, nil
 }
 
-func (ds *PostgresDatastore) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
-	if app == nil {
+func (ds *PostgresDatastore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
+	if newapp == nil {
 		return nil, models.ErrAppsNotFound
 	}
 
-	cbyte, err := json.Marshal(app.Config)
+	app := &models.App{Name: newapp.Name}
+	err := ds.Tx(func(tx *sql.Tx) error {
+		row := ds.db.QueryRow("SELECT config FROM apps WHERE name=$1", app.Name)
+
+		var config string
+		if err := row.Scan(&config); err != nil {
+			if err == sql.ErrNoRows {
+				return models.ErrAppsNotFound
+			}
+			return err
+		}
+
+		if config != "" {
+			err := json.Unmarshal([]byte(config), &app.Config)
+			if err != nil {
+				return err
+			}
+		}
+
+		app.UpdateConfig(newapp.Config)
+
+		cbyte, err := json.Marshal(app.Config)
+		if err != nil {
+			return err
+		}
+
+		res, err := ds.db.Exec(`UPDATE apps SET config = $2 WHERE name = $1;`, app.Name, string(cbyte))
+		if err != nil {
+			return err
+		}
+
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return models.ErrAppsNotFound
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
-	}
-
-	res, err := ds.db.Exec(`
-	  UPDATE apps SET
-		config = $2
-	  WHERE name = $1
-	  RETURNING *;
-	`,
-		app.Name,
-		string(cbyte),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if n == 0 {
-		return nil, models.ErrAppsNotFound
 	}
 
 	return app, nil
@@ -213,9 +229,8 @@ func scanApp(scanner rowScanner, app *models.App) error {
 func (ds *PostgresDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	res := []*models.App{}
 
-	filterQuery := buildFilterAppQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("SELECT DISTINCT * FROM apps %s", filterQuery))
-
+	filterQuery, args := buildFilterAppQuery(filter)
+	rows, err := ds.db.Query(fmt.Sprintf("SELECT DISTINCT * FROM apps %s", filterQuery), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +270,26 @@ func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Rout
 		return nil, err
 	}
 
-	_, err = ds.db.Exec(`
+	err = ds.Tx(func(tx *sql.Tx) error {
+		r := tx.QueryRow(`SELECT 1 FROM apps WHERE name=$1`, route.AppName)
+		if err := r.Scan(new(int)); err != nil {
+			if err == sql.ErrNoRows {
+				return models.ErrAppsNotFound
+			}
+			return err
+		}
+
+		same, err := tx.Query(`SELECT 1 FROM routes WHERE app_name=$1 AND path=$2`,
+			route.AppName, route.Path)
+		if err != nil {
+			return err
+		}
+		defer same.Close()
+		if same.Next() {
+			return models.ErrRoutesAlreadyExists
+		}
+
+		_, err = tx.Exec(`
 		INSERT INTO routes (
 			app_name,
 			path,
@@ -269,80 +303,93 @@ func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Rout
 			config
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-		route.AppName,
-		route.Path,
-		route.Image,
-		route.Format,
-		route.MaxConcurrency,
-		route.Memory,
-		route.Type,
-		route.Timeout,
-		string(hbyte),
-		string(cbyte),
-	)
+			route.AppName,
+			route.Path,
+			route.Image,
+			route.Format,
+			route.MaxConcurrency,
+			route.Memory,
+			route.Type,
+			route.Timeout,
+			string(hbyte),
+			string(cbyte),
+		)
+		return err
+	})
+
 
 	if err != nil {
-		pqErr := err.(*pq.Error)
-		if pqErr.Code == "23505" {
-			return nil, models.ErrRoutesAlreadyExists
-		}
 		return nil, err
 	}
 	return route, nil
 }
 
-func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	if route == nil {
+func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
+	if newroute == nil {
 		return nil, models.ErrDatastoreEmptyRoute
 	}
 
-	hbyte, err := json.Marshal(route.Headers)
-	if err != nil {
-		return nil, err
-	}
+	var route models.Route
+	err := ds.Tx(func(tx *sql.Tx) error {
+		row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=$1 AND path=$2", routeSelector), newroute.AppName, newroute.Path)
+		if err := scanRoute(row, &route); err == sql.ErrNoRows {
+			return models.ErrRoutesNotFound
+		} else if err != nil {
+			return err
+		}
 
-	cbyte, err := json.Marshal(route.Config)
-	if err != nil {
-		return nil, err
-	}
+		route.Update(newroute)
 
-	res, err := ds.db.Exec(`
+		hbyte, err := json.Marshal(route.Headers)
+		if err != nil {
+			return err
+		}
+
+		cbyte, err := json.Marshal(route.Config)
+		if err != nil {
+			return err
+		}
+
+		res, err := tx.Exec(`
 		UPDATE routes SET
 			image = $3,
 			format = $4,
-			memory = $5,
-			maxc = $6,
+			maxc = $5,
+			memory = $6,
 			type = $7,
 			timeout = $8,
 			headers = $9,
 			config = $10
 		WHERE app_name = $1 AND path = $2;`,
-		route.AppName,
-		route.Path,
-		route.Image,
-		route.Format,
-		route.Memory,
-		route.MaxConcurrency,
-		route.Type,
-		route.Timeout,
-		string(hbyte),
-		string(cbyte),
-	)
+			route.AppName,
+			route.Path,
+			route.Image,
+			route.Format,
+			route.MaxConcurrency,
+			route.Memory,
+			route.Type,
+			route.Timeout,
+			string(hbyte),
+			string(cbyte),
+		)
+
+		if err != nil {
+			return err
+		}
+
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return models.ErrRoutesNotFound
+		}
+
+		return nil
+	})
 
 	if err != nil {
 		return nil, err
 	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if n == 0 {
-		return nil, models.ErrRoutesNotFound
-	}
-
-	return route, nil
+	return &route, nil
 }
 
 func (ds *PostgresDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
@@ -384,8 +431,8 @@ func scanRoute(scanner rowScanner, route *models.Route) error {
 		&route.Path,
 		&route.Image,
 		&route.Format,
-		&route.Memory,
 		&route.MaxConcurrency,
+		&route.Memory,
 		&route.Type,
 		&route.Timeout,
 		&headerStr,
@@ -426,8 +473,8 @@ func (ds *PostgresDatastore) GetRoute(ctx context.Context, appName, routePath st
 
 func (ds *PostgresDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
-	filterQuery := buildFilterRouteQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery))
+	filterQuery, args := buildFilterRouteQuery(filter)
+	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery), args...)
 	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
 		return nil, err
@@ -451,9 +498,17 @@ func (ds *PostgresDatastore) GetRoutes(ctx context.Context, filter *models.Route
 
 func (ds *PostgresDatastore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
-	filter.AppName = appName
-	filterQuery := buildFilterRouteQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery))
+
+	var filterQuery string
+	var args []interface{}
+	if filter == nil {
+		filterQuery = "WHERE app_name = $1"
+		args = []interface{}{appName}
+	} else {
+		filter.AppName = appName
+		filterQuery, args = buildFilterRouteQuery(filter)
+	}
+	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery), args...)
 	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
 		return nil, err
@@ -472,55 +527,44 @@ func (ds *PostgresDatastore) GetRoutesByApp(ctx context.Context, appName string,
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return res, nil
 }
+func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}) {
+	if filter == nil {
+		return "", nil
+	}
 
-func buildFilterAppQuery(filter *models.AppFilter) string {
-	filterQuery := ""
+	if filter.Name != "" {
+		return "WHERE name LIKE $1", []interface{}{filter.Name}
+	}
 
-	if filter != nil {
-		filterQueries := []string{}
-		if filter.Name != "" {
-			filterQueries = append(filterQueries, fmt.Sprintf("name LIKE '%s'", filter.Name))
-		}
+	return "", nil
+}
 
-		for i, field := range filterQueries {
-			if i == 0 {
-				filterQuery = fmt.Sprintf("WHERE %s ", field)
+func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
+	if filter == nil {
+		return "", nil
+	}
+	var b bytes.Buffer
+	var args []interface{}
+
+	where := func(colOp, val string) {
+		if val != "" {
+			args = append(args, val)
+			if len(args) == 1 {
+				fmt.Fprintf(&b, "WHERE %s $1", colOp)
 			} else {
-				filterQuery = fmt.Sprintf("%s AND %s", filterQuery, field)
+				fmt.Fprintf(&b, " AND %s $%d", colOp, len(args))
 			}
 		}
 	}
 
-	return filterQuery
-}
+	where("path =", filter.Path)
+	where("app_name =", filter.AppName)
+	where("image =", filter.Image)
 
-func buildFilterRouteQuery(filter *models.RouteFilter) string {
-	filterQuery := ""
-
-	filterQueries := []string{}
-	if filter.Path != "" {
-		filterQueries = append(filterQueries, fmt.Sprintf("path = '%s'", filter.Path))
-	}
-
-	if filter.AppName != "" {
-		filterQueries = append(filterQueries, fmt.Sprintf("app_name = '%s'", filter.AppName))
-	}
-
-	if filter.Image != "" {
-		filterQueries = append(filterQueries, fmt.Sprintf("image = '%s'", filter.Image))
-	}
-
-	for i, field := range filterQueries {
-		if i == 0 {
-			filterQuery = fmt.Sprintf("WHERE %s ", field)
-		} else {
-			filterQuery = fmt.Sprintf("%s AND %s", filterQuery, field)
-		}
-	}
-
-	return filterQuery
+	return b.String(), args
 }
 
 func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
@@ -561,4 +605,18 @@ func (ds *PostgresDatastore) Get(ctx context.Context, key []byte) ([]byte, error
 	}
 
 	return []byte(value), nil
+}
+
+
+func (ds *PostgresDatastore) Tx(f func(*sql.Tx) error) error {
+	tx, err := ds.db.Begin()
+	if err != nil {
+		return err
+	}
+	err = f(tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }

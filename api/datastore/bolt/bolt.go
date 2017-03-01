@@ -141,10 +141,7 @@ func (ds *BoltDatastore) UpdateApp(ctx context.Context, newapp *models.App) (*mo
 			return err
 		}
 
-		// Update app fields
-		if newapp.Config != nil {
-			app.Config = newapp.Config
-		}
+		app.UpdateConfig(newapp.Config)
 
 		buf, err := json.Marshal(app)
 		if err != nil {
@@ -252,7 +249,7 @@ func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bol
 
 func (ds *BoltDatastore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
 	if route == nil {
-		return nil, models.ErrDatastoreEmptyApp
+		return nil, models.ErrDatastoreEmptyRoute
 	}
 
 	if route.AppName == "" {
@@ -325,46 +322,15 @@ func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route
 		if err != nil {
 			return err
 		}
-		// Update route fields
-		if newroute.Image != "" {
-			route.Image = newroute.Image
-		}
-		if route.Memory != 0 {
-			route.Memory = newroute.Memory
-		}
-		if route.Type != "" {
-			route.Type = newroute.Type
-		}
-		if newroute.Timeout != 0 {
-			route.Timeout = newroute.Timeout
-		}
-		if newroute.Format != "" {
-			route.Format = newroute.Format
-		}
-		if newroute.MaxConcurrency != 0 {
-			route.MaxConcurrency = newroute.MaxConcurrency
-		}
-		if newroute.Headers != nil {
-			route.Headers = newroute.Headers
-		}
-		if newroute.Config != nil {
-			route.Config = newroute.Config
-		}
 
-		if err := route.Validate(); err != nil {
-			return err
-		}
+		route.Update(newroute)
 
 		buf, err := json.Marshal(route)
 		if err != nil {
 			return err
 		}
 
-		err = b.Put(routePath, buf)
-		if err != nil {
-			return err
-		}
-		return nil
+		return b.Put(routePath, buf)
 	})
 	if err != nil {
 		return nil, err
@@ -431,9 +397,9 @@ func (ds *BoltDatastore) GetRoute(ctx context.Context, appName, routePath string
 func (ds *BoltDatastore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	err := ds.db.View(func(tx *bolt.Tx) error {
-		b, err := ds.getRouteBucketForApp(tx, appName)
-		if err != nil {
-			return err
+		b := tx.Bucket(ds.routesBucket).Bucket([]byte(appName))
+		if b == nil {
+			return nil
 		}
 
 		i := 0

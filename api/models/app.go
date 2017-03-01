@@ -53,6 +53,22 @@ func (a *App) Validate() error {
 	return nil
 }
 
+// UpdateConfig adds entries from patch to a.Config, and removes entries with empty values.
+func (a *App) UpdateConfig(patch Config) {
+	if patch != nil {
+		if a.Config == nil {
+			a.Config = make(Config)
+		}
+		for k, v := range patch {
+			if v == "" {
+				delete(a.Config, k)
+			} else {
+				a.Config[k] = v
+			}
+		}
+	}
+}
+
 type AppFilter struct {
 	Name string
 }

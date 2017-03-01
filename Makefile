@@ -12,7 +12,7 @@ test:
 	cd fn && $(MAKE) test
 
 test-datastore:
-	cd api/datastore && go test -v
+	cd api/datastore && go test -v ./...
 
 run:
 	./functions

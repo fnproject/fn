@@ -125,6 +125,55 @@ func (r *Route) Validate() error {
 	return nil
 }
 
+// Update updates fields in r with non-zero field values from new.
+// 0-length slice Header values, and empty-string Config values trigger removal of map entry.
+func (r *Route) Update(new *Route) {
+	if new.Image != "" {
+		r.Image = new.Image
+	}
+	if new.Memory != 0 {
+		r.Memory = new.Memory
+	}
+	if new.Type != "" {
+		r.Type = new.Type
+	}
+	if new.Timeout != 0 {
+		r.Timeout = new.Timeout
+	}
+	if new.Format != "" {
+		r.Format = new.Format
+	}
+	if new.MaxConcurrency != 0 {
+		r.MaxConcurrency = new.MaxConcurrency
+	}
+	if new.Headers != nil {
+		if r.Headers == nil {
+			r.Headers = make(http.Header)
+		}
+		for k, v := range new.Headers {
+			if len(v) == 0 {
+				r.Headers.Del(k)
+			} else {
+				for _, val := range v {
+					r.Headers.Add(k, val)
+				}
+			}
+		}
+	}
+	if new.Config != nil {
+		if r.Config == nil {
+			r.Config = make(Config)
+		}
+		for k, v := range new.Config {
+			if v == "" {
+				delete(r.Config, k)
+			} else {
+				r.Config[k] = v
+			}
+		}
+	}
+}
+
 type RouteFilter struct {
 	Path    string
 	AppName string
