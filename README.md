@@ -60,7 +60,8 @@ and you'll find plenty of information. We have pretty thorough post on the Iron.
 
 Join our Slack community to get help and give feedback.
 
-[![Slack Status](https://open-iron.herokuapp.com/badge.svg)](http://get.iron.io/open-slack)
+[![Slack Status](https://open-iron.herokuapp.com/badge.svg)](
+get.iron.io/open-slack)
 
 ## Quickstart
 
@@ -89,7 +90,7 @@ configuration options [here](docs/options.md). If you are on Windows, check [her
 Install the IronFunctions CLI tool:
 
 ```sh
-curl -LSs http://get.iron.io/fn | sh
+curl -LSs https://goo.gl/VZrL8t | sh
 ```
 
 This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
