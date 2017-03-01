@@ -1,4 +1,4 @@
 package version
 
 // Version of IronFunctions
-var Version = "0.2.26"
+var Version = "0.2.27"
