@@ -53,6 +53,23 @@ func (a *App) Validate() error {
 	return nil
 }
 
+func (a *App) Clone() *App {
+	var c App
+	c.Name = a.Name
+	if a.Routes != nil {
+		for i := range a.Routes {
+			c.Routes = append(c.Routes, a.Routes[i].Clone())
+		}
+	}
+	if a.Config != nil {
+		c.Config = make(Config)
+		for k, v := range a.Config {
+			c.Config[k] = v
+		}
+	}
+	return &c
+}
+
 // UpdateConfig adds entries from patch to a.Config, and removes entries with empty values.
 func (a *App) UpdateConfig(patch Config) {
 	if patch != nil {

@@ -125,6 +125,14 @@ func (r *Route) Validate() error {
 	return nil
 }
 
+func (r *Route) Clone() *Route {
+	var clone Route
+	clone.AppName = r.AppName
+	clone.Path = r.Path
+	clone.Update(r)
+	return &clone
+}
+
 // Update updates fields in r with non-zero field values from new.
 // 0-length slice Header values, and empty-string Config values trigger removal of map entry.
 func (r *Route) Update(new *Route) {
