@@ -7,6 +7,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/datastore/bolt"
 	"github.com/iron-io/functions/api/datastore/postgres"
+	"github.com/iron-io/functions/api/datastore/redis"
 	"github.com/iron-io/functions/api/models"
 )
 
@@ -21,6 +22,8 @@ func New(dbURL string) (models.Datastore, error) {
 		return bolt.New(u)
 	case "postgres":
 		return postgres.New(u)
+	case "redis":
+		return redis.New(u)
 	default:
 		return nil, fmt.Errorf("db type not supported %v", u.Scheme)
 	}
