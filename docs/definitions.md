@@ -58,7 +58,7 @@ Note: Route level configuration overrides app level configuration.
 Using `fn`:
 
 ```sh
-fn routes create --config k1=v1 --config k2=v2 myapp /path image
+fn routes create myapp /path --config k1=v1 --config k2=v2 --image iron/hello
 ```
 
 Or using a cURL:

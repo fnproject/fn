@@ -34,7 +34,7 @@ This will create a docker image and push the image to docker.
 ## Publishing to IronFunctions
 
 ```bash
-fn routes create <app_name>
+fn routes create <app_name> </path>
 ```
 
 This creates a full path in the form of `http://<host>:<port>/r/<app_name>/<function>`

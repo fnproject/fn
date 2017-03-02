@@ -35,28 +35,27 @@ func lambda() cli.Command {
 	flags = append(flags, getFlags()...)
 
 	return cli.Command{
-		Name:      "lambda",
-		Usage:     "create and publish lambda functions",
-		ArgsUsage: "fn lambda",
+		Name:  "lambda",
+		Usage: "create and publish lambda functions",
 		Subcommands: []cli.Command{
 			{
 				Name:      "create-function",
 				Usage:     `create Docker image that can run your Lambda function, where files are the contents of the zip file to be uploaded to AWS Lambda.`,
-				ArgsUsage: "name runtime handler /path [/paths...]",
+				ArgsUsage: "<name> <runtime> <handler> </path> [/paths...]",
 				Action:    create,
 				Flags:     flags,
 			},
 			{
 				Name:      "test-function",
 				Usage:     `runs local dockerized Lambda function and writes output to stdout.`,
-				ArgsUsage: "name [--payload <value>]",
+				ArgsUsage: "<name>",
 				Action:    test,
 				Flags:     flags,
 			},
 			{
 				Name:      "aws-import",
 				Usage:     `converts an existing Lambda function to an image, where the function code is downloaded to a directory in the current working directory that has the same name as the Lambda function.`,
-				ArgsUsage: "arn region image/name [--profile <aws profile>] [--version <version>] [--download-only]",
+				ArgsUsage: "<arn> <region> <image/name>",
 				Action:    awsImport,
 				Flags:     flags,
 			},
@@ -103,9 +102,6 @@ func transcribeEnvConfig(configs []string) map[string]string {
 
 func create(c *cli.Context) error {
 	args := c.Args()
-	if len(args) < 4 {
-		return fmt.Errorf("Expected at least 4 arguments, NAME RUNTIME HANDLER and file %d", len(args))
-	}
 	functionName := args[0]
 	runtime := args[1]
 	handler := args[2]
@@ -186,9 +182,6 @@ func test(c *cli.Context) error {
 
 func awsImport(c *cli.Context) error {
 	args := c.Args()
-	if len(args) < 3 {
-		return fmt.Errorf("Missing arguments ARN, REGION and/or IMAGE")
-	}
 
 	version := c.String("version")
 	downloadOnly := c.Bool("download-only")

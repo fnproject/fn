@@ -192,7 +192,7 @@ can use -- yes, you can share functions! The source code for this function is in
 You can read more about [writing your own functions here](docs/writing.md).
 
 ```sh
-fn routes create myapp /hello iron/hello
+fn routes create myapp /hello -i iron/hello
 ```
 
 Or using cURL:

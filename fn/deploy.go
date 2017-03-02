@@ -21,7 +21,7 @@ func deploy() cli.Command {
 	flags = append(flags, cmd.flags()...)
 	return cli.Command{
 		Name:      "deploy",
-		ArgsUsage: "`APPNAME`",
+		ArgsUsage: "<appName>",
 		Usage:     "scan local directory for functions, build and push all of them to `APPNAME`.",
 		Flags:     flags,
 		Action:    cmd.scan,
@@ -68,9 +68,6 @@ func (p *deploycmd) flags() []cli.Flag {
 }
 
 func (p *deploycmd) scan(c *cli.Context) error {
-	if c.Args().First() == "" {
-		return errors.New("application name is missing")
-	}
 	p.appName = c.Args().First()
 	p.verbwriter = verbwriter(p.verbose)
 

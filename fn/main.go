@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 
 	vers "github.com/iron-io/functions/api/version"
 	functions "github.com/iron-io/functions_go"
@@ -76,7 +78,47 @@ GLOBAL OPTIONS:
 		version(),
 	}
 	app.Commands = append(app.Commands, aliasesFn()...)
+
+	prepareCmdArgsValidation(app.Commands)
+
 	return app
+}
+
+func parseArgs(c *cli.Context) ([]string, []string) {
+	args := strings.Split(c.Command.ArgsUsage, " ")
+	var reqArgs []string
+	var optArgs []string
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "[") {
+			optArgs = append(optArgs, arg)
+		} else {
+			reqArgs = append(reqArgs, arg)
+		}
+	}
+	return reqArgs, optArgs
+}
+
+func prepareCmdArgsValidation(cmds []cli.Command) {
+	// TODO: refactor fn to use urfave/cli.v2
+	// v1 doesn't let us validate args before the cmd.Action
+
+	for i, cmd := range cmds {
+		prepareCmdArgsValidation(cmd.Subcommands)
+		if cmd.Action == nil {
+			continue
+		}
+		action := cmd.Action
+		cmd.Action = func(c *cli.Context) error {
+			reqArgs, _ := parseArgs(c)
+			if c.NArg() < len(reqArgs) {
+				var help bytes.Buffer
+				cli.HelpPrinter(&help, cli.CommandHelpTemplate, c.Command)
+				return fmt.Errorf("ERROR: Missing required arguments: %s\n\n%s", strings.Join(reqArgs[c.NArg():], " "), help.String())
+			}
+			return cli.HandleAction(action, c)
+		}
+		cmds[i] = cmd
+	}
 }
 
 func main() {

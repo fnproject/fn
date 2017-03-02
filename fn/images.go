@@ -11,9 +11,8 @@ type imagesCmd struct {
 
 func images() cli.Command {
 	return cli.Command{
-		Name:      "images",
-		Usage:     "manage function images",
-		ArgsUsage: "fn images",
+		Name:  "images",
+		Usage: "manage function images",
 		Subcommands: []cli.Command{
 			build(),
 			deploy(),

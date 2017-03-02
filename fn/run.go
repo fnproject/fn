@@ -17,7 +17,7 @@ func run() cli.Command {
 	return cli.Command{
 		Name:      "run",
 		Usage:     "run a function locally",
-		ArgsUsage: "USERNAME/image:tag",
+		ArgsUsage: "[username/image:tag]",
 		Flags:     append(runflags(), []cli.Flag{}...),
 		Action:    r.run,
 	}
@@ -36,7 +36,7 @@ func runflags() []cli.Flag {
 			Usage: "select container links for the function",
 		},
 		cli.StringFlag{
-			Name: "method",
+			Name:  "method",
 			Usage: "http method for function",
 		},
 	}

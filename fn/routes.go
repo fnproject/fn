@@ -12,7 +12,6 @@ import (
 	"path"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	fnclient "github.com/iron-io/functions_go/client"
 	apiroutes "github.com/iron-io/functions_go/client/routes"
@@ -26,19 +25,53 @@ type routesCmd struct {
 	client *fnclient.Functions
 }
 
+var routeFlags = []cli.Flag{
+	cli.StringFlag{
+		Name:  "image,i",
+		Usage: "image name",
+	},
+	cli.Int64Flag{
+		Name:  "memory,m",
+		Usage: "memory in MiB",
+	},
+	cli.StringFlag{
+		Name:  "type,t",
+		Usage: "route type - sync or async",
+	},
+	cli.StringSliceFlag{
+		Name:  "config,c",
+		Usage: "route configuration",
+	},
+	cli.StringSliceFlag{
+		Name:  "headers",
+		Usage: "route response headers",
+	},
+	cli.StringFlag{
+		Name:  "format,f",
+		Usage: "hot container IO format - json or http",
+	},
+	cli.IntFlag{
+		Name:  "max-concurrency,mc",
+		Usage: "maximum concurrency for hot container",
+	},
+	cli.DurationFlag{
+		Name:  "timeout",
+		Usage: "route timeout (eg. 30s)",
+	},
+}
+
 func routes() cli.Command {
 
 	r := routesCmd{client: apiClient()}
 
 	return cli.Command{
-		Name:      "routes",
-		Usage:     "manage routes",
-		ArgsUsage: "fn routes",
+		Name:  "routes",
+		Usage: "manage routes",
 		Subcommands: []cli.Command{
 			{
 				Name:      "call",
 				Usage:     "call a route",
-				ArgsUsage: "`app` /path",
+				ArgsUsage: "<app> </path> [image]",
 				Action:    r.call,
 				Flags:     runflags(),
 			},
@@ -46,87 +79,24 @@ func routes() cli.Command {
 				Name:      "list",
 				Aliases:   []string{"l"},
 				Usage:     "list routes for `app`",
-				ArgsUsage: "`app`",
+				ArgsUsage: "<app>",
 				Action:    r.list,
 			},
 			{
 				Name:      "create",
 				Aliases:   []string{"c"},
 				Usage:     "create a route in an `app`",
-				ArgsUsage: "`app` /path [image]",
+				ArgsUsage: "<app> </path>",
 				Action:    r.create,
-				Flags: []cli.Flag{
-					cli.Int64Flag{
-						Name:  "memory,m",
-						Usage: "memory in MiB",
-						Value: 128,
-					},
-					cli.StringFlag{
-						Name:  "type,t",
-						Usage: "route type - sync or async",
-						Value: "sync",
-					},
-					cli.StringSliceFlag{
-						Name:  "config,c",
-						Usage: "route configuration",
-					},
-					cli.StringFlag{
-						Name:  "format,f",
-						Usage: "hot function IO format - json or http",
-						Value: "",
-					},
-					cli.IntFlag{
-						Name:  "max-concurrency",
-						Usage: "maximum concurrency for hot function",
-						Value: 1,
-					},
-					cli.DurationFlag{
-						Name:  "timeout",
-						Usage: "route timeout",
-						Value: 30 * time.Second,
-					},
-				},
+				Flags:     routeFlags,
 			},
 			{
 				Name:      "update",
 				Aliases:   []string{"u"},
 				Usage:     "update a route in an `app`",
-				ArgsUsage: "`app` /path [image]",
+				ArgsUsage: "<app> </path>",
 				Action:    r.update,
-				Flags: []cli.Flag{
-					cli.StringFlag{
-						Name:  "image,i",
-						Usage: "image name",
-					},
-					cli.Int64Flag{
-						Name:  "memory,m",
-						Usage: "memory in MiB",
-					},
-					cli.StringFlag{
-						Name:  "type,t",
-						Usage: "route type - sync or async",
-					},
-					cli.StringSliceFlag{
-						Name:  "config,c",
-						Usage: "route configuration",
-					},
-					cli.StringSliceFlag{
-						Name:  "headers",
-						Usage: "route response headers",
-					},
-					cli.StringFlag{
-						Name:  "format,f",
-						Usage: "hot container IO format - json or http",
-					},
-					cli.IntFlag{
-						Name:  "max-concurrency,mc",
-						Usage: "maximum concurrency for hot container",
-					},
-					cli.DurationFlag{
-						Name:  "timeout",
-						Usage: "route timeout (eg. 30s)",
-					},
-				},
+				Flags:     routeFlags,
 			},
 			{
 				Name:  "config",
@@ -136,14 +106,14 @@ func routes() cli.Command {
 						Name:      "set",
 						Aliases:   []string{"s"},
 						Usage:     "store a configuration key for this route",
-						ArgsUsage: "`app` /path <key> <value>",
+						ArgsUsage: "<app> </path> <key> <value>",
 						Action:    r.configSet,
 					},
 					{
 						Name:      "unset",
 						Aliases:   []string{"u"},
 						Usage:     "remove a configuration key for this route",
-						ArgsUsage: "`app` /path <key>",
+						ArgsUsage: "<app> </path> <key>",
 						Action:    r.configUnset,
 					},
 				},
@@ -152,14 +122,14 @@ func routes() cli.Command {
 				Name:      "delete",
 				Aliases:   []string{"d"},
 				Usage:     "delete a route from `app`",
-				ArgsUsage: "`app` /path",
+				ArgsUsage: "<app> </path>",
 				Action:    r.delete,
 			},
 			{
 				Name:      "inspect",
 				Aliases:   []string{"i"},
 				Usage:     "retrieve one or all routes properties",
-				ArgsUsage: "`app` /path [property.[key]]",
+				ArgsUsage: "<app> </path> [property.[key]]",
 				Action:    r.inspect,
 			},
 		},
@@ -172,7 +142,7 @@ func call() cli.Command {
 	return cli.Command{
 		Name:      "call",
 		Usage:     "call a remote function",
-		ArgsUsage: "`app` /path",
+		ArgsUsage: "<app> </path>",
 		Flags:     runflags(),
 		Action:    r.call,
 	}
@@ -187,10 +157,6 @@ func cleanRoutePath(p string) string {
 }
 
 func (a *routesCmd) list(c *cli.Context) error {
-	if len(c.Args()) < 1 {
-		return errors.New("error: routes listing takes one argument: an app name")
-	}
-
 	appName := c.Args().Get(0)
 
 	resp, err := a.client.Routes.GetAppsAppRoutes(&apiroutes.GetAppsAppRoutesParams{
@@ -201,11 +167,11 @@ func (a *routesCmd) list(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.GetAppsAppRoutesNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesNotFound).Payload.Error.Message)
 		case *apiroutes.GetAppsAppRoutesDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error: %s", err)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 0, '\t', 0)
@@ -214,7 +180,7 @@ func (a *routesCmd) list(c *cli.Context) error {
 		u, err := url.Parse("../")
 		u.Path = path.Join(u.Path, "r", appName, route.Path)
 		if err != nil {
-			return fmt.Errorf("error parsing functions route path: %v", err)
+			return fmt.Errorf("error parsing functions route path: %s", err)
 		}
 
 		fmt.Fprint(w, route.Path, "\t", route.Image, "\n")
@@ -225,10 +191,6 @@ func (a *routesCmd) list(c *cli.Context) error {
 }
 
 func (a *routesCmd) call(c *cli.Context) error {
-	if len(c.Args()) < 2 {
-		return errors.New("error: routes listing takes three arguments: an app name and a path")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 
@@ -253,7 +215,7 @@ func callfn(u string, content io.Reader, output io.Writer, method string, env []
 
 	req, err := http.NewRequest(method, u, content)
 	if err != nil {
-		return fmt.Errorf("error running route: %v", err)
+		return fmt.Errorf("error running route: %s", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -264,7 +226,7 @@ func callfn(u string, content io.Reader, output io.Writer, method string, env []
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("error running route: %v", err)
+		return fmt.Errorf("error running route: %s", err)
 	}
 
 	io.Copy(output, resp.Body)
@@ -328,7 +290,7 @@ func routeWithFlags(c *cli.Context, rt *models.Route) {
 func routeWithFuncFile(c *cli.Context, rt *models.Route) {
 	ff, err := loadFuncfile()
 	if err == nil {
-		if rt.Image != "" { // flags take precedence
+		if ff.FullName() != "" { // args take precedence
 			rt.Image = ff.FullName()
 		}
 		if ff.Format != nil {
@@ -348,18 +310,12 @@ func routeWithFuncFile(c *cli.Context, rt *models.Route) {
 }
 
 func (a *routesCmd) create(c *cli.Context) error {
-	// todo: @pedro , why aren't you just checking the length here?
-	if len(c.Args()) < 2 {
-		return errors.New("error: routes listing takes at least two arguments: an app name and a path")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
-	image := c.Args().Get(2)
 
 	rt := &models.Route{}
 	rt.Path = route
-	rt.Image = image
+	rt.Image = c.Args().Get(2)
 
 	routeWithFuncFile(c, rt)
 	routeWithFlags(c, rt)
@@ -368,7 +324,8 @@ func (a *routesCmd) create(c *cli.Context) error {
 		return errors.New("error: route path is missing")
 	}
 	if rt.Image == "" {
-		return errors.New("error: function image name is missing")
+		fmt.Println("No image specified, using `iron/hello`")
+		rt.Image = "iron/hello"
 	}
 
 	body := &models.RouteWrapper{
@@ -384,13 +341,13 @@ func (a *routesCmd) create(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.PostAppsAppRoutesBadRequest:
-			return fmt.Errorf("error: %v", err.(*apiroutes.PostAppsAppRoutesBadRequest).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.PostAppsAppRoutesBadRequest).Payload.Error.Message)
 		case *apiroutes.PostAppsAppRoutesConflict:
-			return fmt.Errorf("error: %v", err.(*apiroutes.PostAppsAppRoutesConflict).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.PostAppsAppRoutesConflict).Payload.Error.Message)
 		case *apiroutes.PostAppsAppRoutesDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.PostAppsAppRoutesDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PostAppsAppRoutesDefault).Payload.Error.Message)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error: %s", err)
 	}
 
 	fmt.Println(resp.Payload.Route.Path, "created with", resp.Payload.Route.Image)
@@ -407,11 +364,11 @@ func (a *routesCmd) patchRoute(appName, routePath string, r *fnmodels.Route) err
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
 		case *apiroutes.GetAppsAppRoutesDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error: %s", err)
 	}
 
 	if resp.Payload.Route.Config == nil {
@@ -472,23 +429,19 @@ func (a *routesCmd) patchRoute(appName, routePath string, r *fnmodels.Route) err
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.PatchAppsAppRoutesRouteBadRequest:
-			return fmt.Errorf("error: %v", err.(*apiroutes.PatchAppsAppRoutesRouteBadRequest).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteBadRequest).Payload.Error.Message)
 		case *apiroutes.PatchAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.PatchAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteNotFound).Payload.Error.Message)
 		case *apiroutes.PatchAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error: %s", err)
 	}
 
 	return nil
 }
 
 func (a *routesCmd) update(c *cli.Context) error {
-	if len(c.Args()) < 2 {
-		return errors.New("error: route update takes at least two arguments: an app name and a path")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 
@@ -506,10 +459,6 @@ func (a *routesCmd) update(c *cli.Context) error {
 }
 
 func (a *routesCmd) configSet(c *cli.Context) error {
-	if len(c.Args()) < 4 {
-		return errors.New("error: route configuration updates tak four arguments: an app name, a path, a key and a value")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 	key := c.Args().Get(2)
@@ -531,10 +480,6 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 }
 
 func (a *routesCmd) configUnset(c *cli.Context) error {
-	if len(c.Args()) < 3 {
-		return errors.New("error: route configuration updates take three arguments: an app name, a path and a key")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 	key := c.Args().Get(2)
@@ -555,10 +500,6 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 }
 
 func (a *routesCmd) inspect(c *cli.Context) error {
-	if len(c.Args()) < 2 {
-		return errors.New("error: routes listing takes three arguments: an app name and a path")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 	prop := c.Args().Get(2)
@@ -572,11 +513,11 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
 		case *apiroutes.GetAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error: %s", err)
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -589,12 +530,12 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 
 	data, err := json.Marshal(resp.Payload.Route)
 	if err != nil {
-		return fmt.Errorf("failed to inspect route: %v", err)
+		return fmt.Errorf("failed to inspect route: %s", err)
 	}
 	var inspect map[string]interface{}
 	err = json.Unmarshal(data, &inspect)
 	if err != nil {
-		return fmt.Errorf("failed to inspect route: %v", err)
+		return fmt.Errorf("failed to inspect route: %s", err)
 	}
 
 	jq := jsonq.NewQuery(inspect)
@@ -608,10 +549,6 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 }
 
 func (a *routesCmd) delete(c *cli.Context) error {
-	if len(c.Args()) < 2 {
-		return errors.New("error: routes delete takes two arguments: an app name and a path")
-	}
-
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 
@@ -623,11 +560,11 @@ func (a *routesCmd) delete(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.DeleteAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %v", err.(*apiroutes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %s", err.(*apiroutes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message)
 		case *apiroutes.DeleteAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiroutes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error: %s", err)
 	}
 
 	fmt.Println(appName, route, "deleted")

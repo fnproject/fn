@@ -24,15 +24,14 @@ func apps() cli.Command {
 	a := appsCmd{client: apiClient()}
 
 	return cli.Command{
-		Name:      "apps",
-		Usage:     "manage applications",
-		ArgsUsage: "fn apps",
+		Name:  "apps",
+		Usage: "manage applications",
 		Subcommands: []cli.Command{
 			{
 				Name:      "create",
 				Aliases:   []string{"c"},
 				Usage:     "create a new app",
-				ArgsUsage: "`app`",
+				ArgsUsage: "<app>",
 				Action:    a.create,
 				Flags: []cli.Flag{
 					cli.StringSliceFlag{
@@ -45,14 +44,14 @@ func apps() cli.Command {
 				Name:      "inspect",
 				Aliases:   []string{"i"},
 				Usage:     "retrieve one or all apps properties",
-				ArgsUsage: "`app` [property.[key]]",
+				ArgsUsage: "<app> [property.[key]]",
 				Action:    a.inspect,
 			},
 			{
 				Name:      "update",
 				Aliases:   []string{"u"},
 				Usage:     "update an `app`",
-				ArgsUsage: "`app`",
+				ArgsUsage: "<app>",
 				Action:    a.update,
 				Flags: []cli.Flag{
 					cli.StringSliceFlag{
@@ -69,14 +68,14 @@ func apps() cli.Command {
 						Name:      "set",
 						Aliases:   []string{"s"},
 						Usage:     "store a configuration key for this application",
-						ArgsUsage: "`app` <key> <value>",
+						ArgsUsage: "<app> <key> <value>",
 						Action:    a.configSet,
 					},
 					{
 						Name:      "unset",
 						Aliases:   []string{"u"},
 						Usage:     "remove a configuration key for this application",
-						ArgsUsage: "`app` <key>",
+						ArgsUsage: "<app> <key>",
 						Action:    a.configUnset,
 					},
 				},
@@ -124,10 +123,6 @@ func (a *appsCmd) list(c *cli.Context) error {
 }
 
 func (a *appsCmd) create(c *cli.Context) error {
-	if c.Args().First() == "" {
-		return errors.New("error: missing app name after create command")
-	}
-
 	body := &models.AppWrapper{App: &models.App{
 		Name:   c.Args().Get(0),
 		Config: extractEnvConfig(c.StringSlice("config")),
@@ -155,10 +150,6 @@ func (a *appsCmd) create(c *cli.Context) error {
 }
 
 func (a *appsCmd) update(c *cli.Context) error {
-	if c.Args().First() == "" {
-		return errors.New("error: missing app name after update command")
-	}
-
 	appName := c.Args().First()
 
 	patchedApp := &functions.App{
@@ -175,10 +166,6 @@ func (a *appsCmd) update(c *cli.Context) error {
 }
 
 func (a *appsCmd) configSet(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" || c.Args().Get(2) == "" {
-		return errors.New("error: application configuration setting takes three arguments: an app name, a key and a value")
-	}
-
 	appName := c.Args().Get(0)
 	key := c.Args().Get(1)
 	value := c.Args().Get(2)
@@ -198,10 +185,6 @@ func (a *appsCmd) configSet(c *cli.Context) error {
 }
 
 func (a *appsCmd) configUnset(c *cli.Context) error {
-	if c.Args().Get(0) == "" || c.Args().Get(1) == "" {
-		return errors.New("error: application configuration setting takes three arguments: an app name, a key and a value")
-	}
-
 	appName := c.Args().Get(0)
 	key := c.Args().Get(1)
 
