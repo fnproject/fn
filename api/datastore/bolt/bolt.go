@@ -15,6 +15,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
 	"github.com/iron-io/functions/api/models"
+	"github.com/iron-io/functions/api/datastore/internal/datastoreutil"
 )
 
 type BoltDatastore struct {
@@ -74,18 +75,10 @@ func New(url *url.URL) (models.Datastore, error) {
 	}
 	log.WithFields(logrus.Fields{"prefix": bucketPrefix, "file": url.Path}).Debug("BoltDB initialized")
 
-	return ds, nil
+	return datastoreutil.NewValidator(ds), nil
 }
 
 func (ds *BoltDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	if app == nil {
-		return nil, models.ErrDatastoreEmptyApp
-	}
-
-	if app.Name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
 	appname := []byte(app.Name)
 
 	err := ds.db.Update(func(tx *bolt.Tx) error {
@@ -117,14 +110,6 @@ func (ds *BoltDatastore) InsertApp(ctx context.Context, app *models.App) (*model
 }
 
 func (ds *BoltDatastore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
-	if newapp == nil {
-		return nil, models.ErrDatastoreEmptyApp
-	}
-
-	if newapp.Name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
 	var app *models.App
 	appname := []byte(newapp.Name)
 
@@ -164,10 +149,6 @@ func (ds *BoltDatastore) UpdateApp(ctx context.Context, newapp *models.App) (*mo
 }
 
 func (ds *BoltDatastore) RemoveApp(ctx context.Context, appName string) error {
-	if appName == "" {
-		return models.ErrDatastoreEmptyAppName
-	}
-
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		bIm := tx.Bucket(ds.appsBucket)
 		err := bIm.Delete([]byte(appName))
@@ -211,10 +192,6 @@ func (ds *BoltDatastore) GetApps(ctx context.Context, filter *models.AppFilter) 
 }
 
 func (ds *BoltDatastore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	if name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
 	var res *models.App
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.appsBucket)
@@ -248,18 +225,6 @@ func (ds *BoltDatastore) getRouteBucketForApp(tx *bolt.Tx, appName string) (*bol
 }
 
 func (ds *BoltDatastore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	if route == nil {
-		return nil, models.ErrDatastoreEmptyRoute
-	}
-
-	if route.AppName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
-	if route.Path == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
-	}
-
 	routePath := []byte(route.Path)
 
 	err := ds.db.Update(func(tx *bolt.Tx) error {
@@ -291,18 +256,6 @@ func (ds *BoltDatastore) InsertRoute(ctx context.Context, route *models.Route) (
 }
 
 func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
-	if newroute == nil {
-		return nil, models.ErrDatastoreEmptyRoute
-	}
-
-	if newroute.AppName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
-	if newroute.Path == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
-	}
-
 	routePath := []byte(newroute.Path)
 
 	var route *models.Route
@@ -339,14 +292,6 @@ func (ds *BoltDatastore) UpdateRoute(ctx context.Context, newroute *models.Route
 }
 
 func (ds *BoltDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
-	if appName == "" {
-		return models.ErrDatastoreEmptyAppName
-	}
-
-	if routePath == "" {
-		return models.ErrDatastoreEmptyRoutePath
-	}
-
 	err := ds.db.Update(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, appName)
 		if err != nil {
@@ -366,14 +311,6 @@ func (ds *BoltDatastore) RemoveRoute(ctx context.Context, appName, routePath str
 }
 
 func (ds *BoltDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
-	if appName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
-	if routePath == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
-	}
-
 	var route *models.Route
 	err := ds.db.View(func(tx *bolt.Tx) error {
 		b, err := ds.getRouteBucketForApp(tx, appName)
@@ -466,10 +403,6 @@ func (ds *BoltDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilt
 }
 
 func (ds *BoltDatastore) Put(ctx context.Context, key, value []byte) error {
-	if key == nil || len(key) == 0 {
-		return models.ErrDatastoreEmptyKey
-	}
-
 	ds.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.extrasBucket) // todo: maybe namespace by app?
 		err := b.Put(key, value)
@@ -479,10 +412,6 @@ func (ds *BoltDatastore) Put(ctx context.Context, key, value []byte) error {
 }
 
 func (ds *BoltDatastore) Get(ctx context.Context, key []byte) ([]byte, error) {
-	if key == nil || len(key) == 0 {
-		return nil, models.ErrDatastoreEmptyKey
-	}
-
 	var ret []byte
 	ds.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(ds.extrasBucket)

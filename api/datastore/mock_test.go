@@ -7,5 +7,5 @@ import (
 )
 
 func TestDatastore(t *testing.T) {
-	datastoretest.Test(t, NewMock(nil, nil))
+	datastoretest.Test(t, NewMock())
 }

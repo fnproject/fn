@@ -13,6 +13,7 @@ import (
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"bytes"
+	"github.com/iron-io/functions/api/datastore/internal/datastoreutil"
 )
 
 const routesTableCreate = `
@@ -80,7 +81,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		}
 	}
 
-	return pg, nil
+	return datastoreutil.NewValidator(pg), nil
 }
 
 func (ds *PostgresDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
@@ -119,10 +120,6 @@ func (ds *PostgresDatastore) InsertApp(ctx context.Context, app *models.App) (*m
 }
 
 func (ds *PostgresDatastore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
-	if newapp == nil {
-		return nil, models.ErrAppsNotFound
-	}
-
 	app := &models.App{Name: newapp.Name}
 	err := ds.Tx(func(tx *sql.Tx) error {
 		row := ds.db.QueryRow("SELECT config FROM apps WHERE name=$1", app.Name)
@@ -170,10 +167,6 @@ func (ds *PostgresDatastore) UpdateApp(ctx context.Context, newapp *models.App) 
 }
 
 func (ds *PostgresDatastore) RemoveApp(ctx context.Context, appName string) error {
-	if appName == "" {
-		return models.ErrDatastoreEmptyAppName
-	}
-
 	_, err := ds.db.Exec(`
 	  DELETE FROM apps
 	  WHERE name = $1
@@ -187,10 +180,6 @@ func (ds *PostgresDatastore) RemoveApp(ctx context.Context, appName string) erro
 }
 
 func (ds *PostgresDatastore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	if name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
 	row := ds.db.QueryRow("SELECT name, config FROM apps WHERE name=$1", name)
 
 	var resName string
@@ -256,10 +245,6 @@ func (ds *PostgresDatastore) GetApps(ctx context.Context, filter *models.AppFilt
 }
 
 func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	if route == nil {
-		return nil, models.ErrDatastoreEmptyRoute
-	}
-
 	hbyte, err := json.Marshal(route.Headers)
 	if err != nil {
 		return nil, err
@@ -325,10 +310,6 @@ func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Rout
 }
 
 func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
-	if newroute == nil {
-		return nil, models.ErrDatastoreEmptyRoute
-	}
-
 	var route models.Route
 	err := ds.Tx(func(tx *sql.Tx) error {
 		row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=$1 AND path=$2", routeSelector), newroute.AppName, newroute.Path)
@@ -393,14 +374,6 @@ func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.R
 }
 
 func (ds *PostgresDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
-	if appName == "" {
-		return models.ErrDatastoreEmptyAppName
-	}
-
-	if routePath == "" {
-		return models.ErrDatastoreEmptyRoutePath
-	}
-
 	res, err := ds.db.Exec(`
 		DELETE FROM routes
 		WHERE path = $1 AND app_name = $2
@@ -450,14 +423,6 @@ func scanRoute(scanner rowScanner, route *models.Route) error {
 }
 
 func (ds *PostgresDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
-	if appName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-
-	if routePath == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
-	}
-
 	var route models.Route
 
 	row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=$1 AND path=$2", routeSelector), appName, routePath)
@@ -568,10 +533,6 @@ func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
 }
 
 func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
-	if key == nil || len(key) == 0 {
-		return models.ErrDatastoreEmptyKey
-	}
-
 	_, err := ds.db.Exec(`
 	    INSERT INTO extras (
 			key,
@@ -590,10 +551,6 @@ func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
 }
 
 func (ds *PostgresDatastore) Get(ctx context.Context, key []byte) ([]byte, error) {
-	if key == nil || len(key) == 0 {
-		return nil, models.ErrDatastoreEmptyKey
-	}
-
 	row := ds.db.QueryRow("SELECT value FROM extras WHERE key=$1", key)
 
 	var value string

@@ -39,23 +39,23 @@ func TestAppCreate(t *testing.T) {
 	tasks := mockTasksConduit()
 	defer close(tasks)
 	for i, test := range []struct {
-		mock          *datastore.Mock
+		mock          models.Datastore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{&datastore.Mock{}, "/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{&datastore.Mock{}, "/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{&datastore.Mock{}, "/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
-		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
-		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
-		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), "/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), "/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), "/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
+		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
+		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{&datastore.Mock{}, "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
@@ -95,12 +95,12 @@ func TestAppDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{&datastore.Mock{}, "/v1/apps/myapp", "", http.StatusNotFound, nil},
-		{&datastore.Mock{
-			Apps: []*models.App{{
+		{datastore.NewMock(), "/v1/apps/myapp", "", http.StatusNotFound, nil},
+		{datastore.NewMockInit(
+			[]*models.App{{
 				Name: "myapp",
-			}},
-		}, "/v1/apps/myapp", "", http.StatusOK, nil},
+			}},nil,
+		), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
@@ -133,7 +133,7 @@ func TestAppList(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -170,7 +170,7 @@ func TestAppGet(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -206,28 +206,28 @@ func TestAppUpdate(t *testing.T) {
 	defer close(tasks)
 
 	for i, test := range []struct {
-		mock          *datastore.Mock
+		mock          models.Datastore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{&datastore.Mock{}, "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// success
-		{&datastore.Mock{
-			Apps: []*models.App{{
+		{datastore.NewMockInit(
+			[]*models.App{{
 				Name: "myapp",
-			}},
-		}, "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+			}}, nil,
+		), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
 		// Addresses #380
-		{&datastore.Mock{
-			Apps: []*models.App{{
+		{datastore.NewMockInit(
+			[]*models.App{{
 				Name: "myapp",
-			}},
-		}, "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
+			}}, nil,
+		), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)

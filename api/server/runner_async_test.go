@@ -40,16 +40,16 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
 	tasks := mockTasksConduit()
-	ds := &datastore.Mock{
-		Apps: []*models.App{
+	ds := datastore.NewMockInit(
+		[]*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
-		Routes: []*models.Route{
+		[]*models.Route{
 			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "iron/hello", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "iron/error", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "iron/hello", Config: map[string]string{"test": "true"}},
 		},
-	}
+	)
 	mq := &mqs.Mock{}
 
 	for i, test := range []struct {

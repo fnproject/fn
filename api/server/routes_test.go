@@ -17,24 +17,24 @@ func TestRouteCreate(t *testing.T) {
 	defer close(tasks)
 
 	for i, test := range []struct {
-		mock          *datastore.Mock
+		mock          models.Datastore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{&datastore.Mock{}, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
-		{&datastore.Mock{}, "/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "iron/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
+		{datastore.NewMock(), "/v1/apps/$/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{&datastore.Mock{}, "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "iron/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
@@ -73,12 +73,12 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{&datastore.Mock{}, "/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
-		{&datastore.Mock{
-			Routes: []*models.Route{
+		{datastore.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
+		{datastore.NewMockInit(nil,
+			[]*models.Route{
 				{Path: "/myroute", AppName: "a"},
 			},
-		}, "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
@@ -110,7 +110,7 @@ func TestRouteList(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -148,7 +148,7 @@ func TestRouteGet(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	srv := testServer(&datastore.Mock{}, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
 		path          string
@@ -191,28 +191,28 @@ func TestRouteUpdate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{&datastore.Mock{}, "/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{&datastore.Mock{}, "/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), "/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), "/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 
 		// success
-		{&datastore.Mock{
-			Routes: []*models.Route{
+		{datastore.NewMockInit(nil,
+			[]*models.Route{
 				{
 					AppName: "a",
 					Path:    "/myroute/do",
 				},
 			},
-		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello" } }`, http.StatusOK, nil},
+		), "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "iron/hello" } }`, http.StatusOK, nil},
 
 		// Addresses #381
-		{&datastore.Mock{
-			Routes: []*models.Route{
+		{datastore.NewMockInit(nil,
+			[]*models.Route{
 				{
 					AppName: "a",
 					Path:    "/myroute/do",
 				},
 			},
-		}, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
+		), "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
