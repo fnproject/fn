@@ -87,5 +87,6 @@ func (a *App) UpdateConfig(patch Config) {
 }
 
 type AppFilter struct {
+	// An SQL LIKE query. Empty does not filter.
 	Name string
 }

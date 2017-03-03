@@ -6,10 +6,10 @@ type RouteWrapper struct {
 	Route *Route `json:"route"`
 }
 
-func (m *RouteWrapper) Validate() error {
+func (m *RouteWrapper) Validate(skipZero bool) error {
 	var res []error
 
-	if err := m.validateRoute(); err != nil {
+	if err := m.validateRoute(skipZero); err != nil {
 		res = append(res, err)
 	}
 
@@ -19,10 +19,10 @@ func (m *RouteWrapper) Validate() error {
 	return nil
 }
 
-func (m *RouteWrapper) validateRoute() error {
+func (m *RouteWrapper) validateRoute(skipZero bool) error {
 
 	if m.Route != nil {
-		if err := m.Route.Validate(); err != nil {
+		if err := m.Route.Validate(skipZero); err != nil {
 			return err
 		}
 	}

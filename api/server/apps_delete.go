@@ -22,7 +22,7 @@ func (s *Server) handleAppDelete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 		return
 	}
-
+	//TODO allow this? #528
 	if len(routes) > 0 {
 		log.WithError(err).Debug(models.ErrDeleteAppsWithRoutes)
 		c.JSON(http.StatusBadRequest, simpleError(models.ErrDeleteAppsWithRoutes))

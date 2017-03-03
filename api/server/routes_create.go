@@ -31,15 +31,11 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 
 	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 
-	if err := wroute.Validate(); err != nil {
+	wroute.Route.SetDefaults()
+
+	if err := wroute.Validate(false); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)
 		c.JSON(http.StatusBadRequest, simpleError(err))
-		return
-	}
-
-	if wroute.Route.Image == "" {
-		log.WithError(models.ErrRoutesValidationMissingImage).Debug(models.ErrRoutesCreate)
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesValidationMissingImage))
 		return
 	}
 

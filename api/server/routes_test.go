@@ -50,11 +50,14 @@ func TestRouteCreate(t *testing.T) {
 
 		if test.expectedError != nil {
 			resp := getErrorResponse(t, rec)
-
-			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+			if resp.Error == nil {
+				t.Log(buf.String())
+				t.Errorf("Test %d: Expected error message to have `%s`, but it was nil",
+					i, test.expectedError)
+			} else if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`, but it was `%s`",
-					i, test.expectedError.Error(), resp.Error.Message)
+					i, test.expectedError, resp.Error.Message)
 			}
 		}
 		cancel()
@@ -193,6 +196,8 @@ func TestRouteUpdate(t *testing.T) {
 		// errors
 		{datastore.NewMock(), "/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{datastore.NewMock(), "/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "invalid-type" } }`, http.StatusBadRequest, nil},
+		{datastore.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "format": "invalid-format" } }`, http.StatusBadRequest, nil},
 
 		// success
 		{datastore.NewMockInit(nil,
@@ -223,8 +228,8 @@ func TestRouteUpdate(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
+			t.Errorf("Test %d: Expected status code to be %d but was %d: %s",
+				i, test.expectedCode, rec.Code, rec.Body.String())
 		}
 
 		if test.expectedError != nil {
