@@ -90,9 +90,6 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			if test.expectedEnv != nil {
 				for name, value := range test.expectedEnv {
 					taskName := name
-					if name == "APP" || name == "TEST" {
-						taskName = fmt.Sprintf("_%s", name)
-					}
 					if value != task.EnvVars[taskName] {
 						t.Errorf("Test %d: Expected header `%s` to be `%s` but was `%s`",
 							i, name, value, task.EnvVars[taskName])

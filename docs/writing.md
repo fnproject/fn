@@ -35,7 +35,7 @@ You will also have access to a set of environment variables.
 * ROUTE - the matched route
 * METHOD - the HTTP method for the request
 * HEADER_X - the HTTP headers that were set for this request. Replace X with the upper cased name of the header and replace dashes in the header with underscores.
-* any configuration values you've set for the Application or the Route. Replace X with the upper cased name of the config variable you set.
+* X - any configuration values you've set for the Application or the Route. Replace X with the upper cased name of the config variable you set. Ex: `minio_secret=secret` will be exposed via MINIO_SECRET env var
 
 Warning: these may change before release.
 

@@ -61,6 +61,9 @@ func (s *Server) handleSpecial(c *gin.Context) {
 
 func toEnvName(envtype, name string) string {
 	name = strings.ToUpper(strings.Replace(name, "-", "_", -1))
+	if envtype == "" {
+		return name
+	}
 	return fmt.Sprintf("%s_%s", envtype, name)
 }
 
