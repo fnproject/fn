@@ -91,7 +91,7 @@ func parseArgs(c *cli.Context) ([]string, []string) {
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "[") {
 			optArgs = append(optArgs, arg)
-		} else {
+		} else if strings.Trim(arg, " ") != "" {
 			reqArgs = append(reqArgs, arg)
 		}
 	}
