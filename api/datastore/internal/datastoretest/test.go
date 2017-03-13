@@ -159,7 +159,7 @@ func Test(t *testing.T, ds models.Datastore) {
 		}
 		if app != nil {
 			t.Log(buf.String())
-			t.Fatalf("Test RemoveApp: failed to remove the app")
+			t.Fatal("Test RemoveApp: failed to remove the app")
 		}
 
 		// Test update inexistent app

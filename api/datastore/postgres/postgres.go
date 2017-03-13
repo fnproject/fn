@@ -47,10 +47,6 @@ type rowScanner interface {
 	Scan(dest ...interface{}) error
 }
 
-type rowQuerier interface {
-	QueryRow(query string, args ...interface{}) *sql.Row
-}
-
 type PostgresDatastore struct {
 	db *sql.DB
 }
@@ -87,14 +83,6 @@ func New(url *url.URL) (models.Datastore, error) {
 func (ds *PostgresDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	var cbyte []byte
 	var err error
-
-	if app == nil {
-		return nil, models.ErrDatastoreEmptyApp
-	}
-
-	if app.Name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
 
 	if app.Config != nil {
 		cbyte, err = json.Marshal(app.Config)
@@ -185,17 +173,18 @@ func (ds *PostgresDatastore) GetApp(ctx context.Context, name string) (*models.A
 	var resName string
 	var config string
 	err := row.Scan(&resName, &config)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, models.ErrAppsNotFound
+		}
+		return nil, err
+	}
 
 	res := &models.App{
 		Name: resName,
 	}
 
-	json.Unmarshal([]byte(config), &res.Config)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrAppsNotFound
-		}
+	if err := json.Unmarshal([]byte(config), &res.Config); err != nil {
 		return nil, err
 	}
 
@@ -209,10 +198,11 @@ func scanApp(scanner rowScanner, app *models.App) error {
 		&app.Name,
 		&configStr,
 	)
+	if err != nil {
+		return err
+	}
 
-	json.Unmarshal([]byte(configStr), &app.Config)
-
-	return err
+	return json.Unmarshal([]byte(configStr), &app.Config)
 }
 
 func (ds *PostgresDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
@@ -411,15 +401,18 @@ func scanRoute(scanner rowScanner, route *models.Route) error {
 		&headerStr,
 		&configStr,
 	)
+	if err != nil {
+		return err
+	}
 
 	if headerStr == "" {
 		return models.ErrRoutesNotFound
 	}
 
-	json.Unmarshal([]byte(headerStr), &route.Headers)
-	json.Unmarshal([]byte(configStr), &route.Config)
-
-	return err
+	if err := json.Unmarshal([]byte(headerStr), &route.Headers); err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(configStr), &route.Config)
 }
 
 func (ds *PostgresDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
