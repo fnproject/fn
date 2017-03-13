@@ -13,26 +13,52 @@ docker run -e VAR_NAME=VALUE ...
 <tr>
 <th>Env Variables</th>
 <th>Description</th>
+<th>Default values</th>
 </tr>
 <tr>
 <td>DB_URL</td>
-<td>The database URL to use in URL format. See [Databases](operating/databases/README.md) for more information. Default: BoltDB in current working directory `bolt.db`.</td>
+<td>The database URL to use in URL format. See [Databases](operating/databases/README.md) for more information.</td>
+<td>$(pwd)/bolt.db</td>
 </tr>
 <tr>
 <td>MQ_URL</td>
-<td>The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. Default: BoltDB in current working directory `queue.db`.</td>
+<td>The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information.</td>
+<td>$(pwd)/queue.db</td>
 </tr>
 <tr>
 <td>API_URL</td>
 <td>The primary IronFunctions API URL to that this instance will talk to. In a production environment, this would be your load balancer URL.</td>
+<td>N/A</td>
 </tr>
 <tr>
 <td>PORT</td>
-<td>Sets the port to run on. Default: `8080`.</td>
+<td>Sets the port to run on</td>
+<td>8080</td>
 </tr>
 <tr>
 <td>LOG_LEVEL</td>
-<td>Set to `DEBUG` to enable debugging. Default: INFO.</td>
+<td>Set to DEBUG to enable debugging</td>
+<td>INFO</td>
+</tr>
+<tr>
+<td>DOCKER_HOST</td>
+<td>Docker remote API URL</td>
+<td>/var/run/docker.sock:/var/run/docker.sock</td>
+</tr>
+<tr>
+<td>DOCKER_API_VERSION</td>
+<td>Docker remote API version</td>
+<td>1.24</td>
+</tr>
+<tr>
+<td>DOCKER_TLS_VERIFY</td>
+<td>Set this option to enable/disable Docker remote API over TLS/SSL. Default: 0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>DOCKER_CERT_PATH</td>
+<td>Set this option to specify where CA cert placeholder</td>
+<td>~/.docker/cert.pem</td>
 </tr>
 </table>
 
