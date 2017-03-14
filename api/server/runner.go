@@ -164,7 +164,11 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 	envVars := map[string]string{
 		"METHOD":      c.Request.Method,
 		"ROUTE":       found.Path,
-		"REQUEST_URL": c.Request.URL.String(),
+		"REQUEST_URL": fmt.Sprintf("%v//%v%v", func() string {
+			if c.Request.TLS == nil {
+				return "http"
+			}
+			return "https"}(), c.Request.Host, c.Request.URL.String()),
 	}
 
 	// app config
