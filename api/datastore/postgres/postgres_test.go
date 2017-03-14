@@ -12,7 +12,7 @@ import (
 	"github.com/iron-io/functions/api/datastore/internal/datastoretest"
 )
 
-const tmpPostgres = "postgres://postgres@127.0.0.1:15432/funcs?sslmode=disable"
+const tmpPostgres = "postgres://postgres@%v:15432/funcs?sslmode=disable"
 
 func preparePostgresTest(logf, fatalf func(string, ...interface{})) (func(), func()) {
 	fmt.Println("initializing postgres for test")
@@ -21,7 +21,8 @@ func preparePostgresTest(logf, fatalf func(string, ...interface{})) (func(), fun
 
 	wait := 1 * time.Second
 	for {
-		db, err := sql.Open("postgres", "postgres://postgres@127.0.0.1:15432?sslmode=disable")
+		db, err := sql.Open("postgres", fmt.Sprintf("postgres://postgres@%v:15432?sslmode=disable",
+			datastoretest.GetContainerHostIP()))
 		if err != nil {
 			fmt.Println("failed to connect to postgres:", err)
 			fmt.Println("retrying in:", wait)
@@ -49,7 +50,7 @@ func preparePostgresTest(logf, fatalf func(string, ...interface{})) (func(), fun
 	}
 	fmt.Println("postgres for test ready")
 	return func() {
-		db, err := sql.Open("postgres", tmpPostgres)
+		db, err := sql.Open("postgres", fmt.Sprintf(tmpPostgres, datastoretest.GetContainerHostIP()))
 		if err != nil {
 			fatalf("failed to connect for truncation: %s\n", err)
 		}
@@ -69,13 +70,13 @@ func TestDatastore(t *testing.T) {
 	_, close := preparePostgresTest(t.Logf, t.Fatalf)
 	defer close()
 
-	u, err := url.Parse(tmpPostgres)
+	u, err := url.Parse(fmt.Sprintf(tmpPostgres, datastoretest.GetContainerHostIP()))
 	if err != nil {
-		t.Fatalf("failed to parse url:", err)
+		t.Fatalf("failed to parse url: %v", err)
 	}
 	ds, err := New(u)
 	if err != nil {
-		t.Fatalf("failed to create postgres datastore:", err)
+		t.Fatalf("failed to create postgres datastore: %v", err)
 	}
 
 	datastoretest.Test(t, ds)

@@ -13,7 +13,7 @@ import (
 	"github.com/iron-io/functions/api/datastore/internal/datastoretest"
 )
 
-const tmpRedis = "redis://127.0.0.1:6301/"
+const tmpRedis = "redis://%v:6301/"
 
 func prepareRedisTest(logf, fatalf func(string, ...interface{})) (func(), func()) {
 	fmt.Println("initializing redis for test")
@@ -22,7 +22,7 @@ func prepareRedisTest(logf, fatalf func(string, ...interface{})) (func(), func()
 	timeout := time.After(20 * time.Second)
 
 	for {
-		c, err := redis.DialURL(tmpRedis)
+		c, err := redis.DialURL(fmt.Sprintf(tmpRedis, datastoretest.GetContainerHostIP()))
 		if err == nil {
 			_, err = c.Do("PING")
 			c.Close()
@@ -49,7 +49,7 @@ func TestDatastore(t *testing.T) {
 	_, close := prepareRedisTest(t.Logf, t.Fatalf)
 	defer close()
 
-	u, err := url.Parse(tmpRedis)
+	u, err := url.Parse(fmt.Sprintf(tmpRedis, datastoretest.GetContainerHostIP()))
 	if err != nil {
 		t.Fatal("failed to parse url: ", err)
 	}
