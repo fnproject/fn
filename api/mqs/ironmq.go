@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/iron-io/functions/api/models"
@@ -114,7 +113,7 @@ func (mq *IronMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	var messages []ironmq.Message
 	var err error
 	for i := 2; i >= 0; i-- {
-		messages, err = mq.queues[i].LongPoll(1, int(time.Minute), 0 /* wait */, false /* delete */)
+		messages, err = mq.queues[i].LongPoll(1, 60, 0 /* wait */, false /* delete */)
 		if err != nil {
 			// It is OK if the queue does not exist, it will be created when a message is queued.
 			if !strings.Contains(err.Error(), "404 Not Found") {
