@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"net/url"
-	"strings"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -27,26 +26,13 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-// workaround for parts.Hostname() that doesn't work on Go1.7.1
-// TODO(denismakogon): remove this after switching to Go 1.8
-func stripPort(hostport string) string {
-	colon := strings.IndexByte(hostport, ':')
-	if colon == -1 {
-		return hostport
-	}
-	if i := strings.IndexByte(hostport, ']'); i != -1 {
-		return strings.TrimPrefix(hostport[:i], "[")
-	}
-	return hostport[:colon]
-}
-
 func GetContainerHostIP() string {
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
 		return "127.0.0.1"
 	}
 	parts, _ := url.Parse(dockerHost)
-	return stripPort(parts.Host)
+	return parts.Hostname()
 }
 
 func Test(t *testing.T, ds models.Datastore) {
