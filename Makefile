@@ -14,6 +14,12 @@ test:
 test-datastore:
 	cd api/datastore && go test -v ./...
 
+test-build-arm:
+    GOARCH=arm GOARM=5 $(MAKE) build
+    GOARCH=arm GOARM=6 $(MAKE) build
+    GOARCH=arm GOARM=7 $(MAKE) build
+    GOARCH=arm64 $(MAKE) build
+
 run:
 	./functions
 

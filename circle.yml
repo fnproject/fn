@@ -33,6 +33,8 @@ test:
         pwd: $GO_PROJECT
     - make test-datastore:
         pwd: $GO_PROJECT
+    - make test-build-arm:
+        pwd: $GO_PROJECT
     - go build:
         pwd: $GO_PROJECT/examples/middleware
     - go build:
