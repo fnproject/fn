@@ -36,3 +36,5 @@ import:
 - package: github.com/golang/groupcache
   subpackages:
   - consistenthash
+- package: github.com/go-sql-driver/mysql
+  version: ~1.3.0

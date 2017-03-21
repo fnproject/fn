@@ -1,5 +1,5 @@
-hash: 01f9cff01b9ee5c1d8c37c86779ab6bbd91278394e526f921f399f10a0523698
-updated: 2017-02-21T08:50:25.925523311-08:00
+hash: c1cb358ca30836b70eedffdf0132cf9b9d0da981dbb9d58fc2f75eabe91de429
+updated: 2017-03-11T12:22:28.171415703+01:00
 imports:
 - name: github.com/amir/raidman
   version: c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985
@@ -107,7 +107,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197
 - name: github.com/fsouza/go-dockerclient
-  version: 364c822d280c4f34afc3339e50d4fc0129d6b5ec
+  version: fbeb72ccd29aa2596f364a5a85af622c651c3e16
 - name: github.com/garyburd/redigo
   version: 0708def8b0cf3a05acdf44a7f28b864c2958921d
   subpackages:
@@ -151,6 +151,8 @@ imports:
   version: 027696d4b54399770f1cdcc6c6daa56975f9e14e
 - name: github.com/go-resty/resty
   version: ef723efa2a1b4fcdbafb5b1e7c6cf42065519728
+- name: github.com/go-sql-driver/mysql
+  version: a0583e0143b1624142adab07e0e97fe106d99561
 - name: github.com/golang/groupcache
   version: 72d04f9fcdec7d3821820cc4a6f150eae553639a
   subpackages:
@@ -184,7 +186,7 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/heroku/docker-registry-client
-  version: 95467b6cacee2a06f112a3cf7e47a70fad6000cf
+  version: 36bd5f538a6b9e70f2d863c9a8f6bf955a98eddc
   subpackages:
   - registry
 - name: github.com/iron-io/functions_go
@@ -263,7 +265,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: github.com/Sirupsen/logrus
-  version: c078b1e43f58d563c74cebe63c85789e76ddb627
+  version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
   subpackages:
   - hooks/syslog
 - name: github.com/spf13/afero
