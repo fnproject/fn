@@ -83,7 +83,7 @@ docker run --rm -it --name functions -v ${PWD}/data:/app/data -v /var/run/docker
 *where ${PWD}/data is the directory where the functions application data files will be stored*
 
 This will start IronFunctions in single server mode, using an embedded database and message queue. You can find all the
-configuration options [here](docs/options.md). If you are on Windows, check [here](docs/operating/windows.md).
+configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
 
 ### CLI tool
 

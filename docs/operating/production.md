@@ -1,6 +1,6 @@
 # Running IronFunctions in Production
 
-The [QuickStart guide](/README.md) is intended to quickly get started and kick the tires. To run in production and be ready to scale, you need
+The [QuickStart guide](/README.md#quickstart) is intended to quickly get started and kick the tires. To run in production and be ready to scale, you need
 to use more production ready components.
 
 * Put the IronFunctions API behind a load balancer and launch run several instances of them (the more the merrier).
@@ -21,14 +21,14 @@ Any load balancer will work, put every instance of IronFunctions that you run be
 
 We've done our best to keep the database usage to a minimum. There are no writes during the request/response cycle which where most of the load will be.
 
-The database is pluggable and we currently support a few options that can be [found here](/docs/databases/). We welcome pull requests for more!
+The database is pluggable and we currently support a few options that can be [found here](databases/README.md). We welcome pull requests for more!
 
 ## Message Queue
 
 The message queue is an important part of asynchronous functions, essentially buffering requests for processing when resources are available. The reliability and scale of the message queue will play an important part
 in how well IronFunctions runs, in particular if you use a lot of asynchronous function calls.
 
-The message queue is pluggable and we currently support a few options that can be [found here](/docs/mqs/). We welcome pull requests for more!
+The message queue is pluggable and we currently support a few options that can be [found here](mqs/README.md). We welcome pull requests for more!
 
 ## Logging, Metrics and Monitoring
 

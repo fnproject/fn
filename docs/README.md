@@ -22,8 +22,9 @@ If you are a developer using IronFunctions through the API, this section is for 
 If you are operating IronFunctions, this section is for you.
 
 * [Running in Production Overview](operating/production.md)
-* [Databases](databases/README.md)
-* [Message Queues](mqs/README.md)
+* [Runtime Options](operating/options.md)
+* [Databases](operating/databases/README.md)
+* [Message Queues](operating/mqs/README.md)
 * [UI](operating/ui.md)
 * [Logging](operating/logging.md)
 * [Metrics](operating/metrics.md)
@@ -34,5 +35,3 @@ If you are operating IronFunctions, this section is for you.
 * Running IronFunctions on:
   * [Kubernetes](operating/kubernetes/README.md)
   * [Docker Swarm](operating/docker-swarm/README.md)
-
-
