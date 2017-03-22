@@ -9,6 +9,7 @@ import (
 )
 
 type RubyLangHelper struct {
+	BaseHelper
 }
 
 func (lh *RubyLangHelper) Entrypoint() string {

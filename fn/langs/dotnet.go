@@ -6,7 +6,9 @@ import (
 	"os/exec"
 )
 
-type DotNetLangHelper struct{}
+type DotNetLangHelper struct {
+	BaseHelper
+}
 
 func (lh *DotNetLangHelper) Entrypoint() string {
 	return "dotnet dotnet.dll"

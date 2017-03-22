@@ -1,6 +1,7 @@
 package langs
 
 type NodeLangHelper struct {
+	BaseHelper
 }
 
 func (lh *NodeLangHelper) Entrypoint() string {

@@ -6,7 +6,9 @@ import (
 	"os/exec"
 )
 
-type RustLangHelper struct{}
+type RustLangHelper struct {
+	BaseHelper
+}
 
 func (lh *RustLangHelper) Entrypoint() string {
 	return "/function/target/release/func"

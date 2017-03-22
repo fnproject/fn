@@ -8,6 +8,7 @@ import (
 )
 
 type GoLangHelper struct {
+	BaseHelper
 }
 
 func (lh *GoLangHelper) Entrypoint() string {

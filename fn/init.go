@@ -46,6 +46,7 @@ type initFnCmd struct {
 	force          bool
 	runtime        string
 	entrypoint     string
+	cmd            string
 	format         string
 	maxConcurrency int
 }
@@ -116,13 +117,14 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		Name:           a.name,
 		Runtime:        &a.runtime,
 		Version:        initialVersion,
-		Entrypoint:     &a.entrypoint,
+		Entrypoint:     a.entrypoint,
+		Cmd:            a.cmd,
 		Format:         ffmt,
-		maxConcurrency: &a.maxConcurrency,
+		MaxConcurrency: &a.maxConcurrency,
 	}
 
 	_, path := appNamePath(ff.FullName())
-	ff.path = &path
+	ff.Path = &path
 
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
 		return err
@@ -135,7 +137,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("error detecting current working directory: %s\n", err)
+		return fmt.Errorf("error detecting current working directory: %s", err)
 	}
 
 	a.name = c.Args().First()
@@ -157,16 +159,28 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 		a.runtime = rt
 		fmt.Printf("assuming %v runtime\n", rt)
 	}
+	fmt.Println("runtime:", a.runtime)
 	if _, ok := acceptableFnRuntimes[a.runtime]; !ok {
 		return fmt.Errorf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
 	}
 
+	helper := langs.GetLangHelper(a.runtime)
+	if helper == nil {
+		fmt.Printf("No helper found for %s runtime, you'll have to pass in the appropriate flags or use a Dockerfile.", a.runtime)
+	}
+
 	if a.entrypoint == "" {
-		ep, err := detectEntrypoint(a.runtime)
-		if err != nil {
-			return fmt.Errorf("could not detect entrypoint for %v, use --entrypoint to add it explicitly. %v", a.runtime, err)
+		if helper != nil {
+			a.entrypoint = helper.Entrypoint()
 		}
-		a.entrypoint = ep
+	}
+	if a.cmd == "" {
+		if helper != nil {
+			a.cmd = helper.Cmd()
+		}
+	}
+	if a.entrypoint == "" && a.cmd == "" {
+		return fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
 	}
 
 	return nil
@@ -179,15 +193,5 @@ func detectRuntime(path string) (runtime string, err error) {
 			return runtime, nil
 		}
 	}
-
 	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
-}
-
-func detectEntrypoint(runtime string) (string, error) {
-	helper, err := langs.GetLangHelper(runtime)
-	if err != nil {
-		return "", err
-	}
-
-	return helper.Entrypoint(), nil
 }

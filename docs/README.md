@@ -10,7 +10,7 @@ If you are a developer using IronFunctions through the API, this section is for 
 * [Definitions](definitions.md)
 * [fn (CLI Tool)](/fn/README.md)
 * [Writing functions](writing.md)
-* [Writing Lambda functions](lambda/create.md)
+* [Writing Lambda functions](lambda/README.md)
 * [Function file (func.yaml)](function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)

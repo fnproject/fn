@@ -296,15 +296,15 @@ func routeWithFuncFile(c *cli.Context, rt *models.Route) {
 		if ff.Format != nil {
 			rt.Format = *ff.Format
 		}
-		if ff.maxConcurrency != nil {
-			rt.MaxConcurrency = int32(*ff.maxConcurrency)
+		if ff.MaxConcurrency != nil {
+			rt.MaxConcurrency = int32(*ff.MaxConcurrency)
 		}
 		if ff.Timeout != nil {
 			to := int64(ff.Timeout.Seconds())
 			rt.Timeout = &to
 		}
-		if rt.Path == "" && ff.path != nil {
-			rt.Path = *ff.path
+		if rt.Path == "" && ff.Path != nil {
+			rt.Path = *ff.Path
 		}
 	}
 }

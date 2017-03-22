@@ -100,6 +100,7 @@ func transcribeEnvConfig(configs []string) map[string]string {
 	return c
 }
 
+// create creates the Docker image for the Lambda function
 func create(c *cli.Context) error {
 	args := c.Args()
 	functionName := args[0]
@@ -272,7 +273,7 @@ func createFunctionYaml(opts createImageOptions) error {
 	path := fmt.Sprintf("/%s", strs[1])
 	funcDesc := &funcfile{
 		Name:   opts.Name,
-		path:   &path,
+		Path:   &path,
 		Config: opts.Config,
 	}
 

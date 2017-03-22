@@ -68,7 +68,7 @@ func (t *testcmd) test(c *cli.Context) error {
 	target := ff.FullName()
 	runtest := runlocaltest
 	if t.remote != "" {
-		if ff.path == nil || *ff.path == "" {
+		if ff.Path == nil || *ff.Path == "" {
 			return errors.New("execution of tests on remote server demand that this function to have a `path`.")
 		}
 		if err := resetBasePath(t.Configuration); err != nil {
@@ -80,7 +80,7 @@ func (t *testcmd) test(c *cli.Context) error {
 		}
 
 		u, err := url.Parse("../")
-		u.Path = path.Join(u.Path, "r", t.remote, *ff.path)
+		u.Path = path.Join(u.Path, "r", t.remote, *ff.Path)
 		target = baseURL.ResolveReference(u).String()
 		runtest = runremotetest
 	}

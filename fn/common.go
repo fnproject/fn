@@ -79,9 +79,9 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 		if err != nil {
 			return err
 		}
-		helper, err = langs.GetLangHelper(*ff.Runtime)
-		if err != nil {
-			return err
+		helper = langs.GetLangHelper(*ff.Runtime)
+		if helper == nil {
+			return fmt.Errorf("Cannot build, no language helper found for %v", *ff.Runtime)
 		}
 		if helper.HasPreBuild() {
 			err := helper.PreBuild()
@@ -118,32 +118,34 @@ func exists(name string) bool {
 }
 
 var acceptableFnRuntimes = map[string]string{
-	"elixir":    "iron/elixir",
-	"erlang":    "iron/erlang",
-	"gcc":       "iron/gcc",
-	"go":        "iron/go",
-	"java":      "iron/java",
-	"leiningen": "iron/leiningen",
-	"mono":      "iron/mono",
-	"node":      "iron/node",
-	"perl":      "iron/perl",
-	"php":       "iron/php",
-	"python":    "iron/python:2",
-	"ruby":      "iron/ruby",
-	"scala":     "iron/scala",
-	"rust":      "corey/rust-alpine",
-	"dotnet":    "microsoft/dotnet:runtime",
+	"elixir":      "iron/elixir",
+	"erlang":      "iron/erlang",
+	"gcc":         "iron/gcc",
+	"go":          "iron/go",
+	"java":        "iron/java",
+	"leiningen":   "iron/leiningen",
+	"mono":        "iron/mono",
+	"node":        "iron/node",
+	"perl":        "iron/perl",
+	"php":         "iron/php",
+	"python":      "iron/python:2",
+	"ruby":        "iron/ruby",
+	"scala":       "iron/scala",
+	"rust":        "corey/rust-alpine",
+	"dotnet":      "microsoft/dotnet:runtime",
+	"lambda-node": "iron/functions-lambda:node",
 }
 
 const tplDockerfile = `FROM {{ .BaseImage }}
 WORKDIR /function
 ADD . /function/
-ENTRYPOINT [{{ .Entrypoint }}]
+{{ if ne .Entrypoint "" }} ENTRYPOINT [{{ .Entrypoint }}] {{ end }}
+{{ if ne .Cmd "" }} CMD [{{ .Cmd }}] {{ end }}
 `
 
 func writeTmpDockerfile(dir string, ff *funcfile) error {
-	if ff.Entrypoint == nil || *ff.Entrypoint == "" {
-		return errors.New("entrypoint is missing")
+	if ff.Entrypoint == "" && ff.Cmd == "" {
+		return errors.New("entrypoint and cmd are missing, you must provide one or the other")
 	}
 
 	runtime, tag := ff.RuntimeTag()
@@ -160,9 +162,22 @@ func writeTmpDockerfile(dir string, ff *funcfile) error {
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 
 	// convert entrypoint string to slice
-	epvals := strings.Fields(*ff.Entrypoint)
+	bufferEp := stringToSlice(ff.Entrypoint)
+	bufferCmd := stringToSlice(ff.Cmd)
+
+	t := template.Must(template.New("Dockerfile").Parse(tplDockerfile))
+	err = t.Execute(fd, struct {
+		BaseImage, Entrypoint, Cmd string
+	}{rt, bufferEp.String(), bufferCmd.String()})
+
+	return err
+}
+
+func stringToSlice(in string) bytes.Buffer {
+	epvals := strings.Fields(in)
 	var buffer bytes.Buffer
 	for i, s := range epvals {
 		if i > 0 {
@@ -172,13 +187,7 @@ func writeTmpDockerfile(dir string, ff *funcfile) error {
 		buffer.WriteString(s)
 		buffer.WriteString("\"")
 	}
-
-	t := template.Must(template.New("Dockerfile").Parse(tplDockerfile))
-	err = t.Execute(fd, struct {
-		BaseImage, Entrypoint string
-	}{rt, buffer.String()})
-	fd.Close()
-	return err
+	return buffer
 }
 
 func extractEnvConfig(configs []string) map[string]string {

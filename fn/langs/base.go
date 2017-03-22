@@ -1,29 +1,38 @@
 package langs
 
-import "fmt"
-
 // GetLangHelper returns a LangHelper for the passed in language
-func GetLangHelper(lang string) (LangHelper, error) {
+func GetLangHelper(lang string) LangHelper {
 	switch lang {
 	case "go":
-		return &GoLangHelper{}, nil
+		return &GoLangHelper{}
 	case "node":
-		return &NodeLangHelper{}, nil
+		return &NodeLangHelper{}
 	case "ruby":
-		return &RubyLangHelper{}, nil
+		return &RubyLangHelper{}
 	case "python":
-		return &PythonHelper{}, nil
+		return &PythonHelper{}
 	case "rust":
-		return &RustLangHelper{}, nil
+		return &RustLangHelper{}
 	case "dotnet":
-		return &DotNetLangHelper{}, nil
+		return &DotNetLangHelper{}
+	case "lambda-node":
+		return &LambdaNodeHelper{}
 	}
-	return nil, fmt.Errorf("No language helper found for %v", lang)
+	return nil
 }
 
 type LangHelper interface {
+	// Entrypoint sets the Docker Entrypoint. One of Entrypoint or Cmd is required.
 	Entrypoint() string
+	// Cmd sets the Docker command. One of Entrypoint or Cmd is required.
+	Cmd() string
 	HasPreBuild() bool
 	PreBuild() error
 	AfterBuild() error
 }
+
+// BaseHelper is empty implementation of LangHelper for embedding in implementations.
+type BaseHelper struct {
+}
+
+func (h *BaseHelper) Cmd() string { return "" }

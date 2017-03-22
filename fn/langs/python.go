@@ -8,6 +8,7 @@ import (
 )
 
 type PythonHelper struct {
+	BaseHelper
 }
 
 func (lh *PythonHelper) Entrypoint() string {
