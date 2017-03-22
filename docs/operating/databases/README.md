@@ -22,7 +22,13 @@ URL: `postgres://user123:pass456@ec2-117-21-174-214.compute-1.amazonaws.com:6212
 
 Use a PostgreSQL database. If you're using IronFunctions in production, you should probably start here.
 
-[More on Postgres](postgres.md)
+[More on PostgreSQL](postgres.md)
+
+## [MySQL](https://www.mysql.com/)
+
+URL: `mysql://user123:pass456@tcp(ec2-117-21-174-214.compute-1.amazonaws.com:3306)/funcs`
+
+[More on MySQL](mysql.md)
 
 ## What about database X?
 
