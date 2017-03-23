@@ -34,3 +34,4 @@ docker push $user/$service:$tag
 
 cd fn
 ./release.sh $version
+cd ..
