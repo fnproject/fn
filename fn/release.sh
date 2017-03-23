@@ -2,6 +2,10 @@
 
 set -ex
 
+cd lambda
+./release.sh
+cd ..
+
 make vendor
 make release
 
