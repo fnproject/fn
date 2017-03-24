@@ -1,4 +1,4 @@
 set -ex
 
 ./build.sh
-docker push iron/functions-lambda:node4.3
+docker push iron/functions-lambda:nodejs4.3
