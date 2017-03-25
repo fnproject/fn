@@ -35,7 +35,8 @@ func (t *containerTask) Id() string                         { return t.cfg.ID }
 func (t *containerTask) Route() string                      { return "" }
 func (t *containerTask) Image() string                      { return t.cfg.Image }
 func (t *containerTask) Timeout() time.Duration             { return t.cfg.Timeout }
-func (t *containerTask) Logger() (stdout, stderr io.Writer) { return t.cfg.Stdout, t.cfg.Stderr }
+func (t *containerTask) IdleTimeout() time.Duration   { return t.cfg.IdleTimeout }
+func (t *containerTask) Logger() (io.Writer, io.Writer)     { return t.cfg.Stdout, t.cfg.Stderr }
 func (t *containerTask) Volumes() [][2]string               { return [][2]string{} }
 func (t *containerTask) WorkDir() string                    { return "" }
 

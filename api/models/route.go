@@ -12,6 +12,7 @@ import (
 
 const (
 	defaultRouteTimeout = 30 // seconds
+	htfnScaleDownTimeout = 30 // seconds
 )
 
 var (
@@ -39,6 +40,7 @@ type Route struct {
 	Format         string      `json:"format"`
 	MaxConcurrency int         `json:"max_concurrency"`
 	Timeout        int32       `json:"timeout"`
+	IdleTimeout int32    `json:"idle_timeout"`
 	Config         `json:"config"`
 }
 
@@ -54,6 +56,7 @@ var (
 	ErrRoutesValidationMissingType           = errors.New("Missing route Type")
 	ErrRoutesValidationPathMalformed         = errors.New("Path malformed")
 	ErrRoutesValidationNegativeTimeout       = errors.New("Negative timeout")
+	ErrRoutesValidationNegativeIdleTimeout       = errors.New("Negative idle timeout")
 	ErrRoutesValidationNegativeMaxConcurrency = errors.New("Negative MaxConcurrency")
 )
 
@@ -86,6 +89,10 @@ func (r *Route) SetDefaults() {
 	if r.Timeout == 0 {
 		r.Timeout = defaultRouteTimeout
 	}
+
+	//if r.IdleTimeout == 0 {
+	//	r.IdleTimeout = htfnScaleDownTimeout
+	//}
 }
 
 // Validate validates field values, skipping zeroed fields if skipZero is true.
@@ -141,6 +148,10 @@ func (r *Route) Validate(skipZero bool) error {
 		res = append(res, ErrRoutesValidationNegativeTimeout)
 	}
 
+	if r.IdleTimeout < 0 {
+		res = append(res, ErrRoutesValidationNegativeIdleTimeout)
+	}
+
 	if len(res) > 0 {
 		return apiErrors.CompositeValidationError(res...)
 	}
@@ -170,6 +181,9 @@ func (r *Route) Update(new *Route) {
 	}
 	if new.Timeout != 0 {
 		r.Timeout = new.Timeout
+	}
+	if new.IdleTimeout != 0 {
+		r.IdleTimeout = new.IdleTimeout
 	}
 	if new.Format != "" {
 		r.Format = new.Format

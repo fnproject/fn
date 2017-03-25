@@ -190,17 +190,18 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 	}
 
 	cfg := &task.Config{
-		AppName:        appName,
-		Path:           found.Path,
-		Env:            envVars,
-		Format:         found.Format,
-		ID:             reqID,
-		Image:          found.Image,
-		MaxConcurrency: found.MaxConcurrency,
-		Memory:         found.Memory,
-		Stdin:          payload,
-		Stdout:         &stdout,
-		Timeout:        time.Duration(found.Timeout) * time.Second,
+		AppName:           appName,
+		Path:              found.Path,
+		Env:               envVars,
+		Format:            found.Format,
+		ID:                reqID,
+		Image:             found.Image,
+		MaxConcurrency:    found.MaxConcurrency,
+		Memory:            found.Memory,
+		Stdin:             payload,
+		Stdout:            &stdout,
+		Timeout:           time.Duration(found.Timeout) * time.Second,
+		IdleTimeout:       time.Duration(found.IdleTimeout) * time.Second,
 	}
 
 	s.Runner.Enqueue()

@@ -54,6 +54,11 @@ type NewTask struct {
 
 	*/
 	Timeout *int32 `json:"timeout,omitempty"`
+
+	/* Hot function idle timeout in seconds before termination.
+
+	*/
+	IdleTimeout *int32 `json:"idle_timeout,omitempty"`
 }
 
 // Validate validates this new task

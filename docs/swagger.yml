@@ -378,8 +378,12 @@ definitions:
           type: string
       timeout:
         type: integer
-        default: 60
+        default: 30
         description: Timeout for executions of this route. Value in Seconds
+      idle_timeout:
+        type: integer
+        default: 30
+        description: Hot functions idle timeout before termination. Value in Seconds
 
   App:
     type: object

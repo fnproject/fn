@@ -42,14 +42,18 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 }
 
 func getCfg(t *models.Task) *task.Config {
+	timeout := int32(30)
 	if t.Timeout == nil {
-		timeout := int32(30)
 		t.Timeout = &timeout
+	}
+	if t.IdleTimeout == nil {
+		t.IdleTimeout = &timeout
 	}
 
 	cfg := &task.Config{
 		Image:   *t.Image,
 		Timeout: time.Duration(*t.Timeout) * time.Second,
+		IdleTimeout: time.Duration(*t.IdleTimeout) * time.Second,
 		ID:      t.ID,
 		AppName: t.AppName,
 		Env:     t.EnvVars,

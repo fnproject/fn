@@ -61,10 +61,6 @@ import (
 //                                           Terminate
 //                                           (internal clock)
 
-const (
-	// Terminate hot function after this timeout
-	htfnScaleDownTimeout = 30 * time.Second
-)
 
 // RunTask helps sending a task.Request into the common concurrency stream.
 // Refer to StartWorkers() to understand what this is about.
@@ -264,17 +260,29 @@ func newhtfn(cfg *task.Config, proto protocol.Protocol, tasks <-chan task.Reques
 func (hc *htfn) serve(ctx context.Context) {
 	lctx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
+	cfg := *hc.cfg
+	logger := logrus.WithFields(logrus.Fields{
+				"app":                cfg.AppName,
+				"route":              cfg.Path,
+				"image":              cfg.Image,
+				"memory":             cfg.Memory,
+				"format":             cfg.Format,
+				"max_concurrency":    cfg.MaxConcurrency,
+				"idle_timeout":       cfg.IdleTimeout,
+	})
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for {
-			inactivity := time.After(htfnScaleDownTimeout)
+			inactivity := time.After(cfg.IdleTimeout)
 
 			select {
 			case <-lctx.Done():
 				return
 
 			case <-inactivity:
+				logger.Info("Canceling inactive hot function")
 				cancel()
 
 			case t := <-hc.tasks:
@@ -295,7 +303,6 @@ func (hc *htfn) serve(ctx context.Context) {
 		}
 	}()
 
-	cfg := *hc.cfg
 	cfg.Env["FN_FORMAT"] = cfg.Format
 	cfg.Timeout = 0 // add a timeout to simulate ab.end. failure.
 	cfg.Stdin = hc.containerIn
@@ -324,14 +331,7 @@ func (hc *htfn) serve(ctx context.Context) {
 		defer wg.Done()
 		scanner := bufio.NewScanner(errr)
 		for scanner.Scan() {
-			logrus.WithFields(logrus.Fields{
-				"app":             cfg.AppName,
-				"route":           cfg.Path,
-				"image":           cfg.Image,
-				"memory":          cfg.Memory,
-				"format":          cfg.Format,
-				"max_concurrency": cfg.MaxConcurrency,
-			}).Info(scanner.Text())
+			logger.Info(scanner.Text())
 		}
 	}()
 
@@ -339,7 +339,6 @@ func (hc *htfn) serve(ctx context.Context) {
 	if err != nil {
 		logrus.WithError(err).Error("hot function failure detected")
 	}
-	cancel()
 	errw.Close()
 	wg.Wait()
 	logrus.WithField("result", result).Info("hot function terminated")
