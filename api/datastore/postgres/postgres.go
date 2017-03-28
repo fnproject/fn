@@ -121,7 +121,7 @@ func (ds *PostgresDatastore) UpdateApp(ctx context.Context, newapp *models.App) 
 			return err
 		}
 
-		if config != "" {
+		if len(config) > 0 {
 			err := json.Unmarshal([]byte(config), &app.Config)
 			if err != nil {
 				return err
@@ -186,7 +186,10 @@ func (ds *PostgresDatastore) GetApp(ctx context.Context, name string) (*models.A
 	}
 
 	if len(config) > 0 {
-		json.Unmarshal([]byte(config), &res.Config)
+		err := json.Unmarshal([]byte(config), &res.Config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return res, nil
@@ -203,7 +206,14 @@ func scanApp(scanner rowScanner, app *models.App) error {
 		return err
 	}
 
-	return json.Unmarshal([]byte(configStr), &app.Config)
+	if len(configStr) > 0 {
+		err = json.Unmarshal([]byte(configStr), &app.Config)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (ds *PostgresDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
@@ -410,14 +420,21 @@ func scanRoute(scanner rowScanner, route *models.Route) error {
 		return err
 	}
 
-	if headerStr == "" {
-		return models.ErrRoutesNotFound
+	if len(headerStr) > 0 {
+		err = json.Unmarshal([]byte(headerStr), &route.Headers)
+		if err != nil {
+			return err
+		}
 	}
 
-	if err := json.Unmarshal([]byte(headerStr), &route.Headers); err != nil {
-		return err
+	if len(configStr) > 0 {
+		err = json.Unmarshal([]byte(configStr), &route.Config)
+		if err != nil {
+			return err
+		}
 	}
-	return json.Unmarshal([]byte(configStr), &route.Config)
+
+	return nil
 }
 
 func (ds *PostgresDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
