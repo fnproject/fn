@@ -1,5 +1,5 @@
 {
-    "memo": "b1d8fb99dd0be5e266f87c29d0e8a747c97445b6b0590db81d6fc88a2b5eca0f",
+    "memo": "c9168e27ae33a08e6c7f8fa593cecff70291be6ce0ce87cda093750764fe3faf",
     "projects": [
         {
             "name": "code.cloudfoundry.org/bytefmt",
@@ -79,7 +79,7 @@
         {
             "name": "github.com/aws/aws-sdk-go",
             "branch": "master",
-            "revision": "0bbc97afc1bd36f23958f2f26764ecf0253834bd",
+            "revision": "4c307b6c988d40b9601a86768b29c28e8fb033eb",
             "packages": [
                 "aws",
                 "aws/awserr",
@@ -199,7 +199,7 @@
         {
             "name": "github.com/docker/docker",
             "branch": "master",
-            "revision": "e4c608abe99b0ca2a1a454792780da8f59674f12",
+            "revision": "87562af45bf32efce55d9fceb141a655b82a33c4",
             "packages": [
                 "api/types",
                 "api/types/blkiodev",
@@ -211,6 +211,7 @@
                 "api/types/strslice",
                 "api/types/swarm",
                 "api/types/versions",
+                "cli/config/configfile",
                 "opts",
                 "pkg/archive",
                 "pkg/fileutils",
@@ -695,7 +696,7 @@
         {
             "name": "golang.org/x/crypto",
             "branch": "master",
-            "revision": "c2303dcbe84172e0c0da4c9f083eeca54c06f298",
+            "revision": "55a552f0823e0d3d54931488a2993ebd2fd0258c",
             "packages": [
                 "bcrypt",
                 "blowfish"
@@ -704,7 +705,7 @@
         {
             "name": "golang.org/x/net",
             "branch": "master",
-            "revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+            "revision": "d1e1b351919c6738fdeb9893d5c998b161464f0c",
             "packages": [
                 "context",
                 "context/ctxhttp",
@@ -716,7 +717,7 @@
         {
             "name": "golang.org/x/sys",
             "branch": "master",
-            "revision": "39e3dc274464e7d2f663aa606a830611bae5f1db",
+            "revision": "f3918c30c5c2cb527c0b071a27c35120a6c0719a",
             "packages": [
                 "unix",
                 "windows"
@@ -762,7 +763,7 @@
         {
             "name": "gopkg.in/yaml.v2",
             "branch": "v2",
-            "revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
+            "revision": "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b",
             "packages": [
                 "."
             ]
