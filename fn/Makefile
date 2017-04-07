@@ -10,10 +10,10 @@ docker: vendor
 	docker push iron/fn
 
 vendor:
-	glide install -v
+	dep ensure --update
 
 test:
-	go test -v $(shell glide nv)
+	go test $(go list ./... | grep -v /vendor/)
 
 release:
 	GOOS=linux go build -o fn_linux

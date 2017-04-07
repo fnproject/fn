@@ -228,7 +228,12 @@ func (r Runner) EnsureImageExists(ctx context.Context, cfg *task.Config) error {
 		cfg: cfg,
 	}
 
-	_, err := docker.CheckRegistry(ctask.Image(), ctask.DockerAuth())
+	auth, err := ctask.DockerAuth()
+	if err != nil {
+		return err
+	}
+
+	_, err = docker.CheckRegistry(ctask.Image(), auth)
 	return err
 }
 

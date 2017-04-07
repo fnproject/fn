@@ -3,7 +3,7 @@ machine:
     CHECKOUT_DIR: $HOME/$CIRCLE_PROJECT_REPONAME
     GOPATH: $HOME/go
     GOROOT: $HOME/golang/go
-    PATH: $GOROOT/bin:$PATH
+    PATH: $GOROOT/bin:$GOPATH/bin:/$PATH
     GH_IRON: $GOPATH/src/github.com/iron-io
     GO_PROJECT: ../go/src/github.com/iron-io/$CIRCLE_PROJECT_REPONAME
   services:
@@ -19,19 +19,15 @@ dependencies:
     - wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
     - mkdir -p $HOME/golang
     - tar -C $HOME/golang -xvzf go1.8.linux-amd64.tar.gz
-    - wget https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz
-    - tar -C $HOME/bin -xvzf glide-v0.12.3-linux-amd64.tar.gz --strip=1
+    - go get -u github.com/golang/dep/...
   override:
     - which go && go version
-    - glide --version
     - make dep:
         pwd: $GO_PROJECT
 
 test:
   override:
-    - make docker-test:
-        pwd: $GO_PROJECT
-    - make test-datastore:
+    - make test:
         pwd: $GO_PROJECT
     - make test-build-arm:
         pwd: $GO_PROJECT

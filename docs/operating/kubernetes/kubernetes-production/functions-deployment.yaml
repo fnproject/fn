@@ -31,9 +31,9 @@ spec:
               name: functions-config
               key: DB_URL
         volumeMounts:
-        - mountPath: "/var/run/docker.sock"
-          name: docker-socket
-          readOnly: false
+          - mountPath: "/var/run/docker.sock"
+            name: docker-socket
+            readOnly: false
         ports:
         - name: http-server
           containerPort: 8080

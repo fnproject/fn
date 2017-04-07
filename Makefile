@@ -2,7 +2,7 @@
 .PHONY: all test dep build
 
 dep:
-	glide install --strip-vendor
+	dep ensure --update
 
 build:
 	go build -o functions
@@ -24,6 +24,7 @@ run:
 	./functions
 
 docker-dep:
+# todo: need to create a dep tool image for this (or just ditch this)
 	docker run --rm -it -v ${CURDIR}:/go/src/github.com/iron-io/functions -w /go/src/github.com/iron-io/functions treeder/glide install -v
 
 docker-build:

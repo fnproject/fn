@@ -1,0 +1,771 @@
+{
+    "memo": "b1d8fb99dd0be5e266f87c29d0e8a747c97445b6b0590db81d6fc88a2b5eca0f",
+    "projects": [
+        {
+            "name": "code.cloudfoundry.org/bytefmt",
+            "branch": "master",
+            "revision": "a75017a21993c80187c7fa4f3c1ec22ddd6a8cd5",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/Azure/go-ansiterm",
+            "branch": "master",
+            "revision": "fa152c58bc15761d0200cb75fe958b89a9d4888e",
+            "packages": [
+                ".",
+                "winterm"
+            ]
+        },
+        {
+            "name": "github.com/Microsoft/go-winio",
+            "version": "v0.3.8",
+            "revision": "fff283ad5116362ca252298cfc9b95828956d85d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/Nvveen/Gotty",
+            "branch": "master",
+            "revision": "cd527374f1e5bff4938207604a14f2e38a9cf512",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/PuerkitoBio/purell",
+            "version": "v1.1.0",
+            "revision": "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/PuerkitoBio/urlesc",
+            "branch": "master",
+            "revision": "bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/Sirupsen/logrus",
+            "branch": "master",
+            "revision": "10f801ebc38b33738c9d17d50860f484a0988ff5",
+            "packages": [
+                ".",
+                "hooks/syslog"
+            ]
+        },
+        {
+            "name": "github.com/amir/raidman",
+            "branch": "master",
+            "revision": "c74861fe6a7bb8ede0a010ce4485bdbb4fc4c985",
+            "packages": [
+                ".",
+                "proto"
+            ]
+        },
+        {
+            "name": "github.com/asaskevich/govalidator",
+            "version": "v5",
+            "revision": "7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/aws/aws-sdk-go",
+            "branch": "master",
+            "revision": "0bbc97afc1bd36f23958f2f26764ecf0253834bd",
+            "packages": [
+                "aws",
+                "aws/awserr",
+                "aws/awsutil",
+                "aws/client",
+                "aws/client/metadata",
+                "aws/corehandlers",
+                "aws/credentials",
+                "aws/credentials/ec2rolecreds",
+                "aws/credentials/endpointcreds",
+                "aws/credentials/stscreds",
+                "aws/defaults",
+                "aws/ec2metadata",
+                "aws/endpoints",
+                "aws/request",
+                "aws/session",
+                "aws/signer/v4",
+                "private/protocol",
+                "private/protocol/json/jsonutil",
+                "private/protocol/jsonrpc",
+                "private/protocol/query",
+                "private/protocol/query/queryutil",
+                "private/protocol/rest",
+                "private/protocol/restjson",
+                "private/protocol/xml/xmlutil",
+                "service/lambda",
+                "service/sts"
+            ]
+        },
+        {
+            "name": "github.com/boltdb/bolt",
+            "branch": "master",
+            "revision": "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/cactus/go-statsd-client",
+            "branch": "master",
+            "revision": "d8eabe07bc70ff9ba6a56836cde99d1ea3d005f7",
+            "packages": [
+                "statsd"
+            ]
+        },
+        {
+            "name": "github.com/ccirello/supervisor",
+            "version": "v0.5.3",
+            "revision": "3ae4051c50e006498b4b8aee130185a53caab86e",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/cenkalti/backoff",
+            "version": "v1.0.0",
+            "revision": "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/coreos/go-semver",
+            "version": "v0.2.0",
+            "revision": "8ab6407b697782a06568d4b7f1db25550ec2e4c6",
+            "packages": [
+                "semver"
+            ]
+        },
+        {
+            "name": "github.com/dghubble/go-twitter",
+            "branch": "master",
+            "revision": "fc93bb35701bb85903d17daa80a21a824b9c592f",
+            "packages": [
+                "twitter"
+            ]
+        },
+        {
+            "name": "github.com/dghubble/oauth1",
+            "version": "v0.4.0",
+            "revision": "70562a5920ad9b6ff03ef697c0f90ae569abbd2b",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/dghubble/sling",
+            "version": "v1.1.0",
+            "revision": "eb56e89ac5088bebb12eef3cb4b293300f43608b",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/dgrijalva/jwt-go",
+            "branch": "master",
+            "revision": "2268707a8f0843315e2004ee4f1d021dc08baedf",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/docker/distribution",
+            "version": "v2.6.1",
+            "revision": "a25b9ef0c9fe242ac04bb20d3a028442b7d266b6",
+            "packages": [
+                ".",
+                "context",
+                "digest",
+                "manifest",
+                "manifest/schema1",
+                "manifest/schema2",
+                "reference",
+                "uuid"
+            ]
+        },
+        {
+            "name": "github.com/docker/docker",
+            "branch": "master",
+            "revision": "e4c608abe99b0ca2a1a454792780da8f59674f12",
+            "packages": [
+                "api/types",
+                "api/types/blkiodev",
+                "api/types/container",
+                "api/types/filters",
+                "api/types/mount",
+                "api/types/network",
+                "api/types/registry",
+                "api/types/strslice",
+                "api/types/swarm",
+                "api/types/versions",
+                "opts",
+                "pkg/archive",
+                "pkg/fileutils",
+                "pkg/homedir",
+                "pkg/idtools",
+                "pkg/ioutils",
+                "pkg/jsonlog",
+                "pkg/jsonmessage",
+                "pkg/longpath",
+                "pkg/pools",
+                "pkg/promise",
+                "pkg/stdcopy",
+                "pkg/system",
+                "pkg/term",
+                "pkg/term/windows"
+            ]
+        },
+        {
+            "name": "github.com/docker/go-connections",
+            "version": "v0.2.1",
+            "revision": "990a1a1a70b0da4c4cb70e117971a4f0babfbf1a",
+            "packages": [
+                "nat"
+            ]
+        },
+        {
+            "name": "github.com/docker/go-units",
+            "version": "v0.3.1",
+            "revision": "f2d77a61e3c169b43402a0a1e84f06daf29b8190",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/docker/libtrust",
+            "branch": "master",
+            "revision": "aabc10ec26b754e797f9028f4589c5b7bd90dc20",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/fsnotify/fsnotify",
+            "version": "v1.4.2",
+            "revision": "629574ca2a5df945712d3079857300b5e4da0236",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/fsouza/go-dockerclient",
+            "branch": "master",
+            "revision": "e24e809e9db395f1e3c85af1b88f2002023610f5",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/garyburd/redigo",
+            "version": "v1.0.0",
+            "revision": "8873b2f1995f59d4bcdd2b0dc9858e2cb9bf0c13",
+            "packages": [
+                "internal",
+                "redis"
+            ]
+        },
+        {
+            "name": "github.com/giantswarm/semver-bump",
+            "version": "1.1.1",
+            "revision": "88e6c9f2fe390c48839eaba32490fd09cb3b581c",
+            "packages": [
+                "bump",
+                "storage"
+            ]
+        },
+        {
+            "name": "github.com/gin-gonic/gin",
+            "version": "v1.1.4",
+            "revision": "e2212d40c62a98b388a5eb48ecbdcf88534688ba",
+            "packages": [
+                ".",
+                "binding",
+                "render"
+            ]
+        },
+        {
+            "name": "github.com/go-ini/ini",
+            "version": "v1.27.0",
+            "revision": "e7fea39b01aea8d5671f6858f0532f56e8bff3a5",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/analysis",
+            "branch": "master",
+            "revision": "d5a75b7d751ca3f11ad5d93cfe97405f2c3f6a47",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/errors",
+            "branch": "master",
+            "revision": "fc3f73a224499b047eda7191e5d22e1e9631e86f",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/jsonpointer",
+            "branch": "master",
+            "revision": "779f45308c19820f1a69e9a4cd965f496e0da10f",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/jsonreference",
+            "branch": "master",
+            "revision": "36d33bfe519efae5632669801b180bf1a245da3b",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/loads",
+            "branch": "master",
+            "revision": "6bb6486231e079ea125c0f39994ed3d0c53399ed",
+            "packages": [
+                ".",
+                "fmts"
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/runtime",
+            "branch": "master",
+            "revision": "e66a4c4406028a04ddafd6002c378ffd3db7e52b",
+            "packages": [
+                ".",
+                "client"
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/spec",
+            "branch": "master",
+            "revision": "02fb9cd3430ed0581e0ceb4804d5d4b3cc702694",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/strfmt",
+            "branch": "master",
+            "revision": "93a31ef21ac23f317792fff78f9539219dd74619",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/swag",
+            "branch": "master",
+            "revision": "d5f8ebc3b1c55a4cf6489eeae7354f338cfe299e",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-openapi/validate",
+            "branch": "master",
+            "revision": "035dcd74f1f61e83debe1c22950dc53556e7e4b2",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-resty/resty",
+            "version": "v0.11",
+            "revision": "c45c7bcc0000d1a9ac1b119b2e6043c6540eedea",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-sql-driver/mysql",
+            "version": "v1.3",
+            "revision": "a0583e0143b1624142adab07e0e97fe106d99561",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/golang/groupcache",
+            "branch": "master",
+            "revision": "72d04f9fcdec7d3821820cc4a6f150eae553639a",
+            "packages": [
+                "consistenthash",
+                "singleflight"
+            ]
+        },
+        {
+            "name": "github.com/golang/protobuf",
+            "branch": "master",
+            "revision": "2bba0603135d7d7f5cb73b2125beeda19c09f4ef",
+            "packages": [
+                "proto"
+            ]
+        },
+        {
+            "name": "github.com/google/btree",
+            "branch": "master",
+            "revision": "316fb6d3f031ae8f4d457c6c5186b9e3ded70435",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/google/go-querystring",
+            "branch": "master",
+            "revision": "53e6ce116135b80d037921a7fdd5138cf32d7a8a",
+            "packages": [
+                "query"
+            ]
+        },
+        {
+            "name": "github.com/gorilla/context",
+            "version": "v1.1",
+            "revision": "1ea25387ff6f684839d82767c1733ff4d4d15d0a",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/gorilla/mux",
+            "version": "v1.3.0",
+            "revision": "392c28fe23e1c45ddba891b0320b3b5df220beea",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/hashicorp/go-cleanhttp",
+            "branch": "master",
+            "revision": "3573b8b52aa7b37b9358d966a898feb387f62437",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/hashicorp/hcl",
+            "branch": "master",
+            "revision": "630949a3c5fa3c613328e1b8256052cbc2327c9b",
+            "packages": [
+                ".",
+                "hcl/ast",
+                "hcl/parser",
+                "hcl/scanner",
+                "hcl/strconv",
+                "hcl/token",
+                "json/parser",
+                "json/scanner",
+                "json/token"
+            ]
+        },
+        {
+            "name": "github.com/heroku/docker-registry-client",
+            "branch": "master",
+            "revision": "95467b6cacee2a06f112a3cf7e47a70fad6000cf",
+            "packages": [
+                "registry"
+            ]
+        },
+        {
+            "name": "github.com/iron-io/functions_go",
+            "branch": "master",
+            "revision": "69e4dec8454c3c710045263c2ede76139c141146",
+            "packages": [
+                ".",
+                "client",
+                "client/apps",
+                "client/routes",
+                "client/tasks",
+                "client/version",
+                "models"
+            ]
+        },
+        {
+            "name": "github.com/iron-io/iron_go3",
+            "branch": "master",
+            "revision": "830335d420db87fc84cbff7f0d1348a46b499946",
+            "packages": [
+                "api",
+                "config",
+                "mq"
+            ]
+        },
+        {
+            "name": "github.com/iron-io/runner",
+            "branch": "newdep",
+            "revision": "9510b638525cdec8b434cc28fcd5bd80aba31918",
+            "packages": [
+                "common",
+                "common/stats",
+                "drivers",
+                "drivers/docker",
+                "drivers/mock"
+            ]
+        },
+        {
+            "name": "github.com/jmespath/go-jmespath",
+            "version": "0.2.2",
+            "revision": "3433f3ea46d9f8019119e7dd41274e112a2359a9",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/jmoiron/jsonq",
+            "branch": "master",
+            "revision": "e874b168d07ecc7808bc950a17998a8aa3141d82",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/juju/errgo",
+            "branch": "master",
+            "revision": "08cceb5d0b5331634b9826762a8fd53b29b86ad8",
+            "packages": [
+                "errors"
+            ]
+        },
+        {
+            "name": "github.com/lib/pq",
+            "branch": "master",
+            "revision": "2704adc878c21e1329f46f6e56a1c387d788ff94",
+            "packages": [
+                ".",
+                "oid"
+            ]
+        },
+        {
+            "name": "github.com/magiconair/properties",
+            "version": "v1.7.2",
+            "revision": "f917359f079a3759162704eaa8caeec3d01d9f91",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/mailru/easyjson",
+            "branch": "master",
+            "revision": "2af9a745a611440bab0528e5ac19b2805a1c50eb",
+            "packages": [
+                "buffer",
+                "jlexer",
+                "jwriter"
+            ]
+        },
+        {
+            "name": "github.com/manucorporat/sse",
+            "branch": "master",
+            "revision": "ee05b128a739a0fb76c7ebd3ae4810c1de808d6d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/mattn/go-isatty",
+            "version": "v0.0.2",
+            "revision": "fc9e8d8ef48496124e79ae0df75490096eccf6fe",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/mitchellh/mapstructure",
+            "branch": "master",
+            "revision": "53818660ed4955e899c0bcafa97299a388bd7c8e",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/opencontainers/runc",
+            "version": "v0.1.1",
+            "revision": "baf6536d6259209c3edfa2b22237af82942d3dfa",
+            "packages": [
+                "libcontainer/system",
+                "libcontainer/user"
+            ]
+        },
+        {
+            "name": "github.com/pelletier/go-buffruneio",
+            "version": "v0.2.0",
+            "revision": "c37440a7cf42ac63b919c752ca73a85067e05992",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/pelletier/go-toml",
+            "version": "v0.5.0",
+            "revision": "13d49d4606eb801b8f01ae542b4afc4c6ee3d84a",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/petar/GoLLRB",
+            "branch": "master",
+            "revision": "53be0d36a84c2a886ca057d34b6aa4468df9ccb4",
+            "packages": [
+                "llrb"
+            ]
+        },
+        {
+            "name": "github.com/pkg/errors",
+            "version": "v0.8.0",
+            "revision": "645ef00459ed84a119197bfb8d8205042c6df63d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/satori/go.uuid",
+            "version": "v1.1.0",
+            "revision": "879c5887cd475cd7864858769793b2ceb0d44feb",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/spf13/afero",
+            "branch": "master",
+            "revision": "9be650865eab0c12963d8753212f4f9c66cdcf12",
+            "packages": [
+                ".",
+                "mem"
+            ]
+        },
+        {
+            "name": "github.com/spf13/cast",
+            "version": "v1.0.0",
+            "revision": "ce135a4ebeee6cfe9a26c93ee0d37825f26113c7",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/spf13/jwalterweatherman",
+            "branch": "master",
+            "revision": "fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/spf13/pflag",
+            "branch": "master",
+            "revision": "9a906f17374922ed0f74e1b2f593d3723f2ffb00",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/spf13/viper",
+            "branch": "master",
+            "revision": "84f94806c67f59dd7ae87bc5351f7a9c94a4558d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/urfave/cli",
+            "version": "v1.19.1",
+            "revision": "0bdeddeeb0f650497d603c4ad7b20cfe685682f6",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "golang.org/x/crypto",
+            "branch": "master",
+            "revision": "c2303dcbe84172e0c0da4c9f083eeca54c06f298",
+            "packages": [
+                "bcrypt",
+                "blowfish"
+            ]
+        },
+        {
+            "name": "golang.org/x/net",
+            "branch": "master",
+            "revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+            "packages": [
+                "context",
+                "context/ctxhttp",
+                "idna",
+                "proxy",
+                "publicsuffix"
+            ]
+        },
+        {
+            "name": "golang.org/x/sys",
+            "branch": "master",
+            "revision": "39e3dc274464e7d2f663aa606a830611bae5f1db",
+            "packages": [
+                "unix",
+                "windows"
+            ]
+        },
+        {
+            "name": "golang.org/x/text",
+            "branch": "master",
+            "revision": "f4b4367115ec2de254587813edaa901bc1c723a8",
+            "packages": [
+                "internal/gen",
+                "internal/triegen",
+                "internal/ucd",
+                "secure/bidirule",
+                "transform",
+                "unicode/bidi",
+                "unicode/cldr",
+                "unicode/norm",
+                "unicode/rangetable",
+                "width"
+            ]
+        },
+        {
+            "name": "gopkg.in/go-playground/validator.v8",
+            "version": "v8.18.1",
+            "revision": "5f57d2222ad794d0dffb07e664ea05e2ee07d60c",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "gopkg.in/mgo.v2",
+            "branch": "v2",
+            "revision": "3f83fa5005286a7fe593b055f0d7771a7dce4655",
+            "packages": [
+                ".",
+                "bson",
+                "internal/json",
+                "internal/sasl",
+                "internal/scram"
+            ]
+        },
+        {
+            "name": "gopkg.in/yaml.v2",
+            "branch": "v2",
+            "revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
+            "packages": [
+                "."
+            ]
+        }
+    ]
+}
