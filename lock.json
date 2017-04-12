@@ -79,7 +79,7 @@
         {
             "name": "github.com/aws/aws-sdk-go",
             "branch": "master",
-            "revision": "4c307b6c988d40b9601a86768b29c28e8fb033eb",
+            "revision": "baba9e786eae5ba978f2007f8e718557b29157c8",
             "packages": [
                 "aws",
                 "aws/awserr",
@@ -152,7 +152,7 @@
         {
             "name": "github.com/dghubble/go-twitter",
             "branch": "master",
-            "revision": "fc93bb35701bb85903d17daa80a21a824b9c592f",
+            "revision": "08b242f2f25e3108b9dec5a361d1021990018e7c",
             "packages": [
                 "twitter"
             ]
@@ -199,7 +199,7 @@
         {
             "name": "github.com/docker/docker",
             "branch": "master",
-            "revision": "87562af45bf32efce55d9fceb141a655b82a33c4",
+            "revision": "d2ab40e5b99bc2ab0abfea146544a20ce6081942",
             "packages": [
                 "api/types",
                 "api/types/blkiodev",
@@ -672,7 +672,7 @@
         {
             "name": "github.com/spf13/pflag",
             "branch": "master",
-            "revision": "9a906f17374922ed0f74e1b2f593d3723f2ffb00",
+            "revision": "e453343e6260b4a3a89f1f0e10a2fbb07f8d9750",
             "packages": [
                 "."
             ]
@@ -680,7 +680,7 @@
         {
             "name": "github.com/spf13/viper",
             "branch": "master",
-            "revision": "84f94806c67f59dd7ae87bc5351f7a9c94a4558d",
+            "revision": "5d46e70da8c0b6f812e0b170b7a985753b5c63cb",
             "packages": [
                 "."
             ]
@@ -696,7 +696,7 @@
         {
             "name": "golang.org/x/crypto",
             "branch": "master",
-            "revision": "55a552f0823e0d3d54931488a2993ebd2fd0258c",
+            "revision": "9b9c1afcb078c2080cd1fac84be67797a33a32e9",
             "packages": [
                 "bcrypt",
                 "blowfish"
