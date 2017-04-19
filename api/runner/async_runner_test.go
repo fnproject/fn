@@ -15,9 +15,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/mqs"
-	"github.com/iron-io/functions/api/runner/task"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/mqs"
+	"github.com/kumokit/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {

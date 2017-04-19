@@ -7,7 +7,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api/models"
+	"github.com/kumokit/functions/api/models"
 )
 
 // Middleware is the interface required for implementing functions middlewar

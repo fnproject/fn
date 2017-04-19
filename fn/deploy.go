@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	functions "github.com/iron-io/functions_go"
+	functions "github.com/kumokit/functions_go"
 	"github.com/urfave/cli"
 )
 

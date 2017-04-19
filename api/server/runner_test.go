@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iron-io/functions/api/datastore"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/mqs"
-	"github.com/iron-io/functions/api/runner"
-	"github.com/iron-io/functions/api/runner/task"
+	"github.com/kumokit/functions/api/datastore"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/mqs"
+	"github.com/kumokit/functions/api/runner"
+	"github.com/kumokit/functions/api/runner/task"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {

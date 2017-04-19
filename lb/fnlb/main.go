@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/iron-io/functions/lb"
+	"github.com/kumokit/functions/lb"
 )
 
 var (

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/server"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/server"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/iron-io/functions/api/models"
+	"github.com/kumokit/functions/api/models"
 )
 
 // New will parse the URL and return the correct MQ implementation.

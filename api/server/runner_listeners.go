@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/iron-io/functions/api/models"
+	"github.com/kumokit/functions/api/models"
 )
 
 type RunnerListener interface {

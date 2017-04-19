@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iron-io/functions/api/datastore/internal/datastoretest"
+	"github.com/kumokit/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpMysql = "mysql://root:root@tcp(%v:3307)/funcs"

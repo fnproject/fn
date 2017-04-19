@@ -85,7 +85,7 @@ func main() {
 			options["gemName"] = "iron_functions"
 			options["moduleName"] = "IronFunctions"
 			options["gemVersion"] = version
-			options["gemHomepage"] = "https://github.com/iron-io/functions_ruby"
+			options["gemHomepage"] = "https://github.com/kumokit/functions_ruby"
 			options["gemSummary"] = "Ruby gem for IronFunctions"
 			options["gemDescription"] = "Ruby gem for IronFunctions."
 			options["gemAuthorEmail"] = "travis@iron.io"
@@ -134,7 +134,7 @@ func main() {
 		branch := fmt.Sprintf("update-version-%s", version)
 
 		log.Printf("Cloning previous `%s` source...\n", language)
-		exec.Command("git", "clone", fmt.Sprintf("git@github.com:iron-io/functions_%s.git", short), srcDir).Run()
+		exec.Command("git", "clone", fmt.Sprintf("git@github.com:kumokit/functions_%s.git", short), srcDir).Run()
 
 		// Skip language specific files
 		for _, skip := range skipFiles {
@@ -304,7 +304,7 @@ func genSwaggerClient(target string) error {
 		return err
 	}
 
-	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/iron-io/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/iron-io/functions_go", "-A", "functions")
+	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/kumokit/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/kumokit/functions_go", "-A", "functions")
 	d, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error running go-swagger: %s\n", d)

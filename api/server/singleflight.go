@@ -5,7 +5,7 @@ package server
 import (
 	"sync"
 
-	"github.com/iron-io/functions/api/models"
+	"github.com/kumokit/functions/api/models"
 )
 
 // call is an in-flight or completed do call

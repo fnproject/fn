@@ -3,7 +3,7 @@
 This guide will walk you through creating and testing a simple Lambda function.
 
 We need the the `fn` tool for the rest of this guide. You can install it
-by following [these instructions](https://github.com/iron-io/function/fn).
+by following [these instructions](https://github.com/kumokit/function/fn).
 
 *For this getting started we are assuming you already have working lambda function code available, if not head to the [import instructions] (import.md) and skip the next section.*
 

@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"os"
 
-	vers "github.com/iron-io/functions/api/version"
-	functions "github.com/iron-io/functions_go"
+	vers "github.com/kumokit/functions/api/version"
+	functions "github.com/kumokit/functions_go"
 	"github.com/urfave/cli"
 )
 

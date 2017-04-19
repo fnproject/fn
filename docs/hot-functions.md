@@ -19,7 +19,7 @@ input/output.
 
 ## Implementing a hot function
 
-In the [examples directory](https://github.com/iron-io/functions/blob/master/examples/hotfunctions/http/func.go), there is one simple implementation of a hot function
+In the [examples directory](https://github.com/kumokit/functions/blob/master/examples/hotfunctions/http/func.go), there is one simple implementation of a hot function
 which we are going to get in the details here.
 
 The basic cycle comprises three steps: read standard input up to a previosly

@@ -485,7 +485,7 @@
             ]
         },
         {
-            "name": "github.com/iron-io/functions_go",
+            "name": "github.com/kumokit/functions_go",
             "branch": "master",
             "revision": "69e4dec8454c3c710045263c2ede76139c141146",
             "packages": [
@@ -499,7 +499,7 @@
             ]
         },
         {
-            "name": "github.com/iron-io/iron_go3",
+            "name": "github.com/kumokit/iron_go3",
             "branch": "master",
             "revision": "830335d420db87fc84cbff7f0d1348a46b499946",
             "packages": [
@@ -509,7 +509,7 @@
             ]
         },
         {
-            "name": "github.com/iron-io/runner",
+            "name": "github.com/kumokit/runner",
             "branch": "newdep",
             "revision": "9510b638525cdec8b434cc28fcd5bd80aba31918",
             "packages": [

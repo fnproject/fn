@@ -54,7 +54,7 @@ else
     exit 1
 fi
 
-url='https://github.com/iron-io/functions/releases/download'
+url='https://github.com/kumokit/functions/releases/download'
 
 # perform some very rudimentary platform detection
 case "$(uname)" in
@@ -84,7 +84,7 @@ cat >&2 <<'EOF'
   installer script (yet - PRs welcome! [fn/install]).
   Please visit the following URL for more detailed installation instructions:
 
-    https://github.com/iron-io/functions
+    https://github.com/kumokit/functions
 
 EOF
 exit 1

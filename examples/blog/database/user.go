@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/iron-io/functions/examples/blog/models"
+	"github.com/kumokit/functions/examples/blog/models"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iron-io/functions/api/datastore"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/mqs"
+	"github.com/kumokit/functions/api/datastore"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/mqs"
 )
 
 func TestRouteCreate(t *testing.T) {

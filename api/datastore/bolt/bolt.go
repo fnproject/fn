@@ -14,8 +14,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/functions/api/datastore/internal/datastoreutil"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/datastore/internal/datastoreutil"
 )
 
 type BoltDatastore struct {

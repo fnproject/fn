@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	vers "github.com/iron-io/functions/api/version"
-	functions "github.com/iron-io/functions_go"
+	vers "github.com/kumokit/functions/api/version"
+	functions "github.com/kumokit/functions_go"
 	"github.com/urfave/cli"
 )
 
@@ -37,7 +37,7 @@ func newFn() *cli.App {
 	app.Version = vers.Version
 	app.Authors = []cli.Author{{Name: "iron.io"}}
 	app.Description = "IronFunctions command line tools"
-	app.UsageText = `Check the manual at https://github.com/iron-io/functions/blob/master/fn/README.md`
+	app.UsageText = `Check the manual at https://github.com/kumokit/functions/blob/master/fn/README.md`
 
 	cli.AppHelpTemplate = `{{.Name}} {{.Version}}{{if .Description}}
 
