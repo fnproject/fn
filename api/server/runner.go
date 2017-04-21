@@ -18,7 +18,7 @@ import (
 	"github.com/kumokit/functions/api/models"
 	"github.com/kumokit/functions/api/runner"
 	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 	uuid "github.com/satori/go.uuid"
 )
 

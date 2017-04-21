@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type MetricLogger interface {

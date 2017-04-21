@@ -14,7 +14,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
 	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type BoltDbMQ struct {

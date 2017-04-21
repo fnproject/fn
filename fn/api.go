@@ -5,7 +5,7 @@ import (
 
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	fnclient "github.com/kumokit/functions_go/client"
+	fnclient "github.com/iron-io/functions_go/client"
 	"log"
 	"net/url"
 )

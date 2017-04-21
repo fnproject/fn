@@ -6,7 +6,7 @@ import (
 
 	"context"
 	"github.com/Sirupsen/logrus"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type FuncLogger interface {

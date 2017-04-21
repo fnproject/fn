@@ -13,7 +13,7 @@ import:
   subpackages:
   - bump
   - storage
-- package: github.com/kumokit/functions_go
+- package: github.com/iron-io/functions_go
   version: f38f2174656467ec3ed404b7294e9ee172573e43
 - package: github.com/kumokit/lambda
   subpackages:

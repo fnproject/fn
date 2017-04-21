@@ -109,7 +109,7 @@ imports:
   version: 24dc7ba4bc1ef9215048b28e7248f99c42901db5
 - name: github.com/hashicorp/go-cleanhttp
   version: ad28ea4487f05916463e2423a55166280e8254b5
-- name: github.com/kumokit/functions_go
+- name: github.com/iron-io/functions_go
   version: 69e4dec8454c3c710045263c2ede76139c141146
   subpackages:
   - client
@@ -118,7 +118,7 @@ imports:
   - client/tasks
   - client/version
   - models
-- name: github.com/kumokit/iron_go3
+- name: github.com/iron-io/iron_go3
   version: b50ecf8ff90187fc5fabccd9d028dd461adce4ee
   subpackages:
   - api

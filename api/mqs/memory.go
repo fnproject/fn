@@ -10,7 +10,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/google/btree"
 	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type MemoryMQ struct {

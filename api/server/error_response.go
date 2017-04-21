@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 	"net/http"
 )
 

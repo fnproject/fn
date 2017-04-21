@@ -304,7 +304,7 @@ func genSwaggerClient(target string) error {
 		return err
 	}
 
-	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/kumokit/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/kumokit/functions_go", "-A", "functions")
+	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/iron-io/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/iron-io/functions_go", "-A", "functions")
 	d, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error running go-swagger: %s\n", d)

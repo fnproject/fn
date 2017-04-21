@@ -12,7 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
 	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type RedisMQ struct {

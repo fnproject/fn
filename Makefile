@@ -2,7 +2,7 @@
 .PHONY: all test dep build
 
 dep:
-	dep ensure --update
+	dep ensure
 
 build:
 	go build -o functions

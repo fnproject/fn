@@ -22,3 +22,4 @@ private.sh
 .env
 *.pem
 data/
+.vscode/

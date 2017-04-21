@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/kumokit/runner/drivers"
+	"github.com/kumokit/functions/api/runner/drivers"
 )
 
 type Config struct {

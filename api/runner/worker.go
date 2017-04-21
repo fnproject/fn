@@ -11,7 +11,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/kumokit/functions/api/runner/protocol"
 	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/runner/drivers"
+	"github.com/kumokit/functions/api/runner/drivers"
 )
 
 // hot functions - theory of operation

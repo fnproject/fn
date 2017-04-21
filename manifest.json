@@ -33,14 +33,11 @@
         "github.com/go-openapi/swag": {
             "branch": "master"
         },
-        "github.com/kumokit/functions_go": {
+        "github.com/iron-io/functions_go": {
             "branch": "master"
         },
         "github.com/kumokit/iron_go3": {
             "branch": "master"
-        },
-        "github.com/kumokit/runner": {
-            "branch": "newdep"
         },
         "github.com/lib/pq": {
             "branch": "master"

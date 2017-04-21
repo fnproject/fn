@@ -15,7 +15,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/kumokit/functions/api/models"
 	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {

@@ -21,7 +21,7 @@ import (
 	"github.com/kumokit/functions/api/runner"
 	"github.com/kumokit/functions/api/runner/task"
 	"github.com/kumokit/functions/api/server/internal/routecache"
-	"github.com/kumokit/runner/common"
+	"github.com/kumokit/functions/api/runner/common"
 	"github.com/spf13/viper"
 )
 
