@@ -88,7 +88,7 @@ languages.each do |l|
     puts "SKIPPING GO, it's manual for now."
     # This is using https://goswagger.io/ instead
     # TODO: run this build command instead: this works if run manually
-    # dep ensure --update && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/iron-io/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/kumokit/functions/master/docs/swagger.yml -A functions
+    # dep ensure && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/kumokit/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/kumokit/functions/master/docs/swagger.yml -A functions
   else
     gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
     json: {
