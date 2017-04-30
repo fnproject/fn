@@ -36,11 +36,8 @@
         "github.com/iron-io/functions_go": {
             "branch": "master"
         },
-        "github.com/iron-io/iron_go3": {
+        "github.com/kumokit/iron_go3": {
             "branch": "master"
-        },
-        "github.com/iron-io/runner": {
-            "branch": "newdep"
         },
         "github.com/lib/pq": {
             "branch": "master"

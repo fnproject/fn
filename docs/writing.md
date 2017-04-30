@@ -4,8 +4,8 @@ This will give you the basic overview of writing base level functions. You can a
 abstractions that make it easier such as [lambda](lambda/README.md).
 
 Also, for complete examples in various languages, see the [examples directory](/examples).
-We have language libraries for [Go](https://github.com/iron-io/functions_go), [Javascript](https://github.com/iron-io/functions_js) and
-[Ruby](https://github.com/iron-io/functions_ruby).
+We have language libraries for [Go](https://github.com/iron-io/functions_go), [Javascript](https://github.com/kumokit/functions_js) and
+[Ruby](https://github.com/kumokit/functions_ruby).
 
 ## Code
 

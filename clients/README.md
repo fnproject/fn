@@ -12,8 +12,6 @@ If this is your first time building the clients, you'll need to do the following
 gem install http
 ```
 
-2) Create a secret gist on Github and get an API token too.
-
 ### Every Time
 
 Everytime the API spec is updated, be sure to bump the version number in `swagger.yml`, then run:

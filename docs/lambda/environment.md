@@ -25,7 +25,7 @@ such assumptions, please rewrite it.
 * ImageMagick version [6.9.3][magickv] and nodejs [wrapper 6.9.3][magickwrapperv]
 * aws-sdk version [2.2.12][awsnodev]
 
-[iron/node]: https://github.com/iron-io/dockers/blob/master/node/Dockerfile
+[iron/node]: https://github.com/kumokit/dockers/blob/master/node/Dockerfile
 [magickv]: https://pkgs.alpinelinux.org/package/main/x86_64/imagemagick
 [magickwrapperv]: https://www.npmjs.com/package/imagemagick
 [awsnodev]: https://aws.amazon.com/sdk-for-node-js/

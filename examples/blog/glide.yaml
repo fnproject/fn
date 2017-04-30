@@ -1,4 +1,4 @@
-package: github.com/iron-io/functions/examples/blog
+package: github.com/kumokit/functions/examples/blog
 import:
 - package: github.com/dgrijalva/jwt-go
   version: ^3.0.0

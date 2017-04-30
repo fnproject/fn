@@ -11,8 +11,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/runner/common"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type RedisMQ struct {

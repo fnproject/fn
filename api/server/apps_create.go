@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/runner/common"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 func (s *Server) handleAppCreate(c *gin.Context) {

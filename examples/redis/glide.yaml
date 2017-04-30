@@ -1,4 +1,4 @@
-package: github.com/iron-io/functions/examples/redis
+package: github.com/kumokit/functions/examples/redis
 import:
 - package: github.com/garyburd/redigo
   version: ^1.0.0

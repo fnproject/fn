@@ -11,7 +11,7 @@ make release
 
 version=$1
 
-url='https://api.github.com/repos/iron-io/functions/releases'
+url='https://api.github.com/repos/kumokit/functions/releases'
 
 output=$(curl -s -u $GH_DEPLOY_USER:$GH_DEPLOY_KEY -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}" $url)
 upload_url=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["upload_url"]' | sed -E "s/\{.*//")

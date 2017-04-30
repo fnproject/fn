@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/iron-io/functions/api/runner/protocol"
-	"github.com/iron-io/functions/api/runner/task"
-	"github.com/iron-io/runner/drivers"
+	"github.com/kumokit/functions/api/runner/protocol"
+	"github.com/kumokit/functions/api/runner/task"
+	"github.com/kumokit/functions/api/runner/drivers"
 )
 
 // hot functions - theory of operation

@@ -17,7 +17,7 @@ import (
 
 	"strings"
 
-	"github.com/iron-io/functions/fn/langs"
+	"github.com/kumokit/functions/fn/langs"
 	"github.com/urfave/cli"
 )
 

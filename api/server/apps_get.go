@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/iron-io/functions/api"
+	"github.com/kumokit/functions/api"
 )
 
 func (s *Server) handleAppGet(c *gin.Context) {

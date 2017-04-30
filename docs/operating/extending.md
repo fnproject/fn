@@ -14,8 +14,8 @@ Listeners are the main way to extend IronFunctions.
 
 The following listener types are supported:
 
-* App Listeners - [GoDoc](https://godoc.org/github.com/iron-io/functions/api/server#AppListener)
-* Runner Listeners - [GoDoc](https://godoc.org/github.com/iron-io/functions/api/server#RunnerListener)
+* App Listeners - [GoDoc](https://godoc.org/github.com/kumokit/functions/api/server#AppListener)
+* Runner Listeners - [GoDoc](https://godoc.org/github.com/kumokit/functions/api/server#RunnerListener)
 
 ### Creating a Listener
 
@@ -29,8 +29,8 @@ package main
 import (
     "context"
 
-    "github.com/iron-io/functions/api/server"
-    "github.com/iron-io/functions/api/models"
+    "github.com/kumokit/functions/api/server"
+    "github.com/kumokit/functions/api/models"
 )
 
 type myCustomListener struct{}

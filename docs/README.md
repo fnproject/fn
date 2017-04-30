@@ -6,7 +6,7 @@
 
 If you are a developer using IronFunctions through the API, this section is for you.
 
-* [Quickstart](https://github.com/iron-io/functions#quickstart)
+* [Quickstart](https://github.com/kumokit/functions#quickstart)
 * [Definitions](definitions.md)
 * [fn (CLI Tool)](/fn/README.md)
 * [Writing functions](writing.md)
@@ -14,7 +14,7 @@ If you are a developer using IronFunctions through the API, this section is for 
 * [Function file (func.yaml)](function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
-* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/iron-io/functions/master/docs/swagger.yml)
+* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/kumokit/functions/master/docs/swagger.yml)
 * [Hot functions](hot-functions.md)
 
 ## For Operators

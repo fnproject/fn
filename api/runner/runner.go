@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/iron-io/functions/api/runner/task"
-	"github.com/iron-io/runner/common"
-	"github.com/iron-io/runner/drivers"
-	driverscommon "github.com/iron-io/runner/drivers"
-	"github.com/iron-io/runner/drivers/docker"
-	"github.com/iron-io/runner/drivers/mock"
+	"github.com/kumokit/functions/api/runner/common"
+	"github.com/kumokit/functions/api/runner/drivers"
+	driverscommon "github.com/kumokit/functions/api/runner/drivers"
+	"github.com/kumokit/functions/api/runner/drivers/docker"
+	"github.com/kumokit/functions/api/runner/drivers/mock"
+	"github.com/kumokit/functions/api/runner/task"
 )
 
 type Runner struct {

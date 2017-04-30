@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/iron-io/functions/examples/blog/database"
-	"github.com/iron-io/functions/examples/blog/models"
+	"github.com/kumokit/functions/examples/blog/database"
+	"github.com/kumokit/functions/examples/blog/models"
 	"golang.org/x/crypto/bcrypt"
 )
 

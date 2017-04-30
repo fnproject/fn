@@ -85,7 +85,7 @@ func main() {
 			options["gemName"] = "iron_functions"
 			options["moduleName"] = "IronFunctions"
 			options["gemVersion"] = version
-			options["gemHomepage"] = "https://github.com/iron-io/functions_ruby"
+			options["gemHomepage"] = "https://github.com/kumokit/functions_ruby"
 			options["gemSummary"] = "Ruby gem for IronFunctions"
 			options["gemDescription"] = "Ruby gem for IronFunctions."
 			options["gemAuthorEmail"] = "travis@iron.io"
@@ -134,7 +134,7 @@ func main() {
 		branch := fmt.Sprintf("update-version-%s", version)
 
 		log.Printf("Cloning previous `%s` source...\n", language)
-		exec.Command("git", "clone", fmt.Sprintf("git@github.com:iron-io/functions_%s.git", short), srcDir).Run()
+		exec.Command("git", "clone", fmt.Sprintf("git@github.com:kumokit/functions_%s.git", short), srcDir).Run()
 
 		// Skip language specific files
 		for _, skip := range skipFiles {

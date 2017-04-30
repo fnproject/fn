@@ -1,4 +1,4 @@
-package: github.com/iron-io/functions/examples/twitter
+package: github.com/kumokit/functions/examples/twitter
 import:
 - package: github.com/dghubble/go-twitter
   subpackages:

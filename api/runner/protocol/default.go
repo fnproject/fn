@@ -3,7 +3,7 @@ package protocol
 import (
 	"context"
 
-	"github.com/iron-io/functions/api/runner/task"
+	"github.com/kumokit/functions/api/runner/task"
 )
 
 // DefaultProtocol is the protocol used by cold-containers

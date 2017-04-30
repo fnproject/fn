@@ -509,18 +509,6 @@
             ]
         },
         {
-            "name": "github.com/iron-io/runner",
-            "branch": "newdep",
-            "revision": "9510b638525cdec8b434cc28fcd5bd80aba31918",
-            "packages": [
-                "common",
-                "common/stats",
-                "drivers",
-                "drivers/docker",
-                "drivers/mock"
-            ]
-        },
-        {
             "name": "github.com/jmespath/go-jmespath",
             "version": "0.2.2",
             "revision": "3433f3ea46d9f8019119e7dd41274e112a2359a9",

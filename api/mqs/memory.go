@@ -9,8 +9,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/google/btree"
-	"github.com/iron-io/functions/api/models"
-	"github.com/iron-io/runner/common"
+	"github.com/kumokit/functions/api/models"
+	"github.com/kumokit/functions/api/runner/common"
 )
 
 type MemoryMQ struct {

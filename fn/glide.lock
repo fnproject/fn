@@ -124,7 +124,7 @@ imports:
   - api
   - config
   - worker
-- name: github.com/iron-io/lambda
+- name: github.com/kumokit/lambda
   version: 4a046af3249dd5933a8d328f965e9717c97fef24
   subpackages:
   - lambda
