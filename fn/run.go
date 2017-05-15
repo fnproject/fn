@@ -43,6 +43,11 @@ func runflags() []cli.Flag {
 }
 
 func (r *runCmd) run(c *cli.Context) error {
+	// First, build it
+	err := c.App.Command("build").Run(c)
+	if err != nil {
+		return err
+	}
 	image := c.Args().First()
 	if image == "" {
 		ff, err := loadFuncfile()

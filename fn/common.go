@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,10 +15,11 @@ import (
 )
 
 func verbwriter(verbose bool) io.Writer {
-	verbwriter := ioutil.Discard
-	if verbose {
-		verbwriter = os.Stderr
-	}
+	// this is too limiting, removes all logs which isn't what we want
+	// verbwriter := ioutil.Discard
+	// if verbose {
+	verbwriter := os.Stderr
+	// }
 	return verbwriter
 }
 

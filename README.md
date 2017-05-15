@@ -74,10 +74,10 @@ This guide will get you up and running in a few minutes.
 
 ### Run IronFunctions
 
-To get started quickly with IronFunctions, just fire up an `iron/functions` container:
+To get started quickly with IronFunctions, just fire up an `treeder/functions` container:
 
 ```sh
-docker run --rm -it --name functions -v ${PWD}/data:/app/data -v /var/run/docker.sock:/var/run/docker.sock -p 8080:8080 iron/functions
+docker run --rm -it --name functions -v ${PWD}/data:/app/data -v /var/run/docker.sock:/var/run/docker.sock -p 8080:8080 treeder/functions
 ```
 
 *where ${PWD}/data is the directory where the functions application data files will be stored*
@@ -90,7 +90,7 @@ configuration options [here](docs/operating/options.md). If you are on Windows, 
 Install the IronFunctions CLI tool:
 
 ```sh
-curl -LSs https://goo.gl/VZrL8t | sh
+curl -LSs https://goo.gl/KKDFGn | sh
 ```
 
 This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
@@ -126,18 +126,12 @@ Copy and paste the code above into a file called `func.go`, then run the followi
 and deploy it.
 
 ```sh
-# create func.yaml file, replace $USERNAME with your Docker Hub username.
+# Initilize your function, replace $USERNAME with your Docker Hub username.
 fn init $USERNAME/hello
-# build the function
-fn build
-# test it - you can pass data into it too by piping it in, eg: `cat hello.payload.json | fn run`
+# Test it - you can pass data into it too by piping it in, eg: `cat hello.payload.json | fn run`
 fn run
-# Once it's ready, build and push it to Docker Hub
-fn build && fn push
-# create an app - you only do this once per app
-fn apps create myapp
-# create a route that maps /hello to your new function
-fn routes create myapp /hello
+# Once it's ready, deploy it to your functions server (default localhost:8080)
+fn deploy myapp
 ```
 
 Now you can call your function:
@@ -151,10 +145,8 @@ Or surf to it: http://localhost:8080/r/myapp/hello
 To update your function:
 
 ```sh
-# update a function with a new version and push it
-fn bump && fn build && fn push
-# then update the route
-fn routes update myapp /hello
+# Just update your code and run:
+fn deploy myapp
 ```
 
 See below for more details. And you can find a bunch of examples in various languages in the [examples](examples/) directory. You can also

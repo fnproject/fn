@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
 	functions "github.com/iron-io/functions_go"
+	"github.com/iron-io/functions_go/models"
 	"github.com/urfave/cli"
 )
 
@@ -22,7 +22,7 @@ func deploy() cli.Command {
 	return cli.Command{
 		Name:      "deploy",
 		ArgsUsage: "<appName>",
-		Usage:     "scan local directory for functions, build and push all of them to `APPNAME`.",
+		Usage:     "deploys a function to the functions server. (bumps, build, pushes and updates route)",
 		Flags:     flags,
 		Action:    cmd.scan,
 	}
@@ -86,7 +86,7 @@ func (p *deploycmd) scan(c *cli.Context) error {
 			return nil
 		}
 
-		e := p.deploy(path)
+		e := p.deploy(c, path)
 		if err != nil {
 			fmt.Fprintln(p.verbwriter, path, e)
 		}
@@ -107,12 +107,17 @@ func (p *deploycmd) scan(c *cli.Context) error {
 	return nil
 }
 
-// deploy will take the found function and check for the presence of a
-// Dockerfile, and run a three step process: parse functions file, build and
-// push the container, and finally it will update function's route. Optionally,
+// deploy will perform several actions to deploy to an functions server.
+// Parse functions file, bump version, build image, push to registry, and
+// finally it will update function's route. Optionally,
 // the route can be overriden inside the functions file.
-func (p *deploycmd) deploy(path string) error {
+func (p *deploycmd) deploy(c *cli.Context, path string) error {
 	fmt.Fprintln(p.verbwriter, "deploying", path)
+
+	err := c.App.Command("bump").Run(c)
+	if err != nil {
+		return err
+	}
 
 	funcfile, err := buildfunc(p.verbwriter, path)
 	if err != nil {
@@ -127,65 +132,18 @@ func (p *deploycmd) deploy(path string) error {
 		return err
 	}
 
-	return p.route(path, funcfile)
+	return p.route(c, path, funcfile)
 }
 
-func (p *deploycmd) route(path string, ff *funcfile) error {
+func (p *deploycmd) route(c *cli.Context, path string, ff *funcfile) error {
 	if err := resetBasePath(p.Configuration); err != nil {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
-	if ff.Path == nil {
-		_, path := appNamePath(ff.FullName())
-		ff.Path = &path
-	}
-
-	if ff.Memory == nil {
-		ff.Memory = new(int64)
-	}
-	if ff.Type == nil {
-		ff.Type = new(string)
-	}
-	if ff.Format == nil {
-		ff.Format = new(string)
-	}
-	if ff.MaxConcurrency == nil {
-		ff.MaxConcurrency = new(int)
-	}
-	if ff.Timeout == nil {
-		dur := time.Duration(0)
-		ff.Timeout = &dur
-	}
-
-	headers := make(map[string][]string)
-	for k, v := range ff.Headers {
-		headers[k] = []string{v}
-	}
-	body := functions.RouteWrapper{
-		Route: functions.Route{
-			Path:           *ff.Path,
-			Image:          ff.FullName(),
-			Memory:         *ff.Memory,
-			Type_:          *ff.Type,
-			Config:         expandEnvConfig(ff.Config),
-			Headers:        headers,
-			Format:         *ff.Format,
-			MaxConcurrency: int32(*ff.MaxConcurrency),
-			Timeout:        int32(ff.Timeout.Seconds()),
-		},
-	}
-
-	fmt.Fprintf(p.verbwriter, "updating API with app: %s route: %s name: %s \n", p.appName, *ff.Path, ff.Name)
-
-	wrapper, resp, err := p.AppsAppRoutesPost(p.appName, body)
-	if err != nil {
-		return fmt.Errorf("error getting routes: %v", err)
-	}
-	if resp.StatusCode == http.StatusBadRequest {
-		return fmt.Errorf("error storing this route: %s", wrapper.Error_.Message)
-	}
-
-	return nil
+	routesCmd := routesCmd{client: apiClient()}
+	rt := &models.Route{}
+	routeWithFuncFile(c, rt)
+	return routesCmd.patchRoute(p.appName, *ff.Path, rt)
 }
 
 func expandEnvConfig(configs map[string]string) map[string]string {
