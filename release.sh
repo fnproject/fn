@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-user="iron"
+user="treeder"
 service="functions"
 version_file="api/version/version.go"
 tag="latest"

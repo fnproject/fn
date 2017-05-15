@@ -16,9 +16,9 @@ const tmpMysql = "mysql://root:root@tcp(%v:3307)/funcs"
 
 func prepareMysqlTest(logf, fatalf func(string, ...interface{})) (func(), func()) {
 	fmt.Println("initializing mysql for test")
-	tryRun(logf, "remove old mysql container", exec.Command("docker", "rm", "-f", "iron-mysql-test"))
+	tryRun(logf, "remove old mysql container", exec.Command("docker", "rm", "-f", "func-mysql-test"))
 	mustRun(fatalf, "start mysql container", exec.Command(
-		"docker", "run", "--name", "iron-mysql-test", "-p", "3307:3306", "-e", "MYSQL_DATABASE=funcs",
+		"docker", "run", "--name", "func-mysql-test", "-p", "3307:3306", "-e", "MYSQL_DATABASE=funcs",
 		"-e", "MYSQL_ROOT_PASSWORD=root", "-d", "mysql"))
 	maxWait := 16 * time.Second
 	wait := 2 * time.Second
@@ -75,7 +75,7 @@ func prepareMysqlTest(logf, fatalf func(string, ...interface{})) (func(), func()
 			}
 		},
 		func() {
-			tryRun(logf, "stop mysql container", exec.Command("docker", "rm", "-f", "iron-mysql-test"))
+			tryRun(logf, "stop mysql container", exec.Command("docker", "rm", "-f", "func-mysql-test"))
 		}
 }
 

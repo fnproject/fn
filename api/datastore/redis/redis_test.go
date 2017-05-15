@@ -17,8 +17,8 @@ const tmpRedis = "redis://%v:6301/"
 
 func prepareRedisTest(logf, fatalf func(string, ...interface{})) (func(), func()) {
 	fmt.Println("initializing redis for test")
-	tryRun(logf, "remove old redis container", exec.Command("docker", "rm", "-f", "iron-redis-test"))
-	mustRun(fatalf, "start redis container", exec.Command("docker", "run", "--name", "iron-redis-test", "-p", "6301:6379", "-d", "redis"))
+	tryRun(logf, "remove old redis container", exec.Command("docker", "rm", "-f", "func-redis-test"))
+	mustRun(fatalf, "start redis container", exec.Command("docker", "run", "--name", "func-redis-test", "-p", "6301:6379", "-d", "redis"))
 	timeout := time.After(20 * time.Second)
 
 	for {
@@ -41,7 +41,7 @@ func prepareRedisTest(logf, fatalf func(string, ...interface{})) (func(), func()
 	fmt.Println("redis for test ready")
 	return func() {},
 		func() {
-			tryRun(logf, "stop redis container", exec.Command("docker", "rm", "-f", "iron-redis-test"))
+			tryRun(logf, "stop redis container", exec.Command("docker", "rm", "-f", "func-redis-test"))
 		}
 }
 

@@ -4,15 +4,15 @@ machine:
     GOPATH: $HOME/go
     GOROOT: $HOME/golang/go
     PATH: $GOROOT/bin:$GOPATH/bin:/$PATH
-    GH_IRON: $GOPATH/src/github.com/treeder
+    GH_OWNER: $GOPATH/src/github.com/treeder
     GO_PROJECT: ../go/src/github.com/treeder/$CIRCLE_PROJECT_REPONAME
   services:
     - docker
 
 checkout:
   post:
-    - mkdir -p "$GH_IRON"
-    - cp -R "$CHECKOUT_DIR" "$GH_IRON/$CIRCLE_PROJECT_REPONAME"
+    - mkdir -p "$GH_OWNER"
+    - cp -R "$CHECKOUT_DIR" "$GH_OWNER/$CIRCLE_PROJECT_REPONAME"
 
 dependencies:
   pre:
@@ -41,7 +41,7 @@ deployment:
     branch: master
     owner: treeder
     commands:
-      - git config --global user.email "circleci@iron.io"
+      - git config --global user.email "treeder+circle@gmail.com"
       - git config --global user.name "CircleCI"
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - cd $GO_PROJECT && ./release.sh
