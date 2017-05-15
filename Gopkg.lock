@@ -169,10 +169,10 @@ memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
   version = "1.1.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/gin-gonic/gin"
   packages = [".","binding","render"]
-  revision = "e2212d40c62a98b388a5eb48ecbdcf88534688ba"
-  version = "v1.1.4"
+  revision = "d5b353c5d5a560322e6d96121c814115562501f7"
 
 [[projects]]
   name = "github.com/go-ini/ini"
