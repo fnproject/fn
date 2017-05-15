@@ -1,4 +1,4 @@
-FROM iron/dind
+FROM treeder/dind
 
 WORKDIR /app
 

@@ -47,7 +47,7 @@ The event will look like:
 
 ```js
 {
-    "bucket": "iron-lambda-demo-images",
+    "bucket": "lambda-demo-images",
     "srcKey": "waterfall.jpg",
     "dstKey": "waterfall-1024.jpg"
 }
