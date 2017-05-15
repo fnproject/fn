@@ -29,7 +29,7 @@ docker-dep:
 
 docker-build:
 	docker run --rm -v ${CURDIR}:/go/src/github.com/treeder/functions -w /go/src/github.com/treeder/functions iron/go:dev go build -o functions-alpine
-	docker build -t treeder/functions:latest .
+	docker build --build-arg HTTP_PROXY -t treeder/functions:latest .
 
 docker-run: docker-build
 	docker run --rm --privileged -it -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v ${CURDIR}/data:/app/data -p 8080:8080 treeder/functions
