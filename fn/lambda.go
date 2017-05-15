@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	aws_lambda "github.com/aws/aws-sdk-go/service/lambda"
-	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/moby/moby/pkg/jsonmessage"
 	"github.com/urfave/cli"
 	yaml "gopkg.in/yaml.v2"
 )

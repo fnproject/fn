@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/docker/docker/cli/config/configfile"
+	"github.com/moby/moby/cli/config/configfile"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/treeder/functions/api/runner/task"
 	"github.com/treeder/functions/api/runner/drivers"

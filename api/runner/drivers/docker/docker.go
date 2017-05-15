@@ -627,7 +627,7 @@ func (drv *DockerDriver) status(ctx context.Context, container string) (status s
 		if !cinfo.State.OOMKilled {
 			// It is possible that the host itself is running out of memory and
 			// the host kernel killed one of the container processes.
-			// See: https://github.com/docker/docker/issues/15621
+			// See: https://github.com/moby/moby/issues/15621
 			// TODO reed: isn't an OOM an OOM? this is wasting space imo
 			log.WithFields(logrus.Fields{"container": container}).Info("Setting task as OOM killed, but docker disagreed.")
 			drv.Inc("docker", "possible_oom_false_alarm", 1, 1.0)

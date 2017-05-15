@@ -10,7 +10,7 @@ docker: vendor
 	docker push iron/fn
 
 vendor:
-	dep ensure --update
+	dep ensure
 
 test:
 	go test $(go list ./... | grep -v /vendor/)

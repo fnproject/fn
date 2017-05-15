@@ -262,9 +262,9 @@ func parseRepositoryTag(repoTag string) (repository string, tag string) {
 
 func ParseImage(image string) (registry, repo, tag string) {
 	repo, tag = parseRepositoryTag(image)
-	// Officially sanctioned at https://github.com/docker/docker/blob/master/registry/session.go#L319 to deal with "Official Repositories".
+	// Officially sanctioned at https://github.com/moby/moby/blob/master/registry/session.go#L319 to deal with "Official Repositories".
 	// Without this, token auth fails.
-	// Registries must exist at root (https://github.com/docker/docker/issues/7067#issuecomment-54302847)
+	// Registries must exist at root (https://github.com/moby/moby/issues/7067#issuecomment-54302847)
 	// This cannot support the `library/` shortcut for private registries.
 	parts := strings.Split(repo, "/")
 	switch len(parts) {

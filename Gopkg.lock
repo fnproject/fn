@@ -122,7 +122,7 @@ memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
 
 [[projects]]
   branch = "master"
-  name = "github.com/docker/docker"
+  name = "github.com/moby/moby"
   packages = ["api/types","api/types/blkiodev","api/types/container","api/types/filters","api/types/mount","api/types/network","api/types/registry","api/types/strslice","api/types/swarm","api/types/versions","cli/config/configfile","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonlog","pkg/jsonmessage","pkg/longpath","pkg/pools","pkg/promise","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
   revision = "a9ff628a3c7c55cf016af88f37c4fb6a6029e17a"
 

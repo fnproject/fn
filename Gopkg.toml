@@ -25,7 +25,7 @@
 
 [[dependencies]]
   branch = "master"
-  name = "github.com/docker/docker"
+  name = "github.com/moby/moby"
 
 [[dependencies]]
   branch = "master"
