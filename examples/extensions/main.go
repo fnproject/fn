@@ -6,8 +6,8 @@ import (
 	"html"
 	"net/http"
 
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/server"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/server"
 )
 
 func main() {

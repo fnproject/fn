@@ -1,7 +1,7 @@
 /*
 IronFunctions daemon
 
-Refer to detailed documentation at https://github.com/kumokit/functions/tree/master/docs
+Refer to detailed documentation at https://github.com/treeder/functions/tree/master/docs
 
 Environment Variables:
 DB_URL

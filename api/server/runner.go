@@ -14,11 +14,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/kumokit/functions/api"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner"
-	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/functions/api/runner/common"
+	"github.com/treeder/functions/api"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner"
+	"github.com/treeder/functions/api/runner/task"
+	"github.com/treeder/functions/api/runner/common"
 	uuid "github.com/satori/go.uuid"
 )
 

@@ -1,7 +1,7 @@
 Import existing AWS Lambda functions
 ====================================
 
-The [fn](https://github.com/kumokit/functions/fn/) tool includes a set of
+The [fn](https://github.com/treeder/functions/fn/) tool includes a set of
 commands to act on Lambda functions. Most of these are described in
 [getting-started](./getting-started.md). One more subcommand is `aws-import`.
 

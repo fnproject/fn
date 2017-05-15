@@ -21,5 +21,5 @@ TODO: List all metrics we emit to logs.
 
 ## Statsd
 
-The [Logspout Statsd Adapter](https://github.com/kumokit/logspout-statsd) adapter can parse the log metrics and forward
+The [Logspout Statsd Adapter](https://github.com/treeder/logspout-statsd) adapter can parse the log metrics and forward
 them to any statsd server.

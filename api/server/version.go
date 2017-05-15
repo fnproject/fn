@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kumokit/functions/api/version"
+	"github.com/treeder/functions/api/version"
 )
 
 func handleVersion(c *gin.Context) {

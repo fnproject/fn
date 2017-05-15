@@ -6,7 +6,7 @@ import (
 	"path"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kumokit/functions/api"
+	"github.com/treeder/functions/api"
 )
 
 func (s *Server) handleRouteGet(c *gin.Context) {

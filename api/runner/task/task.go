@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/kumokit/functions/api/runner/drivers"
+	"github.com/treeder/functions/api/runner/drivers"
 )
 
 type Config struct {

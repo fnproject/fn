@@ -6,14 +6,14 @@ import (
 
 	"context"
 	"github.com/Sirupsen/logrus"
-	"github.com/kumokit/functions/api/runner/common"
+	"github.com/treeder/functions/api/runner/common"
 )
 
 type FuncLogger interface {
 	Writer(context.Context, string, string, string, string) io.Writer
 }
 
-// FuncLogger reads STDERR output from a container and outputs it in a parseable structured log format, see: https://github.com/kumokit/functions/issues/76
+// FuncLogger reads STDERR output from a container and outputs it in a parseable structured log format, see: https://github.com/treeder/functions/issues/76
 type DefaultFuncLogger struct {
 }
 

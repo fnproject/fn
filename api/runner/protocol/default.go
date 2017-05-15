@@ -3,7 +3,7 @@ package protocol
 import (
 	"context"
 
-	"github.com/kumokit/functions/api/runner/task"
+	"github.com/treeder/functions/api/runner/task"
 )
 
 // DefaultProtocol is the protocol used by cold-containers

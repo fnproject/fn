@@ -11,8 +11,8 @@ import (
 
 	"github.com/docker/docker/cli/config/configfile"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/functions/api/runner/drivers"
+	"github.com/treeder/functions/api/runner/task"
+	"github.com/treeder/functions/api/runner/drivers"
 )
 
 var registries dockerRegistries

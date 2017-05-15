@@ -4,8 +4,8 @@ machine:
     GOPATH: $HOME/go
     GOROOT: $HOME/golang/go
     PATH: $GOROOT/bin:$GOPATH/bin:/$PATH
-    GH_IRON: $GOPATH/src/github.com/kumokit
-    GO_PROJECT: ../go/src/github.com/kumokit/$CIRCLE_PROJECT_REPONAME
+    GH_IRON: $GOPATH/src/github.com/treeder
+    GO_PROJECT: ../go/src/github.com/treeder/$CIRCLE_PROJECT_REPONAME
   services:
     - docker
 
@@ -39,7 +39,7 @@ test:
 deployment:
   release:
     branch: master
-    owner: kumokit
+    owner: treeder
     commands:
       - git config --global user.email "circleci@iron.io"
       - git config --global user.name "CircleCI"

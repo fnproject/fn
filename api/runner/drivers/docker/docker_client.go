@@ -28,7 +28,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/kumokit/functions/api/runner/common"
+	"github.com/treeder/functions/api/runner/common"
 )
 
 const (

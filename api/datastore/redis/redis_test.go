@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
-	"github.com/kumokit/functions/api/datastore/internal/datastoretest"
+	"github.com/treeder/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpRedis = "redis://%v:6301/"

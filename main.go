@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/kumokit/functions/api/server"
+	"github.com/treeder/functions/api/server"
 )
 
 func main() {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner/common"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner/common"
 	"net/http"
 )
 

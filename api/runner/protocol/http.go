@@ -10,8 +10,8 @@ import (
 	"net/http/httputil"
 	"time"
 
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner/task"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner/task"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant

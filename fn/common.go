@@ -12,7 +12,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/kumokit/functions/fn/langs"
+	"github.com/treeder/functions/fn/langs"
 )
 
 func verbwriter(verbose bool) io.Writer {

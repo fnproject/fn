@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kumokit/functions/api/datastore/internal/datastoretest"
+	"github.com/treeder/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpPostgres = "postgres://postgres@%v:15432/funcs?sslmode=disable"

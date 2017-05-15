@@ -13,8 +13,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner/common"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner/common"
 )
 
 type BoltDbMQ struct {

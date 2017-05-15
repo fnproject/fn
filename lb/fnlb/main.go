@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kumokit/functions/lb"
+	"github.com/treeder/functions/lb"
 )
 
 var (

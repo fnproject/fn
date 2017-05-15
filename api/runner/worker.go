@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/kumokit/functions/api/runner/protocol"
-	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/functions/api/runner/drivers"
+	"github.com/treeder/functions/api/runner/protocol"
+	"github.com/treeder/functions/api/runner/task"
+	"github.com/treeder/functions/api/runner/drivers"
 )
 
 // hot functions - theory of operation

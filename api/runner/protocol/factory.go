@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner/task"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner/task"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")

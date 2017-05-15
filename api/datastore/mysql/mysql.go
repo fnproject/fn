@@ -11,8 +11,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/kumokit/functions/api/datastore/internal/datastoreutil"
-	"github.com/kumokit/functions/api/models"
+	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
+	"github.com/treeder/functions/api/models"
 )
 
 const routesTableCreate = `CREATE TABLE IF NOT EXISTS routes (

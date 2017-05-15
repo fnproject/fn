@@ -17,7 +17,7 @@ import (
 
 	"strings"
 
-	"github.com/kumokit/functions/fn/langs"
+	"github.com/treeder/functions/fn/langs"
 	"github.com/urfave/cli"
 )
 

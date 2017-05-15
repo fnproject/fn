@@ -1,7 +1,7 @@
 ![IronFunctions](docs/assets/logo-black-400w.png)
 
-[![CircleCI](https://circleci.com/gh/kumokit/functions.svg?style=svg)](https://circleci.com/gh/kumokit/functions)
-[![GoDoc](https://godoc.org/github.com/kumokit/functions?status.svg)](https://godoc.org/github.com/kumokit/functions)
+[![CircleCI](https://circleci.com/gh/treeder/functions.svg?style=svg)](https://circleci.com/gh/treeder/functions)
+[![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions)
 
 Welcome to IronFunctions! The open source serverless platform.
 
@@ -294,7 +294,7 @@ Read more on [logging](docs/logging.md).
 docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" iron/functions-ui
 ```
 
-For more information, see: https://github.com/kumokit/functions-ui
+For more information, see: https://github.com/treeder/functions-ui
 
 ## Writing Functions
 
@@ -308,7 +308,7 @@ See [docs/](docs/README.md) for full documentation.
 
 ## Roadmap
 
-These are the high level roadmap goals. See [milestones](https://github.com/kumokit/functions/milestones) for detailed issues.
+These are the high level roadmap goals. See [milestones](https://github.com/treeder/functions/milestones) for detailed issues.
 
 * ~~Alpha 1 - November 2016~~
   * Initial release of base framework

@@ -532,7 +532,7 @@ definitions:
       payload:
         type: string
         # 256k
-        # maxLength breaks ruby generator too: https://github.com/kumokit/worker_ruby/blob/0aa9236ce5060af3f15758937712973f80dd54fe/lib/iron_titan/models/task.rb#L272
+        # maxLength breaks ruby generator too: https://github.com/treeder/worker_ruby/blob/0aa9236ce5060af3f15758937712973f80dd54fe/lib/iron_titan/models/task.rb#L272
         # maxLength: 268435456
         description: Payload for the task. This is what you pass into each task to make it do something.
 

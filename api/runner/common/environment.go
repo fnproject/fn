@@ -15,7 +15,7 @@
 package common
 
 import (
-	"github.com/kumokit/functions/api/runner/common/stats"
+	"github.com/treeder/functions/api/runner/common/stats"
 )
 
 // An Environment is a long lived object that carries around 'configuration'

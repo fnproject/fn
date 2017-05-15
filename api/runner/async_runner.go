@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner/task"
-	"github.com/kumokit/functions/api/runner/common"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner/task"
+	"github.com/treeder/functions/api/runner/common"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {

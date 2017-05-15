@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kumokit/functions/api/runner/common"
-	"github.com/kumokit/functions/api/runner/drivers"
+	"github.com/treeder/functions/api/runner/common"
+	"github.com/treeder/functions/api/runner/drivers"
 	"github.com/vrischmann/envconfig"
 )
 

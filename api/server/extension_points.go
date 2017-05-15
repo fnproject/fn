@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kumokit/functions/api"
-	"github.com/kumokit/functions/api/models"
+	"github.com/treeder/functions/api"
+	"github.com/treeder/functions/api/models"
 )
 
 type ApiHandlerFunc func(w http.ResponseWriter, r *http.Request)

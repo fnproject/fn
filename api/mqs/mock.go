@@ -3,7 +3,7 @@ package mqs
 import (
 	"context"
 
-	"github.com/kumokit/functions/api/models"
+	"github.com/treeder/functions/api/models"
 )
 
 type Mock struct {

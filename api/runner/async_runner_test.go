@@ -15,9 +15,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/mqs"
-	"github.com/kumokit/functions/api/runner/task"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/mqs"
+	"github.com/treeder/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/runner/task"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/runner/task"
 )
 
 func TestRunnerHello(t *testing.T) {

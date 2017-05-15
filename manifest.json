@@ -36,7 +36,7 @@
         "github.com/iron-io/functions_go": {
             "branch": "master"
         },
-        "github.com/kumokit/iron_go3": {
+        "github.com/treeder/iron_go3": {
             "branch": "master"
         },
         "github.com/lib/pq": {

@@ -15,7 +15,7 @@ Here's a rough diagram of what a production deployment looks like:
 
 Any load balancer will work, put every instance of IronFunctions that you run behind the load balancer.
 
-**Note**: We will work on a smart load balancer that can direct traffic in a smarter way. See [#151](https://github.com/kumokit/functions/issues/151).
+**Note**: We will work on a smart load balancer that can direct traffic in a smarter way. See [#151](https://github.com/treeder/functions/issues/151).
 
 ## Database
 
@@ -33,7 +33,7 @@ The message queue is pluggable and we currently support a few options that can b
 ## Logging, Metrics and Monitoring
 
 Logging is a particularly important part of IronFunctions. It not only emits logs, but metrics are also emitted to the logs. Ops teams can then decide how they want
-to use the logs and metrics without us prescribing a particular technology. For instance, you can [logspout-statsd](https://github.com/kumokit/logspout-statsd) to capture metrics
+to use the logs and metrics without us prescribing a particular technology. For instance, you can [logspout-statsd](https://github.com/treeder/logspout-statsd) to capture metrics
 from the logs and forward them to statsd.
 
 [More about Metrics](metrics.md)

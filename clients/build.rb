@@ -6,7 +6,7 @@ require 'openssl'
 
 require_relative 'utils.rb'
 
-swaggerUrl = "https://raw.githubusercontent.com/kumokit/functions/master/docs/swagger.yml"
+swaggerUrl = "https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
 puts "VERSION: #{version}"
@@ -23,7 +23,7 @@ def clone(lang)
   Dir.chdir 'tmp'
   ldir = "functions_#{lang}"
   if !Dir.exist? ldir
-    cmd = "git clone https://github.com/kumokit/#{ldir}"
+    cmd = "git clone https://github.com/treeder/#{ldir}"
     stream_exec(cmd)
   else
     Dir.chdir ldir
@@ -69,7 +69,7 @@ languages.each do |l|
     options['gemName'] = gem_name
     options['moduleName'] = "IronFunctions"
     options['gemVersion'] = version
-    options['gemHomepage'] = "https://github.com/kumokit/#{fruby}"
+    options['gemHomepage'] = "https://github.com/treeder/#{fruby}"
     options['gemSummary'] = 'Ruby gem for IronFunctions'
     options['gemDescription'] = 'Ruby gem for IronFunctions.'
     options['gemAuthorEmail'] = 'travis@iron.io'
@@ -88,7 +88,7 @@ languages.each do |l|
     puts "SKIPPING GO, it's manual for now."
     # This is using https://goswagger.io/ instead
     # TODO: run this build command instead: this works if run manually
-    # dep ensure && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/kumokit/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/kumokit/functions/master/docs/swagger.yml -A functions
+    # dep ensure && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/treeder/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml -A functions
   else
     gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
     json: {

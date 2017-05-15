@@ -3,7 +3,7 @@ package datastore
 import (
 	"testing"
 
-	"github.com/kumokit/functions/api/datastore/internal/datastoretest"
+	"github.com/treeder/functions/api/datastore/internal/datastoretest"
 )
 
 func TestDatastore(t *testing.T) {

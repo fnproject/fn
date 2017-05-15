@@ -5,11 +5,11 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/kumokit/functions/api/datastore/bolt"
-	"github.com/kumokit/functions/api/datastore/mysql"
-	"github.com/kumokit/functions/api/datastore/postgres"
-	"github.com/kumokit/functions/api/datastore/redis"
-	"github.com/kumokit/functions/api/models"
+	"github.com/treeder/functions/api/datastore/bolt"
+	"github.com/treeder/functions/api/datastore/mysql"
+	"github.com/treeder/functions/api/datastore/postgres"
+	"github.com/treeder/functions/api/datastore/redis"
+	"github.com/treeder/functions/api/models"
 )
 
 func New(dbURL string) (models.Datastore, error) {

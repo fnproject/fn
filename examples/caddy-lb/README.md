@@ -7,7 +7,7 @@ Simple example of IronFunctions load balancer using Caddy Server
 
 Start the IronFunctions instances
 
-Ref: https://github.com/kumokit/functions/blob/master/README.md#start-the-ironfunctions-api
+Ref: https://github.com/treeder/functions/blob/master/README.md#start-the-ironfunctions-api
 
 
 ## Configure environment variable
@@ -38,7 +38,7 @@ docker run --rm  \
 
 Follow the Quick-Start steps replacing the example hosts by the Caddy host (localhost:9000)
 
-https://github.com/kumokit/functions/blob/master/README.md#quick-start
+https://github.com/treeder/functions/blob/master/README.md#quick-start
 
 
 ## Docker Compose example

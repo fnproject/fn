@@ -14,8 +14,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/datastore/internal/datastoreutil"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
 )
 
 type BoltDatastore struct {

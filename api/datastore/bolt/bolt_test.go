@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kumokit/functions/api/datastore/internal/datastoretest"
+	"github.com/treeder/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpBolt = "/tmp/func_test_bolt.db"

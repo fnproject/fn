@@ -1,7 +1,7 @@
 package route
 
 import (
-	"github.com/kumokit/functions/examples/blog/database"
+	"github.com/treeder/functions/examples/blog/database"
 	"gopkg.in/mgo.v2/bson"
 )
 

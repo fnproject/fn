@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kumokit/functions/api/datastore"
-	"github.com/kumokit/functions/api/models"
-	"github.com/kumokit/functions/api/mqs"
-	"github.com/kumokit/functions/api/runner"
-	"github.com/kumokit/functions/api/runner/task"
+	"github.com/treeder/functions/api/datastore"
+	"github.com/treeder/functions/api/models"
+	"github.com/treeder/functions/api/mqs"
+	"github.com/treeder/functions/api/runner"
+	"github.com/treeder/functions/api/runner/task"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {

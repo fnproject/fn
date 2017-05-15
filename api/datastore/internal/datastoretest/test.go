@@ -6,7 +6,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/kumokit/functions/api/models"
+	"github.com/treeder/functions/api/models"
 
 	"net/http"
 	"net/url"

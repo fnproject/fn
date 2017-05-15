@@ -21,7 +21,7 @@ function quick() {
 }
 
 function build () {
-    docker run --rm -v ${pwd}:/go/src/github.com/kumokit/functions -w /go/src/github.com/kumokit/functions iron/go:dev go build -o functions-alpine
+    docker run --rm -v ${pwd}:/go/src/github.com/treeder/functions -w /go/src/github.com/treeder/functions iron/go:dev go build -o functions-alpine
     docker build -t iron/functions:latest .
 }
 
