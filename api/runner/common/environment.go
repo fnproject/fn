@@ -15,7 +15,7 @@
 package common
 
 import (
-	"github.com/treeder/functions/api/runner/common/stats"
+	"gitlab.oracledx.com/odx/functions/api/runner/common/stats"
 )
 
 // An Environment is a long lived object that carries around 'configuration'

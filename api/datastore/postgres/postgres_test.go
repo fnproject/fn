@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/treeder/functions/api/datastore/internal/datastoretest"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpPostgres = "postgres://postgres@%v:15432/funcs?sslmode=disable"

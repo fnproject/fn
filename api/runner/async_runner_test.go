@@ -15,9 +15,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/mqs"
-	"github.com/treeder/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/mqs"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {

@@ -3,7 +3,7 @@ package mqs
 import (
 	"context"
 
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 type Mock struct {

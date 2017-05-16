@@ -12,12 +12,12 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/treeder/functions/api/datastore"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/mqs"
-	"github.com/treeder/functions/api/runner"
-	"github.com/treeder/functions/api/runner/task"
-	"github.com/treeder/functions/api/server/internal/routecache"
+	"gitlab.oracledx.com/odx/functions/api/datastore"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/mqs"
+	"gitlab.oracledx.com/odx/functions/api/runner"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/server/internal/routecache"
 )
 
 var tmpBolt = "/tmp/func_test_bolt.db"

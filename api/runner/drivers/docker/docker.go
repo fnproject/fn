@@ -32,9 +32,9 @@ import (
 	manifest "github.com/docker/distribution/manifest/schema1"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/heroku/docker-registry-client/registry"
-	"github.com/treeder/functions/api/runner/common"
-	"github.com/treeder/functions/api/runner/common/stats"
-	"github.com/treeder/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/runner/common/stats"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 )
 
 const hubURL = "https://registry.hub.docker.com"

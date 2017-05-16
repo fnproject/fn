@@ -5,11 +5,11 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/datastore/bolt"
-	"github.com/treeder/functions/api/datastore/mysql"
-	"github.com/treeder/functions/api/datastore/postgres"
-	"github.com/treeder/functions/api/datastore/redis"
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/datastore/bolt"
+	"gitlab.oracledx.com/odx/functions/api/datastore/mysql"
+	"gitlab.oracledx.com/odx/functions/api/datastore/postgres"
+	"gitlab.oracledx.com/odx/functions/api/datastore/redis"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 func New(dbURL string) (models.Datastore, error) {

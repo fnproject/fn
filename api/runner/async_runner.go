@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/runner/task"
-	"github.com/treeder/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {

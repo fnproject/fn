@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/treeder/functions/api/runner/common"
-	"github.com/treeder/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 	"github.com/vrischmann/envconfig"
 )
 

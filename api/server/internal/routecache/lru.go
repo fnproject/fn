@@ -8,7 +8,7 @@ package routecache
 import (
 	"container/list"
 
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 // Cache holds an internal linkedlist for hotness management. It is not safe

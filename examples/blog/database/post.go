@@ -3,7 +3,7 @@ package database
 import (
 	"errors"
 
-	"github.com/treeder/functions/examples/blog/models"
+	"gitlab.oracledx.com/odx/functions/examples/blog/models"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )

@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/runner/common"
-	"github.com/treeder/functions/api/runner/drivers"
-	driverscommon "github.com/treeder/functions/api/runner/drivers"
-	"github.com/treeder/functions/api/runner/drivers/docker"
-	"github.com/treeder/functions/api/runner/drivers/mock"
-	"github.com/treeder/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
+	driverscommon "gitlab.oracledx.com/odx/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers/docker"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers/mock"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 type Runner struct {

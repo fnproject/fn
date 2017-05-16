@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/treeder/functions/api/datastore"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/mqs"
+	"gitlab.oracledx.com/odx/functions/api/datastore"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/mqs"
 )
 
 func TestRouteCreate(t *testing.T) {

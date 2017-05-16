@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 func TestRunnerHello(t *testing.T) {

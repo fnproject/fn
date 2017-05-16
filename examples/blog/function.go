@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/treeder/functions/examples/blog/database"
-	"github.com/treeder/functions/examples/blog/models"
-	"github.com/treeder/functions/examples/blog/routes"
+	"gitlab.oracledx.com/odx/functions/examples/blog/database"
+	"gitlab.oracledx.com/odx/functions/examples/blog/models"
+	"gitlab.oracledx.com/odx/functions/examples/blog/routes"
 )
 
 var noAuth = map[string]interface{}{}

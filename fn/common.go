@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/treeder/functions/fn/langs"
+	"gitlab.oracledx.com/odx/functions/fn/langs"
 )
 
 func verbwriter(verbose bool) io.Writer {

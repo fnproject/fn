@@ -3,8 +3,8 @@ package datastore
 import (
 	"context"
 
-	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 type mock struct {

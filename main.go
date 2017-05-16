@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/treeder/functions/api/server"
+	"gitlab.oracledx.com/odx/functions/api/server"
 )
 
 func main() {
