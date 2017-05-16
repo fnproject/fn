@@ -11,8 +11,8 @@ import (
 
 	"github.com/moby/moby/cli/config/configfile"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/treeder/functions/api/runner/task"
-	"github.com/treeder/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 )
 
 var registries dockerRegistries

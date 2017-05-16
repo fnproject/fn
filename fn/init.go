@@ -17,7 +17,7 @@ import (
 
 	"strings"
 
-	"github.com/treeder/functions/fn/langs"
+	"gitlab.oracledx.com/odx/functions/fn/langs"
 	"github.com/urfave/cli"
 )
 

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/runner/protocol"
-	"github.com/treeder/functions/api/runner/task"
-	"github.com/treeder/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/protocol"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 )
 
 // hot functions - theory of operation

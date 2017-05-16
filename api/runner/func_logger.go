@@ -6,7 +6,7 @@ import (
 
 	"context"
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
 )
 
 type FuncLogger interface {

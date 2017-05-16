@@ -10,8 +10,8 @@ import (
 
 	"bytes"
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab.oracledx.com/odx/functions/api/models"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )

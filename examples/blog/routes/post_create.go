@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/treeder/functions/examples/blog/database"
-	"github.com/treeder/functions/examples/blog/models"
+	"gitlab.oracledx.com/odx/functions/examples/blog/database"
+	"gitlab.oracledx.com/odx/functions/examples/blog/models"
 )
 
 func HandlePostCreate(db *database.Database, auth map[string]interface{}) {

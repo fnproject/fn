@@ -9,8 +9,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/google/btree"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
 )
 
 type MemoryMQ struct {

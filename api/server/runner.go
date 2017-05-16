@@ -14,11 +14,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"github.com/treeder/functions/api"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/runner"
-	"github.com/treeder/functions/api/runner/task"
-	"github.com/treeder/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/runner"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
 	uuid "github.com/satori/go.uuid"
 )
 

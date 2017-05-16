@@ -6,8 +6,8 @@ import (
 	"html"
 	"net/http"
 
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/server"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/server"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package datastoreutil
 import (
 	"context"
 
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 // Datastore is a copy of models.Datastore, with additional comments on parameter guarantees.

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/treeder/functions/api/datastore"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/mqs"
-	"github.com/treeder/functions/api/runner"
-	"github.com/treeder/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/datastore"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/mqs"
+	"gitlab.oracledx.com/odx/functions/api/runner"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {

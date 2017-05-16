@@ -6,7 +6,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/models"
 
 	"net/http"
 	"net/url"

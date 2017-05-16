@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 // New will parse the URL and return the correct MQ implementation.

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")

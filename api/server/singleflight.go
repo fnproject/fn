@@ -5,7 +5,7 @@ package server
 import (
 	"sync"
 
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 // call is an in-flight or completed do call

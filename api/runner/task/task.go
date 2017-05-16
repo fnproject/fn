@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/treeder/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 )
 
 type Config struct {

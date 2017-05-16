@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/treeder/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 )
 
 func New() drivers.Driver {

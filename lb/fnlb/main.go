@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/treeder/functions/lb"
+	"gitlab.oracledx.com/odx/functions/lb"
 )
 
 var (

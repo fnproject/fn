@@ -11,8 +11,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 const routesTableCreate = `CREATE TABLE IF NOT EXISTS routes (

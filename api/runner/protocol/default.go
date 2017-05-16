@@ -3,7 +3,7 @@ package protocol
 import (
 	"context"
 
-	"github.com/treeder/functions/api/runner/task"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 // DefaultProtocol is the protocol used by cold-containers

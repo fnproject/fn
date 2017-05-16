@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/treeder/functions/api"
-	"github.com/treeder/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api"
+	"gitlab.oracledx.com/odx/functions/api/models"
 )
 
 func (s *Server) handleRouteList(c *gin.Context) {

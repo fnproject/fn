@@ -3,7 +3,7 @@ package datastore
 import (
 	"testing"
 
-	"github.com/treeder/functions/api/datastore/internal/datastoretest"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoretest"
 )
 
 func TestDatastore(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
 )
 
 type RedisDataStore struct {

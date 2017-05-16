@@ -14,8 +14,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
-	"github.com/treeder/functions/api/models"
-	"github.com/treeder/functions/api/datastore/internal/datastoreutil"
+	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
 )
 
 type BoltDatastore struct {
