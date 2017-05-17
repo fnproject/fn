@@ -161,11 +161,11 @@ func (ch *chProxy) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (ch *chProxy) intercept(req *http.Request, resp *http.Response) {
-	// XXX (reed): give f(x) nodes ability to self inspect load and send it back
+	// XXX (reed): give f(x) nodes ability to send back wait time in response
 	// XXX (reed): we should prob clear this from user response
-	load, _ := strconv.Atoi(resp.Header.Get("XXX-FXLB-LOAD"))
+	load, _ := strconv.Atoi(resp.Header.Get("XXX-FXLB-WAIT"))
 	// XXX (reed): need to validate these prob
-	ch.ch.setLoad(req.URL.Host, int64(load))
+	ch.ch.setLoad(loadKey(req.URL.Host, req.URL.Path), int64(load))
 
 	// XXX (reed): stats data
 	//ch.statsMu.Lock()
@@ -430,7 +430,7 @@ func (ch *consistentHash) get(key string) (string, error) {
 	ch.RLock()
 	defer ch.RUnlock()
 	i := int(jumpConsistentHash(sum64, int32(len(ch.nodes))))
-	return ch.besti(i)
+	return ch.besti(key, i)
 }
 
 // A Fast, Minimal Memory, Consistent Hash Algorithm:
@@ -464,8 +464,12 @@ var (
 	ErrNoNodes = errors.New("no nodes available")
 )
 
+func loadKey(node, key string) string {
+	return node + "\x00" + key
+}
+
 // XXX (reed): push down fails / load into ch
-func (ch *consistentHash) besti(i int) (string, error) {
+func (ch *consistentHash) besti(key string, i int) (string, error) {
 	ch.RLock()
 	defer ch.RUnlock()
 
@@ -476,14 +480,17 @@ func (ch *consistentHash) besti(i int) (string, error) {
 	f := func(n string) string {
 		var load int64
 		ch.loadMu.RLock()
-		loadPtr := ch.load[n]
+		loadPtr := ch.load[loadKey(node, key)]
 		ch.loadMu.RUnlock()
 		if loadPtr != nil {
 			load = atomic.LoadInt64(loadPtr)
 		}
 
-		// TODO flesh out these values with some testing
-		// back off loaded nodes slightly to spread load
+		// TODO flesh out these values. should be wait times.
+		// if we send < 50% of traffic off to other nodes when loaded
+		// then as function scales nodes will get flooded, need to be careful.
+		//
+		// back off loaded node/function combos slightly to spread load
 		if load < 70 {
 			return n
 		} else if load > 90 {
