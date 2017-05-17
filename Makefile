@@ -20,8 +20,8 @@ test-build-arm:
     GOARCH=arm GOARM=7 $(MAKE) build
     GOARCH=arm64 $(MAKE) build
 
-run:
-	./functions
+run: build
+	GIN_MODE=debug ./functions
 
 docker-dep:
 # todo: need to create a dep tool image for this (or just ditch this)

@@ -131,6 +131,7 @@ fn init $USERNAME/hello
 # Test it - you can pass data into it too by piping it in, eg: `cat hello.payload.json | fn run`
 fn run
 # Once it's ready, deploy it to your functions server (default localhost:8080)
+fn apps create myapp
 fn deploy myapp
 ```
 
