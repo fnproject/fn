@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	functions "github.com/iron-io/functions_go"
 	"github.com/iron-io/functions_go/models"
 	"github.com/urfave/cli"
@@ -52,7 +54,7 @@ func (p *deploycmd) flags() []cli.Flag {
 			Usage:       "working directory",
 			Destination: &p.wd,
 			EnvVar:      "WORK_DIR",
-			Value:       "./",
+			// Value:       "./",
 		},
 		cli.BoolFlag{
 			Name:        "i",
@@ -72,9 +74,14 @@ func (p *deploycmd) scan(c *cli.Context) error {
 	p.verbwriter = verbwriter(p.verbose)
 
 	var walked bool
+	wd, err := os.Getwd()
+	if err != nil {
+		logrus.Fatalln("Couldn't get current directory:", err)
+	}
+	// logrus.Infoln("wd:", wd)
 
-	err := filepath.Walk(p.wd, func(path string, info os.FileInfo, err error) error {
-		if path != p.wd && info.IsDir() {
+	err = filepath.Walk(wd, func(path string, info os.FileInfo, err error) error {
+		if path != wd && info.IsDir() {
 			return filepath.SkipDir
 		}
 
@@ -97,7 +104,7 @@ func (p *deploycmd) scan(c *cli.Context) error {
 		return e
 	})
 	if err != nil {
-		fmt.Fprintf(p.verbwriter, "file walk error: %s\n", err)
+		fmt.Fprintf(p.verbwriter, "error: %s\n", err)
 	}
 
 	if !walked {
@@ -111,18 +118,23 @@ func (p *deploycmd) scan(c *cli.Context) error {
 // Parse functions file, bump version, build image, push to registry, and
 // finally it will update function's route. Optionally,
 // the route can be overriden inside the functions file.
-func (p *deploycmd) deploy(c *cli.Context, path string) error {
-	fmt.Fprintln(p.verbwriter, "deploying", path)
+func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
+	funcFileName := path.Base(funcFilePath)
 
 	err := c.App.Command("bump").Run(c)
 	if err != nil {
 		return err
 	}
 
-	funcfile, err := buildfunc(p.verbwriter, path)
+	funcfile, err := buildfunc(p.verbwriter, funcFileName)
 	if err != nil {
 		return err
 	}
+	if funcfile.Path == nil || *funcfile.Path == "" {
+		dirName := "/" + path.Base(path.Dir(funcFilePath))
+		funcfile.Path = &dirName
+	}
+	logrus.Infof("funcfile %+v", funcfile)
 
 	if p.skippush {
 		return nil
@@ -132,18 +144,18 @@ func (p *deploycmd) deploy(c *cli.Context, path string) error {
 		return err
 	}
 
-	return p.route(c, path, funcfile)
+	return p.route(c, funcfile)
 }
 
-func (p *deploycmd) route(c *cli.Context, path string, ff *funcfile) error {
+func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
 	if err := resetBasePath(p.Configuration); err != nil {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
 	routesCmd := routesCmd{client: apiClient()}
 	rt := &models.Route{}
-	routeWithFuncFile(c, rt)
-	return routesCmd.patchRoute(p.appName, *ff.Path, rt)
+	routeWithFuncFile(c, ff, rt)
+	return routesCmd.patchRoute(c, p.appName, *ff.Path, rt)
 }
 
 func expandEnvConfig(configs map[string]string) map[string]string {

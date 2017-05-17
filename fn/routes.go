@@ -287,26 +287,31 @@ func routeWithFlags(c *cli.Context, rt *models.Route) {
 	}
 }
 
-func routeWithFuncFile(c *cli.Context, rt *models.Route) {
-	ff, err := loadFuncfile()
-	if err == nil {
-		if ff.FullName() != "" { // args take precedence
-			rt.Image = ff.FullName()
-		}
-		if ff.Format != nil {
-			rt.Format = *ff.Format
-		}
-		if ff.MaxConcurrency != nil {
-			rt.MaxConcurrency = int32(*ff.MaxConcurrency)
-		}
-		if ff.Timeout != nil {
-			to := int64(ff.Timeout.Seconds())
-			rt.Timeout = &to
-		}
-		if rt.Path == "" && ff.Path != nil {
-			rt.Path = *ff.Path
+func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *models.Route) error {
+	var err error
+	if ff == nil {
+		ff, err = loadFuncfile()
+		if err != nil {
+			return err
 		}
 	}
+	if ff.FullName() != "" { // args take precedence
+		rt.Image = ff.FullName()
+	}
+	if ff.Format != nil {
+		rt.Format = *ff.Format
+	}
+	if ff.MaxConcurrency != nil {
+		rt.MaxConcurrency = int32(*ff.MaxConcurrency)
+	}
+	if ff.Timeout != nil {
+		to := int64(ff.Timeout.Seconds())
+		rt.Timeout = &to
+	}
+	if rt.Path == "" && ff.Path != nil {
+		rt.Path = *ff.Path
+	}
+	return nil
 }
 
 func (a *routesCmd) create(c *cli.Context) error {
@@ -317,16 +322,20 @@ func (a *routesCmd) create(c *cli.Context) error {
 	rt.Path = route
 	rt.Image = c.Args().Get(2)
 
-	routeWithFuncFile(c, rt)
+	routeWithFuncFile(c, nil, rt)
 	routeWithFlags(c, rt)
 
 	if rt.Path == "" {
-		return errors.New("error: route path is missing")
+		return errors.New("route path is missing")
 	}
 	if rt.Image == "" {
-		fmt.Println("No image specified, using `iron/hello`")
-		rt.Image = "iron/hello"
+		return errors.New("no image specified")
 	}
+
+	return a.postRoute(c, appName, rt)
+}
+
+func (a *routesCmd) postRoute(c *cli.Context, appName string, rt *fnmodels.Route) error {
 
 	body := &models.RouteWrapper{
 		Route: rt,
@@ -354,7 +363,8 @@ func (a *routesCmd) create(c *cli.Context) error {
 	return nil
 }
 
-func (a *routesCmd) patchRoute(appName, routePath string, r *fnmodels.Route) error {
+func (a *routesCmd) patchRoute(c *cli.Context, appName, routePath string, r *fnmodels.Route) error {
+	// TODO: this getting the old version and merging should be on the server side, not here on the client.
 	resp, err := a.client.Routes.GetAppsAppRoutesRoute(&apiroutes.GetAppsAppRoutesRouteParams{
 		Context: context.Background(),
 		App:     appName,
@@ -364,7 +374,9 @@ func (a *routesCmd) patchRoute(appName, routePath string, r *fnmodels.Route) err
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			// return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			// then insert it
+			return a.postRoute(c, appName, r)
 		case *apiroutes.GetAppsAppRoutesDefault:
 			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
 		}
@@ -446,10 +458,10 @@ func (a *routesCmd) update(c *cli.Context) error {
 	route := cleanRoutePath(c.Args().Get(1))
 
 	rt := &models.Route{}
-	routeWithFuncFile(c, rt)
+	routeWithFuncFile(c, nil, rt)
 	routeWithFlags(c, rt)
 
-	err := a.patchRoute(appName, route, rt)
+	err := a.patchRoute(c, appName, route, rt)
 	if err != nil {
 		return err
 	}
@@ -470,7 +482,7 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 
 	patchRoute.Config[key] = value
 
-	err := a.patchRoute(appName, route, &patchRoute)
+	err := a.patchRoute(c, appName, route, &patchRoute)
 	if err != nil {
 		return err
 	}
@@ -490,7 +502,7 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 
 	patchRoute.Config["-"+key] = ""
 
-	err := a.patchRoute(appName, route, &patchRoute)
+	err := a.patchRoute(c, appName, route, &patchRoute)
 	if err != nil {
 		return err
 	}

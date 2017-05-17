@@ -46,6 +46,7 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 	}
 
 	if wroute.Route.Image != "" {
+		// This was checking that an image exists, but it's too slow of an operation. Checks at runtime now.
 		// err = s.Runner.EnsureImageExists(ctx, &task.Config{
 		// 	Image: wroute.Route.Image,
 		// })
@@ -57,6 +58,10 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 	}
 
 	route, err := s.Datastore.UpdateRoute(ctx, wroute.Route)
+	if err == models.ErrRoutesNotFound {
+		// try insert then
+		route, err = s.Datastore.InsertRoute(ctx, wroute.Route)
+	}
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
