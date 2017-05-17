@@ -15,7 +15,6 @@ import (
 
 	fnclient "github.com/iron-io/functions_go/client"
 	apiroutes "github.com/iron-io/functions_go/client/routes"
-	"github.com/iron-io/functions_go/models"
 	fnmodels "github.com/iron-io/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
@@ -247,7 +246,7 @@ func envAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-func routeWithFlags(c *cli.Context, rt *models.Route) {
+func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
 	if i := c.String("image"); i != "" {
 		rt.Image = i
 	}
@@ -287,7 +286,7 @@ func routeWithFlags(c *cli.Context, rt *models.Route) {
 	}
 }
 
-func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *models.Route) error {
+func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 	var err error
 	if ff == nil {
 		ff, err = loadFuncfile()
@@ -318,11 +317,14 @@ func (a *routesCmd) create(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 
-	rt := &models.Route{}
+	rt := &fnmodels.Route{}
 	rt.Path = route
 	rt.Image = c.Args().Get(2)
 
-	routeWithFuncFile(c, nil, rt)
+	if err := routeWithFuncFile(c, nil, rt); err != nil {
+		return fmt.Errorf("error getting route info: %s", err)
+	}
+
 	routeWithFlags(c, rt)
 
 	if rt.Path == "" {
@@ -337,7 +339,7 @@ func (a *routesCmd) create(c *cli.Context) error {
 
 func (a *routesCmd) postRoute(c *cli.Context, appName string, rt *fnmodels.Route) error {
 
-	body := &models.RouteWrapper{
+	body := &fnmodels.RouteWrapper{
 		Route: rt,
 	}
 
@@ -457,8 +459,12 @@ func (a *routesCmd) update(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
 
-	rt := &models.Route{}
-	routeWithFuncFile(c, nil, rt)
+	rt := &fnmodels.Route{}
+
+	if err := routeWithFuncFile(c, nil, rt); err != nil {
+		return fmt.Errorf("error updating route: %s", err)
+	}
+
 	routeWithFlags(c, rt)
 
 	err := a.patchRoute(c, appName, route, rt)

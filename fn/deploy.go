@@ -154,7 +154,10 @@ func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
 
 	routesCmd := routesCmd{client: apiClient()}
 	rt := &models.Route{}
-	routeWithFuncFile(c, ff, rt)
+
+	if err := routeWithFuncFile(c, ff, rt); err != nil {
+		return fmt.Errorf("error getting route with funcfile: %s", err)
+	}
 	return routesCmd.patchRoute(c, p.appName, *ff.Path, rt)
 }
 
