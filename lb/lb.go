@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"sort"
@@ -73,10 +75,25 @@ type chProxy struct {
 	hcEndpoint  string
 	hcUnhealthy int64
 	hcTimeout   time.Duration
-	proxy       *httputil.ReverseProxy
+
+	proxy      *httputil.ReverseProxy
+	httpClient *http.Client
 }
 
 func newProxy(conf config) *chProxy {
+	tranny := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 120 * time.Second,
+		}).Dial,
+		MaxIdleConnsPerHost: 512,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			ClientSessionCache: tls.NewLRUClientSessionCache(4096),
+		},
+	}
+
 	ch := &chProxy{
 		ded: make(map[string]int64),
 
@@ -85,6 +102,7 @@ func newProxy(conf config) *chProxy {
 		hcEndpoint:  conf.HealthcheckEndpoint,
 		hcUnhealthy: int64(conf.HealthcheckUnhealthy),
 		hcTimeout:   time.Duration(conf.HealthcheckTimeout) * time.Second,
+		httpClient:  &http.Client{Transport: tranny},
 	}
 
 	director := func(req *http.Request) {
@@ -95,9 +113,9 @@ func newProxy(conf config) *chProxy {
 	}
 
 	ch.proxy = &httputil.ReverseProxy{
-		// XXX (reed): optimized http client
-		// XXX (reed): buffer pool
-		Director: director,
+		Director:   director,
+		Transport:  tranny,
+		BufferPool: newBufferPool(),
 	}
 
 	for _, n := range conf.Nodes {
@@ -107,6 +125,21 @@ func newProxy(conf config) *chProxy {
 	go ch.healthcheck()
 	return ch
 }
+
+type bufferPool struct {
+	bufs *sync.Pool
+}
+
+func newBufferPool() httputil.BufferPool {
+	return &bufferPool{
+		bufs: &sync.Pool{
+			New: func() interface{} { return make([]byte, 32*1024) },
+		},
+	}
+}
+
+func (b *bufferPool) Get() []byte  { return b.bufs.Get().([]byte) }
+func (b *bufferPool) Put(x []byte) { b.bufs.Put(x) }
 
 func (ch *chProxy) healthcheck() {
 	for range time.Tick(ch.hcInterval) {
@@ -125,8 +158,7 @@ func (ch *chProxy) ping(node string) {
 	defer cancel()
 	req = req.WithContext(ctx)
 
-	// XXX (reed): use same transport as proxy is using
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := ch.httpClient.Do(req)
 	if resp != nil && resp.Body != nil {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
