@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -201,11 +202,9 @@ func (ch *chProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/1/lb/nodes" {
 		switch r.Method {
 		case "PUT":
-			// XXX (reed): addNode
 			ch.addNode(w, r)
 			return
 		case "DELETE":
-			// XXX (reed): removeNode?
 			ch.removeNode(w, r)
 			return
 		case "GET":
@@ -214,7 +213,6 @@ func (ch *chProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// XXX (reed): stats?
-
 		// XXX (reed): probably do these on a separate port to avoid conflicts
 	}
 
@@ -386,4 +384,30 @@ func jumpConsistentHash(key uint64, num_buckets int32) int32 {
 		j = (b + 1) * int64((1<<31)/(key>>33)+1)
 	}
 	return int32(b)
+}
+
+func besti() string {
+	ch.RLock()
+	defer ch.RUnlock()
+
+	for _, n := range ch.nodes[i:] {
+		load := atomic.LoadInt64(&ch.load[n])
+
+		// TODO flesh out these values with some testing
+		// back off loaded nodes slightly to spread load
+		if load < .7 {
+			return n
+		} else if load > .9 {
+			if rand.Float64() < .6 {
+				return n
+			}
+		} else if load > .7 {
+			if rand.Float64() < .8 {
+				return n
+			}
+		}
+		// otherwise loop until we find a sufficiently unloaded node or a lucky coin flip
+	}
+
+	panic("XXX: (reed) need to 503 or try with higher tolerance")
 }
