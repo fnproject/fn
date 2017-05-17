@@ -80,8 +80,9 @@ type chProxy struct {
 	hcUnhealthy int64
 	hcTimeout   time.Duration
 
-	statMu sync.Mutex
-	stats  []*stat
+	// XXX (reed): right now this only supports one client basically ;) use some real stat backend
+	statsMu sync.Mutex
+	stats   []*stat
 
 	proxy      *httputil.ReverseProxy
 	httpClient *http.Client
@@ -93,6 +94,21 @@ type stat struct {
 	latency time.Duration
 	host    string
 	code    uint64
+}
+
+func (ch *chProxy) addStat(s *stat) {
+	ch.statsMu.Lock()
+	ch.stats = append(ch.stats, s)
+	ch.statsMu.Unlock()
+}
+
+func (ch *chProxy) getStats() []*stat {
+	ch.statsMu.Lock()
+	stats := ch.stats
+	ch.stats = ch.stats[:0]
+	ch.statsMu.Unlock()
+
+	// XXX (reed): down sample to per second
 }
 
 func newProxy(conf config) *chProxy {
@@ -317,6 +333,15 @@ func (ch *chProxy) listNodes(w http.ResponseWriter, r *http.Request) {
 	}{
 		Nodes: out,
 	})
+}
+
+func (ch *chProxy) dash(w http.ResponseWriter, r *http.Request) {
+	_ = `
+	<script src="https://code.highcharts.com/stock/highstock.js"></script>
+	<script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+
+	<div id="container" style="height: 400px; min-width: 310px"></div>
+	`
 }
 
 func (ch *chProxy) isDead(node string) bool {
