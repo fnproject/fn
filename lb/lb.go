@@ -69,7 +69,7 @@ type config struct {
 }
 
 type chProxy struct {
-	ch consistentHash
+	ch *consistentHash
 
 	sync.RWMutex
 	// TODO map[string][]time.Time
@@ -119,6 +119,8 @@ func newProxy(conf config) *chProxy {
 		hcTimeout:   time.Duration(conf.HealthcheckTimeout) * time.Second,
 		httpClient:  &http.Client{Transport: tranny},
 		transport:   tranny,
+
+		ch: newCH(),
 	}
 
 	director := func(req *http.Request) {
@@ -166,6 +168,11 @@ func (ch *chProxy) intercept(req *http.Request, resp *http.Response) {
 	ch.ch.setLoad(req.URL.Host, int64(load))
 
 	// XXX (reed): stats data
+	//ch.statsMu.Lock()
+	//ch.stats = append(ch.stats, &stat{
+	//host: r.URL.Host,
+	//}
+	//ch.stats =  r.URL.Host
 }
 
 type bufferPool struct {
@@ -258,13 +265,6 @@ func (ch *chProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ch.proxy.ServeHTTP(w, r)
-
-	// XXX (reed): for stats need our own transport
-	//ch.statsMu.Lock()
-	//ch.stats = append(ch.stats, &stat{
-	//host: r.URL.Host,
-	//}
-	//ch.stats =  r.URL.Host
 }
 
 func (ch *chProxy) addNode(w http.ResponseWriter, r *http.Request) {
@@ -381,6 +381,14 @@ type consistentHash struct {
 
 	loadMu sync.RWMutex
 	load   map[string]*int64
+	rng    *rand.Rand
+}
+
+func newCH() *consistentHash {
+	return &consistentHash{
+		rng:  rand.New(rand.NewSource(time.Now().Unix())),
+		load: make(map[string]*int64),
+	}
 }
 
 func (ch *consistentHash) add(newb string) {
@@ -479,12 +487,11 @@ func (ch *consistentHash) besti(i int) (string, error) {
 		if load < 70 {
 			return n
 		} else if load > 90 {
-			// XXX (reed): seed rand
-			if rand.Intn(100) < 60 {
+			if ch.rng.Intn(100) < 60 {
 				return n
 			}
 		} else if load > 70 {
-			if rand.Float64() < 80 {
+			if ch.rng.Float64() < 80 {
 				return n
 			}
 		}
