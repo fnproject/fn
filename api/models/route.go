@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultRouteTimeout = 30 // seconds
+	defaultRouteTimeout  = 30 // seconds
 	htfnScaleDownTimeout = 30 // seconds
 )
 
@@ -40,23 +40,23 @@ type Route struct {
 	Format         string      `json:"format"`
 	MaxConcurrency int         `json:"max_concurrency"`
 	Timeout        int32       `json:"timeout"`
-	IdleTimeout int32    `json:"idle_timeout"`
+	IdleTimeout    int32       `json:"idle_timeout"`
 	Config         `json:"config"`
 }
 
 var (
-	ErrRoutesValidationFoundDynamicURL       = errors.New("Dynamic URL is not allowed")
-	ErrRoutesValidationInvalidPath           = errors.New("Invalid Path format")
-	ErrRoutesValidationInvalidType           = errors.New("Invalid route Type")
-	ErrRoutesValidationInvalidFormat         = errors.New("Invalid route Format")
-	ErrRoutesValidationMissingAppName        = errors.New("Missing route AppName")
-	ErrRoutesValidationMissingImage          = errors.New("Missing route Image")
-	ErrRoutesValidationMissingName           = errors.New("Missing route Name")
-	ErrRoutesValidationMissingPath           = errors.New("Missing route Path")
-	ErrRoutesValidationMissingType           = errors.New("Missing route Type")
-	ErrRoutesValidationPathMalformed         = errors.New("Path malformed")
-	ErrRoutesValidationNegativeTimeout       = errors.New("Negative timeout")
-	ErrRoutesValidationNegativeIdleTimeout       = errors.New("Negative idle timeout")
+	ErrRoutesValidationFoundDynamicURL        = errors.New("Dynamic URL is not allowed")
+	ErrRoutesValidationInvalidPath            = errors.New("Invalid Path format")
+	ErrRoutesValidationInvalidType            = errors.New("Invalid route Type")
+	ErrRoutesValidationInvalidFormat          = errors.New("Invalid route Format")
+	ErrRoutesValidationMissingAppName         = errors.New("Missing route AppName")
+	ErrRoutesValidationMissingImage           = errors.New("Missing route Image")
+	ErrRoutesValidationMissingName            = errors.New("Missing route Name")
+	ErrRoutesValidationMissingPath            = errors.New("Missing route Path")
+	ErrRoutesValidationMissingType            = errors.New("Missing route Type")
+	ErrRoutesValidationPathMalformed          = errors.New("Path malformed")
+	ErrRoutesValidationNegativeTimeout        = errors.New("Negative timeout")
+	ErrRoutesValidationNegativeIdleTimeout    = errors.New("Negative idle timeout")
 	ErrRoutesValidationNegativeMaxConcurrency = errors.New("Negative MaxConcurrency")
 )
 

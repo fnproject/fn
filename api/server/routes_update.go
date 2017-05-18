@@ -39,6 +39,10 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 	wroute.Route.Path = path.Clean(c.MustGet(api.Path).(string))
 
+	if wroute.Route.IdleTimeout == 0 {
+		wroute.Route.IdleTimeout = 30
+	}
+
 	if err := wroute.Validate(true); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesUpdate)
 		c.JSON(http.StatusBadRequest, simpleError(err))
