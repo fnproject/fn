@@ -14,15 +14,15 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	"gitlab.oracledx.com/odx/functions/api"
 	"gitlab.oracledx.com/odx/functions/api/datastore"
 	"gitlab.oracledx.com/odx/functions/api/models"
 	"gitlab.oracledx.com/odx/functions/api/mqs"
 	"gitlab.oracledx.com/odx/functions/api/runner"
+	"gitlab.oracledx.com/odx/functions/api/runner/common"
 	"gitlab.oracledx.com/odx/functions/api/runner/task"
 	"gitlab.oracledx.com/odx/functions/api/server/internal/routecache"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -55,7 +55,7 @@ type Server struct {
 
 const cacheSize = 1024
 
-// NewFromEnv creates a new IronFunctions server based on env vars.
+// NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context) *Server {
 	ds, err := datastore.New(viper.GetString(EnvDBURL))
 	if err != nil {
@@ -72,7 +72,7 @@ func NewFromEnv(ctx context.Context) *Server {
 	return New(ctx, ds, mq, apiURL)
 }
 
-// New creates a new IronFunctions server with the passed in datastore, message queue and API URL
+// New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiURL string, opts ...ServerOption) *Server {
 	metricLogger := runner.NewMetricLogger()
 	funcLogger := runner.NewFuncLogger()

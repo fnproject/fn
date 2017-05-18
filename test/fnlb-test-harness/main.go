@@ -107,7 +107,7 @@ func invokeLoadBalancer(hostPort, path string, numExecutions, max, loops int) {
 
 func discoverContainerIds() {
 	// Discover the Docker hostname of each node; create a mapping of hostnames to host/port.
-	// This is needed because IronFunctions doesn't make the host/port available to the function (as of Mar 2017).
+	// This is needed because Oracle Functions doesn't make the host/port available to the function (as of Mar 2017).
 	fmt.Println("Discovering container ids for every node (use Docker's HOSTNAME env var as a container id)...")
 	for _, s := range nodes {
 		if e, err := executeFunction(s, route, 100, 1); err == nil {

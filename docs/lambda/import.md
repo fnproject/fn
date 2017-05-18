@@ -38,7 +38,7 @@ fn lambda aws-import arn:aws:lambda:us-west-2:123141564251:function:my-function 
 
 will import the function code from the region `us-east-1` to a directory called `./user/my-function`. Inside the directory you will find the `function.yml`, `Dockerfile`, and all the files needed for running the function.
 
-Using Lambda with Docker Hub and IronFunctions requires that the Docker image be
+Using Lambda with Docker Hub and Oracle Functions requires that the Docker image be
 named `<Docker Hub username>/<image name>`. This is used to uniquely identify
 images on Docker Hub. Please use the `<Docker Hub username>/<image
 name>` as the image name with `aws-import` to create a correctly named image.
@@ -50,6 +50,6 @@ by passing `--version <version>.`
 
 You can then deploy the imported lambda as follows:
 ```
-./fn deploy -d ./user/my-function user
+./fn deploy myapp
 ````
 Now the function can be reached via ```http://$HOSTNAME/r/user/my-function```

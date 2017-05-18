@@ -1,4 +1,4 @@
-FROM iron/ruby:dev
+FROM funcy/ruby:dev
 
 WORKDIR /function
 ADD Gemfile* /function/

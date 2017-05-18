@@ -1,6 +1,6 @@
 # Quick Example for a Go Function (3 minutes)
 
-This example will show you how to test and deploy Go (Golang) code to IronFunctions.
+This example will show you how to test and deploy Go (Golang) code to Oracle Functions.
 
 ```sh
 # create your func.yaml file
@@ -11,11 +11,11 @@ fn build
 cat hello.payload.json | fn run
 # push it to Docker Hub
 fn push
-# Create a route to this function on IronFunctions
+# Create a route to this function on Oracle Functions
 fn routes create myapp /hello
 ```
 
-Now you can call your function on IronFunctions:
+Now you can call your function on Oracle Functions:
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello

@@ -1,6 +1,6 @@
 # Message Queues
 
-A message queue is used to coordinate asynchronous function calls that run through IronFunctions.
+A message queue is used to coordinate asynchronous function calls that run through Oracle Functions.
 
 We currently support the following message queues and they are passed in via the `MQ_URL` environment variable. For example:
 
@@ -23,7 +23,7 @@ See Redis in databases above.
 
 URL: `ironmq://project_id:token@mq-aws-us-east-1.iron.io/queue_prefix`
 
-IronMQ is a hosted message queue service provided by [Iron.io](http://iron.io). If you're using IronFunctions in production and don't
+IronMQ is a hosted message queue service provided by [Iron.io](http://iron.io). If you're using Oracle Functions in production and don't
 want to manage a message queue, you should start here.
 
 The IronMQ connector uses HTTPS by default. To use HTTP set the scheme to

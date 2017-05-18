@@ -1,10 +1,10 @@
-# IronFunctions Documentation
+# Oracle Functions Documentation
 
 * [FAQ](faq.md)
 
 ## For Developers
 
-If you are a developer using IronFunctions through the API, this section is for you.
+If you are a developer using Oracle Functions through the API, this section is for you.
 
 * [Quickstart](https://github.com/treeder/functions#quickstart)
 * [Definitions](definitions.md)
@@ -19,7 +19,7 @@ If you are a developer using IronFunctions through the API, this section is for 
 
 ## For Operators
 
-If you are operating IronFunctions, this section is for you.
+If you are operating Oracle Functions, this section is for you.
 
 * [Running in Production Overview](operating/production.md)
 * [Runtime Options](operating/options.md)
@@ -29,9 +29,9 @@ If you are operating IronFunctions, this section is for you.
 * [Logging](operating/logging.md)
 * [Metrics](operating/metrics.md)
 * [Triggers](operating/triggers.md)
-* [Extending IronFunctions](operating/extending.md)
+* [Extending Oracle Functions](operating/extending.md)
 * [Docker Configuration](operating/docker.md)
 * [Operating On Windows](operating/windows.md)
-* Running IronFunctions on:
+* Running Oracle Functions on:
   * [Kubernetes](operating/kubernetes/README.md)
   * [Docker Swarm](operating/docker-swarm/README.md)

@@ -28,7 +28,7 @@ docker-dep:
 	docker run --rm -it -v ${CURDIR}:/go/src/github.com/treeder/functions -w /go/src/github.com/treeder/functions treeder/glide install -v
 
 docker-build:
-	docker run --rm -v ${CURDIR}:/go/src/github.com/treeder/functions -w /go/src/github.com/treeder/functions iron/go:dev go build -o functions-alpine
+	docker run --rm -v ${CURDIR}:/go/src/github.com/treeder/functions -w /go/src/github.com/treeder/functions funcy/go:dev go build -o functions-alpine
 	docker build --build-arg HTTP_PROXY -t treeder/functions:latest .
 
 docker-run: docker-build
@@ -39,7 +39,7 @@ docker-test:
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	-v ${CURDIR}:/go/src/github.com/treeder/functions \
 	-w /go/src/github.com/treeder/functions \
-	iron/go:dev go test \
+	funcy/go:dev go test \
 	-v $(shell docker run -ti -v ${CURDIR}:/go/src/github.com/treeder/functions -w /go/src/github.com/treeder/functions -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn | grep -v datastore')
 
 all: dep build

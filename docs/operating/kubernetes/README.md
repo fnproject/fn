@@ -1,4 +1,4 @@
-# HOWTO run IronFunction in Kubernetes at AWS
+# HOWTO run Oracle Functions in Kubernetes at AWS
 
 *Prerequisite 1: it assumes you have a working Kubernetes, and a locally configured kubectl.*
 
@@ -9,7 +9,7 @@
 
 ### Steps
 
-1. Start IronFunction in the Kubernetes cluster:
+1. Start Oracle Functions in the Kubernetes cluster:
 ```ShellSession
 $ cd docs/
 $ kubectl create -f kubernetes-quick
@@ -44,15 +44,15 @@ Note `a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com` in
 3. Test the cluster:
 
 ```ShellSession
-$ export IRON_FUNCTION=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
+$ export FUNCTIONS=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$IRON_FUNCTION/v1/apps
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"iron/hello" } }' http://$IRON_FUNCTION/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"treeder/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"treeder/hello","memory":128,"type":"sync","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$IRON_FUNCTION/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
 Hello Johnny!
 ```
 
@@ -60,7 +60,7 @@ Hello Johnny!
 
 ### Steps
 
-1. Start IronFunction and its dependencies:
+1. Start Oracle Functions and its dependencies:
 ```ShellSession
 $ cd docs/
 $ kubectl create -f kubernetes-production
@@ -97,14 +97,14 @@ Note `a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com` in
 3. Test the cluster:
 
 ```ShellSession
-$ export IRON_FUNCTION=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
+$ export FUNCTIONS=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$IRON_FUNCTION/v1/apps
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"iron/hello" } }' http://$IRON_FUNCTION/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"treeder/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"treeder/hello","memory":128,"type":"sync","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$IRON_FUNCTION/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
 Hello Johnny!
 ```

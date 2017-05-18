@@ -54,7 +54,7 @@ hello world
 
 The header keys and values would be populated with information about the function call such as the request URL and query parameters.
 
-`Content-Length` is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory both for input and output. It is used by IronFunctions to know when stop writing to STDIN and reading from STDOUT.
+`Content-Length` is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory both for input and output. It is used by Functions to know when stop writing to STDIN and reading from STDOUT.
 
 Pros:
 

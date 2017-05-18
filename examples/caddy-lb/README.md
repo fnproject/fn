@@ -1,19 +1,19 @@
-# IronFunctions Load Balance example using Caddy
+# Oracle Functions Load Balance example using Caddy
 
-Simple example of IronFunctions load balancer using Caddy Server
+Simple example of Oracle Functions load balancer using Caddy Server
 
 
-## Run IronFunctions
+## Run Oracle Functions
 
-Start the IronFunctions instances
+Start the Oracle Functions instances
 
-Ref: https://github.com/treeder/functions/blob/master/README.md#start-the-ironfunctions-api
+Ref: https://github.com/treeder/functions/blob/master/README.md#start-the-functions-api
 
 
 ## Configure environment variable
 
-Pass the host and port of IronFunctions instances in environment variables, 
-this example uses three IronFunctions instances.
+Pass the host and port of Oracle Functions instances in environment variables, 
+this example uses three Oracle Functions instances.
 
 ```sh
 export LB_HOST01="172.17.0.1:8080"

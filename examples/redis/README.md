@@ -5,7 +5,7 @@ This function basically executes a GET/SET in a given redis server.
 ## Requirements
 
 - Redis Server
-- IronFunctions API
+- Functions API
 
 ## Development
 
@@ -36,7 +36,7 @@ docker push $USERNAME/func-redis
 ./test.sh
 ```
 
-## Running it on IronFunctions
+## Running it on Oracle Functions
 
 ### Let's define some environment variables
 
@@ -53,7 +53,7 @@ REDIS=YOUR_REDIS_ADDRESS
 REDIS_AUTH=REDIS_AUTH_KEY
 ```
 
-### Running with IronFunctions
+### Running with Oracle Functions
 
 With this command we are going to create an application with name `redis`.
 
@@ -101,7 +101,7 @@ curl -X POST --data '{
 
 #### Testing function
 
-Now that we created our IronFunction route, let's test our new route
+Now that we created our Oracle Functions route, let's test our new route
 
 ```
 curl -X POST --data '{"key": "name", "value": "Johnny"}' http://$FUNCAPI/r/redis/set

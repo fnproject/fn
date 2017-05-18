@@ -1,6 +1,6 @@
-# Docker Swarm and IronFunctions
+# Docker Swarm and Oracle Functions
 
-How to run IronFunction as a scheduler on top of Docker Standalone Swarm cluster.
+How to run Oracle Functions as a scheduler on top of Docker Standalone Swarm cluster.
 
 ## Quick installation
 
@@ -8,11 +8,11 @@ How to run IronFunction as a scheduler on top of Docker Standalone Swarm cluster
 
 *Prerequisite 2: It assumes that your running environment is already configured to use Swarm's master scheduler.*
 
-This is a step-by-step procedure to execute IronFunction on top of Docker Swarm cluster. It works by having IronFunction daemon started through Swarm's master, and there enqueueing tasks through Swarm API.
+This is a step-by-step procedure to execute Oracle Functions on top of Docker Swarm cluster. It works by having Oracle Functions daemon started through Swarm's master, and there enqueueing tasks through Swarm API.
 
 ### Steps
 
-1. Start IronFunction in the Swarm Master. It expects all basic Docker environment variables to be present (DOCKER_TLS_VERIFY, DOCKER_HOST, DOCKER_CERT_PATH, DOCKER_MACHINE_NAME). The important part is that the working Swarm master environment must be passed to Functions daemon:
+1. Start Oracle Functions in the Swarm Master. It expects all basic Docker environment variables to be present (DOCKER_TLS_VERIFY, DOCKER_HOST, DOCKER_CERT_PATH, DOCKER_MACHINE_NAME). The important part is that the working Swarm master environment must be passed to Functions daemon:
 ```ShellSession
 $ docker login # if you plan to use private images
 $ docker volume create --name functions-datafiles
@@ -24,7 +24,7 @@ $ docker run -d --name functions \
         -e DOCKER_MACHINE_NAME \
         -v $DOCKER_CERT_PATH:/docker-cert \
         -v functions-datafiles:/app/data \
-        iron/functions
+        treeder/functions
 ```
 
 2. Once the daemon is started, check where it is listening for connections:
@@ -32,23 +32,23 @@ $ docker run -d --name functions \
 ```ShellSession
 # docker info
 CONTAINER ID        IMAGE                COMMAND                  CREATED             STATUS              PORTS                                     NAMES
-5a0846e6a025        iron/functions       "/usr/local/bin/entry"   59 seconds ago      Up 58 seconds       2375/tcp, 10.0.0.1:8080->8080/tcp   swarm-agent-00/functions
+5a0846e6a025        treeder/functions       "/usr/local/bin/entry"   59 seconds ago      Up 58 seconds       2375/tcp, 10.0.0.1:8080->8080/tcp   swarm-agent-00/functions
 ````
 
-Note `10.0.0.1:8080` in `PORTS` column, this is where the service is listening. IronFunction will use Docker Swarm scheduler to deliver tasks to all nodes present in the cluster.
+Note `10.0.0.1:8080` in `PORTS` column, this is where the service is listening. Oracle Functions will use Docker Swarm scheduler to deliver tasks to all nodes present in the cluster.
 
 3. Test the cluster:
 
 ```ShellSession
-$ export IRON_FUNCTION=$(docker port functions | cut -d ' ' -f3)
+$ export FUNCTIONS=$(docker port functions | cut -d ' ' -f3)
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$IRON_FUNCTION/v1/apps
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"iron/hello" } }' http://$IRON_FUNCTION/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"treeder/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"treeder/hello","memory":128,"type":"sync","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$IRON_FUNCTION/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
 Hello Johnny!
 ```
 
@@ -58,7 +58,7 @@ Hello Johnny!
 
 *Prerequisite 2: It assumes that your running environment is already configured to use Swarm's master scheduler.*
 
-This is a step-by-step procedure to execute IronFunction on top of Docker Swarm cluster. It works by having IronFunction daemon started through Swarm's master, however the tasks are executed on each host locally. In production, database and message queue must be external to IronFunction execution, this guarantees robustness of the service against failures.
+This is a step-by-step procedure to execute Oracle Functions on top of Docker Swarm cluster. It works by having Oracle Functions daemon started through Swarm's master, however the tasks are executed on each host locally. In production, database and message queue must be external to Oracle Functions execution, this guarantees robustness of the service against failures.
 
 We strongly recommend you deploy your own HA Redis and PostgreSQL clusters. Otherwise, you can follow the instructions below and have them set in single nodes.
 
@@ -74,7 +74,7 @@ docker-machine create -d virtualbox --swarm --swarm-master --swarm-discovery etc
 # Set aside one host for DB activities
 docker-machine create -d virtualbox --engine-label use=db --swarm --swarm-discovery etcd://$ETCD_HOST:2379/swarm --engine-opt="cluster-store=etcd://$ETCD_HOST:2379/network" --engine-opt="cluster-advertise=eth1:2376" swarm-db;
 
-# The rest is a horizontally scalable set of hosts for IronFunction
+# The rest is a horizontally scalable set of hosts for Oracle Functions
 docker-machine create -d virtualbox --engine-label use=worker --swarm --swarm-discovery etcd://$ETCD_HOST:2379/swarm --engine-opt="cluster-store=etcd://$ETCD_HOST:2379/network" --engine-opt="cluster-advertise=eth1:2376" swarm-worker-00;
 docker-machine create -d virtualbox --engine-label use=worker --swarm --swarm-discovery etcd://$ETCD_HOST:2379/swarm --engine-opt="cluster-store=etcd://$ETCD_HOST:2379/network" --engine-opt="cluster-advertise=eth1:2376" swarm-worker-01
 ```
@@ -83,7 +83,7 @@ docker-machine create -d virtualbox --engine-label use=worker --swarm --swarm-di
 
 If you using externally deployed Redis and PostgreSQL cluster, you may skip to step 4.
 
-1. Build a multi-host network for IronFunction:
+1. Build a multi-host network for Oracle Functions:
 ```ShellSession
 $ docker network create --driver overlay --subnet=10.0.9.0/24 functions-network
 ````
@@ -100,7 +100,7 @@ $ docker create -e constraint:use==db --network=functions-network -v /var/lib/po
 $ docker run -d -e constraint:use==db --network=functions-network --volumes-from postgresql-data --name functions-postgres -e POSTGRES_PASSWORD=mysecretpassword postgres
 ```
 
-4. Start IronFunctions:
+4. Start Oracle Functions:
 ```ShellSession
 $ docker run -d --name functions-00 \
         -l functions \
@@ -110,7 +110,7 @@ $ docker run -d --name functions-00 \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -e 'MQ_URL=redis://functions-redis' \
         -e 'DB_URL=postgres://postgres:mysecretpassword@functions-postgres/?sslmode=disable' \
-        iron/functions
+        treeder/functions
 ```
 
 5. Load Balancer:
@@ -120,14 +120,14 @@ $ export BACKENDS=$(docker ps --filter label=functions --format="{{ .ID }}" | xa
 
 $ docker run -d --name functions-lb -p 80:80 -e BACKENDS noqcks/haproxy
 
-$ export IRON_FUNCTION=$(docker port functions-lb | cut -d ' ' -f3)
+$ export FUNCTIONS=$(docker port functions-lb | cut -d ' ' -f3)
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$IRON_FUNCTION/v1/apps
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"iron/hello" } }' http://$IRON_FUNCTION/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"iron/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"treeder/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"treeder/hello","memory":128,"type":"sync","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$IRON_FUNCTION/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
 Hello Johnny!
 ```

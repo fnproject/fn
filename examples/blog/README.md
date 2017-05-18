@@ -5,7 +5,7 @@ A simple serverless blog API
 ## Requirements
 
 - Remote MongoDB instance (for example heroku)
-- Running IronFunctions API
+- Running Oracle Functions API
 
 ## Development
 
@@ -16,7 +16,7 @@ A simple serverless blog API
 USERNAME=YOUR_DOCKER_HUB_USERNAME
 
 # build it
-docker run --rm -v "$PWD":/go/src/github.com/treeder/hello -w /go/src/github.com/treeder/hello iron/go:dev go build -o function
+docker run --rm -v "$PWD":/go/src/github.com/treeder/hello -w /go/src/github.com/treeder/hello funcy/go:dev go build -o function
 docker build -t $USERNAME/func-blog .
 ```
 
@@ -31,9 +31,9 @@ docker tag $USERNAME/func-blog:latest $USERNAME/func-blog:`cat VERSION`
 docker push $USERNAME/func-blog
 ```
 
-## Running it on IronFunctions
+## Running it on Oracle Functions
 
-First you need a running IronFunctions API
+First you need a running Oracle Functions API
 
 ### First, let's define this environment variables
 
@@ -53,7 +53,7 @@ MONGODB=YOUR_MONGODB_ADDRESS
 ./test.sh
 ```
 
-### Running with IronFunctions
+### Running with Oracle Functions
 
 With this command we are going to create an application with name `blog` and also defining the app configuration `DB`.
 
@@ -101,7 +101,7 @@ curl -X POST --data '{
 
 #### Testing function
 
-Now that we created our IronFunction route, let's test our routes
+Now that we created our Oracle Functions route, let's test our routes
 
 ```
 curl -X POST http://$FUNCAPI/r/blog/posts

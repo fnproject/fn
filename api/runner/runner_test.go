@@ -29,8 +29,8 @@ func TestRunnerHello(t *testing.T) {
 		expectedOut    string
 		expectedErr    string
 	}{
-		{&models.Route{Image: "iron/hello"}, ``, "success", "Hello World!", ""},
-		{&models.Route{Image: "iron/hello"}, `{"name": "test"}`, "success", "Hello test!", ""},
+		{&models.Route{Image: "treeder/hello"}, ``, "success", "Hello World!", ""},
+		{&models.Route{Image: "treeder/hello"}, `{"name": "test"}`, "success", "Hello test!", ""},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{
@@ -82,8 +82,8 @@ func TestRunnerError(t *testing.T) {
 		expectedOut    string
 		expectedErr    string
 	}{
-		{&models.Route{Image: "iron/error"}, ``, "error", "", ""},
-		{&models.Route{Image: "iron/error"}, `{"name": "test"}`, "error", "", ""},
+		{&models.Route{Image: "funcy/error"}, ``, "error", "", ""},
+		{&models.Route{Image: "funcy/error"}, `{"name": "test"}`, "error", "", ""},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{

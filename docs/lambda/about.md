@@ -2,11 +2,11 @@
 
 AWS Lambda introduced serverless computing to the masses. Wouldn't it be nice
 if you could run the same Lambda functions on any platform, in any cloud?
-Iron.io is proud to release a set of tools that allow just this. Package your
+Oracle is proud to release a set of tools that allow just this. Package your
 Lambda function in a Docker container and run it anywhere with an environment
 similar to AWS Lambda.
 
-Using a job scheduler such as IronFunctions, you can connect these functions to
+Using a job scheduler such as Oracle Functions, you can connect these functions to
 webhooks and run them on-demand, at scale. You can also use a container
 management system paired with a task queue to run these functions in
 a self-contained, platform-independent manner.

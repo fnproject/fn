@@ -26,7 +26,7 @@ func (lh *PythonHelper) PreBuild() error {
 		return err
 	}
 
-	pbcmd := fmt.Sprintf("docker run --rm -v %s:/worker -w /worker iron/python:2-dev pip install -t packages -r requirements.txt", wd)
+	pbcmd := fmt.Sprintf("docker run --rm -v %s:/worker -w /worker funcy/python:2-dev pip install -t packages -r requirements.txt", wd)
 	fmt.Println("Running prebuild command:", pbcmd)
 	parts := strings.Fields(pbcmd)
 	head := parts[0]

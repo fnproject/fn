@@ -41,7 +41,7 @@ func (t *testcmd) flags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:        "remote",
-			Usage:       "run tests by calling the function on IronFunctions daemon on `appname`",
+			Usage:       "run tests by calling the function on Oracle Functions daemon on `appname`",
 			Destination: &t.remote,
 		},
 	}

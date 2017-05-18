@@ -3,7 +3,7 @@ set -x
 
 ./build.sh
 
-PAYLOAD='{"username": "getiron"}'
+PAYLOAD='{"username": "joe"}'
 
 # test it
-echo $PAYLOAD | docker run --rm -i iron/func-twitter 
+echo $PAYLOAD | docker run --rm -i username/func-twitter 

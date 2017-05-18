@@ -1,4 +1,4 @@
-FROM iron/php
+FROM funcy/php
 
 WORKDIR /app
 ADD . /app

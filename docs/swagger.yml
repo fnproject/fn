@@ -1,10 +1,10 @@
-# This is the IronFunctions API spec
+# This is the Oracle Functions API spec
 # If you make changes here, remember to run `go generate` in api/models/ and
 # api/server to make sure you use the changes.
 
 swagger: '2.0'
 info:
-  title: IronFunctions
+  title: Oracle Functions
   description: The open source serverless platform.
   version: "0.1.29"
 # the domain of the service

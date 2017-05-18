@@ -1,4 +1,4 @@
-# IronFunctions CLI
+# Oracle Functions CLI
 
 ## Creating Functions
 
@@ -53,7 +53,7 @@ fn push
 
 ## Using the API
 
-You can operate IronFunctions from the command line.
+You can operate Oracle Functions from the command line.
 
 ```sh
 $ fn apps list                                  # list apps
@@ -71,10 +71,10 @@ otherapp
 
 $ fn routes list myapp                          # list routes of an app
 path	image
-/hello	iron/hello
+/hello	treeder/hello
 
-$ fn routes create otherapp /hello iron/hello   # create route
-/hello created with iron/hello
+$ fn routes create otherapp /hello treeder/hello   # create route
+/hello created with treeder/hello
 
 $ fn routes delete otherapp hello              # delete route
 /hello deleted
@@ -111,7 +111,7 @@ choices are: `memory`, `type` and `config`.
 
 Thus a more complete example of route creation will look like:
 ```sh
-fn routes create --memory 256 --type async --config DB_URL=http://example.org/ otherapp /hello iron/hello
+fn routes create --memory 256 --type async --config DB_URL=http://example.org/ otherapp /hello treeder/hello
 ```
 
 You can also update existent routes configurations using the command `fn routes update`
@@ -119,7 +119,7 @@ You can also update existent routes configurations using the command `fn routes 
 For example:
 
 ```sh
-fn routes update --memory 64 --type sync --image iron/hello
+fn routes update --memory 64 --type sync --image treeder/hello
 ```
 
 To know exactly what configurations you can update just use the command
@@ -144,7 +144,7 @@ $ fn ...
 
 Also there is the `deploy` command that is going to scan all local directory for
 functions, rebuild them and push them to Docker Hub and update them in
-IronFunction. It will use the `route` entry in the existing function file to
+Oracle Functions. It will use the `route` entry in the existing function file to
 see the update in the daemon.
 
 
@@ -183,7 +183,7 @@ Once you application is done and deployed, you can run tests remotely:
 # test the function locally first
 $ fn test -b
 
-# push it to Docker Hub and IronFunctions
+# push it to Docker Hub and Oracle Functions
 $ fn push
 $ fn routes create myapp
 
@@ -195,7 +195,7 @@ $ fn test --remote myapp
 
 ### Creating a new function from source
 ```
-fn init iron/hello --runtime ruby
+fn init treeder/hello --runtime ruby
 fn deploy myapp /hello
 ```
 
@@ -206,7 +206,7 @@ fn deploy myapp (discover route path if available in func.yaml)
 
 ### Testing function locally
 ```
-fn run iron/hello
+fn run treeder/hello
 ```
 
 ### Testing route
@@ -225,7 +225,7 @@ fn apps delete myapp
 
 ### Route management
 ```
-fn routes create myapp /hello iron/hello
+fn routes create myapp /hello treeder/hello
 # routes update will also update any changes in the func.yaml file too. 
 fn routes update myapp /hello --timeout 30 --type async
 fn routes config set myapp /hello log_level info

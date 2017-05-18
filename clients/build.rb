@@ -62,22 +62,22 @@ languages.each do |l|
   when 'ruby'
     clone(l)
     fruby = "functions_ruby"
-    gem_name = "iron_functions"
+    gem_name = "oracle_functions"
     glob_pattern = ["**", "*.rb"] # just rb files
     skip_files = ["#{gem_name}.gemspec"]
     deploy = ["gem build #{gem_name}.gemspec", "gem push #{gem_name}-#{version}.gem"]
     options['gemName'] = gem_name
-    options['moduleName'] = "IronFunctions"
+    options['moduleName'] = "OracleFunctions"
     options['gemVersion'] = version
     options['gemHomepage'] = "https://github.com/treeder/#{fruby}"
-    options['gemSummary'] = 'Ruby gem for IronFunctions'
-    options['gemDescription'] = 'Ruby gem for IronFunctions.'
-    options['gemAuthorEmail'] = 'travis@iron.io'
+    options['gemSummary'] = 'Ruby gem for Oracle Functions'
+    options['gemDescription'] = 'Ruby gem for Oracle Functions.'
+    options['gemAuthorEmail'] = 'treeder@gmail.com'
   when 'javascript'
     lshort = 'js'
     # copy_dir = "javascript-client/."
     clone(lshort)
-    options['projectName'] = "iron_functions"
+    options['projectName'] = "oracle_functions"
     deploy << "npm publish"
    else
     puts "Skipping #{l}"

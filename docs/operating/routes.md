@@ -1,8 +1,8 @@
-# IronFunctions Routes
+# Oracle Functions Routes
 
 Routes have a many-to-one mapping to an [app](apps.md).
 
-A good practice to get the best performance on your IronFunctions API is define
+A good practice to get the best performance on your Oracle Functions API is define
 the required memory for each function.
 
 ## Route level configuration
@@ -26,9 +26,9 @@ Note: Route level configuration overrides app level configuration.
 
 TODO: link to swagger doc on swaggerhub after it's updated.
 
-## Understanding IronFunctions memory management
+## Understanding Oracle Functions memory management
 
-When IronFunctions starts it registers the total available memory in your system
+When Oracle Functions starts it registers the total available memory in your system
 in order to know during its runtime if the system has the required amount of
 free memory to run each function. Every function starts the runner reduces the
 amount of memory used by that function from the available memory register. When
@@ -56,7 +56,7 @@ some container configuration values.
 curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
         "path":"/hello",
-        "image":"iron/hello",
+        "image":"treeder/hello",
         "memory": 100,
         "type": "sync",
         "config": {"APPLOG": "stderr"}

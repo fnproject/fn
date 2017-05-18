@@ -1,6 +1,6 @@
 ## Quick Example for a NodeJS Function (4 minutes)
 
-This example will show you how to test and deploy a Node function to IronFunctions.
+This example will show you how to test and deploy a Node function to Oracle Functions.
 
 ```sh
 # create your func.yaml file
@@ -11,7 +11,7 @@ fn build
 cat hello.payload.json | fn run
 # push it to Docker Hub
 fn push
-# Create a route to this function on IronFunctions
+# Create a route to this function on Oracle Functions
 fn routes create myapp /hello
 ```
 
@@ -24,7 +24,7 @@ Create a [package.json](https://docs.npmjs.com/getting-started/using-a-package.j
 Run:
 
 ```sh
-docker run --rm -v "$PWD":/function -w /function iron/node:dev npm install
+docker run --rm -v "$PWD":/function -w /function funcy/node:dev npm install
 ```
 
 Then everything should work.

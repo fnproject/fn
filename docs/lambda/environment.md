@@ -6,7 +6,7 @@ Lambda and Dockerized Lambda.
 
 ## Request/Response
 
-IronFunctions has sync/async communication with Request/Response workflows.
+Functions has sync/async communication with Request/Response workflows.
 * sync: returns the result as the body of the response
 * async: returns the task id in the body of the response as a json
 
@@ -21,11 +21,11 @@ such assumptions, please rewrite it.
 
 ## nodejs
 
-* node.js version [0.10.42][iron/node]
+* node.js version [0.10.42][funcy/node]
 * ImageMagick version [6.9.3][magickv] and nodejs [wrapper 6.9.3][magickwrapperv]
 * aws-sdk version [2.2.12][awsnodev]
 
-[iron/node]: https://github.com/treeder/dockers/blob/master/node/Dockerfile
+[funcy/node]: https://github.com/treeder/dockers/blob/master/node/Dockerfile
 [magickv]: https://pkgs.alpinelinux.org/package/main/x86_64/imagemagick
 [magickwrapperv]: https://www.npmjs.com/package/imagemagick
 [awsnodev]: https://aws.amazon.com/sdk-for-node-js/
@@ -38,12 +38,12 @@ Payloads MUST be a valid JSON object literal.
 
 * context.fail() does not currently truncate error logs.
 * `context.functionName` is of the form of a docker image, for example
-  `iron/test-function`.
+  `username/test-function`.
 * `context.functionVersion` is always the string `"$LATEST"`.
 * `context.invokedFunctionArn` is not supported. Value is empty string.
 * `context.memoryLimitInMB` does not reflect reality. Value is always `256`.
 * `context.awsRequestId` reflects the environment variable `TASK_ID`. On local
-  runs from `ironcli` this is a UUID. On IronFunctions this is the task ID.
+  runs from `fn` tool this is a UUID. On Functions server this is the task ID.
 * `logGroupName` and `logStreamName` are empty strings.
 * `identity` and `clientContext` are always `null`.
 
@@ -57,7 +57,7 @@ If your handler throws an exception, we only log the error message. There is no
 * CPython [2.7.11][pythonv]
 * boto3 (Python AWS SDK) [1.2.3][botov].
 
-[pythonv]: https://hub.docker.com/r/iron/python/tags/
+[pythonv]: https://hub.docker.com/r/funcy/python/tags/
 [botov]: https://github.com/boto/boto3/releases/tag/1.2.3
 
 ### Event
@@ -68,11 +68,11 @@ literal.
 ### Context object
 
 * `context.functionName` is of the form of a docker image, for example
-  `iron/test-function`.
+  `username/test-function`.
 * `context.functionVersion` is always the string `"$LATEST"`.
 * `context.invokedFunctionArn` is `None`.
 * `context.awsRequestId` reflects the environment variable `TASK_ID` which is
-  set to the task ID on IronFunctions. If TASK_ID is empty, a new UUID is used.
+  set to the task ID on Functions. If TASK_ID is empty, a new UUID is used.
 * `logGroupName`, `logStreamName`, `identity` and `clientContext` are `None`.
 
 ### Exceptions
@@ -84,7 +84,7 @@ a JSON object with trace information.
 
 * OpenJDK Java Runtime [1.8.0][javav]
 
-[javav]: https://hub.docker.com/r/iron/java/tags/
+[javav]: https://hub.docker.com/r/funcy/java/tags/
 
 The Java8 runtime is significantly lacking at this piont and we **do not
 recommend** using it.
@@ -163,8 +163,8 @@ to CloudWatch are not supported.
 ### Context object
 
 * `context.getFunctionName()` returns a String of the form of a docker image,
-  for example `iron/test-function`.
+  for example `username/test-function`.
 * `context.getFunctionVersion()` is always the string `"$LATEST"`.
 * `context.getAwsRequestId()` reflects the environment variable `TASK_ID` which is
-  set to the task ID on IronFunctions. If TASK_ID is empty, a new UUID is used.
+  set to the task ID on Functions. If TASK_ID is empty, a new UUID is used.
 * `getInvokedFunctionArn()`, `getLogGroupName()`, `getLogStreamName()`, `getIdentity()`, `getClientContext()`, `getLogger()` return `null`.

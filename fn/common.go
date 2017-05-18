@@ -118,22 +118,22 @@ func exists(name string) bool {
 }
 
 var acceptableFnRuntimes = map[string]string{
-	"elixir":           "iron/elixir",
-	"erlang":           "iron/erlang",
-	"gcc":              "iron/gcc",
-	"go":               "iron/go",
-	"java":             "iron/java",
-	"leiningen":        "iron/leiningen",
-	"mono":             "iron/mono",
-	"node":             "iron/node",
-	"perl":             "iron/perl",
-	"php":              "iron/php",
-	"python":           "iron/python:2",
-	"ruby":             "iron/ruby",
-	"scala":            "iron/scala",
+	"elixir":           "funcy/elixir",
+	"erlang":           "funcy/erlang",
+	"gcc":              "funcy/gcc",
+	"go":               "funcy/go",
+	"java":             "funcy/java",
+	"leiningen":        "funcy/leiningen",
+	"mono":             "funcy/mono",
+	"node":             "funcy/node",
+	"perl":             "funcy/perl",
+	"php":              "funcy/php",
+	"python":           "funcy/python:2",
+	"ruby":             "funcy/ruby",
+	"scala":            "funcy/scala",
 	"rust":             "corey/rust-alpine",
 	"dotnet":           "microsoft/dotnet:runtime",
-	"lambda-nodejs4.3": "iron/functions-lambda:nodejs4.3",
+	"lambda-nodejs4.3": "funcy/functions-lambda:nodejs4.3",
 }
 
 const tplDockerfile = `FROM {{ .BaseImage }}

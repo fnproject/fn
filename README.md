@@ -1,19 +1,19 @@
-![IronFunctions](docs/assets/logo-black-400w.png)
+# NONAME... :(
 
 [![CircleCI](https://circleci.com/gh/treeder/functions.svg?style=svg)](https://circleci.com/gh/treeder/functions)
 [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions)
 
-Welcome to IronFunctions! The open source serverless platform.
+Welcome to Oracle Functions! The open source serverless platform.
 
-## What is IronFunctions?
+## What is Oracle Functions?
 
-IronFunctions is an open source serverless platform, or as we like to refer to it, Functions as a
+Oracle Functions is an open source serverless platform, or as we like to refer to it, Functions as a
 Service (FaaS) platform that you can run anywhere.
 
 * Write once
   * [Any language](docs/faq.md#which-languages-are-supported)
   * [AWS Lambda format supported](docs/lambda/README.md)
-* [Run anywhere](docs/faq.md#where-can-i-run-ironfunctions)
+* [Run anywhere](docs/faq.md#where-can-i-run-functions)
   * Public, private and hybrid cloud
   * [Import functions directly from Lambda](docs/lambda/import.md) and run them wherever you want
 * Easy to use [for developers](docs/README.md#for-developers)
@@ -34,12 +34,12 @@ The main benefits that most people refer to are on the developer side and they i
 * Pay by the milliseconds your code is executing -- unlike a typical application that runs 24/7, and you're paying
   24/7, functions only run when needed
 
-Since you'll be running IronFunctions yourself, the paying part may not apply, but it does apply to
+Since you'll be running Oracle Functions yourself, the paying part may not apply, but it does apply to
 cost savings on your infrastructure bills as you'll read below.
 
 ### Benefits for operators
 
-If you will be operating IronFunctions (the person who has to manage the servers behind the serverless),
+If you will be operating Oracle Functions (the person who has to manage the servers behind the serverless),
 then the benefits are different, but related.
 
 * Extremely efficient use of resources
@@ -50,18 +50,15 @@ then the benefits are different, but related.
   * Single system for code written in any language or any technology
   * Single system to monitor
   * Scaling is the same for all functions, you don't scale each app independently
-  * Scaling is simply adding more IronFunctions nodes
+  * Scaling is simply adding more Oracle Functions nodes
 
-There is a lot more reading you can do on the topic, just search for ["what is serverless"](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=what%20is%20serverless)
-and you'll find plenty of information. We have pretty thorough post on the Iron.io blog called
-[What is Serverless Computing and Why is it Important](https://www.iron.io/what-is-serverless-computing/).
+There is a lot more reading you can do on the topic, just search for 
+["what is serverless"](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=what%20is%20serverless)
+and you'll find plenty of information.
 
 ## Join Our Community
 
-Join our Slack community to get help and give feedback.
-
-[![Slack Status](https://open-iron.herokuapp.com/badge.svg)](
-get.iron.io/open-slack)
+TODO: Slack or Discord community. 
 
 ## Quickstart
 
@@ -69,12 +66,12 @@ This guide will get you up and running in a few minutes.
 
 ### Prequisites
 
-* Docker 1.12 or later installed and running
+* Docker 17.05 or later installed and running
 * Logged into Docker Hub (`docker login`)
 
-### Run IronFunctions
+### Run Oracle Functions
 
-To get started quickly with IronFunctions, just fire up an `treeder/functions` container:
+To get started quickly with Oracle Functions, just fire up a `treeder/functions` container:
 
 ```sh
 docker run --rm -it --name functions -v ${PWD}/data:/app/data -v /var/run/docker.sock:/var/run/docker.sock -p 8080:8080 treeder/functions
@@ -82,12 +79,12 @@ docker run --rm -it --name functions -v ${PWD}/data:/app/data -v /var/run/docker
 
 *where ${PWD}/data is the directory where the functions application data files will be stored*
 
-This will start IronFunctions in single server mode, using an embedded database and message queue. You can find all the
+This will start Oracle Functions in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
 
 ### CLI tool
 
-Install the IronFunctions CLI tool:
+Install the Oracle Functions CLI tool:
 
 ```sh
 curl -LSs https://goo.gl/KKDFGn | sh
@@ -155,7 +152,7 @@ write your functions in AWS's [Lambda format](docs/lambda/README.md).
 
 ## Usage
 
-This is a more detailed explanation of the main commands you'll use in IronFunctions as a developer.
+This is a more detailed explanation of the main commands you'll use in Oracle Functions as a developer.
 
 ### Create an Application
 
@@ -180,12 +177,12 @@ Now that we have an app, we can route endpoints to functions.
 ### Add a Route
 
 A route is a way to define a path in your application that maps to a function. In this example, we'll map
-`/hello` to a simple `Hello World!` function called `iron/hello` which is a function we already made that you
+`/hello` to a simple `Hello World!` function called `treeder/hello` which is a function we already made that you
 can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello/go).
 You can read more about [writing your own functions here](docs/writing.md).
 
 ```sh
-fn routes create myapp /hello -i iron/hello
+fn routes create myapp /hello -i treeder/hello
 ```
 
 Or using cURL:
@@ -194,7 +191,7 @@ Or using cURL:
 curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
         "path":"/hello",
-        "image":"iron/hello"
+        "image":"treeder/hello"
     }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
@@ -240,7 +237,7 @@ You should see it say `Hello Johnny!` now instead of `Hello World!`.
 
 ### Add an asynchronous function
 
-IronFunctions supports synchronous function calls like we just tried above, and asynchronous for background processing.
+Oracle Functions supports synchronous function calls like we just tried above, and asynchronous for background processing.
 
 Asynchronous function calls are great for tasks that are CPU heavy or take more than a few seconds to complete.
 For instance, image processing, video processing, data processing, ETL, etc.
@@ -256,7 +253,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
         "type": "async",
         "path":"/hello-async",
-        "image":"iron/hello"
+        "image":"treeder/hello"
     }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
@@ -284,7 +281,7 @@ Read more on [logging](docs/logging.md).
 ## Functions UI
 
 ```sh
-docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" iron/functions-ui
+docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" treeder/functions-ui
 ```
 
 For more information, see: https://github.com/treeder/functions-ui
@@ -319,11 +316,11 @@ These are the high level roadmap goals. See [milestones](https://github.com/tree
 
 You can get community support via:
 
-* [Stack Overflow](http://stackoverflow.com/questions/tagged/ironfunctions)
+* [Stack Overflow](http://stackoverflow.com/questions/tagged/functions)
 * [Slack](http://get.iron.io/open-slack)
 
 You can get commercial support by contacting [Iron.io](https://iron.io/contact)
 
-## Want to contribute to IronFunctions?
+## Want to contribute to Oracle Functions?
 
 See [contributing](CONTRIBUTING.md).

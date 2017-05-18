@@ -1,4 +1,4 @@
-FROM iron/go
+FROM alpine
 
 ADD func .
 

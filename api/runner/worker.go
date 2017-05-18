@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 	"gitlab.oracledx.com/odx/functions/api/runner/protocol"
 	"gitlab.oracledx.com/odx/functions/api/runner/task"
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
 )
 
 // hot functions - theory of operation
@@ -61,7 +61,6 @@ import (
 //                                           Terminate
 //                                           (internal clock)
 
-
 // RunTask helps sending a task.Request into the common concurrency stream.
 // Refer to StartWorkers() to understand what this is about.
 func RunTask(tasks chan task.Request, ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
@@ -73,7 +72,7 @@ func RunTask(tasks chan task.Request, ctx context.Context, cfg *task.Config) (dr
 }
 
 // StartWorkers operates the common concurrency stream, ie, it will process all
-// IronFunctions tasks, either sync or async. In the process, it also dispatches
+// functions tasks, either sync or async. In the process, it also dispatches
 // the workload to either regular or hot functions.
 func StartWorkers(ctx context.Context, rnr *Runner, tasks <-chan task.Request) {
 	var wg sync.WaitGroup
@@ -262,13 +261,13 @@ func (hc *htfn) serve(ctx context.Context) {
 	var wg sync.WaitGroup
 	cfg := *hc.cfg
 	logger := logrus.WithFields(logrus.Fields{
-				"app":                cfg.AppName,
-				"route":              cfg.Path,
-				"image":              cfg.Image,
-				"memory":             cfg.Memory,
-				"format":             cfg.Format,
-				"max_concurrency":    cfg.MaxConcurrency,
-				"idle_timeout":       cfg.IdleTimeout,
+		"app":             cfg.AppName,
+		"route":           cfg.Path,
+		"image":           cfg.Image,
+		"memory":          cfg.Memory,
+		"format":          cfg.Format,
+		"max_concurrency": cfg.MaxConcurrency,
+		"idle_timeout":    cfg.IdleTimeout,
 	})
 
 	wg.Add(1)

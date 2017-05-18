@@ -2,4 +2,4 @@
 set -ex
 
 # build image
-docker build -t iron/func-echo .
+docker build -t username/func-echo .

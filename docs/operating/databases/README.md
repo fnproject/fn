@@ -20,7 +20,7 @@ the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e DB_U
 
 URL: `postgres://user123:pass456@ec2-117-21-174-214.compute-1.amazonaws.com:6212/db982398`
 
-Use a PostgreSQL database. If you're using IronFunctions in production, you should probably start here.
+Use a PostgreSQL database. If you're using Functions in production, you should probably start here.
 
 [More on PostgreSQL](postgres.md)
 
