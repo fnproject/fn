@@ -1,16 +1,19 @@
 # Using rust with functions
 
-The easiest way to create a iron function in rust is via ***cargo*** and ***fn***.
+The easiest way to create a function in rust is via ***cargo*** and ***fn***.
 
 ## Prerequisites
+
 First create an epty rust project as follows:
+
 ```bash
 cargo init --name func --bin
 ```
 
-Make sure the project name is ***func*** and is of type ***bin***. Now just edit your code, once done you can create an iron function.
+Make sure the project name is ***func*** and is of type ***bin***. Now just edit your code, once done you can create a function.
 
-## Creating an IronFunction
+## Creating a function
+
 Simply run
 
 ```bash

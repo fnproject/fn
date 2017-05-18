@@ -1,7 +1,7 @@
-# IronFunctions LoadBalancer
+# Oracle Functions LoadBalancer
 
-## Loadbalancing several IronFunctions
-You can run multiple IronFunctions instances and balance the load amongst them using `fnlb` as follows:
+## Loadbalancing several Oracle Functions
+You can run multiple Oracle Functions instances and balance the load amongst them using `fnlb` as follows:
 
 ```sh
 fnlb --listen <address-for-incoming> --nodes <node1>,<node2>,<node3>

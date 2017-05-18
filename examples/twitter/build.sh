@@ -8,5 +8,5 @@ FUNCPKG=$(pwd | sed "s|$GOPATH/src/||")
 docker run --rm -v "$PWD":/go/src/$FUNCPKG -w /go/src/$FUNCPKG glide up
 
 # build image
-docker run --rm -v "$PWD":/go/src/$FUNCPKG -w /go/src/$FUNCPKG iron/go:dev go build -o func
-docker build -t iron/func-twitter .
+docker run --rm -v "$PWD":/go/src/$FUNCPKG -w /go/src/$FUNCPKG funcy/go:dev go build -o func
+docker build -t username/func-twitter .

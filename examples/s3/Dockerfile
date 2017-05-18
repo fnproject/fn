@@ -1,4 +1,4 @@
-FROM iron/lambda-nodejs
+FROM username/lambda-nodejs
 
 ADD example.js ./example.js
 

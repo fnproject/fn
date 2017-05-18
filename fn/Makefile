@@ -6,8 +6,8 @@ build:
 
 docker: vendor
 	GOOS=linux go build -o fn
-	docker build -t iron/fn .
-	docker push iron/fn
+	docker build -t treeder/fn .
+	docker push treeder/fn
 
 vendor:
 	dep ensure

@@ -58,10 +58,10 @@ Note: Route level configuration overrides app level configuration.
 Using `fn`:
 
 ```sh
-fn routes create myapp /path --config k1=v1 --config k2=v2 --image iron/hello
+fn routes create myapp /path --config k1=v1 --config k2=v2 --image treeder/hello
 ```
 
-Or using a cURL:
+Or using cURL:
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d '{
@@ -80,7 +80,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ```json
 {
     "path": "/hello",
-    "image": "iron/hello",
+    "image": "treeder/hello",
     "type": "sync",
     "memory": 128,
     "config": {
@@ -150,4 +150,4 @@ This properties are only used if the function is in `hot function` mode
 
 #### max_concurrency (string)
 
-This property defines the maximum amount of concurrent hot functions instances the function should have (per IronFunction node).
+This property defines the maximum amount of concurrent hot functions instances the function should have (per Oracle Functions node).

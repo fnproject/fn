@@ -83,16 +83,16 @@ func main() {
 		case "ruby":
 			skipFiles = append(skipFiles, "#{gem_name}.gemspec")
 			deploy = append(deploy, []string{"gem", "build #{gem_name}.gemspec", "gem push #{gem_name}-#{version}.gem"})
-			options["gemName"] = "iron_functions"
-			options["moduleName"] = "IronFunctions"
+			options["gemName"] = "oracle_functions"
+			options["moduleName"] = "OracleFunctions"
 			options["gemVersion"] = version
 			options["gemHomepage"] = "https://github.com/treeder/functions_ruby"
-			options["gemSummary"] = "Ruby gem for IronFunctions"
-			options["gemDescription"] = "Ruby gem for IronFunctions."
-			options["gemAuthorEmail"] = "travis@iron.io"
+			options["gemSummary"] = "Ruby gem for Oracle Functions"
+			options["gemDescription"] = "Ruby gem for Oracle Functions."
+			options["gemAuthorEmail"] = "treeder@gmail.com"
 		case "javascript":
 			short = "js"
-			options["projectName"] = "iron_functions"
+			options["projectName"] = "oracle_functions"
 			deploy = append(deploy, []string{"npm", "publish"})
 		default:
 			continue
@@ -305,7 +305,7 @@ func genSwaggerClient(target string) error {
 		return err
 	}
 
-	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/iron-io/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/iron-io/functions_go", "-A", "functions")
+	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/treeder/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/iron-io/functions_go", "-A", "functions")
 	d, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error running go-swagger: %s\n", d)

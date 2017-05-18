@@ -6,4 +6,4 @@ set -x
 PAYLOAD='{"input": "yoooo"}'
 
 # test it
-echo $PAYLOAD | docker run --rm -i -e TEST=1 iron/func-echo
+echo $PAYLOAD | docker run --rm -i -e TEST=1 username/func-echo

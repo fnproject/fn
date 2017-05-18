@@ -1,17 +1,3 @@
-// Copyright 2016 Iron.io
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package drivers
 
 import (
@@ -108,14 +94,14 @@ func TestDecimate(t *testing.T) {
 
 func TestParseImage(t *testing.T) {
 	cases := map[string][]string{
-		"iron/hello":                                        {"", "iron/hello", "latest"},
-		"iron/hello:v1":                                     {"", "iron/hello", "v1"},
+		"treeder/hello":                                        {"", "treeder/hello", "latest"},
+		"treeder/hello:v1":                                     {"", "treeder/hello", "v1"},
 		"my.registry/hello":                                 {"my.registry", "hello", "latest"},
 		"my.registry/hello:v1":                              {"my.registry", "hello", "v1"},
 		"mongo":                                             {"", "library/mongo", "latest"},
 		"mongo:v1":                                          {"", "library/mongo", "v1"},
-		"quay.com/iron/hello":                               {"quay.com", "iron/hello", "latest"},
-		"quay.com:8080/iron/hello:v2":                       {"quay.com:8080", "iron/hello", "v2"},
+		"quay.com/treeder/hello":                               {"quay.com", "treeder/hello", "latest"},
+		"quay.com:8080/treeder/hello:v2":                       {"quay.com:8080", "treeder/hello", "v2"},
 		"localhost.localdomain:5000/samalba/hipache:latest": {"localhost.localdomain:5000", "samalba/hipache", "latest"},
 	}
 

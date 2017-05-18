@@ -11,19 +11,13 @@ Once it's pushed to a registry, you can use it by referencing it when adding a r
 
 This is the easiest way to build, package and deploy your functions.
 
-
-
-
-
-##
-
 ### Creating an image
 
 The basic Dockerfile for most languages is along these lines:
 
 ```
 # Choose base image
-FROM iron/go
+FROM golang:alpine
 # Set the working directory
 WORKDIR /function
 # Add your binary or code to the working directory
@@ -35,7 +29,7 @@ ENTRYPOINT ["./funcbin"]
 Then you simply build your function:
 
 ```sh
-docker run --rm -v ${pwd}:/go/src/$FUNCPKG -w /go/src/$FUNCPKG iron/go:dev go build -o funcbin
+docker run --rm -v ${pwd}:/go/src/$FUNCPKG -w /go/src/$FUNCPKG funcy/go:dev go build -o funcbin
 docker build -t $USERNAME/myfunction .
 ```
 

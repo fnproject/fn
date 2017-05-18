@@ -1,4 +1,4 @@
 #!/bin/bash
 set -ex
 
-docker build -t iron/func-error .
+docker build -t username/func-error .

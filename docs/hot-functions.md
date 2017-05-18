@@ -1,6 +1,6 @@
 # Hot functions
 
-IronFunctions is built on top of container technologies, for each incoming
+Oracle Functions is built on top of container technologies, for each incoming
 workload, it spins a new container, feed it with the payload and sends the
 answer back to the caller. You can expect an average start time of 300ms per
 container. You may refer to [this blog](https://medium.com/travis-on-docker/the-overhead-of-docker-run-f2f06d47c9f3#.96tj75ugb) post to understand the details better.
@@ -13,7 +13,7 @@ Thus, it means that once you decide to use a hot function, you must be able to
 tell the moment it should reading from standard input to start writing to
 standard output.
 
-Currently, IronFunctions implements a HTTP-like protocol to operate hot
+Currently, Functions implements a HTTP-like protocol to operate hot
 containers, but instead of communication through a TCP/IP port, it uses standard
 input/output.
 
@@ -57,7 +57,7 @@ The next step in the cycle is to do some processing:
 ```
 
 And finally, we return the result with a `Content-Length` header, so
-IronFunctions daemon would know when to stop reading the gotten response.
+Functions daemon would know when to stop reading the gotten response.
 
 ```go
 res := http.Response{
@@ -78,7 +78,7 @@ Rinse and repeat for each incoming workload.
 ## Deploying a hot function
 
 Once your functions is adapted to be handled as hot function, you must tell
-IronFunctions daemon that this function is now ready to be reused across
+Functions daemon that this function is now ready to be reused across
 requests:
 
 ```json

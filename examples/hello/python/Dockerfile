@@ -1,4 +1,4 @@
-FROM iron/python:2
+FROM funcy/python:2
 
 WORKDIR /app
 ADD . /app

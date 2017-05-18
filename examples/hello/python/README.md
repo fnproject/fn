@@ -1,6 +1,6 @@
 ## Quick Example for a Python Function (4 minutes)
 
-This example will show you how to test and deploy Go (Golang) code to IronFunctions.
+This example will show you how to test and deploy Go (Golang) code to Oracle Functions.
 
 ### 1. Prepare the `func.yaml` file:
 
@@ -11,7 +11,7 @@ name: USERNAME/hello
 version: 0.0.1
 path: /hello
 build:
-- docker run --rm -v "$PWD":/worker -w /worker iron/python:2-dev pip install -t packages -r requirements.txt
+- docker run --rm -v "$PWD":/worker -w /worker funcy/python:2-dev pip install -t packages -r requirements.txt
 ```
 
 The important step here is to ensure you replace `USERNAME` with your Docker Hub account name. Some points of note:
@@ -27,7 +27,7 @@ fn build
 cat hello.payload.json | fn run
 # push it to Docker Hub
 fn push
-# Create a route to this function on IronFunctions
+# Create a route to this function on Oracle Functions
 fn routes create pythonapp /hello
 ```
 

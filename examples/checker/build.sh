@@ -2,4 +2,4 @@
 set -ex
 
 # build image
-docker build -t iron/func-checker .
+docker build -t username/func-checker .

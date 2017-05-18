@@ -1,4 +1,4 @@
-name: iron/functions-testframework
+name: treeder/functions-testframework
 version: 0.0.1
 runtime: go
 entrypoint: ./func

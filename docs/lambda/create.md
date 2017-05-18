@@ -1,8 +1,10 @@
 # Creating Docker images out of Lambda functions
+
 Docker images created by running the `create-function` subcommand on a Lambda function are ready to execute.
 
 You can convert any Lambda function of type nodejs 0.10, python 2.7 and Java 8 into an
-IronFunction compatible Docker Image as follows:
+Oracle Functions compatible Docker Image as follows:
+
 ```bash
 fn lambda create-function <name> <runtime> <handler> <files...>
 ```
@@ -16,7 +18,8 @@ fn lambda create-function <name> <runtime> <handler> <files...>
 * file: the files to be converted, however for java8 only one file of type `jar` is allowed.
 
 e.g:
+
 ```bash
-fn lambda create-function irontest/node-exec:1 nodejs node_exec.handler node_exec.js
+fn lambda create-function test/node-exec:1 nodejs node_exec.handler node_exec.js
 ```
 

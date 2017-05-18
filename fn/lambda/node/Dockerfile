@@ -6,7 +6,7 @@ WORKDIR /function
 RUN apk update && apk --no-cache add imagemagick
 RUN npm install aws-sdk@2.2.32 imagemagick && npm cache clear
 
-# ironcli should forbid this name
+# cli should forbid this name
 ADD bootstrap.js /function/lambda-bootstrap.js
 
 # Run the handler, with a payload in the future.

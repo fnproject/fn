@@ -1,4 +1,4 @@
-# Contributing to IronFunctions
+# Contributing to Oracle Functions
 
 We welcome all contributions!
 
@@ -52,7 +52,7 @@ make test
 make docker-run
 ```
 
-will start IronFunctions inside a Docker container.
+will start Functions inside a Docker container.
 
 ## Tests in Docker
 
@@ -61,4 +61,4 @@ make docker-test
 
 ```
 
-will test IronFunctions inside a Docker container.
+will test Functions inside a Docker container.

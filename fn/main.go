@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	vers "gitlab.oracledx.com/odx/functions/api/version"
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
+	vers "gitlab.oracledx.com/odx/functions/api/version"
 )
 
 var aliases = map[string]cli.Command{
@@ -35,8 +35,8 @@ func newFn() *cli.App {
 	app := cli.NewApp()
 	app.Name = "fn"
 	app.Version = vers.Version
-	app.Authors = []cli.Author{{Name: "iron.io"}}
-	app.Description = "IronFunctions command line tools"
+	app.Authors = []cli.Author{{Name: "Oracle Corporation"}}
+	app.Description = "Oracle Functions command line tools"
 	app.UsageText = `Check the manual at https://github.com/treeder/functions/blob/master/fn/README.md`
 
 	cli.AppHelpTemplate = `{{.Name}} {{.Version}}{{if .Description}}
@@ -47,7 +47,7 @@ USAGE:
    {{if .UsageText}}{{.UsageText}}{{else}}{{.HelpName}} {{if .VisibleFlags}}[global options]{{end}}{{if .Commands}} command [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}{{end}}
 
 ENVIRONMENT VARIABLES:
-   API_URL - IronFunctions remote API address{{if .VisibleCommands}}
+   API_URL - Oracle Functions remote API address{{if .VisibleCommands}}
 
 COMMANDS:{{range .VisibleCategories}}{{if .Name}}
    {{.Name}}:{{end}}{{range .VisibleCommands}}

@@ -6,10 +6,10 @@ Make sure you downloaded and installed [dotnet](https://www.microsoft.com/net/co
 dotnet new
 ```
 
-By default dotnet creates a ```Program.cs``` file with a main method. To make it work with IronFunction's `fn` tool please rename it to ```func.cs```.
-Now change the code as you desire to do whatever magic you need it to do. Once done you can now create an iron function out of it.
+By default dotnet creates a ```Program.cs``` file with a main method. To make it work with Oracle Functions's `fn` tool please rename it to ```func.cs```.
+Now change the code as you desire to do whatever magic you need it to do. Once done you can now create a function out of it.
 
-## Creating an IronFunction
+## Creating an Oracle Functions
 Simply run
 
 ```bash
@@ -31,7 +31,7 @@ fn push
 
 This will create a docker image and push the image to docker.
 
-## Publishing to IronFunctions
+## Publishing to Oracle Functions
 
 ```bash
 fn routes create <app_name> </path>

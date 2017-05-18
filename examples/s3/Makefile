@@ -1,4 +1,4 @@
-IMAGE=iron/lambda-node-aws-example
+IMAGE=username/lambda-node-aws-example
 
 create: Dockerfile
 	docker build -t $(IMAGE) .

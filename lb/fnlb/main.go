@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&fnodes, "nodes", "127.0.0.1:8080", "comma separated list of IronFunction nodes")
+	flag.StringVar(&fnodes, "nodes", "127.0.0.1:8080", "comma separated list of Oracle Functions nodes")
 	flag.StringVar(&flisten, "listen", "0.0.0.0:8081", "listening port for incoming connections")
 	flag.Parse()
 }
