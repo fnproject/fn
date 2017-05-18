@@ -90,9 +90,9 @@ func (r *Route) SetDefaults() {
 		r.Timeout = defaultRouteTimeout
 	}
 
-	//if r.IdleTimeout == 0 {
-	//	r.IdleTimeout = htfnScaleDownTimeout
-	//}
+	if r.IdleTimeout == 0 {
+		r.IdleTimeout = htfnScaleDownTimeout
+	}
 }
 
 // Validate validates field values, skipping zeroed fields if skipZero is true.
