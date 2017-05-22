@@ -24,9 +24,15 @@
   name = "github.com/dgrijalva/jwt-go"
 
 [[dependencies]]
-  branch = "master"
   name = "github.com/moby/moby"
+  branch = "master"
 
+[[dependencies]]
+  branch = "master"
+  name = "github.com/heroku/docker-registry-client"
+  packages = ["registry"]
+  source="https://github.com/treeder/docker-registry-client.git"
+ 
 [[dependencies]]
   branch = "master"
   name = "github.com/fsouza/go-dockerclient"

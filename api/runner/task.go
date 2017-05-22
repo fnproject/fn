@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/moby/moby/cli/config/configfile"
+	"github.com/docker/cli/cli/config/configfile"
 	docker "github.com/fsouza/go-dockerclient"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
 	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 var registries dockerRegistries

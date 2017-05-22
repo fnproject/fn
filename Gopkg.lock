@@ -1,10 +1,10 @@
-memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
+memo = "05972e9adcb87466798c8c8931eddc2c32e96dfc82e1f8713e583c122dd76287"
 
 [[projects]]
   branch = "master"
   name = "code.cloudfoundry.org/bytefmt"
   packages = ["."]
-  revision = "a75017a21993c80187c7fa4f3c1ec22ddd6a8cd5"
+  revision = "f4415fafc5619dd75599a54a7c91fb3948ad58bd"
 
 [[projects]]
   branch = "master"
@@ -15,8 +15,8 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 [[projects]]
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
-  revision = "fff283ad5116362ca252298cfc9b95828956d85d"
-  version = "v0.3.8"
+  revision = "706941bedd2d9b3a8c88e4022bd0078101f233f2"
+  version = "v0.4.1"
 
 [[projects]]
   branch = "master"
@@ -40,7 +40,7 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/Sirupsen/logrus"
   packages = [".","hooks/syslog"]
-  revision = "10f801ebc38b33738c9d17d50860f484a0988ff5"
+  revision = "5e5dc898656f695e2a086b8e12559febbfc01562"
 
 [[projects]]
   branch = "master"
@@ -51,14 +51,14 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 [[projects]]
   name = "github.com/asaskevich/govalidator"
   packages = ["."]
-  revision = "7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877"
-  version = "v5"
+  revision = "4918b99a7cb949bb295f3c7bbaf24b577d806e35"
+  version = "v6"
 
 [[projects]]
   branch = "master"
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/lambda","service/sts"]
-  revision = "baba9e786eae5ba978f2007f8e718557b29157c8"
+  revision = "31484500fe77b88dbe197c6348358ed275aed5d7"
 
 [[projects]]
   branch = "master"
@@ -100,7 +100,7 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/dghubble/go-twitter"
   packages = ["twitter"]
-  revision = "08b242f2f25e3108b9dec5a361d1021990018e7c"
+  revision = "d7141a7cba567120d53d0a136fce068864b43f8c"
 
 [[projects]]
   name = "github.com/dghubble/oauth1"
@@ -118,7 +118,13 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/dgrijalva/jwt-go"
   packages = ["."]
-  revision = "2268707a8f0843315e2004ee4f1d021dc08baedf"
+  revision = "6c8dedd55f8a2e41f605de6d5d66e51ed1f299fc"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/docker/cli"
+  packages = ["cli/config/configfile"]
+  revision = "883d28cfce55c2eac049b724b2cedcae2ad4bd0c"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -160,13 +166,13 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/fsouza/go-dockerclient"
   packages = ["."]
-  revision = "e24e809e9db395f1e3c85af1b88f2002023610f5"
+  revision = "c933ed18bef34ec2955de03de8ef9a3bb996e3df"
 
 [[projects]]
   name = "github.com/garyburd/redigo"
   packages = ["internal","redis"]
-  revision = "8873b2f1995f59d4bcdd2b0dc9858e2cb9bf0c13"
-  version = "v1.0.0"
+  revision = "433969511232c397de61b1442f9fd49ec06ae9ba"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/giantswarm/semver-bump"
@@ -183,20 +189,20 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 [[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
-  revision = "e7fea39b01aea8d5671f6858f0532f56e8bff3a5"
-  version = "v1.27.0"
+  revision = "36da989cdc560b989d8f195aec46214d33665d20"
+  version = "v1.27.2"
 
 [[projects]]
   branch = "master"
   name = "github.com/go-openapi/analysis"
   packages = ["."]
-  revision = "d5a75b7d751ca3f11ad5d93cfe97405f2c3f6a47"
+  revision = "0473cb67199f68b8b7d90e641afd9e79ad36b851"
 
 [[projects]]
   branch = "master"
   name = "github.com/go-openapi/errors"
   packages = ["."]
-  revision = "fc3f73a224499b047eda7191e5d22e1e9631e86f"
+  revision = "03cfca65330da08a5a440053faf994a3c682b5bf"
 
 [[projects]]
   branch = "master"
@@ -214,13 +220,13 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/go-openapi/loads"
   packages = [".","fmts"]
-  revision = "6bb6486231e079ea125c0f39994ed3d0c53399ed"
+  revision = "a80dea3052f00e5f032e860dd7355cd0cc67e24d"
 
 [[projects]]
   branch = "master"
   name = "github.com/go-openapi/runtime"
   packages = [".","client"]
-  revision = "e66a4c4406028a04ddafd6002c378ffd3db7e52b"
+  revision = "2e9e988df6c290425033bacd425e008950c96be6"
 
 [[projects]]
   branch = "master"
@@ -238,7 +244,7 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
-  revision = "aa30237cf993e01e1a1e467eead45d1ce5ad155e"
+  revision = "e43299b4afa7bc7f22e5e82e3d48607230e4c177"
 
 [[projects]]
   branch = "master"
@@ -249,8 +255,8 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 [[projects]]
   name = "github.com/go-resty/resty"
   packages = ["."]
-  revision = "c45c7bcc0000d1a9ac1b119b2e6043c6540eedea"
-  version = "v0.11"
+  revision = "7a8134d8718193eb857994adee49d73a302e7718"
+  version = "v0.12"
 
 [[projects]]
   name = "github.com/go-sql-driver/mysql"
@@ -261,14 +267,14 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 [[projects]]
   branch = "master"
   name = "github.com/golang/groupcache"
-  packages = ["singleflight"]
-  revision = "72d04f9fcdec7d3821820cc4a6f150eae553639a"
+  packages = ["consistenthash","singleflight"]
+  revision = "b710c8433bd175204919eb38776e944233235d03"
 
 [[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "2bba0603135d7d7f5cb73b2125beeda19c09f4ef"
+  revision = "fec3b39b059c0f88fa6b20f5ed012b1aa203a8b4"
 
 [[projects]]
   branch = "master"
@@ -291,8 +297,8 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 [[projects]]
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "392c28fe23e1c45ddba891b0320b3b5df220beea"
-  version = "v1.3.0"
+  revision = "bcd8bc72b08df0f70df986b97f95590779502d31"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
@@ -304,13 +310,14 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
-  revision = "630949a3c5fa3c613328e1b8256052cbc2327c9b"
+  revision = "392dba7d905ed5d04a5794ba89f558b27e2ba1ca"
 
 [[projects]]
   branch = "master"
   name = "github.com/heroku/docker-registry-client"
   packages = ["registry"]
-  revision = "95467b6cacee2a06f112a3cf7e47a70fad6000cf"
+  revision = "296b6e48681ccdb6e4f22a489afdab8aca704697"
+  source = "https://github.com/treeder/docker-registry-client.git"
 
 [[projects]]
   branch = "master"
@@ -358,7 +365,7 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/mailru/easyjson"
   packages = ["buffer","jlexer","jwriter"]
-  revision = "2af9a745a611440bab0528e5ac19b2805a1c50eb"
+  revision = "dffba8d13bbd998df17d8557570cdea0624b9d1d"
 
 [[projects]]
   branch = "master"
@@ -376,7 +383,19 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "53818660ed4955e899c0bcafa97299a388bd7c8e"
+  revision = "cc8532a8e9a55ea36402aa21efdf403a60d34096"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/moby/moby"
+  packages = ["pkg/jsonmessage"]
+  revision = "5648a1ada223d692615072af26d0ce6e23415006"
+
+[[projects]]
+  name = "github.com/opencontainers/go-digest"
+  packages = ["."]
+  revision = "aa2ec055abd10d26d539eb630a92241b781ce4bc"
+  version = "v1.0.0-rc0"
 
 [[projects]]
   branch = "master"
@@ -436,13 +455,13 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "github.com/spf13/jwalterweatherman"
   packages = ["."]
-  revision = "fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66"
+  revision = "8f07c835e5cc1450c082fe3a439cf87b0cbb2d99"
 
 [[projects]]
   branch = "master"
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "e453343e6260b4a3a89f1f0e10a2fbb07f8d9750"
+  revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
 
 [[projects]]
   branch = "master"
@@ -466,25 +485,25 @@ memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish"]
-  revision = "cbc3d0884eac986df6e78a039b8792e869bff863"
+  revision = "6c586e17d90a7d08bbbc4069984180dce3b04117"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","idna","proxy","publicsuffix"]
-  revision = "5602c733f70afc6dcec6766be0d5034d4c4f14de"
+  revision = "0d772244c73d752bbe0c729ff997a09d6a6fdaf1"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "f3918c30c5c2cb527c0b071a27c35120a6c0719a"
+  revision = "dbc2be9168a660ef302e04b6ff6406de6f967473"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "f4b4367115ec2de254587813edaa901bc1c723a8"
+  revision = "19e51611da83d6be54ddafce4a4af510cb3e9ea4"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v8"
