@@ -418,9 +418,12 @@ var dashStr = `<!DOCTYPE html>
 <title>lb dash</title>
 
 <!-- 1. Add these JavaScript inclusions in the head of your page -->
-<script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script type="text/javascript" src="https://code.jquery.com/jquery-1.10.1.js"></script>
 <script type="text/javascript" src="https://code.highcharts.com/stock/highstock.js"></script>
 <script type="text/javascript" src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+<script>
+%s
+</script>
 
 <!-- 2. Add the JavaScript to initialize the chart on document ready -->
 </head>
@@ -428,10 +431,6 @@ var dashStr = `<!DOCTYPE html>
 
 <!-- 3. Add the container -->
 <div id="container" style="height: 400px; min-width: 310px"></div>
-
-<script>
-%s
-</script>
 
 </body>
 </html>
