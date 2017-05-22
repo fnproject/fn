@@ -10,7 +10,6 @@ It will then take a best guess for what the entrypoint will be based on the lang
 */
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -20,44 +19,22 @@ import (
 	"github.com/urfave/cli"
 )
 
-func startCmd() cli.Command {
+func updateCmd() cli.Command {
 	return cli.Command{
-		Name:   "start",
-		Usage:  "start a functions server",
-		Action: start,
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "log-level",
-				Usage: "--log-level DEBUG to enable debugging",
-			},
-		},
+		Name:   "update",
+		Usage:  "pulls latest functions server",
+		Action: update,
 	}
 }
 
-func start(c *cli.Context) error {
-	denvs := []string{}
-	if c.String("log-level") != "" {
-		denvs = append(denvs, "GIN_MODE="+c.String("log-level"))
+func update(c *cli.Context) error {
+	args := []string{"pull",
+		"treeder/functions:latest",
 	}
-	// docker run --rm -it --name functions -v ${PWD}/data:/app/data -v /var/run/docker.sock:/var/run/docker.sock -p 8080:8080 treeder/functions
-	wd, err := os.Getwd()
-	if err != nil {
-		logrus.WithError(err).Fatalln("Getwd failed")
-	}
-	args := []string{"run", "--rm", "-i",
-		"--name", "functions",
-		"-v", fmt.Sprintf("%s/data:/app/data", wd),
-		"-v", "/var/run/docker.sock:/var/run/docker.sock",
-		"-p", "8080:8080",
-	}
-	for _, v := range denvs {
-		args = append(args, "-e", v)
-	}
-	args = append(args, "treeder/functions")
 	cmd := exec.Command("docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		logrus.WithError(err).Fatalln("starting command failed")
 	}
@@ -69,7 +46,6 @@ func start(c *cli.Context) error {
 	// catch ctrl-c and kill
 	sigC := make(chan os.Signal, 2)
 	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
-
 	select {
 	case <-sigC:
 		logrus.Infoln("interrupt caught, exiting")

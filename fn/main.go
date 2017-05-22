@@ -71,6 +71,7 @@ GLOBAL OPTIONS:
 	}
 	app.Commands = []cli.Command{
 		startCmd(),
+		updateCmd(),
 		initFn(),
 		apps(),
 		routes(),
