@@ -47,15 +47,16 @@ function requestData() {
         console.log("done", seriesMapper[node])
         series = chart.series[seriesMapper[node]]
         //series = chart.series[0]
-        shift = series.data.length > 20;
+        // XXX (reed): hack
+        shift = series.data.length > 20 && i == jason["stats"].length + 1;
 
 
         timestamp = Date.parse(stat["timestamp"]);
         console.log(series.data.length, timestamp, stat["tp"])
         series.addPoint([timestamp, stat["tp"]], true, shift);
         //series.addPoint({
-          //name: node,
-          //data: {x: timestamp, y: stat["tp"]}
+        //name: node,
+        //data: {x: timestamp, y: stat["tp"]}
         //}, true, shift);
       }
 
@@ -96,6 +97,19 @@ $(document).ready(function() {
     },
     exporting: {
       enabled: false
+    },
+    xAxis: {
+      type: 'datetime',
+      tickPixelInterval: 150,
+      maxZoom: 20 * 1000
+    },
+    yAxis: {
+      minPadding: 0.2,
+      maxPadding: 0.2,
+      title: {
+        text: 'Value',
+        margin: 80
+      }
     },
     series: []
   });
