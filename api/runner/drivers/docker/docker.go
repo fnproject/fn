@@ -60,7 +60,8 @@ type Auther interface {
 
 type runResult struct {
 	error
-	StatusValue string
+	status string
+	start  time.Time
 }
 
 func (r *runResult) Error() string {
@@ -70,8 +71,9 @@ func (r *runResult) Error() string {
 	return r.error.Error()
 }
 
-func (r *runResult) Status() string    { return r.StatusValue }
-func (r *runResult) UserVisible() bool { return common.IsUserVisibleError(r.error) }
+func (r *runResult) Status() string       { return r.status }
+func (r *runResult) UserVisible() bool    { return common.IsUserVisibleError(r.error) }
+func (r *runResult) StartTime() time.Time { return r.start }
 
 type DockerDriver struct {
 	conf     drivers.Config
@@ -409,6 +411,8 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
+	start := time.Now()
+
 	err = drv.startTask(ctx, container)
 	if err != nil {
 		return nil, err
@@ -429,8 +433,9 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 
 	status, err := drv.status(ctx, container)
 	return &runResult{
-		StatusValue: status,
-		error:       err,
+		start:  start,
+		status: status,
+		error:  err,
 	}, nil
 }
 

@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"strconv"
 	"sync"
 	"time"
 
@@ -36,12 +35,13 @@ type chProxy struct {
 	transport  http.RoundTripper
 }
 
-// TODO should prob track per f(x) per node
 type stat struct {
 	timestamp time.Time
 	latency   time.Duration
 	node      string
 	code      int
+	fx        string
+	wait      time.Duration
 }
 
 func (ch *chProxy) addStat(s *stat) {
@@ -60,7 +60,6 @@ func (ch *chProxy) getStats() []*stat {
 	ch.stats = ch.stats[:0]
 	ch.statsMu.Unlock()
 
-	// XXX (reed): down sample to per second
 	return stats
 }
 
@@ -95,6 +94,7 @@ func newProxy(conf config) *chProxy {
 	director := func(req *http.Request) {
 		target, err := ch.ch.get(req.URL.Path)
 		if err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{"url": req.URL.Path}).Error("getting index failed")
 			target = "error"
 		}
 
@@ -109,7 +109,6 @@ func newProxy(conf config) *chProxy {
 	}
 
 	for _, n := range conf.Nodes {
-		// XXX (reed): need to health check these
 		ch.ch.add(n)
 	}
 	go ch.healthcheck()
@@ -123,6 +122,7 @@ type bufferPool struct {
 func newBufferPool() httputil.BufferPool {
 	return &bufferPool{
 		bufs: &sync.Pool{
+			// 32KB is what the proxy would've used without recycling them
 			New: func() interface{} { return make([]byte, 32*1024) },
 		},
 	}
@@ -132,9 +132,11 @@ func (b *bufferPool) Get() []byte  { return b.bufs.Get().([]byte) }
 func (b *bufferPool) Put(x []byte) { b.bufs.Put(x) }
 
 func (ch *chProxy) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL.Host == "error" {
-		io.Copy(ioutil.Discard, req.Body)
-		req.Body.Close()
+	if req != nil && req.URL.Host == "error" {
+		if req.Body != nil {
+			io.Copy(ioutil.Discard, req.Body)
+			req.Body.Close()
+		}
 		// XXX (reed): if we let the proxy code write the response it will be body-less. ok?
 		return nil, ErrNoNodes
 	}
@@ -148,9 +150,10 @@ func (ch *chProxy) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (ch *chProxy) intercept(req *http.Request, resp *http.Response, latency time.Duration) {
-	// XXX (reed): give f(x) nodes ability to send back wait time in response
-	// XXX (reed): we should prob clear this from user response
-	load, _ := strconv.Atoi(resp.Header.Get("XXX-FXLB-WAIT"))
+	load, _ := time.ParseDuration(resp.Header.Get("XXX-FXLB-WAIT"))
+	// XXX (reed): we should prob clear this from user response?
+	// resp.Header.Del("XXX-FXLB-WAIT") // don't show this to user
+
 	// XXX (reed): need to validate these prob
 	ch.ch.setLoad(loadKey(req.URL.Host, req.URL.Path), int64(load))
 
@@ -159,7 +162,8 @@ func (ch *chProxy) intercept(req *http.Request, resp *http.Response, latency tim
 		latency:   latency,
 		node:      req.URL.Host,
 		code:      resp.StatusCode,
-		// XXX (reed): function
+		fx:        req.URL.Path,
+		wait:      load,
 	})
 }
 
@@ -167,7 +171,6 @@ func (ch *chProxy) healthcheck() {
 	for range time.Tick(ch.hcInterval) {
 		nodes := ch.ch.list()
 		nodes = append(nodes, ch.dead()...)
-		// XXX (reed): need to figure out elegant adding / removing better
 		for _, n := range nodes {
 			go ch.ping(n)
 		}

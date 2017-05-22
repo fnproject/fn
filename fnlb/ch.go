@@ -25,9 +25,34 @@ type consistentHash struct {
 
 func newCH() *consistentHash {
 	return &consistentHash{
-		rng:  rand.New(rand.NewSource(time.Now().Unix())),
+		rng:  rand.New(&lockedSource{src: rand.NewSource(time.Now().Unix()).(rand.Source64)}),
 		load: make(map[string]*int64),
 	}
+}
+
+type lockedSource struct {
+	lk  sync.Mutex
+	src rand.Source64
+}
+
+func (r *lockedSource) Int63() (n int64) {
+	r.lk.Lock()
+	n = r.src.Int63()
+	r.lk.Unlock()
+	return n
+}
+
+func (r *lockedSource) Uint64() (n uint64) {
+	r.lk.Lock()
+	n = r.src.Uint64()
+	r.lk.Unlock()
+	return n
+}
+
+func (r *lockedSource) Seed(seed int64) {
+	r.lk.Lock()
+	r.src.Seed(seed)
+	r.lk.Unlock()
 }
 
 func (ch *consistentHash) add(newb string) {
@@ -84,12 +109,22 @@ func jumpConsistentHash(key uint64, num_buckets int32) int32 {
 	return int32(b)
 }
 
+// tracks last 10 samples (very fast)
+const DECAY = 0.1
+
+func ewma(old, new int64) int64 {
+	// TODO could 'warm' it up and drop first few samples since we'll have docker pulls / hot starts
+	return int64((float64(new) * DECAY) + (float64(old) * (1 - DECAY)))
+}
+
 func (ch *consistentHash) setLoad(key string, load int64) {
 	ch.loadMu.RLock()
 	l, ok := ch.load[key]
 	ch.loadMu.RUnlock()
 	if ok {
-		atomic.StoreInt64(l, load)
+		// this is a lossy ewma w/ or w/o CAS but if things are moving fast we have plenty of sample
+		prev := atomic.LoadInt64(l)
+		atomic.StoreInt64(l, ewma(prev, load))
 	} else {
 		ch.loadMu.Lock()
 		if _, ok := ch.load[key]; !ok {
@@ -117,50 +152,62 @@ func (ch *consistentHash) besti(key string, i int) (string, error) {
 	}
 
 	f := func(n string) string {
-		var load int64
+		var load time.Duration
 		ch.loadMu.RLock()
 		loadPtr := ch.load[loadKey(n, key)]
 		ch.loadMu.RUnlock()
 		if loadPtr != nil {
-			load = atomic.LoadInt64(loadPtr)
+			load = time.Duration(atomic.LoadInt64(loadPtr))
 		}
 
-		// TODO flesh out these values. should be wait times.
+		const (
+			lowerLat = 500 * time.Millisecond
+			upperLat = 2 * time.Second
+		)
+
+		// TODO flesh out these values.
 		// if we send < 50% of traffic off to other nodes when loaded
 		// then as function scales nodes will get flooded, need to be careful.
 		//
 		// back off loaded node/function combos slightly to spread load
 		// TODO do we need a kind of ref counter as well so as to send functions
 		// to a different node while there's an outstanding call to another?
-		if load < 70 {
+		if load < lowerLat {
 			return n
-		} else if load > 90 {
-			if ch.rng.Intn(100) < 60 {
+		} else if load > upperLat {
+			// really loaded
+			if ch.rng.Intn(100) < 10 { // XXX (reed): 10% could be problematic, should sliding scale prob with log(x) ?
 				return n
 			}
-		} else if load > 70 {
-			if ch.rng.Float64() < 80 {
+		} else {
+			// 10 < x < 40, as load approaches upperLat, x decreases [linearly]
+			x := translate(int64(load), int64(lowerLat), int64(upperLat), 10, 40)
+			if ch.rng.Intn(100) < x {
 				return n
 			}
 		}
-		// otherwise loop until we find a sufficiently unloaded node or a lucky coin flip
+
+		// return invalid node to try next node
 		return ""
 	}
 
-	for _, n := range ch.nodes[i:] {
-		node := f(n)
+	for ; ; i++ {
+		// theoretically this could take infinite time, but practically improbable...
+		node := f(ch.nodes[i])
 		if node != "" {
 			return node, nil
+		} else if i == len(ch.nodes)-1 {
+			i = -1 // reset i to 0
 		}
 	}
 
-	// try the other half of the ring
-	for _, n := range ch.nodes[:i] {
-		node := f(n)
-		if node != "" {
-			return node, nil
-		}
-	}
+	panic("strange things are afoot at the circle k")
+}
 
-	return "", ErrNoNodes
+func translate(val, inFrom, inTo, outFrom, outTo int64) int {
+	outRange := outTo - outFrom
+	inRange := inTo - inFrom
+	inVal := val - inFrom
+	// we want the number to be lower as intensity increases
+	return int(float64(outTo) - (float64(inVal)/float64(inRange))*float64(outRange))
 }

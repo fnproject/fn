@@ -1,29 +1,27 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 )
-
-// TODO: consistent hashing is nice to get a cheap way to place nodes but it
-// doesn't account well for certain functions that may be 'hotter' than others.
-// we should very likely keep a load ordered list and distribute based on that.
-// if we can get some kind of feedback from the f(x) nodes, we can use that.
-// maybe it's good enough to just ch(x) + 1 if ch(x) is marked as "hot"?
 
 // TODO the load balancers all need to have the same list of nodes. gossip?
 // also gossip would handle failure detection instead of elb style. or it can
 // be pluggable and then we can read from where bmc is storing them and use that
 // or some OSS alternative
 
-// TODO when adding nodes we should health check them once before adding them
 // TODO when node goes offline should try to redirect request instead of 5xxing
 
 // TODO we could add some kind of pre-warming call to the functions server where
@@ -39,7 +37,7 @@ func main() {
 	fnodes := flag.String("nodes", "", "comma separated list of IronFunction nodes")
 
 	var conf config
-	flag.IntVar(&conf.Port, "port", 8081, "port to run on")
+	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
 	flag.IntVar(&conf.HealthcheckInterval, "hc-interval", 3, "how often to check f(x) nodes, in seconds")
 	flag.StringVar(&conf.HealthcheckEndpoint, "hc-path", "/version", "endpoint to determine node health")
 	flag.IntVar(&conf.HealthcheckUnhealthy, "hc-unhealthy", 2, "threshold of failed checks to declare node unhealthy")
@@ -50,12 +48,34 @@ func main() {
 
 	ch := newProxy(conf)
 
-	// XXX (reed): safe shutdown
-	fmt.Println(http.ListenAndServe(":8081", ch))
+	err := serve(conf.Listen, ch)
+	if err != nil {
+		logrus.WithError(err).Error("server error")
+	}
+}
+
+func serve(addr string, handler http.Handler) error {
+	server := &http.Server{Addr: addr, Handler: handler}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	defer wg.Wait()
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGQUIT, syscall.SIGINT)
+	go func() {
+		defer wg.Done()
+		for sig := range ch {
+			logrus.WithFields(logrus.Fields{"signal": sig}).Info("received signal")
+			server.Shutdown(context.Background()) // safe shutdown
+			return
+		}
+	}()
+	return server.ListenAndServe()
 }
 
 type config struct {
-	Port                 int      `json:"port"`
+	Listen               string   `json:"port"`
 	Nodes                []string `json:"nodes"`
 	HealthcheckInterval  int      `json:"healthcheck_interval"`
 	HealthcheckEndpoint  string   `json:"healthcheck_endpoint"`
@@ -108,31 +128,38 @@ func (ch *chProxy) statsGet(w http.ResponseWriter, r *http.Request) {
 		Timestamp  time.Time `json:"timestamp"`
 		Throughput int       `json:"tp"`
 		Node       string    `json:"node"`
+		Func       string    `json:"func"`
+		Wait       float64   `json:"wait"` // seconds
 	}
 	var sts []st
 
+	// roll up and calculate throughput per second. idk why i hate myself
 	aggs := make(map[string][]*stat)
 	for _, s := range stats {
-		// roll up and calculate throughput per second. idk why i hate myself
-		if t := aggs[s.node]; len(t) > 0 && t[0].timestamp.Before(s.timestamp.Add(-1*time.Second)) {
+		key := s.node + "/" + s.fx
+		if t := aggs[key]; len(t) > 0 && t[0].timestamp.Before(s.timestamp.Add(-1*time.Second)) {
 			sts = append(sts, st{
 				Timestamp:  t[0].timestamp,
 				Throughput: len(t),
-				Node:       s.node,
+				Node:       t[0].node,
+				Func:       t[0].fx,
+				Wait:       avgWait(t),
 			})
 
-			aggs[s.node] = append(aggs[s.node][:0], s)
+			aggs[key] = append(aggs[key][:0], s)
 		} else {
-			aggs[s.node] = append(aggs[s.node], s)
+			aggs[key] = append(aggs[key], s)
 		}
-
 	}
 
-	for node, t := range aggs {
+	// leftovers
+	for _, t := range aggs {
 		sts = append(sts, st{
 			Timestamp:  t[0].timestamp,
 			Throughput: len(t),
-			Node:       node,
+			Node:       t[0].node,
+			Func:       t[0].fx,
+			Wait:       avgWait(t),
 		})
 	}
 
@@ -141,6 +168,14 @@ func (ch *chProxy) statsGet(w http.ResponseWriter, r *http.Request) {
 	}{
 		Stats: sts,
 	})
+}
+
+func avgWait(stats []*stat) float64 {
+	var sum time.Duration
+	for _, s := range stats {
+		sum += s.wait
+	}
+	return (sum / time.Duration(len(stats))).Seconds()
 }
 
 func (ch *chProxy) addNode(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +255,6 @@ var dashStr = `<!DOCTYPE html>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>lb dash</title>
 
-<!-- 1. Add these JavaScript inclusions in the head of your page -->
 <script type="text/javascript" src="https://code.jquery.com/jquery-1.10.1.js"></script>
 <script type="text/javascript" src="https://code.highcharts.com/stock/highstock.js"></script>
 <script type="text/javascript" src="https://code.highcharts.com/stock/modules/exporting.js"></script>
@@ -228,12 +262,11 @@ var dashStr = `<!DOCTYPE html>
 %s
 </script>
 
-<!-- 2. Add the JavaScript to initialize the chart on document ready -->
 </head>
 <body>
 
-<!-- 3. Add the container -->
-<div id="container" style="height: 400px; min-width: 310px"></div>
+<div id="throughput_chart" style="height: 400px; min-width: 310px"></div>
+<div id="wait_chart" style="height: 400px; min-width: 310px"></div>
 
 </body>
 </html>

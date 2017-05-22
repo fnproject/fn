@@ -52,6 +52,11 @@ type RunResult interface {
 	// Status should return the current status of the task.
 	// Only valid options are {"error", "success", "timeout", "killed", "cancelled"}.
 	Status() string
+
+	// StartTime returns the time just before beginning execution of a task,
+	// for example including the time to pull a container image and doing any
+	// other setup. This should not include a container's execution duration.
+	StartTime() time.Time
 }
 
 // The ContainerTask interface guides task execution across a wide variety of
