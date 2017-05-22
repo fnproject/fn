@@ -1,4 +1,4 @@
-memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
+memo = "01114332a6ce5b71583264fdc63cf899f4ef12030a6febe795a2584189675c23"
 
 [[projects]]
   branch = "master"
@@ -91,6 +91,12 @@ memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
   version = "v0.2.0"
 
 [[projects]]
+  name = "github.com/dchest/siphash"
+  packages = ["."]
+  revision = "42ba037e748c9062a75e0924705c43b893edefcd"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/dghubble/go-twitter"
   packages = ["twitter"]
@@ -121,10 +127,10 @@ memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
   version = "v2.6.1"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/moby/moby"
-  packages = ["api/types","api/types/blkiodev","api/types/container","api/types/filters","api/types/mount","api/types/network","api/types/registry","api/types/strslice","api/types/swarm","api/types/versions","cli/config/configfile","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonlog","pkg/jsonmessage","pkg/longpath","pkg/pools","pkg/promise","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
-  revision = "a9ff628a3c7c55cf016af88f37c4fb6a6029e17a"
+  name = "github.com/docker/docker"
+  packages = ["api/types","api/types/blkiodev","api/types/container","api/types/filters","api/types/mount","api/types/network","api/types/registry","api/types/strslice","api/types/swarm","api/types/versions","opts","pkg/archive","pkg/fileutils","pkg/homedir","pkg/idtools","pkg/ioutils","pkg/jsonlog","pkg/jsonmessage","pkg/longpath","pkg/pools","pkg/promise","pkg/stdcopy","pkg/system","pkg/term","pkg/term/windows"]
+  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
+  version = "v1.13.1"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -255,7 +261,7 @@ memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
 [[projects]]
   branch = "master"
   name = "github.com/golang/groupcache"
-  packages = ["consistenthash","singleflight"]
+  packages = ["singleflight"]
   revision = "72d04f9fcdec7d3821820cc4a6f150eae553639a"
 
 [[projects]]
@@ -371,6 +377,12 @@ memo = "a3207ce7cdc29bfe86acf8832a25e44560f834ea1adff813e43c96de7be53eba"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
   revision = "53818660ed4955e899c0bcafa97299a388bd7c8e"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/moby/moby"
+  packages = ["cli/config/configfile","pkg/jsonmessage"]
+  revision = "a9ff628a3c7c55cf016af88f37c4fb6a6029e17a"
 
 [[projects]]
   name = "github.com/opencontainers/runc"
