@@ -70,6 +70,7 @@ GLOBAL OPTIONS:
 		fmt.Fprintf(os.Stderr, "command not found: %v\n", cmd)
 	}
 	app.Commands = []cli.Command{
+		startCmd(),
 		initFn(),
 		apps(),
 		routes(),
