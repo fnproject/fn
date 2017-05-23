@@ -1,4 +1,4 @@
-memo = "05972e9adcb87466798c8c8931eddc2c32e96dfc82e1f8713e583c122dd76287"
+memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
 
 [[projects]]
   branch = "master"
@@ -266,12 +266,6 @@ memo = "05972e9adcb87466798c8c8931eddc2c32e96dfc82e1f8713e583c122dd76287"
 
 [[projects]]
   branch = "master"
-  name = "github.com/golang/groupcache"
-  packages = ["consistenthash","singleflight"]
-  revision = "b710c8433bd175204919eb38776e944233235d03"
-
-[[projects]]
-  branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
   revision = "fec3b39b059c0f88fa6b20f5ed012b1aa203a8b4"
@@ -389,19 +383,13 @@ memo = "05972e9adcb87466798c8c8931eddc2c32e96dfc82e1f8713e583c122dd76287"
   branch = "master"
   name = "github.com/moby/moby"
   packages = ["pkg/jsonmessage"]
-  revision = "5648a1ada223d692615072af26d0ce6e23415006"
+  revision = "a9ff628a3c7c55cf016af88f37c4fb6a6029e17a"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
   packages = ["."]
   revision = "aa2ec055abd10d26d539eb630a92241b781ce4bc"
   version = "v1.0.0-rc0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/moby/moby"
-  packages = ["cli/config/configfile","pkg/jsonmessage"]
-  revision = "a9ff628a3c7c55cf016af88f37c4fb6a6029e17a"
 
 [[projects]]
   name = "github.com/opencontainers/runc"
