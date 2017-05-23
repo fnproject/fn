@@ -1,14 +1,5 @@
 package main
 
-/*
-usage: fn init <name>
-
-If there's a Dockerfile found, this will generate the basic file with just the image name. exit
-It will then try to decipher the runtime based on the files in the current directory, if it can't figure it out, it will ask.
-It will then take a best guess for what the entrypoint will be based on the language, it it can't guess, it will ask.
-
-*/
-
 import (
 	"os"
 	"os/exec"
