@@ -20,7 +20,7 @@ func updateCmd() cli.Command {
 
 func update(c *cli.Context) error {
 	args := []string{"pull",
-		"treeder/functions:latest",
+		functionsDockerImage,
 	}
 	cmd := exec.Command("docker", args...)
 	cmd.Stdout = os.Stdout

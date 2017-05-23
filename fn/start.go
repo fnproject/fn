@@ -44,7 +44,7 @@ func start(c *cli.Context) error {
 	for _, v := range denvs {
 		args = append(args, "-e", v)
 	}
-	args = append(args, "treeder/functions")
+	args = append(args, functionsDockerImage)
 	cmd := exec.Command("docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
