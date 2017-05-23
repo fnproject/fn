@@ -30,7 +30,6 @@
 [[dependencies]]
   branch = "master"
   name = "github.com/heroku/docker-registry-client"
-  packages = ["registry"]
   source="https://github.com/treeder/docker-registry-client.git"
  
 [[dependencies]]
