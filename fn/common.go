@@ -14,6 +14,10 @@ import (
 	"gitlab.oracledx.com/odx/functions/fn/langs"
 )
 
+const (
+	functionsDockerImage = "treeder/functions"
+)
+
 func verbwriter(verbose bool) io.Writer {
 	// this is too limiting, removes all logs which isn't what we want
 	// verbwriter := ioutil.Discard
