@@ -7,6 +7,7 @@
 If you are a developer using Oracle Functions through the API, this section is for you.
 
 * [Quickstart](https://github.com/treeder/functions#quickstart)
+* [Usage](usage.md)
 * [Definitions](definitions.md)
 * [fn (CLI Tool)](/fn/README.md)
 * [Writing functions](writing.md)
