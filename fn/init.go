@@ -17,8 +17,8 @@ import (
 
 	"strings"
 
-	"gitlab.oracledx.com/odx/functions/fn/langs"
 	"github.com/urfave/cli"
+	"gitlab.oracledx.com/odx/functions/fn/langs"
 )
 
 var (
@@ -157,9 +157,10 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 			return err
 		}
 		a.runtime = rt
-		fmt.Printf("assuming %v runtime\n", rt)
+		fmt.Printf("Found %v, assuming %v runtime.\n", rt, rt)
+	} else {
+		fmt.Println("Runtime:", a.runtime)
 	}
-	fmt.Println("runtime:", a.runtime)
 	if _, ok := acceptableFnRuntimes[a.runtime]; !ok {
 		return fmt.Errorf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
 	}
@@ -180,7 +181,7 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 		}
 	}
 	if a.entrypoint == "" && a.cmd == "" {
-		return fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
+		return fmt.Errorf("Could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
 	}
 
 	return nil
@@ -193,5 +194,5 @@ func detectRuntime(path string) (runtime string, err error) {
 			return runtime, nil
 		}
 	}
-	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
+	return "", fmt.Errorf("No supported files found to guess runtime, please set runtime explicitly with --runtime flag")
 }

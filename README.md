@@ -2,7 +2,8 @@
 
 <!-- [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
-Oracle Functions is an open source [serverless](serverless.md) platform, or as we like to refer to it, Functions as a Service (FaaS) platform that you can run anywhere. Some of it's key features:
+Oracle Functions is an event-driven, open source, [functions-as-a-service](serverless.md) compute
+platform that you can run anywhere. Some of it's key features:
 
 * Write once
   * [Any language](docs/faq.md#which-languages-are-supported)
@@ -13,6 +14,7 @@ Oracle Functions is an open source [serverless](serverless.md) platform, or as w
 * Easy to use [for developers](docs/README.md#for-developers)
 * Easy to manage [for operators](docs/README.md#for-operators)
 * Written in [Go](https://golang.org)
+* Simple yet powerful extensibility
 
 
 ## Prequisites
@@ -65,14 +67,11 @@ configuration options [here](docs/operating/options.md). If you are on Windows, 
 
 -->
 
-### Writing Your First Function
+### Your First Function
 
 Functions are small but powerful blocks of code that generally do one simple thing. Forget about monoliths when using functions, just focus on the task that you want the function to perform.
 
-Start with this readme tutorial, and then you can learn more about function best practices in 
-our section [Writing Functions](docs/writing.md).
-
-The following is a simple Go program that outputs a string to STDOUT. Copy and paste the code below into a file called `func.go`.
+The following is a simple Go program that outputs a string to STDOUT. Copy and paste the code below into a file called `func.go`. Currently the function must be named func.your_language_extention (ie func.go, func.js, etc.)
 
 ```go
 package main
@@ -82,30 +81,30 @@ import (
 )
 
 func main() {
-	fmt.Println("Boom. Oracle Functions.")
+	fmt.Println("Hello from Oracle Functions!")
 }
 ```
 
-Now run the following commands to build your function and deploy it:
+Now run the following CLI commands:
 
 ```sh
 # Create your first application
 fn apps create myapp
 
-# Initilizes your function w/ prebuilt func.yaml
-# Replace $USERNAME with your DockerHub username
-fn init $USERNAME/hello
+# Initialize your function
+# This detects your runtime from the code above and creates a func.yaml
+fn init <DOCKERHUB_USERNAME>/hello
 
 # Test your function
 # This will run inside a container exactly how it will on the server
 fn run
 
-# Deploy it to your functions server (default localhost:8080)
+# Deploy your functions to the Oracle Functions server (default localhost:8080)
 # This will create a route to your function as well
 fn deploy myapp
 ```
 
-Boom. Now you can call your function:
+Now you can call your function:
 
 ```sh
 curl http://localhost:8080/r/myapp/hello
@@ -116,36 +115,32 @@ Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/m
 That's it! You just deployed your first function and called it. Now to update your function 
 you can update your code and run ```fn deploy myapp``` again.
 
-## Learning More
+## To Learn More
 
-### Documentation
+- Walk through the following [tutorial series](docs/tutorial)
+- See our [full documentation](docs/README.md)
+- View our [examples directory](/examples)
+- You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 
-See [docs/](docs/README.md) for full documentation.
+## Get Involved
 
-More on [Writing Functions](docs/writing.md).
-
-And you can find a bunch of examples in the [/examples](/examples) directory.
-
-You can also write your functions in AWS's [Lambda format](docs/lambda/README.md).
-
-### Get Involved
-
-TODO: Slack or Discord community. 
-
-See [contributing](CONTRIBUTING.md).
+- TODO: Slack or Discord community
+- Learn how to [contribute](CONTRIBUTING.md)
+- See [milestones](https://gitlab.oracledx.com/odx/functions/milestones) for detailed issues
 
 
-## Functions UI
+## User Interface
+
+This is the graphical user interface for Oracle Functions. It is currently not buildable.
 
 ```sh
 docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" treeder/functions-ui
 ```
 
-For more information, see: https://github.com/treeder/functions-ui
+For more information, see: [https://github.com/treeder/functions-ui](https://github.com/treeder/functions-ui)
 
 
-## Roadmap
+## Next up: Walk through the following [tutorial series](docs/tutorial/) -->
 
-See [milestones](https://gitlab.oracledx.com/odx/functions/milestones) for detailed issues.
 
 

@@ -383,7 +383,7 @@ memo = "bd1e1a24b7655bd27880d6b3d752e400a4e36e7b1d7129a1a9e54a11fac75c9c"
   branch = "master"
   name = "github.com/moby/moby"
   packages = ["pkg/jsonmessage"]
-  revision = "da3c3ec1458588d5d263dc3babd3dca95fdc7d8d"
+  revision = "e925820bfd5af066497800a02c597d6846988398"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
