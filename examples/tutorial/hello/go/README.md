@@ -2,7 +2,7 @@
 
 This example will show you how to test and deploy Go (Golang) code to Oracle Functions. It will also demonstrate passing data in through stdin.
 
-### First, run the following commands to create, run, and deploy your function:
+### First, run the following commands:
 
 ```sh
 # Initialize your function creating a func.yaml file
@@ -23,15 +23,16 @@ fn deploy myapp
 ```sh
 curl http://localhost:8080/r/myapp/hello
 ```
-### Or call from a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-### And now with the JSON input:
+Or call from a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
+
+And now with the JSON input:
 
 ```sh
 curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
 ```
 
-### That's it!
+That's it!
 
 # In Review
 
