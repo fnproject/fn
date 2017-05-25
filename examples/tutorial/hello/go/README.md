@@ -35,17 +35,9 @@ curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://l
 
 # In Review
 
-1. We piped JSON data into the function at the command line
+1. We piped JSON data into the function at the command line: `cat hello.payload.json | fn run`
 
-```sh
-cat hello.payload.json | fn run
-```
-
-2. We received our input through stdin
-
-```go
-json.NewDecoder(os.Stdin).Decode(p)
-```
+2. We received our input through stdin: `json.NewDecoder(os.Stdin).Decode(p)`
 
 3. We wrote our output to stdout
 
