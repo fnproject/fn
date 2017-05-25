@@ -4,8 +4,8 @@
   name = "github.com/Sirupsen/logrus"
 
 [[dependencies]]
-  branch = "master"
   name = "github.com/aws/aws-sdk-go"
+  version = "^v1.8.29"
 
 [[dependencies]]
   branch = "master"
