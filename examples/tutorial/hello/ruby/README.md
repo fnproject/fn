@@ -1,27 +1,43 @@
-## Quick Example for a Ruby Function (4 minutes)
+# Tutorial 1: Ruby Function w/ Input (3 minutes)
 
-This example will show you how to test and deploy a Ruby function to Oracle Functions.
+This example will show you how to test and deploy Ruby code to Oracle Functions. It will also demonstrate passing data in through stdin.
+
+### First, run the following commands:
 
 ```sh
-# create your func.yaml file
-fn init <YOUR_DOCKERHUB_USERNAME>/hello
-# install dependencies, we need the json gem to run this
-docker run --rm -it -v ${pwd}:/worker -w /worker funcy/ruby:dev bundle install --standalone --clean
-# build the function
-fn build
-# test it
+# Initialize your function creating a func.yaml file
+fn init <DOCKERHUB_USERNAME>/hello
+
+# Test your function. 
+# This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
+fn run
+
+# Now try with an input
 cat hello.payload.json | fn run
-# push it to Docker Hub
-fn push
-# Create a route to this function on Oracle Functions
-fn routes create myapp /hello
+
+# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# This will create a route to your function as well
+fn deploy myapp
+```
+### Now call your function:
+
+```sh
+curl http://localhost:8080/r/myapp/hello
 ```
 
-Now surf to: http://localhost:8080/r/myapp/hello
+Or call from a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-## Dependencies
+And now with the JSON input:
 
-Create a [Gemfile](http://bundler.io/gemfile.html) file in your function directory, then run:
+```sh
+curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
+```
+
+That's it!
+
+### Note on Dependencies
+
+In Ruby, we create a [Gemfile](http://bundler.io/gemfile.html) file in your function directory, then run:
 
 ```sh
 docker run --rm -it -v ${pwd}:/worker -w /worker funcy/ruby:dev bundle install --standalone --clean
@@ -38,7 +54,43 @@ Open `func.rb` to see it in action.
 To update dependencies:
 
 ```sh
-docker run --rm -it -v ${pwd}:/worker -w /worker funcy/ruby:dev bundle update
-# then install again to vendor them
-docker run --rm -it -v ${pwd}:/worker -w /worker funcy/ruby:dev bundle update
+# Let's run bundle update
+docker run --rm -it -v ${PWD}:/worker -w /worker funcy/ruby:dev bundle update
+
+# Then bundle install again to vendor them
+docker run --rm -it -v ${PWD}:/worker -w /worker funcy/ruby:dev bundle install --standalone --clean
 ```
+
+# In Review
+
+1. We piped JSON data into the function at the command line
+    ```sh
+    cat hello.payload.json | fn run
+    ```
+
+2. We received our function input through **stdin**
+    ```ruby
+    payload = STDIN.read
+    ```
+
+3. We wrote our output to **stdout**
+    ```ruby
+    puts "Hello #{name} from Ruby!"
+    ```
+
+4. We sent **stderr** to the server logs
+    ```ruby
+    STDERR.puts
+    ```
+
+5. We enabled our Ruby gem dependencies using `require_relative`
+    ```ruby
+    require_relative 'bundle/bundler/setup'
+    ```
+
+
+# Next Up
+## [Tutorial 2: Input Parameters](examples/tutorial/params)
+
+
+

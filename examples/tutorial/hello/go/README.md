@@ -34,6 +34,10 @@ curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://l
 
 That's it!
 
+### Note on Dependencies
+
+In Go, simply put them all in the `vendor/` directory.
+
 # In Review
 
 1. We piped JSON data into the function at the command line
@@ -55,6 +59,7 @@ That's it!
     ```go
     log.Println("here")
     ```
+
 
 # Next Up
 ## [Tutorial 2: Input Parameters](examples/tutorial/params)

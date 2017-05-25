@@ -9,4 +9,6 @@ if payload != ""
     name = payload['name']
 end
 
-puts "Hello #{name} from Ruby!"
+puts "Hello #{name}!"
+
+STDERR.puts "---> STDERR goes to server logs"
