@@ -52,6 +52,7 @@
 ignored = ["github.com/treeder/functions", "github.com/treeder/functions/api/version"]
 
 [[dependencies]]
+  branch = "master"
   name = "github.com/aws/aws-sdk-go"
   version = "^1.8.23"
 

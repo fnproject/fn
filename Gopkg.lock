@@ -1,4 +1,4 @@
-memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
+memo = "bd1e1a24b7655bd27880d6b3d752e400a4e36e7b1d7129a1a9e54a11fac75c9c"
 
 [[projects]]
   branch = "master"
@@ -15,8 +15,8 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
 [[projects]]
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
-  revision = "706941bedd2d9b3a8c88e4022bd0078101f233f2"
-  version = "v0.4.1"
+  revision = "f533f7a102197536779ea3a8cb881d639e21ec5a"
+  version = "v0.4.2"
 
 [[projects]]
   branch = "master"
@@ -58,7 +58,7 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/lambda","service/sts"]
-  revision = "31484500fe77b88dbe197c6348358ed275aed5d7"
+  revision = "0bc99f4aa1cf50245de234b1ce0b33463a3ad5fe"
 
 [[projects]]
   branch = "master"
@@ -124,7 +124,7 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/config/configfile"]
-  revision = "883d28cfce55c2eac049b724b2cedcae2ad4bd0c"
+  revision = "11e7d35f9c94a51f1a8c3056e1f386c8533b1b28"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -268,7 +268,7 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "fec3b39b059c0f88fa6b20f5ed012b1aa203a8b4"
+  revision = "7a211bcf3bce0e3f1d74f9894916e6f116ae83b4"
 
 [[projects]]
   branch = "master"
@@ -310,7 +310,7 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "github.com/heroku/docker-registry-client"
   packages = ["registry"]
-  revision = "296b6e48681ccdb6e4f22a489afdab8aca704697"
+  revision = "3c06de30ae876abceef9a2101c83cc022df53199"
   source = "https://github.com/treeder/docker-registry-client.git"
 
 [[projects]]
@@ -377,13 +377,13 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "cc8532a8e9a55ea36402aa21efdf403a60d34096"
+  revision = "d0303fe809921458f417bcf828397a65db30a7e4"
 
 [[projects]]
   branch = "master"
   name = "github.com/moby/moby"
   packages = ["pkg/jsonmessage"]
-  revision = "a9ff628a3c7c55cf016af88f37c4fb6a6029e17a"
+  revision = "da3c3ec1458588d5d263dc3babd3dca95fdc7d8d"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -443,7 +443,7 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "github.com/spf13/jwalterweatherman"
   packages = ["."]
-  revision = "8f07c835e5cc1450c082fe3a439cf87b0cbb2d99"
+  revision = "0efa5202c04663c757d84f90f5219c1250baf94f"
 
 [[projects]]
   branch = "master"
@@ -473,19 +473,19 @@ memo = "aed9e667c6720b5c2b6c83fdc3968091b09ca0d48df951b424c2173b28c196a9"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish"]
-  revision = "6c586e17d90a7d08bbbc4069984180dce3b04117"
+  revision = "7e9105388ebff089b3f99f0ef676ea55a6da3a7e"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","idna","proxy","publicsuffix"]
-  revision = "0d772244c73d752bbe0c729ff997a09d6a6fdaf1"
+  revision = "7dcfb8076726a3fdd9353b6b8a1f1b6be6811bd6"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "dbc2be9168a660ef302e04b6ff6406de6f967473"
+  revision = "a55a76086885b80f79961eacb876ebd8caf3868d"
 
 [[projects]]
   branch = "master"

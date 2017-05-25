@@ -1,6 +1,5 @@
-# NONAME... :(
+# Oracle Functions
 
-[![CircleCI](https://circleci.com/gh/treeder/functions.svg?style=svg)](https://circleci.com/gh/treeder/functions)
 [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions)
 
 Welcome to Oracle Functions! The open source serverless platform.
@@ -24,26 +23,27 @@ Service (FaaS) platform that you can run anywhere.
 
 TODO: Slack or Discord community. 
 
-## Quickstart
-
-This guide will get you up and running in a few minutes.
-
-### Prequisites
+## Prequisites
 
 * Docker 17.05 or later installed and running
 * Logged into Docker Hub (`docker login`)
 
-# UNTIL THIS IS PUBLIC, YOU'LL NEED TO BUILD AND RUN THE CODE FROM THIS REPO
+## Installation 
+
+The following instructions apply while the project is a private repo. They'll
+build Oracle Functions and the CLI tool directly from the repo instead of
+using pre-built containers. Will be much easier once public.
 
 ```sh
-# install cli tool
+# Build and Install CLI tool
 cd fn
 make dep # just once
 make install
-# Start server:
+
+# Build and Run Functions Server
 cd ..
 make dep # just once
-make run
+make run # will build as well
 ```
 
 <!-- ADD BACK ONCE PUBLIC 
@@ -149,26 +149,8 @@ See [docs/](docs/README.md) for full documentation.
 
 ## Roadmap
 
-These are the high level roadmap goals. See [milestones](https://github.com/treeder/functions/milestones) for detailed issues.
+See [milestones](https://gitlab.oracledx.com/odx/functions/milestones) for detailed issues.
 
-* ~~Alpha 1 - November 2016~~
-  * Initial release of base framework
-  * Lambda support
-* ~~Alpha 2 - December 2016~~
-  * Streaming input for hot functions #214
-  * Logging endpoint(s) for per function debugging #263
-* Beta 1 - January 2017
-  * Smart Load Balancer #151
-* Beta 2 - February 2017
-  * Cron like scheduler #100
-* GA - March 2017
-
-## Support
-
-You can get community support via:
-
-* [Stack Overflow](http://stackoverflow.com/questions/tagged/functions)
-* [Slack](http://get.iron.io/open-slack)
 
 ## Want to contribute to Oracle Functions?
 
