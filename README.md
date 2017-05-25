@@ -140,7 +140,9 @@ docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:808
 For more information, see: [https://github.com/treeder/functions-ui](https://github.com/treeder/functions-ui)
 
 
-## Next up: Walk through the following [tutorial series](docs/tutorial/) -->
+# Next up
 
+### Check out the [Tutorial Series](examples/tutorial/).
 
+ It will demonstrate some of Oracle Functions capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
 

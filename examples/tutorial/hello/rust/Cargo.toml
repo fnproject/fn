@@ -1,0 +1,6 @@
+[package]
+name = "func"
+version = "0.1.0"
+authors = ["Seif Lotfy <seif@iron.io>"]
+
+[dependencies]

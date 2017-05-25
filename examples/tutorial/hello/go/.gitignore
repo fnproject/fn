@@ -1,0 +1,7 @@
+vendor/
+/hello
+/go
+/app
+/__uberscript__
+
+func.yaml
