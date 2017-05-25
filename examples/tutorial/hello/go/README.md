@@ -41,17 +41,17 @@ That's it!
     cat hello.payload.json | fn run
     ```
 
-2. We received our input through stdin
+2. We received our function input through **stdin**
     ```go
     json.NewDecoder(os.Stdin).Decode(p)
     ```
 
-3. We wrote our output to stdout
+3. We wrote our output to **stdout**
     ```go
     fmt.Printf("Hello")
     ```
 
-4. We sent stderr to the server logs
+4. We sent **stderr** to the server logs
     ```go
     log.Println("here")
     ```
