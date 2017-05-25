@@ -9,7 +9,7 @@ docker: vendor
 	docker build -t treeder/fn .
 	docker push treeder/fn
 
-vendor:
+dep:
 	dep ensure
 
 test:

@@ -6,7 +6,7 @@ cd lambda
 ./release.sh
 cd ..
 
-make vendor
+make dep
 make release
 
 version=$1
