@@ -117,9 +117,9 @@ you can update your code and run ```fn deploy myapp``` again.
 
 ## To Learn More
 
-- Walk through the following [tutorial series](docs/tutorial)
+- Visit our Functions [Tutorial Series](examples/tutorial/)
 - See our [full documentation](docs/README.md)
-- View our [examples directory](/examples)
+- View all of our [examples](/examples)
 - You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 
 ## Get Involved
