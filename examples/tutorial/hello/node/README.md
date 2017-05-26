@@ -1,23 +1,41 @@
-## Quick Example for a NodeJS Function (4 minutes)
+# Tutorial 1: NodeJS Function w/ Input (3 minutes)
 
-This example will show you how to test and deploy a Node function to Oracle Functions.
+This example will show you how to test and deploy Node code to Oracle Functions. It will also demonstrate passing data in through stdin.
+
+### First, run the following commands:
 
 ```sh
-# create your func.yaml file
-fn init <YOUR_DOCKERHUB_USERNAME>/hello
-# build the function
-fn build
-# test it
+# Initialize your function creating a func.yaml file
+fn init <DOCKERHUB_USERNAME>/hello
+
+# Test your function. 
+# This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
+fn run
+
+# Now try with an input
 cat hello.payload.json | fn run
-# push it to Docker Hub
-fn push
-# Create a route to this function on Oracle Functions
-fn routes create myapp /hello
+
+# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# This will create a route to your function as well
+fn deploy myapp
+```
+### Now call your function:
+
+```sh
+curl http://localhost:8080/r/myapp/hello
 ```
 
-Now surf to: http://localhost:8080/r/myapp/hello
+Or call from a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-## Dependencies
+And now with the JSON input:
+
+```sh
+curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
+```
+
+That's it!
+
+### Note on Dependencies
 
 Create a [package.json](https://docs.npmjs.com/getting-started/using-a-package.json) file in your functions directory.
 
@@ -39,3 +57,33 @@ request('http://www.google.com', function (error, response, body) {
   }
 })
 ```
+
+
+# In Review
+
+1. We piped JSON data into the function at the command line
+    ```sh
+    cat hello.payload.json | fn run
+    ```
+
+2. We received our function input through **stdin**
+    ```node
+    obj = JSON.parse(fs.readFileSync('/dev/stdin').toString())
+    ```
+
+3. We wrote our output to **stdout**
+    ```node
+    console.log
+    ```
+
+4. We sent **stderr** to the server logs
+    ```node
+    console.error
+    ```
+
+
+# Next Up
+## [Tutorial 2: Input Parameters](examples/tutorial/params)
+
+
+

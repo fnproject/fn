@@ -1,5 +1,6 @@
-name: USERNAME/hello
+name: carimura2/hello
 version: 0.0.1
+runtime: php
+entrypoint: php func.php
 path: /hello
-build:
-- docker run --rm -v "$PWD":/worker -w /worker funcy/php:dev composer install
+max_concurrency: 1

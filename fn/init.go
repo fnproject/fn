@@ -23,13 +23,14 @@ import (
 
 var (
 	fileExtToRuntime = map[string]string{
-		".go": "go",
-		".js": "node",
-		".rb": "ruby",
-		".py": "python",
-		".rs": "rust",
-		".cs": "dotnet",
-		".fs": "dotnet",
+		".go":  "go",
+		".js":  "node",
+		".rb":  "ruby",
+		".py":  "python",
+		".php": "php",
+		".rs":  "rust",
+		".cs":  "dotnet",
+		".fs":  "dotnet",
 	}
 
 	fnInitRuntimes []string

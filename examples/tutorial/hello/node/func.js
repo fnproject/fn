@@ -7,3 +7,5 @@ try {
 	}
 } catch(e) {}
 console.log("Hello", name, "from Node!");
+
+console.error("Stderr goes to the server logs...");

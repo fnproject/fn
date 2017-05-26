@@ -11,6 +11,8 @@ func GetLangHelper(lang string) LangHelper {
 		return &RubyLangHelper{}
 	case "python":
 		return &PythonHelper{}
+	case "php":
+		return &PhpLangHelper{}
 	case "rust":
 		return &RustLangHelper{}
 	case "dotnet":
