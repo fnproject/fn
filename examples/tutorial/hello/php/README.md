@@ -37,13 +37,20 @@ That's it!
 
 ### Note on Dependencies
 
-```yml
-name: USERNAME/hello
-version: 0.0.1
-path: /hello
-build:
-- docker run --rm -v "$PWD":/worker -w /worker funcy/php:dev composer install
+In PHP, you can create a [composer](https://getcomposer.org/) file in your function directory, then run:
+
+```sh
+fn build
 ```
+
+This will rebuild your gems and vendor them. PHP doesn't pick them up automatically, so you'll have to add this to the top of your `func.php` file:
+
+```php
+require 'vendor/autoload.php';
+```
+
+Open `func.php` to see it in action.
+
 
 ### 3. Queue jobs for your function
 
@@ -63,18 +70,23 @@ cat hello.payload.json | fn call phpapp /hello
     ```
 
 2. We received our function input through **stdin**
-    ```node
-    obj = JSON.parse(fs.readFileSync('/dev/stdin').toString())
+    ```php
+    $payload = json_decode(file_get_contents("php://stdin"), true);
     ```
 
 3. We wrote our output to **stdout**
-    ```node
-    console.log
+    ```php
+    echo "Hello World!\n";
     ```
 
 4. We sent **stderr** to the server logs
-    ```node
-    console.error
+    ```php
+    fwrite(STDERR, "--> this will go to stderr (server logs)\n");
+    ```
+
+5. We added PHP dependencies and enabled them using:
+    ```php
+    require 'vendor/autoload.php';
     ```
 
 

@@ -40,10 +40,10 @@ That's it!
 In Ruby, we create a [Gemfile](http://bundler.io/gemfile.html) file in your function directory, then run:
 
 ```sh
-docker run --rm -it -v ${pwd}:/worker -w /worker funcy/ruby:dev bundle install --standalone --clean
+fn build
 ```
 
-Ruby doesn't pick up the gems automatically, so you'll have to add this to the top of your `func.rb` file:
+This will rebuild your gems and vendor them. Ruby doesn't pick up the gems automatically, so you'll have to add this to the top of your `func.rb` file:
 
 ```ruby
 require_relative 'bundle/bundler/setup'
