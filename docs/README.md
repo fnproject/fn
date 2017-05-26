@@ -1,22 +1,19 @@
 # Oracle Functions Documentation
 
-* [FAQ](faq.md)
-
 ## For Developers
 
 If you are a developer using Oracle Functions through the API, this section is for you.
 
 * [Quickstart](https://github.com/treeder/functions#quickstart)
 * [Usage](usage.md)
-* [Definitions](definitions.md)
-* [fn (CLI Tool)](/fn/README.md)
 * [Writing functions](writing.md)
-* [Writing Lambda functions](lambda/README.md)
+* [fn (CLI Tool)](/fn/README.md)
 * [Function file (func.yaml)](function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
 * [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml)
 * [Hot functions](hot-functions.md)
+* [FAQ](faq.md)
 
 ## For Operators
 

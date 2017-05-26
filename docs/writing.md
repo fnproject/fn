@@ -1,5 +1,5 @@
 # Writing Functions
-
+ 
 This will give you the basic overview of writing base level functions. You can also use higher level
 abstractions that make it easier such as [lambda](lambda/README.md).
 
@@ -18,9 +18,9 @@ body = JSON.parse(STDIN)
 # Do something
 return_struct = doSomething(body)
 
-# Respond if sync:
+# If sync, respond:
 STDOUT.write(JSON.generate(return_struct))
-# or update something if async
+# If async, update something:
 db.update(return_struct)
 ```
 
@@ -66,7 +66,24 @@ In Ruby:
 STDERR.puts("hi")
 ```
 
+## Using Lambda Functions
+
+### Lambda everywhere
+
+Lambda support for Oracle Functios enables you to take your AWS Lambda functions and run them
+anywhere. You should be able to take your code and run them without any changes.
+
+Creating Lambda functions is not much different than using regular functions, just use
+the `lambda-node` runtime.
+
+```sh
+fn init --runtime lambda-node <DOCKER_HUB_USERNAME>/lambda-node
+```
+
+Be sure the filename for your main handler is `func.js`.
+
+TODO: Make Java and Python use the new workflow too. 
+
 ## Next Steps
 
 * [Packaging your function](packaging.md)
-

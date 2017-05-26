@@ -13,3 +13,5 @@ fn init --runtime lambda-node <DOCKER_HUB_USERNAME>/lambda-node
 ```
 
 Be sure the filename for your main handler is `func.js`.
+
+TODO: Make Java and Python use the new workflow too. 

@@ -1,3 +1,5 @@
+# OUT OF DATE - NEEDS TO BE UPDATED
+
 # Creating Docker images out of Lambda functions
 
 Docker images created by running the `create-function` subcommand on a Lambda function are ready to execute.
