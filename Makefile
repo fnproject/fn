@@ -28,7 +28,8 @@ docker-dep:
 	docker run --rm -it -v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions -w /go/src/gitlab.oracledx.com/odx/functions treeder/glide install -v
 
 docker-build:
-	docker run --rm -v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions -w /go/src/gitlab.oracledx.com/odx/functions funcy/go:dev go build -o functions-alpine 
+	docker pull funcy/go:dev
+	docker run --rm -v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions -w /go/src/gitlab.oracledx.com/odx/functions funcy/go:dev go build -o functions-alpine
 	docker build --build-arg HTTP_PROXY -t treeder/functions:latest .
 
 docker-run: docker-build
