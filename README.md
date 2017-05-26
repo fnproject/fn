@@ -88,9 +88,6 @@ func main() {
 Now run the following CLI commands:
 
 ```sh
-# Create your first application
-fn apps create myapp
-
 # Initialize your function
 # This detects your runtime from the code above and creates a func.yaml
 fn init <DOCKERHUB_USERNAME>/hello

@@ -99,7 +99,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 			return err
 		}
 		if ff != nil {
-			return errors.New("function file already exists")
+			return errors.New("Function file already exists")
 		}
 	}
 
@@ -130,7 +130,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println("func.yaml created.")
+	fmt.Println("func.yaml created")
 	return nil
 }
 
@@ -142,11 +142,11 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 
 	a.name = c.Args().First()
 	if a.name == "" || strings.Contains(a.name, ":") {
-		return errors.New("Please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
+		return errors.New("please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
 	}
 
 	if exists("Dockerfile") {
-		fmt.Println("Dockerfile found, will use that to build.")
+		fmt.Println("Dockerfile found. Let's use that to build...")
 		return nil
 	}
 
@@ -181,7 +181,7 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 		}
 	}
 	if a.entrypoint == "" && a.cmd == "" {
-		return fmt.Errorf("Could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
+		return fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
 	}
 
 	return nil
@@ -194,5 +194,5 @@ func detectRuntime(path string) (runtime string, err error) {
 			return runtime, nil
 		}
 	}
-	return "", fmt.Errorf("No supported files found to guess runtime, please set runtime explicitly with --runtime flag")
+	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag.")
 }
