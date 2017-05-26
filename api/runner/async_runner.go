@@ -14,8 +14,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
 	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab.oracledx.com/odx/functions/api/runner/task"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
@@ -42,22 +42,23 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 }
 
 func getCfg(t *models.Task) *task.Config {
-	timeout := int32(30)
-	if t.Timeout == nil {
-		t.Timeout = &timeout
-	}
-	if t.IdleTimeout == nil {
-		t.IdleTimeout = &timeout
-	}
-
 	cfg := &task.Config{
 		Image:   *t.Image,
-		Timeout: time.Duration(*t.Timeout) * time.Second,
-		IdleTimeout: time.Duration(*t.IdleTimeout) * time.Second,
 		ID:      t.ID,
 		AppName: t.AppName,
 		Env:     t.EnvVars,
 	}
+	if t.Timeout == nil || *t.Timeout <= 0 {
+		cfg.Timeout = DefaultTimeout
+	} else {
+		cfg.Timeout = time.Duration(*t.Timeout) * time.Second
+	}
+	if t.IdleTimeout == nil || *t.IdleTimeout <= 0 {
+		cfg.IdleTimeout = DefaultIdleTimeout
+	} else {
+		cfg.IdleTimeout = time.Duration(*t.IdleTimeout) * time.Second
+	}
+
 	return cfg
 }
 

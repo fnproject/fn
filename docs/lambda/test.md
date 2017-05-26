@@ -1,3 +1,5 @@
+# OUT OF DATE - NEEDS TO BE UPDATED
+
 # Testing the Lambda Docker images
 
 The `test-function` subcommand can pass the correct parameters to `docker run`

@@ -45,6 +45,8 @@ Default: `sync`.
 function. If this function exceeds this limit during execution, it is stopped
 and error message is logged. Default: `128`.
 
+`timeout` (optional) is the maximum time a function will be allowed to run. Default is 30 seconds. 
+
 `headers` (optional) is a set of HTTP headers to be returned in the response of
 this function calls.
 
@@ -60,6 +62,9 @@ building the function.
 hot functions support also adds two extra options to this configuration file.
 
 `format` (optional) is one of the streaming formats covered at [function-format.md](function-format.md).
+
+`idle_timeout` (optional) is the time in seconds a container will remain alive without receiving any new requests; 
+hot functions will stay alive as long as they receive a request in this interval. Default: `30`. 
 
 `max_concurrency` (optional) is the maximum of hot functions per node to be
 started for a certain function. It defaults to one per function. If you

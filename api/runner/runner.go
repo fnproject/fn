@@ -37,8 +37,12 @@ type Runner struct {
 var (
 	ErrTimeOutNoMemory = errors.New("Task timed out. No available memory.")
 	ErrFullQueue       = errors.New("The runner queue is full")
+	WaitMemoryTimeout  = 10 * time.Second
+)
 
-	WaitMemoryTimeout = 10 * time.Second
+const (
+	DefaultTimeout     = 30 * time.Second
+	DefaultIdleTimeout = 30 * time.Second
 )
 
 func New(ctx context.Context, flog FuncLogger, mlog MetricLogger) (*Runner, error) {
