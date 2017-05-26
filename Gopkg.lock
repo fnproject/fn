@@ -1,4 +1,4 @@
-memo = "bd1e1a24b7655bd27880d6b3d752e400a4e36e7b1d7129a1a9e54a11fac75c9c"
+memo = "f5b1c7d56bf54bc74276d2d9f46275abedb0dce21386c1418a79e1b0ea972c25"
 
 [[projects]]
   branch = "master"
@@ -55,10 +55,10 @@ memo = "bd1e1a24b7655bd27880d6b3d752e400a4e36e7b1d7129a1a9e54a11fac75c9c"
   version = "v6"
 
 [[projects]]
-  branch = "master"
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/lambda","service/sts"]
-  revision = "0bc99f4aa1cf50245de234b1ce0b33463a3ad5fe"
+  revision = "e8177d9867544fa4677f40ceb470e60b6f3573ae"
+  version = "v1.8.29"
 
 [[projects]]
   branch = "master"
