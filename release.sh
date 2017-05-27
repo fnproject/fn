@@ -3,8 +3,8 @@ set -ex
 
 user="treeder"
 service="functions"
-version_file="api/version/version.go"
 tag="latest"
+version_file="api/version/version.go"
 
 if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
   echo "did not find semantic version in $version_file"
@@ -27,10 +27,9 @@ git push
 git push origin $version
 
 # Finally tag and push docker images
-docker tag $user/$service:$tag $user/$service:$version
-
-docker push $user/$service:$version
-docker push $user/$service:$tag
+# docker tag $user/$service:$tag $user/$service:$version
+# docker push $user/$service:$version
+# docker push $user/$service:$tag
 
 cd fn
 ./release.sh $version

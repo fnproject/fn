@@ -207,10 +207,10 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 
 	// ensure valid values
 	if cfg.Timeout <= 0 {
-		cfg.Timeout = DefaultTimeout
+		cfg.Timeout = runner.DefaultTimeout
 	}
 	if cfg.IdleTimeout <= 0 {
-		cfg.IdleTimeout = DefaultIdleTimeout
+		cfg.IdleTimeout = runner.DefaultIdleTimeout
 	}
 
 	s.Runner.Enqueue()
