@@ -212,7 +212,7 @@ func (s *Server) startGears(ctx context.Context) {
 		logrus.WithError(err).Fatalln("Failed to serve functions API.")
 	}
 
-	runHeader := `
+	const runHeader = `
      ____                  __
     / __ \_________ ______/ /__
    / / / / ___/ __ / ___/ / _  \

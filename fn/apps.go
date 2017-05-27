@@ -145,7 +145,7 @@ func (a *appsCmd) create(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	createHeader := `  
+	const createHeader = `  
    ____                  __                      
   / __ \_________ ______/ /__                    
  / / / / ___/ __ / ___/ / _ \                   
