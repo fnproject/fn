@@ -17,19 +17,20 @@ import (
 
 	"strings"
 
-	"gitlab.oracledx.com/odx/functions/fn/langs"
 	"github.com/urfave/cli"
+	"gitlab.oracledx.com/odx/functions/fn/langs"
 )
 
 var (
 	fileExtToRuntime = map[string]string{
-		".go": "go",
-		".js": "node",
-		".rb": "ruby",
-		".py": "python",
-		".rs": "rust",
-		".cs": "dotnet",
-		".fs": "dotnet",
+		".go":  "go",
+		".js":  "node",
+		".rb":  "ruby",
+		".py":  "python",
+		".php": "php",
+		".rs":  "rust",
+		".cs":  "dotnet",
+		".fs":  "dotnet",
 	}
 
 	fnInitRuntimes []string
@@ -99,7 +100,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 			return err
 		}
 		if ff != nil {
-			return errors.New("function file already exists")
+			return errors.New("Function file already exists")
 		}
 	}
 
@@ -130,7 +131,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println("func.yaml created.")
+	fmt.Println("func.yaml created")
 	return nil
 }
 
@@ -142,11 +143,11 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 
 	a.name = c.Args().First()
 	if a.name == "" || strings.Contains(a.name, ":") {
-		return errors.New("Please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
+		return errors.New("please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
 	}
 
 	if exists("Dockerfile") {
-		fmt.Println("Dockerfile found, will use that to build.")
+		fmt.Println("Dockerfile found. Let's use that to build...")
 		return nil
 	}
 
@@ -157,9 +158,10 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 			return err
 		}
 		a.runtime = rt
-		fmt.Printf("assuming %v runtime\n", rt)
+		fmt.Printf("Found %v, assuming %v runtime.\n", rt, rt)
+	} else {
+		fmt.Println("Runtime:", a.runtime)
 	}
-	fmt.Println("runtime:", a.runtime)
 	if _, ok := acceptableFnRuntimes[a.runtime]; !ok {
 		return fmt.Errorf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
 	}
@@ -193,5 +195,5 @@ func detectRuntime(path string) (runtime string, err error) {
 			return runtime, nil
 		}
 	}
-	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
+	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag.")
 }

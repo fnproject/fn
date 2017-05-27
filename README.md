@@ -1,14 +1,9 @@
-# NONAME... :(
+# Oracle Functions
 
-[![CircleCI](https://circleci.com/gh/treeder/functions.svg?style=svg)](https://circleci.com/gh/treeder/functions)
-[![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions)
+<!-- [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
-Welcome to Oracle Functions! The open source serverless platform.
-
-## What is Oracle Functions?
-
-Oracle Functions is an open source [serverless](serverless.md) platform, or as we like to refer to it, Functions as a
-Service (FaaS) platform that you can run anywhere.
+Oracle Functions is an event-driven, open source, [functions-as-a-service](serverless.md) compute
+platform that you can run anywhere. Some of it's key features:
 
 * Write once
   * [Any language](docs/faq.md#which-languages-are-supported)
@@ -19,31 +14,32 @@ Service (FaaS) platform that you can run anywhere.
 * Easy to use [for developers](docs/README.md#for-developers)
 * Easy to manage [for operators](docs/README.md#for-operators)
 * Written in [Go](https://golang.org)
+* Simple yet powerful extensibility
 
-## Join Our Community
 
-TODO: Slack or Discord community. 
-
-## Quickstart
-
-This guide will get you up and running in a few minutes.
-
-### Prequisites
+## Prequisites
 
 * Docker 17.05 or later installed and running
 * Logged into Docker Hub (`docker login`)
 
-# UNTIL THIS IS PUBLIC, YOU'LL NEED TO BUILD AND RUN THE CODE FROM THIS REPO
+## Usage
+
+### Installation 
+
+NOTE: The following instructions apply while the project is a private repo. This will 
+build the Functions server and the CLI tool directly from the repo instead of
+using pre-built containers. Once the project is public, these steps will be unnecessary.
 
 ```sh
-# install cli tool
+# Build and Install CLI tool
 cd fn
 make dep # just once
 make install
-# Start server:
+
+# Build and Run Functions Server
 cd ..
 make dep # just once
-make run
+make run # will build as well
 ```
 
 <!-- ADD BACK ONCE PUBLIC 
@@ -71,43 +67,37 @@ configuration options [here](docs/operating/options.md). If you are on Windows, 
 
 -->
 
-### Write a Function
+### Your First Function
 
-Functions are small, bite sized bits of code that do one simple thing. Forget about monoliths when using functions,
-just focus on the task that you want the function to perform.
+Functions are small but powerful blocks of code that generally do one simple thing. Forget about monoliths when using functions, just focus on the task that you want the function to perform.
 
-The following is a Go function that just returns "Hello ${NAME}!":
+The following is a simple Go program that outputs a string to STDOUT. Copy and paste the code below into a file called `func.go`. Currently the function must be named func.your_language_extention (ie func.go, func.js, etc.)
 
 ```go
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 )
 
-type Person struct {
-	Name string
-}
-
 func main() {
-	p := &Person{Name: "World"}
-	json.NewDecoder(os.Stdin).Decode(p)
-	fmt.Printf("Hello %v!", p.Name)
+	fmt.Println("Hello from Oracle Functions!")
 }
 ```
 
-Copy and paste the code above into a file called `func.go`, then run the following commands to build your function
-and deploy it.
+Now run the following CLI commands:
 
 ```sh
-# Initilize your function, replace $USERNAME with your Docker Hub username.
-fn init $USERNAME/hello
-# Test it - you can pass data into it too by piping it in, eg: `cat hello.payload.json | fn run`
+# Initialize your function
+# This detects your runtime from the code above and creates a func.yaml
+fn init <DOCKERHUB_USERNAME>/hello
+
+# Test your function
+# This will run inside a container exactly how it will on the server
 fn run
-# Once it's ready, deploy it to your functions server (default localhost:8080)
-fn apps create myapp
+
+# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# This will create a route to your function as well
 fn deploy myapp
 ```
 
@@ -117,59 +107,39 @@ Now you can call your function:
 curl http://localhost:8080/r/myapp/hello
 ```
 
-Or surf to it: http://localhost:8080/r/myapp/hello
+Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-To update your function:
+That's it! You just deployed your first function and called it. Now to update your function 
+you can update your code and run `fn deploy myapp` again.
 
-```sh
-# Just update your code and run:
-fn deploy myapp
-```
+## To Learn More
 
-See the [documentation](docs/README.md) for more information. And you can find a bunch of examples in various languages in the [examples](examples/) directory. You can also
-write your functions in AWS's [Lambda format](docs/lambda/README.md).
+- Visit our Functions [Tutorial Series](examples/tutorial/)
+- See our [full documentation](docs/README.md)
+- View all of our [examples](/examples)
+- You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 
-## Functions UI
+## Get Involved
+
+- TODO: Slack or Discord community
+- Learn how to [contribute](CONTRIBUTING.md)
+- See [milestones](https://gitlab.oracledx.com/odx/functions/milestones) for detailed issues
+
+
+## User Interface
+
+This is the graphical user interface for Oracle Functions. It is currently not buildable.
 
 ```sh
 docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" treeder/functions-ui
 ```
 
-For more information, see: https://github.com/treeder/functions-ui
+For more information, see: [https://github.com/treeder/functions-ui](https://github.com/treeder/functions-ui)
 
-## Writing Functions
 
-See [Writing Functions](docs/writing.md).
+# Next up
 
-And you can find a bunch of examples in the [/examples](/examples) directory.
+### Check out the [Tutorial Series](examples/tutorial/).
 
-## More Documentation
+ It will demonstrate some of Oracle Functions capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
 
-See [docs/](docs/README.md) for full documentation.
-
-## Roadmap
-
-These are the high level roadmap goals. See [milestones](https://github.com/treeder/functions/milestones) for detailed issues.
-
-* ~~Alpha 1 - November 2016~~
-  * Initial release of base framework
-  * Lambda support
-* ~~Alpha 2 - December 2016~~
-  * Streaming input for hot functions #214
-  * Logging endpoint(s) for per function debugging #263
-* Beta 1 - January 2017
-  * Smart Load Balancer #151
-* Beta 2 - February 2017
-  * Cron like scheduler #100
-* GA - March 2017
-
-## Support
-
-You can get community support via:
-
-* [Stack Overflow](http://stackoverflow.com/questions/tagged/functions)
-* [Slack](http://get.iron.io/open-slack)
-
-## Want to contribute to Oracle Functions?
-
-See [contributing](CONTRIBUTING.md).

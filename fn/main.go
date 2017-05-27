@@ -37,7 +37,7 @@ func newFn() *cli.App {
 	app.Version = vers.Version
 	app.Authors = []cli.Author{{Name: "Oracle Corporation"}}
 	app.Description = "Oracle Functions command line tools"
-	app.UsageText = `Check the manual at https://github.com/treeder/functions/blob/master/fn/README.md`
+	app.UsageText = `Check the manual at https://gitlab.oracledx.com/odx/functions/blob/master/fn/README.md`
 
 	cli.AppHelpTemplate = `{{.Name}} {{.Version}}{{if .Description}}
 

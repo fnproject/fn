@@ -1,0 +1,6 @@
+name: carimura2/hello
+version: 0.0.2
+runtime: php
+entrypoint: php func.php
+path: /hello
+max_concurrency: 1

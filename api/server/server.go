@@ -211,6 +211,20 @@ func (s *Server) startGears(ctx context.Context) {
 	if err != nil {
 		logrus.WithError(err).Fatalln("Failed to serve functions API.")
 	}
+
+	const runHeader = `
+     ____                  __
+    / __ \_________ ______/ /__
+   / / / / ___/ __ / ___/ / _  \
+  / /_/ / /  / /_/ / /__/ /  __/
+  \_________ \__,_/\___/_/\____
+     / ____/_  __ ___  _____/ /_( )___  ____  _____
+    / /_  / / / / __ \/ ___/ __/ / __ \/ __ \/ ___/
+   / __/ / /_/ / / / / /__/ /_/ / /_/ / / / (__  )
+  /_/    \____/_/ /_/\___/\__/_/\____/_/ /_/____/
+`
+
+	logrus.Infof(runHeader)
 	logrus.Infof("Serving Functions API on address `%s`", listen)
 
 	svr := &supervisor.Supervisor{

@@ -1,5 +1,0 @@
-name: USERNAME/hello
-version: 0.0.1
-path: /hello
-build:
-- docker run --rm -v "$PWD":/worker -w /worker funcy/php:dev composer install

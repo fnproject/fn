@@ -145,7 +145,20 @@ func (a *appsCmd) create(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	fmt.Println(resp.Payload.App.Name, "created")
+	const createHeader = `  
+   ____                  __                      
+  / __ \_________ ______/ /__                    
+ / / / / ___/ __ / ___/ / _ \                   
+/ /_/ / /  / /_/ / /__/ /  __/                   
+\_________ \__,_/\___/_/\____  _                 
+   / ____/_  ______  _____/ /_(_)___  ____  _____
+  / /_  / / / / __ \/ ___/ __/ / __ \/ __ \/ ___/
+ / __/ / /_/ / / / / /__/ /_/ / /_/ / / / (__  ) 
+/_/    \____/_/ /_/\___/\__/_/\____/_/ /_/____/
+`
+
+	fmt.Println(createHeader)
+	fmt.Println("Successfully created app: ", resp.Payload.App.Name)
 	return nil
 }
 
