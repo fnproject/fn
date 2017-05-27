@@ -75,7 +75,13 @@ res.Write(os.Stdout)
 Rinse and repeat for each incoming workload.
 
 
-## Deploying a hot function
+## Enabling a hot function
+
+In your func.yaml, add "format: http". That's it.
+
+
+
+<!--
 
 Once your functions is adapted to be handled as hot function, you must tell
 Functions daemon that this function is now ready to be reused across
@@ -96,6 +102,8 @@ requests:
 	}
 }
 ```
+-->
+
 
 `format` (mandatory) either "default" or "http". If "http", then it is a hot
 container.
@@ -104,3 +112,4 @@ container.
 this functions. This is a per-node configuration option. Default: 1
 
 `idle_timeout` (optional) - idle timeout (in seconds) before function termination.
+
