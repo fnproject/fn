@@ -24,7 +24,7 @@ platform that you can run anywhere. Some of it's key features:
 
 ## Usage
 
-### Installation 
+### Installation (if running locally) 
 
 NOTE: The following instructions apply while the project is a private repo. This will 
 build the Functions server and the CLI tool directly from the repo instead of
@@ -41,6 +41,22 @@ cd ..
 make dep # just once
 make run # will build as well
 ```
+
+### Installation (if using internal alpha service)
+
+Set your system to point to the internal service on BMC:
+
+```sh
+export API_URL=http://129.146.10.253:80
+```
+
+Download the pre-built CLI binary:
+
+```sh
+........
+```
+
+That's it!
 
 <!-- ADD BACK ONCE PUBLIC 
 
