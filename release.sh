@@ -14,7 +14,7 @@ perl -i -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
 version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
 
-# make docker-build
+make docker-build
 
 sed "s/release=.*/release=\"$version\"/g" fn/install.sh > fn/install.sh.tmp
 mv fn/install.sh.tmp fn/install.sh
