@@ -4,8 +4,20 @@ set -ex
 user="treeder"
 service="functions"
 tag="latest"
-version_file="api/version/version.go"
 
+# ensure working dir is clean
+git status
+if [[ -z $(git status -s) ]]
+then
+  echo "tree is clean"
+else
+  echo "tree is dirty, please commit changes before running this"
+  exit 1
+fi
+
+git pull
+
+version_file="api/version/version.go"
 if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
   echo "did not find semantic version in $version_file"
   exit 1
@@ -15,9 +27,6 @@ version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
 
 make docker-build
-
-sed "s/release=.*/release=\"$version\"/g" fn/install.sh > fn/install.sh.tmp
-mv fn/install.sh.tmp fn/install.sh
 
 git add -u
 git commit -m "$service: $version release [skip ci]"

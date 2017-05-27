@@ -34,3 +34,8 @@ win_markdown=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.std
 release_url="https://gitlab.oracledx.com/api/v3/projects/9/repository/tags/$version/release"
 release_desc="Amazing release. Wow\n\nfn for Linux: $linux_markdown \n\nfn for Mac: $mac_markdown \n\nfn for Windows: $win_markdown"
 curl --request POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" -d "{\"tag_name\": \"$version\", \"description\": \"$release_desc\"}" $release_url
+
+# TODO: Add the download URLS to install.sh. Maybe we should make a template to generate install.sh
+# TODO: Download URL's are in the output vars above under "url". Eg: "url":"/uploads/9a1848c5ebf2b83f8b055ac0e50e5232/fn.exe"
+# sed "s/release=.*/release=\"$version\"/g" fn/install.sh > fn/install.sh.tmp
+# mv fn/install.sh.tmp fn/install.sh
