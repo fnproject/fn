@@ -1,4 +1,4 @@
-memo = "b4102c23b2507910df0e91c8f237fa86290a29e4687b96097ed2e4870dfe3a1f"
+memo = "9e1d9db05f14e4fcb5786440592f93e0baab3f6b9ef00fc46cb39da2dd0d5fce"
 
 [[projects]]
   branch = "master"
@@ -179,6 +179,12 @@ memo = "b4102c23b2507910df0e91c8f237fa86290a29e4687b96097ed2e4870dfe3a1f"
   packages = ["."]
   revision = "0bdeddeeb0f650497d603c4ad7b20cfe685682f6"
   version = "v1.19.1"
+
+[[projects]]
+  name = "gitlab.oracledx.com/odx/functions"
+  packages = ["api/version"]
+  revision = "37b53a5820fd2f10a1afa3b04e2423408828afb5"
+  version = "0.3.7"
 
 [[projects]]
   branch = "master"
