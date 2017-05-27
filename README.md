@@ -52,11 +52,11 @@ export API_URL=http://129.146.10.253:80
 
 Download the pre-built CLI binary:
 
-```sh
-........
-```
+1. Visit: https://gitlab.oracledx.com/odx/functions/tree/master/fn/releases/download/0.3.2
+2. Download the CLI for your platform
+3. Put in /usr/local/bin
+4. chmod +x
 
-That's it!
 
 <!-- ADD BACK ONCE PUBLIC 
 
