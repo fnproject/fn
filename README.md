@@ -56,6 +56,7 @@ Download the pre-built CLI binary:
 ........
 ```
 
+That's it!
 
 <!-- ADD BACK ONCE PUBLIC 
 
