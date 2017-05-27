@@ -110,7 +110,7 @@ curl http://localhost:8080/r/myapp/hello
 Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
 That's it! You just deployed your first function and called it. Now to update your function 
-you can update your code and run ```fn deploy myapp``` again.
+you can update your code and run `fn deploy myapp` again.
 
 ## To Learn More
 
