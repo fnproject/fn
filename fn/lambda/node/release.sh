@@ -1,4 +1,5 @@
 set -ex
 
 ./build.sh
-docker push treeder/functions-lambda:nodejs4.3
+# TODO: where to push?
+# docker push treeder/functions-lambda:nodejs4.3
