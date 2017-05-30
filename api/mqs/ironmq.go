@@ -12,7 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	mq_config "github.com/iron-io/iron_go3/config"
 	ironmq "github.com/iron-io/iron_go3/mq"
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 type assoc struct {

@@ -8,7 +8,7 @@ package routecache
 import (
 	"container/list"
 
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 // Cache holds an internal linkedlist for hotness management. It is not safe

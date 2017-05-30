@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 type RunnerListener interface {

@@ -6,7 +6,7 @@ import (
 	"log"
 	"testing"
 
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 
 	"net/http"
 	"net/url"

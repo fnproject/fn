@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoretest"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpBolt = "/tmp/func_test_bolt.db"

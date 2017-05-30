@@ -15,11 +15,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
-	"gitlab.oracledx.com/odx/functions/api"
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/runner"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/runner"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 type runnerResponse struct {

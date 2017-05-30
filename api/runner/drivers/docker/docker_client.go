@@ -14,7 +14,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 const (

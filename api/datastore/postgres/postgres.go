@@ -10,8 +10,8 @@ import (
 
 	"bytes"
 	"github.com/Sirupsen/logrus"
-	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )

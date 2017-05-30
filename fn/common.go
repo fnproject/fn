@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	"gitlab.oracledx.com/odx/functions/fn/langs"
+	"gitlab-odx.oracle.com/odx/functions/fn/langs"
 )
 
 const (

@@ -2,9 +2,9 @@
 
 set -ex
 
-cd lambda
-./release.sh
-cd ..
+#cd lambda
+#./release.sh
+#cd ..
 
 make dep
 make release

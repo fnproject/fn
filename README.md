@@ -52,7 +52,7 @@ export API_URL=http://129.146.10.253:80
 
 Download the pre-built CLI binary:
 
-1. Visit: https://gitlab.oracledx.com/odx/functions/tree/master/fn/releases/download/0.3.2
+1. Visit: https://gitlab-odx.oracle.com/odx/functions/tree/master/fn/releases/download/0.3.2
 2. Download the CLI for your platform
 3. Put in /usr/local/bin
 4. chmod +x
@@ -139,7 +139,7 @@ you can update your code and run `fn deploy myapp` again.
 
 - TODO: Slack or Discord community
 - Learn how to [contribute](CONTRIBUTING.md)
-- See [milestones](https://gitlab.oracledx.com/odx/functions/milestones) for detailed issues
+- See [milestones](https://gitlab-odx.oracle.com/odx/functions/milestones) for detailed issues
 
 
 ## User Interface

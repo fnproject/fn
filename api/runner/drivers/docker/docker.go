@@ -18,9 +18,9 @@ import (
 	manifest "github.com/docker/distribution/manifest/schema1"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/heroku/docker-registry-client/registry"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
-	"gitlab.oracledx.com/odx/functions/api/runner/common/stats"
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common/stats"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 )
 
 const hubURL = "https://registry.hub.docker.com"

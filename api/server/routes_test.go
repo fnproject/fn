@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.oracledx.com/odx/functions/api/datastore"
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/mqs"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 )
 
 func TestRouteCreate(t *testing.T) {

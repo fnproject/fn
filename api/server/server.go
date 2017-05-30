@@ -15,14 +15,14 @@ import (
 	"github.com/ccirello/supervisor"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"gitlab.oracledx.com/odx/functions/api"
-	"gitlab.oracledx.com/odx/functions/api/datastore"
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/mqs"
-	"gitlab.oracledx.com/odx/functions/api/runner"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
-	"gitlab.oracledx.com/odx/functions/api/server/internal/routecache"
+	"gitlab-odx.oracle.com/odx/functions/api"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/mqs"
+	"gitlab-odx.oracle.com/odx/functions/api/runner"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
 const (

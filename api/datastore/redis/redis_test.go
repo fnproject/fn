@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
-	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoretest"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpRedis = "redis://%v:6301/"

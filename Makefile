@@ -24,11 +24,11 @@ run: build
 
 docker-dep:
 # todo: need to create a dep tool image for this (or just ditch this)
-	docker run --rm -it -v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions -w /go/src/gitlab.oracledx.com/odx/functions treeder/glide install -v
+	docker run --rm -it -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions treeder/glide install -v
 
 docker-build:
 	docker pull funcy/go:dev
-	docker run --rm -v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions -w /go/src/gitlab.oracledx.com/odx/functions funcy/go:dev go build -o functions-alpine
+	docker run --rm -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions funcy/go:dev go build -o functions-alpine
 	docker build --build-arg HTTP_PROXY -t treeder/functions:latest .
 
 docker-run: docker-build
@@ -37,9 +37,9 @@ docker-run: docker-build
 docker-test:
 	docker run -ti --privileged --rm -e LOG_LEVEL=debug \
 	-v /var/run/docker.sock:/var/run/docker.sock \
-	-v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions \
-	-w /go/src/gitlab.oracledx.com/odx/functions \
+	-v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions \
+	-w /go/src/gitlab-odx.oracle.com/odx/functions \
 	funcy/go:dev go test \
-	-v $(shell docker run -ti -v ${CURDIR}:/go/src/gitlab.oracledx.com/odx/functions -w /go/src/gitlab.oracledx.com/odx/functions -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn | grep -v datastore')
+	-v $(shell docker run -ti -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn | grep -v datastore')
 
 all: dep build

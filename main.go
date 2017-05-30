@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"gitlab.oracledx.com/odx/functions/api/server"
+	"gitlab-odx.oracle.com/odx/functions/api/server"
 )
 
 func main() {
