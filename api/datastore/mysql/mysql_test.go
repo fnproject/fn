@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoretest"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoretest"
 )
 
 const tmpMysql = "mysql://root:root@tcp(%v:3307)/funcs"

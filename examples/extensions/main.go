@@ -6,8 +6,8 @@ import (
 	"html"
 	"net/http"
 
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/server"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/server"
 )
 
 func main() {

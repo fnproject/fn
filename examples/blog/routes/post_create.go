@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.oracledx.com/odx/functions/examples/blog/database"
-	"gitlab.oracledx.com/odx/functions/examples/blog/models"
+	"gitlab-odx.oracle.com/odx/functions/examples/blog/database"
+	"gitlab-odx.oracle.com/odx/functions/examples/blog/models"
 )
 
 func HandlePostCreate(db *database.Database, auth map[string]interface{}) {

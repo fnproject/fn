@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 )
 
 type Config struct {

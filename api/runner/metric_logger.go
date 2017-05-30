@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 type MetricLogger interface {

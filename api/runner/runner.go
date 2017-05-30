@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
-	driverscommon "gitlab.oracledx.com/odx/functions/api/runner/drivers"
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers/docker"
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers/mock"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	driverscommon "gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/docker"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/mock"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 type Runner struct {

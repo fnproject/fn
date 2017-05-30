@@ -7,7 +7,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 // Middleware is the interface required for implementing functions middlewar

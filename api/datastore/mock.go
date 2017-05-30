@@ -3,8 +3,8 @@ package datastore
 import (
 	"context"
 
-	"gitlab.oracledx.com/odx/functions/api/datastore/internal/datastoreutil"
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 type mock struct {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 type RedisMQ struct {

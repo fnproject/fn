@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/urfave/cli"
-	"gitlab.oracledx.com/odx/functions/fn/langs"
+	"gitlab-odx.oracle.com/odx/functions/fn/langs"
 )
 
 var (

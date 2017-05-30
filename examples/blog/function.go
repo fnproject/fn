@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.oracledx.com/odx/functions/examples/blog/database"
-	"gitlab.oracledx.com/odx/functions/examples/blog/models"
-	"gitlab.oracledx.com/odx/functions/examples/blog/routes"
+	"gitlab-odx.oracle.com/odx/functions/examples/blog/database"
+	"gitlab-odx.oracle.com/odx/functions/examples/blog/models"
+	"gitlab-odx.oracle.com/odx/functions/examples/blog/routes"
 )
 
 var noAuth = map[string]interface{}{}

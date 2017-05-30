@@ -181,7 +181,7 @@ memo = "9e1d9db05f14e4fcb5786440592f93e0baab3f6b9ef00fc46cb39da2dd0d5fce"
   version = "v1.19.1"
 
 [[projects]]
-  name = "gitlab.oracledx.com/odx/functions"
+  name = "gitlab-odx.oracle.com/odx/functions"
   packages = ["api/version"]
   revision = "37b53a5820fd2f10a1afa3b04e2423408828afb5"
   version = "0.3.7"

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/runner/common"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 func (s *Server) handleAppCreate(c *gin.Context) {

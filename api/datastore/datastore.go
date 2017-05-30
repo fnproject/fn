@@ -5,11 +5,11 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab.oracledx.com/odx/functions/api/datastore/bolt"
-	"gitlab.oracledx.com/odx/functions/api/datastore/mysql"
-	"gitlab.oracledx.com/odx/functions/api/datastore/postgres"
-	"gitlab.oracledx.com/odx/functions/api/datastore/redis"
-	"gitlab.oracledx.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/bolt"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/mysql"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/postgres"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/redis"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 func New(dbURL string) (models.Datastore, error) {

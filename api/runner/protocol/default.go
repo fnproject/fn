@@ -3,7 +3,7 @@ package protocol
 import (
 	"context"
 
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 // DefaultProtocol is the protocol used by cold-containers

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab.oracledx.com/odx/functions/api/runner/drivers"
-	"gitlab.oracledx.com/odx/functions/api/runner/protocol"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/protocol"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 // hot functions - theory of operation

@@ -3,7 +3,7 @@ package route
 import (
 	"os"
 
-	"gitlab.oracledx.com/odx/functions/examples/blog/database"
+	"gitlab-odx.oracle.com/odx/functions/examples/blog/database"
 )
 
 func HandlePostRead(db *database.Database, auth map[string]interface{}) {

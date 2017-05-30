@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.oracledx.com/odx/functions/api/datastore"
-	"gitlab.oracledx.com/odx/functions/api/models"
-	"gitlab.oracledx.com/odx/functions/api/mqs"
-	"gitlab.oracledx.com/odx/functions/api/runner"
-	"gitlab.oracledx.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/mqs"
+	"gitlab-odx.oracle.com/odx/functions/api/runner"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {

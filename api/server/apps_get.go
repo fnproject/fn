@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gitlab.oracledx.com/odx/functions/api"
+	"gitlab-odx.oracle.com/odx/functions/api"
 )
 
 func (s *Server) handleAppGet(c *gin.Context) {
