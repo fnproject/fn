@@ -1,9 +1,8 @@
 #!/bin/bash
-set -x
-
-./build.sh
+set -ex
 
 PAYLOAD='{"env_vars": {"FOO": "bar"}}'
 
 # test it
-echo $PAYLOAD | docker run --rm -i -e TEST=1 -e FOO=bar username/func-checker
+: ${FN:="fn"}
+echo $PAYLOAD | $FN run -e FOO=bar

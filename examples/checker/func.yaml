@@ -1,3 +1,4 @@
 name: username/func-checker
-build:
-  - ./build.sh
+version: 0.0.1
+entrypoint: ruby function.rb
+runtime: ruby

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	functions "github.com/iron-io/functions_go"
 	"github.com/iron-io/functions_go/models"
 	"github.com/urfave/cli"
@@ -76,9 +76,8 @@ func (p *deploycmd) scan(c *cli.Context) error {
 	var walked bool
 	wd, err := os.Getwd()
 	if err != nil {
-		logrus.Fatalln("Couldn't get current directory:", err)
+		log.Fatalln("Couldn't get working directory:", err)
 	}
-	// logrus.Infoln("wd:", wd)
 
 	err = filepath.Walk(wd, func(path string, info os.FileInfo, err error) error {
 		if path != wd && info.IsDir() {
@@ -134,7 +133,6 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 		dirName := "/" + path.Base(path.Dir(funcFilePath))
 		funcfile.Path = &dirName
 	}
-	logrus.Infof("funcfile %+v", funcfile)
 
 	if p.skippush {
 		return nil
@@ -148,6 +146,7 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 }
 
 func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
+	fmt.Printf("Updating route, setting %s -> %s...", ff.Path, ff.Name)
 	if err := resetBasePath(p.Configuration); err != nil {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}

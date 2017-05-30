@@ -63,14 +63,11 @@ func (r *runCmd) run(c *cli.Context) error {
 	return runff(image, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"))
 }
 
-func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method string, restrictedEnv []string, links []string) error {
+func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string) error {
 	sh := []string{"docker", "run", "--rm", "-i"}
 
-	var env []string
-	detectedEnv := os.Environ()
-	if len(restrictedEnv) > 0 {
-		detectedEnv = restrictedEnv
-	}
+	var env []string    // env for the shelled out docker run command
+	var runEnv []string // env to pass into the container via -e's
 
 	if method == "" {
 		if stdin == nil {
@@ -79,13 +76,13 @@ func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method strin
 			method = "POST"
 		}
 	}
-	sh = append(sh, "-e", kvEq("METHOD", method))
-
-	for _, e := range detectedEnv {
-		shellvar, envvar := extractEnvVar(e)
-		sh = append(sh, shellvar...)
-		env = append(env, envvar)
-	}
+	// Add expected env vars that service will add
+	runEnv = append(runEnv, kvEq("METHOD", method))
+	runEnv = append(runEnv, kvEq("REQUEST_URL", "http://localhost:8080/myapp/hello"))
+	runEnv = append(runEnv, kvEq("APP_NAME", "myapp"))
+	runEnv = append(runEnv, kvEq("ROUTE", "/hello"))
+	// add user defined envs
+	runEnv = append(runEnv, envVars...)
 
 	for _, l := range links {
 		sh = append(sh, "--link", l)
@@ -96,12 +93,16 @@ func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method strin
 		env = append(env, fmt.Sprint(e, "=", os.Getenv(e)))
 	}
 
+	for _, e := range runEnv {
+		sh = append(sh, "-e", e)
+	}
+
 	sh = append(sh, image)
 	cmd := exec.Command(sh[0], sh[1:]...)
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	cmd.Env = env
+	// cmd.Env = env
 	return cmd.Run()
 }
 
