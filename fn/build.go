@@ -45,7 +45,6 @@ func (b *buildcmd) build(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(verbwriter, "building", fn)
 	ff, err := buildfunc(verbwriter, fn)
 	if err != nil {
 		return err

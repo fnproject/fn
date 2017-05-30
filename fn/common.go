@@ -96,7 +96,10 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 	}
 
 	fmt.Printf("Building image %v\n", ff.FullName())
-	cmd := exec.Command("docker", "build", "-t", ff.FullName(), ".")
+	cmd := exec.Command("docker", "build",
+		"-t", ff.FullName(),
+		"--build-arg", "HTTP_PROXY",
+		".")
 	cmd.Dir = dir
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -206,6 +209,7 @@ func extractEnvConfig(configs []string) map[string]string {
 }
 
 func dockerpush(ff *funcfile) error {
+	fmt.Println("Pushing to docker registry...")
 	cmd := exec.Command("docker", "push", ff.FullName())
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
