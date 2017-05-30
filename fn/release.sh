@@ -22,7 +22,7 @@ version=$1
 
 # For GitLab
 # 1) Upload files: https://docs.gitlab.com/ee/api/projects.html#upload-a-file
-upload_url='https://gitlab.oracledx.com/api/v3/projects/9/uploads'
+upload_url='https://gitlab-odx.oracle.com/api/v3/projects/9/uploads'
 output=$(curl --request POST --form "file=@fn_linux" --header "PRIVATE-TOKEN: $GITLAB_TOKEN" $upload_url)
 linux_markdown=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["markdown"]')
 output=$(curl --request POST --form "file=@fn_mac" --header "PRIVATE-TOKEN: $GITLAB_TOKEN" $upload_url)
@@ -31,7 +31,7 @@ output=$(curl --request POST --form "file=@fn.exe" --header "PRIVATE-TOKEN: $GIT
 win_markdown=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["markdown"]')
 
 # 2) Create a release: https://docs.gitlab.com/ee/api/tags.html#create-a-new-release
-release_url="https://gitlab.oracledx.com/api/v3/projects/9/repository/tags/$version/release"
+release_url="https://gitlab-odx.oracle.com/api/v3/projects/9/repository/tags/$version/release"
 release_desc="Amazing release. Wow\n\nfn for Linux: $linux_markdown \n\nfn for Mac: $mac_markdown \n\nfn for Windows: $win_markdown"
 curl --request POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" -d "{\"tag_name\": \"$version\", \"description\": \"$release_desc\"}" $release_url
 
