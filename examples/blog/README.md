@@ -16,7 +16,7 @@ A simple serverless blog API
 USERNAME=YOUR_DOCKER_HUB_USERNAME
 
 # build it
-docker run --rm -v "$PWD":/go/src/github.com/treeder/hello -w /go/src/github.com/treeder/hello funcy/go:dev go build -o function
+docker run --rm -v "$PWD":/go/src/github.com/funcy/hello -w /go/src/github.com/funcy/hello funcy/go:dev go build -o function
 docker build -t $USERNAME/func-blog .
 ```
 

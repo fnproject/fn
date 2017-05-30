@@ -94,14 +94,14 @@ func TestDecimate(t *testing.T) {
 
 func TestParseImage(t *testing.T) {
 	cases := map[string][]string{
-		"treeder/hello":                                        {"", "treeder/hello", "latest"},
-		"treeder/hello:v1":                                     {"", "treeder/hello", "v1"},
+		"funcy/hello":                                        {"", "funcy/hello", "latest"},
+		"funcy/hello:v1":                                     {"", "funcy/hello", "v1"},
 		"my.registry/hello":                                 {"my.registry", "hello", "latest"},
 		"my.registry/hello:v1":                              {"my.registry", "hello", "v1"},
 		"mongo":                                             {"", "library/mongo", "latest"},
 		"mongo:v1":                                          {"", "library/mongo", "v1"},
-		"quay.com/treeder/hello":                               {"quay.com", "treeder/hello", "latest"},
-		"quay.com:8080/treeder/hello:v2":                       {"quay.com:8080", "treeder/hello", "v2"},
+		"quay.com/funcy/hello":                               {"quay.com", "funcy/hello", "latest"},
+		"quay.com:8080/funcy/hello:v2":                       {"quay.com:8080", "funcy/hello", "v2"},
 		"localhost.localdomain:5000/samalba/hipache:latest": {"localhost.localdomain:5000", "samalba/hipache", "latest"},
 	}
 

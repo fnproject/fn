@@ -27,7 +27,7 @@ func (f *taskDockerTest) EnvVars() map[string]string {
 func (f *taskDockerTest) Labels() map[string]string          { return nil }
 func (f *taskDockerTest) Id() string                         { return f.id }
 func (f *taskDockerTest) Group() string                      { return "" }
-func (f *taskDockerTest) Image() string                      { return "treeder/hello" }
+func (f *taskDockerTest) Image() string                      { return "funcy/hello" }
 func (f *taskDockerTest) Timeout() time.Duration             { return 30 * time.Second }
 func (f *taskDockerTest) Logger() (stdout, stderr io.Writer) { return f.output, nil }
 func (f *taskDockerTest) WriteStat(drivers.Stat)             { /* TODO */ }

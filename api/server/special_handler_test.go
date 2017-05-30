@@ -30,7 +30,7 @@ func TestSpecialHandlerSet(t *testing.T) {
 	// 			{Name: "test"},
 	// 		},
 	// 		Routes: []*models.Route{
-	// 			{Path: "/test", Image: "treeder/hello", AppName: "test"},
+	// 			{Path: "/test", Image: "funcy/hello", AppName: "test"},
 	// 		},
 	// 	},
 	// 	MQ:      &mqs.Mock{},
