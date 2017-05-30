@@ -128,7 +128,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/myroute", AppName: "myapp", Image: "treeder/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "funcy/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		},
 	), &mqs.Mock{}, rnr, tasks)

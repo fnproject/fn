@@ -29,12 +29,12 @@ func TestRouteCreate(t *testing.T) {
 		{datastore.NewMock(), "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
 		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "treeder/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "treeder/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
-		{datastore.NewMock(), "/v1/apps/$/routes", `{ "route": { "image": "treeder/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
+		{datastore.NewMock(), "/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "treeder/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
@@ -207,7 +207,7 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			},
-		), "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "treeder/hello" } }`, http.StatusOK, nil},
+		), "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "funcy/hello" } }`, http.StatusOK, nil},
 
 		// Addresses #381
 		{datastore.NewMockInit(nil,

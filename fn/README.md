@@ -71,10 +71,10 @@ otherapp
 
 $ fn routes list myapp                          # list routes of an app
 path	image
-/hello	treeder/hello
+/hello	funcy/hello
 
-$ fn routes create otherapp /hello treeder/hello   # create route
-/hello created with treeder/hello
+$ fn routes create otherapp /hello funcy/hello   # create route
+/hello created with funcy/hello
 
 $ fn routes delete otherapp hello              # delete route
 /hello deleted
@@ -111,7 +111,7 @@ choices are: `memory`, `type` and `config`.
 
 Thus a more complete example of route creation will look like:
 ```sh
-fn routes create --memory 256 --type async --config DB_URL=http://example.org/ otherapp /hello treeder/hello
+fn routes create --memory 256 --type async --config DB_URL=http://example.org/ otherapp /hello funcy/hello
 ```
 
 You can also update existent routes configurations using the command `fn routes update`
@@ -119,7 +119,7 @@ You can also update existent routes configurations using the command `fn routes 
 For example:
 
 ```sh
-fn routes update --memory 64 --type sync --image treeder/hello
+fn routes update --memory 64 --type sync --image funcy/hello
 ```
 
 To know exactly what configurations you can update just use the command
@@ -195,7 +195,7 @@ $ fn test --remote myapp
 
 ### Creating a new function from source
 ```
-fn init treeder/hello --runtime ruby
+fn init funcy/hello --runtime ruby
 fn deploy myapp /hello
 ```
 
@@ -206,7 +206,7 @@ fn deploy myapp (discover route path if available in func.yaml)
 
 ### Testing function locally
 ```
-fn run treeder/hello
+fn run funcy/hello
 ```
 
 ### Testing route
@@ -225,7 +225,7 @@ fn apps delete myapp
 
 ### Route management
 ```
-fn routes create myapp /hello treeder/hello
+fn routes create myapp /hello funcy/hello
 # routes update will also update any changes in the func.yaml file too. 
 fn routes update myapp /hello --timeout 30 --type async
 fn routes config set myapp /hello log_level info

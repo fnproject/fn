@@ -10,7 +10,7 @@ The files can be named as:
 An example of a function file:
 
 ```yaml
-name: treeder/hello
+name: funcy/hello
 version: 0.0.1
 type: sync
 memory: 128

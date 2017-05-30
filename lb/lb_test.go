@@ -66,7 +66,10 @@ func TestCHGet(t *testing.T) {
 
 	keys := []string{"a", "b", "c"}
 	for _, k := range keys {
-		_ = ch.get(k)
+		_, err := ch.get(k)
+		if err != nil {
+			t.Fatal("CHGet returned an error: ", err)
+		}
 		// testing this doesn't panic basically? could test distro but meh
 	}
 }

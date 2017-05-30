@@ -56,7 +56,7 @@ some container configuration values.
 curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
         "path":"/hello",
-        "image":"treeder/hello",
+        "image":"funcy/hello",
         "memory": 100,
         "type": "sync",
         "config": {"APPLOG": "stderr"}

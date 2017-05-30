@@ -45,9 +45,9 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
 		[]*models.Route{
-			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "treeder/hello", Config: map[string]string{"test": "true"}},
+			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "funcy/error", Config: map[string]string{"test": "true"}},
-			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "treeder/hello", Config: map[string]string{"test": "true"}},
+			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "funcy/hello", Config: map[string]string{"test": "true"}},
 		},
 	)
 	mq := &mqs.Mock{}
