@@ -152,7 +152,7 @@ func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*
 }
 
 // TODO: Should remove *gin.Context from these functions, should use only context.Context
-func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, found *models.Route, app *models.App, route, reqID string, payload io.Reader, enqueue models.Enqueue, ) (ok bool) {
+func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, found *models.Route, app *models.App, route, reqID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"app": appName, "route": found.Path, "image": found.Image})
 
 	params, match := matchRoute(found.Path, route)
@@ -193,18 +193,17 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 	}
 
 	cfg := &task.Config{
-		AppName:        appName,
-		Path:           found.Path,
-		Env:            envVars,
-		Format:         found.Format,
-		ID:             reqID,
-		Image:          found.Image,
-		MaxConcurrency: found.MaxConcurrency,
-		Memory:         found.Memory,
-		Stdin:          payload,
-		Stdout:         &stdout,
-		Timeout:        time.Duration(found.Timeout) * time.Second,
-		IdleTimeout:    time.Duration(found.IdleTimeout) * time.Second,
+		AppName:     appName,
+		Path:        found.Path,
+		Env:         envVars,
+		Format:      found.Format,
+		ID:          reqID,
+		Image:       found.Image,
+		Memory:      found.Memory,
+		Stdin:       payload,
+		Stdout:      &stdout,
+		Timeout:     time.Duration(found.Timeout) * time.Second,
+		IdleTimeout: time.Duration(found.IdleTimeout) * time.Second,
 	}
 
 	// ensure valid values
@@ -244,8 +243,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": newTask.ID})
 
 	default:
-		result, err := runner.RunTrackedTask(newTask, s.tasks, ctx, cfg, s.Datastore)
-
+		result, err := s.Runner.RunTrackedTask(newTask, ctx, cfg, s.Datastore)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, runnerResponse{
 				RequestID: cfg.ID,

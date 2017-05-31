@@ -31,33 +31,31 @@ var (
 type Routes []*Route
 
 type Route struct {
-	AppName        string      `json:"app_name"`
-	Path           string      `json:"path"`
-	Image          string      `json:"image"`
-	Memory         uint64      `json:"memory"`
-	Headers        http.Header `json:"headers"`
-	Type           string      `json:"type"`
-	Format         string      `json:"format"`
-	MaxConcurrency int         `json:"max_concurrency"`
-	Timeout        int32       `json:"timeout"`
-	IdleTimeout    int32       `json:"idle_timeout"`
-	Config         `json:"config"`
+	AppName     string      `json:"app_name"`
+	Path        string      `json:"path"`
+	Image       string      `json:"image"`
+	Memory      uint64      `json:"memory"`
+	Headers     http.Header `json:"headers"`
+	Type        string      `json:"type"`
+	Format      string      `json:"format"`
+	Timeout     int32       `json:"timeout"`
+	IdleTimeout int32       `json:"idle_timeout"`
+	Config      `json:"config"`
 }
 
 var (
-	ErrRoutesValidationFoundDynamicURL        = errors.New("Dynamic URL is not allowed")
-	ErrRoutesValidationInvalidPath            = errors.New("Invalid Path format")
-	ErrRoutesValidationInvalidType            = errors.New("Invalid route Type")
-	ErrRoutesValidationInvalidFormat          = errors.New("Invalid route Format")
-	ErrRoutesValidationMissingAppName         = errors.New("Missing route AppName")
-	ErrRoutesValidationMissingImage           = errors.New("Missing route Image")
-	ErrRoutesValidationMissingName            = errors.New("Missing route Name")
-	ErrRoutesValidationMissingPath            = errors.New("Missing route Path")
-	ErrRoutesValidationMissingType            = errors.New("Missing route Type")
-	ErrRoutesValidationPathMalformed          = errors.New("Path malformed")
-	ErrRoutesValidationNegativeTimeout        = errors.New("Negative timeout")
-	ErrRoutesValidationNegativeIdleTimeout    = errors.New("Negative idle timeout")
-	ErrRoutesValidationNegativeMaxConcurrency = errors.New("Negative MaxConcurrency")
+	ErrRoutesValidationFoundDynamicURL     = errors.New("Dynamic URL is not allowed")
+	ErrRoutesValidationInvalidPath         = errors.New("Invalid Path format")
+	ErrRoutesValidationInvalidType         = errors.New("Invalid route Type")
+	ErrRoutesValidationInvalidFormat       = errors.New("Invalid route Format")
+	ErrRoutesValidationMissingAppName      = errors.New("Missing route AppName")
+	ErrRoutesValidationMissingImage        = errors.New("Missing route Image")
+	ErrRoutesValidationMissingName         = errors.New("Missing route Name")
+	ErrRoutesValidationMissingPath         = errors.New("Missing route Path")
+	ErrRoutesValidationMissingType         = errors.New("Missing route Type")
+	ErrRoutesValidationPathMalformed       = errors.New("Path malformed")
+	ErrRoutesValidationNegativeTimeout     = errors.New("Negative timeout")
+	ErrRoutesValidationNegativeIdleTimeout = errors.New("Negative idle timeout")
 )
 
 // SetDefaults sets zeroed field to defaults.
@@ -72,10 +70,6 @@ func (r *Route) SetDefaults() {
 
 	if r.Format == "" {
 		r.Format = FormatDefault
-	}
-
-	if r.MaxConcurrency == 0 {
-		r.MaxConcurrency = 1
 	}
 
 	if r.Headers == nil {
@@ -140,10 +134,6 @@ func (r *Route) Validate(skipZero bool) error {
 		}
 	}
 
-	if r.MaxConcurrency < 0 {
-		res = append(res, ErrRoutesValidationNegativeMaxConcurrency)
-	}
-
 	if r.Timeout < 0 {
 		res = append(res, ErrRoutesValidationNegativeTimeout)
 	}
@@ -187,9 +177,6 @@ func (r *Route) Update(new *Route) {
 	}
 	if new.Format != "" {
 		r.Format = new.Format
-	}
-	if new.MaxConcurrency != 0 {
-		r.MaxConcurrency = new.MaxConcurrency
 	}
 	if new.Headers != nil {
 		if r.Headers == nil {

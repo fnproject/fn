@@ -66,12 +66,6 @@ hot functions support also adds two extra options to this configuration file.
 `idle_timeout` (optional) is the time in seconds a container will remain alive without receiving any new requests; 
 hot functions will stay alive as long as they receive a request in this interval. Default: `30`. 
 
-`max_concurrency` (optional) is the maximum of hot functions per node to be
-started for a certain function. It defaults to one per function. If you
-understand you need more processing power, make sure to raise this number.
-Keep in mind that if there is not available memory to execute the configured
-workload, it will fail to start new hot functions.
-
 ## Testing functions
 
 `tests` (optional) is an array of tests that can be used to valid functions both

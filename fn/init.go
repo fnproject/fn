@@ -44,13 +44,12 @@ func init() {
 }
 
 type initFnCmd struct {
-	name           string
-	force          bool
-	runtime        string
-	entrypoint     string
-	cmd            string
-	format         string
-	maxConcurrency int
+	name       string
+	force      bool
+	runtime    string
+	entrypoint string
+	cmd        string
+	format     string
 }
 
 func initFn() cli.Command {
@@ -83,12 +82,6 @@ func initFn() cli.Command {
 				Usage:       "hot function IO format - json or http",
 				Destination: &a.format,
 				Value:       "",
-			},
-			cli.IntFlag{
-				Name:        "max-concurrency",
-				Usage:       "maximum concurrency for hot function",
-				Destination: &a.maxConcurrency,
-				Value:       1,
 			},
 		},
 	}
@@ -125,13 +118,12 @@ func (a *initFnCmd) init(c *cli.Context) error {
 	}
 
 	ff := &funcfile{
-		Name:           a.name,
-		Runtime:        &a.runtime,
-		Version:        initialVersion,
-		Entrypoint:     a.entrypoint,
-		Cmd:            a.cmd,
-		Format:         ffmt,
-		MaxConcurrency: &a.maxConcurrency,
+		Name:       a.name,
+		Runtime:    &a.runtime,
+		Version:    initialVersion,
+		Entrypoint: a.entrypoint,
+		Cmd:        a.cmd,
+		Format:     ffmt,
 	}
 
 	_, path := appNamePath(ff.FullName())

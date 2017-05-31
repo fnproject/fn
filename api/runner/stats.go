@@ -7,6 +7,8 @@ type stats struct {
 	queue    uint64
 	running  uint64
 	complete uint64
+
+	wait sync.WaitGroup
 }
 
 type Stats struct {
@@ -22,6 +24,7 @@ func (s *stats) Enqueue() {
 }
 
 func (s *stats) Start() {
+	s.wait.Add(1)
 	s.mu.Lock()
 	s.queue--
 	s.running++
@@ -29,6 +32,7 @@ func (s *stats) Start() {
 }
 
 func (s *stats) Complete() {
+	s.wait.Done()
 	s.mu.Lock()
 	s.running--
 	s.complete++
@@ -44,3 +48,5 @@ func (s *stats) Stats() Stats {
 	s.mu.Unlock()
 	return stats
 }
+
+func (s *stats) Wait() { s.wait.Wait() }

@@ -16,12 +16,14 @@ import (
 	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
-	driverscommon "gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/docker"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/mock"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
+// TODO clean all of this up, the exposed API is huge and incohesive,
+// we need 1 thing that runs 1 thing and 1 thing that runs those things;
+// right now this is all the things.
 type Runner struct {
 	driver       drivers.Driver
 	taskQueue    chan *containerTask
@@ -30,6 +32,7 @@ type Runner struct {
 	availableMem int64
 	usedMem      int64
 	usedMemMutex sync.RWMutex
+	hcmgr        htfnmgr
 
 	stats
 }
@@ -50,7 +53,7 @@ func New(ctx context.Context, flog FuncLogger, mlog MetricLogger) (*Runner, erro
 	env := common.NewEnvironment(func(e *common.Environment) {})
 
 	// TODO: Create a drivers.New(runnerConfig) in Titan
-	driver, err := selectDriver("docker", env, &driverscommon.Config{})
+	driver, err := selectDriver("docker", env, &drivers.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +161,8 @@ func (r *Runner) checkMemAndUse(req uint64) bool {
 	return true
 }
 
-func (r *Runner) Run(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
+// run is responsible for running 1 instance of a docker container
+func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
 	var err error
 
 	if cfg.Memory == 0 {
@@ -241,7 +245,7 @@ func (r Runner) EnsureImageExists(ctx context.Context, cfg *task.Config) error {
 	return err
 }
 
-func selectDriver(driver string, env *common.Environment, conf *driverscommon.Config) (drivers.Driver, error) {
+func selectDriver(driver string, env *common.Environment, conf *drivers.Config) (drivers.Driver, error) {
 	switch driver {
 	case "docker":
 		docker := docker.NewDocker(env, *conf)

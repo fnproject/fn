@@ -29,25 +29,49 @@ const (
 	Empty   Protocol = ""
 )
 
+func (p *Protocol) UnmarshalJSON(b []byte) error {
+	switch Protocol(b) {
+	case Empty, Default:
+		*p = Default
+	case HTTP:
+		*p = HTTP
+	default:
+		return errInvalidProtocol
+	}
+	return nil
+}
+
+func (p Protocol) MarshalJSON() ([]byte, error) {
+	switch p {
+	case Empty, Default:
+		return []byte(Default), nil
+	case HTTP:
+		return []byte(HTTP), nil
+	}
+	return nil, errInvalidProtocol
+}
+
+// implements ContainerIO
+type errorProto struct{}
+
+func (e *errorProto) IsStreamable() bool                                 { return false }
+func (e *errorProto) Dispatch(ctx context.Context, t task.Request) error { return errInvalidProtocol }
+
 // New creates a valid protocol handler from a I/O pipe representing containers
 // stdin/stdout.
-func New(p Protocol, in io.Writer, out io.Reader) (ContainerIO, error) {
+func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	switch p {
 	case HTTP:
-		return &HTTPProtocol{in, out}, nil
+		return &HTTPProtocol{in, out}
 	case Default, Empty:
-		return &DefaultProtocol{}, nil
-	default:
-		return nil, errInvalidProtocol
+		return &DefaultProtocol{}
 	}
+	return &errorProto{} // shouldn't make it past testing...
 }
 
 // IsStreamable says whether the given protocol can be used for streaming into
 // hot functions.
-func IsStreamable(p string) (bool, error) {
-	proto, err := New(Protocol(p), nil, nil)
-	if err != nil {
-		return false, err
-	}
-	return proto.IsStreamable(), nil
+// TODO get rid of ContainerIO and just use Protocol
+func IsStreamable(p Protocol) bool {
+	return New(p, nil, nil).IsStreamable()
 }

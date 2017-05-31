@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -9,12 +8,12 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/go-openapi/strfmt"
 	uuid "github.com/satori/go.uuid"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/protocol"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
-	"github.com/go-openapi/strfmt"
 )
 
 // hot functions - theory of operation
@@ -42,12 +41,6 @@ import (
 //                         Incoming
 //                           Task
 //                             │
-//                             ▼
-//                     ┌───────────────┐
-//                     │ Task Request  │
-//                     │   Main Loop   │
-//                     └───────────────┘
-//                             │
 //                      ┌──────▼────────┐
 //                     ┌┴──────────────┐│
 //                     │  Per Function ││             non-streamable f()
@@ -64,13 +57,12 @@ import (
 //                                           Terminate
 //                                           (internal clock)
 
-
 // RunTrackedTask is just a wrapper for shared logic for async/sync runners
-func RunTrackedTask(newTask *models.Task, tasks chan task.Request, ctx context.Context, cfg *task.Config, ds models.Datastore) (drivers.RunResult, error) {
+func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg *task.Config, ds models.Datastore) (drivers.RunResult, error) {
 	startedAt := strfmt.DateTime(time.Now())
 	newTask.StartedAt = startedAt
 
-	result, err := RunTask(tasks, ctx, cfg)
+	result, err := rnr.RunTask(ctx, cfg)
 
 	completedAt := strfmt.DateTime(time.Now())
 	status := result.Status()
@@ -78,89 +70,72 @@ func RunTrackedTask(newTask *models.Task, tasks chan task.Request, ctx context.C
 	newTask.Status = status
 
 	err = ds.InsertTask(ctx, newTask)
+	// TODO we should just log this error not return it to user? just issue storing task status but task is run
 
 	return result, err
 }
 
+// RunTask will dispatch a task specified by cfg to a hot container, if possible,
+// that already exists or will create a new container to run a task and then run it.
+// TODO XXX (reed): merge this and RunTrackedTask to reduce surface area...
+func (rnr *Runner) RunTask(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
+	rnr.Start() // TODO layering issue ???
+	defer rnr.Complete()
 
-// RunTask helps sending a task.Request into the common concurrency stream.
-// Refer to StartWorkers() to understand what this is about.
-func RunTask(tasks chan task.Request, ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
 	tresp := make(chan task.Response)
 	treq := task.Request{Ctx: ctx, Config: cfg, Response: tresp}
-	tasks <- treq
+	tasks := rnr.hcmgr.getPipe(ctx, rnr, cfg)
+	if tasks == nil {
+		// TODO get rid of this to use herd stuff
+		go runTaskReq(rnr, treq)
+	} else {
+		tasks <- treq
+	}
 	resp := <-treq.Response
 	return resp.Result, resp.Err
 }
 
-// StartWorkers operates the common concurrency stream, ie, it will process all
-// functions tasks, either sync or async. In the process, it also dispatches
-// the workload to either regular or hot functions.
-func StartWorkers(ctx context.Context, rnr *Runner, tasks <-chan task.Request) {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	var hcmgr htfnmgr
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case task := <-tasks:
-			p := hcmgr.getPipe(ctx, rnr, task.Config)
-			if p == nil {
-				wg.Add(1)
-				go runTaskReq(rnr, &wg, task)
-				continue
-			}
-
-			rnr.Start()
-			select {
-			case <-ctx.Done():
-				return
-			case p <- task:
-				rnr.Complete()
-			}
-		}
-	}
-}
-
-// htfnmgr is the intermediate between the common concurrency stream and
-// hot functions. All hot functions share a single task.Request stream per
-// function (chn), but each function may have more than one hot function (hc).
+// htfnmgr tracks all hot functions, used to funnel kittens into existing tubes
+// XXX (reed): this map grows unbounded, need to add LRU but need to make
+// sure that no functions are running when we evict
 type htfnmgr struct {
-	chn map[string]chan task.Request
-	hc  map[string]*htfnsvr
+	sync.RWMutex
+	hc map[string]*htfnsvr
 }
 
-func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) chan task.Request {
-	isStream, err := protocol.IsStreamable(cfg.Format)
-	if err != nil {
-		logrus.WithError(err).Info("could not detect container IO protocol")
-		return nil
-	} else if !isStream {
+func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) chan<- task.Request {
+	isStream := protocol.IsStreamable(protocol.Protocol(cfg.Format))
+	if !isStream {
+		// TODO stop doing this, to prevent herds
 		return nil
 	}
 
-	if h.chn == nil {
-		h.chn = make(map[string]chan task.Request)
-		h.hc = make(map[string]*htfnsvr)
+	h.RLock()
+	if h.hc == nil {
+		h.RUnlock()
+		h.Lock()
+		if h.hc == nil {
+			h.hc = make(map[string]*htfnsvr)
+		}
+		h.Unlock()
+		h.RLock()
 	}
 
 	// TODO(ccirello): re-implement this without memory allocation (fmt.Sprint)
-	fn := fmt.Sprint(cfg.AppName, ",", cfg.Path, cfg.Image, cfg.Timeout, cfg.Memory, cfg.Format, cfg.MaxConcurrency)
-	tasks, ok := h.chn[fn]
+	fn := fmt.Sprint(cfg.AppName, ",", cfg.Path, cfg.Image, cfg.Timeout, cfg.Memory, cfg.Format)
+	svr, ok := h.hc[fn]
+	h.RUnlock()
 	if !ok {
-		h.chn[fn] = make(chan task.Request)
-		tasks = h.chn[fn]
-		svr := newhtfnsvr(ctx, cfg, rnr, tasks)
-		if err := svr.launch(ctx); err != nil {
-			logrus.WithError(err).Error("cannot start hot function supervisor")
-			return nil
+		h.Lock()
+		svr, ok = h.hc[fn]
+		if !ok {
+			svr = newhtfnsvr(ctx, cfg, rnr)
+			h.hc[fn] = svr
 		}
-		h.hc[fn] = svr
+		h.Unlock()
 	}
 
-	return tasks
+	return svr.tasksin
 }
 
 // htfnsvr is part of htfnmgr, abstracted apart for simplicity, its only
@@ -168,21 +143,28 @@ func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) ch
 // needed. In case of absence of workload, it will stop trying to start new hot
 // containers.
 type htfnsvr struct {
-	cfg      *task.Config
-	rnr      *Runner
-	tasksin  <-chan task.Request
+	cfg *task.Config
+	rnr *Runner
+	// TODO sharing with only a channel among hot containers will result in
+	// inefficient recycling of containers, we need a stack not a queue, so that
+	// when a lot of hot containers are up and throughput drops they don't all
+	// find a task every few seconds and stay up for a lot longer than we really
+	// need them.
+	tasksin  chan task.Request
 	tasksout chan task.Request
-	maxc     chan struct{}
+	first    chan struct{}
+	once     sync.Once // TODO this really needs to happen any time runner count goes to 0
 }
 
-func newhtfnsvr(ctx context.Context, cfg *task.Config, rnr *Runner, tasks <-chan task.Request) *htfnsvr {
+func newhtfnsvr(ctx context.Context, cfg *task.Config, rnr *Runner) *htfnsvr {
 	svr := &htfnsvr{
 		cfg:      cfg,
 		rnr:      rnr,
-		tasksin:  tasks,
+		tasksin:  make(chan task.Request),
 		tasksout: make(chan task.Request, 1),
-		maxc:     make(chan struct{}, cfg.MaxConcurrency),
+		first:    make(chan struct{}, 1),
 	}
+	svr.first <- struct{}{} // prime so that 1 thread will start the first container, others will wait
 
 	// This pipe will take all incoming tasks and just forward them to the
 	// started hot functions. The catch here is that it feeds a buffered
@@ -190,7 +172,7 @@ func newhtfnsvr(ctx context.Context, cfg *task.Config, rnr *Runner, tasks <-chan
 	// then used to determine the presence of running hot functions.
 	// If no hot function is available, tasksout will fill up to its
 	// capacity and pipe() will start them.
-	go svr.pipe(ctx)
+	go svr.pipe(context.Background()) // XXX (reed): real context for adding consuela
 	return svr
 }
 
@@ -199,10 +181,18 @@ func (svr *htfnsvr) pipe(ctx context.Context) {
 		select {
 		case t := <-svr.tasksin:
 			svr.tasksout <- t
-			if len(svr.tasksout) > 0 {
-				if err := svr.launch(ctx); err != nil {
-					logrus.WithError(err).Error("cannot start more hot functions")
+
+			// TODO move checking for ram up here? then we can wait for hot functions to open up instead of always
+			// trying to make new ones if all hot functions are busy (and if machine is full and all functions are
+			// hot then most new hot functions are going to time out waiting to get available ram)
+			// TODO need to add some kind of metering here, we could track average run time and # of runners
+			select {
+			case _, ok := <-svr.first: // wait for >= 1 to be up to avoid herd
+				if ok || len(svr.tasksout) > 0 {
+					svr.launch(ctx)
 				}
+			case <-ctx.Done(): // TODO we should prob watch the task timeout not just the pipe...
+				return
 			}
 		case <-ctx.Done():
 			return
@@ -210,41 +200,25 @@ func (svr *htfnsvr) pipe(ctx context.Context) {
 	}
 }
 
-func (svr *htfnsvr) launch(ctx context.Context) error {
-	select {
-	case svr.maxc <- struct{}{}:
-		hc, err := newhtfn(
-			svr.cfg,
-			protocol.Protocol(svr.cfg.Format),
-			svr.tasksout,
-			svr.rnr,
-		)
-		if err != nil {
-			return err
-		}
-		go func() {
-			hc.serve(ctx)
-			<-svr.maxc
-		}()
-	default:
-	}
-
-	return nil
+func (svr *htfnsvr) launch(ctx context.Context) {
+	hc := newhtfn(
+		svr.cfg,
+		svr.tasksout,
+		svr.rnr,
+		func() { svr.once.Do(func() { close(svr.first) }) },
+	)
+	go hc.serve(ctx)
 }
 
-// htfn actually interfaces an incoming task from the common concurrency
-// stream into a long lived container. If idle long enough, it will stop. It
-// uses route configuration to determine which protocol to use.
+// htfn is one instance of a hot container, which may or may not be running a
+// task. If idle long enough, it will stop. It uses route configuration to
+// determine which protocol to use.
 type htfn struct {
 	id    string
 	cfg   *task.Config
 	proto protocol.ContainerIO
 	tasks <-chan task.Request
-
-	// Side of the pipe that takes information from outer world
-	// and injects into the container.
-	in  io.Writer
-	out io.Reader
+	once  func()
 
 	// Receiving side of the container.
 	containerIn  io.Reader
@@ -253,76 +227,50 @@ type htfn struct {
 	rnr *Runner
 }
 
-func newhtfn(cfg *task.Config, proto protocol.Protocol, tasks <-chan task.Request, rnr *Runner) (*htfn, error) {
+func newhtfn(cfg *task.Config, tasks <-chan task.Request, rnr *Runner, once func()) *htfn {
 	stdinr, stdinw := io.Pipe()
 	stdoutr, stdoutw := io.Pipe()
 
-	p, err := protocol.New(proto, stdinw, stdoutr)
-	if err != nil {
-		return nil, err
-	}
-
-	hc := &htfn{
+	return &htfn{
 		id:    uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", cfg.AppName, cfg.Path, time.Now().Unix())).String(),
 		cfg:   cfg,
-		proto: p,
+		proto: protocol.New(protocol.Protocol(cfg.Format), stdinw, stdoutr),
 		tasks: tasks,
-
-		in:  stdinw,
-		out: stdoutr,
+		once:  once,
 
 		containerIn:  stdinr,
 		containerOut: stdoutw,
 
 		rnr: rnr,
 	}
-
-	return hc, nil
 }
 
 func (hc *htfn) serve(ctx context.Context) {
 	lctx, cancel := context.WithCancel(ctx)
-	var wg sync.WaitGroup
+	defer cancel()
 	cfg := *hc.cfg
-	logFields := logrus.Fields{
-		"hot_id":        hc.id,
-		"app":             cfg.AppName,
-		"route":           cfg.Path,
-		"image":           cfg.Image,
-		"memory":          cfg.Memory,
-		"format":          cfg.Format,
-		"max_concurrency": cfg.MaxConcurrency,
-		"idle_timeout":    cfg.IdleTimeout,
-	}
-	logger := logrus.WithFields(logFields)
+	logger := logrus.WithFields(logrus.Fields{"hot_id": hc.id, "app": cfg.AppName, "route": cfg.Path, "image": cfg.Image, "memory": cfg.Memory, "format": cfg.Format, "idle_timeout": cfg.IdleTimeout})
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		for {
-			inactivity := time.After(cfg.IdleTimeout)
-
 			select {
 			case <-lctx.Done():
 				return
-
-			case <-inactivity:
+			case <-time.After(cfg.IdleTimeout):
 				logger.Info("Canceling inactive hot function")
 				cancel()
-
 			case t := <-hc.tasks:
-				if err := hc.proto.Dispatch(lctx, t); err != nil {
+				err := hc.proto.Dispatch(lctx, t)
+				status := "success"
+				if err != nil {
+					status = "error"
 					logrus.WithField("ctx", lctx).Info("task failed")
-					t.Response <- task.Response{
-						&runResult{StatusValue: "error", error: err},
-						err,
-					}
-					continue
 				}
+				hc.once()
 
 				t.Response <- task.Response{
-					&runResult{StatusValue: "success"},
-					nil,
+					&runResult{StatusValue: status, error: err},
+					err,
 				}
 			}
 		}
@@ -332,48 +280,18 @@ func (hc *htfn) serve(ctx context.Context) {
 	cfg.Timeout = 0 // add a timeout to simulate ab.end. failure.
 	cfg.Stdin = hc.containerIn
 	cfg.Stdout = hc.containerOut
+	// NOTE: cfg.Stderr is overwritten in rnr.Run()
 
-	// Why can we not attach stderr to the task like we do for stdin and
-	// stdout?
-	//
-	// Stdin/Stdout are completely known to the scope of the task. You must
-	// have a task stdin to feed containers stdin, and also the other way
-	// around when reading from stdout. So both are directly related to the
-	// life cycle of the request.
-	//
-	// Stderr, on the other hand, can be written by anything any time:
-	// failure between requests, failures inside requests and messages send
-	// right after stdout has been finished being transmitted. Thus, with
-	// hot functions, there is not a 1:1 relation between stderr and tasks.
-	//
-	// Still, we do pass - at protocol level - a Task-ID header, from which
-	// the application running inside the hot function can use to identify
-	// its own stderr output.
-	errr, errw := io.Pipe()
-	cfg.Stderr = errw
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(errr)
-		for scanner.Scan() {
-			logger.Info(scanner.Text())
-		}
-	}()
-
-	result, err := hc.rnr.Run(lctx, &cfg)
+	result, err := hc.rnr.run(lctx, &cfg)
 	if err != nil {
 		logger.WithError(err).Error("hot function failure detected")
 	}
-	errw.Close()
-	wg.Wait()
 	logger.WithField("result", result).Info("hot function terminated")
 }
 
-func runTaskReq(rnr *Runner, wg *sync.WaitGroup, t task.Request) {
-	defer wg.Done()
-	rnr.Start()
-	defer rnr.Complete()
-	result, err := rnr.Run(t.Ctx, t.Config)
+// TODO make Default protocol a real thing and get rid of this in favor of Dispatch
+func runTaskReq(rnr *Runner, t task.Request) {
+	result, err := rnr.run(t.Ctx, t.Config)
 	select {
 	case t.Response <- task.Response{result, err}:
 		close(t.Response)

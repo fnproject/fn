@@ -21,7 +21,6 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
@@ -49,7 +48,6 @@ type Server struct {
 
 	mu           sync.Mutex // protects hotroutes
 	hotroutes    *routecache.Cache
-	tasks        chan task.Request
 	singleflight singleflight // singleflight assists Datastore
 }
 
@@ -83,14 +81,12 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 		return nil
 	}
 
-	tasks := make(chan task.Request)
 	s := &Server{
 		Runner:    rnr,
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
 		hotroutes: routecache.New(cacheSize),
-		tasks:     tasks,
 		Enqueue:   DefaultEnqueue,
 		apiURL:    apiURL,
 	}
@@ -200,7 +196,6 @@ func extractFields(c *gin.Context) logrus.Fields {
 func (s *Server) Start(ctx context.Context) {
 	ctx = contextWithSignal(ctx, os.Interrupt)
 	s.startGears(ctx)
-	close(s.tasks)
 }
 
 func (s *Server) startGears(ctx context.Context) {
@@ -245,14 +240,11 @@ func (s *Server) startGears(ctx context.Context) {
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
-		runner.RunAsyncRunner(ctx, s.apiURL, s.tasks, s.Runner, s.Datastore)
-	})
-
-	svr.AddFunc(func(ctx context.Context) {
-		runner.StartWorkers(ctx, s.Runner, s.tasks)
+		runner.RunAsyncRunner(ctx, s.apiURL, s.Runner, s.Datastore)
 	})
 
 	svr.Serve(ctx)
+	s.Runner.Wait() // wait for tasks to finish (safe shutdown)
 }
 
 func (s *Server) bindHandlers(ctx context.Context) {
@@ -321,11 +313,11 @@ type tasksResponse struct {
 }
 
 type fnCallResponse struct {
-	Message string      `json:"message"`
+	Message string         `json:"message"`
 	Call    *models.FnCall `json:"call"`
 }
 
 type fnCallsResponse struct {
-	Message string      `json:"message"`
-	Calls    models.FnCalls `json:"calls"`
+	Message string         `json:"message"`
+	Calls   models.FnCalls `json:"calls"`
 }
