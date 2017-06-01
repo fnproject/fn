@@ -35,7 +35,7 @@ func (lh *PythonHelper) PreBuild() error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error running docker build: %v", err)
+		return dockerBuildError(err)
 	}
 	return nil
 }

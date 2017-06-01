@@ -31,6 +31,7 @@ var (
 		".rs":  "rust",
 		".cs":  "dotnet",
 		".fs":  "dotnet",
+		".java": "java",
 	}
 
 	fnInitRuntimes []string
@@ -104,9 +105,18 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		}
 	}
 
+	runtimeSpecified := a.runtime != ""
+
 	err := a.buildFuncFile(c)
 	if err != nil {
 		return err
+	}
+
+	if runtimeSpecified {
+		err := a.generateBoilerplate()
+		if err != nil {
+			return err
+		}
 	}
 
 	var ffmt *string
@@ -132,6 +142,20 @@ func (a *initFnCmd) init(c *cli.Context) error {
 	}
 
 	fmt.Println("func.yaml created")
+	return nil
+}
+
+func (a *initFnCmd) generateBoilerplate() error {
+	helper := langs.GetLangHelper(a.runtime)
+	if helper != nil && helper.HasBoilerplate() {
+		if err := helper.GenerateBoilerplate(); err != nil {
+			if err == langs.ErrBoilerplateExists {
+				return nil
+			}
+			return err
+		}
+		fmt.Println("function boilerplate generated.")
+	}
 	return nil
 }
 
@@ -190,9 +214,14 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 
 func detectRuntime(path string) (runtime string, err error) {
 	for ext, runtime := range fileExtToRuntime {
-		fn := filepath.Join(path, fmt.Sprintf("func%s", ext))
-		if exists(fn) {
-			return runtime, nil
+		filenames := []string {
+			filepath.Join(path, fmt.Sprintf("func%s", ext)),
+			filepath.Join(path, fmt.Sprintf("Func%s", ext)),
+		}
+		for _, filename := range filenames {
+			if exists(filename) {
+				return runtime, nil
+			}
 		}
 	}
 	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag.")

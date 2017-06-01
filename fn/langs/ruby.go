@@ -39,20 +39,11 @@ func (lh *RubyLangHelper) PreBuild() error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error running docker build: %v", err)
+		return dockerBuildError(err)
 	}
 	return nil
 }
 
 func (lh *RubyLangHelper) AfterBuild() error {
 	return nil
-}
-
-func exists(name string) bool {
-	if _, err := os.Stat(name); err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-	}
-	return true
 }
