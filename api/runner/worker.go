@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	uuid "github.com/satori/go.uuid"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/protocol"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
@@ -214,6 +215,7 @@ func (svr *htfnsvr) launch(ctx context.Context) error {
 // stream into a long lived container. If idle long enough, it will stop. It
 // uses route configuration to determine which protocol to use.
 type htfn struct {
+	id    string
 	cfg   *task.Config
 	proto protocol.ContainerIO
 	tasks <-chan task.Request
@@ -240,6 +242,7 @@ func newhtfn(cfg *task.Config, proto protocol.Protocol, tasks <-chan task.Reques
 	}
 
 	hc := &htfn{
+		id:    uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", cfg.AppName, cfg.Path, time.Now().Unix())).String(),
 		cfg:   cfg,
 		proto: p,
 		tasks: tasks,
@@ -260,7 +263,8 @@ func (hc *htfn) serve(ctx context.Context) {
 	lctx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 	cfg := *hc.cfg
-	logger := logrus.WithFields(logrus.Fields{
+	logFields := logrus.Fields{
+		"hot_id":        hc.id,
 		"app":             cfg.AppName,
 		"route":           cfg.Path,
 		"image":           cfg.Image,
@@ -268,7 +272,8 @@ func (hc *htfn) serve(ctx context.Context) {
 		"format":          cfg.Format,
 		"max_concurrency": cfg.MaxConcurrency,
 		"idle_timeout":    cfg.IdleTimeout,
-	})
+	}
+	logger := logrus.WithFields(logFields)
 
 	wg.Add(1)
 	go func() {
@@ -336,11 +341,11 @@ func (hc *htfn) serve(ctx context.Context) {
 
 	result, err := hc.rnr.Run(lctx, &cfg)
 	if err != nil {
-		logrus.WithError(err).Error("hot function failure detected")
+		logger.WithError(err).Error("hot function failure detected")
 	}
 	errw.Close()
 	wg.Wait()
-	logrus.WithField("result", result).Info("hot function terminated")
+	logger.WithField("result", result).Info("hot function terminated")
 }
 
 func runTaskReq(rnr *Runner, wg *sync.WaitGroup, t task.Request) {
