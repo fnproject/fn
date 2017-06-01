@@ -1,0 +1,83 @@
+package: gitlab-odx.oracle.com/odx/functions
+import:
+- package: code.cloudfoundry.org/bytefmt
+- package: github.com/Sirupsen/logrus
+  subpackages:
+  - hooks/syslog
+- package: github.com/amir/raidman
+- package: github.com/aws/aws-sdk-go
+  subpackages:
+  - aws
+  - aws/credentials
+  - aws/session
+  - service/lambda
+- package: github.com/boltdb/bolt
+- package: github.com/cactus/go-statsd-client
+  subpackages:
+  - statsd
+- package: github.com/ccirello/supervisor
+- package: github.com/dchest/siphash
+- package: github.com/dghubble/go-twitter
+  subpackages:
+  - twitter
+- package: github.com/dghubble/oauth1
+- package: github.com/dgrijalva/jwt-go
+- package: github.com/docker/cli
+  subpackages:
+  - cli/config/configfile
+- package: github.com/docker/distribution
+  subpackages:
+  - manifest/schema1
+- package: github.com/fsouza/go-dockerclient
+- package: github.com/garyburd/redigo
+  subpackages:
+  - redis
+- package: github.com/giantswarm/semver-bump
+  subpackages:
+  - bump
+  - storage
+- package: github.com/gin-gonic/gin
+- package: github.com/go-openapi/errors
+- package: github.com/go-openapi/loads
+  subpackages:
+  - fmts
+- package: github.com/go-openapi/runtime
+  subpackages:
+  - client
+- package: github.com/go-openapi/spec
+- package: github.com/go-openapi/strfmt
+- package: github.com/go-openapi/swag
+- package: github.com/go-openapi/validate
+- package: github.com/go-sql-driver/mysql
+- package: github.com/google/btree
+- package: github.com/heroku/docker-registry-client
+  subpackages:
+  - registry
+- package: github.com/iron-io/functions_go
+  subpackages:
+  - client
+  - client/apps
+  - client/routes
+  - models
+- package: github.com/iron-io/iron_go3
+  subpackages:
+  - config
+  - mq
+- package: github.com/jmoiron/jsonq
+- package: github.com/lib/pq
+- package: github.com/moby/moby
+  subpackages:
+  - pkg/jsonmessage
+- package: github.com/pkg/errors
+- package: github.com/satori/go.uuid
+- package: github.com/spf13/viper
+- package: github.com/urfave/cli
+- package: golang.org/x/crypto
+  subpackages:
+  - bcrypt
+- package: gopkg.in/mgo.v2
+  subpackages:
+  - bson
+- package: gopkg.in/yaml.v2
+testImport:
+- package: github.com/vrischmann/envconfig
