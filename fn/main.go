@@ -9,7 +9,6 @@ import (
 
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
-	vers "gitlab-odx.oracle.com/odx/functions/api/version"
 )
 
 var aliases = map[string]cli.Command{
@@ -34,7 +33,7 @@ func aliasesFn() []cli.Command {
 func newFn() *cli.App {
 	app := cli.NewApp()
 	app.Name = "fn"
-	app.Version = vers.Version
+	app.Version = Version
 	app.Authors = []cli.Author{{Name: "Oracle Corporation"}}
 	app.Description = "Oracle Functions command line tools"
 	app.UsageText = `Check the manual at https://gitlab-odx.oracle.com/odx/functions/blob/master/fn/README.md`

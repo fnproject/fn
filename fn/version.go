@@ -5,10 +5,12 @@ import (
 	"net/url"
 	"os"
 
-	vers "gitlab-odx.oracle.com/odx/functions/api/version"
 	functions "github.com/iron-io/functions_go"
 	"github.com/urfave/cli"
 )
+
+// Version of Functions CLI
+var Version = "0.3.7"
 
 func version() cli.Command {
 	r := versionCmd{VersionApi: functions.NewVersionApi()}
@@ -35,7 +37,7 @@ func (r *versionCmd) version(c *cli.Context) error {
 	}
 	r.Configuration.BasePath = u.String()
 
-	fmt.Println("Client version:", vers.Version)
+	fmt.Println("Client version:", Version)
 	v, _, err := r.VersionGet()
 	if err != nil {
 		return err
