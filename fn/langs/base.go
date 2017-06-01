@@ -1,5 +1,15 @@
 package langs
 
+import (
+	"errors"
+	"os"
+	"fmt"
+)
+
+var (
+	ErrBoilerplateExists = errors.New("Function boilerplate already exists")
+)
+
 // GetLangHelper returns a LangHelper for the passed in language
 func GetLangHelper(lang string) LangHelper {
 	switch lang {
@@ -19,6 +29,8 @@ func GetLangHelper(lang string) LangHelper {
 		return &DotNetLangHelper{}
 	case "lambda-nodejs4.3":
 		return &LambdaNodeHelper{}
+	case "java":
+		return &JavaLangHelper{}
 	}
 	return nil
 }
@@ -31,6 +43,11 @@ type LangHelper interface {
 	HasPreBuild() bool
 	PreBuild() error
 	AfterBuild() error
+	// HasBoilerplate indicates whether a language has support for generating function boilerplate.
+	HasBoilerplate() bool
+	// GenerateBoilerplate generates basic function boilerplate. Returns ErrBoilerplateExists if the function file
+	// already exists.
+	GenerateBoilerplate() error
 }
 
 // BaseHelper is empty implementation of LangHelper for embedding in implementations.
@@ -38,3 +55,18 @@ type BaseHelper struct {
 }
 
 func (h *BaseHelper) Cmd() string { return "" }
+func (h *BaseHelper) HasBoilerplate() bool { return false }
+func (h *BaseHelper) GenerateBoilerplate() error { return nil }
+
+func exists(name string) bool {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
+}
+
+func dockerBuildError(err error) error {
+	return fmt.Errorf("error running docker build: %v", err)
+}
