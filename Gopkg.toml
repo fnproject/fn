@@ -176,7 +176,7 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/iron-io/functions_go"
+  name = "github.com/funcy/functions_go"
 
 [[constraint]]
   branch = "master"

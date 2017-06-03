@@ -135,7 +135,7 @@ func main() {
 		branch := fmt.Sprintf("update-version-%s", version)
 
 		log.Printf("Cloning previous `%s` source...\n", language)
-		exec.Command("git", "clone", fmt.Sprintf("git@github.com:treeder/functions_%s.git", short), srcDir).Run()
+		exec.Command("git", "clone", fmt.Sprintf("git@gitlab-odx.oracle.com:odx/functions_%s.git", short), srcDir).Run()
 
 		// Skip language specific files
 		for _, skip := range skipFiles {
@@ -168,7 +168,7 @@ func main() {
 		os.Chdir(srcDir)
 		exec.Command("git", "checkout", "-b", branch).Run()
 		exec.Command("git", "add", ".").Run()
-		exec.Command("git", "commit", "-am", fmt.Sprintf("Updated to api version %s", version)).Run()
+		exec.Command("git", "commit", "-am", fmt.Sprintf("Updated to API version %s", version)).Run()
 
 		log.Printf("Pushing new `%s` client\n", language)
 		r := exec.Command("git", "push", "origin", branch).Run()
@@ -305,7 +305,7 @@ func genSwaggerClient(target string) error {
 		return err
 	}
 
-	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/treeder/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/iron-io/functions_go", "-A", "functions")
+	cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/funcy/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/funcy/functions_go", "-A", "functions")
 	d, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error running go-swagger: %s\n", d)

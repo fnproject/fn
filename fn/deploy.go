@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
-	functions "github.com/iron-io/functions_go"
-	"github.com/iron-io/functions_go/models"
+	functions "github.com/funcy/functions_go"
+	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
 )
 

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	fnclient "github.com/iron-io/functions_go/client"
-	apiroutes "github.com/iron-io/functions_go/client/routes"
-	fnmodels "github.com/iron-io/functions_go/models"
+	fnclient "github.com/funcy/functions_go/client"
+	apiroutes "github.com/funcy/functions_go/client/routes"
+	fnmodels "github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
 )
