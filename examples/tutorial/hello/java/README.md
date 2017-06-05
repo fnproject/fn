@@ -5,7 +5,7 @@ This example will show you how to test and deploy Java code to Oracle Functions.
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/hello-go
+fn init <DOCKERHUB_USERNAME>/hello-java
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
