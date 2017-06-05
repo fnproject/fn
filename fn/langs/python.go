@@ -7,20 +7,20 @@ import (
 	"strings"
 )
 
-type PythonHelper struct {
+type PythonLangHelper struct {
 	BaseHelper
 }
 
-func (lh *PythonHelper) Entrypoint() string {
+func (lh *PythonLangHelper) Entrypoint() string {
 	return "python2 func.py"
 }
 
-func (lh *PythonHelper) HasPreBuild() bool {
+func (lh *PythonLangHelper) HasPreBuild() bool {
 	return true
 }
 
 // PreBuild for Go builds the binary so the final image can be as small as possible
-func (lh *PythonHelper) PreBuild() error {
+func (lh *PythonLangHelper) PreBuild() error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -40,6 +40,6 @@ func (lh *PythonHelper) PreBuild() error {
 	return nil
 }
 
-func (lh *PythonHelper) AfterBuild() error {
+func (lh *PythonLangHelper) AfterBuild() error {
 	return nil
 }

@@ -23,14 +23,14 @@ import (
 
 var (
 	fileExtToRuntime = map[string]string{
-		".go":  "go",
-		".js":  "node",
-		".rb":  "ruby",
-		".py":  "python",
-		".php": "php",
-		".rs":  "rust",
-		".cs":  "dotnet",
-		".fs":  "dotnet",
+		".go":   "go",
+		".js":   "node",
+		".rb":   "ruby",
+		".py":   "python",
+		".php":  "php",
+		".rs":   "rust",
+		".cs":   "dotnet",
+		".fs":   "dotnet",
 		".java": "java",
 	}
 
@@ -214,9 +214,10 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 
 func detectRuntime(path string) (runtime string, err error) {
 	for ext, runtime := range fileExtToRuntime {
-		filenames := []string {
+		filenames := []string{
 			filepath.Join(path, fmt.Sprintf("func%s", ext)),
 			filepath.Join(path, fmt.Sprintf("Func%s", ext)),
+			filepath.Join(path, fmt.Sprintf("src/main%s", ext)), // rust
 		}
 		for _, filename := range filenames {
 			if exists(filename) {

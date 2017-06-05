@@ -33,7 +33,8 @@ And now with the JSON input:
 curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/myapp/hello
 ```
 
-That's it!
+That's it! Our `fn deploy` packaged our function and sent it to the Oracle Functions server. Try editing `func.php` 
+and then doing another `fn deploy`.
 
 ### Note on Dependencies
 

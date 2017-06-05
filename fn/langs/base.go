@@ -2,8 +2,8 @@ package langs
 
 import (
 	"errors"
-	"os"
 	"fmt"
+	"os"
 )
 
 var (
@@ -20,7 +20,7 @@ func GetLangHelper(lang string) LangHelper {
 	case "ruby":
 		return &RubyLangHelper{}
 	case "python":
-		return &PythonHelper{}
+		return &PythonLangHelper{}
 	case "php":
 		return &PhpLangHelper{}
 	case "rust":
@@ -54,8 +54,8 @@ type LangHelper interface {
 type BaseHelper struct {
 }
 
-func (h *BaseHelper) Cmd() string { return "" }
-func (h *BaseHelper) HasBoilerplate() bool { return false }
+func (h *BaseHelper) Cmd() string                { return "" }
+func (h *BaseHelper) HasBoilerplate() bool       { return false }
 func (h *BaseHelper) GenerateBoilerplate() error { return nil }
 
 func exists(name string) bool {
