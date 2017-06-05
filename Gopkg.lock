@@ -32,10 +32,10 @@
   revision = "bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5"
 
 [[projects]]
+  branch = "master"
   name = "github.com/Sirupsen/logrus"
   packages = [".","hooks/syslog"]
-  revision = "ba1b36c82c5e05c4f912a88eab0dcd91a171688f"
-  version = "v0.11.5"
+  revision = "5e5dc898656f695e2a086b8e12559febbfc01562"
 
 [[projects]]
   branch = "master"
@@ -51,9 +51,9 @@
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
-  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/lambda","service/sts"]
-  revision = "a479673916dcc0f62674f085bb4112272b8d8560"
-  version = "v1.8.31"
+  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/lambda","service/sts"]
+  revision = "f9a14dadf426ac17058f5ed3ec9bac9a61b5990b"
+  version = "v1.8.33"
 
 [[projects]]
   name = "github.com/boltdb/bolt"
@@ -119,7 +119,7 @@
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/config/configfile"]
-  revision = "6c59636498e96f8d826764f92e9f71599857229d"
+  revision = "30af87981d8d464c385b247f524fcbc503207940"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -176,10 +176,10 @@
   version = "1.1.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/gin-gonic/gin"
   packages = [".","binding","render"]
-  revision = "e2212d40c62a98b388a5eb48ecbdcf88534688ba"
-  version = "v1.1.4"
+  revision = "d5b353c5d5a560322e6d96121c814115562501f7"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -254,16 +254,16 @@
   version = "v0.12"
 
 [[projects]]
+  branch = "master"
   name = "github.com/go-sql-driver/mysql"
   packages = ["."]
-  revision = "a0583e0143b1624142adab07e0e97fe106d99561"
-  version = "v1.3"
+  revision = "e3f0fdcf52770a162d5a4540ddb8d9957ff456d1"
 
 [[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "9f174c986221c608fb5143bd623b6076a71feae3"
+  revision = "6e4cc92cc905d5f4a73041c1b8228ea08f4c6147"
 
 [[projects]]
   branch = "master"
@@ -394,8 +394,8 @@
 [[projects]]
   name = "github.com/pelletier/go-toml"
   packages = ["."]
-  revision = "13d49d4606eb801b8f01ae542b4afc4c6ee3d84a"
-  version = "v0.5.0"
+  revision = "5ccdfb18c776b740aecaf085c4d9a2779199c279"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -404,16 +404,16 @@
   revision = "53be0d36a84c2a886ca057d34b6aa4468df9ccb4"
 
 [[projects]]
+  branch = "master"
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
+  revision = "c605e284fe17294bda444b34710735b29d1a9d90"
 
 [[projects]]
+  branch = "master"
   name = "github.com/satori/go.uuid"
   packages = ["."]
-  revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
-  version = "v1.1.0"
+  revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
 
 [[projects]]
   branch = "master"
@@ -461,7 +461,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish"]
-  revision = "7e9105388ebff089b3f99f0ef676ea55a6da3a7e"
+  revision = "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
 
 [[projects]]
   branch = "master"
@@ -502,6 +502,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d512d36ab747f5eee6b2a62ee56cfde7a18fc185ffd5c99b104cf664819be05d"
+  inputs-digest = "961ede3bad03a1a3f5ac22d03ac3861a800943fbae4f66de32279d5f9fc85061"
   solver-name = "gps-cdcl"
   solver-version = 1

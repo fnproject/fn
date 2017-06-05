@@ -7,4 +7,5 @@ fn main() {
     if stdin.lock().read_to_string(&mut buffer).is_ok() {
         println!("Hello {}", buffer.trim());
     }
+    //todo: decode json from payload
 }

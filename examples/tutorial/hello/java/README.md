@@ -1,43 +1,51 @@
 # Oracle Functions: Java
-This is a hello world example of a Oracle Function using the Java runtime.
+This example will show you how to test and deploy Java code to Oracle Functions. It will also demonstrate passing data in through stdin.
 
-Firstly, we initialize our function by creating a `func.yaml` using `fn init`. This command can optionally take a `--runtime` flag to explicitly specify the target function runtime. In this example, the target runtime is implied to be Java because there is a `Func.java` file in the working directory.
-
-```sh
-$ fn init <YOUR_DOCKERHUB_USERNAME>/hello-java
-```
-
-This is what our `func.yaml` looks like now.
-
-
-```
-name: mhaji/hello-java
-version: 0.0.1
-runtime: java
-entrypoint: java Func
-path: /hello-java
-max_concurrency: 1
-```
-
-Next, we build and run our function using `fn run`.
-
+### First, run the following commands:
 
 ```sh
-$ fn run
-Hello, world!
+# Initialize your function creating a func.yaml file
+fn init <DOCKERHUB_USERNAME>/hello-java
+
+# Test your function. This will run inside a container exactly how it will on the server
+fn run
+
+# Now try with an input
+echo "Michael FassBender" | fn run
+
+# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# This will create a route to your function as well
+fn deploy myapp
 ```
 
-You can also pipe input via `stdin` into to the function as follows:
+### Now call your function:
 
 ```sh
-$ echo "Michael FassBender" | fn run
-Hello Michael FassBender!
+curl http://localhost:8080/r/myapp/hello-java
 ```
 
-To execute your function via a HTTP trigger:
+Or call from a browser: [http://localhost:8080/r/myapp/hello-java](http://localhost:8080/r/myapp/hello-java)
 
-```sh
-fn apps create myapp
-fn routes create myapp /hello
-curl -H "Content-Type: text/plain" -X POST -d "Michael FassBender" http://localhost:8080/r/myapp/hello
-```
+That's it!
+
+
+# In Review
+
+1. We passed in data through stdin
+    ```sh
+    echo "Michael FassBender" | fn run
+    ```
+
+2. We received our function input through **stdin**
+    ```go
+    String name = bufferedReader.readLine();
+    ```
+
+3. We wrote our output to **stdout**
+    ```go
+    System.out.println("Hello, " + name + "!");
+    ```
+
+
+# Next Up
+## [Tutorial 2: Input Parameters](examples/tutorial/params)

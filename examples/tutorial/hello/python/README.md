@@ -1,48 +1,67 @@
-## Quick Example for a Python Function (4 minutes)
+# Tutorial 1: Python Function w/ Input (3 minutes)
 
-This example will show you how to test and deploy Go (Golang) code to Oracle Functions.
+This example will show you how to test and deploy Python code to Oracle Functions. It will also demonstrate passing data in through stdin.
 
-### 1. Prepare the `func.yaml` file:
-
-At func.yaml you will find:
-
-```yml
-name: USERNAME/hello
-version: 0.0.1
-path: /hello
-build:
-- docker run --rm -v "$PWD":/worker -w /worker funcy/python:2-dev pip install -t packages -r requirements.txt
-```
-
-The important step here is to ensure you replace `USERNAME` with your Docker Hub account name. Some points of note:
-the application name is `pythonapp` and the route for incoming requests is `/hello`. These informations are relevant for
-the moment you try to test this function.
-
-### 2. Build:
+### First, run the following commands:
 
 ```sh
-# build the function
-fn build
-# test it
-cat hello.payload.json | fn run
-# push it to Docker Hub
-fn push
-# Create a route to this function on Oracle Functions
-fn routes create pythonapp /hello
+# Initialize your function creating a func.yaml file
+fn init <DOCKERHUB_USERNAME>/hello-python
+
+# Test your function. 
+# This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
+fn run
+
+# Now try with an input
+cat sample.payload.json | fn run
+
+# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# This will create a route to your function as well
+fn deploy myapp
 ```
-
-`-v` is optional, but it allows you to see how this function is being built.
-
-### 3. Queue jobs for your function
-
-Now you can start jobs on your function. Let's quickly queue up a job to try it out.
+### Now call your function:
 
 ```sh
-cat hello.payload.json | fn call pythonapp /hello
+curl http://localhost:8080/r/myapp/hello-python
 ```
 
-Here's a curl example to show how easy it is to do in any language:
+Or call from a browser: [http://localhost:8080/r/myapp/hello-python](http://localhost:8080/r/myapp/hello-python)
+
+And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @hello.payload.json http://localhost:8080/r/pythonapp/hello
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-python
 ```
+
+That's it! Our `fn deploy` packaged our function and sent it to the Oracle Functions server. Try editing `func.py` 
+and then doing another `fn deploy`.
+
+### Note on Dependencies
+
+In Python, we create a [requirements](https://pip.pypa.io/en/stable/user_guide/) file in your function directory then `fn deploy` will build and deploy with these dependencies.
+
+# In Review
+
+1. We piped JSON data into the function at the command line
+    ```sh
+    cat sample.payload.json | fn run
+    ```
+
+2. We received our function input through **stdin**
+    ```python
+    obj = json.loads(sys.stdin.read())
+    ```
+
+3. We wrote our output to **stdout**
+    ```python
+    print "Hello", name, "!"
+    ```
+
+4. We sent **stderr** to the server logs
+    ```python
+    sys.stderr.write("Starting Python Function\n")
+    ```
+
+
+# Next Up
+## [Tutorial 2: Input Parameters](examples/tutorial/params)
