@@ -6,7 +6,7 @@ This example will show you how to test and deploy Python code to Oracle Function
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/python
+fn init <DOCKERHUB_USERNAME>/hello-python
 
 # Test your function. 
 # This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
@@ -22,15 +22,15 @@ fn deploy myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/python
+curl http://localhost:8080/r/myapp/hello-python
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/python](http://localhost:8080/r/myapp/python)
+Or call from a browser: [http://localhost:8080/r/myapp/hello-python](http://localhost:8080/r/myapp/hello-python)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/python
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-python
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Oracle Functions server. Try editing `func.py` 

@@ -6,7 +6,7 @@ This example will show you how to test and deploy PHP code to Oracle Functions. 
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/php
+fn init <DOCKERHUB_USERNAME>/hello-php
 
 # Test your function. 
 # This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
@@ -22,15 +22,15 @@ fn deploy myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/php
+curl http://localhost:8080/r/myapp/hello-php
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/php](http://localhost:8080/r/myapp/php)
+Or call from a browser: [http://localhost:8080/r/myapp/hello-php](http://localhost:8080/r/myapp/hello-php)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/php
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-php
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Oracle Functions server. Try editing `func.php` 

@@ -6,7 +6,7 @@ This example will show you how to test and deploy Go (Golang) code to Oracle Fun
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/go
+fn init <DOCKERHUB_USERNAME>/hello-go
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
@@ -18,18 +18,19 @@ cat sample.payload.json | fn run
 # This will create a route to your function as well
 fn deploy myapp
 ```
+
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/go
+curl http://localhost:8080/r/myapp/hello-go
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/go](http://localhost:8080/r/myapp/go)
+Or call from a browser: [http://localhost:8080/r/myapp/go](http://localhost:8080/r/myapp/hello-go)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/go
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-go
 ```
 
 That's it!

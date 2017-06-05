@@ -6,7 +6,7 @@ This example will show you how to test and deploy Node code to Oracle Functions.
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/node
+fn init <DOCKERHUB_USERNAME>/hello-node
 
 # Test your function. 
 # This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
@@ -22,15 +22,15 @@ fn deploy myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/node
+curl http://localhost:8080/r/myapp/hello-node
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/node](http://localhost:8080/r/myapp/node)
+Or call from a browser: [http://localhost:8080/r/myapp/hello-node](http://localhost:8080/r/myapp/hello-node)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/node
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-node
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Oracle Functions server. Try editing `func.js` 

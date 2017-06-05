@@ -34,7 +34,7 @@ fn main() {
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/rust
+fn init <DOCKERHUB_USERNAME>/hello-rust
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
@@ -49,15 +49,15 @@ fn deploy myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/rust
+curl http://localhost:8080/r/myapp/hello-rust
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/rust](http://localhost:8080/r/myapp/rust)
+Or call from a browser: [http://localhost:8080/r/myapp/hello-rust](http://localhost:8080/r/myapp/hello-rust)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/rust
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-rust
 ```
 
 That's it!
