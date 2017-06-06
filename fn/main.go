@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	functions "github.com/iron-io/functions_go"
+	functions "github.com/funcy/functions_go"
 	"github.com/urfave/cli"
 )
 

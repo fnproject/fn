@@ -53,7 +53,7 @@ import:
 - package: github.com/heroku/docker-registry-client
   subpackages:
   - registry
-- package: github.com/iron-io/functions_go
+- package: github.com/funcy/functions_go
   subpackages:
   - client
   - client/apps
