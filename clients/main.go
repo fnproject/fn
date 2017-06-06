@@ -135,7 +135,7 @@ func main() {
 		branch := fmt.Sprintf("update-version-%s", version)
 
 		log.Printf("Cloning previous `%s` source...\n", language)
-		exec.Command("git", "clone", fmt.Sprintf("git@gitlab-odx.oracle.com:odx/functions_%s.git", short), srcDir).Run()
+		exec.Command("git", "clone", fmt.Sprintf("git@github.com:funcy/functions_%s.git", short), srcDir).Run()
 
 		// Skip language specific files
 		for _, skip := range skipFiles {
