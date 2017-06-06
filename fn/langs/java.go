@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -18,6 +17,31 @@ const (
 	mainClassFile = mainClass + ".java"
 )
 
+// BuildFromImage returns the Docker image used to compile the Java function
+func (lh *JavaLangHelper) BuildFromImage() string {
+	return "funcy/java:dev"
+}
+
+// RunFromImage returns the Docker image used to run the Java function
+func (lh *JavaLangHelper) RunFromImage() string {
+	return "funcy/java"
+}
+
+// DockerfileBuildCmds returns the build stage steps to compile the Java function
+func (lh *JavaLangHelper) DockerfileBuildCmds() []string {
+	return []string{
+		fmt.Sprintf("ADD %s . /src/", mainClassFile),
+		fmt.Sprintf("RUN cd /src && javac %s", mainClassFile),
+	}
+}
+
+// DockerfileCopyCmds returns the Docker COPY command to copy the compiled Java function classes
+func (h *JavaLangHelper) DockerfileCopyCmds() []string {
+	return []string{
+		"COPY --from=build-stage /src/ /function/",
+	}
+}
+
 // Entrypoint returns the Java runtime Docker entrypoint that will be executed when the function is run
 func (lh *JavaLangHelper) Entrypoint() string {
 	return fmt.Sprintf("java %s", mainClass)
@@ -28,9 +52,8 @@ func (lh *JavaLangHelper) HasPreBuild() bool {
 	return true
 }
 
-// PreBuild executes the pre-build step for the Java runtime which involves compiling the relevant classes. It expects
-// the entrypoint to the function, in other words or the class with the main method (not to be confused with the Docker
-// entrypoint from Entrypoint()) to be Function.java
+// PreBuild ensures that the expected Java source file is there before the build is executed. Returns an error if
+// `mainClassFile` is not in the working directory
 func (lh *JavaLangHelper) PreBuild() error {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -40,40 +63,6 @@ func (lh *JavaLangHelper) PreBuild() error {
 	if !exists(filepath.Join(wd, mainClassFile)) {
 		return fmt.Errorf("could not find function: for Java, class with main method must be "+
 			"called %s", mainClassFile)
-	}
-
-	cmd := exec.Command(
-		"docker", "run",
-		"--rm", "-v", wd+":/java", "-w", "/java",
-		"funcy/java:dev",
-		"/bin/sh", "-c", "javac "+mainClassFile,
-	)
-
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return dockerBuildError(err)
-	}
-	return nil
-}
-
-// AfterBuild removes all compiled class files from the host machine
-func (lh *JavaLangHelper) AfterBuild() error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	files, err := filepath.Glob(filepath.Join(wd, "*.class"))
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		err = os.Remove(file)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

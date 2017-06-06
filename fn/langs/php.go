@@ -12,6 +12,9 @@ type PhpLangHelper struct {
 	BaseHelper
 }
 
+func (lh *PhpLangHelper) BuildFromImage() string {
+	return "funcy/php:dev"
+}
 func (lh *PhpLangHelper) Entrypoint() string {
 	return "php func.php"
 }

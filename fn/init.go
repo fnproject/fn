@@ -186,13 +186,9 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	} else {
 		fmt.Println("Runtime:", a.runtime)
 	}
-	if _, ok := acceptableFnRuntimes[a.runtime]; !ok {
-		return fmt.Errorf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
-	}
-
 	helper := langs.GetLangHelper(a.runtime)
 	if helper == nil {
-		fmt.Printf("No helper found for %s runtime, you'll have to pass in the appropriate flags or use a Dockerfile.", a.runtime)
+		fmt.Printf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
 	}
 
 	if a.entrypoint == "" {
