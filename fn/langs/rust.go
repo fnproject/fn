@@ -9,6 +9,9 @@ type RustLangHelper struct {
 	BaseHelper
 }
 
+func (lh *RustLangHelper) BuildFromImage() string {
+	return "funcy/rust:dev"
+}
 func (lh *RustLangHelper) Entrypoint() string {
 	return "/function/target/release/func"
 }

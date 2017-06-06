@@ -9,6 +9,13 @@ type DotNetLangHelper struct {
 	BaseHelper
 }
 
+func (lh *DotNetLangHelper) BuildFromImage() string {
+	return "microsoft/dotnet:1.0.1-sdk-projectjson"
+}
+func (lh *DotNetLangHelper) RunFromImage() string {
+	return "microsoft/dotnet:runtime"
+}
+
 func (lh *DotNetLangHelper) Entrypoint() string {
 	return "dotnet dotnet.dll"
 }

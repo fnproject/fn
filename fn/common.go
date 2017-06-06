@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -9,13 +10,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
+
+	"github.com/coreos/go-semver/semver"
 
 	"gitlab-odx.oracle.com/odx/functions/fn/langs"
 )
 
 const (
-	functionsDockerImage = "treeder/functions"
+	functionsDockerImage     = "treeder/functions"
+	minRequiredDockerVersion = "17.5.0"
 )
 
 func verbwriter(verbose bool) io.Writer {
@@ -73,19 +76,24 @@ func localbuild(verbwriter io.Writer, path string, steps []string) error {
 }
 
 func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
+	err := dockerVersionCheck()
+	if err != nil {
+		return err
+	}
+
 	dir := filepath.Dir(path)
 
 	var helper langs.LangHelper
 	dockerfile := filepath.Join(dir, "Dockerfile")
 	if !exists(dockerfile) {
-		err := writeTmpDockerfile(dir, ff)
-		defer os.Remove(filepath.Join(dir, "Dockerfile"))
-		if err != nil {
-			return err
-		}
 		helper = langs.GetLangHelper(*ff.Runtime)
 		if helper == nil {
 			return fmt.Errorf("Cannot build, no language helper found for %v", *ff.Runtime)
+		}
+		err := writeTmpDockerfile(helper, dir, ff)
+		defer os.Remove(filepath.Join(dir, "Dockerfile"))
+		if err != nil {
+			return err
 		}
 		if helper.HasPreBuild() {
 			err := helper.PreBuild()
@@ -98,7 +106,9 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 	fmt.Printf("Building image %v\n", ff.FullName())
 	cmd := exec.Command("docker", "build",
 		"-t", ff.FullName(),
+		// "--no-cache",
 		"--build-arg", "HTTP_PROXY",
+		"--build-arg", "HTTPS_PROXY",
 		".")
 	cmd.Dir = dir
 	cmd.Stderr = os.Stderr
@@ -115,6 +125,25 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 	return nil
 }
 
+func dockerVersionCheck() error {
+	out, err := exec.Command("docker", "version", "--format", "{{.Server.Version}}").Output()
+	if err != nil {
+		return fmt.Errorf("could not check Docker version: %v", err)
+	}
+	v, err := semver.NewVersion(string(out))
+	if err != nil {
+		return fmt.Errorf("could not check Docker version: %v", err)
+	}
+	vMin, err := semver.NewVersion(minRequiredDockerVersion)
+	if err != nil {
+		return fmt.Errorf("our bad, sorry... please make an issue.", err)
+	}
+	if v.LessThan(*vMin) {
+		return fmt.Errorf("please upgrade your version of Docker to %s or greater", minRequiredDockerVersion)
+	}
+	return nil
+}
+
 func exists(name string) bool {
 	if _, err := os.Stat(name); err != nil {
 		if os.IsNotExist(err) {
@@ -124,45 +153,9 @@ func exists(name string) bool {
 	return true
 }
 
-var acceptableFnRuntimes = map[string]string{
-	"elixir":           "funcy/elixir",
-	"erlang":           "funcy/erlang",
-	"gcc":              "funcy/gcc",
-	"go":               "funcy/go",
-	"java":             "funcy/java",
-	"leiningen":        "funcy/leiningen",
-	"mono":             "funcy/mono",
-	"node":             "funcy/node",
-	"perl":             "funcy/perl",
-	"php":              "funcy/php",
-	"python":           "funcy/python:2",
-	"ruby":             "funcy/ruby",
-	"scala":            "funcy/scala",
-	"rust":             "corey/rust-alpine",
-	"dotnet":           "microsoft/dotnet:runtime",
-	"lambda-nodejs4.3": "funcy/functions-lambda:nodejs4.3",
-}
-
-const tplDockerfile = `FROM {{ .BaseImage }}
-WORKDIR /function
-ADD . /function/
-{{ if ne .Entrypoint "" }} ENTRYPOINT [{{ .Entrypoint }}] {{ end }}
-{{ if ne .Cmd "" }} CMD [{{ .Cmd }}] {{ end }}
-`
-
-func writeTmpDockerfile(dir string, ff *funcfile) error {
+func writeTmpDockerfile(helper langs.LangHelper, dir string, ff *funcfile) error {
 	if ff.Entrypoint == "" && ff.Cmd == "" {
 		return errors.New("entrypoint and cmd are missing, you must provide one or the other")
-	}
-
-	runtime, tag := ff.RuntimeTag()
-	rt, ok := acceptableFnRuntimes[runtime]
-	if !ok {
-		return fmt.Errorf("cannot use runtime %s", runtime)
-	}
-
-	if tag != "" {
-		rt = fmt.Sprintf("%s:%s", rt, tag)
 	}
 
 	fd, err := os.Create(filepath.Join(dir, "Dockerfile"))
@@ -171,19 +164,48 @@ func writeTmpDockerfile(dir string, ff *funcfile) error {
 	}
 	defer fd.Close()
 
-	// convert entrypoint string to slice
-	bufferEp := stringToSlice(ff.Entrypoint)
-	bufferCmd := stringToSlice(ff.Cmd)
-
-	t := template.Must(template.New("Dockerfile").Parse(tplDockerfile))
-	err = t.Execute(fd, struct {
-		BaseImage, Entrypoint, Cmd string
-	}{rt, bufferEp.String(), bufferCmd.String()})
-
+	// multi-stage build: https://medium.com/travis-on-docker/multi-stage-docker-builds-for-creating-tiny-go-images-e0e1867efe5a
+	dfLines := []string{}
+	if helper.IsMultiStage() {
+		// build stage
+		dfLines = append(dfLines, fmt.Sprintf("FROM %s as build-stage", helper.BuildFromImage()))
+	} else {
+		dfLines = append(dfLines, fmt.Sprintf("FROM %s", helper.BuildFromImage()))
+	}
+	dfLines = append(dfLines, "WORKDIR /function")
+	dfLines = append(dfLines, helper.DockerfileBuildCmds()...)
+	if helper.IsMultiStage() {
+		// final stage
+		dfLines = append(dfLines, fmt.Sprintf("FROM %s", helper.RunFromImage()))
+		dfLines = append(dfLines, "WORKDIR /function")
+		dfLines = append(dfLines, helper.DockerfileCopyCmds()...)
+	}
+	if ff.Entrypoint != "" {
+		dfLines = append(dfLines, fmt.Sprintf("ENTRYPOINT [%s]", stringToSlice(ff.Entrypoint)))
+	}
+	if ff.Cmd != "" {
+		dfLines = append(dfLines, fmt.Sprintf("CMD [%s]", stringToSlice(ff.Cmd)))
+	}
+	err = writeLines(fd, dfLines)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
-func stringToSlice(in string) bytes.Buffer {
+func writeLines(w io.Writer, lines []string) error {
+	writer := bufio.NewWriter(w)
+	for _, l := range lines {
+		_, err := writer.WriteString(l + "\n")
+		if err != nil {
+			return err
+		}
+	}
+	writer.Flush()
+	return nil
+}
+
+func stringToSlice(in string) string {
 	epvals := strings.Fields(in)
 	var buffer bytes.Buffer
 	for i, s := range epvals {
@@ -194,7 +216,7 @@ func stringToSlice(in string) bytes.Buffer {
 		buffer.WriteString(s)
 		buffer.WriteString("\"")
 	}
-	return buffer
+	return buffer.String()
 }
 
 func extractEnvConfig(configs []string) map[string]string {

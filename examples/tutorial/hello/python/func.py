@@ -1,5 +1,4 @@
 import sys
-sys.path.append("packages")
 import os
 import json
 
@@ -9,9 +8,13 @@ name = "World"
 
 try:
   if not os.isatty(sys.stdin.fileno()):
-    obj = json.loads(sys.stdin.read())
-    if obj["name"] != "":
-      name = obj["name"]
+    try:
+      obj = json.loads(sys.stdin.read())
+      if obj["name"] != "":
+        name = obj["name"]
+    except ValueError:
+      # ignore it
+      sys.stderr.write("no input, but that's ok\n")
 except:
   pass
 

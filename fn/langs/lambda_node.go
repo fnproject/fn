@@ -4,6 +4,10 @@ type LambdaNodeHelper struct {
 	BaseHelper
 }
 
+func (lh *LambdaNodeHelper) BuildFromImage() string {
+	return "funcy/functions-lambda:nodejs4.3"
+}
+
 func (lh *LambdaNodeHelper) Entrypoint() string {
 	return ""
 }

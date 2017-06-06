@@ -4,19 +4,31 @@ type NodeLangHelper struct {
 	BaseHelper
 }
 
+func (lh *NodeLangHelper) BuildFromImage() string {
+	return "funcy/node:dev"
+}
+func (lh *NodeLangHelper) RunFromImage() string {
+	return "funcy/node"
+}
+
 func (lh *NodeLangHelper) Entrypoint() string {
 	return "node func.js"
 }
 
-func (lh *NodeLangHelper) HasPreBuild() bool {
-	return false
+func (h *NodeLangHelper) DockerfileBuildCmds() []string {
+	r := []string{}
+	if exists("package.json") {
+		r = append(r,
+			"ADD package.json /function/",
+			"RUN npm install",
+		)
+	}
+	return r
 }
 
-// PreBuild for Go builds the binary so the final image can be as small as possible
-func (lh *NodeLangHelper) PreBuild() error {
-	return nil
-}
-
-func (lh *NodeLangHelper) AfterBuild() error {
-	return nil
+func (h *NodeLangHelper) DockerfileCopyCmds() []string {
+	return []string{
+		"ADD . /function/",
+		"COPY --from=build-stage /function/node_modules/ /function/node_modules/",
+	}
 }

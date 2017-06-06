@@ -1,49 +1,35 @@
 package langs
 
-import (
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-)
-
 type RubyLangHelper struct {
 	BaseHelper
 }
 
+func (lh *RubyLangHelper) BuildFromImage() string {
+	return "funcy/ruby:dev"
+}
+
+func (lh *RubyLangHelper) RunFromImage() string {
+	return "funcy/ruby"
+}
+
+func (h *RubyLangHelper) DockerfileBuildCmds() []string {
+	r := []string{}
+	if exists("Gemfile") {
+		r = append(r,
+			"ADD Gemfile* /function/",
+			"RUN bundle install",
+		)
+	}
+	return r
+}
+
+func (h *RubyLangHelper) DockerfileCopyCmds() []string {
+	return []string{
+		"COPY --from=build-stage /usr/lib/ruby/gems/ /usr/lib/ruby/gems/", // skip this if no Gemfile?  Does it matter?
+		"ADD . /function/",
+	}
+}
+
 func (lh *RubyLangHelper) Entrypoint() string {
 	return "ruby func.rb"
-}
-
-func (lh *RubyLangHelper) HasPreBuild() bool {
-	return true
-}
-
-func (lh *RubyLangHelper) PreBuild() error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	if !exists(filepath.Join(wd, "Gemfile")) {
-		return nil
-	}
-
-	pbcmd := fmt.Sprintf("docker run --rm -v %s:/worker -w /worker funcy/ruby:dev bundle install --standalone --clean", wd)
-	fmt.Println("Running prebuild command:", pbcmd)
-	parts := strings.Fields(pbcmd)
-	head := parts[0]
-	parts = parts[1:len(parts)]
-	cmd := exec.Command(head, parts...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return dockerBuildError(err)
-	}
-	return nil
-}
-
-func (lh *RubyLangHelper) AfterBuild() error {
-	return nil
 }

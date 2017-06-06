@@ -2,6 +2,6 @@
   "name": "my-awesome-func",
   "version": "1.0.0",
    "dependencies": {
-    "request": "^2.78.0"
+    "is-positive": "^3.1.0"
   }
 }
