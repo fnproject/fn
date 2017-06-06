@@ -65,7 +65,10 @@ func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg
 	result, err := rnr.RunTask(ctx, cfg)
 
 	completedAt := strfmt.DateTime(time.Now())
-	status := result.Status()
+	status := "error"
+	if result != nil {
+		status = result.Status()
+	}
 	newTask.CompletedAt = completedAt
 	newTask.Status = status
 

@@ -16,13 +16,12 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
 var tmpBolt = "/tmp/func_test_bolt.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request) *Server {
+func testServer(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner) *Server {
 	ctx := context.Background()
 
 	s := &Server{
@@ -30,7 +29,6 @@ func testServer(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner,
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
-		tasks:     tasks,
 		Enqueue:   DefaultEnqueue,
 		hotroutes: routecache.New(2),
 	}
@@ -97,14 +95,10 @@ func TestFullStack(t *testing.T) {
 	ds, closeBolt := prepareBolt(t)
 	defer closeBolt()
 
-	tasks := make(chan task.Request)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	rnr, rnrcancel := testRunner(t)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, rnr, tasks)
+	srv := testServer(ds, &mqs.Mock{}, rnr)
 	srv.hotroutes = routecache.New(2)
 
 	for _, test := range []struct {

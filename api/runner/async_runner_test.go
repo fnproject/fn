@@ -15,11 +15,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -208,7 +208,6 @@ func (r RunResult) Status() string {
 	return "success"
 }
 
-
 func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	buf := setLogBuffer()
 	mockTask := getMockTask()
@@ -230,7 +229,7 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	}()
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	startAsyncRunners(ctx, ts.URL+"/tasks", tasks, rnr, datastore.NewMock())
+	startAsyncRunners(ctx, ts.URL+"/tasks", rnr, datastore.NewMock())
 
 	if err := ctx.Err(); err != context.DeadlineExceeded {
 		t.Log(buf.String())

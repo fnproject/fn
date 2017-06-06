@@ -11,7 +11,6 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
@@ -25,7 +24,6 @@ func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -34,7 +32,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		}, nil, nil,
-	), &mqs.Mock{}, rnr, tasks)
+	), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -68,7 +66,6 @@ func TestRouteRunnerGet(t *testing.T) {
 
 func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -77,7 +74,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		}, nil, nil,
-	), &mqs.Mock{}, rnr, tasks)
+	), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -114,10 +111,6 @@ func TestRouteRunnerPost(t *testing.T) {
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 
-	tasks := make(chan task.Request)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	rnr, cancelrnr := testRunner(t)
 	defer cancelrnr()
 
@@ -129,7 +122,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "funcy/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		}, nil,
-	), &mqs.Mock{}, rnr, tasks)
+	), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path            string
@@ -171,10 +164,6 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	t.Skip("doesn't work on old Ubuntu")
 	buf := setLogBuffer()
 
-	tasks := make(chan task.Request)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	rnr, cancelrnr := testRunner(t)
 	defer cancelrnr()
 
@@ -185,7 +174,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		[]*models.Route{
 			{Path: "/sleeper", AppName: "myapp", Image: "funcy/sleeper", Timeout: 1},
 		}, nil,
-	), &mqs.Mock{}, rnr, tasks)
+	), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path            string
