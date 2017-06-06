@@ -2,6 +2,9 @@ package: gitlab-odx.oracle.com/odx/functions
 import:
 - package: code.cloudfoundry.org/bytefmt
 - package: github.com/Sirupsen/logrus
+  repo: https://github.com/sirupsen/logrus
+  vcs: git
+  version: v0.11.5
   subpackages:
   - hooks/syslog
 - package: github.com/amir/raidman
