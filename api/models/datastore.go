@@ -58,6 +58,11 @@ type Datastore interface {
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appName, routePath string) error
 
+	// InsertTask inserts a task
+	InsertTask(ctx context.Context, task *Task) error
+	GetTask(ctx context.Context, callID string) (*FnCall, error)
+	GetTasks(ctx context.Context, filter *CallFilter) (FnCalls, error)
+
 	// The following provide a generic key value store for arbitrary data, can be used by extensions to store extra data
 	// todo: should we namespace these by app? Then when an app is deleted, it can delete any of this extra data too.
 	Put(context.Context, []byte, []byte) error
@@ -70,4 +75,5 @@ var (
 	ErrDatastoreEmptyApp       = errors.New("Missing app")
 	ErrDatastoreEmptyRoute     = errors.New("Missing route")
 	ErrDatastoreEmptyKey       = errors.New("Missing key")
+	ErrDatastoreEmptyTaskID    = errors.New("Missing task ID")
 )

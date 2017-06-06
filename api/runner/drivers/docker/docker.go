@@ -216,7 +216,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		// NOTE: this is hyper-sensitive and may not be correct like this even, but it passes old tests
 		// task.Command() in swapi is always "sh /mnt/task/.runtask" so fields is safe
 		cmd = strings.Fields(task.Command())
-		logrus.WithFields(logrus.Fields{"task_id": task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
+		logrus.WithFields(logrus.Fields{"call_id": task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
 	}
 
 	envvars := make([]string, 0, len(task.EnvVars()))
@@ -251,11 +251,11 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		container.Config.Volumes[containerDir] = struct{}{}
 		mapn := fmt.Sprintf("%s:%s", hostDir, containerDir)
 		container.HostConfig.Binds = append(container.HostConfig.Binds, mapn)
-		logrus.WithFields(logrus.Fields{"volumes": mapn, "task_id": task.Id()}).Debug("setting volumes")
+		logrus.WithFields(logrus.Fields{"volumes": mapn, "call_id": task.Id()}).Debug("setting volumes")
 	}
 
 	if wd := task.WorkDir(); wd != "" {
-		logrus.WithFields(logrus.Fields{"wd": wd, "task_id": task.Id()}).Debug("setting work dir")
+		logrus.WithFields(logrus.Fields{"wd": wd, "call_id": task.Id()}).Debug("setting work dir")
 		container.Config.WorkingDir = wd
 	}
 
@@ -270,7 +270,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 	if err != nil {
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
-			logrus.WithFields(logrus.Fields{"task_id": task.Id(), "command": container.Config.Cmd, "memory": container.Config.Memory,
+			logrus.WithFields(logrus.Fields{"call_id": task.Id(), "command": container.Config.Cmd, "memory": container.Config.Memory,
 				"cpu_shares": container.Config.CPUShares, "hostname": container.Config.Hostname, "name": container.Name,
 				"image": container.Config.Image, "volumes": container.Config.Volumes, "binds": container.HostConfig.Binds, "container": containerName,
 			}).WithError(err).Error("Could not create container")
@@ -473,7 +473,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 		})
 
 		if err != nil && err != io.ErrClosedPipe {
-			logrus.WithError(err).WithFields(logrus.Fields{"container": container, "task_id": task.Id()}).Error("error streaming docker stats for task")
+			logrus.WithError(err).WithFields(logrus.Fields{"container": container, "call_id": task.Id()}).Error("error streaming docker stats for task")
 		}
 	}()
 

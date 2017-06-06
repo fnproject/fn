@@ -33,7 +33,7 @@ func TestRouteRunnerGet(t *testing.T) {
 	srv := testServer(datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
-		}, nil,
+		}, nil, nil,
 	), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
@@ -76,7 +76,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	srv := testServer(datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
-		}, nil,
+		}, nil, nil,
 	), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
@@ -130,7 +130,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		[]*models.Route{
 			{Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "funcy/error", Headers: map[string][]string{"X-Function": {"Test"}}},
-		},
+		}, nil,
 	), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {
@@ -187,7 +187,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		},
 		[]*models.Route{
 			{Path: "/sleeper", AppName: "myapp", Image: "funcy/sleeper", Timeout: 1},
-		},
+		}, nil,
 	), &mqs.Mock{}, rnr, tasks)
 
 	for i, test := range []struct {

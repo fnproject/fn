@@ -14,6 +14,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/strfmt"
 	uuid "github.com/satori/go.uuid"
 	"gitlab-odx.oracle.com/odx/functions/api"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -151,7 +152,7 @@ func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*
 }
 
 // TODO: Should remove *gin.Context from these functions, should use only context.Context
-func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, found *models.Route, app *models.App, route, reqID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
+func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, found *models.Route, app *models.App, route, reqID string, payload io.Reader, enqueue models.Enqueue, ) (ok bool) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"app": appName, "route": found.Path, "image": found.Image})
 
 	params, match := matchRoute(found.Path, route)
@@ -215,6 +216,15 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 	}
 
 	s.Runner.Enqueue()
+	createdAt := strfmt.DateTime(time.Now())
+	newTask := &models.Task{}
+	newTask.Image = &cfg.Image
+	newTask.ID = cfg.ID
+	newTask.CreatedAt = createdAt
+	newTask.Path = found.Path
+	newTask.EnvVars = cfg.Env
+	newTask.AppName = cfg.AppName
+
 	switch found.Type {
 	case "async":
 		// Read payload
@@ -224,24 +234,18 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 			c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidPayload))
 			return true
 		}
-
 		// Create Task
 		priority := int32(0)
-		task := &models.Task{}
-		task.Image = &cfg.Image
-		task.ID = cfg.ID
-		task.Path = found.Path
-		task.AppName = cfg.AppName
-		task.Priority = &priority
-		task.EnvVars = cfg.Env
-		task.Payload = string(pl)
+		newTask.Priority = &priority
+		newTask.Payload = string(pl)
 		// Push to queue
-		enqueue(c, s.MQ, task)
+		enqueue(c, s.MQ, newTask)
 		log.Info("Added new task to queue")
-		c.JSON(http.StatusAccepted, map[string]string{"call_id": task.ID})
+		c.JSON(http.StatusAccepted, map[string]string{"call_id": newTask.ID})
 
 	default:
-		result, err := runner.RunTask(s.tasks, ctx, cfg)
+		result, err := runner.RunTrackedTask(newTask, s.tasks, ctx, cfg, s.Datastore)
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, runnerResponse{
 				RequestID: cfg.ID,
@@ -255,6 +259,10 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		for k, v := range found.Headers {
 			c.Header(k, v[0])
 		}
+
+		// this will help users to track sync execution in a manner of async
+		// FN_CALL_ID is an equivalent of call_id
+		c.Header("FN_CALL_ID", newTask.ID)
 
 		switch result.Status() {
 		case "success":

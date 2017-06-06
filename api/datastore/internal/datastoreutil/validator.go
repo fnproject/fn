@@ -33,6 +33,10 @@ type Datastore interface {
 	InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error)
 	UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error)
 
+	InsertTask(ctx context.Context, task *models.Task) error
+	GetTask(ctx context.Context, callID string) (*models.FnCall, error)
+	GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error)
+
 	// key will never be nil/empty
 	Put(ctx context.Context, key, val []byte) error
 	Get(ctx context.Context, key []byte) ([]byte, error)
@@ -164,4 +168,19 @@ func (v *validator) Get(ctx context.Context, key []byte) ([]byte, error) {
 		return nil, models.ErrDatastoreEmptyKey
 	}
 	return v.ds.Get(ctx, key)
+}
+
+func (v *validator) InsertTask(ctx context.Context, task *models.Task) error {
+	return v.ds.InsertTask(ctx, task)
+}
+
+func (v *validator) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+	if callID == "" {
+		return nil, models.ErrDatastoreEmptyTaskID
+	}
+	return v.ds.GetTask(ctx, callID)
+}
+
+func (v *validator) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+	return v.ds.GetTasks(ctx, filter)
 }

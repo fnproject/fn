@@ -28,6 +28,30 @@ const (
 	FormatHTTP = "http"
 )
 
+type FnCall struct {
+	IDStatus
+	CompletedAt strfmt.DateTime `json:"completed_at,omitempty"`
+	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
+	StartedAt strfmt.DateTime `json:"started_at,omitempty"`
+	AppName string `json:"app_name,omitempty"`
+	Path string `json:"path"`
+
+}
+
+func (fnCall *FnCall) FromTask(task *Task) *FnCall {
+	return &FnCall{
+		CreatedAt:task.CreatedAt,
+		StartedAt:task.StartedAt,
+		CompletedAt:task.CompletedAt,
+		AppName:task.AppName,
+		Path:task.Path,
+		IDStatus: IDStatus{
+			ID:task.ID,
+			Status:task.Status,
+		},
+	}
+}
+
 /*Task task
 
 swagger:model Task
@@ -150,4 +174,9 @@ func (m *Task) validateReason(formats strfmt.Registry) error {
 	}
 
 	return nil
+}
+
+type CallFilter struct {
+	Path    string
+	AppName string
 }

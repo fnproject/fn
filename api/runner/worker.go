@@ -10,9 +10,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	uuid "github.com/satori/go.uuid"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/protocol"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/go-openapi/strfmt"
 )
 
 // hot functions - theory of operation
@@ -61,6 +63,25 @@ import (
 //                                           Timeout
 //                                           Terminate
 //                                           (internal clock)
+
+
+// RunTrackedTask is just a wrapper for shared logic for async/sync runners
+func RunTrackedTask(newTask *models.Task, tasks chan task.Request, ctx context.Context, cfg *task.Config, ds models.Datastore) (drivers.RunResult, error) {
+	startedAt := strfmt.DateTime(time.Now())
+	newTask.StartedAt = startedAt
+
+	result, err := RunTask(tasks, ctx, cfg)
+
+	completedAt := strfmt.DateTime(time.Now())
+	status := result.Status()
+	newTask.CompletedAt = completedAt
+	newTask.Status = status
+
+	err = ds.InsertTask(ctx, newTask)
+
+	return result, err
+}
+
 
 // RunTask helps sending a task.Request into the common concurrency stream.
 // Refer to StartWorkers() to understand what this is about.

@@ -8,23 +8,27 @@ import (
 )
 
 type mock struct {
-	Apps   []*models.App
-	Routes []*models.Route
+	Apps   models.Apps
+	Routes models.Routes
+	Calls  models.FnCalls
 	data map[string][]byte
 }
 
 func NewMock() models.Datastore {
-	return NewMockInit(nil, nil)
+	return NewMockInit(nil, nil, nil)
 }
 
-func NewMockInit(apps []*models.App, routes []*models.Route) models.Datastore {
+func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls) models.Datastore {
 	if apps == nil {
-		apps = []*models.App{}
+		apps = models.Apps{}
 	}
 	if routes == nil {
-		routes = []*models.Route{}
+		routes = models.Routes{}
 	}
-	return datastoreutil.NewValidator(&mock{apps, routes, make(map[string][]byte)})
+	if calls == nil {
+		calls = models.FnCalls{}
+	}
+	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte)})
 }
 
 func (m *mock) GetApp(ctx context.Context, appName string) (app *models.App, err error) {
@@ -136,4 +140,24 @@ func (m *mock) Put(ctx context.Context, key, value []byte) error {
 
 func (m *mock) Get(ctx context.Context, key []byte) ([]byte, error) {
 	return m.data[string(key)], nil
+}
+
+func (m *mock) InsertTask(ctx context.Context, task *models.Task) error {
+	var call *models.FnCall
+	m.Calls = append(m.Calls, call.FromTask(task))
+	return nil
+}
+
+func (m *mock) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+	for _, t := range m.Calls {
+		if t.ID == callID {
+			return t, nil
+		}
+	}
+
+	return nil, models.ErrCallNotFound
+}
+
+func (m *mock) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+	return m.Calls, nil
 }

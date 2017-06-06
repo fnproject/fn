@@ -23,6 +23,7 @@ type BoltDatastore struct {
 	appsBucket   []byte
 	logsBucket   []byte
 	extrasBucket []byte
+	callsBucket  []byte
 	db           *bolt.DB
 	log          logrus.FieldLogger
 }
@@ -50,8 +51,9 @@ func New(url *url.URL) (models.Datastore, error) {
 	appsBucketName := []byte(bucketPrefix + "apps")
 	logsBucketName := []byte(bucketPrefix + "logs")
 	extrasBucketName := []byte(bucketPrefix + "extras") // todo: think of a better name
+	callsBucketName := []byte(bucketPrefix + "calls")
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, name := range [][]byte{routesBucketName, appsBucketName, logsBucketName, extrasBucketName} {
+		for _, name := range [][]byte{routesBucketName, appsBucketName, logsBucketName, extrasBucketName, callsBucketName} {
 			_, err := tx.CreateBucketIfNotExists(name)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{"name": name}).Error("create bucket")
@@ -70,6 +72,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		appsBucket:   appsBucketName,
 		logsBucket:   logsBucketName,
 		extrasBucket: extrasBucketName,
+		callsBucket:  callsBucketName,
 		db:           db,
 		log:          log,
 	}
@@ -77,6 +80,72 @@ func New(url *url.URL) (models.Datastore, error) {
 
 	return datastoreutil.NewValidator(ds), nil
 }
+
+
+func (ds *BoltDatastore) InsertTask(ctx context.Context, task *models.Task) error {
+	var fnCall *models.FnCall
+	taskID := []byte(task.ID)
+
+	err := ds.db.Update(
+		func(tx *bolt.Tx) error {
+			bIm := tx.Bucket(ds.callsBucket)
+			buf, err := json.Marshal(fnCall.FromTask(task))
+			if err != nil {
+				return err
+			}
+			err = bIm.Put(taskID, buf)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	return err
+}
+
+func (ds *BoltDatastore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+	res := models.FnCalls{}
+	err := ds.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(ds.callsBucket)
+		err2 := b.ForEach(func(key, v []byte) error {
+			call := &models.FnCall{}
+			err := json.Unmarshal(v, call)
+			if err != nil {
+				return err
+			}
+			if applyCallFilter(call, filter) {
+				res = append(res, call)
+			}
+			return nil
+		})
+		if err2 != nil {
+			logrus.WithError(err2).Errorln("Couldn't get calls!")
+		}
+		return err2
+	})
+	return res, err
+}
+
+
+func (ds *BoltDatastore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+	var res *models.FnCall
+	err := ds.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(ds.callsBucket)
+		v := b.Get([]byte(callID))
+		if v != nil {
+			fnCall := &models.FnCall{}
+			err := json.Unmarshal(v, fnCall)
+			if err != nil {
+				return nil
+			}
+			res = fnCall
+		} else {
+			return models.ErrCallNotFound
+		}
+		return nil
+	})
+	return res, err
+}
+
 
 func (ds *BoltDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	appname := []byte(app.Name)
@@ -99,7 +168,7 @@ func (ds *BoltDatastore) InsertApp(ctx context.Context, app *models.App) (*model
 			return err
 		}
 		bjParent := tx.Bucket(ds.routesBucket)
-		_, err = bjParent.CreateBucketIfNotExists([]byte(app.Name))
+		_, err = bjParent.CreateBucketIfNotExists(appname)
 		if err != nil {
 			return err
 		}
@@ -434,4 +503,8 @@ func applyRouteFilter(route *models.Route, filter *models.RouteFilter) bool {
 	return filter == nil || (filter.Path == "" || route.Path == filter.Path) &&
 		(filter.AppName == "" || route.AppName == filter.AppName) &&
 		(filter.Image == "" || route.Image == filter.Image)
+}
+
+func applyCallFilter(call *models.FnCall, filter *models.CallFilter) bool {
+	return filter == nil || (filter.AppName == call.AppName) && (filter.Path == call.Path)
 }

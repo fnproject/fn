@@ -8,8 +8,6 @@ import (
 
 	"context"
 
-	"bytes"
-	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"github.com/lib/pq"
@@ -44,41 +42,35 @@ const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
 
 const routeSelector = `SELECT app_name, path, image, format, maxc, memory, type, timeout, idle_timeout, headers, config FROM routes`
 
-type rowScanner interface {
-	Scan(dest ...interface{}) error
-}
+const callsTableCreate = `CREATE TABLE IF NOT EXISTS calls (
+	created_at character varying(256) NOT NULL,
+	started_at character varying(256) NOT NULL,
+	completed_at character varying(256) NOT NULL,
+	status character varying(256) NOT NULL,
+	id character varying(256) NOT NULL,
+	app_name character varying(256) NOT NULL,
+	path character varying(256) NOT NULL,
+	PRIMARY KEY (id)
+);`
+
+const callSelector = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
 
 type PostgresDatastore struct {
 	db *sql.DB
 }
 
 func New(url *url.URL) (models.Datastore, error) {
-	db, err := sql.Open("postgres", url.String())
+	tables := []string{routesTableCreate, appsTableCreate, extrasTableCreate, callsTableCreate}
+	sqlDatastore := &PostgresDatastore{}
+	dialect := "postgres"
+
+	db, err := datastoreutil.NewDatastore(url.String(), dialect, tables)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	maxIdleConns := 30 // c.MaxIdleConnections
-	db.SetMaxIdleConns(maxIdleConns)
-	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns}).Info("Postgres dialed")
-
-	pg := &PostgresDatastore{
-		db: db,
-	}
-
-	for _, v := range []string{routesTableCreate, appsTableCreate, extrasTableCreate} {
-		_, err = db.Exec(v)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return datastoreutil.NewValidator(pg), nil
+	sqlDatastore.db = db
+	return datastoreutil.NewValidator(sqlDatastore), nil
 }
 
 func (ds *PostgresDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
@@ -156,93 +148,23 @@ func (ds *PostgresDatastore) UpdateApp(ctx context.Context, newapp *models.App) 
 }
 
 func (ds *PostgresDatastore) RemoveApp(ctx context.Context, appName string) error {
-	_, err := ds.db.Exec(`
-	  DELETE FROM apps
-	  WHERE name = $1
-	`, appName)
+	_, err := ds.db.Exec(`DELETE FROM apps WHERE name = $1`, appName)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (ds *PostgresDatastore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	row := ds.db.QueryRow("SELECT name, config FROM apps WHERE name=$1", name)
+	queryStr := "SELECT name, config FROM apps WHERE name=$1"
+	queryArgs := []interface{}{name}
 
-	var resName string
-	var config string
-	err := row.Scan(&resName, &config)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrAppsNotFound
-		}
-		return nil, err
-	}
-
-	res := &models.App{
-		Name: resName,
-	}
-
-	if len(config) > 0 {
-		err := json.Unmarshal([]byte(config), &res.Config)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return res, nil
-}
-
-func scanApp(scanner rowScanner, app *models.App) error {
-	var configStr string
-
-	err := scanner.Scan(
-		&app.Name,
-		&configStr,
-	)
-	if err != nil {
-		return err
-	}
-
-	if len(configStr) > 0 {
-		err = json.Unmarshal([]byte(configStr), &app.Config)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return datastoreutil.SQLGetApp(ds.db, queryStr, queryArgs...)
 }
 
 func (ds *PostgresDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
-	res := []*models.App{}
+	whereStm := "WHERE name LIKE $1"
+	selectStm := "SELECT DISTINCT * FROM apps %s"
 
-	filterQuery, args := buildFilterAppQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("SELECT DISTINCT * FROM apps %s", filterQuery), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var app models.App
-		err := scanApp(rows, &app)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return res, nil
-			}
-			return res, err
-		}
-		res = append(res, &app)
-	}
-
-	if err := rows.Err(); err != nil {
-		return res, err
-	}
-	return res, nil
+	return datastoreutil.SQLGetApps(ds.db, filter, whereStm, selectStm)
 }
 
 func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
@@ -315,7 +237,7 @@ func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.R
 	var route models.Route
 	err := ds.Tx(func(tx *sql.Tx) error {
 		row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=$1 AND path=$2", routeSelector), newroute.AppName, newroute.Path)
-		if err := scanRoute(row, &route); err == sql.ErrNoRows {
+		if err := datastoreutil.ScanRoute(row, &route); err == sql.ErrNoRows {
 			return models.ErrRoutesNotFound
 		} else if err != nil {
 			return err
@@ -378,173 +300,30 @@ func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.R
 }
 
 func (ds *PostgresDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
-	res, err := ds.db.Exec(`
-		DELETE FROM routes
-		WHERE path = $1 AND app_name = $2
-	`, routePath, appName)
+	deleteStm := `DELETE FROM routes WHERE path = $1 AND app_name = $2`
 
-	if err != nil {
-		return err
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if n == 0 {
-		return models.ErrRoutesRemoving
-	}
-
-	return nil
-}
-
-func scanRoute(scanner rowScanner, route *models.Route) error {
-	var headerStr string
-	var configStr string
-
-	err := scanner.Scan(
-		&route.AppName,
-		&route.Path,
-		&route.Image,
-		&route.Format,
-		&route.MaxConcurrency,
-		&route.Memory,
-		&route.Type,
-		&route.Timeout,
-		&route.IdleTimeout,
-		&headerStr,
-		&configStr,
-	)
-	if err != nil {
-		return err
-	}
-
-	if len(headerStr) > 0 {
-		err = json.Unmarshal([]byte(headerStr), &route.Headers)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(configStr) > 0 {
-		err = json.Unmarshal([]byte(configStr), &route.Config)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return datastoreutil.SQLRemoveRoute(ds.db, appName, routePath, deleteStm)
 }
 
 func (ds *PostgresDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
-	var route models.Route
+	rSelectCondition := "%s WHERE app_name=$1 AND path=$2"
 
-	row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=$1 AND path=$2", routeSelector), appName, routePath)
-	err := scanRoute(row, &route)
-
-	if err == sql.ErrNoRows {
-		return nil, models.ErrRoutesNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	return &route, nil
+	return datastoreutil.SQLGetRoute(ds.db, appName, routePath, rSelectCondition, routeSelector)
 }
 
 func (ds *PostgresDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
-	res := []*models.Route{}
-	filterQuery, args := buildFilterRouteQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery), args...)
-	// todo: check for no rows so we don't respond with a sql 500 err
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	whereStm := "WHERE %s $1"
+	andStm := " AND %s $%d"
 
-	for rows.Next() {
-		var route models.Route
-		err := scanRoute(rows, &route)
-		if err != nil {
-			continue
-		}
-		res = append(res, &route)
-
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
+	return datastoreutil.SQLGetRoutes(ds.db, filter, routeSelector, whereStm, andStm)
 }
 
 func (ds *PostgresDatastore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
-	res := []*models.Route{}
+	defaultFilterQuery := "WHERE app_name = $1"
+	whereStm := "WHERE %s $1"
+	andStm := " AND %s $%d"
 
-	var filterQuery string
-	var args []interface{}
-	if filter == nil {
-		filterQuery = "WHERE app_name = $1"
-		args = []interface{}{appName}
-	} else {
-		filter.AppName = appName
-		filterQuery, args = buildFilterRouteQuery(filter)
-	}
-	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery), args...)
-	// todo: check for no rows so we don't respond with a sql 500 err
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var route models.Route
-		err := scanRoute(rows, &route)
-		if err != nil {
-			continue
-		}
-		res = append(res, &route)
-
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}) {
-	if filter == nil {
-		return "", nil
-	}
-
-	if filter.Name != "" {
-		return "WHERE name LIKE $1", []interface{}{filter.Name}
-	}
-
-	return "", nil
-}
-
-func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
-	if filter == nil {
-		return "", nil
-	}
-	var b bytes.Buffer
-	var args []interface{}
-
-	where := func(colOp, val string) {
-		if val != "" {
-			args = append(args, val)
-			if len(args) == 1 {
-				fmt.Fprintf(&b, "WHERE %s $1", colOp)
-			} else {
-				fmt.Fprintf(&b, " AND %s $%d", colOp, len(args))
-			}
-		}
-	}
-
-	where("path =", filter.Path)
-	where("app_name =", filter.AppName)
-	where("image =", filter.Image)
-
-	return b.String(), args
+	return datastoreutil.SQLGetRoutesByApp(ds.db, appName, filter, routeSelector, defaultFilterQuery, whereStm, andStm)
 }
 
 func (ds *PostgresDatastore) Put(ctx context.Context, key, value []byte) error {
@@ -590,4 +369,41 @@ func (ds *PostgresDatastore) Tx(f func(*sql.Tx) error) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (ds *PostgresDatastore) InsertTask(ctx context.Context, task *models.Task) error {
+	err := ds.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(
+			`INSERT INTO calls (
+				id,
+				created_at,
+				started_at,
+				completed_at,
+				status,
+				app_name,
+				path) VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+			task.ID,
+			task.CreatedAt.String(),
+			task.StartedAt.String(),
+			task.CompletedAt.String(),
+			task.Status,
+			task.AppName,
+			task.Path,
+		)
+		return err
+	})
+	return err
+}
+
+func (ds *PostgresDatastore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+	whereStm := "%s WHERE id=$1"
+
+	return datastoreutil.SQLGetCall(ds.db, callSelector, callID, whereStm)
+}
+
+func (ds *PostgresDatastore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+	whereStm := "WHERE %s $1"
+	andStm := " AND %s $2"
+
+	return datastoreutil.SQLGetCalls(ds.db, callSelector, filter, whereStm, andStm)
 }

@@ -12,9 +12,12 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/strfmt"
+	"github.com/satori/go.uuid"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -40,6 +43,50 @@ func Test(t *testing.T, ds models.Datastore) {
 	buf := setLogBuffer()
 
 	ctx := context.Background()
+
+	task := &models.Task{}
+	task.CreatedAt = strfmt.DateTime(time.Now())
+	task.Status = "success"
+	task.StartedAt = strfmt.DateTime(time.Now())
+	task.CompletedAt = strfmt.DateTime(time.Now())
+	task.AppName = testApp.Name
+	task.Path = testRoute.Path
+
+	t.Run("call-insert", func(t *testing.T) {
+		task.ID = uuid.NewV4().String()
+		err := ds.InsertTask(ctx, task)
+		if err != nil {
+			t.Log(buf.String())
+			t.Fatalf("Test InsertTask(ctx, &task): unexpected error `%v`", err)
+		}
+	})
+
+	t.Run("call-get", func(t *testing.T) {
+		task.ID = uuid.NewV4().String()
+		ds.InsertTask(ctx, task)
+		newTask, err := ds.GetTask(ctx, task.ID)
+		if err != nil {
+			t.Fatalf("Test GetTask(ctx, task.ID): unexpected error `%v`", err)
+		}
+		if task.ID != newTask.ID {
+			t.Log(buf.String())
+			t.Fatalf("Test GetTask(ctx, task.ID): unexpected error `%v`", err)
+		}
+	})
+
+	t.Run("calls-get", func(t *testing.T) {
+		filter := &models.CallFilter{AppName: task.AppName, Path:task.Path}
+		task.ID = uuid.NewV4().String()
+		ds.InsertTask(ctx, task)
+		calls, err := ds.GetTasks(ctx, filter)
+		if err != nil {
+			t.Fatalf("Test GetTasks(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) == 0 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetTasks(ctx, filter): unexpected error `%v`", err)
+		}
+	})
 
 	t.Run("apps", func(t *testing.T) {
 		// Testing insert app

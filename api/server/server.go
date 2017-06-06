@@ -245,7 +245,7 @@ func (s *Server) startGears(ctx context.Context) {
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
-		runner.RunAsyncRunner(ctx, s.apiURL, s.tasks, s.Runner)
+		runner.RunAsyncRunner(ctx, s.apiURL, s.tasks, s.Runner, s.Datastore)
 	})
 
 	svr.AddFunc(func(ctx context.Context) {
@@ -274,6 +274,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 		v1.GET("/routes", s.handleRouteList)
 
+		v1.GET("/calls/:call", s.handleCallGet)
+
 		apps := v1.Group("/apps/:app")
 		{
 			apps.GET("/routes", s.handleRouteList)
@@ -281,6 +283,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			apps.GET("/routes/*route", s.handleRouteGet)
 			apps.PATCH("/routes/*route", s.handleRouteUpdate)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)
+			apps.GET("/calls/*route", s.handleCallList)
 		}
 	}
 
@@ -315,4 +318,14 @@ type routesResponse struct {
 type tasksResponse struct {
 	Message string      `json:"message"`
 	Task    models.Task `json:"tasksResponse"`
+}
+
+type fnCallResponse struct {
+	Message string      `json:"message"`
+	Call    *models.FnCall `json:"call"`
+}
+
+type fnCallsResponse struct {
+	Message string      `json:"message"`
+	Calls    models.FnCalls `json:"calls"`
 }
