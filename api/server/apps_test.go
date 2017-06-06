@@ -99,7 +99,7 @@ func TestAppDelete(t *testing.T) {
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}},nil,
+			}},nil, nil,
 		), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
@@ -219,14 +219,14 @@ func TestAppUpdate(t *testing.T) {
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil,
+			}}, nil, nil,
 		), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
 		// Addresses #380
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil,
+			}}, nil,nil,
 		), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)

@@ -80,7 +80,7 @@ func TestRouteDelete(t *testing.T) {
 		{datastore.NewMockInit(nil,
 			[]*models.Route{
 				{Path: "/myroute", AppName: "a"},
-			},
+			}, nil,
 		), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
@@ -206,7 +206,7 @@ func TestRouteUpdate(t *testing.T) {
 					AppName: "a",
 					Path:    "/myroute/do",
 				},
-			},
+			}, nil,
 		), "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "funcy/hello" } }`, http.StatusOK, nil},
 
 		// Addresses #381
@@ -216,7 +216,7 @@ func TestRouteUpdate(t *testing.T) {
 					AppName: "a",
 					Path:    "/myroute/do",
 				},
-			},
+			}, nil,
 		), "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)

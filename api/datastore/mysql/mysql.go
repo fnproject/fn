@@ -1,14 +1,12 @@
 package mysql
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/url"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
@@ -42,13 +40,19 @@ const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
 
 const routeSelector = `SELECT app_name, path, image, format, maxc, memory, type, timeout, idle_timeout, headers, config FROM routes`
 
-type rowScanner interface {
-	Scan(dest ...interface{}) error
-}
+const callTableCreate = `CREATE TABLE IF NOT EXISTS calls (
+	created_at varchar(256) NOT NULL,
+	started_at varchar(256) NOT NULL,
+	completed_at varchar(256) NOT NULL,
+	status varchar(256) NOT NULL,
+	id varchar(256) NOT NULL,
+	app_name varchar(256) NOT NULL,
+	path varchar(256) NOT NULL,
+	PRIMARY KEY (id)
+);`
 
-type rowQuerier interface {
-	QueryRow(query string, args ...interface{}) *sql.Row
-}
+const callSelector = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
+
 
 /*
 MySQLDatastore defines a basic MySQL Datastore struct.
@@ -61,33 +65,19 @@ type MySQLDatastore struct {
 New creates a new MySQL Datastore.
 */
 func New(url *url.URL) (models.Datastore, error) {
-	u := fmt.Sprintf("%s@%s%s", url.User.String(), url.Host, url.Path)
-	db, err := sql.Open("mysql", u)
+	tables := []string{routesTableCreate, appsTableCreate, extrasTableCreate, callTableCreate}
+	dialect := "mysql"
+	sqlDatastore := &MySQLDatastore{}
+	dataSourceName := fmt.Sprintf("%s@%s%s", url.User.String(), url.Host, url.Path)
+
+	db, err := datastoreutil.NewDatastore(dataSourceName, dialect, tables)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
+	sqlDatastore.db = db
+	return datastoreutil.NewValidator(sqlDatastore), nil
 
-	maxIdleConns := 30
-	db.SetMaxIdleConns(maxIdleConns)
-	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns}).Info("MySQL dialed")
-
-	pg := &MySQLDatastore{
-		db: db,
-	}
-
-	for _, v := range []string{routesTableCreate, appsTableCreate, extrasTableCreate} {
-		_, err = db.Exec(v)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return datastoreutil.NewValidator(pg), nil
 }
 
 /*
@@ -188,78 +178,26 @@ func (ds *MySQLDatastore) RemoveApp(ctx context.Context, appName string) error {
 	  WHERE name = ?
 	`, appName)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 /*
 GetApp retrieves an app from MySQL.
 */
 func (ds *MySQLDatastore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	row := ds.db.QueryRow(`SELECT name, config FROM apps WHERE name=?`, name)
-
-	var resName string
-	var config string
-	err := row.Scan(&resName, &config)
-
-	res := &models.App{
-		Name: resName,
-	}
-
-	json.Unmarshal([]byte(config), &res.Config)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrAppsNotFound
-		}
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func scanApp(scanner rowScanner, app *models.App) error {
-	var configStr string
-
-	err := scanner.Scan(
-		&app.Name,
-		&configStr,
-	)
-
-	json.Unmarshal([]byte(configStr), &app.Config)
-
-	return err
+	queryStr := `SELECT name, config FROM apps WHERE name=?`
+	queryArgs := []interface{}{name}
+	return datastoreutil.SQLGetApp(ds.db, queryStr, queryArgs...)
 }
 
 /*
 GetApps retrieves an array of apps according to a specific filter.
 */
 func (ds *MySQLDatastore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
-	res := []*models.App{}
-	filterQuery, args := buildFilterAppQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("SELECT DISTINCT name, config FROM apps %s", filterQuery), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	whereStm := "WHERE name LIKE ?"
+	selectStm := "SELECT DISTINCT name, config FROM apps %s"
 
-	for rows.Next() {
-		var app models.App
-		err := scanApp(rows, &app)
-
-		if err != nil {
-			break
-		}
-		res = append(res, &app)
-	}
-
-	if err := rows.Err(); err != nil {
-		return res, err
-	}
-	return res, nil
+	return datastoreutil.SQLGetApps(ds.db, filter, whereStm, selectStm)
 }
 
 /*
@@ -336,7 +274,7 @@ func (ds *MySQLDatastore) UpdateRoute(ctx context.Context, newroute *models.Rout
 	var route models.Route
 	err := ds.Tx(func(tx *sql.Tx) error {
 		row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=? AND path=?", routeSelector), newroute.AppName, newroute.Path)
-		if err := scanRoute(row, &route); err == sql.ErrNoRows {
+		if err := datastoreutil.ScanRoute(row, &route); err == sql.ErrNoRows {
 			return models.ErrRoutesNotFound
 		} else if err != nil {
 			return err
@@ -402,174 +340,39 @@ func (ds *MySQLDatastore) UpdateRoute(ctx context.Context, newroute *models.Rout
 RemoveRoute removes an existing route on MySQL.
 */
 func (ds *MySQLDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
-	res, err := ds.db.Exec(`
-		DELETE FROM routes
-		WHERE path = ? AND app_name = ?
-	`, routePath, appName)
+	deleteStm := `DELETE FROM routes WHERE path = ? AND app_name = ?`
 
-	if err != nil {
-		return err
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if n == 0 {
-		return models.ErrRoutesRemoving
-	}
-
-	return nil
-}
-
-func scanRoute(scanner rowScanner, route *models.Route) error {
-	var headerStr string
-	var configStr string
-
-	err := scanner.Scan(
-		&route.AppName,
-		&route.Path,
-		&route.Image,
-		&route.Format,
-		&route.MaxConcurrency,
-		&route.Memory,
-		&route.Type,
-		&route.Timeout,
-		&route.IdleTimeout,
-		&headerStr,
-		&configStr,
-	)
-	if err != nil {
-		return err
-	}
-
-	if headerStr == "" {
-		return models.ErrRoutesNotFound
-	}
-
-	if err := json.Unmarshal([]byte(headerStr), &route.Headers); err != nil {
-		return err
-	}
-	return json.Unmarshal([]byte(configStr), &route.Config)
+	return datastoreutil.SQLRemoveRoute(ds.db, appName, routePath, deleteStm)
 }
 
 /*
 GetRoute retrieves a route from MySQL.
 */
 func (ds *MySQLDatastore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
-	var route models.Route
+	rSelectCondition := "%s WHERE app_name=? AND path=?"
 
-	row := ds.db.QueryRow(fmt.Sprintf("%s WHERE app_name=? AND path=?", routeSelector), appName, routePath)
-	err := scanRoute(row, &route)
-
-	if err == sql.ErrNoRows {
-		return nil, models.ErrRoutesNotFound
-	} else if err != nil {
-		return nil, err
-	}
-	return &route, nil
+	return datastoreutil.SQLGetRoute(ds.db, appName, routePath, rSelectCondition, routeSelector)
 }
 
 /*
 GetRoutes retrieves an array of routes according to a specific filter.
 */
 func (ds *MySQLDatastore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
-	res := []*models.Route{}
-	filterQuery, args := buildFilterRouteQuery(filter)
-	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	whereStm := "WHERE %s ?"
+	andStm := " AND %s ?"
 
-	for rows.Next() {
-		var route models.Route
-		err := scanRoute(rows, &route)
-		if err != nil {
-			continue
-		}
-		res = append(res, &route)
-
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
+	return datastoreutil.SQLGetRoutes(ds.db, filter, routeSelector, whereStm, andStm)
 }
 
 /*
 GetRoutesByApp retrieves a route with a specific app name.
 */
 func (ds *MySQLDatastore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
-	res := []*models.Route{}
+	whereStm := "WHERE %s ?"
+	andStm := " AND %s ?"
+	defaultFilterQuery := "WHERE app_name = ?"
 
-	var filterQuery string
-	var args []interface{}
-	if filter == nil {
-		filterQuery = "WHERE app_name = ?"
-		args = []interface{}{appName}
-	} else {
-		filter.AppName = appName
-		filterQuery, args = buildFilterRouteQuery(filter)
-	}
-	rows, err := ds.db.Query(fmt.Sprintf("%s %s", routeSelector, filterQuery), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var route models.Route
-		err := scanRoute(rows, &route)
-		if err != nil {
-			continue
-		}
-		res = append(res, &route)
-
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}) {
-	if filter == nil {
-		return "", nil
-	}
-
-	if filter.Name != "" {
-		return "WHERE name LIKE ?", []interface{}{filter.Name}
-	}
-
-	return "", nil
-}
-
-func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
-	if filter == nil {
-		return "", nil
-	}
-	var b bytes.Buffer
-	var args []interface{}
-
-	where := func(colOp, val string) {
-		if val != "" {
-			args = append(args, val)
-			if len(args) == 1 {
-				fmt.Fprintf(&b, "WHERE %s ?", colOp)
-			} else {
-				fmt.Fprintf(&b, " AND %s ?", colOp)
-			}
-		}
-	}
-
-	where("path =", filter.Path)
-	where("app_name =", filter.AppName)
-	where("image =", filter.Image)
-
-	return b.String(), args
+	return datastoreutil.SQLGetRoutesByApp(ds.db, appName, filter, routeSelector, defaultFilterQuery, whereStm, andStm)
 }
 
 /*
@@ -624,4 +427,33 @@ func (ds *MySQLDatastore) Tx(f func(*sql.Tx) error) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (ds * MySQLDatastore) InsertTask(ctx context.Context, task *models.Task) error {
+	stmt, err := ds.db.Prepare("INSERT calls SET id=?,created_at=?,started_at=?,completed_at=?,status=?,app_name=?,path=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(task.ID, task.CreatedAt.String(),
+		task.StartedAt.String(), task.CompletedAt.String(),
+		task.Status, task.AppName, task.Path)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ds * MySQLDatastore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+	whereStm := "%s WHERE id=?"
+
+	return datastoreutil.SQLGetCall(ds.db, callSelector, callID, whereStm)
+}
+
+func (ds * MySQLDatastore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+	whereStm := "WHERE %s ?"
+	andStm := " AND %s ?"
+
+	return datastoreutil.SQLGetCalls(ds.db, callSelector, filter, whereStm, andStm)
 }

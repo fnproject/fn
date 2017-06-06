@@ -158,4 +158,3 @@ For more information, see: [https://github.com/treeder/functions-ui](https://git
 ### Check out the [Tutorial Series](examples/tutorial/).
 
  It will demonstrate some of Oracle Functions capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
-

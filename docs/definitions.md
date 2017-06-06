@@ -86,7 +86,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
     "config": {
         "key": "value",
         "key2": "value2",
-        "keyN": "valueN",
+        "keyN": "valueN"
     },
     "headers": {
         "content-type": [
@@ -148,6 +148,98 @@ To define the function execution as `hot function` you set it as one of the foll
 
 This properties are only used if the function is in `hot function` mode
 
-#### max_concurrency (string)
 
-This property defines the maximum amount of concurrent hot functions instances the function should have (per Oracle Functions node).
+## Calls and their statuses
+
+### Sync/Async Call statuses
+
+With each function call, no matter would that be sync or async server makes a record of this it.
+While execution async function server returns `call_id`:
+ 
+```json
+ {
+    "call_id": "f5621e8b-725a-4ba9-8323-b8cdc02ce37e"
+ }
+```
+that can be used to track call status using following command:
+ 
+```sh
+ 
+ curl -v -X GET ${API_URL}/v1/calls/f5621e8b-725a-4ba9-8323-b8cdc02ce37
+ 
+```
+
+```json
+{
+    "message": "Successfully loaded call",
+    "call": {
+        "id": "f5621e8b-725a-4ba9-8323-b8cdc02ce37e",
+        "status": "success",
+        "completed_at": "2017-06-02T15:31:30.887+03:00",
+        "created_at": "2017-06-02T15:31:30.597+03:00",
+        "started_at": "2017-06-02T15:31:30.597+03:00",
+        "app_name": "newapp",
+        "path": "/envsync"
+    }
+}
+
+```
+
+Server response contains timestamps(created, started, completed) and execution status for this call.
+
+For sync call `call_id` can be retrieved from HTTP headers:
+```sh
+curl -v localhost:8080/r/newapp/envsync 
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 8080 (#0)
+> GET /r/newapp/envsync HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/7.51.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Fn_call_id: f5621e8b-725a-4ba9-8323-b8cdc02ce37e
+< Date: Fri, 02 Jun 2017 12:31:30 GMT
+< Content-Length: 489
+< Content-Type: text/plain; charset=utf-8
+< 
+...
+```
+Corresponding HTTP header is `Fn_call_id`.
+
+### Per-route calls
+
+In order get list of per-route calls please use following command:
+
+```sh
+curl -X GET ${API_URL}/v1/app/{app}/calls/{route}
+
+```
+Server will replay with following JSON response:
+
+```json
+{
+    "message": "Successfully listed calls",
+    "calls": [
+        {
+            "id": "80b12325-4c0c-5fc1-b7d3-dccf234b48fc",
+            "status": "success",
+            "completed_at": "2017-06-02T15:31:22.976+03:00",
+            "created_at": "2017-06-02T15:31:22.691+03:00",
+            "started_at": "2017-06-02T15:31:22.691+03:00",
+            "app_name": "newapp",
+            "path": "/envsync"
+        },
+        {
+            "id": "beec888b-3868-59e3-878d-281f6b6f0cbc",
+            "status": "success",
+            "completed_at": "2017-06-02T15:31:30.887+03:00",
+            "created_at": "2017-06-02T15:31:30.597+03:00",
+            "started_at": "2017-06-02T15:31:30.597+03:00",
+            "app_name": "newapp",
+            "path": "/envsync"
+        }
+    ]
+}
+```

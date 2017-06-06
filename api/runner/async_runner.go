@@ -88,14 +88,14 @@ func deleteTask(url string, task *models.Task) error {
 }
 
 // RunAsyncRunner pulls tasks off a queue and processes them
-func RunAsyncRunner(ctx context.Context, tasksrv string, tasks chan task.Request, rnr *Runner) {
+func RunAsyncRunner(ctx context.Context, tasksrv string, tasks chan task.Request, rnr *Runner, ds models.Datastore) {
 	u := tasksrvURL(tasksrv)
 
-	startAsyncRunners(ctx, u, tasks, rnr)
+	startAsyncRunners(ctx, u, tasks, rnr, ds)
 	<-ctx.Done()
 }
 
-func startAsyncRunners(ctx context.Context, url string, tasks chan task.Request, rnr *Runner) {
+func startAsyncRunners(ctx context.Context, url string, tasks chan task.Request, rnr *Runner, ds models.Datastore) {
 	var wg sync.WaitGroup
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"runner": "async"})
 	for {
@@ -129,23 +129,24 @@ func startAsyncRunners(ctx context.Context, url string, tasks chan task.Request,
 			log.Debug("Running task:", task.ID)
 
 			wg.Add(1)
+
 			go func() {
 				defer wg.Done()
 				// Process Task
-				if _, err := RunTask(tasks, ctx, getCfg(task)); err != nil {
+				_, err := RunTrackedTask(task, tasks, ctx, getCfg(task), ds)
+				if err != nil {
 					log.WithError(err).Error("Cannot run task")
 				}
+				log.Debug("Processed task")
 			}()
-
-			log.Debug("Processed task")
 
 			// Delete task from queue
 			if err := deleteTask(url, task); err != nil {
 				log.WithError(err).Error("Cannot delete task")
 				continue
 			}
-			log.Info("Task complete")
 
+			log.Info("Task complete")
 		}
 	}
 }

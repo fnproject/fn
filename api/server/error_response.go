@@ -20,6 +20,7 @@ var errStatusCode = map[error]int{
 	models.ErrAppsAlreadyExists:   http.StatusConflict,
 	models.ErrRoutesNotFound:      http.StatusNotFound,
 	models.ErrRoutesAlreadyExists: http.StatusConflict,
+	models.ErrCallNotFound:        http.StatusNotFound,
 }
 
 func handleErrorResponse(c *gin.Context, err error) {

@@ -310,3 +310,65 @@ func applyRouteFilter(route *models.Route, filter *models.RouteFilter) bool {
 		(filter.AppName == "" || route.AppName == filter.AppName) &&
 		(filter.Image == "" || route.Image == filter.Image)
 }
+
+func applyCallFilter(call *models.FnCall, filter *models.CallFilter) bool {
+	return filter == nil || (filter.Path == "" || call.Path == filter.Path) &&
+		(filter.AppName == "" || call.AppName == filter.AppName)
+}
+
+func (ds *RedisDataStore) InsertTask(ctx context.Context, task *models.Task) error {
+	_, err := ds.conn.Do("HEXISTS", "calls", task.ID)
+	if err != nil {
+		return err
+	}
+
+	taskBytes, err := json.Marshal(task)
+	if err != nil {
+		return err
+	}
+
+	if _, err := ds.conn.Do("HSET", "calls", task.ID, taskBytes); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *RedisDataStore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+	reply, err := ds.conn.Do("HGET", "calls", callID)
+	if err != nil {
+		return nil, err
+	} else if reply == nil {
+		return nil, models.ErrCallNotFound
+	}
+	res := &models.FnCall{}
+	if err := json.Unmarshal(reply.([]byte), res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (ds *RedisDataStore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+	res := models.FnCalls{}
+
+	reply, err := ds.conn.Do("HGETALL", "calls")
+	if err != nil {
+		return nil, err
+	}
+
+	calls, err := redis.StringMap(reply, err)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range calls {
+		var call models.FnCall
+		if err := json.Unmarshal([]byte(v), &call); err != nil {
+			return nil, err
+		}
+		if applyCallFilter(&call, filter) {
+			res = append(res, &call)
+		}
+	}
+	return res, nil
+
+}
