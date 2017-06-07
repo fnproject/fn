@@ -121,8 +121,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rnr, cancelrnr := testRunner(t)
 	defer cancelrnr()
 
-	go runner.StartWorkers(ctx, rnr, tasks)
-
 	srv := testServer(datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
@@ -179,7 +177,6 @@ func TestRouteRunnerTimeout(t *testing.T) {
 
 	rnr, cancelrnr := testRunner(t)
 	defer cancelrnr()
-	go runner.StartWorkers(ctx, rnr, tasks)
 
 	srv := testServer(datastore.NewMockInit(
 		[]*models.App{

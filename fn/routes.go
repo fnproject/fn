@@ -49,10 +49,6 @@ var routeFlags = []cli.Flag{
 		Name:  "format,f",
 		Usage: "hot container IO format - json or http",
 	},
-	cli.IntFlag{
-		Name:  "max-concurrency,mc",
-		Usage: "maximum concurrency for hot container",
-	},
 	cli.DurationFlag{
 		Name:  "timeout",
 		Usage: "route timeout (eg. 30s)",
@@ -259,10 +255,6 @@ func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
 		rt.Type = t
 	}
 
-	if m := c.Int("max-concurrency"); m > 0 {
-		rt.MaxConcurrency = int32(m)
-	}
-
 	if m := c.Int64("memory"); m > 0 {
 		rt.Memory = m
 	}
@@ -299,9 +291,6 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 	}
 	if ff.Format != nil {
 		rt.Format = *ff.Format
-	}
-	if ff.MaxConcurrency != nil {
-		rt.MaxConcurrency = int32(*ff.MaxConcurrency)
 	}
 	if ff.Timeout != nil {
 		to := int64(ff.Timeout.Seconds())
@@ -421,9 +410,6 @@ func (a *routesCmd) patchRoute(c *cli.Context, appName, routePath string, r *fnm
 		}
 		if r.Type != "" {
 			resp.Payload.Route.Type = r.Type
-		}
-		if r.MaxConcurrency > 0 {
-			resp.Payload.Route.MaxConcurrency = r.MaxConcurrency
 		}
 		if r.Memory > 0 {
 			resp.Payload.Route.Memory = r.Memory

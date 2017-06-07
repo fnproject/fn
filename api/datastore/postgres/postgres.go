@@ -1,17 +1,16 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/url"
 
-	"context"
-
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 const routesTableCreate = `
@@ -20,7 +19,6 @@ CREATE TABLE IF NOT EXISTS routes (
 	path text NOT NULL,
 	image character varying(256) NOT NULL,
 	format character varying(16) NOT NULL,
-	maxc integer NOT NULL,
 	memory integer NOT NULL,
 	timeout integer NOT NULL,
 	idle_timeout integer NOT NULL,
@@ -40,7 +38,7 @@ const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
 	value character varying(256) NOT NULL
 );`
 
-const routeSelector = `SELECT app_name, path, image, format, maxc, memory, type, timeout, idle_timeout, headers, config FROM routes`
+const routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config FROM routes`
 
 const callsTableCreate = `CREATE TABLE IF NOT EXISTS calls (
 	created_at character varying(256) NOT NULL,
@@ -203,7 +201,6 @@ func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Rout
 			path,
 			image,
 			format,
-			maxc,
 			memory,
 			type,
 			timeout,
@@ -211,12 +208,11 @@ func (ds *PostgresDatastore) InsertRoute(ctx context.Context, route *models.Rout
 			headers,
 			config
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
 			route.AppName,
 			route.Path,
 			route.Image,
 			route.Format,
-			route.MaxConcurrency,
 			route.Memory,
 			route.Type,
 			route.Timeout,
@@ -259,19 +255,17 @@ func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.R
 		UPDATE routes SET
 			image = $3,
 			format = $4,
-			maxc = $5,
-			memory = $6,
-			type = $7,
-			timeout = $8,
-			idle_timeout = $9,
-			headers = $10,
-			config = $11
+			memory = $5,
+			type = $6,
+			timeout = $7,
+			idle_timeout = $8,
+			headers = $9,
+			config = $10
 		WHERE app_name = $1 AND path = $2;`,
 			route.AppName,
 			route.Path,
 			route.Image,
 			route.Format,
-			route.MaxConcurrency,
 			route.Memory,
 			route.Type,
 			route.Timeout,
@@ -301,7 +295,6 @@ func (ds *PostgresDatastore) UpdateRoute(ctx context.Context, newroute *models.R
 
 func (ds *PostgresDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	deleteStm := `DELETE FROM routes WHERE path = $1 AND app_name = $2`
-
 	return datastoreutil.SQLRemoveRoute(ds.db, appName, routePath, deleteStm)
 }
 

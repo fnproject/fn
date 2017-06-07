@@ -104,8 +104,6 @@ func TestFullStack(t *testing.T) {
 	rnr, rnrcancel := testRunner(t)
 	defer rnrcancel()
 
-	go runner.StartWorkers(ctx, rnr, tasks)
-
 	srv := testServer(ds, &mqs.Mock{}, rnr, tasks)
 	srv.hotroutes = routecache.New(2)
 

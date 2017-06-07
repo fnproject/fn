@@ -18,7 +18,6 @@ const routesTableCreate = `CREATE TABLE IF NOT EXISTS routes (
 	path varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
-	maxc int NOT NULL,
 	memory int NOT NULL,
 	timeout int NOT NULL,
 	idle_timeout int NOT NULL,
@@ -38,7 +37,7 @@ const extrasTableCreate = `CREATE TABLE IF NOT EXISTS extras (
 	value varchar(256) NOT NULL
 );`
 
-const routeSelector = `SELECT app_name, path, image, format, maxc, memory, type, timeout, idle_timeout, headers, config FROM routes`
+const routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config FROM routes`
 
 const callTableCreate = `CREATE TABLE IF NOT EXISTS calls (
 	created_at varchar(256) NOT NULL,
@@ -52,7 +51,6 @@ const callTableCreate = `CREATE TABLE IF NOT EXISTS calls (
 );`
 
 const callSelector = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
-
 
 /*
 MySQLDatastore defines a basic MySQL Datastore struct.
@@ -237,7 +235,6 @@ func (ds *MySQLDatastore) InsertRoute(ctx context.Context, route *models.Route) 
 			path,
 			image,
 			format,
-			maxc,
 			memory,
 			type,
 			timeout,
@@ -250,7 +247,6 @@ func (ds *MySQLDatastore) InsertRoute(ctx context.Context, route *models.Route) 
 			route.Path,
 			route.Image,
 			route.Format,
-			route.MaxConcurrency,
 			route.Memory,
 			route.Type,
 			route.Timeout,
@@ -296,7 +292,6 @@ func (ds *MySQLDatastore) UpdateRoute(ctx context.Context, newroute *models.Rout
 		UPDATE routes SET
 			image = ?,
 			format = ?,
-			maxc = ?,
 			memory = ?,
 			type = ?,
 			timeout = ?,
@@ -306,7 +301,6 @@ func (ds *MySQLDatastore) UpdateRoute(ctx context.Context, newroute *models.Rout
 		WHERE app_name = ? AND path = ?;`,
 			route.Image,
 			route.Format,
-			route.MaxConcurrency,
 			route.Memory,
 			route.Type,
 			route.Timeout,
@@ -341,7 +335,6 @@ RemoveRoute removes an existing route on MySQL.
 */
 func (ds *MySQLDatastore) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	deleteStm := `DELETE FROM routes WHERE path = ? AND app_name = ?`
-
 	return datastoreutil.SQLRemoveRoute(ds.db, appName, routePath, deleteStm)
 }
 
@@ -429,7 +422,7 @@ func (ds *MySQLDatastore) Tx(f func(*sql.Tx) error) error {
 	return tx.Commit()
 }
 
-func (ds * MySQLDatastore) InsertTask(ctx context.Context, task *models.Task) error {
+func (ds *MySQLDatastore) InsertTask(ctx context.Context, task *models.Task) error {
 	stmt, err := ds.db.Prepare("INSERT calls SET id=?,created_at=?,started_at=?,completed_at=?,status=?,app_name=?,path=?")
 	if err != nil {
 		return err
@@ -445,13 +438,13 @@ func (ds * MySQLDatastore) InsertTask(ctx context.Context, task *models.Task) er
 	return nil
 }
 
-func (ds * MySQLDatastore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+func (ds *MySQLDatastore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
 	whereStm := "%s WHERE id=?"
 
 	return datastoreutil.SQLGetCall(ds.db, callSelector, callID, whereStm)
 }
 
-func (ds * MySQLDatastore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+func (ds *MySQLDatastore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
 	whereStm := "WHERE %s ?"
 	andStm := " AND %s ?"
 

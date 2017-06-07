@@ -9,25 +9,23 @@ import (
 )
 
 type Config struct {
-	ID                  string
-	Path                string
-	Image               string
-	Timeout             time.Duration
-	IdleTimeout         time.Duration
-	AppName             string
-	Memory              uint64
-	Env                 map[string]string
-	Format              string
-	MaxConcurrency      int
+	ID          string
+	Path        string
+	Image       string
+	Timeout     time.Duration
+	IdleTimeout time.Duration
+	AppName     string
+	Memory      uint64
+	Env         map[string]string
+	Format      string
 
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 }
 
-// Request stores the task to be executed by the common concurrency stream,
-// whatever type the ask actually is, either sync or async. It holds in itself
-// the channel to return its response to its caller.
+// Request stores the task to be executed, It holds in itself the channel to
+// return its response to its caller.
 type Request struct {
 	Ctx      context.Context
 	Config   *Config

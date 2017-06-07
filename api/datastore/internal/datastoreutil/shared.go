@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"github.com/Sirupsen/logrus"
 	"fmt"
+	"github.com/Sirupsen/logrus"
 	"strings"
 
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -14,7 +14,6 @@ import (
 type RowScanner interface {
 	Scan(dest ...interface{}) error
 }
-
 
 func ScanRoute(scanner RowScanner, route *models.Route) error {
 	var headerStr string
@@ -25,7 +24,6 @@ func ScanRoute(scanner RowScanner, route *models.Route) error {
 		&route.Path,
 		&route.Image,
 		&route.Format,
-		&route.MaxConcurrency,
 		&route.Memory,
 		&route.Type,
 		&route.Timeout,
@@ -107,7 +105,6 @@ func BuildFilterRouteQuery(filter *models.RouteFilter, whereStm, andStm string) 
 	return b.String(), args
 }
 
-
 func BuildFilterAppQuery(filter *models.AppFilter, whereStm string) (string, []interface{}) {
 	if filter == nil {
 		return "", nil
@@ -119,7 +116,6 @@ func BuildFilterAppQuery(filter *models.AppFilter, whereStm string) (string, []i
 
 	return "", nil
 }
-
 
 func BuildFilterCallQuery(filter *models.CallFilter, whereStm, andStm string) (string, []interface{}) {
 	if filter == nil {
@@ -268,7 +264,6 @@ func NewDatastore(dataSourceName, dialect string, tables []string) (*sql.DB, err
 	db.SetMaxIdleConns(maxIdleConns)
 	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns}).Info(
 		fmt.Sprintf("%v datastore dialed", dialect))
-
 
 	for _, v := range tables {
 		_, err = db.Exec(v)

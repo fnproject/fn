@@ -20,8 +20,6 @@ func TestSpecialHandlerSet(t *testing.T) {
 	// rnr, cancelrnr := testRunner(t)
 	// defer cancelrnr()
 
-	// go runner.StartWorkers(ctx, rnr, tasks)
-
 	// s := &Server{
 	// 	Runner: rnr,
 	// 	Router: gin.New(),

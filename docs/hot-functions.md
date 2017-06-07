@@ -97,7 +97,6 @@ requests:
 		"type": "sync",
 		"config": null,
 		"format": "http",
-		"max_concurrency": "1",
 		"idle_timeout": 30
 	}
 }
@@ -107,9 +106,6 @@ requests:
 
 `format` (mandatory) either "default" or "http". If "http", then it is a hot
 container.
-
-`max_concurrency` (optional) - the number of simultaneous hot functions for
-this functions. This is a per-node configuration option. Default: 1
 
 `idle_timeout` (optional) - idle timeout (in seconds) before function termination.
 

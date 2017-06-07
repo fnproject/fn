@@ -3,4 +3,3 @@ version: 0.0.6
 runtime: go
 entrypoint: ./func
 path: /fn3
-max_concurrency: 1

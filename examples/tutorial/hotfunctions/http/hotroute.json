@@ -1,7 +1,4 @@
 {"route":{
-  "app_name": "myapp",
-  "path": "/hot",
-  "image": "USERNAME/hchttp",
   "memory": 64,
   "type": "sync",
   "config": null,
