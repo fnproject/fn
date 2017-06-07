@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/coreos/go-semver/semver"
 
@@ -130,7 +131,10 @@ func dockerVersionCheck() error {
 	if err != nil {
 		return fmt.Errorf("could not check Docker version: %v", err)
 	}
-	v, err := semver.NewVersion(string(out))
+	// dev / test builds append '-ce', trim this
+	trimmed := strings.TrimRightFunc(string(out), func(r rune) bool { return r != '.' && !unicode.IsDigit(r) })
+
+	v, err := semver.NewVersion(trimmed)
 	if err != nil {
 		return fmt.Errorf("could not check Docker version: %v", err)
 	}
