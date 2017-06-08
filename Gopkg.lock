@@ -1,4 +1,4 @@
-memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
+memo = "8125a14a7245aa6261731457ebbae9061e1454dc4fdd9e2363225c5fedc67eab"
 
 [[projects]]
   branch = "master"
@@ -51,8 +51,8 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/lambda","service/sts"]
-  revision = "328d4b6c297ec5d4f86543fca46254699d82cada"
-  version = "v1.8.35"
+  revision = "512bdaf8bec30abd545b440447cebb57b53d3af9"
+  version = "v1.8.36"
 
 [[projects]]
   name = "github.com/boltdb/bolt"
@@ -118,7 +118,7 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
   branch = "master"
   name = "github.com/docker/cli"
   packages = ["cli/config/configfile"]
-  revision = "51b00f966e1da76b4a896f0ea89151f5c0d63685"
+  revision = "583ed2e3be35221191802f1f6d4a097816effc07"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -165,8 +165,8 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
 [[projects]]
   branch = "master"
   name = "github.com/funcy/functions_go"
-  packages = [".","client","client/apps","client/routes","client/tasks","client/version","models"]
-  revision = "e995899e0032f175bb111c3ccd9777e16486882c"
+  packages = [".","client","client/apps","client/call","client/routes","client/tasks","client/version","models"]
+  revision = "3b83bbd98c2a5909eea3ccfafe3730a9822d15ee"
 
 [[projects]]
   name = "github.com/garyburd/redigo"
@@ -232,7 +232,7 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
   branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "e51c28f07047ad90caff03f6450908720d337e0c"
+  revision = "e81a13315ac92ce3e73075856c5cd50301695405"
 
 [[projects]]
   branch = "master"
@@ -367,6 +367,12 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
   version = "v0.0.2"
 
 [[projects]]
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
+  version = "v0.0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
@@ -377,6 +383,12 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
   packages = ["pkg/jsonmessage"]
   revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
   version = "v1.13.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/olekukonko/tablewriter"
+  packages = ["."]
+  revision = "febf2d34b54a69ce7530036c7503b1c9fbfdf0bb"
 
 [[projects]]
   name = "github.com/opencontainers/runc"
@@ -460,7 +472,7 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["bcrypt","blowfish"]
-  revision = "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
+  revision = "e7ba82683099cae71475961448ab8f903ea77c26"
 
 [[projects]]
   branch = "master"
@@ -478,7 +490,7 @@ memo = "d628d38d5466c7cb518c5958cac84faf570f2082027b3868f7e035b871a2fc6f"
   branch = "master"
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "ccbd3f7822129ff389f8ca4858a9b9d4d910531c"
+  revision = "ab6d1c143672de99b9dfde433b7f6affb278cc74"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v8"

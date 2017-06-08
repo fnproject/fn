@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: Oracle Functions
   description: The open source serverless platform.
-  version: "0.1.30"
+  version: "0.1.32"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -424,10 +424,12 @@ definitions:
       timeout:
         type: integer
         default: 30
+        format: int32
         description: Timeout for executions of this route. Value in Seconds
       idle_timeout:
         type: integer
         default: 30
+        format: int32
         description: Hot functions idle timeout before termination. Value in Seconds
 
   App:
@@ -499,17 +501,14 @@ definitions:
   CallsWrapper:
     type: object
     required:
-      - app
-      - route
+      - calls
     properties:
-      app:
-        type: string
-        description: "Name of this app."
-        readOnly: true
-      route:
-        type: string
-        description: "Name of this app."
-        readOnly: true
+      calls:
+        type: array
+        items:
+          $ref: '#/definitions/Call'
+      error:
+        $ref: '#/definitions/ErrorBody'
 
   CallWrapper:
     type: object
@@ -517,46 +516,43 @@ definitions:
       - call
     properties:
       call:
-        type: string
-        description: "Call ID."
-        readOnly: true
-
+        $ref: '#/definitions/Call'
+        description: "Call object."
 
   Call:
-    allOf:
-      - type: object
-        properties:
-          id:
-            type: string
-            description: Call UUID ID.
-            readOnly: true
-          status:
-            type: string
-            description: Call execution status.
-            readOnly: true
-          app_name:
-            type: string
-            description: App name that is assigned to a route that is being executed.
-            readOnly: true
-          path:
-            type: string
-            description: App route that is being executed.
-            readOnly: true
-          created_at:
-            type: string
-            format: date-time
-            description: Time when call was submitted. Always in UTC.
-            readOnly: true
-          started_at:
-            type: string
-            format: date-time
-            description: Time when call started execution. Always in UTC.
-            readOnly: true
-          completed_at:
-            type: string
-            format: date-time
-            description: Time when call completed, whether it was successul or failed. Always in UTC.
-            readOnly: true
+    type: object
+    properties:
+      id:
+        type: string
+        description: Call UUID ID.
+        readOnly: true
+      status:
+        type: string
+        description: Call execution status.
+        readOnly: true
+      app_name:
+        type: string
+        description: App name that is assigned to a route that is being executed.
+        readOnly: true
+      path:
+        type: string
+        description: App route that is being executed.
+        readOnly: true
+      created_at:
+        type: string
+        format: date-time
+        description: Time when call was submitted. Always in UTC.
+        readOnly: true
+      started_at:
+        type: string
+        format: date-time
+        description: Time when call started execution. Always in UTC.
+        readOnly: true
+      completed_at:
+        type: string
+        format: date-time
+        description: Time when call completed, whether it was successul or failed. Always in UTC.
+        readOnly: true
 
   Task:
     allOf:
