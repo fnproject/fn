@@ -82,9 +82,29 @@ $ fn routes delete otherapp hello              # delete route
 $ fn routes headers set otherapp hello header-name value         # add HTTP header to response
 otherapp /hello headers updated header-name with value
 
+
+$ fn calls list myapp /hello                     # lists all available calls for /hello route from myapp
+ID: 45bd486b-6eec-548a-bc1a-94d59deef4ac
+App: myapp
+Route: /hello
+Created At: 2017-06-02T15:23:53.263+03:00
+Started At: 2017-06-02T15:23:53.263+03:00
+Completed At: 2017-06-02T15:23:53.532+03:00
+Status: success
+
+$ fn calls get 45bd486b-6eec-548a-bc1a-94d59deef4ac   # gets specific calls by ID
+ID: 45bd486b-6eec-548a-bc1a-94d59deef4ac
+App: myapp
+Route: /hello
+Created At: 2017-06-02T15:23:53.263+03:00
+Started At: 2017-06-02T15:23:53.263+03:00
+Completed At: 2017-06-02T15:23:53.532+03:00
+Status: success
+
+
 $ fn version                                   # shows version both of client and server
-Client version: 0.1.0
-Server version: 0.1.21
+Client version: 0.3.7
+Server version 0.3.7
 ```
 
 ## Application level configuration

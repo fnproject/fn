@@ -12,12 +12,13 @@ import (
 )
 
 var aliases = map[string]cli.Command{
-	"build":  build(),
-	"bump":   bump(),
-	"deploy": deploy(),
-	"push":   push(),
-	"run":    run(),
-	"call":   call(),
+	"build":   build(),
+	"bump":    bump(),
+	"deploy":  deploy(),
+	"push":    push(),
+	"run":     run(),
+	"call":    call(),
+	"calls":   calls(),
 }
 
 func aliasesFn() []cli.Command {
@@ -77,6 +78,7 @@ GLOBAL OPTIONS:
 		images(),
 		lambda(),
 		version(),
+		calls(),
 	}
 	app.Commands = append(app.Commands, aliasesFn()...)
 

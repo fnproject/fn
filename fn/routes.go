@@ -260,7 +260,7 @@ func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
 	}
 
 	if t := c.Duration("timeout"); t > 0 {
-		to := int64(t.Seconds())
+		to := int32(t.Seconds())
 		rt.Timeout = &to
 	}
 
@@ -293,7 +293,7 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 		rt.Format = *ff.Format
 	}
 	if ff.Timeout != nil {
-		to := int64(ff.Timeout.Seconds())
+		to := int32(ff.Timeout.Seconds())
 		rt.Timeout = &to
 	}
 	if rt.Path == "" && ff.Path != nil {
