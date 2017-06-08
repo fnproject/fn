@@ -242,7 +242,7 @@ func (ds *MySQLDatastore) InsertRoute(ctx context.Context, route *models.Route) 
 			headers,
 			config
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
 			route.AppName,
 			route.Path,
 			route.Image,

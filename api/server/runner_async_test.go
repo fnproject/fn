@@ -13,11 +13,10 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
-func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, tasks chan task.Request, enqueue models.Enqueue) *gin.Engine {
+func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, enqueue models.Enqueue) *gin.Engine {
 	ctx := context.Background()
 
 	s := &Server{
@@ -25,7 +24,6 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
-		tasks:     tasks,
 		Enqueue:   enqueue,
 		hotroutes: routecache.New(10),
 	}
@@ -39,7 +37,6 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 }
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
-	tasks := mockTasksConduit()
 	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
@@ -82,7 +79,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		wg.Add(1)
 		fmt.Println("About to start router")
 		rnr, cancel := testRunner(t)
-		router := testRouterAsync(ds, mq, rnr, tasks, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
+		router := testRouterAsync(ds, mq, rnr, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
 			if test.body != task.Payload {
 				t.Errorf("Test %d: Expected task Payload to be the same as the test body", i)
 			}

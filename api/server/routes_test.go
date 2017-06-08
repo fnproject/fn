@@ -13,8 +13,6 @@ import (
 
 func TestRouteCreate(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	for i, test := range []struct {
 		mock          models.Datastore
@@ -37,7 +35,7 @@ func TestRouteCreate(t *testing.T) {
 		{datastore.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.mock, &mqs.Mock{}, rnr)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "POST", test.path, body)
@@ -66,8 +64,6 @@ func TestRouteCreate(t *testing.T) {
 
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -84,7 +80,7 @@ func TestRouteDelete(t *testing.T) {
 		), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.ds, &mqs.Mock{}, rnr)
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
@@ -108,12 +104,10 @@ func TestRouteDelete(t *testing.T) {
 
 func TestRouteList(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -145,13 +139,11 @@ func TestRouteList(t *testing.T) {
 
 func TestRouteGet(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -183,8 +175,6 @@ func TestRouteGet(t *testing.T) {
 
 func TestRouteUpdate(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -220,7 +210,7 @@ func TestRouteUpdate(t *testing.T) {
 		), "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.ds, &mqs.Mock{}, rnr)
 
 		body := bytes.NewBuffer([]byte(test.body))
 

@@ -12,7 +12,6 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -25,19 +24,8 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-func mockTasksConduit() chan task.Request {
-	tasks := make(chan task.Request)
-	go func() {
-		for range tasks {
-		}
-	}()
-	return tasks
-}
-
 func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 	for i, test := range []struct {
 		mock          models.Datastore
 		path          string
@@ -58,7 +46,7 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.mock, &mqs.Mock{}, rnr)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -85,8 +73,6 @@ func TestAppCreate(t *testing.T) {
 
 func TestAppDelete(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -99,11 +85,11 @@ func TestAppDelete(t *testing.T) {
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}},nil, nil,
+			}}, nil, nil,
 		), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.ds, &mqs.Mock{}, rnr)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
@@ -128,12 +114,10 @@ func TestAppDelete(t *testing.T) {
 
 func TestAppList(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -165,12 +149,10 @@ func TestAppList(t *testing.T) {
 
 func TestAppGet(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr, tasks)
+	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -202,8 +184,6 @@ func TestAppGet(t *testing.T) {
 
 func TestAppUpdate(t *testing.T) {
 	buf := setLogBuffer()
-	tasks := mockTasksConduit()
-	defer close(tasks)
 
 	for i, test := range []struct {
 		mock          models.Datastore
@@ -226,11 +206,11 @@ func TestAppUpdate(t *testing.T) {
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil,nil,
+			}}, nil, nil,
 		), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, rnr, tasks)
+		srv := testServer(test.mock, &mqs.Mock{}, rnr)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)

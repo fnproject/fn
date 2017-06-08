@@ -42,7 +42,7 @@ func TestRunnerHello(t *testing.T) {
 			Stderr:  &stderr,
 		}
 
-		result, err := runner.Run(ctx, cfg)
+		result, err := runner.run(ctx, cfg)
 		if err != nil {
 			t.Log(buf.String())
 			t.Fatalf("Test %d: error during Run() - %s", i, err)
@@ -95,7 +95,7 @@ func TestRunnerError(t *testing.T) {
 			Stderr:  &stderr,
 		}
 
-		result, err := runner.Run(ctx, cfg)
+		result, err := runner.run(ctx, cfg)
 		if err != nil {
 			t.Log(buf.String())
 			t.Fatalf("Test %d: error during Run() - %s", i, err)
