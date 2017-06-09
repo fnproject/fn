@@ -1,0 +1,39 @@
+package: gitlab-odx.oracle.com/odx/functions/fn
+import:
+- package: github.com/Sirupsen/logrus
+  version: ^0.11.5
+- package: github.com/aws/aws-sdk-go
+  version: ^1.8.36
+  subpackages:
+  - aws
+  - aws/credentials
+  - aws/session
+  - service/lambda
+- package: github.com/coreos/go-semver
+  version: ^0.2.0
+  subpackages:
+  - semver
+- package: github.com/funcy/functions_go
+  subpackages:
+  - client
+  - client/apps
+  - client/call
+  - client/routes
+  - models
+- package: github.com/giantswarm/semver-bump
+  version: ^1.1.1
+  subpackages:
+  - bump
+  - storage
+- package: github.com/go-openapi/runtime
+  subpackages:
+  - client
+- package: github.com/go-openapi/strfmt
+- package: github.com/jmoiron/jsonq
+- package: github.com/moby/moby
+  version: ^17.5.0-ce-rc3
+  subpackages:
+  - pkg/jsonmessage
+- package: github.com/urfave/cli
+  version: ^1.19.1
+- package: gopkg.in/yaml.v2

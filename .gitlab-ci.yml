@@ -1,0 +1,65 @@
+image: funcy/go-dind:latest
+
+cache:
+  key: "$CI_COMMIT_REF_NAME"
+  untracked: true
+
+stages:
+- deps
+- build
+- test
+- deploy
+
+before_script:
+  - mkdir -p "${GOPATH}/src/gitlab-odx.oracle.com/odx/"
+  - ln -s `pwd` "${GOPATH}/src/gitlab-odx.oracle.com/odx/"
+  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
+
+get_deps:
+  stage: deps
+  script:
+  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
+  - pwd
+  - go get github.com/Masterminds/glide
+  - glide install --strip-vendor
+  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions/fn"
+  - pwd
+  - glide install --strip-vendor
+  only:
+    - master
+
+load_deps:
+  stage: deps
+  script:
+  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
+  - pwd
+  - ls vendor/github.com/ > /dev/null || which glide || go get github.com/Masterminds/glide
+  - ls vendor/github.com/ > /dev/null || glide install --strip-vendor
+  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions/fn"
+  - pwd
+  - ls vendor/github.com/ > /dev/null || glide install --strip-vendor
+  except:
+    - master
+
+build_job:
+  stage: build
+  script:
+  - go build -o functions-alpine
+
+test_job:
+  stage: test
+  script:
+  - ./test.sh
+
+deploy_job:
+  only:
+    - tags
+    - master
+  stage: deploy
+  script:
+  - ls
+  - docker build -t ${DOCKER_IMAGE}:latest .
+  - docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${CI_COMMIT_REF_NAME}
+  - docker login -p ${DOCKER_PASSWORD} -u ${DOCKER_USERNAME} ${DOCKER_REGISTRY}
+  - docker push ${DOCKER_IMAGE}:${CI_COMMIT_REF_NAME}
+  - docker push ${DOCKER_IMAGE}:latest
