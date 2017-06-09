@@ -1,4 +1,4 @@
-# Oracle Functions
+# Oracle Functions [![build status](https://gitlab-odx.oracle.com/odx/functions/badges/master/build.svg)](https://gitlab-odx.oracle.com/odx/functions/commits/master)
 
 <!-- [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
@@ -24,9 +24,9 @@ platform that you can run anywhere. Some of it's key features:
 
 ## Usage
 
-### Installation (if running locally) 
+### Installation (if running locally)
 
-NOTE: The following instructions apply while the project is a private repo. This will 
+NOTE: The following instructions apply while the project is a private repo. This will
 build the Functions server and the CLI tool directly from the repo instead of
 using pre-built containers. Once the project is public, these steps will be unnecessary.
 
@@ -58,7 +58,7 @@ Download the pre-built CLI binary:
 4. chmod +x
 
 
-<!-- ADD BACK ONCE PUBLIC 
+<!-- ADD BACK ONCE PUBLIC
 
 ### Install CLI tool
 
@@ -125,7 +125,7 @@ curl http://localhost:8080/r/myapp/hello
 
 Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-That's it! You just deployed your first function and called it. Now to update your function 
+That's it! You just deployed your first function and called it. Now to update your function
 you can update your code and run `fn deploy myapp` again.
 
 ## To Learn More

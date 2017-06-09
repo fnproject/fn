@@ -40,6 +40,6 @@ docker-test:
 	-v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions \
 	-w /go/src/gitlab-odx.oracle.com/odx/functions \
 	funcy/go:dev go test \
-	-v $(shell docker run -ti -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn | grep -v datastore')
+	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn')
 
 all: dep build

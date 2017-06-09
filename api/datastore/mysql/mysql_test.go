@@ -4,46 +4,67 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 
 	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoretest"
 )
 
-const tmpMysql = "mysql://root:root@tcp(%v:3307)/funcs"
+const tmpMysql = "mysql://root:root@tcp(%s:%d)/funcs"
+
+var (
+	mysqlHost = func() string {
+		host := os.Getenv("MYSQL_HOST")
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		return host
+	}()
+	mysqlPort = func() int {
+		port := os.Getenv("MYSQL_PORT")
+		if port == "" {
+			port = "3307"
+		}
+		p, err := strconv.Atoi(port)
+		if err != nil {
+			panic(err)
+		}
+		return p
+	}()
+)
 
 func prepareMysqlTest(logf, fatalf func(string, ...interface{})) (func(), func()) {
-	fmt.Println("initializing mysql for test")
-	tryRun(logf, "remove old mysql container", exec.Command("docker", "rm", "-f", "func-mysql-test"))
-	mustRun(fatalf, "start mysql container", exec.Command(
-		"docker", "run", "--name", "func-mysql-test", "-p", "3307:3306", "-e", "MYSQL_DATABASE=funcs",
-		"-e", "MYSQL_ROOT_PASSWORD=root", "-d", "mysql"))
-	maxWait := 16 * time.Second
+	timeout := time.After(60 * time.Second)
 	wait := 2 * time.Second
 	var db *sql.DB
 	var err error
+	var buf bytes.Buffer
+	time.Sleep(time.Second * 25)
 	for {
-		db, err = sql.Open("mysql", fmt.Sprintf("root:root@tcp(%v:3307)/",
-			datastoretest.GetContainerHostIP()))
+		db, err = sql.Open("mysql", fmt.Sprintf("root:root@tcp(%s:%v)/",
+			mysqlHost, mysqlPort))
 		if err != nil {
-			if wait > maxWait {
-				fatalf("failed to connect to mysql after %d seconds", maxWait)
+			fmt.Fprintln(&buf, "failed to connect to mysql:", err)
+			fmt.Fprintln(&buf, "retrying in:", wait)
+		} else {
+			// Ping
+			if _, err = db.Exec("SELECT 1"); err == nil {
 				break
 			}
-			fmt.Println("failed to connect to mysql:", err)
-			fmt.Println("retrying in:", wait)
-			time.Sleep(wait)
+			fmt.Fprintln(&buf, "failed to ping database:", err)
+		}
+		select {
+		case <-timeout:
+			fmt.Println(buf.String())
+			log.Fatal("timed out waiting for mysql")
+		case <-time.After(wait):
 			continue
 		}
-		// Ping
-		if _, err = db.Exec("SELECT 1"); err != nil {
-			fmt.Println("failed to ping database:", err)
-			time.Sleep(wait)
-			continue
-		}
-		break
 	}
 
 	_, err = db.Exec("DROP DATABASE IF EXISTS funcs;")
@@ -62,8 +83,8 @@ func prepareMysqlTest(logf, fatalf func(string, ...interface{})) (func(), func()
 
 	fmt.Println("mysql for test ready")
 	return func() {
-			db, err := sql.Open("mysql", fmt.Sprintf("root:root@tcp(%v:3307)/",
-				datastoretest.GetContainerHostIP()))
+			db, err := sql.Open("mysql", fmt.Sprintf("root:root@tcp(%s:%d)/",
+				mysqlHost, mysqlPort))
 			if err != nil {
 				fatalf("failed to connect for truncation: %s\n", err)
 			}
@@ -75,7 +96,7 @@ func prepareMysqlTest(logf, fatalf func(string, ...interface{})) (func(), func()
 			}
 		},
 		func() {
-			tryRun(logf, "stop mysql container", exec.Command("docker", "rm", "-f", "func-mysql-test"))
+			tryRun(logf, "stop mysql container", exec.Command("docker", "rm", "-vf", "func-mysql-test"))
 		}
 }
 
@@ -83,7 +104,7 @@ func TestDatastore(t *testing.T) {
 	_, close := prepareMysqlTest(t.Logf, t.Fatalf)
 	defer close()
 
-	u, err := url.Parse(fmt.Sprintf(tmpMysql, datastoretest.GetContainerHostIP()))
+	u, err := url.Parse(fmt.Sprintf(tmpMysql, mysqlHost, mysqlPort))
 	if err != nil {
 		t.Fatalf("failed to parse url: %s\n", err)
 	}
