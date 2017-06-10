@@ -1,7 +1,11 @@
 package: gitlab-odx.oracle.com/odx/functions/fn
 import:
 - package: github.com/Sirupsen/logrus
-  version: ^0.11.5
+  repo: https://github.com/sirupsen/logrus
+  vcs: git
+  version: v0.11.5
+  subpackages:
+  - hooks/syslog
 - package: github.com/aws/aws-sdk-go
   version: ^1.8.36
   subpackages:
