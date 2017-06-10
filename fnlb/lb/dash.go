@@ -1,4 +1,15 @@
+package lb
 
+const dashPage = `<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>lb dash</title>
+
+<script type="text/javascript" src="https://code.jquery.com/jquery-1.10.1.js"></script>
+<script type="text/javascript" src="https://code.highcharts.com/stock/highstock.js"></script>
+<script type="text/javascript" src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+<script>
 var example = 'dynamic-update', 
   theme = 'default';
 
@@ -156,3 +167,14 @@ $(document).ready(function() {
     series: []
   });
 });
+</script>
+
+</head>
+<body>
+
+<div id="throughput_chart" style="height: 400px; min-width: 310px"></div>
+<div id="wait_chart" style="height: 400px; min-width: 310px"></div>
+
+</body>
+</html>
+`
