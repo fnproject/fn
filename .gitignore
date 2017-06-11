@@ -8,7 +8,6 @@ dj.cluster.*.json
 script.tar.gz
 app.zip
 /app
-vendor/
 /microgateway
 /gateway
 /functions
