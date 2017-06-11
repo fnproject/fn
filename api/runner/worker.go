@@ -73,8 +73,10 @@ func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg
 	newTask.CompletedAt = completedAt
 	newTask.Status = status
 
-	err = ds.InsertTask(ctx, newTask)
-	// TODO we should just log this error not return it to user? just issue storing task status but task is run
+	if err := ds.InsertTask(ctx, newTask); err != nil {
+		// TODO we should just log this error not return it to user? just issue storing task status but task is run
+		logrus.WithError(err).Error("error inserting task into datastore")
+	}
 
 	return result, err
 }
