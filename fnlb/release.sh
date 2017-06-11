@@ -2,7 +2,7 @@
 set -ex
 
 user="funcy"
-service="functions"
+service="fnlb"
 tag="latest"
 
 # ensure working dir is clean
@@ -17,7 +17,7 @@ fi
 
 git pull
 
-version_file="api/version/version.go"
+version_file="main.go"
 if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
   echo "did not find semantic version in $version_file"
   exit 1
@@ -38,10 +38,3 @@ git push origin $version
 docker tag $user/$service:$tag $user/$service:$version
 docker push $user/$service:$version
 docker push $user/$service:$tag
-
-cd fn
-./release.sh $version
-cd ..
-cd fnlb
-./release.sh
-cd ..
