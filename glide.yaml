@@ -1,4 +1,6 @@
 package: gitlab-odx.oracle.com/odx/functions
+excludeDirs:
+- fn
 import:
 - package: code.cloudfoundry.org/bytefmt
 - package: github.com/Sirupsen/logrus
@@ -8,12 +10,6 @@ import:
   subpackages:
   - hooks/syslog
 - package: github.com/amir/raidman
-- package: github.com/aws/aws-sdk-go
-  subpackages:
-  - aws
-  - aws/credentials
-  - aws/session
-  - service/lambda
 - package: github.com/boltdb/bolt
 - package: github.com/cactus/go-statsd-client
   subpackages:
@@ -35,10 +31,6 @@ import:
 - package: github.com/garyburd/redigo
   subpackages:
   - redis
-- package: github.com/giantswarm/semver-bump
-  subpackages:
-  - bump
-  - storage
 - package: github.com/gin-gonic/gin
 - package: github.com/go-openapi/errors
 - package: github.com/go-openapi/loads
@@ -56,31 +48,22 @@ import:
 - package: github.com/heroku/docker-registry-client
   subpackages:
   - registry
-- package: github.com/funcy/functions_go
-  subpackages:
-  - client
-  - client/apps
-  - client/routes
-  - models
 - package: github.com/iron-io/iron_go3
   subpackages:
   - config
   - mq
 - package: github.com/jmoiron/jsonq
 - package: github.com/lib/pq
-- package: github.com/moby/moby
-  subpackages:
-  - pkg/jsonmessage
+- package: github.com/docker/docker
+  version: v17.05.0-ce
 - package: github.com/pkg/errors
 - package: github.com/satori/go.uuid
 - package: github.com/spf13/viper
-- package: github.com/urfave/cli
 - package: golang.org/x/crypto
   subpackages:
   - bcrypt
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
-- package: gopkg.in/yaml.v2
 testImport:
 - package: github.com/vrischmann/envconfig

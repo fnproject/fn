@@ -1,5 +1,5 @@
-hash: 61d1ae3e96d005be44356d2298c01c9eeaa656b8a2bd764763a23ca1a424ec3b
-updated: 2017-06-06T16:34:05.549059196-07:00
+hash: a8dbae01be6173ddeceed9debaf995f8007df052cabb90838a1652e0da0baa70
+updated: 2017-06-11T01:58:27.005608286-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -9,36 +9,6 @@ imports:
   - proto
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
-- name: github.com/aws/aws-sdk-go
-  version: e906b729165a81d3e5275cf29a7e2e3b664863f4
-  subpackages:
-  - aws
-  - aws/awserr
-  - aws/awsutil
-  - aws/client
-  - aws/client/metadata
-  - aws/corehandlers
-  - aws/credentials
-  - aws/credentials/ec2rolecreds
-  - aws/credentials/endpointcreds
-  - aws/credentials/stscreds
-  - aws/defaults
-  - aws/ec2metadata
-  - aws/endpoints
-  - aws/request
-  - aws/session
-  - aws/signer/v4
-  - internal/shareddefaults
-  - private/protocol
-  - private/protocol/json/jsonutil
-  - private/protocol/jsonrpc
-  - private/protocol/query
-  - private/protocol/query/queryutil
-  - private/protocol/rest
-  - private/protocol/restjson
-  - private/protocol/xml/xmlutil
-  - service/lambda
-  - service/sts
 - name: github.com/Azure/go-ansiterm
   version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
@@ -53,10 +23,6 @@ imports:
   version: 230eff6403e22b43f5fba7b28466dae4718934dd
 - name: github.com/cenkalti/backoff
   version: 5d150e7eec023ce7a124856b37c68e54b4050ac7
-- name: github.com/coreos/go-semver
-  version: 5e3acbb5668c4c3deb4842615c4098eb61fb6b1e
-  subpackages:
-  - semver
 - name: github.com/dchest/siphash
   version: 4ebf1de738443ea7f45f02dc394c4df1942a126d
 - name: github.com/dghubble/go-twitter
@@ -84,7 +50,7 @@ imports:
   - reference
   - uuid
 - name: github.com/docker/docker
-  version: c9f26eaaf8b9f7977319d6d596f8701bbc58a108
+  version: 89658bed64c2a8fe05a978e5b87dbec409d57a0f
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -105,7 +71,6 @@ imports:
   - pkg/jsonlog
   - pkg/jsonmessage
   - pkg/longpath
-  - pkg/mount
   - pkg/pools
   - pkg/promise
   - pkg/stdcopy
@@ -119,38 +84,21 @@ imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/docker/libtrust
-  version: aabc10ec26b754e797f9028f4589c5b7bd90dc20
+  version: fa567046d9b14f6aa788882a950d69651d230b21
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/fsouza/go-dockerclient
   version: c933ed18bef34ec2955de03de8ef9a3bb996e3df
-- name: github.com/funcy/functions_go
-  version: 3b83bbd98c2a5909eea3ccfafe3730a9822d15ee
-  subpackages:
-  - client
-  - client/apps
-  - client/call
-  - client/routes
-  - client/tasks
-  - client/version
-  - models
 - name: github.com/garyburd/redigo
   version: 95d11dba2d44531bdb8022752b98912baafae03a
   subpackages:
   - internal
   - redis
-- name: github.com/giantswarm/semver-bump
-  version: 7ec6ac8985c24dd50b4942f9a908d13cdfe70f23
-  subpackages:
-  - bump
-  - storage
 - name: github.com/gin-gonic/gin
   version: d5b353c5d5a560322e6d96121c814115562501f7
   subpackages:
   - binding
   - render
-- name: github.com/go-ini/ini
-  version: d3de07a94d22b4a0972deb4b96d790c2c0ce8333
 - name: github.com/go-openapi/analysis
   version: 0473cb67199f68b8b7d90e641afd9e79ad36b851
 - name: github.com/go-openapi/errors
@@ -175,8 +123,6 @@ imports:
   version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-openapi/validate
   version: 035dcd74f1f61e83debe1c22950dc53556e7e4b2
-- name: github.com/go-resty/resty
-  version: 7a8134d8718193eb857994adee49d73a302e7718
 - name: github.com/go-sql-driver/mysql
   version: 56226343bd543f91a3930ed73ebdd03cfd633e85
 - name: github.com/golang/protobuf
@@ -190,9 +136,9 @@ imports:
   subpackages:
   - query
 - name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+  version: 14f550f51af52180c2eefed15e5fd18d63c0a64a
 - name: github.com/gorilla/mux
-  version: 0a192a193177452756c362c20087ddafcf6829c4
+  version: e444e69cbd2e2e3e0749a2f3c717cec491552bbf
 - name: github.com/hashicorp/go-cleanhttp
   version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/hcl
@@ -216,14 +162,8 @@ imports:
   - api
   - config
   - mq
-- name: github.com/jmespath/go-jmespath
-  version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/jmoiron/jsonq
   version: e874b168d07ecc7808bc950a17998a8aa3141d82
-- name: github.com/juju/errgo
-  version: 08cceb5d0b5331634b9826762a8fd53b29b86ad8
-  subpackages:
-  - errors
 - name: github.com/lib/pq
   version: 8837942c3e09574accbc5f150e2c5e057189cace
   subpackages:
@@ -244,19 +184,8 @@ imports:
   version: f533f7a102197536779ea3a8cb881d639e21ec5a
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
-- name: github.com/moby/moby
-  version: c9f26eaaf8b9f7977319d6d596f8701bbc58a108
-  subpackages:
-  - pkg/jsonmessage
 - name: github.com/Nvveen/Gotty
   version: cd527374f1e5bff4938207604a14f2e38a9cf512
-- name: github.com/opencontainers/go-digest
-  version: 279bed98673dd5bef374d3b6e4b09e2af76183bf
-- name: github.com/opencontainers/image-spec
-  version: df6f3c57dafbbf39d98c24fa6ab509183cfa3efc
-  subpackages:
-  - specs-go
-  - specs-go/v1
 - name: github.com/opencontainers/runc
   version: ea35825a6350511ab93fe24e69c0723d6728616d
   subpackages:
@@ -289,13 +218,11 @@ imports:
 - name: github.com/spf13/jwalterweatherman
   version: 0efa5202c04663c757d84f90f5219c1250baf94f
 - name: github.com/spf13/pflag
-  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
+  version: 5644820622454e71517561946e3d94b9f9db6842
 - name: github.com/spf13/viper
   version: 0967fc9aceab2ce9da34061253ac10fb99bba5b2
-- name: github.com/urfave/cli
-  version: d70f47eeca3afd795160003bc6e28b001d60c67c
 - name: golang.org/x/crypto
-  version: e7ba82683099cae71475961448ab8f903ea77c26
+  version: c10c31b5e94b6f7a0283272dc2bb27163dcea24b
   subpackages:
   - bcrypt
   - blowfish
@@ -306,7 +233,6 @@ imports:
   - context/ctxhttp
   - idna
   - proxy
-  - publicsuffix
 - name: golang.org/x/sys
   version: 0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79
   subpackages:
