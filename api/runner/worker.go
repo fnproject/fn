@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -96,6 +97,9 @@ func (rnr *Runner) RunTask(ctx context.Context, cfg *task.Config) (drivers.RunRe
 	}
 
 	resp := <-treq.Response
+	if resp.Result == nil && resp.Err == nil {
+		resp.Err = errors.New("error running task with unknown error")
+	}
 	return resp.Result, resp.Err
 }
 
