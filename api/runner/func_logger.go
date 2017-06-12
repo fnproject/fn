@@ -6,7 +6,9 @@ import (
 	"errors"
 	"io"
 
+	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 type FuncLogger interface {
@@ -42,10 +44,16 @@ func (w *writer) Write(b []byte) (int, error) {
 
 	// for now, also write to stderr so we can debug quick ;)
 	// TODO this should be a separate FuncLogger but time is running short !
-	//log := common.Logger(w.ctx)
-	//log = log.WithFields(logrus.Fields{"user_log": true, "app_name": w.appName,
-	//"path": w.path, "image": w.image, "call_id": w.reqID})
-	//log.Println(string(b))
+	log := common.Logger(w.ctx)
+	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": w.appName, "path": w.path, "image": w.image, "call_id": w.reqID})
+	for i := 0; i < len(b); i++ {
+		j := i
+		i = bytes.IndexByte(b[i:], '\n')
+		if i < 0 {
+			i = len(b)
+		}
+		log.Println(string(b[j:i]))
+	}
 
 	return n, err
 }
