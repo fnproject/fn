@@ -6,9 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 type FuncLogger interface {
