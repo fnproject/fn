@@ -173,6 +173,7 @@ func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, 
 	}
 
 	cfg.Stderr = r.flog.Writer(ctx, cfg.AppName, cfg.Path, cfg.Image, cfg.ID)
+	defer cfg.Stderr.Close() // TODO we should prob log this err but hey
 	if cfg.Stdout == nil {
 		cfg.Stdout = cfg.Stderr
 	}
