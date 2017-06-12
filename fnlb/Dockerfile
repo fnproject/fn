@@ -1,9 +1,8 @@
 FROM alpine
 
 RUN apk --update upgrade && \
-    apk add curl ca-certificates && \
-        update-ca-certificates && \
-            rm -rf /var/cache/apk/*
+    apk add --no-cache curl ca-certificates && \
+    update-ca-certificates
 
 WORKDIR /app
 ADD fnlb-alpine /app/fnlb
