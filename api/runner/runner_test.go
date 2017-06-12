@@ -4,16 +4,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/id"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
+
+type nopCloser struct {
+	io.Writer
+}
+
+func (n nopCloser) Close() error { return nil }
 
 func TestRunnerHello(t *testing.T) {
 	buf := setLogBuffer()
@@ -27,7 +34,6 @@ func TestRunnerHello(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
-
 
 	for i, test := range []struct {
 		route          *models.Route
@@ -49,7 +55,7 @@ func TestRunnerHello(t *testing.T) {
 			Stdin:   strings.NewReader(test.payload),
 			AppName: test.route.AppName,
 			Stdout:  &stdout,
-			Stderr:  fLogger.Writer(ctx, test.route.AppName, test.route.AppName, test.route.Image, test.taskID),
+			Stderr:  nopCloser{&stderr},
 		}
 
 		result, err := runner.run(ctx, cfg)
@@ -107,7 +113,7 @@ func TestRunnerError(t *testing.T) {
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
 			Stdout:  &stdout,
-			Stderr:  fLogger.Writer(ctx, test.route.AppName, test.route.AppName, test.route.Image, test.taskID),
+			Stderr:  nopCloser{&stderr},
 		}
 
 		result, err := runner.run(ctx, cfg)
