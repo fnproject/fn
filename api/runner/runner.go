@@ -211,6 +211,12 @@ func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, 
 	}
 	defer cookie.Close()
 
+	select {
+	case <-cfg.Ready:
+	default:
+		close(cfg.Ready)
+	}
+
 	metricStart := time.Now()
 
 	result, err := cookie.Run(ctx)

@@ -94,6 +94,7 @@ func (rnr *Runner) RunTask(ctx context.Context, cfg *task.Config) (drivers.RunRe
 	} else {
 		tasks <- treq
 	}
+
 	resp := <-treq.Response
 	return resp.Result, resp.Err
 }
@@ -258,11 +259,20 @@ func (hc *htfn) serve(ctx context.Context) {
 		for {
 			select {
 			case <-lctx.Done():
+			case <-cfg.Ready:
+				// on first execution, wait before starting idle timeout / stopping wait time clock,
+				// since docker pull / container create need to happen.
+				// XXX (reed): should we still obey the task timeout? docker image could be 8GB...
+			}
+
+			select {
+			case <-lctx.Done():
 				return
 			case <-time.After(cfg.IdleTimeout):
 				logger.Info("Canceling inactive hot function")
 				cancel()
 			case t := <-hc.tasks:
+				start := time.Now()
 				err := hc.proto.Dispatch(lctx, t)
 				status := "success"
 				if err != nil {
@@ -272,8 +282,8 @@ func (hc *htfn) serve(ctx context.Context) {
 				hc.once()
 
 				t.Response <- task.Response{
-					&runResult{StatusValue: status, error: err},
-					err,
+					Result: &runResult{start: start, status: status, error: err},
+					Err:    err,
 				}
 			}
 		}
@@ -304,7 +314,8 @@ func runTaskReq(rnr *Runner, t task.Request) {
 
 type runResult struct {
 	error
-	StatusValue string
+	status string
+	start  time.Time
 }
 
 func (r *runResult) Error() string {
@@ -314,4 +325,5 @@ func (r *runResult) Error() string {
 	return r.error.Error()
 }
 
-func (r *runResult) Status() string { return r.StatusValue }
+func (r *runResult) Status() string       { return r.status }
+func (r *runResult) StartTime() time.Time { return r.start }

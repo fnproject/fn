@@ -9,15 +9,18 @@ import (
 )
 
 type Config struct {
-	ID          string
-	Path        string
-	Image       string
-	Timeout     time.Duration
-	IdleTimeout time.Duration
-	AppName     string
-	Memory      uint64
-	Env         map[string]string
-	Format      string
+	ID           string
+	Path         string
+	Image        string
+	Timeout      time.Duration
+	IdleTimeout  time.Duration
+	AppName      string
+	Memory       uint64
+	Env          map[string]string
+	Format       string
+	ReceivedTime time.Time
+	// Ready is used to await the first pull
+	Ready chan struct{}
 
 	Stdin  io.Reader
 	Stdout io.Writer
