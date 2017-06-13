@@ -47,6 +47,7 @@ func getCfg(t *models.Task) *task.Config {
 		ID:      t.ID,
 		AppName: t.AppName,
 		Env:     t.EnvVars,
+		Ready:   make(chan struct{}),
 	}
 	if t.Timeout == nil || *t.Timeout <= 0 {
 		cfg.Timeout = DefaultTimeout

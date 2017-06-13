@@ -193,17 +193,19 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 	}
 
 	cfg := &task.Config{
-		AppName:     appName,
-		Path:        found.Path,
-		Env:         envVars,
-		Format:      found.Format,
-		ID:          reqID,
-		Image:       found.Image,
-		Memory:      found.Memory,
-		Stdin:       payload,
-		Stdout:      &stdout,
-		Timeout:     time.Duration(found.Timeout) * time.Second,
-		IdleTimeout: time.Duration(found.IdleTimeout) * time.Second,
+		AppName:      appName,
+		Path:         found.Path,
+		Env:          envVars,
+		Format:       found.Format,
+		ID:           reqID,
+		Image:        found.Image,
+		Memory:       found.Memory,
+		Stdin:        payload,
+		Stdout:       &stdout,
+		Timeout:      time.Duration(found.Timeout) * time.Second,
+		IdleTimeout:  time.Duration(found.IdleTimeout) * time.Second,
+		ReceivedTime: time.Now(),
+		Ready:        make(chan struct{}),
 	}
 
 	// ensure valid values
@@ -244,6 +246,11 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 
 	default:
 		result, err := s.Runner.RunTrackedTask(newTask, ctx, cfg, s.Datastore)
+		if result != nil {
+			waitTime := result.StartTime().Sub(cfg.ReceivedTime)
+			c.Header("XXX-FXLB-WAIT", waitTime.String())
+		}
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, runnerResponse{
 				RequestID: cfg.ID,
@@ -254,6 +261,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 			log.WithError(err).Error("Failed to run task")
 			break
 		}
+
 		for k, v := range found.Headers {
 			c.Header(k, v[0])
 		}

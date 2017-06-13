@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 )
@@ -31,16 +32,17 @@ func (c *cookie) Run(ctx context.Context) (drivers.RunResult, error) {
 		return nil, fmt.Errorf("Mocker error! Bad.")
 	}
 	return &runResult{
-		error:       nil,
-		StatusValue: "success",
+		error:  nil,
+		status: "success",
+		start:  time.Now(),
 	}, nil
 }
 
 type runResult struct {
 	error
-	StatusValue string
+	status string
+	start  time.Time
 }
 
-func (runResult *runResult) Status() string {
-	return runResult.StatusValue
-}
+func (r *runResult) Status() string       { return r.status }
+func (r *runResult) StartTime() time.Time { return r.start }
