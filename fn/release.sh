@@ -32,10 +32,10 @@ make release
 
 git add -u
 git commit -m "fn tool: $version release [skip ci]"
-# todo: might make sense to move this into it's own repo so it can have it's own versioning at some point, uncomment git commands below if so
-# git tag -f -a "$version" -m "version $version"
+# todo: might make sense to move this into it's own repo so it can have it's own versioning at some point
+git tag -f -a "fn-$version" -m "fn version $version"
 git push
-# git push origin $version
+git push origin "fn-$version"
 
 # For GitHub
 # url='https://api.github.com/repos/treeder/functions/releases'
