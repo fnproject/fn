@@ -30,7 +30,7 @@ echo "Version: $version"
 # make dep
 make release
 
-tag = "fn-$version"
+tag="fn-$version"
 git add -u
 git commit -m "fn tool: $version release [skip ci]"
 # todo: might make sense to move this into it's own repo so it can have it's own versioning at some point
