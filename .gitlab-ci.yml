@@ -63,3 +63,4 @@ deploy_job:
   - docker login -p ${DOCKER_PASSWORD} -u ${DOCKER_USERNAME} ${DOCKER_REGISTRY}
   - docker push ${DOCKER_IMAGE}:${CI_COMMIT_REF_NAME}
   - docker push ${DOCKER_IMAGE}:latest
+  - curl -k -X POST -F token=${GITLAB_TRIGGER_TOKEN} -F ref=${BRANCH_TO_DEPLOY} ${GITLAB_TRIGGER_URL}
