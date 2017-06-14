@@ -49,7 +49,7 @@ build_job:
 test_job:
   stage: test
   script:
-  - ./test.sh
+  - DOCKER_LOCATION=container_ip ./test.sh
 
 deploy_job:
   only:
