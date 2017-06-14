@@ -23,7 +23,7 @@ localhost)
 docker_ip)
     if [[ !  -z  ${DOCKER_HOST}  ]]
     then
-        DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'`
+        DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'| awk -F: '{print $1}'`
     fi
     export POSTGRES_HOST=${DOCKER_IP:-localhost}
     export POSTGRES_PORT=15432
