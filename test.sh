@@ -10,14 +10,32 @@ docker rm -fv func-redis-test|| echo No prev redis test db container
 docker run --name func-redis-test -p 6301:6379 -d redis
 sleep 5
 case ${DOCKER_LOCATION-localhost} in
-docker_ip)
-    export POSTGRES_HOST=${DOCKER_HOST-localhost}
+localhost)
+    export POSTGRES_HOST=localhost
     export POSTGRES_PORT=15432
 
-    export MYSQL_HOST=${DOCKER_HOST-localhost}
+    export MYSQL_HOST=localhost
     export MYSQL_PORT=3307
 
-    export REDIS_HOST=${DOCKER_HOST-localhost}
+    export REDIS_HOST=localhost
+    export REDIS_PORT=6301
+    ;;
+docker_ip)
+    if [[ !  -z  ${DOCKER_HOST}  ]]
+    then
+        DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'`
+        if [[ -z ${DOCKER_IP} ]]
+        then
+            DOCKER_IP=localhost
+        fi
+    fi
+    export POSTGRES_HOST=${DOCKER_IP-localhost}
+    export POSTGRES_PORT=15432
+
+    export MYSQL_HOST=${DOCKER_IP-localhost}
+    export MYSQL_PORT=3307
+
+    export REDIS_HOST=${DOCKER_IP-localhost}
     export REDIS_PORT=6301
     ;;
 container_ip)
