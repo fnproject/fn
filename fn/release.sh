@@ -56,10 +56,12 @@ output=$(curl --request POST --form "file=@fn_mac" --header "PRIVATE-TOKEN: $GIT
 mac_markdown=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["markdown"]')
 output=$(curl --request POST --form "file=@fn.exe" --header "PRIVATE-TOKEN: $GITLAB_TOKEN" $upload_url)
 win_markdown=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["markdown"]')
+output=$(curl --request POST --form "file=@fn_alpine" --header "PRIVATE-TOKEN: $GITLAB_TOKEN" $upload_url)
+alpine_markdown=$(echo "$output" | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["markdown"]')
 
 # 2) Create a release: https://docs.gitlab.com/ee/api/tags.html#create-a-new-release
 release_url="https://gitlab-odx.oracle.com/api/v3/projects/9/repository/tags/$tag/release"
-release_desc="Amazing release. Wow\n\nfn for Linux: $linux_markdown \n\nfn for Mac: $mac_markdown \n\nfn for Windows: $win_markdown"
+release_desc="Awesome release, much Wow\n\nfn for Linux: $linux_markdown \n\nfn for Mac: $mac_markdown \n\nfn for Windows: $win_markdown \n\nfn for Alpine: $alpine_markdown"
 curl --request POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" -d "{\"tag_name\": \"$tag\", \"description\": \"$release_desc\"}" $release_url
 
 # TODO: Add the download URLS to install.sh. Maybe we should make a template to generate install.sh

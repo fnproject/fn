@@ -19,6 +19,7 @@ release:
 	GOOS=linux go build -o fn_linux
 	GOOS=darwin go build -o fn_mac
 	GOOS=windows go build -o fn.exe
+	docker run --rm -v ${PWD}:/go/src/gitlab-odx.oracle.com/odx/functions/fn -w /go/src/gitlab-odx.oracle.com/odx/functions/fn funcy/go:dev go build -o fn_alpine
 
 # install locally
 install: build
