@@ -1,4 +1,4 @@
-FROM treeder/dind
+FROM funcy/dind
 
 WORKDIR /app
 

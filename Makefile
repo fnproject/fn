@@ -29,10 +29,10 @@ docker-dep:
 docker-build:
 	docker pull funcy/go:dev
 	docker run --rm -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions funcy/go:dev go build -o functions-alpine
-	docker build --build-arg HTTP_PROXY -t treeder/functions:latest .
+	docker build --build-arg HTTP_PROXY -t funcy/functions:latest .
 
 docker-run: docker-build
-	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v ${CURDIR}/data:/app/data -p 8080:8080 treeder/functions
+	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v ${CURDIR}/data:/app/data -p 8080:8080 funcy/functions
 
 docker-test:
 	docker run -ti --privileged --rm -e LOG_LEVEL=debug \
