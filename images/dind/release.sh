@@ -6,7 +6,7 @@ docker run --rm -v "$PWD":/app treeder/bump patch
 version=`cat VERSION`
 echo "version $version"
 
-docker tag treeder/dind:latest treeder/dind:$version
+docker tag funcy/dind:latest funcy/dind:$version
 
-docker push treeder/dind:latest
-docker push treeder/dind:$version
+docker push funcy/dind:latest
+docker push funcy/dind:$version

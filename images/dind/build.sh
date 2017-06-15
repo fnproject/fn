@@ -1,3 +1,3 @@
 set -ex
 
-docker build -t treeder/dind:latest .
+docker build --build-arg HTTP_PROXY -t funcy/dind:latest .

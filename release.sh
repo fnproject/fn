@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-user="treeder"
+user="funcy"
 service="functions"
 tag="latest"
 
@@ -34,11 +34,10 @@ git tag -f -a "$version" -m "version $version"
 git push
 git push origin $version
 
-# TODO: Where to push these?
 # Finally tag and push docker images
-# docker tag $user/$service:$tag $user/$service:$version
-# docker push $user/$service:$version
-# docker push $user/$service:$tag
+docker tag $user/$service:$tag $user/$service:$version
+docker push $user/$service:$version
+docker push $user/$service:$tag
 
 cd fn
 ./release.sh $version
