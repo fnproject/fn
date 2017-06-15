@@ -9,8 +9,8 @@ docker run --name func-mysql-test -p 3307:3306 -e MYSQL_DATABASE=funcs -e MYSQL_
 docker rm -fv func-redis-test|| echo No prev redis test db container
 docker run --name func-redis-test -p 6301:6379 -d redis
 sleep 5
-if [ `uname` == "Darwin" ]
-then
+case ${DOCKER_LOCATION:-localhost} in
+localhost)
     export POSTGRES_HOST=localhost
     export POSTGRES_PORT=15432
 
@@ -19,7 +19,22 @@ then
 
     export REDIS_HOST=localhost
     export REDIS_PORT=6301
-else
+    ;;
+docker_ip)
+    if [[ !  -z  ${DOCKER_HOST}  ]]
+    then
+        DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'| awk -F: '{print $1}'`
+    fi
+    export POSTGRES_HOST=${DOCKER_IP:-localhost}
+    export POSTGRES_PORT=15432
+
+    export MYSQL_HOST=${DOCKER_IP:-localhost}
+    export MYSQL_PORT=3307
+
+    export REDIS_HOST=${DOCKER_IP:-localhost}
+    export REDIS_PORT=6301
+    ;;
+container_ip)
     export POSTGRES_HOST="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-postgres-test)"
     export POSTGRES_PORT=5432
 
@@ -28,7 +43,8 @@ else
 
     export REDIS_HOST="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-redis-test)"
     export REDIS_PORT=6379
-fi
+    ;;
+esac
 
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn)
 # go test -v gitlab-odx.oracle.com/odx/functions/api/runner/drivers/docker
