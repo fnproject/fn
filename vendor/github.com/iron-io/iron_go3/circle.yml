@@ -1,0 +1,31 @@
+machine:
+  environment:
+    GOPATH: $HOME
+    GOROOT: $HOME/go
+    PATH: $GOROOT/bin:$PATH
+    GO15VENDOREXPERIMENT: 1
+    CHECKOUT_DIR: $HOME/$CIRCLE_PROJECT_REPONAME
+    GH_IRON: $HOME/src/github.com/iron-io
+    GO_PROJECT: ../src/github.com/iron-io
+
+checkout:
+  post:
+    - mkdir -p "$GH_IRON"
+    - cp -R "$CHECKOUT_DIR" "$GH_IRON/$CIRCLE_PROJECT_REPONAME":
+        pwd: $HOME
+
+dependencies:
+  pre:
+    # install go1.5
+    - wget https://storage.googleapis.com/golang/go1.5.linux-amd64.tar.gz
+    - tar -C $HOME -xvzf go1.5.linux-amd64.tar.gz
+  override:
+    # this was being dumb, don't want it to auto detect we are a go repo b/c vendoring
+    - which go
+
+test:
+  override:
+    - go get github.com/jeffh/go.bdd:
+        pwd: $GO_PROJECT/$CIRCLE_PROJECT_REPONAME
+    - go test ./mq:
+        pwd: $GO_PROJECT/$CIRCLE_PROJECT_REPONAME

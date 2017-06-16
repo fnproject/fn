@@ -1,10 +1,10 @@
-hash: dc83b968dd779a3e5e087c8a0b03a5299f93673a704b60d148aba71c61532222
-updated: 2017-06-08T18:22:18.92183221-07:00
+hash: aac209bf551382f2b8637d3f771a7e94b9ec9749acad17f76f4406a1f4d4fefd
+updated: 2017-06-11T02:02:29.974339349-07:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
 - name: github.com/aws/aws-sdk-go
-  version: c48c76c996d07c48cddab11a21971c299203d8c1
+  version: 96358b8282b1a3aa66836d2f2fe66216cc419668
   subpackages:
   - aws
   - aws/awserr
@@ -42,7 +42,7 @@ imports:
   subpackages:
   - semver
 - name: github.com/docker/docker
-  version: 1a2d2f75f42696d295392b939346ed4a36ac0bfc
+  version: 89658bed64c2a8fe05a978e5b87dbec409d57a0f
   subpackages:
   - pkg/jsonlog
   - pkg/term
@@ -118,10 +118,14 @@ imports:
   version: bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
+  repo: https://github.com/sirupsen/logrus
+  vcs: git
+  subpackages:
+  - hooks/syslog
 - name: github.com/urfave/cli
   version: 0bdeddeeb0f650497d603c4ad7b20cfe685682f6
 - name: golang.org/x/net
-  version: 59a0b19b5533c7977ddeb86b017bf507ed407b12
+  version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
   - context
   - context/ctxhttp
@@ -131,13 +135,10 @@ imports:
   version: 0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79
   subpackages:
   - unix
-  - windows
 - name: golang.org/x/text
-  version: eae24e7440a7aee8476ea69a0c574eafb42f5839
+  version: 210eee5cf7323015d097341bcf7166130d001cd8
   subpackages:
-  - secure/bidirule
   - transform
-  - unicode/bidi
   - unicode/norm
   - width
 - name: gopkg.in/mgo.v2
