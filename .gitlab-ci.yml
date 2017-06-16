@@ -5,7 +5,7 @@ cache:
   untracked: true
 
 stages:
-- deps
+# - deps
 - build
 - test
 - deploy
@@ -15,31 +15,31 @@ before_script:
   - ln -s `pwd` "${GOPATH}/src/gitlab-odx.oracle.com/odx/"
   - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
 
-get_deps:
-  stage: deps
-  script:
-  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
-  - pwd
-  - go get github.com/Masterminds/glide
-  - glide install --strip-vendor
-  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions/fn"
-  - pwd
-  - glide install --strip-vendor
-  only:
-    - master
-
-load_deps:
-  stage: deps
-  script:
-  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
-  - pwd
-  - ls vendor/github.com/ > /dev/null || which glide || go get github.com/Masterminds/glide
-  - ls vendor/github.com/ > /dev/null || glide install --strip-vendor
-  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions/fn"
-  - pwd
-  - ls vendor/github.com/ > /dev/null || glide install --strip-vendor
-  except:
-    - master
+# get_deps:
+#   stage: deps
+#   script:
+#   - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
+#   - pwd
+#   - go get github.com/Masterminds/glide
+#   - glide install --strip-vendor
+#   - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions/fn"
+#   - pwd
+#   - glide install --strip-vendor
+#   only:
+#     - master
+#
+# load_deps:
+#   stage: deps
+#   script:
+#   - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
+#   - pwd
+#   - ls vendor/github.com/ > /dev/null || which glide || go get github.com/Masterminds/glide
+#   - ls vendor/github.com/ > /dev/null || glide install --strip-vendor
+#   - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions/fn"
+#   - pwd
+#   - ls vendor/github.com/ > /dev/null || glide install --strip-vendor
+#   except:
+#     - master
 
 build_job:
   stage: build
