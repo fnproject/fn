@@ -1,11 +1,13 @@
-FROM docker:1.13.1-dind
+FROM docker:edge-dind
 
-RUN apk update && apk upgrade && apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates
 
-COPY entrypoint.sh /usr/local/bin/
-COPY dind.sh /usr/local/bin/
+# cleanup warning: https://github.com/docker-library/docker/issues/55
+RUN addgroup -g 2999 docker
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+COPY preentry.sh /usr/local/bin/
 
-# USAGE: Add a CMD to your own Dockerfile to use this (NOT an ENTRYPOINT, so that this is called)
+ENTRYPOINT ["preentry.sh"]
+
+# USAGE: Add a CMD to your own Dockerfile to use this (NOT an ENTRYPOINT), eg:
 # CMD ["./runner"]
