@@ -11,11 +11,14 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r, err := runner.New(ctx, runner.NewFuncLogger(), runner.NewMetricLogger())
+	ds := datastore.NewMock()
+	fnl := logs.NewMock()
+	r, err := runner.New(ctx, runner.NewFuncLogger(fnl), runner.NewMetricLogger(), ds)
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}
@@ -24,15 +27,15 @@ func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
-
 	rnr, cancel := testRunner(t)
 	defer cancel()
-
-	srv := testServer(datastore.NewMockInit(
+	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
-		}, nil, nil,
-	), &mqs.Mock{}, rnr)
+		}, nil, nil, nil,
+	)
+	logDB := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -70,11 +73,13 @@ func TestRouteRunnerPost(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	srv := testServer(datastore.NewMockInit(
+	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
-		}, nil, nil,
-	), &mqs.Mock{}, rnr)
+		}, nil, nil, nil,
+	)
+	fnl := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -114,15 +119,20 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rnr, cancelrnr := testRunner(t)
 	defer cancelrnr()
 
-	srv := testServer(datastore.NewMockInit(
+	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
 			{Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "funcy/error", Headers: map[string][]string{"X-Function": {"Test"}}},
-		}, nil,
-	), &mqs.Mock{}, rnr)
+		}, nil, nil,
+	)
+
+
+	fnl := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+
 
 	for i, test := range []struct {
 		path            string
@@ -167,15 +177,17 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	rnr, cancelrnr := testRunner(t)
 	defer cancelrnr()
 
-	srv := testServer(datastore.NewMockInit(
+	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
 			{Path: "/sleeper", AppName: "myapp", Image: "funcy/sleeper", Timeout: 1},
-		}, nil,
-	), &mqs.Mock{}, rnr)
-
+		}, nil, nil,
+	)
+	fnl := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	
 	for i, test := range []struct {
 		path            string
 		body            string

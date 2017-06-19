@@ -4,6 +4,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	apierrors "errors"
 	"encoding/json"
 
 	strfmt "github.com/go-openapi/strfmt"
@@ -28,6 +29,12 @@ const (
 	FormatHTTP = "http"
 )
 
+var (
+	ErrCallNotFound     = apierrors.New("Call not found")
+	ErrCallLogNotFound  = apierrors.New("Call log not found")
+	ErrCallLogRemoving  = apierrors.New("Could not remove call log")
+)
+
 type FnCall struct {
 	IDStatus
 	CompletedAt strfmt.DateTime `json:"completed_at,omitempty"`
@@ -37,6 +44,12 @@ type FnCall struct {
 	Path string `json:"path"`
 
 }
+
+type FnCallLog struct {
+	CallID string `json:"call_id"`
+	Log string `json:"log"`
+}
+
 
 func (fnCall *FnCall) FromTask(task *Task) *FnCall {
 	return &FnCall{

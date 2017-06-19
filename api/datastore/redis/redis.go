@@ -317,11 +317,6 @@ func applyCallFilter(call *models.FnCall, filter *models.CallFilter) bool {
 }
 
 func (ds *RedisDataStore) InsertTask(ctx context.Context, task *models.Task) error {
-	_, err := ds.conn.Do("HEXISTS", "calls", task.ID)
-	if err != nil {
-		return err
-	}
-
 	taskBytes, err := json.Marshal(task)
 	if err != nil {
 		return err

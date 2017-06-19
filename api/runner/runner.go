@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/docker"
@@ -33,6 +34,7 @@ type Runner struct {
 	usedMem      int64
 	usedMemMutex sync.RWMutex
 	hcmgr        htfnmgr
+	datastore    models.Datastore
 
 	stats
 }
@@ -48,7 +50,7 @@ const (
 	DefaultIdleTimeout = 30 * time.Second
 )
 
-func New(ctx context.Context, flog FuncLogger, mlog MetricLogger) (*Runner, error) {
+func New(ctx context.Context, flog FuncLogger, mlog MetricLogger, ds models.Datastore) (*Runner, error) {
 	// TODO: Is this really required for the container drivers? Can we remove it?
 	env := common.NewEnvironment(func(e *common.Environment) {})
 
@@ -65,6 +67,7 @@ func New(ctx context.Context, flog FuncLogger, mlog MetricLogger) (*Runner, erro
 		mlog:         mlog,
 		availableMem: getAvailableMemory(),
 		usedMem:      0,
+		datastore:    ds,
 	}
 
 	go r.queueHandler(ctx)

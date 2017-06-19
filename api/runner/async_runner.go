@@ -134,7 +134,7 @@ func startAsyncRunners(ctx context.Context, url string, rnr *Runner, ds models.D
 			go func() {
 				defer wg.Done()
 				// Process Task
-				_, err := rnr.RunTrackedTask(task, ctx, getCfg(task), ds)
+				_, err := rnr.RunTrackedTask(task, ctx, getCfg(task))
 				if err != nil {
 					log.WithError(err).Error("Cannot run task")
 				}

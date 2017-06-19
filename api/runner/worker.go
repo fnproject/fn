@@ -59,7 +59,7 @@ import (
 //                                           (internal clock)
 
 // RunTrackedTask is just a wrapper for shared logic for async/sync runners
-func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg *task.Config, ds models.Datastore) (drivers.RunResult, error) {
+func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
 	startedAt := strfmt.DateTime(time.Now())
 	newTask.StartedAt = startedAt
 
@@ -73,7 +73,7 @@ func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg
 	newTask.CompletedAt = completedAt
 	newTask.Status = status
 
-	if err := ds.InsertTask(ctx, newTask); err != nil {
+	if err := rnr.datastore.InsertTask(ctx, newTask); err != nil {
 		// TODO we should just log this error not return it to user? just issue storing task status but task is run
 		logrus.WithError(err).Error("error inserting task into datastore")
 	}

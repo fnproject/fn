@@ -17,17 +17,21 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
-var tmpBolt = "/tmp/func_test_bolt.db"
+var tmpDatastoreBolt = "/tmp/func_test_bolt_datastore.db"
+var tmpLogBolt = "/tmp/func_test_bolt_log.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner) *Server {
+
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, rnr *runner.Runner) *Server {
 	ctx := context.Background()
 
 	s := &Server{
 		Runner:    rnr,
 		Router:    gin.New(),
 		Datastore: ds,
+		LogDB:     nil,
 		MQ:        mq,
 		Enqueue:   DefaultEnqueue,
 		hotroutes: routecache.New(2),
@@ -79,26 +83,33 @@ func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) models.Error
 	return errResp
 }
 
-func prepareBolt(t *testing.T) (models.Datastore, func()) {
-	os.Remove(tmpBolt)
-	ds, err := datastore.New("bolt://" + tmpBolt)
+func prepareBolt(ctx context.Context, t *testing.T) (models.Datastore, models.FnLog, func()) {
+	os.Remove(tmpDatastoreBolt)
+	os.Remove(tmpLogBolt)
+	ds, err := datastore.New("bolt://" + tmpDatastoreBolt)
 	if err != nil {
-		t.Fatal("Error when creating datastore: %s", err)
+		t.Fatalf("Error when creating datastore: %s", err)
 	}
-	return ds, func() {
-		os.Remove(tmpBolt)
+	logDB, err := logs.New("bolt://" + tmpLogBolt)
+	if err != nil {
+		t.Fatalf("Error when creating log store: %s", err)
+	}
+	return ds,logDB, func() {
+		os.Remove(tmpDatastoreBolt)
+		os.Remove(tmpLogBolt)
 	}
 }
 
 func TestFullStack(t *testing.T) {
+	ctx := context.Background()
 	buf := setLogBuffer()
-	ds, closeBolt := prepareBolt(t)
+	ds, logDB, closeBolt := prepareBolt(ctx, t)
 	defer closeBolt()
 
 	rnr, rnrcancel := testRunner(t)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, rnr)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr)
 	srv.hotroutes = routecache.New(2)
 
 	for _, test := range []struct {

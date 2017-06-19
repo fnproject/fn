@@ -19,11 +19,11 @@ import (
 )
 
 type BoltDatastore struct {
-	routesBucket []byte
-	appsBucket   []byte
-	logsBucket   []byte
-	extrasBucket []byte
-	callsBucket  []byte
+	routesBucket   []byte
+	appsBucket     []byte
+	logsBucket     []byte
+	extrasBucket   []byte
+	callsBucket    []byte
 	db           *bolt.DB
 	log          logrus.FieldLogger
 }
@@ -53,7 +53,8 @@ func New(url *url.URL) (models.Datastore, error) {
 	extrasBucketName := []byte(bucketPrefix + "extras") // todo: think of a better name
 	callsBucketName := []byte(bucketPrefix + "calls")
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, name := range [][]byte{routesBucketName, appsBucketName, logsBucketName, extrasBucketName, callsBucketName} {
+		for _, name := range [][]byte{routesBucketName, appsBucketName, logsBucketName,
+			extrasBucketName, callsBucketName} {
 			_, err := tx.CreateBucketIfNotExists(name)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{"name": name}).Error("create bucket")
@@ -68,11 +69,11 @@ func New(url *url.URL) (models.Datastore, error) {
 	}
 
 	ds := &BoltDatastore{
-		routesBucket: routesBucketName,
-		appsBucket:   appsBucketName,
-		logsBucket:   logsBucketName,
-		extrasBucket: extrasBucketName,
-		callsBucket:  callsBucketName,
+		routesBucket:   routesBucketName,
+		appsBucket:     appsBucketName,
+		logsBucket:     logsBucketName,
+		extrasBucket:   extrasBucketName,
+		callsBucket:    callsBucketName,
 		db:           db,
 		log:          log,
 	}

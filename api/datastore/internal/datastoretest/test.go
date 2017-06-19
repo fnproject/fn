@@ -10,8 +10,6 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 
 	"net/http"
-	"net/url"
-	"os"
 	"reflect"
 	"time"
 
@@ -30,14 +28,6 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-func GetContainerHostIP() string {
-	dockerHost := os.Getenv("DOCKER_HOST")
-	if dockerHost == "" {
-		return "127.0.0.1"
-	}
-	parts, _ := url.Parse(dockerHost)
-	return parts.Hostname()
-}
 
 func Test(t *testing.T, ds models.Datastore) {
 	buf := setLogBuffer()
