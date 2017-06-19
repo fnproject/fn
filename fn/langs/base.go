@@ -27,7 +27,7 @@ func GetLangHelper(lang string) LangHelper {
 		return &RustLangHelper{}
 	case "dotnet":
 		return &DotNetLangHelper{}
-	case "lambda-nodejs4.3":
+	case "lambda-nodejs4.3", "lambda-node-4":
 		return &LambdaNodeHelper{}
 	case "java":
 		return &JavaLangHelper{}
@@ -69,10 +69,11 @@ func (h *BaseHelper) RunFromImage() string          { return h.BuildFromImage() 
 func (h *BaseHelper) IsMultiStage() bool            { return true }
 func (h *BaseHelper) DockerfileBuildCmds() []string { return []string{} }
 func (h *BaseHelper) DockerfileCopyCmds() []string  { return []string{} }
+func (h *BaseHelper) Entrypoint() string            { return "" }
 func (h *BaseHelper) Cmd() string                   { return "" }
-func (lh *BaseHelper) HasPreBuild() bool            { return false }
-func (lh *BaseHelper) PreBuild() error              { return nil }
-func (lh *BaseHelper) AfterBuild() error            { return nil }
+func (h *BaseHelper) HasPreBuild() bool             { return false }
+func (h *BaseHelper) PreBuild() error               { return nil }
+func (h *BaseHelper) AfterBuild() error             { return nil }
 func (h *BaseHelper) HasBoilerplate() bool          { return false }
 func (h *BaseHelper) GenerateBoilerplate() error    { return nil }
 
