@@ -10,7 +10,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/go-openapi/strfmt"
-	uuid "github.com/satori/go.uuid"
+	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/protocol"
@@ -242,7 +242,7 @@ func newhtfn(cfg *task.Config, tasks <-chan task.Request, rnr *Runner, once func
 	stdoutr, stdoutw := io.Pipe()
 
 	return &htfn{
-		id:    uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", cfg.AppName, cfg.Path, time.Now().Unix())).String(),
+		id:    id.New().String(),
 		cfg:   cfg,
 		proto: protocol.New(protocol.Protocol(cfg.Format), stdinw, stdoutr),
 		tasks: tasks,

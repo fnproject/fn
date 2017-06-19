@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/spf13/viper"
 	"gitlab-odx.oracle.com/odx/functions/api"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
@@ -91,6 +93,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 		apiURL:    apiURL,
 	}
 
+	setMachineId()
 	s.Router.Use(prepareMiddleware(ctx))
 	s.bindHandlers(ctx)
 
@@ -98,6 +101,39 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 		opt(s)
 	}
 	return s
+}
+
+func setMachineId() {
+	port := uint16(viper.GetInt(EnvPort))
+	addr := whoAmI().To4()
+	if addr == nil {
+		addr = net.ParseIP("127.0.0.1").To4()
+		logrus.Warn("could not find non-local ipv4 address to use, using '127.0.0.1' for ids, if this is a cluster beware of duplicate ids!")
+	}
+	id.SetMachineIdHost(addr, port)
+}
+
+// whoAmI searches for a non-local address on any network interface, returning
+// the first one it finds. it could be expanded to search eth0 or en0 only but
+// to date this has been unnecessary.
+func whoAmI() net.IP {
+	ints, _ := net.Interfaces()
+	for _, i := range ints {
+		if i.Name == "docker0" || i.Name == "lo" {
+			// not perfect
+			continue
+		}
+		addrs, _ := i.Addrs()
+		for _, a := range addrs {
+			ip, _, err := net.ParseCIDR(a.String())
+			if a.Network() == "ip+net" && err == nil && ip.To4() != nil {
+				if !bytes.Equal(ip, net.ParseIP("127.0.0.1")) {
+					return ip
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // todo: remove this or change name

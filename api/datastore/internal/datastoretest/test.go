@@ -6,6 +6,7 @@ import (
 	"log"
 	"testing"
 
+	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 
 	"net/http"
@@ -17,7 +18,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/strfmt"
-	"github.com/satori/go.uuid"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -53,7 +53,7 @@ func Test(t *testing.T, ds models.Datastore) {
 	task.Path = testRoute.Path
 
 	t.Run("call-insert", func(t *testing.T) {
-		task.ID = uuid.NewV4().String()
+		task.ID = id.New().String()
 		err := ds.InsertTask(ctx, task)
 		if err != nil {
 			t.Log(buf.String())
@@ -62,7 +62,7 @@ func Test(t *testing.T, ds models.Datastore) {
 	})
 
 	t.Run("call-get", func(t *testing.T) {
-		task.ID = uuid.NewV4().String()
+		task.ID = id.New().String()
 		ds.InsertTask(ctx, task)
 		newTask, err := ds.GetTask(ctx, task.ID)
 		if err != nil {
@@ -75,8 +75,8 @@ func Test(t *testing.T, ds models.Datastore) {
 	})
 
 	t.Run("calls-get", func(t *testing.T) {
-		filter := &models.CallFilter{AppName: task.AppName, Path:task.Path}
-		task.ID = uuid.NewV4().String()
+		filter := &models.CallFilter{AppName: task.AppName, Path: task.Path}
+		task.ID = id.New().String()
 		ds.InsertTask(ctx, task)
 		calls, err := ds.GetTasks(ctx, filter)
 		if err != nil {
