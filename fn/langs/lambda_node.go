@@ -5,26 +5,26 @@ type LambdaNodeHelper struct {
 }
 
 func (lh *LambdaNodeHelper) BuildFromImage() string {
-	return "funcy/functions-lambda:nodejs4.3"
+	return "funcy/lambda:node-4"
 }
 
-func (lh *LambdaNodeHelper) Entrypoint() string {
-	return ""
+func (lh *LambdaNodeHelper) IsMultiStage() bool {
+	return false
 }
 
 func (lh *LambdaNodeHelper) Cmd() string {
 	return "func.handler"
 }
 
-func (lh *LambdaNodeHelper) HasPreBuild() bool {
-	return false
-}
-
-// PreBuild for Go builds the binary so the final image can be as small as possible
-func (lh *LambdaNodeHelper) PreBuild() error {
-	return nil
-}
-
-func (lh *LambdaNodeHelper) AfterBuild() error {
-	return nil
+func (h *LambdaNodeHelper) DockerfileBuildCmds() []string {
+	r := []string{}
+	if exists("package.json") {
+		r = append(r,
+			"ADD package.json /function/",
+			"RUN npm install",
+		)
+	}
+	// single stage build for this one, so add files
+	r = append(r, "ADD . /function/")
+	return r
 }
