@@ -15,8 +15,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/strfmt"
-	uuid "github.com/satori/go.uuid"
 	"gitlab-odx.oracle.com/odx/functions/api"
+	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
@@ -76,7 +76,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 
 	ctx := c.MustGet("ctx").(context.Context)
 
-	reqID := uuid.NewV5(uuid.Nil, fmt.Sprintf("%s%s%d", c.Request.RemoteAddr, c.Request.URL.Path, time.Now().Unix())).String()
+	reqID := id.New().String()
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": reqID})
 
 	var err error
