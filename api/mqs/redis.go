@@ -23,11 +23,10 @@ type RedisMQ struct {
 }
 
 func NewRedisMQ(url *url.URL) (*RedisMQ, error) {
-
 	pool := &redis.Pool{
-		MaxIdle: 4,
+		MaxIdle: 512,
 		// I'm not sure if allowing the pool to block if more than 16 connections are required is a good idea.
-		MaxActive:   16,
+		MaxActive:   512,
 		Wait:        true,
 		IdleTimeout: 300 * time.Second,
 		Dial: func() (redis.Conn, error) {
@@ -70,7 +69,10 @@ func getFirstKeyValue(resp map[string]string) (string, string, error) {
 	return "", "", errors.New("Blank map")
 }
 
-func (mq *RedisMQ) processPendingReservations(conn redis.Conn) {
+func (mq *RedisMQ) processPendingReservations() {
+	conn := mq.pool.Get()
+	defer conn.Close()
+
 	resp, err := redis.StringMap(conn.Do("ZRANGE", mq.k("timeouts"), 0, 0, "WITHSCORES"))
 	if mq.checkNilResponse(err) || len(resp) == 0 {
 		return
@@ -105,13 +107,17 @@ func (mq *RedisMQ) processPendingReservations(conn redis.Conn) {
 		return
 	}
 
+	// :( because fuck atomicity right?
 	conn.Do("ZREM", mq.k("timeouts"), reservationId)
 	conn.Do("HDEL", mq.k("timeout_jobs"), reservationId)
 	conn.Do("HDEL", mq.k("reservations"), job.ID)
 	redisPush(conn, mq.queueName, &job)
 }
 
-func (mq *RedisMQ) processDelayedTasks(conn redis.Conn) {
+func (mq *RedisMQ) processDelayedTasks() {
+	conn := mq.pool.Get()
+	defer conn.Close()
+
 	// List of reservation ids between -inf time and the current time will get us
 	// everything that is now ready to be queued.
 	now := time.Now().UTC().Unix()
@@ -156,15 +162,9 @@ func (mq *RedisMQ) processDelayedTasks(conn redis.Conn) {
 
 func (mq *RedisMQ) start() {
 	go func() {
-		conn := mq.pool.Get()
-		defer conn.Close()
-		if err := conn.Err(); err != nil {
-			logrus.WithError(err).Fatal("Could not start redis MQ reservation system")
-		}
-
 		for range mq.ticker.C {
-			mq.processPendingReservations(conn)
-			mq.processDelayedTasks(conn)
+			mq.processPendingReservations()
+			mq.processDelayedTasks()
 		}
 	}()
 }
