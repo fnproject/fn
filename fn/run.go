@@ -48,22 +48,28 @@ func (r *runCmd) run(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	var ff *funcfile
+	// if image name is passed in, it will run that image
 	image := c.Args().First()
 	if image == "" {
-		ff, err := loadFuncfile()
+		ff, err = loadFuncfile()
 		if err != nil {
 			if _, ok := err.(*notFoundError); ok {
 				return errors.New("error: image name is missing or no function file found")
 			}
 			return err
 		}
-		image = ff.FullName()
+	} else {
+		ff = &funcfile{
+			Name: image,
+		}
 	}
 
-	return runff(image, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"))
+	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"))
 }
 
-func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string) error {
+// TODO: THIS SHOULD USE THE RUNNER DRIVERS FROM THE SERVER SO IT'S ESSENTIALLY THE SAME PROCESS (MINUS DATABASE AND ALL THAT)
+func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string) error {
 	sh := []string{"docker", "run", "--rm", "-i"}
 
 	var env []string    // env for the shelled out docker run command
@@ -80,7 +86,7 @@ func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method strin
 	runEnv = append(runEnv, kvEq("METHOD", method))
 	runEnv = append(runEnv, kvEq("REQUEST_URL", "http://localhost:8080/myapp/hello"))
 	runEnv = append(runEnv, kvEq("APP_NAME", "myapp"))
-	runEnv = append(runEnv, kvEq("ROUTE", "/hello"))
+	runEnv = append(runEnv, kvEq("ROUTE", "/hello")) // TODO: should we change this to PATH ?
 	// add user defined envs
 	runEnv = append(runEnv, envVars...)
 
@@ -97,7 +103,13 @@ func runff(image string, stdin io.Reader, stdout, stderr io.Writer, method strin
 		sh = append(sh, "-e", e)
 	}
 
-	sh = append(sh, image)
+	if ff.Type != nil && *ff.Type == "async" {
+		// if async, we'll run this in a separate thread and wait for it to complete
+		// reqID := id.New().String()
+		// I'm starting to think maybe `fn run` locally should work the same whether sync or async?  Or how would we allow to test the output?
+	}
+
+	sh = append(sh, ff.FullName())
 	cmd := exec.Command(sh[0], sh[1:]...)
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout

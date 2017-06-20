@@ -296,9 +296,13 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 		to := int32(ff.Timeout.Seconds())
 		rt.Timeout = &to
 	}
-	if rt.Path == "" && ff.Path != nil {
-		rt.Path = *ff.Path
+	if rt.Path == "" && ff.Path != "" {
+		rt.Path = ff.Path
 	}
+	if rt.Type == nil && ff.Type != nil && *ff.Type != "" {
+		rt.Type = *ff.Type
+	}
+
 	return nil
 }
 

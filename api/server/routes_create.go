@@ -90,7 +90,7 @@ func (s *Server) handleRouteCreate(c *gin.Context) {
 		return
 	}
 
-	s.cacherefresh(route)
+	s.cacheRefresh(route)
 
 	c.JSON(http.StatusOK, routeResponse{"Route successfully created", route})
 }

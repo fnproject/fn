@@ -68,8 +68,8 @@ func (t *testcmd) test(c *cli.Context) error {
 	target := ff.FullName()
 	runtest := runlocaltest
 	if t.remote != "" {
-		if ff.Path == nil || *ff.Path == "" {
-			return errors.New("execution of tests on remote server demand that this function to have a `path`.")
+		if ff.Path == "" {
+			return errors.New("execution of tests on remote server demand that this function has a `path`.")
 		}
 		if err := resetBasePath(t.Configuration); err != nil {
 			return fmt.Errorf("error setting endpoint: %v", err)
@@ -80,7 +80,7 @@ func (t *testcmd) test(c *cli.Context) error {
 		}
 
 		u, err := url.Parse("../")
-		u.Path = path.Join(u.Path, "r", t.remote, *ff.Path)
+		u.Path = path.Join(u.Path, "r", t.remote, ff.Path)
 		target = baseURL.ResolveReference(u).String()
 		runtest = runremotetest
 	}
@@ -134,7 +134,8 @@ func runlocaltest(target string, in, expectedOut, expectedErr *string, env map[s
 		restrictedEnv = append(restrictedEnv, k)
 	}
 
-	if err := runff(target, stdin, &stdout, &stderr, "", restrictedEnv, nil); err != nil {
+	ff := &funcfile{Name: target}
+	if err := runff(ff, stdin, &stdout, &stderr, "", restrictedEnv, nil); err != nil {
 		return fmt.Errorf("%v\nstdout:%s\nstderr:%s\n", err, stdout.String(), stderr.String())
 	}
 

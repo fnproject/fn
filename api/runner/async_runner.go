@@ -127,7 +127,8 @@ func startAsyncRunners(ctx context.Context, url string, rnr *Runner, ds models.D
 			}
 
 			ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": task.ID})
-			log.Debug("Running task:", task.ID)
+			log.Info("Running task:", task.ID)
+			// log.Infof("Task: %+v", task)
 
 			wg.Add(1)
 

@@ -13,6 +13,7 @@ If you are a developer using Oracle Functions through the API, this section is f
 * [Open Function Format](function-format.md)
 * [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml)
 * [Hot functions](hot-functions.md)
+* [Async functions](async.md)
 * [FAQ](faq.md)
 
 ## For Operators

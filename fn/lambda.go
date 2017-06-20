@@ -180,7 +180,7 @@ func createFunctionYaml(opts createImageOptions, functionName string) error {
 
 	funcDesc := &funcfile{
 		Name:    opts.Name,
-		Path:    &path,
+		Path:    path,
 		Config:  opts.Config,
 		Version: "0.0.1",
 		Runtime: &opts.Base,
