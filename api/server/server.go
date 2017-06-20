@@ -171,7 +171,7 @@ func (s *Server) cacheget(appname, path string) (*models.Route, bool) {
 	return route, ok
 }
 
-func (s *Server) cacherefresh(route *models.Route) {
+func (s *Server) cacheRefresh(route *models.Route) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.hotroutes.Refresh(route)

@@ -50,6 +50,7 @@ type initFnCmd struct {
 	entrypoint string
 	cmd        string
 	format     string
+	typeS      string
 }
 
 func initFn() cli.Command {
@@ -81,6 +82,12 @@ func initFn() cli.Command {
 				Name:        "format",
 				Usage:       "hot function IO format - json or http",
 				Destination: &a.format,
+				Value:       "",
+			},
+			cli.StringFlag{
+				Name:        "type",
+				Usage:       "sync or async",
+				Destination: &a.typeS,
 				Value:       "",
 			},
 		},
@@ -124,10 +131,14 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		Entrypoint: a.entrypoint,
 		Cmd:        a.cmd,
 		Format:     ffmt,
+		Type:       &a.typeS,
+	}
+	if ff.Type != nil && *ff.Type == "" {
+		ff.Type = nil
 	}
 
 	_, path := appNamePath(ff.FullName())
-	ff.Path = &path
+	ff.Path = path
 
 	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
 		return err

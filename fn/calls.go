@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
-	"github.com/funcy/functions_go/models"
 	fnclient "github.com/funcy/functions_go/client"
 	apicall "github.com/funcy/functions_go/client/call"
+	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
 )
 
@@ -40,14 +40,14 @@ func calls() cli.Command {
 }
 
 func printCalls(calls []*models.Call) {
-	for _, call := range calls{
+	for _, call := range calls {
 		fmt.Println(fmt.Sprintf(
-			"ID: %v\n" +
-				"App: %v\n" +
-				"Route: %v\n" +
-				"Created At: %v\n" +
-				"Started At: %v\n" +
-				"Completed At: %v\n" +
+			"ID: %v\n"+
+				"App: %v\n"+
+				"Route: %v\n"+
+				"Created At: %v\n"+
+				"Started At: %v\n"+
+				"Completed At: %v\n"+
 				"Status: %v\n",
 			call.ID, call.AppName, call.Path, call.CreatedAt,
 			call.StartedAt, call.CompletedAt, call.Status))
@@ -55,17 +55,16 @@ func printCalls(calls []*models.Call) {
 }
 
 func (call *callsCmd) get(ctx *cli.Context) error {
-	call_id := ctx.Args().Get(0)
+	callID := ctx.Args().Get(0)
 	params := apicall.GetCallsCallParams{
-		Call:    call_id,
+		Call:    callID,
 		Context: context.Background(),
 	}
 	resp, err := call.client.Call.GetCallsCall(&params)
 	if err != nil {
 		switch err.(type) {
 		case *apicall.GetCallsCallNotFound:
-			return fmt.Errorf("error: %v", err.(
-			*apicall.GetCallsCallNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %v", err.(*apicall.GetCallsCallNotFound).Payload.Error.Message)
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 
@@ -85,8 +84,7 @@ func (call *callsCmd) list(ctx *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apicall.GetCallsCallNotFound:
-			return fmt.Errorf("error: %v", err.(
-			*apicall.GetCallsCallNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %v", err.(*apicall.GetCallsCallNotFound).Payload.Error.Message)
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 

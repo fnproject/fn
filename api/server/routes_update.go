@@ -36,6 +36,8 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
+	// fmt.Printf("ROUTE BOUND: %+v", *wroute.Route)
+
 	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 	wroute.Route.Path = path.Clean(c.MustGet(api.Path).(string))
 
@@ -69,7 +71,7 @@ func (s *Server) handleRouteUpdate(c *gin.Context) {
 		return
 	}
 
-	s.cacherefresh(route)
+	s.cacheRefresh(route)
 
 	c.JSON(http.StatusOK, routeResponse{"Route successfully updated", route})
 }

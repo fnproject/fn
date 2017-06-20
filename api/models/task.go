@@ -31,23 +31,22 @@ const (
 type FnCall struct {
 	IDStatus
 	CompletedAt strfmt.DateTime `json:"completed_at,omitempty"`
-	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
-	StartedAt strfmt.DateTime `json:"started_at,omitempty"`
-	AppName string `json:"app_name,omitempty"`
-	Path string `json:"path"`
-
+	CreatedAt   strfmt.DateTime `json:"created_at,omitempty"`
+	StartedAt   strfmt.DateTime `json:"started_at,omitempty"`
+	AppName     string          `json:"app_name,omitempty"`
+	Path        string          `json:"path"`
 }
 
 func (fnCall *FnCall) FromTask(task *Task) *FnCall {
 	return &FnCall{
-		CreatedAt:task.CreatedAt,
-		StartedAt:task.StartedAt,
-		CompletedAt:task.CompletedAt,
-		AppName:task.AppName,
-		Path:task.Path,
+		CreatedAt:   task.CreatedAt,
+		StartedAt:   task.StartedAt,
+		CompletedAt: task.CompletedAt,
+		AppName:     task.AppName,
+		Path:        task.Path,
 		IDStatus: IDStatus{
-			ID:task.ID,
-			Status:task.Status,
+			ID:     task.ID,
+			Status: task.Status,
 		},
 	}
 }
@@ -57,9 +56,51 @@ func (fnCall *FnCall) FromTask(task *Task) *FnCall {
 swagger:model Task
 */
 type Task struct {
-	NewTask
-
 	IDStatus
+
+	/* Number of seconds to wait before queueing the task for consumption for the first time. Must be a positive integer. Tasks with a delay start in state "delayed" and transition to "running" after delay seconds.
+	 */
+	Delay int32 `json:"delay,omitempty"`
+
+	/* Name of Docker image to use. This is optional and can be used to override the image defined at the route level.
+
+	Required: true
+	*/
+	Image *string `json:"image"`
+
+	/* "Number of automatic retries this task is allowed.  A retry will be attempted if a task fails. Max 25. Automatic retries are performed by titan when a task reaches a failed state and has `max_retries` > 0. A retry is performed by queueing a new task with the same image id and payload. The new task's max_retries is one less than the original. The new task's `retry_of` field is set to the original Task ID. The old task's `retry_at` field is set to the new Task's ID.  Titan will delay the new task for retries_delay seconds before queueing it. Cancelled or successful tasks are never automatically retried."
+
+	 */
+	MaxRetries int32 `json:"max_retries,omitempty"`
+
+	/* Payload for the task. This is what you pass into each task to make it do something.
+	 */
+	Payload string `json:"payload,omitempty"`
+
+	/* Priority of the task. Higher has more priority. 3 levels from 0-2. Tasks at same priority are processed in FIFO order.
+
+	Required: true
+	*/
+	Priority *int32 `json:"priority"`
+
+	/* Time in seconds to wait before retrying the task. Must be a non-negative integer.
+	 */
+	RetriesDelay *int32 `json:"retries_delay,omitempty"`
+
+	/* Maximum runtime in seconds. If a consumer retrieves the
+	task, but does not change it's status within timeout seconds, the task
+	is considered failed, with reason timeout (Titan may allow a small
+	grace period). The consumer should also kill the task after timeout
+	seconds. If a consumer tries to change status after Titan has already
+	timed out the task, the consumer will be ignored.
+
+	*/
+	Timeout *int32 `json:"timeout,omitempty"`
+
+	/* Hot function idle timeout in seconds before termination.
+
+	 */
+	IdleTimeout *int32 `json:"idle_timeout,omitempty"`
 
 	/* Time when task completed, whether it was successul or failed. Always in UTC.
 	 */
@@ -116,9 +157,7 @@ type Task struct {
 func (m *Task) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.NewTask.Validate(formats); err != nil {
-		res = append(res, err)
-	}
+	// NewTask validations will get generated automatically
 
 	if err := m.IDStatus.Validate(formats); err != nil {
 		res = append(res, err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -62,6 +63,10 @@ import (
 func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg *task.Config, ds models.Datastore) (drivers.RunResult, error) {
 	startedAt := strfmt.DateTime(time.Now())
 	newTask.StartedAt = startedAt
+
+	// set payload as Stdin
+	// fmt.Printf("ABOUT TO PASS IN PAYLOAD: %v", newTask.Payload)
+	cfg.Stdin = strings.NewReader(newTask.Payload)
 
 	result, err := rnr.RunTask(ctx, cfg)
 

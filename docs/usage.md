@@ -87,7 +87,7 @@ You should see it say `Hello Johnny!` now instead of `Hello World!`.
 
 Oracle Functions supports synchronous function calls like we just tried above, and asynchronous for background processing.
 
-Asynchronous function calls are great for tasks that are CPU heavy or take more than a few seconds to complete.
+[Asynchronous functions](async.md) are great for tasks that are CPU heavy or take more than a few seconds to complete.
 For instance, image processing, video processing, data processing, ETL, etc.
 Architecturally, the main difference between synchronous and asynchronous is that requests
 to asynchronous functions are put in a queue and executed on upon resource availability so that they do not interfere with the fast synchronous responses required for an API.
@@ -105,6 +105,8 @@ curl -H "Content-Type: application/json" -X POST -d '{
     }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
+
+or set `type: async` in your `func.yaml`.
 
 Now if you request this route:
 

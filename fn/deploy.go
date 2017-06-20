@@ -129,9 +129,8 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 	if err != nil {
 		return err
 	}
-	if funcfile.Path == nil || *funcfile.Path == "" {
-		dirName := "/" + path.Base(path.Dir(funcFilePath))
-		funcfile.Path = &dirName
+	if funcfile.Path == "" {
+		funcfile.Path = "/" + path.Base(path.Dir(funcFilePath))
 	}
 
 	if p.skippush {
@@ -146,18 +145,18 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 }
 
 func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
-	fmt.Printf("Updating route, setting %s -> %s...", ff.Path, ff.Name)
+	fmt.Printf("Updating route %s using image %s...\n", ff.Path, ff.FullName())
+	fmt.Printf("%+v\ntype: %v\n", ff, *ff.Type)
 	if err := resetBasePath(p.Configuration); err != nil {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
 	routesCmd := routesCmd{client: apiClient()}
 	rt := &models.Route{}
-
 	if err := routeWithFuncFile(c, ff, rt); err != nil {
 		return fmt.Errorf("error getting route with funcfile: %s", err)
 	}
-	return routesCmd.patchRoute(c, p.appName, *ff.Path, rt)
+	return routesCmd.patchRoute(c, p.appName, ff.Path, rt)
 }
 
 func expandEnvConfig(configs map[string]string) map[string]string {

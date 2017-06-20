@@ -45,7 +45,7 @@ type funcfile struct {
 	Config     map[string]string `yaml:"config,omitempty" json:"config,omitempty"`
 	Build      []string          `yaml:"build,omitempty" json:"build,omitempty"`
 	Tests      []fftest          `yaml:"tests,omitempty" json:"tests,omitempty"`
-	Path       *string           `yaml:"path,omitempty" json:"path,omitempty"`
+	Path       string            `yaml:"path,omitempty" json:"path,omitempty"`
 }
 
 func (ff *funcfile) FullName() string {
