@@ -45,7 +45,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "funcy/error", Config: map[string]string{"test": "true"}},
 			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "funcy/hello", Config: map[string]string{"test": "true"}},
-		}, nil,
+		}, nil, nil,
 	)
 	mq := &mqs.Mock{}
 

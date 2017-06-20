@@ -1,5 +1,5 @@
 # Just builds
-.PHONY: all test dep build
+.PHONY: all test dep build test-log-datastore
 
 dep:
 	dep ensure
@@ -13,11 +13,14 @@ test:
 test-datastore:
 	cd api/datastore && go test -v ./...
 
+test-log-datastore:
+	cd api/logs && go test -v ./...
+
 test-build-arm:
-    GOARCH=arm GOARM=5 $(MAKE) build
-    GOARCH=arm GOARM=6 $(MAKE) build
-    GOARCH=arm GOARM=7 $(MAKE) build
-    GOARCH=arm64 $(MAKE) build
+	GOARCH=arm GOARM=5 $(MAKE) build
+	GOARCH=arm GOARM=6 $(MAKE) build
+	GOARCH=arm GOARM=7 $(MAKE) build
+	GOARCH=arm64 $(MAKE) build
 
 run: build
 	GIN_MODE=debug ./functions

@@ -20,6 +20,7 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -193,7 +194,9 @@ func TestTasksrvURL(t *testing.T) {
 
 func testRunner(t *testing.T) (*Runner, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r, err := New(ctx, NewFuncLogger(), NewMetricLogger())
+	ds := datastore.NewMock()
+	fnl := logs.NewMock()
+	r, err := New(ctx, NewFuncLogger(fnl), NewMetricLogger(), ds)
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}

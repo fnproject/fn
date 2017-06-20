@@ -15,6 +15,13 @@ type RowScanner interface {
 	Scan(dest ...interface{}) error
 }
 
+func ScanLog(scanner RowScanner, log *models.FnCallLog) error {
+	return scanner.Scan(
+		&log.CallID,
+		&log.Log,
+	)
+}
+
 func ScanRoute(scanner RowScanner, route *models.Route) error {
 	var headerStr string
 	var configStr string

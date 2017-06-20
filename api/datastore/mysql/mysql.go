@@ -63,7 +63,8 @@ type MySQLDatastore struct {
 New creates a new MySQL Datastore.
 */
 func New(url *url.URL) (models.Datastore, error) {
-	tables := []string{routesTableCreate, appsTableCreate, extrasTableCreate, callTableCreate}
+	tables := []string{routesTableCreate, appsTableCreate,
+		extrasTableCreate, callTableCreate}
 	dialect := "mysql"
 	sqlDatastore := &MySQLDatastore{}
 	dataSourceName := fmt.Sprintf("%s@%s%s", url.User.String(), url.Host, url.Path)

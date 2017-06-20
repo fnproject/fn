@@ -22,7 +22,6 @@ var (
 	ErrAppsUpdate             = errors.New("Could not update app")
 	ErrDeleteAppsWithRoutes   = errors.New("Cannot remove apps with routes")
 	ErrUsableImage            = errors.New("Image not found")
-	ErrCallNotFound           = errors.New("Call not found")
 	ErrTaskInvalidAppAndRoute = errors.New("Unable to get call for given app and route")
 )
 

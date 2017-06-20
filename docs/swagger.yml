@@ -317,6 +317,52 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
+  /calls/{call}/log:
+    get:
+      summary: Get call logs
+      description: Get call logs
+      tags:
+        - Call
+        - Log
+      parameters:
+        - name: call
+          description: Call ID.
+          required: true
+          type: string
+          in: path
+      responses:
+        200:
+          description: Log found
+          schema:
+            $ref:  '#/definitions/LogWrapper'
+        404:
+          description: Log not found.
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      summary: Delete call log entry
+      description: Delete call log entry
+      tags:
+         - Call
+         - Log
+      parameters:
+        - name: call
+          description: Call ID.
+          required: true
+          type: string
+          in: path
+      responses:
+        202:
+          description: Log delete request accepted
+        404:
+          description: Does not exist.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
   /calls/{call}:
     get:
       summary: Get call information
@@ -518,6 +564,25 @@ definitions:
       call:
         $ref: '#/definitions/Call'
         description: "Call object."
+
+
+  LogWrapper:
+    type: object
+    required:
+      - log
+    properties:
+      log:
+        $ref: '#/definitions/Log'
+        description: "Call log entry."
+
+  Log:
+    type: object
+    properties:
+      call_id:
+        type: string
+        description: Call UUID ID
+      log:
+        type: string # maybe bytes, long logs wouldn't fit into string type
 
   Call:
     type: object

@@ -12,6 +12,7 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -28,25 +29,26 @@ func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
 	for i, test := range []struct {
 		mock          models.Datastore
+		logDB         models.FnLog
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), "/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), "/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{datastore.NewMock(), "/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
-		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
-		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
-		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{datastore.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, rnr)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -76,20 +78,21 @@ func TestAppDelete(t *testing.T) {
 
 	for i, test := range []struct {
 		ds            models.Datastore
+		logDB         models.FnLog
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), "/v1/apps/myapp", "", http.StatusNotFound, nil},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps/myapp", "", http.StatusNotFound, nil},
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil, nil,
-		), "/v1/apps/myapp", "", http.StatusOK, nil},
+			}}, nil, nil, nil,
+		), logs.NewMock(),"/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, rnr)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
@@ -117,7 +120,9 @@ func TestAppList(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr)
+	ds := datastore.NewMock()
+	fnl := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -152,7 +157,9 @@ func TestAppGet(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	srv := testServer(datastore.NewMock(), &mqs.Mock{}, rnr)
+	ds := datastore.NewMock()
+	fnl := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -187,30 +194,31 @@ func TestAppUpdate(t *testing.T) {
 
 	for i, test := range []struct {
 		mock          models.Datastore
+		logDB         models.FnLog
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(),"/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// success
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil, nil,
-		), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+			}}, nil, nil, nil,
+		), logs.NewMock(),"/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
 		// Addresses #380
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil, nil,
-		), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
+			}}, nil, nil, nil,
+		), logs.NewMock(),"/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, rnr)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)

@@ -24,22 +24,25 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 const (
 	EnvLogLevel = "log_level"
 	EnvMQURL    = "mq_url"
 	EnvDBURL    = "db_url"
+	EnvLOGDBURL    = "logstore_url"
 	EnvPort     = "port" // be careful, Gin expects this variable to be "port"
 	EnvAPIURL   = "api_url"
 )
 
 type Server struct {
-	Datastore models.Datastore
-	Runner    *runner.Runner
-	Router    *gin.Engine
-	MQ        models.MessageQueue
-	Enqueue   models.Enqueue
+	Datastore    models.Datastore
+	Runner       *runner.Runner
+	Router       *gin.Engine
+	MQ           models.MessageQueue
+	Enqueue      models.Enqueue
+	LogDB        models.FnLog
 
 	apiURL string
 
@@ -67,17 +70,22 @@ func NewFromEnv(ctx context.Context) *Server {
 		logrus.WithError(err).Fatal("Error initializing message queue.")
 	}
 
+	logDB, err := logs.New(viper.GetString(EnvLOGDBURL))
+	if err != nil {
+		logrus.WithError(err).Fatal("Error initializing logs store.")
+	}
+
 	apiURL := viper.GetString(EnvAPIURL)
 
-	return New(ctx, ds, mq, apiURL)
+	return New(ctx, ds, mq, logDB, apiURL)
 }
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiURL string, opts ...ServerOption) *Server {
+func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, apiURL string, opts ...ServerOption) *Server {
 	metricLogger := runner.NewMetricLogger()
-	funcLogger := runner.NewFuncLogger()
+	funcLogger := runner.NewFuncLogger(logDB)
 
-	rnr, err := runner.New(ctx, funcLogger, metricLogger)
+	rnr, err := runner.New(ctx, funcLogger, metricLogger, ds)
 	if err != nil {
 		logrus.WithError(err).Fatalln("Failed to create a runner")
 		return nil
@@ -89,6 +97,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, apiUR
 		Datastore: ds,
 		MQ:        mq,
 		hotroutes: routecache.New(cacheSize),
+		LogDB:     logDB,
 		Enqueue:   DefaultEnqueue,
 		apiURL:    apiURL,
 	}
@@ -302,6 +311,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		v1.GET("/routes", s.handleRouteList)
 
 		v1.GET("/calls/:call", s.handleCallGet)
+		v1.GET("/calls/:call/log", s.handleCallLogGet)
+		v1.DELETE("/calls/:call/log", s.handleCallLogDelete)
 
 		apps := v1.Group("/apps/:app")
 		{
@@ -355,4 +366,9 @@ type fnCallResponse struct {
 type fnCallsResponse struct {
 	Message string         `json:"message"`
 	Calls   models.FnCalls `json:"calls"`
+}
+
+type fnCallLogResponse struct {
+	Message string         `json:"message"`
+	Log *models.FnCallLog   `json:"log"`
 }

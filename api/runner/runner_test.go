@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func TestRunnerHello(t *testing.T) {
@@ -17,10 +19,13 @@ func TestRunnerHello(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	runner, err := New(ctx, NewFuncLogger(), NewMetricLogger())
+	ds := datastore.NewMock()
+	fnl := logs.NewMock()
+	runner, err := New(ctx, NewFuncLogger(fnl), NewMetricLogger(), ds)
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
+
 
 	for i, test := range []struct {
 		route          *models.Route
@@ -71,7 +76,9 @@ func TestRunnerError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	runner, err := New(ctx, NewFuncLogger(), NewMetricLogger())
+	ds := datastore.NewMock()
+	fnl := logs.NewMock()
+	runner, err := New(ctx, NewFuncLogger(fnl), NewMetricLogger(), ds)
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}

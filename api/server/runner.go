@@ -245,7 +245,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": newTask.ID})
 
 	default:
-		result, err := s.Runner.RunTrackedTask(newTask, ctx, cfg, s.Datastore)
+		result, err := s.Runner.RunTrackedTask(newTask, ctx, cfg)
 		if result != nil {
 			waitTime := result.StartTime().Sub(cfg.ReceivedTime)
 			c.Header("XXX-FXLB-WAIT", waitTime.String())

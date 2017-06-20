@@ -15,10 +15,10 @@ type mock struct {
 }
 
 func NewMock() models.Datastore {
-	return NewMockInit(nil, nil, nil)
+	return NewMockInit(nil, nil, nil, nil)
 }
 
-func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls) models.Datastore {
+func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls, logs []*models.FnCallLog) models.Datastore {
 	if apps == nil {
 		apps = models.Apps{}
 	}
@@ -27,6 +27,9 @@ func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls) m
 	}
 	if calls == nil {
 		calls = models.FnCalls{}
+	}
+	if logs == nil {
+		logs = []*models.FnCallLog{}
 	}
 	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte)})
 }
