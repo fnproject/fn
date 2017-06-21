@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
@@ -21,7 +22,8 @@ func TestRunnerHello(t *testing.T) {
 
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	runner, err := New(ctx, NewFuncLogger(fnl), NewMetricLogger(), ds)
+	fLogger := NewFuncLogger(fnl)
+	runner, err := New(ctx, fLogger, NewMetricLogger(), ds)
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
@@ -33,19 +35,21 @@ func TestRunnerHello(t *testing.T) {
 		expectedStatus string
 		expectedOut    string
 		expectedErr    string
+		taskID         string
 	}{
-		{&models.Route{Image: "funcy/hello"}, ``, "success", "Hello World!", ""},
-		{&models.Route{Image: "funcy/hello"}, `{"name": "test"}`, "success", "Hello test!", ""},
+		{&models.Route{Image: "funcy/hello"}, ``, "success", "Hello World!", "", id.New().String()},
+		{&models.Route{Image: "funcy/hello"}, `{"name": "test"}`, "success", "Hello test!", "", id.New().String()},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{
-			ID:      fmt.Sprintf("hello-%d-%d", i, time.Now().Unix()),
+			ID:      test.taskID,
 			Image:   test.route.Image,
 			Timeout: 10 * time.Second,
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
+			AppName: test.route.AppName,
 			Stdout:  &stdout,
-			Stderr:  &stderr,
+			Stderr:  fLogger.Writer(ctx, test.route.AppName, test.route.AppName, test.route.Image, test.taskID),
 		}
 
 		result, err := runner.run(ctx, cfg)
@@ -78,7 +82,8 @@ func TestRunnerError(t *testing.T) {
 
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	runner, err := New(ctx, NewFuncLogger(fnl), NewMetricLogger(), ds)
+	fLogger := NewFuncLogger(fnl)
+	runner, err := New(ctx, fLogger, NewMetricLogger(), ds)
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
@@ -89,9 +94,10 @@ func TestRunnerError(t *testing.T) {
 		expectedStatus string
 		expectedOut    string
 		expectedErr    string
+		taskID         string
 	}{
-		{&models.Route{Image: "funcy/error"}, ``, "error", "", ""},
-		{&models.Route{Image: "funcy/error"}, `{"name": "test"}`, "error", "", ""},
+		{&models.Route{Image: "funcy/error"}, ``, "error", "", "", id.New().String()},
+		{&models.Route{Image: "funcy/error"}, `{"name": "test"}`, "error", "", "", id.New().String()},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{
@@ -101,7 +107,7 @@ func TestRunnerError(t *testing.T) {
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
 			Stdout:  &stdout,
-			Stderr:  &stderr,
+			Stderr:  fLogger.Writer(ctx, test.route.AppName, test.route.AppName, test.route.Image, test.taskID),
 		}
 
 		result, err := runner.run(ctx, cfg)
