@@ -24,7 +24,7 @@ type Config struct {
 
 	Stdin  io.Reader
 	Stdout io.Writer
-	Stderr io.Writer
+	Stderr io.WriteCloser // closer for flushy poo
 }
 
 // Request stores the task to be executed, It holds in itself the channel to

@@ -1,18 +1,18 @@
 package runner
 
 import (
-	"bufio"
-	"fmt"
+	"bytes"
+	"context"
+	"errors"
 	"io"
 
-	"context"
 	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 type FuncLogger interface {
-	Writer(ctx context.Context, appName, path, image, reqID string) io.Writer
+	Writer(ctx context.Context, appName, path, image, reqID string) io.WriteCloser
 }
 
 // FuncLogger reads STDERR output from a container and outputs it in a parsed structured log format, see: https://github.com/treeder/functions/issues/76
@@ -24,30 +24,81 @@ func NewFuncLogger(logDB models.FnLog) FuncLogger {
 	return &DefaultFuncLogger{logDB}
 }
 
-func (l *DefaultFuncLogger) persistLog(ctx context.Context, log logrus.FieldLogger, reqID, logText string) {
-	err := l.logDB.InsertLog(ctx, reqID, logText)
-	if err != nil {
-		log.WithError(err).Println(fmt.Sprintf(
-			"Unable to persist log for call %v. Error: %v", reqID, err))
-	}
+type writer struct {
+	bytes.Buffer
+
+	stderr  bytes.Buffer // for logging to stderr
+	db      models.FnLog
+	ctx     context.Context
+	reqID   string
+	appName string
+	image   string
+	path    string
 }
 
-func (l *DefaultFuncLogger) Writer(ctx context.Context, appName, path, image, reqID string) io.Writer {
-	r, w := io.Pipe()
+func (w *writer) Close() error {
+	w.flush()
+	return w.db.InsertLog(context.TODO(), w.reqID, w.String())
+}
 
-	go func(reader io.Reader) {
-		log := common.Logger(ctx)
-		log = log.WithFields(logrus.Fields{"user_log": true, "app_name": appName,
-			"path": path, "image": image, "call_id": reqID})
+func (w *writer) Write(b []byte) (int, error) {
+	n, err := w.Buffer.Write(b)
 
-		var res string
-		errMsg := "-------Unable to get full log, it's too big-------"
-		fmt.Fscanf(reader, "%v", &res)
-		if len(res) >= bufio.MaxScanTokenSize {
-			res = res[0:bufio.MaxScanTokenSize - len(errMsg)] + errMsg
-		}
+	// temp or should move to another FuncLogger implementation
+	w.writeStdErr(b)
 
-		l.persistLog(ctx, log, reqID, res)
-	}(r)
-	return w
+	return n, err
+}
+
+func (w *writer) writeStdErr(b []byte) {
+	// for now, also write to stderr so we can debug quick ;)
+	// TODO this should be a separate FuncLogger but time is running short !
+	endLine := bytes.IndexByte(b, '\n')
+	if endLine < 0 {
+		w.stderr.Write(b)
+		return
+	}
+	// we have a new line, so:
+	w.stderr.Write(b[0:endLine])
+	w.flush()
+	w.writeStdErr(b[endLine+1:])
+
+}
+
+func (w *writer) flush() {
+	log := common.Logger(w.ctx)
+	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": w.appName, "path": w.path, "image": w.image, "call_id": w.reqID})
+	log.Println(w.stderr.String())
+	w.stderr.Reset()
+}
+
+// overrides Write, keeps Close
+type limitWriter struct {
+	n, max int
+	io.WriteCloser
+}
+
+func newLimitWriter(max int, w io.WriteCloser) io.WriteCloser {
+	return &limitWriter{max: max, WriteCloser: w}
+}
+
+func (l *limitWriter) Write(b []byte) (int, error) {
+	if l.n > l.max {
+		return 0, errors.New("max log size exceeded, truncating log")
+	}
+	n, err := l.WriteCloser.Write(b)
+	l.n += n
+	return n, err
+}
+
+func (l *DefaultFuncLogger) Writer(ctx context.Context, appName, path, image, reqID string) io.WriteCloser {
+	const MB = 1 * 1024 * 1024
+	return newLimitWriter(MB, &writer{
+		db:      l.logDB,
+		ctx:     ctx,
+		appName: appName,
+		path:    path,
+		image:   image,
+		reqID:   reqID,
+	})
 }
