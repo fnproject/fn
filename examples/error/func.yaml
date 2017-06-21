@@ -1,3 +1,5 @@
-name: username/func-error
-build:
-  - ./build.sh
+name: funcy/error
+version: 0.0.2
+runtime: ruby
+entrypoint: ruby func.rb
+path: /error

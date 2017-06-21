@@ -1,9 +1,0 @@
-FROM funcy/ruby:dev
-
-WORKDIR /worker
-ADD Gemfile* /worker/
-RUN bundle install
-
-ADD . /worker/
-
-ENTRYPOINT ["ruby", "error.rb"]

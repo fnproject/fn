@@ -17,4 +17,8 @@ func main() {
 	fmt.Printf("Hello %v!\n", p.Name)
 
 	log.Println("---> stderr goes to the server logs.")
+	log.Println("---> LINE 2")
+	log.Println("---> LINE 3 with a break right here\nand LINE 4")
+	log.Println("---> LINE 5 with a double line break\n")
+	log.Println("---> LINE 6")
 }

@@ -27,6 +27,7 @@ func NewFuncLogger(logDB models.FnLog) FuncLogger {
 type writer struct {
 	bytes.Buffer
 
+	stderr  bytes.Buffer // for logging to stderr
 	db      models.FnLog
 	ctx     context.Context
 	reqID   string
@@ -36,26 +37,39 @@ type writer struct {
 }
 
 func (w *writer) Close() error {
+	w.flush()
 	return w.db.InsertLog(context.TODO(), w.reqID, w.String())
 }
 
 func (w *writer) Write(b []byte) (int, error) {
 	n, err := w.Buffer.Write(b)
 
-	// for now, also write to stderr so we can debug quick ;)
-	// TODO this should be a separate FuncLogger but time is running short !
-	log := common.Logger(w.ctx)
-	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": w.appName, "path": w.path, "image": w.image, "call_id": w.reqID})
-	for i := 0; i < len(b); i++ {
-		j := i
-		i = bytes.IndexByte(b[i:], '\n')
-		if i < 0 {
-			i = len(b)
-		}
-		log.Println(string(b[j:i]))
-	}
+	// temp or should move to another FuncLogger implementation
+	w.writeStdErr(b)
 
 	return n, err
+}
+
+func (w *writer) writeStdErr(b []byte) {
+	// for now, also write to stderr so we can debug quick ;)
+	// TODO this should be a separate FuncLogger but time is running short !
+	endLine := bytes.IndexByte(b, '\n')
+	if endLine < 0 {
+		w.stderr.Write(b)
+		return
+	}
+	// we have a new line, so:
+	w.stderr.Write(b[0:endLine])
+	w.flush()
+	w.writeStdErr(b[endLine+1:])
+
+}
+
+func (w *writer) flush() {
+	log := common.Logger(w.ctx)
+	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": w.appName, "path": w.path, "image": w.image, "call_id": w.reqID})
+	log.Println(w.stderr.String())
+	w.stderr.Reset()
 }
 
 // overrides Write, keeps Close
