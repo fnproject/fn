@@ -172,6 +172,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 			}
 			return "https"
 		}(), c.Request.Host, c.Request.URL.String()),
+		"CALL_ID": reqID,
 	}
 
 	// app config
