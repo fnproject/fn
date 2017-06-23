@@ -17,9 +17,21 @@ func (s *Server) handleCallList(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.ErrRoutesValidationMissingAppName)
 		return
 	}
+
+	_, err := s.Datastore.GetApp(c, appName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, models.ErrAppsNotFound)
+		return
+	}
+
 	appRoute, ok := c.MustGet(api.Path).(string)
 	if ok && appRoute == "" {
 		c.JSON(http.StatusBadRequest, models.ErrRoutesValidationMissingPath)
+		return
+	}
+	_, err = s.Datastore.GetRoute(c, appName, appRoute)
+	if err != nil {
+		c.JSON(http.StatusNotFound, models.ErrRoutesNotFound)
 		return
 	}
 
