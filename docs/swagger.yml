@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: Oracle Functions
   description: The open source serverless platform.
-  version: "0.1.32"
+  version: "0.1.33"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -456,12 +456,14 @@ definitions:
           - sync
           - async
         description: Route type
+        type: string
       format:
         enum:
           - default
           - http
           - json
         description: Payload format sent into function.
+        type: string
       config:
         type: object
         description: Route configuration - overrides application configuration
