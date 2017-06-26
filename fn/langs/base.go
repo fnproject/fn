@@ -66,7 +66,6 @@ type LangHelper interface {
 type BaseHelper struct {
 }
 
-<<<<<<< 1918edacff928f017aa215c925d1e454c43f6320
 func (h *BaseHelper) BuildFromImage() string        { return "" }
 func (h *BaseHelper) RunFromImage() string          { return h.BuildFromImage() }
 func (h *BaseHelper) IsMultiStage() bool            { return true }
@@ -79,11 +78,6 @@ func (h *BaseHelper) PreBuild() error               { return nil }
 func (h *BaseHelper) AfterBuild() error             { return nil }
 func (h *BaseHelper) HasBoilerplate() bool          { return false }
 func (h *BaseHelper) GenerateBoilerplate() error    { return nil }
-=======
-func (h *BaseHelper) Cmd() string { return "" }
-func (h *BaseHelper) HasBoilerplate() bool { return false }
-func (h *BaseHelper) GenerateBoilerplate() error { return nil }
->>>>>>> Revert "Build project/func on host machine for java-maven"
 
 // exists checks if a file exists
 func exists(name string) bool {
