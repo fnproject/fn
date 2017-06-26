@@ -3,9 +3,11 @@ package langs
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"errors"
+	"bytes"
+	"strings"
+	"net/url"
 )
 
 // JavaMavenLangHelper provides a set of helper methods for the build lifecycle of Java Maven projects
@@ -13,20 +15,64 @@ type JavaMavenLangHelper struct {
 	BaseHelper
 }
 
-
-// Entrypoint returns the Java runtime Docker entrypoint that will be executed when the function is run
-func (lh *JavaMavenLangHelper) Entrypoint() string {
-	return fmt.Sprintf("java -jar /function/target/function.jar com.example.faas.ExampleFunction::itsOn")
+// BuildFromImage returns the Docker image used to compile the Maven function project
+func (lh *JavaMavenLangHelper) BuildFromImage() string {
+	return "maven:3.5-jdk-8-alpine"
 }
 
-// HasPreBuild returns whether the Java runtime has a pre-build step
+// RunFromImage returns the Docker image used to run the Maven built function
+func (lh *JavaMavenLangHelper) RunFromImage() string {
+	return "funcy/java"
+}
+
+
+// DockerfileBuildCmds returns the build stage steps to compile the Maven function project
+func (lh *JavaMavenLangHelper) DockerfileBuildCmds() []string {
+	return []string{
+		fmt.Sprintf("ENV MAVEN_OPTS %s", mavenOpts()),
+		"ADD pom.xml /function/pom.xml",
+		"RUN [\"mvn\", \"package\", \"dependency:go-offline\", \"-DstripVersion=true\", \"-Dmdep.prependGroupId=true\"," +
+			" \"dependency:copy-dependencies\"]",
+		"ADD src /function/src",
+		"RUN [\"mvn\", \"package\"]",
+	}
+}
+
+func mavenOpts() string {
+	var opts bytes.Buffer
+
+	if parsedURL, err := url.Parse(os.Getenv("http_proxy")); err == nil {
+		opts.WriteString(fmt.Sprintf("-Dhttp.proxyHost=%s ", parsedURL.Hostname()))
+		opts.WriteString(fmt.Sprintf("-Dhttp.proxyPort=%s ", parsedURL.Port()))
+	}
+
+	if parsedURL, err := url.Parse(os.Getenv("https_proxy")); err == nil {
+		opts.WriteString(fmt.Sprintf("-Dhttps.proxyHost=%s ", parsedURL.Hostname()))
+		opts.WriteString(fmt.Sprintf("-Dhttps.proxyPort=%s ", parsedURL.Port()))
+	}
+
+	nonProxyHost := os.Getenv("no_proxy")
+	opts.WriteString(fmt.Sprintf("-Dhttp.nonProxyHosts=%s ", strings.Replace(nonProxyHost, ",", "|", -1)))
+
+	opts.WriteString("-Dmaven.repo.local=/usr/share/maven/ref/repository")
+
+	return opts.String()
+}
+
+// DockerfileCopyCmds returns the Docker COPY command to copy the compiled Java function classes
+func (lh *JavaMavenLangHelper) DockerfileCopyCmds() []string {
+	return []string{
+		"COPY --from=build-stage /function/target/*.jar /function/app/",
+		"COPY --from=build-stage /function/target/dependency/*.jar /function/lib/",
+	}
+}
+
+// HasPreBuild returns whether the Java Maven runtime has a pre-build step
 func (lh *JavaMavenLangHelper) HasPreBuild() bool {
 	return true
 }
 
-// PreBuild runs "mvn package" in the root of the project. A local .m2 directory is created the first time this is run
-// so that any pulled dependencies are cached in between builds. The local .m2 directory contains a hardlink to user's
-// own settings.xml file and this is mounted into the build container.
+// PreBuild ensures that the expected the function is based is a maven project
 func (lh *JavaMavenLangHelper) PreBuild() error {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -37,72 +83,10 @@ func (lh *JavaMavenLangHelper) PreBuild() error {
 		return errors.New("Could not find pom.xml - are you sure this is a maven project?")
 	}
 
-	err = createLocalM2Dir(wd)
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command(
-		"docker", "run",
-		"--rm",
-		"-v", wd+":/java", "-w", "/java",
-		"-v", wd+"/.m2:/root/.m2",
-		"maven:3.5-jdk-8-alpine",
-		"/bin/sh", "-c", "mvn package",
-	)
-
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return dockerBuildError(err)
-	}
 	return nil
 }
 
-// createLocalM2Dir creates a .m2 directory in the function's working directory and creates a hard link to the user's
-// settings.xml file.
-func createLocalM2Dir(wd string) error {
-	usersSettingsFile := filepath.Join(os.Getenv("HOME"), ".m2/settings.xml")
-	localSettingsFile := filepath.Join(wd, ".m2/settings.xml")
-
-	if exists(localSettingsFile) {
-		return nil
-	}
-
-	if !exists(usersSettingsFile) {
-		return fmt.Errorf("Unable to find user's settings.xml at %s", usersSettingsFile)
-	}
-
-	if !exists(filepath.Dir(localSettingsFile)) {
-		if err := os.Mkdir(filepath.Dir(localSettingsFile), 0755); err != nil {
-			return fmt.Errorf("Unable to create a local .m2 directory: %s", err)
-		}
-	}
-
-	return os.Link(usersSettingsFile, localSettingsFile)
-}
-
-// AfterBuild removes the target directory by mounting the working directory into a container and removingit. This is
-// done inside a container as the folder is owned by root.
-func (lh *JavaMavenLangHelper) AfterBuild() error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command(
-		"docker", "run",
-		"--rm",
-		"-v", wd+":/root",
-		"maven:3.5-jdk-8-alpine",
-		"/bin/sh", "-c", "rm -r /root/target",
-	)
-
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Error occured trying to delete the target directory: %s", err)
-	}
-
-	return nil
+// Entrypoint returns the Java runtime Docker entrypoint that will be executed when the function is run
+func (lh *JavaMavenLangHelper) Entrypoint() string {
+	return "java -cp app/*:lib/* com.oracle.faas.runtime.EntryPoint com.example.faas.HelloFunction::handleRequest"
 }
