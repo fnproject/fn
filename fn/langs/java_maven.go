@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"strings"
 	"net/url"
+	"io/ioutil"
 )
 
 // JavaMavenLangHelper provides a set of helper methods for the build lifecycle of Java Maven projects
@@ -90,3 +91,94 @@ func (lh *JavaMavenLangHelper) PreBuild() error {
 func (lh *JavaMavenLangHelper) Entrypoint() string {
 	return "java -cp app/*:lib/* com.oracle.faas.runtime.EntryPoint com.example.faas.HelloFunction::handleRequest"
 }
+
+// HasPreBuild returns whether the Java Maven runtime has boilerplate that can be generated.
+func (lh *JavaMavenLangHelper) HasBoilerplate() bool { return true }
+
+// GenerateBoilerplate will generate function boilerplate for a Java Maven runtime
+func (lh *JavaMavenLangHelper) GenerateBoilerplate() error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	pathToPomFile := filepath.Join(wd, "pom.xml")
+	if exists(pathToPomFile) {
+		return ErrBoilerplateExists
+	}
+
+	if err := ioutil.WriteFile(pathToPomFile, []byte(pomFile), os.FileMode(0644)); err != nil {
+		return err
+	}
+
+	helloJavaFunctionFileDir := filepath.Join(wd, "src/main/java/com/example/faas")
+	if err = os.MkdirAll(helloJavaFunctionFileDir, os.FileMode(0755)); err != nil {
+		os.Remove(pathToPomFile)
+		return err
+	}
+
+	helloJavaFunctionFile := filepath.Join(helloJavaFunctionFileDir, "HelloFunction.java")
+	return ioutil.WriteFile(helloJavaFunctionFile, []byte(helloJavaFunctionBoilerplate), os.FileMode(0644))
+}
+
+
+/*	TODO temporarily generate maven project boilerplate from hardcoded values.
+ 	Will eventually move to using a maven archetype.
+*/
+
+const (
+	pomFile = `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    <groupId>com.example.faas</groupId>
+    <artifactId>hello</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <repositories>
+        <repository>
+            <id>nexus-box</id>
+            <url>http://10.167.103.241:8081/repository/maven-snapshots/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.oracle.faas</groupId>
+            <artifactId>fdk</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.3</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+`
+
+	helloJavaFunctionBoilerplate = `package com.example.faas;
+
+public class HelloFunction {
+
+    public String handleRequest(String input) {
+        String name = (input == null || input.isEmpty()) ? "world"  : input;
+
+        return "Hello, " + name + "!";
+    }
+
+}`
+)
