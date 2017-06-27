@@ -3,11 +3,12 @@ package main
 import (
 	"os"
 
-	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/go-openapi/strfmt"
-	fnclient "github.com/funcy/functions_go/client"
 	"log"
 	"net/url"
+
+	fnclient "github.com/funcy/functions_go/client"
+	httptransport "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/strfmt"
 )
 
 func host() string {
@@ -26,8 +27,8 @@ func host() string {
 
 func apiClient() *fnclient.Functions {
 	transport := httptransport.New(host(), "/v1", []string{"http"})
-	if os.Getenv("IRON_TOKEN") != "" {
-		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("IRON_TOKEN"))
+	if os.Getenv("FN_TOKEN") != "" {
+		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("FN_TOKEN"))
 	}
 
 	// create the API client, with the transport
