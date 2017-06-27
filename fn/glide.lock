@@ -1,5 +1,5 @@
 hash: aac209bf551382f2b8637d3f771a7e94b9ec9749acad17f76f4406a1f4d4fefd
-updated: 2017-06-11T02:02:29.974339349-07:00
+updated: 2017-06-27T21:33:40.071148609+03:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
@@ -50,11 +50,12 @@ imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/funcy/functions_go
-  version: 3b83bbd98c2a5909eea3ccfafe3730a9822d15ee
+  version: 5d9948e8b1292c5421b5dd98bb6a9b5535d5e1ba
   subpackages:
   - client
   - client/apps
   - client/call
+  - client/operations
   - client/routes
   - client/tasks
   - client/version

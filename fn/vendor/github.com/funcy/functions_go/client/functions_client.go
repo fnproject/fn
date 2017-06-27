@@ -11,6 +11,7 @@ import (
 
 	"github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/client/call"
+	"github.com/funcy/functions_go/client/operations"
 	"github.com/funcy/functions_go/client/routes"
 	"github.com/funcy/functions_go/client/tasks"
 	"github.com/funcy/functions_go/client/version"
@@ -60,6 +61,8 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Functions 
 	cli.Apps = apps.New(transport, formats)
 
 	cli.Call = call.New(transport, formats)
+
+	cli.Operations = operations.New(transport, formats)
 
 	cli.Routes = routes.New(transport, formats)
 
@@ -115,6 +118,8 @@ type Functions struct {
 
 	Call *call.Client
 
+	Operations *operations.Client
+
 	Routes *routes.Client
 
 	Tasks *tasks.Client
@@ -131,6 +136,8 @@ func (c *Functions) SetTransport(transport runtime.ClientTransport) {
 	c.Apps.SetTransport(transport)
 
 	c.Call.SetTransport(transport)
+
+	c.Operations.SetTransport(transport)
 
 	c.Routes.SetTransport(transport)
 
