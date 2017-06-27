@@ -16,7 +16,6 @@ import (
 // Task task
 // swagger:model Task
 type Task struct {
-	NewTask
 
 	// Time when task completed, whether it was successul or failed. Always in UTC.
 	CompletedAt strfmt.DateTime `json:"completed_at,omitempty"`
@@ -34,6 +33,13 @@ type Task struct {
 	// Group this task belongs to.
 	// Read Only: true
 	GroupName string `json:"group_name,omitempty"`
+
+	// Name of Docker image to use. This is optional and can be used to override the image defined at the group level.
+	// Required: true
+	Image *string `json:"image"`
+
+	// Payload for the task. This is what you pass into each task to make it do something.
+	Payload string `json:"payload,omitempty"`
 
 	// Machine usable reason for task being in this state.
 	// Valid values for error status are `timeout | killed | bad_exit`.
@@ -54,131 +60,32 @@ type Task struct {
 	StartedAt strfmt.DateTime `json:"started_at,omitempty"`
 }
 
-// UnmarshalJSON unmarshals this object from a JSON structure
-func (m *Task) UnmarshalJSON(raw []byte) error {
-
-	var aO0 NewTask
-	if err := swag.ReadJSON(raw, &aO0); err != nil {
-		return err
-	}
-	m.NewTask = aO0
-
-	var data struct {
-		CompletedAt strfmt.DateTime `json:"completed_at,omitempty"`
-
-		CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
-
-		EnvVars map[string]string `json:"env_vars,omitempty"`
-
-		Error string `json:"error,omitempty"`
-
-		GroupName string `json:"group_name,omitempty"`
-
-		Reason string `json:"reason,omitempty"`
-
-		RetryAt string `json:"retry_at,omitempty"`
-
-		RetryOf string `json:"retry_of,omitempty"`
-
-		StartedAt strfmt.DateTime `json:"started_at,omitempty"`
-	}
-	if err := swag.ReadJSON(raw, &data); err != nil {
-		return err
-	}
-
-	m.CompletedAt = data.CompletedAt
-
-	m.CreatedAt = data.CreatedAt
-
-	m.EnvVars = data.EnvVars
-
-	m.Error = data.Error
-
-	m.GroupName = data.GroupName
-
-	m.Reason = data.Reason
-
-	m.RetryAt = data.RetryAt
-
-	m.RetryOf = data.RetryOf
-
-	m.StartedAt = data.StartedAt
-
-	return nil
-}
-
-// MarshalJSON marshals this object to a JSON structure
-func (m Task) MarshalJSON() ([]byte, error) {
-	var _parts [][]byte
-
-	aO0, err := swag.WriteJSON(m.NewTask)
-	if err != nil {
-		return nil, err
-	}
-	_parts = append(_parts, aO0)
-
-	var data struct {
-		CompletedAt strfmt.DateTime `json:"completed_at,omitempty"`
-
-		CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
-
-		EnvVars map[string]string `json:"env_vars,omitempty"`
-
-		Error string `json:"error,omitempty"`
-
-		GroupName string `json:"group_name,omitempty"`
-
-		Reason string `json:"reason,omitempty"`
-
-		RetryAt string `json:"retry_at,omitempty"`
-
-		RetryOf string `json:"retry_of,omitempty"`
-
-		StartedAt strfmt.DateTime `json:"started_at,omitempty"`
-	}
-
-	data.CompletedAt = m.CompletedAt
-
-	data.CreatedAt = m.CreatedAt
-
-	data.EnvVars = m.EnvVars
-
-	data.Error = m.Error
-
-	data.GroupName = m.GroupName
-
-	data.Reason = m.Reason
-
-	data.RetryAt = m.RetryAt
-
-	data.RetryOf = m.RetryOf
-
-	data.StartedAt = m.StartedAt
-
-	jsonData, err := swag.WriteJSON(data)
-	if err != nil {
-		return nil, err
-	}
-	_parts = append(_parts, jsonData)
-
-	return swag.ConcatJSON(_parts...), nil
-}
-
 // Validate validates this task
 func (m *Task) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.NewTask.Validate(formats); err != nil {
+	if err := m.validateImage(formats); err != nil {
+		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateReason(formats); err != nil {
+		// prop
 		res = append(res, err)
 	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *Task) validateImage(formats strfmt.Registry) error {
+
+	if err := validate.Required("image", "body", m.Image); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -194,7 +101,18 @@ func init() {
 	}
 }
 
-// property enum
+const (
+	// TaskReasonTimeout captures enum value "timeout"
+	TaskReasonTimeout string = "timeout"
+	// TaskReasonKilled captures enum value "killed"
+	TaskReasonKilled string = "killed"
+	// TaskReasonBadExit captures enum value "bad_exit"
+	TaskReasonBadExit string = "bad_exit"
+	// TaskReasonClientRequest captures enum value "client_request"
+	TaskReasonClientRequest string = "client_request"
+)
+
+// prop value enum
 func (m *Task) validateReasonEnum(path, location string, value string) error {
 	if err := validate.Enum(path, location, value, taskTypeReasonPropEnum); err != nil {
 		return err
