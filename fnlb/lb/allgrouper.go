@@ -53,6 +53,9 @@ type allGrouper struct {
 }
 
 func (a *allGrouper) add(newb string) {
+	if newb == "" {
+		return // we can't really do a lot of validation since hosts could be an ip or domain but we have health checks
+	}
 	a.Lock()
 	a.addNoLock(newb)
 	a.Unlock()

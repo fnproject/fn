@@ -17,9 +17,11 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/fnlb/lb"
 )
 
+const VERSION = "0.0.1"
+
 func main() {
 	// XXX (reed): normalize
-	fnodes := flag.String("nodes", "", "comma separated list of IronFunction nodes")
+	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
 
 	var conf lb.Config
 	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
@@ -29,7 +31,10 @@ func main() {
 	flag.IntVar(&conf.HealthcheckTimeout, "hc-timeout", 5, "timeout of healthcheck endpoint, in seconds")
 	flag.Parse()
 
-	conf.Nodes = strings.Split(*fnodes, ",")
+	if len(*fnodes) > 0 {
+		// starting w/o nodes is fine too
+		conf.Nodes = strings.Split(*fnodes, ",")
+	}
 
 	conf.Transport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
