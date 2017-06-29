@@ -43,6 +43,23 @@ type middlewareContextImpl struct {
 	middlewares []Middleware
 }
 
+// Set is used to store a new key/value pair exclusively for this context.
+// This is different than WithValue(), as it does not make a copy of the context with the new value, it will be available up the chain as well.
+func (c *middlewareContextImpl) Set(key string, value interface{}) {
+	c.ginContext.Set(key, value)
+}
+
+// Get returns the value for the given key, ie: (value, true).
+// If the value does not exists it returns (nil, false)
+func (c *middlewareContextImpl) Get(key string) (value interface{}, exists bool) {
+	return c.ginContext.Get(key)
+}
+
+// MustGet returns the value for the given key if it exists, otherwise it panics.
+func (c *middlewareContextImpl) MustGet(key string) interface{} {
+	return c.ginContext.MustGet(key)
+}
+
 func (c *middlewareContextImpl) Next() {
 	c.nextCalled = true
 	c.index++
@@ -91,12 +108,12 @@ func (s *Server) middlewareWrapperFunc(ctx context.Context) gin.HandlerFunc {
 	}
 }
 
-// AddAppEndpoint adds an endpoints to /v1/apps/:app/x
+// AddMiddleware add middleware
 func (s *Server) AddMiddleware(m Middleware) {
 	s.middlewares = append(s.middlewares, m)
 }
 
-// AddAppEndpoint adds an endpoints to /v1/apps/:app/x
+// AddMiddlewareFunc adds middleware function
 func (s *Server) AddMiddlewareFunc(m func(ctx MiddlewareContext, w http.ResponseWriter, r *http.Request, app *models.App) error) {
 	s.AddMiddleware(MiddlewareFunc(m))
 }
