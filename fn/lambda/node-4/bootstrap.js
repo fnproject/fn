@@ -1,6 +1,10 @@
 'use strict';
 
 var fs = require('fs');
+var net = require('net');
+var http = require('http');
+var events = require('events');
+var HTTPParser = process.binding('http_parser').HTTPParser;
 
 var oldlog = console.log
 console.log = console.error
@@ -239,8 +243,67 @@ var setEnvFromHeader = function () {
   }
 }
 
+// for http hot functions
+function freeParser(parser){
+    if (parser) {
+        parser.onIncoming = null;
+        parser.socket = null;
+        http.parsers.free(parser);
+        parser = null;
+    }
+};
+
+// parses http requests
+function parse(socket){
+    var emitter = new events.EventEmitter();
+    var parser = http.parsers.alloc();
+
+    parser.reinitialize(HTTPParser.REQUEST);
+    parser.socket = socket;
+    parser.maxHeaderPairs = 2000;
+
+    parser.onIncoming = function(req){
+        emitter.emit('request', req);
+    };
+
+    socket.on('data', function(buffer){
+        var ret = parser.execute(buffer, 0, buffer.length);
+        if(ret instanceof Error){
+            emitter.emit('error');
+
+            freeParser(parser);
+        }
+    });
+
+    socket.once('close', function(){
+        freeParser(parser);
+    });
+
+    return emitter;
+};
 
 function run() {
+
+  // First, check format (ie: hot functions)
+  var format = process.env.FORMAT;
+  if (format == "http"){
+    // init parser
+    var parser = http.parsers.alloc();
+    parser.reinitialize(HTTPParser.REQUEST);
+    parser.socket = process.stdin;
+    parser.maxHeaderPairs = 2000;
+
+    parser.onIncoming = function(req){
+        emitter.emit('request', req);
+    };
+  }
+
+  var parser = parse(socket);
+
+
+
+
+
   setEnvFromHeader();
   // FIXME(nikhil): Check for file existence and allow non-payload.
   var path = process.env["PAYLOAD_FILE"];
