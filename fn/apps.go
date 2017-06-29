@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"context"
-	"github.com/funcy/functions_go"
 	fnclient "github.com/funcy/functions_go/client"
 	apiapps "github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/models"
@@ -165,7 +164,7 @@ func (a *appsCmd) create(c *cli.Context) error {
 func (a *appsCmd) update(c *cli.Context) error {
 	appName := c.Args().First()
 
-	patchedApp := &functions.App{
+	patchedApp := &models.App{
 		Config: extractEnvConfig(c.StringSlice("config")),
 	}
 
@@ -183,7 +182,7 @@ func (a *appsCmd) configSet(c *cli.Context) error {
 	key := c.Args().Get(1)
 	value := c.Args().Get(2)
 
-	app := &functions.App{
+	app := &models.App{
 		Config: make(map[string]string),
 	}
 
@@ -201,11 +200,11 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	key := c.Args().Get(1)
 
-	app := &functions.App{
+	app := &models.App{
 		Config: make(map[string]string),
 	}
 
-	app.Config["-"+key] = ""
+	app.Config[key] = ""
 
 	if err := a.patchApp(appName, app); err != nil {
 		return fmt.Errorf("error updating app configuration: %v", err)
@@ -215,45 +214,11 @@ func (a *appsCmd) configUnset(c *cli.Context) error {
 	return nil
 }
 
-func (a *appsCmd) patchApp(appName string, app *functions.App) error {
-	resp, err := a.client.Apps.GetAppsApp(&apiapps.GetAppsAppParams{
+func (a *appsCmd) patchApp(appName string, app *models.App) error {
+	_, err := a.client.Apps.PatchAppsApp(&apiapps.PatchAppsAppParams{
 		Context: context.Background(),
 		App:     appName,
-	})
-
-	if err != nil {
-		switch err.(type) {
-		case *apiapps.GetAppsAppNotFound:
-			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
-		case *apiapps.GetAppsAppDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %v", err)
-	}
-
-	if resp.Payload.App.Config == nil {
-		resp.Payload.App.Config = map[string]string{}
-	}
-
-	resp.Payload.App.Name = ""
-	if app != nil {
-		if app.Config != nil {
-			for k, v := range app.Config {
-				if string(k[0]) == "-" {
-					delete(resp.Payload.App.Config, string(k[1:]))
-					continue
-				}
-				resp.Payload.App.Config[k] = v
-			}
-		}
-	}
-
-	body := &models.AppWrapper{App: resp.Payload.App}
-
-	_, err = a.client.Apps.PatchAppsApp(&apiapps.PatchAppsAppParams{
-		Context: context.Background(),
-		App:     appName,
-		Body:    body,
+		Body:    &models.AppWrapper{App: app},
 	})
 
 	if err != nil {
