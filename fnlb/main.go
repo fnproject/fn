@@ -21,7 +21,7 @@ const VERSION = "0.0.1"
 
 func main() {
 	// XXX (reed): normalize
-	fnodes := flag.String("nodes", "", "comma separated list of IronFunction nodes")
+	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
 
 	var conf lb.Config
 	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
