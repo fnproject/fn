@@ -9,25 +9,58 @@ fnlb --listen <address-for-incoming> --nodes <node1>,<node2>,<node3>
 
 And redirect all traffic to the load balancer.
 
-**NOTE: For the load balancer to work all function nodes need to be sharing the same DB.**
+**NOTE: For the load balancer to be of use, all function nodes need to be sharing the same DB.**
 
 ## Running with docker
 
-```sh
+To build a docker image for `fnlb` just run (in `fnlb/`):
+
+```
 make docker-build
-make docker-run
-curl -X PUT -d '{"node":"127.0.0.1:8080"}' localhost:8081/1/lb/nodes
 ```
 
-`127.0.0.1:8080` should be the address of a functions server. The lb will health
-check this and log if it cannot reach that node. By default, docker-run runs
-with --net=host and should work out of the box. Any number of functions
+To start the `fnlb` proxy with the addresses of functions nodes in a docker
+container:
+
+```sh
+docker run -d --name fnlb -p 8081:8081 funcy/fnlb:latest --nodes <node1>,<node2>
+```
+
+If running locally with functions servers in docker, running with docker links
+can make things easier (can use local addresses). for example:
+
+```sh
+docker run -d --name fn-8080 --privileged -p 8080:8080 funcy/functions:latest
+docker run -d --name fnlb --link fn-8080 -p 8081:8081 funcy/fnlb:latest --nodes 127.0.0.1:8080
+```
+
+## Operating / usage
+
+To make functions requests against the lb with the cli:
+
+```sh
+API_URL=http://<fnlb_address> fn call my/function
+```
+
+To add a functions node later:
+
+```sh
+curl -sSL -X PUT -d '{"node":"<node>"}' <fnlb_address>/1/lb/nodes
+```
+
+`<node>` should be the address of a functions server. The lb will health check
+this and log if it cannot reach that node as well as stop sending requests to
+that node until it begins passing health checks again. Any number of functions
 servers may be added to the load balancer.
 
-To make functions requests against the lb:
+To permanently remove a functions node:
 
 ```sh
-API_URL=http://localhost:8081 fn call my/function
+curl -sSL -X DELETE -d '{"node":"<node>"}' <fnlb_address>/1/lb/nodes
 ```
 
-## TODO More docs to be added for complex installs..
+To list functions nodes and their state:
+
+```sh
+curl -sSL -X GET <fnlb_address>/1/lb/nodes
+```
