@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/Sirupsen/logrus"
@@ -12,6 +13,7 @@ import (
 )
 
 // TODO kind of no reason to have FuncLogger interface... we can just do the thing.
+// TODO recycle buffers used in various writers
 
 type FuncLogger interface {
 	Writer(ctx context.Context, appName, path, image, reqID string) io.WriteCloser
@@ -182,7 +184,7 @@ func (l *limitWriter) Write(b []byte) (int, error) {
 	if l.n >= l.max {
 		return 0, errors.New("max log size exceeded, truncating log")
 	}
-	if l.n+len(b) > l.max {
+	if l.n+len(b) >= l.max {
 		// cut off to prevent gigantic line attack
 		b = b[:l.max-l.n]
 	}
@@ -190,7 +192,7 @@ func (l *limitWriter) Write(b []byte) (int, error) {
 	l.n += n
 	if l.n >= l.max {
 		// write in truncation message to log once
-		l.WriteClose.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n")))
+		l.WriteCloser.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n")))
 	}
 	return n, err
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 	"time"
@@ -15,12 +14,6 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
 )
-
-type nopCloser struct {
-	io.Writer
-}
-
-func (n nopCloser) Close() error { return nil }
 
 func TestRunnerHello(t *testing.T) {
 	buf := setLogBuffer()
