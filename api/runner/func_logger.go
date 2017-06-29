@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -13,7 +14,6 @@ import (
 )
 
 // TODO kind of no reason to have FuncLogger interface... we can just do the thing.
-// TODO recycle buffers used in various writers
 
 type FuncLogger interface {
 	Writer(ctx context.Context, appName, path, image, reqID string) io.WriteCloser
@@ -21,19 +21,37 @@ type FuncLogger interface {
 
 func NewFuncLogger(logDB models.FnLog) FuncLogger {
 	// TODO we should probably make it somehow configurable to log to stderr and/or db but meh
-	return &DefaultFuncLogger{logDB}
+	return &DefaultFuncLogger{
+		logDB:   logDB,
+		bufPool: &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }},
+		logPool: &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }},
+	}
 }
 
 // DefaultFuncLogger returns a WriteCloser that writes STDERR output from a
 // container and outputs it in a parsed structured log format to attached
 // STDERR as well as writing the log to the db when Close is called.
 type DefaultFuncLogger struct {
-	logDB models.FnLog
+	logDB   models.FnLog
+	bufPool *sync.Pool // these are usually small, for buffering lines
+	logPool *sync.Pool // these are usually large, for buffering whole logs
 }
 
 func (l *DefaultFuncLogger) Writer(ctx context.Context, appName, path, image, reqID string) io.WriteCloser {
+	lbuf := l.bufPool.Get().(*bytes.Buffer)
+	dbuf := l.logPool.Get().(*bytes.Buffer)
+
+	close := func() error {
+		// TODO we may want to toss out buffers that grow to grotesque size but meh they will prob get GC'd
+		lbuf.Reset()
+		dbuf.Reset()
+		l.bufPool.Put(lbuf)
+		l.logPool.Put(dbuf)
+		return nil
+	}
+
 	// we don't need to limit the log writer, but we do need it to dispense lines
-	linew := newLineWriter(&logWriter{
+	linew := newLineWriterWithBuffer(lbuf, &logWriter{
 		ctx:     ctx,
 		appName: appName,
 		path:    path,
@@ -45,17 +63,27 @@ func (l *DefaultFuncLogger) Writer(ctx context.Context, appName, path, image, re
 
 	// we don't need to log per line to db, but we do need to limit it
 	limitw := newLimitWriter(MB, &dbWriter{
-		db:    l.logDB,
-		ctx:   ctx,
-		reqID: reqID,
+		Buffer: dbuf,
+		db:     l.logDB,
+		ctx:    ctx,
+		reqID:  reqID,
 	})
 
 	// TODO / NOTE: we want linew to be first becauase limitw may error if limit
 	// is reached but we still want to log. we should probably ignore hitting the
 	// limit error since we really just want to not write too much to db and
-	// that's handled as is
-	return multiWriteCloser{linew, limitw}
+	// that's handled as is. put buffers back last to avoid misuse, if there's
+	// an error they won't get put back and that's really okay too.
+	return multiWriteCloser{linew, limitw, &fCloser{close}}
 }
+
+// implements passthrough Write & arbitrary func close to have a seat at the cool kids lunch table
+type fCloser struct {
+	close func() error
+}
+
+func (f *fCloser) Write(b []byte) (int, error) { return len(b), nil }
+func (f *fCloser) Close() error                { return f.close() }
 
 // multiWriteCloser returns the first write or close that returns a non-nil
 // err, if no non-nil err is returned, then the returned bytes written will be
@@ -104,12 +132,16 @@ func (l *logWriter) Write(b []byte) (int, error) {
 // be called to ensure that the buffer is flushed, and a newline
 // will be appended in Close if none is present.
 type lineWriter struct {
-	b bytes.Buffer
+	b *bytes.Buffer
 	w io.Writer
 }
 
 func newLineWriter(w io.Writer) io.WriteCloser {
-	return &lineWriter{w: w}
+	return &lineWriter{b: new(bytes.Buffer), w: w}
+}
+
+func newLineWriterWithBuffer(b *bytes.Buffer, w io.Writer) io.WriteCloser {
+	return &lineWriter{b: b, w: w}
 }
 
 func (li *lineWriter) Write(ogb []byte) (int, error) {
@@ -155,7 +187,7 @@ func (li *lineWriter) Close() error {
 // any error from Close. it should be wrapped in a limitWriter to
 // prevent blowing out the buffer and bloating the db.
 type dbWriter struct {
-	bytes.Buffer
+	*bytes.Buffer
 
 	db    models.FnLog
 	ctx   context.Context
