@@ -299,7 +299,7 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 	if rt.Path == "" && ff.Path != "" {
 		rt.Path = ff.Path
 	}
-	if rt.Type == nil && ff.Type != nil && *ff.Type != "" {
+	if rt.Type == "" && ff.Type != nil && *ff.Type != "" {
 		rt.Type = *ff.Type
 	}
 
@@ -359,75 +359,11 @@ func (a *routesCmd) postRoute(c *cli.Context, appName string, rt *fnmodels.Route
 }
 
 func (a *routesCmd) patchRoute(c *cli.Context, appName, routePath string, r *fnmodels.Route) error {
-	// TODO: this getting the old version and merging should be on the server side, not here on the client.
-	resp, err := a.client.Routes.GetAppsAppRoutesRoute(&apiroutes.GetAppsAppRoutesRouteParams{
+	_, err := a.client.Routes.PatchAppsAppRoutesRoute(&apiroutes.PatchAppsAppRoutesRouteParams{
 		Context: context.Background(),
 		App:     appName,
 		Route:   routePath,
-	})
-
-	if err != nil {
-		switch err.(type) {
-		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			// return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
-			// then insert it
-			return a.postRoute(c, appName, r)
-		case *apiroutes.GetAppsAppRoutesDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
-		}
-		return fmt.Errorf("unexpected error: %s", err)
-	}
-
-	if resp.Payload.Route.Config == nil {
-		resp.Payload.Route.Config = map[string]string{}
-	}
-
-	if resp.Payload.Route.Headers == nil {
-		resp.Payload.Route.Headers = map[string][]string{}
-	}
-
-	resp.Payload.Route.Path = ""
-	if r != nil {
-		if r.Config != nil {
-			for k, v := range r.Config {
-				if string(k[0]) == "-" {
-					delete(resp.Payload.Route.Config, string(k[1:]))
-					continue
-				}
-				resp.Payload.Route.Config[k] = v
-			}
-		}
-		if r.Headers != nil {
-			for k, v := range r.Headers {
-				if string(k[0]) == "-" {
-					delete(resp.Payload.Route.Headers, k)
-					continue
-				}
-				resp.Payload.Route.Headers[k] = v
-			}
-		}
-		if r.Image != "" {
-			resp.Payload.Route.Image = r.Image
-		}
-		if r.Format != "" {
-			resp.Payload.Route.Format = r.Format
-		}
-		if r.Type != "" {
-			resp.Payload.Route.Type = r.Type
-		}
-		if r.Memory > 0 {
-			resp.Payload.Route.Memory = r.Memory
-		}
-		if r.Timeout != nil {
-			resp.Payload.Route.Timeout = r.Timeout
-		}
-	}
-
-	_, err = a.client.Routes.PatchAppsAppRoutesRoute(&apiroutes.PatchAppsAppRoutesRouteParams{
-		Context: context.Background(),
-		App:     appName,
-		Route:   routePath,
-		Body:    resp.Payload,
+		Body:    &fnmodels.RouteWrapper{Route: r},
 	})
 
 	if err != nil {
@@ -496,7 +432,7 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 		Config: make(map[string]string),
 	}
 
-	patchRoute.Config["-"+key] = ""
+	patchRoute.Config[key] = ""
 
 	err := a.patchRoute(c, appName, route, &patchRoute)
 	if err != nil {
