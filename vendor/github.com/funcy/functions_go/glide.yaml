@@ -1,0 +1,13 @@
+package: github.com/funcy/functions_go
+import:
+- package: github.com/go-openapi/errors
+- package: github.com/go-openapi/runtime
+  subpackages:
+  - client
+- package: github.com/go-openapi/strfmt
+- package: github.com/go-openapi/swag
+- package: github.com/go-openapi/validate
+- package: github.com/go-resty/resty
+- package: golang.org/x/net
+  subpackages:
+  - context

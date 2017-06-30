@@ -3,10 +3,13 @@ excludeDirs:
 - fn
 import:
 - package: code.cloudfoundry.org/bytefmt
+- package: github.com/funcy/functions_go
+  subpackages:
+  - models
 - package: github.com/Sirupsen/logrus
   repo: https://github.com/sirupsen/logrus
   vcs: git
-  version: v0.11.5
+  version: ^v0.11.5
   subpackages:
   - hooks/syslog
 - package: github.com/amir/raidman
@@ -25,6 +28,7 @@ import:
   subpackages:
   - cli/config/configfile
 - package: github.com/docker/distribution
+  version: ^2.6.1
   subpackages:
   - manifest/schema1
 - package: github.com/fsouza/go-dockerclient

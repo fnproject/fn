@@ -1,0 +1,55 @@
+hash: fcf8f59eab23c579286280cd18a5b0a32b6136a896e07aad6a0002499d3d900a
+updated: 2016-12-07T08:51:17.664202292-08:00
+imports:
+- name: github.com/asaskevich/govalidator
+  version: 7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877
+- name: github.com/go-openapi/analysis
+  version: 7222828b8ce19afee3c595aef6643b9e42150120
+- name: github.com/go-openapi/errors
+  version: 49fe8b3a0e0d32a617d8d50c67f856ad6e45b28b
+- name: github.com/go-openapi/jsonpointer
+  version: 8d96a2dc61536b690bd36b2e9df0b3c0b62825b2
+- name: github.com/go-openapi/jsonreference
+  version: 36d33bfe519efae5632669801b180bf1a245da3b
+- name: github.com/go-openapi/loads
+  version: 315567415dfd74b651f7a62cabfc82a57ed7b9ad
+- name: github.com/go-openapi/runtime
+  version: 14b161b40ece9dac8e244ab2fde2d209e108c6f5
+  subpackages:
+  - client
+- name: github.com/go-openapi/spec
+  version: f7ae86df5bc115a2744343016c789a89f065a4bd
+- name: github.com/go-openapi/strfmt
+  version: 34fc3ba7c0f5fb615fda47a2b4fbd4c641b215f2
+- name: github.com/go-openapi/swag
+  version: 3b6d86cd965820f968760d5d419cb4add096bdd7
+- name: github.com/go-openapi/validate
+  version: 027696d4b54399770f1cdcc6c6daa56975f9e14e
+- name: github.com/go-resty/resty
+  version: 24dc7ba4bc1ef9215048b28e7248f99c42901db5
+- name: github.com/mailru/easyjson
+  version: 159cdb893c982e3d1bc6450322fedd514f9c9de3
+  subpackages:
+  - buffer
+  - jlexer
+  - jwriter
+- name: github.com/mitchellh/mapstructure
+  version: f3009df150dadf309fdee4a54ed65c124afad715
+- name: github.com/PuerkitoBio/purell
+  version: 0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4
+- name: github.com/PuerkitoBio/urlesc
+  version: 5bd2802263f21d8788851d5305584c82a5c75d7e
+- name: golang.org/x/net
+  version: f315505cf3349909cdf013ea56690da34e96a451
+  subpackages:
+  - context
+  - context/ctxhttp
+  - idna
+  - publicsuffix
+- name: golang.org/x/text
+  version: 5c6cf4f9a2357d38515014cea8c488ed22bdab90
+  subpackages:
+  - transform
+  - unicode/norm
+  - width
+testImports: []
