@@ -36,6 +36,12 @@ func (s *Server) handleAppDelete(c *gin.Context) {
 		return
 	}
 
+	app, err = s.Datastore.GetApp(ctx, app.Name)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
 	err = s.Datastore.RemoveApp(ctx, app.Name)
 	if err != nil {
 		handleErrorResponse(c, err)
