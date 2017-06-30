@@ -18,6 +18,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var (
+	enforceRepoClass bool
+)
+
 func main() {
 	var (
 		issuer = &TokenIssuer{}
@@ -43,6 +47,8 @@ func main() {
 
 	flag.StringVar(&cert, "tlscert", "", "Certificate file for TLS")
 	flag.StringVar(&certKey, "tlskey", "", "Certificate key for TLS")
+
+	flag.BoolVar(&enforceRepoClass, "enforce-class", false, "Enforce policy for single repository class")
 
 	flag.Parse()
 
@@ -157,6 +163,8 @@ type tokenResponse struct {
 	ExpiresIn    int    `json:"expires_in,omitempty"`
 }
 
+var repositoryClassCache = map[string]string{}
+
 func filterAccessList(ctx context.Context, scope string, requestedAccessList []auth.Access) []auth.Access {
 	if !strings.HasSuffix(scope, "/") {
 		scope = scope + "/"
@@ -167,6 +175,16 @@ func filterAccessList(ctx context.Context, scope string, requestedAccessList []a
 			if !strings.HasPrefix(access.Name, scope) {
 				context.GetLogger(ctx).Debugf("Resource scope not allowed: %s", access.Name)
 				continue
+			}
+			if enforceRepoClass {
+				if class, ok := repositoryClassCache[access.Name]; ok {
+					if class != access.Class {
+						context.GetLogger(ctx).Debugf("Different repository class: %q, previously %q", access.Class, class)
+						continue
+					}
+				} else if strings.EqualFold(access.Action, "push") {
+					repositoryClassCache[access.Name] = access.Class
+				}
 			}
 		} else if access.Type == "registry" {
 			if access.Name != "catalog" {
@@ -182,6 +200,18 @@ func filterAccessList(ctx context.Context, scope string, requestedAccessList []a
 	}
 	return grantedAccessList
 }
+
+type acctSubject struct{}
+
+func (acctSubject) String() string { return "acctSubject" }
+
+type requestedAccess struct{}
+
+func (requestedAccess) String() string { return "requestedAccess" }
+
+type grantedAccess struct{}
+
+func (grantedAccess) String() string { return "grantedAccess" }
 
 // getToken handles authenticating the request and authorizing access to the
 // requested scopes.
@@ -225,17 +255,17 @@ func (ts *tokenServer) getToken(ctx context.Context, w http.ResponseWriter, r *h
 
 	username := context.GetStringValue(ctx, "auth.user.name")
 
-	ctx = context.WithValue(ctx, "acctSubject", username)
-	ctx = context.WithLogger(ctx, context.GetLogger(ctx, "acctSubject"))
+	ctx = context.WithValue(ctx, acctSubject{}, username)
+	ctx = context.WithLogger(ctx, context.GetLogger(ctx, acctSubject{}))
 
 	context.GetLogger(ctx).Info("authenticated client")
 
-	ctx = context.WithValue(ctx, "requestedAccess", requestedAccessList)
-	ctx = context.WithLogger(ctx, context.GetLogger(ctx, "requestedAccess"))
+	ctx = context.WithValue(ctx, requestedAccess{}, requestedAccessList)
+	ctx = context.WithLogger(ctx, context.GetLogger(ctx, requestedAccess{}))
 
 	grantedAccessList := filterAccessList(ctx, username, requestedAccessList)
-	ctx = context.WithValue(ctx, "grantedAccess", grantedAccessList)
-	ctx = context.WithLogger(ctx, context.GetLogger(ctx, "grantedAccess"))
+	ctx = context.WithValue(ctx, grantedAccess{}, grantedAccessList)
+	ctx = context.WithLogger(ctx, context.GetLogger(ctx, grantedAccess{}))
 
 	token, err := ts.issuer.CreateJWT(username, service, grantedAccessList)
 	if err != nil {
@@ -347,17 +377,17 @@ func (ts *tokenServer) postToken(ctx context.Context, w http.ResponseWriter, r *
 		return
 	}
 
-	ctx = context.WithValue(ctx, "acctSubject", subject)
-	ctx = context.WithLogger(ctx, context.GetLogger(ctx, "acctSubject"))
+	ctx = context.WithValue(ctx, acctSubject{}, subject)
+	ctx = context.WithLogger(ctx, context.GetLogger(ctx, acctSubject{}))
 
 	context.GetLogger(ctx).Info("authenticated client")
 
-	ctx = context.WithValue(ctx, "requestedAccess", requestedAccessList)
-	ctx = context.WithLogger(ctx, context.GetLogger(ctx, "requestedAccess"))
+	ctx = context.WithValue(ctx, requestedAccess{}, requestedAccessList)
+	ctx = context.WithLogger(ctx, context.GetLogger(ctx, requestedAccess{}))
 
 	grantedAccessList := filterAccessList(ctx, subject, requestedAccessList)
-	ctx = context.WithValue(ctx, "grantedAccess", grantedAccessList)
-	ctx = context.WithLogger(ctx, context.GetLogger(ctx, "grantedAccess"))
+	ctx = context.WithValue(ctx, grantedAccess{}, grantedAccessList)
+	ctx = context.WithLogger(ctx, context.GetLogger(ctx, grantedAccess{}))
 
 	token, err := ts.issuer.CreateJWT(subject, service, grantedAccessList)
 	if err != nil {
