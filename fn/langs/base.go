@@ -31,8 +31,6 @@ func GetLangHelper(lang string) LangHelper {
 		return &LambdaNodeHelper{}
 	case "java":
 		return &JavaLangHelper{}
-	case "java-maven":
-		return &JavaMavenLangHelper{}
 	}
 	return nil
 }
