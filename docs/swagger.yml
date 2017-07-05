@@ -177,7 +177,7 @@ paths:
           schema:
             $ref: '#/definitions/RouteWrapper'
       responses:
-        201:
+        200:
           description: Route created
           schema:
             $ref: '#/definitions/RouteWrapper'
@@ -244,11 +244,7 @@ paths:
             $ref: '#/definitions/RouteWrapper'
       responses:
         200:
-          description: Route updated
-          schema:
-            $ref: '#/definitions/RouteWrapper'
-        201:
-          description: Route created
+          description: Route created or updated
           schema:
             $ref: '#/definitions/RouteWrapper'
         400:

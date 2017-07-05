@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -25,12 +24,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
 	method := strings.ToUpper(c.Request.Method)
-	switch method {
-	case http.MethodPost, http.MethodPut, http.MethodPatch:
-	default:
-		c.JSON(http.StatusMethodNotAllowed, simpleError(fmt.Errorf(http.StatusText(http.StatusMethodNotAllowed))))
-		return
-	}
+
 	var wroute models.RouteWrapper
 
 	err := c.BindJSON(&wroute)
@@ -110,22 +104,21 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	var route *models.Route
 
-	var createdOrUpdated int
+	resp := routeResponse{"Route successfully created", route}
+	up := routeResponse{"Route successfully updated", route}
+
 	switch method {
 	case http.MethodPost:
 		route, err = s.Datastore.InsertRoute(ctx, wroute.Route)
-		createdOrUpdated = 1
 	case http.MethodPut:
 		route, err = s.Datastore.UpdateRoute(ctx, wroute.Route)
-		createdOrUpdated = 2
 		if err == models.ErrRoutesNotFound {
 			// try insert then
 			route, err = s.Datastore.InsertRoute(ctx, wroute.Route)
-			createdOrUpdated = 1
 		}
 	case http.MethodPatch:
 		route, err = s.Datastore.UpdateRoute(ctx, wroute.Route)
-		createdOrUpdated = 2
+		resp = up
 	}
 
 	if err != nil {
@@ -135,15 +128,5 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	s.cacheRefresh(route)
 
-	var msg string
-	var code int
-	switch createdOrUpdated {
-	case 1:
-		msg = "Route successfully created"
-		code = http.StatusCreated
-	case 2:
-		msg = "Route successfully updated"
-		code = http.StatusOK
-	}
-	c.JSON(code, routeResponse{msg, route})
+	c.JSON(http.StatusOK, resp)
 }

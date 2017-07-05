@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func TestRouteCreate(t *testing.T) {
@@ -24,17 +24,17 @@ func TestRouteCreate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ "route": { "image": "funcy/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
@@ -75,12 +75,12 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
 		{datastore.NewMockInit(nil,
 			[]*models.Route{
 				{Path: "/myroute", AppName: "a"},
 			}, nil, nil,
-		), logs.NewMock(),"/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
@@ -195,10 +195,10 @@ func TestRouteUpdate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes/myroute/do", `{ "route": { "type": "invalid-type" } }`, http.StatusBadRequest, nil},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/a/routes/myroute/do", `{ "route": { "format": "invalid-format" } }`, http.StatusBadRequest, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "invalid-type" } }`, http.StatusBadRequest, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "format": "invalid-format" } }`, http.StatusBadRequest, nil},
 
 		// success
 		{datastore.NewMockInit(nil,
@@ -208,7 +208,7 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			}, nil, nil,
-		), logs.NewMock(),"/v1/apps/a/routes/myroute/do", `{ "route": { "image": "funcy/hello" } }`, http.StatusOK, nil},
+		), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "funcy/hello" } }`, http.StatusOK, nil},
 
 		// Addresses #381
 		{datastore.NewMockInit(nil,
@@ -218,7 +218,7 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			}, nil, nil,
-		), logs.NewMock(),"/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
+		), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
 
