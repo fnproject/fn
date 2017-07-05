@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-func host() string {
+func Host() string {
 	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
 		apiURL = "http://localhost:8080"
@@ -21,12 +21,12 @@ func host() string {
 	if err != nil {
 		log.Fatalln("Couldn't parse API URL:", err)
 	}
-
+	log.Println("trace: Host:", u.Host)
 	return u.Host
 }
 
-func apiClient() *fnclient.Functions {
-	transport := httptransport.New(host(), "/v1", []string{"http"})
+func APIClient() *fnclient.Functions {
+	transport := httptransport.New(Host(), "/v1", []string{"http"})
 	if os.Getenv("FN_TOKEN") != "" {
 		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("FN_TOKEN"))
 	}

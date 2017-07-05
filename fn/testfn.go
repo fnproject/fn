@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab-odx.oracle.com/odx/functions/fn/client"
 	functions "github.com/funcy/functions_go"
 	"github.com/urfave/cli"
 )
@@ -173,7 +174,7 @@ func runremotetest(target string, in, expectedOut, expectedErr *string, env map[
 		os.Setenv(k, v)
 		restrictedEnv = append(restrictedEnv, k)
 	}
-	if err := callfn(target, stdin, &stdout, "", restrictedEnv); err != nil {
+	if err := client.CallFN(target, stdin, &stdout, "", restrictedEnv); err != nil {
 		return fmt.Errorf("%v\nstdout:%s\n", err, stdout.String())
 	}
 

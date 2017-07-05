@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	fnclient "github.com/funcy/functions_go/client"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	apicall "github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
@@ -15,7 +16,7 @@ type callsCmd struct {
 }
 
 func calls() cli.Command {
-	c := callsCmd{client: apiClient()}
+	c := callsCmd{client: client.APIClient()}
 
 	return cli.Command{
 		Name:  "calls",

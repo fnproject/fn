@@ -13,7 +13,10 @@ dep:
 	dep ensure
 
 test:
-	go test $(go list ./... | grep -v /vendor/)
+	go test $(go list ./... | grep -v /vendor/ | grep -v /tests)
+
+test-integration:
+	cd tests/ && go test -v ./...; cd ..
 
 release:
 	GOOS=linux go build -o fn_linux

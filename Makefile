@@ -37,6 +37,18 @@ docker-build:
 docker-run: docker-build
 	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=bolt:///app/data/bolt.db" -v ${CURDIR}/data:/app/data -p 8080:8080 funcy/functions
 
+docker-test-run-with-bolt:
+	./api_test.sh bolt
+
+docker-test-run-with-mysql:
+	./api_test.sh mysql
+
+docker-test-run-with-postgres:
+	./api_test.sh postgres
+
+docker-test-run-with-redis:
+	./api_test.sh redis
+
 docker-test:
 	docker run -ti --privileged --rm -e LOG_LEVEL=debug \
 	-v /var/run/docker.sock:/var/run/docker.sock \

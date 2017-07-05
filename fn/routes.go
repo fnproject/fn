@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -14,6 +12,8 @@ import (
 	"text/tabwriter"
 
 	fnclient "github.com/funcy/functions_go/client"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
+	utils "gitlab-odx.oracle.com/odx/functions/fn/utils"
 	apiroutes "github.com/funcy/functions_go/client/routes"
 	fnmodels "github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
@@ -57,7 +57,7 @@ var routeFlags = []cli.Flag{
 
 func routes() cli.Command {
 
-	r := routesCmd{client: apiClient()}
+	r := routesCmd{client: client.APIClient()}
 
 	return cli.Command{
 		Name:  "routes",
@@ -132,7 +132,7 @@ func routes() cli.Command {
 }
 
 func call() cli.Command {
-	r := routesCmd{client: apiClient()}
+	r := routesCmd{client: client.APIClient()}
 
 	return cli.Command{
 		Name:      "call",
@@ -191,55 +191,12 @@ func (a *routesCmd) call(c *cli.Context) error {
 
 	u := url.URL{
 		Scheme: "http",
-		Host:   host(),
+		Host:   client.Host(),
 	}
 	u.Path = path.Join(u.Path, "r", appName, route)
 	content := stdin()
 
-	return callfn(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"))
-}
-
-func callfn(u string, content io.Reader, output io.Writer, method string, env []string) error {
-	if method == "" {
-		if content == nil {
-			method = "GET"
-		} else {
-			method = "POST"
-		}
-	}
-
-	req, err := http.NewRequest(method, u, content)
-	if err != nil {
-		return fmt.Errorf("error running route: %s", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	if len(env) > 0 {
-		envAsHeader(req, env)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("error running route: %s", err)
-	}
-
-	io.Copy(output, resp.Body)
-
-	return nil
-}
-
-func envAsHeader(req *http.Request, selectedEnv []string) {
-	detectedEnv := os.Environ()
-	if len(selectedEnv) > 0 {
-		detectedEnv = selectedEnv
-	}
-
-	for _, e := range detectedEnv {
-		kv := strings.Split(e, "=")
-		name := kv[0]
-		req.Header.Set(name, os.Getenv(name))
-	}
+	return client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"))
 }
 
 func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {

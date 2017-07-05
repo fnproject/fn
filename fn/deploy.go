@@ -11,6 +11,7 @@ import (
 	"time"
 
 	functions "github.com/funcy/functions_go"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
 )
@@ -150,7 +151,7 @@ func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
-	routesCmd := routesCmd{client: apiClient()}
+	routesCmd := routesCmd{client: client.APIClient()}
 	rt := &models.Route{}
 	if err := routeWithFuncFile(c, ff, rt); err != nil {
 		return fmt.Errorf("error getting route with funcfile: %s", err)

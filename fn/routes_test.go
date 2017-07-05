@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"gitlab-odx.oracle.com/odx/functions/fn/utils"
 )
 
 func TestEnvAsHeader(t *testing.T) {
@@ -17,7 +18,7 @@ func TestEnvAsHeader(t *testing.T) {
 	}
 	for _, selectedEnv := range cases {
 		req, _ := http.NewRequest("GET", "http://www.example.com", nil)
-		envAsHeader(req, selectedEnv)
+		utils.EnvAsHeader(req, selectedEnv)
 		if found := req.Header.Get("k"); found != expectedValue {
 			t.Errorf("not found expected header: %v", found)
 		}
