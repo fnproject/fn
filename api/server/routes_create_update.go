@@ -35,7 +35,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	}
 
 	//Create the app if it does not exist.
-	s.createApp(ctx, c, log, wroute, method)
+	err = s.createApp(ctx, c, log, wroute, method)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, simpleError(err))
 		return
