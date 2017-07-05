@@ -51,6 +51,16 @@ test_job:
   script:
   - DOCKER_LOCATION=container_ip ./test.sh
 
+#integration_tests:
+#  stage: test
+#  script:
+#  - go build -o functions-alpine
+#  - docker build -t funcy/functions:latest .
+#  - make docker-test-run-with-bolt
+#  - make docker-test-run-with-mysql
+#  - make docker-test-run-with-postgres
+#  - make docker-test-run-with-redis
+
 deploy_job:
   only:
     - tags

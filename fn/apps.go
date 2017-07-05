@@ -8,6 +8,7 @@ import (
 
 	"context"
 	fnclient "github.com/funcy/functions_go/client"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	apiapps "github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
@@ -20,7 +21,7 @@ type appsCmd struct {
 }
 
 func apps() cli.Command {
-	a := appsCmd{client: apiClient()}
+	a := appsCmd{client: client.APIClient()}
 
 	return cli.Command{
 		Name:  "apps",
