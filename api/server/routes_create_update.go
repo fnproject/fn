@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"gitlab-odx.oracle.com/odx/functions/api"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -27,19 +28,82 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	var wroute models.RouteWrapper
 
-	err := c.BindJSON(&wroute)
+	err := bindAndValidate(c, log, method, &wroute)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, simpleError(err))
+		return
+	}
+
+	//Create the app if it does not exist.
+	s.createApp(ctx, c, log, wroute, method)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, simpleError(err))
+		return
+	}
+
+	resp, err := s.updateOrInsertRoute(ctx, method, wroute)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	s.cacheRefresh(resp.Route)
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (s *Server) createApp(ctx context.Context, c *gin.Context, log logrus.FieldLogger, wroute models.RouteWrapper, method string) error {
+	if !(method == http.MethodPost || method == http.MethodPut) {
+		return nil
+	}
+	var app *models.App
+	var err error
+	app, err = s.Datastore.GetApp(ctx, wroute.Route.AppName)
+	if err != nil && err != models.ErrAppsNotFound {
+		log.WithError(err).Error(models.ErrAppsGet)
+		return models.ErrAppsGet
+	} else if app == nil {
+		// Create a new application and add the route to that new application
+		newapp := &models.App{Name: wroute.Route.AppName}
+		if err = newapp.Validate(); err != nil {
+			log.Error(err)
+			return err
+		}
+
+		err = s.FireBeforeAppCreate(ctx, newapp)
+		if err != nil {
+			log.WithError(err).Error(models.ErrAppsCreate)
+			return models.ErrAppsCreate
+		}
+
+		_, err = s.Datastore.InsertApp(ctx, newapp)
+		if err != nil {
+			log.WithError(err).Error(models.ErrRoutesCreate)
+			return models.ErrRoutesCreate
+		}
+
+		err = s.FireAfterAppCreate(ctx, newapp)
+		if err != nil {
+			log.WithError(err).Error(models.ErrRoutesCreate)
+			return models.ErrRoutesCreate
+		}
+
+	}
+	return nil
+}
+
+func bindAndValidate(c *gin.Context, log logrus.FieldLogger, method string, wroute *models.RouteWrapper) error {
+	err := c.BindJSON(wroute)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrInvalidJSON)
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
-		return
+		return models.ErrInvalidJSON
 	}
 
 	if wroute.Route == nil {
 		log.WithError(err).Debug(models.ErrRoutesMissingNew)
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesMissingNew))
-		return
+		return models.ErrRoutesMissingNew
 	}
-
+	// MAKE SIMPLEER TO READ / REFACTOR then help denis with the ci errors.
 	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 
 	if method == http.MethodPut || method == http.MethodPatch {
@@ -47,8 +111,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 		if wroute.Route.Path != "" && wroute.Route.Path != p {
 			log.Debug(models.ErrRoutesPathImmutable)
-			c.JSON(http.StatusBadRequest, simpleError(models.ErrRoutesPathImmutable))
-			return
+			return models.ErrRoutesPathImmutable
 		}
 		wroute.Route.Path = p
 	}
@@ -57,55 +120,16 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	if err = wroute.Validate(method == http.MethodPost); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)
-		c.JSON(http.StatusBadRequest, simpleError(err))
-		return
+		return err
 	}
+	return nil
+}
 
-	//Create the app if it does not exist.
-	if method == http.MethodPost || method == http.MethodPut {
-		var app *models.App
-		app, err = s.Datastore.GetApp(ctx, wroute.Route.AppName)
-		if err != nil && err != models.ErrAppsNotFound {
-			log.WithError(err).Error(models.ErrAppsGet)
-			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
-			return
-		} else if app == nil {
-			// Create a new application and add the route to that new application
-			newapp := &models.App{Name: wroute.Route.AppName}
-			if err = newapp.Validate(); err != nil {
-				log.Error(err)
-				c.JSON(http.StatusInternalServerError, simpleError(err))
-				return
-			}
-
-			err = s.FireBeforeAppCreate(ctx, newapp)
-			if err != nil {
-				log.WithError(err).Error(models.ErrAppsCreate)
-				c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
-				return
-			}
-
-			_, err = s.Datastore.InsertApp(ctx, newapp)
-			if err != nil {
-				log.WithError(err).Error(models.ErrRoutesCreate)
-				c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
-				return
-			}
-
-			err = s.FireAfterAppCreate(ctx, newapp)
-			if err != nil {
-				log.WithError(err).Error(models.ErrRoutesCreate)
-				c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
-				return
-			}
-
-		}
-	}
-
+func (s *Server) updateOrInsertRoute(ctx context.Context, method string, wroute models.RouteWrapper) (routeResponse, error) {
 	var route *models.Route
-
-	resp := routeResponse{"Route successfully created", route}
-	up := routeResponse{"Route successfully updated", route}
+	var err error
+	resp := routeResponse{"Route successfully created", nil}
+	up := routeResponse{"Route successfully updated", nil}
 
 	switch method {
 	case http.MethodPost:
@@ -120,13 +144,6 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 		route, err = s.Datastore.UpdateRoute(ctx, wroute.Route)
 		resp = up
 	}
-
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	s.cacheRefresh(route)
-
-	c.JSON(http.StatusOK, resp)
+	resp.Route = route
+	return resp, err
 }
