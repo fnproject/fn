@@ -68,5 +68,6 @@ import:
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
+- package: github.com/jmoiron/sqlx
 testImport:
 - package: github.com/vrischmann/envconfig

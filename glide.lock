@@ -1,5 +1,5 @@
-hash: c3a20e76f70802a5cb8ead0c4ac29c6bca272a3d738d9b95538d9fc238ad450c
-updated: 2017-06-30T11:01:18.063490786-07:00
+hash: baf2b3f96ba8f7a9362a9a731e38b9098af3c13e237ccc3201c3d3e47b3d81c3
+updated: 2017-07-05T15:02:34.99205116-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -168,6 +168,8 @@ imports:
   - mq
 - name: github.com/jmoiron/jsonq
   version: e874b168d07ecc7808bc950a17998a8aa3141d82
+- name: github.com/jmoiron/sqlx
+  version: d9bd385d68c068f1fabb5057e3dedcbcbb039d0f
 - name: github.com/lib/pq
   version: 8837942c3e09574accbc5f150e2c5e057189cace
   subpackages:
