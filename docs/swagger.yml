@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: Oracle Functions
   description: The open source serverless platform.
-  version: "0.1.33"
+  version: "0.1.34"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -177,7 +177,7 @@ paths:
           schema:
             $ref: '#/definitions/RouteWrapper'
       responses:
-        200:
+        201:
           description: Route created
           schema:
             $ref: '#/definitions/RouteWrapper'
@@ -220,8 +220,47 @@ paths:
             $ref: '#/definitions/Error'
 
   /apps/{app}/routes/{route}:
+    put:
+      summary: Create a Route if it does not exist. Update if it does. Will also create app if it does not exist.
+      description: Update or Create a route
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          type: string
+        - name: route
+          in: path
+          description: route path.
+          required: true
+          type: string
+        - name: body
+          in: body
+          description: One route to post.
+          required: true
+          schema:
+            $ref: '#/definitions/RouteWrapper'
+      responses:
+        200:
+          description: Route updated
+          schema:
+            $ref: '#/definitions/RouteWrapper'
+        201:
+          description: Route created
+          schema:
+            $ref: '#/definitions/RouteWrapper'
+        400:
+          description: Invalid route due to parameters being missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
     patch:
-      summary: Update a Route
+      summary: Update a Route, Fails if the route or app does not exist.
       description: Update a route
       tags:
         - Routes
@@ -252,7 +291,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: App does not exist.
+          description: App/ Route does not exist.
           schema:
             $ref: '#/definitions/Error'
         default:

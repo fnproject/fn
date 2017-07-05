@@ -24,9 +24,9 @@ import (
 func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 	log := common.Logger(ctx)
-	method := strings.ToLower(c.Request.Method)
+	method := strings.ToUpper(c.Request.Method)
 	switch method {
-	case "post", "put", "patch":
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
 	default:
 		c.JSON(http.StatusMethodNotAllowed, simpleError(fmt.Errorf(http.StatusText(http.StatusMethodNotAllowed))))
 		return
@@ -48,7 +48,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 
-	if method == "put" || method == "patch" {
+	if method == http.MethodPut || method == http.MethodPatch {
 		p := path.Clean(c.MustGet(api.Path).(string))
 
 		if wroute.Route.Path != "" && wroute.Route.Path != p {
@@ -61,14 +61,16 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	wroute.Route.SetDefaults()
 
-	if err = wroute.Validate(method == "post"); err != nil {
+	if err = wroute.Validate(method == http.MethodPost); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)
 		c.JSON(http.StatusBadRequest, simpleError(err))
 		return
 	}
 
-	if method == "post" || method == "put" {
-		app, err := s.Datastore.GetApp(ctx, wroute.Route.AppName)
+	//Create the app if it does not exist.
+	if method == http.MethodPost || method == http.MethodPut {
+		var app *models.App
+		app, err = s.Datastore.GetApp(ctx, wroute.Route.AppName)
 		if err != nil && err != models.ErrAppsNotFound {
 			log.WithError(err).Error(models.ErrAppsGet)
 			c.JSON(http.StatusInternalServerError, simpleError(models.ErrAppsGet))
@@ -108,17 +110,22 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	var route *models.Route
 
+	var createdOrUpdated int
 	switch method {
-	case "post":
+	case http.MethodPost:
 		route, err = s.Datastore.InsertRoute(ctx, wroute.Route)
-	case "put":
+		createdOrUpdated = 1
+	case http.MethodPut:
 		route, err = s.Datastore.UpdateRoute(ctx, wroute.Route)
+		createdOrUpdated = 2
 		if err == models.ErrRoutesNotFound {
 			// try insert then
 			route, err = s.Datastore.InsertRoute(ctx, wroute.Route)
+			createdOrUpdated = 1
 		}
-	case "patch":
+	case http.MethodPatch:
 		route, err = s.Datastore.UpdateRoute(ctx, wroute.Route)
+		createdOrUpdated = 2
 	}
 
 	if err != nil {
@@ -128,5 +135,15 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	s.cacheRefresh(route)
 
-	c.JSON(http.StatusOK, routeResponse{"Route successfully created", route})
+	var msg string
+	var code int
+	switch createdOrUpdated {
+	case 1:
+		msg = "Route successfully created"
+		code = http.StatusCreated
+	case 2:
+		msg = "Route successfully updated"
+		code = http.StatusOK
+	}
+	c.JSON(code, routeResponse{msg, route})
 }
