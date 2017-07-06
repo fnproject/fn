@@ -13,7 +13,6 @@ import (
 
 	fnclient "github.com/funcy/functions_go/client"
 	client "gitlab-odx.oracle.com/odx/functions/fn/client"
-	utils "gitlab-odx.oracle.com/odx/functions/fn/utils"
 	apiroutes "github.com/funcy/functions_go/client/routes"
 	fnmodels "github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
