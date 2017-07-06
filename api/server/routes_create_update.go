@@ -28,7 +28,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 
 	var wroute models.RouteWrapper
 
-	err := bindAndValidate(c, log, method, &wroute)
+	err := s.bindAndValidate(ctx, c, log, method, &wroute)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, simpleError(err))
 		return
@@ -92,7 +92,7 @@ func (s *Server) createApp(ctx context.Context, c *gin.Context, log logrus.Field
 	return nil
 }
 
-func bindAndValidate(c *gin.Context, log logrus.FieldLogger, method string, wroute *models.RouteWrapper) error {
+func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, log logrus.FieldLogger, method string, wroute *models.RouteWrapper) error {
 	err := c.BindJSON(wroute)
 	if err != nil {
 		log.WithError(err).Debug(models.ErrInvalidJSON)
@@ -118,7 +118,7 @@ func bindAndValidate(c *gin.Context, log logrus.FieldLogger, method string, wrou
 
 	wroute.Route.SetDefaults()
 
-	if err = wroute.Validate(method != http.MethodPost); err != nil {
+	if err = wroute.Validate(method == http.MethodPatch); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)
 		return err
 	}
