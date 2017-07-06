@@ -162,6 +162,9 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 
 	var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
 
+	if route.Format == "" {
+		route.Format = "default"
+	}
 	envVars := map[string]string{
 		"METHOD":   c.Request.Method,
 		"APP_NAME": appName,

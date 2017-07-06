@@ -299,7 +299,7 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 	if rt.Path == "" && ff.Path != "" {
 		rt.Path = ff.Path
 	}
-	if rt.Type == nil && ff.Type != nil && *ff.Type != "" {
+	if rt.Type == "" && ff.Type != nil && *ff.Type != "" {
 		rt.Type = *ff.Type
 	}
 

@@ -1,14 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/urfave/cli"
+)
+
+const (
+	DefaultFormat = "default"
+	HttpFormat    = "http"
+	LocalTestURL  = "http://localhost:8080/myapp/hello"
 )
 
 func run() cli.Command {
@@ -28,7 +37,7 @@ type runCmd struct{}
 func runflags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringSliceFlag{
-			Name:  "e",
+			Name:  "env, e",
 			Usage: "select environment variables to be sent to function",
 		},
 		cli.StringSliceFlag{
@@ -38,6 +47,14 @@ func runflags() []cli.Flag {
 		cli.StringFlag{
 			Name:  "method",
 			Usage: "http method for function",
+		},
+		cli.StringFlag{
+			Name:  "format",
+			Usage: "format to use. `default` and `http` (hot) formats currently supported.",
+		},
+		cli.IntFlag{
+			Name:  "runs",
+			Usage: "for hot functions only, will call the function `runs` times in a row.",
 		},
 	}
 }
@@ -65,11 +82,11 @@ func (r *runCmd) run(c *cli.Context) error {
 		}
 	}
 
-	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"))
+	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"), c.String("format"), c.Int("runs"))
 }
 
-// TODO: THIS SHOULD USE THE RUNNER DRIVERS FROM THE SERVER SO IT'S ESSENTIALLY THE SAME PROCESS (MINUS DATABASE AND ALL THAT)
-func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string) error {
+// TODO: share all this stuff with the Docker driver in server or better yet, actually use the Docker driver
+func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string, format string, runs int) error {
 	sh := []string{"docker", "run", "--rm", "-i"}
 
 	var env []string    // env for the shelled out docker run command
@@ -82,11 +99,16 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 			method = "POST"
 		}
 	}
+	if format == "" {
+		format = DefaultFormat
+	}
 	// Add expected env vars that service will add
 	runEnv = append(runEnv, kvEq("METHOD", method))
-	runEnv = append(runEnv, kvEq("REQUEST_URL", "http://localhost:8080/myapp/hello"))
+	runEnv = append(runEnv, kvEq("REQUEST_URL", LocalTestURL))
 	runEnv = append(runEnv, kvEq("APP_NAME", "myapp"))
 	runEnv = append(runEnv, kvEq("ROUTE", "/hello")) // TODO: should we change this to PATH ?
+	runEnv = append(runEnv, kvEq("FORMAT", format))
+
 	// add user defined envs
 	runEnv = append(runEnv, envVars...)
 
@@ -103,10 +125,40 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 		sh = append(sh, "-e", e)
 	}
 
+	if runs <= 0 {
+		runs = 1
+	}
+
 	if ff.Type != nil && *ff.Type == "async" {
 		// if async, we'll run this in a separate thread and wait for it to complete
 		// reqID := id.New().String()
 		// I'm starting to think maybe `fn run` locally should work the same whether sync or async?  Or how would we allow to test the output?
+	}
+	body := "" // used for hot functions
+	if format == HttpFormat && stdin != nil {
+		// let's swap out stdin for http formatted message
+		input, err := ioutil.ReadAll(stdin)
+		if err != nil {
+			return fmt.Errorf("error reading from stdin: %v", err)
+		}
+
+		var b bytes.Buffer
+		for i := 0; i < runs; i++ {
+			// making new request each time since Write closes the body
+			req, err := http.NewRequest(method, LocalTestURL, strings.NewReader(string(input)))
+			if err != nil {
+				return fmt.Errorf("error creating http request: %v", err)
+			}
+			err = req.Write(&b)
+			b.Write([]byte("\n"))
+		}
+
+		if err != nil {
+			return fmt.Errorf("error writing to byte buffer: %v", err)
+		}
+		body = b.String()
+		// fmt.Println("body:", s)
+		stdin = strings.NewReader(body)
 	}
 
 	sh = append(sh, ff.FullName())
