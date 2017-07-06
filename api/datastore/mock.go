@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
@@ -12,13 +13,15 @@ type mock struct {
 	Routes models.Routes
 	Calls  models.FnCalls
 	data   map[string][]byte
+
+	models.FnLog
 }
 
 func NewMock() models.Datastore {
 	return NewMockInit(nil, nil, nil, nil)
 }
 
-func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls, logs []*models.FnCallLog) models.Datastore {
+func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls, loggos []*models.FnCallLog) models.Datastore {
 	if apps == nil {
 		apps = models.Apps{}
 	}
@@ -28,10 +31,10 @@ func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls, l
 	if calls == nil {
 		calls = models.FnCalls{}
 	}
-	if logs == nil {
-		logs = []*models.FnCallLog{}
+	if loggos == nil {
+		loggos = []*models.FnCallLog{}
 	}
-	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte)})
+	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte), logs.NewMock()})
 }
 
 func (m *mock) GetApp(ctx context.Context, appName string) (app *models.App, err error) {

@@ -468,47 +468,6 @@ func Test(t *testing.T, ds models.Datastore) {
 			t.Fatalf("Test UpdateRoute inexistent: expected error to be `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
 		}
 	})
-
-	t.Run("put-get", func(t *testing.T) {
-		// Testing Put/Get
-		err := ds.Put(ctx, nil, nil)
-		if err != models.ErrDatastoreEmptyKey {
-			t.Log(buf.String())
-			t.Fatalf("Test Put(nil,nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyKey, err)
-		}
-
-		err = ds.Put(ctx, []byte("test"), []byte("success"))
-		if err != nil {
-			t.Log(buf.String())
-			t.Fatalf("Test Put: unexpected error: %v", err)
-		}
-
-		val, err := ds.Get(ctx, []byte("test"))
-		if err != nil {
-			t.Log(buf.String())
-			t.Fatalf("Test Put: unexpected error: %v", err)
-		}
-		if string(val) != "success" {
-			t.Log(buf.String())
-			t.Fatalf("Test Get: expected value to be `%v`, but it was `%v`", "success", string(val))
-		}
-
-		err = ds.Put(ctx, []byte("test"), nil)
-		if err != nil {
-			t.Log(buf.String())
-			t.Fatalf("Test Put: unexpected error: %v", err)
-		}
-
-		val, err = ds.Get(ctx, []byte("test"))
-		if err != nil {
-			t.Log(buf.String())
-			t.Fatalf("Test Put: unexpected error: %v", err)
-		}
-		if string(val) != "" {
-			t.Log(buf.String())
-			t.Fatalf("Test Get: expected value to be `%v`, but it was `%v`", "", string(val))
-		}
-	})
 }
 
 var testApp = &models.App{

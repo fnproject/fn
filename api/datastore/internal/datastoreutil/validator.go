@@ -6,62 +6,28 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
-// Datastore is a copy of models.Datastore, with additional comments on parameter guarantees.
-type Datastore interface {
-	// name will never be empty.
-	GetApp(ctx context.Context, name string) (*models.App, error)
-
-	GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*models.App, error)
-
-	// app and app.Name will never be nil/empty.
-	InsertApp(ctx context.Context, app *models.App) (*models.App, error)
-	UpdateApp(ctx context.Context, app *models.App) (*models.App, error)
-
-	// name will never be empty.
-	RemoveApp(ctx context.Context, name string) error
-
-	// appName and routePath will never be empty.
-	GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error)
-	RemoveRoute(ctx context.Context, appName, routePath string) error
-
-	GetRoutes(ctx context.Context, filter *models.RouteFilter) (routes []*models.Route, err error)
-
-	// appName will never be empty
-	GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) (routes []*models.Route, err error)
-
-	// route will never be nil and route's AppName and Path will never be empty.
-	InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error)
-	UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error)
-
-	InsertTask(ctx context.Context, task *models.Task) error
-	GetTask(ctx context.Context, callID string) (*models.FnCall, error)
-	GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error)
-
-	// key will never be nil/empty
-	Put(ctx context.Context, key, val []byte) error
-	Get(ctx context.Context, key []byte) ([]byte, error)
-}
-
 // NewValidator returns a models.Datastore which validates certain arguments before delegating to ds.
-func NewValidator(ds Datastore) models.Datastore {
+func NewValidator(ds models.Datastore) models.Datastore {
 	return &validator{ds}
 }
 
 type validator struct {
-	ds Datastore
+	models.Datastore
 }
 
+// name will never be empty.
 func (v *validator) GetApp(ctx context.Context, name string) (app *models.App, err error) {
 	if name == "" {
 		return nil, models.ErrDatastoreEmptyAppName
 	}
-	return v.ds.GetApp(ctx, name)
+	return v.Datastore.GetApp(ctx, name)
 }
 
 func (v *validator) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*models.App, error) {
-	return v.ds.GetApps(ctx, appFilter)
+	return v.Datastore.GetApps(ctx, appFilter)
 }
 
+// app and app.Name will never be nil/empty.
 func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
@@ -70,9 +36,10 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 		return nil, models.ErrDatastoreEmptyAppName
 	}
 
-	return v.ds.InsertApp(ctx, app)
+	return v.Datastore.InsertApp(ctx, app)
 }
 
+// app and app.Name will never be nil/empty.
 func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
@@ -80,17 +47,19 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 	if app.Name == "" {
 		return nil, models.ErrDatastoreEmptyAppName
 	}
-	return v.ds.UpdateApp(ctx, app)
+	return v.Datastore.UpdateApp(ctx, app)
 }
 
+// name will never be empty.
 func (v *validator) RemoveApp(ctx context.Context, name string) error {
 	if name == "" {
 		return models.ErrDatastoreEmptyAppName
 	}
 
-	return v.ds.RemoveApp(ctx, name)
+	return v.Datastore.RemoveApp(ctx, name)
 }
 
+// appName and routePath will never be empty.
 func (v *validator) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
 	if appName == "" {
 		return nil, models.ErrDatastoreEmptyAppName
@@ -99,24 +68,26 @@ func (v *validator) GetRoute(ctx context.Context, appName, routePath string) (*m
 		return nil, models.ErrDatastoreEmptyRoutePath
 	}
 
-	return v.ds.GetRoute(ctx, appName, routePath)
+	return v.Datastore.GetRoute(ctx, appName, routePath)
 }
 
 func (v *validator) GetRoutes(ctx context.Context, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if routeFilter != nil && routeFilter.AppName != "" {
-		return v.ds.GetRoutesByApp(ctx, routeFilter.AppName, routeFilter)
+		return v.Datastore.GetRoutesByApp(ctx, routeFilter.AppName, routeFilter)
 	}
 
-	return v.ds.GetRoutes(ctx, routeFilter)
+	return v.Datastore.GetRoutes(ctx, routeFilter)
 }
 
+// appName will never be empty
 func (v *validator) GetRoutesByApp(ctx context.Context, appName string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if appName == "" {
 		return nil, models.ErrDatastoreEmptyAppName
 	}
-	return v.ds.GetRoutesByApp(ctx, appName, routeFilter)
+	return v.Datastore.GetRoutesByApp(ctx, appName, routeFilter)
 }
 
+// route will never be nil and route's AppName and Path will never be empty.
 func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
 	if route == nil {
 		return nil, models.ErrDatastoreEmptyRoute
@@ -128,9 +99,10 @@ func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*mode
 		return nil, models.ErrDatastoreEmptyRoutePath
 	}
 
-	return v.ds.InsertRoute(ctx, route)
+	return v.Datastore.InsertRoute(ctx, route)
 }
 
+// route will never be nil and route's AppName and Path will never be empty.
 func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
 	if newroute == nil {
 		return nil, models.ErrDatastoreEmptyRoute
@@ -141,9 +113,10 @@ func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 	if newroute.Path == "" {
 		return nil, models.ErrDatastoreEmptyRoutePath
 	}
-	return v.ds.UpdateRoute(ctx, newroute)
+	return v.Datastore.UpdateRoute(ctx, newroute)
 }
 
+// appName and routePath will never be empty.
 func (v *validator) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	if appName == "" {
 		return models.ErrDatastoreEmptyAppName
@@ -152,35 +125,13 @@ func (v *validator) RemoveRoute(ctx context.Context, appName, routePath string) 
 		return models.ErrDatastoreEmptyRoutePath
 	}
 
-	return v.ds.RemoveRoute(ctx, appName, routePath)
+	return v.Datastore.RemoveRoute(ctx, appName, routePath)
 }
 
-func (v *validator) Put(ctx context.Context, key, value []byte) error {
-	if len(key) == 0 {
-		return models.ErrDatastoreEmptyKey
-	}
-
-	return v.ds.Put(ctx, key, value)
-}
-
-func (v *validator) Get(ctx context.Context, key []byte) ([]byte, error) {
-	if len(key) == 0 {
-		return nil, models.ErrDatastoreEmptyKey
-	}
-	return v.ds.Get(ctx, key)
-}
-
-func (v *validator) InsertTask(ctx context.Context, task *models.Task) error {
-	return v.ds.InsertTask(ctx, task)
-}
-
+// callID will never be empty.
 func (v *validator) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
 	if callID == "" {
 		return nil, models.ErrDatastoreEmptyTaskID
 	}
-	return v.ds.GetTask(ctx, callID)
-}
-
-func (v *validator) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	return v.ds.GetTasks(ctx, filter)
+	return v.Datastore.GetTask(ctx, callID)
 }

@@ -70,9 +70,12 @@ func NewFromEnv(ctx context.Context) *Server {
 		logrus.WithError(err).Fatal("Error initializing message queue.")
 	}
 
-	logDB, err := logs.New(viper.GetString(EnvLOGDBURL))
-	if err != nil {
-		logrus.WithError(err).Fatal("Error initializing logs store.")
+	var logDB models.FnLog = ds
+	if ldb := viper.GetString(EnvLOGDBURL); ldb != "" && ldb != viper.GetString(EnvDBURL) {
+		logDB, err = logs.New(viper.GetString(EnvLOGDBURL))
+		if err != nil {
+			logrus.WithError(err).Fatal("Error initializing logs store.")
+		}
 	}
 
 	apiURL := viper.GetString(EnvAPIURL)

@@ -65,7 +65,7 @@ func TestCalls(t *testing.T) {
 	t.Run("get-real-call", func(t *testing.T) {
 
 		callID := CallAsync(t, u, &bytes.Buffer{})
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 5)
 		cfg := &call.GetCallsCallParams{
 			Call:    callID,
 			Context: s.Context,

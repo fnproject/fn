@@ -11,7 +11,7 @@ docker run -e VAR_NAME=VALUE ...
 
 | Env Variables | Description | Default values |
 | --------------|-------------|----------------|
-| DB_URL | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | bolt:///app/data/bolt.db |
+| DB_URL | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
 | MQ_URL | The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. | bolt:///app/data/worker_mq.db |
 | API_URL | The primary Oracle Functions API URL to that this instance will talk to. In a production environment, this would be your load balancer URL. | N/A |
 | PORT | Sets the port to run on | 8080 |

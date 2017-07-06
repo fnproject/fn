@@ -13,15 +13,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
-var tmpDatastoreBolt = "/tmp/func_test_bolt_datastore.db"
-var tmpLogBolt = "/tmp/func_test_bolt_log.db"
+var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
 func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, rnr *runner.Runner) *Server {
 	ctx := context.Background()
@@ -82,28 +80,23 @@ func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) models.Error
 	return errResp
 }
 
-func prepareBolt(ctx context.Context, t *testing.T) (models.Datastore, models.FnLog, func()) {
-	os.Remove(tmpDatastoreBolt)
-	os.Remove(tmpLogBolt)
-	ds, err := datastore.New("bolt://" + tmpDatastoreBolt)
+func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.FnLog, func()) {
+	os.Remove(tmpDatastoreTests)
+	ds, err := datastore.New("sqlite3://" + tmpDatastoreTests)
 	if err != nil {
 		t.Fatalf("Error when creating datastore: %s", err)
 	}
-	logDB, err := logs.New("bolt://" + tmpLogBolt)
-	if err != nil {
-		t.Fatalf("Error when creating log store: %s", err)
-	}
+	logDB := ds
 	return ds, logDB, func() {
-		os.Remove(tmpDatastoreBolt)
-		os.Remove(tmpLogBolt)
+		os.Remove(tmpDatastoreTests)
 	}
 }
 
 func TestFullStack(t *testing.T) {
 	ctx := context.Background()
 	buf := setLogBuffer()
-	ds, logDB, closeBolt := prepareBolt(ctx, t)
-	defer closeBolt()
+	ds, logDB, close := prepareDB(ctx, t)
+	defer close()
 
 	rnr, rnrcancel := testRunner(t)
 	defer rnrcancel()

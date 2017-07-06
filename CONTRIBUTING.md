@@ -38,7 +38,7 @@ Then after every change, run
 make run
 ```
 
-to build and run the `functions` binary.  It will start Functions using an embedded `Bolt` database running on port `8080`.
+to build and run the `functions` binary.  It will start Functions using an embedded `sqlite3` database running on port `8080`.
 
 ### Test
 

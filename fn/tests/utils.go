@@ -52,7 +52,7 @@ func CheckAppResponseError(t *testing.T, err error) {
 
 		case *apps.PostAppsDefault:
 			msg := err.(*apps.PostAppsDefault).Payload.Error.Message
-			code := err.(*apps.DeleteAppsAppDefault).Code()
+			code := err.(*apps.PostAppsDefault).Code()
 			t.Fatalf("Unexpected error occurred: %v. Status code: %v", msg, code)
 			return
 
