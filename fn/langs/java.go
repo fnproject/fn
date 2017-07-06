@@ -142,7 +142,12 @@ const (
     <dependencies>
         <dependency>
             <groupId>com.oracle.faas</groupId>
-            <artifactId>fdk</artifactId>
+            <artifactId>api</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.faas</groupId>
+            <artifactId>runtime</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
