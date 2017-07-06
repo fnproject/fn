@@ -37,11 +37,11 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 		return
 	}
 
-	//Create the app if it does not exist.
-	err, resperr = s.createApp(ctx, c, wroute, method)
+	// Create the app if it does not exist.
+	err, resperr = s.ensureApp(ctx, c, wroute, method)
 	if err != nil {
 		log.WithError(err).Debug(resperr)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
+		handleErrorResponse(c, resperr)
 		return
 	}
 
@@ -56,7 +56,8 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (s *Server) createApp(ctx context.Context, c *gin.Context, wroute models.RouteWrapper, method string) (error, error) {
+// ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
+func (s *Server) ensureApp(ctx context.Context, c *gin.Context, wroute models.RouteWrapper, method string) (error, error) {
 	if !(method == http.MethodPost || method == http.MethodPut) {
 		return nil, nil
 	}
@@ -66,7 +67,7 @@ func (s *Server) createApp(ctx context.Context, c *gin.Context, wroute models.Ro
 	if err != nil && err != models.ErrAppsNotFound {
 		return err, models.ErrAppsGet
 	} else if app == nil {
-		// Create a new application and add the route to that new application
+		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
 		if err = newapp.Validate(); err != nil {
 			return nil, err
@@ -74,7 +75,7 @@ func (s *Server) createApp(ctx context.Context, c *gin.Context, wroute models.Ro
 
 		err = s.FireBeforeAppCreate(ctx, newapp)
 		if err != nil {
-			return err, models.ErrAppsCreate
+			return err, models.ErrRoutesCreate
 		}
 
 		_, err = s.Datastore.InsertApp(ctx, newapp)
@@ -91,6 +92,10 @@ func (s *Server) createApp(ctx context.Context, c *gin.Context, wroute models.Ro
 	return nil, nil
 }
 
+/* bindAndValidate binds the RouteWrapper to the json from the request and validates that it is correct.
+If it is a put or patch it makes sure that the path in the url matches the provideed one in the body.
+Defaults are set and if patch skipZero is true for validating the RouteWrapper
+*/
 func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method string, wroute *models.RouteWrapper) (error, error) {
 	err := c.BindJSON(wroute)
 	if err != nil {
@@ -119,6 +124,7 @@ func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method str
 	return nil, nil
 }
 
+// updateOrInsertRoute will either update or insert the route respective the method.
 func (s *Server) updateOrInsertRoute(ctx context.Context, method string, wroute models.RouteWrapper) (routeResponse, error) {
 	var route *models.Route
 	var err error
@@ -135,6 +141,7 @@ func (s *Server) updateOrInsertRoute(ctx context.Context, method string, wroute 
 			route, err = s.Datastore.InsertRoute(ctx, wroute.Route)
 		}
 	case http.MethodPatch:
+		// When patching if there is an error around the app we will return one and the update fails.
 		route, err = s.Datastore.UpdateRoute(ctx, wroute.Route)
 		resp = up
 	}
