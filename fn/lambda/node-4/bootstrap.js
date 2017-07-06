@@ -1,6 +1,11 @@
 'use strict';
 
 var fs = require('fs');
+var net = require('net');
+// var http = require('http');
+var http_common = require('_http_common');
+var events = require('events');
+var HTTPParser = process.binding('http_parser').HTTPParser;
 
 var oldlog = console.log
 console.log = console.error
@@ -239,11 +244,48 @@ var setEnvFromHeader = function () {
   }
 }
 
+// for http hot functions
+function freeParser(parser){
+    if (parser) {
+        parser.onIncoming = null;
+        parser.socket = null;
+        http_common.parsers.free(parser);
+        parser = null;
+    }
+};
+
+// parses http requests
+function parse(socket){
+    var emitter = new events.EventEmitter();
+    var parser = http_common.parsers.alloc();
+
+    parser.reinitialize(HTTPParser.REQUEST);
+    parser.socket = socket;
+    parser.maxHeaderPairs = 2000;
+
+    parser.onIncoming = function(req){
+        emitter.emit('request', req);
+    };
+
+    socket.on('data', function(buffer){
+        var ret = parser.execute(buffer, 0, buffer.length);
+        if(ret instanceof Error){
+            emitter.emit('error');
+            freeParser(parser);
+        }
+    });
+
+    socket.once('close', function(){
+        freeParser(parser);
+    });
+
+    return emitter;
+};
 
 function run() {
+
   setEnvFromHeader();
-  // FIXME(nikhil): Check for file existence and allow non-payload.
-  var path = process.env["PAYLOAD_FILE"];
+  var path = process.env["PAYLOAD_FILE"]; // if we allow a mounted file, this is used. Could safely be removed. 
   var stream = process.stdin;
   if (path) {
     try {
@@ -254,66 +296,98 @@ function run() {
     }
   }
 
-  var input = "";
-  stream.setEncoding('utf8');
-  stream.on('data', function(chunk) {
-    input += chunk;
-  });
+  // First, check format (ie: hot functions)
+  var format = process.env["FORMAT"];
+  console.error("format", format);
+  if (format == "http"){
+    // var parser = httpSocketSetup(stream)
+    // init parser
+    var parser = parse(stream);
+    let i = 0;
+    parser.on('request', function(req){
+        // Got parsed HTTP object
+        // console.error("REQUEST", req)
+        i++;
+        console.error("REQUEST:", i)
+        handleRequest(req);
+    });
 
-  stream.on('error', function(err) {
-    console.error("bootstrap: Error reading payload stream", err);
-    process.exit(1);
-  });
+    parser.on('error', function(e){
+        // Not HTTP data
+        console.error("INVALID HTTP DATA!", e)
+    });
 
-  stream.on('end', function() {
-    var payload = {}
-    try {
-      if (input.length > 0) {
-        payload = JSON.parse(input);
-      }
-    } catch(e) {
-      console.error("bootstrap: Error parsing JSON", e);
-      process.exit(1);
-    }
-
-    if (process.argv.length > 2) {
-      var handler = process.argv[2];
-      var parts = handler.split('.');
-      // FIXME(nikhil): Error checking.
-      var script = parts[0];
-      var entry = parts[1];
-      var started = false;
-      try {
-        var mod = require('./'+script);
-        var func = mod[entry];
-        if (func === undefined) {
-          oldlog("Handler '" + entry + "' missing on module '" + script + "'");
-          return;
-        }
-
-        if (typeof func !== 'function') {
-          throw "TypeError: " + (typeof func) + " is not a function";
-        }
-        started = true;
-        var cback 
-        // RUN THE FUNCTION:
-        mod[entry](payload, makeCtx(), functionCallback)
-      } catch(e) {
-        if (typeof e === 'string') {
-          oldlog(e)
-        } else {
-          oldlog(e.message)
-        }
-        if (!started) {
-          oldlog("Process exited before completing request\n")
-        }
-      }
-    } else {
-      console.error("bootstrap: No script specified")
-      process.exit(1);
-    }
-  })
+  } else {
+    // default
+    handleRequest(stream);
+  }
 }
+
+function handleRequest(stream) {
+   var input = "";
+    stream.setEncoding('utf8');
+    stream.on('data', function(chunk) {
+      input += chunk;
+    });
+    stream.on('error', function(err) {
+      console.error("bootstrap: Error reading payload stream", err);
+      process.exit(1);
+    });
+    stream.on('end', function() {
+      var payload = {}
+      try {
+        if (input.length > 0) {
+          payload = JSON.parse(input);
+        }
+      } catch(e) {
+        console.error("bootstrap: Error parsing JSON", e);
+        process.exit(1);
+      }
+
+      handlePayload(payload)
+    })
+}
+
+function handlePayload(payload) {
+  if (process.argv.length > 2) {
+    var handler = process.argv[2];
+    var parts = handler.split('.');
+    // FIXME(nikhil): Error checking.
+    var script = parts[0];
+    var entry = parts[1];
+    var started = false;
+    try {
+      var mod = require('./'+script);
+      var func = mod[entry];
+      if (func === undefined) {
+        oldlog("Handler '" + entry + "' missing on module '" + script + "'");
+        return;
+      }
+
+      if (typeof func !== 'function') {
+        throw "TypeError: " + (typeof func) + " is not a function";
+      }
+      started = true;
+      var cback 
+      // RUN THE FUNCTION:
+      mod[entry](payload, makeCtx(), functionCallback)
+    } catch(e) {
+      if (typeof e === 'string') {
+        oldlog(e)
+      } else {
+        oldlog(e.message)
+      }
+      if (!started) {
+        oldlog("Process exited before completing request\n")
+      }
+    }
+  } else {
+    console.error("bootstrap: No script specified")
+    process.exit(1);
+  }
+}
+  
+
 
 function functionCallback(err, result) {
     if (err != null) {

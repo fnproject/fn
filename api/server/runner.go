@@ -152,20 +152,23 @@ func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*
 }
 
 // TODO: Should remove *gin.Context from these functions, should use only context.Context
-func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, found *models.Route, app *models.App, route, reqID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"app": appName, "route": found.Path, "image": found.Image})
+func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, route *models.Route, app *models.App, path, reqID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"app": appName, "route": route.Path, "image": route.Image})
 
-	params, match := matchRoute(found.Path, route)
+	params, match := matchRoute(route.Path, path)
 	if !match {
 		return false
 	}
 
 	var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
 
+	if route.Format == "" {
+		route.Format = "default"
+	}
 	envVars := map[string]string{
 		"METHOD":   c.Request.Method,
 		"APP_NAME": appName,
-		"ROUTE":    found.Path,
+		"ROUTE":    route.Path,
 		"REQUEST_URL": fmt.Sprintf("%v//%v%v", func() string {
 			if c.Request.TLS == nil {
 				return "http"
@@ -173,13 +176,14 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 			return "https"
 		}(), c.Request.Host, c.Request.URL.String()),
 		"CALL_ID": reqID,
+		"FORMAT":  route.Format,
 	}
 
 	// app config
 	for k, v := range app.Config {
 		envVars[toEnvName("", k)] = v
 	}
-	for k, v := range found.Config {
+	for k, v := range route.Config {
 		envVars[toEnvName("", k)] = v
 	}
 
@@ -195,16 +199,16 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 
 	cfg := &task.Config{
 		AppName:      appName,
-		Path:         found.Path,
+		Path:         route.Path,
 		Env:          envVars,
-		Format:       found.Format,
+		Format:       route.Format,
 		ID:           reqID,
-		Image:        found.Image,
-		Memory:       found.Memory,
+		Image:        route.Image,
+		Memory:       route.Memory,
 		Stdin:        payload,
 		Stdout:       &stdout,
-		Timeout:      time.Duration(found.Timeout) * time.Second,
-		IdleTimeout:  time.Duration(found.IdleTimeout) * time.Second,
+		Timeout:      time.Duration(route.Timeout) * time.Second,
+		IdleTimeout:  time.Duration(route.IdleTimeout) * time.Second,
 		ReceivedTime: time.Now(),
 		Ready:        make(chan struct{}),
 	}
@@ -223,11 +227,11 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 	newTask.Image = &cfg.Image
 	newTask.ID = cfg.ID
 	newTask.CreatedAt = createdAt
-	newTask.Path = found.Path
+	newTask.Path = route.Path
 	newTask.EnvVars = cfg.Env
 	newTask.AppName = cfg.AppName
 
-	switch found.Type {
+	switch route.Type {
 	case "async":
 		// Read payload
 		pl, err := ioutil.ReadAll(cfg.Stdin)
@@ -263,7 +267,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, foun
 			break
 		}
 
-		for k, v := range found.Headers {
+		for k, v := range route.Headers {
 			c.Header(k, v[0])
 		}
 
