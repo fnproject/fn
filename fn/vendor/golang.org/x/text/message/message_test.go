@@ -50,13 +50,14 @@ func TestBinding(t *testing.T) {
 	}
 }
 
-func TestFormatSelection(t *testing.T) {
+func TestLocalization(t *testing.T) {
 	type test struct {
 		tag  string
 		key  Reference
 		args []interface{}
 		want string
 	}
+	args := func(x ...interface{}) []interface{} { return x }
 	empty := []interface{}{}
 	joe := []interface{}{"Joe"}
 	joeAndMary := []interface{}{"Joe", "Mary"}
@@ -126,6 +127,20 @@ func TestFormatSelection(t *testing.T) {
 			{"und", "hello %+%%s", joeAndMary, "hello %Joe%!(EXTRA string=Mary)"},
 			{"und", "hello %-42%%s ", joeAndMary, "hello %Joe %!(EXTRA string=Mary)"},
 		},
+	}, {
+		desc: "number formatting", // work around limitation of fmt
+		cat: []entry{
+			{"und", "files", "%d files left"},
+			{"und", "meters", "%.2f meters"},
+			{"de", "files", "%d Dateien übrig"},
+		},
+		test: []test{
+			{"en", "meters", args(3000.2), "3,000.20 meters"},
+			{"en-u-nu-gujr", "files", args(123456), "૧૨૩,૪૫૬ files left"},
+			{"de", "files", args(1234), "1.234 Dateien übrig"},
+			{"de-CH", "files", args(1234), "1’234 Dateien übrig"},
+			{"de-CH-u-nu-mong", "files", args(1234), "᠑’᠒᠓᠔ Dateien übrig"},
+		},
 	}}
 
 	for _, tc := range testCases {
@@ -133,11 +148,7 @@ func TestFormatSelection(t *testing.T) {
 
 		for i, pt := range tc.test {
 			t.Run(fmt.Sprintf("%s:%d", tc.desc, i), func(t *testing.T) {
-				tag := language.MustParse(pt.tag)
-				p := Printer{printer{
-					tag: tag,
-				}}
-				p.printer.catContext = cat.Context(tag, &p.printer)
+				p := NewPrinter(language.MustParse(pt.tag), Catalog(cat))
 
 				if got := p.Sprintf(pt.key, pt.args...); got != pt.want {
 					t.Errorf("Sprintf(%q, %v) = %s; want %s",
