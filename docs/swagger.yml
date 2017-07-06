@@ -161,7 +161,7 @@ paths:
   /apps/{app}/routes:
     post:
       summary: Create new Route
-      description: Create a new route in an app, if app doesn't exists, it creates the app
+      description: Create a new route in an app, if app doesn't exists, it creates the app. Post does not skip validation of zero values.
       tags:
         - Routes
       parameters:
@@ -221,7 +221,7 @@ paths:
 
   /apps/{app}/routes/{route}:
     put:
-      summary: Create a Route if it does not exist. Update if it does. Will also create app if it does not exist.
+      summary: Create a Route if it does not exist. Update if it does. Will also create app if it does not exist. Put does not skip validation of zero values
       description: Update or Create a route
       tags:
         - Routes
@@ -256,7 +256,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     patch:
-      summary: Update a Route, Fails if the route or app does not exist.
+      summary: Update a Route, Fails if the route or app does not exist. Accepts partial updates / skips validation of zero values.
       description: Update a route
       tags:
         - Routes

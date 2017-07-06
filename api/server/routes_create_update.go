@@ -16,10 +16,13 @@ import (
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.
    Post will only create route if its not there and create app if its not.
        create only
+	   Post does not skip validation of zero values
    Put will create app if its not there and if route is there update if not it will create new route.
        update if exists or create if not exists
+	   Put does not skip validation of zero values
    Patch will not create app if it does not exist since the route needs to exist as well...
        update only
+	   Patch accepts partial updates / skips validation of zero values.
 */
 func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
