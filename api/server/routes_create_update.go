@@ -118,7 +118,7 @@ func bindAndValidate(c *gin.Context, log logrus.FieldLogger, method string, wrou
 
 	wroute.Route.SetDefaults()
 
-	if err = wroute.Validate(method == http.MethodPost); err != nil {
+	if err = wroute.Validate(method != http.MethodPost); err != nil {
 		log.WithError(err).Debug(models.ErrRoutesCreate)
 		return err
 	}
