@@ -12,11 +12,11 @@ import (
 	"text/tabwriter"
 
 	fnclient "github.com/funcy/functions_go/client"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	apiroutes "github.com/funcy/functions_go/client/routes"
 	fnmodels "github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 type routesCmd struct {
@@ -334,6 +334,25 @@ func (a *routesCmd) patchRoute(c *cli.Context, appName, routePath string, r *fnm
 		return fmt.Errorf("unexpected error: %s", err)
 	}
 
+	return nil
+}
+
+func (a *routesCmd) putRoute(c *cli.Context, appName, routePath string, r *fnmodels.Route) error {
+	_, err := a.client.Routes.PutAppsAppRoutesRoute(&apiroutes.PutAppsAppRoutesRouteParams{
+		Context: context.Background(),
+		App:     appName,
+		Route:   routePath,
+		Body:    &fnmodels.RouteWrapper{Route: r},
+	})
+	if err != nil {
+		switch err.(type) {
+		case *apiroutes.PutAppsAppRoutesRouteBadRequest:
+			return fmt.Errorf("error: %s", err.(*apiroutes.PutAppsAppRoutesRouteBadRequest).Payload.Error.Message)
+		case *apiroutes.PutAppsAppRoutesRouteDefault:
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PutAppsAppRoutesRouteDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %s", err)
+	}
 	return nil
 }
 
