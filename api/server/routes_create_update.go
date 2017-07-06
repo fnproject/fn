@@ -70,7 +70,7 @@ func (s *Server) ensureApp(ctx context.Context, c *gin.Context, wroute models.Ro
 		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
 		if err = newapp.Validate(); err != nil {
-			return nil, err
+			return err, err
 		}
 
 		err = s.FireBeforeAppCreate(ctx, newapp)
@@ -111,7 +111,7 @@ func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method str
 		p := path.Clean(c.MustGet(api.Path).(string))
 
 		if wroute.Route.Path != "" && wroute.Route.Path != p {
-			return nil, models.ErrRoutesPathImmutable
+			return models.ErrRoutesPathImmutable, models.ErrRoutesPathImmutable
 		}
 		wroute.Route.Path = p
 	}
