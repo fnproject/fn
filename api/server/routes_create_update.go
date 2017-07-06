@@ -31,15 +31,15 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	var wroute models.RouteWrapper
 
 	err, resperr := s.bindAndValidate(ctx, c, method, &wroute)
-	if err != nil {
+	if err != nil || resperr != nil {
 		log.WithError(err).Debug(resperr)
 		c.JSON(http.StatusBadRequest, simpleError(resperr))
 		return
 	}
 
 	// Create the app if it does not exist.
-	err, resperr = s.ensureApp(ctx, c, wroute, method)
-	if err != nil {
+	err, resperr = s.ensureApp(ctx, c, &wroute, method)
+	if err != nil || resperr != nil {
 		log.WithError(err).Debug(resperr)
 		handleErrorResponse(c, resperr)
 		return
@@ -57,7 +57,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
-func (s *Server) ensureApp(ctx context.Context, c *gin.Context, wroute models.RouteWrapper, method string) (error, error) {
+func (s *Server) ensureApp(ctx context.Context, c *gin.Context, wroute *models.RouteWrapper, method string) (error, error) {
 	if !(method == http.MethodPost || method == http.MethodPut) {
 		return nil, nil
 	}
