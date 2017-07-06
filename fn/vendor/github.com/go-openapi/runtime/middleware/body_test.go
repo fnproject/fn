@@ -38,9 +38,9 @@ func TestBindRequest_BodyValidation(t *testing.T) {
 	if assert.NoError(t, err) {
 		req.Header.Set("Content-Type", runtime.JSONMime)
 
-		ri, ok := ctx.RouteInfo(req)
+		ri, rCtx, ok := ctx.RouteInfo(req)
 		if assert.True(t, ok) {
-
+			req = rCtx
 			err := ctx.BindValidRequest(req, ri, rbn(func(r *http.Request, rr *MatchedRoute) error {
 				defer r.Body.Close()
 				var data interface{}
@@ -65,9 +65,9 @@ func TestBindRequest_DeleteNoBody(t *testing.T) {
 	if assert.NoError(t, err) {
 		req.Header.Set("Accept", "*/*")
 
-		ri, ok := ctx.RouteInfo(req)
+		ri, rCtx, ok := ctx.RouteInfo(req)
 		if assert.True(t, ok) {
-
+			req = rCtx
 			err := ctx.BindValidRequest(req, ri, rbn(func(r *http.Request, rr *MatchedRoute) error {
 				return nil
 			}))
@@ -83,9 +83,9 @@ func TestBindRequest_DeleteNoBody(t *testing.T) {
 		req.Header.Set("Content-Type", runtime.JSONMime)
 		req.ContentLength = 1
 
-		ri, ok := ctx.RouteInfo(req)
+		ri, rCtx, ok := ctx.RouteInfo(req)
 		if assert.True(t, ok) {
-
+			req = rCtx
 			err := ctx.BindValidRequest(req, ri, rbn(func(r *http.Request, rr *MatchedRoute) error {
 				defer r.Body.Close()
 				var data interface{}

@@ -26,7 +26,10 @@ func TestMainCommands(t *testing.T) {
 
 	fnTestBin := path.Join(os.TempDir(), "fn-test")
 
-	exec.Command("go", "build", "-o", fnTestBin).Run()
+	err := exec.Command("go", "build", "-o", fnTestBin).Run()
+	if err != nil {
+		t.Fatalf("Failed to build fn: err: %s", err)
+	}
 
 	for _, cmd := range testCommands {
 		res, err := exec.Command(fnTestBin, strings.Split(cmd, " ")...).CombinedOutput()

@@ -847,6 +847,105 @@ func (c *SSM) CreatePatchBaselineWithContext(ctx aws.Context, input *CreatePatch
 	return out, req.Send()
 }
 
+const opCreateResourceDataSync = "CreateResourceDataSync"
+
+// CreateResourceDataSyncRequest generates a "aws/request.Request" representing the
+// client's request for the CreateResourceDataSync operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See CreateResourceDataSync for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the CreateResourceDataSync method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the CreateResourceDataSyncRequest method.
+//    req, resp := client.CreateResourceDataSyncRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/CreateResourceDataSync
+func (c *SSM) CreateResourceDataSyncRequest(input *CreateResourceDataSyncInput) (req *request.Request, output *CreateResourceDataSyncOutput) {
+	op := &request.Operation{
+		Name:       opCreateResourceDataSync,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateResourceDataSyncInput{}
+	}
+
+	output = &CreateResourceDataSyncOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// CreateResourceDataSync API operation for Amazon Simple Systems Manager (SSM).
+//
+// Creates a resource data sync configuration to a single bucket in Amazon S3.
+// This is an asynchronous operation that returns immediately. After a successful
+// initial sync is completed, the system continuously syncs data to the Amazon
+// S3 bucket. To check the status of the sync, use the ListResourceDataSync
+// (API_ListResourceDataSync.html) operation.
+//
+// By default, data is not encrypted in Amazon S3. We strongly recommend that
+// you enable encryption in Amazon S3 to ensure secure data storage. We also
+// recommend that you secure access to the Amazon S3 bucket by creating a restrictive
+// bucket policy. To view an example of a restrictive Amazon S3 bucket policy
+// for Resource Data Sync, see Creating a Resource Data Sync (http://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-inventory-datasync-create.html).
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon Simple Systems Manager (SSM)'s
+// API operation CreateResourceDataSync for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeInternalServerError "InternalServerError"
+//   An error occurred on the server side.
+//
+//   * ErrCodeResourceDataSyncCountExceededException "ResourceDataSyncCountExceededException"
+//   You have exceeded the allowed maximum sync configurations.
+//
+//   * ErrCodeResourceDataSyncAlreadyExistsException "ResourceDataSyncAlreadyExistsException"
+//   A sync configuration with the same name already exists.
+//
+//   * ErrCodeResourceDataSyncInvalidConfigurationException "ResourceDataSyncInvalidConfigurationException"
+//   The specified sync configuration is invalid.
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/CreateResourceDataSync
+func (c *SSM) CreateResourceDataSync(input *CreateResourceDataSyncInput) (*CreateResourceDataSyncOutput, error) {
+	req, out := c.CreateResourceDataSyncRequest(input)
+	return out, req.Send()
+}
+
+// CreateResourceDataSyncWithContext is the same as CreateResourceDataSync with the addition of
+// the ability to pass a context and additional request options.
+//
+// See CreateResourceDataSync for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) CreateResourceDataSyncWithContext(ctx aws.Context, input *CreateResourceDataSyncInput, opts ...request.Option) (*CreateResourceDataSyncOutput, error) {
+	req, out := c.CreateResourceDataSyncRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opDeleteActivation = "DeleteActivation"
 
 // DeleteActivationRequest generates a "aws/request.Request" representing the
@@ -1306,6 +1405,86 @@ func (c *SSM) DeleteParameterWithContext(ctx aws.Context, input *DeleteParameter
 	return out, req.Send()
 }
 
+const opDeleteParameters = "DeleteParameters"
+
+// DeleteParametersRequest generates a "aws/request.Request" representing the
+// client's request for the DeleteParameters operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeleteParameters for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeleteParameters method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeleteParametersRequest method.
+//    req, resp := client.DeleteParametersRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteParameters
+func (c *SSM) DeleteParametersRequest(input *DeleteParametersInput) (req *request.Request, output *DeleteParametersOutput) {
+	op := &request.Operation{
+		Name:       opDeleteParameters,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteParametersInput{}
+	}
+
+	output = &DeleteParametersOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// DeleteParameters API operation for Amazon Simple Systems Manager (SSM).
+//
+// Delete a list of parameters.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon Simple Systems Manager (SSM)'s
+// API operation DeleteParameters for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeInternalServerError "InternalServerError"
+//   An error occurred on the server side.
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteParameters
+func (c *SSM) DeleteParameters(input *DeleteParametersInput) (*DeleteParametersOutput, error) {
+	req, out := c.DeleteParametersRequest(input)
+	return out, req.Send()
+}
+
+// DeleteParametersWithContext is the same as DeleteParameters with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeleteParameters for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) DeleteParametersWithContext(ctx aws.Context, input *DeleteParametersInput, opts ...request.Option) (*DeleteParametersOutput, error) {
+	req, out := c.DeleteParametersRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opDeletePatchBaseline = "DeletePatchBaseline"
 
 // DeletePatchBaselineRequest generates a "aws/request.Request" representing the
@@ -1385,6 +1564,92 @@ func (c *SSM) DeletePatchBaseline(input *DeletePatchBaselineInput) (*DeletePatch
 // for more information on using Contexts.
 func (c *SSM) DeletePatchBaselineWithContext(ctx aws.Context, input *DeletePatchBaselineInput, opts ...request.Option) (*DeletePatchBaselineOutput, error) {
 	req, out := c.DeletePatchBaselineRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+const opDeleteResourceDataSync = "DeleteResourceDataSync"
+
+// DeleteResourceDataSyncRequest generates a "aws/request.Request" representing the
+// client's request for the DeleteResourceDataSync operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See DeleteResourceDataSync for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the DeleteResourceDataSync method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the DeleteResourceDataSyncRequest method.
+//    req, resp := client.DeleteResourceDataSyncRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteResourceDataSync
+func (c *SSM) DeleteResourceDataSyncRequest(input *DeleteResourceDataSyncInput) (req *request.Request, output *DeleteResourceDataSyncOutput) {
+	op := &request.Operation{
+		Name:       opDeleteResourceDataSync,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteResourceDataSyncInput{}
+	}
+
+	output = &DeleteResourceDataSyncOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// DeleteResourceDataSync API operation for Amazon Simple Systems Manager (SSM).
+//
+// Deletes a Resource Data Sync configuration. After the configuration is deleted,
+// changes to inventory data on managed instances are no longer synced with
+// the target Amazon S3 bucket. Deleting a sync configuration does not delete
+// data in the target Amazon S3 bucket.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon Simple Systems Manager (SSM)'s
+// API operation DeleteResourceDataSync for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeInternalServerError "InternalServerError"
+//   An error occurred on the server side.
+//
+//   * ErrCodeResourceDataSyncNotFoundException "ResourceDataSyncNotFoundException"
+//   The specified sync name was not found.
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteResourceDataSync
+func (c *SSM) DeleteResourceDataSync(input *DeleteResourceDataSyncInput) (*DeleteResourceDataSyncOutput, error) {
+	req, out := c.DeleteResourceDataSyncRequest(input)
+	return out, req.Send()
+}
+
+// DeleteResourceDataSyncWithContext is the same as DeleteResourceDataSync with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DeleteResourceDataSync for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) DeleteResourceDataSyncWithContext(ctx aws.Context, input *DeleteResourceDataSyncInput, opts ...request.Option) (*DeleteResourceDataSyncOutput, error) {
+	req, out := c.DeleteResourceDataSyncRequest(input)
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
@@ -3579,6 +3844,12 @@ func (c *SSM) DescribeParametersRequest(input *DescribeParametersInput) (req *re
 		Name:       opDescribeParameters,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &request.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -3604,6 +3875,13 @@ func (c *SSM) DescribeParametersRequest(input *DescribeParametersInput) (req *re
 // Returned Error Codes:
 //   * ErrCodeInternalServerError "InternalServerError"
 //   An error occurred on the server side.
+//
+//   * ErrCodeInvalidFilterKey "InvalidFilterKey"
+//   The specified key is not valid.
+//
+//   * ErrCodeInvalidFilterOption "InvalidFilterOption"
+//   The specified filter option is not valid. Valid options are Equals and BeginsWith.
+//   For Path filter, valid options are Recursive and OneLevel.
 //
 //   * ErrCodeInvalidFilterValue "InvalidFilterValue"
 //   The filter value is not valid. Verify the value and try again.
@@ -3631,6 +3909,56 @@ func (c *SSM) DescribeParametersWithContext(ctx aws.Context, input *DescribePara
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
+}
+
+// DescribeParametersPages iterates over the pages of a DescribeParameters operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See DescribeParameters method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a DescribeParameters operation.
+//    pageNum := 0
+//    err := client.DescribeParametersPages(params,
+//        func(page *DescribeParametersOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *SSM) DescribeParametersPages(input *DescribeParametersInput, fn func(*DescribeParametersOutput, bool) bool) error {
+	return c.DescribeParametersPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// DescribeParametersPagesWithContext same as DescribeParametersPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) DescribeParametersPagesWithContext(ctx aws.Context, input *DescribeParametersInput, fn func(*DescribeParametersOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *DescribeParametersInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.DescribeParametersRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*DescribeParametersOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opDescribePatchBaselines = "DescribePatchBaselines"
@@ -4747,6 +5075,92 @@ func (c *SSM) GetMaintenanceWindowExecutionTaskWithContext(ctx aws.Context, inpu
 	return out, req.Send()
 }
 
+const opGetParameter = "GetParameter"
+
+// GetParameterRequest generates a "aws/request.Request" representing the
+// client's request for the GetParameter operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See GetParameter for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the GetParameter method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the GetParameterRequest method.
+//    req, resp := client.GetParameterRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParameter
+func (c *SSM) GetParameterRequest(input *GetParameterInput) (req *request.Request, output *GetParameterOutput) {
+	op := &request.Operation{
+		Name:       opGetParameter,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &GetParameterInput{}
+	}
+
+	output = &GetParameterOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// GetParameter API operation for Amazon Simple Systems Manager (SSM).
+//
+// Get information about a parameter by using the parameter name.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon Simple Systems Manager (SSM)'s
+// API operation GetParameter for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeInternalServerError "InternalServerError"
+//   An error occurred on the server side.
+//
+//   * ErrCodeInvalidKeyId "InvalidKeyId"
+//   The query key ID is not valid.
+//
+//   * ErrCodeParameterNotFound "ParameterNotFound"
+//   The parameter could not be found. Verify the name and try again.
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParameter
+func (c *SSM) GetParameter(input *GetParameterInput) (*GetParameterOutput, error) {
+	req, out := c.GetParameterRequest(input)
+	return out, req.Send()
+}
+
+// GetParameterWithContext is the same as GetParameter with the addition of
+// the ability to pass a context and additional request options.
+//
+// See GetParameter for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) GetParameterWithContext(ctx aws.Context, input *GetParameterInput, opts ...request.Option) (*GetParameterOutput, error) {
+	req, out := c.GetParameterRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opGetParameterHistory = "GetParameterHistory"
 
 // GetParameterHistoryRequest generates a "aws/request.Request" representing the
@@ -4779,6 +5193,12 @@ func (c *SSM) GetParameterHistoryRequest(input *GetParameterHistoryInput) (req *
 		Name:       opGetParameterHistory,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &request.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -4811,6 +5231,9 @@ func (c *SSM) GetParameterHistoryRequest(input *GetParameterHistoryInput) (req *
 //   * ErrCodeInvalidNextToken "InvalidNextToken"
 //   The specified token is not valid.
 //
+//   * ErrCodeInvalidKeyId "InvalidKeyId"
+//   The query key ID is not valid.
+//
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParameterHistory
 func (c *SSM) GetParameterHistory(input *GetParameterHistoryInput) (*GetParameterHistoryOutput, error) {
 	req, out := c.GetParameterHistoryRequest(input)
@@ -4831,6 +5254,56 @@ func (c *SSM) GetParameterHistoryWithContext(ctx aws.Context, input *GetParamete
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
+}
+
+// GetParameterHistoryPages iterates over the pages of a GetParameterHistory operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See GetParameterHistory method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a GetParameterHistory operation.
+//    pageNum := 0
+//    err := client.GetParameterHistoryPages(params,
+//        func(page *GetParameterHistoryOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *SSM) GetParameterHistoryPages(input *GetParameterHistoryInput, fn func(*GetParameterHistoryOutput, bool) bool) error {
+	return c.GetParameterHistoryPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// GetParameterHistoryPagesWithContext same as GetParameterHistoryPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) GetParameterHistoryPagesWithContext(ctx aws.Context, input *GetParameterHistoryInput, fn func(*GetParameterHistoryOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *GetParameterHistoryInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.GetParameterHistoryRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*GetParameterHistoryOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opGetParameters = "GetParameters"
@@ -4888,6 +5361,9 @@ func (c *SSM) GetParametersRequest(input *GetParametersInput) (req *request.Requ
 // API operation GetParameters for usage and error information.
 //
 // Returned Error Codes:
+//   * ErrCodeInvalidKeyId "InvalidKeyId"
+//   The query key ID is not valid.
+//
 //   * ErrCodeInternalServerError "InternalServerError"
 //   An error occurred on the server side.
 //
@@ -4911,6 +5387,159 @@ func (c *SSM) GetParametersWithContext(ctx aws.Context, input *GetParametersInpu
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
+}
+
+const opGetParametersByPath = "GetParametersByPath"
+
+// GetParametersByPathRequest generates a "aws/request.Request" representing the
+// client's request for the GetParametersByPath operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See GetParametersByPath for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the GetParametersByPath method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the GetParametersByPathRequest method.
+//    req, resp := client.GetParametersByPathRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParametersByPath
+func (c *SSM) GetParametersByPathRequest(input *GetParametersByPathInput) (req *request.Request, output *GetParametersByPathOutput) {
+	op := &request.Operation{
+		Name:       opGetParametersByPath,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+		Paginator: &request.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
+	}
+
+	if input == nil {
+		input = &GetParametersByPathInput{}
+	}
+
+	output = &GetParametersByPathOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// GetParametersByPath API operation for Amazon Simple Systems Manager (SSM).
+//
+// Retrieve parameters in a specific hierarchy. For more information, see Working
+// with Systems Manager Parameters (http://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-working.html).
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon Simple Systems Manager (SSM)'s
+// API operation GetParametersByPath for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeInternalServerError "InternalServerError"
+//   An error occurred on the server side.
+//
+//   * ErrCodeInvalidFilterKey "InvalidFilterKey"
+//   The specified key is not valid.
+//
+//   * ErrCodeInvalidFilterOption "InvalidFilterOption"
+//   The specified filter option is not valid. Valid options are Equals and BeginsWith.
+//   For Path filter, valid options are Recursive and OneLevel.
+//
+//   * ErrCodeInvalidFilterValue "InvalidFilterValue"
+//   The filter value is not valid. Verify the value and try again.
+//
+//   * ErrCodeInvalidKeyId "InvalidKeyId"
+//   The query key ID is not valid.
+//
+//   * ErrCodeInvalidNextToken "InvalidNextToken"
+//   The specified token is not valid.
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParametersByPath
+func (c *SSM) GetParametersByPath(input *GetParametersByPathInput) (*GetParametersByPathOutput, error) {
+	req, out := c.GetParametersByPathRequest(input)
+	return out, req.Send()
+}
+
+// GetParametersByPathWithContext is the same as GetParametersByPath with the addition of
+// the ability to pass a context and additional request options.
+//
+// See GetParametersByPath for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) GetParametersByPathWithContext(ctx aws.Context, input *GetParametersByPathInput, opts ...request.Option) (*GetParametersByPathOutput, error) {
+	req, out := c.GetParametersByPathRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// GetParametersByPathPages iterates over the pages of a GetParametersByPath operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See GetParametersByPath method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a GetParametersByPath operation.
+//    pageNum := 0
+//    err := client.GetParametersByPathPages(params,
+//        func(page *GetParametersByPathOutput, lastPage bool) bool {
+//            pageNum++
+//            fmt.Println(page)
+//            return pageNum <= 3
+//        })
+//
+func (c *SSM) GetParametersByPathPages(input *GetParametersByPathInput, fn func(*GetParametersByPathOutput, bool) bool) error {
+	return c.GetParametersByPathPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// GetParametersByPathPagesWithContext same as GetParametersByPathPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) GetParametersByPathPagesWithContext(ctx aws.Context, input *GetParametersByPathInput, fn func(*GetParametersByPathOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *GetParametersByPathInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.GetParametersByPathRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*GetParametersByPathOutput), !p.HasNextPage())
+	}
+	return p.Err()
 }
 
 const opGetPatchBaseline = "GetPatchBaseline"
@@ -5876,6 +6505,98 @@ func (c *SSM) ListInventoryEntriesWithContext(ctx aws.Context, input *ListInvent
 	return out, req.Send()
 }
 
+const opListResourceDataSync = "ListResourceDataSync"
+
+// ListResourceDataSyncRequest generates a "aws/request.Request" representing the
+// client's request for the ListResourceDataSync operation. The "output" return
+// value can be used to capture response data after the request's "Send" method
+// is called.
+//
+// See ListResourceDataSync for usage and error information.
+//
+// Creating a request object using this method should be used when you want to inject
+// custom logic into the request's lifecycle using a custom handler, or if you want to
+// access properties on the request object before or after sending the request. If
+// you just want the service response, call the ListResourceDataSync method directly
+// instead.
+//
+// Note: You must call the "Send" method on the returned request object in order
+// to execute the request.
+//
+//    // Example sending a request using the ListResourceDataSyncRequest method.
+//    req, resp := client.ListResourceDataSyncRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ListResourceDataSync
+func (c *SSM) ListResourceDataSyncRequest(input *ListResourceDataSyncInput) (req *request.Request, output *ListResourceDataSyncOutput) {
+	op := &request.Operation{
+		Name:       opListResourceDataSync,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ListResourceDataSyncInput{}
+	}
+
+	output = &ListResourceDataSyncOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// ListResourceDataSync API operation for Amazon Simple Systems Manager (SSM).
+//
+// Lists your resource data sync configurations. Includes information about
+// the last time a sync attempted to start, the last sync status, and the last
+// time a sync successfully completed.
+//
+// The number of sync configurations might be too large to return using a single
+// call to ListResourceDataSync. You can limit the number of sync configurations
+// returned by using the MaxResults parameter. To determine whether there are
+// more sync configurations to list, check the value of NextToken in the output.
+// If there are more sync configurations to list, you can request them by specifying
+// the NextToken returned in the call to the parameter of a subsequent call.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon Simple Systems Manager (SSM)'s
+// API operation ListResourceDataSync for usage and error information.
+//
+// Returned Error Codes:
+//   * ErrCodeInternalServerError "InternalServerError"
+//   An error occurred on the server side.
+//
+//   * ErrCodeInvalidNextToken "InvalidNextToken"
+//   The specified token is not valid.
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ListResourceDataSync
+func (c *SSM) ListResourceDataSync(input *ListResourceDataSyncInput) (*ListResourceDataSyncOutput, error) {
+	req, out := c.ListResourceDataSyncRequest(input)
+	return out, req.Send()
+}
+
+// ListResourceDataSyncWithContext is the same as ListResourceDataSync with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ListResourceDataSync for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SSM) ListResourceDataSyncWithContext(ctx aws.Context, input *ListResourceDataSyncInput, opts ...request.Option) (*ListResourceDataSyncOutput, error) {
+	req, out := c.ListResourceDataSyncRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opListTagsForResource = "ListTagsForResource"
 
 // ListTagsForResourceRequest generates a "aws/request.Request" representing the
@@ -6228,7 +6949,7 @@ func (c *SSM) PutParameterRequest(input *PutParameterInput) (req *request.Reques
 
 // PutParameter API operation for Amazon Simple Systems Manager (SSM).
 //
-// Add one or more paramaters to the system.
+// Add one or more parameters to the system.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -6254,6 +6975,24 @@ func (c *SSM) PutParameterRequest(input *PutParameterInput) (req *request.Reques
 //
 //   * ErrCodeParameterAlreadyExists "ParameterAlreadyExists"
 //   The parameter already exists. You can't create duplicate parameters.
+//
+//   * ErrCodeHierarchyLevelLimitExceededException "HierarchyLevelLimitExceededException"
+//   A hierarchy can have a maximum of five levels. For example:
+//
+//   /Finance/Prod/IAD/OS/WinServ2016/license15
+//
+//   For more information, see Working with Systems Manager Parameters (http://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-working.html).
+//
+//   * ErrCodeHierarchyTypeMismatchException "HierarchyTypeMismatchException"
+//   Parameter Store does not support changing a parameter type in a hierarchy.
+//   For example, you can't change a parameter from a String type to a SecureString
+//   type. You must create a new, unique parameter.
+//
+//   * ErrCodeInvalidAllowedPatternException "InvalidAllowedPatternException"
+//   The request does not meet the regular expression requirement.
+//
+//   * ErrCodeParameterPatternMismatchException "ParameterPatternMismatchException"
+//   The parameter name is not valid.
 //
 //   * ErrCodeUnsupportedParameterType "UnsupportedParameterType"
 //   The parameter type is not supported.
@@ -6781,7 +7520,7 @@ func (c *SSM) SendCommandRequest(input *SendCommandInput) (req *request.Request,
 
 // SendCommand API operation for Amazon Simple Systems Manager (SSM).
 //
-// Executes commands on one or more remote instances.
+// Executes commands on one or more managed instances.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -8720,8 +9459,9 @@ type Command struct {
 	// executions should be stored. This was requested when issuing the command.
 	OutputS3KeyPrefix *string `type:"string"`
 
-	// The region where the Amazon Simple Storage Service (Amazon S3) output bucket
-	// is located. The default value is the region where Run Command is being called.
+	// (Deprecated) You can no longer specify this parameter. The system ignores
+	// it. Instead, Systems Manager automatically determines the Amazon S3 bucket
+	// region.
 	OutputS3Region *string `min:"3" type:"string"`
 
 	// The parameter values to be inserted in the document when executing the command.
@@ -8916,12 +9656,12 @@ func (s *Command) SetTargets(v []*Target) *Command {
 type CommandFilter struct {
 	_ struct{} `type:"structure"`
 
-	// The name of the filter. For example, requested date and time.
+	// The name of the filter.
 	//
 	// Key is a required field
 	Key *string `locationName:"key" type:"string" required:"true" enum:"CommandFilterKey"`
 
-	// The filter value. For example: June 30, 2015.
+	// The filter value.
 	//
 	// Value is a required field
 	Value *string `locationName:"value" min:"1" type:"string" required:"true"`
@@ -9208,7 +9948,9 @@ type CommandPlugin struct {
 	// awsrunShellScript is the name of the plugin.
 	OutputS3KeyPrefix *string `type:"string"`
 
-	// The name of the region where the output is stored in Amazon S3.
+	// (Deprecated) You can no longer specify this parameter. The system ignores
+	// it. Instead, Systems Manager automatically determines the Amazon S3 bucket
+	// region.
 	OutputS3Region *string `min:"3" type:"string"`
 
 	// A numeric response code generated after executing the plugin.
@@ -10178,6 +10920,82 @@ func (s *CreatePatchBaselineOutput) SetBaselineId(v string) *CreatePatchBaseline
 	return s
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/CreateResourceDataSyncRequest
+type CreateResourceDataSyncInput struct {
+	_ struct{} `type:"structure"`
+
+	// Amazon S3 configuration details for the sync.
+	//
+	// S3Destination is a required field
+	S3Destination *ResourceDataSyncS3Destination `type:"structure" required:"true"`
+
+	// A name for the configuration.
+	//
+	// SyncName is a required field
+	SyncName *string `min:"1" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s CreateResourceDataSyncInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateResourceDataSyncInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateResourceDataSyncInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "CreateResourceDataSyncInput"}
+	if s.S3Destination == nil {
+		invalidParams.Add(request.NewErrParamRequired("S3Destination"))
+	}
+	if s.SyncName == nil {
+		invalidParams.Add(request.NewErrParamRequired("SyncName"))
+	}
+	if s.SyncName != nil && len(*s.SyncName) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("SyncName", 1))
+	}
+	if s.S3Destination != nil {
+		if err := s.S3Destination.Validate(); err != nil {
+			invalidParams.AddNested("S3Destination", err.(request.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetS3Destination sets the S3Destination field's value.
+func (s *CreateResourceDataSyncInput) SetS3Destination(v *ResourceDataSyncS3Destination) *CreateResourceDataSyncInput {
+	s.S3Destination = v
+	return s
+}
+
+// SetSyncName sets the SyncName field's value.
+func (s *CreateResourceDataSyncInput) SetSyncName(v string) *CreateResourceDataSyncInput {
+	s.SyncName = &v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/CreateResourceDataSyncResult
+type CreateResourceDataSyncOutput struct {
+	_ struct{} `type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateResourceDataSyncOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateResourceDataSyncOutput) GoString() string {
+	return s.String()
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteActivationRequest
 type DeleteActivationInput struct {
 	_ struct{} `type:"structure"`
@@ -10466,6 +11284,82 @@ func (s DeleteParameterOutput) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteParametersRequest
+type DeleteParametersInput struct {
+	_ struct{} `type:"structure"`
+
+	// The names of the parameters to delete.
+	//
+	// Names is a required field
+	Names []*string `min:"1" type:"list" required:"true"`
+}
+
+// String returns the string representation
+func (s DeleteParametersInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteParametersInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteParametersInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeleteParametersInput"}
+	if s.Names == nil {
+		invalidParams.Add(request.NewErrParamRequired("Names"))
+	}
+	if s.Names != nil && len(s.Names) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Names", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetNames sets the Names field's value.
+func (s *DeleteParametersInput) SetNames(v []*string) *DeleteParametersInput {
+	s.Names = v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteParametersResult
+type DeleteParametersOutput struct {
+	_ struct{} `type:"structure"`
+
+	// The names of the deleted parameters.
+	DeletedParameters []*string `min:"1" type:"list"`
+
+	// The names of parameters that weren't deleted because the parameters are not
+	// valid.
+	InvalidParameters []*string `min:"1" type:"list"`
+}
+
+// String returns the string representation
+func (s DeleteParametersOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteParametersOutput) GoString() string {
+	return s.String()
+}
+
+// SetDeletedParameters sets the DeletedParameters field's value.
+func (s *DeleteParametersOutput) SetDeletedParameters(v []*string) *DeleteParametersOutput {
+	s.DeletedParameters = v
+	return s
+}
+
+// SetInvalidParameters sets the InvalidParameters field's value.
+func (s *DeleteParametersOutput) SetInvalidParameters(v []*string) *DeleteParametersOutput {
+	s.InvalidParameters = v
+	return s
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeletePatchBaselineRequest
 type DeletePatchBaselineInput struct {
 	_ struct{} `type:"structure"`
@@ -10530,6 +11424,63 @@ func (s DeletePatchBaselineOutput) GoString() string {
 func (s *DeletePatchBaselineOutput) SetBaselineId(v string) *DeletePatchBaselineOutput {
 	s.BaselineId = &v
 	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteResourceDataSyncRequest
+type DeleteResourceDataSyncInput struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the configuration to delete.
+	//
+	// SyncName is a required field
+	SyncName *string `min:"1" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DeleteResourceDataSyncInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteResourceDataSyncInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteResourceDataSyncInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeleteResourceDataSyncInput"}
+	if s.SyncName == nil {
+		invalidParams.Add(request.NewErrParamRequired("SyncName"))
+	}
+	if s.SyncName != nil && len(*s.SyncName) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("SyncName", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetSyncName sets the SyncName field's value.
+func (s *DeleteResourceDataSyncInput) SetSyncName(v string) *DeleteResourceDataSyncInput {
+	s.SyncName = &v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeleteResourceDataSyncResult
+type DeleteResourceDataSyncOutput struct {
+	_ struct{} `type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteResourceDataSyncOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteResourceDataSyncOutput) GoString() string {
+	return s.String()
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/DeregisterManagedInstanceRequest
@@ -12921,6 +13872,9 @@ type DescribeParametersInput struct {
 	// The token for the next set of items to return. (You received this token from
 	// a previous call.)
 	NextToken *string `type:"string"`
+
+	// Filters to limit the request results.
+	ParameterFilters []*ParameterStringFilter `type:"list"`
 }
 
 // String returns the string representation
@@ -12949,6 +13903,16 @@ func (s *DescribeParametersInput) Validate() error {
 			}
 		}
 	}
+	if s.ParameterFilters != nil {
+		for i, v := range s.ParameterFilters {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ParameterFilters", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12971,6 +13935,12 @@ func (s *DescribeParametersInput) SetMaxResults(v int64) *DescribeParametersInpu
 // SetNextToken sets the NextToken field's value.
 func (s *DescribeParametersInput) SetNextToken(v string) *DescribeParametersInput {
 	s.NextToken = &v
+	return s
+}
+
+// SetParameterFilters sets the ParameterFilters field's value.
+func (s *DescribeParametersInput) SetParameterFilters(v []*ParameterStringFilter) *DescribeParametersInput {
+	s.ParameterFilters = v
 	return s
 }
 
@@ -14020,12 +14990,20 @@ type GetCommandInvocationOutput struct {
 	ExecutionElapsedTime *string `type:"string"`
 
 	// The date and time the plugin was finished executing. Date and time are written
-	// in ISO 8601 format. For example, August 28, 2016 is represented as 2016-08-28.
+	// in ISO 8601 format. For example, June 7, 2017 is represented as 2017-06-7.
+	// The following sample AWS CLI command uses the InvokedAfter filter.
+	//
+	// aws ssm list-commands --filters key=InvokedAfter,value=2017-06-07T00:00:00Z
+	//
 	// If the plugin has not started to execute, the string is empty.
 	ExecutionEndDateTime *string `type:"string"`
 
 	// The date and time the plugin started executing. Date and time are written
-	// in ISO 8601 format. For example, August 28, 2016 is represented as 2016-08-28.
+	// in ISO 8601 format. For example, June 7, 2017 is represented as 2017-06-7.
+	// The following sample AWS CLI command uses the InvokedBefore filter.
+	//
+	// aws ssm list-commands --filters key=InvokedBefore,value=2017-06-07T00:00:00Z
+	//
 	// If the plugin has not started to execute, the string is empty.
 	ExecutionStartDateTime *string `type:"string"`
 
@@ -15226,6 +16204,222 @@ func (s *GetParameterHistoryOutput) SetNextToken(v string) *GetParameterHistoryO
 
 // SetParameters sets the Parameters field's value.
 func (s *GetParameterHistoryOutput) SetParameters(v []*ParameterHistory) *GetParameterHistoryOutput {
+	s.Parameters = v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParameterRequest
+type GetParameterInput struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the parameter you want to query.
+	//
+	// Name is a required field
+	Name *string `min:"1" type:"string" required:"true"`
+
+	// Return decrypted values for secure string parameters. This flag is ignored
+	// for String and StringList parameter types.
+	WithDecryption *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s GetParameterInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetParameterInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *GetParameterInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "GetParameterInput"}
+	if s.Name == nil {
+		invalidParams.Add(request.NewErrParamRequired("Name"))
+	}
+	if s.Name != nil && len(*s.Name) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Name", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetName sets the Name field's value.
+func (s *GetParameterInput) SetName(v string) *GetParameterInput {
+	s.Name = &v
+	return s
+}
+
+// SetWithDecryption sets the WithDecryption field's value.
+func (s *GetParameterInput) SetWithDecryption(v bool) *GetParameterInput {
+	s.WithDecryption = &v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParameterResult
+type GetParameterOutput struct {
+	_ struct{} `type:"structure"`
+
+	// Information about a parameter.
+	Parameter *Parameter `type:"structure"`
+}
+
+// String returns the string representation
+func (s GetParameterOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetParameterOutput) GoString() string {
+	return s.String()
+}
+
+// SetParameter sets the Parameter field's value.
+func (s *GetParameterOutput) SetParameter(v *Parameter) *GetParameterOutput {
+	s.Parameter = v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParametersByPathRequest
+type GetParametersByPathInput struct {
+	_ struct{} `type:"structure"`
+
+	// The maximum number of items to return for this call. The call also returns
+	// a token that you can specify in a subsequent call to get the next set of
+	// results.
+	MaxResults *int64 `min:"1" type:"integer"`
+
+	// A token to start the list. Use this token to get the next set of results.
+	NextToken *string `type:"string"`
+
+	// Filters to limit the request results.
+	ParameterFilters []*ParameterStringFilter `type:"list"`
+
+	// The hierarchy for the parameter. Hierarchies start with a forward slash (/)
+	// and end with the parameter name. A hierarchy can have a maximum of five levels.
+	// Examples: /Environment/Test/DBString003
+	//
+	// /Finance/Prod/IAD/OS/WinServ2016/license15
+	//
+	// Path is a required field
+	Path *string `min:"1" type:"string" required:"true"`
+
+	// Retrieve all parameters within a hierarchy.
+	Recursive *bool `type:"boolean"`
+
+	// Retrieve all parameters in a hierarchy with their value decrypted.
+	WithDecryption *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s GetParametersByPathInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetParametersByPathInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *GetParametersByPathInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "GetParametersByPathInput"}
+	if s.MaxResults != nil && *s.MaxResults < 1 {
+		invalidParams.Add(request.NewErrParamMinValue("MaxResults", 1))
+	}
+	if s.Path == nil {
+		invalidParams.Add(request.NewErrParamRequired("Path"))
+	}
+	if s.Path != nil && len(*s.Path) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Path", 1))
+	}
+	if s.ParameterFilters != nil {
+		for i, v := range s.ParameterFilters {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ParameterFilters", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *GetParametersByPathInput) SetMaxResults(v int64) *GetParametersByPathInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *GetParametersByPathInput) SetNextToken(v string) *GetParametersByPathInput {
+	s.NextToken = &v
+	return s
+}
+
+// SetParameterFilters sets the ParameterFilters field's value.
+func (s *GetParametersByPathInput) SetParameterFilters(v []*ParameterStringFilter) *GetParametersByPathInput {
+	s.ParameterFilters = v
+	return s
+}
+
+// SetPath sets the Path field's value.
+func (s *GetParametersByPathInput) SetPath(v string) *GetParametersByPathInput {
+	s.Path = &v
+	return s
+}
+
+// SetRecursive sets the Recursive field's value.
+func (s *GetParametersByPathInput) SetRecursive(v bool) *GetParametersByPathInput {
+	s.Recursive = &v
+	return s
+}
+
+// SetWithDecryption sets the WithDecryption field's value.
+func (s *GetParametersByPathInput) SetWithDecryption(v bool) *GetParametersByPathInput {
+	s.WithDecryption = &v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/GetParametersByPathResult
+type GetParametersByPathOutput struct {
+	_ struct{} `type:"structure"`
+
+	// The token for the next set of items to return. Use this token to get the
+	// next set of results.
+	NextToken *string `type:"string"`
+
+	// A list of parameters found in the specified hierarchy.
+	Parameters []*Parameter `type:"list"`
+}
+
+// String returns the string representation
+func (s GetParametersByPathOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetParametersByPathOutput) GoString() string {
+	return s.String()
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *GetParametersByPathOutput) SetNextToken(v string) *GetParametersByPathOutput {
+	s.NextToken = &v
+	return s
+}
+
+// SetParameters sets the Parameters field's value.
+func (s *GetParametersByPathOutput) SetParameters(v []*Parameter) *GetParametersByPathOutput {
 	s.Parameters = v
 	return s
 }
@@ -17437,6 +18631,88 @@ func (s *ListInventoryEntriesOutput) SetTypeName(v string) *ListInventoryEntries
 	return s
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ListResourceDataSyncRequest
+type ListResourceDataSyncInput struct {
+	_ struct{} `type:"structure"`
+
+	// The maximum number of items to return for this call. The call also returns
+	// a token that you can specify in a subsequent call to get the next set of
+	// results.
+	MaxResults *int64 `min:"1" type:"integer"`
+
+	// A token to start the list. Use this token to get the next set of results.
+	NextToken *string `type:"string"`
+}
+
+// String returns the string representation
+func (s ListResourceDataSyncInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ListResourceDataSyncInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ListResourceDataSyncInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ListResourceDataSyncInput"}
+	if s.MaxResults != nil && *s.MaxResults < 1 {
+		invalidParams.Add(request.NewErrParamMinValue("MaxResults", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *ListResourceDataSyncInput) SetMaxResults(v int64) *ListResourceDataSyncInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListResourceDataSyncInput) SetNextToken(v string) *ListResourceDataSyncInput {
+	s.NextToken = &v
+	return s
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ListResourceDataSyncResult
+type ListResourceDataSyncOutput struct {
+	_ struct{} `type:"structure"`
+
+	// The token for the next set of items to return. Use this token to get the
+	// next set of results.
+	NextToken *string `type:"string"`
+
+	// A list of your current Resource Data Sync configurations and their statuses.
+	ResourceDataSyncItems []*ResourceDataSyncItem `type:"list"`
+}
+
+// String returns the string representation
+func (s ListResourceDataSyncOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ListResourceDataSyncOutput) GoString() string {
+	return s.String()
+}
+
+// SetNextToken sets the NextToken field's value.
+func (s *ListResourceDataSyncOutput) SetNextToken(v string) *ListResourceDataSyncOutput {
+	s.NextToken = &v
+	return s
+}
+
+// SetResourceDataSyncItems sets the ResourceDataSyncItems field's value.
+func (s *ListResourceDataSyncOutput) SetResourceDataSyncItems(v []*ResourceDataSyncItem) *ListResourceDataSyncOutput {
+	s.ResourceDataSyncItems = v
+	return s
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ListTagsForResourceRequest
 type ListTagsForResourceInput struct {
 	_ struct{} `type:"structure"`
@@ -18369,6 +19645,11 @@ func (s *Parameter) SetValue(v string) *Parameter {
 type ParameterHistory struct {
 	_ struct{} `type:"structure"`
 
+	// Parameter names can include the following letters and symbols.
+	//
+	// a-zA-Z0-9_.-
+	AllowedPattern *string `type:"string"`
+
 	// Information about the parameter.
 	Description *string `min:"1" type:"string"`
 
@@ -18399,6 +19680,12 @@ func (s ParameterHistory) String() string {
 // GoString returns the string representation
 func (s ParameterHistory) GoString() string {
 	return s.String()
+}
+
+// SetAllowedPattern sets the AllowedPattern field's value.
+func (s *ParameterHistory) SetAllowedPattern(v string) *ParameterHistory {
+	s.AllowedPattern = &v
+	return s
 }
 
 // SetDescription sets the Description field's value.
@@ -18449,6 +19736,11 @@ func (s *ParameterHistory) SetValue(v string) *ParameterHistory {
 type ParameterMetadata struct {
 	_ struct{} `type:"structure"`
 
+	// A parameter name can include only the following letters and symbols.
+	//
+	// a-zA-Z0-9_.-
+	AllowedPattern *string `type:"string"`
+
 	// Description of the parameter actions.
 	Description *string `min:"1" type:"string"`
 
@@ -18477,6 +19769,12 @@ func (s ParameterMetadata) String() string {
 // GoString returns the string representation
 func (s ParameterMetadata) GoString() string {
 	return s.String()
+}
+
+// SetAllowedPattern sets the AllowedPattern field's value.
+func (s *ParameterMetadata) SetAllowedPattern(v string) *ParameterMetadata {
+	s.AllowedPattern = &v
+	return s
 }
 
 // SetDescription sets the Description field's value.
@@ -18516,12 +19814,82 @@ func (s *ParameterMetadata) SetType(v string) *ParameterMetadata {
 }
 
 // One or more filters. Use a filter to return a more specific list of results.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ParameterStringFilter
+type ParameterStringFilter struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the filter.
+	//
+	// Key is a required field
+	Key *string `min:"1" type:"string" required:"true"`
+
+	// Valid options are Equals and BeginsWith. For Path filter, valid options are
+	// Recursive and OneLevel.
+	Option *string `min:"1" type:"string"`
+
+	// The value you want to search for.
+	Values []*string `min:"1" type:"list"`
+}
+
+// String returns the string representation
+func (s ParameterStringFilter) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ParameterStringFilter) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ParameterStringFilter) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ParameterStringFilter"}
+	if s.Key == nil {
+		invalidParams.Add(request.NewErrParamRequired("Key"))
+	}
+	if s.Key != nil && len(*s.Key) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Key", 1))
+	}
+	if s.Option != nil && len(*s.Option) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Option", 1))
+	}
+	if s.Values != nil && len(s.Values) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Values", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetKey sets the Key field's value.
+func (s *ParameterStringFilter) SetKey(v string) *ParameterStringFilter {
+	s.Key = &v
+	return s
+}
+
+// SetOption sets the Option field's value.
+func (s *ParameterStringFilter) SetOption(v string) *ParameterStringFilter {
+	s.Option = &v
+	return s
+}
+
+// SetValues sets the Values field's value.
+func (s *ParameterStringFilter) SetValues(v []*string) *ParameterStringFilter {
+	s.Values = v
+	return s
+}
+
+// One or more filters. Use a filter to return a more specific list of results.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ParametersFilter
 type ParametersFilter struct {
 	_ struct{} `type:"structure"`
 
 	// The name of the filter.
-	Key *string `type:"string" enum:"ParametersFilterKey"`
+	//
+	// Key is a required field
+	Key *string `type:"string" required:"true" enum:"ParametersFilterKey"`
 
 	// The filter values.
 	//
@@ -18542,6 +19910,9 @@ func (s ParametersFilter) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *ParametersFilter) Validate() error {
 	invalidParams := request.ErrInvalidParams{Context: "ParametersFilter"}
+	if s.Key == nil {
+		invalidParams.Add(request.NewErrParamRequired("Key"))
+	}
 	if s.Values == nil {
 		invalidParams.Add(request.NewErrParamRequired("Values"))
 	}
@@ -19256,10 +20627,17 @@ func (s PutInventoryOutput) GoString() string {
 type PutParameterInput struct {
 	_ struct{} `type:"structure"`
 
+	// A regular expression used to validate the parameter value. For example, for
+	// String types with values restricted to numbers, you can specify the following:
+	// AllowedPattern=^\d+$
+	AllowedPattern *string `type:"string"`
+
 	// Information about the parameter that you want to add to the system
 	Description *string `min:"1" type:"string"`
 
-	// The parameter key ID that you want to add to the system.
+	// The KMS Key ID that you want to use to encrypt a parameter when you choose
+	// the SecureString data type. If you don't specify a key ID, the system uses
+	// the default key associated with your AWS account.
 	KeyId *string `min:"1" type:"string"`
 
 	// The name of the parameter that you want to add to the system.
@@ -19320,6 +20698,12 @@ func (s *PutParameterInput) Validate() error {
 		return invalidParams
 	}
 	return nil
+}
+
+// SetAllowedPattern sets the AllowedPattern field's value.
+func (s *PutParameterInput) SetAllowedPattern(v string) *PutParameterInput {
+	s.AllowedPattern = &v
+	return s
 }
 
 // SetDescription sets the Description field's value.
@@ -19960,6 +21344,163 @@ func (s RemoveTagsFromResourceOutput) GoString() string {
 	return s.String()
 }
 
+// Information about a Resource Data Sync configuration, including its current
+// status and last successful sync.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ResourceDataSyncItem
+type ResourceDataSyncItem struct {
+	_ struct{} `type:"structure"`
+
+	// The status reported by the last sync.
+	LastStatus *string `type:"string" enum:"LastResourceDataSyncStatus"`
+
+	// The last time the sync operations returned a status of SUCCESSFUL (UTC).
+	LastSuccessfulSyncTime *time.Time `type:"timestamp" timestampFormat:"unix"`
+
+	// The last time the configuration attempted to sync (UTC).
+	LastSyncTime *time.Time `type:"timestamp" timestampFormat:"unix"`
+
+	// Configuration information for the target Amazon S3 bucket.
+	S3Destination *ResourceDataSyncS3Destination `type:"structure"`
+
+	// The date and time the configuration was created (UTC).
+	SyncCreatedTime *time.Time `type:"timestamp" timestampFormat:"unix"`
+
+	// The name of the Resource Data Sync.
+	SyncName *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s ResourceDataSyncItem) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ResourceDataSyncItem) GoString() string {
+	return s.String()
+}
+
+// SetLastStatus sets the LastStatus field's value.
+func (s *ResourceDataSyncItem) SetLastStatus(v string) *ResourceDataSyncItem {
+	s.LastStatus = &v
+	return s
+}
+
+// SetLastSuccessfulSyncTime sets the LastSuccessfulSyncTime field's value.
+func (s *ResourceDataSyncItem) SetLastSuccessfulSyncTime(v time.Time) *ResourceDataSyncItem {
+	s.LastSuccessfulSyncTime = &v
+	return s
+}
+
+// SetLastSyncTime sets the LastSyncTime field's value.
+func (s *ResourceDataSyncItem) SetLastSyncTime(v time.Time) *ResourceDataSyncItem {
+	s.LastSyncTime = &v
+	return s
+}
+
+// SetS3Destination sets the S3Destination field's value.
+func (s *ResourceDataSyncItem) SetS3Destination(v *ResourceDataSyncS3Destination) *ResourceDataSyncItem {
+	s.S3Destination = v
+	return s
+}
+
+// SetSyncCreatedTime sets the SyncCreatedTime field's value.
+func (s *ResourceDataSyncItem) SetSyncCreatedTime(v time.Time) *ResourceDataSyncItem {
+	s.SyncCreatedTime = &v
+	return s
+}
+
+// SetSyncName sets the SyncName field's value.
+func (s *ResourceDataSyncItem) SetSyncName(v string) *ResourceDataSyncItem {
+	s.SyncName = &v
+	return s
+}
+
+// Information about the target Amazon S3 bucket for the Resource Data Sync.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ResourceDataSyncS3Destination
+type ResourceDataSyncS3Destination struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the Amazon S3 bucket where the aggregated data is stored.
+	//
+	// BucketName is a required field
+	BucketName *string `min:"1" type:"string" required:"true"`
+
+	// An Amazon S3 prefix for the bucket.
+	Prefix *string `min:"1" type:"string"`
+
+	// The AWS Region with the Amazon S3 bucket targeted by the Resource Data Sync.
+	//
+	// Region is a required field
+	Region *string `min:"1" type:"string" required:"true"`
+
+	// A supported sync format. The following format is currently supported: JsonSerDe
+	//
+	// SyncFormat is a required field
+	SyncFormat *string `type:"string" required:"true" enum:"ResourceDataSyncS3Format"`
+}
+
+// String returns the string representation
+func (s ResourceDataSyncS3Destination) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ResourceDataSyncS3Destination) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ResourceDataSyncS3Destination) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ResourceDataSyncS3Destination"}
+	if s.BucketName == nil {
+		invalidParams.Add(request.NewErrParamRequired("BucketName"))
+	}
+	if s.BucketName != nil && len(*s.BucketName) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("BucketName", 1))
+	}
+	if s.Prefix != nil && len(*s.Prefix) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Prefix", 1))
+	}
+	if s.Region == nil {
+		invalidParams.Add(request.NewErrParamRequired("Region"))
+	}
+	if s.Region != nil && len(*s.Region) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Region", 1))
+	}
+	if s.SyncFormat == nil {
+		invalidParams.Add(request.NewErrParamRequired("SyncFormat"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetBucketName sets the BucketName field's value.
+func (s *ResourceDataSyncS3Destination) SetBucketName(v string) *ResourceDataSyncS3Destination {
+	s.BucketName = &v
+	return s
+}
+
+// SetPrefix sets the Prefix field's value.
+func (s *ResourceDataSyncS3Destination) SetPrefix(v string) *ResourceDataSyncS3Destination {
+	s.Prefix = &v
+	return s
+}
+
+// SetRegion sets the Region field's value.
+func (s *ResourceDataSyncS3Destination) SetRegion(v string) *ResourceDataSyncS3Destination {
+	s.Region = &v
+	return s
+}
+
+// SetSyncFormat sets the SyncFormat field's value.
+func (s *ResourceDataSyncS3Destination) SetSyncFormat(v string) *ResourceDataSyncS3Destination {
+	s.SyncFormat = &v
+	return s
+}
+
 // The inventory item result attribute.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ssm-2014-11-06/ResultAttribute
 type ResultAttribute struct {
@@ -20015,7 +21556,9 @@ type S3OutputLocation struct {
 	// The Amazon S3 bucket subfolder.
 	OutputS3KeyPrefix *string `type:"string"`
 
-	// The Amazon S3 region where the association information is stored.
+	// (Deprecated) You can no longer specify this parameter. The system ignores
+	// it. Instead, Systems Manager automatically determines the Amazon S3 bucket
+	// region.
 	OutputS3Region *string `min:"3" type:"string"`
 }
 
@@ -20117,22 +21660,21 @@ type SendCommandInput struct {
 	// The instance IDs where the command should execute. You can specify a maximum
 	// of 50 IDs. If you prefer not to list individual instance IDs, you can instead
 	// send commands to a fleet of instances using the Targets parameter, which
-	// accepts EC2 tags.
+	// accepts EC2 tags. For more information about how to use Targets, see Sending
+	// Commands to a Fleet (http://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-multiple.html).
 	InstanceIds []*string `type:"list"`
 
 	// (Optional) The maximum number of instances that are allowed to execute the
 	// command at the same time. You can specify a number such as 10 or a percentage
 	// such as 10%. The default value is 50. For more information about how to use
-	// MaxConcurrency, see Executing a Command Using Systems Manager Run Command
-	// (http://docs.aws.amazon.com/systems-manager/latest/userguide/run-command.html).
+	// MaxConcurrency, see Using Concurrency Controls (http://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-velocity.html).
 	MaxConcurrency *string `min:"1" type:"string"`
 
 	// The maximum number of errors allowed without the command failing. When the
 	// command fails one more time beyond the value of MaxErrors, the systems stops
 	// sending the command to additional targets. You can specify a number like
 	// 10 or a percentage like 10%. The default value is 50. For more information
-	// about how to use MaxErrors, see Executing a Command Using Systems Manager
-	// Run Command (http://docs.aws.amazon.com/systems-manager/latest/userguide/run-command.html).
+	// about how to use MaxErrors, see Using Error Controls (http://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-maxerrors.html).
 	MaxErrors *string `min:"1" type:"string"`
 
 	// Configurations for sending notifications.
@@ -20145,9 +21687,9 @@ type SendCommandInput struct {
 	// stored.
 	OutputS3KeyPrefix *string `type:"string"`
 
-	// (Optional) The region where the Amazon Simple Storage Service (Amazon S3)
-	// output bucket is located. The default value is the region where Run Command
-	// is being called.
+	// (Deprecated) You can no longer specify this parameter. The system ignores
+	// it. Instead, Systems Manager automatically determines the Amazon S3 bucket
+	// region.
 	OutputS3Region *string `min:"3" type:"string"`
 
 	// The required and optional parameters specified in the document being executed.
@@ -20159,7 +21701,7 @@ type SendCommandInput struct {
 	// (Optional) An array of search criteria that targets instances using a Key,Value
 	// combination that you specify. Targets is required if you don't provide one
 	// or more instance IDs in the call. For more information about how to use Targets,
-	// see Executing a Command Using Systems Manager Run Command (http://docs.aws.amazon.com/systems-manager/latest/userguide/run-command.html).
+	// see Sending Commands to a Fleet (http://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-multiple.html).
 	Targets []*Target `type:"list"`
 
 	// If this time is reached and the command has not already started executing,
@@ -20663,14 +22205,14 @@ type Target struct {
 	// User-defined criteria for sending commands that target instances that meet
 	// the criteria. Key can be tag:<Amazon EC2 tag> or InstanceIds. For more information
 	// about how to send commands that target instances using Key,Value parameters,
-	// see Executing a Command Using Systems Manager Run Command (http://docs.aws.amazon.com/systems-manager/latest/userguide/run-command.html).
+	// see Executing a Command Using Systems Manager Run Command (http://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-multiple.html).
 	Key *string `min:"1" type:"string"`
 
 	// User-defined criteria that maps to Key. For example, if you specified tag:ServerRole,
 	// you could specify value:WebServer to execute a command on instances that
 	// include Amazon EC2 tags of ServerRole,WebServer. For more information about
 	// how to send commands that target instances using Key,Value parameters, see
-	// Executing a Command Using Systems Manager Run Command (http://docs.aws.amazon.com/systems-manager/latest/userguide/run-command.html).
+	// Executing a Command Using Systems Manager Run Command (http://docs.aws.amazon.com/systems-manager/latest/userguide/send-commands-multiple.html).
 	Values []*string `type:"list"`
 }
 
@@ -21858,6 +23400,17 @@ const (
 )
 
 const (
+	// LastResourceDataSyncStatusSuccessful is a LastResourceDataSyncStatus enum value
+	LastResourceDataSyncStatusSuccessful = "Successful"
+
+	// LastResourceDataSyncStatusFailed is a LastResourceDataSyncStatus enum value
+	LastResourceDataSyncStatusFailed = "Failed"
+
+	// LastResourceDataSyncStatusInProgress is a LastResourceDataSyncStatus enum value
+	LastResourceDataSyncStatusInProgress = "InProgress"
+)
+
+const (
 	// MaintenanceWindowExecutionStatusPending is a MaintenanceWindowExecutionStatus enum value
 	MaintenanceWindowExecutionStatusPending = "PENDING"
 
@@ -22013,6 +23566,11 @@ const (
 
 	// PlatformTypeLinux is a PlatformType enum value
 	PlatformTypeLinux = "Linux"
+)
+
+const (
+	// ResourceDataSyncS3FormatJsonSerDe is a ResourceDataSyncS3Format enum value
+	ResourceDataSyncS3FormatJsonSerDe = "JsonSerDe"
 )
 
 const (

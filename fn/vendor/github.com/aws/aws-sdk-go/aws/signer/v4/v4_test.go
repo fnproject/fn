@@ -28,6 +28,8 @@ func TestStripExcessHeaders(t *testing.T) {
 		"1  2  3",
 		"1  2  ",
 		" 1  2  ",
+		"12   3",
+		"12   3   1",
 	}
 
 	expected := []string{
@@ -39,6 +41,8 @@ func TestStripExcessHeaders(t *testing.T) {
 		"1 2 3",
 		"1 2",
 		"1 2",
+		"12 3",
+		"12 3 1",
 	}
 
 	newVals := stripExcessSpaces(vals)
@@ -463,7 +467,27 @@ func TestSignWithBody_NoReplaceRequestBody(t *testing.T) {
 	}
 
 	if req.Body != origBody {
-		t.Errorf("expeect request body to not be chagned")
+		t.Errorf("expect request body to not be chagned")
+	}
+}
+
+func TestRequestHost(t *testing.T) {
+	req, body := buildRequest("dynamodb", "us-east-1", "{}")
+	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
+	req.Host = "myhost"
+	ctx := &signingCtx{
+		ServiceName: "dynamodb",
+		Region:      "us-east-1",
+		Request:     req,
+		Body:        body,
+		Query:       req.URL.Query(),
+		Time:        time.Now(),
+		ExpireTime:  5 * time.Second,
+	}
+
+	ctx.buildCanonicalHeaders(ignoredHeaders, ctx.Request.Header)
+	if !strings.Contains(ctx.canonicalHeaders, "host:"+req.Host) {
+		t.Errorf("canonical host header invalid")
 	}
 }
 

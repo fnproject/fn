@@ -1,3 +1,106 @@
+Release v1.10.7 (2017-07-05)
+===
+
+### Service Client Updates
+* `service/monitoring`: Updates service API and documentation
+  * We are excited to announce the availability of APIs and CloudFormation support for CloudWatch Dashboards. You can use the new dashboard APIs or CloudFormation templates to dynamically build and maintain dashboards to monitor your infrastructure and applications. There are four new dashboard APIs - PutDashboard, GetDashboard, DeleteDashboards, and ListDashboards APIs. PutDashboard is used to create a new dashboard or modify an existing one whereas GetDashboard is the API to get the details of a specific dashboard. ListDashboards and DeleteDashboards are used to get the names or delete multiple dashboards respectively. Getting started with dashboard APIs is similar to any other AWS APIs. The APIs can be accessed through AWS SDK or through CLI tools.
+* `service/route53`: Updates service API and documentation
+  * Bug fix for InvalidChangeBatch exception.
+
+### SDK Enhancements
+* `service/s3/s3manager`: adding cleanup function to batch objects [#1375](https://github.com/aws/aws-sdk-go/issues/1375)
+  * This enhancement will add an After field that will be called after each iteration of the batch operation.
+
+Release v1.10.6 (2017-06-30)
+===
+
+### Service Client Updates
+* `service/marketplacecommerceanalytics`: Updates service documentation
+  * Documentation updates for AWS Marketplace Commerce Analytics.
+* `service/s3`: Updates service API and documentation
+  * API Update for S3: Adding Object Tagging Header to MultipartUpload Initialization
+
+Release v1.10.5 (2017-06-29)
+===
+
+### Service Client Updates
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/events`: Updates service API and documentation
+  * CloudWatch Events now allows different AWS accounts to share events with each other through a new resource called event bus. Event buses accept events from AWS services, other AWS accounts and PutEvents API calls. Currently all AWS accounts have one default event bus. To send events to another account, customers simply write rules to match the events of interest and attach an event bus in the receiving account as the target to the rule. The PutTargets API has been updated to allow adding cross account event buses as targets. In addition, we have released two new APIs - PutPermission and RemovePermission - that enables customers to add/remove permissions to their default event bus.
+* `service/gamelift`: Updates service API and documentation
+  * Allow developers to download GameLift fleet creation logs to assist with debugging.
+* `service/ssm`: Updates service API and documentation
+  * Adding Resource Data Sync support to SSM Inventory.  New APIs:  * CreateResourceDataSync - creates a new resource data sync configuration,  * ListResourceDataSync - lists existing resource data sync configurations,  * DeleteResourceDataSync - deletes an existing resource data sync configuration.
+
+Release v1.10.4 (2017-06-27)
+===
+
+### Service Client Updates
+* `service/servicecatalog`: Updates service API, documentation, and paginators
+  * Proper tagging of resources is critical to post-launch operations such as billing, cost allocation, and resource management. By using Service Catalog's TagOption Library, administrators can define a library of re-usable TagOptions that conform to company standards, and associate these with Service Catalog portfolios and products. Learn how to move your current tags to the new library, create new TagOptions, and view and associate your library items with portfolios and products. Understand how to ensure that the right tags are created on products launched through Service Catalog and how to provide users with defined selectable tags.
+
+### SDK Bugs
+* `aws/signer/v4`: checking length on `stripExcessSpaces` [#1372](https://github.com/aws/aws-sdk-go/issues/1372)
+  * Fixes a bug where `stripExcessSpaces` did not check length against the slice.
+  * Fixes: [#1371](https://github.com/aws/aws-sdk-go/issues/1371)
+Release v1.10.3 (2017-06-23)
+===
+
+### Service Client Updates
+* `service/lambda`: Updates service API and documentation
+  * The Lambda Invoke API will now throw new exception InvalidRuntimeException (status code 502) for invokes with deprecated runtimes.
+
+Release v1.10.2 (2017-06-22)
+===
+
+### Service Client Updates
+* `service/codepipeline`: Updates service API, documentation, and paginators
+  * A new API, ListPipelineExecutions, enables you to retrieve summary information about the most recent executions in a pipeline, including pipeline execution ID, status, start time, and last updated time. You can request information for a maximum of 100 executions. Pipeline execution data is available for the most recent 12 months of activity.
+* `service/dms`: Updates service API and documentation
+  * Added tagging for DMS certificates.
+* `service/elasticloadbalancing`: Updates service waiters
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/lightsail`: Updates service API and documentation
+  * This release adds a new nextPageToken property to the result of the GetOperationsForResource API. Developers can now get the next set of items in a list by making subsequent calls to GetOperationsForResource API with the token from the previous call. This release also deprecates the nextPageCount property, which previously returned null (use the nextPageToken property instead). This release also deprecates the customImageName property on the CreateInstancesRequest class, which was previously ignored by the API.
+* `service/route53`: Updates service API and documentation
+  * This release reintroduces the HealthCheckInUse exception.
+
+Release v1.10.1 (2017-06-21)
+===
+
+### Service Client Updates
+* `service/dax`: Adds new service
+  * Amazon DynamoDB Accelerator (DAX) is a fully managed, highly available, in-memory cache for DynamoDB that delivers up to a 10x performance improvement - from milliseconds to microseconds - even at millions of requests per second. DAX does all the heavy lifting required to add in-memory acceleration to your DynamoDB tables, without requiring developers to manage cache invalidation, data population, or cluster management.
+* `service/route53`: Updates service API and documentation
+  * Amazon Route 53 now supports multivalue answers in response to DNS queries, which lets you route traffic approximately randomly to multiple resources, such as web servers. Create one multivalue answer record for each resource and, optionally, associate an Amazon Route 53 health check with each record, and Amazon Route 53 responds to DNS queries with up to eight healthy records.
+* `service/ssm`: Updates service API, documentation, and paginators
+  * Adding hierarchy support to the SSM Parameter Store API. Added support tor tagging. New APIs: GetParameter - retrieves one parameter, DeleteParameters - deletes multiple parameters (max number 10), GetParametersByPath - retrieves parameters located in the hierarchy. Updated APIs: PutParameter - added ability to enforce parameter value by applying regex (AllowedPattern), DescribeParameters - modified to support Tag filtering.
+* `service/waf`: Updates service API and documentation
+  * You can now create, edit, update, and delete a new type of WAF rule with a rate tracking component.
+* `service/waf-regional`: Updates service API and documentation
+
+Release v1.10.0 (2017-06-20)
+===
+
+### Service Client Updates
+* `service/workdocs`: Updates service API and documentation
+  * This release provides a new API to retrieve the activities performed by WorkDocs users.
+
+### SDK Features
+* `aws/credentials/plugincreds`: Add support for Go plugin for credentials [#1320](https://github.com/aws/aws-sdk-go/pull/1320)
+  * Adds support for using plugins to retrieve credentials for API requests. This change adds a new package plugincreds under aws/credentials. See the `example/aws/credentials/plugincreds` folder in the SDK for example usage.
+
+Release v1.9.00 (2017-06-19)
+===
+
+### Service Client Updates
+* `service/organizations`: Updates service API and documentation
+  * Improvements to Exception Modeling
+
+### SDK Features
+* `service/s3/s3manager`: Adds batch operations to s3manager [#1333](https://github.com/aws/aws-sdk-go/pull/1333)
+  * Allows for batch upload, download, and delete of objects. Also adds the interface pattern to allow for easy traversal of objects. E.G `DownloadWithIterator`, `UploadWithIterator`, and `BatchDelete`. `BatchDelete` also contains a utility iterator using the `ListObjects` API to easily delete a list of objects.
+  
 Release v1.8.44 (2017-06-16)
 ===
 

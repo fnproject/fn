@@ -79,6 +79,7 @@
           "ap-south-1" : { },
           "ap-southeast-1" : { },
           "ap-southeast-2" : { },
+          "ca-central-1" : { },
           "eu-central-1" : { },
           "eu-west-1" : { },
           "eu-west-2" : { },
@@ -158,8 +159,13 @@
       },
       "batch" : {
         "endpoints" : {
+          "ap-northeast-1" : { },
+          "ap-southeast-2" : { },
+          "eu-central-1" : { },
           "eu-west-1" : { },
+          "eu-west-2" : { },
           "us-east-1" : { },
+          "us-east-2" : { },
           "us-west-2" : { }
         }
       },
@@ -763,6 +769,8 @@
           "protocols" : [ "https" ]
         },
         "endpoints" : {
+          "ap-southeast-2" : { },
+          "eu-central-1" : { },
           "us-east-1" : { },
           "us-west-2" : { }
         },
@@ -880,6 +888,7 @@
           "ap-south-1" : { },
           "ap-southeast-1" : { },
           "ap-southeast-2" : { },
+          "ca-central-1" : { },
           "eu-central-1" : { },
           "eu-west-1" : { },
           "eu-west-2" : { },
@@ -1226,9 +1235,16 @@
       },
       "sms" : {
         "endpoints" : {
+          "ap-northeast-1" : { },
+          "ap-northeast-2" : { },
+          "ap-south-1" : { },
           "ap-southeast-2" : { },
+          "ca-central-1" : { },
+          "eu-central-1" : { },
           "eu-west-1" : { },
-          "us-east-1" : { }
+          "us-east-1" : { },
+          "us-east-2" : { },
+          "us-west-2" : { }
         }
       },
       "snowball" : {
@@ -1866,6 +1882,11 @@
           "us-gov-west-1" : { }
         }
       },
+      "rekognition" : {
+        "endpoints" : {
+          "us-gov-west-1" : { }
+        }
+      },
       "s3" : {
         "defaults" : {
           "signatureVersions" : [ "s3", "s3v4" ]
@@ -1881,6 +1902,11 @@
             "hostname" : "s3-us-gov-west-1.amazonaws.com",
             "protocols" : [ "http", "https" ]
           }
+        }
+      },
+      "sms" : {
+        "endpoints" : {
+          "us-gov-west-1" : { }
         }
       },
       "snowball" : {

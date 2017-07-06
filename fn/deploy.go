@@ -11,9 +11,9 @@ import (
 	"time"
 
 	functions "github.com/funcy/functions_go"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 func deploy() cli.Command {
@@ -156,7 +156,7 @@ func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
 	if err := routeWithFuncFile(c, ff, rt); err != nil {
 		return fmt.Errorf("error getting route with funcfile: %s", err)
 	}
-	return routesCmd.patchRoute(c, p.appName, ff.Path, rt)
+	return routesCmd.putRoute(c, p.appName, ff.Path, rt)
 }
 
 func expandEnvConfig(configs map[string]string) map[string]string {
