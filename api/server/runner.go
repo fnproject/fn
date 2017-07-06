@@ -94,9 +94,14 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		payload = strings.NewReader(reqPayload)
 	}
 
+	r, routeExists := c.Get(api.Path)
+	if !routeExists {
+		r = "/"
+	}
+
 	reqRoute := &models.Route{
 		AppName: c.MustGet(api.AppName).(string),
-		Path:    path.Clean(c.MustGet(api.Path).(string)),
+		Path:    path.Clean(r.(string)),
 	}
 
 	s.FireBeforeDispatch(ctx, reqRoute)
