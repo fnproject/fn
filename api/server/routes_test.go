@@ -75,7 +75,7 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrRoutesNotFound},
 		{datastore.NewMockInit(nil,
 			[]*models.Route{
 				{Path: "/myroute", AppName: "a"},
@@ -197,8 +197,8 @@ func TestRouteUpdate(t *testing.T) {
 		// errors
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{}`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "invalid-type" } }`, http.StatusBadRequest, nil},
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "format": "invalid-format" } }`, http.StatusBadRequest, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "invalid-type" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidType},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "format": "invalid-format" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidFormat},
 
 		// success
 		{datastore.NewMockInit(nil,
@@ -218,7 +218,7 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			}, nil, nil,
-		), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, nil},
+		), logs.NewMock(), "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, models.ErrRoutesPathImmutable},
 	} {
 		rnr, cancel := testRunner(t)
 
