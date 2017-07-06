@@ -75,17 +75,17 @@ func (s *Server) ensureApp(ctx context.Context, c *gin.Context, wroute models.Ro
 
 		err = s.FireBeforeAppCreate(ctx, newapp)
 		if err != nil {
-			return err, models.ErrRoutesCreate
+			return err, models.ErrAppsCreate
 		}
 
 		_, err = s.Datastore.InsertApp(ctx, newapp)
 		if err != nil {
-			return err, models.ErrRoutesCreate
+			return err, models.ErrAppsCreate
 		}
 
 		err = s.FireAfterAppCreate(ctx, newapp)
 		if err != nil {
-			return err, models.ErrRoutesCreate
+			return err, models.ErrAppsCreate
 		}
 
 	}
