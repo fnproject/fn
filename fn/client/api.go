@@ -21,7 +21,6 @@ func Host() string {
 	if err != nil {
 		log.Fatalln("Couldn't parse API URL:", err)
 	}
-	log.Println("trace: Host:", u.Host)
 	return u.Host
 }
 
