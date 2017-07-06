@@ -168,16 +168,15 @@ func (a *routesCmd) list(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %s", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 8, 0, '\t', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
 	fmt.Fprint(w, "path", "\t", "image", "\t", "endpoint", "\n")
 	for _, route := range resp.Payload.Routes {
-		u, err := url.Parse("../")
-		u.Path = path.Join(u.Path, "r", appName, route.Path)
+		endpoint := path.Join(client.Host(), "r", appName, route.Path)
 		if err != nil {
 			return fmt.Errorf("error parsing functions route path: %s", err)
 		}
 
-		fmt.Fprint(w, route.Path, "\t", route.Image, "\n")
+		fmt.Fprint(w, route.Path, "\t", route.Image, "\t", endpoint, "\n")
 	}
 	w.Flush()
 
