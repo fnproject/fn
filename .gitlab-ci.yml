@@ -46,6 +46,12 @@ build_job:
   script:
   - go build -o functions-alpine
 
+build_job_fn:
+  stage: build
+  script:
+  - cd fn
+  - go build -o fn-alpine
+
 test_job:
   stage: test
   script:
