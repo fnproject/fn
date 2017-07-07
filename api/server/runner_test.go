@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
@@ -129,10 +129,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 		}, nil, nil,
 	)
 
-
 	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
-
 
 	for i, test := range []struct {
 		path            string
@@ -187,7 +185,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	)
 	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
-	
+
 	for i, test := range []struct {
 		path            string
 		body            string

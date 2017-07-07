@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 	functions "github.com/funcy/functions_go"
 	"github.com/urfave/cli"
+	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 func testfn() cli.Command {

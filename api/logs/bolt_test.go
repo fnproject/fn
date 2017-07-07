@@ -12,7 +12,6 @@ import (
 const tmpLogDb = "/tmp/func_test_log.db"
 const tmpDatastore = "/tmp/func_test_datastore.db"
 
-
 func TestDatastore(t *testing.T) {
 	os.Remove(tmpLogDb)
 	os.Remove(tmpDatastore)

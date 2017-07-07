@@ -2,13 +2,13 @@ package tests
 
 import (
 	"bytes"
-	"testing"
-	"time"
 	"net/url"
 	"path"
+	"testing"
+	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 	"github.com/funcy/functions_go/client/call"
+	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 func TestCalls(t *testing.T) {
@@ -16,8 +16,8 @@ func TestCalls(t *testing.T) {
 
 	t.Run("list-calls-for-missing-app", func(t *testing.T) {
 		cfg := &call.GetAppsAppCallsRouteParams{
-			App: s.AppName,
-			Route: s.RoutePath,
+			App:     s.AppName,
+			Route:   s.RoutePath,
 			Context: s.Context,
 		}
 		_, err := s.Client.Call.GetAppsAppCallsRoute(cfg)
@@ -36,8 +36,8 @@ func TestCalls(t *testing.T) {
 
 	t.Run("list-calls-for-missing-route", func(t *testing.T) {
 		cfg := &call.GetAppsAppCallsRouteParams{
-			App: s.AppName,
-			Route: s.RoutePath,
+			App:     s.AppName,
+			Route:   s.RoutePath,
 			Context: s.Context,
 		}
 		_, err := s.Client.Call.GetAppsAppCallsRoute(cfg)
@@ -51,7 +51,7 @@ func TestCalls(t *testing.T) {
 
 	t.Run("get-dummy-call", func(t *testing.T) {
 		cfg := &call.GetCallsCallParams{
-			Call: "dummy",
+			Call:    "dummy",
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
@@ -67,7 +67,7 @@ func TestCalls(t *testing.T) {
 		callID := CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 2)
 		cfg := &call.GetCallsCallParams{
-			Call: callID,
+			Call:    callID,
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
@@ -84,8 +84,8 @@ func TestCalls(t *testing.T) {
 
 	t.Run("list-calls", func(t *testing.T) {
 		cfg := &call.GetAppsAppCallsRouteParams{
-			App: s.AppName,
-			Route: s.RoutePath,
+			App:     s.AppName,
+			Route:   s.RoutePath,
 			Context: s.Context,
 		}
 		calls, err := s.Client.Call.GetAppsAppCallsRoute(cfg)

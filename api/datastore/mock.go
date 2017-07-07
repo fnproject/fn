@@ -11,7 +11,7 @@ type mock struct {
 	Apps   models.Apps
 	Routes models.Routes
 	Calls  models.FnCalls
-	data map[string][]byte
+	data   map[string][]byte
 }
 
 func NewMock() models.Datastore {

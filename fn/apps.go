@@ -8,11 +8,11 @@ import (
 
 	"context"
 	fnclient "github.com/funcy/functions_go/client"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	apiapps "github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	"strings"
 )
 

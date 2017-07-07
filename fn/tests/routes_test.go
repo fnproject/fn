@@ -28,7 +28,7 @@ func TestRoutes(t *testing.T) {
 	})
 
 	t.Run("can-get-corresponding-route", func(t *testing.T) {
-		rObjects := []*models.Route{GetRoute(t, s.Context, s.Client, s.AppName, s.RoutePath), }
+		rObjects := []*models.Route{GetRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)}
 		if !assertContainsRoute(rObjects, s.RoutePath) {
 			t.Fatalf("Unable to find corresponding route `%v` in list", s.RoutePath)
 		}

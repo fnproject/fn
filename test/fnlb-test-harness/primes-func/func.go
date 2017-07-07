@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -50,10 +50,9 @@ func main() {
 	for i := 0; i < numLoops; i++ {
 		primes := sieveOfEratosthenes(maxPrime)
 		_ = primes
-		if i == numLoops - 1 {
+		if i == numLoops-1 {
 			//fmt.Printf("Highest three primes: %d %d %d\n", primes[len(primes) - 1], primes[len(primes) - 2], primes[len(primes) - 3])
 		}
 	}
 	fmt.Printf("{\"durationSeconds\": %f, \"hostname\": \"%s\", \"max\": %d, \"loops\": %d}", time.Since(start).Seconds(), os.Getenv("HOSTNAME"), maxPrime, numLoops)
 }
-

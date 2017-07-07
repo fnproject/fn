@@ -19,11 +19,11 @@ import (
 )
 
 type BoltDatastore struct {
-	routesBucket   []byte
-	appsBucket     []byte
-	logsBucket     []byte
-	extrasBucket   []byte
-	callsBucket    []byte
+	routesBucket []byte
+	appsBucket   []byte
+	logsBucket   []byte
+	extrasBucket []byte
+	callsBucket  []byte
 	db           *bolt.DB
 	log          logrus.FieldLogger
 }
@@ -69,11 +69,11 @@ func New(url *url.URL) (models.Datastore, error) {
 	}
 
 	ds := &BoltDatastore{
-		routesBucket:   routesBucketName,
-		appsBucket:     appsBucketName,
-		logsBucket:     logsBucketName,
-		extrasBucket:   extrasBucketName,
-		callsBucket:    callsBucketName,
+		routesBucket: routesBucketName,
+		appsBucket:   appsBucketName,
+		logsBucket:   logsBucketName,
+		extrasBucket: extrasBucketName,
+		callsBucket:  callsBucketName,
 		db:           db,
 		log:          log,
 	}
@@ -81,7 +81,6 @@ func New(url *url.URL) (models.Datastore, error) {
 
 	return datastoreutil.NewValidator(ds), nil
 }
-
 
 func (ds *BoltDatastore) InsertTask(ctx context.Context, task *models.Task) error {
 	var fnCall *models.FnCall
@@ -126,7 +125,6 @@ func (ds *BoltDatastore) GetTasks(ctx context.Context, filter *models.CallFilter
 	return res, err
 }
 
-
 func (ds *BoltDatastore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
 	var res *models.FnCall
 	err := ds.db.View(func(tx *bolt.Tx) error {
@@ -146,7 +144,6 @@ func (ds *BoltDatastore) GetTask(ctx context.Context, callID string) (*models.Fn
 	})
 	return res, err
 }
-
 
 func (ds *BoltDatastore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	appname := []byte(app.Name)

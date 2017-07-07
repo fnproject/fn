@@ -13,16 +13,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 var tmpDatastoreBolt = "/tmp/func_test_bolt_datastore.db"
 var tmpLogBolt = "/tmp/func_test_bolt_log.db"
-
 
 func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, rnr *runner.Runner) *Server {
 	ctx := context.Background()
@@ -94,7 +93,7 @@ func prepareBolt(ctx context.Context, t *testing.T) (models.Datastore, models.Fn
 	if err != nil {
 		t.Fatalf("Error when creating log store: %s", err)
 	}
-	return ds,logDB, func() {
+	return ds, logDB, func() {
 		os.Remove(tmpDatastoreBolt)
 		os.Remove(tmpLogBolt)
 	}

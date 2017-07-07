@@ -1,27 +1,26 @@
 package tests
 
 import (
-	"io"
-	"encoding/json"
 	"bytes"
-	"testing"
-	"time"
+	"encoding/json"
+	"io"
 	"net/url"
 	"path"
 	"strings"
+	"testing"
+	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 	"github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/client/operations"
+	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
-
 
 type ErrMsg struct {
 	Message string `json:"message"`
 }
 
-type TimeoutBody struct{
-	Error ErrMsg `json:"error"`
+type TimeoutBody struct {
+	Error  ErrMsg `json:"error"`
 	CallID string `json:"request_id"`
 }
 
@@ -50,7 +49,6 @@ func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	t.Logf("Async execution call ID: %v", callID.CallID)
 	return callID.CallID
 }
-
 
 func TestRouteExecutions(t *testing.T) {
 	s := SetupDefaultSuite()
@@ -114,7 +112,7 @@ func TestRouteExecutions(t *testing.T) {
 		callID := CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 2)
 		cfg := &call.GetCallsCallParams{
-			Call: callID,
+			Call:    callID,
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
@@ -144,7 +142,6 @@ func TestRouteExecutions(t *testing.T) {
 	})
 
 	DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
-
 
 	routePath := "/timeout"
 	image := "funcy/timeout:0.0.1"
@@ -176,7 +173,7 @@ func TestRouteExecutions(t *testing.T) {
 		json.NewDecoder(output).Decode(tB)
 
 		cfg := &call.GetCallsCallParams{
-			Call: tB.CallID,
+			Call:    tB.CallID,
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
@@ -210,7 +207,7 @@ func TestRouteExecutions(t *testing.T) {
 		time.Sleep(5 * time.Second)
 
 		cfg := &operations.GetCallsCallLogParams{
-			Call: callID,
+			Call:    callID,
 			Context: s.Context,
 		}
 
@@ -222,11 +219,11 @@ func TestRouteExecutions(t *testing.T) {
 			t.Fatalf("Log entry must not be empty!")
 		}
 		if !strings.Contains(logObj.Payload.Log.Log, "First line") {
-			t.Fatalf("Log entry must contain `First line` " +
+			t.Fatalf("Log entry must contain `First line` "+
 				"string, but got: %v", logObj.Payload.Log.Log)
 		}
 		if !strings.Contains(logObj.Payload.Log.Log, "Second line") {
-			t.Fatalf("Log entry must contain `Second line` " +
+			t.Fatalf("Log entry must contain `Second line` "+
 				"string, but got: %v", logObj.Payload.Log.Log)
 		}
 	})
@@ -254,7 +251,7 @@ func TestRouteExecutions(t *testing.T) {
 		time.Sleep(5 * time.Second)
 
 		cfg := &operations.GetCallsCallLogParams{
-			Call: callID,
+			Call:    callID,
 			Context: s.Context,
 		}
 
@@ -283,7 +280,7 @@ func TestRouteExecutions(t *testing.T) {
 		time.Sleep(5 * time.Second)
 
 		cfg := &operations.GetCallsCallLogParams{
-			Call: callID,
+			Call:    callID,
 			Context: s.Context,
 		}
 
@@ -293,7 +290,7 @@ func TestRouteExecutions(t *testing.T) {
 		}
 		if len(logObj.Payload.Log.Log) >= size {
 			t.Fatalf("Log entry suppose to be truncated up to expected size %v, got %v",
-				size / 1024, len(logObj.Payload.Log.Log))
+				size/1024, len(logObj.Payload.Log.Log))
 		}
 	})
 

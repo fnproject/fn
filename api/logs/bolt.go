@@ -14,14 +14,12 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
-
 type BoltLogDatastore struct {
 	callLogsBucket []byte
-	db           *bolt.DB
-	log          logrus.FieldLogger
-	datastore    models.Datastore
+	db             *bolt.DB
+	log            logrus.FieldLogger
+	datastore      models.Datastore
 }
-
 
 func NewBolt(url *url.URL) (models.FnLog, error) {
 	dir := filepath.Dir(url.Path)
@@ -60,8 +58,8 @@ func NewBolt(url *url.URL) (models.FnLog, error) {
 
 	fnl := &BoltLogDatastore{
 		callLogsBucket: callLogsBucketName,
-		db:           db,
-		log:          log,
+		db:             db,
+		log:            log,
 	}
 	log.WithFields(logrus.Fields{"prefix": bucketPrefix, "file": url.Path}).Debug("BoltDB initialized")
 
@@ -71,7 +69,7 @@ func NewBolt(url *url.URL) (models.FnLog, error) {
 func (fnl *BoltLogDatastore) InsertLog(ctx context.Context, callID string, callLog string) error {
 	log := &models.FnCallLog{
 		CallID: callID,
-		Log: callLog,
+		Log:    callLog,
 	}
 	id := []byte(callID)
 	err := fnl.db.Update(

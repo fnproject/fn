@@ -1,30 +1,30 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
-	"time"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
+	"time"
 )
 
 type execution struct {
 	DurationSeconds float64
-	Hostname string
-	node string
-	body string
+	Hostname        string
+	node            string
+	body            string
 	responseSeconds float64
 }
 
 var (
-	lbHostPort, nodesStr, route string
+	lbHostPort, nodesStr, route       string
 	numExecutions, maxPrime, numLoops int
-	nodes []string
-	nodesByContainerId map[string]string = make(map[string]string)
-	verbose bool
+	nodes                             []string
+	nodesByContainerId                map[string]string = make(map[string]string)
+	verbose                           bool
 )
 
 func init() {
@@ -124,4 +124,3 @@ func main() {
 	discoverContainerIds()
 	invokeLoadBalancer(lbHostPort, route, numExecutions, maxPrime, numLoops)
 }
-

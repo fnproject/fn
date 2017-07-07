@@ -29,7 +29,7 @@ func main() {
 		log.Fatal(errors.Wrap(err, "failed to read stdin"))
 	}
 
-	db, err := sql.Open("postgres", "postgres://postgres@" + server + "?sslmode=disable")
+	db, err := sql.Open("postgres", "postgres://postgres@"+server+"?sslmode=disable")
 	if err != nil {
 		log.Println("Failed to connect to postgres server")
 		log.Fatal(err)
@@ -96,7 +96,7 @@ func selectCommand(req []byte, db *sql.DB) (string, error) {
 func insertCommand(req []byte, db *sql.DB) error {
 	q := "INSERT INTO " + table + " SELECT * FROM json_populate_record(null::" + table + ", $1)"
 	_, err := db.Exec(q, req)
-	if  err != nil {
+	if err != nil {
 		return errors.Wrap(err, "Failed to execute insert query")
 	}
 	return nil

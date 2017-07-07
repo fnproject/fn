@@ -53,7 +53,6 @@ const callsTableCreate = `CREATE TABLE IF NOT EXISTS calls (
 
 const callSelector = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
 
-
 type PostgresDatastore struct {
 	db *sql.DB
 }

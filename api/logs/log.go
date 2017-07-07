@@ -2,9 +2,9 @@ package logs
 
 import (
 	"fmt"
-	"net/url"
 	"github.com/Sirupsen/logrus"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"net/url"
 )
 
 func New(dbURL string) (models.FnLog, error) {
