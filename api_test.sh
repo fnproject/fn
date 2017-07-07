@@ -14,7 +14,7 @@ case "$1" in
     docker rm -fv func-mysql-test || echo No prev mysql test db container
     docker rm -fv func-server || echo No prev func-server container
 
-    docker run --name func-mysql-test -p 3307:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
+    docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
     sleep 8
     export MYSQL_HOST="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-mysql-test)"
     export MYSQL_PORT=3306
