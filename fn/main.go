@@ -12,13 +12,13 @@ import (
 )
 
 var aliases = map[string]cli.Command{
-	"build":   build(),
-	"bump":    bump(),
-	"deploy":  deploy(),
-	"push":    push(),
-	"run":     run(),
-	"call":    call(),
-	"calls":   calls(),
+	"build":  build(),
+	"bump":   bump(),
+	"deploy": deploy(),
+	"push":   push(),
+	"run":    run(),
+	"call":   call(),
+	"calls":  calls(),
 }
 
 func aliasesFn() []cli.Command {

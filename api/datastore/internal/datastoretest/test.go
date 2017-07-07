@@ -28,7 +28,6 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-
 func Test(t *testing.T, ds models.Datastore) {
 	buf := setLogBuffer()
 

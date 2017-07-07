@@ -1,10 +1,10 @@
 package main
 
 import (
+	"gitlab-odx.oracle.com/odx/functions/fn/client"
 	"net/http"
 	"os"
 	"testing"
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 func TestEnvAsHeader(t *testing.T) {

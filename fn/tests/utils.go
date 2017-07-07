@@ -3,44 +3,42 @@ package tests
 import (
 	"context"
 	"strings"
-	"time"
 	"testing"
+	"time"
 
 	fn "github.com/funcy/functions_go/client"
-	"github.com/funcy/functions_go/models"
 	"github.com/funcy/functions_go/client/apps"
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 	"github.com/funcy/functions_go/client/routes"
+	"github.com/funcy/functions_go/models"
+	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 type SuiteSetup struct {
-	Context context.Context
-	Client *fn.Functions
-	AppName string
-	RoutePath string
-	Image string
-	RouteType string
-	Format string
-	Memory int64
-	RouteConfig map[string]string
+	Context      context.Context
+	Client       *fn.Functions
+	AppName      string
+	RoutePath    string
+	Image        string
+	RouteType    string
+	Format       string
+	Memory       int64
+	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
 }
 
 func SetupDefaultSuite() *SuiteSetup {
 	return &SuiteSetup{
-		Context: context.Background(),
-		Client: client.APIClient(),
-		AppName: "test-app",
-		RoutePath: "/hello",
-		Image: "funcy/hello",
-		Format: "default",
-		RouteType: "async",
-		RouteConfig: map[string]string{},
+		Context:      context.Background(),
+		Client:       client.APIClient(),
+		AppName:      "test-app",
+		RoutePath:    "/hello",
+		Image:        "funcy/hello",
+		Format:       "default",
+		RouteType:    "async",
+		RouteConfig:  map[string]string{},
 		RouteHeaders: map[string][]string{},
 	}
 }
-
-
 
 func CheckAppResponseError(t *testing.T, err error) {
 	if err != nil {
@@ -93,12 +91,12 @@ func CheckAppResponseError(t *testing.T, err error) {
 
 }
 
-func CreateAppNoAssert(ctx context.Context, fnclient *fn.Functions, appName string, config map[string]string) (*apps.PostAppsOK, error){
+func CreateAppNoAssert(ctx context.Context, fnclient *fn.Functions, appName string, config map[string]string) (*apps.PostAppsOK, error) {
 	cfg := &apps.PostAppsParams{
 		Body: &models.AppWrapper{
 			App: &models.App{
 				Config: config,
-				Name: appName,
+				Name:   appName,
 			},
 		},
 		Context: ctx,
@@ -116,14 +114,14 @@ func CreateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appNam
 	}
 }
 
-func UpdateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions ,appName string, config map[string]string) *apps.PatchAppsAppOK {
+func UpdateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string, config map[string]string) *apps.PatchAppsAppOK {
 	CreateApp(t, ctx, fnclient, appName, map[string]string{"A": "a"})
 	cfg := &apps.PatchAppsAppParams{
 		App: appName,
 		Body: &models.AppWrapper{
 			App: &models.App{
 				Config: config,
-				Name: "",
+				Name:   "",
 			},
 		},
 		Context: ctx,
@@ -135,14 +133,13 @@ func UpdateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions ,appNam
 
 func DeleteApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string) {
 	cfg := &apps.DeleteAppsAppParams{
-		App: appName,
+		App:     appName,
 		Context: ctx,
 	}
 	cfg.WithTimeout(time.Second * 60)
 	_, err := fnclient.Apps.DeleteAppsApp(cfg)
 	CheckAppResponseError(t, err)
 }
-
 
 func CheckRouteResponseError(t *testing.T, err error) {
 	if err != nil {
@@ -256,11 +253,11 @@ func createRoute(ctx context.Context, fnclient *fn.Functions, appName, image, ro
 		App: appName,
 		Body: &models.RouteWrapper{
 			Route: &models.Route{
-				Config: routeConfig,
+				Config:  routeConfig,
 				Headers: headers,
-				Image: image,
-				Path: routePath,
-				Type: routeType,
+				Image:   image,
+				Path:    routePath,
+				Type:    routeType,
 			},
 		},
 		Context: ctx,
@@ -277,10 +274,10 @@ func CreateRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appN
 	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType)
 }
 
-func deleteRoute(ctx context.Context, fnclient *fn.Functions, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error){
+func deleteRoute(ctx context.Context, fnclient *fn.Functions, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
 	cfg := &routes.DeleteAppsAppRoutesRouteParams{
-		App: appName,
-		Route: routePath,
+		App:     appName,
+		Route:   routePath,
 		Context: ctx,
 	}
 	cfg.WithTimeout(time.Second * 60)
@@ -294,7 +291,7 @@ func DeleteRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appN
 
 func ListRoutes(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string) []*models.Route {
 	cfg := &routes.GetAppsAppRoutesParams{
-		App: appName,
+		App:     appName,
 		Context: ctx,
 	}
 	cfg.WithTimeout(time.Second * 60)
@@ -303,10 +300,10 @@ func ListRoutes(t *testing.T, ctx context.Context, fnclient *fn.Functions, appNa
 	return routesResponse.Payload.Routes
 }
 
-func GetRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath string) *models.Route{
+func GetRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath string) *models.Route {
 	cfg := &routes.GetAppsAppRoutesRouteParams{
-		App: appName,
-		Route: routePath,
+		App:     appName,
+		Route:   routePath,
 		Context: ctx,
 	}
 	cfg.WithTimeout(time.Second * 60)
@@ -315,7 +312,7 @@ func GetRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName
 	return routeResponse.Payload.Route
 }
 
-func UpdateRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath, image, routeType, format string, memory int64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error){
+func UpdateRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath, image, routeType, format string, memory int64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
 
 	routeObject := GetRoute(t, ctx, fnclient, appName, routePath)
 	if routeObject.Config == nil {
@@ -364,7 +361,7 @@ func UpdateRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appN
 	}
 
 	cfg := &routes.PatchAppsAppRoutesRouteParams{
-		App: appName,
+		App:     appName,
 		Context: ctx,
 		Body: &models.RouteWrapper{
 			Route: routeObject,

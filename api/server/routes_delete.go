@@ -19,7 +19,7 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 		handleErrorResponse(c, err)
 		return
 	}
-	
+
 	if err := s.Datastore.RemoveRoute(ctx, appName, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return

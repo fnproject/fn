@@ -27,7 +27,6 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	c.JSON(http.StatusOK, fnCallLogResponse{"Successfully loaded call", callObj})
 }
 
-
 func (s *Server) handleCallLogDelete(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
 

@@ -4,8 +4,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	apierrors "errors"
 	"encoding/json"
+	apierrors "errors"
 
 	strfmt "github.com/go-openapi/strfmt"
 
@@ -30,9 +30,9 @@ const (
 )
 
 var (
-	ErrCallNotFound     = apierrors.New("Call not found")
-	ErrCallLogNotFound  = apierrors.New("Call log not found")
-	ErrCallLogRemoving  = apierrors.New("Could not remove call log")
+	ErrCallNotFound    = apierrors.New("Call not found")
+	ErrCallLogNotFound = apierrors.New("Call log not found")
+	ErrCallLogRemoving = apierrors.New("Could not remove call log")
 )
 
 type FnCall struct {
@@ -46,9 +46,8 @@ type FnCall struct {
 
 type FnCallLog struct {
 	CallID string `json:"call_id"`
-	Log string `json:"log"`
+	Log    string `json:"log"`
 }
-
 
 func (fnCall *FnCall) FromTask(task *Task) *FnCall {
 	return &FnCall{

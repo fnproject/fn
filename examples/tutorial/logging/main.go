@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
-	"os"
+	"fmt"
 	"math/rand"
+	"os"
 )
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -12,7 +12,6 @@ const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 type OutputSize struct {
 	Size int `json:"size"`
 }
-
 
 func RandStringBytes(n int) string {
 	b := make([]byte, n)

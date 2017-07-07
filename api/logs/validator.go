@@ -7,7 +7,6 @@ import (
 )
 
 type FnLog interface {
-
 	InsertLog(ctx context.Context, callID string, callLog string) error
 	GetLog(ctx context.Context, callID string) (*models.FnCallLog, error)
 	DeleteLog(ctx context.Context, callID string) error
@@ -20,7 +19,6 @@ type validator struct {
 func NewValidator(fnl FnLog) models.FnLog {
 	return &validator{fnl}
 }
-
 
 func (v *validator) InsertLog(ctx context.Context, callID string, callLog string) error {
 	return v.fnl.InsertLog(ctx, callID, callLog)

@@ -1,16 +1,15 @@
 package testing
 
 import (
-	"testing"
-	"time"
 	"context"
 	"strings"
+	"testing"
+	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"github.com/go-openapi/strfmt"
 	"gitlab-odx.oracle.com/odx/functions/api/id"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
-
 
 var testApp = &models.App{
 	Name: "Test",
@@ -63,7 +62,7 @@ func Test(t *testing.T, fnl models.FnLog, ds models.Datastore) {
 		}
 		logEntry, err := fnl.GetLog(ctx, task.ID)
 		if !strings.Contains(logEntry.Log, logText) {
-			t.Fatalf("Test GetLog(ctx, task.ID, logText): unexpected error, log mismatch. " +
+			t.Fatalf("Test GetLog(ctx, task.ID, logText): unexpected error, log mismatch. "+
 				"Expected: `%v`. Got `%v`.", logText, logEntry.Log)
 		}
 	})
@@ -80,7 +79,7 @@ func Test(t *testing.T, fnl models.FnLog, ds models.Datastore) {
 		}
 		logEntry, err := fnl.GetLog(ctx, task.ID)
 		if !strings.Contains(logEntry.Log, logText) {
-			t.Fatalf("Test GetLog(ctx, task.ID, logText): unexpected error, log mismatch. " +
+			t.Fatalf("Test GetLog(ctx, task.ID, logText): unexpected error, log mismatch. "+
 				"Expected: `%v`. Got `%v`.", logText, logEntry.Log)
 		}
 		err = fnl.DeleteLog(ctx, task.ID)

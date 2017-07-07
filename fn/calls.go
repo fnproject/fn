@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	fnclient "github.com/funcy/functions_go/client"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 	apicall "github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
+	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 type callsCmd struct {

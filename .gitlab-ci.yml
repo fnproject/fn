@@ -52,6 +52,11 @@ build_job_fn:
   - cd fn
   - go build -o fn-alpine
 
+formatting:
+  stage: build
+  script:
+  - ./go-fmt.sh
+
 test_job:
   stage: test
   script:

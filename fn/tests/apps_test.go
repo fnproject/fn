@@ -1,14 +1,13 @@
 package tests
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 	"time"
-	"strings"
-	"reflect"
 
 	"github.com/funcy/functions_go/client/apps"
 )
-
 
 func TestApps(t *testing.T) {
 	s := SetupDefaultSuite()
@@ -50,14 +49,14 @@ func TestApps(t *testing.T) {
 	})
 
 	t.Run("create-app-with-config-test", func(t *testing.T) {
-		CreateApp(t,  s.Context, s.Client, s.AppName, map[string]string{"A": "a"})
+		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{"A": "a"})
 		t.Logf("Test `%v` passed.", t.Name())
 	})
 
 	t.Run("inspect-app-with-config-test", func(t *testing.T) {
 		cfg := &apps.GetAppsAppParams{
 			Context: s.Context,
-			App: s.AppName,
+			App:     s.AppName,
 		}
 		appPayload, err := s.Client.Apps.GetAppsApp(cfg)
 		CheckAppResponseError(t, err)
@@ -73,7 +72,7 @@ func TestApps(t *testing.T) {
 		t.Logf("Test `%v` passed.", t.Name())
 	})
 
-	t.Run("patch-override-app-config", func(t *testing.T){
+	t.Run("patch-override-app-config", func(t *testing.T) {
 		config := map[string]string{
 			"A": "b",
 		}

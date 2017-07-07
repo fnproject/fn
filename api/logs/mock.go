@@ -2,13 +2,13 @@ package logs
 
 import (
 	"context"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"github.com/pkg/errors"
+	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 type mock struct {
 	Logs map[string]*models.FnCallLog
-	ds models.Datastore
+	ds   models.Datastore
 }
 
 func NewMock() models.FnLog {
@@ -28,7 +28,7 @@ func (m *mock) SetDatastore(ctx context.Context, ds models.Datastore) {
 }
 
 func (m *mock) InsertLog(ctx context.Context, callID string, callLog string) error {
-	m.Logs[callID] = &models.FnCallLog{CallID: callID, Log:callLog}
+	m.Logs[callID] = &models.FnCallLog{CallID: callID, Log: callLog}
 	return nil
 }
 

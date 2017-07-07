@@ -10,9 +10,9 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
+	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -36,16 +36,16 @@ func TestAppCreate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "" } }`, http.StatusInternalServerError, models.ErrAppsValidationMissingName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusInternalServerError, models.ErrAppsValidationTooLongName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
 
 		// success
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
@@ -84,12 +84,12 @@ func TestAppDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/myapp", "", http.StatusNotFound, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/myapp", "", http.StatusNotFound, nil},
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
 			}}, nil, nil, nil,
-		), logs.NewMock(),"/v1/apps/myapp", "", http.StatusOK, nil},
+		), logs.NewMock(), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
@@ -201,21 +201,21 @@ func TestAppUpdate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(),"/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// success
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
 			}}, nil, nil, nil,
-		), logs.NewMock(),"/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
 		// Addresses #380
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
 			}}, nil, nil, nil,
-		), logs.NewMock(),"/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
+		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusBadRequest, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)

@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 func main() {
 	fmt.Fprintln(os.Stderr, "First line")
 	fmt.Fprintln(os.Stdout, "Ok")

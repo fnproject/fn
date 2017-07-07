@@ -35,7 +35,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 		return
 	}
 
-	filter := models.CallFilter{AppName:appName, Path:appRoute}
+	filter := models.CallFilter{AppName: appName, Path: appRoute}
 
 	calls, err := s.Datastore.GetTasks(ctx, &filter)
 	if err != nil {

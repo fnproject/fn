@@ -21,7 +21,6 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-
 func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
 	if method == "" {
 		if content == nil {
