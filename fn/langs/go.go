@@ -18,20 +18,20 @@ func (h *GoLangHelper) DockerfileBuildCmds() []string {
 	// For now we assume that dependencies are vendored already, but we could vendor them
 	// inside the container. Maybe we should check for /vendor dir and if it doesn't exist,
 	// either run `dep init` if no Gopkg.toml/lock found or `dep ensure` if it's there.
-	r = append(r, "ADD . /src")
+	r = append(r, "ADD . /go/src/func/")
 	// if exists("Gopkg.toml") {
 	// r = append(r,
 	// 	"RUN go get -u github.com/golang/dep/cmd/dep",
 	// 	"RUN cd /src && dep ensure",
 	// )
 	// }
-	r = append(r, "RUN cd /src && go build -o func")
+	r = append(r, "RUN cd /go/src/func/ && go build -o func")
 	return r
 }
 
 func (h *GoLangHelper) DockerfileCopyCmds() []string {
 	return []string{
-		"COPY --from=build-stage /src/func /function/",
+		"COPY --from=build-stage /go/src/func/func /function/",
 	}
 }
 
