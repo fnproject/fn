@@ -98,6 +98,14 @@ func (n *networkRouter) getNetwork(ctx context.Context, w http.ResponseWriter, r
 			return errors.NewBadRequestError(err)
 		}
 	}
+	scope := r.URL.Query().Get("scope")
+
+	isMatchingScope := func(scope, term string) bool {
+		if term != "" {
+			return scope == term
+		}
+		return true
+	}
 
 	// In case multiple networks have duplicate names, return error.
 	// TODO (yongtang): should we wrap with version here for backward compatibility?
@@ -112,15 +120,15 @@ func (n *networkRouter) getNetwork(ctx context.Context, w http.ResponseWriter, r
 
 	nw := n.backend.GetNetworks()
 	for _, network := range nw {
-		if network.ID() == term {
+		if network.ID() == term && isMatchingScope(network.Info().Scope(), scope) {
 			return httputils.WriteJSON(w, http.StatusOK, *n.buildDetailedNetworkResources(network, verbose))
 		}
-		if network.Name() == term {
+		if network.Name() == term && isMatchingScope(network.Info().Scope(), scope) {
 			// No need to check the ID collision here as we are still in
 			// local scope and the network ID is unique in this scope.
 			listByFullName[network.ID()] = *n.buildDetailedNetworkResources(network, verbose)
 		}
-		if strings.HasPrefix(network.ID(), term) {
+		if strings.HasPrefix(network.ID(), term) && isMatchingScope(network.Info().Scope(), scope) {
 			// No need to check the ID collision here as we are still in
 			// local scope and the network ID is unique in this scope.
 			listByPartialID[network.ID()] = *n.buildDetailedNetworkResources(network, verbose)
@@ -129,10 +137,10 @@ func (n *networkRouter) getNetwork(ctx context.Context, w http.ResponseWriter, r
 
 	nr, _ := n.cluster.GetNetworks()
 	for _, network := range nr {
-		if network.ID == term {
+		if network.ID == term && isMatchingScope(network.Scope, scope) {
 			return httputils.WriteJSON(w, http.StatusOK, network)
 		}
-		if network.Name == term {
+		if network.Name == term && isMatchingScope(network.Scope, scope) {
 			// Check the ID collision as we are in swarm scope here, and
 			// the map (of the listByFullName) may have already had a
 			// network with the same ID (from local scope previously)
@@ -140,7 +148,7 @@ func (n *networkRouter) getNetwork(ctx context.Context, w http.ResponseWriter, r
 				listByFullName[network.ID] = network
 			}
 		}
-		if strings.HasPrefix(network.ID, term) {
+		if strings.HasPrefix(network.ID, term) && isMatchingScope(network.Scope, scope) {
 			// Check the ID collision as we are in swarm scope here, and
 			// the map (of the listByPartialID) may have already had a
 			// network with the same ID (from local scope previously)
@@ -283,13 +291,6 @@ func (n *networkRouter) buildNetworkResource(nw libnetwork.Network) *types.Netwo
 	r.ID = nw.ID()
 	r.Created = info.Created()
 	r.Scope = info.Scope()
-	if n.cluster.IsManager() {
-		if _, err := n.cluster.GetNetwork(nw.ID()); err == nil {
-			r.Scope = "swarm"
-		}
-	} else if info.Dynamic() {
-		r.Scope = "swarm"
-	}
 	r.Driver = nw.Type()
 	r.EnableIPv6 = info.IPv6Enabled()
 	r.Internal = info.Internal()
@@ -299,6 +300,11 @@ func (n *networkRouter) buildNetworkResource(nw libnetwork.Network) *types.Netwo
 	r.Containers = make(map[string]types.EndpointResource)
 	buildIpamResources(r, info)
 	r.Labels = info.Labels()
+	r.ConfigOnly = info.ConfigOnly()
+
+	if cn := info.ConfigFrom(); cn != "" {
+		r.ConfigFrom = network.ConfigReference{Network: cn}
+	}
 
 	peers := info.Peers()
 	if len(peers) != 0 {
@@ -412,6 +418,9 @@ func buildIpamResources(r *types.NetworkResource, nwInfo libnetwork.NetworkInfo)
 
 	if !hasIpv6Conf {
 		for _, ip6Info := range ipv6Info {
+			if ip6Info.IPAMData.Pool == nil {
+				continue
+			}
 			iData := network.IPAMConfig{}
 			iData.Subnet = ip6Info.IPAMData.Pool.String()
 			iData.Gateway = ip6Info.IPAMData.Gateway.String()
@@ -455,7 +464,7 @@ func (n *networkRouter) postNetworksPrune(ctx context.Context, w http.ResponseWr
 		return err
 	}
 
-	pruneReport, err := n.backend.NetworksPrune(pruneFilters)
+	pruneReport, err := n.backend.NetworksPrune(ctx, pruneFilters)
 	if err != nil {
 		return err
 	}

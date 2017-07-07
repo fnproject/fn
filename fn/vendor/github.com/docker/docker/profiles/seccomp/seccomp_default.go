@@ -49,6 +49,7 @@ func DefaultProfile() *types.Seccomp {
 				"accept",
 				"accept4",
 				"access",
+				"adjtimex",
 				"alarm",
 				"alarm",
 				"bind",
@@ -308,6 +309,8 @@ func DefaultProfile() *types.Seccomp {
 				"signalfd",
 				"signalfd4",
 				"sigreturn",
+				"socket",
+				"socketcall",
 				"socketpair",
 				"splice",
 				"stat",
@@ -383,154 +386,29 @@ func DefaultProfile() *types.Seccomp {
 			Args: []*types.Arg{
 				{
 					Index: 0,
+					Value: 0x20000,
+					Op:    types.OpEqualTo,
+				},
+			},
+		},
+		{
+			Names:  []string{"personality"},
+			Action: types.ActAllow,
+			Args: []*types.Arg{
+				{
+					Index: 0,
+					Value: 0x20008,
+					Op:    types.OpEqualTo,
+				},
+			},
+		},
+		{
+			Names:  []string{"personality"},
+			Action: types.ActAllow,
+			Args: []*types.Arg{
+				{
+					Index: 0,
 					Value: 0xffffffff,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socket"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: syscall.AF_UNIX,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socket"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: syscall.AF_INET,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socket"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: syscall.AF_INET6,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socket"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: syscall.AF_NETLINK,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socket"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: syscall.AF_PACKET,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		// socketcall(1, ...) is equivalent to socket(...) on some architectures eg i386
-		{
-			Names:  []string{"socketcall"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: 1,
-					Op:    types.OpGreaterThan,
-				},
-			},
-		},
-		{
-			Names:  []string{"socketcall"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: 1,
-					Op:    types.OpEqualTo,
-				},
-				{
-					Index: 1,
-					Value: syscall.AF_UNIX,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socketcall"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: 1,
-					Op:    types.OpEqualTo,
-				},
-				{
-					Index: 1,
-					Value: syscall.AF_INET,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socketcall"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: 1,
-					Op:    types.OpEqualTo,
-				},
-				{
-					Index: 1,
-					Value: syscall.AF_INET6,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socketcall"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: 1,
-					Op:    types.OpEqualTo,
-				},
-				{
-					Index: 1,
-					Value: syscall.AF_NETLINK,
-					Op:    types.OpEqualTo,
-				},
-			},
-		},
-		{
-			Names:  []string{"socketcall"},
-			Action: types.ActAllow,
-			Args: []*types.Arg{
-				{
-					Index: 0,
-					Value: 1,
-					Op:    types.OpEqualTo,
-				},
-				{
-					Index: 1,
-					Value: syscall.AF_PACKET,
 					Op:    types.OpEqualTo,
 				},
 			},
@@ -734,7 +612,6 @@ func DefaultProfile() *types.Seccomp {
 			Names: []string{
 				"settimeofday",
 				"stime",
-				"adjtimex",
 				"clock_settime",
 			},
 			Action: types.ActAllow,

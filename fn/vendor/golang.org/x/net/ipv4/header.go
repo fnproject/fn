@@ -1,15 +1,17 @@
-// Copyright 2012 The Go Authors.  All rights reserved.
+// Copyright 2012 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package ipv4
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"runtime"
 	"syscall"
-	"unsafe"
+
+	"golang.org/x/net/internal/socket"
 )
 
 const (
@@ -49,7 +51,7 @@ func (h *Header) String() string {
 	return fmt.Sprintf("ver=%d hdrlen=%d tos=%#x totallen=%d id=%#x flags=%#x fragoff=%#x ttl=%d proto=%d cksum=%#x src=%v dst=%v", h.Version, h.Len, h.TOS, h.TotalLen, h.ID, h.Flags, h.FragOff, h.TTL, h.Protocol, h.Checksum, h.Src, h.Dst)
 }
 
-// Marshal returns the binary encoding of the IPv4 header h.
+// Marshal returns the binary encoding of h.
 func (h *Header) Marshal() ([]byte, error) {
 	if h == nil {
 		return nil, syscall.EINVAL
@@ -63,18 +65,25 @@ func (h *Header) Marshal() ([]byte, error) {
 	b[1] = byte(h.TOS)
 	flagsAndFragOff := (h.FragOff & 0x1fff) | int(h.Flags<<13)
 	switch runtime.GOOS {
-	case "darwin", "dragonfly", "freebsd", "netbsd":
-		// TODO(mikio): fix potential misaligned memory access
-		*(*uint16)(unsafe.Pointer(&b[2:3][0])) = uint16(h.TotalLen)
-		*(*uint16)(unsafe.Pointer(&b[6:7][0])) = uint16(flagsAndFragOff)
+	case "darwin", "dragonfly", "netbsd":
+		socket.NativeEndian.PutUint16(b[2:4], uint16(h.TotalLen))
+		socket.NativeEndian.PutUint16(b[6:8], uint16(flagsAndFragOff))
+	case "freebsd":
+		if freebsdVersion < 1100000 {
+			socket.NativeEndian.PutUint16(b[2:4], uint16(h.TotalLen))
+			socket.NativeEndian.PutUint16(b[6:8], uint16(flagsAndFragOff))
+		} else {
+			binary.BigEndian.PutUint16(b[2:4], uint16(h.TotalLen))
+			binary.BigEndian.PutUint16(b[6:8], uint16(flagsAndFragOff))
+		}
 	default:
-		b[2], b[3] = byte(h.TotalLen>>8), byte(h.TotalLen)
-		b[6], b[7] = byte(flagsAndFragOff>>8), byte(flagsAndFragOff)
+		binary.BigEndian.PutUint16(b[2:4], uint16(h.TotalLen))
+		binary.BigEndian.PutUint16(b[6:8], uint16(flagsAndFragOff))
 	}
-	b[4], b[5] = byte(h.ID>>8), byte(h.ID)
+	binary.BigEndian.PutUint16(b[4:6], uint16(h.ID))
 	b[8] = byte(h.TTL)
 	b[9] = byte(h.Protocol)
-	b[10], b[11] = byte(h.Checksum>>8), byte(h.Checksum)
+	binary.BigEndian.PutUint16(b[10:12], uint16(h.Checksum))
 	if ip := h.Src.To4(); ip != nil {
 		copy(b[12:16], ip[:net.IPv4len])
 	}
@@ -89,52 +98,62 @@ func (h *Header) Marshal() ([]byte, error) {
 	return b, nil
 }
 
-// See http://www.freebsd.org/doc/en/books/porters-handbook/freebsd-versions.html.
-var freebsdVersion uint32
-
-// ParseHeader parses b as an IPv4 header.
-func ParseHeader(b []byte) (*Header, error) {
-	if len(b) < HeaderLen {
-		return nil, errHeaderTooShort
+// Parse parses b as an IPv4 header and sotres the result in h.
+func (h *Header) Parse(b []byte) error {
+	if h == nil || len(b) < HeaderLen {
+		return errHeaderTooShort
 	}
 	hdrlen := int(b[0]&0x0f) << 2
 	if hdrlen > len(b) {
-		return nil, errBufferTooShort
+		return errBufferTooShort
 	}
-	h := &Header{
-		Version:  int(b[0] >> 4),
-		Len:      hdrlen,
-		TOS:      int(b[1]),
-		ID:       int(b[4])<<8 | int(b[5]),
-		TTL:      int(b[8]),
-		Protocol: int(b[9]),
-		Checksum: int(b[10])<<8 | int(b[11]),
-		Src:      net.IPv4(b[12], b[13], b[14], b[15]),
-		Dst:      net.IPv4(b[16], b[17], b[18], b[19]),
-	}
+	h.Version = int(b[0] >> 4)
+	h.Len = hdrlen
+	h.TOS = int(b[1])
+	h.ID = int(binary.BigEndian.Uint16(b[4:6]))
+	h.TTL = int(b[8])
+	h.Protocol = int(b[9])
+	h.Checksum = int(binary.BigEndian.Uint16(b[10:12]))
+	h.Src = net.IPv4(b[12], b[13], b[14], b[15])
+	h.Dst = net.IPv4(b[16], b[17], b[18], b[19])
 	switch runtime.GOOS {
 	case "darwin", "dragonfly", "netbsd":
-		// TODO(mikio): fix potential misaligned memory access
-		h.TotalLen = int(*(*uint16)(unsafe.Pointer(&b[2:3][0]))) + hdrlen
-		// TODO(mikio): fix potential misaligned memory access
-		h.FragOff = int(*(*uint16)(unsafe.Pointer(&b[6:7][0])))
+		h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4])) + hdrlen
+		h.FragOff = int(socket.NativeEndian.Uint16(b[6:8]))
 	case "freebsd":
-		// TODO(mikio): fix potential misaligned memory access
-		h.TotalLen = int(*(*uint16)(unsafe.Pointer(&b[2:3][0])))
-		if freebsdVersion < 1000000 {
-			h.TotalLen += hdrlen
+		if freebsdVersion < 1100000 {
+			h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4]))
+			if freebsdVersion < 1000000 {
+				h.TotalLen += hdrlen
+			}
+			h.FragOff = int(socket.NativeEndian.Uint16(b[6:8]))
+		} else {
+			h.TotalLen = int(binary.BigEndian.Uint16(b[2:4]))
+			h.FragOff = int(binary.BigEndian.Uint16(b[6:8]))
 		}
-		// TODO(mikio): fix potential misaligned memory access
-		h.FragOff = int(*(*uint16)(unsafe.Pointer(&b[6:7][0])))
 	default:
-		h.TotalLen = int(b[2])<<8 | int(b[3])
-		h.FragOff = int(b[6])<<8 | int(b[7])
+		h.TotalLen = int(binary.BigEndian.Uint16(b[2:4]))
+		h.FragOff = int(binary.BigEndian.Uint16(b[6:8]))
 	}
 	h.Flags = HeaderFlags(h.FragOff&0xe000) >> 13
 	h.FragOff = h.FragOff & 0x1fff
-	if hdrlen-HeaderLen > 0 {
-		h.Options = make([]byte, hdrlen-HeaderLen)
-		copy(h.Options, b[HeaderLen:])
+	optlen := hdrlen - HeaderLen
+	if optlen > 0 && len(b) >= hdrlen {
+		if cap(h.Options) < optlen {
+			h.Options = make([]byte, optlen)
+		} else {
+			h.Options = h.Options[:optlen]
+		}
+		copy(h.Options, b[HeaderLen:hdrlen])
+	}
+	return nil
+}
+
+// ParseHeader parses b as an IPv4 header.
+func ParseHeader(b []byte) (*Header, error) {
+	h := new(Header)
+	if err := h.Parse(b); err != nil {
+		return nil, err
 	}
 	return h, nil
 }

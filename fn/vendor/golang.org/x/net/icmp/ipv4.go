@@ -5,13 +5,15 @@
 package icmp
 
 import (
+	"encoding/binary"
 	"net"
 	"runtime"
-	"unsafe"
 
+	"golang.org/x/net/internal/socket"
 	"golang.org/x/net/ipv4"
 )
 
+// freebsdVersion is set in sys_freebsd.go.
 // See http://www.freebsd.org/doc/en/books/porters-handbook/freebsd-versions.html.
 var freebsdVersion uint32
 
@@ -29,27 +31,25 @@ func ParseIPv4Header(b []byte) (*ipv4.Header, error) {
 		Version:  int(b[0] >> 4),
 		Len:      hdrlen,
 		TOS:      int(b[1]),
-		ID:       int(b[4])<<8 | int(b[5]),
-		FragOff:  int(b[6])<<8 | int(b[7]),
+		ID:       int(binary.BigEndian.Uint16(b[4:6])),
+		FragOff:  int(binary.BigEndian.Uint16(b[6:8])),
 		TTL:      int(b[8]),
 		Protocol: int(b[9]),
-		Checksum: int(b[10])<<8 | int(b[11]),
+		Checksum: int(binary.BigEndian.Uint16(b[10:12])),
 		Src:      net.IPv4(b[12], b[13], b[14], b[15]),
 		Dst:      net.IPv4(b[16], b[17], b[18], b[19]),
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		// TODO(mikio): fix potential misaligned memory access
-		h.TotalLen = int(*(*uint16)(unsafe.Pointer(&b[2:3][0])))
+		h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4]))
 	case "freebsd":
 		if freebsdVersion >= 1000000 {
-			h.TotalLen = int(b[2])<<8 | int(b[3])
+			h.TotalLen = int(binary.BigEndian.Uint16(b[2:4]))
 		} else {
-			// TODO(mikio): fix potential misaligned memory access
-			h.TotalLen = int(*(*uint16)(unsafe.Pointer(&b[2:3][0])))
+			h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4]))
 		}
 	default:
-		h.TotalLen = int(b[2])<<8 | int(b[3])
+		h.TotalLen = int(binary.BigEndian.Uint16(b[2:4]))
 	}
 	h.Flags = ipv4.HeaderFlags(h.FragOff&0xe000) >> 13
 	h.FragOff = h.FragOff & 0x1fff

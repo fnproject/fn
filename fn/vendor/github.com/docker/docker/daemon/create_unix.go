@@ -12,7 +12,7 @@ import (
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // createContainerPlatformSpecificSettings performs platform specific container create functionality
@@ -22,8 +22,8 @@ func (daemon *Daemon) createContainerPlatformSpecificSettings(container *contain
 	}
 	defer daemon.Unmount(container)
 
-	rootUID, rootGID := daemon.GetRemappedUIDGID()
-	if err := container.SetupWorkingDirectory(rootUID, rootGID); err != nil {
+	rootIDs := daemon.idMappings.RootPair()
+	if err := container.SetupWorkingDirectory(rootIDs); err != nil {
 		return err
 	}
 

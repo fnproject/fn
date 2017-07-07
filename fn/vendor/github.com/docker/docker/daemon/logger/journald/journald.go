@@ -18,12 +18,13 @@ import (
 const name = "journald"
 
 type journald struct {
+	mu      sync.Mutex
 	vars    map[string]string // additional variables and values to send to the journal along with the log message
 	readers readerList
+	closed  bool
 }
 
 type readerList struct {
-	mu      sync.Mutex
 	readers map[*logger.LogWatcher]*logger.LogWatcher
 }
 
@@ -111,9 +112,10 @@ func (s *journald) Log(msg *logger.Message) error {
 	}
 
 	line := string(msg.Line)
+	source := msg.Source
 	logger.PutMessage(msg)
 
-	if msg.Source == "stderr" {
+	if source == "stderr" {
 		return journal.Send(line, journal.PriErr, vars)
 	}
 	return journal.Send(line, journal.PriInfo, vars)

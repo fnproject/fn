@@ -5,8 +5,8 @@ source "${SCRIPTDIR}/.validate"
 
 IFS=$'\n'
 files=( $(validate_diff --diff-filter=ACMR --name-only -- '*.go' |
-    grep -v '^vendor/' |
-    grep -v '^cli/compose/schema/bindata.go' || true) )
+	grep -v '^vendor/' |
+	grep -v '\.pb\.go$' || true) )
 unset IFS
 
 badFiles=()

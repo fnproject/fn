@@ -44,6 +44,7 @@ func (daemon *Daemon) getDNSSearchSettings(container *container.Container) []str
 
 	return nil
 }
+
 func (daemon *Daemon) buildSandboxOptions(container *container.Container) ([]libnetwork.SandboxOption, error) {
 	var (
 		sboxOptions []libnetwork.SandboxOption
@@ -568,7 +569,7 @@ func (daemon *Daemon) allocateNetwork(container *container.Container) error {
 
 	}
 
-	if err := container.WriteHostConfig(); err != nil {
+	if _, err := container.WriteHostConfig(); err != nil {
 		return err
 	}
 	networkActions.WithValues("allocate").UpdateSince(start)
@@ -885,7 +886,12 @@ func (daemon *Daemon) initializeNetworking(container *container.Container) error
 		if err != nil {
 			return err
 		}
-		initializeNetworkingPaths(container, nc)
+
+		err = daemon.initializeNetworkingPaths(container, nc)
+		if err != nil {
+			return err
+		}
+
 		container.Config.Hostname = nc.Config.Hostname
 		container.Config.Domainname = nc.Config.Domainname
 		return nil
@@ -980,6 +986,9 @@ func (daemon *Daemon) ConnectToNetwork(container *container.Container, idOrName 
 	if endpointConfig == nil {
 		endpointConfig = &networktypes.EndpointSettings{}
 	}
+	container.Lock()
+	defer container.Unlock()
+
 	if !container.Running {
 		if container.RemovalInProgress || container.Dead {
 			return errRemovalContainer(container.ID)
@@ -1002,15 +1011,16 @@ func (daemon *Daemon) ConnectToNetwork(container *container.Container, idOrName 
 			return err
 		}
 	}
-	if err := container.ToDiskLocking(); err != nil {
-		return fmt.Errorf("Error saving container to disk: %v", err)
-	}
-	return nil
+
+	return container.CheckpointTo(daemon.containersReplica)
 }
 
 // DisconnectFromNetwork disconnects container from network n.
 func (daemon *Daemon) DisconnectFromNetwork(container *container.Container, networkName string, force bool) error {
 	n, err := daemon.FindNetwork(networkName)
+	container.Lock()
+	defer container.Unlock()
+
 	if !container.Running || (err != nil && force) {
 		if container.RemovalInProgress || container.Dead {
 			return errRemovalContainer(container.ID)
@@ -1038,16 +1048,16 @@ func (daemon *Daemon) DisconnectFromNetwork(container *container.Container, netw
 		return err
 	}
 
-	if err := container.ToDiskLocking(); err != nil {
-		return fmt.Errorf("Error saving container to disk: %v", err)
+	if err := container.CheckpointTo(daemon.containersReplica); err != nil {
+		return err
 	}
 
 	if n != nil {
-		attributes := map[string]string{
+		daemon.LogNetworkEventWithAttributes(n, "disconnect", map[string]string{
 			"container": container.ID,
-		}
-		daemon.LogNetworkEventWithAttributes(n, "disconnect", attributes)
+		})
 	}
+
 	return nil
 }
 

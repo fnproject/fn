@@ -3,6 +3,7 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -19,7 +20,7 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/libnetwork"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 )
 
@@ -108,14 +109,14 @@ func (daemon *Daemon) setupIpcDirs(c *container.Container) error {
 		}
 		c.ShmPath = "/dev/shm"
 	} else {
-		rootUID, rootGID := daemon.GetRemappedUIDGID()
+		rootIDs := daemon.idMappings.RootPair()
 		if !c.HasMountFor("/dev/shm") {
 			shmPath, err := c.ShmResourcePath()
 			if err != nil {
 				return err
 			}
 
-			if err := idtools.MkdirAllAs(shmPath, 0700, rootUID, rootGID); err != nil {
+			if err := idtools.MkdirAllAndChown(shmPath, 0700, rootIDs); err != nil {
 				return err
 			}
 
@@ -127,7 +128,7 @@ func (daemon *Daemon) setupIpcDirs(c *container.Container) error {
 			if err := syscall.Mount("shm", shmPath, "tmpfs", uintptr(syscall.MS_NOEXEC|syscall.MS_NOSUID|syscall.MS_NODEV), label.FormatMountLabel(shmproperty, c.GetMountLabel())); err != nil {
 				return fmt.Errorf("mounting shm tmpfs: %s", err)
 			}
-			if err := os.Chown(shmPath, rootUID, rootGID); err != nil {
+			if err := os.Chown(shmPath, rootIDs.UID, rootIDs.GID); err != nil {
 				return err
 			}
 		}
@@ -145,6 +146,13 @@ func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
 	localMountPath := c.SecretMountPath()
 	logrus.Debugf("secrets: setting up secret dir: %s", localMountPath)
 
+	// retrieve possible remapped range start for root UID, GID
+	rootIDs := daemon.idMappings.RootPair()
+	// create tmpfs
+	if err := idtools.MkdirAllAndChown(localMountPath, 0700, rootIDs); err != nil {
+		return errors.Wrap(err, "error creating secret local mount path")
+	}
+
 	defer func() {
 		if setupErr != nil {
 			// cleanup
@@ -156,35 +164,26 @@ func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
 		}
 	}()
 
-	// retrieve possible remapped range start for root UID, GID
-	rootUID, rootGID := daemon.GetRemappedUIDGID()
-	// create tmpfs
-	if err := idtools.MkdirAllAs(localMountPath, 0700, rootUID, rootGID); err != nil {
-		return errors.Wrap(err, "error creating secret local mount path")
-	}
-	tmpfsOwnership := fmt.Sprintf("uid=%d,gid=%d", rootUID, rootGID)
+	tmpfsOwnership := fmt.Sprintf("uid=%d,gid=%d", rootIDs.UID, rootIDs.GID)
 	if err := mount.Mount("tmpfs", localMountPath, "tmpfs", "nodev,nosuid,noexec,"+tmpfsOwnership); err != nil {
 		return errors.Wrap(err, "unable to setup secret mount")
 	}
 
-	for _, s := range c.SecretReferences {
-		if c.SecretStore == nil {
-			return fmt.Errorf("secret store is not initialized")
-		}
+	if c.DependencyStore == nil {
+		return fmt.Errorf("secret store is not initialized")
+	}
 
+	for _, s := range c.SecretReferences {
 		// TODO (ehazlett): use type switch when more are supported
 		if s.File == nil {
-			return fmt.Errorf("secret target type is not a file target")
+			logrus.Error("secret target type is not a file target")
+			continue
 		}
 
-		targetPath := filepath.Clean(s.File.Name)
-		// ensure that the target is a filename only; no paths allowed
-		if targetPath != filepath.Base(targetPath) {
-			return fmt.Errorf("error creating secret: secret must not be a path")
-		}
-
-		fPath := filepath.Join(localMountPath, targetPath)
-		if err := idtools.MkdirAllAs(filepath.Dir(fPath), 0700, rootUID, rootGID); err != nil {
+		// secrets are created in the SecretMountPath on the host, at a
+		// single level
+		fPath := c.SecretFilePath(*s)
+		if err := idtools.MkdirAllAndChown(filepath.Dir(fPath), 0700, rootIDs); err != nil {
 			return errors.Wrap(err, "error creating secret mount path")
 		}
 
@@ -192,9 +191,9 @@ func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
 			"name": s.File.Name,
 			"path": fPath,
 		}).Debug("injecting secret")
-		secret := c.SecretStore.Get(s.SecretID)
-		if secret == nil {
-			return fmt.Errorf("unable to get secret from secret store")
+		secret, err := c.DependencyStore.Secrets().Get(s.SecretID)
+		if err != nil {
+			return errors.Wrap(err, "unable to get secret from secret store")
 		}
 		if err := ioutil.WriteFile(fPath, secret.Spec.Data, s.File.Mode); err != nil {
 			return errors.Wrap(err, "error injecting secret")
@@ -209,7 +208,7 @@ func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
 			return err
 		}
 
-		if err := os.Chown(fPath, rootUID+uid, rootGID+gid); err != nil {
+		if err := os.Chown(fPath, rootIDs.UID+uid, rootIDs.GID+gid); err != nil {
 			return errors.Wrap(err, "error setting ownership for secret")
 		}
 	}
@@ -224,11 +223,84 @@ func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
 	return nil
 }
 
-func killProcessDirectly(container *container.Container) error {
-	if _, err := container.WaitStop(10 * time.Second); err != nil {
+func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
+	if len(c.ConfigReferences) == 0 {
+		return nil
+	}
+
+	localPath := c.ConfigsDirPath()
+	logrus.Debugf("configs: setting up config dir: %s", localPath)
+
+	// retrieve possible remapped range start for root UID, GID
+	rootIDs := daemon.idMappings.RootPair()
+	// create tmpfs
+	if err := idtools.MkdirAllAndChown(localPath, 0700, rootIDs); err != nil {
+		return errors.Wrap(err, "error creating config dir")
+	}
+
+	defer func() {
+		if setupErr != nil {
+			if err := os.RemoveAll(localPath); err != nil {
+				logrus.Errorf("error cleaning up config dir: %s", err)
+			}
+		}
+	}()
+
+	if c.DependencyStore == nil {
+		return fmt.Errorf("config store is not initialized")
+	}
+
+	for _, configRef := range c.ConfigReferences {
+		// TODO (ehazlett): use type switch when more are supported
+		if configRef.File == nil {
+			logrus.Error("config target type is not a file target")
+			continue
+		}
+
+		fPath := c.ConfigFilePath(*configRef)
+
+		log := logrus.WithFields(logrus.Fields{"name": configRef.File.Name, "path": fPath})
+
+		if err := idtools.MkdirAllAndChown(filepath.Dir(fPath), 0700, rootIDs); err != nil {
+			return errors.Wrap(err, "error creating config path")
+		}
+
+		log.Debug("injecting config")
+		config, err := c.DependencyStore.Configs().Get(configRef.ConfigID)
+		if err != nil {
+			return errors.Wrap(err, "unable to get config from config store")
+		}
+		if err := ioutil.WriteFile(fPath, config.Spec.Data, configRef.File.Mode); err != nil {
+			return errors.Wrap(err, "error injecting config")
+		}
+
+		uid, err := strconv.Atoi(configRef.File.UID)
+		if err != nil {
+			return err
+		}
+		gid, err := strconv.Atoi(configRef.File.GID)
+		if err != nil {
+			return err
+		}
+
+		if err := os.Chown(fPath, rootIDs.UID+uid, rootIDs.GID+gid); err != nil {
+			return errors.Wrap(err, "error setting ownership for config")
+		}
+	}
+
+	return nil
+}
+
+func killProcessDirectly(cntr *container.Container) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Block until the container to stops or timeout.
+	status := <-cntr.Wait(ctx, container.WaitConditionNotRunning)
+	if status.Err() != nil {
 		// Ensure that we don't kill ourselves
-		if pid := container.GetPID(); pid != 0 {
-			logrus.Infof("Container %s failed to exit within 10 seconds of kill - trying direct SIGKILL", stringid.TruncateID(container.ID))
+		if pid := cntr.GetPID(); pid != 0 {
+			logrus.Infof("Container %s failed to exit within 10 seconds of kill - trying direct SIGKILL", stringid.TruncateID(cntr.ID))
 			if err := syscall.Kill(pid, 9); err != nil {
 				if err != syscall.ESRCH {
 					return err
@@ -277,8 +349,9 @@ func setupPathsAndSandboxOptions(container *container.Container, sboxOptions *[]
 	return nil
 }
 
-func initializeNetworkingPaths(container *container.Container, nc *container.Container) {
+func (daemon *Daemon) initializeNetworkingPaths(container *container.Container, nc *container.Container) error {
 	container.HostnamePath = nc.HostnamePath
 	container.HostsPath = nc.HostsPath
 	container.ResolvConfPath = nc.ResolvConfPath
+	return nil
 }

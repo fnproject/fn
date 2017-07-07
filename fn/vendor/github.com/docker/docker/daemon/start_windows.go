@@ -9,7 +9,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
-	"github.com/docker/docker/pkg/system"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -32,12 +31,6 @@ func (daemon *Daemon) getLibcontainerdCreateOptions(container *container.Contain
 	}
 
 	dnsSearch := daemon.getDNSSearchSettings(container)
-	if dnsSearch != nil {
-		osv := system.GetOSVersion()
-		if osv.Build < 14997 {
-			return nil, fmt.Errorf("dns-search option is not supported on the current platform")
-		}
-	}
 
 	// Generate the layer folder of the layer options
 	layerOpts := &libcontainerd.LayerOption{}
@@ -45,14 +38,10 @@ func (daemon *Daemon) getLibcontainerdCreateOptions(container *container.Contain
 	if err != nil {
 		return nil, fmt.Errorf("failed to get layer metadata - %s", err)
 	}
-	if hvOpts.IsHyperV {
-		hvOpts.SandboxPath = filepath.Dir(m["dir"])
-	}
-
 	layerOpts.LayerFolderPath = m["dir"]
 
 	// Generate the layer paths of the layer options
-	img, err := daemon.imageStore.Get(container.ImageID)
+	img, err := daemon.stores[container.Platform].imageStore.Get(container.ImageID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to graph.Get on ImageID %s - %s", container.ImageID, err)
 	}
@@ -60,9 +49,9 @@ func (daemon *Daemon) getLibcontainerdCreateOptions(container *container.Contain
 	max := len(img.RootFS.DiffIDs)
 	for i := 1; i <= max; i++ {
 		img.RootFS.DiffIDs = img.RootFS.DiffIDs[:i]
-		layerPath, err := layer.GetLayerPath(daemon.layerStore, img.RootFS.ChainID())
+		layerPath, err := layer.GetLayerPath(daemon.stores[container.Platform].layerStore, img.RootFS.ChainID())
 		if err != nil {
-			return nil, fmt.Errorf("failed to get layer path from graphdriver %s for ImageID %s - %s", daemon.layerStore, img.RootFS.ChainID(), err)
+			return nil, fmt.Errorf("failed to get layer path from graphdriver %s for ImageID %s - %s", daemon.stores[container.Platform].layerStore, img.RootFS.ChainID(), err)
 		}
 		// Reverse order, expecting parent most first
 		layerOpts.LayerPaths = append([]string{layerPath}, layerOpts.LayerPaths...)
@@ -161,7 +150,11 @@ func (daemon *Daemon) getLibcontainerdCreateOptions(container *container.Contain
 	var networkSharedContainerID string
 	if container.HostConfig.NetworkMode.IsContainer() {
 		networkSharedContainerID = container.NetworkSharedContainerID
+		for _, ep := range container.SharedEndpointList {
+			epList = append(epList, ep)
+		}
 	}
+
 	createOptions = append(createOptions, &libcontainerd.NetworkEndpointsOption{
 		Endpoints:                epList,
 		AllowUnqualifiedDNSQuery: AllowUnqualifiedDNSQuery,

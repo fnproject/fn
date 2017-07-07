@@ -1,9 +1,10 @@
 package tempfile
 
 import (
-	"github.com/docker/docker/pkg/testutil/assert"
 	"io/ioutil"
 	"os"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TempFile is a temporary file that can be used with unit tests. TempFile
@@ -14,12 +15,12 @@ type TempFile struct {
 }
 
 // NewTempFile returns a new temp file with contents
-func NewTempFile(t assert.TestingT, prefix string, content string) *TempFile {
+func NewTempFile(t require.TestingT, prefix string, content string) *TempFile {
 	file, err := ioutil.TempFile("", prefix+"-")
-	assert.NilError(t, err)
+	require.NoError(t, err)
 
 	_, err = file.Write([]byte(content))
-	assert.NilError(t, err)
+	require.NoError(t, err)
 	file.Close()
 	return &TempFile{File: file}
 }
@@ -32,4 +33,24 @@ func (f *TempFile) Name() string {
 // Remove removes the file
 func (f *TempFile) Remove() {
 	os.Remove(f.Name())
+}
+
+// TempDir is a temporary directory that can be used with unit tests. TempDir
+// reduces the boilerplate setup required in each test case by handling
+// setup errors.
+type TempDir struct {
+	Path string
+}
+
+// NewTempDir returns a new temp file with contents
+func NewTempDir(t require.TestingT, prefix string) *TempDir {
+	path, err := ioutil.TempDir("", prefix+"-")
+	require.NoError(t, err)
+
+	return &TempDir{Path: path}
+}
+
+// Remove removes the file
+func (f *TempDir) Remove() {
+	os.Remove(f.Path)
 }

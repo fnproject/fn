@@ -17,11 +17,12 @@
              development and Windows to Windows CI.
 
              Usage Examples (run from repo root):
-                "hack\make.ps1 -Binary" to build the binaries
-                "hack\make.ps1 -Client" to build just the client 64-bit binary
+                "hack\make.ps1 -Client" to build docker.exe client 64-bit binary (remote repo)
                 "hack\make.ps1 -TestUnit" to run unit tests
-                "hack\make.ps1 -Binary -TestUnit" to build the binaries and run unit tests
+                "hack\make.ps1 -Daemon -TestUnit" to build the daemon and run unit tests
                 "hack\make.ps1 -All" to run everything this script knows about that can run in a container
+                "hack\make.ps1" to build the daemon binary (same as -Daemon)
+                "hack\make.ps1 -Binary" shortcut to -Client and -Daemon
 
 .PARAMETER Client
      Builds the client binaries.
@@ -30,7 +31,7 @@
      Builds the daemon binary.
 
 .PARAMETER Binary
-     Builds the client binaries and the daemon binary. A convenient shortcut to `make.ps1 -Client -Daemon`.
+     Builds the client and daemon binaries. A convenient shortcut to `make.ps1 -Client -Daemon`.
 
 .PARAMETER Race
      Use -race in go build and go test.
@@ -174,7 +175,7 @@ Function Execute-Build($type, $additionalBuildTags, $directory) {
     if ($Race)                      { Write-Warning "Using race detector"; $raceParm=" -race"}
     if ($ForceBuildAll)             { $allParm=" -a" }
     if ($NoOpt)                     { $optParm=" -gcflags "+""""+"-N -l"+"""" }
-    if ($addtionalBuildTags -ne "") { $buildTags += $(" " + $additionalBuildTags) }
+    if ($additionalBuildTags -ne "") { $buildTags += $(" " + $additionalBuildTags) }
 
     # Do the go build in the appropriate directory
     # Note -linkmode=internal is required to be able to debug on Windows.
@@ -279,7 +280,7 @@ Function Validate-GoFormat($headCommit, $upstreamCommit) {
 
     # Get a list of all go source-code files which have changed.  Ignore exit code on next call - always process regardless
     $files=@(); $files = Invoke-Expression "git diff $upstreamCommit...$headCommit --diff-filter=ACMR --name-only -- `'*.go`'"
-    $files = $files | Select-String -NotMatch "^vendor/" | Select-String -NotMatch "^cli/compose/schema/bindata.go"
+    $files = $files | Select-String -NotMatch "^vendor/"
     $badFiles=@(); $files | %{
         # Deliberately ignore error on next line - treat as failed
         $content=Invoke-Expression "git show $headCommit`:$_"
@@ -340,8 +341,8 @@ Try {
     # Handle the "-Binary" shortcut to build both client and daemon.
     if ($Binary) { $Client = $True; $Daemon = $True }
 
-    # Default to building the binaries if not asked for anything explicitly.
-    if (-not($Client) -and -not($Daemon) -and -not($DCO) -and -not($PkgImports) -and -not($GoFormat) -and -not($TestUnit)) { $Client=$True; $Daemon=$True }
+    # Default to building the daemon if not asked for anything explicitly.
+    if (-not($Client) -and -not($Daemon) -and -not($DCO) -and -not($PkgImports) -and -not($GoFormat) -and -not($TestUnit)) { $Daemon=$True }
 
     # Verify git is installed
     if ($(Get-Command git -ErrorAction SilentlyContinue) -eq $nil) { Throw "Git does not appear to be installed" }
@@ -396,7 +397,42 @@ Try {
 
         # Perform the actual build
         if ($Daemon) { Execute-Build "daemon" "daemon" "dockerd" }
-        if ($Client) { Execute-Build "client" "" "docker" }
+        if ($Client) {
+            # Get the repo and commit of the client to build.
+            "hack\dockerfile\binaries-commits" | ForEach-Object {
+                $dockerCliRepo = ((Get-Content $_ | Select-String "DOCKERCLI_REPO") -split "=")[1]
+                $dockerCliCommit = ((Get-Content $_ | Select-String "DOCKERCLI_COMMIT") -split "=")[1]
+            }
+
+            # Build from a temporary directory.
+            $tempLocation = "$env:TEMP\$(New-Guid)"
+            New-Item -ItemType Directory $tempLocation | Out-Null
+
+            # Temporarily override GOPATH, then clone, checkout, and build.
+            $saveGOPATH = $env:GOPATH
+            Try {
+                $env:GOPATH = $tempLocation
+                $dockerCliRoot = "$env:GOPATH\src\github.com\docker\cli"
+                Write-Host "INFO: Cloning client repository..."
+                Invoke-Expression "git clone -q $dockerCliRepo $dockerCliRoot"
+                if ($LASTEXITCODE -ne 0) { Throw "Failed to clone client repository $dockerCliRepo" }
+                Invoke-Expression "git -C $dockerCliRoot  checkout -q $dockerCliCommit"
+                if ($LASTEXITCODE -ne 0) { Throw "Failed to checkout client commit $dockerCliCommit" }
+                Write-Host "INFO: Building client..."
+                Push-Location "$dockerCliRoot\cmd\docker"; $global:pushed=$True
+                Invoke-Expression "go build -o $root\bundles\docker.exe"
+                if ($LASTEXITCODE -ne 0) { Throw "Failed to compile client" }
+                Pop-Location; $global:pushed=$False
+            }
+            Catch [Exception] {
+                Throw $_
+            }
+            Finally {
+                # Always restore GOPATH and remove the temporary directory.
+                $env:GOPATH = $saveGOPATH
+                Remove-Item -Force -Recurse $tempLocation
+            }
+        }
     }
 
     # Run unit tests

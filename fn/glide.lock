@@ -1,10 +1,10 @@
-hash: aac209bf551382f2b8637d3f771a7e94b9ec9749acad17f76f4406a1f4d4fefd
-updated: 2017-07-06T12:45:48.209197618-07:00
+hash: aa34bfe25a59519219d2f4b1c274ba576a15f906a05a54cb1fd086a52e24788a
+updated: 2017-07-07T15:30:24.342413836-07:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
 - name: github.com/aws/aws-sdk-go
-  version: a5f553bccbe022ff6ac8079509d9d91da1992e2e
+  version: b1a7b51924b90a6ecdbaeb17e96418740ff07a1e
   subpackages:
   - aws
   - aws/awserr
@@ -42,7 +42,7 @@ imports:
   subpackages:
   - semver
 - name: github.com/docker/docker
-  version: 89658bed64c2a8fe05a978e5b87dbec409d57a0f
+  version: 05c7c311390911daebcf5d9519dee813fc02a887
   subpackages:
   - pkg/jsonlog
   - pkg/term
@@ -90,7 +90,7 @@ imports:
 - name: github.com/go-openapi/validate
   version: 8a82927c942c94794a5cd8b8b50ce2f48a955c0c
 - name: github.com/go-resty/resty
-  version: 52992d9da3c3eff6bfa873ca253ea1e03b352356
+  version: f214013978f4ea5632ef88a5371b2028699a9d19
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/jmoiron/jsonq
@@ -128,20 +128,23 @@ imports:
 - name: github.com/urfave/cli
   version: 0bdeddeeb0f650497d603c4ad7b20cfe685682f6
 - name: golang.org/x/net
-  version: f315505cf3349909cdf013ea56690da34e96a451
+  version: 054b33e6527139ad5b1ec2f6232c3b175bd9a30c
   subpackages:
   - context
   - context/ctxhttp
   - idna
   - publicsuffix
 - name: golang.org/x/sys
-  version: 6faef541c73732f438fb660a212750a9ba9f9362
+  version: 739734461d1c916b6c72a63d7efda2b27edb369f
   subpackages:
   - unix
+  - windows
 - name: golang.org/x/text
   version: cfdf022e86b4ecfb646e1efbd7db175dd623a8fa
   subpackages:
+  - secure/bidirule
   - transform
+  - unicode/bidi
   - unicode/norm
   - width
 - name: gopkg.in/mgo.v2

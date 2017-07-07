@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/system"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 )
@@ -44,16 +45,13 @@ func chmodTarEntry(perm os.FileMode) os.FileMode {
 func setHeaderForSpecialDevice(hdr *tar.Header, name string, stat interface{}) (err error) {
 	s, ok := stat.(*syscall.Stat_t)
 
-	if !ok {
-		err = errors.New("cannot convert stat value to syscall.Stat_t")
-		return
-	}
-
-	// Currently go does not fill in the major/minors
-	if s.Mode&syscall.S_IFBLK != 0 ||
-		s.Mode&syscall.S_IFCHR != 0 {
-		hdr.Devmajor = int64(major(uint64(s.Rdev)))
-		hdr.Devminor = int64(minor(uint64(s.Rdev)))
+	if ok {
+		// Currently go does not fill in the major/minors
+		if s.Mode&syscall.S_IFBLK != 0 ||
+			s.Mode&syscall.S_IFCHR != 0 {
+			hdr.Devmajor = int64(major(uint64(s.Rdev)))
+			hdr.Devminor = int64(minor(uint64(s.Rdev)))
+		}
 	}
 
 	return
@@ -62,23 +60,20 @@ func setHeaderForSpecialDevice(hdr *tar.Header, name string, stat interface{}) (
 func getInodeFromStat(stat interface{}) (inode uint64, err error) {
 	s, ok := stat.(*syscall.Stat_t)
 
-	if !ok {
-		err = errors.New("cannot convert stat value to syscall.Stat_t")
-		return
+	if ok {
+		inode = uint64(s.Ino)
 	}
-
-	inode = uint64(s.Ino)
 
 	return
 }
 
-func getFileUIDGID(stat interface{}) (int, int, error) {
+func getFileUIDGID(stat interface{}) (idtools.IDPair, error) {
 	s, ok := stat.(*syscall.Stat_t)
 
 	if !ok {
-		return -1, -1, errors.New("cannot convert stat value to syscall.Stat_t")
+		return idtools.IDPair{}, errors.New("cannot convert stat value to syscall.Stat_t")
 	}
-	return int(s.Uid), int(s.Gid), nil
+	return idtools.IDPair{UID: int(s.Uid), GID: int(s.Gid)}, nil
 }
 
 func major(device uint64) uint64 {
