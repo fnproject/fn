@@ -26,7 +26,7 @@ case "$1" in
     docker rm -fv func-postgres-test || echo No prev test db container
     docker rm -fv func-server || echo No prev func-server container
 
-    docker run --name func-postgres-test -p -e "POSTGRES_DB=funcs" 5432:5432 -d postgres
+    docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -p 5432:5432 -d postgres
     sleep 8
     export POSTGRES_HOST="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-postgres-test)"
     export POSTGRES_PORT=5432
@@ -49,4 +49,19 @@ case "$1" in
 
 esac
 
-cd fn/tests && API_URL="http://$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-server):8080" go test -v ./...; cd ../../
+case ${DOCKER_LOCATION:-localhost} in
+localhost)
+    cd fn/tests && API_URL="http://localhost:8080" go test -v ./...; cd ../../
+    ;;
+docker_ip)
+    if [[ !  -z  ${DOCKER_HOST}  ]]
+    then
+        DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'| awk -F: '{print $1}'`
+    fi
+
+    cd fn/tests && API_URL="http://${DOCKER_IP:-localhost}:8080" go test -v ./...; cd ../../
+    ;;
+container_ip)
+    cd fn/tests && API_URL="http://"$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-server)":8080" go test -v ./...; cd ../../
+    ;;
+esac
