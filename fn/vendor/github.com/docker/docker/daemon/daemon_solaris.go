@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
+	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
@@ -23,8 +24,8 @@ import (
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/netutils"
 	lntypes "github.com/docker/libnetwork/types"
-	"github.com/opencontainers/runc/libcontainer/label"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 )
 
@@ -142,6 +143,7 @@ func UsingSystemd(config *Config) bool {
 // verifyPlatformContainerSettings performs platform-specific validation of the
 // hostconfig and config structures.
 func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.HostConfig, config *containertypes.Config, update bool) ([]string, error) {
+	fixMemorySwappiness(resources)
 	warnings := []string{}
 	sysInfo := sysinfo.New(true)
 	// NOTE: We do not enforce a minimum value for swap limits for zones on Solaris and
@@ -162,7 +164,7 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 	}
 	// Solaris NOTE: We allow and encourage setting the swap without setting the memory limit.
 
-	if hostConfig.MemorySwappiness != nil && *hostConfig.MemorySwappiness != -1 && !sysInfo.MemorySwappiness {
+	if hostConfig.MemorySwappiness != nil && !sysInfo.MemorySwappiness {
 		warnings = append(warnings, "Your kernel does not support memory swappiness capabilities, memory swappiness discarded.")
 		logrus.Warnf("Your kernel does not support memory swappiness capabilities, memory swappiness discarded.")
 		hostConfig.MemorySwappiness = nil
@@ -352,7 +354,7 @@ func configureMaxThreads(config *Config) error {
 }
 
 // configureKernelSecuritySupport configures and validate security support for the kernel
-func configureKernelSecuritySupport(config *Config, driverName string) error {
+func configureKernelSecuritySupport(config *config.Config, driverNames []string) error {
 	return nil
 }
 
@@ -524,4 +526,8 @@ func setupDaemonProcess(config *Config) error {
 
 func (daemon *Daemon) setupSeccompProfile() error {
 	return nil
+}
+
+func getRealPath(path string) (string, error) {
+	return fileutils.ReadSymlinkedDirectory(path)
 }

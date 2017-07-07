@@ -155,6 +155,7 @@ func (t *Task) run() error {
 	if res := DmTaskRun(t.unmanaged); res != 1 {
 		return ErrTaskRun
 	}
+	runtime.KeepAlive(t)
 	return nil
 }
 
@@ -257,7 +258,7 @@ func (t *Task) getNextTarget(next unsafe.Pointer) (nextPtr unsafe.Pointer, start
 // UdevWait waits for any processes that are waiting for udev to complete the specified cookie.
 func UdevWait(cookie *uint) error {
 	if res := DmUdevWait(*cookie); res != 1 {
-		logrus.Debugf("devicemapper: Failed to wait on udev cookie %d", *cookie)
+		logrus.Debugf("devicemapper: Failed to wait on udev cookie %d, %d", *cookie, res)
 		return ErrUdevWait
 	}
 	return nil
@@ -328,11 +329,11 @@ func RemoveDevice(name string) error {
 		return err
 	}
 
-	var cookie uint
-	if err := task.setCookie(&cookie, 0); err != nil {
+	cookie := new(uint)
+	if err := task.setCookie(cookie, 0); err != nil {
 		return fmt.Errorf("devicemapper: Can not set cookie: %s", err)
 	}
-	defer UdevWait(&cookie)
+	defer UdevWait(cookie)
 
 	dmSawBusy = false // reset before the task is run
 	if err = task.run(); err != nil {
@@ -361,10 +362,10 @@ func RemoveDeviceDeferred(name string) error {
 	// set a task cookie and disable library fallback, or else libdevmapper will
 	// disable udev dm rules and delete the symlink under /dev/mapper by itself,
 	// even if the removal is deferred by the kernel.
-	var cookie uint
+	cookie := new(uint)
 	var flags uint16
 	flags = DmUdevDisableLibraryFallback
-	if err := task.setCookie(&cookie, flags); err != nil {
+	if err := task.setCookie(cookie, flags); err != nil {
 		return fmt.Errorf("devicemapper: Can not set cookie: %s", err)
 	}
 
@@ -372,12 +373,12 @@ func RemoveDeviceDeferred(name string) error {
 	// semaphores created in `task.setCookie` will be cleaned up in `UdevWait`.
 	// So these two function call must come in pairs, otherwise semaphores will
 	// be leaked, and the  limit of number of semaphores defined in `/proc/sys/kernel/sem`
-	// will be reached, which will eventually make all follwing calls to 'task.SetCookie'
+	// will be reached, which will eventually make all following calls to 'task.SetCookie'
 	// fail.
 	// this call will not wait for the deferred removal's final executing, since no
 	// udev event will be generated, and the semaphore's value will not be incremented
 	// by udev, what UdevWait is just cleaning up the semaphore.
-	defer UdevWait(&cookie)
+	defer UdevWait(cookie)
 
 	if err = task.run(); err != nil {
 		return fmt.Errorf("devicemapper: Error running RemoveDeviceDeferred %s", err)
@@ -471,13 +472,13 @@ func CreatePool(poolName string, dataFile, metadataFile *os.File, poolBlockSize 
 		return fmt.Errorf("devicemapper: Can't add target %s", err)
 	}
 
-	var cookie uint
+	cookie := new(uint)
 	var flags uint16
 	flags = DmUdevDisableSubsystemRulesFlag | DmUdevDisableDiskRulesFlag | DmUdevDisableOtherRulesFlag
-	if err := task.setCookie(&cookie, flags); err != nil {
+	if err := task.setCookie(cookie, flags); err != nil {
 		return fmt.Errorf("devicemapper: Can't set cookie %s", err)
 	}
-	defer UdevWait(&cookie)
+	defer UdevWait(cookie)
 
 	if err := task.run(); err != nil {
 		return fmt.Errorf("devicemapper: Error running deviceCreate (CreatePool) %s", err)
@@ -659,11 +660,11 @@ func ResumeDevice(name string) error {
 		return err
 	}
 
-	var cookie uint
-	if err := task.setCookie(&cookie, 0); err != nil {
+	cookie := new(uint)
+	if err := task.setCookie(cookie, 0); err != nil {
 		return fmt.Errorf("devicemapper: Can't set cookie %s", err)
 	}
-	defer UdevWait(&cookie)
+	defer UdevWait(cookie)
 
 	if err := task.run(); err != nil {
 		return fmt.Errorf("devicemapper: Error running deviceResume %s", err)
@@ -757,12 +758,12 @@ func activateDevice(poolName string, name string, deviceID int, size uint64, ext
 		return fmt.Errorf("devicemapper: Can't add node %s", err)
 	}
 
-	var cookie uint
-	if err := task.setCookie(&cookie, 0); err != nil {
+	cookie := new(uint)
+	if err := task.setCookie(cookie, 0); err != nil {
 		return fmt.Errorf("devicemapper: Can't set cookie %s", err)
 	}
 
-	defer UdevWait(&cookie)
+	defer UdevWait(cookie)
 
 	if err := task.run(); err != nil {
 		return fmt.Errorf("devicemapper: Error running deviceCreate (ActivateDevice) %s", err)

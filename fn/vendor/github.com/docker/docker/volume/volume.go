@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 )
 
@@ -64,6 +65,8 @@ type Volume interface {
 	Mount(id string) (string, error)
 	// Unmount unmounts the volume when it is no longer in use.
 	Unmount(id string) error
+	// CreatedAt returns Volume Creation time
+	CreatedAt() (time.Time, error)
 	// Status returns low-level status information about a volume
 	Status() map[string]interface{}
 }
@@ -120,22 +123,48 @@ type MountPoint struct {
 
 	// Sepc is a copy of the API request that created this mount.
 	Spec mounttypes.Mount
+
+	// Track usage of this mountpoint
+	// Specifically needed for containers which are running and calls to `docker cp`
+	// because both these actions require mounting the volumes.
+	active int
+}
+
+// Cleanup frees resources used by the mountpoint
+func (m *MountPoint) Cleanup() error {
+	if m.Volume == nil || m.ID == "" {
+		return nil
+	}
+
+	if err := m.Volume.Unmount(m.ID); err != nil {
+		return errors.Wrapf(err, "error unmounting volume %s", m.Volume.Name())
+	}
+
+	m.active--
+	if m.active == 0 {
+		m.ID = ""
+	}
+	return nil
 }
 
 // Setup sets up a mount point by either mounting the volume if it is
 // configured, or creating the source directory if supplied.
-func (m *MountPoint) Setup(mountLabel string, rootUID, rootGID int) (path string, err error) {
+// The, optional, checkFun parameter allows doing additional checking
+// before creating the source directory on the host.
+func (m *MountPoint) Setup(mountLabel string, rootIDs idtools.IDPair, checkFun func(m *MountPoint) error) (path string, err error) {
 	defer func() {
-		if err == nil {
-			if label.RelabelNeeded(m.Mode) {
-				if err = label.Relabel(m.Source, mountLabel, label.IsShared(m.Mode)); err != nil {
-					path = ""
-					err = errors.Wrapf(err, "error setting label on mount source '%s'", m.Source)
-					return
-				}
-			}
+		if err != nil || !label.RelabelNeeded(m.Mode) {
+			return
 		}
-		return
+
+		err = label.Relabel(m.Source, mountLabel, label.IsShared(m.Mode))
+		if err == syscall.ENOTSUP {
+			err = nil
+		}
+		if err != nil {
+			path = ""
+			err = errors.Wrapf(err, "error setting label on mount source '%s'", m.Source)
+		}
 	}()
 
 	if m.Volume != nil {
@@ -147,17 +176,29 @@ func (m *MountPoint) Setup(mountLabel string, rootUID, rootGID int) (path string
 		if err != nil {
 			return "", errors.Wrapf(err, "error while mounting volume '%s'", m.Source)
 		}
+
 		m.ID = id
+		m.active++
 		return path, nil
 	}
+
 	if len(m.Source) == 0 {
 		return "", fmt.Errorf("Unable to setup mount point, neither source nor volume defined")
 	}
+
 	// system.MkdirAll() produces an error if m.Source exists and is a file (not a directory),
 	if m.Type == mounttypes.TypeBind {
+		// Before creating the source directory on the host, invoke checkFun if it's not nil. One of
+		// the use case is to forbid creating the daemon socket as a directory if the daemon is in
+		// the process of shutting down.
+		if checkFun != nil {
+			if err := checkFun(m); err != nil {
+				return "", err
+			}
+		}
 		// idtools.MkdirAllNewAs() produces an error if m.Source exists and is a file (not a directory)
 		// also, makes sure that if the directory is created, the correct remapped rootUID/rootGID will own it
-		if err := idtools.MkdirAllNewAs(m.Source, 0755, rootUID, rootGID); err != nil {
+		if err := idtools.MkdirAllAndChownNew(m.Source, 0755, rootIDs); err != nil {
 			if perr, ok := err.(*os.PathError); ok {
 				if perr.Err != syscall.ENOTDIR {
 					return "", errors.Wrapf(err, "error while creating mount source path '%s'", m.Source)
@@ -311,10 +352,12 @@ func ParseMountSpec(cfg mounttypes.Mount, options ...func(*validateOpts)) (*Moun
 		}
 	case mounttypes.TypeBind:
 		mp.Source = clean(convertSlash(cfg.Source))
-		if cfg.BindOptions != nil {
-			if len(cfg.BindOptions.Propagation) > 0 {
-				mp.Propagation = cfg.BindOptions.Propagation
-			}
+		if cfg.BindOptions != nil && len(cfg.BindOptions.Propagation) > 0 {
+			mp.Propagation = cfg.BindOptions.Propagation
+		} else {
+			// If user did not specify a propagation mode, get
+			// default propagation mode.
+			mp.Propagation = DefaultPropagationMode
 		}
 	case mounttypes.TypeTmpfs:
 		// NOP

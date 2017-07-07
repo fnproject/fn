@@ -1056,6 +1056,16 @@ const (
 	PARMRK                               = 0x8
 	PARODD                               = 0x200
 	PENDIN                               = 0x4000
+	PERF_EVENT_IOC_DISABLE               = 0x2401
+	PERF_EVENT_IOC_ENABLE                = 0x2400
+	PERF_EVENT_IOC_ID                    = 0x80082407
+	PERF_EVENT_IOC_PAUSE_OUTPUT          = 0x40042409
+	PERF_EVENT_IOC_PERIOD                = 0x40082404
+	PERF_EVENT_IOC_REFRESH               = 0x2402
+	PERF_EVENT_IOC_RESET                 = 0x2403
+	PERF_EVENT_IOC_SET_BPF               = 0x40042408
+	PERF_EVENT_IOC_SET_FILTER            = 0x40082406
+	PERF_EVENT_IOC_SET_OUTPUT            = 0x2405
 	PRIO_PGRP                            = 0x1
 	PRIO_PROCESS                         = 0x0
 	PRIO_USER                            = 0x2

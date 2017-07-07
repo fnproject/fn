@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -34,7 +34,7 @@ func start(c *cli.Context) error {
 	// OR dind: docker run --rm -it --name functions -v ${PWD}/data:/app/data --privileged -p 8080:8080 funcy/functions
 	wd, err := os.Getwd()
 	if err != nil {
-		logrus.WithError(err).Fatalln("Getwd failed")
+		log.Fatalln("Getwd failed:", err)
 	}
 	args := []string{"run", "--rm", "-i",
 		"--name", "functions",
@@ -51,7 +51,7 @@ func start(c *cli.Context) error {
 	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
-		logrus.WithError(err).Fatalln("starting command failed")
+		log.Fatalln("starting command failed:", err)
 	}
 
 	done := make(chan error, 1)
@@ -64,16 +64,16 @@ func start(c *cli.Context) error {
 
 	select {
 	case <-sigC:
-		logrus.Infoln("interrupt caught, exiting")
+		log.Println("interrupt caught, exiting")
 		err = cmd.Process.Kill()
 		if err != nil {
-			logrus.WithError(err).Errorln("Could not kill process")
+			log.Println("error: could not kill process:", err)
 		}
 	case err := <-done:
 		if err != nil {
-			logrus.WithError(err).Errorln("processed finished with error")
+			log.Println("error: processed finished with error", err)
 		} else {
-			logrus.Println("process done gracefully without error")
+			log.Println("process finished gracefully without error")
 		}
 	}
 	return nil

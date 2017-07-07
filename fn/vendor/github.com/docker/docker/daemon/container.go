@@ -18,6 +18,7 @@ import (
 	"github.com/docker/docker/pkg/truncindex"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/nat"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // GetContainer looks for a container using the provided information, which could be
@@ -90,6 +91,9 @@ func (daemon *Daemon) load(id string) (*container.Container, error) {
 	if err := container.FromDisk(); err != nil {
 		return nil, err
 	}
+	if err := label.ReserveLabel(container.ProcessLabel); err != nil {
+		return nil, err
+	}
 
 	if container.ID != id {
 		return container, fmt.Errorf("Container %s is stored at %s", container.ID, id)
@@ -99,7 +103,7 @@ func (daemon *Daemon) load(id string) (*container.Container, error) {
 }
 
 // Register makes a container object usable by the daemon as <container.ID>
-func (daemon *Daemon) Register(c *container.Container) {
+func (daemon *Daemon) Register(c *container.Container) error {
 	// Attach to stdout and stderr
 	if c.Config.OpenStdin {
 		c.StreamConfig.NewInputPipes()
@@ -107,11 +111,17 @@ func (daemon *Daemon) Register(c *container.Container) {
 		c.StreamConfig.NewNopInputPipe()
 	}
 
+	// once in the memory store it is visible to other goroutines
+	// grab a Lock until it has been checkpointed to avoid races
+	c.Lock()
+	defer c.Unlock()
+
 	daemon.containers.Add(c.ID, c)
 	daemon.idIndex.Add(c.ID)
+	return c.CheckpointTo(daemon.containersReplica)
 }
 
-func (daemon *Daemon) newContainer(name string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID, managed bool) (*container.Container, error) {
+func (daemon *Daemon) newContainer(name string, platform string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID, managed bool) (*container.Container, error) {
 	var (
 		id             string
 		err            error
@@ -144,8 +154,8 @@ func (daemon *Daemon) newContainer(name string, config *containertypes.Config, h
 	base.ImageID = imgID
 	base.NetworkSettings = &network.Settings{IsAnonymousEndpoint: noExplicitName}
 	base.Name = name
-	base.Driver = daemon.GraphDriverName()
-
+	base.Driver = daemon.GraphDriverName(platform)
+	base.Platform = platform
 	return base, err
 }
 
@@ -212,7 +222,7 @@ func (daemon *Daemon) setHostConfig(container *container.Container, hostConfig *
 
 	runconfig.SetDefaultNetModeIfBlank(hostConfig)
 	container.HostConfig = hostConfig
-	return container.ToDisk()
+	return container.CheckpointTo(daemon.containersReplica)
 }
 
 // verifyContainerSettings performs validation of the hostconfig and config
@@ -244,20 +254,20 @@ func (daemon *Daemon) verifyContainerSettings(hostConfig *containertypes.HostCon
 
 		// Validate the healthcheck params of Config
 		if config.Healthcheck != nil {
-			if config.Healthcheck.Interval != 0 && config.Healthcheck.Interval < time.Second {
-				return nil, fmt.Errorf("Interval in Healthcheck cannot be less than one second")
+			if config.Healthcheck.Interval != 0 && config.Healthcheck.Interval < containertypes.MinimumDuration {
+				return nil, fmt.Errorf("Interval in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
 			}
 
-			if config.Healthcheck.Timeout != 0 && config.Healthcheck.Timeout < time.Second {
-				return nil, fmt.Errorf("Timeout in Healthcheck cannot be less than one second")
+			if config.Healthcheck.Timeout != 0 && config.Healthcheck.Timeout < containertypes.MinimumDuration {
+				return nil, fmt.Errorf("Timeout in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
 			}
 
 			if config.Healthcheck.Retries < 0 {
 				return nil, fmt.Errorf("Retries in Healthcheck cannot be negative")
 			}
 
-			if config.Healthcheck.StartPeriod < 0 {
-				return nil, fmt.Errorf("StartPeriod in Healthcheck cannot be negative")
+			if config.Healthcheck.StartPeriod != 0 && config.Healthcheck.StartPeriod < containertypes.MinimumDuration {
+				return nil, fmt.Errorf("StartPeriod in Healthcheck cannot be less than %s", containertypes.MinimumDuration)
 			}
 		}
 	}
@@ -301,7 +311,7 @@ func (daemon *Daemon) verifyContainerSettings(hostConfig *containertypes.HostCon
 			return nil, fmt.Errorf("maximum retry count cannot be negative")
 		}
 	case "":
-	// do nothing
+		// do nothing
 	default:
 		return nil, fmt.Errorf("invalid restart policy '%s'", p.Name)
 	}

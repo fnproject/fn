@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
+	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/stringutils"
@@ -2024,18 +2025,16 @@ func (s *DockerSuite) TestRunDeallocatePortOnMissingIptablesRule(c *check.C) {
 	// TODO Windows. Network settings are not propagated back to inspect.
 	testRequires(c, SameHostDaemon, DaemonIsLinux)
 
-	out, _ := dockerCmd(c, "run", "-d", "-p", "23:23", "busybox", "top")
+	out := cli.DockerCmd(c, "run", "-d", "-p", "23:23", "busybox", "top").Combined()
 
 	id := strings.TrimSpace(out)
 	ip := inspectField(c, id, "NetworkSettings.Networks.bridge.IPAddress")
 	icmd.RunCommand("iptables", "-D", "DOCKER", "-d", fmt.Sprintf("%s/32", ip),
 		"!", "-i", "docker0", "-o", "docker0", "-p", "tcp", "-m", "tcp", "--dport", "23", "-j", "ACCEPT").Assert(c, icmd.Success)
 
-	if err := deleteContainer(id); err != nil {
-		c.Fatal(err)
-	}
+	cli.DockerCmd(c, "rm", "-fv", id)
 
-	dockerCmd(c, "run", "-d", "-p", "23:23", "busybox", "top")
+	cli.DockerCmd(c, "run", "-d", "-p", "23:23", "busybox", "top")
 }
 
 func (s *DockerSuite) TestRunPortInUse(c *check.C) {
@@ -2816,12 +2815,11 @@ func (s *DockerSuite) TestRunVolumesFromRestartAfterRemoved(c *check.C) {
 // run container with --rm should remove container if exit code != 0
 func (s *DockerSuite) TestRunContainerWithRmFlagExitCodeNotEqualToZero(c *check.C) {
 	name := "flowers"
-	out, _, err := dockerCmdWithError("run", "--name", name, "--rm", "busybox", "ls", "/notexists")
-	if err == nil {
-		c.Fatal("Expected docker run to fail", out, err)
-	}
+	cli.Docker(cli.Args("run", "--name", name, "--rm", "busybox", "ls", "/notexists")).Assert(c, icmd.Expected{
+		ExitCode: 1,
+	})
 
-	out = getAllContainers(c)
+	out := cli.DockerCmd(c, "ps", "-q", "-a").Combined()
 	if out != "" {
 		c.Fatal("Expected not to have containers", out)
 	}
@@ -2829,12 +2827,10 @@ func (s *DockerSuite) TestRunContainerWithRmFlagExitCodeNotEqualToZero(c *check.
 
 func (s *DockerSuite) TestRunContainerWithRmFlagCannotStartContainer(c *check.C) {
 	name := "sparkles"
-	out, _, err := dockerCmdWithError("run", "--name", name, "--rm", "busybox", "commandNotFound")
-	if err == nil {
-		c.Fatal("Expected docker run to fail", out, err)
-	}
-
-	out = getAllContainers(c)
+	cli.Docker(cli.Args("run", "--name", name, "--rm", "busybox", "commandNotFound")).Assert(c, icmd.Expected{
+		ExitCode: 127,
+	})
+	out := cli.DockerCmd(c, "ps", "-q", "-a").Combined()
 	if out != "" {
 		c.Fatal("Expected not to have containers", out)
 	}
@@ -3169,11 +3165,11 @@ func (s *DockerTrustSuite) TestTrustedRun(c *check.C) {
 	repoName := s.setupTrustedImage(c, "trusted-run")
 
 	// Try run
-	icmd.RunCmd(icmd.Command(dockerBinary, "run", repoName), trustedCmd).Assert(c, SuccessTagging)
-	dockerCmd(c, "rmi", repoName)
+	cli.Docker(cli.Args("run", repoName), trustedCmd).Assert(c, SuccessTagging)
+	cli.DockerCmd(c, "rmi", repoName)
 
 	// Try untrusted run to ensure we pushed the tag to the registry
-	icmd.RunCmd(icmd.Command(dockerBinary, "run", "--disable-content-trust=true", repoName), trustedCmd).Assert(c, SuccessDownloadedOnStderr)
+	cli.Docker(cli.Args("run", "--disable-content-trust=true", repoName), trustedCmd).Assert(c, SuccessDownloadedOnStderr)
 }
 
 func (s *DockerTrustSuite) TestUntrustedRun(c *check.C) {
@@ -3181,41 +3177,14 @@ func (s *DockerTrustSuite) TestUntrustedRun(c *check.C) {
 	testRequires(c, DaemonIsLinux)
 	repoName := fmt.Sprintf("%v/dockercliuntrusted/runtest:latest", privateRegistryURL)
 	// tag the image and upload it to the private registry
-	dockerCmd(c, "tag", "busybox", repoName)
-	dockerCmd(c, "push", repoName)
-	dockerCmd(c, "rmi", repoName)
+	cli.DockerCmd(c, "tag", "busybox", repoName)
+	cli.DockerCmd(c, "push", repoName)
+	cli.DockerCmd(c, "rmi", repoName)
 
 	// Try trusted run on untrusted tag
-	icmd.RunCmd(icmd.Command(dockerBinary, "run", repoName), trustedCmd).Assert(c, icmd.Expected{
+	cli.Docker(cli.Args("run", repoName), trustedCmd).Assert(c, icmd.Expected{
 		ExitCode: 125,
 		Err:      "does not have trust data for",
-	})
-}
-
-func (s *DockerTrustSuite) TestRunWhenCertExpired(c *check.C) {
-	// Windows does not support this functionality
-	testRequires(c, DaemonIsLinux)
-	c.Skip("Currently changes system time, causing instability")
-	repoName := s.setupTrustedImage(c, "trusted-run-expired")
-
-	// Certificates have 10 years of expiration
-	elevenYearsFromNow := time.Now().Add(time.Hour * 24 * 365 * 11)
-
-	testutil.RunAtDifferentDate(elevenYearsFromNow, func() {
-		// Try run
-		icmd.RunCmd(icmd.Cmd{
-			Command: []string{dockerBinary, "run", repoName},
-		}, trustedCmd).Assert(c, icmd.Expected{
-			ExitCode: 1,
-			Err:      "could not validate the path to a trusted root",
-		})
-	})
-
-	testutil.RunAtDifferentDate(elevenYearsFromNow, func() {
-		// Try run
-		icmd.RunCmd(icmd.Cmd{
-			Command: []string{dockerBinary, "run", "--disable-content-trust", repoName},
-		}, trustedCmd).Assert(c, SuccessDownloaded)
 	})
 }
 
@@ -3229,14 +3198,14 @@ func (s *DockerTrustSuite) TestTrustedRunFromBadTrustServer(c *check.C) {
 	}
 
 	// tag the image and upload it to the private registry
-	dockerCmd(c, "tag", "busybox", repoName)
+	cli.DockerCmd(c, "tag", "busybox", repoName)
 
-	icmd.RunCmd(icmd.Command(dockerBinary, "push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
-	dockerCmd(c, "rmi", repoName)
+	cli.Docker(cli.Args("push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
+	cli.DockerCmd(c, "rmi", repoName)
 
 	// Try run
-	icmd.RunCmd(icmd.Command(dockerBinary, "run", repoName), trustedCmd).Assert(c, SuccessTagging)
-	dockerCmd(c, "rmi", repoName)
+	cli.Docker(cli.Args("run", repoName), trustedCmd).Assert(c, SuccessTagging)
+	cli.DockerCmd(c, "rmi", repoName)
 
 	// Kill the notary server, start a new "evil" one.
 	s.not.Close()
@@ -3247,13 +3216,13 @@ func (s *DockerTrustSuite) TestTrustedRunFromBadTrustServer(c *check.C) {
 
 	// In order to make an evil server, lets re-init a client (with a different trust dir) and push new data.
 	// tag an image and upload it to the private registry
-	dockerCmd(c, "--config", evilLocalConfigDir, "tag", "busybox", repoName)
+	cli.DockerCmd(c, "--config", evilLocalConfigDir, "tag", "busybox", repoName)
 
 	// Push up to the new server
-	icmd.RunCmd(icmd.Command(dockerBinary, "--config", evilLocalConfigDir, "push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
+	cli.Docker(cli.Args("--config", evilLocalConfigDir, "push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
 
 	// Now, try running with the original client from this new trust server. This should fail because the new root is invalid.
-	icmd.RunCmd(icmd.Command(dockerBinary, "run", repoName), trustedCmd).Assert(c, icmd.Expected{
+	cli.Docker(cli.Args("run", repoName), trustedCmd).Assert(c, icmd.Expected{
 		ExitCode: 125,
 		Err:      "could not rotate trust to a new trusted root",
 	})
@@ -4174,22 +4143,25 @@ RUN chmod 755 /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD echo foobar`
 
-	ctx := fakeContext(c, dockerfile, map[string]string{
-		"entrypoint.sh": `#!/bin/sh
+	ctx := fakecontext.New(c, "",
+		fakecontext.WithDockerfile(dockerfile),
+		fakecontext.WithFiles(map[string]string{
+			"entrypoint.sh": `#!/bin/sh
 echo "I am an entrypoint"
 exec "$@"`,
-	})
+		}))
 	defer ctx.Close()
 
-	buildImageSuccessfully(c, name, withExternalBuildContext(ctx))
+	cli.BuildCmd(c, name, build.WithExternalBuildContext(ctx))
 
-	out, _ := dockerCmd(c, "run", "--entrypoint=", "-t", name, "echo", "foo")
+	out := cli.DockerCmd(c, "run", "--entrypoint=", "-t", name, "echo", "foo").Combined()
 	c.Assert(strings.TrimSpace(out), check.Equals, "foo")
 
 	// CMD will be reset as well (the same as setting a custom entrypoint)
-	_, _, err := dockerCmdWithError("run", "--entrypoint=", "-t", name)
-	c.Assert(err, check.NotNil)
-	c.Assert(err.Error(), checker.Contains, "No command specified")
+	cli.Docker(cli.Args("run", "--entrypoint=", "-t", name)).Assert(c, icmd.Expected{
+		ExitCode: 125,
+		Err:      "No command specified",
+	})
 }
 
 func (s *DockerDaemonSuite) TestRunWithUlimitAndDaemonDefault(c *check.C) {
@@ -4261,10 +4233,9 @@ func (s *DockerSuite) TestRunCredentialSpecWellFormed(c *check.C) {
 func (s *DockerSuite) TestRunServicingContainer(c *check.C) {
 	testRequires(c, DaemonIsWindows, SameHostDaemon)
 
-	out, _ := dockerCmd(c, "run", "-d", testEnv.MinimalBaseImage(), "cmd", "/c", "mkdir c:\\programdata\\Microsoft\\Windows\\ContainerUpdates\\000_000_d99f45d0-ffc8-4af7-bd9c-ea6a62e035c9_200 && sc control cexecsvc 255")
+	out := cli.DockerCmd(c, "run", "-d", testEnv.MinimalBaseImage(), "cmd", "/c", "mkdir c:\\programdata\\Microsoft\\Windows\\ContainerUpdates\\000_000_d99f45d0-ffc8-4af7-bd9c-ea6a62e035c9_200 && sc control cexecsvc 255").Combined()
 	containerID := strings.TrimSpace(out)
-	err := waitExited(containerID, 60*time.Second)
-	c.Assert(err, checker.IsNil)
+	cli.WaitExited(c, containerID, 60*time.Second)
 
 	result := icmd.RunCommand("powershell", "echo", `(Get-WinEvent -ProviderName "Microsoft-Windows-Hyper-V-Compute" -FilterXPath 'Event[System[EventID=2010]]' -MaxEvents 1).Message`)
 	result.Assert(c, icmd.Success)

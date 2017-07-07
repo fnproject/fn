@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api"
 	dclient "github.com/docker/docker/client"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/ioutils"
@@ -100,7 +101,7 @@ func DoOnHost(host, endpoint string, modifiers ...func(*http.Request) error) (*h
 	if err != nil {
 		return nil, nil, err
 	}
-	client, err := NewClient(host)
+	client, err := NewHTTPClient(host)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,8 +141,8 @@ func New(host, endpoint string, modifiers ...func(*http.Request) error) (*http.R
 	return req, nil
 }
 
-// NewClient creates an http client for the specific host
-func NewClient(host string) (*http.Client, error) {
+// NewHTTPClient creates an http client for the specific host
+func NewHTTPClient(host string) (*http.Client, error) {
 	// FIXME(vdemeester) 10*time.Second timeout of SockRequest… ?
 	proto, addr, _, err := dclient.ParseHost(host)
 	if err != nil {
@@ -161,6 +162,16 @@ func NewClient(host string) (*http.Client, error) {
 	return &http.Client{
 		Transport: transport,
 	}, err
+}
+
+// NewClient returns a new Docker API client
+func NewClient() (dclient.APIClient, error) {
+	host := DaemonHost()
+	httpClient, err := NewHTTPClient(host)
+	if err != nil {
+		return nil, err
+	}
+	return dclient.NewClient(host, api.DefaultVersion, httpClient, nil)
 }
 
 // FIXME(vdemeester) httputil.ClientConn is deprecated, use http.Client instead (closer to actual client)
@@ -217,13 +228,14 @@ func SockRequestRaw(method, endpoint string, data io.Reader, ct, daemon string, 
 	}
 
 	resp, err := client.Do(req)
+	if err != nil {
+		client.Close()
+		return resp, nil, err
+	}
 	body := ioutils.NewReadCloserWrapper(resp.Body, func() error {
 		defer resp.Body.Close()
 		return client.Close()
 	})
-	if err != nil {
-		client.Close()
-	}
 
 	return resp, body, err
 }

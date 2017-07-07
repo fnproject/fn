@@ -46,6 +46,9 @@ type store struct {
 	// referencesByIDCache is a cache of references indexed by ID, to speed
 	// up References.
 	referencesByIDCache map[digest.Digest]map[string]reference.Named
+	// platform is the container target platform for this store (which may be
+	// different to the host operating system
+	platform string
 }
 
 // Repository maps tags to digests. The key is a stringified Reference,
@@ -70,7 +73,7 @@ func (a lexicalAssociations) Less(i, j int) bool {
 
 // NewReferenceStore creates a new reference store, tied to a file path where
 // the set of references are serialized in JSON format.
-func NewReferenceStore(jsonPath string) (Store, error) {
+func NewReferenceStore(jsonPath, platform string) (Store, error) {
 	abspath, err := filepath.Abs(jsonPath)
 	if err != nil {
 		return nil, err
@@ -80,6 +83,7 @@ func NewReferenceStore(jsonPath string) (Store, error) {
 		jsonPath:            abspath,
 		Repositories:        make(map[string]repository),
 		referencesByIDCache: make(map[digest.Digest]map[string]reference.Named),
+		platform:            platform,
 	}
 	// Load the json file if it exists, otherwise create it.
 	if err := store.reload(); os.IsNotExist(err) {
@@ -217,7 +221,7 @@ func (store *store) Delete(ref reference.Named) (bool, error) {
 func (store *store) Get(ref reference.Named) (digest.Digest, error) {
 	if canonical, ok := ref.(reference.Canonical); ok {
 		// If reference contains both tag and digest, only
-		// lookup by digest as it takes precendent over
+		// lookup by digest as it takes precedence over
 		// tag, until tag/digest combos are stored.
 		if _, ok := ref.(reference.Tagged); ok {
 			var err error

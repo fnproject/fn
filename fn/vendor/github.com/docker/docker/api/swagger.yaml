@@ -19,10 +19,10 @@ produces:
 consumes:
   - "application/json"
   - "text/plain"
-basePath: "/v1.29"
+basePath: "/v1.31"
 info:
   title: "Docker Engine API"
-  version: "1.29"
+  version: "1.31"
   x-logo:
     url: "https://docs.docker.com/images/logo-docker-main.png"
   description: |
@@ -44,7 +44,7 @@ info:
 
     The API is usually changed in each release of Docker, so API calls are versioned to ensure that clients don't break.
 
-    For Docker Engine 17.05, the API version is 1.29. To lock to this version, you prefix the URL with `/v1.29`. For example, calling `/info` is the same as calling `/v1.29/info`.
+    For Docker Engine 17.06, the API version is 1.30. To lock to this version, you prefix the URL with `/v1.30`. For example, calling `/info` is the same as calling `/v1.30/info`.
 
     Engine releases in the near future should support this version of the API, so your client will continue to work even if it is talking to a newer Engine.
 
@@ -52,10 +52,12 @@ info:
 
     The API uses an open schema model, which means server may add extra properties to responses. Likewise, the server will ignore any extra query parameters and request body properties. When you write clients, you need to ignore additional properties in responses to ensure they do not break when talking to newer Docker daemons.
 
-    This documentation is for version 1.29 of the API, which was introduced with Docker 17.05. Use this table to find documentation for previous versions of the API:
+    This documentation is for version 1.31 of the API. Use this table to find documentation for previous versions of the API:
 
     Docker version  | API version | Changes
     ----------------|-------------|---------
+    17.06.x | [1.30](https://docs.docker.com/engine/api/v1.30/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-30-api-changes)
+    17.05.x | [1.29](https://docs.docker.com/engine/api/v1.29/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-29-api-changes)
     17.04.x | [1.28](https://docs.docker.com/engine/api/v1.28/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-28-api-changes)
     17.03.1 | [1.27](https://docs.docker.com/engine/api/v1.27/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-27-api-changes)
     1.13.1 & 17.03.0 | [1.26](https://docs.docker.com/engine/api/v1.26/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-26-api-changes)
@@ -230,6 +232,7 @@ definitions:
         type: "string"
       Source:
         description: "Mount source (e.g. a volume name, a host path)."
+        type: "string"
       Type:
         description: |
           The mount type. Available types:
@@ -307,10 +310,12 @@ definitions:
       Name:
         type: "string"
         description: |
+          - Empty string means not to restart
           - `always` Always restart
           - `unless-stopped` Restart always except when the user has manually stopped the container
           - `on-failure` Restart only when the container exit code is non-zero
         enum:
+          - ""
           - "always"
           - "unless-stopped"
           - "on-failure"
@@ -498,16 +503,16 @@ definitions:
         items:
           type: "string"
       Interval:
-        description: "The time to wait between checks in nanoseconds. It should be 0 or not less than 1000000000(1s). 0 means inherit."
+        description: "The time to wait between checks in nanoseconds. It should be 0 or at least 1000000 (1 ms). 0 means inherit."
         type: "integer"
       Timeout:
-        description: "The time to wait before considering the check to have hung. It should be 0 or not less than 1000000000(1s). 0 means inherit."
+        description: "The time to wait before considering the check to have hung. It should be 0 or at least 1000000 (1 ms). 0 means inherit."
         type: "integer"
       Retries:
         description: "The number of consecutive failures needed to consider a container as unhealthy. 0 means inherit."
         type: "integer"
       StartPeriod:
-        description: "Start period for the container to initialize before starting health-retries countdown in nanoseconds. 0 means inherit."
+        description: "Start period for the container to initialize before starting health-retries countdown in nanoseconds. It should be 0 or at least 1000000 (1 ms). 0 means inherit."
         type: "integer"
 
   HostConfig:
@@ -944,6 +949,12 @@ definitions:
               type: "string"
           BaseLayer:
             type: "string"
+      Metadata:
+        type: "object"
+        properties:
+          LastTagTime:
+            type: "string"
+            format: "dateTime"
 
   ImageSummary:
     type: "object"
@@ -1044,6 +1055,10 @@ definitions:
         type: "string"
         description: "Mount path of the volume on the host."
         x-nullable: false
+      CreatedAt:
+        type: "string"
+        format: "dateTime"
+        description: "Time volume was created."
       Status:
         type: "object"
         description: |
@@ -1097,6 +1112,7 @@ definitions:
         com.example.some-label: "some-value"
         com.example.some-other-label: "some-other-value"
       Scope: "local"
+      CreatedAt: "2016-06-07T20:31:11.853781916Z"
 
   Network:
     type: "object"
@@ -1192,6 +1208,8 @@ definitions:
   NetworkContainer:
     type: "object"
     properties:
+      Name:
+        type: "string"
       EndpointID:
         type: "string"
       MacAddress:
@@ -1619,7 +1637,7 @@ definitions:
       may not be applied if the version number has changed from the last read. In other words,
       if two update requests specify the same base version, only one of the requests can succeed.
       As a result, two separate update requests that happen at the same time will not
-      unintentially overwrite each other.
+      unintentionally overwrite each other.
     type: "object"
     properties:
       Index:
@@ -1710,6 +1728,8 @@ definitions:
                       type: "string"
                     Name:
                       type: "string"
+          TLSInfo:
+            $ref: "#/definitions/SwarmSpec"
     example:
       ID: "24ifsmvkjbyhk"
       Version:
@@ -1750,6 +1770,47 @@ definitions:
         Leader: true
         Reachability: "reachable"
         Addr: "172.17.0.2:2377"
+      TLSInfo:
+        TrustRoot: |
+          -----BEGIN CERTIFICATE-----
+          MIIBajCCARCgAwIBAgIUbYqrLSOSQHoxD8CwG6Bi2PJi9c8wCgYIKoZIzj0EAwIw
+          EzERMA8GA1UEAxMIc3dhcm0tY2EwHhcNMTcwNDI0MjE0MzAwWhcNMzcwNDE5MjE0
+          MzAwWjATMREwDwYDVQQDEwhzd2FybS1jYTBZMBMGByqGSM49AgEGCCqGSM49AwEH
+          A0IABJk/VyMPYdaqDXJb/VXh5n/1Yuv7iNrxV3Qb3l06XD46seovcDWs3IZNV1lf
+          3Skyr0ofcchipoiHkXBODojJydSjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMB
+          Af8EBTADAQH/MB0GA1UdDgQWBBRUXxuRcnFjDfR/RIAUQab8ZV/n4jAKBggqhkjO
+          PQQDAgNIADBFAiAy+JTe6Uc3KyLCMiqGl2GyWGQqQDEcO3/YG36x7om65AIhAJvz
+          pxv6zFeVEkAEEkqIYi0omA9+CjanB/6Bz4n1uw8H
+          -----END CERTIFICATE-----
+        CertIssuerSubject: "MBMxETAPBgNVBAMTCHN3YXJtLWNh"
+        CertIssuerPublicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmT9XIw9h1qoNclv9VeHmf/Vi6/uI2vFXdBveXTpcPjqx6i9wNazchk1XWV/dKTKvSh9xyGKmiIeRcE4OiMnJ1A=="
+  TLSInfo:
+    description: "Information about the issuer of leaf TLS certificates and the trusted root CA certificate"
+    type: "object"
+    properties:
+      TrustRoot:
+        description: "The root CA certificate(s) that are used to validate leaf TLS certificates"
+        type: "string"
+      CertIssuerSubject:
+        description: "The base64-url-safe-encoded raw subject bytes of the issuer"
+        type: "string"
+      CertIssuerPublicKey:
+        description: "The base64-url-safe-encoded raw public key bytes of the issuer"
+        type: "string"
+    example:
+      TrustRoot: |
+        -----BEGIN CERTIFICATE-----
+        MIIBajCCARCgAwIBAgIUbYqrLSOSQHoxD8CwG6Bi2PJi9c8wCgYIKoZIzj0EAwIw
+        EzERMA8GA1UEAxMIc3dhcm0tY2EwHhcNMTcwNDI0MjE0MzAwWhcNMzcwNDE5MjE0
+        MzAwWjATMREwDwYDVQQDEwhzd2FybS1jYTBZMBMGByqGSM49AgEGCCqGSM49AwEH
+        A0IABJk/VyMPYdaqDXJb/VXh5n/1Yuv7iNrxV3Qb3l06XD46seovcDWs3IZNV1lf
+        3Skyr0ofcchipoiHkXBODojJydSjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMB
+        Af8EBTADAQH/MB0GA1UdDgQWBBRUXxuRcnFjDfR/RIAUQab8ZV/n4jAKBggqhkjO
+        PQQDAgNIADBFAiAy+JTe6Uc3KyLCMiqGl2GyWGQqQDEcO3/YG36x7om65AIhAJvz
+        pxv6zFeVEkAEEkqIYi0omA9+CjanB/6Bz4n1uw8H
+        -----END CERTIFICATE-----
+      CertIssuerSubject: "MBMxETAPBgNVBAMTCHN3YXJtLWNh"
+      CertIssuerPublicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmT9XIw9h1qoNclv9VeHmf/Vi6/uI2vFXdBveXTpcPjqx6i9wNazchk1XWV/dKTKvSh9xyGKmiIeRcE4OiMnJ1A=="
   SwarmSpec:
     description: "User modifiable swarm configuration."
     type: "object"
@@ -1834,6 +1895,17 @@ definitions:
                   type: "object"
                   additionalProperties:
                     type: "string"
+                CACert:
+                  description: "The root CA certificate (in PEM format) this external CA uses to issue TLS certificates (assumed to be to the current swarm root CA certificate if not provided)."
+                  type: "string"
+          SigningCACert:
+            description: "The desired signing CA certificate for all swarm node TLS leaf certificates, in PEM format."
+            type: "string"
+          SigningCAKey:
+            description: "The desired signing CA key for all swarm node TLS leaf certificates, in PEM format."
+            type: "string"
+          ForceRotate:
+            description: "An integer whose purpose is to force swarm to generate a new signing CA certificate and key, if none have been specified in `SigningCACert` and `SigningCAKey`"
       EncryptionConfig:
         description: "Parameters related to encryption-at-rest."
         type: "object"
@@ -1894,15 +1966,48 @@ definitions:
         format: "dateTime"
       Spec:
         $ref: "#/definitions/SwarmSpec"
+      TLSInfo:
+        $ref: "#/definitions/TLSInfo"
+      RootRotationInProgress:
+        description: "Whether there is currently a root CA rotation in progress for the swarm"
+        type: "boolean"
   TaskSpec:
     description: "User modifiable task configuration."
     type: "object"
     properties:
+      PluginSpec:
+        type: "object"
+        description: "Invalid when specified with `ContainerSpec`."
+        properties:
+          Name:
+            description: "The name or 'alias' to use for the plugin."
+            type: "string"
+          Remote:
+            description: "The plugin image reference to use."
+            type: "string"
+          Disabled:
+            description: "Disable the plugin once scheduled."
+            type: "boolean"
+          PluginPrivilege:
+            type: "array"
+            items:
+              description: "Describes a permission accepted by the user upon installing the plugin."
+              type: "object"
+              properties:
+                Name:
+                  type: "string"
+                Description:
+                  type: "string"
+                Value:
+                  type: "array"
+                  items:
+                    type: "string"
       ContainerSpec:
         type: "object"
+        description: "Invalid when specified with `PluginSpec`."
         properties:
           Image:
-            description: "The image name to use for the container."
+            description: "The image name to use for the container"
             type: "string"
           Labels:
             description: "User-defined key/value data."
@@ -2093,9 +2198,22 @@ definitions:
                     SpreadDescriptor:
                       description: "label descriptor, such as engine.labels.az"
                       type: "string"
+          Platforms:
+            description: "An array of supported platforms."
+            type: "array"
+            items:
+              type: "object"
+              properties:
+                Architecture:
+                  type: "string"
+                OS:
+                  type: "string"
       ForceUpdate:
         description: "A counter that triggers an update even if no relevant parameters have been changed."
         type: "integer"
+      Runtime:
+        description: "Runtime is the type of runtime specified for the task executor."
+        type: "string"
       Networks:
         type: "array"
         items:
@@ -2615,6 +2733,11 @@ paths:
   /containers/json:
     get:
       summary: "List containers"
+      description: |
+        Returns a list of containers. For details on the format, see [the inspect endpoint](#operation/ContainerInspect).
+
+        Note that it uses a different, smaller representation of a container than inspecting a single container. For example,
+        the list of linked containers is not propagated .
       operationId: "ContainerList"
       produces:
         - "application/json"
@@ -3026,10 +3149,22 @@ paths:
                 type: "object"
                 properties:
                   Status:
-                    description: "The status of the container. For example, `running` or `exited`."
+                    description: |
+                      The status of the container. For example, `"running"` or `"exited"`.
                     type: "string"
+                    enum: ["created", "running", "paused", "restarting", "removing", "exited", "dead"]
                   Running:
-                    description: "Whether this container is running."
+                    description: |
+                      Whether this container is running.
+
+                      Note that a running container can be _paused_. The `Running` and `Paused`
+                      booleans are not mutually exclusive:
+
+                      When pausing a container (on Linux), the cgroups freezer is used to suspend
+                      all processes in the container. Freezing the process requires the process to
+                      be running. As a result, paused containers are both `Running` _and_ `Paused`.
+
+                      Use the `Status` field instead to determine if a container's state is "running".
                     type: "boolean"
                   Paused:
                     description: "Whether this container is paused."
@@ -4189,6 +4324,11 @@ paths:
           required: true
           description: "ID or name of the container"
           type: "string"
+        - name: "condition"
+          in: "query"
+          description: "Wait until a container state reaches the given condition, either 'not-running' (default), 'next-exit', or 'removed'."
+          type: "string"
+          default: "not-running"
       tags: ["Container"]
   /containers/{id}:
     delete:
@@ -4392,6 +4532,7 @@ paths:
 
             Available filters:
             - `until=<timestamp>` Prune containers created before this timestamp. The `<timestamp>` can be Unix timestamps, date formatted timestamps, or Go duration strings (e.g. `10m`, `1h30m`) computed relative to the daemon machine’s time.
+            - `label` (`label=<key>`, `label=<key>=<value>`, `label!=<key>`, or `label!=<key>=<value>`) Prune containers with (or without, in case `label!=...` is used) the specified labels.
           type: "string"
       responses:
         200:
@@ -4635,6 +4776,27 @@ paths:
             $ref: "#/definitions/ErrorResponse"
         500:
           description: "server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      tags: ["Image"]
+  /build/prune:
+    post:
+      summary: "Delete builder cache"
+      produces:
+        - "application/json"
+      operationId: "BuildPrune"
+      responses:
+        200:
+          description: "No error"
+          schema:
+            type: "object"
+            properties:
+              SpaceReclaimed:
+                description: "Disk space reclaimed in bytes"
+                type: "integer"
+                format: "int64"
+        500:
+          description: "Server error"
           schema:
             $ref: "#/definitions/ErrorResponse"
       tags: ["Image"]
@@ -5082,6 +5244,7 @@ paths:
                unused *and* untagged images. When set to `false`
                (or `0`), all unused images are pruned.
             - `until=<string>` Prune images created before this timestamp. The `<timestamp>` can be Unix timestamps, date formatted timestamps, or Go duration strings (e.g. `10m`, `1h30m`) computed relative to the daemon machine’s time.
+            - `label` (`label=<key>`, `label=<key>=<value>`, `label!=<key>`, or `label!=<key>=<value>`) Prune images with (or without, in case `label!=...` is used) the specified labels.
           type: "string"
       responses:
         200:
@@ -5196,6 +5359,10 @@ paths:
                     items:
                       type: "string"
                   Network:
+                    type: "array"
+                    items:
+                      type: "string"
+                  Log:
                     type: "array"
                     items:
                       type: "string"
@@ -6185,6 +6352,7 @@ paths:
             Filters to process on the prune list, encoded as JSON (a `map[string][]string`).
 
             Available filters:
+            - `label` (`label=<key>`, `label=<key>=<value>`, `label!=<key>`, or `label!=<key>=<value>`) Prune volumes with (or without, in case `label!=...` is used) the specified labels.
           type: "string"
       responses:
         200:
@@ -6209,6 +6377,11 @@ paths:
   /networks:
     get:
       summary: "List networks"
+      description: |
+        Returns a list of networks. For details on the format, see [the network inspect endpoint](#operation/NetworkInspect).
+
+        Note that it uses a different, smaller representation of a network than inspecting a single network. For example,
+        the list of containers attached to the network is not propagated in API versions 1.28 and up.
       operationId: "NetworkList"
       produces:
         - "application/json"
@@ -6235,12 +6408,6 @@ paths:
                   Config:
                     -
                       Subnet: "172.17.0.0/16"
-                Containers:
-                  39b69226f9d79f5634485fb236a23b2fe4e96a0a94128390a7fbbcc167065867:
-                    EndpointID: "ed2419a97c1d9954d05b46e462e7002ea552f216e9b136b80a7db8d98b442eda"
-                    MacAddress: "02:42:ac:11:00:02"
-                    IPv4Address: "172.17.0.2/16"
-                    IPv6Address: ""
                 Options:
                   com.docker.network.bridge.default_bridge: "true"
                   com.docker.network.bridge.enable_icc: "true"
@@ -6310,6 +6477,10 @@ paths:
           description: "Network not found"
           schema:
             $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "Server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
       parameters:
         - name: "id"
           in: "path"
@@ -6321,6 +6492,10 @@ paths:
           description: "Detailed inspect output for troubleshooting"
           type: "boolean"
           default: false
+        - name: "scope"
+          in: "query"
+          description: "Filter the network by scope (swarm, global, or local)"
+          type: "string"
       tags: ["Network"]
 
     delete:
@@ -6329,6 +6504,10 @@ paths:
       responses:
         204:
           description: "No error"
+        403:
+          description: "operation not supported for pre-defined networks"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
         404:
           description: "no such network"
           schema:
@@ -6553,6 +6732,7 @@ paths:
 
             Available filters:
             - `until=<timestamp>` Prune networks created before this timestamp. The `<timestamp>` can be Unix timestamps, date formatted timestamps, or Go duration strings (e.g. `10m`, `1h30m`) computed relative to the daemon machine’s time.
+            - `label` (`label=<key>`, `label=<key>=<value>`, `label!=<key>`, or `label!=<key>=<value>`) Prune networks with (or without, in case `label!=...` is used) the specified labels.
           type: "string"
       responses:
         200:
@@ -7095,6 +7275,10 @@ paths:
       responses:
         200:
           description: "no error"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
         404:
           description: "no such node"
           schema:
@@ -7171,6 +7355,21 @@ paths:
               UpdatedAt: "2016-08-15T16:32:09.623207604Z"
               Version:
                 Index: 51
+              RootRotationInProgress: false
+              TLSInfo:
+                TrustRoot: |
+                  -----BEGIN CERTIFICATE-----
+                  MIIBajCCARCgAwIBAgIUbYqrLSOSQHoxD8CwG6Bi2PJi9c8wCgYIKoZIzj0EAwIw
+                  EzERMA8GA1UEAxMIc3dhcm0tY2EwHhcNMTcwNDI0MjE0MzAwWhcNMzcwNDE5MjE0
+                  MzAwWjATMREwDwYDVQQDEwhzd2FybS1jYTBZMBMGByqGSM49AgEGCCqGSM49AwEH
+                  A0IABJk/VyMPYdaqDXJb/VXh5n/1Yuv7iNrxV3Qb3l06XD46seovcDWs3IZNV1lf
+                  3Skyr0ofcchipoiHkXBODojJydSjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMB
+                  Af8EBTADAQH/MB0GA1UdDgQWBBRUXxuRcnFjDfR/RIAUQab8ZV/n4jAKBggqhkjO
+                  PQQDAgNIADBFAiAy+JTe6Uc3KyLCMiqGl2GyWGQqQDEcO3/YG36x7om65AIhAJvz
+                  pxv6zFeVEkAEEkqIYi0omA9+CjanB/6Bz4n1uw8H
+                  -----END CERTIFICATE-----
+                CertIssuerSubject: "MBMxETAPBgNVBAMTCHN3YXJtLWNh"
+                CertIssuerPublicKey: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmT9XIw9h1qoNclv9VeHmf/Vi6/uI2vFXdBveXTpcPjqx6i9wNazchk1XWV/dKTKvSh9xyGKmiIeRcE4OiMnJ1A=="
         404:
           description: "no such swarm"
           schema:
@@ -7223,6 +7422,16 @@ paths:
               AdvertiseAddr:
                 description: "Externally reachable address advertised to other nodes. This can either be an address/port combination in the form `192.168.1.1:4567`, or an interface followed by a port number, like `eth0:4567`. If the port number is omitted, the port number from the listen address is used. If `AdvertiseAddr` is not specified, it will be automatically detected when possible."
                 type: "string"
+              DataPathAddr:
+                description: |
+                  Address or interface to use for data path traffic (format: `<ip|interface>`), for example,  `192.168.1.1`,
+                  or an interface, like `eth0`. If `DataPathAddr` is unspecified, the same address as `AdvertiseAddr`
+                  is used.
+
+                  The `DataPathAddr` specifies the address that global scope network drivers will publish towards other
+                  nodes in order to reach the containers running on this node. Using this parameter it is possible to
+                  separate the container data traffic from the management traffic of the cluster.
+                type: "string"
               ForceNewCluster:
                 description: "Force creation of a new swarm."
                 type: "boolean"
@@ -7271,6 +7480,17 @@ paths:
                 type: "string"
               AdvertiseAddr:
                 description: "Externally reachable address advertised to other nodes. This can either be an address/port combination in the form `192.168.1.1:4567`, or an interface followed by a port number, like `eth0:4567`. If the port number is omitted, the port number from the listen address is used. If `AdvertiseAddr` is not specified, it will be automatically detected when possible."
+                type: "string"
+              DataPathAddr:
+                description: |
+                  Address or interface to use for data path traffic (format: `<ip|interface>`), for example,  `192.168.1.1`,
+                  or an interface, like `eth0`. If `DataPathAddr` is unspecified, the same address as `AdvertiseAddr`
+                  is used.
+
+                  The `DataPathAddr` specifies the address that global scope network drivers will publish towards other
+                  nodes in order to reach the containers running on this node. Using this parameter it is possible to
+                  separate the container data traffic from the management traffic of the cluster.
+
                 type: "string"
               RemoteAddrs:
                 description: "Addresses of manager nodes already participating in the swarm."
@@ -7515,6 +7735,15 @@ paths:
                         Nameservers: ["8.8.8.8"]
                         Search: ["example.org"]
                         Options: ["timeout:3"]
+                      Secrets:
+                        -
+                          File:
+                            Name: "www.example.org.key"
+                            UID: "33"
+                            GID: "33"
+                            Mode: 384
+                          SecretID: "fpjqlhnwb19zds35k8wn80lq9"
+                          SecretName: "example_org_domain_key"
                     LogDriver:
                       Name: "json-file"
                       Options:
@@ -8145,7 +8374,8 @@ paths:
           description: "no error"
           schema:
             $ref: "#/definitions/Secret"
-            example:
+          examples:
+            application/json:
               ID: "ktnbjxoalbkvbvedmg1urrz8h"
               Version:
                 Index: 11
@@ -8206,6 +8436,10 @@ paths:
       responses:
         200:
           description: "no error"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
         404:
           description: "no such secret"
           schema:
@@ -8236,3 +8470,133 @@ paths:
           format: "int64"
           required: true
       tags: ["Secret"]
+  /distribution/{name}/json:
+    get:
+      summary: "Get image information from the registry"
+      description: "Return image digest and platform information by contacting the registry."
+      operationId: "DistributionInspect"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "descriptor and platform information"
+          schema:
+            type: "object"
+            x-go-name: DistributionInspect
+            required: [Descriptor, Platforms]
+            properties:
+              Descriptor:
+                type: "object"
+                description: "A descriptor struct containing digest, media type, and size"
+                properties:
+                  MediaType:
+                    type: "string"
+                  Size:
+                    type: "integer"
+                    format: "int64"
+                  Digest:
+                    type: "string"
+                  URLs:
+                    type: "array"
+                    items:
+                      type: "string"
+              Platforms:
+                type: "array"
+                description: "An array containing all platforms supported by the image"
+                items:
+                  type: "object"
+                  properties:
+                    Architecture:
+                      type: "string"
+                    OS:
+                      type: "string"
+                    OSVersion:
+                      type: "string"
+                    OSFeatures:
+                      type: "array"
+                      items:
+                        type: "string"
+                    Variant:
+                      type: "string"
+                    Features:
+                      type: "array"
+                      items:
+                        type: "string"
+          examples:
+            application/json:
+              Descriptor:
+                MediaType: "application/vnd.docker.distribution.manifest.v2+json"
+                Digest: "sha256:c0537ff6a5218ef531ece93d4984efc99bbf3f7497c0a7726c88e2bb7584dc96"
+                Size: 3987495
+                URLs:
+                  - ""
+              Platforms:
+                - Architecture: "amd64"
+                  OS: "linux"
+                  OSVersion: ""
+                  OSFeatures:
+                    - ""
+                  Variant: ""
+                  Features:
+                    - ""
+        401:
+          description: "Failed authentication or no image found"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+          examples:
+            application/json:
+              message: "No such image: someimage (tag: latest)"
+        500:
+          description: "Server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      parameters:
+        - name: "name"
+          in: "path"
+          description: "Image name or id"
+          type: "string"
+          required: true
+      tags: ["Distribution"]
+  /session:
+    post:
+      summary: "Initialize interactive session"
+      description: |
+        Start a new interactive session with a server. Session allows server to call back to the client for advanced capabilities.
+
+        > **Note**: This endpoint is *experimental* and only available if the daemon is started with experimental
+        > features enabled. The specifications for this endpoint may still change in a future version of the API.
+
+        ### Hijacking
+
+        This endpoint hijacks the HTTP connection to HTTP2 transport that allows the client to expose gPRC services on that connection.
+
+        For example, the client sends this request to upgrade the connection:
+
+        ```
+        POST /session HTTP/1.1
+        Upgrade: h2c
+        Connection: Upgrade
+        ```
+
+        The Docker daemon will respond with a `101 UPGRADED` response follow with the raw stream:
+
+        ```
+        HTTP/1.1 101 UPGRADED
+        Connection: Upgrade
+        Upgrade: h2c
+        ```
+      operationId: "Session"
+      produces:
+        - "application/vnd.docker.raw-stream"
+      responses:
+        101:
+          description: "no error, hijacking successful"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      tags: ["Session (experimental)"]

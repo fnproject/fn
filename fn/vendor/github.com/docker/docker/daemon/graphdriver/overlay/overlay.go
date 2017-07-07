@@ -21,7 +21,8 @@ import (
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/mount"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/docker/docker/pkg/system"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // This is a small wrapper over the NaiveDiffWriter that lets us have a custom
@@ -339,10 +340,7 @@ func (d *Driver) dir(id string) string {
 func (d *Driver) Remove(id string) error {
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
-	if err := os.RemoveAll(d.dir(id)); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
+	return system.EnsureRemoveAll(d.dir(id))
 }
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
@@ -406,7 +404,7 @@ func (d *Driver) Put(id string) error {
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	if err := syscall.Unmount(mountpoint, 0); err != nil {
+	if err := syscall.Unmount(mountpoint, syscall.MNT_DETACH); err != nil {
 		logrus.Debugf("Failed to unmount %s overlay: %v", id, err)
 	}
 	return nil

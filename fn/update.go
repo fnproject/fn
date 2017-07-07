@@ -1,12 +1,12 @@
 package main
 
 import (
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -27,7 +27,7 @@ func update(c *cli.Context) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	if err != nil {
-		logrus.WithError(err).Fatalln("starting command failed")
+		log.Fatalln("starting command failed:", err)
 	}
 
 	done := make(chan error, 1)
@@ -39,16 +39,16 @@ func update(c *cli.Context) error {
 	signal.Notify(sigC, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-sigC:
-		logrus.Infoln("interrupt caught, exiting")
+		log.Println("interrupt caught, exiting")
 		err = cmd.Process.Kill()
 		if err != nil {
-			logrus.WithError(err).Errorln("Could not kill process")
+			log.Println("error: could not kill process")
 		}
 	case err := <-done:
 		if err != nil {
-			logrus.WithError(err).Errorln("processed finished with error")
+			log.Println("processed finished with error:", err)
 		} else {
-			logrus.Println("process done gracefully without error")
+			log.Println("process finished gracefully without error")
 		}
 	}
 	return nil
