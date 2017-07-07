@@ -89,6 +89,7 @@ func (r *runCmd) run(c *cli.Context) error {
 func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string, format string, runs int) error {
 	sh := []string{"docker", "run", "--rm", "-i"}
 
+	var err error
 	var env []string    // env for the shelled out docker run command
 	var runEnv []string // env to pass into the container via -e's
 
@@ -135,11 +136,14 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 		// I'm starting to think maybe `fn run` locally should work the same whether sync or async?  Or how would we allow to test the output?
 	}
 	body := "" // used for hot functions
-	if format == HttpFormat && stdin != nil {
+	if format == HttpFormat {
 		// let's swap out stdin for http formatted message
-		input, err := ioutil.ReadAll(stdin)
-		if err != nil {
-			return fmt.Errorf("error reading from stdin: %v", err)
+		input := []byte("")
+		if stdin != nil {
+			input, err = ioutil.ReadAll(stdin)
+			if err != nil {
+				return fmt.Errorf("error reading from stdin: %v", err)
+			}
 		}
 
 		var b bytes.Buffer

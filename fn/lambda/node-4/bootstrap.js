@@ -298,7 +298,6 @@ function run() {
 
   // First, check format (ie: hot functions)
   var format = process.env["FORMAT"];
-  console.error("format", format);
   if (format == "http"){
     // var parser = httpSocketSetup(stream)
     // init parser
