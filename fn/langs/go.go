@@ -31,7 +31,7 @@ func (h *GoLangHelper) DockerfileBuildCmds() []string {
 
 func (h *GoLangHelper) DockerfileCopyCmds() []string {
 	return []string{
-		"COPY --from=build-stage /go/src/func/ /function/",
+		"COPY --from=build-stage /go/src/func/func /function/",
 	}
 }
 
