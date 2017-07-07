@@ -24,6 +24,7 @@ func main() {
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
 
 	var conf lb.Config
+	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
 	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
 	flag.IntVar(&conf.HealthcheckInterval, "hc-interval", 3, "how often to check f(x) nodes, in seconds")
 	flag.StringVar(&conf.HealthcheckEndpoint, "hc-path", "/version", "endpoint to determine node health")
@@ -49,7 +50,11 @@ func main() {
 		},
 	}
 
-	g := lb.NewAllGrouper(conf)
+	g, err := lb.NewAllGrouper(conf)
+	if err != nil {
+		logrus.WithError(err).Fatal("error setting up grouper")
+	}
+
 	r := lb.NewConsistentRouter(conf)
 	k := func(r *http.Request) (string, error) {
 		return r.URL.Path, nil
@@ -59,9 +64,9 @@ func main() {
 	h = g.Wrap(h) // add/del/list endpoints
 	h = r.Wrap(h) // stats / dash endpoint
 
-	err := serve(conf.Listen, h)
+	err = serve(conf.Listen, h)
 	if err != nil {
-		logrus.WithError(err).Error("server error")
+		logrus.WithError(err).Fatal("server error")
 	}
 }
 
