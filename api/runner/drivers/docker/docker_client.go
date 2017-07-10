@@ -97,19 +97,20 @@ type dockerWrap struct {
 }
 
 func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
+	log := common.Logger(ctx)
 	var b common.Backoff
 	for {
 		select {
 		case <-ctx.Done():
 			d.Inc("task", "fail.docker", 1, 1)
-			logrus.WithError(ctx.Err()).Warnf("retrying on docker errors timed out, restart docker or rotate this instance?")
+			log.WithError(ctx.Err()).Warnf("retrying on docker errors timed out, restart docker or rotate this instance?")
 			return ctx.Err()
 		default:
 		}
 
-		err := filter(f())
+		err := filter(ctx, f())
 		if common.IsTemporary(err) || isDocker50x(err) {
-			logrus.WithError(err).Warn("docker temporary error, retrying")
+			log.WithError(err).Warn("docker temporary error, retrying")
 			b.Sleep()
 			d.Inc("task", "error.docker", 1, 1)
 			continue
@@ -156,7 +157,8 @@ func temp(err error) error {
 }
 
 // some 500s are totally cool
-func filter(err error) error {
+func filter(ctx context.Context, err error) error {
+	log := common.Logger(ctx)
 	// "API error (500): {\"message\":\"service endpoint with name task-57d722ecdecb9e7be16aff17 already exists\"}\n" -> ok since container exists
 	switch {
 	default:
@@ -165,24 +167,26 @@ func filter(err error) error {
 		return err
 	case strings.Contains(err.Error(), "service endpoint with name"):
 	}
-	logrus.WithError(err).Warn("filtering error")
+	log.WithError(err).Warn("filtering error")
 	return nil
 }
 
-func filterNoSuchContainer(err error) error {
+func filterNoSuchContainer(ctx context.Context, err error) error {
+	log := common.Logger(ctx)
 	if err == nil {
 		return nil
 	}
 	_, containerNotFound := err.(*docker.NoSuchContainer)
 	dockerErr, ok := err.(*docker.Error)
 	if containerNotFound || (ok && dockerErr.Status == 404) {
-		logrus.WithError(err).Error("filtering error")
+		log.WithError(err).Error("filtering error")
 		return nil
 	}
 	return err
 }
 
-func filterNotRunning(err error) error {
+func filterNotRunning(ctx context.Context, err error) error {
+	log := common.Logger(ctx)
 	if err == nil {
 		return nil
 	}
@@ -190,7 +194,7 @@ func filterNotRunning(err error) error {
 	_, containerNotRunning := err.(*docker.ContainerNotRunning)
 	dockerErr, ok := err.(*docker.Error)
 	if containerNotRunning || (ok && dockerErr.Status == 304) {
-		logrus.WithError(err).Error("filtering error")
+		log.WithError(err).Error("filtering error")
 		return nil
 	}
 
@@ -216,7 +220,7 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 		code, err = d.dockerNoTimeout.WaitContainerWithContext(id, ctx)
 		return err
 	})
-	return code, filterNoSuchContainer(err)
+	return code, filterNoSuchContainer(ctx, err)
 }
 
 func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) (err error) {
@@ -254,7 +258,7 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 		err = d.docker.RemoveContainer(opts)
 		return err
 	})
-	return filterNoSuchContainer(err)
+	return filterNoSuchContainer(ctx, err)
 }
 
 func (d *dockerWrap) InspectImage(name string) (i *docker.Image, err error) {
@@ -284,7 +288,7 @@ func (d *dockerWrap) StopContainer(id string, timeout uint) (err error) {
 		err = d.docker.StopContainer(id, timeout)
 		return err
 	})
-	return filterNotRunning(filterNoSuchContainer(err))
+	return filterNotRunning(ctx, filterNoSuchContainer(ctx, err))
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
