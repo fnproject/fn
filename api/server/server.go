@@ -328,6 +328,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	engine.DELETE("/tasks", s.handleTaskRequest)
 	engine.GET("/tasks", s.handleTaskRequest)
+	engine.Any("/r/:app", s.handleRunnerRequest)
 	engine.Any("/r/:app/*route", s.handleRunnerRequest)
 
 	// This final route is used for extensions, see Server.Add

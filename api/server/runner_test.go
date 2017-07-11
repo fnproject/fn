@@ -124,6 +124,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
+			{Path: "/", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "funcy/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		}, nil, nil,
@@ -139,10 +140,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
+		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 
 		// Added same tests again to check if time is reduced by the auth cache
+		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
 	} {
