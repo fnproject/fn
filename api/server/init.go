@@ -23,8 +23,8 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetDefault(EnvLogLevel, "info")
 	viper.SetDefault(EnvMQURL, fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
-	viper.SetDefault(EnvDBURL, fmt.Sprintf("bolt://%s/data/bolt.db?bucket=funcs", cwd))
-	viper.SetDefault(EnvLOGDBURL, fmt.Sprintf("bolt://%s/data/log.db?bucket=funcs", cwd))
+	viper.SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", cwd))
+	viper.SetDefault(EnvLOGDBURL, "") // default to just using DB url
 	viper.SetDefault(EnvPort, 8080)
 	viper.SetDefault(EnvAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(EnvPort)))
 	viper.AutomaticEnv() // picks up env vars automatically

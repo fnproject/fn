@@ -68,5 +68,7 @@ import:
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
+- package: github.com/jmoiron/sqlx
+- package: github.com/mattn/go-sqlite3
 testImport:
 - package: github.com/vrischmann/envconfig

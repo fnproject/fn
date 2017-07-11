@@ -1,19 +1,20 @@
-
 # Function logs
 
-We currently support the following function logs stores and they are passed in via the `LOGSTORE_URL` environment variable. For example:
-Maximum size of single log entry: 4Mb
-
+We currently support the following function logs stores and they are passed in
+via the `LOGSTORE_URL` environment variable. For example:
 
 ```sh
-docker run -e "LOGSTORE_URL=bolt:///functions/logs/bolt.db" ...
+docker run -e "LOGSTORE_URL=sqlite3:///functions/logs/fn.db" ...
 ```
 
-## [Bolt](https://github.com/boltdb/bolt) (default)
+settings `LOGSTORE_URL` to `DB_URL` will put logs in the same database as
+other data, this is not recommended for production.
 
-URL: `bolt:///functions/logs/bolt.db`
+## sqlite3 (default)
 
-Bolt is an embedded database which stores to disk. If you want to use this, be sure you don't lose the data directory by mounting
-the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e LOGSTORE_URL=bolt:///functions/data/bolt.db ...`
+example URL: `sqlite3:///functions/logs/fn.db`
 
-[More on BoltDB](../databases/boltdb.md)
+sqlite3 is an embedded database which stores to disk. If you want to use this, be sure you don't lose the data directory by mounting
+the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e LOGSTORE_URL=sqlite3:///functions/data/fn.db ...`
+
+sqlite3 isn't recommended for production environments

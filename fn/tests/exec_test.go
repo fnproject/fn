@@ -204,7 +204,7 @@ func TestRouteExecutions(t *testing.T) {
 		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 
 		callID := CallAsync(t, u, &bytes.Buffer{})
-		time.Sleep(5 * time.Second)
+		time.Sleep(7 * time.Second)
 
 		cfg := &operations.GetCallsCallLogParams{
 			Call:    callID,

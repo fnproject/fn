@@ -1,5 +1,5 @@
-hash: c3a20e76f70802a5cb8ead0c4ac29c6bca272a3d738d9b95538d9fc238ad450c
-updated: 2017-06-30T11:01:18.063490786-07:00
+hash: 098ae92d825f7f80973ee99791e9e3f968f6f453b1da855d89f36cdbcdc27c6f
+updated: 2017-07-06T18:45:39.5860504-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -168,6 +168,10 @@ imports:
   - mq
 - name: github.com/jmoiron/jsonq
   version: e874b168d07ecc7808bc950a17998a8aa3141d82
+- name: github.com/jmoiron/sqlx
+  version: d9bd385d68c068f1fabb5057e3dedcbcbb039d0f
+  subpackages:
+  - reflectx
 - name: github.com/lib/pq
   version: 8837942c3e09574accbc5f150e2c5e057189cace
   subpackages:
@@ -184,6 +188,8 @@ imports:
   version: ee05b128a739a0fb76c7ebd3ae4810c1de808d6d
 - name: github.com/mattn/go-isatty
   version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
+- name: github.com/mattn/go-sqlite3
+  version: 9cbb0970444f7ee9ccc65376394a504150b25de1
 - name: github.com/Microsoft/go-winio
   version: f533f7a102197536779ea3a8cb881d639e21ec5a
 - name: github.com/mitchellh/mapstructure

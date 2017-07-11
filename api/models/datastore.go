@@ -6,7 +6,6 @@ import (
 )
 
 type Datastore interface {
-
 	// GetApp gets an App by name.
 	// Returns ErrDatastoreEmptyAppName for empty appName.
 	// Returns ErrAppsNotFound if no app is found.
@@ -28,7 +27,7 @@ type Datastore interface {
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
 	// Returns ErrAppsNotFound if an App is not found.
-	//TODO remove routes automatically? #528
+	// TODO remove routes automatically? #528
 	RemoveApp(ctx context.Context, appName string) error
 
 	// GetRoute looks up a matching Route for appName and the literal request route routePath.
@@ -63,10 +62,8 @@ type Datastore interface {
 	GetTask(ctx context.Context, callID string) (*FnCall, error)
 	GetTasks(ctx context.Context, filter *CallFilter) (FnCalls, error)
 
-	// The following provide a generic key value store for arbitrary data, can be used by extensions to store extra data
-	// todo: should we namespace these by app? Then when an app is deleted, it can delete any of this extra data too.
-	Put(context.Context, []byte, []byte) error
-	Get(context.Context, []byte) ([]byte, error)
+	// Implement FnLog methods for convenience
+	FnLog
 }
 
 var (

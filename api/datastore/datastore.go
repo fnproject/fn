@@ -5,10 +5,7 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/bolt"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/mysql"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/postgres"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/redis"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/sql"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
@@ -19,14 +16,8 @@ func New(dbURL string) (models.Datastore, error) {
 	}
 	logrus.WithFields(logrus.Fields{"db": u.Scheme}).Debug("creating new datastore")
 	switch u.Scheme {
-	case "bolt":
-		return bolt.New(u)
-	case "postgres":
-		return postgres.New(u)
-	case "mysql":
-		return mysql.New(u)
-	case "redis":
-		return redis.New(u)
+	case "sqlite3", "postgres", "mysql":
+		return sql.New(u)
 	default:
 		return nil, fmt.Errorf("db type not supported %v", u.Scheme)
 	}
