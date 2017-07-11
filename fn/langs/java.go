@@ -20,7 +20,7 @@ type JavaLangHelper struct {
 func (lh *JavaLangHelper) BuildFromImage() string { return "maven:3.5-jdk-8-alpine" }
 
 // RunFromImage returns the Docker image used to run the Java function.
-func (lh *JavaLangHelper) RunFromImage() string { return "funcy/java" }
+func (lh *JavaLangHelper) RunFromImage() string { return "registry.oracledx.com/skeppare/jfaas-runtime:latest" }
 
 // HasPreBuild returns whether the Java runtime has boilerplate that can be generated.
 func (lh *JavaLangHelper) HasBoilerplate() bool { return true }
@@ -42,19 +42,27 @@ func (lh *JavaLangHelper) GenerateBoilerplate() error {
 		return err
 	}
 
-	helloJavaFunctionFileDir := filepath.Join(wd, "src/main/java/com/example/faas")
-	if err = os.MkdirAll(helloJavaFunctionFileDir, os.FileMode(0755)); err != nil {
-		os.Remove(pathToPomFile)
+	mkDirAndWriteFile := func(dir, filename, content string) error {
+		fullPath := filepath.Join(wd, dir)
+		if err = os.MkdirAll(fullPath, os.FileMode(0755)); err != nil {
+			return err
+		}
+
+		fullFilePath := filepath.Join(fullPath, filename)
+		return ioutil.WriteFile(fullFilePath, []byte(content), os.FileMode(0644))
+	}
+
+	err = mkDirAndWriteFile("src/main/java/com/example/faas", "HelloFunction.java", helloJavaSrcBoilerplate)
+	if err != nil {
 		return err
 	}
 
-	helloJavaFunctionFile := filepath.Join(helloJavaFunctionFileDir, "HelloFunction.java")
-	return ioutil.WriteFile(helloJavaFunctionFile, []byte(helloJavaFunctionBoilerplate), os.FileMode(0644))
+	return mkDirAndWriteFile("src/test/java/com/example/faas", "HelloFunctionTest.java", helloJavaTestBoilerplate)
 }
 
 // Entrypoint returns the Java runtime Docker entrypoint that will be executed when the function is executed.
-func (lh *JavaLangHelper) Entrypoint() string {
-	return "java -cp app/*:lib/* com.oracle.faas.runtime.EntryPoint com.example.faas.HelloFunction::handleRequest"
+func (lh *JavaLangHelper) Cmd() string {
+	return "com.example.faas.HelloFunction::handleRequest"
 }
 
 // DockerfileCopyCmds returns the Docker COPY command to copy the compiled Java function jar and dependencies.
@@ -70,8 +78,7 @@ func (lh *JavaLangHelper) DockerfileBuildCmds() []string {
 	return []string{
 		fmt.Sprintf("ENV MAVEN_OPTS %s", mavenOpts()),
 		"ADD pom.xml /function/pom.xml",
-		"RUN [\"mvn\", \"package\", \"dependency:go-offline\", \"-DstripVersion=true\", \"-Dmdep.prependGroupId=true\"," +
-			" \"dependency:copy-dependencies\"]",
+		"RUN [\"mvn\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", \"-DskipTests=true\", \"-Dmdep.prependGroupId=true\"]",
 		"ADD src /function/src",
 		"RUN [\"mvn\", \"package\"]",
 	}
@@ -130,7 +137,7 @@ const (
     </properties>
     <groupId>com.example.faas</groupId>
     <artifactId>hello</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <repositories>
         <repository>
@@ -147,8 +154,15 @@ const (
         </dependency>
         <dependency>
             <groupId>com.oracle.faas</groupId>
-            <artifactId>runtime</artifactId>
+            <artifactId>testing</artifactId>
             <version>1.0.0-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+		<dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -168,7 +182,7 @@ const (
 </project>
 `
 
-	helloJavaFunctionBoilerplate = `package com.example.faas;
+	helloJavaSrcBoilerplate = `package com.example.faas;
 
 public class HelloFunction {
 
@@ -176,6 +190,30 @@ public class HelloFunction {
         String name = (input == null || input.isEmpty()) ? "world"  : input;
 
         return "Hello, " + name + "!";
+    }
+
+}`
+
+	helloJavaTestBoilerplate = `package com.example.faas;
+
+import com.oracle.faas.testing.FnTesting;
+import org.junit.*;
+
+import static org.junit.Assert.*;
+import static com.oracle.faas.testing.FnTesting.*;
+
+public class HelloFunctionTest {
+
+    @Rule
+    public final FnTesting testing = FnTesting.createDefault();
+
+    @Test
+    public void shouldReturnGreeting() {
+        testing.givenEvent().enqueue();
+        testing.thenRun(HelloFunction.class, "handleRequest");
+
+        FnResult result = testing.getOnlyResult();
+        assertEquals("Hello, world!", result.getBodyAsString());
     }
 
 }`
