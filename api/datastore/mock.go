@@ -3,6 +3,8 @@ package datastore
 import (
 	"context"
 
+	"github.com/jmoiron/sqlx"
+
 	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
 	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -166,4 +168,9 @@ func (m *mock) GetTask(ctx context.Context, callID string) (*models.FnCall, erro
 
 func (m *mock) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
 	return m.Calls, nil
+}
+
+// GetDatabase returns nil here since shouldn't really be used
+func (m *mock) GetDatabase() *sqlx.DB {
+	return nil
 }

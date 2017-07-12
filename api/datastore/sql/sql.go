@@ -757,3 +757,8 @@ func scanCall(scanner RowScanner, call *models.FnCall) error {
 	}
 	return nil
 }
+
+// GetDatabase returns the underlying sqlx database implementation
+func (ds *sqlStore) GetDatabase() *sqlx.DB {
+	return ds.db
+}

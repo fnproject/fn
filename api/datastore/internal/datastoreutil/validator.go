@@ -3,6 +3,8 @@ package datastoreutil
 import (
 	"context"
 
+	"github.com/jmoiron/sqlx"
+
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
@@ -134,4 +136,13 @@ func (v *validator) GetTask(ctx context.Context, callID string) (*models.FnCall,
 		return nil, models.ErrDatastoreEmptyTaskID
 	}
 	return v.Datastore.GetTask(ctx, callID)
+}
+
+func (v *validator) DeleteLog(ctx context.Context, callID string) error {
+	return v.Datastore.DeleteLog(ctx, callID)
+}
+
+// GetDatabase returns the underlying sqlx database implementation
+func (v *validator) GetDatabase() *sqlx.DB {
+	return v.Datastore.GetDatabase()
 }

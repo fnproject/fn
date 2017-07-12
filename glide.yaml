@@ -28,9 +28,7 @@ import:
   subpackages:
   - cli/config/configfile
 - package: github.com/docker/distribution
-  version: ^2.6.1
-  subpackages:
-  - manifest/schema1
+  branch: master 
 - package: github.com/fsouza/go-dockerclient
 - package: github.com/garyburd/redigo
   subpackages:

@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"errors"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type Datastore interface {
@@ -64,6 +66,9 @@ type Datastore interface {
 
 	// Implement FnLog methods for convenience
 	FnLog
+
+	// GetDatabase returns the underlying sqlx database implementation
+	GetDatabase() *sqlx.DB
 }
 
 var (

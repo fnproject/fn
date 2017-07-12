@@ -40,7 +40,7 @@ imports:
   subpackages:
   - cli/config/configfile
 - name: github.com/docker/distribution
-  version: a25b9ef0c9fe242ac04bb20d3a028442b7d266b6
+  version: f86db6b22663a27ba4d278220b7e34be528b1e79
   subpackages:
   - context
   - digest
