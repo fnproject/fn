@@ -20,7 +20,7 @@ func TestVerifyManifestForeignLayer(t *testing.T) {
 	repo := makeRepository(t, registry, "test")
 	manifestService := makeManifestService(t, repo)
 
-	config, err := repo.Blobs(ctx).Put(ctx, schema2.MediaTypeImageConfig, nil)
+	config, err := repo.Blobs(ctx).Put(ctx, schema2.MediaTypeConfig, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,10 +57,9 @@ func TestVerifyManifestForeignLayer(t *testing.T) {
 			errMissingURL,
 		},
 		{
-			// regular layers may have foreign urls
 			layer,
 			[]string{"http://foo/bar"},
-			nil,
+			errUnexpectedURL,
 		},
 		{
 			foreignLayer,

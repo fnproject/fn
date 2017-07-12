@@ -1,8 +1,12 @@
----
-title: "HTTP API V2"
-description: "Specification for the Registry API."
-keywords: ["registry, on-prem, images, tags, repository, distribution, api, advanced"]
----
+<!--[metadata]>
++++
+title = "HTTP API V2"
+description = "Specification for the Registry API."
+keywords = ["registry, on-prem, images, tags, repository, distribution, api, advanced"]
+[menu.main]
+parent="smn_registry_ref"
++++
+<![end-metadata]-->
 
 # Docker Registry HTTP API V2
 
@@ -244,7 +248,7 @@ enforce this. The rules for a repository name are as follows:
    must match the regular expression `[a-z0-9]+(?:[._-][a-z0-9]+)*`.
 2. If a repository  name has two or more path components, they must be
    separated by a forward slash ("/").
-3. The total length of a repository name, including slashes, must be less than
+3. The total length of a repository name, including slashes, must be less the
    256 characters.
 
 These name requirements _only_ apply to the registry API and should accept a
@@ -795,7 +799,7 @@ Note that the upload url will not be available forever. If the upload uuid is
 unknown to the registry, a `404 Not Found` response will be returned and the
 client must restart the upload process.
 
-#### Deleting a Layer
+### Deleting a Layer
 
 A layer may be deleted from the registry via its `name` and `digest`. A
 delete may be issued with the following request format:

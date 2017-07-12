@@ -76,8 +76,8 @@ const noStorageClass = "NONE"
 // validRegions maps known s3 region identifiers to region descriptors
 var validRegions = map[string]struct{}{}
 
-// validObjectACLs contains known s3 object Acls
-var validObjectACLs = map[string]struct{}{}
+// validObjectAcls contains known s3 object Acls
+var validObjectAcls = map[string]struct{}{}
 
 //DriverParameters A struct that encapsulates all of the driver parameters after all values have been set
 type DriverParameters struct {
@@ -97,20 +97,16 @@ type DriverParameters struct {
 	RootDirectory               string
 	StorageClass                string
 	UserAgent                   string
-	ObjectACL                   string
-	SessionToken                string
+	ObjectAcl                   string
 }
 
 func init() {
 	for _, region := range []string{
 		"us-east-1",
-		"us-east-2",
 		"us-west-1",
 		"us-west-2",
 		"eu-west-1",
-		"eu-west-2",
 		"eu-central-1",
-		"ap-south-1",
 		"ap-southeast-1",
 		"ap-southeast-2",
 		"ap-northeast-1",
@@ -118,12 +114,11 @@ func init() {
 		"sa-east-1",
 		"cn-north-1",
 		"us-gov-west-1",
-		"ca-central-1",
 	} {
 		validRegions[region] = struct{}{}
 	}
 
-	for _, objectACL := range []string{
+	for _, objectAcl := range []string{
 		s3.ObjectCannedACLPrivate,
 		s3.ObjectCannedACLPublicRead,
 		s3.ObjectCannedACLPublicReadWrite,
@@ -132,7 +127,7 @@ func init() {
 		s3.ObjectCannedACLBucketOwnerRead,
 		s3.ObjectCannedACLBucketOwnerFullControl,
 	} {
-		validObjectACLs[objectACL] = struct{}{}
+		validObjectAcls[objectAcl] = struct{}{}
 	}
 
 	// Register this as the default s3 driver in addition to s3aws
@@ -158,7 +153,7 @@ type driver struct {
 	MultipartCopyThresholdSize  int64
 	RootDirectory               string
 	StorageClass                string
-	ObjectACL                   string
+	ObjectAcl                   string
 }
 
 type baseEmbed struct {
@@ -318,21 +313,19 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 		userAgent = ""
 	}
 
-	objectACL := s3.ObjectCannedACLPrivate
-	objectACLParam := parameters["objectacl"]
-	if objectACLParam != nil {
-		objectACLString, ok := objectACLParam.(string)
+	objectAcl := s3.ObjectCannedACLPrivate
+	objectAclParam := parameters["objectacl"]
+	if objectAclParam != nil {
+		objectAclString, ok := objectAclParam.(string)
 		if !ok {
-			return nil, fmt.Errorf("Invalid value for objectacl parameter: %v", objectACLParam)
+			return nil, fmt.Errorf("Invalid value for objectacl parameter: %v", objectAclParam)
 		}
 
-		if _, ok = validObjectACLs[objectACLString]; !ok {
-			return nil, fmt.Errorf("Invalid value for objectacl parameter: %v", objectACLParam)
+		if _, ok = validObjectAcls[objectAclString]; !ok {
+			return nil, fmt.Errorf("Invalid value for objectacl parameter: %v", objectAclParam)
 		}
-		objectACL = objectACLString
+		objectAcl = objectAclString
 	}
-
-	sessionToken := ""
 
 	params := DriverParameters{
 		fmt.Sprint(accessKey),
@@ -351,8 +344,7 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 		fmt.Sprint(rootDirectory),
 		storageClass,
 		fmt.Sprint(userAgent),
-		objectACL,
-		fmt.Sprint(sessionToken),
+		objectAcl,
 	}
 
 	return New(params)
@@ -397,20 +389,29 @@ func New(params DriverParameters) (*Driver, error) {
 	}
 
 	awsConfig := aws.NewConfig()
-	creds := credentials.NewChainCredentials([]credentials.Provider{
-		&credentials.StaticProvider{
-			Value: credentials.Value{
-				AccessKeyID:     params.AccessKey,
-				SecretAccessKey: params.SecretKey,
-				SessionToken:    params.SessionToken,
+	var creds *credentials.Credentials
+	if params.RegionEndpoint == "" {
+		creds = credentials.NewChainCredentials([]credentials.Provider{
+			&credentials.StaticProvider{
+				Value: credentials.Value{
+					AccessKeyID:     params.AccessKey,
+					SecretAccessKey: params.SecretKey,
+				},
 			},
-		},
-		&credentials.EnvProvider{},
-		&credentials.SharedCredentialsProvider{},
-		&ec2rolecreds.EC2RoleProvider{Client: ec2metadata.New(session.New())},
-	})
-
-	if params.RegionEndpoint != "" {
+			&credentials.EnvProvider{},
+			&credentials.SharedCredentialsProvider{},
+			&ec2rolecreds.EC2RoleProvider{Client: ec2metadata.New(session.New())},
+		})
+	} else {
+		creds = credentials.NewChainCredentials([]credentials.Provider{
+			&credentials.StaticProvider{
+				Value: credentials.Value{
+					AccessKeyID:     params.AccessKey,
+					SecretAccessKey: params.SecretKey,
+				},
+			},
+			&credentials.EnvProvider{},
+		})
 		awsConfig.WithS3ForcePathStyle(true)
 		awsConfig.WithEndpoint(params.RegionEndpoint)
 	}
@@ -458,7 +459,7 @@ func New(params DriverParameters) (*Driver, error) {
 		MultipartCopyThresholdSize:  params.MultipartCopyThresholdSize,
 		RootDirectory:               params.RootDirectory,
 		StorageClass:                params.StorageClass,
-		ObjectACL:                   params.ObjectACL,
+		ObjectAcl:                   params.ObjectAcl,
 	}
 
 	return &Driver{
@@ -706,11 +707,15 @@ func (d *driver) copy(ctx context.Context, sourcePath string, destPath string) e
 		return nil
 	}
 
+	// Even in the worst case, a multipart copy should take no more
+	// than a few minutes, so 30 minutes is very conservative.
+	expires := time.Now().Add(time.Duration(30) * time.Minute)
 	createResp, err := d.S3.CreateMultipartUpload(&s3.CreateMultipartUploadInput{
 		Bucket:               aws.String(d.Bucket),
 		Key:                  aws.String(d.s3Path(destPath)),
 		ContentType:          d.getContentType(),
 		ACL:                  d.getACL(),
+		Expires:              aws.Time(expires),
 		SSEKMSKeyId:          d.getSSEKMSKeyID(),
 		ServerSideEncryption: d.getEncryptionMode(),
 		StorageClass:         d.getStorageClass(),
@@ -779,12 +784,10 @@ func min(a, b int) int {
 // We must be careful since S3 does not guarantee read after delete consistency
 func (d *driver) Delete(ctx context.Context, path string) error {
 	s3Objects := make([]*s3.ObjectIdentifier, 0, listMax)
-	s3Path := d.s3Path(path)
 	listObjectsInput := &s3.ListObjectsInput{
 		Bucket: aws.String(d.Bucket),
-		Prefix: aws.String(s3Path),
+		Prefix: aws.String(d.s3Path(path)),
 	}
-ListLoop:
 	for {
 		// list all the objects
 		resp, err := d.S3.ListObjects(listObjectsInput)
@@ -797,10 +800,6 @@ ListLoop:
 		}
 
 		for _, key := range resp.Contents {
-			// Stop if we encounter a key that is not a subpath (so that deleting "/a" does not delete "/ab").
-			if len(*key.Key) > len(s3Path) && (*key.Key)[len(s3Path)] != '/' {
-				break ListLoop
-			}
 			s3Objects = append(s3Objects, &s3.ObjectIdentifier{
 				Key: key.Key,
 			})
@@ -913,7 +912,7 @@ func (d *driver) getContentType() *string {
 }
 
 func (d *driver) getACL() *string {
-	return aws.String(d.ObjectACL)
+	return aws.String(d.ObjectAcl)
 }
 
 func (d *driver) getStorageClass() *string {

@@ -1,8 +1,13 @@
----
-title: "Oauth2 Token Authentication"
-description: "Specifies the Docker Registry v2 authentication"
-keywords: ["registry, on-prem, images, tags, repository, distribution, oauth2, advanced"]
----
+<!--[metadata]>
++++
+title = "Oauth2 Token Authentication"
+description = "Specifies the Docker Registry v2 authentication"
+keywords = ["registry, on-prem, images, tags, repository, distribution, oauth2, advanced"]
+[menu.main]
+parent="smn_registry_ref"
+weight=102
++++
+<![end-metadata]-->
 
 # Docker Registry v2 authentication using OAuth2
 
@@ -188,3 +193,4 @@ Content-Type: application/json
 
 {"refresh_token":"kas9Da81Dfa8","access_token":"eyJhbGciOiJFUzI1NiIsInR5":"expires_in":900,"scope":"repository:samalba/my-app:pull,repository:samalba/my-app:push"}
 ```
+

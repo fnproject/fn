@@ -9,10 +9,11 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/libtrust"
-	"github.com/opencontainers/go-digest"
+
+	"github.com/docker/distribution/digest"
+	"github.com/docker/distribution/manifest"
 )
 
 type diffID digest.Digest
@@ -94,7 +95,7 @@ func (mb *configManifestBuilder) Build(ctx context.Context) (m distribution.Mani
 	}
 
 	if len(img.RootFS.DiffIDs) != len(mb.descriptors) {
-		return nil, fmt.Errorf("number of descriptors and number of layers in rootfs must match: len(%v) != len(%v)", img.RootFS.DiffIDs, mb.descriptors)
+		return nil, errors.New("number of descriptors and number of layers in rootfs must match")
 	}
 
 	// Generate IDs for each layer
@@ -240,13 +241,8 @@ func (mb *configManifestBuilder) emptyTar(ctx context.Context) (digest.Digest, e
 
 // AppendReference adds a reference to the current ManifestBuilder
 func (mb *configManifestBuilder) AppendReference(d distribution.Describable) error {
-	descriptor := d.Descriptor()
-
-	if err := descriptor.Digest.Validate(); err != nil {
-		return err
-	}
-
-	mb.descriptors = append(mb.descriptors, descriptor)
+	// todo: verification here?
+	mb.descriptors = append(mb.descriptors, d.Descriptor())
 	return nil
 }
 

@@ -3,7 +3,7 @@ package storage
 import (
 	"testing"
 
-	"github.com/opencontainers/go-digest"
+	"github.com/docker/distribution/digest"
 )
 
 func TestPathMapper(t *testing.T) {

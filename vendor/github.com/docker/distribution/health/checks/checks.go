@@ -2,11 +2,9 @@ package checks
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -17,19 +15,10 @@ import (
 // if the file exists.
 func FileChecker(f string) health.Checker {
 	return health.CheckFunc(func() error {
-		absoluteFilePath, err := filepath.Abs(f)
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path for %q: %v", f, err)
-		}
-
-		_, err = os.Stat(absoluteFilePath)
-		if err == nil {
+		if _, err := os.Stat(f); err == nil {
 			return errors.New("file exists")
-		} else if os.IsNotExist(err) {
-			return nil
 		}
-
-		return err
+		return nil
 	})
 }
 

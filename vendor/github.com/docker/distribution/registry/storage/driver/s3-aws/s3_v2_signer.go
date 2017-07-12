@@ -124,8 +124,6 @@ func (v2 *signer) Sign() error {
 		md5, ctype, date, xamz string
 		xamzDate               bool
 		sarray                 []string
-		smap                   map[string]string
-		sharray                []string
 	)
 
 	headers := v2.Request.Header
@@ -137,11 +135,7 @@ func (v2 *signer) Sign() error {
 	host, canonicalPath := parsedURL.Host, parsedURL.Path
 	v2.Request.Header["Host"] = []string{host}
 	v2.Request.Header["date"] = []string{v2.Time.In(time.UTC).Format(time.RFC1123)}
-	if credValue.SessionToken != "" {
-		v2.Request.Header["x-amz-security-token"] = []string{credValue.SessionToken}
-	}
 
-	smap = make(map[string]string)
 	for k, v := range headers {
 		k = strings.ToLower(k)
 		switch k {
@@ -156,20 +150,16 @@ func (v2 *signer) Sign() error {
 		default:
 			if strings.HasPrefix(k, "x-amz-") {
 				vall := strings.Join(v, ",")
-				smap[k] = k + ":" + vall
+				sarray = append(sarray, k+":"+vall)
 				if k == "x-amz-date" {
 					xamzDate = true
 					date = ""
 				}
-				sharray = append(sharray, k)
 			}
 		}
 	}
-	if len(sharray) > 0 {
-		sort.StringSlice(sharray).Sort()
-		for _, h := range sharray {
-			sarray = append(sarray, smap[h])
-		}
+	if len(sarray) > 0 {
+		sort.StringSlice(sarray).Sort()
 		xamz = strings.Join(sarray, "\n") + "\n"
 	}
 

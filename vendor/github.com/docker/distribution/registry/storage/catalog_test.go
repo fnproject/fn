@@ -8,12 +8,12 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
+	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/docker/distribution/testutil"
-	"github.com/opencontainers/go-digest"
 )
 
 type setupEnv struct {
@@ -44,7 +44,7 @@ func setupFS(t *testing.T) *setupEnv {
 	}
 
 	for _, repo := range repos {
-		makeRepo(ctx, t, repo, registry)
+		makeRepo(t, ctx, repo, registry)
 	}
 
 	expected := []string{
@@ -67,8 +67,8 @@ func setupFS(t *testing.T) *setupEnv {
 	}
 }
 
-func makeRepo(ctx context.Context, t *testing.T, name string, reg distribution.Namespace) {
-	named, err := reference.WithName(name)
+func makeRepo(t *testing.T, ctx context.Context, name string, reg distribution.Namespace) {
+	named, err := reference.ParseNamed(name)
 	if err != nil {
 		t.Fatal(err)
 	}

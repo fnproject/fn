@@ -70,3 +70,6 @@ import:
 - package: github.com/mattn/go-sqlite3
 testImport:
 - package: github.com/vrischmann/envconfig
+- package: github.com/opencontainers/go-digest
+  branch: master
+  

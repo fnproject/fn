@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/distribution/testutil"
 )
@@ -66,7 +65,7 @@ func testServerWithAuth(rrm testutil.RequestResponseMap, authenticate string, au
 
 // ping pings the provided endpoint to determine its required authorization challenges.
 // If a version header is provided, the versions will be returned.
-func ping(manager challenge.Manager, endpoint, versionHeader string) ([]APIVersion, error) {
+func ping(manager ChallengeManager, endpoint, versionHeader string) ([]APIVersion, error) {
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		return nil, err
@@ -150,7 +149,7 @@ func TestEndpointAuthorizeToken(t *testing.T) {
 	e, c := testServerWithAuth(m, authenicate, validCheck)
 	defer c()
 
-	challengeManager1 := challenge.NewSimpleManager()
+	challengeManager1 := NewSimpleChallengeManager()
 	versions, err := ping(challengeManager1, e+"/v2/", "x-api-version")
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +176,7 @@ func TestEndpointAuthorizeToken(t *testing.T) {
 	e2, c2 := testServerWithAuth(m, authenicate, validCheck)
 	defer c2()
 
-	challengeManager2 := challenge.NewSimpleManager()
+	challengeManager2 := NewSimpleChallengeManager()
 	versions, err = ping(challengeManager2, e2+"/v2/", "x-multi-api-version")
 	if err != nil {
 		t.Fatal(err)
@@ -274,7 +273,7 @@ func TestEndpointAuthorizeRefreshToken(t *testing.T) {
 	e, c := testServerWithAuth(m, authenicate, validCheck)
 	defer c()
 
-	challengeManager1 := challenge.NewSimpleManager()
+	challengeManager1 := NewSimpleChallengeManager()
 	versions, err := ping(challengeManager1, e+"/v2/", "x-api-version")
 	if err != nil {
 		t.Fatal(err)
@@ -307,7 +306,7 @@ func TestEndpointAuthorizeRefreshToken(t *testing.T) {
 	e2, c2 := testServerWithAuth(m, authenicate, validCheck)
 	defer c2()
 
-	challengeManager2 := challenge.NewSimpleManager()
+	challengeManager2 := NewSimpleChallengeManager()
 	versions, err = ping(challengeManager2, e2+"/v2/", "x-api-version")
 	if err != nil {
 		t.Fatal(err)
@@ -340,7 +339,7 @@ func TestEndpointAuthorizeRefreshToken(t *testing.T) {
 	e3, c3 := testServerWithAuth(m, authenicate, validCheck)
 	defer c3()
 
-	challengeManager3 := challenge.NewSimpleManager()
+	challengeManager3 := NewSimpleChallengeManager()
 	versions, err = ping(challengeManager3, e3+"/v2/", "x-api-version")
 	if err != nil {
 		t.Fatal(err)
@@ -402,7 +401,7 @@ func TestEndpointAuthorizeV2RefreshToken(t *testing.T) {
 	e, c := testServerWithAuth(m, authenicate, validCheck)
 	defer c()
 
-	challengeManager1 := challenge.NewSimpleManager()
+	challengeManager1 := NewSimpleChallengeManager()
 	versions, err := ping(challengeManager1, e+"/v2/", "x-api-version")
 	if err != nil {
 		t.Fatal(err)
@@ -497,7 +496,7 @@ func TestEndpointAuthorizeTokenBasic(t *testing.T) {
 		password: password,
 	}
 
-	challengeManager := challenge.NewSimpleManager()
+	challengeManager := NewSimpleChallengeManager()
 	_, err := ping(challengeManager, e+"/v2/", "")
 	if err != nil {
 		t.Fatal(err)
@@ -615,7 +614,7 @@ func TestEndpointAuthorizeTokenBasicWithExpiresIn(t *testing.T) {
 		password: password,
 	}
 
-	challengeManager := challenge.NewSimpleManager()
+	challengeManager := NewSimpleChallengeManager()
 	_, err := ping(challengeManager, e+"/v2/", "")
 	if err != nil {
 		t.Fatal(err)
@@ -766,7 +765,7 @@ func TestEndpointAuthorizeTokenBasicWithExpiresInAndIssuedAt(t *testing.T) {
 		password: password,
 	}
 
-	challengeManager := challenge.NewSimpleManager()
+	challengeManager := NewSimpleChallengeManager()
 	_, err := ping(challengeManager, e+"/v2/", "")
 	if err != nil {
 		t.Fatal(err)
@@ -846,7 +845,7 @@ func TestEndpointAuthorizeBasic(t *testing.T) {
 		password: password,
 	}
 
-	challengeManager := challenge.NewSimpleManager()
+	challengeManager := NewSimpleChallengeManager()
 	_, err := ping(challengeManager, e+"/v2/", "")
 	if err != nil {
 		t.Fatal(err)

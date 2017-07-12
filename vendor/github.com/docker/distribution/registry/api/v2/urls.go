@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -47,42 +46,30 @@ func NewURLBuilderFromString(root string, relative bool) (*URLBuilder, error) {
 // NewURLBuilderFromRequest uses information from an *http.Request to
 // construct the root url.
 func NewURLBuilderFromRequest(r *http.Request, relative bool) *URLBuilder {
-	var (
-		scheme = "http"
-		host   = r.Host
-	)
+	var scheme string
 
-	if r.TLS != nil {
+	forwardedProto := r.Header.Get("X-Forwarded-Proto")
+
+	switch {
+	case len(forwardedProto) > 0:
+		scheme = forwardedProto
+	case r.TLS != nil:
 		scheme = "https"
-	} else if len(r.URL.Scheme) > 0 {
+	case len(r.URL.Scheme) > 0:
 		scheme = r.URL.Scheme
+	default:
+		scheme = "http"
 	}
 
-	// Handle fowarded headers
-	// Prefer "Forwarded" header as defined by rfc7239 if given
-	// see https://tools.ietf.org/html/rfc7239
-	if forwarded := r.Header.Get("Forwarded"); len(forwarded) > 0 {
-		forwardedHeader, _, err := parseForwardedHeader(forwarded)
-		if err == nil {
-			if fproto := forwardedHeader["proto"]; len(fproto) > 0 {
-				scheme = fproto
-			}
-			if fhost := forwardedHeader["host"]; len(fhost) > 0 {
-				host = fhost
-			}
-		}
-	} else {
-		if forwardedProto := r.Header.Get("X-Forwarded-Proto"); len(forwardedProto) > 0 {
-			scheme = forwardedProto
-		}
-		if forwardedHost := r.Header.Get("X-Forwarded-Host"); len(forwardedHost) > 0 {
-			// According to the Apache mod_proxy docs, X-Forwarded-Host can be a
-			// comma-separated list of hosts, to which each proxy appends the
-			// requested host. We want to grab the first from this comma-separated
-			// list.
-			hosts := strings.SplitN(forwardedHost, ",", 2)
-			host = strings.TrimSpace(hosts[0])
-		}
+	host := r.Host
+	forwardedHost := r.Header.Get("X-Forwarded-Host")
+	if len(forwardedHost) > 0 {
+		// According to the Apache mod_proxy docs, X-Forwarded-Host can be a
+		// comma-separated list of hosts, to which each proxy appends the
+		// requested host. We want to grab the first from this comma-separated
+		// list.
+		hosts := strings.SplitN(forwardedHost, ",", 2)
+		host = strings.TrimSpace(hosts[0])
 	}
 
 	basePath := routeDescriptorsMap[RouteNameBase].Path
@@ -150,8 +137,6 @@ func (ub *URLBuilder) BuildManifestURL(ref reference.Named) (string, error) {
 		tagOrDigest = v.Tag()
 	case reference.Digested:
 		tagOrDigest = v.Digest().String()
-	default:
-		return "", fmt.Errorf("reference must have a tag or digest")
 	}
 
 	manifestURL, err := route.URL("name", ref.Name(), "reference", tagOrDigest)

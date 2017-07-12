@@ -1,6 +1,8 @@
----
-published: false
----
+<!--[metadata]>
++++
+draft = true
++++
+<![end-metadata]-->
 
 # Architecture
 

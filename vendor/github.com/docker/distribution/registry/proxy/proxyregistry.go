@@ -12,7 +12,6 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
-	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/distribution/registry/proxy/scheduler"
 	"github.com/docker/distribution/registry/storage"
@@ -92,7 +91,7 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 		return nil, err
 	}
 
-	cs, err := configureAuth(config.Username, config.Password, config.RemoteURL)
+	cs, err := configureAuth(config.Username, config.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +102,7 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 		remoteURL: *remoteURL,
 		authChallenger: &remoteAuthChallenger{
 			remoteURL: *remoteURL,
-			cm:        challenge.NewSimpleManager(),
+			cm:        auth.NewSimpleChallengeManager(),
 			cs:        cs,
 		},
 	}, nil
@@ -178,14 +177,14 @@ func (pr *proxyingRegistry) BlobStatter() distribution.BlobStatter {
 // authChallenger encapsulates a request to the upstream to establish credential challenges
 type authChallenger interface {
 	tryEstablishChallenges(context.Context) error
-	challengeManager() challenge.Manager
+	challengeManager() auth.ChallengeManager
 	credentialStore() auth.CredentialStore
 }
 
 type remoteAuthChallenger struct {
 	remoteURL url.URL
 	sync.Mutex
-	cm challenge.Manager
+	cm auth.ChallengeManager
 	cs auth.CredentialStore
 }
 
@@ -193,7 +192,7 @@ func (r *remoteAuthChallenger) credentialStore() auth.CredentialStore {
 	return r.cs
 }
 
-func (r *remoteAuthChallenger) challengeManager() challenge.Manager {
+func (r *remoteAuthChallenger) challengeManager() auth.ChallengeManager {
 	return r.cm
 }
 

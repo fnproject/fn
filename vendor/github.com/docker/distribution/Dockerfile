@@ -1,10 +1,7 @@
-FROM golang:1.8-alpine
+FROM golang:1.6-alpine
 
 ENV DISTRIBUTION_DIR /go/src/github.com/docker/distribution
 ENV DOCKER_BUILDTAGS include_oss include_gcs
-
-ARG GOOS=linux
-ARG GOARCH=amd64
 
 RUN set -ex \
     && apk add --no-cache make git

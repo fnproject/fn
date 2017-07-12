@@ -10,7 +10,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/opencontainers/go-digest"
+	"github.com/docker/distribution/digest"
 )
 
 // CreateRandomTarFile creates a random tarfile, returning it as an

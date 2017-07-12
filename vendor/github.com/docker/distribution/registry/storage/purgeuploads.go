@@ -80,7 +80,7 @@ func getOutstandingUploads(ctx context.Context, driver storageDriver.StorageDriv
 
 		}
 
-		uuid, isContainingDir := uuidFromPath(filePath)
+		uuid, isContainingDir := uUIDFromPath(filePath)
 		if uuid == "" {
 			// Cannot reliably delete
 			return nil
@@ -111,10 +111,10 @@ func getOutstandingUploads(ctx context.Context, driver storageDriver.StorageDriv
 	return uploads, errors
 }
 
-// uuidFromPath extracts the upload UUID from a given path
+// uUIDFromPath extracts the upload UUID from a given path
 // If the UUID is the last path component, this is the containing
 // directory for all upload files
-func uuidFromPath(path string) (string, bool) {
+func uUIDFromPath(path string) (string, bool) {
 	components := strings.Split(path, "/")
 	for i := len(components) - 1; i >= 0; i-- {
 		if u, err := uuid.Parse(components[i]); err == nil {

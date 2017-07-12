@@ -7,18 +7,17 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
+	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client/auth"
-	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/proxy/scheduler"
 	"github.com/docker/distribution/registry/storage"
 	"github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/docker/distribution/testutil"
 	"github.com/docker/libtrust"
-	"github.com/opencontainers/go-digest"
 )
 
 type statsManifest struct {
@@ -78,12 +77,12 @@ func (m *mockChallenger) credentialStore() auth.CredentialStore {
 	return nil
 }
 
-func (m *mockChallenger) challengeManager() challenge.Manager {
+func (m *mockChallenger) challengeManager() auth.ChallengeManager {
 	return nil
 }
 
 func newManifestStoreTestEnv(t *testing.T, name, tag string) *manifestStoreTestEnv {
-	nameRef, err := reference.WithName(name)
+	nameRef, err := reference.ParseNamed(name)
 	if err != nil {
 		t.Fatalf("unable to parse reference: %s", err)
 	}
@@ -112,7 +111,7 @@ func newManifestStoreTestEnv(t *testing.T, name, tag string) *manifestStoreTestE
 		stats:     make(map[string]int),
 	}
 
-	manifestDigest, err := populateRepo(ctx, t, truthRepo, name, tag)
+	manifestDigest, err := populateRepo(t, ctx, truthRepo, name, tag)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -149,7 +148,7 @@ func newManifestStoreTestEnv(t *testing.T, name, tag string) *manifestStoreTestE
 	}
 }
 
-func populateRepo(ctx context.Context, t *testing.T, repository distribution.Repository, name, tag string) (digest.Digest, error) {
+func populateRepo(t *testing.T, ctx context.Context, repository distribution.Repository, name, tag string) (digest.Digest, error) {
 	m := schema1.Manifest{
 		Versioned: manifest.Versioned{
 			SchemaVersion: 1,

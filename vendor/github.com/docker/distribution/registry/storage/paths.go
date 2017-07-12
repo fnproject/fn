@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/opencontainers/go-digest"
+	"github.com/docker/distribution/digest"
 )
 
 const (

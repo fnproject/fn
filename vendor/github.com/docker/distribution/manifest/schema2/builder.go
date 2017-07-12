@@ -3,7 +3,7 @@ package schema2
 import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/opencontainers/go-digest"
+	"github.com/docker/distribution/digest"
 )
 
 // builder is a type for constructing manifests.
@@ -11,25 +11,21 @@ type builder struct {
 	// bs is a BlobService used to publish the configuration blob.
 	bs distribution.BlobService
 
-	// configMediaType is media type used to describe configuration
-	configMediaType string
-
 	// configJSON references
 	configJSON []byte
 
-	// dependencies is a list of descriptors that gets built by successive
-	// calls to AppendReference. In case of image configuration these are layers.
-	dependencies []distribution.Descriptor
+	// layers is a list of layer descriptors that gets built by successive
+	// calls to AppendReference.
+	layers []distribution.Descriptor
 }
 
 // NewManifestBuilder is used to build new manifests for the current schema
 // version. It takes a BlobService so it can publish the configuration blob
 // as part of the Build process.
-func NewManifestBuilder(bs distribution.BlobService, configMediaType string, configJSON []byte) distribution.ManifestBuilder {
+func NewManifestBuilder(bs distribution.BlobService, configJSON []byte) distribution.ManifestBuilder {
 	mb := &builder{
-		bs:              bs,
-		configMediaType: configMediaType,
-		configJSON:      make([]byte, len(configJSON)),
+		bs:         bs,
+		configJSON: make([]byte, len(configJSON)),
 	}
 	copy(mb.configJSON, configJSON)
 
@@ -40,9 +36,9 @@ func NewManifestBuilder(bs distribution.BlobService, configMediaType string, con
 func (mb *builder) Build(ctx context.Context) (distribution.Manifest, error) {
 	m := Manifest{
 		Versioned: SchemaVersion,
-		Layers:    make([]distribution.Descriptor, len(mb.dependencies)),
+		Layers:    make([]distribution.Descriptor, len(mb.layers)),
 	}
-	copy(m.Layers, mb.dependencies)
+	copy(m.Layers, mb.layers)
 
 	configDigest := digest.FromBytes(mb.configJSON)
 
@@ -52,7 +48,7 @@ func (mb *builder) Build(ctx context.Context) (distribution.Manifest, error) {
 	case nil:
 		// Override MediaType, since Put always replaces the specified media
 		// type with application/octet-stream in the descriptor it returns.
-		m.Config.MediaType = mb.configMediaType
+		m.Config.MediaType = MediaTypeConfig
 		return FromStruct(m)
 	case distribution.ErrBlobUnknown:
 		// nop
@@ -61,10 +57,10 @@ func (mb *builder) Build(ctx context.Context) (distribution.Manifest, error) {
 	}
 
 	// Add config to the blob store
-	m.Config, err = mb.bs.Put(ctx, mb.configMediaType, mb.configJSON)
+	m.Config, err = mb.bs.Put(ctx, MediaTypeConfig, mb.configJSON)
 	// Override MediaType, since Put always replaces the specified media
 	// type with application/octet-stream in the descriptor it returns.
-	m.Config.MediaType = mb.configMediaType
+	m.Config.MediaType = MediaTypeConfig
 	if err != nil {
 		return nil, err
 	}
@@ -74,11 +70,11 @@ func (mb *builder) Build(ctx context.Context) (distribution.Manifest, error) {
 
 // AppendReference adds a reference to the current ManifestBuilder.
 func (mb *builder) AppendReference(d distribution.Describable) error {
-	mb.dependencies = append(mb.dependencies, d.Descriptor())
+	mb.layers = append(mb.layers, d.Descriptor())
 	return nil
 }
 
 // References returns the current references added to this builder.
 func (mb *builder) References() []distribution.Descriptor {
-	return mb.dependencies
+	return mb.layers
 }

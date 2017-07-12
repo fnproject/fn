@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -133,7 +132,7 @@ type Configuration struct {
 
 		// HTTP2 configuration options
 		HTTP2 struct {
-			// Specifies whether the registry should disallow clients attempting
+			// Specifies wether the registry should disallow clients attempting
 			// to connect via http2. If set to true, only http/1.1 is supported.
 			Disabled bool `yaml:"disabled,omitempty"`
 		} `yaml:"http2,omitempty"`
@@ -189,11 +188,8 @@ type Configuration struct {
 
 	// Validation configures validation options for the registry.
 	Validation struct {
-		// Enabled enables the other options in this section. This field is
-		// deprecated in favor of Disabled.
+		// Enabled enables the other options in this section.
 		Enabled bool `yaml:"enabled,omitempty"`
-		// Disabled disables the other options in this section.
-		Disabled bool `yaml:"disabled,omitempty"`
 		// Manifests configures manifest validation.
 		Manifests struct {
 			// URLs configures validation for URLs in pushed manifests.
@@ -207,19 +203,6 @@ type Configuration struct {
 			} `yaml:"urls,omitempty"`
 		} `yaml:"manifests,omitempty"`
 	} `yaml:"validation,omitempty"`
-
-	// Policy configures registry policy options.
-	Policy struct {
-		// Repository configures policies for repositories
-		Repository struct {
-			// Classes is a list of repository classes which the
-			// registry allows content for. This class is matched
-			// against the configuration media type inside uploaded
-			// manifests. When non-empty, the registry will enforce
-			// the class in authorized resources.
-			Classes []string `yaml:"classes"`
-		} `yaml:"repository,omitempty"`
-	} `yaml:"policy,omitempty"`
 }
 
 // LogHook is composed of hook Level and Type.
@@ -236,7 +219,7 @@ type LogHook struct {
 	// Levels set which levels of log message will let hook executed.
 	Levels []string `yaml:"levels,omitempty"`
 
-	// MailOptions allows user to configure email parameters.
+	// MailOptions allows user to configurate email parameters.
 	MailOptions MailOptions `yaml:"options,omitempty"`
 }
 
@@ -330,7 +313,7 @@ type Health struct {
 type v0_1Configuration Configuration
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface
-// Unmarshals a string of the form X.Y into a Version, validating that X and Y can represent unsigned integers
+// Unmarshals a string of the form X.Y into a Version, validating that X and Y can represent uints
 func (version *Version) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var versionString string
 	err := unmarshal(&versionString)
@@ -628,7 +611,7 @@ func Parse(rd io.Reader) (*Configuration, error) {
 						v0_1.Loglevel = Loglevel("info")
 					}
 					if v0_1.Storage.Type() == "" {
-						return nil, errors.New("No storage configuration provided")
+						return nil, fmt.Errorf("No storage configuration provided")
 					}
 					return (*Configuration)(v0_1), nil
 				}

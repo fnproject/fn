@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
+	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
@@ -15,7 +16,6 @@ import (
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/docker/distribution/testutil"
 	"github.com/docker/libtrust"
-	"github.com/opencontainers/go-digest"
 )
 
 func TestListener(t *testing.T) {
@@ -33,7 +33,7 @@ func TestListener(t *testing.T) {
 		ops: make(map[string]int),
 	}
 
-	repoRef, _ := reference.WithName("foo/bar")
+	repoRef, _ := reference.ParseNamed("foo/bar")
 	repository, err := registry.Repository(ctx, repoRef)
 	if err != nil {
 		t.Fatalf("unexpected error getting repo: %v", err)

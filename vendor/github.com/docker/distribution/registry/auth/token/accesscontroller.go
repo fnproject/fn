@@ -261,8 +261,6 @@ func (ac *accessController) Authorized(ctx context.Context, accessItems ...auth.
 		}
 	}
 
-	ctx = auth.WithResources(ctx, token.resources())
-
 	return auth.WithUser(ctx, auth.UserInfo{Name: token.Claims.Subject}), nil
 }
 
