@@ -7,7 +7,7 @@ import:
   subpackages:
   - models
 - package: github.com/Sirupsen/logrus
-  repo: https://github.com/sirupsen/logrus
+  repo: https://github.com/sirupsen/logrus.git
   vcs: git
   version: ^v0.11.5
   subpackages:

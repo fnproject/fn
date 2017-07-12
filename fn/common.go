@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	functionsDockerImage     = "treeder/functions"
+	functionsDockerImage     = "funcy/functions"
 	minRequiredDockerVersion = "17.5.0"
 )
 
