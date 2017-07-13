@@ -21,7 +21,6 @@ func main() {
 	funcServer.AddMiddlewareFunc(func(ctx server.MiddlewareContext, w http.ResponseWriter, r *http.Request, app *models.App) error {
 		start := time.Now()
 		fmt.Println("CustomMiddlewareFunc called at:", start)
-		// TODO: probably need a way to let the chain go forward here and return back to the middleware, for things like timing, etc.
 		ctx.Next()
 		fmt.Println("Duration:", (time.Now().Sub(start)))
 		return nil
@@ -48,5 +47,6 @@ func (h *CustomMiddleware) Serve(ctx server.MiddlewareContext, w http.ResponseWr
 		return errors.New("Invalid authorization token.")
 	}
 	fmt.Println("auth succeeded!")
+	ctx.Set("user", "I'm in!")
 	return nil
 }

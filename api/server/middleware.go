@@ -108,9 +108,6 @@ func (c *middlewareContextImpl) Index() int {
 
 func (s *Server) middlewareWrapperFunc(ctx context.Context) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if len(s.middlewares) == 0 {
-			return
-		}
 		// TODO: we should get rid of this, gin context and middleware context both implement context, don't need a third one here
 		ctx = c.MustGet("ctx").(context.Context)
 		fctx := &middlewareContextImpl{Context: ctx}

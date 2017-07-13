@@ -7,13 +7,14 @@ import (
 	"os"
 
 	"context"
+	"strings"
+
 	fnclient "github.com/funcy/functions_go/client"
 	apiapps "github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
 	client "gitlab-odx.oracle.com/odx/functions/fn/client"
-	"strings"
 )
 
 type appsCmd struct {
@@ -101,11 +102,15 @@ func (a *appsCmd) list(c *cli.Context) error {
 	})
 
 	if err != nil {
+		// fmt.Println("err type:", reflect.TypeOf(err))
 		switch err.(type) {
 		case *apiapps.GetAppsAppNotFound:
 			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
 		case *apiapps.GetAppsAppDefault:
 			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+		case *apiapps.GetAppsDefault:
+			// this is the one getting called, not sure what the one above is?
+			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsDefault).Payload.Error.Message)
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 	}
@@ -145,19 +150,6 @@ func (a *appsCmd) create(c *cli.Context) error {
 		return fmt.Errorf("unexpected error: %v", err)
 	}
 
-	const createHeader = `  
-   ____                  __                      
-  / __ \_________ ______/ /__                    
- / / / / ___/ __ / ___/ / _ \                   
-/ /_/ / /  / /_/ / /__/ /  __/                   
-\_________ \__,_/\___/_/\____  _                 
-   / ____/_  ______  _____/ /_(_)___  ____  _____
-  / /_  / / / / __ \/ ___/ __/ / __ \/ __ \/ ___/
- / __/ / /_/ / / / / /__/ /_/ / /_/ / / / (__  ) 
-/_/    \____/_/ /_/\___/\__/_/\____/_/ /_/____/
-`
-
-	fmt.Println(createHeader)
 	fmt.Println("Successfully created app: ", resp.Payload.App.Name)
 	return nil
 }
