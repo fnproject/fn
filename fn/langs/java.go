@@ -196,11 +196,10 @@ public class HelloFunction {
 
 	helloJavaTestBoilerplate = `package com.example.faas;
 
-import com.oracle.faas.testing.FnTesting;
+import com.oracle.faas.testing.*;
 import org.junit.*;
 
 import static org.junit.Assert.*;
-import static com.oracle.faas.testing.FnTesting.*;
 
 public class HelloFunctionTest {
 
