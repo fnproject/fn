@@ -28,6 +28,18 @@ func (f MiddlewareFunc) Serve(ctx MiddlewareContext, w http.ResponseWriter, r *h
 // MiddlewareContext extends context.Context for Middleware
 type MiddlewareContext interface {
 	context.Context
+
+	// Set is used to store a new key/value pair exclusively for this context.
+	// This is different than WithValue(), as it does not make a copy of the context with the new value, it will be available up the chain as well.
+	Set(key string, value interface{})
+
+	// Get returns the value for the given key, ie: (value, true).
+	// If the value does not exists it returns (nil, false)
+	Get(key string) (value interface{}, exists bool)
+
+	// MustGet returns the value for the given key if it exists, otherwise it panics.
+	MustGet(key string) interface{}
+
 	// Middleware can call Next() explicitly to call the next middleware in the chain. If Next() is not called and an error is not returned, Next() will automatically be called.
 	Next()
 	// Index returns the index of where we're at in the chain
