@@ -24,7 +24,7 @@ import (
 	   Patch accepts partial updates / skips validation of zero values.
 */
 func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.MustGet("mctx").(MiddlewareContext)
 	log := common.Logger(ctx)
 	method := strings.ToUpper(c.Request.Method)
 
@@ -38,7 +38,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	}
 
 	// Create the app if it does not exist.
-	err, resperr = s.ensureApp(ctx, c, &wroute, method)
+	err, resperr = s.ensureApp(ctx, &wroute, method)
 	if err != nil || resperr != nil {
 		log.WithError(err).Debug(resperr)
 		handleErrorResponse(c, resperr)
@@ -57,7 +57,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
-func (s *Server) ensureApp(ctx context.Context, c *gin.Context, wroute *models.RouteWrapper, method string) (error, error) {
+func (s *Server) ensureApp(ctx MiddlewareContext, wroute *models.RouteWrapper, method string) (error, error) {
 	if !(method == http.MethodPost || method == http.MethodPut) {
 		return nil, nil
 	}

@@ -100,6 +100,8 @@ func (s *Server) middlewareWrapperFunc(ctx context.Context) gin.HandlerFunc {
 		}
 		ctx = c.MustGet("ctx").(context.Context)
 		fctx := &middlewareContextImpl{Context: ctx}
+		// add this context to gin context so we can grab it later
+		c.Set("mctx", fctx)
 		fctx.index = -1
 		fctx.ginContext = c
 		fctx.middlewares = s.middlewares

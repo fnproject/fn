@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +10,7 @@ import (
 )
 
 func (s *Server) handleAppUpdate(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.MustGet("mctx").(MiddlewareContext)
 	log := common.Logger(ctx)
 
 	wapp := models.AppWrapper{}
