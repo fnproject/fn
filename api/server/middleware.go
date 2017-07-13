@@ -91,6 +91,7 @@ func (c *middlewareContextImpl) serveNext() {
 		logrus.WithError(err).Warnln("Middleware error")
 		// todo: might be a good idea to check if anything is written yet, and if not, output the error: simpleError(err)
 		// see: http://stackoverflow.com/questions/39415827/golang-http-check-if-responsewriter-has-been-written
+		c.ginContext.Error(err)
 		c.ginContext.Abort()
 		return
 	}
@@ -110,6 +111,7 @@ func (s *Server) middlewareWrapperFunc(ctx context.Context) gin.HandlerFunc {
 		if len(s.middlewares) == 0 {
 			return
 		}
+		// TODO: we should get rid of this, gin context and middleware context both implement context, don't need a third one here
 		ctx = c.MustGet("ctx").(context.Context)
 		fctx := &middlewareContextImpl{Context: ctx}
 		// add this context to gin context so we can grab it later

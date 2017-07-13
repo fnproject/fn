@@ -40,8 +40,10 @@ func (h *CustomMiddleware) Serve(ctx server.MiddlewareContext, w http.ResponseWr
 	// check auth header
 	tokenHeader := strings.SplitN(r.Header.Get("Authorization"), " ", 3)
 	if len(tokenHeader) < 2 || tokenHeader[1] != "KlaatuBaradaNikto" {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		m := map[string]string{"error": "Invalid Authorization token. Sorry!"}
+		m2 := map[string]string{"message": "Invalid Authorization token."}
+		m := map[string]map[string]string{"error": m2}
 		json.NewEncoder(w).Encode(m)
 		return errors.New("Invalid authorization token.")
 	}
