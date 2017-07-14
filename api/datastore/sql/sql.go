@@ -119,7 +119,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		return nil, err
 	}
 
-	maxIdleConns := 30 // c.MaxIdleConnections
+	maxIdleConns := 256 // TODO we need to strip this out of the URL probably
 	db.SetMaxIdleConns(maxIdleConns)
 	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
