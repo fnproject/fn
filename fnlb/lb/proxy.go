@@ -26,6 +26,7 @@ import (
 // TODO TLS
 
 type Config struct {
+	DBurl                string   `json:"db_url"`
 	Listen               string   `json:"port"`
 	Nodes                []string `json:"nodes"`
 	HealthcheckInterval  int      `json:"healthcheck_interval"`
