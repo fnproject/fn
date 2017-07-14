@@ -420,7 +420,7 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) 
 	}
 
 	if n == 0 {
-		return models.ErrRoutesRemoving
+		return models.ErrRoutesNotFound
 	}
 
 	return nil

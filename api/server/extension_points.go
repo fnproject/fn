@@ -45,11 +45,13 @@ func (s *Server) apiAppHandlerWrapperFunc(apiHandler ApiAppHandler) gin.HandlerF
 		appName := c.Param(api.CApp)
 		app, err := s.Datastore.GetApp(c.Request.Context(), appName)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			handleErrorResponse(c, err)
+			c.Abort()
 			return
 		}
 		if app == nil {
-			c.AbortWithStatus(http.StatusNotFound)
+			handleErrorResponse(c, models.ErrAppsNotFound)
+			c.Abort()
 			return
 		}
 

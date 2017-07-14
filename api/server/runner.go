@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,7 +29,6 @@ type runnerResponse struct {
 
 func (s *Server) handleSpecial(c *gin.Context) {
 	ctx := c.MustGet("ctx").(context.Context)
-	log := common.Logger(ctx)
 
 	ctx = context.WithValue(ctx, api.AppName, "")
 	c.Set(api.AppName, "")
@@ -38,21 +36,15 @@ func (s *Server) handleSpecial(c *gin.Context) {
 	c.Set(api.Path, c.Request.URL.Path)
 
 	ctx, err := s.UseSpecialHandlers(ctx, c.Request, c.Writer)
-	if err == ErrNoSpecialHandlerFound {
-		log.WithError(err).Errorln("Not special handler found")
-		c.JSON(http.StatusNotFound, http.StatusText(http.StatusNotFound))
-		return
-	} else if err != nil {
-		log.WithError(err).Errorln("Error using special handler!")
-		c.JSON(http.StatusInternalServerError, simpleError(errors.New("Failed to run function")))
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 
 	c.Set("ctx", ctx)
 	c.Set(api.AppName, ctx.Value(api.AppName).(string))
 	if c.MustGet(api.AppName).(string) == "" {
-		log.WithError(err).Errorln("Specialhandler returned empty app name")
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrRunnerRouteNotFound))
+		handleErrorResponse(c, models.ErrRunnerRouteNotFound)
 		return
 	}
 
@@ -110,23 +102,23 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	path := reqRoute.Path
 
 	app, err := s.Datastore.GetApp(ctx, appName)
-	if err != nil || app == nil {
-		log.WithError(err).Error(models.ErrAppsNotFound)
-		c.JSON(http.StatusNotFound, simpleError(models.ErrAppsNotFound))
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	} else if app == nil {
+		handleErrorResponse(c, models.ErrAppsNotFound)
 		return
 	}
 
 	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on datastore")
 	routes, err := s.loadroutes(ctx, models.RouteFilter{AppName: appName, Path: path})
 	if err != nil {
-		log.WithError(err).Error(models.ErrRoutesList)
-		c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
+		handleErrorResponse(c, err)
 		return
 	}
 
 	if len(routes) == 0 {
-		log.WithError(err).Error(models.ErrRunnerRouteNotFound)
-		c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
+		handleErrorResponse(c, models.ErrRunnerRouteNotFound)
 		return
 	}
 
@@ -139,8 +131,7 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		return
 	}
 
-	log.Error(models.ErrRunnerRouteNotFound)
-	c.JSON(http.StatusNotFound, simpleError(models.ErrRunnerRouteNotFound))
+	handleErrorResponse(c, models.ErrRunnerRouteNotFound)
 }
 
 func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*models.Route, error) {
@@ -241,8 +232,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		// Read payload
 		pl, err := ioutil.ReadAll(cfg.Stdin)
 		if err != nil {
-			log.WithError(err).Error(models.ErrInvalidPayload)
-			c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidPayload))
+			handleErrorResponse(c, models.ErrInvalidPayload)
 			return true
 		}
 		// Create Task

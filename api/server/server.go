@@ -205,28 +205,24 @@ func (s *Server) handleTaskRequest(c *gin.Context) {
 	case "GET":
 		task, err := s.MQ.Reserve(ctx)
 		if err != nil {
-			logrus.WithError(err).Error()
-			c.JSON(http.StatusInternalServerError, simpleError(models.ErrRoutesList))
+			handleErrorResponse(c, err)
 			return
 		}
 		c.JSON(http.StatusAccepted, task)
 	case "DELETE":
 		body, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logrus.WithError(err).Error()
-			c.JSON(http.StatusInternalServerError, err)
+			handleErrorResponse(c, err)
 			return
 		}
 		var task models.Task
 		if err = json.Unmarshal(body, &task); err != nil {
-			logrus.WithError(err).Error()
-			c.JSON(http.StatusInternalServerError, err)
+			handleErrorResponse(c, err)
 			return
 		}
 
 		if err := s.MQ.Delete(ctx, &task); err != nil {
-			logrus.WithError(err).Error()
-			c.JSON(http.StatusInternalServerError, err)
+			handleErrorResponse(c, err)
 			return
 		}
 		c.JSON(http.StatusAccepted, task)

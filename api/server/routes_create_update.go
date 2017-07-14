@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"gitlab-odx.oracle.com/odx/functions/api"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.
@@ -25,23 +24,20 @@ import (
 */
 func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 	ctx := c.MustGet("mctx").(MiddlewareContext)
-	log := common.Logger(ctx)
 	method := strings.ToUpper(c.Request.Method)
 
 	var wroute models.RouteWrapper
 
-	err, resperr := s.bindAndValidate(ctx, c, method, &wroute)
-	if err != nil || resperr != nil {
-		log.WithError(err).Debug(resperr)
-		c.JSON(http.StatusBadRequest, simpleError(resperr))
+	err := s.bindAndValidate(ctx, c, method, &wroute)
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 
 	// Create the app if it does not exist.
-	err, resperr = s.ensureApp(ctx, &wroute, method)
-	if err != nil || resperr != nil {
-		log.WithError(err).Debug(resperr)
-		handleErrorResponse(c, resperr)
+	err = s.ensureApp(ctx, &wroute, method)
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 
@@ -57,53 +53,51 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
-func (s *Server) ensureApp(ctx MiddlewareContext, wroute *models.RouteWrapper, method string) (error, error) {
+func (s *Server) ensureApp(ctx MiddlewareContext, wroute *models.RouteWrapper, method string) error {
 	if !(method == http.MethodPost || method == http.MethodPut) {
-		return nil, nil
+		return nil
 	}
-	var app *models.App
-	var err error
-	app, err = s.Datastore.GetApp(ctx, wroute.Route.AppName)
+	app, err := s.Datastore.GetApp(ctx, wroute.Route.AppName)
 	if err != nil && err != models.ErrAppsNotFound {
-		return err, models.ErrAppsGet
+		return err
 	} else if app == nil {
 		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
 		if err = newapp.Validate(); err != nil {
-			return err, err
+			return err
 		}
 
 		err = s.FireBeforeAppCreate(ctx, newapp)
 		if err != nil {
-			return err, models.ErrAppsCreate
+			return err
 		}
 
 		_, err = s.Datastore.InsertApp(ctx, newapp)
 		if err != nil {
-			return err, models.ErrAppsCreate
+			return err
 		}
 
 		err = s.FireAfterAppCreate(ctx, newapp)
 		if err != nil {
-			return err, models.ErrAppsCreate
+			return err
 		}
 
 	}
-	return nil, nil
+	return nil
 }
 
 /* bindAndValidate binds the RouteWrapper to the json from the request and validates that it is correct.
 If it is a put or patch it makes sure that the path in the url matches the provideed one in the body.
 Defaults are set and if patch skipZero is true for validating the RouteWrapper
 */
-func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method string, wroute *models.RouteWrapper) (error, error) {
+func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method string, wroute *models.RouteWrapper) error {
 	err := c.BindJSON(wroute)
 	if err != nil {
-		return err, models.ErrInvalidJSON
+		return models.ErrInvalidJSON
 	}
 
 	if wroute.Route == nil {
-		return err, models.ErrRoutesMissingNew
+		return models.ErrRoutesMissingNew
 	}
 	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 
@@ -111,17 +105,14 @@ func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method str
 		p := path.Clean(c.MustGet(api.Path).(string))
 
 		if wroute.Route.Path != "" && wroute.Route.Path != p {
-			return models.ErrRoutesPathImmutable, models.ErrRoutesPathImmutable
+			return models.ErrRoutesPathImmutable
 		}
 		wroute.Route.Path = p
 	}
 
 	wroute.Route.SetDefaults()
 
-	if err = wroute.Validate(method == http.MethodPatch); err != nil {
-		return models.ErrRoutesCreate, err
-	}
-	return nil, nil
+	return wroute.Validate(method == http.MethodPatch)
 }
 
 // updateOrInsertRoute will either update or insert the route respective the method.

@@ -5,38 +5,32 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
 func (s *Server) handleAppCreate(c *gin.Context) {
 	ctx := c.MustGet("mctx").(MiddlewareContext)
-	log := common.Logger(ctx)
 
 	var wapp models.AppWrapper
 
 	err := c.BindJSON(&wapp)
 	if err != nil {
-		log.WithError(err).Debug(models.ErrInvalidJSON)
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrInvalidJSON))
+		handleErrorResponse(c, models.ErrInvalidJSON)
 		return
 	}
 
 	if wapp.App == nil {
-		log.Debug(models.ErrAppsMissingNew)
-		c.JSON(http.StatusBadRequest, simpleError(models.ErrAppsMissingNew))
+		handleErrorResponse(c, models.ErrAppsMissingNew)
 		return
 	}
 
 	if err := wapp.Validate(); err != nil {
-		log.Error(err)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
+		handleErrorResponse(c, err)
 		return
 	}
 
 	err = s.FireBeforeAppCreate(ctx, wapp.App)
 	if err != nil {
-		log.WithError(err).Error(models.ErrAppsCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
+		handleErrorResponse(c, err)
 		return
 	}
 
@@ -48,8 +42,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 
 	err = s.FireAfterAppCreate(ctx, wapp.App)
 	if err != nil {
-		log.WithError(err).Error(models.ErrAppsCreate)
-		c.JSON(http.StatusInternalServerError, simpleError(err))
+		handleErrorResponse(c, err)
 		return
 	}
 

@@ -2,11 +2,10 @@ package server
 
 import (
 	"context"
-	"errors"
 	"net/http"
-)
 
-var ErrNoSpecialHandlerFound = errors.New("Path not found")
+	"gitlab-odx.oracle.com/odx/functions/api/models"
+)
 
 type SpecialHandler interface {
 	Handle(c HandlerContext) error
@@ -56,7 +55,7 @@ func (s *Server) AddSpecialHandler(handler SpecialHandler) {
 // UseSpecialHandlers execute all special handlers
 func (s *Server) UseSpecialHandlers(ctx context.Context, req *http.Request, resp http.ResponseWriter) (context.Context, error) {
 	if len(s.specialHandlers) == 0 {
-		return ctx, ErrNoSpecialHandlerFound
+		return ctx, models.ErrNoSpecialHandlerFound
 	}
 
 	c := &SpecialHandlerContext{
