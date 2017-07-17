@@ -115,7 +115,7 @@ func TestRoutePut(t *testing.T) {
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	routes := models.Routes{{AppName: "a", Path: "/myroute",}}
+	routes := models.Routes{{AppName: "a", Path: "/myroute"}}
 	apps := []*models.App{{Name: "a", Routes: routes, Config: nil}}
 
 	for i, test := range []struct {
@@ -126,9 +126,8 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrRoutesNotFound},
-		{datastore.NewMockInit(apps, routes, nil, nil,
-		), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrAppsNotFound},
+		{datastore.NewMockInit(apps, routes, nil, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
