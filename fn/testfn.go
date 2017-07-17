@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -12,9 +13,14 @@ import (
 	"time"
 
 	functions "github.com/funcy/functions_go"
+	"github.com/onsi/gomega"
 	"github.com/urfave/cli"
 	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
+
+type testStruct struct {
+	Tests []fftest `yaml:"tests,omitempty" json:"tests,omitempty"`
+}
 
 func testfn() cli.Command {
 	cmd := testcmd{RoutesApi: functions.NewRoutesApi()}
@@ -35,11 +41,11 @@ type testcmd struct {
 
 func (t *testcmd) flags() []cli.Flag {
 	return []cli.Flag{
-		cli.BoolFlag{
-			Name:        "b",
-			Usage:       "build before test",
-			Destination: &t.build,
-		},
+		// cli.BoolFlag{
+		// 	Name:        "b",
+		// 	Usage:       "build before test",
+		// 	Destination: &t.build,
+		// },
 		cli.StringFlag{
 			Name:        "remote",
 			Usage:       "run tests by calling the function on Oracle Functions daemon on `appname`",
@@ -49,12 +55,14 @@ func (t *testcmd) flags() []cli.Flag {
 }
 
 func (t *testcmd) test(c *cli.Context) error {
-	if t.build {
-		b := &buildcmd{verbose: true}
-		if err := b.build(c); err != nil {
-			return err
-		}
-		fmt.Println()
+	gomega.RegisterFailHandler(func(message string, callerSkip ...int) {
+		fmt.Println("In gomega FailHandler:", message)
+	})
+
+	// First, build it
+	err := c.App.Command("build").Run(c)
+	if err != nil {
+		return err
 	}
 
 	ff, err := loadFuncfile()
@@ -62,9 +70,30 @@ func (t *testcmd) test(c *cli.Context) error {
 		return err
 	}
 
-	if len(ff.Tests) == 0 {
+	var tests []fftest
+
+	// Look for test.json file too
+	tfile := "test.json"
+	if exists(tfile) {
+		f, err := os.Open(tfile)
+		if err != nil {
+			return fmt.Errorf("could not open %s for parsing. Error: %v", tfile, err)
+		}
+		ts := &testStruct{}
+		err = json.NewDecoder(f).Decode(ts)
+		if err != nil {
+			fmt.Println("Invalid tests.json file:", err)
+			return err
+		}
+		tests = ts.Tests
+	} else {
+		tests = ff.Tests
+	}
+	if len(tests) == 0 {
 		return errors.New("no tests found for this function")
 	}
+
+	fmt.Printf("Running %v tests...", len(tests))
 
 	target := ff.FullName()
 	runtest := runlocaltest
@@ -86,18 +115,16 @@ func (t *testcmd) test(c *cli.Context) error {
 		runtest = runremotetest
 	}
 
-	var foundErr bool
+	errorCount := 0
 	fmt.Println("running tests on", ff.FullName(), ":")
-	for _, tt := range ff.Tests {
+	for i, tt := range tests {
+		fmt.Printf("\nTest %v\n", i+1)
 		start := time.Now()
 		var err error
-		err = runtest(target, tt.In, tt.Out, tt.Err, tt.Env)
-
-		fmt.Print("\t - ", tt.Name, " (", time.Since(start), "): ")
-
+		err = runtest(target, tt.Input, tt.Output, tt.Err, tt.Env)
 		if err != nil {
-			fmt.Println()
-			foundErr = true
+			fmt.Print("FAILED")
+			errorCount += 1
 			scanner := bufio.NewScanner(strings.NewReader(err.Error()))
 			for scanner.Scan() {
 				fmt.Println("\t\t", scanner.Text())
@@ -106,24 +133,29 @@ func (t *testcmd) test(c *cli.Context) error {
 				fmt.Fprintln(os.Stderr, "reading test result:", err)
 				break
 			}
-			continue
+		} else {
+			fmt.Print("PASSED")
 		}
+		fmt.Println(" - ", tt.Name, " (", time.Since(start), ")")
 
-		fmt.Println("OK")
 	}
-
-	if foundErr {
-		return errors.New("errors found")
+	fmt.Printf("\n%v tests passed, %v tests failed.\n", len(tests)-errorCount, errorCount)
+	if errorCount > 0 {
+		return errors.New("tests failed, errors found")
 	}
 	return nil
 }
 
-func runlocaltest(target string, in, expectedOut, expectedErr *string, env map[string]string) error {
+func runlocaltest(target string, in *inputMap, expectedOut *outputMap, expectedErr *string, env map[string]string) error {
+	inBytes, _ := json.Marshal(in.Body)
 	stdin := &bytes.Buffer{}
 	if in != nil {
-		stdin = bytes.NewBufferString(*in)
+		stdin = bytes.NewBuffer(inBytes)
 	}
+	expectedB, _ := json.Marshal(expectedOut.Body)
+	expectedString := string(expectedB)
 
+	// TODO: use the same run as `fn run` so we don't have to dupe all the config and env vars that get passed in
 	var stdout, stderr bytes.Buffer
 	var restrictedEnv []string
 	for k, v := range env {
@@ -143,25 +175,30 @@ func runlocaltest(target string, in, expectedOut, expectedErr *string, env map[s
 	out := stdout.String()
 	if expectedOut == nil && out != "" {
 		return fmt.Errorf("unexpected output found: %s", out)
-	} else if expectedOut != nil && *expectedOut != out {
-		return fmt.Errorf("mismatched output found.\nexpected (%d bytes):\n%s\ngot (%d bytes):\n%s\n", len(*expectedOut), *expectedOut, len(out), out)
+	}
+	if gomega.Expect(out).To(gomega.MatchJSON(expectedString)) { //  *expectedString != out {
+		// PASS!
+		return nil
 	}
 
-	err := stderr.String()
-	if expectedErr == nil && err != "" {
-		return fmt.Errorf("unexpected error output found: %s", err)
-	} else if expectedErr != nil && *expectedErr != err {
-		return fmt.Errorf("mismatched error output found.\nexpected (%d bytes):\n%s\ngot (%d bytes):\n%s\n", len(*expectedErr), *expectedErr, len(err), err)
-	}
+	// don't think we should test error output, it's just for logging
+	// err := stderr.String()
+	// if expectedErr == nil && err != "" {
+	// 	return fmt.Errorf("unexpected error output found: %s", err)
+	// } else if expectedErr != nil && *expectedErr != err {
+	// 	return fmt.Errorf("mismatched error output found.\nexpected (%d bytes):\n%s\ngot (%d bytes):\n%s\n", len(*expectedErr), *expectedErr, len(err), err)
+	// }
 
-	return nil
+	return fmt.Errorf("mismatched output found.\nexpected:\n%s\ngot:\n%s\n", expectedString, out)
 }
 
-func runremotetest(target string, in, expectedOut, expectedErr *string, env map[string]string) error {
+func runremotetest(target string, in *inputMap, expectedOut *outputMap, expectedErr *string, env map[string]string) error {
+	inBytes, _ := json.Marshal(in)
 	stdin := &bytes.Buffer{}
 	if in != nil {
-		stdin = bytes.NewBufferString(*in)
+		stdin = bytes.NewBuffer(inBytes)
 	}
+	expectedString, _ := json.Marshal(expectedOut.Body)
 
 	var stdout bytes.Buffer
 
@@ -181,12 +218,10 @@ func runremotetest(target string, in, expectedOut, expectedErr *string, env map[
 	out := stdout.String()
 	if expectedOut == nil && out != "" {
 		return fmt.Errorf("unexpected output found: %s", out)
-	} else if expectedOut != nil && *expectedOut != out {
-		return fmt.Errorf("mismatched output found.\nexpected (%d bytes):\n%s\ngot (%d bytes):\n%s\n", len(*expectedOut), *expectedOut, len(out), out)
 	}
-
-	if expectedErr != nil {
-		return fmt.Errorf("cannot process stderr in remote calls")
+	if gomega.Expect(out).To(gomega.MatchJSON(expectedString)) { //  *expectedString != out {
+		// PASS!
+		return nil
 	}
 
 	return nil
