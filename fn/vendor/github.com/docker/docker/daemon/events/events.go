@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	eventsLimit = 256
+	eventsLimit = 64
 	bufferSize  = 1024
 )
 
@@ -78,14 +78,15 @@ func (e *Events) Evict(l chan interface{}) {
 	e.pub.Evict(l)
 }
 
-// Log creates a local scope message and publishes it
+// Log broadcasts event to listeners. Each listener has 100 milliseconds to
+// receive the event or it will be skipped.
 func (e *Events) Log(action, eventType string, actor eventtypes.Actor) {
+	eventsCounter.Inc()
 	now := time.Now().UTC()
 	jm := eventtypes.Message{
 		Action:   action,
 		Type:     eventType,
 		Actor:    actor,
-		Scope:    "local",
 		Time:     now.Unix(),
 		TimeNano: now.UnixNano(),
 	}
@@ -100,14 +101,6 @@ func (e *Events) Log(action, eventType string, actor eventtypes.Actor) {
 		jm.ID = actor.ID
 		jm.Status = action
 	}
-
-	e.PublishMessage(jm)
-}
-
-// PublishMessage broadcasts event to listeners. Each listener has 100 milliseconds to
-// receive the event or it will be skipped.
-func (e *Events) PublishMessage(jm eventtypes.Message) {
-	eventsCounter.Inc()
 
 	e.mu.Lock()
 	if len(e.events) == cap(e.events) {

@@ -16,13 +16,15 @@ func TestLogContainerEventCopyLabels(t *testing.T) {
 	defer e.Evict(l)
 
 	container := &container.Container{
-		ID:   "container_id",
-		Name: "container_name",
-		Config: &containertypes.Config{
-			Image: "image_name",
-			Labels: map[string]string{
-				"node": "1",
-				"os":   "alpine",
+		CommonContainer: container.CommonContainer{
+			ID:   "container_id",
+			Name: "container_name",
+			Config: &containertypes.Config{
+				Image: "image_name",
+				Labels: map[string]string{
+					"node": "1",
+					"os":   "alpine",
+				},
 			},
 		},
 	}
@@ -47,12 +49,14 @@ func TestLogContainerEventWithAttributes(t *testing.T) {
 	defer e.Evict(l)
 
 	container := &container.Container{
-		ID:   "container_id",
-		Name: "container_name",
-		Config: &containertypes.Config{
-			Labels: map[string]string{
-				"node": "1",
-				"os":   "alpine",
+		CommonContainer: container.CommonContainer{
+			ID:   "container_id",
+			Name: "container_name",
+			Config: &containertypes.Config{
+				Labels: map[string]string{
+					"node": "1",
+					"os":   "alpine",
+				},
 			},
 		},
 	}

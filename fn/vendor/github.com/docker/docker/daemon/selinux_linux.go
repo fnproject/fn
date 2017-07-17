@@ -2,16 +2,16 @@
 
 package daemon
 
-import "github.com/opencontainers/selinux/go-selinux"
+import "github.com/opencontainers/runc/libcontainer/selinux"
 
 func selinuxSetDisabled() {
 	selinux.SetDisabled()
 }
 
 func selinuxFreeLxcContexts(label string) {
-	selinux.ReleaseLabel(label)
+	selinux.FreeLxcContexts(label)
 }
 
 func selinuxEnabled() bool {
-	return selinux.GetEnabled()
+	return selinux.SelinuxEnabled()
 }

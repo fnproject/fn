@@ -36,7 +36,7 @@ for version in "${versions[@]}"; do
 
 	EOF
 
-	extraBuildTags=
+	extraBuildTags='pkcs11'
 	runcBuildTags=
 
 	# this list is sorted alphabetically; please keep it that way
@@ -53,6 +53,7 @@ for version in "${versions[@]}"; do
 		git # for "git commit" info in "docker -v"
 		libapparmor-dev # for "sys/apparmor.h"
 		libdevmapper-dev # for "libdevmapper.h"
+		libltdl-dev # for pkcs11 "ltdl.h"
 		libseccomp-dev  # for "seccomp.h" & "libseccomp.so"
 		pkg-config # for detecting things like libsystemd-journal dynamically
 		libsystemd-dev

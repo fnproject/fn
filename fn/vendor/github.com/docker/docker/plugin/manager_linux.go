@@ -15,7 +15,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/daemon/initlayer"
 	"github.com/docker/docker/libcontainerd"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/docker/pkg/stringid"
@@ -59,7 +58,7 @@ func (pm *Manager) enable(p *v2.Plugin, c *controller, force bool) error {
 		}
 	}
 
-	if err := initlayer.Setup(filepath.Join(pm.config.Root, p.PluginObj.ID, rootFSFileName), idtools.IDPair{0, 0}); err != nil {
+	if err := initlayer.Setup(filepath.Join(pm.config.Root, p.PluginObj.ID, rootFSFileName), 0, 0); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -80,7 +79,7 @@ func (pm *Manager) enable(p *v2.Plugin, c *controller, force bool) error {
 
 func (pm *Manager) pluginPostStart(p *v2.Plugin, c *controller) error {
 	sockAddr := filepath.Join(pm.config.ExecRoot, p.GetID(), p.GetSocket())
-	client, err := plugins.NewClientWithTimeout("unix://"+sockAddr, nil, time.Duration(c.timeoutInSecs)*time.Second)
+	client, err := plugins.NewClientWithTimeout("unix://"+sockAddr, nil, c.timeoutInSecs)
 	if err != nil {
 		c.restart = false
 		shutdownPlugin(p, c, pm.containerdClient)
@@ -204,7 +203,7 @@ func (pm *Manager) upgradePlugin(p *v2.Plugin, configDigest digest.Digest, blobs
 	// Make sure nothing is mounted
 	// This could happen if the plugin was disabled with `-f` with active mounts.
 	// If there is anything in `orig` is still mounted, this should error out.
-	if err := mount.RecursiveUnmount(orig); err != nil {
+	if err := recursiveUnmount(orig); err != nil {
 		return err
 	}
 
@@ -274,7 +273,7 @@ func (pm *Manager) setupNewPlugin(configDigest digest.Digest, blobsums []digest.
 }
 
 // createPlugin creates a new plugin. take lock before calling.
-func (pm *Manager) createPlugin(name string, configDigest digest.Digest, blobsums []digest.Digest, rootFSDir string, privileges *types.PluginPrivileges, opts ...CreateOpt) (p *v2.Plugin, err error) {
+func (pm *Manager) createPlugin(name string, configDigest digest.Digest, blobsums []digest.Digest, rootFSDir string, privileges *types.PluginPrivileges) (p *v2.Plugin, err error) {
 	if err := pm.config.Store.validateName(name); err != nil { // todo: this check is wrong. remove store
 		return nil, err
 	}
@@ -294,9 +293,6 @@ func (pm *Manager) createPlugin(name string, configDigest digest.Digest, blobsum
 		Blobsums: blobsums,
 	}
 	p.InitEmptySettings()
-	for _, o := range opts {
-		o(p)
-	}
 
 	pdir := filepath.Join(pm.config.Root, p.PluginObj.ID)
 	if err := os.MkdirAll(pdir, 0700); err != nil {

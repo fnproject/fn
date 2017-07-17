@@ -1,50 +1,61 @@
-// Copyright 2013 The Go Authors. All rights reserved.
+// Copyright 2013 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin dragonfly freebsd linux netbsd openbsd
 
 package ipv6
 
 import (
-	"net"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/net/internal/iana"
-	"golang.org/x/net/internal/socket"
 )
 
 func marshalTrafficClass(b []byte, cm *ControlMessage) []byte {
-	m := socket.ControlMessage(b)
-	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_TCLASS, 4)
+	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	m.Level = iana.ProtocolIPv6
+	m.Type = sysIPV6_TCLASS
+	m.SetLen(syscall.CmsgLen(4))
 	if cm != nil {
-		socket.NativeEndian.PutUint32(m.Data(4), uint32(cm.TrafficClass))
+		data := b[syscall.CmsgLen(0):]
+		// TODO(mikio): fix potential misaligned memory access
+		*(*int32)(unsafe.Pointer(&data[:4][0])) = int32(cm.TrafficClass)
 	}
-	return m.Next(4)
+	return b[syscall.CmsgSpace(4):]
 }
 
 func parseTrafficClass(cm *ControlMessage, b []byte) {
-	cm.TrafficClass = int(socket.NativeEndian.Uint32(b[:4]))
+	// TODO(mikio): fix potential misaligned memory access
+	cm.TrafficClass = int(*(*int32)(unsafe.Pointer(&b[:4][0])))
 }
 
 func marshalHopLimit(b []byte, cm *ControlMessage) []byte {
-	m := socket.ControlMessage(b)
-	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_HOPLIMIT, 4)
+	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	m.Level = iana.ProtocolIPv6
+	m.Type = sysIPV6_HOPLIMIT
+	m.SetLen(syscall.CmsgLen(4))
 	if cm != nil {
-		socket.NativeEndian.PutUint32(m.Data(4), uint32(cm.HopLimit))
+		data := b[syscall.CmsgLen(0):]
+		// TODO(mikio): fix potential misaligned memory access
+		*(*int32)(unsafe.Pointer(&data[:4][0])) = int32(cm.HopLimit)
 	}
-	return m.Next(4)
+	return b[syscall.CmsgSpace(4):]
 }
 
 func parseHopLimit(cm *ControlMessage, b []byte) {
-	cm.HopLimit = int(socket.NativeEndian.Uint32(b[:4]))
+	// TODO(mikio): fix potential misaligned memory access
+	cm.HopLimit = int(*(*int32)(unsafe.Pointer(&b[:4][0])))
 }
 
 func marshalPacketInfo(b []byte, cm *ControlMessage) []byte {
-	m := socket.ControlMessage(b)
-	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_PKTINFO, sizeofInet6Pktinfo)
+	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	m.Level = iana.ProtocolIPv6
+	m.Type = sysIPV6_PKTINFO
+	m.SetLen(syscall.CmsgLen(sysSizeofInet6Pktinfo))
 	if cm != nil {
-		pi := (*inet6Pktinfo)(unsafe.Pointer(&m.Data(sizeofInet6Pktinfo)[0]))
+		pi := (*sysInet6Pktinfo)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
 		if ip := cm.Src.To16(); ip != nil && ip.To4() == nil {
 			copy(pi.Addr[:], ip)
 		}
@@ -52,43 +63,41 @@ func marshalPacketInfo(b []byte, cm *ControlMessage) []byte {
 			pi.setIfindex(cm.IfIndex)
 		}
 	}
-	return m.Next(sizeofInet6Pktinfo)
+	return b[syscall.CmsgSpace(sysSizeofInet6Pktinfo):]
 }
 
 func parsePacketInfo(cm *ControlMessage, b []byte) {
-	pi := (*inet6Pktinfo)(unsafe.Pointer(&b[0]))
-	if len(cm.Dst) < net.IPv6len {
-		cm.Dst = make(net.IP, net.IPv6len)
-	}
-	copy(cm.Dst, pi.Addr[:])
+	pi := (*sysInet6Pktinfo)(unsafe.Pointer(&b[0]))
+	cm.Dst = pi.Addr[:]
 	cm.IfIndex = int(pi.Ifindex)
 }
 
 func marshalNextHop(b []byte, cm *ControlMessage) []byte {
-	m := socket.ControlMessage(b)
-	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_NEXTHOP, sizeofSockaddrInet6)
+	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	m.Level = iana.ProtocolIPv6
+	m.Type = sysIPV6_NEXTHOP
+	m.SetLen(syscall.CmsgLen(sysSizeofSockaddrInet6))
 	if cm != nil {
-		sa := (*sockaddrInet6)(unsafe.Pointer(&m.Data(sizeofSockaddrInet6)[0]))
+		sa := (*sysSockaddrInet6)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
 		sa.setSockaddr(cm.NextHop, cm.IfIndex)
 	}
-	return m.Next(sizeofSockaddrInet6)
+	return b[syscall.CmsgSpace(sysSizeofSockaddrInet6):]
 }
 
 func parseNextHop(cm *ControlMessage, b []byte) {
 }
 
 func marshalPathMTU(b []byte, cm *ControlMessage) []byte {
-	m := socket.ControlMessage(b)
-	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_PATHMTU, sizeofIPv6Mtuinfo)
-	return m.Next(sizeofIPv6Mtuinfo)
+	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
+	m.Level = iana.ProtocolIPv6
+	m.Type = sysIPV6_PATHMTU
+	m.SetLen(syscall.CmsgLen(sysSizeofIPv6Mtuinfo))
+	return b[syscall.CmsgSpace(sysSizeofIPv6Mtuinfo):]
 }
 
 func parsePathMTU(cm *ControlMessage, b []byte) {
-	mi := (*ipv6Mtuinfo)(unsafe.Pointer(&b[0]))
-	if len(cm.Dst) < net.IPv6len {
-		cm.Dst = make(net.IP, net.IPv6len)
-	}
-	copy(cm.Dst, mi.Addr.Addr[:])
+	mi := (*sysIPv6Mtuinfo)(unsafe.Pointer(&b[0]))
+	cm.Dst = mi.Addr.Addr[:]
 	cm.IfIndex = int(mi.Addr.Scope_id)
 	cm.MTU = int(mi.Mtu)
 }

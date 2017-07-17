@@ -19,7 +19,7 @@
 
 # Base docker image
 FROM debian:jessie
-LABEL maintainer Jessica Frazelle <jess@docker.com>
+MAINTAINER Jessica Frazelle <jess@docker.com>
 
 # Install Gparted and its dependencies
 RUN apt-get update && apt-get install -y \

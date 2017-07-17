@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	dockererrors "github.com/docker/docker/api/errors"
@@ -29,11 +27,9 @@ type mounts []container.Mount
 
 // volumeToAPIType converts a volume.Volume to the type used by the Engine API
 func volumeToAPIType(v volume.Volume) *types.Volume {
-	createdAt, _ := v.CreatedAt()
 	tv := &types.Volume{
-		Name:      v.Name(),
-		Driver:    v.DriverName(),
-		CreatedAt: createdAt.Format(time.RFC3339),
+		Name:   v.Name(),
+		Driver: v.DriverName(),
 	}
 	if v, ok := v.(volume.DetailedVolume); ok {
 		tv.Labels = v.Labels()
@@ -116,7 +112,6 @@ func (daemon *Daemon) registerMountPoints(container *container.Container, hostCo
 
 		for _, m := range c.MountPoints {
 			cp := &volume.MountPoint{
-				Type:        m.Type,
 				Name:        m.Name,
 				Source:      m.Source,
 				RW:          m.RW && volume.ReadWrite(mode),
@@ -244,125 +239,48 @@ func (daemon *Daemon) lazyInitializeVolume(containerID string, m *volume.MountPo
 	return nil
 }
 
-// backportMountSpec resolves mount specs (introduced in 1.13) from pre-1.13
-// mount configurations
-// The container lock should not be held when calling this function.
-// Changes are only made in-memory and may make changes to containers referenced
-// by `container.HostConfig.VolumesFrom`
-func (daemon *Daemon) backportMountSpec(container *container.Container) {
-	container.Lock()
-	defer container.Unlock()
-
-	maybeUpdate := make(map[string]bool)
-	for _, mp := range container.MountPoints {
-		if mp.Spec.Source != "" && mp.Type != "" {
-			continue
+func backportMountSpec(container *container.Container) error {
+	for target, m := range container.MountPoints {
+		if m.Spec.Type != "" {
+			// if type is set on even one mount, no need to migrate
+			return nil
 		}
-		maybeUpdate[mp.Destination] = true
-	}
-	if len(maybeUpdate) == 0 {
-		return
-	}
+		if m.Name != "" {
+			m.Type = mounttypes.TypeVolume
+			m.Spec.Type = mounttypes.TypeVolume
 
-	mountSpecs := make(map[string]bool, len(container.HostConfig.Mounts))
-	for _, m := range container.HostConfig.Mounts {
-		mountSpecs[m.Target] = true
-	}
-
-	binds := make(map[string]*volume.MountPoint, len(container.HostConfig.Binds))
-	for _, rawSpec := range container.HostConfig.Binds {
-		mp, err := volume.ParseMountRaw(rawSpec, container.HostConfig.VolumeDriver)
-		if err != nil {
-			logrus.WithError(err).Error("Got unexpected error while re-parsing raw volume spec during spec backport")
-			continue
-		}
-		binds[mp.Destination] = mp
-	}
-
-	volumesFrom := make(map[string]volume.MountPoint)
-	for _, fromSpec := range container.HostConfig.VolumesFrom {
-		from, _, err := volume.ParseVolumesFrom(fromSpec)
-		if err != nil {
-			logrus.WithError(err).WithField("id", container.ID).Error("Error reading volumes-from spec during mount spec backport")
-			continue
-		}
-		fromC, err := daemon.GetContainer(from)
-		if err != nil {
-			logrus.WithError(err).WithField("from-container", from).Error("Error looking up volumes-from container")
-			continue
-		}
-
-		// make sure from container's specs have been backported
-		daemon.backportMountSpec(fromC)
-
-		fromC.Lock()
-		for t, mp := range fromC.MountPoints {
-			volumesFrom[t] = *mp
-		}
-		fromC.Unlock()
-	}
-
-	needsUpdate := func(containerMount, other *volume.MountPoint) bool {
-		if containerMount.Type != other.Type || !reflect.DeepEqual(containerMount.Spec, other.Spec) {
-			return true
-		}
-		return false
-	}
-
-	// main
-	for _, cm := range container.MountPoints {
-		if !maybeUpdate[cm.Destination] {
-			continue
-		}
-		// nothing to backport if from hostconfig.Mounts
-		if mountSpecs[cm.Destination] {
-			continue
-		}
-
-		if mp, exists := binds[cm.Destination]; exists {
-			if needsUpdate(cm, mp) {
-				cm.Spec = mp.Spec
-				cm.Type = mp.Type
+			// make sure this is not an anonymous volume before setting the spec source
+			if _, exists := container.Config.Volumes[target]; !exists {
+				m.Spec.Source = m.Name
 			}
-			continue
-		}
-
-		if cm.Name != "" {
-			if mp, exists := volumesFrom[cm.Destination]; exists {
-				if needsUpdate(cm, &mp) {
-					cm.Spec = mp.Spec
-					cm.Type = mp.Type
+			if container.HostConfig.VolumeDriver != "" {
+				m.Spec.VolumeOptions = &mounttypes.VolumeOptions{
+					DriverConfig: &mounttypes.Driver{Name: container.HostConfig.VolumeDriver},
 				}
-				continue
 			}
-
-			if cm.Type != "" {
-				// probably specified via the hostconfig.Mounts
-				continue
+			if strings.Contains(m.Mode, "nocopy") {
+				if m.Spec.VolumeOptions == nil {
+					m.Spec.VolumeOptions = &mounttypes.VolumeOptions{}
+				}
+				m.Spec.VolumeOptions.NoCopy = true
 			}
-
-			// anon volume
-			cm.Type = mounttypes.TypeVolume
-			cm.Spec.Type = mounttypes.TypeVolume
 		} else {
-			if cm.Type != "" {
-				// already updated
-				continue
-			}
-
-			cm.Type = mounttypes.TypeBind
-			cm.Spec.Type = mounttypes.TypeBind
-			cm.Spec.Source = cm.Source
-			if cm.Propagation != "" {
-				cm.Spec.BindOptions = &mounttypes.BindOptions{
-					Propagation: cm.Propagation,
+			m.Type = mounttypes.TypeBind
+			m.Spec.Type = mounttypes.TypeBind
+			m.Spec.Source = m.Source
+			if m.Propagation != "" {
+				m.Spec.BindOptions = &mounttypes.BindOptions{
+					Propagation: m.Propagation,
 				}
 			}
 		}
 
-		cm.Spec.Target = cm.Destination
-		cm.Spec.ReadOnly = !cm.RW
+		m.Spec.Target = m.Destination
+		if !m.RW {
+			m.Spec.ReadOnly = true
+		}
 	}
+	return container.ToDiskLocking()
 }
 
 func (daemon *Daemon) traverseLocalVolumes(fn func(volume.Volume) error) error {

@@ -176,7 +176,7 @@ func runlocaltest(target string, in *inputMap, expectedOut *outputMap, expectedE
 	if expectedOut == nil && out != "" {
 		return fmt.Errorf("unexpected output found: %s", out)
 	}
-	if gomega.Expect(out).To(gomega.MatchJSON(expectedString)) { //  *expectedString != out {
+	if gomega.Expect(out).To(gomega.MatchJSON(expectedString)) {
 		// PASS!
 		return nil
 	}
@@ -219,7 +219,7 @@ func runremotetest(target string, in *inputMap, expectedOut *outputMap, expected
 	if expectedOut == nil && out != "" {
 		return fmt.Errorf("unexpected output found: %s", out)
 	}
-	if gomega.Expect(out).To(gomega.MatchJSON(expectedString)) { //  *expectedString != out {
+	if gomega.Expect(out).To(gomega.MatchJSON(expectedString)) {
 		// PASS!
 		return nil
 	}

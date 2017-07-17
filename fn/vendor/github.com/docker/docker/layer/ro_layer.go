@@ -16,7 +16,6 @@ type roLayer struct {
 	size       int64
 	layerStore *layerStore
 	descriptor distribution.Descriptor
-	platform   Platform
 
 	referenceCount int
 	references     map[Layer]struct{}
@@ -142,9 +141,6 @@ func storeLayer(tx MetadataTransaction, layer *roLayer) error {
 		if err := tx.SetParent(layer.parent.chainID); err != nil {
 			return err
 		}
-	}
-	if err := tx.SetPlatform(layer.platform); err != nil {
-		return err
 	}
 
 	return nil

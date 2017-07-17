@@ -74,7 +74,7 @@ func (s *DockerSuite) TestGetContainersAttachWebsocket(c *check.C) {
 
 // regression gh14320
 func (s *DockerSuite) TestPostContainersAttachContainerNotFound(c *check.C) {
-	client, err := request.NewHTTPClient(daemonHost())
+	client, err := request.NewClient(daemonHost())
 	c.Assert(err, checker.IsNil)
 	req, err := request.New(daemonHost(), "/containers/doesnotexist/attach", request.Method(http.MethodPost))
 	resp, err := client.Do(req)

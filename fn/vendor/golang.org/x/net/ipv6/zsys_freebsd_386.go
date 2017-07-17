@@ -62,19 +62,19 @@ const (
 	sysIPV6_PORTRANGE_HIGH    = 0x1
 	sysIPV6_PORTRANGE_LOW     = 0x2
 
-	sizeofSockaddrStorage = 0x80
-	sizeofSockaddrInet6   = 0x1c
-	sizeofInet6Pktinfo    = 0x14
-	sizeofIPv6Mtuinfo     = 0x20
+	sysSizeofSockaddrStorage = 0x80
+	sysSizeofSockaddrInet6   = 0x1c
+	sysSizeofInet6Pktinfo    = 0x14
+	sysSizeofIPv6Mtuinfo     = 0x20
 
-	sizeofIPv6Mreq       = 0x14
-	sizeofGroupReq       = 0x84
-	sizeofGroupSourceReq = 0x104
+	sysSizeofIPv6Mreq       = 0x14
+	sysSizeofGroupReq       = 0x84
+	sysSizeofGroupSourceReq = 0x104
 
-	sizeofICMPv6Filter = 0x20
+	sysSizeofICMPv6Filter = 0x20
 )
 
-type sockaddrStorage struct {
+type sysSockaddrStorage struct {
 	Len         uint8
 	Family      uint8
 	X__ss_pad1  [6]int8
@@ -82,7 +82,7 @@ type sockaddrStorage struct {
 	X__ss_pad2  [112]int8
 }
 
-type sockaddrInet6 struct {
+type sysSockaddrInet6 struct {
 	Len      uint8
 	Family   uint8
 	Port     uint16
@@ -91,32 +91,32 @@ type sockaddrInet6 struct {
 	Scope_id uint32
 }
 
-type inet6Pktinfo struct {
+type sysInet6Pktinfo struct {
 	Addr    [16]byte /* in6_addr */
 	Ifindex uint32
 }
 
-type ipv6Mtuinfo struct {
-	Addr sockaddrInet6
+type sysIPv6Mtuinfo struct {
+	Addr sysSockaddrInet6
 	Mtu  uint32
 }
 
-type ipv6Mreq struct {
+type sysIPv6Mreq struct {
 	Multiaddr [16]byte /* in6_addr */
 	Interface uint32
 }
 
-type groupReq struct {
+type sysGroupReq struct {
 	Interface uint32
-	Group     sockaddrStorage
+	Group     sysSockaddrStorage
 }
 
-type groupSourceReq struct {
+type sysGroupSourceReq struct {
 	Interface uint32
-	Group     sockaddrStorage
-	Source    sockaddrStorage
+	Group     sysSockaddrStorage
+	Source    sysSockaddrStorage
 }
 
-type icmpv6Filter struct {
+type sysICMPv6Filter struct {
 	Filt [8]uint32
 }

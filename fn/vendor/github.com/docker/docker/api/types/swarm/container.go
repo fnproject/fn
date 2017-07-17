@@ -68,5 +68,4 @@ type ContainerSpec struct {
 	Hosts     []string           `json:",omitempty"`
 	DNSConfig *DNSConfig         `json:",omitempty"`
 	Secrets   []*SecretReference `json:",omitempty"`
-	Configs   []*ConfigReference `json:",omitempty"`
 }

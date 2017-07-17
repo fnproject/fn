@@ -102,10 +102,10 @@ func createSampleDir(t *testing.T, root string) {
 }
 
 func TestChangeString(t *testing.T) {
-	modifyChange := Change{"change", ChangeModify}
-	toString := modifyChange.String()
+	modifiyChange := Change{"change", ChangeModify}
+	toString := modifiyChange.String()
 	if toString != "C change" {
-		t.Fatalf("String() of a change with ChangeModify Kind should have been %s but was %s", "C change", toString)
+		t.Fatalf("String() of a change with ChangeModifiy Kind should have been %s but was %s", "C change", toString)
 	}
 	addChange := Change{"change", ChangeAdd}
 	toString = addChange.String()

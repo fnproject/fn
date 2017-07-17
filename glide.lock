@@ -1,5 +1,5 @@
-hash: 4db824e9063d9008f1a1716a8ffb6bfac74dce1abb4089f42e28c985b88fa74b
-updated: 2017-07-12T14:14:05.525802785-07:00
+hash: 91e44ada5fc186bf55c6e794c2ea7733ae1b915e850261e67f0e2ed1ba55eb8b
+updated: 2017-07-17T12:03:47.884564997-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -140,9 +140,9 @@ imports:
   subpackages:
   - query
 - name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+  version: 14f550f51af52180c2eefed15e5fd18d63c0a64a
 - name: github.com/gorilla/mux
-  version: 0a192a193177452756c362c20087ddafcf6829c4
+  version: e444e69cbd2e2e3e0749a2f3c717cec491552bbf
 - name: github.com/hashicorp/go-cleanhttp
   version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/hcl
@@ -196,8 +196,6 @@ imports:
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/Nvveen/Gotty
   version: cd527374f1e5bff4938207604a14f2e38a9cf512
-- name: github.com/opencontainers/go-digest
-  version: 279bed98673dd5bef374d3b6e4b09e2af76183bf
 - name: github.com/opencontainers/runc
   version: ea35825a6350511ab93fe24e69c0723d6728616d
   subpackages:
@@ -213,14 +211,14 @@ imports:
   version: b938d81255b5473c57635324295cb0fe398c7a58
 - name: github.com/PuerkitoBio/urlesc
   version: bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5
-- name: github.com/sirupsen/logrus
-  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
-  repo: https://github.com/sirupsen/logrus
+  repo: https://github.com/sirupsen/logrus.git
   vcs: git
   subpackages:
   - hooks/syslog
+- name: github.com/sirupsen/logrus
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/spf13/afero
   version: 9be650865eab0c12963d8753212f4f9c66cdcf12
   subpackages:
@@ -268,5 +266,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
+- name: github.com/opencontainers/go-digest
+  version: 279bed98673dd5bef374d3b6e4b09e2af76183bf
 - name: github.com/vrischmann/envconfig
   version: 757beaaeac8d14bcc7ea3f71488d65cf45cf2eff

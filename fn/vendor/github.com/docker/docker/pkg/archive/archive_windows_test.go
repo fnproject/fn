@@ -27,7 +27,7 @@ func TestCopyFileWithInvalidDest(t *testing.T) {
 		t.Fatal(err)
 	}
 	ioutil.WriteFile(src, []byte("content"), 0777)
-	err = defaultCopyWithTar(src, dest)
+	err = CopyWithTar(src, dest)
 	if err == nil {
 		t.Fatalf("archiver.CopyWithTar should throw an error on invalid dest.")
 	}
@@ -82,8 +82,6 @@ func TestChmodTarEntry(t *testing.T) {
 		{0644, 0755},
 		{0755, 0755},
 		{0444, 0555},
-		{0755 | os.ModeDir, 0755 | os.ModeDir},
-		{0755 | os.ModeSymlink, 0755 | os.ModeSymlink},
 	}
 	for _, v := range cases {
 		if out := chmodTarEntry(v.in); out != v.expected {

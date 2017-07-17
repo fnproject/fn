@@ -1,17 +1,17 @@
 package container
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
-	swarmtypes "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/pkg/signal"
 )
 
 func TestContainerStopSignal(t *testing.T) {
 	c := &Container{
-		Config: &container.Config{},
+		CommonContainer: CommonContainer{
+			Config: &container.Config{},
+		},
 	}
 
 	def, err := signal.ParseSignal(signal.DefaultStopSignal)
@@ -25,7 +25,9 @@ func TestContainerStopSignal(t *testing.T) {
 	}
 
 	c = &Container{
-		Config: &container.Config{StopSignal: "SIGKILL"},
+		CommonContainer: CommonContainer{
+			Config: &container.Config{StopSignal: "SIGKILL"},
+		},
 	}
 	s = c.StopSignal()
 	if s != 9 {
@@ -35,7 +37,9 @@ func TestContainerStopSignal(t *testing.T) {
 
 func TestContainerStopTimeout(t *testing.T) {
 	c := &Container{
-		Config: &container.Config{},
+		CommonContainer: CommonContainer{
+			Config: &container.Config{},
+		},
 	}
 
 	s := c.StopTimeout()
@@ -45,24 +49,12 @@ func TestContainerStopTimeout(t *testing.T) {
 
 	stopTimeout := 15
 	c = &Container{
-		Config: &container.Config{StopTimeout: &stopTimeout},
+		CommonContainer: CommonContainer{
+			Config: &container.Config{StopTimeout: &stopTimeout},
+		},
 	}
 	s = c.StopSignal()
 	if s != 15 {
 		t.Fatalf("Expected 15, got %v", s)
-	}
-}
-
-func TestContainerSecretReferenceDestTarget(t *testing.T) {
-	ref := &swarmtypes.SecretReference{
-		File: &swarmtypes.SecretReferenceFileTarget{
-			Name: "app",
-		},
-	}
-
-	d := getSecretTargetPath(ref)
-	expected := filepath.Join(containerSecretMountPath, "app")
-	if d != expected {
-		t.Fatalf("expected secret dest %q; received %q", expected, d)
 	}
 }

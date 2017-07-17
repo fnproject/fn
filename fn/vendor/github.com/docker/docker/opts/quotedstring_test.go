@@ -1,29 +1,28 @@
 package opts
 
 import (
+	"github.com/docker/docker/pkg/testutil/assert"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestQuotedStringSetWithQuotes(t *testing.T) {
 	value := ""
 	qs := NewQuotedString(&value)
-	assert.NoError(t, qs.Set(`"something"`))
-	assert.Equal(t, "something", qs.String())
-	assert.Equal(t, "something", value)
+	assert.NilError(t, qs.Set("\"something\""))
+	assert.Equal(t, qs.String(), "something")
+	assert.Equal(t, value, "something")
 }
 
 func TestQuotedStringSetWithMismatchedQuotes(t *testing.T) {
 	value := ""
 	qs := NewQuotedString(&value)
-	assert.NoError(t, qs.Set(`"something'`))
-	assert.Equal(t, `"something'`, qs.String())
+	assert.NilError(t, qs.Set("\"something'"))
+	assert.Equal(t, qs.String(), "\"something'")
 }
 
 func TestQuotedStringSetWithNoQuotes(t *testing.T) {
 	value := ""
 	qs := NewQuotedString(&value)
-	assert.NoError(t, qs.Set("something"))
-	assert.Equal(t, "something", qs.String())
+	assert.NilError(t, qs.Set("something"))
+	assert.Equal(t, qs.String(), "something")
 }

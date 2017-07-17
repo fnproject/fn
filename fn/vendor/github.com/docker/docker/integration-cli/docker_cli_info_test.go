@@ -146,7 +146,7 @@ func (s *DockerSuite) TestInfoDisplaysRunningContainers(c *check.C) {
 func (s *DockerSuite) TestInfoDisplaysPausedContainers(c *check.C) {
 	testRequires(c, IsPausable)
 
-	out := runSleepingContainer(c, "-d")
+	out, _ := runSleepingContainer(c, "-d")
 	cleanedContainerID := strings.TrimSpace(out)
 
 	dockerCmd(c, "pause", cleanedContainerID)

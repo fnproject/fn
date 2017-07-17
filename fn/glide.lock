@@ -1,10 +1,10 @@
-hash: aa34bfe25a59519219d2f4b1c274ba576a15f906a05a54cb1fd086a52e24788a
-updated: 2017-07-07T15:30:24.342413836-07:00
+hash: 425a7584264b050b16d42e84e2d9800d88eb706feae4aa97410b9050fec7686c
+updated: 2017-07-17T12:46:25.326131356-07:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
 - name: github.com/aws/aws-sdk-go
-  version: b1a7b51924b90a6ecdbaeb17e96418740ff07a1e
+  version: b73b028e599fa9176687c70b8f9cafbe57c27d20
   subpackages:
   - aws
   - aws/awserr
@@ -34,7 +34,7 @@ imports:
   - service/lambda
   - service/sts
 - name: github.com/Azure/go-ansiterm
-  version: 19f72df4d05d31cbe1c56bfc8045c96babff6c7e
+  version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
   - winterm
 - name: github.com/coreos/go-semver
@@ -42,7 +42,7 @@ imports:
   subpackages:
   - semver
 - name: github.com/docker/docker
-  version: 05c7c311390911daebcf5d9519dee813fc02a887
+  version: 89658bed64c2a8fe05a978e5b87dbec409d57a0f
   subpackages:
   - pkg/jsonlog
   - pkg/term
@@ -50,7 +50,7 @@ imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/funcy/functions_go
-  version: 601696a734d8df755f42bff262e699bb2eeb69b3
+  version: 5d9948e8b1292c5421b5dd98bb6a9b5535d5e1ba
   subpackages:
   - client
   - client/apps
@@ -78,17 +78,17 @@ imports:
 - name: github.com/go-openapi/loads
   version: a80dea3052f00e5f032e860dd7355cd0cc67e24d
 - name: github.com/go-openapi/runtime
-  version: 298d3440fe543eafb0aee85d89cd5db918fb3ec3
+  version: 2e9e988df6c290425033bacd425e008950c96be6
   subpackages:
   - client
 - name: github.com/go-openapi/spec
-  version: 9cf697d99bf904e29363382a2e8c23dde5c8d377
+  version: e81a13315ac92ce3e73075856c5cd50301695405
 - name: github.com/go-openapi/strfmt
   version: 93a31ef21ac23f317792fff78f9539219dd74619
 - name: github.com/go-openapi/swag
   version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-openapi/validate
-  version: 8a82927c942c94794a5cd8b8b50ce2f48a955c0c
+  version: 035dcd74f1f61e83debe1c22950dc53556e7e4b2
 - name: github.com/go-resty/resty
   version: f214013978f4ea5632ef88a5371b2028699a9d19
 - name: github.com/jmespath/go-jmespath
@@ -100,7 +100,7 @@ imports:
   subpackages:
   - errors
 - name: github.com/mailru/easyjson
-  version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
+  version: 44c0351a5bc860bcb2608d54aa03ea686c4e7b25
   subpackages:
   - buffer
   - jlexer
@@ -113,38 +113,64 @@ imports:
   - pkg/jsonmessage
 - name: github.com/Nvveen/Gotty
   version: cd527374f1e5bff4938207604a14f2e38a9cf512
+- name: github.com/onsi/gomega
+  version: c893efa28eb45626cdaa76c9f653b62488858837
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
 - name: github.com/PuerkitoBio/purell
   version: b938d81255b5473c57635324295cb0fe398c7a58
 - name: github.com/PuerkitoBio/urlesc
   version: bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5
-- name: github.com/sirupsen/logrus
-  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
   repo: https://github.com/sirupsen/logrus
   vcs: git
-  subpackages:
-  - hooks/syslog
+- name: github.com/sirupsen/logrus
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/urfave/cli
   version: 0bdeddeeb0f650497d603c4ad7b20cfe685682f6
 - name: golang.org/x/net
-  version: 054b33e6527139ad5b1ec2f6232c3b175bd9a30c
+  version: f315505cf3349909cdf013ea56690da34e96a451
   subpackages:
   - context
   - context/ctxhttp
+  - html
+  - html/atom
+  - html/charset
   - idna
   - publicsuffix
 - name: golang.org/x/sys
-  version: 739734461d1c916b6c72a63d7efda2b27edb369f
+  version: 0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79
   subpackages:
   - unix
-  - windows
 - name: golang.org/x/text
-  version: cfdf022e86b4ecfb646e1efbd7db175dd623a8fa
+  version: 210eee5cf7323015d097341bcf7166130d001cd8
   subpackages:
-  - secure/bidirule
+  - encoding
+  - encoding/charmap
+  - encoding/htmlindex
+  - encoding/internal
+  - encoding/internal/identifier
+  - encoding/japanese
+  - encoding/korean
+  - encoding/simplifiedchinese
+  - encoding/traditionalchinese
+  - encoding/unicode
+  - internal/tag
+  - internal/utf8internal
+  - language
+  - runes
   - transform
-  - unicode/bidi
   - unicode/norm
   - width
 - name: gopkg.in/mgo.v2

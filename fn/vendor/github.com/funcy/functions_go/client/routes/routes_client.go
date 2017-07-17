@@ -113,7 +113,7 @@ func (a *Client) GetAppsAppRoutesRoute(params *GetAppsAppRoutesRouteParams) (*Ge
 }
 
 /*
-PatchAppsAppRoutesRoute updates a route fails if the route or app does not exist accepts partial updates skips validation of zero values
+PatchAppsAppRoutesRoute updates a route
 
 Update a route
 */
@@ -145,7 +145,7 @@ func (a *Client) PatchAppsAppRoutesRoute(params *PatchAppsAppRoutesRouteParams) 
 /*
 PostAppsAppRoutes creates new route
 
-Create a new route in an app, if app doesn't exists, it creates the app. Post does not skip validation of zero values.
+Create a new route in an app, if app doesn't exists, it creates the app
 */
 func (a *Client) PostAppsAppRoutes(params *PostAppsAppRoutesParams) (*PostAppsAppRoutesOK, error) {
 	// TODO: Validate the params before sending
@@ -169,36 +169,6 @@ func (a *Client) PostAppsAppRoutes(params *PostAppsAppRoutesParams) (*PostAppsAp
 		return nil, err
 	}
 	return result.(*PostAppsAppRoutesOK), nil
-
-}
-
-/*
-PutAppsAppRoutesRoute creates a route if it does not exist update if it does will also create app if it does not exist put does not skip validation of zero values
-
-Update or Create a route
-*/
-func (a *Client) PutAppsAppRoutesRoute(params *PutAppsAppRoutesRouteParams) (*PutAppsAppRoutesRouteOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewPutAppsAppRoutesRouteParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "PutAppsAppRoutesRoute",
-		Method:             "PUT",
-		PathPattern:        "/apps/{app}/routes/{route}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http", "https"},
-		Params:             params,
-		Reader:             &PutAppsAppRoutesRouteReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*PutAppsAppRoutesRouteOK), nil
 
 }
 

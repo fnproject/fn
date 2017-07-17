@@ -185,7 +185,7 @@ func TestLayerAlreadyExists(t *testing.T) {
 			expectedRequests:   []string{"apple"},
 		},
 		{
-			name:               "not matching repositories",
+			name:               "not matching reposies",
 			targetRepo:         "busybox",
 			maxExistenceChecks: 3,
 			metadata: []metadata.V2Metadata{

@@ -25,10 +25,18 @@ func NewMiddleware(names []string, pg plugingetter.PluginGetter) *Middleware {
 	}
 }
 
-func (m *Middleware) getAuthzPlugins() []Plugin {
+// GetAuthzPlugins gets authorization plugins
+func (m *Middleware) GetAuthzPlugins() []Plugin {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.plugins
+}
+
+// SetAuthzPlugins sets authorization plugins
+func (m *Middleware) SetAuthzPlugins(plugins []Plugin) {
+	m.mu.Lock()
+	m.plugins = plugins
+	m.mu.Unlock()
 }
 
 // SetPlugins sets the plugin used for authorization
@@ -38,23 +46,10 @@ func (m *Middleware) SetPlugins(names []string) {
 	m.mu.Unlock()
 }
 
-// RemovePlugin removes a single plugin from this authz middleware chain
-func (m *Middleware) RemovePlugin(name string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	plugins := m.plugins[:0]
-	for _, authPlugin := range m.plugins {
-		if authPlugin.Name() != name {
-			plugins = append(plugins, authPlugin)
-		}
-	}
-	m.plugins = plugins
-}
-
 // WrapHandler returns a new handler function wrapping the previous one in the request chain.
 func (m *Middleware) WrapHandler(handler func(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error) func(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-		plugins := m.getAuthzPlugins()
+		plugins := m.GetAuthzPlugins()
 		if len(plugins) == 0 {
 			return handler(ctx, w, r, vars)
 		}
@@ -88,7 +83,7 @@ func (m *Middleware) WrapHandler(handler func(ctx context.Context, w http.Respon
 
 		// There's a chance that the authCtx.plugins was updated. One of the reasons
 		// this can happen is when an authzplugin is disabled.
-		plugins = m.getAuthzPlugins()
+		plugins = m.GetAuthzPlugins()
 		if len(plugins) == 0 {
 			logrus.Debug("There are no authz plugins in the chain")
 			return nil

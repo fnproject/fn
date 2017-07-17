@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/longpath"
 )
 
@@ -43,14 +42,11 @@ func CanonicalTarNameForPath(p string) (string, error) {
 // chmodTarEntry is used to adjust the file permissions used in tar header based
 // on the platform the archival is done.
 func chmodTarEntry(perm os.FileMode) os.FileMode {
-	//perm &= 0755 // this 0-ed out tar flags (like link, regular file, directory marker etc.)
-	permPart := perm & os.ModePerm
-	noPermPart := perm &^ os.ModePerm
+	perm &= 0755
 	// Add the x bit: make everything +x from windows
-	permPart |= 0111
-	permPart &= 0755
+	perm |= 0111
 
-	return noPermPart | permPart
+	return perm
 }
 
 func setHeaderForSpecialDevice(hdr *tar.Header, name string, stat interface{}) (err error) {
@@ -73,7 +69,7 @@ func handleLChmod(hdr *tar.Header, path string, hdrInfo os.FileInfo) error {
 	return nil
 }
 
-func getFileUIDGID(stat interface{}) (idtools.IDPair, error) {
+func getFileUIDGID(stat interface{}) (int, int, error) {
 	// no notion of file ownership mapping yet on Windows
-	return idtools.IDPair{0, 0}, nil
+	return 0, 0, nil
 }

@@ -1,6 +1,8 @@
 // Created by cgo -godefs - DO NOT EDIT
 // cgo -godefs defs_dragonfly.go
 
+// +build dragonfly
+
 package ipv6
 
 const (
@@ -50,16 +52,16 @@ const (
 	sysIPV6_PORTRANGE_HIGH    = 0x1
 	sysIPV6_PORTRANGE_LOW     = 0x2
 
-	sizeofSockaddrInet6 = 0x1c
-	sizeofInet6Pktinfo  = 0x14
-	sizeofIPv6Mtuinfo   = 0x20
+	sysSizeofSockaddrInet6 = 0x1c
+	sysSizeofInet6Pktinfo  = 0x14
+	sysSizeofIPv6Mtuinfo   = 0x20
 
-	sizeofIPv6Mreq = 0x14
+	sysSizeofIPv6Mreq = 0x14
 
-	sizeofICMPv6Filter = 0x20
+	sysSizeofICMPv6Filter = 0x20
 )
 
-type sockaddrInet6 struct {
+type sysSockaddrInet6 struct {
 	Len      uint8
 	Family   uint8
 	Port     uint16
@@ -68,21 +70,21 @@ type sockaddrInet6 struct {
 	Scope_id uint32
 }
 
-type inet6Pktinfo struct {
+type sysInet6Pktinfo struct {
 	Addr    [16]byte /* in6_addr */
 	Ifindex uint32
 }
 
-type ipv6Mtuinfo struct {
-	Addr sockaddrInet6
+type sysIPv6Mtuinfo struct {
+	Addr sysSockaddrInet6
 	Mtu  uint32
 }
 
-type ipv6Mreq struct {
+type sysIPv6Mreq struct {
 	Multiaddr [16]byte /* in6_addr */
 	Interface uint32
 }
 
-type icmpv6Filter struct {
+type sysICMPv6Filter struct {
 	Filt [8]uint32
 }

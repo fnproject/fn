@@ -4,18 +4,20 @@ import (
 	"testing"
 
 	"github.com/Sirupsen/logrus"
+	cliflags "github.com/docker/docker/cli/flags"
 	"github.com/docker/docker/daemon/config"
-	"github.com/docker/docker/pkg/testutil"
+	"github.com/docker/docker/pkg/testutil/assert"
 	"github.com/docker/docker/pkg/testutil/tempfile"
 	"github.com/spf13/pflag"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func defaultOptions(configFile string) *daemonOptions {
-	opts := newDaemonOptions(&config.Config{})
-	opts.flags = &pflag.FlagSet{}
-	opts.InstallFlags(opts.flags)
+func defaultOptions(configFile string) daemonOptions {
+	opts := daemonOptions{
+		daemonConfig: &config.Config{},
+		flags:        &pflag.FlagSet{},
+		common:       cliflags.NewCommonOptions(),
+	}
+	opts.common.InstallFlags(opts.flags)
 	installConfigFlags(opts.daemonConfig, opts.flags)
 	opts.flags.StringVar(&opts.configFile, "config-file", defaultDaemonConfigFile, "")
 	opts.configFile = configFile
@@ -24,11 +26,11 @@ func defaultOptions(configFile string) *daemonOptions {
 
 func TestLoadDaemonCliConfigWithoutOverriding(t *testing.T) {
 	opts := defaultOptions("")
-	opts.Debug = true
+	opts.common.Debug = true
 
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
 	if !loadedConfig.Debug {
 		t.Fatalf("expected debug to be copied from the common flags, got false")
 	}
@@ -36,13 +38,13 @@ func TestLoadDaemonCliConfigWithoutOverriding(t *testing.T) {
 
 func TestLoadDaemonCliConfigWithTLS(t *testing.T) {
 	opts := defaultOptions("")
-	opts.TLSOptions.CAFile = "/tmp/ca.pem"
-	opts.TLS = true
+	opts.common.TLSOptions.CAFile = "/tmp/ca.pem"
+	opts.common.TLS = true
 
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
-	assert.Equal(t, "/tmp/ca.pem", loadedConfig.CommonTLSOptions.CAFile)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
+	assert.Equal(t, loadedConfig.CommonTLSOptions.CAFile, "/tmp/ca.pem")
 }
 
 func TestLoadDaemonCliConfigWithConflicts(t *testing.T) {
@@ -53,12 +55,12 @@ func TestLoadDaemonCliConfigWithConflicts(t *testing.T) {
 	opts := defaultOptions(configFile)
 	flags := opts.flags
 
-	assert.NoError(t, flags.Set("config-file", configFile))
-	assert.NoError(t, flags.Set("label", "l1=bar"))
-	assert.NoError(t, flags.Set("label", "l2=baz"))
+	assert.NilError(t, flags.Set("config-file", configFile))
+	assert.NilError(t, flags.Set("label", "l1=bar"))
+	assert.NilError(t, flags.Set("label", "l2=baz"))
 
 	_, err := loadDaemonCliConfig(opts)
-	testutil.ErrorContains(t, err, "as a flag and in the configuration file: labels")
+	assert.Error(t, err, "as a flag and in the configuration file: labels")
 }
 
 func TestLoadDaemonCliConfigWithTLSVerify(t *testing.T) {
@@ -66,11 +68,11 @@ func TestLoadDaemonCliConfigWithTLSVerify(t *testing.T) {
 	defer tempFile.Remove()
 
 	opts := defaultOptions(tempFile.Name())
-	opts.TLSOptions.CAFile = "/tmp/ca.pem"
+	opts.common.TLSOptions.CAFile = "/tmp/ca.pem"
 
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
 	assert.Equal(t, loadedConfig.TLS, true)
 }
 
@@ -79,12 +81,12 @@ func TestLoadDaemonCliConfigWithExplicitTLSVerifyFalse(t *testing.T) {
 	defer tempFile.Remove()
 
 	opts := defaultOptions(tempFile.Name())
-	opts.TLSOptions.CAFile = "/tmp/ca.pem"
+	opts.common.TLSOptions.CAFile = "/tmp/ca.pem"
 
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
-	assert.True(t, loadedConfig.TLS)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
+	assert.Equal(t, loadedConfig.TLS, true)
 }
 
 func TestLoadDaemonCliConfigWithoutTLSVerify(t *testing.T) {
@@ -92,12 +94,12 @@ func TestLoadDaemonCliConfigWithoutTLSVerify(t *testing.T) {
 	defer tempFile.Remove()
 
 	opts := defaultOptions(tempFile.Name())
-	opts.TLSOptions.CAFile = "/tmp/ca.pem"
+	opts.common.TLSOptions.CAFile = "/tmp/ca.pem"
 
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
-	assert.False(t, loadedConfig.TLS)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
+	assert.Equal(t, loadedConfig.TLS, false)
 }
 
 func TestLoadDaemonCliConfigWithLogLevel(t *testing.T) {
@@ -106,10 +108,10 @@ func TestLoadDaemonCliConfigWithLogLevel(t *testing.T) {
 
 	opts := defaultOptions(tempFile.Name())
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
-	assert.Equal(t, "warn", loadedConfig.LogLevel)
-	assert.Equal(t, logrus.WarnLevel, logrus.GetLevel())
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
+	assert.Equal(t, loadedConfig.LogLevel, "warn")
+	assert.Equal(t, logrus.GetLevel(), logrus.WarnLevel)
 }
 
 func TestLoadDaemonConfigWithEmbeddedOptions(t *testing.T) {
@@ -119,15 +121,14 @@ func TestLoadDaemonConfigWithEmbeddedOptions(t *testing.T) {
 
 	opts := defaultOptions(tempFile.Name())
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
-	assert.Equal(t, "/etc/certs/ca.pem", loadedConfig.CommonTLSOptions.CAFile)
-	assert.Equal(t, "syslog", loadedConfig.LogConfig.Type)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
+	assert.Equal(t, loadedConfig.CommonTLSOptions.CAFile, "/etc/certs/ca.pem")
+	assert.Equal(t, loadedConfig.LogConfig.Type, "syslog")
 }
 
 func TestLoadDaemonConfigWithRegistryOptions(t *testing.T) {
 	content := `{
-		"allow-nondistributable-artifacts": ["allow-nondistributable-artifacts.com"],
 		"registry-mirrors": ["https://mirrors.docker.com"],
 		"insecure-registries": ["https://insecure.docker.com"]
 	}`
@@ -136,10 +137,9 @@ func TestLoadDaemonConfigWithRegistryOptions(t *testing.T) {
 
 	opts := defaultOptions(tempFile.Name())
 	loadedConfig, err := loadDaemonCliConfig(opts)
-	require.NoError(t, err)
-	require.NotNil(t, loadedConfig)
+	assert.NilError(t, err)
+	assert.NotNil(t, loadedConfig)
 
-	assert.Len(t, loadedConfig.AllowNondistributableArtifacts, 1)
-	assert.Len(t, loadedConfig.Mirrors, 1)
-	assert.Len(t, loadedConfig.InsecureRegistries, 1)
+	assert.Equal(t, len(loadedConfig.Mirrors), 1)
+	assert.Equal(t, len(loadedConfig.InsecureRegistries), 1)
 }

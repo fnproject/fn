@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/docker/docker/pkg/testutil/assert"
 )
 
 func TestRunCommand(t *testing.T) {
@@ -74,7 +74,7 @@ func TestRunCommandWithTimeoutKilled(t *testing.T) {
 	result.Assert(t, Expected{Timeout: true})
 
 	ones := strings.Split(result.Stdout(), "\n")
-	assert.Len(t, ones, 4)
+	assert.Equal(t, len(ones), 4)
 }
 
 func TestRunCommandWithErrors(t *testing.T) {

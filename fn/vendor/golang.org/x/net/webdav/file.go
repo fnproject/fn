@@ -5,7 +5,6 @@
 package webdav
 
 import (
-	"encoding/xml"
 	"io"
 	"net/http"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
+	"golang.org/x/net/webdav/internal/xml"
 )
 
 // slashClean is equivalent to but slightly more efficient than
@@ -38,11 +37,11 @@ func slashClean(name string) string {
 // might apply". In particular, whether or not renaming a file or directory
 // overwriting another existing file or directory is an error is OS-dependent.
 type FileSystem interface {
-	Mkdir(ctx context.Context, name string, perm os.FileMode) error
-	OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (File, error)
-	RemoveAll(ctx context.Context, name string) error
-	Rename(ctx context.Context, oldName, newName string) error
-	Stat(ctx context.Context, name string) (os.FileInfo, error)
+	Mkdir(name string, perm os.FileMode) error
+	OpenFile(name string, flag int, perm os.FileMode) (File, error)
+	RemoveAll(name string) error
+	Rename(oldName, newName string) error
+	Stat(name string) (os.FileInfo, error)
 }
 
 // A File is returned by a FileSystem's OpenFile method and can be served by a
@@ -78,14 +77,14 @@ func (d Dir) resolve(name string) string {
 	return filepath.Join(dir, filepath.FromSlash(slashClean(name)))
 }
 
-func (d Dir) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+func (d Dir) Mkdir(name string, perm os.FileMode) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
 	return os.Mkdir(name, perm)
 }
 
-func (d Dir) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (File, error) {
+func (d Dir) OpenFile(name string, flag int, perm os.FileMode) (File, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
@@ -96,7 +95,7 @@ func (d Dir) OpenFile(ctx context.Context, name string, flag int, perm os.FileMo
 	return f, nil
 }
 
-func (d Dir) RemoveAll(ctx context.Context, name string) error {
+func (d Dir) RemoveAll(name string) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
@@ -107,7 +106,7 @@ func (d Dir) RemoveAll(ctx context.Context, name string) error {
 	return os.RemoveAll(name)
 }
 
-func (d Dir) Rename(ctx context.Context, oldName, newName string) error {
+func (d Dir) Rename(oldName, newName string) error {
 	if oldName = d.resolve(oldName); oldName == "" {
 		return os.ErrNotExist
 	}
@@ -121,7 +120,7 @@ func (d Dir) Rename(ctx context.Context, oldName, newName string) error {
 	return os.Rename(oldName, newName)
 }
 
-func (d Dir) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+func (d Dir) Stat(name string) (os.FileInfo, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
@@ -239,7 +238,7 @@ func (fs *memFS) find(op, fullname string) (parent *memFSNode, frag string, err 
 	return parent, frag, err
 }
 
-func (fs *memFS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+func (fs *memFS) Mkdir(name string, perm os.FileMode) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -262,7 +261,7 @@ func (fs *memFS) Mkdir(ctx context.Context, name string, perm os.FileMode) error
 	return nil
 }
 
-func (fs *memFS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (File, error) {
+func (fs *memFS) OpenFile(name string, flag int, perm os.FileMode) (File, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -316,7 +315,7 @@ func (fs *memFS) OpenFile(ctx context.Context, name string, flag int, perm os.Fi
 	}, nil
 }
 
-func (fs *memFS) RemoveAll(ctx context.Context, name string) error {
+func (fs *memFS) RemoveAll(name string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -332,7 +331,7 @@ func (fs *memFS) RemoveAll(ctx context.Context, name string) error {
 	return nil
 }
 
-func (fs *memFS) Rename(ctx context.Context, oldName, newName string) error {
+func (fs *memFS) Rename(oldName, newName string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -383,7 +382,7 @@ func (fs *memFS) Rename(ctx context.Context, oldName, newName string) error {
 	return nil
 }
 
-func (fs *memFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+func (fs *memFS) Stat(name string) (os.FileInfo, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -601,9 +600,9 @@ func (f *memFile) Write(p []byte) (int, error) {
 // moveFiles moves files and/or directories from src to dst.
 //
 // See section 9.9.4 for when various HTTP status codes apply.
-func moveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bool) (status int, err error) {
+func moveFiles(fs FileSystem, src, dst string, overwrite bool) (status int, err error) {
 	created := false
-	if _, err := fs.Stat(ctx, dst); err != nil {
+	if _, err := fs.Stat(dst); err != nil {
 		if !os.IsNotExist(err) {
 			return http.StatusForbidden, err
 		}
@@ -613,13 +612,13 @@ func moveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		// and the Overwrite header is "T", then prior to performing the move,
 		// the server must perform a DELETE with "Depth: infinity" on the
 		// destination resource.
-		if err := fs.RemoveAll(ctx, dst); err != nil {
+		if err := fs.RemoveAll(dst); err != nil {
 			return http.StatusForbidden, err
 		}
 	} else {
 		return http.StatusPreconditionFailed, os.ErrExist
 	}
-	if err := fs.Rename(ctx, src, dst); err != nil {
+	if err := fs.Rename(src, dst); err != nil {
 		return http.StatusForbidden, err
 	}
 	if created {
@@ -652,7 +651,7 @@ func copyProps(dst, src File) error {
 // copyFiles copies files and/or directories from src to dst.
 //
 // See section 9.8.5 for when various HTTP status codes apply.
-func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bool, depth int, recursion int) (status int, err error) {
+func copyFiles(fs FileSystem, src, dst string, overwrite bool, depth int, recursion int) (status int, err error) {
 	if recursion == 1000 {
 		return http.StatusInternalServerError, errRecursionTooDeep
 	}
@@ -661,7 +660,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 	// TODO: section 9.8.3 says that "Note that an infinite-depth COPY of /A/
 	// into /A/B/ could lead to infinite recursion if not handled correctly."
 
-	srcFile, err := fs.OpenFile(ctx, src, os.O_RDONLY, 0)
+	srcFile, err := fs.OpenFile(src, os.O_RDONLY, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return http.StatusNotFound, err
@@ -679,7 +678,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 	srcPerm := srcStat.Mode() & os.ModePerm
 
 	created := false
-	if _, err := fs.Stat(ctx, dst); err != nil {
+	if _, err := fs.Stat(dst); err != nil {
 		if os.IsNotExist(err) {
 			created = true
 		} else {
@@ -689,13 +688,13 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		if !overwrite {
 			return http.StatusPreconditionFailed, os.ErrExist
 		}
-		if err := fs.RemoveAll(ctx, dst); err != nil && !os.IsNotExist(err) {
+		if err := fs.RemoveAll(dst); err != nil && !os.IsNotExist(err) {
 			return http.StatusForbidden, err
 		}
 	}
 
 	if srcStat.IsDir() {
-		if err := fs.Mkdir(ctx, dst, srcPerm); err != nil {
+		if err := fs.Mkdir(dst, srcPerm); err != nil {
 			return http.StatusForbidden, err
 		}
 		if depth == infiniteDepth {
@@ -707,7 +706,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 				name := c.Name()
 				s := path.Join(src, name)
 				d := path.Join(dst, name)
-				cStatus, cErr := copyFiles(ctx, fs, s, d, overwrite, depth, recursion)
+				cStatus, cErr := copyFiles(fs, s, d, overwrite, depth, recursion)
 				if cErr != nil {
 					// TODO: MultiStatus.
 					return cStatus, cErr
@@ -716,7 +715,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		}
 
 	} else {
-		dstFile, err := fs.OpenFile(ctx, dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcPerm)
+		dstFile, err := fs.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcPerm)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return http.StatusConflict, err
@@ -749,7 +748,7 @@ func copyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 // Allowed values for depth are 0, 1 or infiniteDepth. For each visited node,
 // walkFS calls walkFn. If a visited file system node is a directory and
 // walkFn returns filepath.SkipDir, walkFS will skip traversal of this node.
-func walkFS(ctx context.Context, fs FileSystem, depth int, name string, info os.FileInfo, walkFn filepath.WalkFunc) error {
+func walkFS(fs FileSystem, depth int, name string, info os.FileInfo, walkFn filepath.WalkFunc) error {
 	// This implementation is based on Walk's code in the standard path/filepath package.
 	err := walkFn(name, info, nil)
 	if err != nil {
@@ -766,7 +765,7 @@ func walkFS(ctx context.Context, fs FileSystem, depth int, name string, info os.
 	}
 
 	// Read directory names.
-	f, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
+	f, err := fs.OpenFile(name, os.O_RDONLY, 0)
 	if err != nil {
 		return walkFn(name, info, err)
 	}
@@ -778,13 +777,13 @@ func walkFS(ctx context.Context, fs FileSystem, depth int, name string, info os.
 
 	for _, fileInfo := range fileInfos {
 		filename := path.Join(name, fileInfo.Name())
-		fileInfo, err := fs.Stat(ctx, filename)
+		fileInfo, err := fs.Stat(filename)
 		if err != nil {
 			if err := walkFn(filename, fileInfo, err); err != nil && err != filepath.SkipDir {
 				return err
 			}
 		} else {
-			err = walkFS(ctx, fs, depth, filename, fileInfo, walkFn)
+			err = walkFS(fs, depth, filename, fileInfo, walkFn)
 			if err != nil {
 				if !fileInfo.IsDir() || err != filepath.SkipDir {
 					return err

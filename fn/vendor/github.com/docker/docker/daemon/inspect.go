@@ -51,7 +51,7 @@ func (daemon *Daemon) ContainerInspectCurrent(name string, size bool) (*types.Co
 		}
 	}
 
-	mountPoints := container.GetMountPoints()
+	mountPoints := addMountPoints(container)
 	networkSettings := &types.NetworkSettings{
 		NetworkSettingsBase: types.NetworkSettingsBase{
 			Bridge:                 container.NetworkSettings.Bridge,
@@ -104,7 +104,7 @@ func (daemon *Daemon) containerInspect120(name string) (*v1p20.ContainerJSON, er
 		return nil, err
 	}
 
-	mountPoints := container.GetMountPoints()
+	mountPoints := addMountPoints(container)
 	config := &v1p20.ContainerConfig{
 		Config:          container.Config,
 		MacAddress:      container.Config.MacAddress,
@@ -153,7 +153,7 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 		Dead:       container.State.Dead,
 		Pid:        container.State.Pid,
 		ExitCode:   container.State.ExitCode(),
-		Error:      container.State.ErrorMsg,
+		Error:      container.State.Error(),
 		StartedAt:  container.State.StartedAt.Format(time.RFC3339Nano),
 		FinishedAt: container.State.FinishedAt.Format(time.RFC3339Nano),
 		Health:     containerHealth,
@@ -170,7 +170,6 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 		Name:         container.Name,
 		RestartCount: container.RestartCount,
 		Driver:       container.Driver,
-		Platform:     container.Platform,
 		MountLabel:   container.MountLabel,
 		ProcessLabel: container.ProcessLabel,
 		ExecIDs:      container.GetExecIDs(),

@@ -2,7 +2,10 @@
 .PHONY: all test dep build test-log-datastore
 
 dep:
-	dep ensure
+	glide install -v
+
+dep-up:
+	glide up -v
 
 build:
 	go build -o functions

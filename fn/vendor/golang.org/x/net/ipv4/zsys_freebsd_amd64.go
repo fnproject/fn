@@ -38,17 +38,17 @@ const (
 	sysMCAST_BLOCK_SOURCE        = 0x54
 	sysMCAST_UNBLOCK_SOURCE      = 0x55
 
-	sizeofSockaddrStorage = 0x80
-	sizeofSockaddrInet    = 0x10
+	sysSizeofSockaddrStorage = 0x80
+	sysSizeofSockaddrInet    = 0x10
 
-	sizeofIPMreq         = 0x8
-	sizeofIPMreqn        = 0xc
-	sizeofIPMreqSource   = 0xc
-	sizeofGroupReq       = 0x88
-	sizeofGroupSourceReq = 0x108
+	sysSizeofIPMreq         = 0x8
+	sysSizeofIPMreqn        = 0xc
+	sysSizeofIPMreqSource   = 0xc
+	sysSizeofGroupReq       = 0x88
+	sysSizeofGroupSourceReq = 0x108
 )
 
-type sockaddrStorage struct {
+type sysSockaddrStorage struct {
 	Len         uint8
 	Family      uint8
 	X__ss_pad1  [6]int8
@@ -56,7 +56,7 @@ type sockaddrStorage struct {
 	X__ss_pad2  [112]int8
 }
 
-type sockaddrInet struct {
+type sysSockaddrInet struct {
 	Len    uint8
 	Family uint8
 	Port   uint16
@@ -64,32 +64,32 @@ type sockaddrInet struct {
 	Zero   [8]int8
 }
 
-type ipMreq struct {
+type sysIPMreq struct {
 	Multiaddr [4]byte /* in_addr */
 	Interface [4]byte /* in_addr */
 }
 
-type ipMreqn struct {
+type sysIPMreqn struct {
 	Multiaddr [4]byte /* in_addr */
 	Address   [4]byte /* in_addr */
 	Ifindex   int32
 }
 
-type ipMreqSource struct {
+type sysIPMreqSource struct {
 	Multiaddr  [4]byte /* in_addr */
 	Sourceaddr [4]byte /* in_addr */
 	Interface  [4]byte /* in_addr */
 }
 
-type groupReq struct {
+type sysGroupReq struct {
 	Interface uint32
 	Pad_cgo_0 [4]byte
-	Group     sockaddrStorage
+	Group     sysSockaddrStorage
 }
 
-type groupSourceReq struct {
+type sysGroupSourceReq struct {
 	Interface uint32
 	Pad_cgo_0 [4]byte
-	Group     sockaddrStorage
-	Source    sockaddrStorage
+	Group     sysSockaddrStorage
+	Source    sysSockaddrStorage
 }

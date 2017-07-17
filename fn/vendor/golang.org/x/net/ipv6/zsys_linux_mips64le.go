@@ -1,6 +1,8 @@
 // Created by cgo -godefs - DO NOT EDIT
 // cgo -godefs defs_linux.go
 
+// +build linux,mips64le
+
 package ipv6
 
 const (
@@ -84,30 +86,25 @@ const (
 	sysICMPV6_FILTER_BLOCKOTHERS = 0x3
 	sysICMPV6_FILTER_PASSONLY    = 0x4
 
-	sysSOL_SOCKET       = 0x1
-	sysSO_ATTACH_FILTER = 0x1a
+	sysSizeofKernelSockaddrStorage = 0x80
+	sysSizeofSockaddrInet6         = 0x1c
+	sysSizeofInet6Pktinfo          = 0x14
+	sysSizeofIPv6Mtuinfo           = 0x20
+	sysSizeofIPv6FlowlabelReq      = 0x20
 
-	sizeofKernelSockaddrStorage = 0x80
-	sizeofSockaddrInet6         = 0x1c
-	sizeofInet6Pktinfo          = 0x14
-	sizeofIPv6Mtuinfo           = 0x20
-	sizeofIPv6FlowlabelReq      = 0x20
+	sysSizeofIPv6Mreq       = 0x14
+	sysSizeofGroupReq       = 0x88
+	sysSizeofGroupSourceReq = 0x108
 
-	sizeofIPv6Mreq       = 0x14
-	sizeofGroupReq       = 0x88
-	sizeofGroupSourceReq = 0x108
-
-	sizeofICMPv6Filter = 0x20
-
-	sizeofSockFprog = 0x10
+	sysSizeofICMPv6Filter = 0x20
 )
 
-type kernelSockaddrStorage struct {
+type sysKernelSockaddrStorage struct {
 	Family  uint16
 	X__data [126]int8
 }
 
-type sockaddrInet6 struct {
+type sysSockaddrInet6 struct {
 	Family   uint16
 	Port     uint16
 	Flowinfo uint32
@@ -115,17 +112,17 @@ type sockaddrInet6 struct {
 	Scope_id uint32
 }
 
-type inet6Pktinfo struct {
+type sysInet6Pktinfo struct {
 	Addr    [16]byte /* in6_addr */
 	Ifindex int32
 }
 
-type ipv6Mtuinfo struct {
-	Addr sockaddrInet6
+type sysIPv6Mtuinfo struct {
+	Addr sysSockaddrInet6
 	Mtu  uint32
 }
 
-type ipv6FlowlabelReq struct {
+type sysIPv6FlowlabelReq struct {
 	Dst        [16]byte /* in6_addr */
 	Label      uint32
 	Action     uint8
@@ -136,37 +133,24 @@ type ipv6FlowlabelReq struct {
 	X__flr_pad uint32
 }
 
-type ipv6Mreq struct {
+type sysIPv6Mreq struct {
 	Multiaddr [16]byte /* in6_addr */
 	Ifindex   int32
 }
 
-type groupReq struct {
+type sysGroupReq struct {
 	Interface uint32
 	Pad_cgo_0 [4]byte
-	Group     kernelSockaddrStorage
+	Group     sysKernelSockaddrStorage
 }
 
-type groupSourceReq struct {
+type sysGroupSourceReq struct {
 	Interface uint32
 	Pad_cgo_0 [4]byte
-	Group     kernelSockaddrStorage
-	Source    kernelSockaddrStorage
+	Group     sysKernelSockaddrStorage
+	Source    sysKernelSockaddrStorage
 }
 
-type icmpv6Filter struct {
+type sysICMPv6Filter struct {
 	Data [8]uint32
-}
-
-type sockFProg struct {
-	Len       uint16
-	Pad_cgo_0 [6]byte
-	Filter    *sockFilter
-}
-
-type sockFilter struct {
-	Code uint16
-	Jt   uint8
-	Jf   uint8
-	K    uint32
 }

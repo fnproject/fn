@@ -56,8 +56,8 @@ type command struct {
 }
 
 var commands = map[string]command{
-	"ping": {run: (*h2i).cmdPing},
-	"settings": {
+	"ping": command{run: (*h2i).cmdPing},
+	"settings": command{
 		run: (*h2i).cmdSettings,
 		complete: func() []string {
 			return []string{
@@ -71,13 +71,14 @@ var commands = map[string]command{
 			}
 		},
 	},
-	"quit":    {run: (*h2i).cmdQuit},
-	"headers": {run: (*h2i).cmdHeaders},
+	"quit":    command{run: (*h2i).cmdQuit},
+	"headers": command{run: (*h2i).cmdHeaders},
 }
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: h2i <hostname>\n\n")
 	flag.PrintDefaults()
+	os.Exit(1)
 }
 
 // withPort adds ":443" if another port isn't already present.
@@ -86,14 +87,6 @@ func withPort(host string) string {
 		return net.JoinHostPort(host, "443")
 	}
 	return host
-}
-
-// withoutPort strips the port from addr if present.
-func withoutPort(addr string) string {
-	if h, _, err := net.SplitHostPort(addr); err == nil {
-		return h
-	}
-	return addr
 }
 
 // h2i is the app's state.
@@ -118,7 +111,6 @@ func main() {
 	flag.Parse()
 	if flag.NArg() != 1 {
 		usage()
-		os.Exit(2)
 	}
 	log.SetFlags(0)
 
@@ -142,7 +134,7 @@ func main() {
 
 func (app *h2i) Main() error {
 	cfg := &tls.Config{
-		ServerName:         withoutPort(app.host),
+		ServerName:         app.host,
 		NextProtos:         strings.Split(*flagNextProto, ","),
 		InsecureSkipVerify: *flagInsecure,
 	}
@@ -176,7 +168,7 @@ func (app *h2i) Main() error {
 
 	app.framer = http2.NewFramer(tc, tc)
 
-	oldState, err := terminal.MakeRaw(int(os.Stdin.Fd()))
+	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		return err
 	}
@@ -246,7 +238,7 @@ func (app *h2i) Main() error {
 }
 
 func (app *h2i) logf(format string, args ...interface{}) {
-	fmt.Fprintf(app.term, format+"\r\n", args...)
+	fmt.Fprintf(app.term, format+"\n", args...)
 }
 
 func (app *h2i) readConsole() error {
@@ -443,9 +435,9 @@ func (app *h2i) readFrames() error {
 				return nil
 			})
 		case *http2.WindowUpdateFrame:
-			app.logf("  Window-Increment = %v", f.Increment)
+			app.logf("  Window-Increment = %v\n", f.Increment)
 		case *http2.GoAwayFrame:
-			app.logf("  Last-Stream-ID = %d; Error-Code = %v (%d)", f.LastStreamID, f.ErrCode, f.ErrCode)
+			app.logf("  Last-Stream-ID = %d; Error-Code = %v (%d)\n", f.LastStreamID, f.ErrCode, f.ErrCode)
 		case *http2.DataFrame:
 			app.logf("  %q", f.Data())
 		case *http2.HeadersFrame:
@@ -481,7 +473,7 @@ func (app *h2i) encodeHeaders(req *http.Request) []byte {
 		host = req.URL.Host
 	}
 
-	path := req.RequestURI
+	path := req.URL.Path
 	if path == "" {
 		path = "/"
 	}

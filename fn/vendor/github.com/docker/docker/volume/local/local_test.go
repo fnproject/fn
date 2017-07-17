@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 )
 
@@ -41,7 +40,7 @@ func TestRemove(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err := New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +82,7 @@ func TestInitializeWithVolumes(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err := New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +92,7 @@ func TestInitializeWithVolumes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err = New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +114,7 @@ func TestCreate(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err := New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +151,7 @@ func TestCreate(t *testing.T) {
 		}
 	}
 
-	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err = New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +189,7 @@ func TestCreateWithOpts(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err := New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +270,7 @@ func TestCreateWithOpts(t *testing.T) {
 		t.Fatal("expected mount to still be active")
 	}
 
-	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err = New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +292,7 @@ func TestRealodNoOpts(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir)
 
-	r, err := New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err := New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +320,7 @@ func TestRealodNoOpts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err = New(rootDir, idtools.IDPair{UID: 0, GID: 0})
+	r, err = New(rootDir, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,18 +16,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-var (
-	// DefaultClientBinary is the name of the docker binary
-	DefaultClientBinary = os.Getenv("TEST_CLIENT_BINARY")
+const (
+	// DefaultDockerBinary is the name of the docker binary
+	DefaultDockerBinary = "docker"
 )
-
-func init() {
-	if DefaultClientBinary == "" {
-		// TODO: to be removed once we no longer depend on the docker cli for integration tests
-		//panic("TEST_CLIENT_BINARY must be set")
-		DefaultClientBinary = "docker"
-	}
-}
 
 // Execution holds informations about the test execution environment.
 type Execution struct {
@@ -107,7 +99,11 @@ func New() (*Execution, error) {
 		}
 	}
 
-	dockerBinary, err := exec.LookPath(DefaultClientBinary)
+	var dockerBinary = DefaultDockerBinary
+	if dockerBin := os.Getenv("DOCKER_BINARY"); dockerBin != "" {
+		dockerBinary = dockerBin
+	}
+	dockerBinary, err = exec.LookPath(dockerBinary)
 	if err != nil {
 		return nil, err
 	}

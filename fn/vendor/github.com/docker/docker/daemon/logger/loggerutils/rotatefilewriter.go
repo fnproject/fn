@@ -1,7 +1,6 @@
 package loggerutils
 
 import (
-	"errors"
 	"os"
 	"strconv"
 	"sync"
@@ -12,7 +11,6 @@ import (
 // RotateFileWriter is Logger implementation for default Docker logging.
 type RotateFileWriter struct {
 	f            *os.File // store for closing
-	closed       bool
 	mu           sync.Mutex
 	capacity     int64 //maximum size of each file
 	currentSize  int64 // current size of the latest file
@@ -44,10 +42,6 @@ func NewRotateFileWriter(logPath string, capacity int64, maxFiles int) (*RotateF
 //WriteLog write log message to File
 func (w *RotateFileWriter) Write(message []byte) (int, error) {
 	w.mu.Lock()
-	if w.closed {
-		w.mu.Unlock()
-		return -1, errors.New("cannot write because the output file was closed")
-	}
 	if err := w.checkCapacityAndRotate(); err != nil {
 		w.mu.Unlock()
 		return -1, err
@@ -74,7 +68,7 @@ func (w *RotateFileWriter) checkCapacityAndRotate() error {
 		if err := rotate(name, w.maxFiles); err != nil {
 			return err
 		}
-		file, err := os.OpenFile(name, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0640)
+		file, err := os.OpenFile(name, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 06400)
 		if err != nil {
 			return err
 		}
@@ -106,8 +100,6 @@ func rotate(name string, maxFiles int) error {
 
 // LogPath returns the location the given writer logs to.
 func (w *RotateFileWriter) LogPath() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	return w.f.Name()
 }
 
@@ -128,14 +120,5 @@ func (w *RotateFileWriter) NotifyRotateEvict(sub chan interface{}) {
 
 // Close closes underlying file and signals all readers to stop.
 func (w *RotateFileWriter) Close() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.closed {
-		return nil
-	}
-	if err := w.f.Close(); err != nil {
-		return err
-	}
-	w.closed = true
-	return nil
+	return w.f.Close()
 }

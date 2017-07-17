@@ -1,7 +1,7 @@
 #escape=\
 FROM brimstone/ubuntu:14.04
 
-LABEL maintainer brimstone@the.narro.ws
+MAINTAINER brimstone@the.narro.ws
 
 # TORUN -v /var/run/docker.sock:/var/run/docker.sock
 

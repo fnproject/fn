@@ -87,8 +87,8 @@ func TestDiscoveryOpts(t *testing.T) {
 		t.Fatalf("Heartbeat - Expected : %v, Actual : %v", expected, heartbeat)
 	}
 
-	discoveryTTL := fmt.Sprintf("%d", defaultDiscoveryTTLFactor-1)
-	clusterOpts = map[string]string{"discovery.ttl": discoveryTTL}
+	discaveryTTL := fmt.Sprintf("%d", defaultDiscoveryTTLFactor-1)
+	clusterOpts = map[string]string{"discovery.ttl": discaveryTTL}
 	heartbeat, ttl, err = discoveryOpts(clusterOpts)
 	if err == nil && heartbeat == 0 {
 		t.Fatal("discovery.heartbeat must be positive")

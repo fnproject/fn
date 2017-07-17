@@ -9,9 +9,8 @@ import (
 
 	"github.com/docker/docker/daemon/discovery"
 	"github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/testutil"
+	"github.com/docker/docker/pkg/testutil/assert"
 	"github.com/spf13/pflag"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDaemonConfigurationNotFound(t *testing.T) {
@@ -62,9 +61,9 @@ func TestFindConfigurationConflicts(t *testing.T) {
 	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 
 	flags.String("authorization-plugins", "", "")
-	assert.NoError(t, flags.Set("authorization-plugins", "asdf"))
+	assert.NilError(t, flags.Set("authorization-plugins", "asdf"))
 
-	testutil.ErrorContains(t,
+	assert.Error(t,
 		findConfigurationConflicts(config, flags),
 		"authorization-plugins: (from flag: asdf, from file: foobar)")
 }
@@ -75,10 +74,10 @@ func TestFindConfigurationConflictsWithNamedOptions(t *testing.T) {
 
 	var hosts []string
 	flags.VarP(opts.NewNamedListOptsRef("hosts", &hosts, opts.ValidateHost), "host", "H", "Daemon socket(s) to connect to")
-	assert.NoError(t, flags.Set("host", "tcp://127.0.0.1:4444"))
-	assert.NoError(t, flags.Set("host", "unix:///var/run/docker.sock"))
+	assert.NilError(t, flags.Set("host", "tcp://127.0.0.1:4444"))
+	assert.NilError(t, flags.Set("host", "unix:///var/run/docker.sock"))
 
-	testutil.ErrorContains(t, findConfigurationConflicts(config, flags), "hosts")
+	assert.Error(t, findConfigurationConflicts(config, flags), "hosts")
 }
 
 func TestDaemonConfigurationMergeConflicts(t *testing.T) {

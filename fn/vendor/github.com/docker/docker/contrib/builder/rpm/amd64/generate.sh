@@ -42,7 +42,7 @@ for version in "${versions[@]}"; do
 
 	echo >> "$version/Dockerfile"
 
-	extraBuildTags=
+	extraBuildTags='pkcs11'
 	runcBuildTags=
 
 	case "$from" in
@@ -78,7 +78,7 @@ for version in "${versions[@]}"; do
 			echo 'RUN zypper --non-interactive install ca-certificates* curl gzip rpm-build' >> "$version/Dockerfile"
 			;;
 		photon:*)
-			echo "RUN ${installer} install -y wget curl ca-certificates gzip make rpm-build sed gcc linux-api-headers glibc-devel binutils libseccomp elfutils" >> "$version/Dockerfile"
+			echo "RUN ${installer} install -y wget curl ca-certificates gzip make rpm-build sed gcc linux-api-headers glibc-devel binutils libseccomp libltdl-devel elfutils" >> "$version/Dockerfile"
 			;;
 		*)
 			echo "RUN ${installer} install -y @development-tools fedora-packager" >> "$version/Dockerfile"
@@ -91,6 +91,7 @@ for version in "${versions[@]}"; do
 		glibc-static
 		libseccomp-devel # for "seccomp.h" & "libseccomp.so"
 		libselinux-devel # for "libselinux.so"
+		libtool-ltdl-devel # for pkcs11 "ltdl.h"
 		pkgconfig # for the pkg-config command
 		selinux-policy
 		selinux-policy-devel

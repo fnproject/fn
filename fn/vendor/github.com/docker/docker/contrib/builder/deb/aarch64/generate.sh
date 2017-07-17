@@ -38,7 +38,7 @@ for version in "${versions[@]}"; do
 
 	EOF
 
-	dockerBuildTags='apparmor selinux'
+	dockerBuildTags='apparmor pkcs11 selinux'
 	runcBuildTags='apparmor selinux'
 
 	# this list is sorted alphabetically; please keep it that way
@@ -55,6 +55,7 @@ for version in "${versions[@]}"; do
 		git # for "git commit" info in "docker -v"
 		libapparmor-dev # for "sys/apparmor.h"
 		libdevmapper-dev # for "libdevmapper.h"
+		libltdl-dev # for pkcs11 "ltdl.h"
 		pkg-config # for detecting things like libsystemd-journal dynamically
 		vim-common # tini dep
 	)

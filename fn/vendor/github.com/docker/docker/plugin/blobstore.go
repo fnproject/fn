@@ -12,7 +12,6 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/progress"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -126,8 +125,7 @@ type downloadManager struct {
 	configDigest digest.Digest
 }
 
-func (dm *downloadManager) Download(ctx context.Context, initialRootFS image.RootFS, platform layer.Platform, layers []xfer.DownloadDescriptor, progressOutput progress.Output) (image.RootFS, func(), error) {
-	// TODO @jhowardmsft LCOW: May need revisiting.
+func (dm *downloadManager) Download(ctx context.Context, initialRootFS image.RootFS, layers []xfer.DownloadDescriptor, progressOutput progress.Output) (image.RootFS, func(), error) {
 	for _, l := range layers {
 		b, err := dm.blobStore.New()
 		if err != nil {
@@ -145,7 +143,7 @@ func (dm *downloadManager) Download(ctx context.Context, initialRootFS image.Roo
 			return initialRootFS, nil, err
 		}
 		digester := digest.Canonical.Digester()
-		if _, err := chrootarchive.ApplyLayer(dm.tmpDir, io.TeeReader(inflatedLayerData, digester.Hash())); err != nil {
+		if _, err := archive.ApplyLayer(dm.tmpDir, io.TeeReader(inflatedLayerData, digester.Hash())); err != nil {
 			return initialRootFS, nil, err
 		}
 		initialRootFS.Append(layer.DiffID(digester.Digest()))
@@ -179,6 +177,6 @@ func (dm *downloadManager) Put(dt []byte) (digest.Digest, error) {
 func (dm *downloadManager) Get(d digest.Digest) ([]byte, error) {
 	return nil, fmt.Errorf("digest not found")
 }
-func (dm *downloadManager) RootFSAndPlatformFromConfig(c []byte) (*image.RootFS, layer.Platform, error) {
+func (dm *downloadManager) RootFSFromConfig(c []byte) (*image.RootFS, error) {
 	return configToRootFS(c)
 }

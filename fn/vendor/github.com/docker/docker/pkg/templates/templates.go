@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"bytes"
 	"encoding/json"
 	"strings"
 	"text/template"
@@ -11,12 +10,8 @@ import (
 // functions provided to every template.
 var basicFunctions = template.FuncMap{
 	"json": func(v interface{}) string {
-		buf := &bytes.Buffer{}
-		enc := json.NewEncoder(buf)
-		enc.SetEscapeHTML(false)
-		enc.Encode(v)
-		// Remove the trailing new line added by the encoder
-		return strings.TrimSpace(buf.String())
+		a, _ := json.Marshal(v)
+		return string(a)
 	},
 	"split":    strings.Split,
 	"join":     strings.Join,
@@ -30,7 +25,7 @@ var basicFunctions = template.FuncMap{
 // HeaderFunctions are used to created headers of a table.
 // This is a replacement of basicFunctions for header generation
 // because we want the header to remain intact.
-// Some functions like `split` are irrelevant so not added.
+// Some functions like `split` are irrevelant so not added.
 var HeaderFunctions = template.FuncMap{
 	"json": func(v string) string {
 		return v

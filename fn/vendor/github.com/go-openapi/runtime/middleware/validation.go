@@ -28,15 +28,12 @@ import (
 func newValidation(ctx *Context, next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		matched, rCtx, _ := ctx.RouteInfo(r)
-		if rCtx != nil {
-			r = rCtx
-		}
+		matched, _ := ctx.RouteInfo(r)
 		if matched == nil {
 			ctx.NotFound(rw, r)
 			return
 		}
-		_, r, result := ctx.BindAndValidate(r, matched)
+		_, result := ctx.BindAndValidate(r, matched)
 
 		if result != nil {
 			ctx.Respond(rw, r, matched.Produces, matched, result)
@@ -78,13 +75,6 @@ func validateContentType(allowed []string, actual string) error {
 	if swag.ContainsStringsCI(allowed, mt) {
 		return nil
 	}
-	if swag.ContainsStringsCI(allowed, "*/*") {
-		return nil
-	}
-	parts := strings.Split(actual, "/")
-	if len(parts) == 2 && swag.ContainsStringsCI(allowed, parts[0]+"/*") {
-		return nil
-	}
 	return errors.InvalidContentType(actual, allowed)
 }
 
@@ -124,13 +114,10 @@ func (v *validation) parameters() {
 func (v *validation) contentType() {
 	if len(v.result) == 0 && runtime.HasBody(v.request) {
 		debugLog("validating body content type for %s %s", v.request.Method, v.request.URL.EscapedPath())
-		ct, _, req, err := v.context.ContentType(v.request)
+		ct, _, err := v.context.ContentType(v.request)
 		if err != nil {
 			v.result = append(v.result, err)
-		} else {
-			v.request = req
 		}
-
 		if len(v.result) == 0 {
 			if err := validateContentType(v.route.Consumes, ct); err != nil {
 				v.result = append(v.result, err)
@@ -148,8 +135,7 @@ func (v *validation) contentType() {
 }
 
 func (v *validation) responseFormat() {
-	if str, rCtx := v.context.ResponseFormat(v.request, v.route.Produces); str == "" && runtime.HasBody(v.request) {
-		v.request = rCtx
+	if str := v.context.ResponseFormat(v.request, v.route.Produces); str == "" && runtime.HasBody(v.request) {
 		v.result = append(v.result, errors.InvalidResponseFormat(v.request.Header.Get(runtime.HeaderAccept), v.route.Produces))
 	}
 }

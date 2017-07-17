@@ -49,10 +49,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/network"
 	types "github.com/docker/docker/api/types/swarm"
-	"github.com/docker/docker/daemon/cluster/controllers/plugin"
 	executorpkg "github.com/docker/docker/daemon/cluster/executor"
 	"github.com/docker/docker/pkg/signal"
-	lncluster "github.com/docker/libnetwork/cluster"
 	swarmapi "github.com/docker/swarmkit/api"
 	swarmnode "github.com/docker/swarmkit/node"
 	"github.com/pkg/errors"
@@ -98,7 +96,6 @@ type Config struct {
 	Root                   string
 	Name                   string
 	Backend                executorpkg.Backend
-	PluginBackend          plugin.Backend
 	NetworkSubnetsProvider NetworkSubnetsProvider
 
 	// DefaultAdvertiseAddr is the default host/IP or network interface to use
@@ -107,9 +104,6 @@ type Config struct {
 
 	// path to store runtime state, such as the swarm control socket
 	RuntimeRoot string
-
-	// WatchStream is a channel to pass watch API notifications to daemon
-	WatchStream chan *swarmapi.WatchMessage
 }
 
 // Cluster provides capabilities to participate in a cluster as a worker or a
@@ -121,9 +115,8 @@ type Cluster struct {
 	root         string
 	runtimeRoot  string
 	config       Config
-	configEvent  chan lncluster.ConfigEventType // todo: make this array and goroutine safe
+	configEvent  chan struct{} // todo: make this array and goroutine safe
 	attachers    map[string]*attacher
-	watchStream  chan *swarmapi.WatchMessage
 }
 
 // attacher manages the in-memory attachment state of a container
@@ -154,31 +147,22 @@ func New(config Config) (*Cluster, error) {
 	c := &Cluster{
 		root:        root,
 		config:      config,
-		configEvent: make(chan lncluster.ConfigEventType, 10),
+		configEvent: make(chan struct{}, 10),
 		runtimeRoot: config.RuntimeRoot,
 		attachers:   make(map[string]*attacher),
-		watchStream: config.WatchStream,
 	}
-	return c, nil
-}
-
-// Start the Cluster instance
-// TODO The split between New and Start can be join again when the SendClusterEvent
-// method is no longer required
-func (c *Cluster) Start() error {
-	root := filepath.Join(c.config.Root, swarmDirName)
 
 	nodeConfig, err := loadPersistentState(root)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return c, nil
 		}
-		return err
+		return nil, err
 	}
 
 	nr, err := c.newNodeRunner(*nodeConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c.nr = nr
 
@@ -188,10 +172,10 @@ func (c *Cluster) Start() error {
 	case err := <-nr.Ready():
 		if err != nil {
 			logrus.WithError(err).Error("swarm component could not be started")
-			return nil
+			return c, nil
 		}
 	}
-	return nil
+	return c, nil
 }
 
 func (c *Cluster) newNodeRunner(conf nodeStartConfig) (*nodeRunner, error) {
@@ -286,45 +270,33 @@ func (c *Cluster) GetAdvertiseAddress() string {
 	return c.currentNodeState().actualLocalAddr
 }
 
-// GetDataPathAddress returns the address to be used for the data path traffic, if specified.
-func (c *Cluster) GetDataPathAddress() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.nr != nil {
-		return c.nr.config.DataPathAddr
-	}
-	return ""
-}
-
-// GetRemoteAddressList returns the advertise address for each of the remote managers if
+// GetRemoteAddress returns a known advertise address of a remote manager if
 // available.
-func (c *Cluster) GetRemoteAddressList() []string {
+// todo: change to array/connect with info
+func (c *Cluster) GetRemoteAddress() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.getRemoteAddressList()
+	return c.getRemoteAddress()
 }
 
-func (c *Cluster) getRemoteAddressList() []string {
+func (c *Cluster) getRemoteAddress() string {
 	state := c.currentNodeState()
 	if state.swarmNode == nil {
-		return []string{}
+		return ""
 	}
-
 	nodeID := state.swarmNode.NodeID()
-	remotes := state.swarmNode.Remotes()
-	addressList := make([]string, 0, len(remotes))
-	for _, r := range remotes {
+	for _, r := range state.swarmNode.Remotes() {
 		if r.NodeID != nodeID {
-			addressList = append(addressList, r.Addr)
+			return r.Addr
 		}
 	}
-	return addressList
+	return ""
 }
 
 // ListenClusterEvents returns a channel that receives messages on cluster
 // participation changes.
 // todo: make cancelable and accessible to multiple callers
-func (c *Cluster) ListenClusterEvents() <-chan lncluster.ConfigEventType {
+func (c *Cluster) ListenClusterEvents() <-chan struct{} {
 	return c.configEvent
 }
 
@@ -362,9 +334,8 @@ func (c *Cluster) Cleanup() {
 		c.mu.Unlock()
 		return
 	}
+	defer c.mu.Unlock()
 	state := c.currentNodeState()
-	c.mu.Unlock()
-
 	if state.IsActiveManager() {
 		active, reachable, unreachable, err := managerStats(state.controlClient, state.NodeID())
 		if err == nil {
@@ -374,15 +345,11 @@ func (c *Cluster) Cleanup() {
 			}
 		}
 	}
-
 	if err := node.Stop(); err != nil {
 		logrus.Errorf("failed to shut down cluster node: %v", err)
 		signal.DumpStacks("")
 	}
-
-	c.mu.Lock()
 	c.nr = nil
-	c.mu.Unlock()
 }
 
 func managerStats(client swarmapi.ControlClient, currentNodeID string) (current bool, reachable int, unreachable int, err error) {
@@ -428,14 +395,4 @@ func (c *Cluster) lockedManagerAction(fn func(ctx context.Context, state nodeSta
 	defer cancel()
 
 	return fn(ctx, state)
-}
-
-// SendClusterEvent allows to send cluster events on the configEvent channel
-// TODO This method should not be exposed.
-// Currently it is used to notify the network controller that the keys are
-// available
-func (c *Cluster) SendClusterEvent(event lncluster.ConfigEventType) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	c.configEvent <- event
 }

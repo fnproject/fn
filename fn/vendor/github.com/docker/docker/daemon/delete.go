@@ -12,7 +12,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/layer"
-	"github.com/docker/docker/pkg/system"
 	volumestore "github.com/docker/docker/volume/store"
 	"github.com/pkg/errors"
 )
@@ -103,43 +102,45 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 	}
 
 	// Mark container dead. We don't want anybody to be restarting it.
-	container.Lock()
-	container.Dead = true
+	container.SetDead()
 
 	// Save container state to disk. So that if error happens before
 	// container meta file got removed from disk, then a restart of
 	// docker should not make a dead container alive.
-	if err := container.CheckpointTo(daemon.containersReplica); err != nil && !os.IsNotExist(err) {
+	if err := container.ToDiskLocking(); err != nil && !os.IsNotExist(err) {
 		logrus.Errorf("Error saving dying container to disk: %v", err)
 	}
-	container.Unlock()
+
+	// If force removal is required, delete container from various
+	// indexes even if removal failed.
+	defer func() {
+		if err == nil || forceRemove {
+			daemon.nameIndex.Delete(container.ID)
+			daemon.linkIndex.delete(container)
+			selinuxFreeLxcContexts(container.ProcessLabel)
+			daemon.idIndex.Delete(container.ID)
+			daemon.containers.Delete(container.ID)
+			if e := daemon.removeMountPoints(container, removeVolume); e != nil {
+				logrus.Error(e)
+			}
+			daemon.LogContainerEvent(container, "destroy")
+		}
+	}()
+
+	if err = os.RemoveAll(container.Root); err != nil {
+		return fmt.Errorf("Unable to remove filesystem for %v: %v", container.ID, err)
+	}
 
 	// When container creation fails and `RWLayer` has not been created yet, we
 	// do not call `ReleaseRWLayer`
 	if container.RWLayer != nil {
-		metadata, err := daemon.stores[container.Platform].layerStore.ReleaseRWLayer(container.RWLayer)
+		metadata, err := daemon.layerStore.ReleaseRWLayer(container.RWLayer)
 		layer.LogReleaseMetadata(metadata)
 		if err != nil && err != layer.ErrMountDoesNotExist {
-			return errors.Wrapf(err, "driver %q failed to remove root filesystem for %s", daemon.GraphDriverName(container.Platform), container.ID)
+			return fmt.Errorf("Driver %s failed to remove root filesystem %s: %s", daemon.GraphDriverName(), container.ID, err)
 		}
 	}
 
-	if err := system.EnsureRemoveAll(container.Root); err != nil {
-		return errors.Wrapf(err, "unable to remove filesystem for %s", container.ID)
-	}
-
-	daemon.nameIndex.Delete(container.ID)
-	daemon.linkIndex.delete(container)
-	selinuxFreeLxcContexts(container.ProcessLabel)
-	daemon.idIndex.Delete(container.ID)
-	daemon.containers.Delete(container.ID)
-	daemon.containersReplica.Delete(container)
-	if e := daemon.removeMountPoints(container, removeVolume); e != nil {
-		logrus.Error(e)
-	}
-	container.SetRemoved()
-	stateCtr.del(container.ID)
-	daemon.LogContainerEvent(container, "destroy")
 	return nil
 }
 

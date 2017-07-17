@@ -12,7 +12,6 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/integration-cli/checker"
-	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/pkg/stringutils"
 	"github.com/go-check/check"
@@ -36,20 +35,24 @@ func setupImageWithTag(c *check.C, tag string) (digest.Digest, error) {
 	// new file is committed because this layer is used for detecting malicious
 	// changes. if this was committed as empty layer it would be skipped on pull
 	// and malicious changes would never be detected.
-	cli.DockerCmd(c, "run", "-e", "digest=1", "--name", containerName, "busybox", "touch", "anewfile")
+	dockerCmd(c, "run", "-e", "digest=1", "--name", containerName, "busybox", "touch", "anewfile")
 
 	// tag the image to upload it to the private registry
 	repoAndTag := repoName + ":" + tag
-	cli.DockerCmd(c, "commit", containerName, repoAndTag)
+	out, _, err := dockerCmdWithError("commit", containerName, repoAndTag)
+	c.Assert(err, checker.IsNil, check.Commentf("image tagging failed: %s", out))
 
 	// delete the container as we don't need it any more
-	cli.DockerCmd(c, "rm", "-fv", containerName)
+	err = deleteContainer(containerName)
+	c.Assert(err, checker.IsNil)
 
 	// push the image
-	out := cli.DockerCmd(c, "push", repoAndTag).Combined()
+	out, _, err = dockerCmdWithError("push", repoAndTag)
+	c.Assert(err, checker.IsNil, check.Commentf("pushing the image to the private registry has failed: %s", out))
 
 	// delete our local repo that we previously tagged
-	cli.DockerCmd(c, "rmi", repoAndTag)
+	rmiout, _, err := dockerCmdWithError("rmi", repoAndTag)
+	c.Assert(err, checker.IsNil, check.Commentf("error deleting images prior to real test: %s", rmiout))
 
 	matches := pushDigestRegex.FindStringSubmatch(out)
 	c.Assert(matches, checker.HasLen, 2, check.Commentf("unable to parse digest from push output: %s", out))

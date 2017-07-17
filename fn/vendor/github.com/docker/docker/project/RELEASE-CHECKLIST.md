@@ -312,17 +312,16 @@ echo "Linux 64bit tgz: https://test.docker.com/builds/Linux/x86_64/docker-${VERS
 echo "Windows 64bit client binary: https://test.docker.com/builds/Windows/x86_64/docker-${VERSION#v}.exe"
 echo "Windows 32bit client binary: https://test.docker.com/builds/Windows/i386/docker-${VERSION#v}.exe"
 ```
-### 13. Announce the release candidate
 
-The release candidate should be announced on:
+We recommend announcing the release candidate on:
 
 - IRC on #docker, #docker-dev, #docker-maintainers
 - In a comment on the pull request to notify subscribed people on GitHub
 - The [docker-dev](https://groups.google.com/forum/#!forum/docker-dev) group
 - The [docker-maintainers](https://groups.google.com/a/dockerproject.org/forum/#!forum/maintainers) group
-- (Optional) Any social media that can bring some attention to the release candidate
+- Any social media that can bring some attention to the release candidate
 
-### 14. Iterate on successive release candidates
+### 13. Iterate on successive release candidates
 
 Spend several days along with the community explicitly investing time and
 resources to try and break Docker in every possible way, documenting any
@@ -369,10 +368,10 @@ git commit --amend
 git push -f $GITHUBUSER bump_$VERSION
 ```
 
-Repeat steps 6 to 14 to tag the code, publish new binaries, announce availability, and
+Repeat step 6 to tag the code, publish new binaries, announce availability, and
 get help testing.
 
-### 15. Finalize the bump branch
+### 14. Finalize the bump branch
 
 When you're happy with the quality of a release candidate, you can move on and
 create the real thing.
@@ -388,9 +387,9 @@ git commit --amend
 
 You will then repeat step 6 to publish the binaries to test
 
-### 16. Get 2 other maintainers to validate the pull request
+### 15. Get 2 other maintainers to validate the pull request
 
-### 17. Build final rpms and debs
+### 16. Build final rpms and debs
 
 ```bash
 docker build -t docker .
@@ -401,7 +400,7 @@ docker run \
     hack/make.sh binary build-deb build-rpm
 ```
 
-### 18. Publish final rpms and debs
+### 17. Publish final rpms and debs
 
 With the rpms and debs you built from the last step you can release them on the
 same server, or ideally, move them to a dedicated release box via scp into
@@ -425,14 +424,14 @@ docker run --rm -it --privileged \
     hack/make.sh release-deb release-rpm sign-repos generate-index-listing
 ```
 
-### 19. Upload the changed repos to wherever you host
+### 18. Upload the changed repos to wherever you host
 
 For example, above we bind mounted `/volumes/repos` as the storage for
 `DOCKER_RELEASE_DIR`. In this case `/volumes/repos/apt` can be synced with
 a specific s3 bucket for the apt repo and `/volumes/repos/yum` can be synced with
 a s3 bucket for the yum repo.
 
-### 20. Publish final binaries
+### 19. Publish final binaries
 
 Once they're tested and reasonably believed to be working, run against
 get.docker.com:
@@ -450,9 +449,9 @@ docker run \
     hack/release.sh
 ```
 
-### 21. Purge the cache!
+### 20. Purge the cache!
 
-### 22. Apply tag and create release
+### 21. Apply tag and create release
 
 It's very important that we don't make the tag until after the official
 release is uploaded to get.docker.com!
@@ -471,12 +470,12 @@ You can see examples in this two links:
 https://github.com/docker/docker/releases/tag/v1.8.0
 https://github.com/docker/docker/releases/tag/v1.8.0-rc3
 
-### 23. Go to github to merge the `bump_$VERSION` branch into release
+### 22. Go to github to merge the `bump_$VERSION` branch into release
 
 Don't forget to push that pretty blue button to delete the leftover
 branch afterwards!
 
-### 24. Update the docs branch
+### 23. Update the docs branch
 
 You will need to point the docs branch to the newly created release tag:
 
@@ -495,7 +494,7 @@ distributed CDN system) is flushed. The `make docs-release` command will do this
 _if_ the `DISTRIBUTION_ID` is set correctly - this will take at least 15 minutes to run
 and you can check its progress with the CDN Cloudfront Chrome addon.
 
-### 25. Create a new pull request to merge your bump commit back into master
+### 24. Create a new pull request to merge your bump commit back into master
 
 ```bash
 git checkout master
@@ -509,7 +508,7 @@ echo "https://github.com/$GITHUBUSER/docker/compare/docker:master...$GITHUBUSER:
 Again, get two maintainers to validate, then merge, then push that pretty
 blue button to delete your branch.
 
-### 26. Rejoice and Evangelize!
+### 25. Rejoice and Evangelize!
 
 Congratulations! You're done.
 

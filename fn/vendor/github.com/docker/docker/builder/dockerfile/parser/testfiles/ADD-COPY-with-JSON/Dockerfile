@@ -1,5 +1,5 @@
 FROM	ubuntu:14.04
-LABEL	maintainer	Seongyeol Lim <seongyeol37@gmail.com>
+MAINTAINER	Seongyeol Lim <seongyeol37@gmail.com>
 
 COPY	.	/go/src/github.com/docker/docker
 ADD		.	/

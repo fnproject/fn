@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/docker/docker/integration-cli/checker"
-	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
-	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
 	"github.com/docker/docker/pkg/stringid"
+	"github.com/docker/docker/pkg/testutil"
 	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/docker/go-connections/nat"
 	"github.com/go-check/check"
@@ -294,23 +293,24 @@ func (s *DockerTrustSuite) TestTrustedCreate(c *check.C) {
 	repoName := s.setupTrustedImage(c, "trusted-create")
 
 	// Try create
-	cli.Docker(cli.Args("create", repoName), trustedCmd).Assert(c, SuccessTagging)
-	cli.DockerCmd(c, "rmi", repoName)
+	icmd.RunCmd(icmd.Command(dockerBinary, "create", repoName), trustedCmd).Assert(c, SuccessTagging)
+
+	dockerCmd(c, "rmi", repoName)
 
 	// Try untrusted create to ensure we pushed the tag to the registry
-	cli.Docker(cli.Args("create", "--disable-content-trust=true", repoName)).Assert(c, SuccessDownloadedOnStderr)
+	icmd.RunCmd(icmd.Command(dockerBinary, "create", "--disable-content-trust=true", repoName), trustedCmd).Assert(c, SuccessDownloadedOnStderr)
 }
 
 func (s *DockerTrustSuite) TestUntrustedCreate(c *check.C) {
 	repoName := fmt.Sprintf("%v/dockercliuntrusted/createtest", privateRegistryURL)
 	withTagName := fmt.Sprintf("%s:latest", repoName)
 	// tag the image and upload it to the private registry
-	cli.DockerCmd(c, "tag", "busybox", withTagName)
-	cli.DockerCmd(c, "push", withTagName)
-	cli.DockerCmd(c, "rmi", withTagName)
+	dockerCmd(c, "tag", "busybox", withTagName)
+	dockerCmd(c, "push", withTagName)
+	dockerCmd(c, "rmi", withTagName)
 
 	// Try trusted create on untrusted tag
-	cli.Docker(cli.Args("create", withTagName), trustedCmd).Assert(c, icmd.Expected{
+	icmd.RunCmd(icmd.Command(dockerBinary, "create", withTagName), trustedCmd).Assert(c, icmd.Expected{
 		ExitCode: 1,
 		Err:      fmt.Sprintf("does not have trust data for %s", repoName),
 	})
@@ -320,10 +320,36 @@ func (s *DockerTrustSuite) TestTrustedIsolatedCreate(c *check.C) {
 	repoName := s.setupTrustedImage(c, "trusted-isolated-create")
 
 	// Try create
-	cli.Docker(cli.Args("--config", "/tmp/docker-isolated-create", "create", repoName), trustedCmd).Assert(c, SuccessTagging)
+	icmd.RunCmd(icmd.Command(dockerBinary, "--config", "/tmp/docker-isolated-create", "create", repoName), trustedCmd).Assert(c, SuccessTagging)
 	defer os.RemoveAll("/tmp/docker-isolated-create")
 
-	cli.DockerCmd(c, "rmi", repoName)
+	dockerCmd(c, "rmi", repoName)
+}
+
+func (s *DockerTrustSuite) TestCreateWhenCertExpired(c *check.C) {
+	c.Skip("Currently changes system time, causing instability")
+	repoName := s.setupTrustedImage(c, "trusted-create-expired")
+
+	// Certificates have 10 years of expiration
+	elevenYearsFromNow := time.Now().Add(time.Hour * 24 * 365 * 11)
+
+	testutil.RunAtDifferentDate(elevenYearsFromNow, func() {
+		// Try create
+		icmd.RunCmd(icmd.Cmd{
+			Command: []string{dockerBinary, "create", repoName},
+		}, trustedCmd).Assert(c, icmd.Expected{
+			ExitCode: 1,
+			Err:      "could not validate the path to a trusted root",
+		})
+	})
+
+	testutil.RunAtDifferentDate(elevenYearsFromNow, func() {
+		// Try create
+		result := icmd.RunCmd(icmd.Command(dockerBinary, "create", "--disable-content-trust", repoName), trustedCmd)
+		c.Assert(result.Error, check.Not(check.IsNil))
+		c.Assert(string(result.Combined()), checker.Contains, "Status: Downloaded", check.Commentf("Missing expected output on trusted create in the distant future:\n%s", result.Combined()))
+
+	})
 }
 
 func (s *DockerTrustSuite) TestTrustedCreateFromBadTrustServer(c *check.C) {
@@ -332,13 +358,16 @@ func (s *DockerTrustSuite) TestTrustedCreateFromBadTrustServer(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// tag the image and upload it to the private registry
-	cli.DockerCmd(c, "tag", "busybox", repoName)
-	cli.Docker(cli.Args("push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
-	cli.DockerCmd(c, "rmi", repoName)
+	dockerCmd(c, "tag", "busybox", repoName)
+
+	icmd.RunCmd(icmd.Command(dockerBinary, "push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
+
+	dockerCmd(c, "rmi", repoName)
 
 	// Try create
-	cli.Docker(cli.Args("create", repoName), trustedCmd).Assert(c, SuccessTagging)
-	cli.DockerCmd(c, "rmi", repoName)
+	icmd.RunCmd(icmd.Command(dockerBinary, "create", repoName), trustedCmd).Assert(c, SuccessTagging)
+
+	dockerCmd(c, "rmi", repoName)
 
 	// Kill the notary server, start a new "evil" one.
 	s.not.Close()
@@ -347,13 +376,13 @@ func (s *DockerTrustSuite) TestTrustedCreateFromBadTrustServer(c *check.C) {
 
 	// In order to make an evil server, lets re-init a client (with a different trust dir) and push new data.
 	// tag an image and upload it to the private registry
-	cli.DockerCmd(c, "--config", evilLocalConfigDir, "tag", "busybox", repoName)
+	dockerCmd(c, "--config", evilLocalConfigDir, "tag", "busybox", repoName)
 
 	// Push up to the new server
-	cli.Docker(cli.Args("--config", evilLocalConfigDir, "push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
+	icmd.RunCmd(icmd.Command(dockerBinary, "--config", evilLocalConfigDir, "push", repoName), trustedCmd).Assert(c, SuccessSigningAndPushing)
 
 	// Now, try creating with the original client from this new trust server. This should fail because the new root is invalid.
-	cli.Docker(cli.Args("create", repoName), trustedCmd).Assert(c, icmd.Expected{
+	icmd.RunCmd(icmd.Command(dockerBinary, "create", repoName), trustedCmd).Assert(c, icmd.Expected{
 		ExitCode: 1,
 		Err:      "could not rotate trust to a new trusted root",
 	})
@@ -409,21 +438,19 @@ RUN chmod 755 /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD echo foobar`
 
-	ctx := fakecontext.New(c, "",
-		fakecontext.WithDockerfile(dockerfile),
-		fakecontext.WithFiles(map[string]string{
-			"entrypoint.sh": `#!/bin/sh
+	ctx := fakeContext(c, dockerfile, map[string]string{
+		"entrypoint.sh": `#!/bin/sh
 echo "I am an entrypoint"
 exec "$@"`,
-		}))
+	})
 	defer ctx.Close()
 
-	cli.BuildCmd(c, name, build.WithExternalBuildContext(ctx))
+	buildImageSuccessfully(c, name, withExternalBuildContext(ctx))
 
-	out := cli.DockerCmd(c, "create", "--entrypoint=", name, "echo", "foo").Combined()
+	out, _ := dockerCmd(c, "create", "--entrypoint=", name, "echo", "foo")
 	id := strings.TrimSpace(out)
 	c.Assert(id, check.Not(check.Equals), "")
-	out = cli.DockerCmd(c, "start", "-a", id).Combined()
+	out, _ = dockerCmd(c, "start", "-a", id)
 	c.Assert(strings.TrimSpace(out), check.Equals, "foo")
 }
 

@@ -9,7 +9,7 @@
 # docker run -v `pwd`:/go/src/github.com/docker/docker --privileged -i -t docker bash
 #
 # # Run the test suite:
-# docker run -e DOCKER_GITCOMMIT=foo --privileged docker hack/make.sh test-unit test-integration-cli test-docker-py
+# docker run --privileged docker hack/make.sh test-unit test-integration-cli test-docker-py
 #
 # # Publish a release:
 # docker run --privileged \
@@ -29,6 +29,11 @@ FROM debian:jessie
 ARG APT_MIRROR=deb.debian.org
 RUN sed -ri "s/(httpredir|deb).debian.org/$APT_MIRROR/g" /etc/apt/sources.list
 
+# Add zfs ppa
+COPY keys/launchpad-ppa-zfs.asc /go/src/github.com/docker/docker/keys/
+RUN apt-key add /go/src/github.com/docker/docker/keys/launchpad-ppa-zfs.asc
+RUN echo deb http://ppa.launchpad.net/zfs-native/stable/ubuntu trusty main > /etc/apt/sources.list.d/zfs.list
+
 # Packaged dependencies
 RUN apt-get update && apt-get install -y \
 	apparmor \
@@ -40,6 +45,7 @@ RUN apt-get update && apt-get install -y \
 	bsdmainutils \
 	btrfs-tools \
 	build-essential \
+	clang \
 	cmake \
 	createrepo \
 	curl \
@@ -51,11 +57,13 @@ RUN apt-get update && apt-get install -y \
 	less \
 	libapparmor-dev \
 	libcap-dev \
+	libltdl-dev \
 	libnl-3-dev \
 	libprotobuf-c0-dev \
 	libprotobuf-dev \
 	libsystemd-journal-dev \
 	libtool \
+	libzfs-dev \
 	mercurial \
 	net-tools \
 	pkg-config \
@@ -66,6 +74,7 @@ RUN apt-get update && apt-get install -y \
 	python-pip \
 	python-websocket \
 	tar \
+	ubuntu-zfs \
 	vim \
 	vim-common \
 	xfsprogs \
@@ -88,6 +97,17 @@ RUN cd /usr/local/lvm2 \
 	&& make install_device-mapper
 # See https://git.fedorahosted.org/cgit/lvm2.git/tree/INSTALL
 
+# Configure the container for OSX cross compilation
+ENV OSX_SDK MacOSX10.11.sdk
+ENV OSX_CROSS_COMMIT a9317c18a3a457ca0a657f08cc4d0d43c6cf8953
+RUN set -x \
+	&& export OSXCROSS_PATH="/osxcross" \
+	&& git clone https://github.com/tpoechtrager/osxcross.git $OSXCROSS_PATH \
+	&& ( cd $OSXCROSS_PATH && git checkout -q $OSX_CROSS_COMMIT) \
+	&& curl -sSL https://s3.dockerproject.org/darwin/v2/${OSX_SDK}.tar.xz -o "${OSXCROSS_PATH}/tarballs/${OSX_SDK}.tar.xz" \
+	&& UNATTENDED=yes OSX_VERSION_MIN=10.6 ${OSXCROSS_PATH}/build.sh
+ENV PATH /osxcross/target/bin:$PATH
+
 # Install seccomp: the version shipped upstream is too old
 ENV SECCOMP_VERSION 2.3.2
 RUN set -x \
@@ -107,12 +127,20 @@ RUN set -x \
 # IMPORTANT: If the version of Go is updated, the Windows to Linux CI machines
 #            will need updating, to avoid errors. Ping #docker-maintainers on IRC
 #            with a heads-up.
-ENV GO_VERSION 1.8.3
+ENV GO_VERSION 1.7.5
 RUN curl -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
 	| tar -xzC /usr/local
 
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
+
+# Compile Go for cross compilation
+ENV DOCKER_CROSSPLATFORMS \
+	linux/386 linux/arm \
+	darwin/amd64 \
+	freebsd/amd64 freebsd/386 freebsd/arm \
+	windows/amd64 windows/386 \
+	solaris/amd64
 
 # Dependency for golint
 ENV GO_TOOLS_COMMIT 823804e1ae08dbb14eb807afc7db9993bc9e3cc3
@@ -165,7 +193,7 @@ RUN set -x \
 	&& rm -rf "$GOPATH"
 
 # Get the "docker-py" source so we can run their integration tests
-ENV DOCKER_PY_COMMIT a962578e515185cf06506050b2200c0b81aa84ef
+ENV DOCKER_PY_COMMIT 4a08d04aef0595322e1b5ac7c52f28a931da85a5
 # To run integration tests docker-pycreds is required.
 # Before running the integration tests conftest.py is
 # loaded which results in loads auth.py that
@@ -194,31 +222,30 @@ RUN useradd --create-home --gid docker unprivilegeduser
 
 VOLUME /var/lib/docker
 WORKDIR /go/src/github.com/docker/docker
-ENV DOCKER_BUILDTAGS apparmor seccomp selinux
+ENV DOCKER_BUILDTAGS apparmor pkcs11 seccomp selinux
 
 # Let us use a .bashrc file
 RUN ln -sfv $PWD/.bashrc ~/.bashrc
 # Add integration helps to bashrc
 RUN echo "source $PWD/hack/make/.integration-test-helpers" >> /etc/bash.bashrc
 
+# Register Docker's bash completion.
+RUN ln -sv $PWD/contrib/completion/bash/docker /etc/bash_completion.d/docker
+
 # Get useful and necessary Hub images so we can "docker load" locally instead of pulling
 COPY contrib/download-frozen-image-v2.sh /go/src/github.com/docker/docker/contrib/
 RUN ./contrib/download-frozen-image-v2.sh /docker-frozen-images \
-	buildpack-deps:jessie@sha256:85b379ec16065e4fe4127eb1c5fb1bcc03c559bd36dbb2e22ff496de55925fa6 \
-	busybox:latest@sha256:32f093055929dbc23dec4d03e09dfe971f5973a9ca5cf059cbfb644c206aa83f \
-	debian:jessie@sha256:72f784399fd2719b4cb4e16ef8e369a39dc67f53d978cd3e2e7bf4e502c7b793 \
-	hello-world:latest@sha256:c5515758d4c5e1e838e9cd307f6c6a0d620b5e07e6f927b07d05f6d12a1ac8d7
-# See also ensureFrozenImagesLinux() in "integration-cli/fixtures_linux_daemon_test.go" (which needs to be updated when adding images to this list)
+	buildpack-deps:jessie@sha256:25785f89240fbcdd8a74bdaf30dd5599a9523882c6dfc567f2e9ef7cf6f79db6 \
+	busybox:latest@sha256:e4f93f6ed15a0cdd342f5aae387886fba0ab98af0a102da6276eaf24d6e6ade0 \
+	debian:jessie@sha256:f968f10b4b523737e253a97eac59b0d1420b5c19b69928d35801a6373ffe330e \
+	hello-world:latest@sha256:8be990ef2aeb16dbcb9271ddfe2610fa6658d13f6dfb8bc72074cc1ca36966a7
+# See also "hack/make/.ensure-frozen-images" (which needs to be updated any time this list is)
 
-# Install tomlv, vndr, runc, containerd, tini, docker-proxy dockercli
+# Install tomlv, vndr, runc, containerd, tini, docker-proxy
 # Please edit hack/dockerfile/install-binaries.sh to update them.
 COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
 COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
-RUN /tmp/install-binaries.sh tomlv vndr runc containerd tini proxy dockercli
-ENV PATH=/usr/local/cli:$PATH
-
-# Activate bash completion if mounted with DOCKER_BASH_COMPLETION_PATH
-RUN ln -s /usr/local/completion/bash/docker /etc/bash_completion.d/docker
+RUN /tmp/install-binaries.sh tomlv vndr runc containerd tini proxy bindata
 
 # Wrap all commands in the "docker-in-docker" script to allow nested containers
 ENTRYPOINT ["hack/dind"]

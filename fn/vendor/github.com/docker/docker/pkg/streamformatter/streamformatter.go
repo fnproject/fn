@@ -10,76 +10,91 @@ import (
 	"github.com/docker/docker/pkg/progress"
 )
 
+// StreamFormatter formats a stream, optionally using JSON.
+type StreamFormatter struct {
+	json bool
+}
+
+// NewStreamFormatter returns a simple StreamFormatter
+func NewStreamFormatter() *StreamFormatter {
+	return &StreamFormatter{}
+}
+
+// NewJSONStreamFormatter returns a StreamFormatter configured to stream json
+func NewJSONStreamFormatter() *StreamFormatter {
+	return &StreamFormatter{true}
+}
+
 const streamNewline = "\r\n"
 
-type jsonProgressFormatter struct{}
+var streamNewlineBytes = []byte(streamNewline)
 
-func appendNewline(source []byte) []byte {
-	return append(source, []byte(streamNewline)...)
+// FormatStream formats the specified stream.
+func (sf *StreamFormatter) FormatStream(str string) []byte {
+	if sf.json {
+		b, err := json.Marshal(&jsonmessage.JSONMessage{Stream: str})
+		if err != nil {
+			return sf.FormatError(err)
+		}
+		return append(b, streamNewlineBytes...)
+	}
+	return []byte(str + "\r")
 }
 
 // FormatStatus formats the specified objects according to the specified format (and id).
-func FormatStatus(id, format string, a ...interface{}) []byte {
+func (sf *StreamFormatter) FormatStatus(id, format string, a ...interface{}) []byte {
 	str := fmt.Sprintf(format, a...)
-	b, err := json.Marshal(&jsonmessage.JSONMessage{ID: id, Status: str})
-	if err != nil {
-		return FormatError(err)
+	if sf.json {
+		b, err := json.Marshal(&jsonmessage.JSONMessage{ID: id, Status: str})
+		if err != nil {
+			return sf.FormatError(err)
+		}
+		return append(b, streamNewlineBytes...)
 	}
-	return appendNewline(b)
+	return []byte(str + streamNewline)
 }
 
-// FormatError formats the error as a JSON object
-func FormatError(err error) []byte {
-	jsonError, ok := err.(*jsonmessage.JSONError)
-	if !ok {
-		jsonError = &jsonmessage.JSONError{Message: err.Error()}
+// FormatError formats the specified error.
+func (sf *StreamFormatter) FormatError(err error) []byte {
+	if sf.json {
+		jsonError, ok := err.(*jsonmessage.JSONError)
+		if !ok {
+			jsonError = &jsonmessage.JSONError{Message: err.Error()}
+		}
+		if b, err := json.Marshal(&jsonmessage.JSONMessage{Error: jsonError, ErrorMessage: err.Error()}); err == nil {
+			return append(b, streamNewlineBytes...)
+		}
+		return []byte("{\"error\":\"format error\"}" + streamNewline)
 	}
-	if b, err := json.Marshal(&jsonmessage.JSONMessage{Error: jsonError, ErrorMessage: err.Error()}); err == nil {
-		return appendNewline(b)
-	}
-	return []byte(`{"error":"format error"}` + streamNewline)
+	return []byte("Error: " + err.Error() + streamNewline)
 }
 
-func (sf *jsonProgressFormatter) formatStatus(id, format string, a ...interface{}) []byte {
-	return FormatStatus(id, format, a...)
-}
-
-// formatProgress formats the progress information for a specified action.
-func (sf *jsonProgressFormatter) formatProgress(id, action string, progress *jsonmessage.JSONProgress, aux interface{}) []byte {
+// FormatProgress formats the progress information for a specified action.
+func (sf *StreamFormatter) FormatProgress(id, action string, progress *jsonmessage.JSONProgress, aux interface{}) []byte {
 	if progress == nil {
 		progress = &jsonmessage.JSONProgress{}
 	}
-	var auxJSON *json.RawMessage
-	if aux != nil {
-		auxJSONBytes, err := json.Marshal(aux)
+	if sf.json {
+		var auxJSON *json.RawMessage
+		if aux != nil {
+			auxJSONBytes, err := json.Marshal(aux)
+			if err != nil {
+				return nil
+			}
+			auxJSON = new(json.RawMessage)
+			*auxJSON = auxJSONBytes
+		}
+		b, err := json.Marshal(&jsonmessage.JSONMessage{
+			Status:          action,
+			ProgressMessage: progress.String(),
+			Progress:        progress,
+			ID:              id,
+			Aux:             auxJSON,
+		})
 		if err != nil {
 			return nil
 		}
-		auxJSON = new(json.RawMessage)
-		*auxJSON = auxJSONBytes
-	}
-	b, err := json.Marshal(&jsonmessage.JSONMessage{
-		Status:          action,
-		ProgressMessage: progress.String(),
-		Progress:        progress,
-		ID:              id,
-		Aux:             auxJSON,
-	})
-	if err != nil {
-		return nil
-	}
-	return appendNewline(b)
-}
-
-type rawProgressFormatter struct{}
-
-func (sf *rawProgressFormatter) formatStatus(id, format string, a ...interface{}) []byte {
-	return []byte(fmt.Sprintf(format, a...) + streamNewline)
-}
-
-func (sf *rawProgressFormatter) formatProgress(id, action string, progress *jsonmessage.JSONProgress, aux interface{}) []byte {
-	if progress == nil {
-		progress = &jsonmessage.JSONProgress{}
+		return append(b, streamNewlineBytes...)
 	}
 	endl := "\r"
 	if progress.String() == "" {
@@ -90,23 +105,16 @@ func (sf *rawProgressFormatter) formatProgress(id, action string, progress *json
 
 // NewProgressOutput returns a progress.Output object that can be passed to
 // progress.NewProgressReader.
-func NewProgressOutput(out io.Writer) progress.Output {
-	return &progressOutput{sf: &rawProgressFormatter{}, out: out, newLines: true}
-}
-
-// NewJSONProgressOutput returns a progress.Output that that formats output
-// using JSON objects
-func NewJSONProgressOutput(out io.Writer, newLines bool) progress.Output {
-	return &progressOutput{sf: &jsonProgressFormatter{}, out: out, newLines: newLines}
-}
-
-type formatProgress interface {
-	formatStatus(id, format string, a ...interface{}) []byte
-	formatProgress(id, action string, progress *jsonmessage.JSONProgress, aux interface{}) []byte
+func (sf *StreamFormatter) NewProgressOutput(out io.Writer, newLines bool) progress.Output {
+	return &progressOutput{
+		sf:       sf,
+		out:      out,
+		newLines: newLines,
+	}
 }
 
 type progressOutput struct {
-	sf       formatProgress
+	sf       *StreamFormatter
 	out      io.Writer
 	newLines bool
 }
@@ -115,10 +123,10 @@ type progressOutput struct {
 func (out *progressOutput) WriteProgress(prog progress.Progress) error {
 	var formatted []byte
 	if prog.Message != "" {
-		formatted = out.sf.formatStatus(prog.ID, prog.Message)
+		formatted = out.sf.FormatStatus(prog.ID, prog.Message)
 	} else {
-		jsonProgress := jsonmessage.JSONProgress{Current: prog.Current, Total: prog.Total, HideCounts: prog.HideCounts, Units: prog.Units}
-		formatted = out.sf.formatProgress(prog.ID, prog.Action, &jsonProgress, prog.Aux)
+		jsonProgress := jsonmessage.JSONProgress{Current: prog.Current, Total: prog.Total, HideCounts: prog.HideCounts}
+		formatted = out.sf.FormatProgress(prog.ID, prog.Action, &jsonProgress, prog.Aux)
 	}
 	_, err := out.out.Write(formatted)
 	if err != nil {
@@ -126,34 +134,39 @@ func (out *progressOutput) WriteProgress(prog progress.Progress) error {
 	}
 
 	if out.newLines && prog.LastUpdate {
-		_, err = out.out.Write(out.sf.formatStatus("", ""))
+		_, err = out.out.Write(out.sf.FormatStatus("", ""))
 		return err
 	}
 
 	return nil
 }
 
-// AuxFormatter is a streamFormatter that writes aux progress messages
-type AuxFormatter struct {
+// StdoutFormatter is a streamFormatter that writes to the standard output.
+type StdoutFormatter struct {
 	io.Writer
+	*StreamFormatter
 }
 
-// Emit emits the given interface as an aux progress message
-func (sf *AuxFormatter) Emit(aux interface{}) error {
-	auxJSONBytes, err := json.Marshal(aux)
-	if err != nil {
-		return err
+func (sf *StdoutFormatter) Write(buf []byte) (int, error) {
+	formattedBuf := sf.StreamFormatter.FormatStream(string(buf))
+	n, err := sf.Writer.Write(formattedBuf)
+	if n != len(formattedBuf) {
+		return n, io.ErrShortWrite
 	}
-	auxJSON := new(json.RawMessage)
-	*auxJSON = auxJSONBytes
-	msgJSON, err := json.Marshal(&jsonmessage.JSONMessage{Aux: auxJSON})
-	if err != nil {
-		return err
+	return len(buf), err
+}
+
+// StderrFormatter is a streamFormatter that writes to the standard error.
+type StderrFormatter struct {
+	io.Writer
+	*StreamFormatter
+}
+
+func (sf *StderrFormatter) Write(buf []byte) (int, error) {
+	formattedBuf := sf.StreamFormatter.FormatStream("\033[91m" + string(buf) + "\033[0m")
+	n, err := sf.Writer.Write(formattedBuf)
+	if n != len(formattedBuf) {
+		return n, io.ErrShortWrite
 	}
-	msgJSON = appendNewline(msgJSON)
-	n, err := sf.Writer.Write(msgJSON)
-	if n != len(msgJSON) {
-		return io.ErrShortWrite
-	}
-	return err
+	return len(buf), err
 }

@@ -28,7 +28,7 @@ const (
 
 // Ensure that an all-local path case returns an error.
 func (s *DockerSuite) TestCpLocalOnly(c *check.C) {
-	err := runDockerCp(c, "foo", "bar", nil)
+	err := runDockerCp(c, "foo", "bar")
 	c.Assert(err, checker.NotNil)
 
 	c.Assert(err.Error(), checker.Contains, "must specify at least one container source")

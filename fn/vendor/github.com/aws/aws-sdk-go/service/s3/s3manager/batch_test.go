@@ -12,105 +12,300 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
-func TestBatchDelete(t *testing.T) {
-	count := 0
-	expected := []struct {
-		bucket, key string
+func TestHasParity(t *testing.T) {
+	cases := []struct {
+		o1       *s3.DeleteObjectsInput
+		o2       BatchDeleteObject
+		expected bool
 	}{
 		{
-			key:    "1",
-			bucket: "bucket1",
+			&s3.DeleteObjectsInput{},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{},
+			},
+			true,
 		},
 		{
-			key:    "2",
-			bucket: "bucket2",
+			&s3.DeleteObjectsInput{
+				Bucket: aws.String("foo"),
+			},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{
+					Bucket: aws.String("bar"),
+				},
+			},
+			false,
 		},
 		{
-			key:    "3",
-			bucket: "bucket3",
+			&s3.DeleteObjectsInput{},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{
+					Bucket: aws.String("foo"),
+				},
+			},
+			false,
 		},
 		{
-			key:    "4",
-			bucket: "bucket4",
+			&s3.DeleteObjectsInput{
+				Bucket: aws.String("foo"),
+			},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{},
+			},
+			false,
+		},
+		{
+			&s3.DeleteObjectsInput{
+				MFA: aws.String("foo"),
+			},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{
+					MFA: aws.String("bar"),
+				},
+			},
+			false,
+		},
+		{
+			&s3.DeleteObjectsInput{},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{
+					MFA: aws.String("foo"),
+				},
+			},
+			false,
+		},
+		{
+			&s3.DeleteObjectsInput{
+				MFA: aws.String("foo"),
+			},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{},
+			},
+			false,
+		},
+		{
+			&s3.DeleteObjectsInput{
+				RequestPayer: aws.String("foo"),
+			},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{
+					RequestPayer: aws.String("bar"),
+				},
+			},
+			false,
+		},
+		{
+			&s3.DeleteObjectsInput{},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{
+					RequestPayer: aws.String("foo"),
+				},
+			},
+			false,
+		},
+		{
+			&s3.DeleteObjectsInput{
+				RequestPayer: aws.String("foo"),
+			},
+			BatchDeleteObject{
+				Object: &s3.DeleteObjectInput{},
+			},
+			false,
 		},
 	}
 
-	received := []struct {
-		bucket, key string
-	}{}
+	for i, c := range cases {
+		if result := hasParity(c.o1, c.o2); result != c.expected {
+			t.Errorf("Case %d: expected %t, but received %t\n", i, c.expected, result)
+		}
+	}
+}
 
+func TestBatchDelete(t *testing.T) {
+	cases := []struct {
+		objects  []BatchDeleteObject
+		size     int
+		expected int
+	}{
+		{
+			[]BatchDeleteObject{
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("1"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("2"),
+						Bucket: aws.String("bucket2"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("3"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("4"),
+						Bucket: aws.String("bucket4"),
+					},
+				},
+			},
+			1,
+			4,
+		},
+		{
+			[]BatchDeleteObject{
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("1"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("2"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("3"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("4"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+			},
+			1,
+			4,
+		},
+		{
+			[]BatchDeleteObject{
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("1"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("2"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("3"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("4"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+			},
+			4,
+			2,
+		},
+		{
+			[]BatchDeleteObject{
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("1"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("2"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("3"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("4"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+			},
+			10,
+			2,
+		},
+		{
+			[]BatchDeleteObject{
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("1"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("2"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("3"),
+						Bucket: aws.String("bucket1"),
+					},
+				},
+				{
+					Object: &s3.DeleteObjectInput{
+						Key:    aws.String("4"),
+						Bucket: aws.String("bucket3"),
+					},
+				},
+			},
+			2,
+			3,
+		},
+	}
+
+	count := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlParts := strings.Split(r.URL.String(), "/")
-		received = append(received, struct{ bucket, key string }{urlParts[1], urlParts[2]})
 		w.WriteHeader(http.StatusNoContent)
 		count++
 	}))
 
-	sess := session.New(&aws.Config{
-		Endpoint:         &server.URL,
-		S3ForcePathStyle: aws.Bool(true),
-		Region:           aws.String("foo"),
-		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-	})
-
-	svc := s3.New(sess)
-
-	batcher := BatchDelete{
-		Client: svc,
-	}
-
-	objects := []BatchDeleteObject{
-		{
-			Object: &s3.DeleteObjectInput{
-				Key:    aws.String("1"),
-				Bucket: aws.String("bucket1"),
-			},
-		},
-		{
-			Object: &s3.DeleteObjectInput{
-				Key:    aws.String("2"),
-				Bucket: aws.String("bucket2"),
-			},
-		},
-		{
-			Object: &s3.DeleteObjectInput{
-				Key:    aws.String("3"),
-				Bucket: aws.String("bucket3"),
-			},
-		},
-		{
-			Object: &s3.DeleteObjectInput{
-				Key:    aws.String("4"),
-				Bucket: aws.String("bucket4"),
-			},
-		},
-	}
-
-	if err := batcher.Delete(aws.BackgroundContext(), &DeleteObjectsIterator{Objects: objects}); err != nil {
-		panic(err)
-	}
-
-	if count != len(objects) {
-		t.Errorf("Expected %d, but received %d", len(objects), count)
-	}
-
-	if len(expected) != len(received) {
-		t.Errorf("Expected %d, but received %d", len(expected), len(received))
-	}
-
-	for i := 0; i < len(expected); i++ {
-		if expected[i].key != received[i].key {
-			t.Errorf("Expected %q, but received %q", expected[i].key, received[i].key)
+	svc := &mockS3Client{S3: buildS3SvcClient(server.URL)}
+	for i, c := range cases {
+		batcher := BatchDelete{
+			Client:    svc,
+			BatchSize: c.size,
 		}
 
-		if expected[i].bucket != received[i].bucket {
-			t.Errorf("Expected %q, but received %q", expected[i].bucket, received[i].bucket)
+		if err := batcher.Delete(aws.BackgroundContext(), &DeleteObjectsIterator{Objects: c.objects}); err != nil {
+			panic(err)
 		}
+
+		if count != c.expected {
+			t.Errorf("Case %d: expected %d, but received %d", i, c.expected, count)
+		}
+
+		count = 0
 	}
 }
 
@@ -133,13 +328,6 @@ func TestBatchDeleteList(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 		count++
 	}))
-
-	sess := session.New(&aws.Config{
-		Endpoint:         &server.URL,
-		S3ForcePathStyle: aws.Bool(true),
-		Region:           aws.String("foo"),
-		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-	})
 
 	objects := []*s3.ListObjectsOutput{
 		{
@@ -170,14 +358,10 @@ func TestBatchDeleteList(t *testing.T) {
 		},
 	}
 
-	svc := &mockS3Client{
-		s3.New(sess),
-		0,
-		objects,
-	}
-
+	svc := &mockS3Client{S3: buildS3SvcClient(server.URL), objects: objects}
 	batcher := BatchDelete{
-		Client: svc,
+		Client:    svc,
+		BatchSize: 1,
 	}
 
 	input := &s3.ListObjectsInput{
@@ -207,6 +391,59 @@ func TestBatchDeleteList(t *testing.T) {
 
 	if count != len(objects) {
 		t.Errorf("Expected %d, but received %d", len(objects), count)
+	}
+}
+
+func buildS3SvcClient(u string) *s3.S3 {
+	return s3.New(unit.Session, &aws.Config{
+		Endpoint:         aws.String(u),
+		S3ForcePathStyle: aws.Bool(true),
+		DisableSSL:       aws.Bool(true),
+		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
+	})
+
+}
+
+func TestBatchDeleteList_EmptyListObjects(t *testing.T) {
+	count := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+		count++
+	}))
+
+	svc := &mockS3Client{S3: buildS3SvcClient(server.URL)}
+	batcher := BatchDelete{
+		Client: svc,
+	}
+
+	input := &s3.ListObjectsInput{
+		Bucket: aws.String("bucket"),
+	}
+
+	// Test DeleteListIterator in the case when the ListObjectsRequest responds
+	// with an empty listing.
+
+	// We need a new iterator with a fresh Pagination since
+	// Pagination.HasNextPage() is always true the first time Pagination.Next()
+	// called on it
+	iter := &DeleteListIterator{
+		Bucket: input.Bucket,
+		Paginator: request.Pagination{
+			NewRequest: func() (*request.Request, error) {
+				req, _ := svc.ListObjectsRequest(input)
+				// Simulate empty listing
+				req.Data = &s3.ListObjectsOutput{Contents: []*s3.Object{}}
+				return req, nil
+			},
+		},
+	}
+
+	if err := batcher.Delete(aws.BackgroundContext(), iter); err != nil {
+		t.Error(err)
+	}
+	if count != 1 {
+		t.Errorf("expect count to be 1, got %d", count)
 	}
 }
 
@@ -251,14 +488,7 @@ func TestBatchDownload(t *testing.T) {
 		count++
 	}))
 
-	sess := session.New(&aws.Config{
-		Endpoint:         &server.URL,
-		S3ForcePathStyle: aws.Bool(true),
-		Region:           aws.String("foo"),
-		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-	})
-
-	svc := NewDownloader(sess)
+	svc := NewDownloaderWithClient(buildS3SvcClient(server.URL))
 
 	objects := []BatchDownloadObject{
 		{
@@ -377,14 +607,7 @@ func TestBatchUpload(t *testing.T) {
 		count++
 	}))
 
-	sess := session.New(&aws.Config{
-		Endpoint:         &server.URL,
-		S3ForcePathStyle: aws.Bool(true),
-		Region:           aws.String("foo"),
-		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-	})
-
-	svc := NewUploader(sess)
+	svc := NewUploaderWithClient(buildS3SvcClient(server.URL))
 
 	objects := []BatchUploadObject{
 		{
@@ -484,13 +707,6 @@ func TestBatchError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
 
-	sess := session.New(&aws.Config{
-		Endpoint:         &server.URL,
-		S3ForcePathStyle: aws.Bool(true),
-		Region:           aws.String("foo"),
-		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-	})
-
 	index := 0
 	responses := []response{
 		{
@@ -512,7 +728,7 @@ func TestBatchError(t *testing.T) {
 	}
 
 	svc := &mockClient{
-		S3API: s3.New(sess),
+		S3API: buildS3SvcClient(server.URL),
 		Put: func() (*s3.PutObjectOutput, error) {
 			resp := responses[index]
 			index++
@@ -691,13 +907,6 @@ func TestAfter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
 
-	sess := session.New(&aws.Config{
-		Endpoint:         &server.URL,
-		S3ForcePathStyle: aws.Bool(true),
-		Region:           aws.String("foo"),
-		Credentials:      credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-	})
-
 	index := 0
 	responses := []response{
 		{
@@ -715,7 +924,7 @@ func TestAfter(t *testing.T) {
 	}
 
 	svc := &mockClient{
-		S3API: s3.New(sess),
+		S3API: buildS3SvcClient(server.URL),
 		Put: func() (*s3.PutObjectOutput, error) {
 			resp := responses[index]
 			index++

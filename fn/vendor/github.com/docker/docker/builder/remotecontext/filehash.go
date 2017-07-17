@@ -12,19 +12,8 @@ import (
 
 // NewFileHash returns new hash that is used for the builder cache keys
 func NewFileHash(path, name string, fi os.FileInfo) (hash.Hash, error) {
-	var link string
-	if fi.Mode()&os.ModeSymlink != 0 {
-		var err error
-		link, err = os.Readlink(path)
-		if err != nil {
-			return nil, err
-		}
-	}
-	hdr, err := archive.FileInfoHeader(name, fi, link)
+	hdr, err := archive.FileInfoHeader(path, name, fi)
 	if err != nil {
-		return nil, err
-	}
-	if err := archive.ReadSecurityXattrToTarHeader(path, hdr); err != nil {
 		return nil, err
 	}
 	tsh := &tarsumHash{hdr: hdr, Hash: sha256.New()}

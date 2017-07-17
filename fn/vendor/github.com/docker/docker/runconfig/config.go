@@ -79,11 +79,6 @@ func DecodeContainerConfig(src io.Reader) (*container.Config, *container.HostCon
 		return nil, nil, nil, err
 	}
 
-	// Validate ReadonlyRootfs
-	if err := validateReadonlyRootfs(hc); err != nil {
-		return nil, nil, nil, err
-	}
-
 	return w.Config, hc, w.NetworkingConfig, nil
 }
 

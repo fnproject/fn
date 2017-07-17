@@ -28,6 +28,7 @@ import (
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
+	"github.com/gorilla/context"
 )
 
 // RouteParam is a object to capture route params in a framework agnostic way.
@@ -70,8 +71,9 @@ func NewRouter(ctx *Context, next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if _, rCtx, ok := ctx.RouteInfo(r); ok {
-			next.ServeHTTP(rw, rCtx)
+		defer context.Clear(r)
+		if _, ok := ctx.RouteInfo(r); ok {
+			next.ServeHTTP(rw, r)
 			return
 		}
 

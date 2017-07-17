@@ -42,6 +42,5 @@ func setupPathsAndSandboxOptions(container *container.Container, sboxOptions *[]
 	return nil
 }
 
-func (daemon *Daemon) initializeNetworkingPaths(container *container.Container, nc *container.Container) error {
-	return nil
+func initializeNetworkingPaths(container *container.Container, nc *container.Container) {
 }

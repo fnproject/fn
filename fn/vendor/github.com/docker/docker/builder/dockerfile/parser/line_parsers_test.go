@@ -1,27 +1,26 @@
 package parser
 
 import (
+	"github.com/docker/docker/pkg/testutil/assert"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestParseNameValOldFormat(t *testing.T) {
 	directive := Directive{}
 	node, err := parseNameVal("foo bar", "LABEL", &directive)
-	assert.NoError(t, err)
+	assert.NilError(t, err)
 
 	expected := &Node{
 		Value: "foo",
 		Next:  &Node{Value: "bar"},
 	}
-	assert.Equal(t, expected, node)
+	assert.DeepEqual(t, node, expected)
 }
 
 func TestParseNameValNewFormat(t *testing.T) {
 	directive := Directive{}
 	node, err := parseNameVal("foo=bar thing=star", "LABEL", &directive)
-	assert.NoError(t, err)
+	assert.NilError(t, err)
 
 	expected := &Node{
 		Value: "foo",
@@ -35,7 +34,7 @@ func TestParseNameValNewFormat(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal(t, expected, node)
+	assert.DeepEqual(t, node, expected)
 }
 
 func TestNodeFromLabels(t *testing.T) {
@@ -61,14 +60,6 @@ func TestNodeFromLabels(t *testing.T) {
 	}
 
 	node := NodeFromLabels(labels)
-	assert.Equal(t, expected, node)
+	assert.DeepEqual(t, node, expected)
 
-}
-
-func TestParseNameValWithoutVal(t *testing.T) {
-	directive := Directive{}
-	// In Config.Env, a variable without `=` is removed from the environment. (#31634)
-	// However, in Dockerfile, we don't allow "unsetting" an environment variable. (#11922)
-	_, err := parseNameVal("foo", "ENV", &directive)
-	assert.Error(t, err, "ENV must have two arguments")
 }

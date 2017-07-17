@@ -50,26 +50,26 @@ const (
 	sysMCAST_BLOCK_SOURCE        = C.MCAST_BLOCK_SOURCE
 	sysMCAST_UNBLOCK_SOURCE      = C.MCAST_UNBLOCK_SOURCE
 
-	sizeofSockaddrStorage = C.sizeof_struct_sockaddr_storage
-	sizeofSockaddrInet    = C.sizeof_struct_sockaddr_in
+	sysSizeofSockaddrStorage = C.sizeof_struct_sockaddr_storage
+	sysSizeofSockaddrInet    = C.sizeof_struct_sockaddr_in
 
-	sizeofIPMreq         = C.sizeof_struct_ip_mreq
-	sizeofIPMreqn        = C.sizeof_struct_ip_mreqn
-	sizeofIPMreqSource   = C.sizeof_struct_ip_mreq_source
-	sizeofGroupReq       = C.sizeof_struct_group_req
-	sizeofGroupSourceReq = C.sizeof_struct_group_source_req
+	sysSizeofIPMreq         = C.sizeof_struct_ip_mreq
+	sysSizeofIPMreqn        = C.sizeof_struct_ip_mreqn
+	sysSizeofIPMreqSource   = C.sizeof_struct_ip_mreq_source
+	sysSizeofGroupReq       = C.sizeof_struct_group_req
+	sysSizeofGroupSourceReq = C.sizeof_struct_group_source_req
 )
 
-type sockaddrStorage C.struct_sockaddr_storage
+type sysSockaddrStorage C.struct_sockaddr_storage
 
-type sockaddrInet C.struct_sockaddr_in
+type sysSockaddrInet C.struct_sockaddr_in
 
-type ipMreq C.struct_ip_mreq
+type sysIPMreq C.struct_ip_mreq
 
-type ipMreqn C.struct_ip_mreqn
+type sysIPMreqn C.struct_ip_mreqn
 
-type ipMreqSource C.struct_ip_mreq_source
+type sysIPMreqSource C.struct_ip_mreq_source
 
-type groupReq C.struct_group_req
+type sysGroupReq C.struct_group_req
 
-type groupSourceReq C.struct_group_source_req
+type sysGroupSourceReq C.struct_group_source_req

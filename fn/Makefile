@@ -10,7 +10,10 @@ docker: vendor
 	docker push treeder/fn
 
 dep:
-	dep ensure
+	glide install -v
+
+dep-up:
+	glide up -v
 
 test:
 	go test $(go list ./... | grep -v /vendor/ | grep -v /tests)

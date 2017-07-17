@@ -1,10 +1,6 @@
 package swarm
 
-import (
-	"time"
-
-	"github.com/docker/docker/api/types/swarm/runtime"
-)
+import "time"
 
 // TaskState represents the state of a task.
 type TaskState string
@@ -55,11 +51,7 @@ type Task struct {
 
 // TaskSpec represents the spec of a task.
 type TaskSpec struct {
-	// ContainerSpec and PluginSpec are mutually exclusive.
-	// PluginSpec will only be used when the `Runtime` field is set to `plugin`
-	ContainerSpec *ContainerSpec      `json:",omitempty"`
-	PluginSpec    *runtime.PluginSpec `json:",omitempty"`
-
+	ContainerSpec ContainerSpec             `json:",omitempty"`
 	Resources     *ResourceRequirements     `json:",omitempty"`
 	RestartPolicy *RestartPolicy            `json:",omitempty"`
 	Placement     *Placement                `json:",omitempty"`
@@ -73,8 +65,6 @@ type TaskSpec struct {
 	// ForceUpdate is a counter that triggers an update even if no relevant
 	// parameters have been changed.
 	ForceUpdate uint64
-
-	Runtime RuntimeType `json:",omitempty"`
 }
 
 // Resources represents resources (CPU/Memory).
@@ -93,11 +83,6 @@ type ResourceRequirements struct {
 type Placement struct {
 	Constraints []string              `json:",omitempty"`
 	Preferences []PlacementPreference `json:",omitempty"`
-
-	// Platforms stores all the platforms that the image can run on.
-	// This field is used in the platform filter for scheduling. If empty,
-	// then the platform filter is off, meaning there are no scheduling restrictions.
-	Platforms []Platform `json:",omitempty"`
 }
 
 // PlacementPreference provides a way to make the scheduler aware of factors

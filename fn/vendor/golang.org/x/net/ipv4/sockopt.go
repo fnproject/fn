@@ -4,8 +4,6 @@
 
 package ipv4
 
-import "golang.org/x/net/internal/socket"
-
 // Sticky socket options
 const (
 	ssoTOS                = iota // header field for unicast packet
@@ -26,12 +24,16 @@ const (
 	ssoLeaveSourceGroup          // source-specific multicast
 	ssoBlockSourceGroup          // any-source or source-specific multicast
 	ssoUnblockSourceGroup        // any-source or source-specific multicast
-	ssoAttachFilter              // attach BPF for filtering inbound traffic
+	ssoMax
 )
 
 // Sticky socket option value types
 const (
-	ssoTypeIPMreq = iota + 1
+	ssoTypeByte = iota + 1
+	ssoTypeInt
+	ssoTypeInterface
+	ssoTypeICMPFilter
+	ssoTypeIPMreq
 	ssoTypeIPMreqn
 	ssoTypeGroupReq
 	ssoTypeGroupSourceReq
@@ -39,6 +41,6 @@ const (
 
 // A sockOpt represents a binding for sticky socket option.
 type sockOpt struct {
-	socket.Option
-	typ int // hint for option value type; optional
+	name int // option name, must be equal or greater than 1
+	typ  int // option value type, must be equal or greater than 1
 }

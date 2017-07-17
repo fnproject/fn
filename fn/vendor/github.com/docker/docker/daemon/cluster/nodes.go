@@ -34,7 +34,7 @@ func (c *Cluster) GetNodes(options apitypes.NodeListOptions) ([]types.Node, erro
 		return nil, err
 	}
 
-	nodes := make([]types.Node, 0, len(r.Nodes))
+	nodes := []types.Node{}
 
 	for _, node := range r.Nodes {
 		nodes = append(nodes, convert.NodeFromGRPC(*node))

@@ -83,13 +83,11 @@ func privilegedTestChunkExecutor(autoRemove bool) testChunkExecutor {
 		}
 		var b bytes.Buffer
 		teeContainerStream(&b, os.Stdout, os.Stderr, stream)
-		resultC, errC := cli.ContainerWait(context.Background(), id, "")
-		select {
-		case err := <-errC:
+		rc, err := cli.ContainerWait(context.Background(), id)
+		if err != nil {
 			return 0, "", err
-		case result := <-resultC:
-			return result.StatusCode, b.String(), nil
 		}
+		return rc, b.String(), nil
 	}
 }
 

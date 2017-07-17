@@ -1,4 +1,4 @@
-// Copyright 2012 The Go Authors. All rights reserved.
+// Copyright 2012 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,6 @@
 package icmp // import "golang.org/x/net/icmp"
 
 import (
-	"encoding/binary"
 	"errors"
 	"net"
 	"syscall"
@@ -23,8 +22,6 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 )
-
-// BUG(mikio): This package is not implemented on NaCl and Plan 9.
 
 var (
 	errMessageTooShort  = errors.New("message too short")
@@ -97,7 +94,7 @@ func (m *Message) Marshal(psh []byte) ([]byte, error) {
 			return b, nil
 		}
 		off, l := 2*net.IPv6len, len(b)-len(psh)
-		binary.BigEndian.PutUint32(b[off:off+4], uint32(l))
+		b[off], b[off+1], b[off+2], b[off+3] = byte(l>>24), byte(l>>16), byte(l>>8), byte(l)
 	}
 	s := checksum(b)
 	// Place checksum back in header; using ^= avoids the
@@ -131,7 +128,7 @@ func ParseMessage(proto int, b []byte) (*Message, error) {
 		return nil, errMessageTooShort
 	}
 	var err error
-	m := &Message{Code: int(b[1]), Checksum: int(binary.BigEndian.Uint16(b[2:4]))}
+	m := &Message{Code: int(b[1]), Checksum: int(b[2])<<8 | int(b[3])}
 	switch proto {
 	case iana.ProtocolICMP:
 		m.Type = ipv4.ICMPType(b[0])

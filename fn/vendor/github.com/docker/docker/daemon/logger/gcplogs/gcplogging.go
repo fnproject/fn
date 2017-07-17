@@ -12,7 +12,6 @@ import (
 	"cloud.google.com/go/logging"
 	"github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
-	mrpb "google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 const (
@@ -61,7 +60,7 @@ type gcplogs struct {
 type dockerLogEntry struct {
 	Instance  *instanceInfo  `json:"instance,omitempty"`
 	Container *containerInfo `json:"container,omitempty"`
-	Message   string         `json:"message,omitempty"`
+	Data      string         `json:"data,omitempty"`
 }
 
 type instanceInfo struct {
@@ -129,35 +128,7 @@ func New(info logger.Info) (logger.Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	var instanceResource *instanceInfo
-	if onGCE {
-		instanceResource = &instanceInfo{
-			Zone: zone,
-			Name: instanceName,
-			ID:   instanceID,
-		}
-	} else if info.Config[logZoneKey] != "" || info.Config[logNameKey] != "" || info.Config[logIDKey] != "" {
-		instanceResource = &instanceInfo{
-			Zone: info.Config[logZoneKey],
-			Name: info.Config[logNameKey],
-			ID:   info.Config[logIDKey],
-		}
-	}
-
-	options := []logging.LoggerOption{}
-	if instanceResource != nil {
-		vmMrpb := logging.CommonResource(
-			&mrpb.MonitoredResource{
-				Type: "gce_instance",
-				Labels: map[string]string{
-					"instance_id": instanceResource.ID,
-					"zone":        instanceResource.Zone,
-				},
-			},
-		)
-		options = []logging.LoggerOption{vmMrpb}
-	}
-	lg := c.Logger("gcplogs-docker-driver", options...)
+	lg := c.Logger("gcplogs-docker-driver")
 
 	if err := c.Ping(context.Background()); err != nil {
 		return nil, fmt.Errorf("unable to connect or authenticate with Google Cloud Logging: %v", err)
@@ -184,8 +155,18 @@ func New(info logger.Info) (logger.Logger, error) {
 		l.container.Command = info.Command()
 	}
 
-	if instanceResource != nil {
-		l.instance = instanceResource
+	if onGCE {
+		l.instance = &instanceInfo{
+			Zone: zone,
+			Name: instanceName,
+			ID:   instanceID,
+		}
+	} else if info.Config[logZoneKey] != "" || info.Config[logNameKey] != "" || info.Config[logIDKey] != "" {
+		l.instance = &instanceInfo{
+			Zone: info.Config[logZoneKey],
+			Name: info.Config[logNameKey],
+			ID:   info.Config[logIDKey],
+		}
 	}
 
 	// The logger "overflows" at a rate of 10,000 logs per second and this
@@ -219,7 +200,7 @@ func ValidateLogOpts(cfg map[string]string) error {
 }
 
 func (l *gcplogs) Log(m *logger.Message) error {
-	message := string(m.Line)
+	data := string(m.Line)
 	ts := m.Timestamp
 	logger.PutMessage(m)
 
@@ -228,7 +209,7 @@ func (l *gcplogs) Log(m *logger.Message) error {
 		Payload: &dockerLogEntry{
 			Instance:  l.instance,
 			Container: l.container,
-			Message:   message,
+			Data:      data,
 		},
 	})
 	return nil
