@@ -1,45 +1,14 @@
 package models
 
-import (
-	"errors"
-	"fmt"
-)
-
 type Apps []*App
 type Tasks []*Task
 type FnCalls []*FnCall
-
-var (
-	ErrAppsAlreadyExists      = errors.New("App already exists")
-	ErrAppsCreate             = errors.New("Could not create app")
-	ErrAppsGet                = errors.New("Could not get app from datastore")
-	ErrAppsList               = errors.New("Could not list apps from datastore")
-	ErrAppsMissingNew         = errors.New("Missing new application")
-	ErrAppsNameImmutable      = errors.New("Could not update app - name is immutable")
-	ErrAppsNotFound           = errors.New("App not found")
-	ErrAppsNothingToUpdate    = errors.New("Nothing to update")
-	ErrAppsRemoving           = errors.New("Could not remove app from datastore")
-	ErrAppsUpdate             = errors.New("Could not update app")
-	ErrDeleteAppsWithRoutes   = errors.New("Cannot remove apps with routes")
-	ErrUsableImage            = errors.New("Image not found")
-	ErrTaskInvalidAppAndRoute = errors.New("Unable to get call for given app and route")
-)
 
 type App struct {
 	Name   string `json:"name"`
 	Routes Routes `json:"routes,omitempty"`
 	Config `json:"config"`
 }
-
-const (
-	maxAppName = 30
-)
-
-var (
-	ErrAppsValidationMissingName = errors.New("Missing app name")
-	ErrAppsValidationTooLongName = fmt.Errorf("App name must be %v characters or less", maxAppName)
-	ErrAppsValidationInvalidName = errors.New("Invalid app name")
-)
 
 func (a *App) Validate() error {
 	if a.Name == "" {

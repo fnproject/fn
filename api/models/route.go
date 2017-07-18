@@ -1,31 +1,15 @@
 package models
 
 import (
-	"errors"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
-
-	apiErrors "github.com/go-openapi/errors"
 )
 
 const (
 	defaultRouteTimeout  = 30 // seconds
 	htfnScaleDownTimeout = 30 // seconds
-)
-
-var (
-	ErrInvalidPayload      = errors.New("Invalid payload")
-	ErrRoutesAlreadyExists = errors.New("Route already exists")
-	ErrRoutesCreate        = errors.New("Could not create route")
-	ErrRoutesGet           = errors.New("Could not get route from datastore")
-	ErrRoutesList          = errors.New("Could not list routes from datastore")
-	ErrRoutesMissingNew    = errors.New("Missing new route")
-	ErrRoutesNotFound      = errors.New("Route not found")
-	ErrRoutesPathImmutable = errors.New("Could not update route - path is immutable")
-	ErrRoutesRemoving      = errors.New("Could not remove route from datastore")
-	ErrRoutesUpdate        = errors.New("Could not update route")
 )
 
 type Routes []*Route
@@ -42,21 +26,6 @@ type Route struct {
 	IdleTimeout int32       `json:"idle_timeout"`
 	Config      `json:"config"`
 }
-
-var (
-	ErrRoutesValidationFoundDynamicURL     = errors.New("Dynamic URL is not allowed")
-	ErrRoutesValidationInvalidPath         = errors.New("Invalid Path format")
-	ErrRoutesValidationInvalidType         = errors.New("Invalid route Type")
-	ErrRoutesValidationInvalidFormat       = errors.New("Invalid route Format")
-	ErrRoutesValidationMissingAppName      = errors.New("Missing route AppName")
-	ErrRoutesValidationMissingImage        = errors.New("Missing route Image")
-	ErrRoutesValidationMissingName         = errors.New("Missing route Name")
-	ErrRoutesValidationMissingPath         = errors.New("Missing route Path")
-	ErrRoutesValidationMissingType         = errors.New("Missing route Type")
-	ErrRoutesValidationPathMalformed       = errors.New("Path malformed")
-	ErrRoutesValidationNegativeTimeout     = errors.New("Negative timeout")
-	ErrRoutesValidationNegativeIdleTimeout = errors.New("Negative idle timeout")
-)
 
 // SetDefaults sets zeroed field to defaults.
 func (r *Route) SetDefaults() {
@@ -90,60 +59,55 @@ func (r *Route) SetDefaults() {
 }
 
 // Validate validates field values, skipping zeroed fields if skipZero is true.
+// it returns the first error, if any.
 func (r *Route) Validate(skipZero bool) error {
-	var res []error
-
 	if !skipZero {
 		if r.AppName == "" {
-			res = append(res, ErrRoutesValidationMissingAppName)
-		}
-
-		if r.Image == "" {
-			res = append(res, ErrRoutesValidationMissingImage)
+			return ErrRoutesValidationMissingAppName
 		}
 
 		if r.Path == "" {
-			res = append(res, ErrRoutesValidationMissingPath)
+			return ErrRoutesValidationMissingPath
+		}
+
+		if r.Image == "" {
+			return ErrRoutesValidationMissingImage
 		}
 	}
 
 	if !skipZero || r.Path != "" {
 		u, err := url.Parse(r.Path)
 		if err != nil {
-			res = append(res, ErrRoutesValidationPathMalformed)
+			return ErrRoutesValidationPathMalformed
 		}
 
 		if strings.Contains(u.Path, ":") {
-			res = append(res, ErrRoutesValidationFoundDynamicURL)
+			return ErrRoutesValidationFoundDynamicURL
 		}
 
 		if !path.IsAbs(u.Path) {
-			res = append(res, ErrRoutesValidationInvalidPath)
+			return ErrRoutesValidationInvalidPath
 		}
 	}
 
 	if !skipZero || r.Type != "" {
 		if r.Type != TypeAsync && r.Type != TypeSync {
-			res = append(res, ErrRoutesValidationInvalidType)
+			return ErrRoutesValidationInvalidType
 		}
 	}
 
 	if !skipZero || r.Format != "" {
 		if r.Format != FormatDefault && r.Format != FormatHTTP {
-			res = append(res, ErrRoutesValidationInvalidFormat)
+			return ErrRoutesValidationInvalidFormat
 		}
 	}
 
 	if r.Timeout < 0 {
-		res = append(res, ErrRoutesValidationNegativeTimeout)
+		return ErrRoutesValidationNegativeTimeout
 	}
 
 	if r.IdleTimeout < 0 {
-		res = append(res, ErrRoutesValidationNegativeIdleTimeout)
-	}
-
-	if len(res) > 0 {
-		return apiErrors.CompositeValidationError(res...)
+		return ErrRoutesValidationNegativeIdleTimeout
 	}
 
 	return nil

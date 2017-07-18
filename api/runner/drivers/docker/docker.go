@@ -418,6 +418,10 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 
 	err = drv.startTask(ctx, container)
 	if err != nil {
+		if err == context.DeadlineExceeded {
+			// if there's just a timeout making the docker calls, rewrite it as such
+			return &runResult{start: start, status: drivers.StatusTimeout}, nil
+		}
 		return nil, err
 	}
 

@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"errors"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -47,8 +46,7 @@ type Datastore interface {
 
 	// InsertRoute inserts a route. Returns ErrDatastoreEmptyRoute when route is nil, and ErrDatastoreEmptyAppName
 	// or ErrDatastoreEmptyRoutePath for empty AppName or Path.
-	// Returns ErrRoutesAlreadyExists if the exact route.Path already exists, or ErrRoutesCreate if a conflicting
-	// route already exists.
+	// Returns ErrRoutesAlreadyExists if the exact route.Path already exists
 	InsertRoute(ctx context.Context, route *Route) (*Route, error)
 
 	// UpdateRoute updates route's Config and Header fields. Returns ErrDatastoreEmptyRoute when route is nil, and
@@ -70,12 +68,3 @@ type Datastore interface {
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB
 }
-
-var (
-	ErrDatastoreEmptyAppName   = errors.New("Missing app name")
-	ErrDatastoreEmptyRoutePath = errors.New("Missing route name")
-	ErrDatastoreEmptyApp       = errors.New("Missing app")
-	ErrDatastoreEmptyRoute     = errors.New("Missing route")
-	ErrDatastoreEmptyKey       = errors.New("Missing key")
-	ErrDatastoreEmptyTaskID    = errors.New("Missing task ID")
-)

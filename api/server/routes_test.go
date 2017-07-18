@@ -63,7 +63,7 @@ func TestRouteCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusBadRequest, models.ErrAppsValidationInvalidName},
 		{datastore.NewMockInit(nil,
 			[]*models.Route{
 				{
@@ -84,16 +84,16 @@ func TestRoutePut(t *testing.T) {
 	buf := setLogBuffer()
 
 	for i, test := range []routeTestCase{
-		// errors
+		// errors (NOTE: this route doesn't exist yet)
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesPathImmutable},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "diffRoute" } }`, http.StatusBadRequest, models.ErrRoutesPathImmutable},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/$/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusInternalServerError, models.ErrAppsValidationInvalidName},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "type": "invalid-type" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidType},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "format": "invalid-format" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidFormat},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "diffRoute" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/$/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusBadRequest, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "invalid-type" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidType},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "format": "invalid-format" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidFormat},
 
 		// success
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
@@ -259,7 +259,7 @@ func TestRouteUpdate(t *testing.T) {
 					Path:    "/myroute/do",
 				},
 			}, nil, nil,
-		), logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusBadRequest, models.ErrRoutesPathImmutable},
+		), logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
 	} {
 		test.run(t, i, buf)
 	}

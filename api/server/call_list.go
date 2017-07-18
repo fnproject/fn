@@ -14,24 +14,24 @@ func (s *Server) handleCallList(c *gin.Context) {
 
 	appName, ok := c.MustGet(api.AppName).(string)
 	if ok && appName == "" {
-		c.JSON(http.StatusBadRequest, models.ErrRoutesValidationMissingAppName)
+		handleErrorResponse(c, models.ErrRoutesValidationMissingAppName)
 		return
 	}
 
 	_, err := s.Datastore.GetApp(c, appName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, models.ErrAppsNotFound)
+		handleErrorResponse(c, err)
 		return
 	}
 
 	appRoute, ok := c.MustGet(api.Path).(string)
 	if ok && appRoute == "" {
-		c.JSON(http.StatusBadRequest, models.ErrRoutesValidationMissingPath)
+		handleErrorResponse(c, models.ErrRoutesValidationMissingPath)
 		return
 	}
 	_, err = s.Datastore.GetRoute(c, appName, appRoute)
 	if err != nil {
-		c.JSON(http.StatusNotFound, models.ErrRoutesNotFound)
+		handleErrorResponse(c, err)
 		return
 	}
 
