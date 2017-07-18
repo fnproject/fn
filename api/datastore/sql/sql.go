@@ -395,7 +395,8 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 		if n, err := res.RowsAffected(); err != nil {
 			return err
 		} else if n == 0 {
-			return models.ErrRoutesNotFound
+			// inside of the transaction, we are querying for the row, so we know that it exists
+			return nil
 		}
 
 		return nil
