@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	containerd "github.com/containerd/containerd/api/grpc/types"
+	containerd "github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/system"
 	"github.com/golang/protobuf/ptypes"
@@ -49,7 +49,7 @@ type remote struct {
 	stateDir             string
 	rpcAddr              string
 	startDaemon          bool
-	closedManually       bool
+	closeManually        bool
 	debugLog             bool
 	rpcConn              *grpc.ClientConn
 	clients              []*client
@@ -80,7 +80,7 @@ func New(stateDir string, options ...RemoteOption) (_ Remote, err error) {
 		}
 	}
 
-	if err := system.MkdirAll(stateDir, 0700, ""); err != nil {
+	if err := system.MkdirAll(stateDir, 0700); err != nil {
 		return nil, err
 	}
 
@@ -96,13 +96,11 @@ func New(stateDir string, options ...RemoteOption) (_ Remote, err error) {
 
 	// don't output the grpc reconnect logging
 	grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
-	dialOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-		grpc.WithBackoffMaxDelay(2 * time.Second),
+	dialOpts := append([]grpc.DialOption{grpc.WithInsecure()},
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 			return net.DialTimeout("unix", addr, timeout)
 		}),
-	}
+	)
 	conn, err := grpc.Dial(r.rpcAddr, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to containerd: %v", err)
@@ -156,7 +154,7 @@ func (r *remote) handleConnectionChange() {
 		logrus.Debugf("libcontainerd: containerd health check returned error: %v", err)
 
 		if r.daemonPid != -1 {
-			if r.closedManually {
+			if strings.Contains(err.Error(), "is closing") {
 				// Well, we asked for it to stop, just return
 				return
 			}
@@ -182,7 +180,7 @@ func (r *remote) Cleanup() {
 	if r.daemonPid == -1 {
 		return
 	}
-	r.closedManually = true
+	r.closeManually = true
 	r.rpcConn.Close()
 	// Ask the daemon to quit
 	syscall.Kill(r.daemonPid, syscall.SIGTERM)
@@ -282,23 +280,10 @@ func (r *remote) startEventsMonitor() error {
 	er := &containerd.EventsRequest{
 		Timestamp: tsp,
 	}
-
-	var events containerd.API_EventsClient
-	for {
-		events, err = r.apiClient.Events(context.Background(), er, grpc.FailFast(false))
-		if err == nil {
-			break
-		}
-		logrus.Warnf("libcontainerd: failed to get events from containerd: %q", err)
-
-		if r.closedManually {
-			// ignore error if grpc remote connection is closed manually
-			return nil
-		}
-
-		<-time.After(100 * time.Millisecond)
+	events, err := r.apiClient.Events(context.Background(), er, grpc.FailFast(false))
+	if err != nil {
+		return err
 	}
-
 	go r.handleEventStream(events)
 	return nil
 }
@@ -308,7 +293,7 @@ func (r *remote) handleEventStream(events containerd.API_EventsClient) {
 		e, err := events.Recv()
 		if err != nil {
 			if grpc.ErrorDesc(err) == transport.ErrConnClosing.Desc &&
-				r.closedManually {
+				r.closeManually {
 				// ignore error if grpc remote connection is closed manually
 				return
 			}
@@ -429,18 +414,6 @@ func (r *remote) runContainerdDaemon() error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	// unless strictly necessary, do not add anything in between here
-	// as the reaper goroutine below needs to kick in as soon as possible
-	// and any "return" from code paths added here will defeat the reaper
-	// process.
-
-	r.daemonWaitCh = make(chan struct{})
-	go func() {
-		cmd.Wait()
-		close(r.daemonWaitCh)
-	}() // Reap our child when needed
-
 	logrus.Infof("libcontainerd: new containerd process, pid: %d", cmd.Process.Pid)
 	if err := setOOMScore(cmd.Process.Pid, r.oomScore); err != nil {
 		system.KillProcess(cmd.Process.Pid)
@@ -451,6 +424,11 @@ func (r *remote) runContainerdDaemon() error {
 		return err
 	}
 
+	r.daemonWaitCh = make(chan struct{})
+	go func() {
+		cmd.Wait()
+		close(r.daemonWaitCh)
+	}() // Reap our child when needed
 	r.daemonPid = cmd.Process.Pid
 	return nil
 }

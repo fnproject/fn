@@ -14,7 +14,6 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/progress"
-	"github.com/docker/docker/pkg/system"
 	refstore "github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
 	"github.com/docker/libtrust"
@@ -59,9 +58,6 @@ type ImagePullConfig struct {
 	// Schema2Types is the valid schema2 configuration types allowed
 	// by the pull operation.
 	Schema2Types []string
-	// Platform is the requested platform of the image being pulled to ensure it can be validated
-	// when the host platform supports multiple image operating systems.
-	Platform string
 }
 
 // ImagePushConfig stores push configuration.
@@ -86,7 +82,7 @@ type ImagePushConfig struct {
 type ImageConfigStore interface {
 	Put([]byte) (digest.Digest, error)
 	Get(digest.Digest) ([]byte, error)
-	RootFSAndPlatformFromConfig([]byte) (*image.RootFS, layer.Platform, error)
+	RootFSFromConfig([]byte) (*image.RootFS, error)
 }
 
 // PushLayerProvider provides layers to be pushed by ChainID.
@@ -112,7 +108,7 @@ type RootFSDownloadManager interface {
 	// returns the final rootfs.
 	// Given progress output to track download progress
 	// Returns function to release download resources
-	Download(ctx context.Context, initialRootFS image.RootFS, platform layer.Platform, layers []xfer.DownloadDescriptor, progressOutput progress.Output) (image.RootFS, func(), error)
+	Download(ctx context.Context, initialRootFS image.RootFS, layers []xfer.DownloadDescriptor, progressOutput progress.Output) (image.RootFS, func(), error)
 }
 
 type imageConfigStore struct {
@@ -140,25 +136,21 @@ func (s *imageConfigStore) Get(d digest.Digest) ([]byte, error) {
 	return img.RawJSON(), nil
 }
 
-func (s *imageConfigStore) RootFSAndPlatformFromConfig(c []byte) (*image.RootFS, layer.Platform, error) {
+func (s *imageConfigStore) RootFSFromConfig(c []byte) (*image.RootFS, error) {
 	var unmarshalledConfig image.Image
 	if err := json.Unmarshal(c, &unmarshalledConfig); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	// fail immediately on Windows when downloading a non-Windows image
-	// and vice versa. Exception on Windows if Linux Containers are enabled.
-	if runtime.GOOS == "windows" && unmarshalledConfig.OS == "linux" && !system.LCOWSupported() {
-		return nil, "", fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
+	// and vice versa
+	if runtime.GOOS == "windows" && unmarshalledConfig.OS == "linux" {
+		return nil, fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
 	} else if runtime.GOOS != "windows" && unmarshalledConfig.OS == "windows" {
-		return nil, "", fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
+		return nil, fmt.Errorf("image operating system %q cannot be used on this platform", unmarshalledConfig.OS)
 	}
 
-	platform := ""
-	if runtime.GOOS == "windows" {
-		platform = unmarshalledConfig.OS
-	}
-	return unmarshalledConfig.RootFS, layer.Platform(platform), nil
+	return unmarshalledConfig.RootFS, nil
 }
 
 type storeLayerProvider struct {

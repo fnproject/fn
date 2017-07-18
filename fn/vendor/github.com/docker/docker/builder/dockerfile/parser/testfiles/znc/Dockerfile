@@ -1,5 +1,5 @@
 FROM ubuntu:14.04
-LABEL maintainer Erik Hollensbe <erik@hollensbe.org>
+MAINTAINER Erik Hollensbe <erik@hollensbe.org>
 
 RUN apt-get update && apt-get install znc -y
 ADD conf /.znc

@@ -21,10 +21,10 @@ const (
 	sysIP_ADD_MEMBERSHIP  = 0xc
 	sysIP_DROP_MEMBERSHIP = 0xd
 
-	sizeofIPMreq = 0x8
+	sysSizeofIPMreq = 0x8
 )
 
-type ipMreq struct {
+type sysIPMreq struct {
 	Multiaddr [4]byte /* in_addr */
 	Interface [4]byte /* in_addr */
 }

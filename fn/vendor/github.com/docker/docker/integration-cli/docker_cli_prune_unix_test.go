@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/integration-cli/checker"
-	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/go-check/check"
 )
@@ -46,8 +45,7 @@ func (s *DockerSwarmSuite) TestPruneNetwork(c *check.C) {
 
 	serviceName := "testprunesvc"
 	replicas := 1
-	out, err := d.Cmd("service", "create", "--no-resolve-image",
-		"--name", serviceName,
+	out, err := d.Cmd("service", "create", "--name", serviceName,
 		"--replicas", strconv.Itoa(replicas),
 		"--network", "n3",
 		"busybox", "top")
@@ -98,41 +96,41 @@ func (s *DockerDaemonSuite) TestPruneImageDangling(c *check.C) {
 }
 
 func (s *DockerSuite) TestPruneContainerUntil(c *check.C) {
-	out := cli.DockerCmd(c, "run", "-d", "busybox").Combined()
+	out, _ := dockerCmd(c, "run", "-d", "busybox")
 	id1 := strings.TrimSpace(out)
-	cli.WaitExited(c, id1, 5*time.Second)
+	c.Assert(waitExited(id1, 5*time.Second), checker.IsNil)
 
 	until := daemonUnixTime(c)
 
-	out = cli.DockerCmd(c, "run", "-d", "busybox").Combined()
+	out, _ = dockerCmd(c, "run", "-d", "busybox")
 	id2 := strings.TrimSpace(out)
-	cli.WaitExited(c, id2, 5*time.Second)
+	c.Assert(waitExited(id2, 5*time.Second), checker.IsNil)
 
-	out = cli.DockerCmd(c, "container", "prune", "--force", "--filter", "until="+until).Combined()
+	out, _ = dockerCmd(c, "container", "prune", "--force", "--filter", "until="+until)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id1)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 
-	out = cli.DockerCmd(c, "ps", "-a", "-q", "--no-trunc").Combined()
+	out, _ = dockerCmd(c, "ps", "-a", "-q", "--no-trunc")
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id1)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id2)
 }
 
 func (s *DockerSuite) TestPruneContainerLabel(c *check.C) {
-	out := cli.DockerCmd(c, "run", "-d", "--label", "foo", "busybox").Combined()
+	out, _ := dockerCmd(c, "run", "-d", "--label", "foo", "busybox")
 	id1 := strings.TrimSpace(out)
-	cli.WaitExited(c, id1, 5*time.Second)
+	c.Assert(waitExited(id1, 5*time.Second), checker.IsNil)
 
-	out = cli.DockerCmd(c, "run", "-d", "--label", "bar", "busybox").Combined()
+	out, _ = dockerCmd(c, "run", "-d", "--label", "bar", "busybox")
 	id2 := strings.TrimSpace(out)
-	cli.WaitExited(c, id2, 5*time.Second)
+	c.Assert(waitExited(id2, 5*time.Second), checker.IsNil)
 
-	out = cli.DockerCmd(c, "run", "-d", "busybox").Combined()
+	out, _ = dockerCmd(c, "run", "-d", "busybox")
 	id3 := strings.TrimSpace(out)
-	cli.WaitExited(c, id3, 5*time.Second)
+	c.Assert(waitExited(id3, 5*time.Second), checker.IsNil)
 
-	out = cli.DockerCmd(c, "run", "-d", "--label", "foobar", "busybox").Combined()
+	out, _ = dockerCmd(c, "run", "-d", "--label", "foobar", "busybox")
 	id4 := strings.TrimSpace(out)
-	cli.WaitExited(c, id4, 5*time.Second)
+	c.Assert(waitExited(id4, 5*time.Second), checker.IsNil)
 
 	// Add a config file of label=foobar, that will have no impact if cli is label!=foobar
 	config := `{"pruneFilters": ["label=foobar"]}`
@@ -143,35 +141,35 @@ func (s *DockerSuite) TestPruneContainerLabel(c *check.C) {
 	c.Assert(err, checker.IsNil)
 
 	// With config.json only, prune based on label=foobar
-	out = cli.DockerCmd(c, "--config", d, "container", "prune", "--force").Combined()
+	out, _ = dockerCmd(c, "--config", d, "container", "prune", "--force")
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id1)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id3)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id4)
 
-	out = cli.DockerCmd(c, "container", "prune", "--force", "--filter", "label=foo").Combined()
+	out, _ = dockerCmd(c, "container", "prune", "--force", "--filter", "label=foo")
 	c.Assert(strings.TrimSpace(out), checker.Contains, id1)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id3)
 
-	out = cli.DockerCmd(c, "ps", "-a", "-q", "--no-trunc").Combined()
+	out, _ = dockerCmd(c, "ps", "-a", "-q", "--no-trunc")
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id1)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id2)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id3)
 
-	out = cli.DockerCmd(c, "container", "prune", "--force", "--filter", "label!=bar").Combined()
+	out, _ = dockerCmd(c, "container", "prune", "--force", "--filter", "label!=bar")
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id3)
 
-	out = cli.DockerCmd(c, "ps", "-a", "-q", "--no-trunc").Combined()
+	out, _ = dockerCmd(c, "ps", "-a", "-q", "--no-trunc")
 	c.Assert(strings.TrimSpace(out), checker.Contains, id2)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id3)
 
 	// With config.json label=foobar and CLI label!=foobar, CLI label!=foobar supersede
-	out = cli.DockerCmd(c, "--config", d, "container", "prune", "--force", "--filter", "label!=foobar").Combined()
+	out, _ = dockerCmd(c, "--config", d, "container", "prune", "--force", "--filter", "label!=foobar")
 	c.Assert(strings.TrimSpace(out), checker.Contains, id2)
 
-	out = cli.DockerCmd(c, "ps", "-a", "-q", "--no-trunc").Combined()
+	out, _ = dockerCmd(c, "ps", "-a", "-q", "--no-trunc")
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 }
 

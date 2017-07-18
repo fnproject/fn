@@ -22,8 +22,6 @@ type Plugin struct {
 
 	Config   digest.Digest
 	Blobsums []digest.Digest
-
-	SwarmServiceID string
 }
 
 const defaultPluginRuntimeDestination = "/run/docker/plugins"

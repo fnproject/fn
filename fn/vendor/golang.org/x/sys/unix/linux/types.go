@@ -47,7 +47,6 @@ package unix
 #include <linux/filter.h>
 #include <linux/keyctl.h>
 #include <linux/netlink.h>
-#include <linux/perf_event.h>
 #include <linux/rtnetlink.h>
 #include <linux/icmpv6.h>
 #include <asm/termbits.h>
@@ -533,8 +532,6 @@ const (
 type Sigset_t C.sigset_t
 
 const RNDGETENTCNT = C.RNDGETENTCNT
-
-const PERF_IOC_FLAG_GROUP = C.PERF_IOC_FLAG_GROUP
 
 // sysconf information
 

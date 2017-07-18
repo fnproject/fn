@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/docker/distribution/reference"
@@ -18,13 +17,7 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 		return nil, errors.Wrapf(err, "no such image: %s", name)
 	}
 
-	// If the image OS isn't set, assume it's the host OS
-	platform := img.OS
-	if platform == "" {
-		platform = runtime.GOOS
-	}
-
-	refs := daemon.stores[platform].referenceStore.References(img.ID().Digest())
+	refs := daemon.referenceStore.References(img.ID().Digest())
 	repoTags := []string{}
 	repoDigests := []string{}
 	for _, ref := range refs {
@@ -40,11 +33,11 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 	var layerMetadata map[string]string
 	layerID := img.RootFS.ChainID()
 	if layerID != "" {
-		l, err := daemon.stores[platform].layerStore.Get(layerID)
+		l, err := daemon.layerStore.Get(layerID)
 		if err != nil {
 			return nil, err
 		}
-		defer layer.ReleaseAndLog(daemon.stores[platform].layerStore, l)
+		defer layer.ReleaseAndLog(daemon.layerStore, l)
 		size, err = l.Size()
 		if err != nil {
 			return nil, err
@@ -61,11 +54,6 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 		comment = img.History[len(img.History)-1].Comment
 	}
 
-	lastUpdated, err := daemon.stores[platform].imageStore.GetLastUpdated(img.ID())
-	if err != nil {
-		return nil, err
-	}
-
 	imageInspect := &types.ImageInspect{
 		ID:              img.ID().String(),
 		RepoTags:        repoTags,
@@ -79,17 +67,15 @@ func (daemon *Daemon) LookupImage(name string) (*types.ImageInspect, error) {
 		Author:          img.Author,
 		Config:          img.Config,
 		Architecture:    img.Architecture,
-		Os:              platform,
+		Os:              img.OS,
 		OsVersion:       img.OSVersion,
 		Size:            size,
 		VirtualSize:     size, // TODO: field unused, deprecate
 		RootFS:          rootFSToAPIType(img.RootFS),
-		Metadata: types.ImageMetadata{
-			LastTagTime: lastUpdated,
-		},
 	}
 
-	imageInspect.GraphDriver.Name = daemon.GraphDriverName(platform)
+	imageInspect.GraphDriver.Name = daemon.GraphDriverName()
+
 	imageInspect.GraphDriver.Data = layerMetadata
 
 	return imageInspect, nil

@@ -67,6 +67,7 @@ func (daemon *Daemon) CheckpointCreate(name string, config types.CheckpointCreat
 	}
 
 	checkpointDir, err := getCheckpointDir(config.CheckpointDir, config.CheckpointID, name, container.ID, container.CheckpointDir(), true)
+
 	if err != nil {
 		return fmt.Errorf("cannot checkpoint container %s: %s", name, err)
 	}
@@ -103,10 +104,7 @@ func (daemon *Daemon) CheckpointList(name string, config types.CheckpointListOpt
 		return nil, err
 	}
 
-	checkpointDir, err := getCheckpointDir(config.CheckpointDir, "", name, container.ID, container.CheckpointDir(), false)
-	if err != nil {
-		return nil, err
-	}
+	checkpointDir, err := getCheckpointDir(config.CheckpointDir, "", name, container.ID, container.CheckpointDir(), true)
 
 	if err := os.MkdirAll(checkpointDir, 0755); err != nil {
 		return nil, err

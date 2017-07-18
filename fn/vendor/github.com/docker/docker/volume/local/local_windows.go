@@ -5,11 +5,8 @@ package local
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
-	"time"
 )
 
 type optsConfig struct{}
@@ -34,13 +31,4 @@ func setOpts(v *localVolume, opts map[string]string) error {
 
 func (v *localVolume) mount() error {
 	return nil
-}
-
-func (v *localVolume) CreatedAt() (time.Time, error) {
-	fileInfo, err := os.Stat(v.path)
-	if err != nil {
-		return time.Time{}, err
-	}
-	ft := fileInfo.Sys().(*syscall.Win32FileAttributeData).CreationTime
-	return time.Unix(0, ft.Nanoseconds()), nil
 }

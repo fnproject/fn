@@ -21,8 +21,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-const defaultGossipConvergeDelay = 2 * time.Second
-
 // controller implements agent.Controller against docker's API.
 //
 // Most operations against docker's API are done through the container name,
@@ -41,8 +39,8 @@ type controller struct {
 var _ exec.Controller = &controller{}
 
 // NewController returns a docker exec runner for the provided task.
-func newController(b executorpkg.Backend, task *api.Task, dependencies exec.DependencyGetter) (*controller, error) {
-	adapter, err := newContainerAdapter(b, task, dependencies)
+func newController(b executorpkg.Backend, task *api.Task, secrets exec.SecretGetter) (*controller, error) {
+	adapter, err := newContainerAdapter(b, task, secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -279,48 +277,28 @@ func (r *controller) Wait(pctx context.Context) error {
 		}
 	}()
 
-	waitC, err := r.adapter.wait(ctx)
-	if err != nil {
-		return err
+	err := r.adapter.wait(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
-	if status := <-waitC; status.ExitCode() != 0 {
-		exitErr := &exitError{
-			code: status.ExitCode(),
+	if err != nil {
+		ee := &exitError{}
+		if ec, ok := err.(exec.ExitCoder); ok {
+			ee.code = ec.ExitCode()
 		}
-
-		// Set the cause if it is knowable.
 		select {
 		case e := <-healthErr:
-			exitErr.cause = e
+			ee.cause = e
 		default:
-			if status.Err() != nil {
-				exitErr.cause = status.Err()
+			if err.Error() != "" {
+				ee.cause = err
 			}
 		}
-
-		return exitErr
+		return ee
 	}
 
 	return nil
-}
-
-func (r *controller) hasServiceBinding() bool {
-	if r.task == nil {
-		return false
-	}
-
-	// service is attached to a network besides the default bridge
-	for _, na := range r.task.Networks {
-		if na.Network == nil ||
-			na.Network.DriverState == nil ||
-			na.Network.DriverState.Name == "bridge" && na.Network.Spec.Annotations.Name == "bridge" {
-			continue
-		}
-		return true
-	}
-
-	return false
 }
 
 // Shutdown the container cleanly.
@@ -333,18 +311,12 @@ func (r *controller) Shutdown(ctx context.Context) error {
 		r.cancelPull()
 	}
 
-	if r.hasServiceBinding() {
-		// remove container from service binding
-		if err := r.adapter.deactivateServiceBinding(); err != nil {
-			log.G(ctx).WithError(err).Warningf("failed to deactivate service binding for container %s", r.adapter.container.name())
-			// Don't return an error here, because failure to deactivate
-			// the service binding is expected if the container was never
-			// started.
-		}
-
-		// add a delay for gossip converge
-		// TODO(dongluochen): this delay should be configurable to fit different cluster size and network delay.
-		time.Sleep(defaultGossipConvergeDelay)
+	// remove container from service binding
+	if err := r.adapter.deactivateServiceBinding(); err != nil {
+		log.G(ctx).WithError(err).Warningf("failed to deactivate service binding for container %s", r.adapter.container.name())
+		// Don't return an error here, because failure to deactivate
+		// the service binding is expected if the container was never
+		// started.
 	}
 
 	if err := r.adapter.shutdown(ctx); err != nil {
@@ -465,20 +437,9 @@ func (r *controller) Logs(ctx context.Context, publisher exec.LogPublisher, opti
 		return err
 	}
 
-	// if we're following, wait for this container to be ready. there is a
-	// problem here: if the container will never be ready (for example, it has
-	// been totally deleted) then this will wait forever. however, this doesn't
-	// actually cause any UI issues, and shouldn't be a problem. the stuck wait
-	// will go away when the follow (context) is canceled.
-	if options.Follow {
-		if err := r.waitReady(ctx); err != nil {
-			return errors.Wrap(err, "container not ready for logs")
-		}
+	if err := r.waitReady(ctx); err != nil {
+		return errors.Wrap(err, "container not ready for logs")
 	}
-	// if we're not following, we're not gonna wait for the container to be
-	// ready. just call logs. if the container isn't ready, the call will fail
-	// and return an error. no big deal, we don't care, we only want the logs
-	// we can get RIGHT NOW with no follow
 
 	logsContext, cancel := context.WithCancel(ctx)
 	msgs, err := r.adapter.logs(logsContext, options)
@@ -525,18 +486,10 @@ func (r *controller) Logs(ctx context.Context, publisher exec.LogPublisher, opti
 			stream = api.LogStreamStderr
 		}
 
-		// parse the details out of the Attrs map
-		attrs := []api.LogAttr{}
-		for k, v := range msg.Attrs {
-			attr := api.LogAttr{Key: k, Value: v}
-			attrs = append(attrs, attr)
-		}
-
 		if err := publisher.Publish(ctx, api.LogMessage{
 			Context:   msgctx,
 			Timestamp: tsp,
 			Stream:    stream,
-			Attrs:     attrs,
 			Data:      msg.Line,
 		}); err != nil {
 			return errors.Wrap(err, "failed to publish log message")

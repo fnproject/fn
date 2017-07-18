@@ -75,9 +75,9 @@ func TestDecodeContainerConfig(t *testing.T) {
 // as to what level of container isolation is supported.
 func TestDecodeContainerConfigIsolation(t *testing.T) {
 
-	// An Invalid isolation level
+	// An invalid isolation level
 	if _, _, _, err := callDecodeContainerConfigIsolation("invalid"); err != nil {
-		if !strings.Contains(err.Error(), `Invalid isolation: "invalid"`) {
+		if !strings.Contains(err.Error(), `invalid --isolation: "invalid"`) {
 			t.Fatal(err)
 		}
 	}
@@ -99,7 +99,7 @@ func TestDecodeContainerConfigIsolation(t *testing.T) {
 		}
 	} else {
 		if _, _, _, err := callDecodeContainerConfigIsolation("process"); err != nil {
-			if !strings.Contains(err.Error(), `Invalid isolation: "process"`) {
+			if !strings.Contains(err.Error(), `invalid --isolation: "process"`) {
 				t.Fatal(err)
 			}
 		}
@@ -112,7 +112,7 @@ func TestDecodeContainerConfigIsolation(t *testing.T) {
 		}
 	} else {
 		if _, _, _, err := callDecodeContainerConfigIsolation("hyperv"); err != nil {
-			if !strings.Contains(err.Error(), `Invalid isolation: "hyperv"`) {
+			if !strings.Contains(err.Error(), `invalid --isolation: "hyperv"`) {
 				t.Fatal(err)
 			}
 		}

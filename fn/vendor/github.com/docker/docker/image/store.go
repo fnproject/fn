@@ -2,17 +2,14 @@ package image
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digestset"
 	"github.com/docker/docker/layer"
-	"github.com/docker/docker/pkg/system"
 	"github.com/opencontainers/go-digest"
-	"github.com/pkg/errors"
 )
 
 // Store is an interface for creating and accessing images
@@ -23,8 +20,6 @@ type Store interface {
 	Search(partialID string) (ID, error)
 	SetParent(id ID, parent ID) error
 	GetParent(id ID) (ID, error)
-	SetLastUpdated(id ID) error
-	GetLastUpdated(id ID) (time.Time, error)
 	Children(id ID) []ID
 	Map() map[ID]*Image
 	Heads() map[ID]*Image
@@ -42,22 +37,20 @@ type imageMeta struct {
 }
 
 type store struct {
-	sync.RWMutex
+	sync.Mutex
 	ls        LayerGetReleaser
 	images    map[ID]*imageMeta
 	fs        StoreBackend
 	digestSet *digestset.Set
-	platform  string
 }
 
 // NewImageStore returns new store object for given layer store
-func NewImageStore(fs StoreBackend, platform string, ls LayerGetReleaser) (Store, error) {
+func NewImageStore(fs StoreBackend, ls LayerGetReleaser) (Store, error) {
 	is := &store{
 		ls:        ls,
 		images:    make(map[ID]*imageMeta),
 		fs:        fs,
 		digestSet: digestset.NewSet(),
-		platform:  platform,
 	}
 
 	// load all current images and retain layers
@@ -118,14 +111,6 @@ func (is *store) Create(config []byte) (ID, error) {
 		return "", err
 	}
 
-	// TODO @jhowardmsft - LCOW Support. This will need revisiting.
-	// Integrity check - ensure we are creating something for the correct platform
-	if system.LCOWSupported() {
-		if strings.ToLower(img.Platform()) != strings.ToLower(is.platform) {
-			return "", fmt.Errorf("cannot create entry for platform %q in image store for platform %q", img.Platform(), is.platform)
-		}
-	}
-
 	// Must reject any config that references diffIDs from the history
 	// which aren't among the rootfs layers.
 	rootFSLayers := make(map[layer.DiffID]struct{})
@@ -162,7 +147,7 @@ func (is *store) Create(config []byte) (ID, error) {
 	if layerID != "" {
 		l, err = is.ls.Get(layerID)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to get layer %s", layerID)
+			return "", err
 		}
 	}
 
@@ -181,6 +166,9 @@ func (is *store) Create(config []byte) (ID, error) {
 }
 
 func (is *store) Search(term string) (ID, error) {
+	is.Lock()
+	defer is.Unlock()
+
 	dgst, err := is.digestSet.Lookup(term)
 	if err != nil {
 		if err == digestset.ErrDigestNotFound {
@@ -262,25 +250,9 @@ func (is *store) GetParent(id ID) (ID, error) {
 	return ID(d), nil // todo: validate?
 }
 
-// SetLastUpdated time for the image ID to the current time
-func (is *store) SetLastUpdated(id ID) error {
-	lastUpdated := []byte(time.Now().Format(time.RFC3339Nano))
-	return is.fs.SetMetadata(id.Digest(), "lastUpdated", lastUpdated)
-}
-
-// GetLastUpdated time for the image ID
-func (is *store) GetLastUpdated(id ID) (time.Time, error) {
-	bytes, err := is.fs.GetMetadata(id.Digest(), "lastUpdated")
-	if err != nil || len(bytes) == 0 {
-		// No lastUpdated time
-		return time.Time{}, nil
-	}
-	return time.Parse(time.RFC3339Nano, string(bytes))
-}
-
 func (is *store) Children(id ID) []ID {
-	is.RLock()
-	defer is.RUnlock()
+	is.Lock()
+	defer is.Unlock()
 
 	return is.children(id)
 }
@@ -304,8 +276,8 @@ func (is *store) Map() map[ID]*Image {
 }
 
 func (is *store) imagesMap(all bool) map[ID]*Image {
-	is.RLock()
-	defer is.RUnlock()
+	is.Lock()
+	defer is.Unlock()
 
 	images := make(map[ID]*Image)
 

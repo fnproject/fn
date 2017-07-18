@@ -2,7 +2,7 @@ package filenotify
 
 import "github.com/fsnotify/fsnotify"
 
-// fsNotifyWatcher wraps the fsnotify package to satisfy the FileNotifier interface
+// fsNotifyWatcher wraps the fsnotify package to satisfy the FileNotifer interface
 type fsNotifyWatcher struct {
 	*fsnotify.Watcher
 }

@@ -156,7 +156,7 @@ func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
 	if err := routeWithFuncFile(c, ff, rt); err != nil {
 		return fmt.Errorf("error getting route with funcfile: %s", err)
 	}
-	return routesCmd.putRoute(c, p.appName, ff.Path, rt)
+	return routesCmd.patchRoute(c, p.appName, ff.Path, rt)
 }
 
 func expandEnvConfig(configs map[string]string) map[string]string {

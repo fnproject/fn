@@ -20,7 +20,6 @@ func NewFilter(filter filters.Args) *Filter {
 func (ef *Filter) Include(ev events.Message) bool {
 	return ef.matchEvent(ev) &&
 		ef.filter.ExactMatch("type", ev.Type) &&
-		ef.matchScope(ev.Scope) &&
 		ef.matchDaemon(ev) &&
 		ef.matchContainer(ev) &&
 		ef.matchPlugin(ev) &&
@@ -48,13 +47,6 @@ func (ef *Filter) filterContains(field string, values map[string]struct{}) bool 
 	return false
 }
 
-func (ef *Filter) matchScope(scope string) bool {
-	if !ef.filter.Include("scope") {
-		return true
-	}
-	return ef.filter.ExactMatch("scope", scope)
-}
-
 func (ef *Filter) matchLabels(attributes map[string]string) bool {
 	if !ef.filter.Include("label") {
 		return true
@@ -80,18 +72,6 @@ func (ef *Filter) matchVolume(ev events.Message) bool {
 
 func (ef *Filter) matchNetwork(ev events.Message) bool {
 	return ef.fuzzyMatchName(ev, events.NetworkEventType)
-}
-
-func (ef *Filter) matchService(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.ServiceEventType)
-}
-
-func (ef *Filter) matchNode(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.NodeEventType)
-}
-
-func (ef *Filter) matchSecret(ev events.Message) bool {
-	return ef.fuzzyMatchName(ev, events.SecretEventType)
 }
 
 func (ef *Filter) fuzzyMatchName(ev events.Message, eventType string) bool {

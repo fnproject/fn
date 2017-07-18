@@ -90,15 +90,15 @@ func TestFromParam(t *testing.T) {
 		`{"key": "value"}`,
 	}
 	valid := map[*Args][]string{
-		{fields: map[string]map[string]bool{"key": {"value": true}}}: {
+		&Args{fields: map[string]map[string]bool{"key": {"value": true}}}: {
 			`{"key": ["value"]}`,
 			`{"key": {"value": true}}`,
 		},
-		{fields: map[string]map[string]bool{"key": {"value1": true, "value2": true}}}: {
+		&Args{fields: map[string]map[string]bool{"key": {"value1": true, "value2": true}}}: {
 			`{"key": ["value1", "value2"]}`,
 			`{"key": {"value1": true, "value2": true}}`,
 		},
-		{fields: map[string]map[string]bool{"key1": {"value1": true}, "key2": {"value2": true}}}: {
+		&Args{fields: map[string]map[string]bool{"key1": {"value1": true}, "key2": {"value2": true}}}: {
 			`{"key1": ["value1"], "key2": ["value2"]}`,
 			`{"key1": {"value1": true}, "key2": {"value2": true}}`,
 		},
@@ -172,14 +172,14 @@ func TestArgsMatchKVList(t *testing.T) {
 	}
 
 	matches := map[*Args]string{
-		{}: "field",
-		{map[string]map[string]bool{
-			"created": {"today": true},
-			"labels":  {"key1": true}},
+		&Args{}: "field",
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today": true},
+			"labels":  map[string]bool{"key1": true}},
 		}: "labels",
-		{map[string]map[string]bool{
-			"created": {"today": true},
-			"labels":  {"key1=value1": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today": true},
+			"labels":  map[string]bool{"key1=value1": true}},
 		}: "labels",
 	}
 
@@ -190,16 +190,16 @@ func TestArgsMatchKVList(t *testing.T) {
 	}
 
 	differs := map[*Args]string{
-		{map[string]map[string]bool{
-			"created": {"today": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"today": true},
-			"labels":  {"key4": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today": true},
+			"labels":  map[string]bool{"key4": true}},
 		}: "labels",
-		{map[string]map[string]bool{
-			"created": {"today": true},
-			"labels":  {"key1=value3": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today": true},
+			"labels":  map[string]bool{"key1=value3": true}},
 		}: "labels",
 	}
 
@@ -214,21 +214,21 @@ func TestArgsMatch(t *testing.T) {
 	source := "today"
 
 	matches := map[*Args]string{
-		{}: "field",
-		{map[string]map[string]bool{
-			"created": {"today": true}},
+		&Args{}: "field",
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today": true}},
 		}: "today",
-		{map[string]map[string]bool{
-			"created": {"to*": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"to*": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"to(.*)": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"to(.*)": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"tod": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"tod": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"anything": true, "to*": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"anyting": true, "to*": true}},
 		}: "created",
 	}
 
@@ -239,21 +239,21 @@ func TestArgsMatch(t *testing.T) {
 	}
 
 	differs := map[*Args]string{
-		{map[string]map[string]bool{
-			"created": {"tomorrow": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"tomorrow": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"to(day": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"to(day": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"tom(.*)": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"tom(.*)": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"tom": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"tom": true}},
 		}: "created",
-		{map[string]map[string]bool{
-			"created": {"today1": true},
-			"labels":  {"today": true}},
+		&Args{map[string]map[string]bool{
+			"created": map[string]bool{"today1": true},
+			"labels":  map[string]bool{"today": true}},
 		}: "created",
 	}
 

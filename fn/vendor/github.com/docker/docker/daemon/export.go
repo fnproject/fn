@@ -40,10 +40,11 @@ func (daemon *Daemon) containerExport(container *container.Container) (io.ReadCl
 		return nil, err
 	}
 
+	uidMaps, gidMaps := daemon.GetUIDGIDMaps()
 	archive, err := archive.TarWithOptions(container.BaseFS, &archive.TarOptions{
 		Compression: archive.Uncompressed,
-		UIDMaps:     daemon.idMappings.UIDs(),
-		GIDMaps:     daemon.idMappings.GIDs(),
+		UIDMaps:     uidMaps,
+		GIDMaps:     gidMaps,
 	})
 	if err != nil {
 		daemon.Unmount(container)

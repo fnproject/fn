@@ -8,7 +8,7 @@ set -e
 }
 
 usage() {
-	printf >&2 '%s: [-r release] [-m mirror] [-s] [-c additional repository] [-a arch]\n' "$0"
+	printf >&2 '%s: [-r release] [-m mirror] [-s]  [-c additional repository]\n' "$0"
 	exit 1
 }
 
@@ -52,7 +52,7 @@ save() {
 	tar --numeric-owner -C $ROOTFS -c . | xz > rootfs.tar.xz
 }
 
-while getopts "hr:m:sc:a:" opt; do
+while getopts "hr:m:s" opt; do
 	case $opt in
 		r)
 			REL=$OPTARG
@@ -64,10 +64,7 @@ while getopts "hr:m:sc:a:" opt; do
 			SAVE=1
 			;;
 		c)
-			ADDITIONALREPO=$OPTARG
-			;;
-		a)
-			ARCH=$OPTARG
+			ADDITIONALREPO=community
 			;;
 		*)
 			usage
@@ -79,7 +76,7 @@ REL=${REL:-edge}
 MIRROR=${MIRROR:-http://nl.alpinelinux.org/alpine}
 SAVE=${SAVE:-0}
 MAINREPO=$MIRROR/$REL/main
-ADDITIONALREPO=$MIRROR/$REL/${ADDITIONALREPO:-community}
+ADDITIONALREPO=$MIRROR/$REL/community
 ARCH=${ARCH:-$(uname -m)}
 
 tmp

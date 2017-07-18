@@ -42,7 +42,7 @@ func parseSubCommand(rest string, d *Directive) (*Node, map[string]bool, error) 
 		return nil, nil, nil
 	}
 
-	child, err := newNodeFromLine(rest, d)
+	_, child, err := ParseLine(rest, d, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -103,7 +103,7 @@ func parseWords(rest string, d *Directive) []string {
 				blankOK = true
 				phase = inQuote
 			}
-			if ch == d.escapeToken {
+			if ch == d.EscapeToken {
 				if pos+chWidth == len(rest) {
 					continue // just skip an escape token at end of line
 				}
@@ -122,7 +122,7 @@ func parseWords(rest string, d *Directive) []string {
 				phase = inWord
 			}
 			// The escape token is special except for ' quotes - can't escape anything for '
-			if ch == d.escapeToken && quote != '\'' {
+			if ch == d.EscapeToken && quote != '\'' {
 				if pos+chWidth == len(rest) {
 					phase = inWord
 					continue // just skip the escape token at end

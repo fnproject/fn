@@ -8,7 +8,7 @@ import (
 // TagImage creates the tag specified by newTag, pointing to the image named
 // imageName (alternatively, imageName can also be an image ID).
 func (daemon *Daemon) TagImage(imageName, repository, tag string) error {
-	imageID, platform, err := daemon.GetImageIDAndPlatform(imageName)
+	imageID, err := daemon.GetImageID(imageName)
 	if err != nil {
 		return err
 	}
@@ -23,18 +23,15 @@ func (daemon *Daemon) TagImage(imageName, repository, tag string) error {
 		}
 	}
 
-	return daemon.TagImageWithReference(imageID, platform, newTag)
+	return daemon.TagImageWithReference(imageID, newTag)
 }
 
 // TagImageWithReference adds the given reference to the image ID provided.
-func (daemon *Daemon) TagImageWithReference(imageID image.ID, platform string, newTag reference.Named) error {
-	if err := daemon.stores[platform].referenceStore.AddTag(newTag, imageID.Digest(), true); err != nil {
+func (daemon *Daemon) TagImageWithReference(imageID image.ID, newTag reference.Named) error {
+	if err := daemon.referenceStore.AddTag(newTag, imageID.Digest(), true); err != nil {
 		return err
 	}
 
-	if err := daemon.stores[platform].imageStore.SetLastUpdated(imageID); err != nil {
-		return err
-	}
 	daemon.LogImageEvent(imageID.String(), reference.FamiliarString(newTag), "tag")
 	return nil
 }

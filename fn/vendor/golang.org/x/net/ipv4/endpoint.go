@@ -1,4 +1,4 @@
-// Copyright 2012 The Go Authors. All rights reserved.
+// Copyright 2012 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -8,14 +8,7 @@ import (
 	"net"
 	"syscall"
 	"time"
-
-	"golang.org/x/net/internal/socket"
 )
-
-// BUG(mikio): On Windows, the JoinSourceSpecificGroup,
-// LeaveSourceSpecificGroup, ExcludeSourceSpecificGroup and
-// IncludeSourceSpecificGroup methods of PacketConn and RawConn are
-// not implemented.
 
 // A Conn represents a network endpoint that uses the IPv4 transport.
 // It is used to control basic IP-level socket options such as TOS and
@@ -25,22 +18,21 @@ type Conn struct {
 }
 
 type genericOpt struct {
-	*socket.Conn
+	net.Conn
 }
 
 func (c *genericOpt) ok() bool { return c != nil && c.Conn != nil }
 
 // NewConn returns a new Conn.
 func NewConn(c net.Conn) *Conn {
-	cc, _ := socket.NewConn(c)
 	return &Conn{
-		genericOpt: genericOpt{Conn: cc},
+		genericOpt: genericOpt{Conn: c},
 	}
 }
 
 // A PacketConn represents a packet network endpoint that uses the
-// IPv4 transport. It is used to control several IP-level socket
-// options including multicasting. It also provides datagram based
+// IPv4 transport.  It is used to control several IP-level socket
+// options including multicasting.  It also provides datagram based
 // network I/O methods specific to the IPv4 and higher layer protocols
 // such as UDP.
 type PacketConn struct {
@@ -50,17 +42,21 @@ type PacketConn struct {
 }
 
 type dgramOpt struct {
-	*socket.Conn
+	net.PacketConn
 }
 
-func (c *dgramOpt) ok() bool { return c != nil && c.Conn != nil }
+func (c *dgramOpt) ok() bool { return c != nil && c.PacketConn != nil }
 
 // SetControlMessage sets the per packet IP-level socket options.
 func (c *PacketConn) SetControlMessage(cf ControlFlags, on bool) error {
 	if !c.payloadHandler.ok() {
 		return syscall.EINVAL
 	}
-	return setControlMessage(c.dgramOpt.Conn, &c.payloadHandler.rawOpt, cf, on)
+	fd, err := c.payloadHandler.sysfd()
+	if err != nil {
+		return err
+	}
+	return setControlMessage(fd, &c.payloadHandler.rawOpt, cf, on)
 }
 
 // SetDeadline sets the read and write deadlines associated with the
@@ -101,18 +97,22 @@ func (c *PacketConn) Close() error {
 // NewPacketConn returns a new PacketConn using c as its underlying
 // transport.
 func NewPacketConn(c net.PacketConn) *PacketConn {
-	cc, _ := socket.NewConn(c.(net.Conn))
 	p := &PacketConn{
-		genericOpt:     genericOpt{Conn: cc},
-		dgramOpt:       dgramOpt{Conn: cc},
-		payloadHandler: payloadHandler{PacketConn: c, Conn: cc},
+		genericOpt:     genericOpt{Conn: c.(net.Conn)},
+		dgramOpt:       dgramOpt{PacketConn: c},
+		payloadHandler: payloadHandler{PacketConn: c},
+	}
+	if _, ok := c.(*net.IPConn); ok && sockOpts[ssoStripHeader].name > 0 {
+		if fd, err := p.payloadHandler.sysfd(); err == nil {
+			setInt(fd, &sockOpts[ssoStripHeader], boolint(true))
+		}
 	}
 	return p
 }
 
 // A RawConn represents a packet network endpoint that uses the IPv4
-// transport. It is used to control several IP-level socket options
-// including IPv4 header manipulation. It also provides datagram
+// transport.  It is used to control several IP-level socket options
+// including IPv4 header manipulation.  It also provides datagram
 // based network I/O methods specific to the IPv4 and higher layer
 // protocols that handle IPv4 datagram directly such as OSPF, GRE.
 type RawConn struct {
@@ -126,7 +126,11 @@ func (c *RawConn) SetControlMessage(cf ControlFlags, on bool) error {
 	if !c.packetHandler.ok() {
 		return syscall.EINVAL
 	}
-	return setControlMessage(c.dgramOpt.Conn, &c.packetHandler.rawOpt, cf, on)
+	fd, err := c.packetHandler.sysfd()
+	if err != nil {
+		return err
+	}
+	return setControlMessage(fd, &c.packetHandler.rawOpt, cf, on)
 }
 
 // SetDeadline sets the read and write deadlines associated with the
@@ -135,7 +139,7 @@ func (c *RawConn) SetDeadline(t time.Time) error {
 	if !c.packetHandler.ok() {
 		return syscall.EINVAL
 	}
-	return c.packetHandler.IPConn.SetDeadline(t)
+	return c.packetHandler.c.SetDeadline(t)
 }
 
 // SetReadDeadline sets the read deadline associated with the
@@ -144,7 +148,7 @@ func (c *RawConn) SetReadDeadline(t time.Time) error {
 	if !c.packetHandler.ok() {
 		return syscall.EINVAL
 	}
-	return c.packetHandler.IPConn.SetReadDeadline(t)
+	return c.packetHandler.c.SetReadDeadline(t)
 }
 
 // SetWriteDeadline sets the write deadline associated with the
@@ -153,7 +157,7 @@ func (c *RawConn) SetWriteDeadline(t time.Time) error {
 	if !c.packetHandler.ok() {
 		return syscall.EINVAL
 	}
-	return c.packetHandler.IPConn.SetWriteDeadline(t)
+	return c.packetHandler.c.SetWriteDeadline(t)
 }
 
 // Close closes the endpoint.
@@ -161,26 +165,22 @@ func (c *RawConn) Close() error {
 	if !c.packetHandler.ok() {
 		return syscall.EINVAL
 	}
-	return c.packetHandler.IPConn.Close()
+	return c.packetHandler.c.Close()
 }
 
 // NewRawConn returns a new RawConn using c as its underlying
 // transport.
 func NewRawConn(c net.PacketConn) (*RawConn, error) {
-	cc, err := socket.NewConn(c.(net.Conn))
+	r := &RawConn{
+		genericOpt:    genericOpt{Conn: c.(net.Conn)},
+		dgramOpt:      dgramOpt{PacketConn: c},
+		packetHandler: packetHandler{c: c.(*net.IPConn)},
+	}
+	fd, err := r.packetHandler.sysfd()
 	if err != nil {
 		return nil, err
 	}
-	r := &RawConn{
-		genericOpt:    genericOpt{Conn: cc},
-		dgramOpt:      dgramOpt{Conn: cc},
-		packetHandler: packetHandler{IPConn: c.(*net.IPConn), Conn: cc},
-	}
-	so, ok := sockOpts[ssoHeaderPrepend]
-	if !ok {
-		return nil, errOpNoSupport
-	}
-	if err := so.SetInt(r.dgramOpt.Conn, boolint(true)); err != nil {
+	if err := setInt(fd, &sockOpts[ssoHeaderPrepend], boolint(true)); err != nil {
 		return nil, err
 	}
 	return r, nil

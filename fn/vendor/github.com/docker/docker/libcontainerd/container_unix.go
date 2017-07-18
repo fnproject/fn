@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	containerd "github.com/containerd/containerd/api/grpc/types"
+	containerd "github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/pkg/ioutils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/tonistiigi/fifo"
@@ -90,7 +90,12 @@ func (ctr *container) spec() (*specs.Spec, error) {
 	return &spec, nil
 }
 
-func (ctr *container) start(spec *specs.Spec, checkpoint, checkpointDir string, attachStdio StdioCallback) (err error) {
+func (ctr *container) start(checkpoint string, checkpointDir string, attachStdio StdioCallback) (err error) {
+	spec, err := ctr.spec()
+	if err != nil {
+		return nil
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ready := make(chan struct{})
@@ -167,7 +172,6 @@ func (ctr *container) start(spec *specs.Spec, checkpoint, checkpointDir string, 
 			State: StateStart,
 			Pid:   ctr.systemPid,
 		}})
-
 }
 
 func (ctr *container) newProcess(friendlyName string) *process {

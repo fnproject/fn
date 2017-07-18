@@ -76,30 +76,30 @@ const (
 	sysIPV6_PORTRANGE_HIGH    = C.IPV6_PORTRANGE_HIGH
 	sysIPV6_PORTRANGE_LOW     = C.IPV6_PORTRANGE_LOW
 
-	sizeofSockaddrStorage = C.sizeof_struct_sockaddr_storage
-	sizeofSockaddrInet6   = C.sizeof_struct_sockaddr_in6
-	sizeofInet6Pktinfo    = C.sizeof_struct_in6_pktinfo
-	sizeofIPv6Mtuinfo     = C.sizeof_struct_ip6_mtuinfo
+	sysSizeofSockaddrStorage = C.sizeof_struct_sockaddr_storage
+	sysSizeofSockaddrInet6   = C.sizeof_struct_sockaddr_in6
+	sysSizeofInet6Pktinfo    = C.sizeof_struct_in6_pktinfo
+	sysSizeofIPv6Mtuinfo     = C.sizeof_struct_ip6_mtuinfo
 
-	sizeofIPv6Mreq       = C.sizeof_struct_ipv6_mreq
-	sizeofGroupReq       = C.sizeof_struct_group_req
-	sizeofGroupSourceReq = C.sizeof_struct_group_source_req
+	sysSizeofIPv6Mreq       = C.sizeof_struct_ipv6_mreq
+	sysSizeofGroupReq       = C.sizeof_struct_group_req
+	sysSizeofGroupSourceReq = C.sizeof_struct_group_source_req
 
-	sizeofICMPv6Filter = C.sizeof_struct_icmp6_filter
+	sysSizeofICMPv6Filter = C.sizeof_struct_icmp6_filter
 )
 
-type sockaddrStorage C.struct_sockaddr_storage
+type sysSockaddrStorage C.struct_sockaddr_storage
 
-type sockaddrInet6 C.struct_sockaddr_in6
+type sysSockaddrInet6 C.struct_sockaddr_in6
 
-type inet6Pktinfo C.struct_in6_pktinfo
+type sysInet6Pktinfo C.struct_in6_pktinfo
 
-type ipv6Mtuinfo C.struct_ip6_mtuinfo
+type sysIPv6Mtuinfo C.struct_ip6_mtuinfo
 
-type ipv6Mreq C.struct_ipv6_mreq
+type sysIPv6Mreq C.struct_ipv6_mreq
 
-type groupReq C.struct_group_req
+type sysGroupReq C.struct_group_req
 
-type groupSourceReq C.struct_group_source_req
+type sysGroupSourceReq C.struct_group_source_req
 
-type icmpv6Filter C.struct_icmp6_filter
+type sysICMPv6Filter C.struct_icmp6_filter

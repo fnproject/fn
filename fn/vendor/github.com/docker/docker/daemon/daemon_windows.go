@@ -14,7 +14,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/image"
-	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/platform"
@@ -100,7 +99,7 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 
 func verifyContainerResources(resources *containertypes.Resources, isHyperv bool) ([]string, error) {
 	warnings := []string{}
-	fixMemorySwappiness(resources)
+
 	if !isHyperv {
 		// The processor resource controls are mutually exclusive on
 		// Windows Server Containers, the order of precedence is
@@ -147,17 +146,6 @@ func verifyContainerResources(resources *containertypes.Resources, isHyperv bool
 		return warnings, fmt.Errorf("range of CPUs is from 0.01 to %d.00, as there are only %d CPUs available", sysinfo.NumCPU(), sysinfo.NumCPU())
 	}
 
-	osv := system.GetOSVersion()
-	if resources.NanoCPUs > 0 && isHyperv && osv.Build < 16175 {
-		leftoverNanoCPUs := resources.NanoCPUs % 1e9
-		if leftoverNanoCPUs != 0 && resources.NanoCPUs > 1e9 {
-			resources.NanoCPUs = ((resources.NanoCPUs + 1e9/2) / 1e9) * 1e9
-			warningString := fmt.Sprintf("Your current OS version does not support Hyper-V containers with NanoCPUs greater than 1000000000 but not divisible by 1000000000. NanoCPUs rounded to %d", resources.NanoCPUs)
-			warnings = append(warnings, warningString)
-			logrus.Warn(warningString)
-		}
-	}
-
 	if len(resources.BlkioDeviceReadBps) > 0 {
 		return warnings, fmt.Errorf("invalid option: Windows does not support BlkioDeviceReadBps")
 	}
@@ -197,7 +185,7 @@ func verifyContainerResources(resources *containertypes.Resources, isHyperv bool
 	if resources.MemorySwap != 0 {
 		return warnings, fmt.Errorf("invalid option: Windows does not support MemorySwap")
 	}
-	if resources.MemorySwappiness != nil {
+	if resources.MemorySwappiness != nil && *resources.MemorySwappiness != -1 {
 		return warnings, fmt.Errorf("invalid option: Windows does not support MemorySwappiness")
 	}
 	if resources.OomKillDisable != nil && *resources.OomKillDisable {
@@ -218,7 +206,7 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 	warnings := []string{}
 
 	hyperv := daemon.runAsHyperVContainer(hostConfig)
-	if !hyperv && system.IsWindowsClient() && !system.IsIoTCore() {
+	if !hyperv && system.IsWindowsClient() {
 		// @engine maintainers. This block should not be removed. It partially enforces licensing
 		// restrictions on Windows. Ping @jhowardmsft if there are concerns or PRs to change this.
 		return warnings, fmt.Errorf("Windows client operating systems only support Hyper-V containers")
@@ -260,7 +248,7 @@ func checkSystem() error {
 }
 
 // configureKernelSecuritySupport configures and validate security support for the kernel
-func configureKernelSecuritySupport(config *config.Config, driverNames []string) error {
+func configureKernelSecuritySupport(config *config.Config, driverName string) error {
 	return nil
 }
 
@@ -328,9 +316,6 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 	// discover and add HNS networks to windows
 	// network that exist are removed and added again
 	for _, v := range hnsresponse {
-		if strings.ToLower(v.Type) == "private" {
-			continue // workaround for HNS reporting unsupported networks
-		}
 		var n libnetwork.Network
 		s := func(current libnetwork.Network) bool {
 			options := current.Info().DriverOptions()
@@ -458,14 +443,14 @@ func (daemon *Daemon) cleanupMounts() error {
 	return nil
 }
 
-func setupRemappedRoot(config *config.Config) (*idtools.IDMappings, error) {
-	return &idtools.IDMappings{}, nil
+func setupRemappedRoot(config *config.Config) ([]idtools.IDMap, []idtools.IDMap, error) {
+	return nil, nil, nil
 }
 
-func setupDaemonRoot(config *config.Config, rootDir string, rootIDs idtools.IDPair) error {
+func setupDaemonRoot(config *config.Config, rootDir string, rootUID, rootGID int) error {
 	config.Root = rootDir
 	// Create the root directory if it doesn't exists
-	if err := system.MkdirAllWithACL(config.Root, 0, system.SddlAdministratorsLocalSystem); err != nil && !os.IsExist(err) {
+	if err := system.MkdirAllWithACL(config.Root, 0); err != nil && !os.IsExist(err) {
 		return err
 	}
 	return nil
@@ -486,11 +471,6 @@ func (daemon *Daemon) runAsHyperVContainer(hostConfig *containertypes.HostConfig
 // conditionalMountOnStart is a platform specific helper function during the
 // container start to call mount.
 func (daemon *Daemon) conditionalMountOnStart(container *container.Container) error {
-	// Bail out now for Linux containers
-	if system.LCOWSupported() && container.Platform != "windows" {
-		return nil
-	}
-
 	// We do not mount if a Hyper-V container
 	if !daemon.runAsHyperVContainer(container.HostConfig) {
 		return daemon.Mount(container)
@@ -501,11 +481,6 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // conditionalUnmountOnCleanup is a platform specific helper function called
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
-	// Bail out now for Linux containers
-	if system.LCOWSupported() && container.Platform != "windows" {
-		return nil
-	}
-
 	// We do not unmount if a Hyper-V container
 	if !daemon.runAsHyperVContainer(container.HostConfig) {
 		return daemon.Unmount(container)
@@ -580,9 +555,8 @@ func (daemon *Daemon) stats(c *container.Container) (*types.StatsJSON, error) {
 // daemon to run in. This is only applicable on Windows
 func (daemon *Daemon) setDefaultIsolation() error {
 	daemon.defaultIsolation = containertypes.Isolation("process")
-	// On client SKUs, default to Hyper-V. Note that IoT reports as a client SKU
-	// but it should not be treated as such.
-	if system.IsWindowsClient() && !system.IsIoTCore() {
+	// On client SKUs, default to Hyper-V
+	if system.IsWindowsClient() {
 		daemon.defaultIsolation = containertypes.Isolation("hyperv")
 	}
 	for _, option := range daemon.configStore.ExecOptions {
@@ -601,7 +575,7 @@ func (daemon *Daemon) setDefaultIsolation() error {
 				daemon.defaultIsolation = containertypes.Isolation("hyperv")
 			}
 			if containertypes.Isolation(val).IsProcess() {
-				if system.IsWindowsClient() && !system.IsIoTCore() {
+				if system.IsWindowsClient() {
 					// @engine maintainers. This block should not be removed. It partially enforces licensing
 					// restrictions on Windows. Ping @jhowardmsft if there are concerns or PRs to change this.
 					return fmt.Errorf("Windows client operating systems only support Hyper-V containers")
@@ -641,14 +615,4 @@ func (daemon *Daemon) verifyVolumesInfo(container *container.Container) error {
 
 func (daemon *Daemon) setupSeccompProfile() error {
 	return nil
-}
-
-func getRealPath(path string) (string, error) {
-	if system.IsIoTCore() {
-		// Due to https://github.com/golang/go/issues/20506, path expansion
-		// does not work correctly on the default IoT Core configuration.
-		// TODO @darrenstahlmsft remove this once golang/go/20506 is fixed
-		return path, nil
-	}
-	return fileutils.ReadSymlinkedDirectory(path)
 }

@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/swarm"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 	"github.com/pkg/errors"
@@ -120,35 +118,23 @@ type NodeConstructor func(*swarm.Node)
 // SecretConstructor defines a swarm secret constructor
 type SecretConstructor func(*swarm.Secret)
 
-// ConfigConstructor defines a swarm config constructor
-type ConfigConstructor func(*swarm.Config)
-
 // SpecConstructor defines a swarm spec constructor
 type SpecConstructor func(*swarm.Spec)
 
-// CreateServiceWithOptions creates a swarm service given the specified service constructors
-// and auth config
-func (d *Swarm) CreateServiceWithOptions(c *check.C, opts types.ServiceCreateOptions, f ...ServiceConstructor) string {
-	cl, err := client.NewClient(d.Sock(), "", nil, nil)
-	c.Assert(err, checker.IsNil, check.Commentf("failed to create client"))
-	defer cl.Close()
-
+// CreateService creates a swarm service given the specified service constructor
+func (d *Swarm) CreateService(c *check.C, f ...ServiceConstructor) string {
 	var service swarm.Service
 	for _, fn := range f {
 		fn(&service)
 	}
+	status, out, err := d.SockRequest("POST", "/services/create", service.Spec)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
+	c.Assert(status, checker.Equals, http.StatusCreated, check.Commentf("output: %q", string(out)))
 
-	res, err := cl.ServiceCreate(ctx, service.Spec, opts)
-	c.Assert(err, checker.IsNil)
-	return res.ID
-}
-
-// CreateService creates a swarm service given the specified service constructor
-func (d *Swarm) CreateService(c *check.C, f ...ServiceConstructor) string {
-	return d.CreateServiceWithOptions(c, types.ServiceCreateOptions{}, f...)
+	var scr types.ServiceCreateResponse
+	c.Assert(json.Unmarshal(out, &scr), checker.IsNil)
+	return scr.ID
 }
 
 // GetService returns the swarm service corresponding to the specified id
@@ -211,37 +197,6 @@ func (d *Swarm) CheckServiceUpdateState(service string) func(*check.C) (interfac
 	}
 }
 
-// CheckPluginRunning returns the runtime state of the plugin
-func (d *Swarm) CheckPluginRunning(plugin string) func(c *check.C) (interface{}, check.CommentInterface) {
-	return func(c *check.C) (interface{}, check.CommentInterface) {
-		status, out, err := d.SockRequest("GET", "/plugins/"+plugin+"/json", nil)
-		c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-		if status != http.StatusOK {
-			return false, nil
-		}
-
-		var p types.Plugin
-		c.Assert(json.Unmarshal(out, &p), checker.IsNil, check.Commentf(string(out)))
-
-		return p.Enabled, check.Commentf("%+v", p)
-	}
-}
-
-// CheckPluginImage returns the runtime state of the plugin
-func (d *Swarm) CheckPluginImage(plugin string) func(c *check.C) (interface{}, check.CommentInterface) {
-	return func(c *check.C) (interface{}, check.CommentInterface) {
-		status, out, err := d.SockRequest("GET", "/plugins/"+plugin+"/json", nil)
-		c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-		if status != http.StatusOK {
-			return false, nil
-		}
-
-		var p types.Plugin
-		c.Assert(json.Unmarshal(out, &p), checker.IsNil, check.Commentf(string(out)))
-		return p.PluginReference, check.Commentf("%+v", p)
-	}
-}
-
 // CheckServiceTasks returns the number of tasks for the specified service
 func (d *Swarm) CheckServiceTasks(service string) func(*check.C) (interface{}, check.CommentInterface) {
 	return func(c *check.C) (interface{}, check.CommentInterface) {
@@ -289,7 +244,7 @@ func (d *Swarm) CheckRunningTaskImages(c *check.C) (interface{}, check.CommentIn
 
 	result := make(map[string]int)
 	for _, task := range tasks {
-		if task.Status.State == swarm.TaskStateRunning && task.Spec.ContainerSpec != nil {
+		if task.Status.State == swarm.TaskStateRunning {
 			result[task.Spec.ContainerSpec.Image]++
 		}
 	}
@@ -450,59 +405,6 @@ func (d *Swarm) UpdateSecret(c *check.C, id string, f ...SecretConstructor) {
 	}
 	url := fmt.Sprintf("/secrets/%s/update?version=%d", secret.ID, secret.Version.Index)
 	status, out, err := d.SockRequest("POST", url, secret.Spec)
-	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-	c.Assert(status, checker.Equals, http.StatusOK, check.Commentf("output: %q", string(out)))
-}
-
-// CreateConfig creates a config given the specified spec
-func (d *Swarm) CreateConfig(c *check.C, configSpec swarm.ConfigSpec) string {
-	status, out, err := d.SockRequest("POST", "/configs/create", configSpec)
-
-	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-	c.Assert(status, checker.Equals, http.StatusCreated, check.Commentf("output: %q", string(out)))
-
-	var scr types.ConfigCreateResponse
-	c.Assert(json.Unmarshal(out, &scr), checker.IsNil)
-	return scr.ID
-}
-
-// ListConfigs returns the list of the current swarm configs
-func (d *Swarm) ListConfigs(c *check.C) []swarm.Config {
-	status, out, err := d.SockRequest("GET", "/configs", nil)
-	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-	c.Assert(status, checker.Equals, http.StatusOK, check.Commentf("output: %q", string(out)))
-
-	configs := []swarm.Config{}
-	c.Assert(json.Unmarshal(out, &configs), checker.IsNil)
-	return configs
-}
-
-// GetConfig returns a swarm config identified by the specified id
-func (d *Swarm) GetConfig(c *check.C, id string) *swarm.Config {
-	var config swarm.Config
-	status, out, err := d.SockRequest("GET", "/configs/"+id, nil)
-	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-	c.Assert(status, checker.Equals, http.StatusOK, check.Commentf("output: %q", string(out)))
-	c.Assert(json.Unmarshal(out, &config), checker.IsNil)
-	return &config
-}
-
-// DeleteConfig removes the swarm config identified by the specified id
-func (d *Swarm) DeleteConfig(c *check.C, id string) {
-	status, out, err := d.SockRequest("DELETE", "/configs/"+id, nil)
-	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
-	c.Assert(status, checker.Equals, http.StatusNoContent, check.Commentf("output: %q", string(out)))
-}
-
-// UpdateConfig updates the swarm config identified by the specified id
-// Currently, only label update is supported.
-func (d *Swarm) UpdateConfig(c *check.C, id string, f ...ConfigConstructor) {
-	config := d.GetConfig(c, id)
-	for _, fn := range f {
-		fn(config)
-	}
-	url := fmt.Sprintf("/configs/%s/update?version=%d", config.ID, config.Version.Index)
-	status, out, err := d.SockRequest("POST", url, config.Spec)
 	c.Assert(err, checker.IsNil, check.Commentf(string(out)))
 	c.Assert(status, checker.Equals, http.StatusOK, check.Commentf("output: %q", string(out)))
 }

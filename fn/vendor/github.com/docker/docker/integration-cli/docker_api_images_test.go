@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 
@@ -121,16 +120,13 @@ func (s *DockerSuite) TestAPIImagesHistory(c *check.C) {
 func (s *DockerSuite) TestAPIImagesImportBadSrc(c *check.C) {
 	testRequires(c, Network)
 
-	server := httptest.NewServer(http.NewServeMux())
-	defer server.Close()
-
 	tt := []struct {
 		statusExp int
 		fromSrc   string
 	}{
-		{http.StatusNotFound, server.URL + "/nofile.tar"},
-		{http.StatusNotFound, strings.TrimPrefix(server.URL, "http://") + "/nofile.tar"},
-		{http.StatusNotFound, strings.TrimPrefix(server.URL, "http://") + "%2Fdata%2Ffile.tar"},
+		{http.StatusNotFound, "http://example.com/nofile.tar"},
+		{http.StatusNotFound, "example.com/nofile.tar"},
+		{http.StatusNotFound, "example.com%2Fdata%2Ffile.tar"},
 		{http.StatusInternalServerError, "%2Fdata%2Ffile.tar"},
 	}
 

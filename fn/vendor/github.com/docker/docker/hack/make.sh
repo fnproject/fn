@@ -56,6 +56,7 @@ echo
 
 # List of bundles to create when no argument is passed
 DEFAULT_BUNDLES=(
+	binary-client
 	binary-daemon
 	dynbinary
 
@@ -101,7 +102,7 @@ if [ "$AUTO_GOPATH" ]; then
 	if [ "$(go env GOOS)" = 'solaris' ]; then
 		# sys/unix is installed outside the standard library on solaris
 		# TODO need to allow for version change, need to get version from go
-		export GO_VERSION=${GO_VERSION:-"1.8.1"}
+		export GO_VERSION=${GO_VERSION:-"1.7.1"}
 		export GOPATH="${GOPATH}:/usr/lib/gocode/${GO_VERSION}"
 	fi
 fi
@@ -112,6 +113,7 @@ if [ ! "$GOPATH" ]; then
 	exit 1
 fi
 
+DOCKER_BUILDTAGS+=" daemon"
 if ${PKG_CONFIG} 'libsystemd >= 209' 2> /dev/null ; then
 	DOCKER_BUILDTAGS+=" journald"
 elif ${PKG_CONFIG} 'libsystemd-journal' 2> /dev/null ; then
@@ -138,6 +140,7 @@ fi
 # Use these flags when compiling the tests and final binary
 
 IAMSTATIC='true'
+source "$SCRIPTDIR/make/.go-autogen"
 if [ -z "$DOCKER_DEBUG" ]; then
 	LDFLAGS='-w'
 fi

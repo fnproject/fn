@@ -1,6 +1,6 @@
 FROM busybox:buildroot-2014.02
 
-LABEL maintainer docker <docker@docker.io>
+MAINTAINER docker <docker@docker.io>
 
 ONBUILD RUN ["echo", "test"]
 ONBUILD RUN echo test

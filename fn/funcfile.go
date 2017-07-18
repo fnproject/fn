@@ -23,12 +23,19 @@ var (
 	errUnexpectedFileFormat = errors.New("unexpected file format for function file")
 )
 
+type inputMap struct {
+	Body interface{}
+}
+type outputMap struct {
+	Body interface{}
+}
+
 type fftest struct {
-	Name string            `yaml:"name,omitempty" json:"name,omitempty"`
-	In   *string           `yaml:"in,omitempty" json:"in,omitempty"`
-	Out  *string           `yaml:"out,omitempty" json:"out,omitempty"`
-	Err  *string           `yaml:"err,omitempty" json:"err,omitempty"`
-	Env  map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
+	Name   string            `yaml:"name,omitempty" json:"name,omitempty"`
+	Input  *inputMap         `yaml:"input,omitempty" json:"input,omitempty"`
+	Output *outputMap        `yaml:"outoutput,omitempty" json:"output,omitempty"`
+	Err    *string           `yaml:"err,omitempty" json:"err,omitempty"`
+	Env    map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
 }
 
 type funcfile struct {

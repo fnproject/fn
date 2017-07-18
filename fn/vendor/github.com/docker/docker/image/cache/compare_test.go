@@ -46,9 +46,9 @@ func TestCompare(t *testing.T) {
 
 	sameConfigs := map[*container.Config]*container.Config{
 		// Empty config
-		{}: {},
+		&container.Config{}: {},
 		// Does not compare hostname, domainname & image
-		{
+		&container.Config{
 			Hostname:   "host1",
 			Domainname: "domain1",
 			Image:      "image1",
@@ -60,23 +60,23 @@ func TestCompare(t *testing.T) {
 			User:       "user",
 		},
 		// only OpenStdin
-		{OpenStdin: false}: {OpenStdin: false},
+		&container.Config{OpenStdin: false}: {OpenStdin: false},
 		// only env
-		{Env: envs1}: {Env: envs1},
+		&container.Config{Env: envs1}: {Env: envs1},
 		// only cmd
-		{Cmd: cmd1}: {Cmd: cmd1},
+		&container.Config{Cmd: cmd1}: {Cmd: cmd1},
 		// only labels
-		{Labels: labels1}: {Labels: labels1},
+		&container.Config{Labels: labels1}: {Labels: labels1},
 		// only exposedPorts
-		{ExposedPorts: ports1}: {ExposedPorts: ports1},
+		&container.Config{ExposedPorts: ports1}: {ExposedPorts: ports1},
 		// only entrypoints
-		{Entrypoint: entrypoint1}: {Entrypoint: entrypoint1},
+		&container.Config{Entrypoint: entrypoint1}: {Entrypoint: entrypoint1},
 		// only volumes
-		{Volumes: volumes1}: {Volumes: volumes1},
+		&container.Config{Volumes: volumes1}: {Volumes: volumes1},
 	}
 	differentConfigs := map[*container.Config]*container.Config{
 		nil: nil,
-		{
+		&container.Config{
 			Hostname:   "host1",
 			Domainname: "domain1",
 			Image:      "image1",
@@ -88,30 +88,30 @@ func TestCompare(t *testing.T) {
 			User:       "user2",
 		},
 		// only OpenStdin
-		{OpenStdin: false}: {OpenStdin: true},
-		{OpenStdin: true}:  {OpenStdin: false},
+		&container.Config{OpenStdin: false}: {OpenStdin: true},
+		&container.Config{OpenStdin: true}:  {OpenStdin: false},
 		// only env
-		{Env: envs1}: {Env: envs2},
+		&container.Config{Env: envs1}: {Env: envs2},
 		// only cmd
-		{Cmd: cmd1}: {Cmd: cmd2},
+		&container.Config{Cmd: cmd1}: {Cmd: cmd2},
 		// not the same number of parts
-		{Cmd: cmd1}: {Cmd: cmd3},
+		&container.Config{Cmd: cmd1}: {Cmd: cmd3},
 		// only labels
-		{Labels: labels1}: {Labels: labels2},
+		&container.Config{Labels: labels1}: {Labels: labels2},
 		// not the same number of labels
-		{Labels: labels1}: {Labels: labels3},
+		&container.Config{Labels: labels1}: {Labels: labels3},
 		// only exposedPorts
-		{ExposedPorts: ports1}: {ExposedPorts: ports2},
+		&container.Config{ExposedPorts: ports1}: {ExposedPorts: ports2},
 		// not the same number of ports
-		{ExposedPorts: ports1}: {ExposedPorts: ports3},
+		&container.Config{ExposedPorts: ports1}: {ExposedPorts: ports3},
 		// only entrypoints
-		{Entrypoint: entrypoint1}: {Entrypoint: entrypoint2},
+		&container.Config{Entrypoint: entrypoint1}: {Entrypoint: entrypoint2},
 		// not the same number of parts
-		{Entrypoint: entrypoint1}: {Entrypoint: entrypoint3},
+		&container.Config{Entrypoint: entrypoint1}: {Entrypoint: entrypoint3},
 		// only volumes
-		{Volumes: volumes1}: {Volumes: volumes2},
+		&container.Config{Volumes: volumes1}: {Volumes: volumes2},
 		// not the same number of labels
-		{Volumes: volumes1}: {Volumes: volumes3},
+		&container.Config{Volumes: volumes1}: {Volumes: volumes3},
 	}
 	for config1, config2 := range sameConfigs {
 		if !compare(config1, config2) {

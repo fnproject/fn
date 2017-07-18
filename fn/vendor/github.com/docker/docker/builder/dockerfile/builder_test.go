@@ -5,13 +5,15 @@ import (
 	"testing"
 
 	"github.com/docker/docker/builder/dockerfile/parser"
-	"github.com/stretchr/testify/assert"
+	"github.com/docker/docker/pkg/testutil/assert"
 )
 
 func TestAddNodesForLabelOption(t *testing.T) {
 	dockerfile := "FROM scratch"
-	result, err := parser.Parse(strings.NewReader(dockerfile))
-	assert.NoError(t, err)
+	d := parser.Directive{}
+	parser.SetEscapeToken(parser.DefaultEscapeToken, &d)
+	nodes, err := parser.Parse(strings.NewReader(dockerfile), &d)
+	assert.NilError(t, err)
 
 	labels := map[string]string{
 		"org.e": "cli-e",
@@ -20,15 +22,14 @@ func TestAddNodesForLabelOption(t *testing.T) {
 		"org.b": "cli-b",
 		"org.a": "cli-a",
 	}
-	nodes := result.AST
 	addNodesForLabelOption(nodes, labels)
 
 	expected := []string{
 		"FROM scratch",
 		`LABEL "org.a"='cli-a' "org.b"='cli-b' "org.c"='cli-c' "org.d"='cli-d' "org.e"='cli-e'`,
 	}
-	assert.Len(t, nodes.Children, 2)
+	assert.Equal(t, len(nodes.Children), 2)
 	for i, v := range nodes.Children {
-		assert.Equal(t, expected[i], v.Original)
+		assert.Equal(t, v.Original, expected[i])
 	}
 }

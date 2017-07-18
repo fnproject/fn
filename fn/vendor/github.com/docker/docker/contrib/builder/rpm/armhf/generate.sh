@@ -52,7 +52,7 @@ for version in "${versions[@]}"; do
 
 	echo >> "$version/Dockerfile"
 
-	extraBuildTags=
+	extraBuildTags='pkcs11'
 	runcBuildTags=
 
 	case "$from" in
@@ -85,6 +85,7 @@ for version in "${versions[@]}"; do
 		glibc-static
 		libseccomp-devel # for "seccomp.h" & "libseccomp.so"
 		libselinux-devel # for "libselinux.so"
+		libtool-ltdl-devel # for pkcs11 "ltdl.h"
 		pkgconfig # for the pkg-config command
 		selinux-policy
 		selinux-policy-devel

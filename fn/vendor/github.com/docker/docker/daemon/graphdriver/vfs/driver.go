@@ -8,13 +8,13 @@ import (
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/system"
-	"github.com/opencontainers/selinux/go-selinux/label"
+
+	"github.com/opencontainers/runc/libcontainer/label"
 )
 
 var (
 	// CopyWithTar defines the copy method to use.
-	CopyWithTar = chrootarchive.NewArchiver(nil).CopyWithTar
+	CopyWithTar = chrootarchive.CopyWithTar
 )
 
 func init() {
@@ -25,11 +25,15 @@ func init() {
 // This sets the home directory for the driver and returns NaiveDiffDriver.
 func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	d := &Driver{
-		home:       home,
-		idMappings: idtools.NewIDMappingsFromMaps(uidMaps, gidMaps),
+		home:    home,
+		uidMaps: uidMaps,
+		gidMaps: gidMaps,
 	}
-	rootIDs := d.idMappings.RootPair()
-	if err := idtools.MkdirAllAndChown(home, 0700, rootIDs); err != nil {
+	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMaps, gidMaps)
+	if err != nil {
+		return nil, err
+	}
+	if err := idtools.MkdirAllAs(home, 0700, rootUID, rootGID); err != nil {
 		return nil, err
 	}
 	return graphdriver.NewNaiveDiffDriver(d, uidMaps, gidMaps), nil
@@ -40,8 +44,9 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 // In order to support layering, files are copied from the parent layer into the new layer. There is no copy-on-write support.
 // Driver must be wrapped in NaiveDiffDriver to be used as a graphdriver.Driver
 type Driver struct {
-	home       string
-	idMappings *idtools.IDMappings
+	home    string
+	uidMaps []idtools.IDMap
+	gidMaps []idtools.IDMap
 }
 
 func (d *Driver) String() string {
@@ -76,11 +81,14 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	}
 
 	dir := d.dir(id)
-	rootIDs := d.idMappings.RootPair()
-	if err := idtools.MkdirAllAndChown(filepath.Dir(dir), 0700, rootIDs); err != nil {
+	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
+	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAndChown(dir, 0755, rootIDs); err != nil {
+	if err := idtools.MkdirAllAs(filepath.Dir(dir), 0700, rootUID, rootGID); err != nil {
+		return err
+	}
+	if err := idtools.MkdirAs(dir, 0755, rootUID, rootGID); err != nil {
 		return err
 	}
 	labelOpts := []string{"level:s0"}
@@ -94,7 +102,10 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	if err != nil {
 		return fmt.Errorf("%s: %s", parent, err)
 	}
-	return CopyWithTar(parentDir, dir)
+	if err := CopyWithTar(parentDir, dir); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *Driver) dir(id string) string {
@@ -103,7 +114,7 @@ func (d *Driver) dir(id string) string {
 
 // Remove deletes the content from the directory for a given id.
 func (d *Driver) Remove(id string) error {
-	if err := system.EnsureRemoveAll(d.dir(id)); err != nil {
+	if err := os.RemoveAll(d.dir(id)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil

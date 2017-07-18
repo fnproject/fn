@@ -89,7 +89,6 @@ func (s *schemaPropsValidator) Applies(source interface{}, kind reflect.Kind) bo
 
 func (s *schemaPropsValidator) Validate(data interface{}) *Result {
 	mainResult := new(Result)
-	var firstSuccess *Result
 	if len(s.anyOfValidators) > 0 {
 		var bestFailures *Result
 		succeededOnce := false
@@ -98,9 +97,6 @@ func (s *schemaPropsValidator) Validate(data interface{}) *Result {
 			if result.IsValid() {
 				bestFailures = nil
 				succeededOnce = true
-				if firstSuccess == nil {
-					firstSuccess = result
-				}
 				break
 			}
 			if bestFailures == nil || result.MatchCount > bestFailures.MatchCount {
@@ -113,14 +109,11 @@ func (s *schemaPropsValidator) Validate(data interface{}) *Result {
 		}
 		if bestFailures != nil {
 			mainResult.Merge(bestFailures)
-		} else if firstSuccess != nil {
-			mainResult.Merge(firstSuccess)
 		}
 	}
 
 	if len(s.oneOfValidators) > 0 {
 		var bestFailures *Result
-		var firstSuccess *Result
 		validated := 0
 
 		for _, oneOfSchema := range s.oneOfValidators {
@@ -128,9 +121,6 @@ func (s *schemaPropsValidator) Validate(data interface{}) *Result {
 			if result.IsValid() {
 				validated++
 				bestFailures = nil
-				if firstSuccess == nil {
-					firstSuccess = result
-				}
 				continue
 			}
 			if validated == 0 && (bestFailures == nil || result.MatchCount > bestFailures.MatchCount) {
@@ -143,8 +133,6 @@ func (s *schemaPropsValidator) Validate(data interface{}) *Result {
 			if bestFailures != nil {
 				mainResult.Merge(bestFailures)
 			}
-		} else if firstSuccess != nil {
-			mainResult.Merge(firstSuccess)
 		}
 	}
 

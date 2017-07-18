@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -51,17 +50,14 @@ func getPausedContainers(t testingT, dockerBinary string) []string {
 	return strings.Fields(result.Combined())
 }
 
-var alreadyExists = regexp.MustCompile(`Error response from daemon: removal of container (\w+) is already in progress`)
-
 func deleteAllContainers(t testingT, dockerBinary string) {
 	containers := getAllContainers(t, dockerBinary)
 	if len(containers) > 0 {
 		result := icmd.RunCommand(dockerBinary, append([]string{"rm", "-fv"}, containers...)...)
 		if result.Error != nil {
 			// If the error is "No such container: ..." this means the container doesn't exists anymore,
-			// or if it is "... removal of container ... is already in progress" it will be removed eventually.
-			// We can safely ignore those.
-			if strings.Contains(result.Stderr(), "No such container") || alreadyExists.MatchString(result.Stderr()) {
+			// we can safely ignore that one.
+			if strings.Contains(result.Stderr(), "No such container") {
 				return
 			}
 			t.Fatalf("error removing containers %v : %v (%s)", containers, result.Error, result.Combined())

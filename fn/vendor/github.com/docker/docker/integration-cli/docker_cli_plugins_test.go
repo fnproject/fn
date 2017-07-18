@@ -3,14 +3,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/integration-cli/checker"
-	"github.com/docker/docker/integration-cli/cli"
-	"github.com/docker/docker/integration-cli/daemon"
 	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
 )
@@ -307,26 +304,31 @@ func (s *DockerTrustSuite) TestPluginTrustedInstall(c *check.C) {
 
 	trustedName := s.setupTrustedplugin(c, pNameWithTag, "trusted-plugin-install")
 
-	cli.Docker(cli.Args("plugin", "install", "--grant-all-permissions", trustedName), trustedCmd).Assert(c, icmd.Expected{
+	icmd.RunCmd(icmd.Command(dockerBinary, "plugin", "install", "--grant-all-permissions", trustedName), trustedCmd).Assert(c, icmd.Expected{
 		Out: trustedName,
 	})
 
-	out := cli.DockerCmd(c, "plugin", "ls").Combined()
+	out, _, err := dockerCmdWithError("plugin", "ls")
+	c.Assert(err, checker.IsNil)
 	c.Assert(out, checker.Contains, "true")
 
-	out = cli.DockerCmd(c, "plugin", "disable", trustedName).Combined()
+	out, _, err = dockerCmdWithError("plugin", "disable", trustedName)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, trustedName)
 
-	out = cli.DockerCmd(c, "plugin", "enable", trustedName).Combined()
+	out, _, err = dockerCmdWithError("plugin", "enable", trustedName)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, trustedName)
 
-	out = cli.DockerCmd(c, "plugin", "rm", "-f", trustedName).Combined()
+	out, _, err = dockerCmdWithError("plugin", "rm", "-f", trustedName)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, trustedName)
 
 	// Try untrusted pull to ensure we pushed the tag to the registry
-	cli.Docker(cli.Args("plugin", "install", "--disable-content-trust=true", "--grant-all-permissions", trustedName), trustedCmd).Assert(c, SuccessDownloaded)
+	icmd.RunCmd(icmd.Command(dockerBinary, "plugin", "install", "--disable-content-trust=true", "--grant-all-permissions", trustedName), trustedCmd).Assert(c, SuccessDownloaded)
 
-	out = cli.DockerCmd(c, "plugin", "ls").Combined()
+	out, _, err = dockerCmdWithError("plugin", "ls")
+	c.Assert(err, checker.IsNil)
 	c.Assert(out, checker.Contains, "true")
 
 }
@@ -336,12 +338,12 @@ func (s *DockerTrustSuite) TestPluginUntrustedInstall(c *check.C) {
 
 	pluginName := fmt.Sprintf("%v/dockercliuntrusted/plugintest:latest", privateRegistryURL)
 	// install locally and push to private registry
-	cli.DockerCmd(c, "plugin", "install", "--grant-all-permissions", "--alias", pluginName, pNameWithTag)
-	cli.DockerCmd(c, "plugin", "push", pluginName)
-	cli.DockerCmd(c, "plugin", "rm", "-f", pluginName)
+	dockerCmd(c, "plugin", "install", "--grant-all-permissions", "--alias", pluginName, pNameWithTag)
+	dockerCmd(c, "plugin", "push", pluginName)
+	dockerCmd(c, "plugin", "rm", "-f", pluginName)
 
 	// Try trusted install on untrusted plugin
-	cli.Docker(cli.Args("plugin", "install", "--grant-all-permissions", pluginName), trustedCmd).Assert(c, icmd.Expected{
+	icmd.RunCmd(icmd.Command(dockerBinary, "plugin", "install", "--grant-all-permissions", pluginName), trustedCmd).Assert(c, icmd.Expected{
 		ExitCode: 1,
 		Err:      "Error: remote trust data does not exist",
 	})
@@ -456,25 +458,4 @@ func (s *DockerSuite) TestPluginUpgrade(c *check.C) {
 	dockerCmd(c, "plugin", "enable", plugin)
 	dockerCmd(c, "volume", "inspect", "bananas")
 	dockerCmd(c, "run", "--rm", "-v", "bananas:/apple", "busybox", "sh", "-c", "ls -lh /apple/core")
-}
-
-func (s *DockerSuite) TestPluginMetricsCollector(c *check.C) {
-	testRequires(c, DaemonIsLinux, Network, SameHostDaemon, IsAmd64)
-	d := daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{})
-	d.Start(c)
-	defer d.Stop(c)
-
-	name := "cpuguy83/docker-metrics-plugin-test:latest"
-	r := cli.Docker(cli.Args("plugin", "install", "--grant-all-permissions", name), cli.Daemon(d))
-	c.Assert(r.Error, checker.IsNil, check.Commentf(r.Combined()))
-
-	// plugin lisens on localhost:19393 and proxies the metrics
-	resp, err := http.Get("http://localhost:19393/metrics")
-	c.Assert(err, checker.IsNil)
-	defer resp.Body.Close()
-
-	b, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, checker.IsNil)
-	// check that a known metric is there... don't expect this metric to change over time.. probably safe
-	c.Assert(string(b), checker.Contains, "container_actions")
 }

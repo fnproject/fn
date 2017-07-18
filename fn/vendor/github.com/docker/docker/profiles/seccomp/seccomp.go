@@ -16,12 +16,12 @@ import (
 //go:generate go run -tags 'seccomp' generate.go
 
 // GetDefaultProfile returns the default seccomp profile.
-func GetDefaultProfile(rs *specs.Spec) (*specs.LinuxSeccomp, error) {
+func GetDefaultProfile(rs *specs.Spec) (*specs.Seccomp, error) {
 	return setupSeccomp(DefaultProfile(), rs)
 }
 
 // LoadProfile takes a json string and decodes the seccomp profile.
-func LoadProfile(body string, rs *specs.Spec) (*specs.LinuxSeccomp, error) {
+func LoadProfile(body string, rs *specs.Spec) (*specs.Seccomp, error) {
 	var config types.Seccomp
 	if err := json.Unmarshal([]byte(body), &config); err != nil {
 		return nil, fmt.Errorf("Decoding seccomp profile failed: %v", err)
@@ -39,7 +39,7 @@ var nativeToSeccomp = map[string]types.Arch{
 	"s390x":       types.ArchS390X,
 }
 
-func setupSeccomp(config *types.Seccomp, rs *specs.Spec) (*specs.LinuxSeccomp, error) {
+func setupSeccomp(config *types.Seccomp, rs *specs.Spec) (*specs.Seccomp, error) {
 	if config == nil {
 		return nil, nil
 	}
@@ -49,7 +49,7 @@ func setupSeccomp(config *types.Seccomp, rs *specs.Spec) (*specs.LinuxSeccomp, e
 		return nil, nil
 	}
 
-	newConfig := &specs.LinuxSeccomp{}
+	newConfig := &specs.Seccomp{}
 
 	var arch string
 	var native, err = libseccomp.GetNativeArch()
@@ -83,7 +83,7 @@ func setupSeccomp(config *types.Seccomp, rs *specs.Spec) (*specs.LinuxSeccomp, e
 		}
 	}
 
-	newConfig.DefaultAction = specs.LinuxSeccompAction(config.DefaultAction)
+	newConfig.DefaultAction = specs.Action(config.DefaultAction)
 
 Loop:
 	// Loop through all syscall blocks and convert them to libcontainer format after filtering them
@@ -95,7 +95,7 @@ Loop:
 		}
 		if len(call.Excludes.Caps) > 0 {
 			for _, c := range call.Excludes.Caps {
-				if stringutils.InSlice(rs.Process.Capabilities.Effective, c) {
+				if stringutils.InSlice(rs.Process.Capabilities, c) {
 					continue Loop
 				}
 			}
@@ -107,7 +107,7 @@ Loop:
 		}
 		if len(call.Includes.Caps) > 0 {
 			for _, c := range call.Includes.Caps {
-				if !stringutils.InSlice(rs.Process.Capabilities.Effective, c) {
+				if !stringutils.InSlice(rs.Process.Capabilities, c) {
 					continue Loop
 				}
 			}
@@ -129,19 +129,19 @@ Loop:
 	return newConfig, nil
 }
 
-func createSpecsSyscall(name string, action types.Action, args []*types.Arg) specs.LinuxSyscall {
-	newCall := specs.LinuxSyscall{
-		Names:  []string{name},
-		Action: specs.LinuxSeccompAction(action),
+func createSpecsSyscall(name string, action types.Action, args []*types.Arg) specs.Syscall {
+	newCall := specs.Syscall{
+		Name:   name,
+		Action: specs.Action(action),
 	}
 
 	// Loop through all the arguments of the syscall and convert them
 	for _, arg := range args {
-		newArg := specs.LinuxSeccompArg{
+		newArg := specs.Arg{
 			Index:    arg.Index,
 			Value:    arg.Value,
 			ValueTwo: arg.ValueTwo,
-			Op:       specs.LinuxSeccompOperator(arg.Op),
+			Op:       specs.Operator(arg.Op),
 		}
 
 		newCall.Args = append(newCall.Args, newArg)

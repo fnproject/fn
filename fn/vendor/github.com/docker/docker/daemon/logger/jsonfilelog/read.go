@@ -3,6 +3,7 @@ package jsonfilelog
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,11 +14,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/daemon/logger"
-	"github.com/docker/docker/daemon/logger/jsonfilelog/multireader"
 	"github.com/docker/docker/pkg/filenotify"
+	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/jsonlog"
 	"github.com/docker/docker/pkg/tailfile"
-	"github.com/pkg/errors"
 )
 
 const maxJSONDecodeRetry = 20000
@@ -48,11 +48,10 @@ func (l *JSONFileLogger) ReadLogs(config logger.ReadConfig) *logger.LogWatcher {
 func (l *JSONFileLogger) readLogs(logWatcher *logger.LogWatcher, config logger.ReadConfig) {
 	defer close(logWatcher.Msg)
 
-	// lock so the read stream doesn't get corrupted due to rotations or other log data written while we open these files
+	// lock so the read stream doesn't get corrupted due to rotations or other log data written while we read
 	// This will block writes!!!
-	l.mu.RLock()
+	l.mu.Lock()
 
-	// TODO it would be nice to move a lot of this reader implementation to the rotate logger object
 	pth := l.writer.LogPath()
 	var files []io.ReadSeeker
 	for i := l.writer.MaxFiles(); i > 1; i-- {
@@ -60,36 +59,25 @@ func (l *JSONFileLogger) readLogs(logWatcher *logger.LogWatcher, config logger.R
 		if err != nil {
 			if !os.IsNotExist(err) {
 				logWatcher.Err <- err
-				l.mu.RUnlock()
-				return
+				break
 			}
 			continue
 		}
 		defer f.Close()
+
 		files = append(files, f)
 	}
 
 	latestFile, err := os.Open(pth)
 	if err != nil {
-		logWatcher.Err <- errors.Wrap(err, "error opening latest log file")
-		l.mu.RUnlock()
+		logWatcher.Err <- err
+		l.mu.Unlock()
 		return
 	}
 	defer latestFile.Close()
 
-	latestChunk, err := newSectionReader(latestFile)
-
-	// Now we have the reader sectioned, all fd's opened, we can unlock.
-	// New writes/rotates will not affect seeking through these files
-	l.mu.RUnlock()
-
-	if err != nil {
-		logWatcher.Err <- err
-		return
-	}
-
 	if config.Tail != 0 {
-		tailer := multireader.MultiReadSeeker(append(files, latestChunk)...)
+		tailer := ioutils.MultiReadSeeker(append(files, latestFile)...)
 		tailFile(tailer, logWatcher, config.Tail, config.Since)
 	}
 
@@ -100,32 +88,29 @@ func (l *JSONFileLogger) readLogs(logWatcher *logger.LogWatcher, config logger.R
 		}
 	}
 
-	if !config.Follow || l.closed {
+	if !config.Follow {
+		if err := latestFile.Close(); err != nil {
+			logrus.Errorf("Error closing file: %v", err)
+		}
+		l.mu.Unlock()
 		return
 	}
 
-	notifyRotate := l.writer.NotifyRotate()
-	defer l.writer.NotifyRotateEvict(notifyRotate)
+	if config.Tail >= 0 {
+		latestFile.Seek(0, os.SEEK_END)
+	}
 
-	l.mu.Lock()
 	l.readers[logWatcher] = struct{}{}
 	l.mu.Unlock()
 
+	notifyRotate := l.writer.NotifyRotate()
 	followLogs(latestFile, logWatcher, notifyRotate, config.Since)
 
 	l.mu.Lock()
 	delete(l.readers, logWatcher)
 	l.mu.Unlock()
-}
 
-func newSectionReader(f *os.File) (*io.SectionReader, error) {
-	// seek to the end to get the size
-	// we'll leave this at the end of the file since section reader does not advance the reader
-	size, err := f.Seek(0, os.SEEK_END)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting current file size")
-	}
-	return io.NewSectionReader(f, 0, size), nil
+	l.writer.NotifyRotateEvict(notifyRotate)
 }
 
 func tailFile(f io.ReadSeeker, logWatcher *logger.LogWatcher, tail int, since time.Time) {
