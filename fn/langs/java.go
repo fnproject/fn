@@ -1,14 +1,14 @@
 package langs
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
-	"errors"
-	"bytes"
 	"strings"
-	"net/url"
-	"io/ioutil"
 )
 
 // JavaLangHelper provides a set of helper methods for the lifecycle of Java Maven projects
@@ -20,7 +20,9 @@ type JavaLangHelper struct {
 func (lh *JavaLangHelper) BuildFromImage() string { return "maven:3.5-jdk-8-alpine" }
 
 // RunFromImage returns the Docker image used to run the Java function.
-func (lh *JavaLangHelper) RunFromImage() string { return "registry.oracledx.com/skeppare/jfaas-runtime:latest" }
+func (lh *JavaLangHelper) RunFromImage() string {
+	return "registry.oracledx.com/skeppare/jfaas-runtime:latest"
+}
 
 // HasPreBuild returns whether the Java runtime has boilerplate that can be generated.
 func (lh *JavaLangHelper) HasBoilerplate() bool { return true }
@@ -123,7 +125,7 @@ func mavenOpts() string {
 }
 
 /*	TODO temporarily generate maven project boilerplate from hardcoded values.
- 	Will eventually move to using a maven archetype.
+	Will eventually move to using a maven archetype.
 */
 
 const (
