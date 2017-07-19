@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"runtime/debug"
@@ -12,6 +11,7 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
+// ErrInternalServerError returned when something exceptional happens.
 var ErrInternalServerError = errors.New("internal server error")
 
 func simpleError(err error) *models.Error {
@@ -19,14 +19,14 @@ func simpleError(err error) *models.Error {
 }
 
 func handleErrorResponse(c *gin.Context, err error) {
-	ctx := c.MustGet("ctx").(context.Context)
-	log := common.Logger(ctx)
-
-	if aerr, ok := err.(models.APIError); ok {
-		log.WithFields(logrus.Fields{"code": aerr.Code()}).WithError(err).Error("api error")
-		c.JSON(aerr.Code(), simpleError(err))
-	} else if err != nil {
-		// get a stack trace so we can trace this error
+	log := common.Logger(c.Request.Context())
+	switch e := err.(type) {
+	case models.APIError:
+		if e.Code() >= 500 {
+			log.WithFields(logrus.Fields{"code": e.Code()}).WithError(e).Error("api error")
+		}
+		c.JSON(e.Code(), simpleError(e))
+	default:
 		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
 		c.JSON(http.StatusInternalServerError, simpleError(ErrInternalServerError))
 	}

@@ -1,73 +1,36 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
+// SpecialHandler verysimilar to a handler but since it is not used as middle ware no way
+// to get context without returning it. So we just return a request which could have newly made
+// contexts.
 type SpecialHandler interface {
-	Handle(c HandlerContext) error
+	Handle(w http.ResponseWriter, r *http.Request) (*http.Request, error)
 }
 
-// Each handler can modify the context here so when it gets passed along, it will use the new info.
-type HandlerContext interface {
-	// Context return the context object
-	Context() context.Context
-
-	// Request returns the underlying http.Request object
-	Request() *http.Request
-
-	// Response returns the http.ResponseWriter
-	Response() http.ResponseWriter
-
-	// Overwrite value in the context
-	Set(key string, value interface{})
-}
-
-type SpecialHandlerContext struct {
-	request  *http.Request
-	response http.ResponseWriter
-	ctx      context.Context
-}
-
-func (c *SpecialHandlerContext) Context() context.Context {
-	return c.ctx
-}
-
-func (c *SpecialHandlerContext) Request() *http.Request {
-	return c.request
-}
-
-func (c *SpecialHandlerContext) Response() http.ResponseWriter {
-	return c.response
-}
-
-func (c *SpecialHandlerContext) Set(key string, value interface{}) {
-	c.ctx = context.WithValue(c.ctx, key, value)
-}
-
+// AddSpecialHandler adds the SpecialHandler to the specialHandlers list.
 func (s *Server) AddSpecialHandler(handler SpecialHandler) {
 	s.specialHandlers = append(s.specialHandlers, handler)
 }
 
 // UseSpecialHandlers execute all special handlers
-func (s *Server) UseSpecialHandlers(ctx context.Context, req *http.Request, resp http.ResponseWriter) (context.Context, error) {
+func (s *Server) UseSpecialHandlers(resp http.ResponseWriter, req *http.Request) (*http.Request, error) {
 	if len(s.specialHandlers) == 0 {
-		return ctx, models.ErrNoSpecialHandlerFound
+		return req, models.ErrNoSpecialHandlerFound
 	}
+	var r *http.Request
+	var err error
 
-	c := &SpecialHandlerContext{
-		request:  req,
-		response: resp,
-		ctx:      ctx,
-	}
 	for _, l := range s.specialHandlers {
-		err := l.Handle(c)
+		r, err = l.Handle(resp, req)
 		if err != nil {
-			return c.ctx, err
+			return nil, err
 		}
 	}
-	return c.ctx, nil
+	return r, nil
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +9,7 @@ import (
 )
 
 func (s *Server) handleCallList(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.Request.Context()
 
 	appName, ok := c.MustGet(api.AppName).(string)
 	if ok && appName == "" {

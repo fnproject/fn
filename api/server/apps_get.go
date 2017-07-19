@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,7 +8,7 @@ import (
 )
 
 func (s *Server) handleAppGet(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.Request.Context()
 
 	appName := c.MustGet(api.AppName).(string)
 	app, err := s.Datastore.GetApp(ctx, appName)

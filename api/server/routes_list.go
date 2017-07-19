@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +9,7 @@ import (
 )
 
 func (s *Server) handleRouteList(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.Request.Context()
 
 	filter := &models.RouteFilter{}
 
@@ -20,8 +19,10 @@ func (s *Server) handleRouteList(c *gin.Context) {
 
 	var routes []*models.Route
 	var err error
-	if appName, ok := c.MustGet(api.AppName).(string); ok && appName != "" {
-		routes, err = s.Datastore.GetRoutesByApp(ctx, appName, filter)
+	appName, exists := c.Get(api.AppName)
+	name, ok := appName.(string)
+	if exists && ok && name != "" {
+		routes, err = s.Datastore.GetRoutesByApp(ctx, name, filter)
 	} else {
 		routes, err = s.Datastore.GetRoutes(ctx, filter)
 	}
@@ -31,5 +32,5 @@ func (s *Server) handleRouteList(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, routesResponse{"Sucessfully listed routes", routes})
+	c.JSON(http.StatusOK, routesResponse{"Successfully listed routes", routes})
 }
