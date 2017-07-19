@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 	"path"
 
@@ -10,7 +9,7 @@ import (
 )
 
 func (s *Server) handleRouteDelete(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.Request.Context()
 
 	appName := c.MustGet(api.AppName).(string)
 	routePath := path.Clean(c.MustGet(api.Path).(string))

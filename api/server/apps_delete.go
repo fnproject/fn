@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) handleAppDelete(c *gin.Context) {
-	ctx := c.MustGet("mctx").(MiddlewareContext)
+	ctx := c.Request.Context()
 	log := common.Logger(ctx)
 
 	app := &models.App{Name: c.MustGet(api.AppName).(string)}

@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Server) handleAppUpdate(c *gin.Context) {
-	ctx := c.MustGet("mctx").(MiddlewareContext)
+	ctx := c.Request.Context()
 
 	wapp := models.AppWrapper{}
 

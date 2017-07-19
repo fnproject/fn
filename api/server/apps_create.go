@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Server) handleAppCreate(c *gin.Context) {
-	ctx := c.MustGet("mctx").(MiddlewareContext)
+	ctx := c.Request.Context()
 
 	var wapp models.AppWrapper
 
@@ -23,7 +23,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	if err := wapp.Validate(); err != nil {
+	if err = wapp.Validate(); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}

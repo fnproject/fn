@@ -161,8 +161,6 @@ func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
 			c.Set(api.Path, routePath)
 		}
 
-		// todo: can probably replace the "ctx" value with the Go 1.7 context on the http.Request
-		c.Set("ctx", ctx)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

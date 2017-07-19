@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,7 +8,7 @@ import (
 )
 
 func (s *Server) handleCallLogGet(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.Request.Context()
 
 	callID := c.Param(api.Call)
 	_, err := s.Datastore.GetTask(ctx, callID)
@@ -28,7 +27,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 }
 
 func (s *Server) handleCallLogDelete(c *gin.Context) {
-	ctx := c.MustGet("ctx").(context.Context)
+	ctx := c.Request.Context()
 
 	callID := c.Param(api.Call)
 	_, err := s.Datastore.GetTask(ctx, callID)

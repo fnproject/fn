@@ -1,12 +1,15 @@
 package server
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+)
 
 type testSpecialHandler struct{}
 
-func (h *testSpecialHandler) Handle(c HandlerContext) error {
-	// c.Set(api.AppName, "test")
-	return nil
+func (h *testSpecialHandler) Handle(w http.ResponseWriter, r *http.Request) (*http.Request, error) {
+	// r = r.WithContext(context.WithValue(r.Context(), api.AppName, "test"))
+	return r, nil
 }
 
 func TestSpecialHandlerSet(t *testing.T) {

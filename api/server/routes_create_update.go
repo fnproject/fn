@@ -23,12 +23,12 @@ import (
 	   Patch accepts partial updates / skips validation of zero values.
 */
 func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
-	ctx := c.MustGet("mctx").(MiddlewareContext)
+	ctx := c.Request.Context()
 	method := strings.ToUpper(c.Request.Method)
 
 	var wroute models.RouteWrapper
 
-	err := s.bindAndValidate(ctx, c, method, &wroute)
+	err := s.bindAndValidate(c, method, &wroute)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -53,7 +53,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
-func (s *Server) ensureApp(ctx MiddlewareContext, wroute *models.RouteWrapper, method string) error {
+func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, method string) error {
 	if !(method == http.MethodPost || method == http.MethodPut) {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (s *Server) ensureApp(ctx MiddlewareContext, wroute *models.RouteWrapper, m
 If it is a put or patch it makes sure that the path in the url matches the provideed one in the body.
 Defaults are set and if patch skipZero is true for validating the RouteWrapper
 */
-func (s *Server) bindAndValidate(ctx context.Context, c *gin.Context, method string, wroute *models.RouteWrapper) error {
+func (s *Server) bindAndValidate(c *gin.Context, method string, wroute *models.RouteWrapper) error {
 	err := c.BindJSON(wroute)
 	if err != nil {
 		return models.ErrInvalidJSON
