@@ -1,10 +1,10 @@
-hash: 425a7584264b050b16d42e84e2d9800d88eb706feae4aa97410b9050fec7686c
-updated: 2017-07-17T12:46:25.326131356-07:00
+hash: 4cce7a5074b5b856c40bc5a97c7fac81546f835c42fd16aeff728f66ca65dd00
+updated: 2017-07-19T15:40:45.33026105-07:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
 - name: github.com/aws/aws-sdk-go
-  version: b73b028e599fa9176687c70b8f9cafbe57c27d20
+  version: 8da51c33f6001c4dda06a2561c2234be4cece1ed
   subpackages:
   - aws
   - aws/awserr
@@ -50,7 +50,7 @@ imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/funcy/functions_go
-  version: 5d9948e8b1292c5421b5dd98bb6a9b5535d5e1ba
+  version: 601696a734d8df755f42bff262e699bb2eeb69b3
   subpackages:
   - client
   - client/apps
@@ -90,7 +90,7 @@ imports:
 - name: github.com/go-openapi/validate
   version: 035dcd74f1f61e83debe1c22950dc53556e7e4b2
 - name: github.com/go-resty/resty
-  version: f214013978f4ea5632ef88a5371b2028699a9d19
+  version: 6d8c785a63e4b7505c88451cf9c5b452ccf2454c
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/jmoiron/jsonq

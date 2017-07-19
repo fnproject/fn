@@ -336,6 +336,25 @@ func (a *routesCmd) patchRoute(c *cli.Context, appName, routePath string, r *fnm
 	return nil
 }
 
+func (a *routesCmd) putRoute(c *cli.Context, appName, routePath string, r *fnmodels.Route) error {
+	_, err := a.client.Routes.PutAppsAppRoutesRoute(&apiroutes.PutAppsAppRoutesRouteParams{
+		Context: context.Background(),
+		App:     appName,
+		Route:   routePath,
+		Body:    &fnmodels.RouteWrapper{Route: r},
+	})
+	if err != nil {
+		switch err.(type) {
+		case *apiroutes.PutAppsAppRoutesRouteBadRequest:
+			return fmt.Errorf("error: %s", err.(*apiroutes.PutAppsAppRoutesRouteBadRequest).Payload.Error.Message)
+		case *apiroutes.PutAppsAppRoutesRouteDefault:
+			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PutAppsAppRoutesRouteDefault).Payload.Error.Message)
+		}
+		return fmt.Errorf("unexpected error: %s", err)
+	}
+	return nil
+}
+
 func (a *routesCmd) update(c *cli.Context) error {
 	appName := c.Args().Get(0)
 	route := cleanRoutePath(c.Args().Get(1))
