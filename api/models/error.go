@@ -20,10 +20,6 @@ var (
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
-	ErrRunnerRouteNotFound = err{
-		code:  http.StatusNotFound,
-		error: errors.New("Route not found on that application"),
-	}
 	ErrAppsValidationMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),

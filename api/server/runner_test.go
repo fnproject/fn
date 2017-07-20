@@ -45,7 +45,7 @@ func TestRouteRunnerGet(t *testing.T) {
 	}{
 		{"/route", "", http.StatusNotFound, nil},
 		{"/r/app/route", "", http.StatusNotFound, models.ErrAppsNotFound},
-		{"/r/myapp/route", "", http.StatusNotFound, models.ErrRunnerRouteNotFound},
+		{"/r/myapp/route", "", http.StatusNotFound, models.ErrRoutesNotFound},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -60,8 +60,8 @@ func TestRouteRunnerGet(t *testing.T) {
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
-				t.Errorf("Test %d: Expected error message to have `%s`",
-					i, test.expectedError.Error())
+				t.Errorf("Test %d: Expected error message to have `%s`, but got `%s`",
+					i, test.expectedError.Error(), resp.Error.Message)
 			}
 		}
 	}
@@ -89,7 +89,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	}{
 		{"/route", `{ "payload": "" }`, http.StatusNotFound, nil},
 		{"/r/app/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrAppsNotFound},
-		{"/r/myapp/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRunnerRouteNotFound},
+		{"/r/myapp/route", `{ "payload": "" }`, http.StatusNotFound, models.ErrRoutesNotFound},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "POST", test.path, body)

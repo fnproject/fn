@@ -14,6 +14,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/strfmt"
+	cache "github.com/patrickmn/go-cache"
 	"gitlab-odx.oracle.com/odx/functions/api"
 	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -44,7 +45,7 @@ func (s *Server) handleSpecial(c *gin.Context) {
 	c.Request = r
 	c.Set(api.AppName, r.Context().Value(api.AppName).(string))
 	if c.MustGet(api.AppName).(string) == "" {
-		handleErrorResponse(c, models.ErrRunnerRouteNotFound)
+		handleErrorResponse(c, models.ErrRoutesNotFound)
 		return
 	}
 
@@ -111,40 +112,45 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	}
 
 	log.WithFields(logrus.Fields{"app": appName, "path": path}).Debug("Finding route on datastore")
-	routes, err := s.loadroutes(ctx, models.RouteFilter{AppName: appName, Path: path})
+	route, err := s.loadroute(ctx, appName, path)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	if len(routes) == 0 {
-		handleErrorResponse(c, models.ErrRunnerRouteNotFound)
+	if route == nil {
+		handleErrorResponse(c, models.ErrRoutesNotFound)
 		return
 	}
 
-	log.WithField("routes", len(routes)).Debug("Got routes from datastore")
-	route := routes[0]
 	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
+	log.Debug("Got route from datastore")
 
 	if s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
 		s.FireAfterDispatch(ctx, reqRoute)
 		return
 	}
 
-	handleErrorResponse(c, models.ErrRunnerRouteNotFound)
+	handleErrorResponse(c, models.ErrRoutesNotFound)
 }
 
-func (s *Server) loadroutes(ctx context.Context, filter models.RouteFilter) ([]*models.Route, error) {
-	if route, ok := s.cacheget(filter.AppName, filter.Path); ok {
-		return []*models.Route{route}, nil
+func (s *Server) loadroute(ctx context.Context, appName, path string) (*models.Route, error) {
+	if route, ok := s.cacheget(appName, path); ok {
+		return route, nil
 	}
+	key := routeCacheKey(appName, path)
 	resp, err := s.singleflight.do(
-		filter,
+		key,
 		func() (interface{}, error) {
-			return s.Datastore.GetRoutesByApp(ctx, filter.AppName, &filter)
+			return s.Datastore.GetRoute(ctx, appName, path)
 		},
 	)
-	return resp.([]*models.Route), err
+	if err != nil {
+		return nil, err
+	}
+	route := resp.(*models.Route)
+	s.routeCache.Set(key, route, cache.DefaultExpiration)
+	return route, nil
 }
 
 // TODO: Should remove *gin.Context from these functions, should use only context.Context

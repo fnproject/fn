@@ -47,7 +47,7 @@ func (s *Server) handleRouteCreateOrUpdate(c *gin.Context) {
 		return
 	}
 
-	s.cacheRefresh(resp.Route)
+	s.cachedelete(resp.Route.AppName, resp.Route.Path)
 
 	c.JSON(http.StatusOK, resp)
 }

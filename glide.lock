@@ -1,5 +1,5 @@
-hash: 91e44ada5fc186bf55c6e794c2ea7733ae1b915e850261e67f0e2ed1ba55eb8b
-updated: 2017-07-17T12:03:47.884564997-07:00
+hash: ed88f1a46f149bac3eea6052d409a2a619f762ee51f2655b3fc22e8b2fa806ad
+updated: 2017-07-19T22:11:29.697513445-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -201,6 +201,8 @@ imports:
   subpackages:
   - libcontainer/system
   - libcontainer/user
+- name: github.com/patrickmn/go-cache
+  version: 7ac151875ffb48b9f3ccce9ea20f020b0c1596c8
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml

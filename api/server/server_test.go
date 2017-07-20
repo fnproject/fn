@@ -10,13 +10,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	cache "github.com/patrickmn/go-cache"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
@@ -25,13 +26,13 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog,
 	ctx := context.Background()
 
 	s := &Server{
-		Runner:    rnr,
-		Router:    gin.New(),
-		Datastore: ds,
-		LogDB:     nil,
-		MQ:        mq,
-		Enqueue:   DefaultEnqueue,
-		hotroutes: routecache.New(2),
+		Runner:     rnr,
+		Router:     gin.New(),
+		Datastore:  ds,
+		LogDB:      nil,
+		MQ:         mq,
+		Enqueue:    DefaultEnqueue,
+		routeCache: cache.New(60*time.Second, 5*time.Minute),
 	}
 
 	r := s.Router
@@ -102,7 +103,6 @@ func TestFullStack(t *testing.T) {
 	defer rnrcancel()
 
 	srv := testServer(ds, &mqs.Mock{}, logDB, rnr)
-	srv.hotroutes = routecache.New(2)
 
 	for _, test := range []struct {
 		name              string
@@ -115,13 +115,15 @@ func TestFullStack(t *testing.T) {
 		{"create my app", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusOK, 0},
 		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0},
 		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
-		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "funcy/hello" } }`, http.StatusOK, 1},
-		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "funcy/error" } }`, http.StatusOK, 2},
-		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 2},
-		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
-		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 2},
-		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK, 2},
+		// NOTE: cache is lazy, loads when a request comes in for the route, not when added
+		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "funcy/hello" } }`, http.StatusOK, 0},
+		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "funcy/error" } }`, http.StatusOK, 0},
+		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
+		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
+		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
+		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK, 1},
 		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusInternalServerError, 2},
+		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},
 		{"delete app (fail)", "DELETE", "/v1/apps/myapp", ``, http.StatusConflict, 1},
 		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
@@ -136,10 +138,10 @@ func TestFullStack(t *testing.T) {
 			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
 				test.name, test.expectedCode, rec.Code)
 		}
-		if srv.hotroutes.Len() != test.expectedCacheSize {
+		if srv.routeCache.ItemCount() != test.expectedCacheSize {
 			t.Log(buf.String())
 			t.Errorf("Test \"%s\": Expected cache size to be %d but was %d",
-				test.name, test.expectedCacheSize, srv.hotroutes.Len())
+				test.name, test.expectedCacheSize, srv.routeCache.ItemCount())
 		}
 	}
 }
