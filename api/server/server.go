@@ -10,11 +10,12 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
 	"github.com/gin-gonic/gin"
+	"github.com/patrickmn/go-cache"
 	"github.com/spf13/viper"
 	"gitlab-odx.oracle.com/odx/functions/api"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
@@ -24,7 +25,6 @@ import (
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
 const (
@@ -51,8 +51,7 @@ type Server struct {
 	middlewares     []Middleware
 	runnerListeners []RunnerListener
 
-	mu           sync.Mutex // protects hotroutes
-	hotroutes    *routecache.Cache
+	routeCache   *cache.Cache
 	singleflight singleflight // singleflight assists Datastore
 }
 
@@ -95,14 +94,14 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 	}
 
 	s := &Server{
-		Runner:    rnr,
-		Router:    gin.New(),
-		Datastore: ds,
-		MQ:        mq,
-		hotroutes: routecache.New(cacheSize),
-		LogDB:     logDB,
-		Enqueue:   DefaultEnqueue,
-		apiURL:    apiURL,
+		Runner:     rnr,
+		Router:     gin.New(),
+		Datastore:  ds,
+		MQ:         mq,
+		routeCache: cache.New(5*time.Second, 5*time.Minute),
+		LogDB:      logDB,
+		Enqueue:    DefaultEnqueue,
+		apiURL:     apiURL,
 	}
 
 	setMachineId()
@@ -110,6 +109,9 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		opt(s)
 	}
 	return s
@@ -171,26 +173,19 @@ func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Ta
 	return mq.Push(ctx, task)
 }
 
+func routeCacheKey(appname, path string) string {
+	return fmt.Sprintf("%s_%s", appname, path)
+}
 func (s *Server) cacheget(appname, path string) (*models.Route, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	route, ok := s.hotroutes.Get(appname, path)
+	route, ok := s.routeCache.Get(routeCacheKey(appname, path))
 	if !ok {
 		return nil, false
 	}
-	return route, ok
-}
-
-func (s *Server) cacheRefresh(route *models.Route) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.hotroutes.Refresh(route)
+	return route.(*models.Route), ok
 }
 
 func (s *Server) cachedelete(appname, path string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.hotroutes.Delete(appname, path)
+	s.routeCache.Delete(routeCacheKey(appname, path))
 }
 
 func (s *Server) handleRunnerRequest(c *gin.Context) {

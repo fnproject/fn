@@ -72,4 +72,6 @@ testImport:
 - package: github.com/vrischmann/envconfig
 - package: github.com/opencontainers/go-digest
   branch: master
+- package: github.com/patrickmn/go-cache
+  branch: master
   

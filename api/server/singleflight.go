@@ -4,8 +4,6 @@ package server
 
 import (
 	"sync"
-
-	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 // call is an in-flight or completed do call
@@ -16,18 +14,18 @@ type call struct {
 }
 
 type singleflight struct {
-	mu sync.Mutex                   // protects m
-	m  map[models.RouteFilter]*call // lazily initialized
+	mu sync.Mutex            // protects m
+	m  map[interface{}]*call // lazily initialized
 }
 
 // do executes and returns the results of the given function, making
 // sure that only one execution is in-flight for a given key at a
 // time. If a duplicate comes in, the duplicate caller waits for the
 // original to complete and receives the same results.
-func (g *singleflight) do(key models.RouteFilter, fn func() (interface{}, error)) (interface{}, error) {
+func (g *singleflight) do(key interface{}, fn func() (interface{}, error)) (interface{}, error) {
 	g.mu.Lock()
 	if g.m == nil {
-		g.m = make(map[models.RouteFilter]*call)
+		g.m = make(map[interface{}]*call)
 	}
 	if c, ok := g.m[key]; ok {
 		g.mu.Unlock()

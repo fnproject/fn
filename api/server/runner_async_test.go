@@ -7,25 +7,26 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	cache "github.com/patrickmn/go-cache"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/mqs"
 	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/server/internal/routecache"
 )
 
 func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, enqueue models.Enqueue) *gin.Engine {
 	ctx := context.Background()
 
 	s := &Server{
-		Runner:    rnr,
-		Router:    gin.New(),
-		Datastore: ds,
-		MQ:        mq,
-		Enqueue:   enqueue,
-		hotroutes: routecache.New(10),
+		Runner:     rnr,
+		Router:     gin.New(),
+		Datastore:  ds,
+		MQ:         mq,
+		Enqueue:    enqueue,
+		routeCache: cache.New(60*time.Second, 5*time.Minute),
 	}
 
 	r := s.Router
