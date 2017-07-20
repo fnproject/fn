@@ -20,6 +20,7 @@ func build() cli.Command {
 
 type buildcmd struct {
 	verbose bool
+	noCache bool
 }
 
 func (b *buildcmd) flags() []cli.Flag {
@@ -28,6 +29,11 @@ func (b *buildcmd) flags() []cli.Flag {
 			Name:        "v",
 			Usage:       "verbose mode",
 			Destination: &b.verbose,
+		},
+		cli.BoolFlag{
+			Name:        "no-cache",
+			Usage:       "Don't use docker cache",
+			Destination: &b.noCache,
 		},
 	}
 }
@@ -45,7 +51,7 @@ func (b *buildcmd) build(c *cli.Context) error {
 		return err
 	}
 
-	ff, err := buildfunc(verbwriter, fn)
+	ff, err := buildfunc(verbwriter, fn, b.noCache)
 	if err != nil {
 		return err
 	}

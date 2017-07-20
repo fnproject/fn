@@ -33,7 +33,7 @@ func verbwriter(verbose bool) io.Writer {
 	return verbwriter
 }
 
-func buildfunc(verbwriter io.Writer, fn string) (*funcfile, error) {
+func buildfunc(verbwriter io.Writer, fn string, noCache bool) (*funcfile, error) {
 	funcfile, err := parsefuncfile(fn)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func buildfunc(verbwriter io.Writer, fn string) (*funcfile, error) {
 		return nil, err
 	}
 
-	if err := dockerbuild(verbwriter, fn, funcfile); err != nil {
+	if err := dockerbuild(verbwriter, fn, funcfile, noCache); err != nil {
 		return nil, err
 	}
 
@@ -78,7 +78,7 @@ func localbuild(verbwriter io.Writer, path string, steps []string) error {
 	return nil
 }
 
-func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
+func dockerbuild(verbwriter io.Writer, path string, ff *funcfile, noCache bool) error {
 	err := dockerVersionCheck()
 	if err != nil {
 		return err
@@ -115,13 +115,19 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 	result := make(chan error, 1)
 
 	go func(done chan<- error) {
-		cmd := exec.Command("docker", "build",
+		args := []string{
+			"build",
 			"-t", ff.FullName(),
 			"-f", dockerfile,
-			// "--no-cache",
+		}
+		if noCache {
+			args = append(args, "--no-cache")
+		}
+		args = append(args,
 			"--build-arg", "HTTP_PROXY",
 			"--build-arg", "HTTPS_PROXY",
 			".")
+		cmd := exec.Command("docker", args...)
 		cmd.Dir = dir
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout

@@ -39,6 +39,7 @@ type deploycmd struct {
 	verbose     bool
 	incremental bool
 	skippush    bool
+	noCache     bool
 
 	verbwriter io.Writer
 }
@@ -61,6 +62,11 @@ func (p *deploycmd) flags() []cli.Flag {
 			Name:        "i",
 			Usage:       "uses incremental building",
 			Destination: &p.incremental,
+		},
+		cli.BoolFlag{
+			Name:        "no-cache",
+			Usage:       "Don't use Docker cache for the build",
+			Destination: &p.noCache,
 		},
 		cli.BoolFlag{
 			Name:        "skip-push",
@@ -126,7 +132,7 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 		return err
 	}
 
-	funcfile, err := buildfunc(p.verbwriter, funcFileName)
+	funcfile, err := buildfunc(p.verbwriter, funcFileName, p.noCache)
 	if err != nil {
 		return err
 	}
