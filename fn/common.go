@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -91,11 +93,11 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 		if helper == nil {
 			return fmt.Errorf("Cannot build, no language helper found for %v", *ff.Runtime)
 		}
-		err := writeTmpDockerfile(helper, dir, ff)
-		defer os.Remove(filepath.Join(dir, "Dockerfile"))
+		dockerfile, err = writeTmpDockerfile(helper, dir, ff)
 		if err != nil {
 			return err
 		}
+		defer os.Remove(dockerfile)
 		if helper.HasPreBuild() {
 			err := helper.PreBuild()
 			if err != nil {
@@ -105,18 +107,36 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile) error {
 	}
 
 	fmt.Printf("Building image %v\n", ff.FullName())
-	cmd := exec.Command("docker", "build",
-		"-t", ff.FullName(),
-		// "--no-cache",
-		"--build-arg", "HTTP_PROXY",
-		"--build-arg", "HTTPS_PROXY",
-		".")
-	cmd.Dir = dir
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error running docker build: %v", err)
+
+	cancel := make(chan os.Signal, 3)
+	signal.Notify(cancel, os.Interrupt) // and others perhaps
+	defer signal.Stop(cancel)
+
+	result := make(chan error, 1)
+
+	go func(done chan<- error) {
+		cmd := exec.Command("docker", "build",
+			"-t", ff.FullName(),
+			"-f", dockerfile,
+			// "--no-cache",
+			"--build-arg", "HTTP_PROXY",
+			"--build-arg", "HTTPS_PROXY",
+			".")
+		cmd.Dir = dir
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		done <- cmd.Run()
+	}(result)
+
+	select {
+	case err := <-result:
+		if err != nil {
+			return fmt.Errorf("error running docker build: %v", err)
+		}
+	case signal := <-cancel:
+		return fmt.Errorf("build cancelled on signal %v", signal)
 	}
+
 	if helper != nil {
 		err := helper.AfterBuild()
 		if err != nil {
@@ -157,14 +177,14 @@ func exists(name string) bool {
 	return true
 }
 
-func writeTmpDockerfile(helper langs.LangHelper, dir string, ff *funcfile) error {
+func writeTmpDockerfile(helper langs.LangHelper, dir string, ff *funcfile) (string, error) {
 	if ff.Entrypoint == "" && ff.Cmd == "" {
-		return errors.New("entrypoint and cmd are missing, you must provide one or the other")
+		return "", errors.New("entrypoint and cmd are missing, you must provide one or the other")
 	}
 
-	fd, err := os.Create(filepath.Join(dir, "Dockerfile"))
+	fd, err := ioutil.TempFile(dir, "Dockerfile")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer fd.Close()
 
@@ -192,9 +212,9 @@ func writeTmpDockerfile(helper langs.LangHelper, dir string, ff *funcfile) error
 	}
 	err = writeLines(fd, dfLines)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return err
+	return fd.Name(), err
 }
 
 func writeLines(w io.Writer, lines []string) error {
