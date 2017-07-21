@@ -35,7 +35,7 @@ esac
 
 case ${DOCKER_LOCATION:-localhost} in
 localhost)
-    cd fn/tests && API_URL="http://localhost:8080" go test -v ./...; cd ../../
+    cd test/fn-api-tests && API_URL="http://localhost:8080" go test -v ./...; cd ../../
     ;;
 docker_ip)
     if [[ !  -z  ${DOCKER_HOST}  ]]
@@ -43,9 +43,9 @@ docker_ip)
         DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'| awk -F: '{print $1}'`
     fi
 
-    cd fn/tests && API_URL="http://${DOCKER_IP:-localhost}:8080" go test -v ./...; cd ../../
+    cd test/fn-api-tests && API_URL="http://${DOCKER_IP:-localhost}:8080" go test -v ./...; cd ../../
     ;;
 container_ip)
-    cd fn/tests && API_URL="http://"$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-server)":8080" go test -v ./...; cd ../../
+    cd test/fn-api-tests && API_URL="http://"$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-server)":8080" go test -v ./...; cd ../../
     ;;
 esac
