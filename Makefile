@@ -49,6 +49,9 @@ docker-test-run-with-mysql:
 docker-test-run-with-postgres:
 	./api_test.sh postgres
 
+ci-docker-test-run-with-sqlite3:
+	docker run --rm -i -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions -e "datastore=sqlite3" funcy/fn-api-tester
+
 docker-test:
 	docker run -ti --privileged --rm -e LOG_LEVEL=debug \
 	-v /var/run/docker.sock:/var/run/docker.sock \

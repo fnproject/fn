@@ -6,6 +6,7 @@ case "$1" in
 
     docker run --name func-server --privileged -v /var/run/docker.sock:/var/run/docker.sock -d -e NO_PROXY -e HTTP_PROXY -e DOCKER_HOST=${DOCKER_HOST} -e LOG_LEVEL=debug -p 8080:8080 funcy/functions
     sleep 1
+    docker logs func-server
     ;;
 
     "mysql" )
@@ -17,6 +18,7 @@ case "$1" in
     export MYSQL_HOST="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-mysql-test)"
     export MYSQL_PORT=3306
     docker run --name func-server --privileged -d -e NO_PROXY -e HTTP_PROXY -e DOCKER_HOST=${DOCKER_HOST} -e LOG_LEVEL=debug -e "DB_URL=mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs" -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock funcy/functions
+    docker logs func-server
 
     ;;
 
@@ -29,6 +31,7 @@ case "$1" in
     export POSTGRES_HOST="$(docker inspect -f '{{.NetworkSettings.IPAddress}}' func-postgres-test)"
     export POSTGRES_PORT=5432
     docker run --name func-server --privileged -d -e NO_PROXY -e HTTP_PROXY -e DOCKER_HOST=${DOCKER_HOST} -e LOG_LEVEL=debug -e "DB_URL=postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable" -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock funcy/functions
+    docker logs func-server
 
     ;;
 esac
