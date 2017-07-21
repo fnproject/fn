@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/funcy/functions_go/client/call"
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 func TestCalls(t *testing.T) {
@@ -30,7 +29,7 @@ func TestCalls(t *testing.T) {
 
 	u := url.URL{
 		Scheme: "http",
-		Host:   client.Host(),
+		Host:   Host(),
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 

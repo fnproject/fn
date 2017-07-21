@@ -12,7 +12,6 @@ import (
 
 	"github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/client/operations"
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 type ErrMsg struct {
@@ -26,7 +25,7 @@ type TimeoutBody struct {
 
 func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
-	err := client.CallFN(u.String(), content, output, "POST", []string{})
+	err := CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Fatalf("Got unexpected error: %v", err)
 	}
@@ -60,14 +59,14 @@ func TestRouteExecutions(t *testing.T) {
 
 	u := url.URL{
 		Scheme: "http",
-		Host:   client.Host(),
+		Host:   Host(),
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
 	t.Run("run-sync-funcy/hello-no-input", func(t *testing.T) {
 		content := &bytes.Buffer{}
 		output := &bytes.Buffer{}
-		err := client.CallFN(u.String(), content, output, "POST", []string{})
+		err := CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Fatalf("Got unexpected error: %v", err)
 		}
@@ -84,7 +83,7 @@ func TestRouteExecutions(t *testing.T) {
 			Name string
 		}{Name: "John"})
 		output := &bytes.Buffer{}
-		err := client.CallFN(u.String(), content, output, "POST", []string{})
+		err := CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Fatalf("Got unexpected error: %v", err)
 		}
@@ -153,7 +152,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		u := url.URL{
 			Scheme: "http",
-			Host:   client.Host(),
+			Host:   Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 
@@ -163,7 +162,7 @@ func TestRouteExecutions(t *testing.T) {
 		}{Seconds: 31})
 		output := &bytes.Buffer{}
 
-		client.CallFN(u.String(), content, output, "POST", []string{})
+		CallFN(u.String(), content, output, "POST", []string{})
 
 		if !strings.Contains(output.String(), "Timed out") {
 			t.Fatalf("Must fail because of timeout, but got error message: %v", output.String())
@@ -199,7 +198,7 @@ func TestRouteExecutions(t *testing.T) {
 	t.Run("exec-multi-log-test", func(t *testing.T) {
 		u := url.URL{
 			Scheme: "http",
-			Host:   client.Host(),
+			Host:   Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 
@@ -239,7 +238,7 @@ func TestRouteExecutions(t *testing.T) {
 	t.Run("exec-log-test", func(t *testing.T) {
 		u := url.URL{
 			Scheme: "http",
-			Host:   client.Host(),
+			Host:   Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 		content := &bytes.Buffer{}
@@ -268,7 +267,7 @@ func TestRouteExecutions(t *testing.T) {
 		size := 1 * 1024 * 1024 * 1024
 		u := url.URL{
 			Scheme: "http",
-			Host:   client.Host(),
+			Host:   Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 		content := &bytes.Buffer{}

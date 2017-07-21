@@ -6,16 +6,48 @@ import (
 	"testing"
 	"time"
 
-	fn "github.com/funcy/functions_go/client"
+	"fmt"
+	"github.com/funcy/functions_go/client"
 	"github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/client/routes"
 	"github.com/funcy/functions_go/models"
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
+	httptransport "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/strfmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
 )
+
+func Host() string {
+	apiURL := os.Getenv("API_URL")
+	if apiURL == "" {
+		apiURL = "http://localhost:8080"
+	}
+
+	u, err := url.Parse(apiURL)
+	if err != nil {
+		log.Fatalln("Couldn't parse API URL:", err)
+	}
+	return u.Host
+}
+
+func APIClient() *client.Functions {
+	transport := httptransport.New(Host(), "/v1", []string{"http"})
+	if os.Getenv("FN_TOKEN") != "" {
+		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("FN_TOKEN"))
+	}
+
+	// create the API client, with the transport
+	client := client.New(transport, strfmt.Default)
+
+	return client
+}
 
 type SuiteSetup struct {
 	Context      context.Context
-	Client       *fn.Functions
+	Client       *client.Functions
 	AppName      string
 	RoutePath    string
 	Image        string
@@ -29,7 +61,7 @@ type SuiteSetup struct {
 func SetupDefaultSuite() *SuiteSetup {
 	return &SuiteSetup{
 		Context:      context.Background(),
-		Client:       client.APIClient(),
+		Client:       APIClient(),
 		AppName:      "test-app",
 		RoutePath:    "/hello",
 		Image:        "funcy/hello",
@@ -91,7 +123,7 @@ func CheckAppResponseError(t *testing.T, err error) {
 
 }
 
-func CreateAppNoAssert(ctx context.Context, fnclient *fn.Functions, appName string, config map[string]string) (*apps.PostAppsOK, error) {
+func CreateAppNoAssert(ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) (*apps.PostAppsOK, error) {
 	cfg := &apps.PostAppsParams{
 		Body: &models.AppWrapper{
 			App: &models.App{
@@ -105,7 +137,7 @@ func CreateAppNoAssert(ctx context.Context, fnclient *fn.Functions, appName stri
 	return fnclient.Apps.PostApps(cfg)
 }
 
-func CreateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string, config map[string]string) {
+func CreateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) {
 	appPayload, err := CreateAppNoAssert(ctx, fnclient, appName, config)
 	CheckAppResponseError(t, err)
 	if !strings.Contains(appName, appPayload.Payload.App.Name) {
@@ -114,7 +146,7 @@ func CreateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appNam
 	}
 }
 
-func UpdateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string, config map[string]string) *apps.PatchAppsAppOK {
+func UpdateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) *apps.PatchAppsAppOK {
 	CreateApp(t, ctx, fnclient, appName, map[string]string{"A": "a"})
 	cfg := &apps.PatchAppsAppParams{
 		App: appName,
@@ -131,7 +163,7 @@ func UpdateApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appNam
 	return appPayload
 }
 
-func DeleteApp(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string) {
+func DeleteApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string) {
 	cfg := &apps.DeleteAppsAppParams{
 		App:     appName,
 		Context: ctx,
@@ -248,7 +280,7 @@ func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, rou
 
 }
 
-func createRoute(ctx context.Context, fnclient *fn.Functions, appName, image, routePath, routeType string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
+func createRoute(ctx context.Context, fnclient *client.Functions, appName, image, routePath, routeType string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
 	cfg := &routes.PostAppsAppRoutesParams{
 		App: appName,
 		Body: &models.RouteWrapper{
@@ -267,14 +299,14 @@ func createRoute(ctx context.Context, fnclient *fn.Functions, appName, image, ro
 
 }
 
-func CreateRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath, image, routeType string, routeConfig map[string]string, headers map[string][]string) {
+func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType string, routeConfig map[string]string, headers map[string][]string) {
 	routeResponse, err := createRoute(ctx, fnclient, appName, image, routePath, routeType, routeConfig, headers)
 	CheckRouteResponseError(t, err)
 
 	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType)
 }
 
-func deleteRoute(ctx context.Context, fnclient *fn.Functions, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
+func deleteRoute(ctx context.Context, fnclient *client.Functions, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
 	cfg := &routes.DeleteAppsAppRoutesRouteParams{
 		App:     appName,
 		Route:   routePath,
@@ -284,12 +316,12 @@ func deleteRoute(ctx context.Context, fnclient *fn.Functions, appName, routePath
 	return fnclient.Routes.DeleteAppsAppRoutesRoute(cfg)
 }
 
-func DeleteRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath string) {
+func DeleteRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath string) {
 	_, err := deleteRoute(ctx, fnclient, appName, routePath)
 	CheckRouteResponseError(t, err)
 }
 
-func ListRoutes(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName string) []*models.Route {
+func ListRoutes(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string) []*models.Route {
 	cfg := &routes.GetAppsAppRoutesParams{
 		App:     appName,
 		Context: ctx,
@@ -300,7 +332,7 @@ func ListRoutes(t *testing.T, ctx context.Context, fnclient *fn.Functions, appNa
 	return routesResponse.Payload.Routes
 }
 
-func GetRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath string) *models.Route {
+func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath string) *models.Route {
 	cfg := &routes.GetAppsAppRoutesRouteParams{
 		App:     appName,
 		Route:   routePath,
@@ -312,7 +344,7 @@ func GetRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName
 	return routeResponse.Payload.Route
 }
 
-func UpdateRoute(t *testing.T, ctx context.Context, fnclient *fn.Functions, appName, routePath, image, routeType, format string, memory int64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
+func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, format string, memory int64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
 
 	routeObject := GetRoute(t, ctx, fnclient, appName, routePath)
 	if routeObject.Config == nil {
@@ -382,4 +414,47 @@ func assertContainsRoute(routeModels []*models.Route, expectedRoute string) bool
 		}
 	}
 	return false
+}
+
+func EnvAsHeader(req *http.Request, selectedEnv []string) {
+	detectedEnv := os.Environ()
+	if len(selectedEnv) > 0 {
+		detectedEnv = selectedEnv
+	}
+
+	for _, e := range detectedEnv {
+		kv := strings.Split(e, "=")
+		name := kv[0]
+		req.Header.Set(name, os.Getenv(name))
+	}
+}
+
+func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
+	if method == "" {
+		if content == nil {
+			method = "GET"
+		} else {
+			method = "POST"
+		}
+	}
+
+	req, err := http.NewRequest(method, u, content)
+	if err != nil {
+		return fmt.Errorf("error running route: %s", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	if len(env) > 0 {
+		EnvAsHeader(req, env)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error running route: %s", err)
+	}
+
+	io.Copy(output, resp.Body)
+
+	return nil
 }
