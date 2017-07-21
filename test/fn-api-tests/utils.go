@@ -41,6 +41,12 @@ func APIClient() *client.Functions {
 
 	// create the API client, with the transport
 	client := client.New(transport, strfmt.Default)
+	_, err := client.Version.GetVersion(nil)
+	if err != nil {
+		if Host() != "localhost:8080" {
+			panic("Cannot reach remote api for functions")
+		}
+	}
 
 	return client
 }

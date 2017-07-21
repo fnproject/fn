@@ -109,7 +109,7 @@ func TestRouteExecutions(t *testing.T) {
 
 	t.Run("run-async-funcy/hello-with-status-check", func(t *testing.T) {
 		callID := CallAsync(t, u, &bytes.Buffer{})
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 10)
 		cfg := &call.GetCallsCallParams{
 			Call:    callID,
 			Context: s.Context,
@@ -247,7 +247,7 @@ func TestRouteExecutions(t *testing.T) {
 		}{Size: 20})
 
 		callID := CallAsync(t, u, content)
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		cfg := &operations.GetCallsCallLogParams{
 			Call:    callID,
