@@ -41,13 +41,22 @@ func init() {
 }
 
 func contextWithSignal(ctx context.Context, signals ...os.Signal) context.Context {
-	ctx, halt := context.WithCancel(context.Background())
+	newCTX, halt := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, signals...)
 	go func() {
-		<-c
-		logrus.Info("Halting...")
-		halt()
+		for {
+			select {
+			case <-c:
+				logrus.Info("Halting...")
+				halt()
+				return
+			case <-ctx.Done():
+				logrus.Info("Halting... Original server context canceled.")
+				halt()
+				return
+			}
+		}
 	}()
-	return ctx
+	return newCTX
 }
