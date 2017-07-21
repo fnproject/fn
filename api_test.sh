@@ -2,12 +2,12 @@ set -ex
 
 case "$1" in
     "sqlite3" )
-    docker rm -fv func-server || echo No prev func-server container
-
-    docker run --name func-server --privileged -v /var/run/docker.sock:/var/run/docker.sock -d -e NO_PROXY -e HTTP_PROXY -e DOCKER_HOST=${DOCKER_HOST} -e LOG_LEVEL=debug -p 8080:8080 funcy/functions
-    sleep 10
-    docker logs func-server
-    docker inspect -f '{{.NetworkSettings.IPAddress}}' func-server
+    # docker rm -fv func-server || echo No prev func-server container
+    #
+    # docker run --name func-server --privileged -v /var/run/docker.sock:/var/run/docker.sock -d -e NO_PROXY -e HTTP_PROXY -e DOCKER_HOST=${DOCKER_HOST} -e LOG_LEVEL=debug -p 8080:8080 funcy/functions
+    # sleep 10
+    # docker logs func-server
+    # docker inspect -f '{{.NetworkSettings.IPAddress}}' func-server
     ;;
 
     "mysql" )

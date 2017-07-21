@@ -51,6 +51,7 @@ func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 
 func TestRouteExecutions(t *testing.T) {
 	s := SetupDefaultSuite()
+
 	newRouteType := "async"
 
 	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
@@ -203,7 +204,7 @@ func TestRouteExecutions(t *testing.T) {
 		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 
 		callID := CallAsync(t, u, &bytes.Buffer{})
-		time.Sleep(7 * time.Second)
+		time.Sleep(15 * time.Second)
 
 		cfg := &operations.GetCallsCallLogParams{
 			Call:    callID,
