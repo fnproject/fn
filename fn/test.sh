@@ -8,7 +8,7 @@ $fn --version
 rm -rf tmp
 mkdir tmp
 cd tmp
-$fn init --runtime go $DOCKER_USER/fn-test-go
+$fn init --runtime go $DOCKER_USERNAME/fn-test-go
 $fn test
 
 docker rm --force functions || true # just in case
