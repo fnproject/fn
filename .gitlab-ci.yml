@@ -67,10 +67,9 @@ integration_tests:
   script:
   - go build -o functions-alpine
   - docker build -t funcy/functions:latest .
-#  - make docker-test-run-with-bolt
-  - DOCKER_LOCATION=container_ip make docker-test-run-with-sqlite3
-#  - make docker-test-run-with-postgres
-#  - make docker-test-run-with-redis
+#  - DOCKER_LOCATION=container_ip make docker-test-run-with-sqlite3
+#  - DOCKER_LOCATION=container_ip make docker-test-run-with-postgres
+  - DOCKER_LOCATION=container_ip make docker-test-run-with-mysql
 
 deploy_job:
   only:
