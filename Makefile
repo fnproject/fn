@@ -50,6 +50,7 @@ docker-test-run-with-postgres:
 	./api_test.sh postgres
 
 ci-docker-test-run-with-sqlite3:
+	cd ${CURDIR}/test/fn-api-tests/ && docker build -t funcy/fn-api-tester .; cd ${CURDIR}
 	docker run --rm -i -v ${CURDIR}:/go/src/gitlab-odx.oracle.com/odx/functions -w /go/src/gitlab-odx.oracle.com/odx/functions -e "datastore=sqlite3" funcy/fn-api-tester
 
 docker-test:
