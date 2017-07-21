@@ -3,21 +3,26 @@ package tests
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"gitlab-odx.oracle.com/odx/functions/api/server"
+
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+
 	"github.com/funcy/functions_go/client"
 	"github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/client/routes"
 	"github.com/funcy/functions_go/models"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"io"
-	"log"
-	"net/http"
-	"net/url"
-	"os"
+	"github.com/spf13/viper"
 )
 
 func Host() string {
@@ -41,14 +46,51 @@ func APIClient() *client.Functions {
 
 	// create the API client, with the transport
 	client := client.New(transport, strfmt.Default)
-	_, err := client.Version.GetVersion(nil)
-	if err != nil {
-		if Host() != "localhost:8080" {
-			panic("Cannot reach remote api for functions")
-		}
-	}
 
 	return client
+}
+
+var (
+	getServer sync.Once
+)
+
+func getServerWithCancel() (*server.Server, context.CancelFunc) {
+	var cancel2 context.CancelFunc
+	var s *server.Server
+	getServer.Do(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		viper.Set(server.EnvPort, "8080")
+		viper.Set(server.EnvAPIURL, "http://localhost:8080")
+		viper.Set(server.EnvLogLevel, "fatal")
+		timeString := time.Now().Format("2006_01_02_15_04_05")
+		tmpDir := os.TempDir()
+		tmpMq := fmt.Sprintf("%s/fn_integration_test_%s_worker_mq.db", tmpDir, timeString)
+		tmpDB := fmt.Sprintf("%s/fn_integration_test_%s_fn.db", tmpDir, timeString)
+		viper.Set(server.EnvMQURL, fmt.Sprintf("bolt://%s", tmpMq))
+		viper.Set(server.EnvDBURL, fmt.Sprintf("sqlite3://%s", tmpDB))
+
+		s = server.NewFromEnv(ctx)
+
+		go s.Start(ctx)
+		started := false
+		time.AfterFunc(time.Second*10, func() {
+			if !started {
+				panic("Failed to start server.")
+			}
+		})
+		_, err := http.Get(viper.GetString(server.EnvAPIURL) + "/version")
+		for err != nil {
+			_, err = http.Get(viper.GetString(server.EnvAPIURL) + "/version")
+		}
+		started = true
+		cancel2 = context.CancelFunc(func() {
+			cancel()
+			os.Remove(tmpMq)
+			os.Remove(tmpDB)
+		})
+	})
+	return s, cancel2
 }
 
 type SuiteSetup struct {
@@ -62,10 +104,11 @@ type SuiteSetup struct {
 	Memory       int64
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
+	Cancel       context.CancelFunc
 }
 
 func SetupDefaultSuite() *SuiteSetup {
-	return &SuiteSetup{
+	ss := &SuiteSetup{
 		Context:      context.Background(),
 		Client:       APIClient(),
 		AppName:      "test-app",
@@ -75,7 +118,26 @@ func SetupDefaultSuite() *SuiteSetup {
 		RouteType:    "async",
 		RouteConfig:  map[string]string{},
 		RouteHeaders: map[string][]string{},
+		Cancel:       func() {},
 	}
+
+	_, ok := ss.Client.Version.GetVersion(nil)
+	if ok != nil {
+		if Host() != "localhost:8080" {
+			_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
+			if ok != nil {
+				panic("Cannot reach remote api for functions")
+			}
+		} else {
+			_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
+			if ok != nil {
+				log.Println("Making functions server")
+				_, cancel := getServerWithCancel()
+				ss.Cancel = cancel
+			}
+		}
+	}
+	return ss
 }
 
 func CheckAppResponseError(t *testing.T, err error) {
