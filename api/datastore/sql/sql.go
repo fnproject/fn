@@ -123,6 +123,10 @@ func New(url *url.URL) (models.Datastore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
+	switch driver {
+	case "sqlite3":
+		db.SetMaxOpenConns(1)
+	}
 	for _, v := range tables {
 		_, err = db.Exec(v)
 		if err != nil {
