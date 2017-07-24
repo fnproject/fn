@@ -36,7 +36,6 @@ type dockerClient interface {
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	InspectImage(name string) (*docker.Image, error)
-	InspectContainer(id string) (*docker.Container, error)
 	Stats(opts docker.StatsOptions) error
 }
 
@@ -268,16 +267,6 @@ func (d *dockerWrap) InspectImage(name string) (i *docker.Image, err error) {
 		return err
 	})
 	return i, err
-}
-
-func (d *dockerWrap) InspectContainer(id string) (c *docker.Container, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, func() error {
-		c, err = d.docker.InspectContainer(id)
-		return err
-	})
-	return c, err
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
