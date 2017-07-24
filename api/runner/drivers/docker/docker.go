@@ -394,12 +394,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 	} else {
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 	}
-	defer cancel() // do this so that after Run exits, nanny and collect stop
-	var complete bool
-	defer func() { complete = true }() // run before cancel is called
-	ctx = context.WithValue(ctx, completeKey, &complete)
-
-	go drv.nanny(ctx, container)
+	defer cancel() // do this so that after Run exits, collect stops
 	go drv.collectStats(ctx, container, task)
 
 	mwOut, mwErr := task.Logger()
@@ -444,28 +439,6 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		status: status,
 		error:  err,
 	}, nil
-}
-
-const completeKey = "complete"
-
-// watch for cancel or timeout and kill process.
-func (drv *DockerDriver) nanny(ctx context.Context, container string) {
-	select {
-	case <-ctx.Done():
-		if *(ctx.Value(completeKey).(*bool)) {
-			return
-		}
-		drv.cancel(container)
-	}
-}
-
-func (drv *DockerDriver) cancel(container string) {
-	stopTimer := drv.NewTimer("docker", "stop_container", 1.0)
-	err := drv.docker.StopContainer(container, 30)
-	stopTimer.Measure()
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"container": container, "errType": fmt.Sprintf("%T", err)}).Error("something managed to escape our retries web, could not kill container")
-	}
 }
 
 func (drv *DockerDriver) collectStats(ctx context.Context, container string, task drivers.ContainerTask) {

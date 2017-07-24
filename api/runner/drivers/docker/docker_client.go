@@ -37,7 +37,6 @@ type dockerClient interface {
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	InspectImage(name string) (*docker.Image, error)
 	InspectContainer(id string) (*docker.Container, error)
-	StopContainer(id string, timeout uint) error
 	Stats(opts docker.StatsOptions) error
 }
 
@@ -279,16 +278,6 @@ func (d *dockerWrap) InspectContainer(id string) (c *docker.Container, err error
 		return err
 	})
 	return c, err
-}
-
-func (d *dockerWrap) StopContainer(id string, timeout uint) (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, func() error {
-		err = d.docker.StopContainer(id, timeout)
-		return err
-	})
-	return filterNotRunning(ctx, filterNoSuchContainer(ctx, err))
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
