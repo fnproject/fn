@@ -120,7 +120,7 @@ func TestGetTaskError(t *testing.T) {
 		{
 			"url":   "/invalid",
 			"task":  getMockTask(),
-			"error": "invalid character 'p' after top-level value",
+			"error": "json: cannot unmarshal number into Go value of type models.Task", // TODO WTF!
 		},
 	}
 
@@ -150,24 +150,25 @@ func TestGetTaskError(t *testing.T) {
 func TestDeleteTask(t *testing.T) {
 	buf := setLogBuffer()
 	mockTask := getMockTask()
+	ctx := context.Background()
 
 	ts := getTestServer([]*models.Task{&mockTask})
 	defer ts.Close()
 
 	url := ts.URL + "/tasks"
-	err := deleteTask(url, &mockTask)
+	err := deleteTask(ctx, url, &mockTask)
 	if err == nil {
 		t.Log(buf.String())
 		t.Error("expected error 'Not reserver', got", err)
 	}
 
-	_, err = getTask(context.Background(), url)
+	_, err = getTask(ctx, url)
 	if err != nil {
 		t.Log(buf.String())
 		t.Error("expected no error, got", err)
 	}
 
-	err = deleteTask(url, &mockTask)
+	err = deleteTask(ctx, url, &mockTask)
 	if err != nil {
 		t.Log(buf.String())
 		t.Error("expected no error, got", err)
@@ -196,7 +197,7 @@ func testRunner(t *testing.T) (*Runner, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	r, err := New(ctx, NewFuncLogger(fnl), NewMetricLogger(), ds)
+	r, err := New(ctx, NewFuncLogger(fnl), ds)
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}

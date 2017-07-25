@@ -38,7 +38,7 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog,
 	r := s.Router
 	r.Use(gin.Logger())
 
-	s.Router.Use(prepareMiddleware(ctx))
+	s.Router.Use(loggerWrap)
 	s.bindHandlers(ctx)
 	return s
 }

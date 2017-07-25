@@ -18,7 +18,7 @@ func testRunner(t *testing.T) (*runner.Runner, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	r, err := runner.New(ctx, runner.NewFuncLogger(fnl), runner.NewMetricLogger(), ds)
+	r, err := runner.New(ctx, runner.NewFuncLogger(fnl), ds)
 	if err != nil {
 		t.Fatal("Test: failed to create new runner")
 	}

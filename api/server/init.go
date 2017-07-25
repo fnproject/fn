@@ -26,6 +26,7 @@ func init() {
 	viper.SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", cwd))
 	viper.SetDefault(EnvLOGDBURL, "") // default to just using DB url
 	viper.SetDefault(EnvPort, 8080)
+	viper.SetDefault(EnvZipkinURL, "") // off default
 	viper.SetDefault(EnvAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(EnvPort)))
 	viper.AutomaticEnv() // picks up env vars automatically
 	logLevel, err := logrus.ParseLevel(viper.GetString(EnvLogLevel))
