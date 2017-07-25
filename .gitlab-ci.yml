@@ -39,9 +39,7 @@ test_job:
 integration_tests:
   stage: test
   script:
-  - go build -o functions-alpine
-  - docker build -t funcy/functions:latest .
-  - make docker-test-run-with-sqlite3
+  - DOCKER_LOCATION=container_ip make docker-test-run-with-sqlite3
 
 deploy_job:
   only:
