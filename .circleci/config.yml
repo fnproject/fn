@@ -5,7 +5,9 @@ version: 2
 jobs:
   build:
     machine: true
-    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    working_directory: ~/go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    environment:
+      GOPATH=~/go
     steps:
       - checkout
       # update docker
