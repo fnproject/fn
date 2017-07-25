@@ -1,4 +1,7 @@
-image: funcy/go-dind:latest
+image: docker:latest
+
+services:
+  - docker:dind
 
 cache:
   key: "$CI_COMMIT_REF_NAME"
@@ -18,13 +21,13 @@ before_script:
 build_job:
   stage: build
   script:
-  - go build -o functions-alpine
+  - make docker-build
 
 build_job_fn:
   stage: build
   script:
   - cd fn
-  - go build -o fn-alpine
+  - make build
 
 formatting:
   stage: build

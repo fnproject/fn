@@ -4,11 +4,13 @@ make build
 export fn="$(pwd)/fn"
 $fn --version
 
+go test $(go list ./... | grep -v /vendor/ | grep -v /tests)
+
 # This tests all the quickstart commands on the cli on a live server
 rm -rf tmp
 mkdir tmp
 cd tmp
-funcname="tn-test-go"
+funcname="fn-test-go"
 $fn init --runtime go $DOCKER_USERNAME/$funcname
 $fn test
 
@@ -20,8 +22,9 @@ sleep 10
 export API_URL="http://localhost:$someport"
 $fn apps l
 $fn apps create myapp
+$fn apps l
 $fn deploy myapp
-$fn call myapp $DOCKER_USERNAME/$funcname
+$fn call myapp $funcname
 
 docker rm --force functions
 

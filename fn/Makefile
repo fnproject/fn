@@ -16,7 +16,6 @@ dep-up:
 	glide up -v
 
 test:
-	go test $(go list ./... | grep -v /vendor/ | grep -v /tests)
 	./test.sh
 
 test-integration:
