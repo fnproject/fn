@@ -230,6 +230,34 @@ func TestRouteExecutions(t *testing.T) {
 
 	DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 
+	routePath = "/os.environ"
+	image = "denismakogon/os.environ"
+	routeType = "sync"
+	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
+		s.RouteConfig, s.RouteHeaders)
+
+	t.Run("verify-headers-separator", func(t *testing.T) {
+		u := url.URL{
+			Scheme: "http",
+			Host:   Host(),
+		}
+		u.Path = path.Join(u.Path, "r", s.AppName, routePath)
+		content := &bytes.Buffer{}
+		output := &bytes.Buffer{}
+		CallFN(u.String(), content, output, "POST",
+			[]string{
+				"ACCEPT: application/xml",
+				"ACCEPT: application/json; q=0.2",
+			})
+		res := output.String()
+		if !strings.Contains("application/xml, application/json; q=0.2", res) {
+			t.Errorf("HEADER_ACCEPT='application/xml, application/json; q=0.2' "+
+				"should be in output, have:\n%", res)
+		}
+	})
+
+	DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
+
 	routePath = "/log"
 	image = "funcy/log:0.0.1"
 	routeType = "async"

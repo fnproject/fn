@@ -196,7 +196,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 
 	// headers
 	for header, value := range c.Request.Header {
-		envVars[toEnvName("HEADER", header)] = strings.Join(value, " ")
+		envVars[toEnvName("HEADER", header)] = strings.Join(value, ", ")
 	}
 
 	cfg := &task.Config{
