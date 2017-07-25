@@ -245,8 +245,14 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		priority := int32(0)
 		newTask.Priority = &priority
 		newTask.Payload = string(pl)
+
 		// Push to queue
-		enqueue(c, s.MQ, newTask)
+		_, err = enqueue(c, s.MQ, newTask)
+		if err != nil {
+			handleErrorResponse(c, err)
+			return true
+		}
+
 		log.Info("Added new task to queue")
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": newTask.ID})
 
