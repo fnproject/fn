@@ -1,5 +1,5 @@
-hash: ed88f1a46f149bac3eea6052d409a2a619f762ee51f2655b3fc22e8b2fa806ad
-updated: 2017-07-19T22:11:29.697513445-07:00
+hash: 68fe5d3130a8346f3e38c0924b70369592ccdf0ffe503858056694a71a19acd2
+updated: 2017-07-21T18:13:30.488739267-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -7,6 +7,10 @@ imports:
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
   subpackages:
   - proto
+- name: github.com/apache/thrift
+  version: 0dd823580c78a79ae9696eb9b3650e400fff140f
+  subpackages:
+  - lib/go/thrift
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
 - name: github.com/Azure/go-ansiterm
@@ -23,6 +27,10 @@ imports:
   version: 230eff6403e22b43f5fba7b28466dae4718934dd
 - name: github.com/cenkalti/backoff
   version: 5d150e7eec023ce7a124856b37c68e54b4050ac7
+- name: github.com/davecgh/go-spew
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  subpackages:
+  - spew
 - name: github.com/dchest/siphash
   version: 4ebf1de738443ea7f45f02dc394c4df1942a126d
 - name: github.com/dghubble/go-twitter
@@ -85,6 +93,14 @@ imports:
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/docker/libtrust
   version: fa567046d9b14f6aa788882a950d69651d230b21
+- name: github.com/eapache/go-resiliency
+  version: b1fe83b5b03f624450823b751b662259ffc6af70
+  subpackages:
+  - breaker
+- name: github.com/eapache/go-xerial-snappy
+  version: bb955e01b9346ac19dc29eb16586c90ded99a98c
+- name: github.com/eapache/queue
+  version: 44cc805cf13205b55f69e14bcb69867d1ae92f98
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/fsouza/go-dockerclient
@@ -92,6 +108,13 @@ imports:
 - name: github.com/funcy/functions_go
   version: 5d9948e8b1292c5421b5dd98bb6a9b5535d5e1ba
   subpackages:
+  - client
+  - client/apps
+  - client/call
+  - client/operations
+  - client/routes
+  - client/tasks
+  - client/version
   - models
 - name: github.com/garyburd/redigo
   version: 95d11dba2d44531bdb8022752b98912baafae03a
@@ -103,6 +126,8 @@ imports:
   subpackages:
   - binding
   - render
+- name: github.com/go-logfmt/logfmt
+  version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/analysis
   version: 0473cb67199f68b8b7d90e641afd9e79ad36b851
 - name: github.com/go-openapi/errors
@@ -129,10 +154,16 @@ imports:
   version: 035dcd74f1f61e83debe1c22950dc53556e7e4b2
 - name: github.com/go-sql-driver/mysql
   version: 56226343bd543f91a3930ed73ebdd03cfd633e85
+- name: github.com/gogo/protobuf
+  version: 83c564581ed68caafcec877c710d7ac243232c93
+  subpackages:
+  - proto
 - name: github.com/golang/protobuf
   version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
   - proto
+- name: github.com/golang/snappy
+  version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/google/btree
   version: 316fb6d3f031ae8f4d457c6c5186b9e3ded70435
 - name: github.com/google/go-querystring
@@ -172,6 +203,8 @@ imports:
   version: d9bd385d68c068f1fabb5057e3dedcbcbb039d0f
   subpackages:
   - reflectx
+- name: github.com/kr/logfmt
+  version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/lib/pq
   version: 8837942c3e09574accbc5f150e2c5e057189cace
   subpackages:
@@ -201,18 +234,43 @@ imports:
   subpackages:
   - libcontainer/system
   - libcontainer/user
+- name: github.com/opentracing-contrib/go-observer
+  version: a52f2342449246d5bcc273e65cbdcfa5f7d6c63c
+- name: github.com/opentracing/opentracing-go
+  version: 06f47b42c792fef2796e9681353e1d908c417827
+  subpackages:
+  - ext
+  - log
+- name: github.com/openzipkin/zipkin-go-opentracing
+  version: e6b1ad87c0787de9cb033d4f680fe69cd69e19fe
+  subpackages:
+  - flag
+  - thrift/gen-go/scribe
+  - thrift/gen-go/zipkincore
+  - types
+  - wire
 - name: github.com/patrickmn/go-cache
   version: 7ac151875ffb48b9f3ccce9ea20f020b0c1596c8
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
   version: fe7536c3dee2596cdd23ee9976a17c22bdaae286
+- name: github.com/pierrec/lz4
+  version: 5a3d2245f97fc249850e7802e3c01fad02a1c316
+- name: github.com/pierrec/xxHash
+  version: a0006b13c722f7f12368c00a3d3c2ae8a999a0c6
+  subpackages:
+  - xxHash32
 - name: github.com/pkg/errors
   version: c605e284fe17294bda444b34710735b29d1a9d90
 - name: github.com/PuerkitoBio/purell
   version: b938d81255b5473c57635324295cb0fe398c7a58
 - name: github.com/PuerkitoBio/urlesc
   version: bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5
+- name: github.com/rcrowley/go-metrics
+  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+- name: github.com/Shopify/sarama
+  version: 2fd980e23bdcbb8edeb78fc704de0c39a6567ffc
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
   repo: https://github.com/sirupsen/logrus.git

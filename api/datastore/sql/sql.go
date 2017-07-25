@@ -20,7 +20,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
@@ -123,6 +122,10 @@ func New(url *url.URL) (models.Datastore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
+	switch driver {
+	case "sqlite3":
+		db.SetMaxOpenConns(1)
+	}
 	for _, v := range tables {
 		_, err = db.Exec(v)
 		if err != nil {
@@ -130,8 +133,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		}
 	}
 
-	sqlDatastore := &sqlStore{db: db}
-	return datastoreutil.NewValidator(sqlDatastore), nil
+	return &sqlStore{db: db}, nil
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {

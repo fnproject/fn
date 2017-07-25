@@ -47,7 +47,7 @@ func TestRunnerDocker(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't prepare task test")
 	}
-	defer cookie.Close()
+	defer cookie.Close(ctx)
 
 	result, err := cookie.Run(ctx)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestRunnerDockerStdin(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't prepare task test")
 	}
-	defer cookie.Close()
+	defer cookie.Close(ctx)
 
 	result, err := cookie.Run(ctx)
 	if err != nil {

@@ -68,10 +68,11 @@ import:
   - bson
 - package: github.com/jmoiron/sqlx
 - package: github.com/mattn/go-sqlite3
+- package: github.com/opentracing/opentracing-go
+- package: github.com/openzipkin/zipkin-go-opentracing
 testImport:
 - package: github.com/vrischmann/envconfig
 - package: github.com/opencontainers/go-digest
   branch: master
 - package: github.com/patrickmn/go-cache
   branch: master
-  

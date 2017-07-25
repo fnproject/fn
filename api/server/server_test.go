@@ -22,23 +22,23 @@ import (
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, rnr *runner.Runner) *Server {
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, rnr *runner.Runner, enqueue models.Enqueue) *Server {
 	ctx := context.Background()
 
 	s := &Server{
 		Runner:     rnr,
 		Router:     gin.New(),
 		Datastore:  ds,
-		LogDB:      nil,
+		LogDB:      logDB,
 		MQ:         mq,
-		Enqueue:    DefaultEnqueue,
+		Enqueue:    enqueue,
 		routeCache: cache.New(60*time.Second, 5*time.Minute),
 	}
 
 	r := s.Router
 	r.Use(gin.Logger())
 
-	s.Router.Use(prepareMiddleware(ctx))
+	s.Router.Use(loggerWrap)
 	s.bindHandlers(ctx)
 	return s
 }
@@ -102,7 +102,7 @@ func TestFullStack(t *testing.T) {
 	rnr, rnrcancel := testRunner(t)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, DefaultEnqueue)
 
 	for _, test := range []struct {
 		name              string

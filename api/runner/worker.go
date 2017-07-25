@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/go-openapi/strfmt"
+	"github.com/opentracing/opentracing-go"
 	"gitlab-odx.oracle.com/odx/functions/api/id"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
@@ -279,6 +280,8 @@ func (g *ghostWriter) Write(b []byte) (int, error) {
 func (g *ghostWriter) Close() error { return nil }
 
 func (hc *htfn) serve(ctx context.Context) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "run_hot_container")
+	defer span.Finish()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cfg := *hc.cfg
@@ -291,6 +294,7 @@ func (hc *htfn) serve(ctx context.Context) {
 
 	stderr := &ghostWriter{inner: bwLog}
 
+	first := true
 	go func() {
 		for {
 			select {
@@ -308,6 +312,19 @@ func (hc *htfn) serve(ctx context.Context) {
 				logger.Info("Canceling inactive hot function")
 				cancel()
 			case t := <-hc.tasks:
+				var span opentracing.Span
+				if first {
+					// TODO this doesn't work as intended; beyond me atm, but the spans do come up.
+					// need a way to add the span from starting container to the first execution, basically.
+					spanHot := opentracing.SpanFromContext(ctx)
+					spanTask := opentracing.SpanFromContext(t.Ctx)
+					span = opentracing.StartSpan("dispatch", opentracing.ChildOf(spanTask.Context()), opentracing.FollowsFrom(spanHot.Context()))
+					ctx = opentracing.ContextWithSpan(t.Ctx, span)
+					first = false
+				} else {
+					span, ctx = opentracing.StartSpanFromContext(t.Ctx, "dispatch")
+				}
+
 				// swap logs to log to the task logger instead of stderr
 				tlog := hc.rnr.flog.Writer(ctx, cfg.AppName, cfg.Path, cfg.Image, cfg.ID)
 				stderr.swap(tlog)
@@ -319,6 +336,7 @@ func (hc *htfn) serve(ctx context.Context) {
 					status = "error"
 					logrus.WithField("ctx", ctx).Info("task failed")
 				}
+				span.Finish()
 				hc.once()
 
 				stderr.swap(bwLog) // swap back out before flush
@@ -338,6 +356,7 @@ func (hc *htfn) serve(ctx context.Context) {
 	cfg.Stdout = hc.containerOut
 	cfg.Stderr = stderr
 
+	// TODO how to tie a span from the first task into this? yikes
 	result, err := hc.rnr.run(ctx, &cfg)
 	if err != nil {
 		logger.WithError(err).Error("hot function failure detected")

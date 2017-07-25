@@ -14,6 +14,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 )
 
@@ -29,15 +31,13 @@ const (
 type dockerClient interface {
 	// Each of these are github.com/fsouza/go-dockerclient methods
 
-	AttachToContainerNonBlocking(opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
+	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error)
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
-	InspectImage(name string) (*docker.Image, error)
-	InspectContainer(id string) (*docker.Container, error)
-	StopContainer(id string, timeout uint) error
+	InspectImage(ctx context.Context, name string) (*docker.Image, error)
 	Stats(opts docker.StatsOptions) error
 }
 
@@ -97,20 +97,24 @@ type dockerWrap struct {
 }
 
 func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
-	log := common.Logger(ctx)
+	var i int
+	span := opentracing.SpanFromContext(ctx)
+	defer func() { span.LogFields(log.Int("docker_call_retries", i)) }()
+
+	logger := common.Logger(ctx)
 	var b common.Backoff
-	for {
+	for ; ; i++ {
 		select {
 		case <-ctx.Done():
 			d.Inc("task", "fail.docker", 1, 1)
-			log.WithError(ctx.Err()).Warnf("retrying on docker errors timed out, restart docker or rotate this instance?")
+			logger.WithError(ctx.Err()).Warnf("retrying on docker errors timed out, restart docker or rotate this instance?")
 			return ctx.Err()
 		default:
 		}
 
 		err := filter(ctx, f())
 		if common.IsTemporary(err) || isDocker50x(err) {
-			log.WithError(err).Warn("docker temporary error, retrying")
+			logger.WithError(err).Warn("docker temporary error, retrying")
 			b.Sleep()
 			d.Inc("task", "error.docker", 1, 1)
 			continue
@@ -185,24 +189,11 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 	return err
 }
 
-func filterNotRunning(ctx context.Context, err error) error {
-	log := common.Logger(ctx)
-	if err == nil {
-		return nil
-	}
+func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_attach_container")
+	defer span.Finish()
 
-	_, containerNotRunning := err.(*docker.ContainerNotRunning)
-	dockerErr, ok := err.(*docker.Error)
-	if containerNotRunning || (ok && dockerErr.Status == 304) {
-		log.WithError(err).Error("filtering error")
-		return nil
-	}
-
-	return err
-}
-
-func (d *dockerWrap) AttachToContainerNonBlocking(opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
 	err = d.retry(ctx, func() error {
 		w, err = d.docker.AttachToContainerNonBlocking(opts)
@@ -216,6 +207,8 @@ func (d *dockerWrap) AttachToContainerNonBlocking(opts docker.AttachToContainerO
 }
 
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_wait_container")
+	defer span.Finish()
 	err = d.retry(ctx, func() error {
 		code, err = d.dockerNoTimeout.WaitContainerWithContext(id, ctx)
 		return err
@@ -224,6 +217,8 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 }
 
 func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_start_container")
+	defer span.Finish()
 	err = d.retry(ctx, func() error {
 		err = d.dockerNoTimeout.StartContainerWithContext(id, hostConfig, ctx)
 		if _, ok := err.(*docker.NoSuchContainer); ok {
@@ -236,7 +231,9 @@ func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.Hos
 }
 
 func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *docker.Container, err error) {
-	err = d.retry(opts.Context, func() error {
+	span, ctx := opentracing.StartSpanFromContext(opts.Context, "docker_create_container")
+	defer span.Finish()
+	err = d.retry(ctx, func() error {
 		c, err = d.dockerNoTimeout.CreateContainer(opts)
 		return err
 	})
@@ -244,7 +241,9 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 }
 
 func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {
-	err = d.retry(opts.Context, func() error {
+	span, ctx := opentracing.StartSpanFromContext(opts.Context, "docker_pull_image")
+	defer span.Finish()
+	err = d.retry(ctx, func() error {
 		err = d.dockerNoTimeout.PullImage(opts, auth)
 		return err
 	})
@@ -252,7 +251,13 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 }
 
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
+	// extract the span, but do not keep the context, since the enclosing context
+	// may be timed out, and we still want to remove the container. TODO in caller? who cares?
+	span, _ := opentracing.StartSpanFromContext(opts.Context, "docker_remove_container")
+	defer span.Finish()
+	ctx := opentracing.ContextWithSpan(context.Background(), span)
+
+	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
 	err = d.retry(ctx, func() error {
 		err = d.docker.RemoveContainer(opts)
@@ -261,34 +266,16 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 	return filterNoSuchContainer(ctx, err)
 }
 
-func (d *dockerWrap) InspectImage(name string) (i *docker.Image, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
+func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.Image, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_inspect_image")
+	defer span.Finish()
+	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
 	err = d.retry(ctx, func() error {
 		i, err = d.docker.InspectImage(name)
 		return err
 	})
 	return i, err
-}
-
-func (d *dockerWrap) InspectContainer(id string) (c *docker.Container, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, func() error {
-		c, err = d.docker.InspectContainer(id)
-		return err
-	})
-	return c, err
-}
-
-func (d *dockerWrap) StopContainer(id string, timeout uint) (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, func() error {
-		err = d.docker.StopContainer(id, timeout)
-		return err
-	})
-	return filterNotRunning(ctx, filterNoSuchContainer(ctx, err))
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {

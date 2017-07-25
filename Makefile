@@ -41,13 +41,13 @@ docker-run: docker-build
 	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 funcy/functions
 
 docker-test-run-with-sqlite3:
-	./api_test.sh sqlite3
+	./api_test.sh sqlite3 4
 
 docker-test-run-with-mysql:
-	./api_test.sh mysql
+	./api_test.sh mysql 4
 
 docker-test-run-with-postgres:
-	./api_test.sh postgres
+	./api_test.sh postgres 4
 
 docker-test:
 	docker run -ti --privileged --rm -e LOG_LEVEL=debug \

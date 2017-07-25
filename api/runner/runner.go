@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
@@ -28,7 +30,6 @@ import (
 type Runner struct {
 	driver       drivers.Driver
 	taskQueue    chan *containerTask
-	mlog         MetricLogger
 	flog         FuncLogger
 	availableMem int64
 	usedMem      int64
@@ -50,7 +51,7 @@ const (
 	DefaultIdleTimeout = 30 * time.Second
 )
 
-func New(ctx context.Context, flog FuncLogger, mlog MetricLogger, ds models.Datastore) (*Runner, error) {
+func New(ctx context.Context, flog FuncLogger, ds models.Datastore) (*Runner, error) {
 	// TODO: Is this really required for the container drivers? Can we remove it?
 	env := common.NewEnvironment(func(e *common.Environment) {})
 
@@ -64,7 +65,6 @@ func New(ctx context.Context, flog FuncLogger, mlog MetricLogger, ds models.Data
 		driver:       driver,
 		taskQueue:    make(chan *containerTask, 100),
 		flog:         flog,
-		mlog:         mlog,
 		availableMem: getAvailableMemory(),
 		usedMem:      0,
 		datastore:    ds,
@@ -112,13 +112,8 @@ func (r *Runner) handleTask(task *containerTask) {
 		time.Sleep(time.Microsecond)
 	}
 
-	metricBaseName := fmt.Sprintf("run.%s.", task.cfg.AppName)
-	r.mlog.LogTime(task.ctx, metricBaseName+"wait_time", waitTime)
-	r.mlog.LogTime(task.ctx, "run.wait_time", waitTime)
-
 	if timedOut {
 		// Send to a signal to this task saying it cannot run
-		r.mlog.LogCount(task.ctx, metricBaseName+"timeout", 1)
 		task.canRun <- false
 		return
 	}
@@ -164,9 +159,35 @@ func (r *Runner) checkMemAndUse(req uint64) bool {
 	return true
 }
 
+func (r *Runner) awaitSlot(ctask *containerTask) error {
+	span, _ := opentracing.StartSpanFromContext(ctask.ctx, "wait_mem_slot")
+	defer span.Finish()
+	// Check if has enough available memory
+	// If available, use it
+	if !r.checkMemAndUse(ctask.cfg.Memory) {
+		// If not, try add task to the queue
+		select {
+		case r.taskQueue <- ctask:
+		default:
+			span.LogFields(log.Int("queue full", 1))
+			// If queue is full, return error
+			return ErrFullQueue
+		}
+
+		// If task was added to the queue, wait for permission
+		if ok := <-ctask.canRun; !ok {
+			span.LogFields(log.Int("memory timeout", 1))
+			// This task timed out, not available memory
+			return ErrTimeOutNoMemory
+		}
+	}
+	return nil
+}
+
 // run is responsible for running 1 instance of a docker container
 func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
-	var err error
+	span, ctx := opentracing.StartSpanFromContext(ctx, "run_container")
+	defer span.Finish()
 
 	if cfg.Memory == 0 {
 		cfg.Memory = 128
@@ -183,36 +204,19 @@ func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, 
 		canRun: make(chan bool),
 	}
 
-	metricBaseName := fmt.Sprintf("run.%s.", cfg.AppName)
-	r.mlog.LogCount(ctx, metricBaseName+"requests", 1)
-
-	// Check if has enough available memory
-	// If available, use it
-	if !r.checkMemAndUse(cfg.Memory) {
-		// If not, try add task to the queue
-		select {
-		case r.taskQueue <- ctask:
-		default:
-			// If queue is full, return error
-			r.mlog.LogCount(ctx, "queue.full", 1)
-			return nil, ErrFullQueue
-		}
-
-		// If task was added to the queue, wait for permission
-		if ok := <-ctask.canRun; !ok {
-			// This task timed out, not available memory
-			return nil, ErrTimeOutNoMemory
-		}
-	} else {
-		r.mlog.LogTime(ctx, metricBaseName+"waittime", 0)
-	}
-	defer r.addUsedMem(-1 * int64(cfg.Memory))
-
-	cookie, err := r.driver.Prepare(ctx, ctask)
+	err := r.awaitSlot(ctask)
 	if err != nil {
 		return nil, err
 	}
-	defer cookie.Close()
+	defer r.addUsedMem(-1 * int64(cfg.Memory))
+
+	span, pctx := opentracing.StartSpanFromContext(ctx, "prepare")
+	cookie, err := r.driver.Prepare(pctx, ctask)
+	span.Finish()
+	if err != nil {
+		return nil, err
+	}
+	defer cookie.Close(ctx)
 
 	select {
 	case <-cfg.Ready:
@@ -220,23 +224,14 @@ func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, 
 		close(cfg.Ready)
 	}
 
-	metricStart := time.Now()
-
-	result, err := cookie.Run(ctx)
+	span, rctx := opentracing.StartSpanFromContext(ctx, "run")
+	result, err := cookie.Run(rctx)
+	span.Finish()
 	if err != nil {
 		return nil, err
 	}
 
-	if result.Status() == "success" {
-		r.mlog.LogCount(ctx, metricBaseName+"succeeded", 1)
-	} else {
-		r.mlog.LogCount(ctx, metricBaseName+"error", 1)
-	}
-
-	metricElapsed := time.Since(metricStart)
-	r.mlog.LogTime(ctx, metricBaseName+"time", metricElapsed)
-	r.mlog.LogTime(ctx, "run.exec_time", metricElapsed)
-
+	span.LogFields(log.String("status", result.Status()))
 	return result, nil
 }
 

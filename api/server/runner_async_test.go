@@ -32,7 +32,7 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 	r := s.Router
 	r.Use(gin.Logger())
 
-	r.Use(prepareMiddleware(ctx))
+	s.Router.Use(loggerWrap)
 	s.bindHandlers(ctx)
 	return r
 }

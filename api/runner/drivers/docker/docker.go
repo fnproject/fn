@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -18,8 +17,8 @@ import (
 	manifest "github.com/docker/distribution/manifest/schema1"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/heroku/docker-registry-client/registry"
+	"github.com/opentracing/opentracing-go"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common/stats"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 )
 
@@ -269,9 +268,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		return nil, err
 	}
 
-	createTimer := drv.NewTimer("docker", "create_container", 1.0)
 	_, err = drv.docker.CreateContainer(container)
-	createTimer.Measure()
 	if err != nil {
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
@@ -297,17 +294,15 @@ type cookie struct {
 	drv  *DockerDriver
 }
 
-func (c *cookie) Close() error { return c.drv.removeContainer(c.id) }
+func (c *cookie) Close(ctx context.Context) error { return c.drv.removeContainer(ctx, c.id) }
 
 func (c *cookie) Run(ctx context.Context) (drivers.RunResult, error) {
 	return c.drv.run(ctx, c.id, c.task)
 }
 
-func (drv *DockerDriver) removeContainer(container string) error {
-	removeTimer := drv.NewTimer("docker", "remove_container", 1.0)
-	defer removeTimer.Measure()
+func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
 	err := drv.docker.RemoveContainer(docker.RemoveContainerOptions{
-		ID: container, Force: true, RemoveVolumes: true})
+		ID: container, Force: true, RemoveVolumes: true, Context: ctx})
 
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"container": container}).Error("error removing container")
@@ -324,7 +319,9 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 	var config docker.AuthConfiguration // default, tries docker hub w/o user/pass
 	if task, ok := task.(Auther); ok {
 		var err error
+		span, _ := opentracing.StartSpanFromContext(ctx, "docker_auth")
 		config, err = task.DockerAuth()
+		span.Finish()
 		if err != nil {
 			return err
 		}
@@ -335,7 +332,7 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 	}
 
 	// see if we already have it, if not, pull it
-	_, err := drv.docker.InspectImage(task.Image())
+	_, err := drv.docker.InspectImage(ctx, task.Image())
 	if err == docker.ErrNoSuchImage {
 		err = drv.pullImage(ctx, task, config)
 	}
@@ -345,15 +342,8 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 
 func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTask, config docker.AuthConfiguration) error {
 	log := common.Logger(ctx)
-
 	reg, repo, tag := drivers.ParseImage(task.Image())
 	globalRepo := path.Join(reg, repo)
-
-	pullTimer := drv.NewTimer("docker", "pull_image", 1.0)
-	defer pullTimer.Measure()
-
-	drv.Inc("docker", "pull_image_count."+stats.AsStatField(task.Image()), 1, 1)
-
 	if reg != "" {
 		config.ServerAddress = reg
 	}
@@ -368,7 +358,6 @@ func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTa
 
 	err = drv.docker.PullImage(docker.PullImageOptions{Repository: globalRepo, Tag: tag, Context: ctx}, config)
 	if err != nil {
-		drv.Inc("task", "error.pull."+stats.AsStatField(task.Image()), 1, 1)
 		log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).WithError(err).Error("Failed to pull image")
 
 		// TODO need to inspect for hub or network errors and pick.
@@ -385,7 +374,6 @@ func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTa
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.RunResult, error) {
-	log := common.Logger(ctx)
 	timeout := task.Timeout()
 
 	var cancel context.CancelFunc
@@ -394,78 +382,39 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 	} else {
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 	}
-	defer cancel() // do this so that after Run exits, nanny and collect stop
-	var complete bool
-	defer func() { complete = true }() // run before cancel is called
-	ctx = context.WithValue(ctx, completeKey, &complete)
-
-	go drv.nanny(ctx, container)
+	defer cancel() // do this so that after Run exits, collect stops
 	go drv.collectStats(ctx, container, task)
 
 	mwOut, mwErr := task.Logger()
 
-	timer := drv.NewTimer("docker", "attach_container", 1)
-	waiter, err := drv.docker.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
+	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container: container, OutputStream: mwOut, ErrorStream: mwErr,
 		Stream: true, Logs: true, Stdout: true, Stderr: true,
 		Stdin: true, InputStream: task.Input()})
-	timer.Measure()
-	if err != nil {
+	if err != nil && ctx.Err() == nil {
+		// ignore if ctx has errored, rewrite status lay below
 		return nil, err
 	}
 
 	start := time.Now()
 
 	err = drv.startTask(ctx, container)
-	if err != nil {
-		if err == context.DeadlineExceeded {
-			// if there's just a timeout making the docker calls, rewrite it as such
-			return &runResult{start: start, status: drivers.StatusTimeout}, nil
-		}
+	if err != nil && ctx.Err() == nil {
+		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
 		return nil, err
 	}
 
-	taskTimer := drv.NewTimer("docker", "container_runtime", 1)
+	defer func() {
+		waiter.Close()
+		waiter.Wait() // make sure we gather all logs
+	}()
 
-	// can discard error, inspect will tell us about the task and wait will retry under the hood
-	drv.docker.WaitContainerWithContext(container, ctx)
-	taskTimer.Measure()
-
-	waiter.Close()
-	err = waiter.Wait()
-	if err != nil {
-		// TODO need to make sure this error isn't just a context error or something we can ignore
-		log.WithError(err).Error("attach to container returned error, task may be missing logs")
-	}
-
-	status, err := drv.status(ctx, container)
+	status, err := drv.wait(ctx, container)
 	return &runResult{
 		start:  start,
 		status: status,
 		error:  err,
 	}, nil
-}
-
-const completeKey = "complete"
-
-// watch for cancel or timeout and kill process.
-func (drv *DockerDriver) nanny(ctx context.Context, container string) {
-	select {
-	case <-ctx.Done():
-		if *(ctx.Value(completeKey).(*bool)) {
-			return
-		}
-		drv.cancel(container)
-	}
-}
-
-func (drv *DockerDriver) cancel(container string) {
-	stopTimer := drv.NewTimer("docker", "stop_container", 1.0)
-	err := drv.docker.StopContainer(container, 30)
-	stopTimer.Measure()
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"container": container, "errType": fmt.Sprintf("%T", err)}).Error("something managed to escape our retries web, could not kill container")
-	}
 }
 
 func (drv *DockerDriver) collectStats(ctx context.Context, container string, task drivers.ContainerTask) {
@@ -564,10 +513,8 @@ func newContainerID(task drivers.ContainerTask) string {
 
 func (drv *DockerDriver) startTask(ctx context.Context, container string) error {
 	log := common.Logger(ctx)
-	startTimer := drv.NewTimer("docker", "start_container", 1.0)
 	log.WithFields(logrus.Fields{"container": container}).Debug("Starting container execution")
 	err := drv.docker.StartContainerWithContext(container, nil, ctx)
-	startTimer.Measure()
 	if err != nil {
 		dockerErr, ok := err.(*docker.Error)
 		_, containerAlreadyRunning := err.(*docker.ContainerAlreadyRunning)
@@ -580,40 +527,26 @@ func (drv *DockerDriver) startTask(ctx context.Context, container string) error 
 	return nil
 }
 
-func (drv *DockerDriver) status(ctx context.Context, container string) (status string, err error) {
-	log := common.Logger(ctx)
+func (drv *DockerDriver) wait(ctx context.Context, container string) (status string, err error) {
+	// wait retries internally until ctx is up, so we can ignore the error and
+	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
+	// a more prevalent case is calling wait & container already finished, so again ignore err.
+	exitCode, _ := drv.docker.WaitContainerWithContext(container, ctx)
 
-	cinfo, err := drv.docker.InspectContainer(container)
-	if err != nil {
-		// this is pretty sad, but better to say we had an error than to not.
-		// task has run to completion and logs will be uploaded, user can decide
-		log.WithFields(logrus.Fields{"container": container}).WithError(err).Error("Inspecting container")
-		return drivers.StatusError, err
-	}
-
-	exitCode := cinfo.State.ExitCode
-	log.WithFields(logrus.Fields{
-		"exit_code":          exitCode,
-		"container_running":  cinfo.State.Running,
-		"container_status":   cinfo.State.Status,
-		"container_finished": cinfo.State.FinishedAt,
-		"container_error":    cinfo.State.Error,
-	}).Info("container status")
-
-	select { // do this after inspect so we can see exit code
-	case <-ctx.Done(): // check if task was canceled or timed out
-		switch ctx.Err() {
-		case context.DeadlineExceeded:
-			return drivers.StatusTimeout, nil
-		case context.Canceled:
-			return drivers.StatusCancelled, nil
+	// check the context first, if it's done then exitCode is invalid iff zero
+	// (can't know 100% without inspecting, but that's expensive and this is a good guess)
+	// if exitCode is non-zero, we prefer that since it proves termination.
+	if exitCode == 0 {
+		select {
+		case <-ctx.Done(): // check if task was canceled or timed out
+			switch ctx.Err() {
+			case context.DeadlineExceeded:
+				return drivers.StatusTimeout, nil
+			case context.Canceled:
+				return drivers.StatusCancelled, nil
+			}
+		default:
 		}
-	default:
-	}
-
-	if cinfo.State.Running {
-		log.Warn("getting status of task that is still running, need to fix this")
-		return drivers.StatusError, errors.New("task in running state but not timed out. weird")
 	}
 
 	switch exitCode {
@@ -623,15 +556,6 @@ func (drv *DockerDriver) status(ctx context.Context, container string) (status s
 		return drivers.StatusSuccess, nil
 	case 137: // OOM
 		drv.Inc("docker", "oom", 1, 1)
-		if !cinfo.State.OOMKilled {
-			// It is possible that the host itself is running out of memory and
-			// the host kernel killed one of the container processes.
-			// See: https://github.com/moby/moby/issues/15621
-			// TODO reed: isn't an OOM an OOM? this is wasting space imo
-			log.WithFields(logrus.Fields{"container": container}).Info("Setting task as OOM killed, but docker disagreed.")
-			drv.Inc("docker", "possible_oom_false_alarm", 1, 1.0)
-		}
-
 		return drivers.StatusKilled, drivers.ErrOutOfMemory
 	}
 }
