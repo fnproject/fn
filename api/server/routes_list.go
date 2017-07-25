@@ -23,6 +23,7 @@ func (s *Server) handleRouteList(c *gin.Context) {
 	name, ok := appName.(string)
 	if exists && ok && name != "" {
 		routes, err = s.Datastore.GetRoutesByApp(ctx, name, filter)
+		// if there are no routes for the app, check if the app exists to return 404 if it does not
 		if len(routes) == 0 {
 			_, err = s.Datastore.GetApp(ctx, name)
 		}
