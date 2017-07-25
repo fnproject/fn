@@ -1,23 +1,16 @@
 # Metrics
 
-Metrics are emitted via the logs for few couple of reasons:
+You can use zipkin to gather stats about the functions server.
 
-1. Everything supports STDERR.
-2. User can optionally use them, if not, they just end up in the logs.
-3. No particular metrics system required, in other words, all metrics systems can be used via adapters (see below).
+Running a zipkin node is easy to get started, they have a docker container:
 
-## Metrics
+[zipkin page](http://zipkin.io/pages/quickstart.html)
 
-The metrics format follows logfmt format and looks like this:
+With zipkin running you can point functions to it using an env var:
 
-```
-metric=someevent value=1 type=count
-metric=somegauge value=50 type=gauge
-```
+`ZIPKIN_URL=http://zipkin:9411/api/v1/spans`
 
-It's a very simple format that can be easily parsed by any logfmt parser and passed on to another stats service.
-
-TODO: List all metrics we emit to logs.
+TODO hook up zipkin to poop out to logs/statsd/something else too
 
 ## Statsd
 

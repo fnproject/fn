@@ -17,8 +17,8 @@ import (
 	manifest "github.com/docker/distribution/manifest/schema1"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/heroku/docker-registry-client/registry"
+	"github.com/opentracing/opentracing-go"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common/stats"
 	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
 )
 
@@ -268,9 +268,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		return nil, err
 	}
 
-	createTimer := drv.NewTimer("docker", "create_container", 1.0)
 	_, err = drv.docker.CreateContainer(container)
-	createTimer.Measure()
 	if err != nil {
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
@@ -296,17 +294,15 @@ type cookie struct {
 	drv  *DockerDriver
 }
 
-func (c *cookie) Close() error { return c.drv.removeContainer(c.id) }
+func (c *cookie) Close(ctx context.Context) error { return c.drv.removeContainer(ctx, c.id) }
 
 func (c *cookie) Run(ctx context.Context) (drivers.RunResult, error) {
 	return c.drv.run(ctx, c.id, c.task)
 }
 
-func (drv *DockerDriver) removeContainer(container string) error {
-	removeTimer := drv.NewTimer("docker", "remove_container", 1.0)
-	defer removeTimer.Measure()
+func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
 	err := drv.docker.RemoveContainer(docker.RemoveContainerOptions{
-		ID: container, Force: true, RemoveVolumes: true})
+		ID: container, Force: true, RemoveVolumes: true, Context: ctx})
 
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"container": container}).Error("error removing container")
@@ -323,7 +319,9 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 	var config docker.AuthConfiguration // default, tries docker hub w/o user/pass
 	if task, ok := task.(Auther); ok {
 		var err error
+		span, _ := opentracing.StartSpanFromContext(ctx, "docker_auth")
 		config, err = task.DockerAuth()
+		span.Finish()
 		if err != nil {
 			return err
 		}
@@ -334,7 +332,7 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 	}
 
 	// see if we already have it, if not, pull it
-	_, err := drv.docker.InspectImage(task.Image())
+	_, err := drv.docker.InspectImage(ctx, task.Image())
 	if err == docker.ErrNoSuchImage {
 		err = drv.pullImage(ctx, task, config)
 	}
@@ -344,15 +342,8 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 
 func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTask, config docker.AuthConfiguration) error {
 	log := common.Logger(ctx)
-
 	reg, repo, tag := drivers.ParseImage(task.Image())
 	globalRepo := path.Join(reg, repo)
-
-	pullTimer := drv.NewTimer("docker", "pull_image", 1.0)
-	defer pullTimer.Measure()
-
-	drv.Inc("docker", "pull_image_count."+stats.AsStatField(task.Image()), 1, 1)
-
 	if reg != "" {
 		config.ServerAddress = reg
 	}
@@ -367,7 +358,6 @@ func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTa
 
 	err = drv.docker.PullImage(docker.PullImageOptions{Repository: globalRepo, Tag: tag, Context: ctx}, config)
 	if err != nil {
-		drv.Inc("task", "error.pull."+stats.AsStatField(task.Image()), 1, 1)
 		log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).WithError(err).Error("Failed to pull image")
 
 		// TODO need to inspect for hub or network errors and pick.
@@ -397,12 +387,10 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 
 	mwOut, mwErr := task.Logger()
 
-	timer := drv.NewTimer("docker", "attach_container", 1)
-	waiter, err := drv.docker.AttachToContainerNonBlocking(docker.AttachToContainerOptions{
+	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container: container, OutputStream: mwOut, ErrorStream: mwErr,
 		Stream: true, Logs: true, Stdout: true, Stderr: true,
 		Stdin: true, InputStream: task.Input()})
-	timer.Measure()
 	if err != nil && ctx.Err() == nil {
 		// ignore if ctx has errored, rewrite status lay below
 		return nil, err
@@ -416,10 +404,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
-	taskTimer := drv.NewTimer("docker", "container_runtime", 1)
-
 	defer func() {
-		taskTimer.Measure()
 		waiter.Close()
 		waiter.Wait() // make sure we gather all logs
 	}()
@@ -528,10 +513,8 @@ func newContainerID(task drivers.ContainerTask) string {
 
 func (drv *DockerDriver) startTask(ctx context.Context, container string) error {
 	log := common.Logger(ctx)
-	startTimer := drv.NewTimer("docker", "start_container", 1.0)
 	log.WithFields(logrus.Fields{"container": container}).Debug("Starting container execution")
 	err := drv.docker.StartContainerWithContext(container, nil, ctx)
-	startTimer.Measure()
 	if err != nil {
 		dockerErr, ok := err.(*docker.Error)
 		_, containerAlreadyRunning := err.(*docker.ContainerAlreadyRunning)

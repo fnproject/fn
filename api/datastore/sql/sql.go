@@ -20,7 +20,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
@@ -134,8 +133,7 @@ func New(url *url.URL) (models.Datastore, error) {
 		}
 	}
 
-	sqlDatastore := &sqlStore{db: db}
-	return datastoreutil.NewValidator(sqlDatastore), nil
+	return &sqlStore{db: db}, nil
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {

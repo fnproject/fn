@@ -23,7 +23,7 @@ func TestRunnerHello(t *testing.T) {
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
 	fLogger := NewFuncLogger(fnl)
-	runner, err := New(ctx, fLogger, NewMetricLogger(), ds)
+	runner, err := New(ctx, fLogger, ds)
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}
@@ -82,7 +82,7 @@ func TestRunnerError(t *testing.T) {
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
 	fLogger := NewFuncLogger(fnl)
-	runner, err := New(ctx, fLogger, NewMetricLogger(), ds)
+	runner, err := New(ctx, fLogger, ds)
 	if err != nil {
 		t.Fatalf("Test error during New() - %s", err)
 	}

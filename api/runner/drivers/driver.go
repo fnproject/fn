@@ -17,7 +17,8 @@ import (
 // Clients should always call Close() on a DriverCookie after they are done
 // with it.
 type Cookie interface {
-	io.Closer
+	// Close should clean up any resources the cookie was using, or was going to use.
+	Close(ctx context.Context) error
 
 	// Run should execute task on the implementation.
 	// RunResult captures the result of task execution. This means if task

@@ -5,11 +5,21 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
+	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore/sql"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
 )
 
 func New(dbURL string) (models.Datastore, error) {
+	ds, err := newds(dbURL) // teehee
+	if err != nil {
+		return nil, err
+	}
+
+	return datastoreutil.MetricDS(datastoreutil.NewValidator(ds)), nil
+}
+
+func newds(dbURL string) (models.Datastore, error) {
 	u, err := url.Parse(dbURL)
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"url": dbURL}).Fatal("bad DB URL")

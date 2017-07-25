@@ -15,6 +15,9 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
 	"github.com/gin-gonic/gin"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/viper"
 	"gitlab-odx.oracle.com/odx/functions/api"
@@ -28,12 +31,13 @@ import (
 )
 
 const (
-	EnvLogLevel = "log_level"
-	EnvMQURL    = "mq_url"
-	EnvDBURL    = "db_url"
-	EnvLOGDBURL = "logstore_url"
-	EnvPort     = "port" // be careful, Gin expects this variable to be "port"
-	EnvAPIURL   = "api_url"
+	EnvLogLevel  = "log_level"
+	EnvMQURL     = "mq_url"
+	EnvDBURL     = "db_url"
+	EnvLOGDBURL  = "logstore_url"
+	EnvPort      = "port" // be careful, Gin expects this variable to be "port"
+	EnvAPIURL    = "api_url"
+	EnvZipkinURL = "zipkin_url"
 )
 
 type Server struct {
@@ -84,10 +88,9 @@ func NewFromEnv(ctx context.Context) *Server {
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, apiURL string, opts ...ServerOption) *Server {
-	metricLogger := runner.NewMetricLogger()
 	funcLogger := runner.NewFuncLogger(logDB)
 
-	rnr, err := runner.New(ctx, funcLogger, metricLogger, ds)
+	rnr, err := runner.New(ctx, funcLogger, ds)
 	if err != nil {
 		logrus.WithError(err).Fatalln("Failed to create a runner")
 		return nil
@@ -105,7 +108,8 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 	}
 
 	setMachineId()
-	s.Router.Use(prepareMiddleware(ctx))
+	setTracer()
+	s.Router.Use(loggerWrap, traceWrap)
 	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
@@ -115,6 +119,55 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 		opt(s)
 	}
 	return s
+}
+
+// we should use http grr
+func traceWrap(c *gin.Context) {
+	// try to grab a span from the request if made from another service, ignore err if not
+	wireContext, _ := opentracing.GlobalTracer().Extract(
+		opentracing.HTTPHeaders,
+		opentracing.HTTPHeadersCarrier(c.Request.Header))
+
+	// Create the span referring to the RPC client if available.
+	// If wireContext == nil, a root span will be created.
+	// TODO we should add more tags?
+	serverSpan := opentracing.StartSpan("serve_http", ext.RPCServerOption(wireContext), opentracing.Tag{"path", c.Request.URL.Path})
+	defer serverSpan.Finish()
+
+	ctx := opentracing.ContextWithSpan(c.Request.Context(), serverSpan)
+	c.Request = c.Request.WithContext(ctx)
+	c.Next()
+}
+
+func setTracer() {
+	var (
+		debugMode          = false
+		serviceName        = "fn-server"
+		serviceHostPort    = "localhost:8080" // meh
+		zipkinHTTPEndpoint = viper.GetString(EnvZipkinURL)
+		// ex: "http://zipkin:9411/api/v1/spans"
+	)
+
+	if zipkinHTTPEndpoint == "" {
+		return
+	}
+
+	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
+
+	collector, err := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start trace collector")
+	}
+	tracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+		zipkintracer.ClientServerSameSpan(true),
+		zipkintracer.TraceID128Bit(true),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start tracer")
+	}
+
+	opentracing.SetGlobalTracer(tracer)
+	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
 func setMachineId() {
@@ -150,22 +203,19 @@ func whoAmI() net.IP {
 	return nil
 }
 
-// todo: remove this or change name
-func prepareMiddleware(ctx context.Context) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, _ := common.LoggerWithFields(ctx, extractFields(c))
+func loggerWrap(c *gin.Context) {
+	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-		if appName := c.Param(api.CApp); appName != "" {
-			c.Set(api.AppName, appName)
-		}
-
-		if routePath := c.Param(api.CRoute); routePath != "" {
-			c.Set(api.Path, routePath)
-		}
-
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
+	if appName := c.Param(api.CApp); appName != "" {
+		c.Set(api.AppName, appName)
 	}
+
+	if routePath := c.Param(api.CRoute); routePath != "" {
+		c.Set(api.Path, routePath)
+	}
+
+	c.Request = c.Request.WithContext(ctx)
+	c.Next()
 }
 
 func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Task) (*models.Task, error) {
