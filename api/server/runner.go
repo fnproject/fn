@@ -28,31 +28,6 @@ type runnerResponse struct {
 	Error     *models.ErrorBody `json:"error,omitempty"`
 }
 
-func (s *Server) handleSpecial(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	ctx = context.WithValue(ctx, api.AppName, "")
-	c.Set(api.AppName, "")
-	ctx = context.WithValue(ctx, api.Path, c.Request.URL.Path)
-	c.Set(api.Path, c.Request.URL.Path)
-
-	r, err := s.UseSpecialHandlers(c.Writer, c.Request)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	c.Request = r
-	c.Set(api.AppName, r.Context().Value(api.AppName).(string))
-	if c.MustGet(api.AppName).(string) == "" {
-		handleErrorResponse(c, models.ErrRoutesNotFound)
-		return
-	}
-
-	// now call the normal runner call
-	s.handleRequest(c, nil)
-}
-
 func toEnvName(envtype, name string) string {
 	name = strings.ToUpper(strings.Replace(name, "-", "_", -1))
 	if envtype == "" {

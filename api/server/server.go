@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -50,7 +51,6 @@ type Server struct {
 
 	apiURL string
 
-	specialHandlers []SpecialHandler
 	appListeners    []AppListener
 	middlewares     []Middleware
 	runnerListeners []RunnerListener
@@ -373,8 +373,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.Any("/r/:app", s.handleRunnerRequest)
 	engine.Any("/r/:app/*route", s.handleRunnerRequest)
 
-	// This final route is used for extensions, see Server.Add
-	engine.NoRoute(s.handleSpecial)
+	engine.NoRoute(func(c *gin.Context) {
+		logrus.Debugln("not found", c.Request.URL.Path)
+		c.JSON(http.StatusNotFound, simpleError(errors.New("Path not found")))
+	})
 }
 
 type appResponse struct {
