@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"errors"
 	"gitlab-odx.oracle.com/odx/functions/api/datastore"
 	"gitlab-odx.oracle.com/odx/functions/api/logs"
 	"gitlab-odx.oracle.com/odx/functions/api/models"
@@ -35,7 +36,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		}, nil, nil, nil,
 	)
 	logDB := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, DefaultEnqueue)
 
 	for i, test := range []struct {
 		path          string
@@ -79,7 +80,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		}, nil, nil, nil,
 	)
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
 
 	for i, test := range []struct {
 		path          string
@@ -131,7 +132,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	)
 
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
 
 	for i, test := range []struct {
 		path            string
@@ -171,6 +172,45 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}
 }
 
+func TestFailedEnqueue(t *testing.T) {
+	buf := setLogBuffer()
+	rnr, cancelrnr := testRunner(t)
+	defer cancelrnr()
+
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: "myapp", Config: models.Config{}},
+		},
+		[]*models.Route{
+			{Path: "/dummy", AppName: "myapp", Image: "dummy/dummy", Type: "async"},
+		}, nil, nil,
+	)
+	fnl := logs.NewMock()
+
+	enqueue := func(ctx context.Context, mq models.MessageQueue, task *models.Task) (*models.Task, error) {
+		return nil, errors.New("Unable to push task to queue")
+	}
+
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, enqueue)
+	for i, test := range []struct {
+		path            string
+		body            string
+		method          string
+		expectedCode    int
+		expectedHeaders map[string][]string
+	}{
+		{"/r/myapp/dummy", ``, "POST", http.StatusInternalServerError, nil},
+	} {
+		body := strings.NewReader(test.body)
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
+		}
+	}
+}
+
 func TestRouteRunnerTimeout(t *testing.T) {
 	t.Skip("doesn't work on old Ubuntu")
 	buf := setLogBuffer()
@@ -187,7 +227,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		}, nil, nil,
 	)
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
 
 	for i, test := range []struct {
 		path            string
