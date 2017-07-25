@@ -115,6 +115,9 @@ func TestRoutePut(t *testing.T) {
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
 
+	routes := models.Routes{{AppName: "a", Path: "/myroute"}}
+	apps := models.Apps{{Name: "a", Routes: routes, Config: nil}}
+
 	for i, test := range []struct {
 		ds            models.Datastore
 		logDB         models.FnLog
@@ -124,11 +127,7 @@ func TestRouteDelete(t *testing.T) {
 		expectedError error
 	}{
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrRoutesNotFound},
-		{datastore.NewMockInit(nil,
-			[]*models.Route{
-				{Path: "/myroute", AppName: "a"},
-			}, nil, nil,
-		), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		{datastore.NewMockInit(apps, routes, nil, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, DefaultEnqueue)
@@ -170,7 +169,7 @@ func TestRouteList(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{"/v1/apps/a/routes", "", http.StatusOK, nil},
+		{"/v1/apps/a/routes", "", http.StatusNotFound, models.ErrAppsNotFound},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
