@@ -1,7 +1,4 @@
-image: docker:latest
-
-services:
-  - docker:dind
+image: funcy/go-dind:latest
 
 cache:
   key: "$CI_COMMIT_REF_NAME"
