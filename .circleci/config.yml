@@ -11,25 +11,25 @@ jobs:
     steps:
       - checkout
       # update Go
-      # - run: |
-      #     go version
-      #     go env GOROOT
-      #     sudo rm -rf /usr/local/go
-      #     wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
-      #     # mkdir -p $HOME/golang
-      #     # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
-      #     sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
-      #     go get -u github.com/golang/dep/...
-      # - run: go version
-      # # update Docker
-      # - run: |
-      #     docker version
-      #     sudo service docker stop
-      #     curl -fsSL https://get.docker.com/ | sudo sh
-      # - run: docker version
-      # - run: env
-      # - run: pwd
-      # - run: ls -al
+      - run: |
+          go version
+          go env GOROOT
+          sudo rm -rf /usr/local/go
+          wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
+          # mkdir -p $HOME/golang
+          # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
+          go get -u github.com/golang/dep/...
+      - run: go version
+      # update Docker
+      - run: |
+          docker version
+          sudo service docker stop
+          curl -fsSL https://get.docker.com/ | sudo sh
+      - run: docker version
+      - run: env
+      - run: pwd
+      - run: ls -al
       # - run: ./test.sh
       - deploy:
           command: |
