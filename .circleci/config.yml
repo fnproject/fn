@@ -15,9 +15,8 @@ jobs:
       - run: env
       - run: pwd
       - run: ls -al
-      # - run: |
-      #   cd $HOME/go
-      #   ./test.sh
+      - run: |
+        ./test.sh
 
 
 #  docker:
