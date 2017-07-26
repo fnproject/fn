@@ -5,17 +5,21 @@ jobs:
     working_directory: ~/go/src/github.com/fnproject/fn
     environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
       - GOPATH=/home/circleci/go
+      - GOVERSION=1.8.3
+      - OS=linux
+      - ARCH=amd64
     steps:
       - checkout
       # update docker
       - run: |
           go version
           go env GOROOT
-          wget https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz
-          mkdir -p $HOME/golang
-          tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
-          go get -u github.com/golang/dep/...
+          wget https://storage.googleapis.com/golang/$VERSION.$OS-$ARCH.tar.gz
+          # mkdir -p $HOME/golang
+          # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
+          tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz
           go version
+          # go get -u github.com/golang/dep/...
       - run: docker version
       # - run: sudo service docker stop
       # - run: curl -fsSL https://get.docker.com/ | sudo sh
