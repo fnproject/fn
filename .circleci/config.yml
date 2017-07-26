@@ -9,9 +9,9 @@ jobs:
       - checkout
       # update docker
       - run: docker version
-      - run: sudo service docker stop
-      - run: curl -fsSL https://get.docker.com/ | sudo sh
-      - run: docker version
+      # - run: sudo service docker stop
+      # - run: curl -fsSL https://get.docker.com/ | sudo sh
+      # - run: docker version
       - run: env
       - run: pwd
       - run: ls -al
