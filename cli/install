@@ -54,7 +54,7 @@ else
     exit 1
 fi
 
-url='https://gitlab-odx.oracle.com/odx/functions/fn/releases/download'
+url='https://github.com/fnproject/fn/cli/releases/download'
 
 # perform some very rudimentary platform detection
 case "$(uname)" in
@@ -84,7 +84,7 @@ cat >&2 <<'EOF'
   installer script (yet - PRs welcome! [fn/install]).
   Please visit the following URL for more detailed installation instructions:
 
-    https://gitlab-odx.oracle.com/odx/functions
+    https://github.com/fnproject/fn
 
 EOF
 exit 1

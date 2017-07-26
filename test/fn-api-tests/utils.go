@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/api/server"
+	"github.com/fnproject/fn/api/server"
 
 	"fmt"
 	"io"

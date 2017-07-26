@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/vrischmann/envconfig"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/common"
+	"github.com/fnproject/fn/api/runner/drivers"
 )
 
 type taskDockerTest struct {

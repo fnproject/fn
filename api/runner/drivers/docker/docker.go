@@ -18,8 +18,8 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/heroku/docker-registry-client/registry"
 	"github.com/opentracing/opentracing-go"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/common"
+	"github.com/fnproject/fn/api/runner/drivers"
 )
 
 const hubURL = "https://registry.hub.docker.com"

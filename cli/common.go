@@ -16,7 +16,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 
-	"gitlab-odx.oracle.com/odx/functions/fn/langs"
+	"github.com/fnproject/fn/cli/langs"
 )
 
 const (

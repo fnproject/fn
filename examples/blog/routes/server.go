@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"gitlab-odx.oracle.com/odx/functions/examples/blog/database"
-	"gitlab-odx.oracle.com/odx/functions/examples/blog/models"
+	"github.com/fnproject/fn/examples/blog/database"
+	"github.com/fnproject/fn/examples/blog/models"
 	"golang.org/x/crypto/bcrypt"
 )
 

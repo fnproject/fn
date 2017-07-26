@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 // NewValidator returns a models.Datastore which validates certain arguments before delegating to ds.

@@ -6,8 +6,8 @@ import (
 	"log"
 	"testing"
 
-	"gitlab-odx.oracle.com/odx/functions/api/id"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/models"
 
 	"net/http"
 	"reflect"

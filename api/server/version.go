@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api/version"
+	"github.com/fnproject/fn/api/version"
 )
 
 func handleVersion(c *gin.Context) {

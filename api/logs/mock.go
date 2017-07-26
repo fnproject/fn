@@ -3,7 +3,7 @@ package logs
 import (
 	"context"
 	"github.com/pkg/errors"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 type mock struct {

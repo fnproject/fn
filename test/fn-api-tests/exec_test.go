@@ -359,7 +359,7 @@ func TestRouteExecutions(t *testing.T) {
 
 	t.Run("exec-oversized-log-test", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("Skipped until fix for https://gitlab-odx.oracle.com/odx/functions/issues/86.")
+		t.Skip("Skipped until fix for https://github.com/fnproject/fn/issues/86.")
 
 		s := SetupDefaultSuite()
 		routePath := "/log"

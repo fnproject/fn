@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
+	"github.com/fnproject/fn/cli/client"
 	"net/http"
 	"os"
 	"testing"

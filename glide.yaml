@@ -1,4 +1,4 @@
-package: gitlab-odx.oracle.com/odx/functions
+package: github.com/fnproject/fn
 excludeDirs:
 - fn
 import:

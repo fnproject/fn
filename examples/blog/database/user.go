@@ -1,7 +1,7 @@
 package database
 
 import (
-	"gitlab-odx.oracle.com/odx/functions/examples/blog/models"
+	"github.com/fnproject/fn/examples/blog/models"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )

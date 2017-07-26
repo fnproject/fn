@@ -36,9 +36,9 @@ container_ip)
 esac
 
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn| grep -v tmp/go/src)
-# go test -v gitlab-odx.oracle.com/odx/functions/api/runner/drivers/docker
+# go test -v github.com/fnproject/fn/api/runner/drivers/docker
 
-cd fn && make build && make test
+cd cli && make build && make test
 # TODO: should we install fn here to use throughout?
 export FN="$(pwd)/fn"
 cd ..

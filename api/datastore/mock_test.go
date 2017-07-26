@@ -3,7 +3,7 @@ package datastore
 import (
 	"testing"
 
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoretest"
+	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
 )
 
 func TestDatastore(t *testing.T) {

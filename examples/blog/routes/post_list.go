@@ -1,7 +1,7 @@
 package route
 
 import (
-	"gitlab-odx.oracle.com/odx/functions/examples/blog/database"
+	"github.com/fnproject/fn/examples/blog/database"
 	"gopkg.in/mgo.v2/bson"
 )
 

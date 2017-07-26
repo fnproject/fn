@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 // AppListener is an interface used to inject custom code at key points in app lifecycle.

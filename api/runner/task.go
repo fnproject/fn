@@ -11,8 +11,8 @@ import (
 
 	"github.com/docker/cli/cli/config/configfile"
 	docker "github.com/fsouza/go-dockerclient"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 var registries dockerRegistries
