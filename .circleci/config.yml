@@ -9,12 +9,12 @@ jobs:
       - checkout
       # update docker
       - run: |
-        go version
-        wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
-        mkdir -p $HOME/golang
-        tar -C $HOME/golang -xvzf go1.8.linux-amd64.tar.gz
-        go get -u github.com/golang/dep/...
-        go version
+          go version
+          wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
+          mkdir -p $HOME/golang
+          tar -C $HOME/golang -xvzf go1.8.linux-amd64.tar.gz
+          go get -u github.com/golang/dep/...
+          go version
       - run: docker version
       # - run: sudo service docker stop
       # - run: curl -fsSL https://get.docker.com/ | sudo sh
