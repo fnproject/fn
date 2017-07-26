@@ -49,5 +49,5 @@ curl --data-binary "@fn.exe"    -H "Content-Type: application/octet-stream" -u $
 
 # TODO: Add the download URLS to install.sh. Maybe we should make a template to generate install.sh
 # TODO: Download URL's are in the output vars above under "url". Eg: "url":"/uploads/9a1848c5ebf2b83f8b055ac0e50e5232/fn.exe"
-sed "s/release=.*/release=\"$version\"/g" fn/install.sh > fn/install.sh.tmp
+sed "s/release=.*/release=\"$version\"/g" cli/install.sh > cli/install.sh.tmp
 mv cli/install.sh.tmp cli/install.sh
