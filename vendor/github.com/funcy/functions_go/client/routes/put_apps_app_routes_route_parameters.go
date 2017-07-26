@@ -4,6 +4,7 @@ package routes
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"net/http"
 	"time"
 
 	"golang.org/x/net/context"
@@ -47,6 +48,15 @@ func NewPutAppsAppRoutesRouteParamsWithContext(ctx context.Context) *PutAppsAppR
 	}
 }
 
+// NewPutAppsAppRoutesRouteParamsWithHTTPClient creates a new PutAppsAppRoutesRouteParams object
+// with the default values initialized, and the ability to set a custom HTTPClient for a request
+func NewPutAppsAppRoutesRouteParamsWithHTTPClient(client *http.Client) *PutAppsAppRoutesRouteParams {
+	var ()
+	return &PutAppsAppRoutesRouteParams{
+		HTTPClient: client,
+	}
+}
+
 /*PutAppsAppRoutesRouteParams contains all the parameters to send to the API endpoint
 for the put apps app routes route operation typically these are written to a http.Request
 */
@@ -68,8 +78,9 @@ type PutAppsAppRoutesRouteParams struct {
 	*/
 	Route string
 
-	timeout time.Duration
-	Context context.Context
+	timeout    time.Duration
+	Context    context.Context
+	HTTPClient *http.Client
 }
 
 // WithTimeout adds the timeout to the put apps app routes route params
@@ -92,6 +103,17 @@ func (o *PutAppsAppRoutesRouteParams) WithContext(ctx context.Context) *PutAppsA
 // SetContext adds the context to the put apps app routes route params
 func (o *PutAppsAppRoutesRouteParams) SetContext(ctx context.Context) {
 	o.Context = ctx
+}
+
+// WithHTTPClient adds the HTTPClient to the put apps app routes route params
+func (o *PutAppsAppRoutesRouteParams) WithHTTPClient(client *http.Client) *PutAppsAppRoutesRouteParams {
+	o.SetHTTPClient(client)
+	return o
+}
+
+// SetHTTPClient adds the HTTPClient to the put apps app routes route params
+func (o *PutAppsAppRoutesRouteParams) SetHTTPClient(client *http.Client) {
+	o.HTTPClient = client
 }
 
 // WithApp adds the app to the put apps app routes route params
@@ -130,7 +152,9 @@ func (o *PutAppsAppRoutesRouteParams) SetRoute(route string) {
 // WriteToRequest writes these params to a swagger request
 func (o *PutAppsAppRoutesRouteParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
-	r.SetTimeout(o.timeout)
+	if err := r.SetTimeout(o.timeout); err != nil {
+		return err
+	}
 	var res []error
 
 	// path param app
