@@ -3,8 +3,8 @@ jobs:
   build:
     machine: true
     working_directory: ~/go/src/github.com/fnproject/fn
-    environment:
-      - GOPATH=$HOME/go
+    # environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
+      # - GOPATH=$HOME/go # go should set this appropriately anyways
     steps:
       - checkout
       # update docker
@@ -15,6 +15,7 @@ jobs:
       - run: env
       - run: pwd
       - run: ls -al
+      - run: make build
       - run: ./test.sh
 
 
