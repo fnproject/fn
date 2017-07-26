@@ -14,12 +14,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
-	"github.com/gin-gonic/gin"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/patrickmn/go-cache"
-	"github.com/spf13/viper"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -28,6 +22,12 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/gin-gonic/gin"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/patrickmn/go-cache"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -350,12 +350,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		v1.PATCH("/apps/:app", s.handleAppUpdate)
 		v1.DELETE("/apps/:app", s.handleAppDelete)
 
-		v1.GET("/routes", s.handleRouteList)
-
-		v1.GET("/calls/:call", s.handleCallGet)
-		v1.GET("/calls/:call/log", s.handleCallLogGet)
-		v1.DELETE("/calls/:call/log", s.handleCallLogDelete)
-
 		apps := v1.Group("/apps/:app")
 		{
 			apps.GET("/routes", s.handleRouteList)
@@ -364,7 +358,13 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			apps.PATCH("/routes/*route", s.handleRouteCreateOrUpdate)
 			apps.PUT("/routes/*route", s.handleRouteCreateOrUpdate)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)
-			apps.GET("/calls/*route", s.handleCallList)
+
+			apps.GET("/calls", s.handleCallList)
+
+			apps.GET("/calls/:call", s.handleCallGet)
+			apps.GET("/calls/:call/log", s.handleCallLogGet)
+			apps.DELETE("/calls/:call/log", s.handleCallLogDelete)
+
 		}
 	}
 

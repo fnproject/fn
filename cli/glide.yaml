@@ -18,7 +18,7 @@ import:
   subpackages:
   - semver
 - package: github.com/funcy/functions_go
-  version: ^0.1.34
+  version: ^0.1.35
   subpackages:
   - client
   - client/apps
