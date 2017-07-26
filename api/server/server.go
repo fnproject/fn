@@ -211,6 +211,7 @@ func panicWrap(c *gin.Context) {
 				err = fmt.Errorf("fn: %v", rec)
 			}
 			handleErrorResponse(c, err)
+			c.Abort()
 		}
 	}(c)
 	c.Next()
