@@ -13,8 +13,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/common"
 )
 
 type BoltDbMQ struct {

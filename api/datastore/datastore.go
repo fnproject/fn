@@ -5,9 +5,9 @@ import (
 	"net/url"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/sql"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
+	"github.com/fnproject/fn/api/datastore/sql"
+	"github.com/fnproject/fn/api/models"
 )
 
 func New(dbURL string) (models.Datastore, error) {

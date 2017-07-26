@@ -1,4 +1,4 @@
-package: gitlab-odx.oracle.com/odx/functions/fn
+package: github.com/fnproject/fn/cli
 import:
 - package: github.com/Sirupsen/logrus
   repo: https://github.com/sirupsen/logrus

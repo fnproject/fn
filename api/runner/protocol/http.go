@@ -10,8 +10,8 @@ import (
 	"net/http/httputil"
 	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant

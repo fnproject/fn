@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/go-openapi/strfmt"
-	"gitlab-odx.oracle.com/odx/functions/api/id"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/models"
 )
 
 var testApp = &models.App{

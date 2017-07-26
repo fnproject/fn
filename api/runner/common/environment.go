@@ -1,7 +1,7 @@
 package common
 
 import (
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common/stats"
+	"github.com/fnproject/fn/api/runner/common/stats"
 )
 
 // An Environment is a long lived object that carries around 'configuration'

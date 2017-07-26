@@ -20,14 +20,14 @@ import (
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/viper"
-	"gitlab-odx.oracle.com/odx/functions/api"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore"
-	"gitlab-odx.oracle.com/odx/functions/api/id"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/logs"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
+	"github.com/fnproject/fn/api/runner"
+	"github.com/fnproject/fn/api/runner/common"
 )
 
 const (

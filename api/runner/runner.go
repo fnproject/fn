@@ -16,12 +16,12 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/docker"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers/mock"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/common"
+	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/drivers/docker"
+	"github.com/fnproject/fn/api/runner/drivers/mock"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 // TODO clean all of this up, the exposed API is huge and incohesive,

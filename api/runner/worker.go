@@ -11,11 +11,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
-	"gitlab-odx.oracle.com/odx/functions/api/id"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/protocol"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/protocol"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 // hot functions - theory of operation

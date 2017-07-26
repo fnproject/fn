@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 func MetricDS(ds models.Datastore) models.Datastore {

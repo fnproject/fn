@@ -8,7 +8,7 @@ import (
 	apicall "github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
+	client "github.com/fnproject/fn/cli/client"
 )
 
 type callsCmd struct {

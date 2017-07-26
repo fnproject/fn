@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api"
+	"github.com/fnproject/fn/api"
 )
 
 func (s *Server) handleCallLogGet(c *gin.Context) {

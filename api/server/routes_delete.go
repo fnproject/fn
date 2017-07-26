@@ -5,7 +5,7 @@ import (
 	"path"
 
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api"
+	"github.com/fnproject/fn/api"
 )
 
 func (s *Server) handleRouteDelete(c *gin.Context) {

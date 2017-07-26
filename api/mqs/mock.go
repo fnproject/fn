@@ -3,7 +3,7 @@ package mqs
 import (
 	"context"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 type Mock struct {

@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 // SpecialHandler verysimilar to a handler but since it is not used as middle ware no way

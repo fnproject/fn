@@ -15,12 +15,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/strfmt"
 	cache "github.com/patrickmn/go-cache"
-	"gitlab-odx.oracle.com/odx/functions/api"
-	"gitlab-odx.oracle.com/odx/functions/api/id"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner"
+	"github.com/fnproject/fn/api/runner/common"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 type runnerResponse struct {

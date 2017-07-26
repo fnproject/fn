@@ -16,7 +16,7 @@ import (
 	fnmodels "github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
+	client "github.com/fnproject/fn/cli/client"
 )
 
 type routesCmd struct {

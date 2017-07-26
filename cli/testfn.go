@@ -15,7 +15,7 @@ import (
 	functions "github.com/funcy/functions_go"
 	"github.com/onsi/gomega"
 	"github.com/urfave/cli"
-	"gitlab-odx.oracle.com/odx/functions/fn/client"
+	"github.com/fnproject/fn/cli/client"
 )
 
 type testStruct struct {

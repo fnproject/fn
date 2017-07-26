@@ -16,9 +16,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/opentracing/opentracing-go"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/common"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {

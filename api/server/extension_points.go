@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/models"
 )
 
 type ApiHandlerFunc func(w http.ResponseWriter, r *http.Request)

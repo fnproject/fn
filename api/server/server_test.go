@@ -14,10 +14,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	cache "github.com/patrickmn/go-cache"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/runner"
+	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
+	"github.com/fnproject/fn/api/runner"
 )
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"

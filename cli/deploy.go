@@ -13,7 +13,7 @@ import (
 	functions "github.com/funcy/functions_go"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
+	client "github.com/fnproject/fn/cli/client"
 )
 
 func deploy() cli.Command {

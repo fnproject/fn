@@ -3,7 +3,7 @@ package logs
 import (
 	"context"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/models"
 )
 
 type FnLog interface {
