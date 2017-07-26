@@ -14,10 +14,10 @@ jobs:
       - run: |
           go version
           go env GOROOT
-          wget https://storage.googleapis.com/golang/$VERSION.$OS-$ARCH.tar.gz
+          wget https://storage.googleapis.com/golang/$GOVERSION.$OS-$ARCH.tar.gz
           # mkdir -p $HOME/golang
           # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
-          tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz
+          tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
           go version
           # go get -u github.com/golang/dep/...
       - run: docker version
