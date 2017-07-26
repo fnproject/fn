@@ -10,9 +10,10 @@ jobs:
       # update docker
       - run: |
           go version
-          wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
+          go env GOROOT
+          wget https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz
           mkdir -p $HOME/golang
-          tar -C $HOME/golang -xvzf go1.8.linux-amd64.tar.gz
+          tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
           go get -u github.com/golang/dep/...
           go version
       - run: docker version
@@ -23,7 +24,7 @@ jobs:
       - run: pwd
       - run: ls -al
       - run: make build
-      - run: ./test.sh
+      # - run: ./test.sh
 
 
 #  docker:
