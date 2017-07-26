@@ -14,6 +14,7 @@ jobs:
       - run: |
           go version
           go env GOROOT
+          mkdir tmp
           cd tmp
           sudo rm -rf /usr/local/go
           wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
