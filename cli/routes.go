@@ -54,6 +54,12 @@ var routeFlags = []cli.Flag{
 	},
 }
 
+var updateRouteFlags = append(routeFlags,
+	cli.BoolFlag{
+		Name:  "ignore-fn-file",
+		Usage: "defines whether skip func file or not",
+	})
+
 func routes() cli.Command {
 
 	r := routesCmd{client: client.APIClient()}
@@ -90,7 +96,7 @@ func routes() cli.Command {
 				Usage:     "update a route in an `app`",
 				ArgsUsage: "<app> </path>",
 				Action:    r.update,
-				Flags:     routeFlags,
+				Flags:     updateRouteFlags,
 			},
 			{
 				Name:  "config",
@@ -361,8 +367,10 @@ func (a *routesCmd) update(c *cli.Context) error {
 
 	rt := &fnmodels.Route{}
 
-	if err := routeWithFuncFile(c, nil, rt); err != nil {
-		return fmt.Errorf("error updating route: %s", err)
+	if !c.Bool("ignore-fn-file") {
+		if err := routeWithFuncFile(c, nil, rt); err != nil {
+			return fmt.Errorf("error updating route: %s", err)
+		}
 	}
 
 	routeWithFlags(c, rt)
