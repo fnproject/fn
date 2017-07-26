@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/fnproject/fn/clilb/lb"
+	"github.com/fnproject/fn/fnlb/lb"
 )
 
 const VERSION = "0.0.1"
