@@ -1,6 +1,3 @@
-# Golang CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
   build:
@@ -17,9 +14,9 @@ jobs:
       - run: docker version
       - run: pwd
       - run: ls -al
-      - run: |
-        cd $HOME/go
-        ./test.sh
+      # - run: |
+      #   cd $HOME/go
+      #   ./test.sh
 
 
 #  docker:
