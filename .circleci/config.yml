@@ -18,7 +18,7 @@ jobs:
           wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
           # mkdir -p $HOME/golang
           # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
-          tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
+          sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
           go version
           # go get -u github.com/golang/dep/...
       - run: docker version
