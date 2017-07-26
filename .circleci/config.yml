@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     machine: true
-    working_directory: $HOME/go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    working_directory: $HOME/go/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
     environment:
       GOPATH=$HOME/go
     steps:
