@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"github.com/fnproject/fn/api/runner/common"
 
 	"github.com/gin-gonic/gin"
 )

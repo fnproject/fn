@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/common"
 )
 
 func (s *Server) handleAppDelete(c *gin.Context) {

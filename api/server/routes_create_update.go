@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/models"
 )
 
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.

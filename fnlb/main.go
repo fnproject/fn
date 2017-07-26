@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab-odx.oracle.com/odx/functions/fnlb/lb"
+	"github.com/fnproject/fn/clilb/lb"
 )
 
 const VERSION = "0.0.1"

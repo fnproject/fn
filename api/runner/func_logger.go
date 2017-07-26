@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/common"
 )
 
 // TODO kind of no reason to have FuncLogger interface... we can just do the thing.

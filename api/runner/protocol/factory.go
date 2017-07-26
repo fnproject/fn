@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")

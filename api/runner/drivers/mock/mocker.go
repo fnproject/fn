@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/drivers"
 )
 
 func New() drivers.Driver {

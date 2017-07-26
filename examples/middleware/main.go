@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gitlab-odx.oracle.com/odx/functions/api/server"
+	"github.com/fnproject/fn/api/server"
 )
 
 func main() {

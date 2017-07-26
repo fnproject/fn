@@ -1,4 +1,4 @@
-# Oracle Functions [![build status](https://gitlab-odx.oracle.com/odx/functions/badges/master/build.svg)](https://gitlab-odx.oracle.com/odx/functions/commits/master)
+# Oracle Functions [![build status](https://github.com/fnproject/fn/badges/master/build.svg)](https://github.com/fnproject/fn/commits/master)
 
 <!-- [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
@@ -52,7 +52,7 @@ export API_URL=http://129.146.10.253:80
 
 Download the pre-built CLI binary:
 
-1. Visit: https://gitlab-odx.oracle.com/odx/functions/tree/master/fn/releases/download/0.3.2
+1. Visit: https://github.com/fnproject/fn/tree/master/fn/releases/download/0.3.2
 2. Download the CLI for your platform
 3. Put in /usr/local/bin
 4. chmod +x
@@ -139,7 +139,7 @@ you can update your code and run `fn deploy myapp` again.
 
 - TODO: Slack or Discord community
 - Learn how to [contribute](CONTRIBUTING.md)
-- See [milestones](https://gitlab-odx.oracle.com/odx/functions/milestones) for detailed issues
+- See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
 
 
 ## User Interface

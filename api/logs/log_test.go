@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/sql"
-	logTesting "gitlab-odx.oracle.com/odx/functions/api/logs/testing"
+	"github.com/fnproject/fn/api/datastore/sql"
+	logTesting "github.com/fnproject/fn/api/logs/testing"
 )
 
 const tmpLogDb = "/tmp/func_test_log.db"

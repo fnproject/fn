@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/funcy/functions_go/models"
-	"gitlab-odx.oracle.com/odx/functions/api/id"
+	"github.com/fnproject/fn/api/id"
 )
 
 func TestRoutes(t *testing.T) {

@@ -15,12 +15,12 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/mqs"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/drivers"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/task"
+	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/logs"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
+	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/task"
 )
 
 func setLogBuffer() *bytes.Buffer {

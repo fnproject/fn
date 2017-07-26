@@ -9,10 +9,10 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-	"gitlab-odx.oracle.com/odx/functions/api/datastore"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
-	"gitlab-odx.oracle.com/odx/functions/api/mqs"
+	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/logs"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
 )
 
 func setLogBuffer() *bytes.Buffer {

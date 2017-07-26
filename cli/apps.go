@@ -9,12 +9,12 @@ import (
 	"context"
 	"strings"
 
+	client "github.com/fnproject/fn/cli/client"
 	fnclient "github.com/funcy/functions_go/client"
 	apiapps "github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
-	client "gitlab-odx.oracle.com/odx/functions/fn/client"
 )
 
 type appsCmd struct {

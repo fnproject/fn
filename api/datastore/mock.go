@@ -5,9 +5,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"gitlab-odx.oracle.com/odx/functions/api/datastore/internal/datastoreutil"
-	"gitlab-odx.oracle.com/odx/functions/api/logs"
-	"gitlab-odx.oracle.com/odx/functions/api/models"
+	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
+	"github.com/fnproject/fn/api/logs"
+	"github.com/fnproject/fn/api/models"
 )
 
 type mock struct {

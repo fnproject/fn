@@ -13,7 +13,7 @@ stages:
 before_script:
   - mkdir -p "${GOPATH}/src/gitlab-odx.oracle.com/odx/"
   - ln -s `pwd` "${GOPATH}/src/gitlab-odx.oracle.com/odx/"
-  - cd "${GOPATH}/src/gitlab-odx.oracle.com/odx/functions"
+  - cd "${GOPATH}/src/github.com/fnproject/fn"
 
 build_job:
   stage: build

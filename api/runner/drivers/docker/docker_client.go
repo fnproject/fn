@@ -16,7 +16,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
-	"gitlab-odx.oracle.com/odx/functions/api/runner/common"
+	"github.com/fnproject/fn/api/runner/common"
 )
 
 const (
