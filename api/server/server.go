@@ -14,12 +14,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
-	"github.com/gin-gonic/gin"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/patrickmn/go-cache"
-	"github.com/spf13/viper"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -28,6 +22,12 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/gin-gonic/gin"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/patrickmn/go-cache"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -109,7 +109,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 
 	setMachineId()
 	setTracer()
-	s.Router.Use(loggerWrap, traceWrap)
+	s.Router.Use(loggerWrap, traceWrap, panicWrap)
 	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
@@ -201,6 +201,19 @@ func whoAmI() net.IP {
 		}
 	}
 	return nil
+}
+
+func panicWrap(c *gin.Context) {
+	defer func(c *gin.Context) {
+		if rec := recover(); rec != nil {
+			err, ok := rec.(error)
+			if !ok {
+				err = fmt.Errorf("fn: %v", rec)
+			}
+			handleErrorResponse(c, err)
+		}
+	}(c)
+	c.Next()
 }
 
 func loggerWrap(c *gin.Context) {
@@ -295,15 +308,15 @@ func (s *Server) startGears(ctx context.Context) {
 	}
 
 	const runHeader = `
-	     ____                  __
-	    / __ \_________ ______/ /__
-	   / / / / ___/ __ / ___/ / _  \
-	  / /_/ / /  / /_/ / /__/ /  __/
-	  \_________ \__,_/\___/_/\____
-	     / ____/_  __ ___  _____/ /_( )___  ____  _____
-	    / /_  / / / / __ \/ ___/ __/ / __ \/ __ \/ ___/
-	   / __/ / /_/ / / / / /__/ /_/ / /_/ / / / (__  )
-	  /_/    \____/_/ /_/\___/\__/_/\____/_/ /_/____/
+	____                  __
+	/ __ \_________ ______/ /__
+	/ / / / ___/ __ / ___/ / _  \
+	/ /_/ / /  / /_/ / /__/ /  __/
+	\_________ \__,_/\___/_/\____
+	/ ____/_  __ ___  _____/ /_( )___  ____  _____
+	/ /_  / / / / __ \/ ___/ __/ / __ \/ __ \/ ___/
+	/ __/ / /_/ / / / / /__/ /_/ / /_/ / / / (__  )
+	/_/    \____/_/ /_/\___/\__/_/\____/_/ /_/____/
 	`
 	fmt.Println(runHeader)
 	logrus.Infof("Serving Functions API on address `%s`", listen)
