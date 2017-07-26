@@ -2,9 +2,9 @@ version: 2
 jobs:
   build:
     machine: true
-    working_directory: $HOME/go/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
+    working_directory: ~/go/src/github.com/fnproject/fn
     environment:
-      GOPATH=$HOME/go
+      - GOPATH=$HOME/go
     steps:
       - checkout
       # update docker
@@ -12,6 +12,7 @@ jobs:
       - run: sudo service docker stop
       - run: curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
+      - run: env
       - run: pwd
       - run: ls -al
       # - run: |
