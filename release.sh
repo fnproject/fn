@@ -39,7 +39,7 @@ docker tag $user/$service:$tag $user/$service:$version
 docker push $user/$service:$version
 docker push $user/$service:$tag
 
-cd fn
+cd cli
 ./release.sh $version
 cd ..
 cd fnlb
