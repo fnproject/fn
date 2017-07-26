@@ -15,8 +15,11 @@ jobs:
       - run: sudo service docker stop
       - run: curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
+      - run: pwd
       - run: ls -al
-      - run: ./test.sh
+      - run: |
+        cd $HOME/go
+        ./test.sh
 
 
 #  docker:
