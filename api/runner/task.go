@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/fnproject/fn/api/runner/protocol"
 	"github.com/fnproject/fn/api/runner/task"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -62,6 +63,9 @@ type containerTask struct {
 func (t *containerTask) Command() string { return "" }
 
 func (t *containerTask) EnvVars() map[string]string {
+	if protocol.IsStreamable(protocol.Protocol(t.cfg.Format)) {
+		return t.cfg.BaseEnv
+	}
 	return t.cfg.Env
 }
 func (t *containerTask) Input() io.Reader {
@@ -82,9 +86,8 @@ func (t *containerTask) IdleTimeout() time.Duration     { return t.cfg.IdleTimeo
 func (t *containerTask) Logger() (io.Writer, io.Writer) { return t.cfg.Stdout, t.cfg.Stderr }
 func (t *containerTask) Volumes() [][2]string           { return [][2]string{} }
 func (t *containerTask) WorkDir() string                { return "" }
-
-func (t *containerTask) Close()                 {}
-func (t *containerTask) WriteStat(drivers.Stat) {}
+func (t *containerTask) Close()                         {}
+func (t *containerTask) WriteStat(drivers.Stat)         {}
 
 // Implementing the docker.AuthConfiguration interface.  Pulling in
 // the docker repo password from environment variables
