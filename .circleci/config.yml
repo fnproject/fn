@@ -1,38 +1,41 @@
-# Golang CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
   build:
     machine: true
-    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    working_directory: ~/go/src/github.com/fnproject/fn
+    environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
+      - GOPATH=/home/circleci/go
+      - GOVERSION=1.8.3
+      - OS=linux
+      - ARCH=amd64
     steps:
       - checkout
-      # update docker
-      - run: docker version
-      - run: sudo service docker stop
-      - run: curl -fsSL https://get.docker.com/ | sudo sh
+      # update Go
+      - run: |
+          go version
+          go env GOROOT
+          mkdir tmp
+          cd tmp
+          sudo rm -rf /usr/local/go
+          wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
+          # mkdir -p $HOME/golang
+          # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
+          go get -u github.com/golang/dep/...
+      - run: go version
+      # update Docker
+      - run: |
+          docker version
+          sudo service docker stop
+          curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
       - run: ./test.sh
-
-
-#  docker:
-#       # specify the version
-#       - image: circleci/golang:1.8
-      
-#       # Specify service dependencies here if necessary
-#       # CircleCI maintains a library of pre-built images
-#       # documented at https://circleci.com/docs/2.0/circleci-images/
-#       # - image: circleci/postgres:9.4
-
-#     #### TEMPLATE_NOTE: go expects specific checkout path representing url
-#     #### expecting it in the form of
-#     ####   /go/src/github.com/circleci/go-tool
-#     ####   /go/src/bitbucket.org/circleci/go-tool
-#     working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
-#     steps:
-#       - checkout
-
-#       # specify any bash command here prefixed with `run: `
-#       # - run: go get -v -t -d ./...
-#       - run: ./test.sh
+      - deploy:
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              git config --global user.email "ci@fnproject.com"
+              git config --global user.name "CI"
+              git branch --set-upstream-to=origin/${CIRCLE_BRANCH} ${CIRCLE_BRANCH}
+              docker login -u $DOCKER_USER -p $DOCKER_PASS
+              ./release.sh
+            fi
