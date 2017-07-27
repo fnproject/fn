@@ -2,6 +2,8 @@
 
 set -ex
 
+make build
+
 docker rm -fv func-postgres-test || echo No prev test db container
 docker run --name func-postgres-test -p 15432:5432 -d postgres
 docker rm -fv func-mysql-test || echo No prev mysql test db container
@@ -43,8 +45,11 @@ cd cli && make build && make test
 export FN="$(pwd)/fn"
 cd ..
 
-# TODO: Test a bunch of the examples using fn test when ready
-# checker tests env vars
-# TODO: Fix checker tests behind proxy...
-# cd examples/checker
-# ./test.sh
+# test middlware, extensions, examples, etc
+# TODO: do more here, maybe as part of fn tests
+cd examples/middleware
+go build
+cd ../..
+cd examples/extensions
+go build
+cd ../..
