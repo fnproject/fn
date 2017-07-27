@@ -29,9 +29,6 @@ jobs:
           sudo service docker stop
           curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
-      - run: env
-      - run: pwd
-      - run: ls -al
       - run: ./test.sh
       - deploy:
           command: |
