@@ -1,3 +1,35 @@
+Release v1.10.16 (2017-07-26)
+===
+
+### Service Client Updates
+* `service/clouddirectory`: Updates service API and documentation
+  * Cloud Directory adds support for additional batch operations.
+* `service/cloudformation`: Updates service API and documentation
+  * AWS CloudFormation StackSets enables you to manage stacks across multiple accounts and regions.
+
+### SDK Enhancements
+* `aws/signer/v4`: Optimize V4 signer's header duplicate space stripping. [#1417](https://github.com/aws/aws-sdk-go/pull/1417)
+
+Release v1.10.15 (2017-07-24)
+===
+
+### Service Client Updates
+* `service/appstream`: Updates service API, documentation, and waiters
+  * Amazon AppStream 2.0 image builders and fleets can now access applications and network resources that rely on Microsoft Active Directory (AD) for authentication and permissions. This new feature allows you to join your streaming instances to your AD, so you can use your existing AD user management tools.
+* `service/ec2`: Updates service API and documentation
+  * Spot Fleet tagging capability allows customers to automatically tag instances launched by Spot Fleet. You can use this feature to label or distinguish instances created by distinct Spot Fleets. Tagging your EC2 instances also enables you to see instance cost allocation by tag in your AWS bill.
+
+### SDK Bugs
+* `aws/signer/v4`: Fix out of bounds panic in stripExcessSpaces [#1412](https://github.com/aws/aws-sdk-go/pull/1412)
+  * Fixes the out of bands panic in stripExcessSpaces caused by an incorrect calculation of the stripToIdx value. Simplified to code also.
+  * Fixes [#1411](https://github.com/aws/aws-sdk-go/issues/1411)
+Release v1.10.14 (2017-07-20)
+===
+
+### Service Client Updates
+* `service/elasticmapreduce`: Updates service API and documentation
+  * Amazon EMR now includes the ability to use a custom Amazon Linux AMI and adjustable root volume size when launching a cluster.
+
 Release v1.10.13 (2017-07-19)
 ===
 

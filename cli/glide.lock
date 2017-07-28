@@ -1,10 +1,10 @@
-hash: 4cce7a5074b5b856c40bc5a97c7fac81546f835c42fd16aeff728f66ca65dd00
-updated: 2017-07-19T15:40:45.33026105-07:00
+hash: ac1f86c693857c54f425217105213884d89e2e3f1818804faba74b7eb5839b6c
+updated: 2017-07-26T12:39:47.375642177-07:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
 - name: github.com/aws/aws-sdk-go
-  version: 8da51c33f6001c4dda06a2561c2234be4cece1ed
+  version: 61b379ef486ea3baa55e10c358f3217f06e7b5ad
   subpackages:
   - aws
   - aws/awserr
@@ -50,7 +50,7 @@ imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/funcy/functions_go
-  version: 601696a734d8df755f42bff262e699bb2eeb69b3
+  version: c540b7a8e1af8dad992a3b520175db85f8e53636
   subpackages:
   - client
   - client/apps

@@ -159,12 +159,13 @@ func TestRouteExecutions(t *testing.T) {
 
 		callID := CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 10)
-		cfg := &call.GetCallsCallParams{
+		cfg := &call.GetAppsAppCallsCallParams{
 			Call:    callID,
+			App:     s.AppName,
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
-		callResponse, err := s.Client.Call.GetCallsCall(cfg)
+		callResponse, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 		if err != nil {
 			switch err.(type) {
 			case *call.GetCallsCallNotFound:
@@ -224,12 +225,13 @@ func TestRouteExecutions(t *testing.T) {
 
 		json.NewDecoder(output).Decode(tB)
 
-		cfg := &call.GetCallsCallParams{
+		cfg := &call.GetAppsAppCallsCallParams{
 			Call:    tB.CallID,
+			App:     s.AppName,
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
-		callObj, err := s.Client.Call.GetCallsCall(cfg)
+		callObj, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
 		}
@@ -262,12 +264,13 @@ func TestRouteExecutions(t *testing.T) {
 		callID := CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(15 * time.Second)
 
-		cfg := &operations.GetCallsCallLogParams{
+		cfg := &operations.GetAppsAppCallsCallLogParams{
 			Call:    callID,
+			App:     s.AppName,
 			Context: s.Context,
 		}
 
-		logObj, err := s.Client.Operations.GetCallsCallLog(cfg)
+		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
 		}
@@ -312,7 +315,7 @@ func TestRouteExecutions(t *testing.T) {
 		res := output.String()
 		if !strings.Contains("application/xml, application/json; q=0.2", res) {
 			t.Errorf("HEADER_ACCEPT='application/xml, application/json; q=0.2' "+
-				"should be in output, have:\n%", res)
+				"should be in output, have:%s\n", res)
 		}
 		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
@@ -342,12 +345,13 @@ func TestRouteExecutions(t *testing.T) {
 		callID := CallAsync(t, u, content)
 		time.Sleep(10 * time.Second)
 
-		cfg := &operations.GetCallsCallLogParams{
+		cfg := &operations.GetAppsAppCallsCallLogParams{
 			Call:    callID,
+			App:     s.AppName,
 			Context: s.Context,
 		}
 
-		_, err := s.Client.Operations.GetCallsCallLog(cfg)
+		_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
@@ -359,7 +363,7 @@ func TestRouteExecutions(t *testing.T) {
 
 	t.Run("exec-oversized-log-test", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("Skipped until fix for https://github.com/fnproject/fn/issues/86.")
+		t.Skip("Skipped until fix for https://gitlab-odx.oracle.com/odx/functions/issues/86.")
 
 		s := SetupDefaultSuite()
 		routePath := "/log"
@@ -384,12 +388,13 @@ func TestRouteExecutions(t *testing.T) {
 		callID := CallAsync(t, u, content)
 		time.Sleep(5 * time.Second)
 
-		cfg := &operations.GetCallsCallLogParams{
+		cfg := &operations.GetAppsAppCallsCallLogParams{
 			Call:    callID,
+			App:     s.AppName,
 			Context: s.Context,
 		}
 
-		logObj, err := s.Client.Operations.GetCallsCallLog(cfg)
+		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
 		}

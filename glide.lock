@@ -1,5 +1,5 @@
-hash: 68fe5d3130a8346f3e38c0924b70369592ccdf0ffe503858056694a71a19acd2
-updated: 2017-07-21T18:13:30.488739267-07:00
+hash: a333d90d0cb65a059f0459e426d4a1a11cc4b7385beca641a11ebf2e67b2a371
+updated: 2017-07-26T12:30:24.327734143-07:00
 imports:
 - name: code.cloudfoundry.org/bytefmt
   version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
@@ -13,6 +13,38 @@ imports:
   - lib/go/thrift
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
+- name: github.com/aws/aws-sdk-go
+  version: 90dec2183a5f5458ee79cbaf4b8e9ab910bc81a6
+  subpackages:
+  - aws
+  - aws/awserr
+  - aws/awsutil
+  - aws/client
+  - aws/client/metadata
+  - aws/corehandlers
+  - aws/credentials
+  - aws/credentials/ec2rolecreds
+  - aws/defaults
+  - aws/ec2metadata
+  - aws/request
+  - aws/session
+  - aws/signer/v4
+  - private/endpoints
+  - private/protocol
+  - private/protocol/json/jsonutil
+  - private/protocol/jsonrpc
+  - private/protocol/query
+  - private/protocol/query/queryutil
+  - private/protocol/rest
+  - private/protocol/restjson
+  - private/protocol/restxml
+  - private/protocol/xml/xmlutil
+  - private/waiter
+  - service/cloudfront/sign
+  - service/lambda
+  - service/s3
+  - vendor/github.com/go-ini/ini
+  - vendor/github.com/jmespath/go-jmespath
 - name: github.com/Azure/go-ansiterm
   version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
@@ -27,6 +59,10 @@ imports:
   version: 230eff6403e22b43f5fba7b28466dae4718934dd
 - name: github.com/cenkalti/backoff
   version: 5d150e7eec023ce7a124856b37c68e54b4050ac7
+- name: github.com/coreos/go-semver
+  version: 1817cd4bea52af76542157eeabd74b057d1a199e
+  subpackages:
+  - semver
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
@@ -106,7 +142,7 @@ imports:
 - name: github.com/fsouza/go-dockerclient
   version: c933ed18bef34ec2955de03de8ef9a3bb996e3df
 - name: github.com/funcy/functions_go
-  version: 5d9948e8b1292c5421b5dd98bb6a9b5535d5e1ba
+  version: c540b7a8e1af8dad992a3b520175db85f8e53636
   subpackages:
   - client
   - client/apps
@@ -121,11 +157,18 @@ imports:
   subpackages:
   - internal
   - redis
+- name: github.com/giantswarm/semver-bump
+  version: 7ec6ac8985c24dd50b4942f9a908d13cdfe70f23
+  subpackages:
+  - bump
+  - storage
 - name: github.com/gin-gonic/gin
   version: d5b353c5d5a560322e6d96121c814115562501f7
   subpackages:
   - binding
   - render
+- name: github.com/go-ini/ini
+  version: 3d73f4b845efdf9989fffd4b4e562727744a34ba
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/analysis
@@ -152,6 +195,8 @@ imports:
   version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-openapi/validate
   version: 035dcd74f1f61e83debe1c22950dc53556e7e4b2
+- name: github.com/go-resty/resty
+  version: 6d8c785a63e4b7505c88451cf9c5b452ccf2454c
 - name: github.com/go-sql-driver/mysql
   version: 56226343bd543f91a3930ed73ebdd03cfd633e85
 - name: github.com/gogo/protobuf
@@ -197,12 +242,18 @@ imports:
   - api
   - config
   - mq
+- name: github.com/jmespath/go-jmespath
+  version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/jmoiron/jsonq
   version: e874b168d07ecc7808bc950a17998a8aa3141d82
 - name: github.com/jmoiron/sqlx
   version: d9bd385d68c068f1fabb5057e3dedcbcbb039d0f
   subpackages:
   - reflectx
+- name: github.com/juju/errgo
+  version: 08cceb5d0b5331634b9826762a8fd53b29b86ad8
+  subpackages:
+  - errors
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/lib/pq
@@ -227,8 +278,26 @@ imports:
   version: f533f7a102197536779ea3a8cb881d639e21ec5a
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
+- name: github.com/moby/moby
+  version: 72cda6a6c2f25854bea2d69168082684f2c9feca
+  subpackages:
+  - pkg/jsonmessage
 - name: github.com/Nvveen/Gotty
   version: cd527374f1e5bff4938207604a14f2e38a9cf512
+- name: github.com/onsi/gomega
+  version: c893efa28eb45626cdaa76c9f653b62488858837
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
 - name: github.com/opencontainers/runc
   version: ea35825a6350511ab93fe24e69c0723d6728616d
   subpackages:
@@ -271,14 +340,14 @@ imports:
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
 - name: github.com/Shopify/sarama
   version: 2fd980e23bdcbb8edeb78fc704de0c39a6567ffc
+- name: github.com/sirupsen/logrus
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
   repo: https://github.com/sirupsen/logrus.git
   vcs: git
   subpackages:
   - hooks/syslog
-- name: github.com/sirupsen/logrus
-  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/spf13/afero
   version: 9be650865eab0c12963d8753212f4f9c66cdcf12
   subpackages:
@@ -291,6 +360,8 @@ imports:
   version: 5644820622454e71517561946e3d94b9f9db6842
 - name: github.com/spf13/viper
   version: 0967fc9aceab2ce9da34061253ac10fb99bba5b2
+- name: github.com/urfave/cli
+  version: 4b90d79a682b4bf685762c7452db20f2a676ecb2
 - name: golang.org/x/crypto
   version: c10c31b5e94b6f7a0283272dc2bb27163dcea24b
   subpackages:
@@ -301,8 +372,12 @@ imports:
   subpackages:
   - context
   - context/ctxhttp
+  - html
+  - html/atom
+  - html/charset
   - idna
   - proxy
+  - publicsuffix
 - name: golang.org/x/sys
   version: 0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79
   subpackages:
@@ -311,6 +386,20 @@ imports:
 - name: golang.org/x/text
   version: 210eee5cf7323015d097341bcf7166130d001cd8
   subpackages:
+  - encoding
+  - encoding/charmap
+  - encoding/htmlindex
+  - encoding/internal
+  - encoding/internal/identifier
+  - encoding/japanese
+  - encoding/korean
+  - encoding/simplifiedchinese
+  - encoding/traditionalchinese
+  - encoding/unicode
+  - internal/tag
+  - internal/utf8internal
+  - language
+  - runes
   - transform
   - unicode/norm
   - width
