@@ -11,12 +11,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	client "github.com/fnproject/fn/cli/client"
 	fnclient "github.com/funcy/functions_go/client"
 	apiroutes "github.com/funcy/functions_go/client/routes"
 	fnmodels "github.com/funcy/functions_go/models"
 	"github.com/jmoiron/jsonq"
 	"github.com/urfave/cli"
-	client "github.com/fnproject/fn/cli/client"
 )
 
 type routesCmd struct {

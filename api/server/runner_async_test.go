@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	cache "github.com/patrickmn/go-cache"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner"
+	"github.com/gin-gonic/gin"
+	cache "github.com/patrickmn/go-cache"
 )
 
 func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, enqueue models.Enqueue) *gin.Engine {

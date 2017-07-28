@@ -2,8 +2,8 @@ package logs
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"github.com/fnproject/fn/api/models"
+	"github.com/pkg/errors"
 )
 
 type mock struct {

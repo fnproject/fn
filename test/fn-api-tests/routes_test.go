@@ -4,8 +4,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/funcy/functions_go/models"
 	"github.com/fnproject/fn/api/id"
+	"github.com/funcy/functions_go/models"
 )
 
 func TestRoutes(t *testing.T) {

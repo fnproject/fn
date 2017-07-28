@@ -14,12 +14,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/ccirello/supervisor"
-	"github.com/gin-gonic/gin"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/patrickmn/go-cache"
-	"github.com/spf13/viper"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -28,6 +22,12 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/gin-gonic/gin"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/patrickmn/go-cache"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -251,7 +251,7 @@ func (s *Server) handleTaskRequest(c *gin.Context) {
 			handleErrorResponse(c, err)
 			return
 		}
-		c.JSON(http.StatusAccepted, task)
+		c.JSON(http.StatusOK, task)
 	case "DELETE":
 		body, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vrischmann/envconfig"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/vrischmann/envconfig"
 )
 
 type taskDockerTest struct {

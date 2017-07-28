@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	client "github.com/fnproject/fn/cli/client"
 	fnclient "github.com/funcy/functions_go/client"
 	apicall "github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
-	client "github.com/fnproject/fn/cli/client"
 )
 
 type callsCmd struct {

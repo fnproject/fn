@@ -15,11 +15,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	manifest "github.com/docker/distribution/manifest/schema1"
+	"github.com/fnproject/fn/api/runner/common"
+	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/heroku/docker-registry-client/registry"
 	"github.com/opentracing/opentracing-go"
-	"github.com/fnproject/fn/api/runner/common"
-	"github.com/fnproject/fn/api/runner/drivers"
 )
 
 const hubURL = "https://registry.hub.docker.com"

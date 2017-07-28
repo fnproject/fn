@@ -6,9 +6,9 @@ import (
 	"runtime/debug"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/gin-gonic/gin"
 )
 
 // ErrInternalServerError returned when something exceptional happens.
