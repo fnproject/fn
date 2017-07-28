@@ -109,7 +109,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 
 	setMachineId()
 	setTracer()
-	s.Router.Use(loggerWrap, traceWrap)
+	s.Router.Use(loggerWrap, traceWrap, panicWrap)
 	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
@@ -201,6 +201,20 @@ func whoAmI() net.IP {
 		}
 	}
 	return nil
+}
+
+func panicWrap(c *gin.Context) {
+	defer func(c *gin.Context) {
+		if rec := recover(); rec != nil {
+			err, ok := rec.(error)
+			if !ok {
+				err = fmt.Errorf("fn: %v", rec)
+			}
+			handleErrorResponse(c, err)
+			c.Abort()
+		}
+	}(c)
+	c.Next()
 }
 
 func loggerWrap(c *gin.Context) {
@@ -297,16 +311,12 @@ func (s *Server) startGears(ctx context.Context) {
 	}
 
 	const runHeader = `
-	     ____                  __
-	    / __ \_________ ______/ /__
-	   / / / / ___/ __ / ___/ / _  \
-	  / /_/ / /  / /_/ / /__/ /  __/
-	  \_________ \__,_/\___/_/\____
-	     / ____/_  __ ___  _____/ /_( )___  ____  _____
-	    / /_  / / / / __ \/ ___/ __/ / __ \/ __ \/ ___/
-	   / __/ / /_/ / / / / /__/ /_/ / /_/ / / / (__  )
-	  /_/    \____/_/ /_/\___/\__/_/\____/_/ /_/____/
-	`
+      ______
+     / ____/___
+    / /_  / __ \
+   / __/ / / / /
+  /_/   /_/ /_/
+`
 	fmt.Println(runHeader)
 	logrus.Infof("Serving Functions API on address `%s`", listen)
 
