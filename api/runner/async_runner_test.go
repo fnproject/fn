@@ -63,7 +63,7 @@ func getTestServer(mockTasks []*models.Task) *httptest.Server {
 			c.JSON(http.StatusInternalServerError, err)
 			return
 		}
-		c.JSON(http.StatusAccepted, task)
+		c.JSON(http.StatusOK, task)
 	}
 
 	delHandler := func(c *gin.Context) {
@@ -120,7 +120,7 @@ func TestGetTaskError(t *testing.T) {
 		{
 			"url":   "/invalid",
 			"task":  getMockTask(),
-			"error": "json: cannot unmarshal number into Go value of type models.Task", // TODO WTF!
+			"error": "Unable to get task. Reason: 404 Not Found",
 		},
 	}
 

@@ -27,7 +27,7 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "get_task")
 	defer span.Finish()
 
-	req, _ := http.NewRequest("GET", url, nil)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
@@ -37,7 +37,7 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("Unable to get task. Reason %v", resp.Status))
+		return nil, errors.New(fmt.Sprintf("Unable to get task. Reason: %v", resp.Status))
 	}
 
 	var task models.Task
