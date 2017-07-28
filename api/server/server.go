@@ -208,10 +208,12 @@ func loggerWrap(c *gin.Context) {
 
 	if appName := c.Param(api.CApp); appName != "" {
 		c.Set(api.AppName, appName)
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), api.AppName, appName))
 	}
 
 	if routePath := c.Param(api.CRoute); routePath != "" {
 		c.Set(api.Path, routePath)
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), api.Path, routePath))
 	}
 
 	c.Request = c.Request.WithContext(ctx)
