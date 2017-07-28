@@ -3,7 +3,7 @@ set -e
 
 # Install script to install fn
 
-release="0.3.7"
+version="0.3.26"
 
 command_exists() {
   command -v "$@" > /dev/null 2>&1
@@ -54,24 +54,24 @@ else
     exit 1
 fi
 
-url='https://github.com/fnproject/fn/cli/releases/download'
+url='https://github.com/fnproject/cli/releases/download'
 
 # perform some very rudimentary platform detection
 case "$(uname)" in
   Linux)
-    $sh_c "$curl /usr/local/bin/fn $url/$release/fn_linux"
+    $sh_c "$curl /usr/local/bin/fn $url/$version/fn_linux"
     $sh_c "chmod +x /usr/local/bin/fn"
     fn --version
     exit 0
     ;;
   Darwin)
-    $sh_c "$curl /usr/local/bin/fn $url/$release/fn_mac"
+    $sh_c "$curl /usr/local/bin/fn $url/$version/fn_mac"
     $sh_c "chmod +x /usr/local/bin/fn"
     fn --version
     exit 0
     ;;
   WindowsNT)
-    $sh_c "$curl $url/$release/fn.exe"
+    $sh_c "$curl $url/$version/fn.exe"
     # TODO how to make executable? chmod?
     fn.exe --version
     exit 0

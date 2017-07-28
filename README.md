@@ -1,6 +1,6 @@
-# Fn [![build status](https://github.com/fnproject/fn/badges/master/build.svg)](https://github.com/fnproject/fn/commits/master)
+# Fn [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn)
 
-<!-- [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
+<!-- ADD ONCE PUBLIC [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
 Fn is an event-driven, open source, [functions-as-a-service](serverless.md) compute
 platform that you can run anywhere. Some of it's key features:
@@ -22,57 +22,21 @@ platform that you can run anywhere. Some of it's key features:
 * Docker 17.05 or later installed and running
 * Logged into Docker Hub (`docker login`)
 
-## Usage
-
-### Installation (if running locally)
-
-NOTE: The following instructions apply while the project is a private repo. This will
-build the Functions server and the CLI tool directly from the repo instead of
-using pre-built containers. Once the project is public, these steps will be unnecessary.
-
-```sh
-# Build and Install CLI tool
-cd fn
-make dep # just once
-make install
-
-# Build and Run Functions Server
-cd ..
-make dep # just once
-make run # will build as well
-```
-
-### Installation (if using internal alpha service)
-
-Set your system to point to the internal service on BMC:
-
-```sh
-export API_URL=http://129.146.10.253:80
-```
-
-Download the pre-built CLI binary:
-
-1. Visit: https://github.com/fnproject/fn/tree/master/fn/releases/download/0.3.2
-2. Download the CLI for your platform
-3. Put in /usr/local/bin
-4. chmod +x
-
-
-<!-- ADD BACK ONCE PUBLIC
+## Quickstart
 
 ### Install CLI tool
 
 This isn't required, but it sure makes things a lot easier. Just run the following to install:
 
 ```sh
-curl -LSs https://goo.gl/KKDFGn | sh
+curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 ```
 
 This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
 
 ### Run Fn Server
 
-To get started quickly with Fn, just fire up a functions container:
+Then fire up an Fn server:
 
 ```sh
 fn start
@@ -80,8 +44,6 @@ fn start
 
 This will start Fn in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
-
--->
 
 ### Your First Function
 
