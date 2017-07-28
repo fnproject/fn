@@ -12,15 +12,15 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gin-gonic/gin"
-	"github.com/go-openapi/strfmt"
-	cache "github.com/patrickmn/go-cache"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/task"
+	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/strfmt"
+	cache "github.com/patrickmn/go-cache"
 )
 
 type runnerResponse struct {

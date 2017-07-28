@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -20,7 +21,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/fnproject/fn/api/models"
 )
 
 // this aims to be an ANSI-SQL compliant package that uses only question

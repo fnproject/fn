@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/task"
+	"github.com/gin-gonic/gin"
 )
 
 func setLogBuffer() *bytes.Buffer {

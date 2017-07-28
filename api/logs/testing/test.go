@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
+	"github.com/go-openapi/strfmt"
 )
 
 var testApp = &models.App{

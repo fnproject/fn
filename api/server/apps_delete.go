@@ -3,10 +3,10 @@ package server
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) handleAppDelete(c *gin.Context) {

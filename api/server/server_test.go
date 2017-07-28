@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	cache "github.com/patrickmn/go-cache"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner"
+	"github.com/gin-gonic/gin"
+	cache "github.com/patrickmn/go-cache"
 )
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"

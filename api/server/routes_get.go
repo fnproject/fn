@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api"
+	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) handleRouteGet(c *gin.Context) {

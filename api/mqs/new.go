@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/opentracing/opentracing-go"
 	"github.com/fnproject/fn/api/models"
+	"github.com/opentracing/opentracing-go"
 )
 
 // New will parse the URL and return the correct MQ implementation.
