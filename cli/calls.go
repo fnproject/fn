@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	client "github.com/fnproject/fn/cli/client"
 	fnclient "github.com/funcy/functions_go/client"
 	apicall "github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
-	client "github.com/fnproject/fn/cli/client"
 )
 
 type callsCmd struct {
@@ -20,20 +20,20 @@ func calls() cli.Command {
 
 	return cli.Command{
 		Name:  "calls",
-		Usage: "manage function calls",
+		Usage: "manage function calls for apps",
 		Subcommands: []cli.Command{
 			{
 				Name:      "get",
 				Aliases:   []string{"g"},
-				Usage:     "get function call info",
-				ArgsUsage: "<call-id>",
+				Usage:     "get function call info per app",
+				ArgsUsage: "<app> <call-id>",
 				Action:    c.get,
 			},
 			{
 				Name:      "list",
 				Aliases:   []string{"l"},
-				Usage:     "list all calls for specific route",
-				ArgsUsage: "<app> <route>",
+				Usage:     "list all calls for specific app / route route is optional",
+				ArgsUsage: "<app> [route]",
 				Action:    c.list,
 			},
 		},
@@ -56,16 +56,17 @@ func printCalls(calls []*models.Call) {
 }
 
 func (call *callsCmd) get(ctx *cli.Context) error {
-	callID := ctx.Args().Get(0)
-	params := apicall.GetCallsCallParams{
+	app, callID := ctx.Args().Get(0), ctx.Args().Get(1)
+	params := apicall.GetAppsAppCallsCallParams{
 		Call:    callID,
+		App:     app,
 		Context: context.Background(),
 	}
-	resp, err := call.client.Call.GetCallsCall(&params)
+	resp, err := call.client.Call.GetAppsAppCallsCall(&params)
 	if err != nil {
 		switch err.(type) {
-		case *apicall.GetCallsCallNotFound:
-			return fmt.Errorf("error: %v", err.(*apicall.GetCallsCallNotFound).Payload.Error.Message)
+		case *apicall.GetAppsAppCallsCallNotFound:
+			return fmt.Errorf("error: %v", err.(*apicall.GetAppsAppCallsCallNotFound).Payload.Error.Message)
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 
@@ -75,13 +76,16 @@ func (call *callsCmd) get(ctx *cli.Context) error {
 }
 
 func (call *callsCmd) list(ctx *cli.Context) error {
-	app, route := ctx.Args().Get(0), ctx.Args().Get(1)
-	params := apicall.GetAppsAppCallsRouteParams{
+	app := ctx.Args().Get(0)
+	params := apicall.GetAppsAppCallsParams{
 		App:     app,
-		Route:   route,
 		Context: context.Background(),
 	}
-	resp, err := call.client.Call.GetAppsAppCallsRoute(&params)
+	if ctx.Args().Get(1) != "" {
+		route := ctx.Args().Get(1)
+		params.Route = &route
+	}
+	resp, err := call.client.Call.GetAppsAppCalls(&params)
 	if err != nil {
 		switch err.(type) {
 		case *apicall.GetCallsCallNotFound:

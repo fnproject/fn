@@ -15,12 +15,12 @@ func TestCalls(t *testing.T) {
 	t.Run("list-calls-for-missing-app", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
-		cfg := &call.GetAppsAppCallsRouteParams{
+		cfg := &call.GetAppsAppCallsParams{
 			App:     s.AppName,
-			Route:   s.RoutePath,
+			Route:   &s.RoutePath,
 			Context: s.Context,
 		}
-		_, err := s.Client.Call.GetAppsAppCallsRoute(cfg)
+		_, err := s.Client.Call.GetAppsAppCalls(cfg)
 		if err == nil {
 			t.Errorf("Must fail with missing app error, but got %s", err)
 		}
@@ -31,12 +31,12 @@ func TestCalls(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 
-		cfg := &call.GetAppsAppCallsRouteParams{
+		cfg := &call.GetAppsAppCallsParams{
 			App:     s.AppName,
-			Route:   s.RoutePath,
+			Route:   &s.RoutePath,
 			Context: s.Context,
 		}
-		_, err := s.Client.Call.GetAppsAppCallsRoute(cfg)
+		_, err := s.Client.Call.GetAppsAppCalls(cfg)
 		if err == nil {
 			t.Errorf("Must fail with missing route error, but got %s", err)
 		}
@@ -51,12 +51,13 @@ func TestCalls(t *testing.T) {
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.RouteConfig, s.RouteHeaders)
 
-		cfg := &call.GetCallsCallParams{
+		cfg := &call.GetAppsAppCallsCallParams{
 			Call:    "dummy",
+			App:     s.AppName,
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
-		_, err := s.Client.Call.GetCallsCall(cfg)
+		_, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 		if err == nil {
 			t.Error("Must fail because `dummy` call does not exist.")
 		}
@@ -85,7 +86,10 @@ func TestCalls(t *testing.T) {
 			Context: s.Context,
 		}
 		cfg.WithTimeout(time.Second * 60)
-		_, err := s.Client.Call.GetCallsCall(cfg)
+		_, err := s.Client.Call.GetAppsAppCalls(&call.GetAppsAppCallsParams{
+			App:   s.AppName,
+			Route: &s.RoutePath,
+		})
 		if err != nil {
 			switch err.(type) {
 			case *call.GetCallsCallNotFound:
@@ -113,17 +117,18 @@ func TestCalls(t *testing.T) {
 		CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 8)
 
-		cfg := &call.GetAppsAppCallsRouteParams{
+		cfg := &call.GetAppsAppCallsParams{
 			App:     s.AppName,
-			Route:   s.RoutePath,
+			Route:   &s.RoutePath,
 			Context: s.Context,
 		}
-		calls, err := s.Client.Call.GetAppsAppCallsRoute(cfg)
+		calls, err := s.Client.Call.GetAppsAppCalls(cfg)
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
 		}
-		if len(calls.Payload.Calls) == 0 {
+		if calls == nil || calls.Payload == nil || calls.Payload.Calls == nil || len(calls.Payload.Calls) == 0 {
 			t.Errorf("Must fail. There should be at least one call to `%v` route.", s.RoutePath)
+			return
 		}
 		for _, c := range calls.Payload.Calls {
 			if c.Path != s.RoutePath {

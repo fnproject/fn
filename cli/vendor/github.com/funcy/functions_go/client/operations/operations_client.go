@@ -23,62 +23,62 @@ type Client struct {
 }
 
 /*
-DeleteCallsCallLog deletes call log entry
+DeleteAppsAppCallsCallLog deletes call log entry
 
 Delete call log entry
 */
-func (a *Client) DeleteCallsCallLog(params *DeleteCallsCallLogParams) (*DeleteCallsCallLogAccepted, error) {
+func (a *Client) DeleteAppsAppCallsCallLog(params *DeleteAppsAppCallsCallLogParams) (*DeleteAppsAppCallsCallLogAccepted, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewDeleteCallsCallLogParams()
+		params = NewDeleteAppsAppCallsCallLogParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "DeleteCallsCallLog",
+		ID:                 "DeleteAppsAppCallsCallLog",
 		Method:             "DELETE",
-		PathPattern:        "/calls/{call}/log",
+		PathPattern:        "/apps/{app}/calls/{call}/log",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http", "https"},
 		Params:             params,
-		Reader:             &DeleteCallsCallLogReader{formats: a.formats},
+		Reader:             &DeleteAppsAppCallsCallLogReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*DeleteCallsCallLogAccepted), nil
+	return result.(*DeleteAppsAppCallsCallLogAccepted), nil
 
 }
 
 /*
-GetCallsCallLog gets call logs
+GetAppsAppCallsCallLog gets call logs
 
 Get call logs
 */
-func (a *Client) GetCallsCallLog(params *GetCallsCallLogParams) (*GetCallsCallLogOK, error) {
+func (a *Client) GetAppsAppCallsCallLog(params *GetAppsAppCallsCallLogParams) (*GetAppsAppCallsCallLogOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewGetCallsCallLogParams()
+		params = NewGetAppsAppCallsCallLogParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "GetCallsCallLog",
+		ID:                 "GetAppsAppCallsCallLog",
 		Method:             "GET",
-		PathPattern:        "/calls/{call}/log",
+		PathPattern:        "/apps/{app}/calls/{call}/log",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http", "https"},
 		Params:             params,
-		Reader:             &GetCallsCallLogReader{formats: a.formats},
+		Reader:             &GetAppsAppCallsCallLogReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetCallsCallLogOK), nil
+	return result.(*GetAppsAppCallsCallLogOK), nil
 
 }
 

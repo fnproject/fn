@@ -4,6 +4,7 @@ excludeDirs:
 import:
 - package: code.cloudfoundry.org/bytefmt
 - package: github.com/funcy/functions_go
+  version: ^0.1.35
   subpackages:
   - models
 - package: github.com/Sirupsen/logrus
@@ -28,7 +29,7 @@ import:
   subpackages:
   - cli/config/configfile
 - package: github.com/docker/distribution
-  branch: master 
+  branch: master
 - package: github.com/fsouza/go-dockerclient
 - package: github.com/garyburd/redigo
   subpackages:

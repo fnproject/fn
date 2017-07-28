@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: Oracle Functions
   description: The open source serverless platform.
-  version: "0.1.34"
+  version: "0.1.35"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -352,7 +352,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /calls/{call}/log:
+  /apps/{app}/calls/{call}/log:
     get:
       summary: Get call logs
       description: Get call logs
@@ -360,6 +360,11 @@ paths:
         - Call
         - Log
       parameters:
+        - name: app
+          description: App Name
+          required: true
+          type: string
+          in: path
         - name: call
           description: Call ID.
           required: true
@@ -386,6 +391,11 @@ paths:
           required: true
           type: string
           in: path
+        - name: app
+          description: App name.
+          required: true
+          type: string
+          in: path
       responses:
         202:
           description: Log delete request accepted
@@ -398,13 +408,18 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /calls/{call}:
+  /apps/{app}/calls/{call}:
     get:
       summary: Get call information
       description: Get call information
       tags:
         - Call
       parameters:
+        - name: app
+          description: app name
+          required: true
+          type: string
+          in: path
         - name: call
           description: Call ID.
           required: true
@@ -420,10 +435,10 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls/{route}:
+  /apps/{app}/calls/:
     get:
-      summary: Get route-bound calls.
-      description: Get route-bound calls.
+      summary: Get app-bound calls.
+      description: Get app-bound calls can filter to route-bound calls.
       tags:
         - Call
       parameters:
@@ -434,9 +449,9 @@ paths:
           in: path
         - name: route
           description: App route.
-          required: true
+          required: false
           type: string
-          in: path
+          in: query
       responses:
         200:
           description: Calls found
