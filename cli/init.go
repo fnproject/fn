@@ -17,8 +17,8 @@ import (
 
 	"strings"
 
-	"github.com/urfave/cli"
 	"github.com/fnproject/fn/cli/langs"
+	"github.com/urfave/cli"
 )
 
 var (

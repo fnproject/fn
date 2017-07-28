@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/task"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 var registries dockerRegistries

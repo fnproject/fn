@@ -3,9 +3,9 @@ package datastoreutil
 import (
 	"context"
 
+	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
-	"github.com/fnproject/fn/api/models"
 )
 
 func MetricDS(ds models.Datastore) models.Datastore {

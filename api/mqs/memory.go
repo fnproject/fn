@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/google/btree"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/google/btree"
 )
 
 type MemoryMQ struct {

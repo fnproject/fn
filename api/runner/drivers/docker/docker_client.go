@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
-	"github.com/fnproject/fn/api/runner/common"
 )
 
 const (

@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/go-openapi/strfmt"
-	"github.com/opentracing/opentracing-go"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/protocol"
 	"github.com/fnproject/fn/api/runner/task"
+	"github.com/go-openapi/strfmt"
+	"github.com/opentracing/opentracing-go"
 )
 
 // hot functions - theory of operation

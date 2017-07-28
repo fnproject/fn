@@ -4,9 +4,9 @@ package server
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
+	"github.com/gin-gonic/gin"
 )
 
 type ApiHandlerFunc func(w http.ResponseWriter, r *http.Request)

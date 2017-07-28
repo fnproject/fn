@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/garyburd/redigo/redis"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/garyburd/redigo/redis"
 )
 
 type RedisMQ struct {

@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api/version"
+	"github.com/gin-gonic/gin"
 )
 
 func handleVersion(c *gin.Context) {

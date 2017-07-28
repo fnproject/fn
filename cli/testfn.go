@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/cli/client"
 	functions "github.com/funcy/functions_go"
 	"github.com/onsi/gomega"
 	"github.com/urfave/cli"
-	"github.com/fnproject/fn/cli/client"
 )
 
 type testStruct struct {
