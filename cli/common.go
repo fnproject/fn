@@ -124,6 +124,7 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile, noCache bool) 
 			args = append(args, "--no-cache")
 		}
 		args = append(args,
+			"--pull",
 			"--build-arg", "HTTP_PROXY",
 			"--build-arg", "HTTPS_PROXY",
 			".")
