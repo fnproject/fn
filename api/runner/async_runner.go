@@ -14,30 +14,37 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/opentracing/opentracing-go"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/task"
+	"github.com/opentracing/opentracing-go"
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
-	// TODO shove this ctx into the request?
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"runner": "async"})
 	span, _ := opentracing.StartSpanFromContext(ctx, "get_task")
 	defer span.Finish()
 
-	// TODO uh, make a better http client :facepalm:
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
+	req, _ := http.NewRequest("GET", url, nil)
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}()
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(fmt.Sprintf("Unable to get task. Reason %v", resp.Status))
+	}
 
 	var task models.Task
 	err = json.NewDecoder(resp.Body).Decode(&task)
+	if err != nil {
+		log.WithError(err).Error("Unable to decode task from response object")
+	}
 	if err != nil {
 		return nil, err
 	}
