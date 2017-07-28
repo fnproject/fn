@@ -23,7 +23,6 @@ import (
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"runner": "async"})
 	span, _ := opentracing.StartSpanFromContext(ctx, "get_task")
 	defer span.Finish()
 
@@ -42,9 +41,6 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 
 	var task models.Task
 	err = json.NewDecoder(resp.Body).Decode(&task)
-	if err != nil {
-		log.WithError(err).Error("Unable to decode task from response object")
-	}
 	if err != nil {
 		return nil, err
 	}
