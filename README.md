@@ -1,8 +1,8 @@
-# Oracle Functions [![build status](https://github.com/fnproject/fn/badges/master/build.svg)](https://github.com/fnproject/fn/commits/master)
+# Fn [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn)
 
-<!-- [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
+<!-- ADD ONCE PUBLIC [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
-Oracle Functions is an event-driven, open source, [functions-as-a-service](serverless.md) compute
+Fn is an event-driven, open source, [functions-as-a-service](serverless.md) compute
 platform that you can run anywhere. Some of it's key features:
 
 * Write once
@@ -22,66 +22,28 @@ platform that you can run anywhere. Some of it's key features:
 * Docker 17.05 or later installed and running
 * Logged into Docker Hub (`docker login`)
 
-## Usage
-
-### Installation (if running locally)
-
-NOTE: The following instructions apply while the project is a private repo. This will
-build the Functions server and the CLI tool directly from the repo instead of
-using pre-built containers. Once the project is public, these steps will be unnecessary.
-
-```sh
-# Build and Install CLI tool
-cd fn
-make dep # just once
-make install
-
-# Build and Run Functions Server
-cd ..
-make dep # just once
-make run # will build as well
-```
-
-### Installation (if using internal alpha service)
-
-Set your system to point to the internal service on BMC:
-
-```sh
-export API_URL=http://129.146.10.253:80
-```
-
-Download the pre-built CLI binary:
-
-1. Visit: https://github.com/fnproject/fn/tree/master/fn/releases/download/0.3.2
-2. Download the CLI for your platform
-3. Put in /usr/local/bin
-4. chmod +x
-
-
-<!-- ADD BACK ONCE PUBLIC
+## Quickstart
 
 ### Install CLI tool
 
 This isn't required, but it sure makes things a lot easier. Just run the following to install:
 
 ```sh
-curl -LSs https://goo.gl/KKDFGn | sh
+curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 ```
 
 This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
 
-### Run Oracle Functions Server
+### Run Fn Server
 
-To get started quickly with Oracle Functions, just fire up a functions container:
+Then fire up an Fn server:
 
 ```sh
 fn start
 ```
 
-This will start Oracle Functions in single server mode, using an embedded database and message queue. You can find all the
+This will start Fn in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
-
--->
 
 ### Your First Function
 
@@ -97,7 +59,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Hello from Oracle Functions!")
+	fmt.Println("Hello from Fn!")
 }
 ```
 
@@ -112,7 +74,7 @@ fn init <DOCKERHUB_USERNAME>/hello
 # This will run inside a container exactly how it will on the server
 fn run
 
-# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
 fn deploy myapp
 ```
@@ -144,7 +106,7 @@ you can update your code and run `fn deploy myapp` again.
 
 ## User Interface
 
-This is the graphical user interface for Oracle Functions. It is currently not buildable.
+This is the graphical user interface for Fn. It is currently not buildable.
 
 ```sh
 docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" treeder/functions-ui
@@ -157,4 +119,4 @@ For more information, see: [https://github.com/treeder/functions-ui](https://git
 
 ### Check out the [Tutorial Series](examples/tutorial/).
 
- It will demonstrate some of Oracle Functions capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
+ It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
