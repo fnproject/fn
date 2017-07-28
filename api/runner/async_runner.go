@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"crypto/tls"
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
@@ -23,11 +24,26 @@ import (
 )
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
+	// TODO shove this ctx into the request?
 	span, _ := opentracing.StartSpanFromContext(ctx, "get_task")
 	defer span.Finish()
 
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	var client = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 120 * time.Second,
+			}).Dial,
+			MaxIdleConnsPerHost: 512,
+			TLSHandshakeTimeout: 10 * time.Second,
+			TLSClientConfig: &tls.Config{
+				ClientSessionCache: tls.NewLRUClientSessionCache(4096),
+			},
+		},
+	}
+	resp, err := client.Do(req.WithContext(ctx))
 	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
