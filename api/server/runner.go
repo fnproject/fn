@@ -152,12 +152,15 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 			}
 			return "https"
 		}(), c.Request.Host, c.Request.URL.String()),
-		"CALL_ID": reqID,
-		"FORMAT":  route.Format,
+		"CALL_ID":   reqID,
+		"FN_FORMAT": route.Format,
 	}
 
-	// TODO we could add... format, app_name, route from above (but nothing from the specific request)
-	baseVars := make(map[string]string, len(app.Config)+len(route.Config))
+	// baseVars are the vars on the route & app, not on this specific request [for hot functions]
+	baseVars := make(map[string]string, len(app.Config)+len(route.Config)+3)
+	baseVars["FN_FORMAT"] = route.Format
+	baseVars["APP_NAME"] = appName
+	baseVars["ROUTE"] = route.Path
 
 	// app config
 	for k, v := range app.Config {
