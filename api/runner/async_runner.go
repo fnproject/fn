@@ -29,7 +29,7 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 	defer span.Finish()
 
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	var client = &http.Client{
+	client := &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			Dial: (&net.Dialer{
@@ -105,8 +105,22 @@ func deleteTask(ctx context.Context, url string, task *models.Task) error {
 	if err != nil {
 		return err
 	}
-	c := &http.Client{}
-	if resp, err := c.Do(req); err != nil {
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 120 * time.Second,
+			}).Dial,
+			MaxIdleConnsPerHost: 512,
+			TLSHandshakeTimeout: 10 * time.Second,
+			TLSClientConfig: &tls.Config{
+				ClientSessionCache: tls.NewLRUClientSessionCache(4096),
+			},
+		},
+	}
+
+	if resp, err := client.Do(req); err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(resp.Body)
