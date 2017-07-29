@@ -44,7 +44,7 @@ func NewAllGrouper(conf Config) (Grouper, error) {
 		hcEndpoint:    conf.HealthcheckEndpoint,
 		hcUnhealthy:   int64(conf.HealthcheckUnhealthy),
 		hcTimeout:     time.Duration(conf.HealthcheckTimeout) * time.Second,
-		minAPIVersion: conf.MinAPIVersion,
+		minAPIVersion: *conf.MinAPIVersion,
 
 		// for health checks
 		httpClient: &http.Client{Transport: conf.Transport},
@@ -86,7 +86,7 @@ type allGrouper struct {
 	hcEndpoint    string
 	hcUnhealthy   int64
 	hcTimeout     time.Duration
-	minAPIVersion *semver.Version
+	minAPIVersion semver.Version
 }
 
 // TODO put this somewhere better
@@ -288,8 +288,6 @@ type fnVersion struct {
 	Version string `json:"version"`
 }
 
-var v fnVersion
-
 func (a *allGrouper) getVersion(urlString string) (string, error) {
 	req, _ := http.NewRequest(http.MethodGet, urlString, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), a.hcTimeout)
@@ -297,7 +295,6 @@ func (a *allGrouper) getVersion(urlString string) (string, error) {
 	req = req.WithContext(ctx)
 
 	resp, err := a.httpClient.Do(req)
-
 	if err != nil {
 		return "", err
 	}
@@ -306,8 +303,8 @@ func (a *allGrouper) getVersion(urlString string) (string, error) {
 		resp.Body.Close()
 	}()
 
-	err = json.NewDecoder(resp.Body).Decode(v)
-
+	var v fnVersion
+	err = json.NewDecoder(resp.Body).Decode(&v)
 	if err != nil {
 		return "", err
 	}
@@ -323,9 +320,8 @@ func (a *allGrouper) checkAPIVersion(node string) error {
 	}
 
 	nodeVer := semver.New(version)
-
-	if a.minAPIVersion.Compare(*nodeVer) == -1 {
-		return fmt.Errorf("incompatible API version: %v", a.minAPIVersion)
+	if nodeVer.LessThan(a.minAPIVersion) {
+		return fmt.Errorf("incompatible API version: %v", nodeVer)
 	}
 	return nil
 }
