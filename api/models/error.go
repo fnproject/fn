@@ -144,10 +144,6 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Negative idle timeout"),
 	}
-	ErrNoSpecialHandlerFound = err{
-		code:  http.StatusNotFound,
-		error: errors.New("Path not found"),
-	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call not found"),
