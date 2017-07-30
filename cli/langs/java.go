@@ -71,7 +71,6 @@ func (lh *JavaLangHelper) Cmd() string {
 func (lh *JavaLangHelper) DockerfileCopyCmds() []string {
 	return []string{
 		"COPY --from=build-stage /function/target/*.jar /function/app/",
-		"COPY --from=build-stage /function/target/dependency/*.jar /function/lib/",
 	}
 }
 
@@ -80,7 +79,8 @@ func (lh *JavaLangHelper) DockerfileBuildCmds() []string {
 	return []string{
 		fmt.Sprintf("ENV MAVEN_OPTS %s", mavenOpts()),
 		"ADD pom.xml /function/pom.xml",
-		"RUN [\"mvn\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", \"-DskipTests=true\", \"-Dmdep.prependGroupId=true\"]",
+		"RUN [\"mvn\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", " +
+			"\"-DskipTests=true\", \"-Dmdep.prependGroupId=true\", \"-DoutputDirectory=target\", \"--fail-never\"]",
 		"ADD src /function/src",
 		"RUN [\"mvn\", \"package\"]",
 	}
