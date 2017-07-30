@@ -17,7 +17,7 @@ import (
 	"github.com/fnproject/fn/fnlb/lb"
 )
 
-const VERSION = "0.0.11"
+const VERSION = "0.0.12"
 
 func main() {
 	// XXX (reed): normalize
