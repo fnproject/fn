@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -73,14 +72,9 @@ func main() {
 func serve(addr string, handler http.Handler) error {
 	server := &http.Server{Addr: addr, Handler: handler}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	defer wg.Wait()
-
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGQUIT, syscall.SIGINT)
 	go func() {
-		defer wg.Done()
 		for sig := range ch {
 			logrus.WithFields(logrus.Fields{"signal": sig}).Info("received signal")
 			server.Shutdown(context.Background()) // safe shutdown
