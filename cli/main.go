@@ -36,8 +36,8 @@ func newFn() *cli.App {
 	app.Name = "fn"
 	app.Version = Version
 	app.Authors = []cli.Author{{Name: "Oracle Corporation"}}
-	app.Description = "Oracle Functions command line tools"
-	app.UsageText = `Check the manual at https://github.com/fnproject/fn/blob/master/fn/README.md`
+	app.Description = "Fn command line tool"
+	app.UsageText = `Check the docs at https://github.com/fnproject/fn/blob/master/fn/README.md`
 
 	cli.AppHelpTemplate = `{{.Name}} {{.Version}}{{if .Description}}
 
@@ -127,7 +127,12 @@ func prepareCmdArgsValidation(cmds []cli.Command) {
 
 func main() {
 	app := newFn()
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		// TODO: this doesn't seem to get called even when an error returns from a command, but maybe urfave is doing a non zero exit anyways? nope: https://github.com/urfave/cli/issues/610
+		fmt.Printf("Error occurred: %v, exiting...\n", err)
+		os.Exit(1)
+	}
 }
 
 func resetBasePath(c *functions.Configuration) error {
