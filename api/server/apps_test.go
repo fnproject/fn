@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	"github.com/gin-gonic/gin"
 )
 
 func setLogBuffer() *bytes.Buffer {

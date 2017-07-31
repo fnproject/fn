@@ -6,9 +6,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
+	"github.com/gin-gonic/gin"
 )
 
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.

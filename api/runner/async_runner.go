@@ -14,20 +14,37 @@ import (
 	"sync"
 	"time"
 
+	"crypto/tls"
+	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/opentracing/opentracing-go"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/task"
+	"github.com/opentracing/opentracing-go"
 )
+
+var client = &http.Client{
+	Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 120 * time.Second,
+		}).Dial,
+		MaxIdleConnsPerHost: 512,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			ClientSessionCache: tls.NewLRUClientSessionCache(4096),
+		},
+	},
+}
 
 func getTask(ctx context.Context, url string) (*models.Task, error) {
 	// TODO shove this ctx into the request?
 	span, _ := opentracing.StartSpanFromContext(ctx, "get_task")
 	defer span.Finish()
 
-	// TODO uh, make a better http client :facepalm:
-	resp, err := http.Get(url)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +52,9 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(fmt.Sprintf("Unable to get task. Reason: %v", resp.Status))
+	}
 
 	var task models.Task
 	err = json.NewDecoder(resp.Body).Decode(&task)
@@ -86,10 +106,17 @@ func deleteTask(ctx context.Context, url string, task *models.Task) error {
 	if err != nil {
 		return err
 	}
-	c := &http.Client{}
-	if resp, err := c.Do(req); err != nil {
+
+	resp, err := client.Do(req)
+	if err != nil {
 		return err
-	} else if resp.StatusCode != http.StatusAccepted {
+	}
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err

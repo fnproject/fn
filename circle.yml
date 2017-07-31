@@ -27,6 +27,8 @@ dependencies:
 
 test:
   override:
+    - make fmt:
+      pwd: $GO_PROJECT
     - make test:
         pwd: $GO_PROJECT
     - make test-build-arm:

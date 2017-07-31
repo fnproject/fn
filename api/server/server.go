@@ -267,7 +267,7 @@ func (s *Server) handleTaskRequest(c *gin.Context) {
 			handleErrorResponse(c, err)
 			return
 		}
-		c.JSON(http.StatusAccepted, task)
+		c.JSON(http.StatusOK, task)
 	case "DELETE":
 		body, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {

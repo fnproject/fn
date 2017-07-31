@@ -14,14 +14,14 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/drivers/docker"
 	"github.com/fnproject/fn/api/runner/drivers/mock"
 	"github.com/fnproject/fn/api/runner/task"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 )
 
 // TODO clean all of this up, the exposed API is huge and incohesive,
