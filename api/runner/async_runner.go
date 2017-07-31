@@ -44,13 +44,13 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 		},
 	}
 	resp, err := client.Do(req.WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}()
-	if err != nil {
-		return nil, err
-	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New(fmt.Sprintf("Unable to get task. Reason: %v", resp.Status))
 	}
