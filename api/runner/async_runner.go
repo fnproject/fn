@@ -107,9 +107,16 @@ func deleteTask(ctx context.Context, url string, task *models.Task) error {
 		return err
 	}
 
-	if resp, err := client.Do(req); err != nil {
+	resp, err := client.Do(req)
+	if err != nil {
 		return err
-	} else if resp.StatusCode != http.StatusAccepted {
+	}
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
