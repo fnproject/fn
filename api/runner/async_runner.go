@@ -23,26 +23,27 @@ import (
 	"github.com/opentracing/opentracing-go"
 )
 
+var client = &http.Client{
+	Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 120 * time.Second,
+		}).Dial,
+		MaxIdleConnsPerHost: 512,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			ClientSessionCache: tls.NewLRUClientSessionCache(4096),
+		},
+	},
+}
+
 func getTask(ctx context.Context, url string) (*models.Task, error) {
 	// TODO shove this ctx into the request?
 	span, _ := opentracing.StartSpanFromContext(ctx, "get_task")
 	defer span.Finish()
 
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 120 * time.Second,
-			}).Dial,
-			MaxIdleConnsPerHost: 512,
-			TLSHandshakeTimeout: 10 * time.Second,
-			TLSClientConfig: &tls.Config{
-				ClientSessionCache: tls.NewLRUClientSessionCache(4096),
-			},
-		},
-	}
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, err
@@ -104,20 +105,6 @@ func deleteTask(ctx context.Context, url string, task *models.Task) error {
 	req, err := http.NewRequest(http.MethodDelete, url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
-	}
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 120 * time.Second,
-			}).Dial,
-			MaxIdleConnsPerHost: 512,
-			TLSHandshakeTimeout: 10 * time.Second,
-			TLSClientConfig: &tls.Config{
-				ClientSessionCache: tls.NewLRUClientSessionCache(4096),
-			},
-		},
 	}
 
 	if resp, err := client.Do(req); err != nil {
