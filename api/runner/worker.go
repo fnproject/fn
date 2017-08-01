@@ -64,12 +64,29 @@ func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg
 	startedAt := strfmt.DateTime(time.Now())
 	newTask.StartedAt = startedAt
 
-	result, err := rnr.RunTask(ctx, cfg)
+	rnr.Start() // TODO layering issue ???
+	defer rnr.Complete()
+
+	tresp := make(chan task.Response)
+	treq := task.Request{Ctx: ctx, Config: cfg, Response: tresp}
+
+	isStream := protocol.IsStreamable(protocol.Protocol(cfg.Format))
+	if !isStream {
+		go runTaskReq(rnr, treq)
+	} else {
+		tasks := rnr.hcmgr.getPipe(ctx, rnr, cfg)
+		tasks <- treq
+	}
+
+	resp := <-treq.Response
+	if resp.Result == nil && resp.Err == nil {
+		resp.Err = errors.New("error running task with unknown error")
+	}
 
 	completedAt := strfmt.DateTime(time.Now())
 	status := "error"
-	if result != nil {
-		status = result.Status()
+	if resp.Result != nil {
+		status = resp.Result.Status()
 	}
 	newTask.CompletedAt = completedAt
 	newTask.Status = status
@@ -79,30 +96,6 @@ func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg
 		logrus.WithError(err).Error("error inserting task into datastore")
 	}
 
-	return result, err
-}
-
-// RunTask will dispatch a task specified by cfg to a hot container, if possible,
-// that already exists or will create a new container to run a task and then run it.
-// TODO XXX (reed): merge this and RunTrackedTask to reduce surface area...
-func (rnr *Runner) RunTask(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
-	rnr.Start() // TODO layering issue ???
-	defer rnr.Complete()
-
-	tresp := make(chan task.Response)
-	treq := task.Request{Ctx: ctx, Config: cfg, Response: tresp}
-	tasks := rnr.hcmgr.getPipe(ctx, rnr, cfg)
-	if tasks == nil {
-		// TODO get rid of this to use herd stuff
-		go runTaskReq(rnr, treq)
-	} else {
-		tasks <- treq
-	}
-
-	resp := <-treq.Response
-	if resp.Result == nil && resp.Err == nil {
-		resp.Err = errors.New("error running task with unknown error")
-	}
 	return resp.Result, resp.Err
 }
 
@@ -115,12 +108,6 @@ type htfnmgr struct {
 }
 
 func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) chan<- task.Request {
-	isStream := protocol.IsStreamable(protocol.Protocol(cfg.Format))
-	if !isStream {
-		// TODO stop doing this, to prevent herds
-		return nil
-	}
-
 	h.RLock()
 	if h.hc == nil {
 		h.RUnlock()
@@ -351,7 +338,6 @@ func (hc *htfn) serve(ctx context.Context) {
 	}()
 
 	cfg.Env["FN_FORMAT"] = cfg.Format
-	cfg.Timeout = 0 // add a timeout to simulate ab.end. failure.
 	cfg.Stdin = hc.containerIn
 	cfg.Stdout = hc.containerOut
 	cfg.Stderr = stderr
