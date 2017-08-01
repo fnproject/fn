@@ -16,7 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/Sirupsen/logrus"
+	"github.com/coreos/go-semver/semver"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -38,10 +40,11 @@ func NewAllGrouper(conf Config) (Grouper, error) {
 		db:  db,
 
 		// XXX (reed): need to be reconfigurable at some point
-		hcInterval:  time.Duration(conf.HealthcheckInterval) * time.Second,
-		hcEndpoint:  conf.HealthcheckEndpoint,
-		hcUnhealthy: int64(conf.HealthcheckUnhealthy),
-		hcTimeout:   time.Duration(conf.HealthcheckTimeout) * time.Second,
+		hcInterval:    time.Duration(conf.HealthcheckInterval) * time.Second,
+		hcEndpoint:    conf.HealthcheckEndpoint,
+		hcUnhealthy:   int64(conf.HealthcheckUnhealthy),
+		hcTimeout:     time.Duration(conf.HealthcheckTimeout) * time.Second,
+		minAPIVersion: conf.MinAPIVersion,
 
 		// for health checks
 		httpClient: &http.Client{Transport: conf.Transport},
@@ -79,10 +82,11 @@ type allGrouper struct {
 
 	httpClient *http.Client
 
-	hcInterval  time.Duration
-	hcEndpoint  string
-	hcUnhealthy int64
-	hcTimeout   time.Duration
+	hcInterval    time.Duration
+	hcEndpoint    string
+	hcUnhealthy   int64
+	hcTimeout     time.Duration
+	minAPIVersion *semver.Version
 }
 
 // TODO put this somewhere better
@@ -217,6 +221,10 @@ func (a *allGrouper) add(newb string) error {
 	if newb == "" {
 		return nil // we can't really do a lot of validation since hosts could be an ip or domain but we have health checks
 	}
+	err := a.checkAPIVersion(newb)
+	if err != nil {
+		return err
+	}
 	return a.db.Add(newb)
 }
 
@@ -276,20 +284,56 @@ func (a *allGrouper) healthcheck() {
 	}
 }
 
-func (a *allGrouper) ping(node string) {
-	req, _ := http.NewRequest("GET", "http://"+node+a.hcEndpoint, nil)
+type fnVersion struct {
+	Version string `json:"version"`
+}
+
+var v fnVersion
+
+func (a *allGrouper) getVersion(urlString string) (string, error) {
+	req, _ := http.NewRequest(http.MethodGet, urlString, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), a.hcTimeout)
 	defer cancel()
 	req = req.WithContext(ctx)
 
 	resp, err := a.httpClient.Do(req)
-	if resp != nil && resp.Body != nil {
+
+	if err != nil {
+		return "", err
+	}
+	defer func() {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
+	}()
+
+	err = json.NewDecoder(resp.Body).Decode(v)
+
+	if err != nil {
+		return "", err
+	}
+	return v.Version, nil
+}
+
+func (a *allGrouper) checkAPIVersion(node string) error {
+	versionURL := "http://" + node + "/version"
+
+	version, err := a.getVersion(versionURL)
+	if err != nil {
+		return err
 	}
 
-	if err != nil || resp.StatusCode < 200 || resp.StatusCode > 299 {
-		logrus.WithError(err).WithFields(logrus.Fields{"node": node}).Error("health check failed")
+	nodeVer := semver.New(version)
+
+	if a.minAPIVersion.Compare(*nodeVer) == -1 {
+		return fmt.Errorf("incompatible API version: %v", a.minAPIVersion)
+	}
+	return nil
+}
+
+func (a *allGrouper) ping(node string) {
+	err := a.checkAPIVersion(node)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"node": node}).Error("Unable to check API version")
 		a.fail(node)
 	} else {
 		a.alive(node)

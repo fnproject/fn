@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/coreos/go-semver/semver"
 )
 
 // TODO the load balancers all need to have the same list of nodes. gossip?
@@ -26,13 +27,14 @@ import (
 // TODO TLS
 
 type Config struct {
-	DBurl                string   `json:"db_url"`
-	Listen               string   `json:"port"`
-	Nodes                []string `json:"nodes"`
-	HealthcheckInterval  int      `json:"healthcheck_interval"`
-	HealthcheckEndpoint  string   `json:"healthcheck_endpoint"`
-	HealthcheckUnhealthy int      `json:"healthcheck_unhealthy"`
-	HealthcheckTimeout   int      `json:"healthcheck_timeout"`
+	DBurl                string          `json:"db_url"`
+	Listen               string          `json:"port"`
+	Nodes                []string        `json:"nodes"`
+	HealthcheckInterval  int             `json:"healthcheck_interval"`
+	HealthcheckEndpoint  string          `json:"healthcheck_endpoint"`
+	HealthcheckUnhealthy int             `json:"healthcheck_unhealthy"`
+	HealthcheckTimeout   int             `json:"healthcheck_timeout"`
+	MinAPIVersion        *semver.Version `json:"min_api_version"`
 
 	Transport *http.Transport
 }
