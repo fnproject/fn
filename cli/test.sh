@@ -11,7 +11,7 @@ rm -rf tmp
 mkdir tmp
 cd tmp
 funcname="fn-test-go"
-$fn init --runtime go $DOCKER_USERNAME/$funcname
+$fn init --runtime go $DOCKER_USER/$funcname
 $fn test
 
 someport=50080
