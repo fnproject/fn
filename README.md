@@ -1,5 +1,5 @@
 # Fn [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn)
-
+<!-- test -->
 <!-- ADD ONCE PUBLIC [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
 
 Fn is an event-driven, open source, [functions-as-a-service](serverless.md) compute
