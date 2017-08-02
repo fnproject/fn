@@ -31,7 +31,7 @@ func main() {
 	flag.StringVar(&conf.HealthcheckEndpoint, "hc-path", "/version", "endpoint to determine node health")
 	flag.IntVar(&conf.HealthcheckUnhealthy, "hc-unhealthy", 2, "threshold of failed checks to declare node unhealthy")
 	flag.IntVar(&conf.HealthcheckTimeout, "hc-timeout", 5, "timeout of healthcheck endpoint, in seconds")
-
+	flag.StringVar(&conf.ZipkinURL, "zipkin", "", "zipkin endpoint to send traces")
 	flag.Parse()
 
 	conf.MinAPIVersion = semver.New(*minAPIVersion)

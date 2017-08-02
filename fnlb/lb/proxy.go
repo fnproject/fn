@@ -9,6 +9,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/coreos/go-semver/semver"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/openzipkin/zipkin-go-opentracing"
 )
 
 // TODO the load balancers all need to have the same list of nodes. gossip?
@@ -29,6 +32,7 @@ import (
 type Config struct {
 	DBurl                string          `json:"db_url"`
 	Listen               string          `json:"port"`
+	ZipkinURL            string          `json:"zipkin_url"`
 	Nodes                []string        `json:"nodes"`
 	HealthcheckInterval  int             `json:"healthcheck_interval"`
 	HealthcheckEndpoint  string          `json:"healthcheck_endpoint"`
@@ -57,7 +61,7 @@ type Router interface {
 
 	// InterceptResponse allows a Router to extract information from proxied
 	// requests so that it might do a better job next time. InterceptResponse
-	// should not modify the Response as it has already been received nore the
+	// should not modify the Response as it has already been received nor the
 	// Request, having already been sent.
 	InterceptResponse(req *http.Request, resp *http.Response)
 
@@ -95,6 +99,8 @@ func NewProxy(keyFunc KeyFunc, g Grouper, r Router, conf Config) http.Handler {
 		},
 	}
 
+	setTracer(conf.ZipkinURL)
+
 	return p
 }
 
@@ -114,7 +120,57 @@ func newBufferPool() httputil.BufferPool {
 func (b *bufferPool) Get() []byte  { return b.bufs.Get().([]byte) }
 func (b *bufferPool) Put(x []byte) { b.bufs.Put(x) }
 
+func setTracer(zipkinURL string) {
+	var (
+		debugMode          = false
+		serviceName        = "fnlb"
+		serviceHostPort    = "localhost:8080" // meh
+		zipkinHTTPEndpoint = zipkinURL
+		// ex: "http://zipkin:9411/api/v1/spans"
+	)
+
+	if zipkinHTTPEndpoint == "" {
+		return
+	}
+
+	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
+
+	collector, err := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start trace collector")
+	}
+	tracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+		zipkintracer.ClientServerSameSpan(true),
+		zipkintracer.TraceID128Bit(true),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start tracer")
+	}
+
+	opentracing.SetGlobalTracer(tracer)
+	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
+}
+
+func (p *proxy) startSpan(req *http.Request) (opentracing.Span, *http.Request) {
+	// try to grab a span from the request if made from another service, ignore err if not
+	wireContext, _ := opentracing.GlobalTracer().Extract(
+		opentracing.HTTPHeaders,
+		opentracing.HTTPHeadersCarrier(req.Header))
+
+	// Create the span referring to the RPC client if available.
+	// If wireContext == nil, a root span will be created.
+	// TODO we should add more tags?
+	serverSpan := opentracing.StartSpan("lb_serve", ext.RPCServerOption(wireContext), opentracing.Tag{"path", req.URL.Path})
+
+	ctx := opentracing.ContextWithSpan(req.Context(), serverSpan)
+	req = req.WithContext(ctx)
+	return serverSpan, req
+}
+
 func (p *proxy) RoundTrip(req *http.Request) (*http.Response, error) {
+	span, req := p.startSpan(req)
+	defer span.Finish()
+
 	target, err := p.route(req)
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"url": req.URL.Path}).Error("getting index failed")
@@ -129,7 +185,17 @@ func (p *proxy) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.URL.Scheme = "http" // XXX (reed): h2 support
 	req.URL.Host = target
 
+	span, ctx := opentracing.StartSpanFromContext(req.Context(), "lb_roundtrip")
+	req = req.WithContext(ctx)
+
+	// shove the span into the outbound request
+	opentracing.GlobalTracer().Inject(
+		span.Context(),
+		opentracing.HTTPHeaders,
+		opentracing.HTTPHeadersCarrier(req.Header))
+
 	resp, err := p.transport.RoundTrip(req)
+	span.Finish()
 	if err == nil {
 		p.router.InterceptResponse(req, resp)
 	}
@@ -137,6 +203,10 @@ func (p *proxy) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (p *proxy) route(req *http.Request) (string, error) {
+	span, ctx := opentracing.StartSpanFromContext(req.Context(), "lb_route")
+	defer span.Finish()
+	req = req.WithContext(ctx)
+
 	// TODO errors from this func likely could return 401 or so instead of 503 always
 	key, err := p.keyFunc(req)
 	if err != nil {
