@@ -19,6 +19,7 @@ var aliases = map[string]cli.Command{
 	"run":    run(),
 	"call":   call(),
 	"calls":  calls(),
+	"logs":   logs(),
 }
 
 func aliasesFn() []cli.Command {
@@ -79,6 +80,7 @@ GLOBAL OPTIONS:
 		lambda(),
 		version(),
 		calls(),
+		logs(),
 		testfn(),
 	}
 	app.Commands = append(app.Commands, aliasesFn()...)
