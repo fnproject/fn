@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/fnlb/lb"
 )
 
@@ -21,6 +22,7 @@ const VERSION = "0.0.15"
 func main() {
 	// XXX (reed): normalize
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
+	minAPIVersion := flag.String("min-api-version", "0.0.1", "minimal node API to accept")
 
 	var conf lb.Config
 	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
@@ -29,7 +31,10 @@ func main() {
 	flag.StringVar(&conf.HealthcheckEndpoint, "hc-path", "/version", "endpoint to determine node health")
 	flag.IntVar(&conf.HealthcheckUnhealthy, "hc-unhealthy", 2, "threshold of failed checks to declare node unhealthy")
 	flag.IntVar(&conf.HealthcheckTimeout, "hc-timeout", 5, "timeout of healthcheck endpoint, in seconds")
+
 	flag.Parse()
+
+	conf.MinAPIVersion = semver.New(*minAPIVersion)
 
 	if len(*fnodes) > 0 {
 		// starting w/o nodes is fine too
