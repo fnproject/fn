@@ -16,7 +16,8 @@ type Config struct {
 	IdleTimeout  time.Duration
 	AppName      string
 	Memory       uint64
-	Env          map[string]string
+	BaseEnv      map[string]string // only app & route config vals [for hot]
+	Env          map[string]string // includes BaseEnv
 	Format       string
 	ReceivedTime time.Time
 	// Ready is used to await the first pull

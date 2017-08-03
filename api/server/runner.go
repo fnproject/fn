@@ -142,27 +142,38 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	if route.Format == "" {
 		route.Format = "default"
 	}
-	envVars := map[string]string{
-		"METHOD":   c.Request.Method,
-		"APP_NAME": appName,
-		"ROUTE":    route.Path,
-		"REQUEST_URL": fmt.Sprintf("%v//%v%v", func() string {
-			if c.Request.TLS == nil {
-				return "http"
-			}
-			return "https"
-		}(), c.Request.Host, c.Request.URL.String()),
-		"CALL_ID": reqID,
-		"FORMAT":  route.Format,
-	}
+
+	// baseVars are the vars on the route & app, not on this specific request [for hot functions]
+	baseVars := make(map[string]string, len(app.Config)+len(route.Config)+3)
+	baseVars["FN_FORMAT"] = route.Format
+	baseVars["APP_NAME"] = appName
+	baseVars["ROUTE"] = route.Path
 
 	// app config
 	for k, v := range app.Config {
-		envVars[toEnvName("", k)] = v
+		k = toEnvName("", k)
+		baseVars[k] = v
 	}
 	for k, v := range route.Config {
-		envVars[toEnvName("", k)] = v
+		k = toEnvName("", k)
+		baseVars[k] = v
 	}
+
+	// envVars contains the full set of env vars, per request + base
+	envVars := make(map[string]string, len(baseVars)+len(params)+len(c.Request.Header)+3)
+
+	for k, v := range baseVars {
+		envVars[k] = v
+	}
+
+	envVars["CALL_ID"] = reqID
+	envVars["METHOD"] = c.Request.Method
+	envVars["REQUEST_URL"] = fmt.Sprintf("%v//%v%v", func() string {
+		if c.Request.TLS == nil {
+			return "http"
+		}
+		return "https"
+	}(), c.Request.Host, c.Request.URL.String())
 
 	// params
 	for _, param := range params {
@@ -177,6 +188,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	cfg := &task.Config{
 		AppName:      appName,
 		Path:         route.Path,
+		BaseEnv:      baseVars,
 		Env:          envVars,
 		Format:       route.Format,
 		ID:           reqID,

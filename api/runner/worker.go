@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io"
@@ -132,8 +133,8 @@ func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) ch
 		h.RLock()
 	}
 
-	// TODO(ccirello): re-implement this without memory allocation (fmt.Sprint)
-	fn := fmt.Sprint(cfg.AppName, ",", cfg.Path, cfg.Image, cfg.Timeout, cfg.Memory, cfg.Format)
+	fn := key(cfg)
+
 	svr, ok := h.hc[fn]
 	h.RUnlock()
 	if !ok {
@@ -147,6 +148,28 @@ func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) ch
 	}
 
 	return svr.tasksin
+}
+
+func key(cfg *task.Config) string {
+	// TODO we should probably colocate this with Config, but it's kind of hot
+	// specific so it makes sense here, too (just brittle & hidden)
+
+	// return a sha1 hash of a (hopefully) unique string of all the config
+	// values, to make map lookups quicker [than the giant unique string]
+	hash := sha1.New()
+	fmt.Fprint(hash, cfg.AppName, "\x00")
+	fmt.Fprint(hash, cfg.Path, "\x00")
+	fmt.Fprint(hash, cfg.Image, "\x00")
+	for k, v := range cfg.BaseEnv {
+		fmt.Fprint(hash, k, "\x00", v, "\x00")
+	}
+	fmt.Fprint(hash, cfg.Timeout, "\x00")
+	fmt.Fprint(hash, cfg.IdleTimeout, "\x00")
+	fmt.Fprint(hash, cfg.Memory, "\x00")
+	fmt.Fprint(hash, cfg.Format, "\x00")
+
+	var buf [sha1.Size]byte
+	return string(hash.Sum(buf[:]))
 }
 
 // htfnsvr is part of htfnmgr, abstracted apart for simplicity, its only
@@ -350,7 +373,6 @@ func (hc *htfn) serve(ctx context.Context) {
 		}
 	}()
 
-	cfg.Env["FN_FORMAT"] = cfg.Format
 	cfg.Timeout = 0 // add a timeout to simulate ab.end. failure.
 	cfg.Stdin = hc.containerIn
 	cfg.Stdout = hc.containerOut
