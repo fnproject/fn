@@ -45,7 +45,8 @@ Multiple layers could learn to interact with `drivers.ContainerTask`,
 alternatively. From here on, 'task' will be referred to as a 'call'.
 the '/tasks' endpoints will be herein removed (they currently refer to an
 async 'call', with operations to reserve or delete MQ messages directly
-through the api. the call API can handle these fine with ID)
+through the api. the call API can handle these fine with ID, and look up
+the call by id to get fields it needs & remove messages, etc)
 
 ##### Execution model for Async is at most once
 
@@ -139,8 +140,8 @@ app / route / call information.
 'agent' will also handle management of both sync and async job execution
 (specifically, async will not have its own execution path as like now)
 
-'controller' will wrap up the different semantics of sync and async task
-management wrt the data layer (i.e. storing info about the task, not concerned
+'controller' will wrap up the different semantics of sync and async call
+management wrt the data layer (i.e. storing info about the call, not concerned
 with the execution of it).  For example, when completing an async job, the
 db needs to be updated and the mq needs to be updated; for a sync job, only
 the db needs to be updated. These can be implemented by having different
@@ -157,12 +158,17 @@ it is starting a container, this will allow the job to be slotted to another
 container while the container it's responsible for starting may be being
 started)
 
-
 ##### specific job execution behavior outline
 
 Tasks can enter the system in two ways, by being read off a queue (async) or
 from an incoming request (sync).
 
-For sync, if there is no where to run the task, we need to return a 504 that
+For sync, if there is no where to run the call, we need to return a 504 that
 the server is busy (expressly different than a timeout in the sense that the
-task ran, but up to its timeout).
+call ran, but past its timeout) so that it may run elsewhere.
+
+For cold, pull the image if needed, create the container, start the container
+
+For hot, pull the image if needed, if there are no containers, start a container,
+if there are containers, attempt sending the call to one, and if they seem
+busy try to start another (since we have the image, this should be ~fast).
