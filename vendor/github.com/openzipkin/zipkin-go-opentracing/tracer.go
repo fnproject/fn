@@ -7,8 +7,8 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 
-	"github.com/openzipkin/zipkin-go-opentracing/flag"
 	otobserver "github.com/opentracing-contrib/go-observer"
+	"github.com/openzipkin/zipkin-go-opentracing/flag"
 )
 
 // ErrInvalidEndpoint will be thrown if hostPort parameter is corrupted or host

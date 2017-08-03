@@ -346,7 +346,7 @@ func TestCastawayGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestWilsonGoString(t *testing.T) {
@@ -359,7 +359,7 @@ func TestWilsonGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCastawaySize(t *testing.T) {

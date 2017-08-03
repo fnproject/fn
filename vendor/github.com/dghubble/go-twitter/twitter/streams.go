@@ -1,7 +1,6 @@
 package twitter
 
 import (
-	"bufio"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -228,23 +227,20 @@ func (s *Stream) retry(req *http.Request, expBackOff backoff.BackOff, aggExpBack
 // receive scans a stream response body, JSON decodes tokens to messages, and
 // sends messages to the Messages channel. Receiving continues until an EOF,
 // scan error, or the done channel is closed.
-func (s *Stream) receive(body io.ReadCloser) {
-	defer body.Close()
-	// A bufio.Scanner steps through 'tokens' of data on each Scan() using a
-	// SplitFunc. SplitFunc tokenizes input bytes to return the number of bytes
-	// to advance, the token slice of bytes, and any errors.
-	scanner := bufio.NewScanner(body)
-	// default ScanLines SplitFunc is incorrect for Twitter Streams, set custom
-	scanner.Split(scanLines)
-	for !stopped(s.done) && scanner.Scan() {
-		token := scanner.Bytes()
-		if len(token) == 0 {
+func (s *Stream) receive(body io.Reader) {
+	reader := newStreamResponseBodyReader(body)
+	for !stopped(s.done) {
+		data, err := reader.readNext()
+		if err != nil {
+			return
+		}
+		if len(data) == 0 {
 			// empty keep-alive
 			continue
 		}
 		select {
 		// send messages, data, or errors
-		case s.Messages <- getMessage(token):
+		case s.Messages <- getMessage(data):
 			continue
 		// allow client to Stop(), even if not receiving
 		case <-s.done:

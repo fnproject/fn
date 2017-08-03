@@ -12,6 +12,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/registry/client"
+	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
 )
 
@@ -58,7 +59,7 @@ type CredentialStore interface {
 // schemes. The handlers are tried in order, the higher priority authentication
 // methods should be first. The challengeMap holds a list of challenges for
 // a given root API endpoint (for example "https://registry-1.docker.io/v2/").
-func NewAuthorizer(manager ChallengeManager, handlers ...AuthenticationHandler) transport.RequestModifier {
+func NewAuthorizer(manager challenge.Manager, handlers ...AuthenticationHandler) transport.RequestModifier {
 	return &endpointAuthorizer{
 		challenges: manager,
 		handlers:   handlers,
@@ -66,7 +67,7 @@ func NewAuthorizer(manager ChallengeManager, handlers ...AuthenticationHandler) 
 }
 
 type endpointAuthorizer struct {
-	challenges ChallengeManager
+	challenges challenge.Manager
 	handlers   []AuthenticationHandler
 	transport  http.RoundTripper
 }
@@ -94,11 +95,11 @@ func (ea *endpointAuthorizer) ModifyRequest(req *http.Request) error {
 
 	if len(challenges) > 0 {
 		for _, handler := range ea.handlers {
-			for _, challenge := range challenges {
-				if challenge.Scheme != handler.Scheme() {
+			for _, c := range challenges {
+				if c.Scheme != handler.Scheme() {
 					continue
 				}
-				if err := handler.AuthorizeRequest(req, challenge.Parameters); err != nil {
+				if err := handler.AuthorizeRequest(req, c.Parameters); err != nil {
 					return err
 				}
 			}
@@ -146,13 +147,20 @@ type Scope interface {
 // to a repository.
 type RepositoryScope struct {
 	Repository string
+	Class      string
 	Actions    []string
 }
 
 // String returns the string representation of the repository
 // using the scope grammar
 func (rs RepositoryScope) String() string {
-	return fmt.Sprintf("repository:%s:%s", rs.Repository, strings.Join(rs.Actions, ","))
+	repoType := "repository"
+	// Keep existing format for image class to maintain backwards compatibility
+	// with authorization servers which do not support the expanded grammar.
+	if rs.Class != "" && rs.Class != "image" {
+		repoType = fmt.Sprintf("%s(%s)", repoType, rs.Class)
+	}
+	return fmt.Sprintf("%s:%s:%s", repoType, rs.Repository, strings.Join(rs.Actions, ","))
 }
 
 // RegistryScope represents a token scope for access

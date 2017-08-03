@@ -17,6 +17,7 @@ import (
 	"github.com/docker/distribution/reference"
 	registry "github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
+	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/iron-io/runner/drivers"
@@ -73,7 +74,7 @@ func CheckRegistry(ctx context.Context, image string, config docker.AuthConfigur
 		return nil, err
 	}
 
-	cm := auth.NewSimpleChallengeManager()
+	cm := challenge.NewSimpleManager()
 
 	creds := newCreds(config.Username, config.Password)
 	tran := transport.NewTransport(registryTransport,
@@ -114,7 +115,7 @@ func CheckRegistry(ctx context.Context, image string, config docker.AuthConfigur
 }
 
 type retryWrap struct {
-	cm   auth.ChallengeManager
+	cm   challenge.Manager
 	tran http.RoundTripper
 }
 

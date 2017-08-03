@@ -27,6 +27,7 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
+	t.Parallel()
 	server, err := NewServer("127.0.0.1:0", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +41,7 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestNewTLSServer(t *testing.T) {
+	t.Parallel()
 	tlsConfig := TLSConfig{
 		CertPath:    "./data/server.pem",
 		CertKeyPath: "./data/serverkey.pem",
@@ -66,6 +68,7 @@ func TestNewTLSServer(t *testing.T) {
 }
 
 func TestServerStop(t *testing.T) {
+	t.Parallel()
 	const retries = 3
 	server, err := NewServer("127.0.0.1:0", nil, nil)
 	if err != nil {
@@ -83,11 +86,13 @@ func TestServerStop(t *testing.T) {
 }
 
 func TestServerStopNoListener(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.Stop()
 }
 
 func TestServerURL(t *testing.T) {
+	t.Parallel()
 	server, err := NewServer("127.0.0.1:0", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -100,6 +105,7 @@ func TestServerURL(t *testing.T) {
 }
 
 func TestServerURLNoListener(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	url := server.URL()
 	if url != "" {
@@ -108,6 +114,7 @@ func TestServerURLNoListener(t *testing.T) {
 }
 
 func TestHandleWithHook(t *testing.T) {
+	t.Parallel()
 	var called bool
 	server, _ := NewServer("127.0.0.1:0", nil, func(*http.Request) { called = true })
 	defer server.Stop()
@@ -120,6 +127,7 @@ func TestHandleWithHook(t *testing.T) {
 }
 
 func TestSetHook(t *testing.T) {
+	t.Parallel()
 	var called bool
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
@@ -133,6 +141,7 @@ func TestSetHook(t *testing.T) {
 }
 
 func TestCustomHandler(t *testing.T) {
+	t.Parallel()
 	var called bool
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
@@ -153,6 +162,7 @@ func TestCustomHandler(t *testing.T) {
 }
 
 func TestCustomHandlerRegexp(t *testing.T) {
+	t.Parallel()
 	var called bool
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
@@ -173,6 +183,7 @@ func TestCustomHandlerRegexp(t *testing.T) {
 }
 
 func TestListContainers(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 2)
 	server.buildMuxer()
@@ -206,6 +217,7 @@ func TestListContainers(t *testing.T) {
 }
 
 func TestListRunningContainers(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 2)
 	server.buildMuxer()
@@ -226,6 +238,7 @@ func TestListRunningContainers(t *testing.T) {
 }
 
 func TestCreateContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.imgIDs = map[string]string{"base": "a1234"}
 	server.uploadedFiles = map[string]string{"a1234": "/abcd"}
@@ -271,6 +284,7 @@ func TestCreateContainer(t *testing.T) {
 }
 
 func TestCreateContainerWithNotifyChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan *docker.Container, 1)
 	server := DockerServer{}
 	server.imgIDs = map[string]string{"base": "a1234"}
@@ -290,6 +304,7 @@ func TestCreateContainerWithNotifyChannel(t *testing.T) {
 }
 
 func TestCreateContainerInvalidBody(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -301,6 +316,7 @@ func TestCreateContainerInvalidBody(t *testing.T) {
 }
 
 func TestCreateContainerDuplicateName(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	server.imgIDs = map[string]string{"base": "a1234"}
@@ -317,6 +333,7 @@ func TestCreateContainerDuplicateName(t *testing.T) {
 }
 
 func TestCreateMultipleContainersEmptyName(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	server.imgIDs = map[string]string{"base": "a1234"}
@@ -352,6 +369,7 @@ func TestCreateMultipleContainersEmptyName(t *testing.T) {
 }
 
 func TestCreateContainerInvalidName(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -370,6 +388,7 @@ func TestCreateContainerInvalidName(t *testing.T) {
 }
 
 func TestCreateContainerImageNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -384,6 +403,7 @@ func TestCreateContainerImageNotFound(t *testing.T) {
 }
 
 func TestRenameContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 2)
 	server.buildMuxer()
@@ -402,6 +422,7 @@ func TestRenameContainer(t *testing.T) {
 }
 
 func TestRenameContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -413,6 +434,7 @@ func TestRenameContainerNotFound(t *testing.T) {
 }
 
 func TestCommitContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 2)
 	server.uploadedFiles = map[string]string{server.containers[0].ID: "/abcd"}
@@ -438,6 +460,7 @@ func TestCommitContainer(t *testing.T) {
 }
 
 func TestCommitContainerComplete(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.imgIDs = make(map[string]string)
 	addContainers(&server, 2)
@@ -476,6 +499,7 @@ func TestCommitContainerComplete(t *testing.T) {
 }
 
 func TestCommitContainerWithTag(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.imgIDs = make(map[string]string)
 	addContainers(&server, 2)
@@ -497,6 +521,7 @@ func TestCommitContainerWithTag(t *testing.T) {
 }
 
 func TestCommitContainerInvalidRun(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -509,6 +534,7 @@ func TestCommitContainerInvalidRun(t *testing.T) {
 }
 
 func TestCommitContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -520,6 +546,7 @@ func TestCommitContainerNotFound(t *testing.T) {
 }
 
 func TestInspectContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 2)
 	server.buildMuxer()
@@ -553,6 +580,7 @@ func TestInspectContainer(t *testing.T) {
 }
 
 func TestInspectContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -564,6 +592,7 @@ func TestInspectContainerNotFound(t *testing.T) {
 }
 
 func TestTopContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -592,6 +621,7 @@ func TestTopContainer(t *testing.T) {
 }
 
 func TestTopContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -603,6 +633,7 @@ func TestTopContainerNotFound(t *testing.T) {
 }
 
 func TestTopContainerStopped(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -616,6 +647,7 @@ func TestTopContainerStopped(t *testing.T) {
 }
 
 func TestStartContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -644,6 +676,7 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestStartContainerNoHostConfig(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -666,6 +699,7 @@ func TestStartContainerNoHostConfig(t *testing.T) {
 }
 
 func TestStartContainerChangeNetwork(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -696,6 +730,7 @@ func TestStartContainerChangeNetwork(t *testing.T) {
 }
 
 func TestStartContainerWithNotifyChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan *docker.Container, 1)
 	server := DockerServer{}
 	server.cChan = ch
@@ -715,6 +750,7 @@ func TestStartContainerWithNotifyChannel(t *testing.T) {
 }
 
 func TestStartContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -727,6 +763,7 @@ func TestStartContainerNotFound(t *testing.T) {
 }
 
 func TestStartContainerAlreadyRunning(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -741,6 +778,7 @@ func TestStartContainerAlreadyRunning(t *testing.T) {
 }
 
 func TestStopContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -758,6 +796,7 @@ func TestStopContainer(t *testing.T) {
 }
 
 func TestKillContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -775,6 +814,7 @@ func TestKillContainer(t *testing.T) {
 }
 
 func TestStopContainerWithNotifyChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan *docker.Container, 1)
 	server := DockerServer{}
 	server.cChan = ch
@@ -795,6 +835,7 @@ func TestStopContainerWithNotifyChannel(t *testing.T) {
 }
 
 func TestStopContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -807,6 +848,7 @@ func TestStopContainerNotFound(t *testing.T) {
 }
 
 func TestStopContainerNotRunning(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -820,6 +862,7 @@ func TestStopContainerNotRunning(t *testing.T) {
 }
 
 func TestPauseContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -836,6 +879,7 @@ func TestPauseContainer(t *testing.T) {
 }
 
 func TestPauseContainerAlreadyPaused(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Paused = true
@@ -850,6 +894,7 @@ func TestPauseContainerAlreadyPaused(t *testing.T) {
 }
 
 func TestPauseContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -862,6 +907,7 @@ func TestPauseContainerNotFound(t *testing.T) {
 }
 
 func TestUnpauseContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Paused = true
@@ -879,6 +925,7 @@ func TestUnpauseContainer(t *testing.T) {
 }
 
 func TestUnpauseContainerNotPaused(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -892,6 +939,7 @@ func TestUnpauseContainerNotPaused(t *testing.T) {
 }
 
 func TestUnpauseContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -904,6 +952,7 @@ func TestUnpauseContainerNotFound(t *testing.T) {
 }
 
 func TestWaitContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -927,6 +976,7 @@ func TestWaitContainer(t *testing.T) {
 }
 
 func TestWaitContainerStatus(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -945,6 +995,7 @@ func TestWaitContainerStatus(t *testing.T) {
 }
 
 func TestWaitContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -976,6 +1027,7 @@ func (r *HijackableResponseRecorder) HijackBuffer() string {
 }
 
 func TestLogContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -990,6 +1042,7 @@ func TestLogContainer(t *testing.T) {
 }
 
 func TestLogContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1002,6 +1055,7 @@ func TestLogContainerNotFound(t *testing.T) {
 }
 
 func TestAttachContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -1022,6 +1076,7 @@ func TestAttachContainer(t *testing.T) {
 }
 
 func TestAttachContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := &HijackableResponseRecorder{}
@@ -1034,6 +1089,7 @@ func TestAttachContainerNotFound(t *testing.T) {
 }
 
 func TestAttachContainerWithStreamBlocks(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -1072,6 +1128,7 @@ func TestAttachContainerWithStreamBlocks(t *testing.T) {
 }
 
 func TestAttachContainerWithStreamBlocksOnCreatedContainers(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = false
@@ -1111,6 +1168,7 @@ func TestAttachContainerWithStreamBlocksOnCreatedContainers(t *testing.T) {
 }
 
 func TestRemoveContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -1127,6 +1185,7 @@ func TestRemoveContainer(t *testing.T) {
 }
 
 func TestRemoveContainerByName(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -1143,6 +1202,7 @@ func TestRemoveContainerByName(t *testing.T) {
 }
 
 func TestRemoveContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1155,6 +1215,7 @@ func TestRemoveContainerNotFound(t *testing.T) {
 }
 
 func TestRemoveContainerRunning(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -1172,6 +1233,7 @@ func TestRemoveContainerRunning(t *testing.T) {
 }
 
 func TestRemoveContainerRunningForce(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.containers[0].State.Running = true
@@ -1189,6 +1251,7 @@ func TestRemoveContainerRunningForce(t *testing.T) {
 }
 
 func TestPullImage(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: make(map[string]string)}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1209,6 +1272,7 @@ func TestPullImage(t *testing.T) {
 }
 
 func TestPullImageWithTag(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: make(map[string]string)}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1226,6 +1290,7 @@ func TestPullImageWithTag(t *testing.T) {
 }
 
 func TestPullImageWithShaTag(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: make(map[string]string)}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1243,6 +1308,7 @@ func TestPullImageWithShaTag(t *testing.T) {
 }
 
 func TestPushImage(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: map[string]string{"tsuru/python": "a123"}}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1254,6 +1320,7 @@ func TestPushImage(t *testing.T) {
 }
 
 func TestPushImageWithTag(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: map[string]string{"tsuru/python:v1": "a123"}}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1265,6 +1332,7 @@ func TestPushImageWithTag(t *testing.T) {
 }
 
 func TestPushImageNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1276,6 +1344,7 @@ func TestPushImageNotFound(t *testing.T) {
 }
 
 func TestTagImage(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: map[string]string{"tsuru/python": "a123"}}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1290,6 +1359,7 @@ func TestTagImage(t *testing.T) {
 }
 
 func TestTagImageWithRepoAndTag(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: map[string]string{"tsuru/python": "a123"}}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1304,6 +1374,7 @@ func TestTagImageWithRepoAndTag(t *testing.T) {
 }
 
 func TestTagImageNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -1381,6 +1452,7 @@ func addImages(server *DockerServer, n int, repo bool) {
 }
 
 func TestListImages(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addImages(&server, 2, true)
 	server.buildMuxer()
@@ -1409,6 +1481,7 @@ func TestListImages(t *testing.T) {
 }
 
 func TestRemoveImage(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addImages(&server, 1, false)
 	server.buildMuxer()
@@ -1425,6 +1498,7 @@ func TestRemoveImage(t *testing.T) {
 }
 
 func TestRemoveImageByName(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addImages(&server, 1, true)
 	server.buildMuxer()
@@ -1446,6 +1520,7 @@ func TestRemoveImageByName(t *testing.T) {
 }
 
 func TestRemoveImageWithMultipleTags(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addImages(&server, 1, true)
 	server.buildMuxer()
@@ -1476,6 +1551,7 @@ func TestRemoveImageWithMultipleTags(t *testing.T) {
 }
 
 func TestPrepareFailure(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{failures: make(map[string]string)}
 	server.buildMuxer()
 	errorID := "my_error"
@@ -1492,6 +1568,7 @@ func TestPrepareFailure(t *testing.T) {
 }
 
 func TestPrepareMultiFailures(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{multiFailures: []map[string]string{}}
 	server.buildMuxer()
 	errorID := "multi error"
@@ -1527,6 +1604,7 @@ func TestPrepareMultiFailures(t *testing.T) {
 }
 
 func TestRemoveFailure(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{failures: make(map[string]string)}
 	server.buildMuxer()
 	errorID := "my_error"
@@ -1547,6 +1625,7 @@ func TestRemoveFailure(t *testing.T) {
 }
 
 func TestResetMultiFailures(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{multiFailures: []map[string]string{}}
 	server.buildMuxer()
 	errorID := "multi error"
@@ -1562,6 +1641,7 @@ func TestResetMultiFailures(t *testing.T) {
 }
 
 func TestMutateContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{failures: make(map[string]string)}
 	server.buildMuxer()
 	server.containers = append(server.containers, &docker.Container{ID: "id123"})
@@ -1577,6 +1657,7 @@ func TestMutateContainer(t *testing.T) {
 }
 
 func TestMutateContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{failures: make(map[string]string)}
 	server.buildMuxer()
 	state := docker.State{Running: false, ExitCode: 1}
@@ -1590,6 +1671,7 @@ func TestMutateContainerNotFound(t *testing.T) {
 }
 
 func TestBuildImageWithContentTypeTar(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: make(map[string]string)}
 	imageName := "teste"
 	recorder := httptest.NewRecorder()
@@ -1611,6 +1693,7 @@ func TestBuildImageWithContentTypeTar(t *testing.T) {
 }
 
 func TestBuildImageWithRemoteDockerfile(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{imgIDs: make(map[string]string)}
 	imageName := "teste"
 	recorder := httptest.NewRecorder()
@@ -1622,6 +1705,7 @@ func TestBuildImageWithRemoteDockerfile(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	recorder := httptest.NewRecorder()
 	request, _ := http.NewRequest("GET", "/_ping", nil)
@@ -1635,6 +1719,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestDefaultHandler(t *testing.T) {
+	t.Parallel()
 	server, err := NewServer("127.0.0.1:0", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -1646,6 +1731,7 @@ func TestDefaultHandler(t *testing.T) {
 }
 
 func TestCreateExecContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 2)
 	server.buildMuxer()
@@ -1682,6 +1768,7 @@ func TestCreateExecContainer(t *testing.T) {
 }
 
 func TestInspectExecContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addContainers(&server, 1)
 	server.buildMuxer()
@@ -1724,6 +1811,7 @@ func TestInspectExecContainer(t *testing.T) {
 }
 
 func TestStartExecContainer(t *testing.T) {
+	t.Parallel()
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
 	addContainers(server, 1)
@@ -1778,6 +1866,7 @@ func TestStartExecContainer(t *testing.T) {
 }
 
 func TestStartExecContainerWildcardCallback(t *testing.T) {
+	t.Parallel()
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
 	addContainers(server, 1)
@@ -1832,6 +1921,7 @@ func TestStartExecContainerWildcardCallback(t *testing.T) {
 }
 
 func TestStartExecContainerNotFound(t *testing.T) {
+	t.Parallel()
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
 	addContainers(server, 1)
@@ -1856,6 +1946,7 @@ func waitExec(url, execID string, running bool, maxTry int) (*docker.ExecInspect
 }
 
 func TestStatsContainer(t *testing.T) {
+	t.Parallel()
 	server, err := NewServer("127.0.0.1:0", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -1882,6 +1973,7 @@ func TestStatsContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	got.Read = time.Time{}
+	got.PreRead = time.Time{}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("StatsContainer: wrong value. Want %#v. Got %#v.", expected, got)
 	}
@@ -1899,6 +1991,7 @@ func (w *safeWriter) Write(buf []byte) (int, error) {
 }
 
 func TestStatsContainerStream(t *testing.T) {
+	t.Parallel()
 	server, err := NewServer("127.0.0.1:0", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -1934,6 +2027,7 @@ func TestStatsContainerStream(t *testing.T) {
 		t.Fatal(err)
 	}
 	got.Read = time.Time{}
+	got.PreRead = time.Time{}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("StatsContainer: wrong value. Want %#v. Got %#v.", expected, got)
 	}
@@ -1960,6 +2054,7 @@ func addNetworks(server *DockerServer, n int) {
 }
 
 func TestListNetworks(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	addNetworks(&server, 2)
 	server.buildMuxer()
@@ -1993,6 +2088,7 @@ type createNetworkResponse struct {
 }
 
 func TestCreateNetwork(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2017,6 +2113,7 @@ func TestCreateNetwork(t *testing.T) {
 }
 
 func TestCreateNetworkInvalidBody(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2028,6 +2125,7 @@ func TestCreateNetworkInvalidBody(t *testing.T) {
 }
 
 func TestCreateNetworkDuplicateName(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	addNetworks(&server, 1)
@@ -2042,6 +2140,7 @@ func TestCreateNetworkDuplicateName(t *testing.T) {
 }
 
 func TestRemoveNetwork(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2070,6 +2169,7 @@ func TestRemoveNetwork(t *testing.T) {
 }
 
 func TestListVolumes(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	expected := []docker.Volume{{
@@ -2106,6 +2206,7 @@ func TestListVolumes(t *testing.T) {
 }
 
 func TestCreateVolume(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2132,6 +2233,7 @@ func TestCreateVolume(t *testing.T) {
 }
 
 func TestCreateVolumeAlreadExists(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	server.volStore = make(map[string]*volumeCounter)
@@ -2167,6 +2269,7 @@ func TestCreateVolumeAlreadExists(t *testing.T) {
 }
 
 func TestInspectVolume(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2204,6 +2307,7 @@ func TestInspectVolume(t *testing.T) {
 }
 
 func TestInspectVolumeNotFound(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2215,6 +2319,7 @@ func TestInspectVolumeNotFound(t *testing.T) {
 }
 
 func TestRemoveVolume(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	server.volStore = make(map[string]*volumeCounter)
@@ -2235,6 +2340,7 @@ func TestRemoveVolume(t *testing.T) {
 }
 
 func TestRemoveMissingVolume(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2246,6 +2352,7 @@ func TestRemoveMissingVolume(t *testing.T) {
 }
 
 func TestRemoveVolumeInuse(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	server.volStore = make(map[string]*volumeCounter)
@@ -2266,6 +2373,7 @@ func TestRemoveVolumeInuse(t *testing.T) {
 }
 
 func TestUploadToContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	cont := &docker.Container{
@@ -2291,6 +2399,7 @@ func TestUploadToContainer(t *testing.T) {
 }
 
 func TestUploadToContainerWithBodyTarFile(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	cont := &docker.Container{
@@ -2327,6 +2436,7 @@ func TestUploadToContainerWithBodyTarFile(t *testing.T) {
 }
 
 func TestUploadToContainerBodyNotTarFile(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	cont := &docker.Container{
@@ -2353,6 +2463,7 @@ func TestUploadToContainerBodyNotTarFile(t *testing.T) {
 }
 
 func TestUploadToContainerMissingContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	recorder := httptest.NewRecorder()
@@ -2364,6 +2475,7 @@ func TestUploadToContainerMissingContainer(t *testing.T) {
 }
 
 func TestInfoDocker(t *testing.T) {
+	t.Parallel()
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
 	addContainers(server, 1)
@@ -2388,6 +2500,7 @@ func TestInfoDocker(t *testing.T) {
 }
 
 func TestInfoDockerWithSwarm(t *testing.T) {
+	t.Parallel()
 	srv1, srv2 := setUpSwarm(t)
 	defer srv1.Stop()
 	defer srv2.Stop()
@@ -2415,6 +2528,7 @@ func TestInfoDockerWithSwarm(t *testing.T) {
 }
 
 func TestVersionDocker(t *testing.T) {
+	t.Parallel()
 	server, _ := NewServer("127.0.0.1:0", nil, nil)
 	defer server.Stop()
 	server.buildMuxer()
@@ -2427,6 +2541,7 @@ func TestVersionDocker(t *testing.T) {
 }
 
 func TestDownloadFromContainer(t *testing.T) {
+	t.Parallel()
 	server := DockerServer{}
 	server.buildMuxer()
 	cont := &docker.Container{

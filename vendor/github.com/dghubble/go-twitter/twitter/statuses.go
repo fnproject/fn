@@ -3,13 +3,13 @@ package twitter
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/dghubble/sling"
 )
 
 // Tweet represents a Twitter Tweet, previously called a status.
 // https://dev.twitter.com/overview/api/tweets
-// Deprecated fields: Contributors, Geo, Annotations
 type Tweet struct {
 	Coordinates          *Coordinates           `json:"coordinates"`
 	CreatedAt            string                 `json:"created_at"`
@@ -46,6 +46,11 @@ type Tweet struct {
 	QuotedStatusID       int64                  `json:"quoted_status_id"`
 	QuotedStatusIDStr    string                 `json:"quoted_status_id_str"`
 	QuotedStatus         *Tweet                 `json:"quoted_status"`
+}
+
+// CreatedAtTime is a convenience wrapper that returns the Created_at time, parsed as a time.Time struct
+func (t Tweet) CreatedAtTime() (time.Time, error) {
+	return time.Parse(time.RubyDate, t.CreatedAt)
 }
 
 // ExtendedTweet represents fields embedded in extended Tweets when served in

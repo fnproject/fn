@@ -20,7 +20,6 @@
 package tests
 
 import (
-	"fmt"
 	"net"
 	"onewaytest"
 	"testing"
@@ -36,12 +35,6 @@ func findPort() net.Addr {
 		return l.Addr()
 	}
 }
-
-type impl struct{}
-
-func (i *impl) Hi(in int64, s string) (err error)        { fmt.Println("Hi!"); return }
-func (i *impl) Emptyfunc() (err error)                   { return }
-func (i *impl) EchoInt(param int64) (r int64, err error) { return param, nil }
 
 const TIMEOUT = time.Second
 
@@ -75,12 +68,12 @@ func TestInitOnewayClient(t *testing.T) {
 
 func TestCallOnewayServer(t *testing.T) {
 	//call oneway function
-	err := client.Hi(1, "")
+	err := client.Hi(defaultCtx, 1, "")
 	if err != nil {
 		t.Fatal("Unexpected error: ", err)
 	}
 	//There is no way to detect protocol problems with single oneway call so we call it second time
-	i, err := client.EchoInt(42)
+	i, err := client.EchoInt(defaultCtx, 42)
 	if err != nil {
 		t.Fatal("Unexpected error: ", err)
 	}

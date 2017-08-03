@@ -39,3 +39,21 @@ type Conn interface {
 	// Receive receives a single reply from the Redis server
 	Receive() (reply interface{}, err error)
 }
+
+// Argument is implemented by types which want to control how their value is
+// interpreted when used as an argument to a redis command.
+type Argument interface {
+	// RedisArg returns the interface that represents the value to be used
+	// in redis commands.
+	RedisArg() interface{}
+}
+
+// Scanner is implemented by types which want to control how their value is
+// interpreted when read from redis.
+type Scanner interface {
+	// RedisScan assigns a value from a redis value.
+	//
+	// An error should be returned if the value cannot be stored without
+	// loss of information.
+	RedisScan(src interface{}) error
+}

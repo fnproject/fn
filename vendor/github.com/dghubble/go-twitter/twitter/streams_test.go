@@ -3,6 +3,7 @@ package twitter
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 
@@ -180,6 +181,46 @@ func TestStream_User(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Transfer-Encoding", "chunked")
 			fmt.Fprintf(w, `{"friends": [666024290140217347, 666024290140217349, 666024290140217342]}`+"\r\n"+"\r\n")
+		default:
+			// Only allow first request
+			http.Error(w, "Stream API not available!", 130)
+		}
+		reqCount++
+	})
+
+	counts := &counter{}
+	demux := newCounterDemux(counts)
+	client := NewClient(httpClient)
+	streamUserParams := &StreamUserParams{
+		StallWarnings: Bool(true),
+		With:          "followings",
+	}
+	stream, err := client.Streams.User(streamUserParams)
+	// assert that the expected messages are received
+	assert.NoError(t, err)
+	defer stream.Stop()
+	for message := range stream.Messages {
+		demux.Handle(message)
+	}
+	expectedCounts := &counter{all: 1, friendsList: 1}
+	assert.Equal(t, expectedCounts, counts)
+}
+
+func TestStream_User_TooManyFriends(t *testing.T) {
+	httpClient, mux, server := testServer()
+	defer server.Close()
+
+	reqCount := 0
+	mux.HandleFunc("/1.1/user.json", func(w http.ResponseWriter, r *http.Request) {
+		assertMethod(t, "GET", r)
+		assertQuery(t, map[string]string{"stall_warnings": "true", "with": "followings"}, r)
+		switch reqCount {
+		case 0:
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Transfer-Encoding", "chunked")
+			// The first friend list message is more than bufio.MaxScanTokenSize (65536) bytes
+			friendsList := "[" + strings.Repeat("1234567890, ", 7000) + "1234567890]"
+			fmt.Fprintf(w, `{"friends": %s}`+"\r\n"+"\r\n", friendsList)
 		default:
 			// Only allow first request
 			http.Error(w, "Stream API not available!", 130)

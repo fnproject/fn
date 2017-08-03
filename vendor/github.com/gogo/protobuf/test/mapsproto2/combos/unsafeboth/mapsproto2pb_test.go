@@ -813,7 +813,7 @@ func TestFloatingPointGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomMapGoString(t *testing.T) {
@@ -826,7 +826,7 @@ func TestCustomMapGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAllMapsGoString(t *testing.T) {
@@ -839,7 +839,7 @@ func TestAllMapsGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAllMapsOrderedGoString(t *testing.T) {
@@ -852,7 +852,7 @@ func TestAllMapsOrderedGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestFloatingPointSize(t *testing.T) {

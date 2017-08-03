@@ -6,6 +6,8 @@ import:
   version: ^0.1.35
   subpackages:
   - models
+- package: github.com/sirupsen/logrus
+  version: ^v0.11.5
 - package: github.com/Sirupsen/logrus
   repo: https://github.com/sirupsen/logrus.git
   vcs: git
@@ -25,10 +27,11 @@ import:
 - package: github.com/dghubble/oauth1
 - package: github.com/dgrijalva/jwt-go
 - package: github.com/docker/cli
+  version: dd585ad4fb8046aa66eb56babef0c63aa5c5244d
   subpackages:
   - cli/config/configfile
 - package: github.com/docker/distribution
-  branch: master
+  version: 5ccd03d28ae2b23a3b2863216bcb97e9f650f6d2
 - package: github.com/fsouza/go-dockerclient
 - package: github.com/garyburd/redigo
   subpackages:
@@ -47,9 +50,6 @@ import:
 - package: github.com/go-openapi/validate
 - package: github.com/go-sql-driver/mysql
 - package: github.com/google/btree
-- package: github.com/heroku/docker-registry-client
-  subpackages:
-  - registry
 - package: github.com/iron-io/iron_go3
   subpackages:
   - config
@@ -70,8 +70,12 @@ import:
 - package: github.com/mattn/go-sqlite3
 - package: github.com/opentracing/opentracing-go
 - package: github.com/openzipkin/zipkin-go-opentracing
-testImport:
 - package: github.com/opencontainers/go-digest
-  branch: master
+  version: 279bed98673dd5bef374d3b6e4b09e2af76183bf
+- package: github.com/opencontainers/runc
+  version: ea35825a6350511ab93fe24e69c0723d6728616d
+- package: github.com/Azure/go-ansiterm
+  version: fa152c58bc15761d0200cb75fe958b89a9d4888e
+testImport:
 - package: github.com/patrickmn/go-cache
   branch: master

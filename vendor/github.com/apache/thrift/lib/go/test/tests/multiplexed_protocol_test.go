@@ -36,17 +36,6 @@ func FindAvailableTCPServerPort() net.Addr {
 	}
 }
 
-type FirstImpl struct{}
-
-func (f *FirstImpl) ReturnOne() (r int64, err error) {
-	return 1, nil
-}
-
-type SecondImpl struct{}
-
-func (s *SecondImpl) ReturnTwo() (r int64, err error) {
-	return 2, nil
-}
 
 var processor = thrift.NewTMultiplexedProcessor()
 
@@ -114,7 +103,7 @@ func createLegacyClient(t *testing.T) *multiplexedprotocoltest.SecondClient {
 }
 
 func TestCallFirst(t *testing.T) {
-	ret, err := firstClient.ReturnOne()
+	ret, err := firstClient.ReturnOne(defaultCtx)
 	if err != nil {
 		t.Fatal("Unable to call first server:", err)
 	}
@@ -124,7 +113,7 @@ func TestCallFirst(t *testing.T) {
 }
 
 func TestCallSecond(t *testing.T) {
-	ret, err := secondClient.ReturnTwo()
+	ret, err := secondClient.ReturnTwo(defaultCtx)
 	if err != nil {
 		t.Fatal("Unable to call second server:", err)
 	}
@@ -135,7 +124,7 @@ func TestCallSecond(t *testing.T) {
 
 func TestCallLegacy(t *testing.T) {
 	legacyClient := createLegacyClient(t)
-	ret, err := legacyClient.ReturnTwo()
+	ret, err := legacyClient.ReturnTwo(defaultCtx)
 	//expect error since default processor is not registered
 	if err == nil {
 		t.Fatal("Expecting error")
@@ -143,7 +132,7 @@ func TestCallLegacy(t *testing.T) {
 	//register default processor and call again
 	processor.RegisterDefault(multiplexedprotocoltest.NewSecondProcessor(&SecondImpl{}))
 	legacyClient = createLegacyClient(t)
-	ret, err = legacyClient.ReturnTwo()
+	ret, err = legacyClient.ReturnTwo(defaultCtx)
 	if err != nil {
 		t.Fatal("Unable to call legacy server:", err)
 	}

@@ -5,6 +5,10 @@
 // Package message implements formatted I/O for localized strings with functions
 // analogous to the fmt's print functions.
 //
+// These are the important differences with fmt:
+//   - Output varies per locale.
+//   - The '#' flag is used to bypass localization.
+//
 // NOTE: Under construction. See https://golang.org/design/12750-localization
 // and its corresponding proposal issue https://golang.org/issues/12750.
 package message // import "golang.org/x/text/message"
@@ -17,6 +21,9 @@ import (
 	"golang.org/x/text/message/catalog"
 )
 
+// TODO: allow more than one goroutine per printer. This will allow porting from
+// fmt much less error prone.
+
 // A Printer implements language-specific formatted I/O analogous to the fmt
 // package. Only one goroutine may use a Printer at the same time.
 type Printer struct {
@@ -28,12 +35,37 @@ type Printer struct {
 	// road if it the benefits do not seem to outweigh the disadvantages.
 }
 
+type options struct {
+	cat *catalog.Catalog
+	// TODO:
+	// - allow %s to print integers in written form (tables are likely too large
+	//   to enable this by default).
+	// - list behavior
+	//
+}
+
+// An Option defines an option of a Printer.
+type Option func(o *options)
+
+// Catalog defines the catalog to be used.
+func Catalog(c *catalog.Catalog) Option {
+	return func(o *options) { o.cat = c }
+}
+
 // NewPrinter returns a Printer that formats messages tailored to language t.
-func NewPrinter(t language.Tag) *Printer {
+func NewPrinter(t language.Tag, opts ...Option) *Printer {
+	options := &options{
+		cat: defaultCatalog,
+	}
+	for _, o := range opts {
+		o(options)
+	}
 	p := &Printer{printer{
 		tag: t,
 	}}
-	p.printer.catContext = defaultCatalog.Context(t, &p.printer)
+	p.printer.toDecimal.InitDecimal(t)
+	p.printer.toScientific.InitScientific(t)
+	p.printer.catContext = options.cat.Context(t, &p.printer)
 	return p
 }
 

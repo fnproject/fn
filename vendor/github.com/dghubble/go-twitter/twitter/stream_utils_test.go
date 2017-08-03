@@ -1,6 +1,10 @@
 package twitter
 
 import (
+	"bufio"
+	"bytes"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,25 +44,68 @@ func TestSleepOrDone_Done(t *testing.T) {
 	assertDone(t, completed, defaultTestTimeout)
 }
 
-func TestScanLines(t *testing.T) {
+func TestStreamResponseBodyReader(t *testing.T) {
 	cases := []struct {
-		input   []byte
-		atEOF   bool
-		advance int
-		token   []byte
+		in   []byte
+		want [][]byte
 	}{
-		{[]byte("Line 1\r\n"), false, 8, []byte("Line 1")},
-		{[]byte("Line 1\n"), false, 0, nil},
-		{[]byte("Line 1"), false, 0, nil},
-		{[]byte(""), false, 0, nil},
-		{[]byte("Line 1\r\n"), true, 8, []byte("Line 1")},
-		{[]byte("Line 1\n"), true, 7, []byte("Line 1")},
-		{[]byte("Line 1"), true, 6, []byte("Line 1")},
-		{[]byte(""), true, 0, nil},
+		{
+			in: []byte("foo\r\nbar\r\n"),
+			want: [][]byte{
+				[]byte("foo"),
+				[]byte("bar"),
+			},
+		},
+		{
+			in: []byte("foo\nbar\r\n"),
+			want: [][]byte{
+				[]byte("foo\nbar"),
+			},
+		},
+		{
+			in: []byte("foo\r\n\r\n"),
+			want: [][]byte{
+				[]byte("foo"),
+				[]byte(""),
+			},
+		},
+		{
+			in: []byte("foo\r\nbar"),
+			want: [][]byte{
+				[]byte("foo"),
+				[]byte("bar"),
+			},
+		},
+		{
+			// Message length is more than bufio.MaxScanTokenSize, which can't be
+			// parsed by bufio.Scanner with default buffer size.
+			in: []byte(strings.Repeat("X", bufio.MaxScanTokenSize+1) + "\r\n"),
+			want: [][]byte{
+				[]byte(strings.Repeat("X", bufio.MaxScanTokenSize+1)),
+			},
+		},
 	}
+
 	for _, c := range cases {
-		advance, token, _ := scanLines(c.input, c.atEOF)
-		assert.Equal(t, c.advance, advance)
-		assert.Equal(t, c.token, token)
+		body := bytes.NewReader(c.in)
+		reader := newStreamResponseBodyReader(body)
+
+		for i, want := range c.want {
+			data, err := reader.readNext()
+			if err != nil {
+				t.Errorf("reader(%q).readNext() * %d: err == %q, want nil", c.in, i, err)
+			}
+			if !bytes.Equal(data, want) {
+				t.Errorf("reader(%q).readNext() * %d: data == %q, want %q", c.in, i, data, want)
+			}
+		}
+
+		data, err := reader.readNext()
+		if err != io.EOF {
+			t.Errorf("reader(%q).readNext() * %d: err == %q, want io.EOF", c.in, len(c.want), err)
+		}
+		if len(data) != 0 {
+			t.Errorf("reader(%q).readNext() * %d: data == %q, want \"\"", c.in, len(c.want), data)
+		}
 	}
 }

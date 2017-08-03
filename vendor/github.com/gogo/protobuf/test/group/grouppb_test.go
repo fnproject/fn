@@ -458,7 +458,7 @@ func TestGroups1GoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestGroups1_GGoString(t *testing.T) {
@@ -471,7 +471,7 @@ func TestGroups1_GGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestGroups2GoString(t *testing.T) {
@@ -484,7 +484,7 @@ func TestGroups2GoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestGroups2_GGoString(t *testing.T) {
@@ -497,7 +497,7 @@ func TestGroups2_GGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestGroups1Stringer(t *testing.T) {

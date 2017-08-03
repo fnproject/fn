@@ -19,6 +19,7 @@ type DockerVersion struct {
 }
 
 func TestVersion(t *testing.T) {
+	t.Parallel()
 	body := `{
      "Version":"0.2.2",
      "GitCommit":"5a2a5cc+CHANGES",
@@ -56,6 +57,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestVersionError(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "internal error", status: http.StatusInternalServerError}
 	client := newTestClient(fakeRT)
 	version, err := client.Version()
@@ -68,6 +70,7 @@ func TestVersionError(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
+	t.Parallel()
 	body := `{
      "Containers":11,
      "Images":16,
@@ -133,6 +136,7 @@ func TestInfo(t *testing.T) {
 }
 
 func TestInfoError(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "internal error", status: http.StatusInternalServerError}
 	client := newTestClient(fakeRT)
 	version, err := client.Info()
@@ -145,6 +149,7 @@ func TestInfoError(t *testing.T) {
 }
 
 func TestParseRepositoryTag(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		input        string
 		expectedRepo string

@@ -1,6 +1,7 @@
 package zipkintracer
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"math/rand"
@@ -143,7 +144,7 @@ func newScribeHandler(t *testing.T) *scribeHandler {
 	return &scribeHandler{t: t}
 }
 
-func (h *scribeHandler) Log(messages []*scribe.LogEntry) (scribe.ResultCode, error) {
+func (h *scribeHandler) Log(ctx context.Context, messages []*scribe.LogEntry) (scribe.ResultCode, error) {
 	h.Lock()
 	defer h.Unlock()
 	for _, m := range messages {

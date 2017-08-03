@@ -20,4 +20,7 @@ lint:
 vet:
 	go vet ./...
 
+.PHONY: all
+all: vet lint test bench
+
 .PHONY: example

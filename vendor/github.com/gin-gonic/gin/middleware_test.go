@@ -7,10 +7,9 @@ package gin
 import (
 	"errors"
 	"strings"
-
 	"testing"
 
-	"github.com/manucorporat/sse"
+	"github.com/gin-contrib/sse"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,8 +37,8 @@ func TestMiddlewareGeneralCase(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 200)
-	assert.Equal(t, signature, "ACDB")
+	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, "ACDB", signature)
 }
 
 func TestMiddlewareNoRoute(t *testing.T) {
@@ -74,8 +73,8 @@ func TestMiddlewareNoRoute(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 404)
-	assert.Equal(t, signature, "ACEGHFDB")
+	assert.Equal(t, 404, w.Code)
+	assert.Equal(t, "ACEGHFDB", signature)
 }
 
 func TestMiddlewareNoMethodEnabled(t *testing.T) {
@@ -111,8 +110,8 @@ func TestMiddlewareNoMethodEnabled(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 405)
-	assert.Equal(t, signature, "ACEGHFDB")
+	assert.Equal(t, 405, w.Code)
+	assert.Equal(t, "ACEGHFDB", signature)
 }
 
 func TestMiddlewareNoMethodDisabled(t *testing.T) {
@@ -148,8 +147,8 @@ func TestMiddlewareNoMethodDisabled(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 404)
-	assert.Equal(t, signature, "AC X DB")
+	assert.Equal(t, 404, w.Code)
+	assert.Equal(t, "AC X DB", signature)
 }
 
 func TestMiddlewareAbort(t *testing.T) {
@@ -174,8 +173,8 @@ func TestMiddlewareAbort(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 401)
-	assert.Equal(t, signature, "ACD")
+	assert.Equal(t, 401, w.Code)
+	assert.Equal(t, "ACD", signature)
 }
 
 func TestMiddlewareAbortHandlersChainAndNext(t *testing.T) {
@@ -196,8 +195,8 @@ func TestMiddlewareAbortHandlersChainAndNext(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 410)
-	assert.Equal(t, signature, "ACB")
+	assert.Equal(t, 410, w.Code)
+	assert.Equal(t, "ACB", signature)
 }
 
 // TestFailHandlersChain - ensure that Fail interrupt used middleware in fifo order as
@@ -219,8 +218,8 @@ func TestMiddlewareFailHandlersChain(t *testing.T) {
 	w := performRequest(router, "GET", "/")
 
 	// TEST
-	assert.Equal(t, w.Code, 500)
-	assert.Equal(t, signature, "A")
+	assert.Equal(t, 500, w.Code)
+	assert.Equal(t, "A", signature)
 }
 
 func TestMiddlewareWrite(t *testing.T) {
@@ -245,6 +244,6 @@ func TestMiddlewareWrite(t *testing.T) {
 
 	w := performRequest(router, "GET", "/")
 
-	assert.Equal(t, w.Code, 400)
-	assert.Equal(t, strings.Replace(w.Body.String(), " ", "", -1), strings.Replace("hola\n<map><foo>bar</foo></map>{\"foo\":\"bar\"}\n{\"foo\":\"bar\"}\nevent:test\ndata:message\n\n", " ", "", -1))
+	assert.Equal(t, 400, w.Code)
+	assert.Equal(t, strings.Replace("hola\n<map><foo>bar</foo></map>{\"foo\":\"bar\"}{\"foo\":\"bar\"}event:test\ndata:message\n\n", " ", "", -1), strings.Replace(w.Body.String(), " ", "", -1))
 }

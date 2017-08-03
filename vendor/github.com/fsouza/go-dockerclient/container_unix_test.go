@@ -20,6 +20,7 @@ import (
 )
 
 func TestExportContainerViaUnixSocket(t *testing.T) {
+	t.Parallel()
 	content := "exported container tar content"
 	var buf []byte
 	out := bytes.NewBuffer(buf)
@@ -51,6 +52,7 @@ func TestExportContainerViaUnixSocket(t *testing.T) {
 }
 
 func TestStatsTimeoutUnixSocket(t *testing.T) {
+	t.Parallel()
 	tmpdir, err := ioutil.TempDir("", "socket")
 	if err != nil {
 		t.Fatal(err)

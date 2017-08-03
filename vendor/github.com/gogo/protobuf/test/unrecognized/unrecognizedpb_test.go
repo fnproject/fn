@@ -1447,7 +1447,7 @@ func TestAGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestBGoString(t *testing.T) {
@@ -1460,7 +1460,7 @@ func TestBGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestDGoString(t *testing.T) {
@@ -1473,7 +1473,7 @@ func TestDGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCGoString(t *testing.T) {
@@ -1486,7 +1486,7 @@ func TestCGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUGoString(t *testing.T) {
@@ -1499,7 +1499,7 @@ func TestUGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUnoMGoString(t *testing.T) {
@@ -1512,7 +1512,7 @@ func TestUnoMGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldAGoString(t *testing.T) {
@@ -1525,7 +1525,7 @@ func TestOldAGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldBGoString(t *testing.T) {
@@ -1538,7 +1538,7 @@ func TestOldBGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldCGoString(t *testing.T) {
@@ -1551,7 +1551,7 @@ func TestOldCGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldUGoString(t *testing.T) {
@@ -1564,7 +1564,7 @@ func TestOldUGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldUnoMGoString(t *testing.T) {
@@ -1577,7 +1577,7 @@ func TestOldUnoMGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestASize(t *testing.T) {

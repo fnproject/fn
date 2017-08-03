@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -e
-
-[ -z "$KEEPDEST" ] && rm -rf "$DEST"
-
-(
-	source "${MAKEDIR}/.binary"
-	copy_binaries "$DEST" 'hash'
-)

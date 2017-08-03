@@ -14,6 +14,7 @@ import (
 )
 
 func TestListNetworks(t *testing.T) {
+	t.Parallel()
 	jsonNetworks := `[
      {
              "ID": "8dfafdbc3a40",
@@ -44,6 +45,7 @@ func TestListNetworks(t *testing.T) {
 }
 
 func TestFilteredListNetworks(t *testing.T) {
+	t.Parallel()
 	jsonNetworks := `[
      {
              "ID": "9fb1e39c",
@@ -77,6 +79,7 @@ func TestFilteredListNetworks(t *testing.T) {
 }
 
 func TestNetworkInfo(t *testing.T) {
+	t.Parallel()
 	jsonNetwork := `{
              "ID": "8dfafdbc3a40",
              "Name": "blah",
@@ -130,6 +133,7 @@ func TestNetworkCreate(t *testing.T) {
 }
 
 func TestNetworkRemove(t *testing.T) {
+	t.Parallel()
 	id := "8dfafdbc3a40"
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusNoContent}
 	client := newTestClient(fakeRT)
@@ -149,6 +153,7 @@ func TestNetworkRemove(t *testing.T) {
 }
 
 func TestNetworkConnect(t *testing.T) {
+	t.Parallel()
 	id := "8dfafdbc3a40"
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusNoContent}
 	client := newTestClient(fakeRT)
@@ -169,6 +174,7 @@ func TestNetworkConnect(t *testing.T) {
 }
 
 func TestNetworkConnectWithEndpoint(t *testing.T) {
+	t.Parallel()
 	wantJSON := `{"Container":"foobar","EndpointConfig":{"IPAMConfig":{"IPv4Address":"8.8.8.8"},"Links":null,"Aliases":null},"Force":false}`
 	var wantObj NetworkConnectionOptions
 	json.NewDecoder(bytes.NewBuffer([]byte(wantJSON))).Decode(&wantObj)
@@ -206,6 +212,7 @@ func TestNetworkConnectWithEndpoint(t *testing.T) {
 }
 
 func TestNetworkConnectNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such network container", status: http.StatusNotFound})
 	opts := NetworkConnectionOptions{Container: "foobar"}
 	err := client.ConnectNetwork("8dfafdbc3a40", opts)
@@ -215,6 +222,7 @@ func TestNetworkConnectNotFound(t *testing.T) {
 }
 
 func TestNetworkDisconnect(t *testing.T) {
+	t.Parallel()
 	id := "8dfafdbc3a40"
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusNoContent}
 	client := newTestClient(fakeRT)
@@ -235,6 +243,7 @@ func TestNetworkDisconnect(t *testing.T) {
 }
 
 func TestNetworkDisconnectNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such network container", status: http.StatusNotFound})
 	opts := NetworkConnectionOptions{Container: "foobar"}
 	err := client.DisconnectNetwork("8dfafdbc3a40", opts)
@@ -244,6 +253,7 @@ func TestNetworkDisconnectNotFound(t *testing.T) {
 }
 
 func TestPruneNetworks(t *testing.T) {
+	t.Parallel()
 	results := `{
 		"NetworksDeleted": [
 			"a", "b", "c"

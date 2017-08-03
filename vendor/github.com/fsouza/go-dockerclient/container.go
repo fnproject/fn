@@ -204,7 +204,7 @@ func (s *State) StateString() string {
 // PortBinding represents the host/container port mapping as returned in the
 // `docker inspect` json
 type PortBinding struct {
-	HostIP   string `json:"HostIP,omitempty" yaml:"HostIP,omitempty" toml:"HostIP,omitempty"`
+	HostIP   string `json:"HostIp,omitempty" yaml:"HostIp,omitempty" toml:"HostIp,omitempty"`
 	HostPort string `json:"HostPort,omitempty" yaml:"HostPort,omitempty" toml:"HostPort,omitempty"`
 }
 
@@ -736,6 +736,10 @@ type HostConfig struct {
 	AutoRemove           bool                   `json:"AutoRemove,omitempty" yaml:"AutoRemove,omitempty" toml:"AutoRemove,omitempty"`
 	StorageOpt           map[string]string      `json:"StorageOpt,omitempty" yaml:"StorageOpt,omitempty" toml:"StorageOpt,omitempty"`
 	Sysctls              map[string]string      `json:"Sysctls,omitempty" yaml:"Sysctls,omitempty" toml:"Sysctls,omitempty"`
+	CPUCount             int64                  `json:"CpuCount,omitempty" yaml:"CpuCount,omitempty"`
+	CPUPercent           int64                  `json:"CpuPercent,omitempty" yaml:"CpuPercent,omitempty"`
+	IOMaximumBandwidth   int64                  `json:"IOMaximumBandwidth,omitempty" yaml:"IOMaximumBandwidth,omitempty"`
+	IOMaximumIOps        int64                  `json:"IOMaximumIOps,omitempty" yaml:"IOMaximumIOps,omitempty"`
 }
 
 // NetworkingConfig represents the container's networking configuration for each of its interfaces
@@ -911,6 +915,8 @@ func (c *Client) TopContainer(id string, psArgs string) (TopResult, error) {
 // See https://goo.gl/Dk3Xio for more details.
 type Stats struct {
 	Read      time.Time `json:"read,omitempty" yaml:"read,omitempty" toml:"read,omitempty"`
+	PreRead   time.Time `json:"preread,omitempty" yaml:"preread,omitempty" toml:"preread,omitempty"`
+	NumProcs  uint32    `json:"num_procs" yaml:"num_procs" toml:"num_procs"`
 	PidsStats struct {
 		Current uint64 `json:"current,omitempty" yaml:"current,omitempty"`
 	} `json:"pids_stats,omitempty" yaml:"pids_stats,omitempty" toml:"pids_stats,omitempty"`
@@ -950,10 +956,13 @@ type Stats struct {
 			HierarchicalMemswLimit  uint64 `json:"hierarchical_memsw_limit,omitempty" yaml:"hierarchical_memsw_limit,omitempty" toml:"hierarchical_memsw_limit,omitempty"`
 			Swap                    uint64 `json:"swap,omitempty" yaml:"swap,omitempty" toml:"swap,omitempty"`
 		} `json:"stats,omitempty" yaml:"stats,omitempty" toml:"stats,omitempty"`
-		MaxUsage uint64 `json:"max_usage,omitempty" yaml:"max_usage,omitempty" toml:"max_usage,omitempty"`
-		Usage    uint64 `json:"usage,omitempty" yaml:"usage,omitempty" toml:"usage,omitempty"`
-		Failcnt  uint64 `json:"failcnt,omitempty" yaml:"failcnt,omitempty" toml:"failcnt,omitempty"`
-		Limit    uint64 `json:"limit,omitempty" yaml:"limit,omitempty" toml:"limit,omitempty"`
+		MaxUsage          uint64 `json:"max_usage,omitempty" yaml:"max_usage,omitempty" toml:"max_usage,omitempty"`
+		Usage             uint64 `json:"usage,omitempty" yaml:"usage,omitempty" toml:"usage,omitempty"`
+		Failcnt           uint64 `json:"failcnt,omitempty" yaml:"failcnt,omitempty" toml:"failcnt,omitempty"`
+		Limit             uint64 `json:"limit,omitempty" yaml:"limit,omitempty" toml:"limit,omitempty"`
+		Commit            uint64 `json:"commitbytes,omitempty" yaml:"commitbytes,omitempty" toml:"privateworkingset,omitempty"`
+		CommitPeak        uint64 `json:"commitpeakbytes,omitempty" yaml:"commitpeakbytes,omitempty" toml:"commitpeakbytes,omitempty"`
+		PrivateWorkingSet uint64 `json:"privateworkingset,omitempty" yaml:"privateworkingset,omitempty" toml:"privateworkingset,omitempty"`
 	} `json:"memory_stats,omitempty" yaml:"memory_stats,omitempty" toml:"memory_stats,omitempty"`
 	BlkioStats struct {
 		IOServiceBytesRecursive []BlkioStatsEntry `json:"io_service_bytes_recursive,omitempty" yaml:"io_service_bytes_recursive,omitempty" toml:"io_service_bytes_recursive,omitempty"`
@@ -965,8 +974,14 @@ type Stats struct {
 		IOTimeRecursive         []BlkioStatsEntry `json:"io_time_recursive,omitempty" yaml:"io_time_recursive,omitempty" toml:"io_time_recursive,omitempty"`
 		SectorsRecursive        []BlkioStatsEntry `json:"sectors_recursive,omitempty" yaml:"sectors_recursive,omitempty" toml:"sectors_recursive,omitempty"`
 	} `json:"blkio_stats,omitempty" yaml:"blkio_stats,omitempty" toml:"blkio_stats,omitempty"`
-	CPUStats    CPUStats `json:"cpu_stats,omitempty" yaml:"cpu_stats,omitempty" toml:"cpu_stats,omitempty"`
-	PreCPUStats CPUStats `json:"precpu_stats,omitempty"`
+	CPUStats     CPUStats `json:"cpu_stats,omitempty" yaml:"cpu_stats,omitempty" toml:"cpu_stats,omitempty"`
+	PreCPUStats  CPUStats `json:"precpu_stats,omitempty"`
+	StorageStats struct {
+		ReadCountNormalized  uint64 `json:"read_count_normalized,omitempty" yaml:"read_count_normalized,omitempty" toml:"read_count_normalized,omitempty"`
+		ReadSizeBytes        uint64 `json:"read_size_bytes,omitempty" yaml:"read_size_bytes,omitempty" toml:"read_size_bytes,omitempty"`
+		WriteCountNormalized uint64 `json:"write_count_normalized,omitempty" yaml:"write_count_normalized,omitempty" toml:"write_count_normalized,omitempty"`
+		WriteSizeBytes       uint64 `json:"write_size_bytes,omitempty" yaml:"write_size_bytes,omitempty" toml:"write_size_bytes,omitempty"`
+	} `json:"storage_stats,omitempty" yaml:"storage_stats,omitempty" toml:"storage_stats,omitempty"`
 }
 
 // NetworkStats is a stats entry for network stats
@@ -1052,6 +1067,7 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 		}
 	}()
 
+	reqSent := make(chan struct{})
 	go func() {
 		err := c.stream("GET", fmt.Sprintf("/containers/%s/stats?stream=%v", opts.ID, opts.Stream), streamOptions{
 			rawJSONStream:     true,
@@ -1060,6 +1076,7 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 			timeout:           opts.Timeout,
 			inactivityTimeout: opts.InactivityTimeout,
 			context:           opts.Context,
+			reqSent:           reqSent,
 		})
 		if err != nil {
 			dockerError, ok := err.(*Error)
@@ -1090,6 +1107,7 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 
 	decoder := json.NewDecoder(readCloser)
 	stats := new(Stats)
+	<-reqSent
 	for err := decoder.Decode(stats); err != io.EOF; err = decoder.Decode(stats) {
 		if err != nil {
 			return err

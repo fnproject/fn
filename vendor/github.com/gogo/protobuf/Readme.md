@@ -42,8 +42,10 @@ These projects use gogoprotobuf:
   - <a href="https://containerd.io/">containerd</a> - <a href="https://github.com/containerd/containerd/tree/master/cmd/protoc-gen-gogoctrd">vanity command with custom field names</a> that conforms to the golang convention.
   - <a href="https://github.com/heroiclabs/nakama">nakama</a>
   - <a href="https://github.com/src-d/proteus">proteus</a>
-
-Please lets us know if you are using gogoprotobuf by posting on our <a href="https://groups.google.com/forum/#!topic/gogoprotobuf/Brw76BxmFpQ">GoogleGroup</a>.
+  - <a href="https://github.com/go-graphite">carbonzipper stack</a>
+  - <a href="https://sendgrid.com/">SendGrid</a>
+  
+Please let us know if you are using gogoprotobuf by posting on our <a href="https://groups.google.com/forum/#!topic/gogoprotobuf/Brw76BxmFpQ">GoogleGroup</a>.
 
 ### Mentioned
 

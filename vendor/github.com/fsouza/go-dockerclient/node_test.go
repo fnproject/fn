@@ -15,6 +15,7 @@ import (
 )
 
 func TestListNodes(t *testing.T) {
+	t.Parallel()
 	jsonNodes := `[
   {
     "ID": "24ifsmvkjbyhk",
@@ -93,6 +94,7 @@ func TestListNodes(t *testing.T) {
 }
 
 func TestInspectNode(t *testing.T) {
+	t.Parallel()
 	jsonNode := `{
   "ID": "24ifsmvkjbyhk",
   "Version": {
@@ -176,6 +178,7 @@ func TestInspectNode(t *testing.T) {
 }
 
 func TestInspectNodeNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such node", status: http.StatusNotFound})
 	node, err := client.InspectNode("notfound")
 	if node != nil {
@@ -188,6 +191,7 @@ func TestInspectNodeNotFound(t *testing.T) {
 }
 
 func TestUpdateNode(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	id := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
@@ -218,6 +222,7 @@ func TestUpdateNode(t *testing.T) {
 }
 
 func TestUpdateNodeNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such node", status: http.StatusNotFound})
 	err := client.UpdateNode("notfound", UpdateNodeOptions{})
 	expected := &NoSuchNode{ID: "notfound"}
@@ -227,6 +232,7 @@ func TestUpdateNodeNotFound(t *testing.T) {
 }
 
 func TestRemoveNode(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	id := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
@@ -245,6 +251,7 @@ func TestRemoveNode(t *testing.T) {
 }
 
 func TestRemoveNodeNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such node", status: http.StatusNotFound})
 	err := client.RemoveNode(RemoveNodeOptions{ID: "notfound"})
 	expected := &NoSuchNode{ID: "notfound"}

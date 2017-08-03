@@ -84,6 +84,16 @@ var bakedInValidators = map[string]Func{
 	"cidrv4":       IsCIDRv4,
 	"cidrv6":       IsCIDRv6,
 	"cidr":         IsCIDR,
+	"tcp4_addr":    IsTCP4AddrResolvable,
+	"tcp6_addr":    IsTCP6AddrResolvable,
+	"tcp_addr":     IsTCPAddrResolvable,
+	"udp4_addr":    IsUDP4AddrResolvable,
+	"udp6_addr":    IsUDP6AddrResolvable,
+	"udp_addr":     IsUDPAddrResolvable,
+	"ip4_addr":     IsIP4AddrResolvable,
+	"ip6_addr":     IsIP6AddrResolvable,
+	"ip_addr":      IsIPAddrResolvable,
+	"unix_addr":    IsUnixAddrResolvable,
 	"mac":          IsMAC,
 }
 
@@ -261,11 +271,7 @@ func IsISBN13(v *Validate, topStruct reflect.Value, currentStructOrField reflect
 		checksum += factor[i%2] * int32(s[i]-'0')
 	}
 
-	if (int32(s[12]-'0'))-((10-(checksum%10))%10) == 0 {
-		return true
-	}
-
-	return false
+	return (int32(s[12]-'0'))-((10-(checksum%10))%10) == 0
 }
 
 // IsISBN10 is the validation function for validating if the field's value is a valid v10 ISBN.
@@ -291,32 +297,28 @@ func IsISBN10(v *Validate, topStruct reflect.Value, currentStructOrField reflect
 		checksum += 10 * int32(s[9]-'0')
 	}
 
-	if checksum%11 == 0 {
-		return true
-	}
-
-	return false
+	return checksum%11 == 0
 }
 
-// ExcludesRune is the validation function for validating that the field's value does not contain the rune specified withing the param.
+// ExcludesRune is the validation function for validating that the field's value does not contain the rune specified within the param.
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func ExcludesRune(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	return !ContainsRune(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param)
 }
 
-// ExcludesAll is the validation function for validating that the field's value does not contain any of the characters specified withing the param.
+// ExcludesAll is the validation function for validating that the field's value does not contain any of the characters specified within the param.
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func ExcludesAll(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	return !ContainsAny(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param)
 }
 
-// Excludes is the validation function for validating that the field's value does not contain the text specified withing the param.
+// Excludes is the validation function for validating that the field's value does not contain the text specified within the param.
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func Excludes(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	return !Contains(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param)
 }
 
-// ContainsRune is the validation function for validating that the field's value contains the rune specified withing the param.
+// ContainsRune is the validation function for validating that the field's value contains the rune specified within the param.
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func ContainsRune(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	r, _ := utf8.DecodeRuneInString(param)
@@ -324,13 +326,13 @@ func ContainsRune(v *Validate, topStruct reflect.Value, currentStructOrField ref
 	return strings.ContainsRune(field.String(), r)
 }
 
-// ContainsAny is the validation function for validating that the field's value contains any of the characters specified withing the param.
+// ContainsAny is the validation function for validating that the field's value contains any of the characters specified within the param.
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func ContainsAny(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	return strings.ContainsAny(field.String(), param)
 }
 
-// Contains is the validation function for validating that the field's value contains the text specified withing the param.
+// Contains is the validation function for validating that the field's value contains the text specified within the param.
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func Contains(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	return strings.Contains(field.String(), param)
@@ -735,7 +737,20 @@ func IsURI(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Va
 	switch fieldKind {
 
 	case reflect.String:
-		_, err := url.ParseRequestURI(field.String())
+
+		s := field.String()
+
+		// checks needed as of Go 1.6 because of change https://github.com/golang/go/commit/617c93ce740c3c3cc28cdd1a0d712be183d0b328#diff-6c2d018290e298803c0c9419d8739885L195
+		// emulate browser and strip the '#' suffix prior to validation. see issue-#237
+		if i := strings.Index(s, "#"); i > -1 {
+			s = s[:i]
+		}
+
+		if s == blank {
+			return false
+		}
+
+		_, err := url.ParseRequestURI(s)
 
 		return err == nil
 	}
@@ -750,13 +765,23 @@ func IsURL(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Va
 	switch fieldKind {
 
 	case reflect.String:
-		url, err := url.ParseRequestURI(field.String())
 
-		if err != nil {
+		var i int
+		s := field.String()
+
+		// checks needed as of Go 1.6 because of change https://github.com/golang/go/commit/617c93ce740c3c3cc28cdd1a0d712be183d0b328#diff-6c2d018290e298803c0c9419d8739885L195
+		// emulate browser and strip the '#' suffix prior to validation. see issue-#237
+		if i = strings.Index(s, "#"); i > -1 {
+			s = s[:i]
+		}
+
+		if s == blank {
 			return false
 		}
 
-		if url.Scheme == blank {
+		url, err := url.ParseRequestURI(s)
+
+		if err != nil || url.Scheme == blank {
 			return false
 		}
 
@@ -1007,7 +1032,7 @@ func IsGt(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Val
 		return field.Float() > p
 	case reflect.Struct:
 
-		if field.Type() == timeType || field.Type() == timePtrType {
+		if fieldType == timeType || fieldType == timePtrType {
 
 			return field.Interface().(time.Time).After(time.Now().UTC())
 		}
@@ -1222,7 +1247,7 @@ func IsLt(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Val
 
 	case reflect.Struct:
 
-		if field.Type() == timeType || field.Type() == timePtrType {
+		if fieldType == timeType || fieldType == timePtrType {
 
 			return field.Interface().(time.Time).Before(time.Now().UTC())
 		}
@@ -1235,4 +1260,151 @@ func IsLt(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Val
 // NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
 func HasMaxOf(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
 	return IsLte(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param)
+}
+
+// IsTCP4AddrResolvable is the validation function for validating if the field's value is a resolvable tcp4 address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsTCP4AddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !isIP4Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveTCPAddr("tcp4", field.String())
+	return err == nil
+}
+
+// IsTCP6AddrResolvable is the validation function for validating if the field's value is a resolvable tcp6 address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsTCP6AddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !isIP6Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveTCPAddr("tcp6", field.String())
+	return err == nil
+}
+
+// IsTCPAddrResolvable is the validation function for validating if the field's value is a resolvable tcp address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsTCPAddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !isIP4Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) &&
+		!isIP6Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveTCPAddr("tcp", field.String())
+	return err == nil
+}
+
+// IsUDP4AddrResolvable is the validation function for validating if the field's value is a resolvable udp4 address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsUDP4AddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !isIP4Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveUDPAddr("udp4", field.String())
+	return err == nil
+}
+
+// IsUDP6AddrResolvable is the validation function for validating if the field's value is a resolvable udp6 address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsUDP6AddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !isIP6Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveUDPAddr("udp6", field.String())
+	return err == nil
+}
+
+// IsUDPAddrResolvable is the validation function for validating if the field's value is a resolvable udp address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsUDPAddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !isIP4Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) &&
+		!isIP6Addr(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveUDPAddr("udp", field.String())
+	return err == nil
+}
+
+// IsIP4AddrResolvable is the validation function for validating if the field's value is a resolvable ip4 address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsIP4AddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !IsIPv4(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveIPAddr("ip4", field.String())
+	return err == nil
+}
+
+// IsIP6AddrResolvable is the validation function for validating if the field's value is a resolvable ip6 address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsIP6AddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !IsIPv6(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveIPAddr("ip6", field.String())
+	return err == nil
+}
+
+// IsIPAddrResolvable is the validation function for validating if the field's value is a resolvable ip address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsIPAddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+
+	if !IsIP(v, topStruct, currentStructOrField, field, fieldType, fieldKind, param) {
+		return false
+	}
+
+	_, err := net.ResolveIPAddr("ip", field.String())
+	return err == nil
+}
+
+// IsUnixAddrResolvable is the validation function for validating if the field's value is a resolvable unix address.
+// NOTE: This is exposed for use within your own custom functions and not intended to be called directly.
+func IsUnixAddrResolvable(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+	_, err := net.ResolveUnixAddr("unix", field.String())
+	return err == nil
+}
+
+func isIP4Addr(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+	val := field.String()
+
+	if idx := strings.LastIndex(val, ":"); idx != -1 {
+		val = val[0:idx]
+	}
+
+	if !IsIPv4(v, topStruct, currentStructOrField, reflect.ValueOf(val), fieldType, fieldKind, param) {
+		return false
+	}
+
+	return true
+}
+
+func isIP6Addr(v *Validate, topStruct reflect.Value, currentStructOrField reflect.Value, field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string) bool {
+	val := field.String()
+
+	if idx := strings.LastIndex(val, ":"); idx != -1 {
+		if idx != 0 && val[idx-1:idx] == "]" {
+			val = val[1 : idx-1]
+		}
+	}
+
+	if !IsIPv6(v, topStruct, currentStructOrField, reflect.ValueOf(val), fieldType, fieldKind, param) {
+		return false
+	}
+
+	return true
 }

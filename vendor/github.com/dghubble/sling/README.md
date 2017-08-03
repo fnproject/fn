@@ -215,6 +215,27 @@ fmt.Println(issues, githubError, resp, err)
 
 Pass a nil `successV` or `failureV` argument to skip JSON decoding into that value.
 
+### Modify a Request
+
+Sling provides the raw http.Request so modifications can be made using standard net/http features. For example, in Go 1.7+ , add HTTP tracing to a request with a context:
+
+```go
+req, err := sling.New().Get("https://example.com").QueryStruct(params).Request()
+// handle error
+
+trace := &httptrace.ClientTrace{
+   DNSDone: func(dnsInfo httptrace.DNSDoneInfo) {
+      fmt.Printf("DNS Info: %+v\n", dnsInfo)
+   },
+   GotConn: func(connInfo httptrace.GotConnInfo) {
+      fmt.Printf("Got Conn: %+v\n", connInfo)
+   },
+}
+
+req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+client.Do(req)
+```
+
 ### Build an API
 
 APIs typically define an endpoint (also called a service) for each type of resource. For example, here is a tiny Github IssueService which [lists](https://developer.github.com/v3/issues/#list-issues-for-a-repository) repository issues.
