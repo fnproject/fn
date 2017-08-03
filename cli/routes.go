@@ -167,11 +167,11 @@ func (a *routesCmd) list(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesNotFound:
-			return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesNotFound).Payload.Error.Message))
 		case *apiroutes.GetAppsAppRoutesDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message)
+			return clierr(fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesDefault).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %s", err)
+		return clierr(fmt.Errorf("unexpected error: %s", err))
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
@@ -179,7 +179,7 @@ func (a *routesCmd) list(c *cli.Context) error {
 	for _, route := range resp.Payload.Routes {
 		endpoint := path.Join(client.Host(), "r", appName, route.Path)
 		if err != nil {
-			return fmt.Errorf("error parsing functions route path: %s", err)
+			return clierr(fmt.Errorf("error parsing functions route path: %s", err))
 		}
 
 		fmt.Fprint(w, route.Path, "\t", route.Image, "\t", endpoint, "\n")
@@ -200,7 +200,10 @@ func (a *routesCmd) call(c *cli.Context) error {
 	u.Path = path.Join(u.Path, "r", appName, route)
 	content := stdin()
 
-	return client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"))
+	if err := client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e")); err != nil {
+		return clierr(err)
+	}
+	return nil
 }
 
 func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
@@ -276,19 +279,23 @@ func (a *routesCmd) create(c *cli.Context) error {
 	rt.Image = c.Args().Get(2)
 
 	if err := routeWithFuncFile(c, nil, rt); err != nil {
-		return fmt.Errorf("error getting route info: %s", err)
+		return clierr(fmt.Errorf("error getting route info: %s", err))
 	}
 
 	routeWithFlags(c, rt)
 
 	if rt.Path == "" {
-		return errors.New("route path is missing")
+		return clierr(errors.New("route path is missing"))
 	}
 	if rt.Image == "" {
-		return errors.New("no image specified")
+		return clierr(errors.New("no image specified"))
 	}
 
-	return a.postRoute(c, appName, rt)
+	if err := a.postRoute(c, appName, rt); err != nil {
+		return clierr(err)
+	}
+
+	return nil
 }
 
 func (a *routesCmd) postRoute(c *cli.Context, appName string, rt *fnmodels.Route) error {
@@ -306,13 +313,13 @@ func (a *routesCmd) postRoute(c *cli.Context, appName string, rt *fnmodels.Route
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.PostAppsAppRoutesBadRequest:
-			return fmt.Errorf("error: %s", err.(*apiroutes.PostAppsAppRoutesBadRequest).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.PostAppsAppRoutesBadRequest).Payload.Error.Message))
 		case *apiroutes.PostAppsAppRoutesConflict:
-			return fmt.Errorf("error: %s", err.(*apiroutes.PostAppsAppRoutesConflict).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.PostAppsAppRoutesConflict).Payload.Error.Message))
 		case *apiroutes.PostAppsAppRoutesDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PostAppsAppRoutesDefault).Payload.Error.Message)
+			return clierr(fmt.Errorf("unexpected error: %s", err.(*apiroutes.PostAppsAppRoutesDefault).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %s", err)
+		return clierr(fmt.Errorf("unexpected error: %s", err))
 	}
 
 	fmt.Println(resp.Payload.Route.Path, "created with", resp.Payload.Route.Image)
@@ -330,13 +337,13 @@ func (a *routesCmd) patchRoute(c *cli.Context, appName, routePath string, r *fnm
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.PatchAppsAppRoutesRouteBadRequest:
-			return fmt.Errorf("error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteBadRequest).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteBadRequest).Payload.Error.Message))
 		case *apiroutes.PatchAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteNotFound).Payload.Error.Message))
 		case *apiroutes.PatchAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return clierr(fmt.Errorf("unexpected error: %s", err.(*apiroutes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %s", err)
+		return clierr(fmt.Errorf("unexpected error: %s", err))
 	}
 
 	return nil
@@ -352,11 +359,11 @@ func (a *routesCmd) putRoute(c *cli.Context, appName, routePath string, r *fnmod
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.PutAppsAppRoutesRouteBadRequest:
-			return fmt.Errorf("error: %s", err.(*apiroutes.PutAppsAppRoutesRouteBadRequest).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.PutAppsAppRoutesRouteBadRequest).Payload.Error.Message))
 		case *apiroutes.PutAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.PutAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return clierr(fmt.Errorf("unexpected error: %s", err.(*apiroutes.PutAppsAppRoutesRouteDefault).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %s", err)
+		return clierr(fmt.Errorf("unexpected error: %s", err))
 	}
 	return nil
 }
@@ -369,7 +376,7 @@ func (a *routesCmd) update(c *cli.Context) error {
 
 	if !c.Bool("ignore-fn-file") {
 		if err := routeWithFuncFile(c, nil, rt); err != nil {
-			return fmt.Errorf("error updating route: %s", err)
+			return clierr(fmt.Errorf("error updating route: %s", err))
 		}
 	}
 
@@ -377,7 +384,7 @@ func (a *routesCmd) update(c *cli.Context) error {
 
 	err := a.patchRoute(c, appName, route, rt)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Println(appName, route, "updated")
@@ -398,7 +405,7 @@ func (a *routesCmd) configSet(c *cli.Context) error {
 
 	err := a.patchRoute(c, appName, route, &patchRoute)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Println(appName, route, "updated", key, "with", value)
@@ -418,7 +425,7 @@ func (a *routesCmd) configUnset(c *cli.Context) error {
 
 	err := a.patchRoute(c, appName, route, &patchRoute)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Printf("removed key '%s' from the route '%s%s'", key, appName, key)
@@ -439,11 +446,11 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.GetAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message))
 		case *apiroutes.GetAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return clierr(fmt.Errorf("unexpected error: %s", err.(*apiroutes.GetAppsAppRoutesRouteDefault).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %s", err)
+		return clierr(fmt.Errorf("unexpected error: %s", err))
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -456,20 +463,22 @@ func (a *routesCmd) inspect(c *cli.Context) error {
 
 	data, err := json.Marshal(resp.Payload.Route)
 	if err != nil {
-		return fmt.Errorf("failed to inspect route: %s", err)
+		return clierr(fmt.Errorf("failed to inspect route: %s", err))
 	}
 	var inspect map[string]interface{}
 	err = json.Unmarshal(data, &inspect)
 	if err != nil {
-		return fmt.Errorf("failed to inspect route: %s", err)
+		return clierr(fmt.Errorf("failed to inspect route: %s", err))
 	}
 
 	jq := jsonq.NewQuery(inspect)
 	field, err := jq.Interface(strings.Split(prop, ".")...)
 	if err != nil {
-		return errors.New("failed to inspect that route's field")
+		return clierr(errors.New("failed to inspect that route's field"))
 	}
-	enc.Encode(field)
+	if err := enc.Encode(field); err != nil {
+		return clierr(err)
+	}
 
 	return nil
 }
@@ -486,11 +495,11 @@ func (a *routesCmd) delete(c *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apiroutes.DeleteAppsAppRoutesRouteNotFound:
-			return fmt.Errorf("error: %s", err.(*apiroutes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %s", err.(*apiroutes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message))
 		case *apiroutes.DeleteAppsAppRoutesRouteDefault:
-			return fmt.Errorf("unexpected error: %s", err.(*apiroutes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message)
+			return clierr(fmt.Errorf("unexpected error: %s", err.(*apiroutes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %s", err)
+		return clierr(fmt.Errorf("unexpected error: %s", err))
 	}
 
 	fmt.Println(appName, route, "deleted")

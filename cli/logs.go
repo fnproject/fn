@@ -43,9 +43,9 @@ func (log *logsCmd) get(ctx *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apicall.GetAppsAppCallsCallLogNotFound:
-			return fmt.Errorf("error: %v", err.(*apicall.GetAppsAppCallsCallLogNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %v", err.(*apicall.GetAppsAppCallsCallLogNotFound).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return clierr(fmt.Errorf("unexpected error: %v", err))
 
 	}
 	fmt.Print(resp.Payload.Log.Log)

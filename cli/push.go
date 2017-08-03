@@ -43,15 +43,15 @@ func (p *pushcmd) push(c *cli.Context) error {
 	ff, err := loadFuncfile()
 	if err != nil {
 		if _, ok := err.(*notFoundError); ok {
-			return errors.New("error: image name is missing or no function file found")
+			return clierr(errors.New("error: image name is missing or no function file found"))
 		}
-		return err
+		return clierr(err)
 	}
 
 	fmt.Fprintln(verbwriter, "pushing", ff.FullName())
 
 	if err := dockerpush(ff); err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Printf("Function %v pushed successfully to Docker Hub.\n", ff.FullName())

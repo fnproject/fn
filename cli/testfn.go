@@ -62,12 +62,12 @@ func (t *testcmd) test(c *cli.Context) error {
 	// First, build it
 	err := c.App.Command("build").Run(c)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	ff, err := loadFuncfile()
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	var tests []fftest
@@ -77,20 +77,20 @@ func (t *testcmd) test(c *cli.Context) error {
 	if exists(tfile) {
 		f, err := os.Open(tfile)
 		if err != nil {
-			return fmt.Errorf("could not open %s for parsing. Error: %v", tfile, err)
+			return clierr(fmt.Errorf("could not open %s for parsing. Error: %v", tfile, err))
 		}
 		ts := &testStruct{}
 		err = json.NewDecoder(f).Decode(ts)
 		if err != nil {
 			fmt.Println("Invalid tests.json file:", err)
-			return err
+			return clierr(err)
 		}
 		tests = ts.Tests
 	} else {
 		tests = ff.Tests
 	}
 	if len(tests) == 0 {
-		return errors.New("no tests found for this function")
+		return clierr(errors.New("no tests found for this function"))
 	}
 
 	fmt.Printf("Running %v tests...", len(tests))
@@ -99,14 +99,14 @@ func (t *testcmd) test(c *cli.Context) error {
 	runtest := runlocaltest
 	if t.remote != "" {
 		if ff.Path == "" {
-			return errors.New("execution of tests on remote server demand that this function has a `path`.")
+			return clierr(errors.New("execution of tests on remote server demand that this function has a `path`."))
 		}
 		if err := resetBasePath(t.Configuration); err != nil {
-			return fmt.Errorf("error setting endpoint: %v", err)
+			return clierr(fmt.Errorf("error setting endpoint: %v", err))
 		}
 		baseURL, err := url.Parse(t.Configuration.BasePath)
 		if err != nil {
-			return fmt.Errorf("error parsing base path: %v", err)
+			return clierr(fmt.Errorf("error parsing base path: %v", err))
 		}
 
 		u, err := url.Parse("../")

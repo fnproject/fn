@@ -98,10 +98,10 @@ func (a *initFnCmd) init(c *cli.Context) error {
 	if !a.force {
 		ff, err := loadFuncfile()
 		if _, ok := err.(*notFoundError); !ok && err != nil {
-			return err
+			return clierr(err)
 		}
 		if ff != nil {
-			return errors.New("Function file already exists")
+			return clierr(errors.New("Function file already exists"))
 		}
 	}
 
@@ -109,13 +109,13 @@ func (a *initFnCmd) init(c *cli.Context) error {
 
 	err := a.buildFuncFile(c)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	if runtimeSpecified {
 		err := a.generateBoilerplate()
 		if err != nil {
-			return err
+			return clierr(err)
 		}
 	}
 
@@ -155,7 +155,7 @@ func (a *initFnCmd) generateBoilerplate() error {
 			if err == langs.ErrBoilerplateExists {
 				return nil
 			}
-			return err
+			return clierr(err)
 		}
 		fmt.Println("function boilerplate generated.")
 	}
@@ -165,12 +165,12 @@ func (a *initFnCmd) generateBoilerplate() error {
 func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("error detecting current working directory: %s", err)
+		return clierr(fmt.Errorf("error detecting current working directory: %s", err))
 	}
 
 	a.name = c.Args().First()
 	if a.name == "" || strings.Contains(a.name, ":") {
-		return errors.New("please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
+		return clierr(errors.New("please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>"))
 	}
 
 	if exists("Dockerfile") {
@@ -182,7 +182,7 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	if a.runtime == "" {
 		rt, err = detectRuntime(pwd)
 		if err != nil {
-			return err
+			return clierr(err)
 		}
 		a.runtime = rt
 		fmt.Printf("Found %v, assuming %v runtime.\n", rt, rt)
@@ -205,7 +205,7 @@ func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 		}
 	}
 	if a.entrypoint == "" && a.cmd == "" {
-		return fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
+		return clierr(fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime))
 	}
 
 	return nil

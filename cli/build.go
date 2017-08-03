@@ -44,16 +44,16 @@ func (b *buildcmd) build(c *cli.Context) error {
 
 	path, err := os.Getwd()
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	fn, err := findFuncfile(path)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	ff, err := buildfunc(verbwriter, fn, b.noCache)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Printf("Function %v built successfully.\n", ff.FullName())

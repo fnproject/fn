@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -27,7 +28,7 @@ func update(c *cli.Context) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	if err != nil {
-		log.Fatalln("starting command failed:", err)
+		return clierr(fmt.Errorf("starting command failed:", err))
 	}
 
 	done := make(chan error, 1)

@@ -33,14 +33,14 @@ func (r *versionCmd) version(c *cli.Context) error {
 
 	u, err := url.Parse(apiURL)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	r.Configuration.BasePath = u.String()
 
 	fmt.Println("Client version:", Version)
 	v, _, err := r.VersionGet()
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	fmt.Println("Server version", v.Version)
 	return nil

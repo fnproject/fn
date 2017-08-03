@@ -72,9 +72,9 @@ func (r *runCmd) run(c *cli.Context) error {
 		ff, err = loadFuncfile()
 		if err != nil {
 			if _, ok := err.(*notFoundError); ok {
-				return errors.New("error: image name is missing or no function file found")
+				return clierr(errors.New("error: image name is missing or no function file found"))
 			}
-			return err
+			return clierr(err)
 		}
 	} else {
 		ff = &funcfile{
@@ -82,7 +82,10 @@ func (r *runCmd) run(c *cli.Context) error {
 		}
 	}
 
-	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"), c.String("format"), c.Int("runs"))
+	if err := runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"), c.String("format"), c.Int("runs")); err != nil {
+		return clierr(err)
+	}
+	return nil
 }
 
 // TODO: share all this stuff with the Docker driver in server or better yet, actually use the Docker driver

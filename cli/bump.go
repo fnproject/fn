@@ -45,27 +45,27 @@ func (b *bumpcmd) bump(c *cli.Context) error {
 
 	path, err := os.Getwd()
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	fn, err := findFuncfile(path)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Fprintln(verbwriter, "bumping version for", fn)
 
 	funcfile, err := parsefuncfile(fn)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	funcfile, err = bumpversion(*funcfile)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	if err := storefuncfile(fn, funcfile); err != nil {
-		return err
+		return clierr(err)
 	}
 
 	fmt.Println("Bumped to version", funcfile.Version)

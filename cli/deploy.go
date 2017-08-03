@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -83,7 +82,7 @@ func (p *deploycmd) scan(c *cli.Context) error {
 	var walked bool
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatalln("Couldn't get working directory:", err)
+		return clierr(fmt.Errorf("Couldn't get working directory:", err))
 	}
 
 	err = filepath.Walk(wd, func(path string, info os.FileInfo, err error) error {
@@ -110,11 +109,11 @@ func (p *deploycmd) scan(c *cli.Context) error {
 		return e
 	})
 	if err != nil {
-		fmt.Fprintf(p.verbwriter, "error: %s\n", err)
+		return clierr(err)
 	}
 
 	if !walked {
-		return errors.New("No function file found.")
+		return clierr(errors.New("No function file found."))
 	}
 
 	return nil
@@ -129,12 +128,12 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 
 	err := c.App.Command("bump").Run(c)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	funcfile, err := buildfunc(p.verbwriter, funcFileName, p.noCache)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	if funcfile.Path == "" {
 		funcfile.Path = "/" + path.Base(path.Dir(funcFilePath))
@@ -145,24 +144,31 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 	}
 
 	if err := dockerpush(funcfile); err != nil {
-		return err
+		return clierr(err)
 	}
 
-	return p.route(c, funcfile)
+	if err := p.route(c, funcfile); err != nil {
+		return clierr(err)
+	}
+
+	return nil
 }
 
 func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
 	fmt.Printf("Updating route %s using image %s...\n", ff.Path, ff.FullName())
 	if err := resetBasePath(p.Configuration); err != nil {
-		return fmt.Errorf("error setting endpoint: %v", err)
+		return clierr(fmt.Errorf("error setting endpoint: %v", err))
 	}
 
 	routesCmd := routesCmd{client: client.APIClient()}
 	rt := &models.Route{}
 	if err := routeWithFuncFile(c, ff, rt); err != nil {
-		return fmt.Errorf("error getting route with funcfile: %s", err)
+		return clierr(fmt.Errorf("error getting route with funcfile: %s", err))
 	}
-	return routesCmd.putRoute(c, p.appName, ff.Path, rt)
+	if err := routesCmd.putRoute(c, p.appName, ff.Path, rt); err != nil {
+		return clierr(err)
+	}
+	return nil
 }
 
 func expandEnvConfig(configs map[string]string) map[string]string {

@@ -34,7 +34,7 @@ func start(c *cli.Context) error {
 	// OR dind: docker run --rm -it --name functions -v ${PWD}/data:/app/data --privileged -p 8080:8080 funcy/functions
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatalln("Getwd failed:", err)
+		return clierr(fmt.Errorf("Getwd failed:", err))
 	}
 	args := []string{"run", "--rm", "-i",
 		"--name", "functions",
@@ -51,7 +51,7 @@ func start(c *cli.Context) error {
 	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
-		log.Fatalln("starting command failed:", err)
+		return clierr(fmt.Errorf("starting command failed:", err))
 	}
 
 	done := make(chan error, 1)
