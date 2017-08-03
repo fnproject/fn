@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const FN_CALL_ID = "Fn_call_id"
+
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	detectedEnv := os.Environ()
 	if len(selectedEnv) > 0 {
@@ -55,16 +57,26 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	if err != nil {
 		return fmt.Errorf("error running route: %s", err)
 	}
-	if call_id, found := resp.Header["Fn_call_id"]; found {
+	// for sync calls
+	if call_id, found := resp.Header[FN_CALL_ID]; found {
 		fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", call_id[0]))
 		io.Copy(output, resp.Body)
 	} else {
+		// for async calls and error discovering
 		c := &callID{}
-		json.NewDecoder(resp.Body).Decode(c)
-		if c.CallID != "" {
-			fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+		err = json.NewDecoder(resp.Body).Decode(c)
+		if err == nil {
+			// decode would not fail in both cases:
+			// - call id in body
+			// - error in body
+			// that's why we need to check values of attributes
+			if c.CallID != "" {
+				fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+			} else {
+				fmt.Fprint(output, fmt.Sprintf("Error: %v\n", c.Error.Message))
+			}
 		} else {
-			fmt.Fprint(output, fmt.Sprintf("Error: %v\n", c.Error.Message))
+			return err
 		}
 	}
 
