@@ -45,5 +45,5 @@ deployment:
     commands:
       - git config --global user.email "treeder+circle@gmail.com"
       - git config --global user.name "CircleCI"
-      - docker login -e $DOCKER_EMAIL -u $DOCKER_USERNAME -p $DOCKER_PASS
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
       - cd $GO_PROJECT && ./release.sh
