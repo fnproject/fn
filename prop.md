@@ -20,7 +20,9 @@ those things has its own execution path that contains its own unique bugs.
 This seems like a layering issue, mainly.  It would be nice if most of the
 code went through the same path, so that we could fix bugs in one place
 instead of having to fix them in a few various places to cover, as of now:
-hot/async, hot/sync, cold/async.
+hot/async, hot/sync, cold/async. As a bonus, things like hot/async will just
+kind of fall out where right now they require significant effort to add
+(plumbing through 3-4 packages).
 
 Inspecting the code will prove that there are pervasive layering issues due to
 lack of compartmentalization, and lots of structs that are just different
@@ -30,7 +32,7 @@ output of a container execution, but in this case it is a stand in for a hot
 function invocation, as well, which is specifically not the output of a
 container execution. Another example is that the `runner` (an object meant to
 run docker containers) has a field for a `datastore` (a database), neither of
-these two things need the other.
+these two things need the other and should be married in separate layers.
 
 ### Proposal
 
@@ -42,11 +44,12 @@ These should all be 1 struct, that implements interfaces that will satisfy
 other parts of the system that need to interact with it. For example,
 `*models.Task` can implement `drivers.ContainerTask` and `datastore.GetCall`.
 Multiple layers could learn to interact with `drivers.ContainerTask`,
-alternatively. From here on, 'task' will be referred to as a 'call'.
-the '/tasks' endpoints will be herein removed (they currently refer to an
-async 'call', with operations to reserve or delete MQ messages directly
-through the api. the call API can handle these fine with ID, and look up
-the call by id to get fields it needs & remove messages, etc)
+alternatively, and we can rename it to `Call` or something. From here on,
+'task' will be referred to as a 'call'.  the '/tasks' endpoints will be herein
+removed (they currently refer to an async 'call', with operations to reserve
+or delete MQ messages directly through the api. the call API can handle these
+fine with ID, and look up the call by id to get fields it needs & remove
+messages, etc)
 
 ##### Execution model for Async is at most once
 
@@ -54,7 +57,7 @@ This needs to be at least once, for starters. We can add exactly once later,
 it's just not easy and at least once will work pretty well 99+% of the time for
 now. We can also document this as our intended execution model.
 
-##### There is no layer to tie all the things together
+##### There is no layer to tie all the things together below http
 
 We need some kind of layer that will interact with the incoming request
 stream, allowing the request stream to peep for slots to execute jobs, and
@@ -86,7 +89,8 @@ middleware, a route cache. tl;dr literally jesus
 
 runner - a layer that is responsible for maintaining a bucket of hot
 functions, executing jobs, storing the jobs logs, storing the call itself,
-allocating slots of ram, pulling async jobs, managing async jobs
+allocating slots of ram, pulling async jobs, managing async jobs, allocating
+func loggers
 
 datastore - store things in sql (actually good)
 
@@ -110,6 +114,10 @@ controller (name?) - a datastore, a log store, an MQ, a runner
 runner - driver, hot function bucket
 
 datastore - store things in sql (actually good)
+
+MQ - store things in MQ
+
+driver - run docker containers
 
 ##### proposed interfaces:
 
@@ -167,8 +175,19 @@ For sync, if there is no where to run the call, we need to return a 504 that
 the server is busy (expressly different than a timeout in the sense that the
 call ran, but past its timeout) so that it may run elsewhere.
 
-For cold, pull the image if needed, create the container, start the container
+For cold, pull the image if needed, create the container, start the container,
+capture the output of the container, store that invocation in controller /
+clean up
 
 For hot, pull the image if needed, if there are no containers, start a container,
 if there are containers, attempt sending the call to one, and if they seem
-busy try to start another (since we have the image, this should be ~fast).
+busy try to start another (since we have the image, this should be ~fast),
+capture output of the container, store the invocation in controller / clean up
+
+##### things this will _not_ attempt to solve (i.e. up next...)
+
+* async exactly once execution
+* async api defined user retries
+* async job delays
+* async MQ scalability
+* async MQ priorities (related to scalability, kind of)
