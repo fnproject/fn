@@ -10,6 +10,7 @@ import (
 
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/drivers"
+	"github.com/fsouza/go-dockerclient"
 )
 
 type taskDockerTest struct {
@@ -87,5 +88,23 @@ func TestRunnerDockerStdin(t *testing.T) {
 	got := output.String()
 	if !strings.Contains(got, expect) {
 		t.Errorf("Test expected output to contain '%s', got '%s'", expect, got)
+	}
+}
+
+func TestRegistry(t *testing.T) {
+	image := "funcy/hello"
+
+	sizer, err := CheckRegistry(context.Background(), image, docker.AuthConfiguration{})
+	if err != nil {
+		t.Fatal("expected registry check not to fail, got:", err)
+	}
+
+	size, err := sizer.Size()
+	if err != nil {
+		t.Fatal("expected sizer not to fail, got:", err)
+	}
+
+	if size <= 0 {
+		t.Fatalf("expected positive size for image that exists, got size:", size)
 	}
 }
