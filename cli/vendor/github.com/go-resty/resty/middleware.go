@@ -6,6 +6,7 @@ package resty
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -244,7 +245,7 @@ func parseResponseBody(c *Client, res *Response) (err error) {
 		// Considered as Result
 		if res.StatusCode() > 199 && res.StatusCode() < 300 {
 			if res.Request.Result != nil {
-				err = Unmarshalc(c, ct, res.body, res.Request.Result)
+				err = Unmarshal(ct, res.body, res.Request.Result)
 				return
 			}
 		}
@@ -257,7 +258,7 @@ func parseResponseBody(c *Client, res *Response) (err error) {
 			}
 
 			if res.Request.Error != nil {
-				err = Unmarshalc(c, ct, res.body, res.Request.Error)
+				err = Unmarshal(ct, res.body, res.Request.Error)
 			}
 		}
 	}
@@ -355,7 +356,7 @@ func handleRequestBody(c *Client, r *Request) (err error) {
 		bodyBytes = []byte(s)
 	} else if IsJSONType(contentType) &&
 		(kind == reflect.Struct || kind == reflect.Map || kind == reflect.Slice) {
-		bodyBytes, err = c.JSONMarshal(r.Body)
+		bodyBytes, err = json.Marshal(r.Body)
 	} else if IsXMLType(contentType) && (kind == reflect.Struct) {
 		bodyBytes, err = xml.Marshal(r.Body)
 	}

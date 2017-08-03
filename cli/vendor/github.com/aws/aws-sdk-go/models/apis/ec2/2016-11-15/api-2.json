@@ -283,6 +283,15 @@
       "input":{"shape":"CreateCustomerGatewayRequest"},
       "output":{"shape":"CreateCustomerGatewayResult"}
     },
+    "CreateDefaultVpc":{
+      "name":"CreateDefaultVpc",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"CreateDefaultVpcRequest"},
+      "output":{"shape":"CreateDefaultVpcResult"}
+    },
     "CreateDhcpOptions":{
       "name":"CreateDhcpOptions",
       "http":{
@@ -842,6 +851,15 @@
       },
       "input":{"shape":"DescribeEgressOnlyInternetGatewaysRequest"},
       "output":{"shape":"DescribeEgressOnlyInternetGatewaysResult"}
+    },
+    "DescribeElasticGpus":{
+      "name":"DescribeElasticGpus",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DescribeElasticGpusRequest"},
+      "output":{"shape":"DescribeElasticGpusResult"}
     },
     "DescribeExportTasks":{
       "name":"DescribeExportTasks",
@@ -3506,6 +3524,21 @@
         }
       }
     },
+    "CreateDefaultVpcRequest":{
+      "type":"structure",
+      "members":{
+        "DryRun":{"shape":"Boolean"}
+      }
+    },
+    "CreateDefaultVpcResult":{
+      "type":"structure",
+      "members":{
+        "Vpc":{
+          "shape":"Vpc",
+          "locationName":"vpc"
+        }
+      }
+    },
     "CreateDhcpOptionsRequest":{
       "type":"structure",
       "required":["DhcpConfigurations"],
@@ -5027,6 +5060,39 @@
         "EgressOnlyInternetGateways":{
           "shape":"EgressOnlyInternetGatewayList",
           "locationName":"egressOnlyInternetGatewaySet"
+        },
+        "NextToken":{
+          "shape":"String",
+          "locationName":"nextToken"
+        }
+      }
+    },
+    "DescribeElasticGpusRequest":{
+      "type":"structure",
+      "members":{
+        "ElasticGpuIds":{
+          "shape":"ElasticGpuIdSet",
+          "locationName":"ElasticGpuId"
+        },
+        "DryRun":{"shape":"Boolean"},
+        "Filters":{
+          "shape":"FilterList",
+          "locationName":"Filter"
+        },
+        "MaxResults":{"shape":"Integer"},
+        "NextToken":{"shape":"String"}
+      }
+    },
+    "DescribeElasticGpusResult":{
+      "type":"structure",
+      "members":{
+        "ElasticGpuSet":{
+          "shape":"ElasticGpuSet",
+          "locationName":"elasticGpuSet"
+        },
+        "MaxResults":{
+          "shape":"Integer",
+          "locationName":"maxResults"
         },
         "NextToken":{
           "shape":"String",
@@ -7290,6 +7356,108 @@
         "locationName":"item"
       }
     },
+    "ElasticGpuAssociation":{
+      "type":"structure",
+      "members":{
+        "ElasticGpuId":{
+          "shape":"String",
+          "locationName":"elasticGpuId"
+        },
+        "ElasticGpuAssociationId":{
+          "shape":"String",
+          "locationName":"elasticGpuAssociationId"
+        },
+        "ElasticGpuAssociationState":{
+          "shape":"String",
+          "locationName":"elasticGpuAssociationState"
+        },
+        "ElasticGpuAssociationTime":{
+          "shape":"String",
+          "locationName":"elasticGpuAssociationTime"
+        }
+      }
+    },
+    "ElasticGpuAssociationList":{
+      "type":"list",
+      "member":{
+        "shape":"ElasticGpuAssociation",
+        "locationName":"item"
+      }
+    },
+    "ElasticGpuHealth":{
+      "type":"structure",
+      "members":{
+        "Status":{
+          "shape":"ElasticGpuStatus",
+          "locationName":"status"
+        }
+      }
+    },
+    "ElasticGpuIdSet":{
+      "type":"list",
+      "member":{
+        "shape":"String",
+        "locationName":"item"
+      }
+    },
+    "ElasticGpuSet":{
+      "type":"list",
+      "member":{"shape":"ElasticGpus"}
+    },
+    "ElasticGpuSpecification":{
+      "type":"structure",
+      "required":["Type"],
+      "members":{
+        "Type":{"shape":"String"}
+      }
+    },
+    "ElasticGpuSpecifications":{
+      "type":"list",
+      "member":{
+        "shape":"ElasticGpuSpecification",
+        "locationName":"item"
+      }
+    },
+    "ElasticGpuState":{
+      "type":"string",
+      "enum":["ATTACHED"]
+    },
+    "ElasticGpuStatus":{
+      "type":"string",
+      "enum":[
+        "OK",
+        "IMPAIRED"
+      ]
+    },
+    "ElasticGpus":{
+      "type":"structure",
+      "members":{
+        "ElasticGpuId":{
+          "shape":"String",
+          "locationName":"elasticGpuId"
+        },
+        "AvailabilityZone":{
+          "shape":"String",
+          "locationName":"availabilityZone"
+        },
+        "ElasticGpuType":{
+          "shape":"String",
+          "locationName":"elasticGpuType"
+        },
+        "ElasticGpuHealth":{
+          "shape":"ElasticGpuHealth",
+          "locationName":"elasticGpuHealth"
+        },
+        "ElasticGpuState":{
+          "shape":"ElasticGpuState",
+          "locationName":"elasticGpuState"
+        },
+        "InstanceId":{
+          "shape":"String",
+          "locationName":"instanceId"
+        }
+      }
+    },
     "EnableVgwRoutePropagationRequest":{
       "type":"structure",
       "required":[
@@ -8985,6 +9153,10 @@
         "InstanceLifecycle":{
           "shape":"InstanceLifecycleType",
           "locationName":"instanceLifecycle"
+        },
+        "ElasticGpuAssociations":{
+          "shape":"ElasticGpuAssociationList",
+          "locationName":"elasticGpuAssociationSet"
         },
         "NetworkInterfaces":{
           "shape":"InstanceNetworkInterfaceList",
@@ -13125,6 +13297,7 @@
           "shape":"String",
           "locationName":"privateIpAddress"
         },
+        "ElasticGpuSpecification":{"shape":"ElasticGpuSpecifications"},
         "TagSpecifications":{
           "shape":"TagSpecificationList",
           "locationName":"TagSpecification"

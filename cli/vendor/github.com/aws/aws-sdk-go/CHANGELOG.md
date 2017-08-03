@@ -1,3 +1,48 @@
+Release v1.10.20 (2017-08-01)
+===
+
+### Service Client Updates
+* `service/codedeploy`: Updates service API and documentation
+  * AWS CodeDeploy now supports the use of multiple tag groups in a single deployment group (an intersection of tags) to identify the instances for a deployment. When you create or update a deployment group, use the new ec2TagSet and onPremisesTagSet structures to specify up to three groups of tags. Only instances that are identified by at least one tag in each of the tag groups are included in the deployment group.
+* `service/config`: Updates service API and documentation
+* `service/ec2`: Updates service waiters
+  * Ec2 SpotInstanceRequestFulfilled waiter update
+* `service/elasticloadbalancingv2`: Updates service waiters
+* `service/email`: Updates service API, documentation, paginators, and examples
+  * This update adds information about publishing email open and click events. This update also adds information about publishing email events to Amazon Simple Notification Service (Amazon SNS).
+* `service/pinpoint`: Updates service API and documentation
+  * This release of the Pinpoint SDK enables App management - create, delete, update operations, Raw Content delivery for APNs and GCM campaign messages and From Address override.
+
+Release v1.10.19 (2017-08-01)
+===
+
+### Service Client Updates
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/inspector`: Updates service API, documentation, and paginators
+  * Inspector's StopAssessmentRun API has been updated with a new input option - stopAction. This request parameter can be set to either START_EVALUATION or SKIP_EVALUATION. START_EVALUATION (the default value, and the previous behavior) stops the AWS agent data collection and begins the results evaluation for findings generation based on the data collected so far. SKIP_EVALUATION cancels the assessment run immediately, after which no findings are generated.
+* `service/ssm`: Updates service API and documentation
+  * Adds a SendAutomationSignal API to SSM Service. This API is used to send a signal to an automation execution to change the current behavior or status of the execution.
+
+Release v1.10.18 (2017-07-27)
+===
+
+### Service Client Updates
+* `service/ec2`: Updates service API and documentation
+  * The CreateDefaultVPC API enables you to create a new default VPC . You no longer need to contact AWS support, if your default VPC has been deleted.
+* `service/kinesisanalytics`: Updates service API and documentation
+  * Added additional exception types and clarified documentation.
+
+Release v1.10.17 (2017-07-27)
+===
+
+### Service Client Updates
+* `service/dynamodb`: Updates service documentation and examples
+  * Corrected a typo.
+* `service/ec2`: Updates service API and documentation
+  * Amazon EC2 Elastic GPUs allow you to easily attach low-cost graphics acceleration to current generation EC2 instances. With Amazon EC2 Elastic GPUs, you can configure the right amount of graphics acceleration to your particular workload without being constrained by fixed hardware configurations and limited GPU selection.
+* `service/monitoring`: Updates service documentation
+  * This release adds high resolution features to CloudWatch, with support for Custom Metrics down to 1 second and Alarms down to 10 seconds.
+
 Release v1.10.16 (2017-07-26)
 ===
 

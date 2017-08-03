@@ -184,6 +184,10 @@ type EC2API interface {
 	CreateCustomerGatewayWithContext(aws.Context, *ec2.CreateCustomerGatewayInput, ...request.Option) (*ec2.CreateCustomerGatewayOutput, error)
 	CreateCustomerGatewayRequest(*ec2.CreateCustomerGatewayInput) (*request.Request, *ec2.CreateCustomerGatewayOutput)
 
+	CreateDefaultVpc(*ec2.CreateDefaultVpcInput) (*ec2.CreateDefaultVpcOutput, error)
+	CreateDefaultVpcWithContext(aws.Context, *ec2.CreateDefaultVpcInput, ...request.Option) (*ec2.CreateDefaultVpcOutput, error)
+	CreateDefaultVpcRequest(*ec2.CreateDefaultVpcInput) (*request.Request, *ec2.CreateDefaultVpcOutput)
+
 	CreateDhcpOptions(*ec2.CreateDhcpOptionsInput) (*ec2.CreateDhcpOptionsOutput, error)
 	CreateDhcpOptionsWithContext(aws.Context, *ec2.CreateDhcpOptionsInput, ...request.Option) (*ec2.CreateDhcpOptionsOutput, error)
 	CreateDhcpOptionsRequest(*ec2.CreateDhcpOptionsInput) (*request.Request, *ec2.CreateDhcpOptionsOutput)
@@ -443,6 +447,10 @@ type EC2API interface {
 	DescribeEgressOnlyInternetGateways(*ec2.DescribeEgressOnlyInternetGatewaysInput) (*ec2.DescribeEgressOnlyInternetGatewaysOutput, error)
 	DescribeEgressOnlyInternetGatewaysWithContext(aws.Context, *ec2.DescribeEgressOnlyInternetGatewaysInput, ...request.Option) (*ec2.DescribeEgressOnlyInternetGatewaysOutput, error)
 	DescribeEgressOnlyInternetGatewaysRequest(*ec2.DescribeEgressOnlyInternetGatewaysInput) (*request.Request, *ec2.DescribeEgressOnlyInternetGatewaysOutput)
+
+	DescribeElasticGpus(*ec2.DescribeElasticGpusInput) (*ec2.DescribeElasticGpusOutput, error)
+	DescribeElasticGpusWithContext(aws.Context, *ec2.DescribeElasticGpusInput, ...request.Option) (*ec2.DescribeElasticGpusOutput, error)
+	DescribeElasticGpusRequest(*ec2.DescribeElasticGpusInput) (*request.Request, *ec2.DescribeElasticGpusOutput)
 
 	DescribeExportTasks(*ec2.DescribeExportTasksInput) (*ec2.DescribeExportTasksOutput, error)
 	DescribeExportTasksWithContext(aws.Context, *ec2.DescribeExportTasksInput, ...request.Option) (*ec2.DescribeExportTasksOutput, error)

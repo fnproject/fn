@@ -40,5 +40,6 @@ import:
   subpackages:
   - pkg/jsonmessage
 - package: github.com/urfave/cli
-  version: ^1.19.1
+  # version: ^1.19.1
+  version: master
 - package: gopkg.in/yaml.v2
