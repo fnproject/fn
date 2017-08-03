@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,10 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 		name := kv[0]
 		req.Header.Set(name, os.Getenv(name))
 	}
+}
+
+type callID struct {
+	CallID string `json:"call_id"`
 }
 
 func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
@@ -45,8 +50,14 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	if err != nil {
 		return fmt.Errorf("error running route: %s", err)
 	}
-
-	io.Copy(output, resp.Body)
+	if call_id, found := resp.Header["Fn_call_id"]; found {
+		fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", call_id[0]))
+		io.Copy(output, resp.Body)
+	} else {
+		c := &callID{}
+		json.NewDecoder(resp.Body).Decode(c)
+		fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+	}
 
 	if resp.StatusCode >= 400 {
 		// TODO: parse out error message
