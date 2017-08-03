@@ -22,8 +22,13 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
+type APIErr struct {
+	Message string `json:"message"`
+}
+
 type callID struct {
 	CallID string `json:"call_id"`
+	Error  APIErr `json:"error"`
 }
 
 func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
@@ -56,7 +61,11 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	} else {
 		c := &callID{}
 		json.NewDecoder(resp.Body).Decode(c)
-		fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+		if c.CallID != "" {
+			fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+		} else {
+			fmt.Fprint(output, fmt.Sprintf("Error: %v\n", c.Error.Message))
+		}
 	}
 
 	if resp.StatusCode >= 400 {
