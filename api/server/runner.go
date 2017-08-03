@@ -148,7 +148,8 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	baseVars["FN_FORMAT"] = route.Format
 	baseVars["APP_NAME"] = appName
 	baseVars["ROUTE"] = route.Path
-	baseVars["MEMORY_MB"] = fmt.Sprintf("%d", route.Memory)
+	// TODO add this back after #193 #195 (fix async RAM)
+	// baseVars["MEMORY_MB"] = fmt.Sprintf("%d", route.Memory)
 
 	// app config
 	for k, v := range app.Config {
