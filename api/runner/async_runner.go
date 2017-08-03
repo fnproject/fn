@@ -3,23 +3,22 @@ package runner
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
-	"crypto/tls"
-	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
-	"github.com/fnproject/fn/api/runner/task"
+	taskpkg "github.com/fnproject/fn/api/runner/task"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -65,30 +64,6 @@ func getTask(ctx context.Context, url string) (*models.Task, error) {
 		return nil, nil
 	}
 	return &task, nil
-}
-
-func getCfg(t *models.Task) *task.Config {
-	cfg := &task.Config{
-		Image:   *t.Image,
-		ID:      t.ID,
-		AppName: t.AppName,
-		Memory:  128,
-		Env:     t.EnvVars,
-		Ready:   make(chan struct{}),
-		Stdin:   strings.NewReader(t.Payload),
-	}
-	if t.Timeout == nil || *t.Timeout <= 0 {
-		cfg.Timeout = DefaultTimeout
-	} else {
-		cfg.Timeout = time.Duration(*t.Timeout) * time.Second
-	}
-	if t.IdleTimeout == nil || *t.IdleTimeout <= 0 {
-		cfg.IdleTimeout = DefaultIdleTimeout
-	} else {
-		cfg.IdleTimeout = time.Duration(*t.IdleTimeout) * time.Second
-	}
-
-	return cfg
 }
 
 func deleteTask(ctx context.Context, url string, task *models.Task) error {
@@ -186,7 +161,7 @@ func runAsyncTask(ctx context.Context, url string, rnr *Runner, ds models.Datast
 	go func() {
 		defer wg.Done()
 		// Process Task
-		_, err := rnr.RunTrackedTask(task, ctx, getCfg(task))
+		_, err := rnr.RunTrackedTask(task, ctx, taskpkg.ConfigFromTask(task))
 		if err != nil {
 			log.WithError(err).Error("Cannot run task")
 		}

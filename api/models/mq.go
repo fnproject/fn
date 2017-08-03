@@ -2,9 +2,9 @@ package models
 
 import "context"
 
-// Titan uses a Message Queue to impose a total ordering on jobs that it will
+// Message Queue is used to impose a total ordering on jobs that it will
 // execute in order. Tasks are added to the queue via the Push() interface. The
-// MQ must support a reserve-delete 2 step dequeue to allow Titan to implement
+// MQ must support a reserve-delete 2 step dequeue to allow implementing
 // timeouts and retries.
 //
 // The Reserve() operation must return a job based on this total ordering
@@ -29,7 +29,7 @@ import "context"
 type MessageQueue interface {
 	// Push a Task onto the queue. If any error is returned, the Task SHOULD not be
 	// queued. Note that this does not completely avoid double queueing, that is
-	// OK, Titan will perform a check against the datastore after a dequeue.
+	// OK, a check against the datastore will be performed after a dequeue.
 	//
 	// If the job's Delay value is > 0, the job should NOT be enqueued. The job
 	// should only be available in the queue after at least Delay seconds have

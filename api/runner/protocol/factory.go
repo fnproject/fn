@@ -16,7 +16,9 @@ var errInvalidProtocol = errors.New("Invalid Protocol")
 // It returns any protocol error, if present.
 type ContainerIO interface {
 	IsStreamable() bool
-	Dispatch(ctx context.Context, t task.Request) error
+
+	// TODO this should take a drivers.ContainerTask?
+	Dispatch(ctx context.Context, t *task.Config) error
 }
 
 // Protocol defines all protocols that operates a ContainerIO.
@@ -55,7 +57,7 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 type errorProto struct{}
 
 func (e *errorProto) IsStreamable() bool                                 { return false }
-func (e *errorProto) Dispatch(ctx context.Context, t task.Request) error { return errInvalidProtocol }
+func (e *errorProto) Dispatch(ctx context.Context, t *task.Config) error { return errInvalidProtocol }
 
 // New creates a valid protocol handler from a I/O pipe representing containers
 // stdin/stdout.
