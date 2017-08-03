@@ -62,7 +62,7 @@ var updateRouteFlags = append(routeFlags,
 
 var callFnFlags = append(runflags(),
 	cli.BoolFlag{
-		Name:  "ignore-call-id",
+		Name:  "display-call-id",
 		Usage: "whether display call ID or not",
 	},
 )
@@ -207,7 +207,7 @@ func (a *routesCmd) call(c *cli.Context) error {
 	u.Path = path.Join(u.Path, "r", appName, route)
 	content := stdin()
 
-	return client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"), c.Bool("ignore-call-id"))
+	return client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"), c.Bool("display-call-id"))
 }
 
 func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
