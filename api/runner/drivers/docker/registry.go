@@ -19,8 +19,8 @@ import (
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
+	"github.com/fnproject/fn/api/runner/drivers"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/iron-io/runner/drivers"
 )
 
 var (

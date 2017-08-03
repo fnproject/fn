@@ -1,8 +1,6 @@
-hash: 6a94dc42a1efd079d5d8c5f72edb8de5e2b3cace82b034cfe5f1b0d1c30a982e
-updated: 2017-08-03T03:21:07.598979406-07:00
+hash: b555054a6f86ac84f6104ad9efabdcd85966c8f6574e485be7337c3ee9f29aa0
+updated: 2017-08-03T03:58:34.544868553-07:00
 imports:
-- name: code.cloudfoundry.org/bytefmt
-  version: f4415fafc5619dd75599a54a7c91fb3948ad58bd
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
   subpackages:
@@ -208,10 +206,6 @@ imports:
   - api
   - config
   - mq
-- name: github.com/iron-io/runner
-  version: 9fe11b16791641c40a0729de8bac7ba28a507145
-  subpackages:
-  - drivers
 - name: github.com/jmoiron/jsonq
   version: e874b168d07ecc7808bc950a17998a8aa3141d82
 - name: github.com/jmoiron/sqlx
@@ -286,14 +280,14 @@ imports:
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
 - name: github.com/Shopify/sarama
   version: 2fd980e23bdcbb8edeb78fc704de0c39a6567ffc
-- name: github.com/sirupsen/logrus
-  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/Sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
   repo: https://github.com/sirupsen/logrus.git
   vcs: git
   subpackages:
   - hooks/syslog
+- name: github.com/sirupsen/logrus
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/spf13/afero
   version: 9be650865eab0c12963d8753212f4f9c66cdcf12
   subpackages:
@@ -344,6 +338,4 @@ imports:
   - internal/scram
 - name: gopkg.in/yaml.v2
   version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
-testImports:
-- name: github.com/vrischmann/envconfig
-  version: 757beaaeac8d14bcc7ea3f71488d65cf45cf2eff
+testImports: []
