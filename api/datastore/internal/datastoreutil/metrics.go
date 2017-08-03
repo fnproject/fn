@@ -82,22 +82,22 @@ func (m *metricds) RemoveRoute(ctx context.Context, appName, routePath string) e
 	return m.ds.RemoveRoute(ctx, appName, routePath)
 }
 
-func (m *metricds) InsertTask(ctx context.Context, task *models.Task) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_task")
+func (m *metricds) InsertCall(ctx context.Context, call *models.Call) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_call")
 	defer span.Finish()
-	return m.ds.InsertTask(ctx, task)
+	return m.ds.InsertCall(ctx, call)
 }
 
-func (m *metricds) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_task")
+func (m *metricds) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_call")
 	defer span.Finish()
-	return m.ds.GetTask(ctx, callID)
+	return m.ds.GetCall(ctx, appName, callID)
 }
 
-func (m *metricds) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_tasks")
+func (m *metricds) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_calls")
 	defer span.Finish()
-	return m.ds.GetTasks(ctx, filter)
+	return m.ds.GetCalls(ctx, filter)
 }
 
 func (m *metricds) InsertLog(ctx context.Context, callID string, callLog string) error {
@@ -106,7 +106,7 @@ func (m *metricds) InsertLog(ctx context.Context, callID string, callLog string)
 	return m.ds.InsertLog(ctx, callID, callLog)
 }
 
-func (m *metricds) GetLog(ctx context.Context, callID string) (*models.FnCallLog, error) {
+func (m *metricds) GetLog(ctx context.Context, callID string) (*models.CallLog, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_log")
 	defer span.Finish()
 	return m.ds.GetLog(ctx, callID)

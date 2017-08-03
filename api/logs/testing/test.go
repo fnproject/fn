@@ -23,68 +23,68 @@ var testRoute = &models.Route{
 	Format:  "http",
 }
 
-func SetUpTestTask() *models.Task {
-	task := &models.Task{}
-	task.CreatedAt = strfmt.DateTime(time.Now())
-	task.Status = "success"
-	task.StartedAt = strfmt.DateTime(time.Now())
-	task.CompletedAt = strfmt.DateTime(time.Now())
-	task.AppName = testApp.Name
-	task.Path = testRoute.Path
-	return task
+func SetupTestCall() *models.Call {
+	var call models.Call
+	call.CreatedAt = strfmt.DateTime(time.Now())
+	call.Status = "success"
+	call.StartedAt = strfmt.DateTime(time.Now())
+	call.CompletedAt = strfmt.DateTime(time.Now())
+	call.AppName = testApp.Name
+	call.Path = testRoute.Path
+	return &call
 }
 
-func Test(t *testing.T, fnl models.FnLog, ds models.Datastore) {
+func Test(t *testing.T, fnl models.LogStore, ds models.Datastore) {
 	ctx := context.Background()
-	task := SetUpTestTask()
+	call := SetupTestCall()
 
 	t.Run("call-log-insert", func(t *testing.T) {
-		task.ID = id.New().String()
-		err := ds.InsertTask(ctx, task)
+		call.ID = id.New().String()
+		err := ds.InsertCall(ctx, call)
 		if err != nil {
-			t.Fatalf("Test InsertTask(ctx, &task): unexpected error `%v`", err)
+			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
-		err = fnl.InsertLog(ctx, task.ID, "test")
+		err = fnl.InsertLog(ctx, call.ID, "test")
 		if err != nil {
-			t.Fatalf("Test InsertLog(ctx, task.ID, logText): unexpected error during inserting log `%v`", err)
+			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
 	})
 	t.Run("call-log-insert-get", func(t *testing.T) {
-		task.ID = id.New().String()
-		err := ds.InsertTask(ctx, task)
+		call.ID = id.New().String()
+		err := ds.InsertCall(ctx, call)
 		logText := "test"
 		if err != nil {
-			t.Fatalf("Test InsertTask(ctx, &task): unexpected error `%v`", err)
+			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
-		err = fnl.InsertLog(ctx, task.ID, logText)
+		err = fnl.InsertLog(ctx, call.ID, logText)
 		if err != nil {
-			t.Fatalf("Test InsertLog(ctx, task.ID, logText): unexpected error during inserting log `%v`", err)
+			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, task.ID)
+		logEntry, err := fnl.GetLog(ctx, call.ID)
 		if !strings.Contains(logEntry.Log, logText) {
-			t.Fatalf("Test GetLog(ctx, task.ID, logText): unexpected error, log mismatch. "+
+			t.Fatalf("Test GetLog(ctx, call.ID, logText): unexpected error, log mismatch. "+
 				"Expected: `%v`. Got `%v`.", logText, logEntry.Log)
 		}
 	})
 	t.Run("call-log-insert-get-delete", func(t *testing.T) {
-		task.ID = id.New().String()
-		err := ds.InsertTask(ctx, task)
+		call.ID = id.New().String()
+		err := ds.InsertCall(ctx, call)
 		logText := "test"
 		if err != nil {
-			t.Fatalf("Test InsertTask(ctx, &task): unexpected error `%v`", err)
+			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
-		err = fnl.InsertLog(ctx, task.ID, logText)
+		err = fnl.InsertLog(ctx, call.ID, logText)
 		if err != nil {
-			t.Fatalf("Test InsertLog(ctx, task.ID, logText): unexpected error during inserting log `%v`", err)
+			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, task.ID)
+		logEntry, err := fnl.GetLog(ctx, call.ID)
 		if !strings.Contains(logEntry.Log, logText) {
-			t.Fatalf("Test GetLog(ctx, task.ID, logText): unexpected error, log mismatch. "+
+			t.Fatalf("Test GetLog(ctx, call.ID, logText): unexpected error, log mismatch. "+
 				"Expected: `%v`. Got `%v`.", logText, logEntry.Log)
 		}
-		err = fnl.DeleteLog(ctx, task.ID)
+		err = fnl.DeleteLog(ctx, call.ID)
 		if err != nil {
-			t.Fatalf("Test DeleteLog(ctx, task.ID): unexpected error during deleting log `%v`", err)
+			t.Fatalf("Test DeleteLog(ctx, call.ID): unexpected error during deleting log `%v`", err)
 		}
 	})
 }

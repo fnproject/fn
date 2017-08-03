@@ -3,31 +3,26 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"path"
-	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/ccirello/supervisor"
 	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/agent"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"github.com/fnproject/fn/api/runner"
-	"github.com/fnproject/fn/api/runner/common"
 	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/patrickmn/go-cache"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -42,24 +37,16 @@ const (
 )
 
 type Server struct {
-	Datastore models.Datastore
-	Runner    *runner.Runner
 	Router    *gin.Engine
+	Agent     agent.Agent
+	Datastore models.Datastore
 	MQ        models.MessageQueue
-	Enqueue   models.Enqueue
-	LogDB     models.FnLog
-
-	apiURL string
+	LogDB     models.LogStore
 
 	appListeners    []AppListener
 	middlewares     []Middleware
 	runnerListeners []RunnerListener
-
-	routeCache   *cache.Cache
-	singleflight singleflight // singleflight assists Datastore
 }
-
-const cacheSize = 1024
 
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context) *Server {
@@ -73,7 +60,7 @@ func NewFromEnv(ctx context.Context) *Server {
 		logrus.WithError(err).Fatal("Error initializing message queue.")
 	}
 
-	var logDB models.FnLog = ds
+	var logDB models.LogStore = ds
 	if ldb := viper.GetString(EnvLOGDBURL); ldb != "" && ldb != viper.GetString(EnvDBURL) {
 		logDB, err = logs.New(viper.GetString(EnvLOGDBURL))
 		if err != nil {
@@ -81,30 +68,17 @@ func NewFromEnv(ctx context.Context) *Server {
 		}
 	}
 
-	apiURL := viper.GetString(EnvAPIURL)
-
-	return New(ctx, ds, mq, logDB, apiURL)
+	return New(ctx, ds, mq, logDB)
 }
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, apiURL string, opts ...ServerOption) *Server {
-	funcLogger := runner.NewFuncLogger(logDB)
-
-	rnr, err := runner.New(ctx, funcLogger, ds)
-	if err != nil {
-		logrus.WithError(err).Fatalln("Failed to create a runner")
-		return nil
-	}
-
+func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
 	s := &Server{
-		Runner:     rnr,
-		Router:     gin.New(),
-		Datastore:  ds,
-		MQ:         mq,
-		routeCache: cache.New(5*time.Second, 5*time.Minute),
-		LogDB:      logDB,
-		Enqueue:    DefaultEnqueue,
-		apiURL:     apiURL,
+		Agent:     agent.New(ds, mq),
+		Router:    gin.New(),
+		Datastore: ds,
+		MQ:        mq,
+		LogDB:     logDB,
 	}
 
 	setMachineId()
@@ -234,58 +208,8 @@ func loggerWrap(c *gin.Context) {
 	c.Next()
 }
 
-func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Task) (*models.Task, error) {
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"call_id": task.ID})
-	return mq.Push(ctx, task)
-}
-
-func routeCacheKey(appname, path string) string {
-	return fmt.Sprintf("%s_%s", appname, path)
-}
-func (s *Server) cacheget(appname, path string) (*models.Route, bool) {
-	route, ok := s.routeCache.Get(routeCacheKey(appname, path))
-	if !ok {
-		return nil, false
-	}
-	return route.(*models.Route), ok
-}
-
-func (s *Server) cachedelete(appname, path string) {
-	s.routeCache.Delete(routeCacheKey(appname, path))
-}
-
 func (s *Server) handleRunnerRequest(c *gin.Context) {
-	s.handleRequest(c, s.Enqueue)
-}
-
-func (s *Server) handleTaskRequest(c *gin.Context) {
-	ctx, _ := common.LoggerWithFields(c, nil)
-	switch c.Request.Method {
-	case "GET":
-		task, err := s.MQ.Reserve(ctx)
-		if err != nil {
-			handleErrorResponse(c, err)
-			return
-		}
-		c.JSON(http.StatusOK, task)
-	case "DELETE":
-		body, err := ioutil.ReadAll(c.Request.Body)
-		if err != nil {
-			handleErrorResponse(c, err)
-			return
-		}
-		var task models.Task
-		if err = json.Unmarshal(body, &task); err != nil {
-			handleErrorResponse(c, err)
-			return
-		}
-
-		if err := s.MQ.Delete(ctx, &task); err != nil {
-			handleErrorResponse(c, err)
-			return
-		}
-		c.JSON(http.StatusAccepted, task)
-	}
+	s.handleRequest(c)
 }
 
 func extractFields(c *gin.Context) logrus.Fields {
@@ -305,10 +229,6 @@ func (s *Server) startGears(ctx context.Context) {
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
 	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
-	listener, err := net.Listen("tcp", listen)
-	if err != nil {
-		logrus.WithError(err).Fatalln("Failed to serve functions API.")
-	}
 
 	const runHeader = `
       ______
@@ -320,29 +240,23 @@ func (s *Server) startGears(ctx context.Context) {
 	fmt.Println(runHeader)
 	logrus.Infof("Serving Functions API on address `%s`", listen)
 
-	svr := &supervisor.Supervisor{
-		MaxRestarts: supervisor.AlwaysRestart,
-		Log: func(msg interface{}) {
-			logrus.Debug("supervisor: ", msg)
-		},
+	server := http.Server{
+		Addr:    listen,
+		Handler: s.Router,
+		// TODO we should set read/write timeouts
 	}
 
-	svr.AddFunc(func(ctx context.Context) {
-		go func() {
-			err := http.Serve(listener, s.Router)
-			if err != nil {
-				logrus.Fatalf("Error serving API: %v", err)
-			}
-		}()
-		<-ctx.Done()
-	})
+	go func() {
+		<-ctx.Done()                          // listening for signals...
+		server.Shutdown(context.Background()) // we can wait
+	}()
 
-	svr.AddFunc(func(ctx context.Context) {
-		runner.RunAsyncRunner(ctx, s.apiURL, s.Runner, s.Datastore)
-	})
+	err := server.ListenAndServe()
+	if err != nil {
+		logrus.WithError(err).Error("error opening server")
+	}
 
-	svr.Serve(ctx)
-	s.Runner.Wait() // wait for tasks to finish (safe shutdown)
+	s.Agent.Close() // after we stop taking requests, wait for all tasks to finish
 }
 
 func (s *Server) bindHandlers(ctx context.Context) {
@@ -380,8 +294,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 	}
 
-	engine.DELETE("/tasks", s.handleTaskRequest)
-	engine.GET("/tasks", s.handleTaskRequest)
 	engine.Any("/r/:app", s.handleRunnerRequest)
 	engine.Any("/r/:app/*route", s.handleRunnerRequest)
 
@@ -397,8 +309,8 @@ type appResponse struct {
 }
 
 type appsResponse struct {
-	Message string      `json:"message"`
-	Apps    models.Apps `json:"apps"`
+	Message string        `json:"message"`
+	Apps    []*models.App `json:"apps"`
 }
 
 type routeResponse struct {
@@ -407,26 +319,21 @@ type routeResponse struct {
 }
 
 type routesResponse struct {
-	Message string        `json:"message"`
-	Routes  models.Routes `json:"routes"`
-}
-
-type tasksResponse struct {
-	Message string      `json:"message"`
-	Task    models.Task `json:"tasksResponse"`
+	Message string          `json:"message"`
+	Routes  []*models.Route `json:"routes"`
 }
 
 type fnCallResponse struct {
-	Message string         `json:"message"`
-	Call    *models.FnCall `json:"call"`
+	Message string       `json:"message"`
+	Call    *models.Call `json:"call"`
 }
 
 type fnCallsResponse struct {
 	Message string         `json:"message"`
-	Calls   models.FnCalls `json:"calls"`
+	Calls   []*models.Call `json:"calls"`
 }
 
 type fnCallLogResponse struct {
-	Message string            `json:"message"`
-	Log     *models.FnCallLog `json:"log"`
+	Message string          `json:"message"`
+	Log     *models.CallLog `json:"log"`
 }

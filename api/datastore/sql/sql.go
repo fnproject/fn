@@ -526,7 +526,7 @@ func (ds *sqlStore) Tx(f func(*sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func (ds *sqlStore) InsertTask(ctx context.Context, task *models.Task) error {
+func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 	query := ds.db.Rebind(`INSERT INTO calls (
 		id,
 		created_at,
@@ -538,9 +538,9 @@ func (ds *sqlStore) InsertTask(ctx context.Context, task *models.Task) error {
 	)
 	VALUES (?, ?, ?, ?, ?, ?, ?);`)
 
-	_, err := ds.db.Exec(query, task.ID, task.CreatedAt.String(),
-		task.StartedAt.String(), task.CompletedAt.String(),
-		task.Status, task.AppName, task.Path)
+	_, err := ds.db.Exec(query, call.ID, call.CreatedAt.String(),
+		call.StartedAt.String(), call.CompletedAt.String(),
+		call.Status, call.AppName, call.Path)
 	if err != nil {
 		return err
 	}
@@ -548,12 +548,15 @@ func (ds *sqlStore) InsertTask(ctx context.Context, task *models.Task) error {
 	return nil
 }
 
-func (ds *sqlStore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
-	query := fmt.Sprintf(`%s WHERE id=?`, callSelector)
+// TODO calls are not fully qualified in this backend currently. need to discuss,
+// if we store the whole thing then it adds a lot of disk space and then we can
+// make async only queue hints instead of entire calls (mq a lot smaller space wise). pick.
+func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
+	query := fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)
 	query = ds.db.Rebind(query)
-	row := ds.db.QueryRow(query, callID)
+	row := ds.db.QueryRow(query, callID, appName)
 
-	var call models.FnCall
+	var call models.Call
 	err := scanCall(row, &call)
 	if err != nil {
 		return nil, err
@@ -561,8 +564,8 @@ func (ds *sqlStore) GetTask(ctx context.Context, callID string) (*models.FnCall,
 	return &call, nil
 }
 
-func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	res := models.FnCalls{}
+func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+	res := []*models.Call{}
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
 	query = ds.db.Rebind(query)
@@ -573,7 +576,7 @@ func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) (mo
 	defer rows.Close()
 
 	for rows.Next() {
-		var call models.FnCall
+		var call models.Call
 		err := scanCall(rows, &call)
 		if err != nil {
 			continue
@@ -592,7 +595,7 @@ func (ds *sqlStore) InsertLog(ctx context.Context, callID, callLog string) error
 	return err
 }
 
-func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.FnCallLog, error) {
+func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.CallLog, error) {
 	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=?`)
 	row := ds.db.QueryRow(query, callID)
 
@@ -605,7 +608,7 @@ func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.FnCallLo
 		return nil, err
 	}
 
-	return &models.FnCallLog{
+	return &models.CallLog{
 		CallID: callID,
 		Log:    log,
 	}, nil
@@ -622,7 +625,7 @@ type RowScanner interface {
 	Scan(dest ...interface{}) error
 }
 
-func ScanLog(scanner RowScanner, log *models.FnCallLog) error {
+func ScanLog(scanner RowScanner, log *models.CallLog) error {
 	return scanner.Scan(
 		&log.CallID,
 		&log.Log,
@@ -746,7 +749,7 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	return b.String(), args
 }
 
-func scanCall(scanner RowScanner, call *models.FnCall) error {
+func scanCall(scanner RowScanner, call *models.Call) error {
 	err := scanner.Scan(
 		&call.ID,
 		&call.CreatedAt,

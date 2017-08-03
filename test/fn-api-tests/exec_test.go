@@ -25,7 +25,7 @@ type TimeoutBody struct {
 
 func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
-	err := CallFN(u.String(), content, output, "POST", []string{})
+	_, err := CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		content := &bytes.Buffer{}
 		output := &bytes.Buffer{}
-		err := CallFN(u.String(), content, output, "POST", []string{})
+		_, err := CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Errorf("Got unexpected error: %v", err)
 		}
@@ -97,7 +97,7 @@ func TestRouteExecutions(t *testing.T) {
 			Name string
 		}{Name: "John"})
 		output := &bytes.Buffer{}
-		err := CallFN(u.String(), content, output, "POST", []string{})
+		_, err := CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Errorf("Got unexpected error: %v", err)
 		}
@@ -216,17 +216,14 @@ func TestRouteExecutions(t *testing.T) {
 		}{Seconds: 31})
 		output := &bytes.Buffer{}
 
-		CallFN(u.String(), content, output, "POST", []string{})
+		headers, _ := CallFN(u.String(), content, output, "POST", []string{})
 
 		if !strings.Contains(output.String(), "Timed out") {
 			t.Errorf("Must fail because of timeout, but got error message: %v", output.String())
 		}
-		tB := &TimeoutBody{}
-
-		json.NewDecoder(output).Decode(tB)
 
 		cfg := &call.GetAppsAppCallsCallParams{
-			Call:    tB.CallID,
+			Call:    headers.Get("FN_CALL_ID"),
 			App:     s.AppName,
 			Context: s.Context,
 		}

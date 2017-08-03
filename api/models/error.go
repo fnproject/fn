@@ -16,7 +16,7 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),
 	}
-	ErrRunnerTimeout = err{
+	ErrCallTimeout = err{
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
@@ -72,9 +72,9 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing key"),
 	}
-	ErrDatastoreEmptyTaskID = err{
+	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing task ID"),
+		error: errors.New("Missing call ID"),
 	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,

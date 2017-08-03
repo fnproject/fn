@@ -93,7 +93,7 @@ func NewIronMQ(url *url.URL) *IronMQ {
 	return mq
 }
 
-func (mq *IronMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
+func (mq *IronMQ) Push(ctx context.Context, job *models.Call) (*models.Call, error) {
 	if job.Priority == nil || *job.Priority < 0 || *job.Priority > 2 {
 		return nil, fmt.Errorf("IronMQ Push job %s: Bad priority", job.ID)
 	}
@@ -107,8 +107,8 @@ func (mq *IronMQ) Push(ctx context.Context, job *models.Task) (*models.Task, err
 	return job, err
 }
 
-func (mq *IronMQ) Reserve(ctx context.Context) (*models.Task, error) {
-	var job models.Task
+func (mq *IronMQ) Reserve(ctx context.Context) (*models.Call, error) {
+	var job models.Call
 
 	var messages []ironmq.Message
 	var err error
@@ -148,7 +148,7 @@ func (mq *IronMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	return &job, nil
 }
 
-func (mq *IronMQ) Delete(ctx context.Context, job *models.Task) error {
+func (mq *IronMQ) Delete(ctx context.Context, job *models.Call) error {
 	if job.Priority == nil || *job.Priority < 0 || *job.Priority > 2 {
 		return fmt.Errorf("IronMQ Delete job %s: Bad priority", job.ID)
 	}

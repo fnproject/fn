@@ -45,7 +45,6 @@ func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
 		return
 	}
 
-	s.cachedelete(resp.Route.AppName, resp.Route.Path)
 	c.JSON(http.StatusOK, resp)
 }
 

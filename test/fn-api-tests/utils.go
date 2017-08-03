@@ -180,7 +180,7 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
+func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) (http.Header, error) {
 	if method == "" {
 		if content == nil {
 			method = "GET"
@@ -191,7 +191,7 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 	req, err := http.NewRequest(method, u, content)
 	if err != nil {
-		return fmt.Errorf("error running route: %s", err)
+		return nil, fmt.Errorf("error running route: %s", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -202,12 +202,12 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("error running route: %s", err)
+		return nil, fmt.Errorf("error running route: %s", err)
 	}
 
 	io.Copy(output, resp.Body)
 
-	return nil
+	return resp.Header, nil
 }
 
 func init() {

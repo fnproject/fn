@@ -4,8 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/fnproject/fn/api/runner/common"
-
+	"github.com/fnproject/fn/api/common"
 	"github.com/gin-gonic/gin"
 )
 
