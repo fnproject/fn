@@ -48,5 +48,10 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 	io.Copy(output, resp.Body)
 
+	if resp.StatusCode >= 400 {
+		// TODO: parse out error message
+		return fmt.Errorf("error calling function: status %v", resp.StatusCode)
+	}
+
 	return nil
 }
