@@ -1,8 +1,7 @@
 package: github.com/fnproject/fn
 excludeDirs:
-- fn
+- cli
 import:
-- package: code.cloudfoundry.org/bytefmt
 - package: github.com/funcy/functions_go
   version: ^0.1.35
   subpackages:
@@ -72,7 +71,6 @@ import:
 - package: github.com/opentracing/opentracing-go
 - package: github.com/openzipkin/zipkin-go-opentracing
 testImport:
-- package: github.com/vrischmann/envconfig
 - package: github.com/opencontainers/go-digest
   branch: master
 - package: github.com/patrickmn/go-cache

@@ -8,8 +8,6 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	"code.cloudfoundry.org/bytefmt"
 )
 
 // A DriverCookie identifies a unique request to run a task.
@@ -68,26 +66,41 @@ type RunResult interface {
 type ContainerTask interface {
 	// Command returns the command to run within the container.
 	Command() string
+
 	// EnvVars returns environment variable key-value pairs.
 	EnvVars() map[string]string
+
 	// Input feeds the container with data
 	Input() io.Reader
+
 	// Labels returns container label key-value pairs.
 	Labels() map[string]string
+
+	// The id to assign the container
 	Id() string
+
 	// Image returns the runtime specific image to run.
 	Image() string
+
 	// Timeout specifies the maximum time a task is allowed to run. Return 0 to let it run forever.
 	Timeout() time.Duration
+
 	// Driver will write output log from task execution to these writers. Must be
 	// non-nil. Use io.Discard if log is irrelevant.
 	Logger() (stdout, stderr io.Writer)
+
 	// WriteStat writes a single Stat, implementation need not be thread safe.
 	WriteStat(Stat)
+
 	// Volumes returns an array of 2-element tuples indicating storage volume mounts.
 	// The first element is the path on the host, and the second element is the
 	// path in the container.
 	Volumes() [][2]string
+
+	// Memory determines the max amount of RAM given to the container to use.
+	// 0 is unlimited.
+	Memory() uint64
+
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string
@@ -129,40 +142,16 @@ const (
 	StatusCancelled = "cancelled"
 )
 
-// Allows us to implement custom unmarshaling of JSON and envconfig.
-type Memory uint64
-
-func (m *Memory) Unmarshal(s string) error {
-	temp, err := bytefmt.ToBytes(s)
-	if err != nil {
-		return err
-	}
-
-	*m = Memory(temp)
-	return nil
-}
-
-func (m *Memory) UnmarshalJSON(p []byte) error {
-	temp, err := bytefmt.ToBytes(string(p))
-	if err != nil {
-		return err
-	}
-
-	*m = Memory(temp)
-	return nil
-}
-
 type Config struct {
-	Docker    string `json:"docker" envconfig:"default=unix:///var/run/docker.sock,DOCKER"`
-	Memory    Memory `json:"memory" envconfig:"default=256M,MEMORY_PER_JOB"`
-	CPUShares int64  `json:"cpu_shares" envconfig:"default=2,CPU_SHARES"`
+	Docker string `json:"docker"`
+	// TODO CPUShares should likely be on a per container basis
+	CPUShares int64 `json:"cpu_shares"`
 }
 
 // for tests
 func DefaultConfig() Config {
 	return Config{
 		Docker:    "unix:///var/run/docker.sock",
-		Memory:    256 * 1024 * 1024,
 		CPUShares: 0,
 	}
 }

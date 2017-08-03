@@ -218,7 +218,6 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 	var cmd []string
 	if task.Command() != "" {
 		// NOTE: this is hyper-sensitive and may not be correct like this even, but it passes old tests
-		// task.Command() in swapi is always "sh /mnt/task/.runtask" so fields is safe
 		cmd = strings.Fields(task.Command())
 		log.WithFields(logrus.Fields{"call_id": task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
 	}
@@ -234,7 +233,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Config: &docker.Config{
 			Env:         envvars,
 			Cmd:         cmd,
-			Memory:      int64(drv.conf.Memory),
+			Memory:      int64(task.Memory()),
 			CPUShares:   drv.conf.CPUShares,
 			Hostname:    drv.hostname,
 			Image:       task.Image(),
