@@ -22,13 +22,13 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-type APIErr struct {
+type apiErr struct {
 	Message string `json:"message"`
 }
 
 type callID struct {
 	CallID string `json:"call_id"`
-	Error  APIErr `json:"error"`
+	Error  apiErr `json:"error"`
 }
 
 func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
