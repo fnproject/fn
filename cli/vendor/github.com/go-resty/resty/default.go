@@ -6,7 +6,6 @@ package resty
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -37,8 +36,6 @@ func New() *Client {
 		RetryCount:       0,
 		RetryWaitTime:    defaultWaitTime,
 		RetryMaxWaitTime: defaultMaxWaitTime,
-		JSONMarshal:      json.Marshal,
-		JSONUnmarshal:    json.Unmarshal,
 		httpClient:       &http.Client{Jar: cookieJar},
 		transport:        &http.Transport{},
 	}
