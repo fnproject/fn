@@ -66,9 +66,9 @@ func (call *callsCmd) get(ctx *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apicall.GetAppsAppCallsCallNotFound:
-			return fmt.Errorf("error: %v", err.(*apicall.GetAppsAppCallsCallNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %v", err.(*apicall.GetAppsAppCallsCallNotFound).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return clierr(fmt.Errorf("unexpected error: %v", err))
 
 	}
 	printCalls([]*models.Call{resp.Payload.Call})
@@ -89,9 +89,9 @@ func (call *callsCmd) list(ctx *cli.Context) error {
 	if err != nil {
 		switch err.(type) {
 		case *apicall.GetCallsCallNotFound:
-			return fmt.Errorf("error: %v", err.(*apicall.GetCallsCallNotFound).Payload.Error.Message)
+			return clierr(fmt.Errorf("error: %v", err.(*apicall.GetCallsCallNotFound).Payload.Error.Message))
 		}
-		return fmt.Errorf("unexpected error: %v", err)
+		return clierr(fmt.Errorf("unexpected error: %v", err))
 
 	}
 	printCalls(resp.Payload.Calls)

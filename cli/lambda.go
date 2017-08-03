@@ -93,25 +93,25 @@ func awsImport(c *cli.Context) error {
 
 	function, err := getFunction(profile, region, version, arn)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	functionName := *function.Configuration.FunctionName
 
 	err = os.Mkdir(fmt.Sprintf("./%s", functionName), os.ModePerm)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 
 	tmpFileName, err := downloadToFile(*function.Code.Location)
 	if err != nil {
-		return err
+		return clierr(err)
 	}
 	defer os.Remove(tmpFileName)
 
 	if downloadOnly {
 		// Since we are a command line program that will quit soon, it is OK to
 		// let the OS clean `files` up.
-		return err
+		return nil
 	}
 
 	opts := createImageOptions{
@@ -127,12 +127,12 @@ func awsImport(c *cli.Context) error {
 	runtime := *function.Configuration.Runtime
 	rh, ok := runtimeImportHandlers[runtime]
 	if !ok {
-		return fmt.Errorf("unsupported runtime %v", runtime)
+		return clierr(fmt.Errorf("unsupported runtime %v", runtime))
 	}
 
 	_, err = rh(functionName, tmpFileName, &opts)
 	if err != nil {
-		return nil
+		return clierr(err)
 	}
 
 	if image != "" {
@@ -141,7 +141,7 @@ func awsImport(c *cli.Context) error {
 
 	fmt.Print("Creating func.yaml ... ")
 	if err := createFunctionYaml(opts, functionName); err != nil {
-		return err
+		return clierr(err)
 	}
 	fmt.Println("OK")
 
