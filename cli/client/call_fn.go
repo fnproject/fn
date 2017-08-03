@@ -33,7 +33,7 @@ type callID struct {
 	Error  apiErr `json:"error"`
 }
 
-func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) error {
+func CallFN(u string, content io.Reader, output io.Writer, method string, env []string, displayCallID bool) error {
 	if method == "" {
 		if content == nil {
 			method = "GET"
@@ -59,7 +59,9 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	}
 	// for sync calls
 	if call_id, found := resp.Header[FN_CALL_ID]; found {
-		fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", call_id[0]))
+		if displayCallID {
+			fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", call_id[0]))
+		}
 		io.Copy(output, resp.Body)
 	} else {
 		// for async calls and error discovering
@@ -71,7 +73,9 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 			// - error in body
 			// that's why we need to check values of attributes
 			if c.CallID != "" {
-				fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+				if displayCallID {
+					fmt.Fprint(output, fmt.Sprintf("Call ID: %v\n", c.CallID))
+				}
 			} else {
 				fmt.Fprint(output, fmt.Sprintf("Error: %v\n", c.Error.Message))
 			}

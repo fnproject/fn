@@ -211,7 +211,7 @@ func runremotetest(target string, in *inputMap, expectedOut *outputMap, expected
 		os.Setenv(k, v)
 		restrictedEnv = append(restrictedEnv, k)
 	}
-	if err := client.CallFN(target, stdin, &stdout, "", restrictedEnv); err != nil {
+	if err := client.CallFN(target, stdin, &stdout, "", restrictedEnv, false); err != nil {
 		return fmt.Errorf("%v\nstdout:%s\n", err, stdout.String())
 	}
 
