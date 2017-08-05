@@ -18,12 +18,12 @@ fi
 git pull
 
 version_file="main.go"
-if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
+if [ -z $(grep -m1 -Po '(?<= = ")\d+\.\d+\.\d+' $version_file) ]; then
   echo "did not find semantic version in $version_file"
   exit 1
 fi
-perl -i -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
-version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
+perl -i -pe 's/(?<= = ")\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
+version=$(grep -m1 -Po '(?<= = ")\d+\.\d+\.\d+' $version_file)
 echo "Version: $version"
 
 make docker-build
