@@ -206,7 +206,7 @@ import static org.junit.Assert.*;
 public class HelloFunctionTest {
 
     @Rule
-    public final FnTesting testing = FnTesting.createDefault();
+    public final FnTestingRule testing = FnTestingRule.createDefault();
 
     @Test
     public void shouldReturnGreeting() {
