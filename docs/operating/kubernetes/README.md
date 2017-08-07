@@ -43,9 +43,20 @@ Note `a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com` in
 
 3. Test the cluster:
 
+If you are using a Kubernetes setup that can expose a public loadbalancer run:
 ```ShellSession
 $ export FUNCTIONS=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
+```
 
+If you are using a Kubernetes setup like minikube run
+```ShellSession
+$ export ns=default ; export label='app=functions';  kubectl -n $ns get pod -l $label -o jsonpath='{.items[0].metadata.name}' | xargs -I{} kubectl -n $ns port-forward {} 8080:8080
+$ export FUNCTIONS=localhost:8080
+```
+
+Now setup the functions:
+
+```ShellSession
 $ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
