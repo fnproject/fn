@@ -130,7 +130,7 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 		runs = 1
 	}
 
-	if ff.Type != nil && *ff.Type == "async" {
+	if ff.Type != "" && ff.Type == "async" {
 		// if async, we'll run this in a separate thread and wait for it to complete
 		// reqID := id.New().String()
 		// I'm starting to think maybe `fn run` locally should work the same whether sync or async?  Or how would we allow to test the output?

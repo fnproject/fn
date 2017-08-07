@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	fnmodels "github.com/funcy/functions_go/models"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -39,20 +39,15 @@ type fftest struct {
 }
 
 type funcfile struct {
-	Name       string            `yaml:"name,omitempty" json:"name,omitempty"`
-	Version    string            `yaml:"version,omitempty" json:"version,omitempty"`
-	Runtime    *string           `yaml:"runtime,omitempty" json:"runtime,omitempty"`
-	Entrypoint string            `yaml:"entrypoint,omitempty" json:"entrypoint,omitempty"`
-	Cmd        string            `yaml:"cmd,omitempty" json:"cmd,omitempty"`
-	Type       *string           `yaml:"type,omitempty" json:"type,omitempty"`
-	Memory     *int64            `yaml:"memory,omitempty" json:"memory,omitempty"`
-	Format     *string           `yaml:"format,omitempty" json:"format,omitempty"`
-	Timeout    *time.Duration    `yaml:"timeout,omitempty" json:"timeout,omitempty"`
-	Headers    map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
-	Config     map[string]string `yaml:"config,omitempty" json:"config,omitempty"`
-	Build      []string          `yaml:"build,omitempty" json:"build,omitempty"`
-	Tests      []fftest          `yaml:"tests,omitempty" json:"tests,omitempty"`
-	Path       string            `yaml:"path,omitempty" json:"path,omitempty"`
+	fnmodels.Route
+
+	Name       string   `yaml:"name,omitempty" json:"name,omitempty"`
+	Version    string   `yaml:"version,omitempty" json:"version,omitempty"`
+	Runtime    *string  `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Entrypoint string   `yaml:"entrypoint,omitempty" json:"entrypoint,omitempty"`
+	Cmd        string   `yaml:"cmd,omitempty" json:"cmd,omitempty"`
+	Build      []string `yaml:"build,omitempty" json:"build,omitempty"`
+	Tests      []fftest `yaml:"tests,omitempty" json:"tests,omitempty"`
 }
 
 func (ff *funcfile) FullName() string {

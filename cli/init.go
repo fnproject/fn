@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/fnproject/fn/cli/langs"
+	"github.com/funcy/functions_go/models"
 	"github.com/urfave/cli"
 )
 
@@ -49,8 +50,28 @@ type initFnCmd struct {
 	runtime    string
 	entrypoint string
 	cmd        string
-	format     string
-	typeS      string
+}
+
+func initFlags(a *initFnCmd) []cli.Flag {
+	fgs := []cli.Flag{
+		cli.BoolFlag{
+			Name:        "force",
+			Usage:       "overwrite existing func.yaml",
+			Destination: &a.force,
+		},
+		cli.StringFlag{
+			Name:        "runtime",
+			Usage:       "choose an existing runtime - " + strings.Join(fnInitRuntimes, ", "),
+			Destination: &a.runtime,
+		},
+		cli.StringFlag{
+			Name:        "entrypoint",
+			Usage:       "entrypoint is the command to run to start this function - equivalent to Dockerfile ENTRYPOINT.",
+			Destination: &a.entrypoint,
+		},
+	}
+
+	return append(fgs, routeFlags...)
 }
 
 func initFn() cli.Command {
@@ -62,39 +83,15 @@ func initFn() cli.Command {
 		Description: "Creates a func.yaml file in the current directory.  ",
 		ArgsUsage:   "<DOCKERHUB_USERNAME/FUNCTION_NAME>",
 		Action:      a.init,
-		Flags: []cli.Flag{
-			cli.BoolFlag{
-				Name:        "force, f",
-				Usage:       "overwrite existing func.yaml",
-				Destination: &a.force,
-			},
-			cli.StringFlag{
-				Name:        "runtime",
-				Usage:       "choose an existing runtime - " + strings.Join(fnInitRuntimes, ", "),
-				Destination: &a.runtime,
-			},
-			cli.StringFlag{
-				Name:        "entrypoint",
-				Usage:       "entrypoint is the command to run to start this function - equivalent to Dockerfile ENTRYPOINT.",
-				Destination: &a.entrypoint,
-			},
-			cli.StringFlag{
-				Name:        "format",
-				Usage:       "hot function IO format - json or http",
-				Destination: &a.format,
-				Value:       "",
-			},
-			cli.StringFlag{
-				Name:        "type",
-				Usage:       "sync or async",
-				Destination: &a.typeS,
-				Value:       "",
-			},
-		},
+		Flags:       initFlags(&a),
 	}
 }
 
 func (a *initFnCmd) init(c *cli.Context) error {
+
+	rt := &models.Route{}
+	routeWithFlags(c, rt)
+
 	if !a.force {
 		ff, err := loadFuncfile()
 		if _, ok := err.(*notFoundError); !ok && err != nil {
@@ -119,22 +116,15 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		}
 	}
 
-	var ffmt *string
-	if a.format != "" {
-		ffmt = &a.format
-	}
-
 	ff := &funcfile{
-		Name:       a.name,
-		Runtime:    &a.runtime,
-		Version:    initialVersion,
-		Entrypoint: a.entrypoint,
-		Cmd:        a.cmd,
-		Format:     ffmt,
-		Type:       &a.typeS,
-	}
-	if ff.Type != nil && *ff.Type == "" {
-		ff.Type = nil
+		*rt,
+		a.name,
+		initialVersion,
+		&a.runtime,
+		a.entrypoint,
+		a.cmd,
+		[]string{},
+		[]fftest{},
 	}
 
 	_, path := appNamePath(ff.FullName())

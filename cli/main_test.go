@@ -22,6 +22,9 @@ func TestMainCommands(t *testing.T) {
 		"deploy",
 		"run",
 		"push",
+		"logs",
+		"calls",
+		"call",
 	}
 
 	fnTestBin := path.Join(os.TempDir(), "fn-test")

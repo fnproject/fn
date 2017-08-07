@@ -18,9 +18,6 @@ dep-up:
 test:
 	./test.sh
 
-test-integration:
-	cd tests/ && go test -v ./...; cd ..
-
 release:
 	GOOS=linux go build -o fn_linux
 	GOOS=darwin go build -o fn_mac
