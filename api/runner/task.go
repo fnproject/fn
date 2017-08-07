@@ -19,6 +19,7 @@ import (
 var registries dockerRegistries
 
 func init() {
+	// TODO this is docker specific. and the docker client is capable of doing this, remove & test
 
 	// Attempt to fetch it from an environment variable
 	regsettings := os.Getenv("DOCKER_AUTH")
@@ -54,13 +55,13 @@ func init() {
 
 }
 
+// TODO task.Config should implement the interface. this is sad :(
+// implements drivers.ContainerTask
 type containerTask struct {
 	ctx    context.Context
 	cfg    *task.Config
 	canRun chan bool
 }
-
-func (t *containerTask) Command() string { return "" }
 
 func (t *containerTask) EnvVars() map[string]string {
 	if protocol.IsStreamable(protocol.Protocol(t.cfg.Format)) {
@@ -68,23 +69,20 @@ func (t *containerTask) EnvVars() map[string]string {
 	}
 	return t.cfg.Env
 }
-func (t *containerTask) Input() io.Reader {
-	return t.cfg.Stdin
-}
 
 func (t *containerTask) Labels() map[string]string {
-	return map[string]string{
-		"LogName": t.cfg.AppName,
-	}
+	// TODO this seems inaccurate? is this used by anyone (dev or not)?
+	return map[string]string{"LogName": t.cfg.AppName}
 }
 
+func (t *containerTask) Command() string                { return "" }
+func (t *containerTask) Input() io.Reader               { return t.cfg.Stdin }
 func (t *containerTask) Id() string                     { return t.cfg.ID }
-func (t *containerTask) Route() string                  { return "" }
 func (t *containerTask) Image() string                  { return t.cfg.Image }
 func (t *containerTask) Timeout() time.Duration         { return t.cfg.Timeout }
-func (t *containerTask) IdleTimeout() time.Duration     { return t.cfg.IdleTimeout }
 func (t *containerTask) Logger() (io.Writer, io.Writer) { return t.cfg.Stdout, t.cfg.Stderr }
 func (t *containerTask) Volumes() [][2]string           { return [][2]string{} }
+func (t *containerTask) Memory() uint64                 { return t.cfg.Memory * 1024 * 1024 } // convert MB
 func (t *containerTask) WorkDir() string                { return "" }
 func (t *containerTask) Close()                         {}
 func (t *containerTask) WriteStat(drivers.Stat)         {}

@@ -44,6 +44,7 @@ func TestRunnerHello(t *testing.T) {
 			ID:      test.taskID,
 			Image:   test.route.Image,
 			Timeout: 10 * time.Second,
+			Memory:  128,
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
 			AppName: test.route.AppName,
@@ -103,6 +104,7 @@ func TestRunnerError(t *testing.T) {
 			ID:      fmt.Sprintf("err-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
 			Timeout: 10 * time.Second,
+			Memory:  128,
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
 			Stdout:  &stdout,
@@ -129,5 +131,21 @@ func TestRunnerError(t *testing.T) {
 			t.Log(buf.String())
 			t.Fatalf("Test %d: expected error log to contain `%s` in `%s`", i, test.expectedErr, stderr.String())
 		}
+	}
+}
+
+func TestRunnerMemory(t *testing.T) {
+	// make sure we get MB out of a task.Config when turned into a containerTask
+	// (so if Config.Memory changes to not be MB we hear about it)
+
+	cfg := &task.Config{
+		Memory: 128,
+	}
+
+	task := &containerTask{cfg: cfg}
+
+	const exp = 128 * 1024 * 1024
+	if task.Memory() != exp {
+		t.Fatalf("Expected Memory to return %v but got %v", exp, task.Memory())
 	}
 }

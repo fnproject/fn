@@ -72,6 +72,7 @@ func getCfg(t *models.Task) *task.Config {
 		Image:   *t.Image,
 		ID:      t.ID,
 		AppName: t.AppName,
+		Memory:  128,
 		Env:     t.EnvVars,
 		Ready:   make(chan struct{}),
 		Stdin:   strings.NewReader(t.Payload),

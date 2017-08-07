@@ -132,7 +132,7 @@ func (r *Runner) hasAsyncAvailableMemory() bool {
 func (r *Runner) checkRequiredMem(req uint64) bool {
 	r.usedMemMutex.RLock()
 	defer r.usedMemMutex.RUnlock()
-	return (r.availableMem-r.usedMem)/int64(req)*1024*1024 > 0
+	return r.availableMem-r.usedMem-(int64(req)*1024*1024) > 0
 }
 
 func (r *Runner) addUsedMem(used int64) {
@@ -150,7 +150,7 @@ func (r *Runner) checkMemAndUse(req uint64) bool {
 
 	used := int64(req) * 1024 * 1024
 
-	if (r.availableMem-r.usedMem)/used < 0 {
+	if r.availableMem-r.usedMem-used < 0 {
 		return false
 	}
 
@@ -188,10 +188,6 @@ func (r *Runner) awaitSlot(ctask *containerTask) error {
 func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "run_container")
 	defer span.Finish()
-
-	if cfg.Memory == 0 {
-		cfg.Memory = 128
-	}
 
 	if cfg.Stdout == nil {
 		// TODO why? async?

@@ -11,9 +11,9 @@ import (
 )
 
 type StatsdConfig struct {
-	StatsdUdpTarget string `json:"target" mapstructure:"target" envconfig:"STATSD_TARGET"`
-	Interval        int64  `json:"interval" envconfig:"STATSD_INTERVAL"`
-	Prefix          string `json:"prefix" envconfig:"STATSD_PREFIX"`
+	StatsdUdpTarget string `json:"target" mapstructure:"target"`
+	Interval        int64  `json:"interval"`
+	Prefix          string `json:"prefix"`
 }
 
 type keyCreator interface {

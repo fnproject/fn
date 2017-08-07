@@ -15,14 +15,14 @@ type HTTPSubHandler interface {
 }
 
 type Config struct {
-	Interval float64 `json:"interval" envconfig:"STATS_INTERVAL"` // seconds
+	Interval float64 `json:"interval"` // seconds
 	History  int     // minutes
 
-	Log      string `json:"log" envconfig:"STATS_LOG"`
+	Log      string `json:"log"`
 	StatHat  *StatHatReporterConfig
 	NewRelic *NewRelicReporterConfig
 	Statsd   *StatsdConfig
-	GCStats  int `json:"gc_stats" envconfig:"GC_STATS"` // seconds
+	GCStats  int `json:"gc_stats"`
 }
 
 type Statter interface {

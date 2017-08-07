@@ -263,6 +263,10 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 	if rt.Type == "" && ff.Type != nil && *ff.Type != "" {
 		rt.Type = *ff.Type
 	}
+	if ff.Memory != nil {
+		rt.Memory = *ff.Memory
+	}
+	// TODO idle_timeout? headers? config? why is a func file not a yaml unmarshal of a route?
 
 	return nil
 }
