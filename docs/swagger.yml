@@ -435,7 +435,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls/:
+  /apps/{app}/calls:
     get:
       summary: Get app-bound calls.
       description: Get app-bound calls can filter to route-bound calls.
