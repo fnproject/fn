@@ -10,7 +10,7 @@ import (
 )
 
 // Version of Functions CLI
-var Version = "0.3.47"
+var Version = "0.3.48"
 
 func version() cli.Command {
 	r := versionCmd{VersionApi: functions.NewVersionApi()}
