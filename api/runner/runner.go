@@ -55,7 +55,7 @@ func New(ctx context.Context, flog FuncLogger, ds models.Datastore) (*Runner, er
 	// TODO: Is this really required for the container drivers? Can we remove it?
 	env := common.NewEnvironment(func(e *common.Environment) {})
 
-	// TODO: Create a drivers.New(runnerConfig) in Titan
+	// TODO: Create drivers.New(runnerConfig)
 	driver, err := selectDriver("docker", env, &drivers.Config{})
 	if err != nil {
 		return nil, err

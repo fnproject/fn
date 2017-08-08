@@ -10,7 +10,7 @@ docker run -e "MQ_URL=redis://localhost:6379/" ...
 
 ## [Bolt](https://github.com/boltdb/bolt) (default)
 
-URL: `bolt:///titan/data/functions-mq.db`
+URL: `bolt:///fn/data/functions-mq.db`
 
 See Bolt in databases above. The Bolt database is locked at the file level, so
 the file cannot be the same as the one used for the Bolt Datastore.

@@ -71,7 +71,7 @@ func NewIronMQ(url *url.URL) *IronMQ {
 	if url.Path != "" {
 		queueName = url.Path
 	} else {
-		queueName = "titan"
+		queueName = "fn"
 	}
 	mq := &IronMQ{
 		queues:   make([]ironmq.Queue, 3),

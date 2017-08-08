@@ -27,22 +27,23 @@ func (p *HTTPProtocol) IsStreamable() bool {
 	return true
 }
 
-func (p *HTTPProtocol) Dispatch(ctx context.Context, t task.Request) error {
+func (p *HTTPProtocol) Dispatch(ctx context.Context, cfg *task.Config) error {
 	var retErr error
 	done := make(chan struct{})
 	go func() {
+		// TODO not okay. plumb content-length from req into cfg..
 		var body bytes.Buffer
-		io.Copy(&body, t.Config.Stdin)
+		io.Copy(&body, cfg.Stdin)
 		req, err := http.NewRequest("GET", "/", &body)
 		if err != nil {
 			retErr = err
 			return
 		}
-		for k, v := range t.Config.Env {
+		for k, v := range cfg.Env {
 			req.Header.Set(k, v)
 		}
 		req.Header.Set("Content-Length", fmt.Sprint(body.Len()))
-		req.Header.Set("Task-ID", t.Config.ID)
+		req.Header.Set("Task-ID", cfg.ID)
 		raw, err := httputil.DumpRequest(req, true)
 		if err != nil {
 			retErr = err
@@ -56,11 +57,11 @@ func (p *HTTPProtocol) Dispatch(ctx context.Context, t task.Request) error {
 			return
 		}
 
-		io.Copy(t.Config.Stdout, res.Body)
+		io.Copy(cfg.Stdout, res.Body)
 		done <- struct{}{}
 	}()
 
-	timeout := time.After(t.Config.Timeout)
+	timeout := time.After(cfg.Timeout)
 
 	select {
 	case <-ctx.Done():

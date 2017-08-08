@@ -14,6 +14,6 @@ func (p *DefaultProtocol) IsStreamable() bool {
 	return false
 }
 
-func (p *DefaultProtocol) Dispatch(ctx context.Context, t task.Request) error {
+func (p *DefaultProtocol) Dispatch(context.Context, *task.Config) error {
 	return nil
 }

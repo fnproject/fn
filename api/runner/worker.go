@@ -353,7 +353,7 @@ func (hc *htfn) serve(ctx context.Context) {
 				stderr.swap(tlog)
 
 				start := time.Now()
-				err := hc.proto.Dispatch(ctx, t)
+				err := hc.proto.Dispatch(ctx, t.Config)
 				status := "success"
 				if err != nil {
 					status = "error"

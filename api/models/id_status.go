@@ -9,6 +9,9 @@ import (
 	"github.com/go-openapi/validate"
 )
 
+// TODO get rid of this. id and status are not more coupled than anything else?
+// burn it at the stake
+
 /*IDStatus Id status
 
 swagger:model IdStatus

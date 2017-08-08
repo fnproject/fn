@@ -19,7 +19,6 @@ import (
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/task"
 	"github.com/gin-gonic/gin"
-	"github.com/go-openapi/strfmt"
 	cache "github.com/patrickmn/go-cache"
 )
 
@@ -148,8 +147,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	baseVars["FN_FORMAT"] = route.Format
 	baseVars["APP_NAME"] = appName
 	baseVars["ROUTE"] = route.Path
-	// TODO add this back after #193 #195 (fix async RAM)
-	// baseVars["MEMORY_MB"] = fmt.Sprintf("%d", route.Memory)
+	baseVars["MEMORY_MB"] = fmt.Sprintf("%d", route.Memory)
 
 	// app config
 	for k, v := range app.Config {
@@ -213,26 +211,20 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	}
 
 	s.Runner.Enqueue()
-	createdAt := strfmt.DateTime(time.Now())
-	newTask := &models.Task{}
-	newTask.Image = &cfg.Image
-	newTask.ID = cfg.ID
-	newTask.CreatedAt = createdAt
-	newTask.Path = route.Path
-	newTask.EnvVars = cfg.Env
-	newTask.AppName = cfg.AppName
+	newTask := task.TaskFromConfig(cfg)
 
 	switch route.Type {
 	case "async":
+		// TODO we should be able to do hot input to async. plumb protocol stuff
+		// TODO enqueue should unravel the payload?
+
 		// Read payload
 		pl, err := ioutil.ReadAll(cfg.Stdin)
 		if err != nil {
 			handleErrorResponse(c, models.ErrInvalidPayload)
 			return true
 		}
-		// Create Task
-		priority := int32(0)
-		newTask.Priority = &priority
+		// Add in payload
 		newTask.Payload = string(pl)
 
 		// Push to queue
@@ -243,7 +235,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		}
 
 		log.Info("Added new task to queue")
-		c.JSON(http.StatusAccepted, map[string]string{"call_id": newTask.ID})
+		c.JSON(http.StatusAccepted, map[string]string{"call_id": cfg.ID})
 
 	default:
 		result, err := s.Runner.RunTrackedTask(newTask, ctx, cfg)
