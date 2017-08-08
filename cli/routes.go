@@ -60,6 +60,13 @@ var updateRouteFlags = append(routeFlags,
 		Usage: "defines whether skip func file or not",
 	})
 
+var callFnFlags = append(runflags(),
+	cli.BoolFlag{
+		Name:  "display-call-id",
+		Usage: "whether display call ID or not",
+	},
+)
+
 func routes() cli.Command {
 
 	r := routesCmd{client: client.APIClient()}
@@ -73,7 +80,7 @@ func routes() cli.Command {
 				Usage:     "call a route",
 				ArgsUsage: "<app> </path> [image]",
 				Action:    r.call,
-				Flags:     runflags(),
+				Flags:     callFnFlags,
 			},
 			{
 				Name:      "list",
@@ -143,7 +150,7 @@ func call() cli.Command {
 		Name:      "call",
 		Usage:     "call a remote function",
 		ArgsUsage: "<app> </path>",
-		Flags:     runflags(),
+		Flags:     callFnFlags,
 		Action:    r.call,
 	}
 }
@@ -200,7 +207,7 @@ func (a *routesCmd) call(c *cli.Context) error {
 	u.Path = path.Join(u.Path, "r", appName, route)
 	content := stdin()
 
-	return client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"))
+	return client.CallFN(u.String(), content, os.Stdout, c.String("method"), c.StringSlice("e"), c.Bool("display-call-id"))
 }
 
 func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
