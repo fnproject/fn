@@ -50,6 +50,7 @@ type initFnCmd struct {
 	runtime    string
 	entrypoint string
 	cmd        string
+	version    string
 }
 
 func initFlags(a *initFnCmd) []cli.Flag {
@@ -68,6 +69,12 @@ func initFlags(a *initFnCmd) []cli.Flag {
 			Name:        "entrypoint",
 			Usage:       "entrypoint is the command to run to start this function - equivalent to Dockerfile ENTRYPOINT.",
 			Destination: &a.entrypoint,
+		},
+		cli.StringFlag{
+			Name:        "version",
+			Usage:       "function version",
+			Destination: &a.version,
+			Value:       initialVersion,
 		},
 	}
 
@@ -119,7 +126,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 	ff := &funcfile{
 		*rt,
 		a.name,
-		initialVersion,
+		a.version,
 		&a.runtime,
 		a.entrypoint,
 		a.cmd,
