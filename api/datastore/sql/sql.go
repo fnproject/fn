@@ -206,7 +206,8 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		if n, err := res.RowsAffected(); err != nil {
 			return err
 		} else if n == 0 {
-			return models.ErrAppsNotFound
+			// inside of the transaction, we are querying for the app, so we know that it exists
+			return nil
 		}
 		return nil
 	})
