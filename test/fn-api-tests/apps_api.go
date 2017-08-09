@@ -72,7 +72,7 @@ func CreateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, ap
 	}
 }
 
-func UpdateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) *apps.PatchAppsAppOK {
+func CreateUpdateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) *apps.PatchAppsAppOK {
 	CreateApp(t, ctx, fnclient, appName, map[string]string{"A": "a"})
 	cfg := &apps.PatchAppsAppParams{
 		App: appName,
