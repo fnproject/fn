@@ -29,10 +29,10 @@ var routeFlags = []cli.Flag{
 		Name:  "image,i",
 		Usage: "image name",
 	},
-	cli.Int64Flag{
+	cli.Uint64Flag{
 		Name:  "memory,m",
 		Usage: "memory in MiB",
-		Value: int64(128),
+		Value: uint64(128),
 	},
 	cli.StringFlag{
 		Name:  "type,t",
@@ -232,7 +232,7 @@ func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
 		rt.Type = t
 	}
 
-	if m := c.Int64("memory"); m > 0 {
+	if m := c.Uint64("memory"); m > 0 {
 		rt.Memory = m
 	}
 
