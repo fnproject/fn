@@ -65,16 +65,7 @@ func TestApps(t *testing.T) {
 			"A": "a",
 		}
 
-		CreateApp(t, s.Context, s.Client, s.AppName, config)
-		cfg := &apps.GetAppsAppParams{
-			Context: s.Context,
-			App:     s.AppName,
-		}
-
-		_, err := s.Client.Apps.GetAppsApp(cfg)
-		CheckAppResponseError(t, err)
-
-		appUpdatePayload := UpdateApp(t, s.Context, s.Client, s.AppName, config)
+		appUpdatePayload := CreateUpdateApp(t, s.Context, s.Client, s.AppName, config)
 		_, ok := appUpdatePayload.Payload.App.Config["A"]
 		if !ok {
 			t.Error("Error during app update: config map misses required entity `A` with value `a`.")
@@ -89,7 +80,7 @@ func TestApps(t *testing.T) {
 		config := map[string]string{
 			"A": "b",
 		}
-		appPayload := UpdateApp(t, s.Context, s.Client, s.AppName, config)
+		appPayload := CreateUpdateApp(t, s.Context, s.Client, s.AppName, config)
 		val, ok := appPayload.Payload.App.Config["A"]
 		if !ok {
 			t.Error("Error during app config inspect: config map misses required entity `A` with value `a`.")
@@ -106,7 +97,7 @@ func TestApps(t *testing.T) {
 		config := map[string]string{
 			"B": "b",
 		}
-		appPayload := UpdateApp(t, s.Context, s.Client, s.AppName, config)
+		appPayload := CreateUpdateApp(t, s.Context, s.Client, s.AppName, config)
 		val, ok := appPayload.Payload.App.Config["B"]
 		if !ok {
 			t.Error("Error during app config inspect: config map misses required entity `B` with value `b`.")
