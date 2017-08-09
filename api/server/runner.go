@@ -168,7 +168,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 
 	envVars["CALL_ID"] = reqID
 	envVars["METHOD"] = c.Request.Method
-	envVars["REQUEST_URL"] = fmt.Sprintf("%v//%v%v", func() string {
+	envVars["REQUEST_URL"] = fmt.Sprintf("%v://%v%v", func() string {
 		if c.Request.TLS == nil {
 			return "http"
 		}
