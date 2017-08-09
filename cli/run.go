@@ -108,7 +108,7 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 	runEnv = append(runEnv, kvEq("REQUEST_URL", LocalTestURL))
 	runEnv = append(runEnv, kvEq("APP_NAME", "myapp"))
 	runEnv = append(runEnv, kvEq("ROUTE", "/hello")) // TODO: should we change this to PATH ?
-	runEnv = append(runEnv, kvEq("FORMAT", format))
+	runEnv = append(runEnv, kvEq("FN_FORMAT", format))
 
 	// add user defined envs
 	runEnv = append(runEnv, envVars...)
