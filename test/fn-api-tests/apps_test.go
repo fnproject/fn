@@ -58,6 +58,31 @@ func TestApps(t *testing.T) {
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
+	t.Run("patch-app-with-exact-same-config-data", func(t *testing.T) {
+		t.Parallel()
+		s := SetupDefaultSuite()
+		config := map[string]string{
+			"A": "a",
+		}
+
+		CreateApp(t, s.Context, s.Client, s.AppName, config)
+		cfg := &apps.GetAppsAppParams{
+			Context: s.Context,
+			App:     s.AppName,
+		}
+
+		_, err := s.Client.Apps.GetAppsApp(cfg)
+		CheckAppResponseError(t, err)
+
+		appUpdatePayload := UpdateApp(t, s.Context, s.Client, s.AppName, config)
+		_, ok := appUpdatePayload.Payload.App.Config["A"]
+		if !ok {
+			t.Error("Error during app update: config map misses required entity `A` with value `a`.")
+		}
+
+		DeleteApp(t, s.Context, s.Client, s.AppName)
+	})
+
 	t.Run("patch-override-app-config", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
