@@ -80,5 +80,5 @@ func TestRoundTrip(t *testing.T) {
 		t.Errorf("got %#v, expected %#v", *bi, *bi2)
 	}
 
-	ensurePresent(t, hdr.Winheaders, "fileattr", "sd")
+	ensurePresent(t, hdr.Winheaders, "fileattr", "rawsd")
 }

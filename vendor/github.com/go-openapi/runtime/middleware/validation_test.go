@@ -114,6 +114,8 @@ func TestValidateContentType(t *testing.T) {
 		{"text/html;           charset=utf-8", []string{"application/json"}, errors.InvalidContentType("text/html;           charset=utf-8", []string{"application/json"})},
 		{"application(", []string{"application/json"}, errors.InvalidContentType("application(", []string{"application/json"})},
 		{"application/json;char*", []string{"application/json"}, errors.InvalidContentType("application/json;char*", []string{"application/json"})},
+		{"application/octet-stream", []string{"image/jpeg", "application/*"}, nil},
+		{"image/png", []string{"*/*", "application/json"}, nil},
 	}
 
 	for _, v := range data {

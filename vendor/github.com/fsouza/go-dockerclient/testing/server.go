@@ -1411,7 +1411,7 @@ func (s *DockerServer) removeVolume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "volume in use and cannot be removed", http.StatusConflict)
 		return
 	}
-	s.volStore[vol.volume.Name] = nil
+	delete(s.volStore, vol.volume.Name)
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -33,9 +33,10 @@ func init() {
 	secure := os.Getenv("S3_SECURE")
 	v4Auth := os.Getenv("S3_V4_AUTH")
 	region := os.Getenv("AWS_REGION")
-	objectAcl := os.Getenv("S3_OBJECT_ACL")
+	objectACL := os.Getenv("S3_OBJECT_ACL")
 	root, err := ioutil.TempDir("", "driver-")
 	regionEndpoint := os.Getenv("REGION_ENDPOINT")
+	sessionToken := os.Getenv("AWS_SESSION_TOKEN")
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +84,8 @@ func init() {
 			rootDirectory,
 			storageClass,
 			driverName + "-test",
-			objectAcl,
+			objectACL,
+			sessionToken,
 		}
 
 		return New(parameters)

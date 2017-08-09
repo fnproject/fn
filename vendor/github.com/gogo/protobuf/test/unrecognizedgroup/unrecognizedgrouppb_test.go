@@ -619,7 +619,7 @@ func TestNewNoGroupGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAGoString(t *testing.T) {
@@ -632,7 +632,7 @@ func TestAGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldWithGroupGoString(t *testing.T) {
@@ -645,7 +645,7 @@ func TestOldWithGroupGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldWithGroup_Group1GoString(t *testing.T) {
@@ -658,7 +658,7 @@ func TestOldWithGroup_Group1GoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOldWithGroup_Group2GoString(t *testing.T) {
@@ -671,7 +671,7 @@ func TestOldWithGroup_Group2GoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNewNoGroupSize(t *testing.T) {

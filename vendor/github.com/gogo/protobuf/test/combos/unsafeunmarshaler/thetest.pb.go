@@ -19006,10 +19006,18 @@ func (this *NidRepStruct) GoString() string {
 		s = append(s, "Field2: "+fmt.Sprintf("%#v", this.Field2)+",\n")
 	}
 	if this.Field3 != nil {
-		s = append(s, "Field3: "+fmt.Sprintf("%#v", this.Field3)+",\n")
+		vs := make([]*NidOptNative, len(this.Field3))
+		for i := range vs {
+			vs[i] = &this.Field3[i]
+		}
+		s = append(s, "Field3: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
 	if this.Field4 != nil {
-		s = append(s, "Field4: "+fmt.Sprintf("%#v", this.Field4)+",\n")
+		vs := make([]*NinOptNative, len(this.Field4))
+		for i := range vs {
+			vs[i] = &this.Field4[i]
+		}
+		s = append(s, "Field4: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
 	if this.Field6 != nil {
 		s = append(s, "Field6: "+fmt.Sprintf("%#v", this.Field6)+",\n")
@@ -19018,7 +19026,11 @@ func (this *NidRepStruct) GoString() string {
 		s = append(s, "Field7: "+fmt.Sprintf("%#v", this.Field7)+",\n")
 	}
 	if this.Field8 != nil {
-		s = append(s, "Field8: "+fmt.Sprintf("%#v", this.Field8)+",\n")
+		vs := make([]*NidOptNative, len(this.Field8))
+		for i := range vs {
+			vs[i] = &this.Field8[i]
+		}
+		s = append(s, "Field8: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
 	if this.Field13 != nil {
 		s = append(s, "Field13: "+fmt.Sprintf("%#v", this.Field13)+",\n")
@@ -19123,7 +19135,11 @@ func (this *NidNestedStruct) GoString() string {
 	s = append(s, "&test.NidNestedStruct{")
 	s = append(s, "Field1: "+strings.Replace(this.Field1.GoString(), `&`, ``, 1)+",\n")
 	if this.Field2 != nil {
-		s = append(s, "Field2: "+fmt.Sprintf("%#v", this.Field2)+",\n")
+		vs := make([]*NidRepStruct, len(this.Field2))
+		for i := range vs {
+			vs[i] = &this.Field2[i]
+		}
+		s = append(s, "Field2: "+fmt.Sprintf("%#v", vs)+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -19508,13 +19524,13 @@ func (this *NinOptEnum) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&test.NinOptEnum{")
 	if this.Field1 != nil {
-		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "test.TheTestEnum")+",\n")
+		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "TheTestEnum")+",\n")
 	}
 	if this.Field2 != nil {
-		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "test.YetAnotherTestEnum")+",\n")
+		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "YetAnotherTestEnum")+",\n")
 	}
 	if this.Field3 != nil {
-		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "test.YetYetAnotherTestEnum")+",\n")
+		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "YetYetAnotherTestEnum")+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -19571,13 +19587,13 @@ func (this *NinOptEnumDefault) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&test.NinOptEnumDefault{")
 	if this.Field1 != nil {
-		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "test.TheTestEnum")+",\n")
+		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "TheTestEnum")+",\n")
 	}
 	if this.Field2 != nil {
-		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "test.YetAnotherTestEnum")+",\n")
+		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "YetAnotherTestEnum")+",\n")
 	}
 	if this.Field3 != nil {
-		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "test.YetYetAnotherTestEnum")+",\n")
+		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "YetYetAnotherTestEnum")+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -19592,13 +19608,13 @@ func (this *AnotherNinOptEnum) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&test.AnotherNinOptEnum{")
 	if this.Field1 != nil {
-		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "test.AnotherTestEnum")+",\n")
+		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "AnotherTestEnum")+",\n")
 	}
 	if this.Field2 != nil {
-		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "test.YetAnotherTestEnum")+",\n")
+		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "YetAnotherTestEnum")+",\n")
 	}
 	if this.Field3 != nil {
-		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "test.YetYetAnotherTestEnum")+",\n")
+		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "YetYetAnotherTestEnum")+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -19613,13 +19629,13 @@ func (this *AnotherNinOptEnumDefault) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&test.AnotherNinOptEnumDefault{")
 	if this.Field1 != nil {
-		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "test.AnotherTestEnum")+",\n")
+		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "AnotherTestEnum")+",\n")
 	}
 	if this.Field2 != nil {
-		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "test.YetAnotherTestEnum")+",\n")
+		s = append(s, "Field2: "+valueToGoStringThetest(this.Field2, "YetAnotherTestEnum")+",\n")
 	}
 	if this.Field3 != nil {
-		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "test.YetYetAnotherTestEnum")+",\n")
+		s = append(s, "Field3: "+valueToGoStringThetest(this.Field3, "YetYetAnotherTestEnum")+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -19690,7 +19706,7 @@ func (this *NestedDefinition) GoString() string {
 		s = append(s, "Field1: "+valueToGoStringThetest(this.Field1, "int64")+",\n")
 	}
 	if this.EnumField != nil {
-		s = append(s, "EnumField: "+valueToGoStringThetest(this.EnumField, "test.NestedDefinition_NestedEnum")+",\n")
+		s = append(s, "EnumField: "+valueToGoStringThetest(this.EnumField, "NestedDefinition_NestedEnum")+",\n")
 	}
 	if this.NNM != nil {
 		s = append(s, "NNM: "+fmt.Sprintf("%#v", this.NNM)+",\n")
@@ -19747,7 +19763,7 @@ func (this *NestedScope) GoString() string {
 		s = append(s, "A: "+fmt.Sprintf("%#v", this.A)+",\n")
 	}
 	if this.B != nil {
-		s = append(s, "B: "+valueToGoStringThetest(this.B, "test.NestedDefinition_NestedEnum")+",\n")
+		s = append(s, "B: "+valueToGoStringThetest(this.B, "NestedDefinition_NestedEnum")+",\n")
 	}
 	if this.C != nil {
 		s = append(s, "C: "+fmt.Sprintf("%#v", this.C)+",\n")
@@ -20063,7 +20079,7 @@ func (this *CustomNameEnum) GoString() string {
 	s := make([]string, 0, 6)
 	s = append(s, "&test.CustomNameEnum{")
 	if this.FieldA != nil {
-		s = append(s, "FieldA: "+valueToGoStringThetest(this.FieldA, "test.TheTestEnum")+",\n")
+		s = append(s, "FieldA: "+valueToGoStringThetest(this.FieldA, "TheTestEnum")+",\n")
 	}
 	if this.FieldB != nil {
 		s = append(s, "FieldB: "+fmt.Sprintf("%#v", this.FieldB)+",\n")

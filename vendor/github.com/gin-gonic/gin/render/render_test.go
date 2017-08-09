@@ -5,16 +5,39 @@
 package render
 
 import (
+	"bytes"
 	"encoding/xml"
 	"html/template"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/ugorji/go/codec"
 )
 
 // TODO unit tests
 // test errors
+
+func TestRenderMsgPack(t *testing.T) {
+	w := httptest.NewRecorder()
+	data := map[string]interface{}{
+		"foo": "bar",
+	}
+
+	err := (MsgPack{data}).Render(w)
+
+	assert.NoError(t, err)
+
+	h := new(codec.MsgpackHandle)
+	assert.NotNil(t, h)
+	buf := bytes.NewBuffer([]byte{})
+	assert.NotNil(t, buf)
+	err = codec.NewEncoder(buf, h).Encode(data)
+
+	assert.NoError(t, err)
+	assert.Equal(t, w.Body.String(), string(buf.Bytes()))
+	assert.Equal(t, w.Header().Get("Content-Type"), "application/msgpack; charset=utf-8")
+}
 
 func TestRenderJSON(t *testing.T) {
 	w := httptest.NewRecorder()
@@ -25,8 +48,8 @@ func TestRenderJSON(t *testing.T) {
 	err := (JSON{data}).Render(w)
 
 	assert.NoError(t, err)
-	assert.Equal(t, w.Body.String(), "{\"foo\":\"bar\"}\n")
-	assert.Equal(t, w.Header().Get("Content-Type"), "application/json; charset=utf-8")
+	assert.Equal(t, "{\"foo\":\"bar\"}", w.Body.String())
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 }
 
 func TestRenderIndentedJSON(t *testing.T) {
@@ -41,6 +64,31 @@ func TestRenderIndentedJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, w.Body.String(), "{\n    \"bar\": \"foo\",\n    \"foo\": \"bar\"\n}")
 	assert.Equal(t, w.Header().Get("Content-Type"), "application/json; charset=utf-8")
+}
+
+func TestRenderSecureJSON(t *testing.T) {
+	w1 := httptest.NewRecorder()
+	data := map[string]interface{}{
+		"foo": "bar",
+	}
+
+	err1 := (SecureJSON{"while(1);", data}).Render(w1)
+
+	assert.NoError(t, err1)
+	assert.Equal(t, "{\"foo\":\"bar\"}", w1.Body.String())
+	assert.Equal(t, "application/json; charset=utf-8", w1.Header().Get("Content-Type"))
+
+	w2 := httptest.NewRecorder()
+	datas := []map[string]interface{}{{
+		"foo": "bar",
+	}, {
+		"bar": "foo",
+	}}
+
+	err2 := (SecureJSON{"while(1);", datas}).Render(w2)
+	assert.NoError(t, err2)
+	assert.Equal(t, "while(1);[{\"foo\":\"bar\"},{\"bar\":\"foo\"}]", w2.Body.String())
+	assert.Equal(t, "application/json; charset=utf-8", w2.Header().Get("Content-Type"))
 }
 
 type xmlmap map[string]interface{}

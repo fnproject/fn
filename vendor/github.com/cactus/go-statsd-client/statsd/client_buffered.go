@@ -6,7 +6,7 @@ package statsd
 
 import "time"
 
-// NewBufferedClient seturns a new BufferedClient
+// NewBufferedClient returns a new BufferedClient
 //
 // addr is a string of the format "hostname:port", and must be parsable by
 // net.ResolveUDPAddr.

@@ -23,6 +23,7 @@ import (
 )
 
 func TestNewAPIClient(t *testing.T) {
+	t.Parallel()
 	endpoint := "http://localhost:4243"
 	client, err := NewClient(endpoint)
 	if err != nil {
@@ -56,6 +57,7 @@ func newTLSClient(endpoint string) (*Client, error) {
 }
 
 func TestNewTSLAPIClient(t *testing.T) {
+	t.Parallel()
 	endpoint := "https://localhost:4243"
 	client, err := newTLSClient(endpoint)
 	if err != nil {
@@ -73,6 +75,7 @@ func TestNewTSLAPIClient(t *testing.T) {
 }
 
 func TestNewVersionedClient(t *testing.T) {
+	t.Parallel()
 	endpoint := "http://localhost:4243"
 	client, err := NewVersionedClient(endpoint, "1.12")
 	if err != nil {
@@ -90,6 +93,7 @@ func TestNewVersionedClient(t *testing.T) {
 }
 
 func TestNewVersionedClientFromEnv(t *testing.T) {
+	t.Parallel()
 	endpoint := "tcp://localhost:2376"
 	endpointURL := "http://localhost:2376"
 	os.Setenv("DOCKER_HOST", endpoint)
@@ -113,6 +117,7 @@ func TestNewVersionedClientFromEnv(t *testing.T) {
 }
 
 func TestNewVersionedClientFromEnvTLS(t *testing.T) {
+	t.Parallel()
 	endpoint := "tcp://localhost:2376"
 	endpointURL := "https://localhost:2376"
 	base, _ := os.Getwd()
@@ -138,6 +143,7 @@ func TestNewVersionedClientFromEnvTLS(t *testing.T) {
 }
 
 func TestNewTLSVersionedClient(t *testing.T) {
+	t.Parallel()
 	certPath := "testing/data/cert.pem"
 	keyPath := "testing/data/key.pem"
 	caPath := "testing/data/ca.pem"
@@ -158,6 +164,7 @@ func TestNewTLSVersionedClient(t *testing.T) {
 }
 
 func TestNewTLSVersionedClientNoClientCert(t *testing.T) {
+	t.Parallel()
 	certPath := "testing/data/cert_doesnotexist.pem"
 	keyPath := "testing/data/key_doesnotexist.pem"
 	caPath := "testing/data/ca.pem"
@@ -178,6 +185,7 @@ func TestNewTLSVersionedClientNoClientCert(t *testing.T) {
 }
 
 func TestNewTLSVersionedClientInvalidCA(t *testing.T) {
+	t.Parallel()
 	certPath := "testing/data/cert.pem"
 	keyPath := "testing/data/key.pem"
 	caPath := "testing/data/key.pem"
@@ -189,6 +197,7 @@ func TestNewTLSVersionedClientInvalidCA(t *testing.T) {
 }
 
 func TestNewTLSVersionedClientInvalidCANoClientCert(t *testing.T) {
+	t.Parallel()
 	certPath := "testing/data/cert_doesnotexist.pem"
 	keyPath := "testing/data/key_doesnotexist.pem"
 	caPath := "testing/data/key.pem"
@@ -200,6 +209,7 @@ func TestNewTLSVersionedClientInvalidCANoClientCert(t *testing.T) {
 }
 
 func TestNewClientInvalidEndpoint(t *testing.T) {
+	t.Parallel()
 	cases := []string{
 		"htp://localhost:3243", "http://localhost:a",
 		"", "http://localhost:8080:8383", "http://localhost:65536",
@@ -217,6 +227,7 @@ func TestNewClientInvalidEndpoint(t *testing.T) {
 }
 
 func TestNewClientNoSchemeEndpoint(t *testing.T) {
+	t.Parallel()
 	cases := []string{"localhost", "localhost:8080"}
 	for _, c := range cases {
 		client, err := NewClient(c)
@@ -230,6 +241,7 @@ func TestNewClientNoSchemeEndpoint(t *testing.T) {
 }
 
 func TestNewTLSClient(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		endpoint string
 		expected string
@@ -252,6 +264,7 @@ func TestNewTLSClient(t *testing.T) {
 }
 
 func TestEndpoint(t *testing.T) {
+	t.Parallel()
 	client, err := NewVersionedClient("http://localhost:4243", "1.12")
 	if err != nil {
 		t.Fatal(err)
@@ -262,6 +275,7 @@ func TestEndpoint(t *testing.T) {
 }
 
 func TestGetURL(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		endpoint string
 		path     string
@@ -286,6 +300,7 @@ func TestGetURL(t *testing.T) {
 }
 
 func TestGetFakeNativeURL(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		endpoint string
 		path     string
@@ -307,6 +322,7 @@ func TestGetFakeNativeURL(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
+	t.Parallel()
 	fakeBody := ioutil.NopCloser(bytes.NewBufferString("bad parameter"))
 	resp := &http.Response{
 		StatusCode: 400,
@@ -324,6 +340,7 @@ func TestError(t *testing.T) {
 }
 
 func TestQueryString(t *testing.T) {
+	t.Parallel()
 	v := float32(2.4)
 	f32QueryString := fmt.Sprintf("w=%s&x=10&y=10.35", strconv.FormatFloat(float64(v), 'f', -1, 64))
 	jsonPerson := url.QueryEscape(`{"Name":"gopher","age":4}`)
@@ -355,6 +372,7 @@ func TestQueryString(t *testing.T) {
 }
 
 func TestAPIVersions(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		a                              string
 		b                              string
@@ -402,6 +420,7 @@ func TestAPIVersions(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	err := client.Ping()
@@ -411,6 +430,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestPingFailing(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusInternalServerError}
 	client := newTestClient(fakeRT)
 	err := client.Ping()
@@ -424,6 +444,7 @@ func TestPingFailing(t *testing.T) {
 }
 
 func TestPingFailingWrongStatus(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusAccepted}
 	client := newTestClient(fakeRT)
 	err := client.Ping()
@@ -437,6 +458,7 @@ func TestPingFailingWrongStatus(t *testing.T) {
 }
 
 func TestPingErrorWithNativeClient(t *testing.T) {
+	t.Parallel()
 	srv, cleanup, err := newNativeServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("aaaaaaaaaaa-invalid-aaaaaaaaaaa"))
 	}))
@@ -458,6 +480,7 @@ func TestPingErrorWithNativeClient(t *testing.T) {
 }
 
 func TestClientStreamTimeoutNotHit(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < 5; i++ {
 			fmt.Fprintf(w, "%d\n", i)
@@ -488,6 +511,7 @@ func TestClientStreamTimeoutNotHit(t *testing.T) {
 }
 
 func TestClientStreamInactivityTimeout(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < 5; i++ {
 			fmt.Fprintf(w, "%d\n", i)
@@ -518,6 +542,7 @@ func TestClientStreamInactivityTimeout(t *testing.T) {
 }
 
 func TestClientStreamContextDeadline(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "abc\n")
 		if f, ok := w.(http.Flusher); ok {
@@ -552,6 +577,7 @@ func TestClientStreamContextDeadline(t *testing.T) {
 }
 
 func TestClientStreamContextCancel(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "abc\n")
 		if f, ok := w.(http.Flusher); ok {
@@ -621,6 +647,7 @@ var mockPullOutput = `{"status":"Pulling from tsuru/static","id":"latest"}
 `
 
 func TestClientStreamJSONDecode(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(mockPullOutput))
 	}))
@@ -672,6 +699,7 @@ func (b *terminalBuffer) IsTerminal() bool {
 }
 
 func TestClientStreamJSONDecodeWithTerminal(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(mockPullOutput))
 	}))
@@ -700,6 +728,7 @@ func TestClientStreamJSONDecodeWithTerminal(t *testing.T) {
 }
 
 func TestClientDoContextDeadline(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
 	}))
@@ -718,6 +747,7 @@ func TestClientDoContextDeadline(t *testing.T) {
 }
 
 func TestClientDoContextCancel(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
 	}))
@@ -739,6 +769,7 @@ func TestClientDoContextCancel(t *testing.T) {
 }
 
 func TestClientStreamTimeoutNativeClient(t *testing.T) {
+	t.Parallel()
 	srv, cleanup, err := newNativeServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < 5; i++ {
 			fmt.Fprintf(w, "%d\n", i)

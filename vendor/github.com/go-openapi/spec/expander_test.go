@@ -214,6 +214,16 @@ func TestContinueOnErrorExpansion(t *testing.T) {
 	err = ExpandSpec(testCase.Input, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, testCase.Input, testCase.Expected, "Should continue expanding spec when a definition can't be found.")
+
+	doc, err := jsonDoc("fixtures/expansion/missingItemRef.json")
+	spec := new(Swagger)
+	err = json.Unmarshal(doc, spec)
+	assert.NoError(t, err)
+
+	assert.NotPanics(t, func() {
+		err = ExpandSpec(spec, opts)
+		assert.NoError(t, err)
+	}, "Array of missing refs should not cause a panic, and continue to expand spec.")
 }
 
 func TestIssue415(t *testing.T) {

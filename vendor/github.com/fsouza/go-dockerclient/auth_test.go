@@ -16,6 +16,7 @@ import (
 )
 
 func TestAuthConfigurationSearchPath(t *testing.T) {
+	t.Parallel()
 	var testData = []struct {
 		dockerConfigEnv string
 		homeEnv         string
@@ -35,6 +36,7 @@ func TestAuthConfigurationSearchPath(t *testing.T) {
 }
 
 func TestAuthConfigurationsFromFile(t *testing.T) {
+	t.Parallel()
 	tmpDir, err := ioutil.TempDir("", "go-dockerclient-auth-test")
 	if err != nil {
 		t.Errorf("Unable to create temporary directory for TestAuthConfigurationsFromFile: %s", err)
@@ -56,6 +58,7 @@ func TestAuthConfigurationsFromFile(t *testing.T) {
 }
 
 func TestAuthLegacyConfig(t *testing.T) {
+	t.Parallel()
 	auth := base64.StdEncoding.EncodeToString([]byte("user:pa:ss"))
 	read := strings.NewReader(fmt.Sprintf(`{"docker.io":{"auth":"%s","email":"user@example.com"}}`, auth))
 	ac, err := NewAuthConfigurations(read)
@@ -81,6 +84,7 @@ func TestAuthLegacyConfig(t *testing.T) {
 }
 
 func TestAuthBadConfig(t *testing.T) {
+	t.Parallel()
 	auth := base64.StdEncoding.EncodeToString([]byte("userpass"))
 	read := strings.NewReader(fmt.Sprintf(`{"docker.io":{"auth":"%s","email":"user@example.com"}}`, auth))
 	ac, err := NewAuthConfigurations(read)
@@ -93,6 +97,7 @@ func TestAuthBadConfig(t *testing.T) {
 }
 
 func TestAuthAndOtherFields(t *testing.T) {
+	t.Parallel()
 	auth := base64.StdEncoding.EncodeToString([]byte("user:pass"))
 	read := strings.NewReader(fmt.Sprintf(`{
 		"auths":{"docker.io":{"auth":"%s","email":"user@example.com"}},
@@ -121,6 +126,7 @@ func TestAuthAndOtherFields(t *testing.T) {
 	}
 }
 func TestAuthConfig(t *testing.T) {
+	t.Parallel()
 	auth := base64.StdEncoding.EncodeToString([]byte("user:pass"))
 	read := strings.NewReader(fmt.Sprintf(`{"auths":{"docker.io":{"auth":"%s","email":"user@example.com"}}}`, auth))
 	ac, err := NewAuthConfigurations(read)
@@ -146,6 +152,7 @@ func TestAuthConfig(t *testing.T) {
 }
 
 func TestAuthCheck(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	if _, err := client.AuthCheck(nil); err == nil {

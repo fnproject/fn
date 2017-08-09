@@ -204,6 +204,13 @@ func (st *serverTester) awaitIdle() {
 }
 
 func (st *serverTester) Close() {
+	if st.t.Failed() {
+		// If we failed already (and are likely in a Fatal,
+		// unwindowing), force close the connection, so the
+		// httptest.Server doesn't wait forever for the conn
+		// to close.
+		st.cc.Close()
+	}
 	st.ts.Close()
 	if st.cc != nil {
 		st.cc.Close()
@@ -2515,7 +2522,7 @@ func TestCompressionErrorOnWrite(t *testing.T) {
 	defer st.Close()
 	st.greet()
 
-	maxAllowed := st.sc.maxHeaderStringLen()
+	maxAllowed := st.sc.framer.maxHeaderStringLen()
 
 	// Crank this up, now that we have a conn connected with the
 	// hpack.Decoder's max string length set has been initialized
@@ -2524,8 +2531,12 @@ func TestCompressionErrorOnWrite(t *testing.T) {
 	// the max string size.
 	serverConfig.MaxHeaderBytes = 1 << 20
 
-	// First a request with a header that's exactly the max allowed size.
+	// First a request with a header that's exactly the max allowed size
+	// for the hpack compression. It's still too long for the header list
+	// size, so we'll get the 431 error, but that keeps the compression
+	// context still valid.
 	hbf := st.encodeHeader("foo", strings.Repeat("a", maxAllowed))
+
 	st.writeHeaders(HeadersFrameParam{
 		StreamID:      1,
 		BlockFragment: hbf,
@@ -2533,8 +2544,24 @@ func TestCompressionErrorOnWrite(t *testing.T) {
 		EndHeaders:    true,
 	})
 	h := st.wantHeaders()
-	if !h.HeadersEnded() || !h.StreamEnded() {
-		t.Errorf("Unexpected HEADER frame %v", h)
+	if !h.HeadersEnded() {
+		t.Fatalf("Got HEADERS without END_HEADERS set: %v", h)
+	}
+	headers := st.decodeHeader(h.HeaderBlockFragment())
+	want := [][2]string{
+		{":status", "431"},
+		{"content-type", "text/html; charset=utf-8"},
+		{"content-length", "63"},
+	}
+	if !reflect.DeepEqual(headers, want) {
+		t.Errorf("Headers mismatch.\n got: %q\nwant: %q\n", headers, want)
+	}
+	df := st.wantData()
+	if !strings.Contains(string(df.Data()), "HTTP Error 431") {
+		t.Errorf("Unexpected data body: %q", df.Data())
+	}
+	if !df.StreamEnded() {
+		t.Fatalf("expect data stream end")
 	}
 
 	// And now send one that's just one byte too big.
@@ -2647,7 +2674,13 @@ func testServerWritesTrailers(t *testing.T, withFlush bool) {
 		}
 		w.Header().Set("Server-Trailer-A", "valuea")
 		w.Header().Set("Server-Trailer-C", "valuec") // skipping B
+		// After a flush, random keys like Server-Surprise shouldn't show up:
 		w.Header().Set("Server-Surpise", "surprise! this isn't predeclared!")
+		// But we do permit promoting keys to trailers after a
+		// flush if they start with the magic
+		// otherwise-invalid "Trailer:" prefix:
+		w.Header().Set("Trailer:Post-Header-Trailer", "hi1")
+		w.Header().Set("Trailer:post-header-trailer2", "hi2")
 		w.Header().Set("Transfer-Encoding", "should not be included; Forbidden by RFC 2616 14.40")
 		w.Header().Set("Content-Length", "should not be included; Forbidden by RFC 2616 14.40")
 		w.Header().Set("Trailer", "should not be included; Forbidden by RFC 2616 14.40")
@@ -2689,6 +2722,8 @@ func testServerWritesTrailers(t *testing.T, withFlush bool) {
 			t.Fatalf("trailers HEADERS lacked END_HEADERS")
 		}
 		wanth = [][2]string{
+			{"post-header-trailer", "hi1"},
+			{"post-header-trailer2", "hi2"},
 			{"server-trailer-a", "valuea"},
 			{"server-trailer-c", "valuec"},
 		}
@@ -2699,7 +2734,39 @@ func testServerWritesTrailers(t *testing.T, withFlush bool) {
 	})
 }
 
+// validate transmitted header field names & values
+// golang.org/issue/14048
+func TestServerDoesntWriteInvalidHeaders(t *testing.T) {
+	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
+		w.Header().Add("OK1", "x")
+		w.Header().Add("Bad:Colon", "x") // colon (non-token byte) in key
+		w.Header().Add("Bad1\x00", "x")  // null in key
+		w.Header().Add("Bad2", "x\x00y") // null in value
+		return nil
+	}, func(st *serverTester) {
+		getSlash(st)
+		hf := st.wantHeaders()
+		if !hf.StreamEnded() {
+			t.Error("response HEADERS lacked END_STREAM")
+		}
+		if !hf.HeadersEnded() {
+			t.Fatal("response HEADERS didn't have END_HEADERS")
+		}
+		goth := st.decodeHeader(hf.HeaderBlockFragment())
+		wanth := [][2]string{
+			{":status", "200"},
+			{"ok1", "x"},
+			{"content-type", "text/plain; charset=utf-8"},
+			{"content-length", "0"},
+		}
+		if !reflect.DeepEqual(goth, wanth) {
+			t.Errorf("Header mismatch.\n got: %v\nwant: %v", goth, wanth)
+		}
+	})
+}
+
 func BenchmarkServerGets(b *testing.B) {
+	defer disableGoroutineTracking()()
 	b.ReportAllocs()
 
 	const msg = "Hello, world"
@@ -2731,6 +2798,7 @@ func BenchmarkServerGets(b *testing.B) {
 }
 
 func BenchmarkServerPosts(b *testing.B) {
+	defer disableGoroutineTracking()()
 	b.ReportAllocs()
 
 	const msg = "Hello, world"
@@ -2769,12 +2837,16 @@ func TestIssue53(t *testing.T) {
 		"\r\n\r\n\x00\x00\x00\x01\ainfinfin\ad"
 	s := &http.Server{
 		ErrorLog: log.New(io.MultiWriter(stderrv(), twriter{t: t}), "", log.LstdFlags),
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Write([]byte("hello"))
+		}),
 	}
-	s2 := &Server{MaxReadFrameSize: 1 << 16, PermitProhibitedCipherSuites: true}
+	s2 := &Server{
+		MaxReadFrameSize:             1 << 16,
+		PermitProhibitedCipherSuites: true,
+	}
 	c := &issue53Conn{[]byte(data), false, false}
-	s2.handleConn(s, c, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("hello"))
-	}))
+	s2.ServeConn(c, &ServeConnOpts{BaseConfig: s})
 	if !c.closed {
 		t.Fatal("connection is not closed")
 	}
@@ -2937,4 +3009,173 @@ func TestServerNoDuplicateContentType(t *testing.T) {
 	if !reflect.DeepEqual(headers, want) {
 		t.Errorf("Headers mismatch.\n got: %q\nwant: %q\n", headers, want)
 	}
+}
+
+func disableGoroutineTracking() (restore func()) {
+	old := DebugGoroutines
+	DebugGoroutines = false
+	return func() { DebugGoroutines = old }
+}
+
+func BenchmarkServer_GetRequest(b *testing.B) {
+	defer disableGoroutineTracking()()
+	b.ReportAllocs()
+	const msg = "Hello, world."
+	st := newServerTester(b, func(w http.ResponseWriter, r *http.Request) {
+		n, err := io.Copy(ioutil.Discard, r.Body)
+		if err != nil || n > 0 {
+			b.Error("Read %d bytes, error %v; want 0 bytes.", n, err)
+		}
+		io.WriteString(w, msg)
+	})
+	defer st.Close()
+
+	st.greet()
+	// Give the server quota to reply. (plus it has the the 64KB)
+	if err := st.fr.WriteWindowUpdate(0, uint32(b.N*len(msg))); err != nil {
+		b.Fatal(err)
+	}
+	hbf := st.encodeHeader(":method", "GET")
+	for i := 0; i < b.N; i++ {
+		streamID := uint32(1 + 2*i)
+		st.writeHeaders(HeadersFrameParam{
+			StreamID:      streamID,
+			BlockFragment: hbf,
+			EndStream:     true,
+			EndHeaders:    true,
+		})
+		st.wantHeaders()
+		st.wantData()
+	}
+}
+
+func BenchmarkServer_PostRequest(b *testing.B) {
+	defer disableGoroutineTracking()()
+	b.ReportAllocs()
+	const msg = "Hello, world."
+	st := newServerTester(b, func(w http.ResponseWriter, r *http.Request) {
+		n, err := io.Copy(ioutil.Discard, r.Body)
+		if err != nil || n > 0 {
+			b.Error("Read %d bytes, error %v; want 0 bytes.", n, err)
+		}
+		io.WriteString(w, msg)
+	})
+	defer st.Close()
+	st.greet()
+	// Give the server quota to reply. (plus it has the the 64KB)
+	if err := st.fr.WriteWindowUpdate(0, uint32(b.N*len(msg))); err != nil {
+		b.Fatal(err)
+	}
+	hbf := st.encodeHeader(":method", "POST")
+	for i := 0; i < b.N; i++ {
+		streamID := uint32(1 + 2*i)
+		st.writeHeaders(HeadersFrameParam{
+			StreamID:      streamID,
+			BlockFragment: hbf,
+			EndStream:     false,
+			EndHeaders:    true,
+		})
+		st.writeData(streamID, true, nil)
+		st.wantHeaders()
+		st.wantData()
+	}
+}
+
+type connStateConn struct {
+	net.Conn
+	cs tls.ConnectionState
+}
+
+func (c connStateConn) ConnectionState() tls.ConnectionState { return c.cs }
+
+// golang.org/issue/12737 -- handle any net.Conn, not just
+// *tls.Conn.
+func TestServerHandleCustomConn(t *testing.T) {
+	var s Server
+	c1, c2 := net.Pipe()
+	clientDone := make(chan struct{})
+	handlerDone := make(chan struct{})
+	var req *http.Request
+	go func() {
+		defer close(clientDone)
+		defer c2.Close()
+		fr := NewFramer(c2, c2)
+		io.WriteString(c2, ClientPreface)
+		fr.WriteSettings()
+		fr.WriteSettingsAck()
+		f, err := fr.ReadFrame()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if sf, ok := f.(*SettingsFrame); !ok || sf.IsAck() {
+			t.Errorf("Got %v; want non-ACK SettingsFrame", summarizeFrame(f))
+			return
+		}
+		f, err = fr.ReadFrame()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if sf, ok := f.(*SettingsFrame); !ok || !sf.IsAck() {
+			t.Errorf("Got %v; want ACK SettingsFrame", summarizeFrame(f))
+			return
+		}
+		var henc hpackEncoder
+		fr.WriteHeaders(HeadersFrameParam{
+			StreamID:      1,
+			BlockFragment: henc.encodeHeaderRaw(t, ":method", "GET", ":path", "/", ":scheme", "https", ":authority", "foo.com"),
+			EndStream:     true,
+			EndHeaders:    true,
+		})
+		go io.Copy(ioutil.Discard, c2)
+		<-handlerDone
+	}()
+	const testString = "my custom ConnectionState"
+	fakeConnState := tls.ConnectionState{
+		ServerName: testString,
+		Version:    tls.VersionTLS12,
+	}
+	go s.ServeConn(connStateConn{c1, fakeConnState}, &ServeConnOpts{
+		BaseConfig: &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer close(handlerDone)
+				req = r
+			}),
+		}})
+	select {
+	case <-clientDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for handler")
+	}
+	if req.TLS == nil {
+		t.Fatalf("Request.TLS is nil. Got: %#v", req)
+	}
+	if req.TLS.ServerName != testString {
+		t.Fatalf("Request.TLS = %+v; want ServerName of %q", req.TLS, testString)
+	}
+}
+
+type hpackEncoder struct {
+	enc *hpack.Encoder
+	buf bytes.Buffer
+}
+
+func (he *hpackEncoder) encodeHeaderRaw(t *testing.T, headers ...string) []byte {
+	if len(headers)%2 == 1 {
+		panic("odd number of kv args")
+	}
+	he.buf.Reset()
+	if he.enc == nil {
+		he.enc = hpack.NewEncoder(&he.buf)
+	}
+	for len(headers) > 0 {
+		k, v := headers[0], headers[1]
+		err := he.enc.WriteField(hpack.HeaderField{Name: k, Value: v})
+		if err != nil {
+			t.Fatalf("HPACK encoding error for %q/%q: %v", k, v, err)
+		}
+		headers = headers[2:]
+	}
+	return he.buf.Bytes()
 }

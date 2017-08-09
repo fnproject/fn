@@ -662,21 +662,27 @@ func expandSchema(target Schema, parentRefs []string, resolver *schemaLoader) (*
 			return &target, nil
 		}
 		parentRefs = append(parentRefs, target.Ref.String())
-		target = *t
+		if t != nil {
+			target = *t
+		}
 	}
 
 	t, err := expandItems(target, parentRefs, resolver)
 	if shouldStopOnError(err, resolver.options) {
 		return &target, err
 	}
-	target = *t
+	if t != nil {
+		target = *t
+	}
 
 	for i := range target.AllOf {
 		t, err := expandSchema(target.AllOf[i], parentRefs, resolver)
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		target.AllOf[i] = *t
+		if t != nil {
+			target.AllOf[i] = *t
+		}
 	}
 	for i := range target.AnyOf {
 		t, err := expandSchema(target.AnyOf[i], parentRefs, resolver)
@@ -690,35 +696,45 @@ func expandSchema(target Schema, parentRefs []string, resolver *schemaLoader) (*
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		target.OneOf[i] = *t
+		if t != nil {
+			target.OneOf[i] = *t
+		}
 	}
 	if target.Not != nil {
 		t, err := expandSchema(*target.Not, parentRefs, resolver)
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		*target.Not = *t
+		if t != nil {
+			*target.Not = *t
+		}
 	}
 	for k := range target.Properties {
 		t, err := expandSchema(target.Properties[k], parentRefs, resolver)
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		target.Properties[k] = *t
+		if t != nil {
+			target.Properties[k] = *t
+		}
 	}
 	if target.AdditionalProperties != nil && target.AdditionalProperties.Schema != nil {
 		t, err := expandSchema(*target.AdditionalProperties.Schema, parentRefs, resolver)
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		*target.AdditionalProperties.Schema = *t
+		if t != nil {
+			*target.AdditionalProperties.Schema = *t
+		}
 	}
 	for k := range target.PatternProperties {
 		t, err := expandSchema(target.PatternProperties[k], parentRefs, resolver)
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		target.PatternProperties[k] = *t
+		if t != nil {
+			target.PatternProperties[k] = *t
+		}
 	}
 	for k := range target.Dependencies {
 		if target.Dependencies[k].Schema != nil {
@@ -726,7 +742,9 @@ func expandSchema(target Schema, parentRefs []string, resolver *schemaLoader) (*
 			if shouldStopOnError(err, resolver.options) {
 				return &target, err
 			}
-			*target.Dependencies[k].Schema = *t
+			if t != nil {
+				*target.Dependencies[k].Schema = *t
+			}
 		}
 	}
 	if target.AdditionalItems != nil && target.AdditionalItems.Schema != nil {
@@ -734,14 +752,18 @@ func expandSchema(target Schema, parentRefs []string, resolver *schemaLoader) (*
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		*target.AdditionalItems.Schema = *t
+		if t != nil {
+			*target.AdditionalItems.Schema = *t
+		}
 	}
 	for k := range target.Definitions {
 		t, err := expandSchema(target.Definitions[k], parentRefs, resolver)
 		if shouldStopOnError(err, resolver.options) {
 			return &target, err
 		}
-		target.Definitions[k] = *t
+		if t != nil {
+			target.Definitions[k] = *t
+		}
 	}
 	return &target, nil
 }

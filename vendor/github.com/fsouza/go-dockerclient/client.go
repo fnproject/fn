@@ -498,6 +498,7 @@ type streamOptions struct {
 	in             io.Reader
 	stdout         io.Writer
 	stderr         io.Writer
+	reqSent        chan struct{}
 	// timeout is the initial connection timeout
 	timeout time.Duration
 	// Timeout with no data is received, it's reset every time new data
@@ -576,6 +577,9 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 			dial.SetDeadline(time.Now().Add(streamOptions.timeout))
 		}
 
+		if streamOptions.reqSent != nil {
+			close(streamOptions.reqSent)
+		}
 		if resp, err = http.ReadResponse(breader, req); err != nil {
 			// Cancel timeout for future I/O operations
 			if streamOptions.timeout > 0 {
@@ -593,6 +597,9 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 				return ErrConnectionRefused
 			}
 			return chooseError(subCtx, err)
+		}
+		if streamOptions.reqSent != nil {
+			close(streamOptions.reqSent)
 		}
 	}
 	defer resp.Body.Close()

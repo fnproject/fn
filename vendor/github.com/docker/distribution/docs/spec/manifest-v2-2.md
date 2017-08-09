@@ -1,16 +1,12 @@
-<!--[metadata]>
-+++
-title = "Image Manifest V 2, Schema 2 "
-description = "image manifest for the Registry."
-keywords = ["registry, on-prem, images, tags, repository, distribution, api, advanced, manifest"]
-[menu.main]
-parent="smn_registry_ref"
-+++
-<![end-metadata]-->
+---
+title: "Image Manifest V 2, Schema 2 "
+description: "image manifest for the Registry."
+keywords: ["registry, on-prem, images, tags, repository, distribution, api, advanced, manifest"]
+---
 
 # Image Manifest Version 2, Schema 2
 
-This document outlines the format of of the V2 image manifest, schema version 2.
+This document outlines the format of the V2 image manifest, schema version 2.
 The original (and provisional) image manifest for V2 (schema 1), was introduced
 in the Docker daemon in the [v1.3.0
 release](https://github.com/docker/docker/commit/9f482a66ab37ec396ac61ed0c00d59122ac07453)
@@ -34,6 +30,7 @@ the resources they reference:
 - `application/vnd.docker.container.image.v1+json`: Container config JSON
 - `application/vnd.docker.image.rootfs.diff.tar.gzip`: "Layer", as a gzipped tar
 - `application/vnd.docker.image.rootfs.foreign.diff.tar.gzip`: "Layer", as a gzipped tar that should never be pushed
+- `application/vnd.docker.plugin.v1+json`: Plugin config JSON
 
 ## Manifest List
 
@@ -63,8 +60,8 @@ image manifest based on the Content-Type returned in the HTTP response.
     - **`mediaType`** *string*
 
         The MIME type of the referenced object. This will generally be
-        `application/vnd.docker.image.manifest.v2+json`, but it could also
-        be `application/vnd.docker.image.manifest.v1+json` if the manifest
+        `application/vnd.docker.distribution.manifest.v2+json`, but it could also
+        be `application/vnd.docker.distribution.manifest.v1+json` if the manifest
         list references a legacy schema-1 manifest.
 
     - **`size`** *int*
@@ -126,7 +123,7 @@ image manifest based on the Content-Type returned in the HTTP response.
   "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
   "manifests": [
     {
-      "mediaType": "application/vnd.docker.image.manifest.v2+json",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
       "size": 7143,
       "digest": "sha256:e692418e4cbaf90ca69d05a66403747baa33ee08806650b51fab815ad7fc331f",
       "platform": {
@@ -135,7 +132,7 @@ image manifest based on the Content-Type returned in the HTTP response.
       }
     },
     {
-      "mediaType": "application/vnd.docker.image.manifest.v2+json",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
       "size": 7682,
       "digest": "sha256:5b0bcabd1ed22e9fb1310cf6c2dec7cdef19f0ad69efa1f392e94a4333501270",
       "platform": {

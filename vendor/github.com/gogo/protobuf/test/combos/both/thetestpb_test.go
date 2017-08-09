@@ -13928,7 +13928,7 @@ func TestNidOptNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptNativeGoString(t *testing.T) {
@@ -13941,7 +13941,7 @@ func TestNinOptNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidRepNativeGoString(t *testing.T) {
@@ -13954,7 +13954,7 @@ func TestNidRepNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinRepNativeGoString(t *testing.T) {
@@ -13967,7 +13967,7 @@ func TestNinRepNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidRepPackedNativeGoString(t *testing.T) {
@@ -13980,7 +13980,7 @@ func TestNidRepPackedNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinRepPackedNativeGoString(t *testing.T) {
@@ -13993,7 +13993,7 @@ func TestNinRepPackedNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidOptStructGoString(t *testing.T) {
@@ -14006,7 +14006,7 @@ func TestNidOptStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptStructGoString(t *testing.T) {
@@ -14019,7 +14019,7 @@ func TestNinOptStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidRepStructGoString(t *testing.T) {
@@ -14032,7 +14032,7 @@ func TestNidRepStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinRepStructGoString(t *testing.T) {
@@ -14045,7 +14045,7 @@ func TestNinRepStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidEmbeddedStructGoString(t *testing.T) {
@@ -14058,7 +14058,7 @@ func TestNidEmbeddedStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinEmbeddedStructGoString(t *testing.T) {
@@ -14071,7 +14071,7 @@ func TestNinEmbeddedStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidNestedStructGoString(t *testing.T) {
@@ -14084,7 +14084,7 @@ func TestNidNestedStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinNestedStructGoString(t *testing.T) {
@@ -14097,7 +14097,7 @@ func TestNinNestedStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidOptCustomGoString(t *testing.T) {
@@ -14110,7 +14110,7 @@ func TestNidOptCustomGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomDashGoString(t *testing.T) {
@@ -14123,7 +14123,7 @@ func TestCustomDashGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptCustomGoString(t *testing.T) {
@@ -14136,7 +14136,7 @@ func TestNinOptCustomGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidRepCustomGoString(t *testing.T) {
@@ -14149,7 +14149,7 @@ func TestNidRepCustomGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinRepCustomGoString(t *testing.T) {
@@ -14162,7 +14162,7 @@ func TestNinRepCustomGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptNativeUnionGoString(t *testing.T) {
@@ -14175,7 +14175,7 @@ func TestNinOptNativeUnionGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptStructUnionGoString(t *testing.T) {
@@ -14188,7 +14188,7 @@ func TestNinOptStructUnionGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinEmbeddedStructUnionGoString(t *testing.T) {
@@ -14201,7 +14201,7 @@ func TestNinEmbeddedStructUnionGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinNestedStructUnionGoString(t *testing.T) {
@@ -14214,7 +14214,7 @@ func TestNinNestedStructUnionGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestTreeGoString(t *testing.T) {
@@ -14227,7 +14227,7 @@ func TestTreeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOrBranchGoString(t *testing.T) {
@@ -14240,7 +14240,7 @@ func TestOrBranchGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAndBranchGoString(t *testing.T) {
@@ -14253,7 +14253,7 @@ func TestAndBranchGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestLeafGoString(t *testing.T) {
@@ -14266,7 +14266,7 @@ func TestLeafGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestDeepTreeGoString(t *testing.T) {
@@ -14279,7 +14279,7 @@ func TestDeepTreeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestADeepBranchGoString(t *testing.T) {
@@ -14292,7 +14292,7 @@ func TestADeepBranchGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAndDeepBranchGoString(t *testing.T) {
@@ -14305,7 +14305,7 @@ func TestAndDeepBranchGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestDeepLeafGoString(t *testing.T) {
@@ -14318,7 +14318,7 @@ func TestDeepLeafGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNilGoString(t *testing.T) {
@@ -14331,7 +14331,7 @@ func TestNilGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidOptEnumGoString(t *testing.T) {
@@ -14344,7 +14344,7 @@ func TestNidOptEnumGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptEnumGoString(t *testing.T) {
@@ -14357,7 +14357,7 @@ func TestNinOptEnumGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidRepEnumGoString(t *testing.T) {
@@ -14370,7 +14370,7 @@ func TestNidRepEnumGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinRepEnumGoString(t *testing.T) {
@@ -14383,7 +14383,7 @@ func TestNinRepEnumGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptEnumDefaultGoString(t *testing.T) {
@@ -14396,7 +14396,7 @@ func TestNinOptEnumDefaultGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAnotherNinOptEnumGoString(t *testing.T) {
@@ -14409,7 +14409,7 @@ func TestAnotherNinOptEnumGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAnotherNinOptEnumDefaultGoString(t *testing.T) {
@@ -14422,7 +14422,7 @@ func TestAnotherNinOptEnumDefaultGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestTimerGoString(t *testing.T) {
@@ -14435,7 +14435,7 @@ func TestTimerGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestMyExtendableGoString(t *testing.T) {
@@ -14448,7 +14448,7 @@ func TestMyExtendableGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestOtherExtenableGoString(t *testing.T) {
@@ -14461,7 +14461,7 @@ func TestOtherExtenableGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNestedDefinitionGoString(t *testing.T) {
@@ -14474,7 +14474,7 @@ func TestNestedDefinitionGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNestedDefinition_NestedMessageGoString(t *testing.T) {
@@ -14487,7 +14487,7 @@ func TestNestedDefinition_NestedMessageGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNestedDefinition_NestedMessage_NestedNestedMsgGoString(t *testing.T) {
@@ -14500,7 +14500,7 @@ func TestNestedDefinition_NestedMessage_NestedNestedMsgGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNestedScopeGoString(t *testing.T) {
@@ -14513,7 +14513,7 @@ func TestNestedScopeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptNativeDefaultGoString(t *testing.T) {
@@ -14526,7 +14526,7 @@ func TestNinOptNativeDefaultGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomContainerGoString(t *testing.T) {
@@ -14539,7 +14539,7 @@ func TestCustomContainerGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameNidOptNativeGoString(t *testing.T) {
@@ -14552,7 +14552,7 @@ func TestCustomNameNidOptNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameNinOptNativeGoString(t *testing.T) {
@@ -14565,7 +14565,7 @@ func TestCustomNameNinOptNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameNinRepNativeGoString(t *testing.T) {
@@ -14578,7 +14578,7 @@ func TestCustomNameNinRepNativeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameNinStructGoString(t *testing.T) {
@@ -14591,7 +14591,7 @@ func TestCustomNameNinStructGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameCustomTypeGoString(t *testing.T) {
@@ -14604,7 +14604,7 @@ func TestCustomNameCustomTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameNinEmbeddedStructUnionGoString(t *testing.T) {
@@ -14617,7 +14617,7 @@ func TestCustomNameNinEmbeddedStructUnionGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomNameEnumGoString(t *testing.T) {
@@ -14630,7 +14630,7 @@ func TestCustomNameEnumGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNoExtensionsMapGoString(t *testing.T) {
@@ -14643,7 +14643,7 @@ func TestNoExtensionsMapGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUnrecognizedGoString(t *testing.T) {
@@ -14656,7 +14656,7 @@ func TestUnrecognizedGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUnrecognizedWithInnerGoString(t *testing.T) {
@@ -14669,7 +14669,7 @@ func TestUnrecognizedWithInnerGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUnrecognizedWithInner_InnerGoString(t *testing.T) {
@@ -14682,7 +14682,7 @@ func TestUnrecognizedWithInner_InnerGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUnrecognizedWithEmbedGoString(t *testing.T) {
@@ -14695,7 +14695,7 @@ func TestUnrecognizedWithEmbedGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestUnrecognizedWithEmbed_EmbeddedGoString(t *testing.T) {
@@ -14708,7 +14708,7 @@ func TestUnrecognizedWithEmbed_EmbeddedGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNodeGoString(t *testing.T) {
@@ -14721,7 +14721,7 @@ func TestNodeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNonByteCustomTypeGoString(t *testing.T) {
@@ -14734,7 +14734,7 @@ func TestNonByteCustomTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidOptNonByteCustomTypeGoString(t *testing.T) {
@@ -14747,7 +14747,7 @@ func TestNidOptNonByteCustomTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinOptNonByteCustomTypeGoString(t *testing.T) {
@@ -14760,7 +14760,7 @@ func TestNinOptNonByteCustomTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidRepNonByteCustomTypeGoString(t *testing.T) {
@@ -14773,7 +14773,7 @@ func TestNidRepNonByteCustomTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNinRepNonByteCustomTypeGoString(t *testing.T) {
@@ -14786,7 +14786,7 @@ func TestNinRepNonByteCustomTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestProtoTypeGoString(t *testing.T) {
@@ -14799,7 +14799,7 @@ func TestProtoTypeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestNidOptNativeSize(t *testing.T) {

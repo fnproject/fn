@@ -167,7 +167,7 @@ func TestRouter_EscapedPath(t *testing.T) {
 
 	mw.ServeHTTP(recorder, request)
 	assert.Equal(t, 200, recorder.Code)
-	ri, _ := context.RouteInfo(request)
+	ri, _, _ := context.RouteInfo(request)
 	if assert.NotNil(t, ri) {
 		if assert.NotNil(t, ri.Params) {
 			assert.Equal(t, "abc/def", ri.Params.Get("id"))

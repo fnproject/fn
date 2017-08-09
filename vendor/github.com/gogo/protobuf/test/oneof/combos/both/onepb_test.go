@@ -572,7 +572,7 @@ func TestSubbyGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestAllTypesOneOfGoString(t *testing.T) {
@@ -585,7 +585,7 @@ func TestAllTypesOneOfGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestTwoOneofsGoString(t *testing.T) {
@@ -598,7 +598,7 @@ func TestTwoOneofsGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestCustomOneofGoString(t *testing.T) {
@@ -611,7 +611,7 @@ func TestCustomOneofGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestSubbySize(t *testing.T) {

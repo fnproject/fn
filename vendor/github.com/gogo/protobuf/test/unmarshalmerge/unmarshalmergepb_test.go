@@ -626,7 +626,7 @@ func TestBigGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestBigUnsafeGoString(t *testing.T) {
@@ -639,7 +639,7 @@ func TestBigUnsafeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestSubGoString(t *testing.T) {
@@ -652,7 +652,7 @@ func TestSubGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestIntMergeGoString(t *testing.T) {
@@ -665,7 +665,7 @@ func TestIntMergeGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestBigStringer(t *testing.T) {

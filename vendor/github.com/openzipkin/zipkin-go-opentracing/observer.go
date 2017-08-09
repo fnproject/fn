@@ -1,8 +1,8 @@
 package zipkintracer
 
 import (
-	opentracing "github.com/opentracing/opentracing-go"
 	otobserver "github.com/opentracing-contrib/go-observer"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 // observer is a dispatcher to other observers

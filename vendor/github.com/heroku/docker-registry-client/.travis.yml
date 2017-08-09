@@ -1,6 +1,0 @@
-language: go
-go: 1.7.1
-sudo: false
-script: make travis
-notifications:
-  email: false

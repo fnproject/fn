@@ -1,6 +1,7 @@
 package zipkintracer
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -198,7 +199,7 @@ func (c *ScribeCollector) send() error {
 			return err
 		}
 	}
-	if rc, err := c.client.Log(sendBatch); err != nil {
+	if rc, err := c.client.Log(context.Background(), sendBatch); err != nil {
 		c.client = nil
 		_ = c.logger.Log("err", fmt.Sprintf("during Log: %v", err))
 		return err

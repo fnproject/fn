@@ -5,18 +5,22 @@
 package docker
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
 
 	"encoding/base64"
-	"github.com/docker/docker/api/types/swarm"
 	"strings"
+
+	"github.com/docker/docker/api/types/swarm"
 )
 
 func TestCreateService(t *testing.T) {
+	t.Parallel()
 	result := `{
   "Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
 }`
@@ -61,6 +65,7 @@ func TestCreateService(t *testing.T) {
 }
 
 func TestCreateServiceWithAuthentication(t *testing.T) {
+	t.Parallel()
 	result := `{
   "Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
 }`
@@ -115,6 +120,7 @@ func TestCreateServiceWithAuthentication(t *testing.T) {
 }
 
 func TestRemoveService(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	id := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
@@ -134,6 +140,7 @@ func TestRemoveService(t *testing.T) {
 }
 
 func TestRemoveServiceNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such service", status: http.StatusNotFound})
 	err := client.RemoveService(RemoveServiceOptions{ID: "a2334"})
 	expected := &NoSuchService{ID: "a2334"}
@@ -143,6 +150,7 @@ func TestRemoveServiceNotFound(t *testing.T) {
 }
 
 func TestUpdateService(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	id := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
@@ -174,6 +182,7 @@ func TestUpdateService(t *testing.T) {
 }
 
 func TestUpdateServiceWithAuthentication(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	id := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
@@ -222,6 +231,7 @@ func TestUpdateServiceWithAuthentication(t *testing.T) {
 }
 
 func TestUpdateServiceNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such service", status: http.StatusNotFound})
 	update := UpdateServiceOptions{}
 	err := client.UpdateService("notfound", update)
@@ -232,6 +242,7 @@ func TestUpdateServiceNotFound(t *testing.T) {
 }
 
 func TestInspectServiceNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such service", status: http.StatusNotFound})
 	service, err := client.InspectService("notfound")
 	if service != nil {
@@ -244,6 +255,7 @@ func TestInspectServiceNotFound(t *testing.T) {
 }
 
 func TestInspectService(t *testing.T) {
+	t.Parallel()
 	jsonService := `{
   "ID": "ak7w3gjqoa3kuz8xcpnyy0pvl",
   "Version": {
@@ -324,6 +336,7 @@ func TestInspectService(t *testing.T) {
 }
 
 func TestListServices(t *testing.T) {
+	t.Parallel()
 	jsonServices := `[
   {
     "ID": "9mnpnzenvg8p8tdbtq4wvbkcz",
@@ -400,5 +413,185 @@ func TestListServices(t *testing.T) {
 	}
 	if !reflect.DeepEqual(services, expected) {
 		t.Errorf("ListServices: Expected %#v. Got %#v.", expected, services)
+	}
+}
+
+/// ##################################################""
+
+func TestGetServiceLogs(t *testing.T) {
+	var req http.Request
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prefix := []byte{1, 0, 0, 0, 0, 0, 0, 19}
+		w.Write(prefix)
+		w.Write([]byte("something happened!"))
+		req = *r
+	}))
+	defer server.Close()
+	client, _ := NewClient(server.URL)
+	client.SkipServerVersionCheck = true
+	var buf bytes.Buffer
+	opts := LogsServiceOptions{
+		Service:      "a123456",
+		OutputStream: &buf,
+		Follow:       true,
+		Stdout:       true,
+		Stderr:       true,
+		Timestamps:   true,
+	}
+	err := client.GetServiceLogs(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "something happened!"
+	if buf.String() != expected {
+		t.Errorf("Logs: wrong output. Want %q. Got %q.", expected, buf.String())
+	}
+	if req.Method != "GET" {
+		t.Errorf("Logs: wrong HTTP method. Want GET. Got %s.", req.Method)
+	}
+	u, _ := url.Parse(client.getURL("/services/a123456/logs"))
+	if req.URL.Path != u.Path {
+		t.Errorf("AttachToContainer for logs: wrong HTTP path. Want %q. Got %q.", u.Path, req.URL.Path)
+	}
+	expectedQs := map[string][]string{
+		"follow":     {"1"},
+		"stdout":     {"1"},
+		"stderr":     {"1"},
+		"timestamps": {"1"},
+		"tail":       {"all"},
+	}
+	got := map[string][]string(req.URL.Query())
+	if !reflect.DeepEqual(got, expectedQs) {
+		t.Errorf("Logs: wrong query string. Want %#v. Got %#v.", expectedQs, got)
+	}
+}
+
+func TesGetServicetLogsNilStdoutDoesntFail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prefix := []byte{1, 0, 0, 0, 0, 0, 0, 19}
+		w.Write(prefix)
+		w.Write([]byte("something happened!"))
+	}))
+	defer server.Close()
+	client, _ := NewClient(server.URL)
+	client.SkipServerVersionCheck = true
+	opts := LogsServiceOptions{
+		Service:    "a123456",
+		Follow:     true,
+		Stdout:     true,
+		Stderr:     true,
+		Timestamps: true,
+	}
+	err := client.GetServiceLogs(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetServiceLogsNilStderrDoesntFail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prefix := []byte{2, 0, 0, 0, 0, 0, 0, 19}
+		w.Write(prefix)
+		w.Write([]byte("something happened!"))
+	}))
+	defer server.Close()
+	client, _ := NewClient(server.URL)
+	client.SkipServerVersionCheck = true
+	opts := LogsServiceOptions{
+		Service:    "a123456",
+		Follow:     true,
+		Stdout:     true,
+		Stderr:     true,
+		Timestamps: true,
+	}
+	err := client.GetServiceLogs(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetServiceLogsSpecifyingTail(t *testing.T) {
+	var req http.Request
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prefix := []byte{1, 0, 0, 0, 0, 0, 0, 19}
+		w.Write(prefix)
+		w.Write([]byte("something happened!"))
+		req = *r
+	}))
+	defer server.Close()
+	client, _ := NewClient(server.URL)
+	client.SkipServerVersionCheck = true
+	var buf bytes.Buffer
+	opts := LogsServiceOptions{
+		Service:      "a123456",
+		OutputStream: &buf,
+		Follow:       true,
+		Stdout:       true,
+		Stderr:       true,
+		Timestamps:   true,
+		Tail:         "100",
+	}
+	err := client.GetServiceLogs(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "something happened!"
+	if buf.String() != expected {
+		t.Errorf("Logs: wrong output. Want %q. Got %q.", expected, buf.String())
+	}
+	if req.Method != "GET" {
+		t.Errorf("Logs: wrong HTTP method. Want GET. Got %s.", req.Method)
+	}
+	u, _ := url.Parse(client.getURL("/services/a123456/logs"))
+	if req.URL.Path != u.Path {
+		t.Errorf("AttachToContainer for logs: wrong HTTP path. Want %q. Got %q.", u.Path, req.URL.Path)
+	}
+	expectedQs := map[string][]string{
+		"follow":     {"1"},
+		"stdout":     {"1"},
+		"stderr":     {"1"},
+		"timestamps": {"1"},
+		"tail":       {"100"},
+	}
+	got := map[string][]string(req.URL.Query())
+	if !reflect.DeepEqual(got, expectedQs) {
+		t.Errorf("Logs: wrong query string. Want %#v. Got %#v.", expectedQs, got)
+	}
+}
+
+func TestGetServiceLogsRawTerminal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("something happened!"))
+	}))
+	defer server.Close()
+	client, _ := NewClient(server.URL)
+	client.SkipServerVersionCheck = true
+	var buf bytes.Buffer
+	opts := LogsServiceOptions{
+		Service:      "a123456",
+		OutputStream: &buf,
+		Follow:       true,
+		RawTerminal:  true,
+		Stdout:       true,
+		Stderr:       true,
+		Timestamps:   true,
+		Tail:         "100",
+	}
+	err := client.GetServiceLogs(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "something happened!"
+	if buf.String() != expected {
+		t.Errorf("Logs: wrong output. Want %q. Got %q.", expected, buf.String())
+	}
+}
+
+func TestGetServiceLogsNoContainer(t *testing.T) {
+	var client Client
+	err := client.GetServiceLogs(LogsServiceOptions{})
+	expected := &NoSuchService{ID: ""}
+	if !reflect.DeepEqual(err, expected) {
+		t.Errorf("AttachToContainer: wrong error. Want %#v. Got %#v.", expected, err)
 	}
 }

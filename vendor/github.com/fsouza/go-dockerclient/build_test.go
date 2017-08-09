@@ -18,6 +18,7 @@ import (
 )
 
 func TestBuildImageMultipleContextsError(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	var buf bytes.Buffer
@@ -39,6 +40,7 @@ func TestBuildImageMultipleContextsError(t *testing.T) {
 }
 
 func TestBuildImageContextDirDockerignoreParsing(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 
@@ -110,6 +112,7 @@ func TestBuildImageContextDirDockerignoreParsing(t *testing.T) {
 }
 
 func TestBuildImageSendXRegistryConfig(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	var buf bytes.Buffer

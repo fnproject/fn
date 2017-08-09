@@ -55,7 +55,7 @@ func ToHTTPRequest(tracer opentracing.Tracer) RequestFunc {
 				opentracing.TextMap,
 				opentracing.HTTPHeadersCarrier(req.Header),
 			); err != nil {
-				fmt.Printf("error encountered while trying to inject span: %+v", err)
+				fmt.Printf("error encountered while trying to inject span: %+v\n", err)
 			}
 		}
 		return req
@@ -86,7 +86,6 @@ func FromHTTPRequest(tracer opentracing.Tracer, operationName string,
 
 			// create span
 			span := tracer.StartSpan(operationName, ext.RPCServerOption(wireContext))
-			span.SetTag("serverSide", "here")
 			defer span.Finish()
 
 			// store span in context

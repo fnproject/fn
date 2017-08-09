@@ -14,6 +14,7 @@ import (
 )
 
 func TestInitSwarm(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: `"body"`, status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	response, err := client.InitSwarm(InitSwarmOptions{})
@@ -36,6 +37,7 @@ func TestInitSwarm(t *testing.T) {
 }
 
 func TestInitSwarmAlreadyInSwarm(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "", status: http.StatusNotAcceptable})
 	_, err := client.InitSwarm(InitSwarmOptions{})
 	if err != ErrNodeAlreadyInSwarm {
@@ -49,6 +51,7 @@ func TestInitSwarmAlreadyInSwarm(t *testing.T) {
 }
 
 func TestJoinSwarm(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	err := client.JoinSwarm(JoinSwarmOptions{})
@@ -67,6 +70,7 @@ func TestJoinSwarm(t *testing.T) {
 }
 
 func TestJoinSwarmAlreadyInSwarm(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "", status: http.StatusNotAcceptable})
 	err := client.JoinSwarm(JoinSwarmOptions{})
 	if err != ErrNodeAlreadyInSwarm {
@@ -80,6 +84,7 @@ func TestJoinSwarmAlreadyInSwarm(t *testing.T) {
 }
 
 func TestLeaveSwarm(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	var testData = []struct {
@@ -107,6 +112,7 @@ func TestLeaveSwarm(t *testing.T) {
 }
 
 func TestLeaveSwarmNotInSwarm(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "", status: http.StatusNotAcceptable})
 	err := client.LeaveSwarm(LeaveSwarmOptions{})
 	if err != ErrNodeNotInSwarm {
@@ -120,6 +126,7 @@ func TestLeaveSwarmNotInSwarm(t *testing.T) {
 }
 
 func TestUpdateSwarm(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	opts := UpdateSwarmOptions{
@@ -152,6 +159,7 @@ func TestUpdateSwarm(t *testing.T) {
 }
 
 func TestUpdateSwarmNotInSwarm(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "", status: http.StatusNotAcceptable})
 	err := client.UpdateSwarm(UpdateSwarmOptions{})
 	if err != ErrNodeNotInSwarm {
@@ -165,6 +173,7 @@ func TestUpdateSwarmNotInSwarm(t *testing.T) {
 }
 
 func TestInspectSwarm(t *testing.T) {
+	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: `{"ID": "123"}`, status: http.StatusOK}
 	client := newTestClient(fakeRT)
 	response, err := client.InspectSwarm(nil)
@@ -187,6 +196,7 @@ func TestInspectSwarm(t *testing.T) {
 }
 
 func TestInspectSwarmNotInSwarm(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "", status: http.StatusNotAcceptable})
 	_, err := client.InspectSwarm(nil)
 	if err != ErrNodeNotInSwarm {

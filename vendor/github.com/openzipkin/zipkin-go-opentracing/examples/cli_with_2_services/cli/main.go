@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/opentracing/opentracing-go"
+	opentracing "github.com/opentracing/opentracing-go"
 
 	zipkin "github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go-opentracing/examples/cli_with_2_services/svc1"
@@ -41,7 +41,7 @@ func main() {
 	// Create our HTTP collector.
 	collector, err := zipkin.NewHTTPCollector(zipkinHTTPEndpoint)
 	if err != nil {
-		fmt.Printf("unable to create Zipkin HTTP collector: %+v", err)
+		fmt.Printf("unable to create Zipkin HTTP collector: %+v\n", err)
 		os.Exit(-1)
 	}
 
@@ -55,7 +55,7 @@ func main() {
 		zipkin.TraceID128Bit(traceID128Bit),
 	)
 	if err != nil {
-		fmt.Printf("unable to create Zipkin tracer: %+v", err)
+		fmt.Printf("unable to create Zipkin tracer: %+v\n", err)
 		os.Exit(-1)
 	}
 

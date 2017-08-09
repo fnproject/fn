@@ -331,7 +331,7 @@ func TestSubbyGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestSampleOneOfGoString(t *testing.T) {
@@ -344,7 +344,7 @@ func TestSampleOneOfGoString(t *testing.T) {
 	}
 	_, err := go_parser.ParseExpr(s1)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 }
 func TestSubbySize(t *testing.T) {

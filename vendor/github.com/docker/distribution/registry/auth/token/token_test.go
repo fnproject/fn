@@ -354,7 +354,7 @@ func TestAccessController(t *testing.T) {
 		Action: "baz",
 	}
 
-	ctx := context.WithValue(nil, "http.request", req)
+	ctx := context.WithRequest(context.Background(), req)
 	authCtx, err := accessController.Authorized(ctx, testAccess)
 	challenge, ok := err.(auth.Challenge)
 	if !ok {
@@ -453,6 +453,27 @@ func TestAccessController(t *testing.T) {
 
 	if userInfo.Name != "foo" {
 		t.Fatalf("expected user name %q, got %q", "foo", userInfo.Name)
+	}
+
+	// 5. Supply a token with full admin rights, which is represented as "*".
+	token, err = makeTestToken(
+		issuer, service,
+		[]*ResourceActions{{
+			Type:    testAccess.Type,
+			Name:    testAccess.Name,
+			Actions: []string{"*"},
+		}},
+		rootKeys[0], 1, time.Now(), time.Now().Add(5*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.compactRaw()))
+
+	_, err = accessController.Authorized(ctx, testAccess)
+	if err != nil {
+		t.Fatalf("accessController returned unexpected error: %s", err)
 	}
 }
 

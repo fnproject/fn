@@ -1,7 +1,6 @@
-
 # Gin Web Framework
 
-<img align="right" src="https://raw.githubusercontent.com/gin-gonic/gin/master/logo.jpg">
+<img align="right" width="159px" src="https://raw.githubusercontent.com/gin-gonic/logo/master/color.png">
 
 [![Build Status](https://travis-ci.org/gin-gonic/gin.svg)](https://travis-ci.org/gin-gonic/gin)
  [![codecov](https://codecov.io/gh/gin-gonic/gin/branch/master/graph/badge.svg)](https://codecov.io/gh/gin-gonic/gin)
@@ -14,12 +13,14 @@ Gin is a web framework written in Go (Golang). It features a martini-like API wi
 ![Gin console logger](https://gin-gonic.github.io/gin/other/console.png)
 
 ```sh
-$ cat test.go
+# assume the following codes in example.go file
+$ cat example.go
 ```
+
 ```go
 package main
 
-import "gopkg.in/gin-gonic/gin.v1"
+import "github.com/gin-gonic/gin"
 
 func main() {
 	r := gin.Default()
@@ -32,47 +33,51 @@ func main() {
 }
 ```
 
+```
+# run example.go and visit 0.0.0.0:8080/ping on browser
+$ go run example.go
+```
+
 ## Benchmarks
 
 Gin uses a custom version of [HttpRouter](https://github.com/julienschmidt/httprouter)  
 
 [See all benchmarks](/BENCHMARKS.md)
 
+Benchmark name                              | (1)        | (2)         | (3) 		    | (4)
+--------------------------------------------|-----------:|------------:|-----------:|---------:
+**BenchmarkGin_GithubAll**                  | **30000**  |  **48375**  |     **0**  |   **0**
+BenchmarkAce_GithubAll                      |   10000    |   134059    |   13792    |   167
+BenchmarkBear_GithubAll                     |    5000    |   534445    |   86448    |   943
+BenchmarkBeego_GithubAll                    |    3000    |   592444    |   74705    |   812
+BenchmarkBone_GithubAll                     |     200    |  6957308    |  698784    |  8453
+BenchmarkDenco_GithubAll                    |   10000    |   158819    |   20224    |   167
+BenchmarkEcho_GithubAll                     |   10000    |   154700    |    6496    |   203
+BenchmarkGocraftWeb_GithubAll               |    3000    |   570806    |  131656    |  1686
+BenchmarkGoji_GithubAll                     |    2000    |   818034    |   56112    |   334
+BenchmarkGojiv2_GithubAll                   |    2000    |  1213973    |  274768    |  3712
+BenchmarkGoJsonRest_GithubAll               |    2000    |   785796    |  134371    |  2737
+BenchmarkGoRestful_GithubAll                |     300    |  5238188    |  689672    |  4519
+BenchmarkGorillaMux_GithubAll               |     100    | 10257726    |  211840    |  2272
+BenchmarkHttpRouter_GithubAll               |   20000    |   105414    |   13792    |   167
+BenchmarkHttpTreeMux_GithubAll              |   10000    |   319934    |   65856    |   671
+BenchmarkKocha_GithubAll                    |   10000    |   209442    |   23304    |   843
+BenchmarkLARS_GithubAll                     |   20000    |    62565    |       0    |     0
+BenchmarkMacaron_GithubAll                  |    2000    |  1161270    |  204194    |  2000
+BenchmarkMartini_GithubAll                  |     200    |  9991713    |  226549    |  2325
+BenchmarkPat_GithubAll                      |     200    |  5590793    | 1499568    | 27435
+BenchmarkPossum_GithubAll                   |   10000    |   319768    |   84448    |   609
+BenchmarkR2router_GithubAll                 |   10000    |   305134    |   77328    |   979
+BenchmarkRivet_GithubAll                    |   10000    |   132134    |   16272    |   167
+BenchmarkTango_GithubAll                    |    3000    |   552754    |   63826    |  1618
+BenchmarkTigerTonic_GithubAll               |    1000    |  1439483    |  239104    |  5374
+BenchmarkTraffic_GithubAll                  |     100    | 11383067    | 2659329    | 21848
+BenchmarkVulcan_GithubAll                   |    5000    |   394253    |   19894    |   609
 
-Benchmark name 					| (1) 		| (2) 		| (3) 		| (4)
---------------------------------|----------:|----------:|----------:|------:
-BenchmarkAce_GithubAll 			| 10000 	| 109482 	| 13792 	| 167
-BenchmarkBear_GithubAll 		| 10000 	| 287490 	| 79952 	| 943
-BenchmarkBeego_GithubAll 		| 3000 		| 562184 	| 146272 	| 2092
-BenchmarkBone_GithubAll 		| 500 		| 2578716 	| 648016 	| 8119
-BenchmarkDenco_GithubAll 		| 20000 	| 94955 	| 20224 	| 167
-BenchmarkEcho_GithubAll 		| 30000 	| 58705 	| 0 		| 0
-**BenchmarkGin_GithubAll** 		| **30000** | **50991** | **0** 	| **0**
-BenchmarkGocraftWeb_GithubAll 	| 5000 		| 449648 	| 133280 	| 1889
-BenchmarkGoji_GithubAll 		| 2000 		| 689748 	| 56113 	| 334
-BenchmarkGoJsonRest_GithubAll 	| 5000 		| 537769 	| 135995 	| 2940
-BenchmarkGoRestful_GithubAll 	| 100 		| 18410628 	| 797236 	| 7725
-BenchmarkGorillaMux_GithubAll 	| 200 		| 8036360 	| 153137 	| 1791
-BenchmarkHttpRouter_GithubAll 	| 20000 	| 63506 	| 13792 	| 167
-BenchmarkHttpTreeMux_GithubAll 	| 10000 	| 165927 	| 56112 	| 334
-BenchmarkKocha_GithubAll 		| 10000 	| 171362 	| 23304 	| 843
-BenchmarkMacaron_GithubAll 		| 2000 		| 817008 	| 224960 	| 2315
-BenchmarkMartini_GithubAll 		| 100 		| 12609209 	| 237952 	| 2686
-BenchmarkPat_GithubAll 			| 300 		| 4830398 	| 1504101 	| 32222
-BenchmarkPossum_GithubAll 		| 10000 	| 301716 	| 97440 	| 812
-BenchmarkR2router_GithubAll 	| 10000 	| 270691 	| 77328 	| 1182
-BenchmarkRevel_GithubAll 		| 1000 		| 1491919 	| 345553 	| 5918
-BenchmarkRivet_GithubAll 		| 10000 	| 283860 	| 84272 	| 1079
-BenchmarkTango_GithubAll 		| 5000 		| 473821 	| 87078 	| 2470
-BenchmarkTigerTonic_GithubAll 	| 2000 		| 1120131 	| 241088 	| 6052
-BenchmarkTraffic_GithubAll 		| 200 		| 8708979 	| 2664762 	| 22390
-BenchmarkVulcan_GithubAll 		| 5000 		| 353392 	| 19894 	| 609
-BenchmarkZeus_GithubAll 		| 2000 		| 944234 	| 300688 	| 2648
-
-(1): Total Repetitions  
-(2): Single Repetition Duration (ns/op)  
-(3): Heap Memory (B/op)  
-(4): Average Allocations per Repetition (allocs/op)  
+(1): Total Repetitions achieved in constant time, higher means more confident result  
+(2): Single Repetition Duration (ns/op), lower is better  
+(3): Heap Memory (B/op), lower is better  
+(4): Average Allocations per Repetition (allocs/op), lower is better  
 
 ## Gin v1. stable
 
@@ -82,33 +87,75 @@ BenchmarkZeus_GithubAll 		| 2000 		| 944234 	| 300688 	| 2648
 - [x] Battle tested
 - [x] API frozen, new releases will not break your code.
 
-
 ## Start using it
 
 1. Download and install it:
 
-    ```sh
-    $ go get gopkg.in/gin-gonic/gin.v1
-    ```
+```sh
+$ go get github.com/gin-gonic/gin
+```
 
 2. Import it in your code:
 
-    ```go
-    import "gopkg.in/gin-gonic/gin.v1"
-    ```
+```go
+import "github.com/gin-gonic/gin"
+```
 
 3. (Optional) Import `net/http`. This is required for example if using constants such as `http.StatusOK`.
 
-    ```go
-    import "net/http"
-    ```
+```go
+import "net/http"
+```
+
+### Use a vendor tool like [Govendor](https://github.com/kardianos/govendor)
+
+1. `go get` govendor
+
+```sh
+$ go get github.com/kardianos/govendor
+```
+2. Create your project folder and `cd` inside
+
+```sh
+$ mkdir -p ~/go/src/github.com/myusername/project && cd "$_"
+```
+
+3. Vendor init your project and add gin
+
+```sh
+$ govendor init
+$ govendor fetch github.com/gin-gonic/gin@v1.2
+```
+
+4. Copy a starting template inside your project
+
+```sh
+$ curl https://raw.githubusercontent.com/gin-gonic/gin/master/examples/basic/main.go > main.go
+```
+
+5. Run your project
+
+```sh
+$ go run main.go
+```
+
+## Build with [jsoniter](https://github.com/json-iterator/go)
+
+Gin use `encoding/json` as default json package but you can change to [jsoniter](https://github.com/json-iterator/go) by build from other tags.
+
+```sh
+$ go build -tags=jsoniter .
+```
 
 ## API Examples
 
-#### Using GET, POST, PUT, PATCH, DELETE and OPTIONS
+### Using GET, POST, PUT, PATCH, DELETE and OPTIONS
 
 ```go
 func main() {
+	// Disable Console Color
+	// gin.DisableConsoleColor()
+
 	// Creates a gin router with default middleware:
 	// logger and recovery (crash-free) middleware
 	router := gin.Default()
@@ -128,7 +175,7 @@ func main() {
 }
 ```
 
-#### Parameters in path
+### Parameters in path
 
 ```go
 func main() {
@@ -153,7 +200,8 @@ func main() {
 }
 ```
 
-#### Querystring parameters
+### Querystring parameters
+
 ```go
 func main() {
 	router := gin.Default()
@@ -220,34 +268,72 @@ func main() {
 id: 1234; page: 1; name: manu; message: this_is_great
 ```
 
-### Another example: upload file
+### Upload files
 
-References issue [#548](https://github.com/gin-gonic/gin/issues/548).
+#### Single file
+
+References issue [#774](https://github.com/gin-gonic/gin/issues/774) and detail [example code](examples/upload-file/single).
 
 ```go
 func main() {
 	router := gin.Default()
-
 	router.POST("/upload", func(c *gin.Context) {
-
-	        file, header , err := c.Request.FormFile("upload")
-	        filename := header.Filename
-	        fmt.Println(header.Filename)
-	        out, err := os.Create("./tmp/"+filename+".png")
-	        if err != nil {
-	            log.Fatal(err)
-	        }
-	        defer out.Close()
-	        _, err = io.Copy(out, file)
-	        if err != nil {
-	            log.Fatal(err)
-	        }   
+		// single file
+		file, _ := c.FormFile("file")
+		log.Println(file.Filename)
+        
+		// Upload the file to specific dst.
+		// c.SaveUploadedFile(file, dst)       
+		
+		c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
 	})
 	router.Run(":8080")
 }
 ```
 
-#### Grouping routes
+How to `curl`:
+
+```bash
+curl -X POST http://localhost:8080/upload \
+  -F "file=@/Users/appleboy/test.zip" \
+  -H "Content-Type: multipart/form-data"
+```
+
+#### Multiple files
+
+See the detail [example code](examples/upload-file/multiple).
+
+```go
+func main() {
+	router := gin.Default()
+	router.POST("/upload", func(c *gin.Context) {
+		// Multipart form
+		form, _ := c.MultipartForm()
+		files := form.File["upload[]"]
+
+		for _, file := range files {
+			log.Println(file.Filename)
+			
+			// Upload the file to specific dst.
+			// c.SaveUploadedFile(file, dst)       
+		}
+		c.String(http.StatusOK, fmt.Sprintf("%d files uploaded!", len(files)))
+	})
+	router.Run(":8080")
+}
+```
+
+How to `curl`:
+
+```bash
+curl -X POST http://localhost:8080/upload \
+  -F "upload[]=@/Users/appleboy/test1.zip" \
+  -F "upload[]=@/Users/appleboy/test2.zip" \
+  -H "Content-Type: multipart/form-data"
+```
+
+### Grouping routes
+
 ```go
 func main() {
 	router := gin.Default()
@@ -272,14 +358,14 @@ func main() {
 }
 ```
 
-
-#### Blank Gin without middleware by default
+### Blank Gin without middleware by default
 
 Use
 
 ```go
 r := gin.New()
 ```
+
 instead of
 
 ```go
@@ -287,7 +373,7 @@ r := gin.Default()
 ```
 
 
-#### Using middleware
+### Using middleware
 ```go
 func main() {
 	// Creates a router without any middleware by default
@@ -322,9 +408,11 @@ func main() {
 }
 ```
 
-#### Model binding and validation
+### Model binding and validation
 
 To bind a request body into a type, use model binding. We currently support binding of JSON, XML and standard form values (foo=bar&boo=baz).
+
+Gin uses [**go-playground/validator.v8**](https://github.com/go-playground/validator) for validation. Check the full docs on tags usage [here](http://godoc.org/gopkg.in/go-playground/validator.v8#hdr-Baked_In_Validators_and_Tags).
 
 Note that you need to set the corresponding binding tag on all fields you want to bind. For example, when binding from JSON, set `json:"fieldname"`.
 
@@ -372,13 +460,130 @@ func main() {
 }
 ```
 
+### Only Bind Query String
 
-###Multipart/Urlencoded binding
+`BindQuery` function only binds the query params and not the post data. See the [detail information](https://github.com/gin-gonic/gin/issues/742#issuecomment-315953017).
+
 ```go
 package main
 
 import (
-	"gopkg.in/gin-gonic/gin.v1"
+	"log"
+
+	"github.com/gin-gonic/gin"
+)
+
+type Person struct {
+	Name    string `form:"name"`
+	Address string `form:"address"`
+}
+
+func main() {
+	route := gin.Default()
+	route.Any("/testing", startPage)
+	route.Run(":8085")
+}
+
+func startPage(c *gin.Context) {
+	var person Person
+	if c.BindQuery(&person) == nil {
+		log.Println("====== Only Bind By Query String ======")
+		log.Println(person.Name)
+		log.Println(person.Address)
+	}
+	c.String(200, "Success")
+}
+
+```
+
+### Bind Query String or Post Data
+
+See the [detail information](https://github.com/gin-gonic/gin/issues/742#issuecomment-264681292).
+
+```go
+package main
+
+import "log"
+import "github.com/gin-gonic/gin"
+
+type Person struct {
+	Name    string `form:"name"`
+	Address string `form:"address"`
+}
+
+func main() {
+	route := gin.Default()
+	route.GET("/testing", startPage)
+	route.Run(":8085")
+}
+
+func startPage(c *gin.Context) {
+	var person Person
+	// If `GET`, only `Form` binding engine (`query`) used.
+	// If `POST`, first checks the `content-type` for `JSON` or `XML`, then uses `Form` (`form-data`).
+	// See more at https://github.com/gin-gonic/gin/blob/master/binding/binding.go#L48
+	if c.Bind(&person) == nil {
+		log.Println(person.Name)
+		log.Println(person.Address)
+	}
+
+	c.String(200, "Success")
+}
+```
+
+### Bind HTML checkboxes
+
+See the [detail information](https://github.com/gin-gonic/gin/issues/129#issuecomment-124260092)
+
+main.go
+
+```go
+...
+
+type myForm struct {
+    Colors []string `form:"colors[]"`
+}
+
+...
+
+func formHandler(c *gin.Context) {
+    var fakeForm myForm
+    c.Bind(&fakeForm)
+    c.JSON(200, gin.H{"color": fakeForm.Colors})
+}
+
+...
+
+```
+
+form.html
+
+```html
+<form action="/" method="POST">
+    <p>Check some colors</p>
+    <label for="red">Red</label>
+    <input type="checkbox" name="colors[]" value="red" id="red" />
+    <label for="green">Green</label>
+    <input type="checkbox" name="colors[]" value="green" id="green" />
+    <label for="blue">Blue</label>
+    <input type="checkbox" name="colors[]" value="blue" id="blue" />
+    <input type="submit" />
+</form>
+```
+
+result:
+
+```
+{"color":["red","green","blue"]}
+```
+
+### Multipart/Urlencoded binding
+
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
 )
 
 type LoginForm struct {
@@ -390,7 +595,7 @@ func main() {
 	router := gin.Default()
 	router.POST("/login", func(c *gin.Context) {
 		// you can bind multipart form with explicit binding declaration:
-		// c.BindWith(&form, binding.Form)
+		// c.MustBindWith(&form, binding.Form)
 		// or you can simply use autobinding with Bind method:
 		var form LoginForm
 		// in this case proper binding will be automatically selected
@@ -411,8 +616,7 @@ Test it with:
 $ curl -v --form user=user --form password=password http://localhost:8080/login
 ```
 
-
-#### XML, JSON and YAML rendering
+### XML, JSON and YAML rendering
 
 ```go
 func main() {
@@ -451,7 +655,30 @@ func main() {
 }
 ```
 
-####Serving static files
+#### SecureJSON
+
+Using SecureJSON to prevent json hijacking. Default prepends `"while(1),"` to response body if the given struct is array values.
+
+```go
+func main() {
+	r := gin.Default()
+
+	// You can also use your own secure json prefix
+	// r.SecureJsonPrefix(")]}',\n")
+
+	r.GET("/someJSON", func(c *gin.Context) {
+		names := []string{"lena", "austin", "foo"}
+
+		// Will output  :   while(1);["lena","austin","foo"]
+		c.SecureJSON(http.StatusOK, names)
+	})
+
+	// Listen and serve on 0.0.0.0:8080
+	r.Run(":8080")
+}
+```  
+
+### Serving static files
 
 ```go
 func main() {
@@ -465,9 +692,9 @@ func main() {
 }
 ```
 
-####HTML rendering
+### HTML rendering
 
-Using LoadHTMLTemplates()
+Using LoadHTMLGlob() or LoadHTMLFiles()
 
 ```go
 func main() {
@@ -482,7 +709,9 @@ func main() {
 	router.Run(":8080")
 }
 ```
+
 templates/index.tmpl
+
 ```html
 <html>
 	<h1>
@@ -510,7 +739,9 @@ func main() {
 	router.Run(":8080")
 }
 ```
+
 templates/posts/index.tmpl
+
 ```html
 {{ define "posts/index.tmpl" }}
 <html><h1>
@@ -520,7 +751,9 @@ templates/posts/index.tmpl
 </html>
 {{ end }}
 ```
+
 templates/users/index.tmpl
+
 ```html
 {{ define "users/index.tmpl" }}
 <html><h1>
@@ -530,6 +763,8 @@ templates/users/index.tmpl
 </html>
 {{ end }}
 ```
+
+#### Custom Template renderer
 
 You can also use your own html template render
 
@@ -544,8 +779,72 @@ func main() {
 }
 ```
 
+#### Custom Delimiters
 
-#### Redirects
+You may use custom delims
+
+```go
+	r := gin.Default()
+	r.Delims("{[{", "}]}")
+	r.LoadHTMLGlob("/path/to/templates"))
+```  
+
+#### Custom Template Funcs
+
+See the detail [example code](examples/template).
+
+main.go
+
+```go
+import (
+    "fmt"
+    "html/template"
+    "net/http"
+    "time"
+
+    "github.com/gin-gonic/gin"
+)
+
+func formatAsDate(t time.Time) string {
+    year, month, day := t.Date()
+    return fmt.Sprintf("%d%02d/%02d", year, month, day)
+}
+
+func main() {
+    router := gin.Default()
+    router.Delims("{[{", "}]}")
+    router.SetFuncMap(template.FuncMap{
+        "formatAsDate": formatAsDate,
+    })
+    router.LoadHTMLFiles("./fixtures/basic/raw.tmpl")
+
+    router.GET("/raw", func(c *gin.Context) {
+        c.HTML(http.StatusOK, "raw.tmpl", map[string]interface{}{
+            "now": time.Date(2017, 07, 01, 0, 0, 0, 0, time.UTC),
+        })
+    })
+
+    router.Run(":8080")
+}
+
+```
+
+raw.tmpl
+
+```html
+Date: {[{.now | formatAsDate}]}
+```
+
+Result:
+```
+Date: 2017/07/01
+```
+
+### Multitemplate
+
+Gin allow by default use only one html.Template. Check [a multitemplate render](https://github.com/gin-contrib/multitemplate) for using features like go 1.6 `block template`.
+
+### Redirects
 
 Issuing a HTTP redirect is easy:
 
@@ -557,7 +856,7 @@ r.GET("/test", func(c *gin.Context) {
 Both internal and external locations are supported.
 
 
-#### Custom Middleware
+### Custom Middleware
 
 ```go
 func Logger() gin.HandlerFunc {
@@ -597,7 +896,8 @@ func main() {
 }
 ```
 
-#### Using BasicAuth() middleware
+### Using BasicAuth() middleware
+
 ```go
 // simulate some private data
 var secrets = gin.H{
@@ -635,8 +935,8 @@ func main() {
 }
 ```
 
+### Goroutines inside a middleware
 
-#### Goroutines inside a middleware
 When starting inside a middleware or handler, you **SHOULD NOT** use the original context inside it, you have to use a read-only copy.
 
 ```go
@@ -668,7 +968,7 @@ func main() {
 }
 ```
 
-#### Custom HTTP configuration
+### Custom HTTP configuration
 
 Use `http.ListenAndServe()` directly, like this:
 
@@ -695,7 +995,66 @@ func main() {
 }
 ```
 
-#### Graceful restart or stop
+### Support Let's Encrypt
+
+example for 1-line LetsEncrypt HTTPS servers.
+
+[embedmd]:# (examples/auto-tls/example1.go go)
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/gin-gonic/autotls"
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	r := gin.Default()
+
+	// Ping handler
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(200, "pong")
+	})
+
+	log.Fatal(autotls.Run(r, "example1.com", "example2.com"))
+}
+```
+
+example for custom autocert manager.
+
+[embedmd]:# (examples/auto-tls/example2.go go)
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/gin-gonic/autotls"
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/acme/autocert"
+)
+
+func main() {
+	r := gin.Default()
+
+	// Ping handler
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(200, "pong")
+	})
+
+	m := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist("example1.com", "example2.com"),
+		Cache:      autocert.DirCache("/var/www/.cache"),
+	}
+
+	log.Fatal(autotls.RunWithManager(r, &m))
+}
+```
+
+### Graceful restart or stop
 
 Do you want to graceful restart or stop your web server?
 There are some ways this can be done.
@@ -712,21 +1071,64 @@ endless.ListenAndServe(":4242", router)
 An alternative to endless:
 
 * [manners](https://github.com/braintree/manners): A polite Go HTTP server that shuts down gracefully.
+* [graceful](https://github.com/tylerb/graceful): Graceful is a Go package enabling graceful shutdown of an http.Handler server.
+* [grace](https://github.com/facebookgo/grace): Graceful restart & zero downtime deploy for Go servers.
 
-## Contributing 
+If you are using Go 1.8, you may not need to use this library! Consider using http.Server's built-in [Shutdown()](https://golang.org/pkg/net/http/#Server.Shutdown) method for graceful shutdowns. See the full [graceful-shutdown](./examples/graceful-shutdown) example with gin.
 
-- With issues:
-  - Use the search tool before opening a new issue.
-  - Please provide source code and commit sha if you found a bug.
-  - Review existing issues and provide feedback or react to them.
-- With pull requests:
-  - Open your pull request against develop
-  - Your pull request should have no more than two commits, if not you should squash them.
-  - It should pass all tests in the available continuous integrations systems such as TravisCI.
-  - You should add/modify tests to cover your proposed code changes.
-  - If your pull request contains a new feature, please document it on the README.
+[embedmd]:# (examples/graceful-shutdown/graceful-shutdown/server.go go)
+```go
+// +build go1.8
 
-## Example
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	router := gin.Default()
+	router.GET("/", func(c *gin.Context) {
+		time.Sleep(5 * time.Second)
+		c.String(http.StatusOK, "Welcome Gin Server")
+	})
+
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+
+	go func() {
+		// service connections
+		if err := srv.ListenAndServe(); err != nil {
+			log.Printf("listen: %s\n", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	log.Println("Shutdown Server ...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server Shutdown:", err)
+	}
+	log.Println("Server exist")
+}
+```
+
+## Users  [![Sourcegraph](https://sourcegraph.com/github.com/gin-gonic/gin/-/badge.svg)](https://sourcegraph.com/github.com/gin-gonic/gin?badge)
 
 Awesome project lists using [Gin](https://github.com/gin-gonic/gin) web framework.
 

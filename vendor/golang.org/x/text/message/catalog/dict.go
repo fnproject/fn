@@ -53,15 +53,15 @@ func (c *Catalog) set(tag language.Tag, key string, s *store, msg ...Message) er
 }
 
 type store struct {
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	index map[language.Tag]msgMap
 }
 
 type msgMap map[string]string
 
 func (s *store) lookup(tag language.Tag, key string) (data string, ok bool) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	for ; ; tag = tag.Parent() {
 		if msgs, ok := s.index[tag]; ok {
@@ -78,8 +78,8 @@ func (s *store) lookup(tag language.Tag, key string) (data string, ok bool) {
 
 // Languages returns all languages for which the store contains variants.
 func (s *store) languages() []language.Tag {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	tags := make([]language.Tag, 0, len(s.index))
 	for t := range s.index {

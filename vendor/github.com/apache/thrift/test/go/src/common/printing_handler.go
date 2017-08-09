@@ -1,3 +1,5 @@
+// +build !go1.7
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements. See the NOTICE file
@@ -25,6 +27,8 @@ import (
 	"encoding/hex"
 	. "gen/thrifttest"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 var PrintingHandler = &printingHandler{}
@@ -32,7 +36,7 @@ var PrintingHandler = &printingHandler{}
 type printingHandler struct{}
 
 // Prints "testVoid()" and returns nothing.
-func (p *printingHandler) TestVoid() (err error) {
+func (p *printingHandler) TestVoid(ctx context.Context) (err error) {
 	fmt.Println("testVoid()")
 	return nil
 }
@@ -43,7 +47,7 @@ func (p *printingHandler) TestVoid() (err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestString(thing string) (r string, err error) {
+func (p *printingHandler) TestString(ctx context.Context, thing string) (r string, err error) {
 	fmt.Printf("testString(\"%s\")\n", thing)
 	return thing, nil
 }
@@ -54,7 +58,7 @@ func (p *printingHandler) TestString(thing string) (r string, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestBool(thing bool) (r bool, err error) {
+func (p *printingHandler) TestBool(ctx context.Context, thing bool) (r bool, err error) {
 	fmt.Printf("testBool(%t)\n", thing)
 	return thing, nil
 }
@@ -65,7 +69,7 @@ func (p *printingHandler) TestBool(thing bool) (r bool, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestByte(thing int8) (r int8, err error) {
+func (p *printingHandler) TestByte(ctx context.Context, thing int8) (r int8, err error) {
 	fmt.Printf("testByte(%d)\n", thing)
 	return thing, nil
 }
@@ -76,7 +80,7 @@ func (p *printingHandler) TestByte(thing int8) (r int8, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestI32(thing int32) (r int32, err error) {
+func (p *printingHandler) TestI32(ctx context.Context, thing int32) (r int32, err error) {
 	fmt.Printf("testI32(%d)\n", thing)
 	return thing, nil
 }
@@ -87,7 +91,7 @@ func (p *printingHandler) TestI32(thing int32) (r int32, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestI64(thing int64) (r int64, err error) {
+func (p *printingHandler) TestI64(ctx context.Context, thing int64) (r int64, err error) {
 	fmt.Printf("testI64(%d)\n", thing)
 	return thing, nil
 }
@@ -98,7 +102,7 @@ func (p *printingHandler) TestI64(thing int64) (r int64, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestDouble(thing float64) (r float64, err error) {
+func (p *printingHandler) TestDouble(ctx context.Context, thing float64) (r float64, err error) {
 	fmt.Printf("testDouble(%f)\n", thing)
 	return thing, nil
 }
@@ -109,7 +113,7 @@ func (p *printingHandler) TestDouble(thing float64) (r float64, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestBinary(thing []byte) (r []byte, err error) {
+func (p *printingHandler) TestBinary(ctx context.Context, thing []byte) (r []byte, err error) {
 	fmt.Printf("testBinary(%s)\n", hex.EncodeToString(thing))
 	return thing, nil
 }
@@ -120,7 +124,7 @@ func (p *printingHandler) TestBinary(thing []byte) (r []byte, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestStruct(thing *Xtruct) (r *Xtruct, err error) {
+func (p *printingHandler) TestStruct(ctx context.Context, thing *Xtruct) (r *Xtruct, err error) {
 	fmt.Printf("testStruct({\"%s\", %d, %d, %d})\n", thing.StringThing, thing.ByteThing, thing.I32Thing, thing.I64Thing)
 	return thing, err
 }
@@ -131,7 +135,7 @@ func (p *printingHandler) TestStruct(thing *Xtruct) (r *Xtruct, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestNest(nest *Xtruct2) (r *Xtruct2, err error) {
+func (p *printingHandler) TestNest(ctx context.Context, nest *Xtruct2) (r *Xtruct2, err error) {
 	thing := nest.StructThing
 	fmt.Printf("testNest({%d, {\"%s\", %d, %d, %d}, %d})\n", nest.ByteThing, thing.StringThing, thing.ByteThing, thing.I32Thing, thing.I64Thing, nest.I32Thing)
 	return nest, nil
@@ -144,7 +148,7 @@ func (p *printingHandler) TestNest(nest *Xtruct2) (r *Xtruct2, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestMap(thing map[int32]int32) (r map[int32]int32, err error) {
+func (p *printingHandler) TestMap(ctx context.Context, thing map[int32]int32) (r map[int32]int32, err error) {
 	fmt.Printf("testMap({")
 	first := true
 	for k, v := range thing {
@@ -166,7 +170,7 @@ func (p *printingHandler) TestMap(thing map[int32]int32) (r map[int32]int32, err
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestStringMap(thing map[string]string) (r map[string]string, err error) {
+func (p *printingHandler) TestStringMap(ctx context.Context, thing map[string]string) (r map[string]string, err error) {
 	fmt.Printf("testStringMap({")
 	first := true
 	for k, v := range thing {
@@ -188,7 +192,7 @@ func (p *printingHandler) TestStringMap(thing map[string]string) (r map[string]s
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestSet(thing []int32) (r []int32, err error) {
+func (p *printingHandler) TestSet(ctx context.Context, thing []int32) (r []int32, err error) {
 	fmt.Printf("testSet({")
 	first := true
 	for k, _ := range thing {
@@ -210,7 +214,7 @@ func (p *printingHandler) TestSet(thing []int32) (r []int32, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestList(thing []int32) (r []int32, err error) {
+func (p *printingHandler) TestList(ctx context.Context, thing []int32) (r []int32, err error) {
 	fmt.Printf("testList({")
 	for i, v := range thing {
 		if i != 0 {
@@ -228,7 +232,7 @@ func (p *printingHandler) TestList(thing []int32) (r []int32, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestEnum(thing Numberz) (r Numberz, err error) {
+func (p *printingHandler) TestEnum(ctx context.Context, thing Numberz) (r Numberz, err error) {
 	fmt.Printf("testEnum(%d)\n", thing)
 	return thing, nil
 }
@@ -239,7 +243,7 @@ func (p *printingHandler) TestEnum(thing Numberz) (r Numberz, err error) {
 //
 // Parameters:
 //  - Thing
-func (p *printingHandler) TestTypedef(thing UserId) (r UserId, err error) {
+func (p *printingHandler) TestTypedef(ctx context.Context, thing UserId) (r UserId, err error) {
 	fmt.Printf("testTypedef(%d)\n", thing)
 	return thing, nil
 }
@@ -251,7 +255,7 @@ func (p *printingHandler) TestTypedef(thing UserId) (r UserId, err error) {
 //
 // Parameters:
 //  - Hello
-func (p *printingHandler) TestMapMap(hello int32) (r map[int32]map[int32]int32, err error) {
+func (p *printingHandler) TestMapMap(ctx context.Context, hello int32) (r map[int32]map[int32]int32, err error) {
 	fmt.Printf("testMapMap(%d)\n", hello)
 
 	r = map[int32]map[int32]int32{
@@ -273,7 +277,7 @@ func (p *printingHandler) TestMapMap(hello int32) (r map[int32]map[int32]int32, 
 //
 // Parameters:
 //  - Argument
-func (p *printingHandler) TestInsanity(argument *Insanity) (r map[UserId]map[Numberz]*Insanity, err error) {
+func (p *printingHandler) TestInsanity(ctx context.Context, argument *Insanity) (r map[UserId]map[Numberz]*Insanity, err error) {
 	fmt.Printf("testInsanity()\n")
 	r = make(map[UserId]map[Numberz]*Insanity)
 	r[1] = map[Numberz]*Insanity {
@@ -303,7 +307,7 @@ func (p *printingHandler) TestInsanity(argument *Insanity) (r map[UserId]map[Num
 //  - Arg3
 //  - Arg4
 //  - Arg5
-func (p *printingHandler) TestMulti(arg0 int8, arg1 int32, arg2 int64, arg3 map[int16]string, arg4 Numberz, arg5 UserId) (r *Xtruct, err error) {
+func (p *printingHandler) TestMulti(ctx context.Context, arg0 int8, arg1 int32, arg2 int64, arg3 map[int16]string, arg4 Numberz, arg5 UserId) (r *Xtruct, err error) {
 	fmt.Printf("testMulti()\n")
 	r = NewXtruct()
 
@@ -322,7 +326,7 @@ func (p *printingHandler) TestMulti(arg0 int8, arg1 int32, arg2 int64, arg3 map[
 //
 // Parameters:
 //  - Arg
-func (p *printingHandler) TestException(arg string) (err error) {
+func (p *printingHandler) TestException(ctx context.Context, arg string) (err error) {
 	fmt.Printf("testException(%s)\n", arg)
 	switch arg {
 	case "Xception":
@@ -346,7 +350,7 @@ func (p *printingHandler) TestException(arg string) (err error) {
 // Parameters:
 //  - Arg0
 //  - Arg1
-func (p *printingHandler) TestMultiException(arg0 string, arg1 string) (r *Xtruct, err error) {
+func (p *printingHandler) TestMultiException(ctx context.Context, arg0 string, arg1 string) (r *Xtruct, err error) {
 	fmt.Printf("testMultiException(%s, %s)\n", arg0, arg1)
 	switch arg0 {
 
@@ -375,7 +379,7 @@ func (p *printingHandler) TestMultiException(arg0 string, arg1 string) (r *Xtruc
 //
 // Parameters:
 //  - SecondsToSleep
-func (p *printingHandler) TestOneway(secondsToSleep int32) (err error) {
+func (p *printingHandler) TestOneway(ctx context.Context, secondsToSleep int32) (err error) {
 	fmt.Printf("testOneway(%d): Sleeping...\n", secondsToSleep)
 	time.Sleep(time.Second * time.Duration(secondsToSleep))
 	fmt.Printf("testOneway(%d): done sleeping!\n", secondsToSleep)

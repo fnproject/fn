@@ -1,14 +1,12 @@
 package validator
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
 const (
-	dash               = "-"
 	blank              = ""
 	namespaceSeparator = "."
 	leftBracket        = "["
@@ -19,15 +17,15 @@ const (
 )
 
 var (
-	restrictedTags = map[string]*struct{}{
-		diveTag:           emptyStructPtr,
-		existsTag:         emptyStructPtr,
-		structOnlyTag:     emptyStructPtr,
-		omitempty:         emptyStructPtr,
-		skipValidationTag: emptyStructPtr,
-		utf8HexComma:      emptyStructPtr,
-		utf8Pipe:          emptyStructPtr,
-		noStructLevelTag:  emptyStructPtr,
+	restrictedTags = map[string]struct{}{
+		diveTag:           {},
+		existsTag:         {},
+		structOnlyTag:     {},
+		omitempty:         {},
+		skipValidationTag: {},
+		utf8HexComma:      {},
+		utf8Pipe:          {},
+		noStructLevelTag:  {},
 	}
 )
 
@@ -37,48 +35,54 @@ var (
 // it is exposed for use within you Custom Functions
 func (v *Validate) ExtractType(current reflect.Value) (reflect.Value, reflect.Kind) {
 
+	val, k, _ := v.extractTypeInternal(current, false)
+	return val, k
+}
+
+// only exists to not break backward compatibility, needed to return the third param for a bug fix internally
+func (v *Validate) extractTypeInternal(current reflect.Value, nullable bool) (reflect.Value, reflect.Kind, bool) {
+
 	switch current.Kind() {
 	case reflect.Ptr:
 
+		nullable = true
+
 		if current.IsNil() {
-			return current, reflect.Ptr
+			return current, reflect.Ptr, nullable
 		}
 
-		return v.ExtractType(current.Elem())
+		return v.extractTypeInternal(current.Elem(), nullable)
 
 	case reflect.Interface:
 
+		nullable = true
+
 		if current.IsNil() {
-			return current, reflect.Interface
+			return current, reflect.Interface, nullable
 		}
 
-		return v.ExtractType(current.Elem())
+		return v.extractTypeInternal(current.Elem(), nullable)
 
 	case reflect.Invalid:
-		return current, reflect.Invalid
+		return current, reflect.Invalid, nullable
 
 	default:
 
 		if v.hasCustomFuncs {
-			// fmt.Println("Type", current.Type())
+
 			if fn, ok := v.customTypeFuncs[current.Type()]; ok {
-
-				// fmt.Println("OK")
-
-				return v.ExtractType(reflect.ValueOf(fn(current)))
+				return v.extractTypeInternal(reflect.ValueOf(fn(current)), nullable)
 			}
-
-			// fmt.Println("NOT OK")
 		}
 
-		return current, current.Kind()
+		return current, current.Kind(), nullable
 	}
 }
 
 // GetStructFieldOK traverses a struct to retrieve a specific field denoted by the provided namespace and
 // returns the field, field kind and whether is was successful in retrieving the field at all.
 // NOTE: when not successful ok will be false, this can happen when a nested struct is nil and so the field
-// could not be retrived because it didnt exist.
+// could not be retrieved because it didn't exist.
 func (v *Validate) GetStructFieldOK(current reflect.Value, namespace string) (reflect.Value, reflect.Kind, bool) {
 
 	current, kind := v.ExtractType(current)
@@ -112,7 +116,6 @@ func (v *Validate) GetStructFieldOK(current reflect.Value, namespace string) (re
 				ns = namespace[idx+1:]
 			} else {
 				ns = blank
-				idx = len(namespace)
 			}
 
 			bracketIdx := strings.Index(fld, leftBracket)
@@ -212,7 +215,7 @@ func (v *Validate) GetStructFieldOK(current reflect.Value, namespace string) (re
 	panic("Invalid field namespace")
 }
 
-// asInt retuns the parameter as a int64
+// asInt returns the parameter as a int64
 // or panics if it can't convert
 func asInt(param string) int64 {
 
@@ -246,137 +249,4 @@ func panicIf(err error) {
 	if err != nil {
 		panic(err.Error())
 	}
-}
-
-func (v *Validate) parseStruct(current reflect.Value, sName string) *cachedStruct {
-
-	typ := current.Type()
-	s := &cachedStruct{Name: sName, fields: map[int]cachedField{}}
-
-	numFields := current.NumField()
-
-	var fld reflect.StructField
-	var tag string
-	var customName string
-
-	for i := 0; i < numFields; i++ {
-
-		fld = typ.Field(i)
-
-		if fld.PkgPath != blank {
-			continue
-		}
-
-		tag = fld.Tag.Get(v.tagName)
-
-		if tag == skipValidationTag {
-			continue
-		}
-
-		customName = fld.Name
-		if v.fieldNameTag != blank {
-
-			name := strings.SplitN(fld.Tag.Get(v.fieldNameTag), ",", 2)[0]
-
-			// dash check is for json "-" (aka skipValidationTag) means don't output in json
-			if name != "" && name != skipValidationTag {
-				customName = name
-			}
-		}
-
-		cTag, ok := v.tagCache.Get(tag)
-		if !ok {
-			cTag = v.parseTags(tag, fld.Name)
-		}
-
-		s.fields[i] = cachedField{Idx: i, Name: fld.Name, AltName: customName, CachedTag: cTag}
-	}
-
-	v.structCache.Set(typ, s)
-
-	return s
-}
-
-func (v *Validate) parseTags(tag, fieldName string) *cachedTag {
-
-	cTag := &cachedTag{tag: tag}
-
-	v.parseTagsRecursive(cTag, tag, fieldName, blank, false)
-
-	v.tagCache.Set(tag, cTag)
-
-	return cTag
-}
-
-func (v *Validate) parseTagsRecursive(cTag *cachedTag, tag, fieldName, alias string, isAlias bool) bool {
-
-	if tag == blank {
-		return true
-	}
-
-	for _, t := range strings.Split(tag, tagSeparator) {
-
-		if v.hasAliasValidators {
-			// check map for alias and process new tags, otherwise process as usual
-			if tagsVal, ok := v.aliasValidators[t]; ok {
-
-				leave := v.parseTagsRecursive(cTag, tagsVal, fieldName, t, true)
-
-				if leave {
-					return leave
-				}
-
-				continue
-			}
-		}
-
-		switch t {
-
-		case diveTag:
-			cTag.diveTag = tag
-			tVals := &tagVals{tagVals: [][]string{{t}}}
-			cTag.tags = append(cTag.tags, tVals)
-			return true
-
-		case omitempty:
-			cTag.isOmitEmpty = true
-
-		case structOnlyTag:
-			cTag.isStructOnly = true
-
-		case noStructLevelTag:
-			cTag.isNoStructLevel = true
-		}
-
-		// if a pipe character is needed within the param you must use the utf8Pipe representation "0x7C"
-		orVals := strings.Split(t, orSeparator)
-		tagVal := &tagVals{isAlias: isAlias, isOrVal: len(orVals) > 1, tagVals: make([][]string, len(orVals))}
-		cTag.tags = append(cTag.tags, tagVal)
-
-		var key string
-		var param string
-
-		for i, val := range orVals {
-			vals := strings.SplitN(val, tagKeySeparator, 2)
-			key = vals[0]
-
-			tagVal.tag = key
-
-			if isAlias {
-				tagVal.tag = alias
-			}
-
-			if key == blank {
-				panic(strings.TrimSpace(fmt.Sprintf(invalidValidation, fieldName)))
-			}
-
-			if len(vals) > 1 {
-				param = strings.Replace(strings.Replace(vals[1], utf8HexComma, ",", -1), utf8Pipe, "|", -1)
-			}
-
-			tagVal.tagVals[i] = []string{key, param}
-		}
-	}
-
-	return false
 }

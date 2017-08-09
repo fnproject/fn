@@ -15,6 +15,7 @@ import (
 )
 
 func TestListTasks(t *testing.T) {
+	t.Parallel()
 	jsonTasks := `[
   {
     "ID": "0kzzo1i0y4jz6027t0k7aezc7",
@@ -236,6 +237,7 @@ func TestListTasks(t *testing.T) {
 }
 
 func TestInspectTask(t *testing.T) {
+	t.Parallel()
 	jsonTask := `{
   "ID": "0kzzo1i0y4jz6027t0k7aezc7",
   "Version": {
@@ -361,6 +363,7 @@ func TestInspectTask(t *testing.T) {
 }
 
 func TestInspectTaskNotFound(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "no such task", status: http.StatusNotFound})
 	task, err := client.InspectTask("notfound")
 	if task != nil {

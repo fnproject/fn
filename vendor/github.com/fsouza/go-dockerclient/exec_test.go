@@ -7,6 +7,7 @@ package docker
 import (
 	"bytes"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 )
 
 func TestExecCreate(t *testing.T) {
+	t.Parallel()
 	jsonContainer := `{"Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"}`
 	var expected struct{ ID string }
 	err := json.Unmarshal([]byte(jsonContainer), &expected)
@@ -56,7 +58,70 @@ func TestExecCreate(t *testing.T) {
 	}
 }
 
+func TestExecCreateWithEnvErr(t *testing.T) {
+	t.Parallel()
+	jsonContainer := `{"Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"}`
+	var expected struct{ ID string }
+	err := json.Unmarshal([]byte(jsonContainer), &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeRT := &FakeRoundTripper{message: jsonContainer, status: http.StatusOK}
+	client := newTestClient(fakeRT)
+	config := CreateExecOptions{
+		Container:    "test",
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: false,
+		Tty:          false,
+		Env:          []string{"foo=bar"},
+		Cmd:          []string{"touch", "/tmp/file"},
+		User:         "a-user",
+	}
+	_, err = client.CreateExec(config)
+	if err == nil || err.Error() != "exec configuration Env is only supported in API#1.25 and above" {
+		t.Error("CreateExec: options contain Env for unsupported api version")
+	}
+}
+
+func TestExecCreateWithEnv(t *testing.T) {
+	t.Parallel()
+	jsonContainer := `{"Id": "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"}`
+	var expected struct{ ID string }
+	err := json.Unmarshal([]byte(jsonContainer), &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeRT := &FakeRoundTripper{message: jsonContainer, status: http.StatusOK}
+	endpoint := "http://localhost:4243"
+	u, _ := parseEndpoint("http://localhost:4243", false)
+	testAPIVersion, _ := NewAPIVersion("1.25")
+	client := Client{
+		HTTPClient:             &http.Client{Transport: fakeRT},
+		Dialer:                 &net.Dialer{},
+		endpoint:               endpoint,
+		endpointURL:            u,
+		SkipServerVersionCheck: true,
+		serverAPIVersion:       testAPIVersion,
+	}
+	config := CreateExecOptions{
+		Container:    "test",
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: false,
+		Tty:          false,
+		Env:          []string{"foo=bar"},
+		Cmd:          []string{"touch", "/tmp/file"},
+		User:         "a-user",
+	}
+	_, err = client.CreateExec(config)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestExecStartDetached(t *testing.T) {
+	t.Parallel()
 	execID := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
 	fakeRT := &FakeRoundTripper{status: http.StatusOK}
 	client := newTestClient(fakeRT)
@@ -114,6 +179,7 @@ func TestExecStartAndAttach(t *testing.T) {
 }
 
 func TestExecResize(t *testing.T) {
+	t.Parallel()
 	execID := "4fa6e0f0c6786287e131c3852c58a2e01cc697a68231826813597e4994f1d6e2"
 	fakeRT := &FakeRoundTripper{status: http.StatusOK}
 	client := newTestClient(fakeRT)
@@ -132,6 +198,7 @@ func TestExecResize(t *testing.T) {
 }
 
 func TestExecInspect(t *testing.T) {
+	t.Parallel()
 	jsonExec := `{
 	  "CanRemove": false,
 	  "ContainerID": "b53ee82b53a40c7dca428523e34f741f3abc51d9f297a14ff874bf761b995126",

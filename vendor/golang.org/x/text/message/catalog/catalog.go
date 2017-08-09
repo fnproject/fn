@@ -144,13 +144,10 @@
 package catalog // import "golang.org/x/text/message/catalog"
 
 // TODO:
+// Some way to freeze a catalog.
+// - Locking on each lockup turns out to be about 50% of the total running time
+//   for some of the benchmarks in the message package.
 // Consider these:
-// - allow compiling messages. Implemented by Messages:
-//       type Compiler interface { compile(w io.Writer) Handler }
-//   where Handler is defined as:
-//       type Handler interface { Format(c Context, data string) error }
-//   Alternatively, the Compile method could be required in the Message
-//   interface.
 // - Sequence type to support sequences in user-defined messages.
 // - Garbage collection: Remove dictionaries that can no longer be reached
 //   as other dictionaries have been added that cover all possible keys.

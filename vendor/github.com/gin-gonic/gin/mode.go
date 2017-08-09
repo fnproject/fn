@@ -19,9 +19,9 @@ const (
 	TestMode    string = "test"
 )
 const (
-	debugCode   = iota
-	releaseCode 
-	testCode  
+	debugCode = iota
+	releaseCode
+	testCode
 )
 
 // DefaultWriter is the default io.Writer used the Gin for debug output and
@@ -62,6 +62,10 @@ func SetMode(value string) {
 
 func DisableBindValidation() {
 	binding.Validator = nil
+}
+
+func EnableJsonDecoderUseNumber() {
+	binding.EnableDecoderUseNumber = true
 }
 
 func Mode() string {
