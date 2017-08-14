@@ -85,8 +85,9 @@ func (r *runCmd) run(c *cli.Context) error {
 		ff = &funcfile{
 			Name: image,
 		}
-		ff.Memory = c.Uint64("memory")
 	}
+
+	ff.Memory = c.Uint64("memory")
 
 	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"), c.String("format"), c.Int("runs"))
 }
