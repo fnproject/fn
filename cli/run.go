@@ -59,7 +59,6 @@ func runflags() []cli.Flag {
 		cli.Uint64Flag{
 			Name:  "memory",
 			Usage: "RAM to allocate for function, Units: MB",
-			Value: uint64(128),
 		},
 	}
 }
@@ -87,7 +86,11 @@ func (r *runCmd) run(c *cli.Context) error {
 		}
 	}
 
-	ff.Memory = c.Uint64("memory")
+	// means no memory specified through CLI args
+	// memory from func.yaml applied
+	if c.Uint64("memory") != 0 {
+		ff.Memory = c.Uint64("memory")
+	}
 
 	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"), c.String("format"), c.Int("runs"))
 }
