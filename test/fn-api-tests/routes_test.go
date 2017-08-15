@@ -12,6 +12,18 @@ func TestRoutes(t *testing.T) {
 	newRouteType := "sync"
 	newRoutePath := id.New().String()
 
+	t.Run("create-route-with-empty-type", func(t *testing.T) {
+		t.Parallel()
+		s := SetupDefaultSuite()
+		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		_, err := createRoute(s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "",
+			s.RouteConfig, s.RouteHeaders)
+		if err == nil {
+			t.Errorf("Should fail with Invalid route Type.")
+		}
+		DeleteApp(t, s.Context, s.Client, s.AppName)
+	})
+
 	t.Run("create-route", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()

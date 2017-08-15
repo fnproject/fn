@@ -57,13 +57,13 @@ func TestRouteCreate(t *testing.T) {
 	for i, test := range []routeTestCase{
 		// errors
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "path": "/myroute", "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusBadRequest, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingPath},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidPath},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsValidationInvalidName},
 		{datastore.NewMockInit(nil,
 			[]*models.Route{
 				{
@@ -71,10 +71,10 @@ func TestRouteCreate(t *testing.T) {
 					Path:    "/myroute",
 				},
 			}, nil, nil,
-		), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusConflict, models.ErrRoutesAlreadyExists},
+		), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesAlreadyExists},
 
 		// success
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
 	} {
 		test.run(t, i, buf)
 	}
@@ -86,18 +86,18 @@ func TestRoutePut(t *testing.T) {
 	for i, test := range []routeTestCase{
 		// errors (NOTE: this route doesn't exist yet)
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "path": "/myroute" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "path": "/myroute" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "myroute" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "diffRoute" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/$/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusBadRequest, models.ErrAppsValidationInvalidName},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "path": "/myroute", "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesValidationMissingImage},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "diffRoute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/$/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsValidationInvalidName},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "invalid-type" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidType},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "format": "invalid-format" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidFormat},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "format": "invalid-format", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesValidationInvalidFormat},
 
 		// success
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute" } }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "type": "sync" } }`, http.StatusOK, nil},
 	} {
 		test.run(t, i, buf)
 		test.ds = datastore.NewMockInit(nil,

@@ -110,7 +110,9 @@ func (s *Server) bindAndValidate(c *gin.Context, method string, wroute *models.R
 		wroute.Route.Path = p
 	}
 
-	wroute.Route.SetDefaults()
+	if method != http.MethodPatch {
+		wroute.Route.SetDefaults()
+	}
 
 	return wroute.Validate(method == http.MethodPatch)
 }
