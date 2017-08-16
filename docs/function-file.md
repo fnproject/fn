@@ -36,6 +36,11 @@ position. You may use it to override the calculated route. If you plan to use
 `version` represents current version of the function. When deploying, it is
 appended to the image as a tag.
 
+`runtime` represents programming language runtime (go, python3, java, etc.).
+
+`build` (optional) is an array of local shell calls which are used to help
+building the function.
+
 `type` (optional) allows you to set the type of the route. `sync`, for functions
 whose response are sent back to the requester; or `async`, for functions that
 are started and return a task ID to customer while it executes in background.
@@ -53,9 +58,6 @@ this function calls.
 `config` (optional) is a set of configurations to be passed onto the route
 setup. These configuration options shall override application configuration
 during functions execution.
-
-`build` (optional) is an array of local shell calls which are used to help
-building the function.
 
 ## Hot functions
 
