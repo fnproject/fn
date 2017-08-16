@@ -10,8 +10,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-
-	"github.com/hashicorp/go-cleanhttp"
 )
 
 // initializeNativeClient initializes the native Unix domain socket client on
@@ -21,7 +19,7 @@ func (c *Client) initializeNativeClient() {
 		return
 	}
 	socketPath := c.endpointURL.Path
-	tr := cleanhttp.DefaultTransport()
+	tr := defaultTransport()
 	tr.Dial = func(network, addr string) (net.Conn, error) {
 		return c.Dialer.Dial(unixProtocol, socketPath)
 	}

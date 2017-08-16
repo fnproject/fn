@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin/render"
 )
 
-// Version is Framework's version
+// Version is Framework's version.
 const Version = "v1.2"
 
 var default404Body = []byte("404 page not found")
@@ -191,7 +191,7 @@ func (engine *Engine) NoRoute(handlers ...HandlerFunc) {
 	engine.rebuild404Handlers()
 }
 
-// NoMethod sets the handlers called when... TODO
+// NoMethod sets the handlers called when... TODO.
 func (engine *Engine) NoMethod(handlers ...HandlerFunc) {
 	engine.noMethod = handlers
 	engine.rebuild405Handlers()
@@ -268,7 +268,7 @@ func (engine *Engine) Run(addr ...string) (err error) {
 // RunTLS attaches the router to a http.Server and starts listening and serving HTTPS (secure) requests.
 // It is a shortcut for http.ListenAndServeTLS(addr, certFile, keyFile, router)
 // Note: this method will block the calling goroutine indefinitely unless an error happens.
-func (engine *Engine) RunTLS(addr string, certFile string, keyFile string) (err error) {
+func (engine *Engine) RunTLS(addr, certFile, keyFile string) (err error) {
 	debugPrint("Listening and serving HTTPS on %s\n", addr)
 	defer func() { debugPrintError(err) }()
 

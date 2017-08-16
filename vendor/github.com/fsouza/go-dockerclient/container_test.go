@@ -2686,7 +2686,7 @@ type sleepyRoudTripper struct {
 
 func (rt *sleepyRoudTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	time.Sleep(rt.sleepDuration)
-	return nil, fmt.Errorf("Can't complete roung trip")
+	return nil, fmt.Errorf("Can't complete round trip")
 }
 
 func TestInspectContainerWhenContextTimesOut(t *testing.T) {

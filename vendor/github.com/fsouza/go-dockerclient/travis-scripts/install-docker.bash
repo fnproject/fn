@@ -10,10 +10,9 @@ if [[ $TRAVIS_OS_NAME == "linux" ]]; then
 	sudo rm -f `which docker`
 
 	set -e
-	sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-	echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" | sudo tee /etc/apt/sources.list.d/docker.list
-	echo "deb https://apt.dockerproject.org/repo ubuntu-trusty testing" | sudo tee -a /etc/apt/sources.list.d/docker.list
+	curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+	sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) edge"
 	sudo apt-get update
-	sudo apt-get install docker-engine=${DOCKER_VERSION}-0~ubuntu-$(lsb_release -cs) -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+	sudo apt-get install docker-ce=${DOCKER_PKG_VERSION} -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 	sudo start docker || true
 fi
