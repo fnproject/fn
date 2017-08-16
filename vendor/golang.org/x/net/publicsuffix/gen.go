@@ -6,19 +6,17 @@
 
 package main
 
-// This program generates table.go and table_test.go.
-// Invoke as:
+// This program generates table.go and table_test.go based on the authoritative
+// public suffix list at https://publicsuffix.org/list/effective_tld_names.dat
 //
-//	go run gen.go -version "xxx"       >table.go
-//	go run gen.go -version "xxx" -test >table_test.go
-//
-// Pass -v to print verbose progress information.
-//
-// The version is derived from information found at
+// The version is derived from
+// https://api.github.com/repos/publicsuffix/list/commits?path=public_suffix_list.dat
+// and a human-readable form is at
 // https://github.com/publicsuffix/list/commits/master/public_suffix_list.dat
 //
 // To fetch a particular git revision, such as 5c70ccd250, pass
 // -url "https://raw.githubusercontent.com/publicsuffix/list/5c70ccd250/public_suffix_list.dat"
+// and -version "an explicit version string".
 
 import (
 	"bufio"
@@ -27,6 +25,7 @@ import (
 	"fmt"
 	"go/format"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
@@ -91,24 +90,30 @@ func nodeTypeStr(n int) string {
 	panic("unreachable")
 }
 
+const (
+	defaultURL   = "https://publicsuffix.org/list/effective_tld_names.dat"
+	gitCommitURL = "https://api.github.com/repos/publicsuffix/list/commits?path=public_suffix_list.dat"
+)
+
 var (
 	labelEncoding = map[string]uint32{}
 	labelsList    = []string{}
 	labelsMap     = map[string]bool{}
 	rules         = []string{}
 
-	// validSuffix is used to check that the entries in the public suffix list
-	// are in canonical form (after Punycode encoding). Specifically, capital
-	// letters are not allowed.
-	validSuffix = regexp.MustCompile(`^[a-z0-9_\!\*\-\.]+$`)
+	// validSuffixRE is used to check that the entries in the public suffix
+	// list are in canonical form (after Punycode encoding). Specifically,
+	// capital letters are not allowed.
+	validSuffixRE = regexp.MustCompile(`^[a-z0-9_\!\*\-\.]+$`)
 
-	subset = flag.Bool("subset", false, "generate only a subset of the full table, for debugging")
-	url    = flag.String("url",
-		"https://publicsuffix.org/list/effective_tld_names.dat",
-		"URL of the publicsuffix.org list. If empty, stdin is read instead")
-	v       = flag.Bool("v", false, "verbose output (to stderr)")
-	version = flag.String("version", "", "the effective_tld_names.dat version")
-	test    = flag.Bool("test", false, "generate table_test.go")
+	shaRE  = regexp.MustCompile(`"sha":"([^"]+)"`)
+	dateRE = regexp.MustCompile(`"committer":{[^{]+"date":"([^"]+)"`)
+
+	comments = flag.Bool("comments", false, "generate table.go comments, for debugging")
+	subset   = flag.Bool("subset", false, "generate only a subset of the full table, for debugging")
+	url      = flag.String("url", defaultURL, "URL of the publicsuffix.org list. If empty, stdin is read instead")
+	v        = flag.Bool("v", false, "verbose output (to stderr)")
+	version  = flag.String("version", "", "the effective_tld_names.dat version")
 )
 
 func main() {
@@ -127,7 +132,14 @@ func main1() error {
 		return fmt.Errorf("not enough bits to encode the children table")
 	}
 	if *version == "" {
-		return fmt.Errorf("-version was not specified")
+		if *url != defaultURL {
+			return fmt.Errorf("-version was not specified, and the -url is not the default one")
+		}
+		sha, date, err := gitCommit()
+		if err != nil {
+			return err
+		}
+		*version = fmt.Sprintf("publicsuffix.org's public_suffix_list.dat, git revision %s (%s)", sha, date)
 	}
 	var r io.Reader = os.Stdin
 	if *url != "" {
@@ -144,7 +156,6 @@ func main1() error {
 
 	var root node
 	icann := false
-	buf := new(bytes.Buffer)
 	br := bufio.NewReader(r)
 	for {
 		s, err := br.ReadString('\n')
@@ -170,7 +181,7 @@ func main1() error {
 		if err != nil {
 			return err
 		}
-		if !validSuffix.MatchString(s) {
+		if !validSuffixRE.MatchString(s) {
 			return fmt.Errorf("bad publicsuffix.org list data: %q", s)
 		}
 
@@ -228,20 +239,50 @@ func main1() error {
 	}
 	sort.Strings(labelsList)
 
-	p := printReal
-	if *test {
-		p = printTest
-	}
-	if err := p(buf, &root); err != nil {
+	if err := generate(printReal, &root, "table.go"); err != nil {
 		return err
 	}
+	if err := generate(printTest, &root, "table_test.go"); err != nil {
+		return err
+	}
+	return nil
+}
 
+func generate(p func(io.Writer, *node) error, root *node, filename string) error {
+	buf := new(bytes.Buffer)
+	if err := p(buf, root); err != nil {
+		return err
+	}
 	b, err := format.Source(buf.Bytes())
 	if err != nil {
 		return err
 	}
-	_, err = os.Stdout.Write(b)
-	return err
+	return ioutil.WriteFile(filename, b, 0644)
+}
+
+func gitCommit() (sha, date string, retErr error) {
+	res, err := http.Get(gitCommitURL)
+	if err != nil {
+		return "", "", err
+	}
+	if res.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("bad GET status for %s: %d", gitCommitURL, res.Status)
+	}
+	defer res.Body.Close()
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", "", err
+	}
+	if m := shaRE.FindSubmatch(b); m != nil {
+		sha = string(m[1])
+	}
+	if m := dateRE.FindSubmatch(b); m != nil {
+		date = string(m[1])
+	}
+	if sha == "" || date == "" {
+		retErr = fmt.Errorf("could not find commit SHA and date in %s", gitCommitURL)
+	}
+	return sha, date, retErr
 }
 
 func printTest(w io.Writer, n *node) error {
@@ -330,8 +371,9 @@ const numTLD = %d
 // encodes the node's children, wildcard bit and node type (as an index into
 // the children array), ICANN bit and text.
 //
-// In the //-comment after each node's data, the nodes indexes of the children
-// are formatted as (n0x1234-n0x1256), with * denoting the wildcard bit. The
+// If the table was generated with the -comments flag, there is a //-comment
+// after each node's data. In it is the nodes-array indexes of the children,
+// formatted as (n0x1234-n0x1256), with * denoting the wildcard bit. The
 // nodeType is printed as + for normal, ! for exception, and o for parent-only
 // nodes that have children but don't match a domain label in their own right.
 // An I denotes an ICANN domain.
@@ -374,8 +416,12 @@ var children=[...]uint32{
 		}
 		nodeType := int(c>>(childrenBitsLo+childrenBitsHi)) & (1<<childrenBitsNodeType - 1)
 		wildcard := c>>(childrenBitsLo+childrenBitsHi+childrenBitsNodeType) != 0
-		fmt.Fprintf(w, "0x%08x, // c0x%04x (%s)%s %s\n",
-			c, i, s, wildcardStr(wildcard), nodeTypeStr(nodeType))
+		if *comments {
+			fmt.Fprintf(w, "0x%08x, // c0x%04x (%s)%s %s\n",
+				c, i, s, wildcardStr(wildcard), nodeTypeStr(nodeType))
+		} else {
+			fmt.Fprintf(w, "0x%x,\n", c)
+		}
 	}
 	fmt.Fprintf(w, "}\n\n")
 	fmt.Fprintf(w, "// max children %d (capacity %d)\n", maxChildren, 1<<nodesBitsChildren-1)
@@ -508,10 +554,14 @@ func printNode(w io.Writer, n *node) error {
 			encoding |= 1 << (nodesBitsTextLength + nodesBitsTextOffset)
 		}
 		encoding |= uint32(c.childrenIndex) << (nodesBitsTextLength + nodesBitsTextOffset + nodesBitsICANN)
-		fmt.Fprintf(w, "0x%08x, // n0x%04x c0x%04x (%s)%s %s %s %s\n",
-			encoding, c.nodesIndex, c.childrenIndex, s, wildcardStr(c.wildcard),
-			nodeTypeStr(c.nodeType), icannStr(c.icann), c.label,
-		)
+		if *comments {
+			fmt.Fprintf(w, "0x%08x, // n0x%04x c0x%04x (%s)%s %s %s %s\n",
+				encoding, c.nodesIndex, c.childrenIndex, s, wildcardStr(c.wildcard),
+				nodeTypeStr(c.nodeType), icannStr(c.icann), c.label,
+			)
+		} else {
+			fmt.Fprintf(w, "0x%x,\n", encoding)
+		}
 	}
 	return nil
 }

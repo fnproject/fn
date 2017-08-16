@@ -120,7 +120,8 @@ func NewRef(refURI string) (Ref, error) {
 	return Ref{Ref: ref}, nil
 }
 
-// MustCreateRef creates a ref object but
+// MustCreateRef creates a ref object but panics when refURI is invalid.
+// Use the NewRef method for a version that returns an error.
 func MustCreateRef(refURI string) Ref {
 	return Ref{Ref: jsonreference.MustCreateRef(refURI)}
 }

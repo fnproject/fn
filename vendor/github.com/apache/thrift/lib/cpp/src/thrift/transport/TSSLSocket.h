@@ -22,10 +22,11 @@
 
 // Put this first to avoid WIN32 build failure
 #include <thrift/transport/TSocket.h>
-#include <string>
-#include <boost/shared_ptr.hpp>
+
 #include <openssl/ssl.h>
+#include <string>
 #include <thrift/concurrency/Mutex.h>
+#include <thrift/stdcxx.h>
 
 namespace apache {
 namespace thrift {
@@ -79,6 +80,7 @@ public:
   void close();
   uint32_t read(uint8_t* buf, uint32_t len);
   void write(const uint8_t* buf, uint32_t len);
+  uint32_t write_partial(const uint8_t* buf, uint32_t len);
   void flush();
   /**
   * Set whether to use client or server side SSL handshake protocol.
@@ -95,43 +97,51 @@ public:
    *
    * @param manager  Instance of AccessManager
    */
-  virtual void access(boost::shared_ptr<AccessManager> manager) { access_ = manager; }
+  virtual void access(stdcxx::shared_ptr<AccessManager> manager) { access_ = manager; }
+  /**
+   * Set eventSafe flag if libevent is used.
+   */
+  void setLibeventSafe() { eventSafe_ = true; }
+  /**
+   * Determines whether SSL Socket is libevent safe or not.
+   */
+  bool isLibeventSafe() const { return eventSafe_; }
 
 protected:
   /**
    * Constructor.
    */
-  TSSLSocket(boost::shared_ptr<SSLContext> ctx);
+  TSSLSocket(stdcxx::shared_ptr<SSLContext> ctx);
   /**
    * Constructor with an interrupt signal.
    */
-  TSSLSocket(boost::shared_ptr<SSLContext> ctx, boost::shared_ptr<THRIFT_SOCKET> interruptListener);
+  TSSLSocket(stdcxx::shared_ptr<SSLContext> ctx, stdcxx::shared_ptr<THRIFT_SOCKET> interruptListener);
   /**
    * Constructor, create an instance of TSSLSocket given an existing socket.
    *
    * @param socket An existing socket
    */
-  TSSLSocket(boost::shared_ptr<SSLContext> ctx, THRIFT_SOCKET socket);
+  TSSLSocket(stdcxx::shared_ptr<SSLContext> ctx, THRIFT_SOCKET socket);
   /**
    * Constructor, create an instance of TSSLSocket given an existing socket that can be interrupted.
    *
    * @param socket An existing socket
    */
-  TSSLSocket(boost::shared_ptr<SSLContext> ctx, THRIFT_SOCKET socket, boost::shared_ptr<THRIFT_SOCKET> interruptListener);
+  TSSLSocket(stdcxx::shared_ptr<SSLContext> ctx, THRIFT_SOCKET socket, stdcxx::shared_ptr<THRIFT_SOCKET> interruptListener);
    /**
    * Constructor.
    *
    * @param host  Remote host name
    * @param port  Remote port number
    */
-  TSSLSocket(boost::shared_ptr<SSLContext> ctx, std::string host, int port);
+  TSSLSocket(stdcxx::shared_ptr<SSLContext> ctx, std::string host, int port);
     /**
   * Constructor with an interrupt signal.
   *
   * @param host  Remote host name
   * @param port  Remote port number
   */
-    TSSLSocket(boost::shared_ptr<SSLContext> ctx, std::string host, int port, boost::shared_ptr<THRIFT_SOCKET> interruptListener);
+    TSSLSocket(stdcxx::shared_ptr<SSLContext> ctx, std::string host, int port, stdcxx::shared_ptr<THRIFT_SOCKET> interruptListener);
   /**
    * Authorize peer access after SSL handshake completes.
    */
@@ -139,7 +149,15 @@ protected:
   /**
    * Initiate SSL handshake if not already initiated.
    */
-  void checkHandshake();
+  void initializeHandshake();
+  /**
+   * Initiate SSL handshake params.
+   */
+  void initializeHandshakeParams();
+  /**
+   * Check if  SSL handshake is completed or not.
+   */
+  bool checkHandshake();
   /**
    * Waits for an socket or shutdown event.
    *
@@ -152,9 +170,16 @@ protected:
 
   bool server_;
   SSL* ssl_;
-  boost::shared_ptr<SSLContext> ctx_;
-  boost::shared_ptr<AccessManager> access_;
+  stdcxx::shared_ptr<SSLContext> ctx_;
+  stdcxx::shared_ptr<AccessManager> access_;
   friend class TSSLSocketFactory;
+
+private:
+  bool handshakeCompleted_;
+  int readRetryCount_;
+  bool eventSafe_;
+
+  void init();
 };
 
 /**
@@ -186,37 +211,37 @@ public:
   /**
    * Create an instance of TSSLSocket with a fresh new socket.
    */
-  virtual boost::shared_ptr<TSSLSocket> createSocket();
+  virtual stdcxx::shared_ptr<TSSLSocket> createSocket();
   /**
    * Create an instance of TSSLSocket with a fresh new socket, which is interruptable.
    */
-  virtual boost::shared_ptr<TSSLSocket> createSocket(boost::shared_ptr<THRIFT_SOCKET> interruptListener);
+  virtual stdcxx::shared_ptr<TSSLSocket> createSocket(stdcxx::shared_ptr<THRIFT_SOCKET> interruptListener);
   /**
    * Create an instance of TSSLSocket with the given socket.
    *
    * @param socket An existing socket.
    */
-  virtual boost::shared_ptr<TSSLSocket> createSocket(THRIFT_SOCKET socket);
+  virtual stdcxx::shared_ptr<TSSLSocket> createSocket(THRIFT_SOCKET socket);
   /**
    * Create an instance of TSSLSocket with the given socket which is interruptable.
    *
    * @param socket An existing socket.
    */
-  virtual boost::shared_ptr<TSSLSocket> createSocket(THRIFT_SOCKET socket, boost::shared_ptr<THRIFT_SOCKET> interruptListener);
+  virtual stdcxx::shared_ptr<TSSLSocket> createSocket(THRIFT_SOCKET socket, stdcxx::shared_ptr<THRIFT_SOCKET> interruptListener);
   /**
   * Create an instance of TSSLSocket.
   *
   * @param host  Remote host to be connected to
   * @param port  Remote port to be connected to
   */
-  virtual boost::shared_ptr<TSSLSocket> createSocket(const std::string& host, int port);
+  virtual stdcxx::shared_ptr<TSSLSocket> createSocket(const std::string& host, int port);
   /**
   * Create an instance of TSSLSocket.
   *
   * @param host  Remote host to be connected to
   * @param port  Remote port to be connected to
   */
-  virtual boost::shared_ptr<TSSLSocket> createSocket(const std::string& host, int port, boost::shared_ptr<THRIFT_SOCKET> interruptListener);
+  virtual stdcxx::shared_ptr<TSSLSocket> createSocket(const std::string& host, int port, stdcxx::shared_ptr<THRIFT_SOCKET> interruptListener);
   /**
    * Set ciphers to be used in SSL handshake process.
    *
@@ -248,7 +273,7 @@ public:
    *
    * @param path Path to trusted certificate file
    */
-  virtual void loadTrustedCertificates(const char* path);
+  virtual void loadTrustedCertificates(const char* path, const char* capath = NULL);
   /**
    * Default randomize method.
    */
@@ -274,13 +299,13 @@ public:
    *
    * @param manager  The AccessManager instance
    */
-  virtual void access(boost::shared_ptr<AccessManager> manager) { access_ = manager; }
+  virtual void access(stdcxx::shared_ptr<AccessManager> manager) { access_ = manager; }
   static void setManualOpenSSLInitialization(bool manualOpenSSLInitialization) {
     manualOpenSSLInitialization_ = manualOpenSSLInitialization;
   }
 
 protected:
-  boost::shared_ptr<SSLContext> ctx_;
+  stdcxx::shared_ptr<SSLContext> ctx_;
 
   /**
    * Override this method for custom password callback. It may be called
@@ -293,11 +318,11 @@ protected:
 
 private:
   bool server_;
-  boost::shared_ptr<AccessManager> access_;
+  stdcxx::shared_ptr<AccessManager> access_;
   static concurrency::Mutex mutex_;
   static uint64_t count_;
   static bool manualOpenSSLInitialization_;
-  void setup(boost::shared_ptr<TSSLSocket> ssl);
+  void setup(stdcxx::shared_ptr<TSSLSocket> ssl);
   static int passwordCallback(char* password, int size, int, void* data);
 };
 

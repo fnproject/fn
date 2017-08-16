@@ -15,8 +15,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/hashicorp/go-cleanhttp"
 )
 
 func TestExportContainerViaUnixSocket(t *testing.T) {
@@ -29,7 +27,7 @@ func TestExportContainerViaUnixSocket(t *testing.T) {
 	endpoint := "unix://" + tempSocket
 	u, _ := parseEndpoint(endpoint, false)
 	client := Client{
-		HTTPClient:             cleanhttp.DefaultClient(),
+		HTTPClient:             defaultClient(),
 		Dialer:                 &net.Dialer{},
 		endpoint:               endpoint,
 		endpointURL:            u,

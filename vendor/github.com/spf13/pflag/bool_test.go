@@ -6,7 +6,6 @@ package pflag
 
 import (
 	"bytes"
-	"fmt"
 	"strconv"
 	"testing"
 )
@@ -48,10 +47,10 @@ func (v *triStateValue) String() string {
 	if *v == triStateMaybe {
 		return strTriStateMaybe
 	}
-	return fmt.Sprintf("%v", bool(*v == triStateTrue))
+	return strconv.FormatBool(*v == triStateTrue)
 }
 
-// The type of the flag as requred by the pflag.Value interface
+// The type of the flag as required by the pflag.Value interface
 func (v *triStateValue) Type() string {
 	return "version"
 }
@@ -59,7 +58,8 @@ func (v *triStateValue) Type() string {
 func setUpFlagSet(tristate *triStateValue) *FlagSet {
 	f := NewFlagSet("test", ContinueOnError)
 	*tristate = triStateFalse
-	f.VarP(tristate, "tristate", "t", "tristate value (true, maybe or false)")
+	flag := f.VarPF(tristate, "tristate", "t", "tristate value (true, maybe or false)")
+	flag.NoOptDefVal = "true"
 	return f
 }
 
@@ -160,5 +160,20 @@ func TestInvalidValue(t *testing.T) {
 	err := f.Parse([]string{"--tristate=invalid"})
 	if err == nil {
 		t.Fatal("expected an error but did not get any, tristate has value", tristate)
+	}
+}
+
+func TestBoolP(t *testing.T) {
+	b := BoolP("bool", "b", false, "bool value in CommandLine")
+	c := BoolP("c", "c", false, "other bool value")
+	args := []string{"--bool"}
+	if err := CommandLine.Parse(args); err != nil {
+		t.Error("expected no error, got ", err)
+	}
+	if *b != true {
+		t.Errorf("expected b=true got b=%v", *b)
+	}
+	if *c != false {
+		t.Errorf("expect c=false got c=%v", *c)
 	}
 }

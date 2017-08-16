@@ -121,11 +121,12 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
-func TestConversation(t *testing.T) {
+func setupConversation(t *testing.T) (alice, bob *Conversation) {
 	alicePrivateKey, _ := hex.DecodeString(alicePrivateKeyHex)
 	bobPrivateKey, _ := hex.DecodeString(bobPrivateKeyHex)
 
-	var alice, bob Conversation
+	alice, bob = new(Conversation), new(Conversation)
+
 	alice.PrivateKey = new(PrivateKey)
 	bob.PrivateKey = new(PrivateKey)
 	alice.PrivateKey.Parse(alicePrivateKey)
@@ -133,18 +134,23 @@ func TestConversation(t *testing.T) {
 	alice.FragmentSize = 100
 	bob.FragmentSize = 100
 
-	var alicesMessage, bobsMessage [][]byte
-	var out []byte
-	var aliceChange, bobChange SecurityChange
-	var err error
-	alicesMessage = append(alicesMessage, []byte(QueryMessage))
-
 	if alice.IsEncrypted() {
 		t.Error("Alice believes that the conversation is secure before we've started")
 	}
 	if bob.IsEncrypted() {
 		t.Error("Bob believes that the conversation is secure before we've started")
 	}
+
+	performHandshake(t, alice, bob)
+	return alice, bob
+}
+
+func performHandshake(t *testing.T, alice, bob *Conversation) {
+	var alicesMessage, bobsMessage [][]byte
+	var out []byte
+	var aliceChange, bobChange SecurityChange
+	var err error
+	alicesMessage = append(alicesMessage, []byte(QueryMessage))
 
 	for round := 0; len(alicesMessage) > 0 || len(bobsMessage) > 0; round++ {
 		bobsMessage = nil
@@ -193,11 +199,27 @@ func TestConversation(t *testing.T) {
 	if !bob.IsEncrypted() {
 		t.Error("Bob doesn't believe that the conversation is secure")
 	}
+}
 
-	var testMessage = []byte("hello Bob")
-	alicesMessage, err = alice.Send(testMessage)
+const (
+	firstRoundTrip = iota
+	subsequentRoundTrip
+	noMACKeyCheck
+)
+
+func roundTrip(t *testing.T, alice, bob *Conversation, message []byte, macKeyCheck int) {
+	alicesMessage, err := alice.Send(message)
+	if err != nil {
+		t.Errorf("Error from Alice sending message: %s", err)
+	}
+
+	if len(alice.oldMACs) != 0 {
+		t.Errorf("Alice has not revealed all MAC keys")
+	}
+
 	for i, msg := range alicesMessage {
 		out, encrypted, _, _, err := bob.Receive(msg)
+
 		if err != nil {
 			t.Errorf("Error generated while processing test message: %s", err.Error())
 		}
@@ -208,10 +230,75 @@ func TestConversation(t *testing.T) {
 			if !encrypted {
 				t.Errorf("Message was not marked as encrypted")
 			}
-			if !bytes.Equal(out, testMessage) {
-				t.Errorf("Message corrupted: got %x, want %x", out, testMessage)
+			if !bytes.Equal(out, message) {
+				t.Errorf("Message corrupted: got %x, want %x", out, message)
 			}
 		}
+	}
+
+	switch macKeyCheck {
+	case firstRoundTrip:
+		if len(bob.oldMACs) != 0 {
+			t.Errorf("Bob should not have MAC keys to reveal")
+		}
+	case subsequentRoundTrip:
+		if len(bob.oldMACs) != 40 {
+			t.Errorf("Bob has %d bytes of MAC keys to reveal, but should have 40", len(bob.oldMACs))
+		}
+	}
+
+	bobsMessage, err := bob.Send(message)
+	if err != nil {
+		t.Errorf("Error from Bob sending message: %s", err)
+	}
+
+	if len(bob.oldMACs) != 0 {
+		t.Errorf("Bob has not revealed all MAC keys")
+	}
+
+	for i, msg := range bobsMessage {
+		out, encrypted, _, _, err := alice.Receive(msg)
+
+		if err != nil {
+			t.Errorf("Error generated while processing test message: %s", err.Error())
+		}
+		if len(out) > 0 {
+			if i != len(bobsMessage)-1 {
+				t.Fatal("Alice produced a message while processing a fragment of Bob's")
+			}
+			if !encrypted {
+				t.Errorf("Message was not marked as encrypted")
+			}
+			if !bytes.Equal(out, message) {
+				t.Errorf("Message corrupted: got %x, want %x", out, message)
+			}
+		}
+	}
+
+	switch macKeyCheck {
+	case firstRoundTrip:
+		if len(alice.oldMACs) != 20 {
+			t.Errorf("Alice has %d bytes of MAC keys to reveal, but should have 20", len(alice.oldMACs))
+		}
+	case subsequentRoundTrip:
+		if len(alice.oldMACs) != 40 {
+			t.Errorf("Alice has %d bytes of MAC keys to reveal, but should have 40", len(alice.oldMACs))
+		}
+	}
+}
+
+func TestConversation(t *testing.T) {
+	alice, bob := setupConversation(t)
+
+	var testMessages = [][]byte{
+		[]byte("hello"), []byte("bye"),
+	}
+
+	roundTripType := firstRoundTrip
+
+	for _, testMessage := range testMessages {
+		roundTrip(t, alice, bob, testMessage, roundTripType)
+		roundTripType = subsequentRoundTrip
 	}
 }
 
@@ -296,6 +383,21 @@ func TestBadSMP(t *testing.T) {
 	}
 }
 
+func TestRehandshaking(t *testing.T) {
+	alice, bob := setupConversation(t)
+	roundTrip(t, alice, bob, []byte("test"), firstRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 2"), subsequentRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 3"), subsequentRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 4"), subsequentRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 5"), subsequentRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 6"), subsequentRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 7"), subsequentRoundTrip)
+	roundTrip(t, alice, bob, []byte("test 8"), subsequentRoundTrip)
+	performHandshake(t, alice, bob)
+	roundTrip(t, alice, bob, []byte("test"), noMACKeyCheck)
+	roundTrip(t, alice, bob, []byte("test 2"), noMACKeyCheck)
+}
+
 func TestAgainstLibOTR(t *testing.T) {
 	// This test requires otr.c.test to be built as /tmp/a.out.
 	// If enabled, this tests runs forever performing OTR handshakes in a
@@ -348,7 +450,7 @@ func TestAgainstLibOTR(t *testing.T) {
 		if change == NewKeys {
 			alicesMessage, err := alice.Send([]byte("Go -> libotr test message"))
 			if err != nil {
-				t.Errorf("error sending message: %s", err.Error())
+				t.Fatalf("error sending message: %s", err.Error())
 			} else {
 				for _, msg := range alicesMessage {
 					out.Write(msg)
@@ -358,10 +460,10 @@ func TestAgainstLibOTR(t *testing.T) {
 		}
 		if len(text) > 0 {
 			if !bytes.Equal(text, expectedText) {
-				t.Errorf("expected %x, but got %x", expectedText, text)
+				t.Fatalf("expected %x, but got %x", expectedText, text)
 			}
 			if !encrypted {
-				t.Error("message wasn't encrypted")
+				t.Fatal("message wasn't encrypted")
 			}
 		}
 	}

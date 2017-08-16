@@ -1559,6 +1559,7 @@ func (s *DockerServer) initSwarmNode(listenAddr, advertiseAddr string) (swarm.No
 	return swarm.Node{
 		ID: s.nodeID,
 		Status: swarm.NodeStatus{
+			Addr:  hostPart,
 			State: swarm.NodeStateReady,
 		},
 		ManagerStatus: &swarm.ManagerStatus{

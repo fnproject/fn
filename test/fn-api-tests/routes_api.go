@@ -150,7 +150,7 @@ func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, app
 	return routeResponse.Payload.Route
 }
 
-func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, format string, memory int64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
+func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, format string, memory uint64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
 
 	routeObject := GetRoute(t, ctx, fnclient, appName, routePath)
 	if routeObject.Config == nil {
