@@ -103,7 +103,7 @@ type SuiteSetup struct {
 	Image        string
 	RouteType    string
 	Format       string
-	Memory       int64
+	Memory       uint64
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
 	Cancel       context.CancelFunc
