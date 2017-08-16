@@ -365,10 +365,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		apps := v1.Group("/apps/:app")
 		{
 			apps.GET("/routes", s.handleRouteList)
-			apps.POST("/routes", s.handleRouteCreateOrUpdate)
+			apps.POST("/routes", s.handleRoutesPostPutPatch)
 			apps.GET("/routes/*route", s.handleRouteGet)
-			apps.PATCH("/routes/*route", s.handleRouteCreateOrUpdate)
-			apps.PUT("/routes/*route", s.handleRouteCreateOrUpdate)
+			apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
+			apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)
 
 			apps.GET("/calls", s.handleCallList)

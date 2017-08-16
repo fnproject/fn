@@ -84,6 +84,7 @@ func CreateUpdateApp(t *testing.T, ctx context.Context, fnclient *client.Functio
 		},
 		Context: ctx,
 	}
+	cfg.WithTimeout(time.Second * 60)
 	appPayload, err := fnclient.Apps.PatchAppsApp(cfg)
 	CheckAppResponseError(t, err)
 	return appPayload
@@ -97,4 +98,15 @@ func DeleteApp(t *testing.T, ctx context.Context, fnclient *client.Functions, ap
 	cfg.WithTimeout(time.Second * 60)
 	_, err := fnclient.Apps.DeleteAppsApp(cfg)
 	CheckAppResponseError(t, err)
+}
+
+func GetApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string) *models.App {
+	cfg := &apps.GetAppsAppParams{
+		App:     appName,
+		Context: ctx,
+	}
+	cfg.WithTimeout(time.Second * 60)
+	app, err := fnclient.Apps.GetAppsApp(cfg)
+	CheckAppResponseError(t, err)
+	return app.Payload.App
 }

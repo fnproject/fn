@@ -100,15 +100,6 @@ func TestRoutePut(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "funcy/hello", "type": "sync" } }`, http.StatusOK, nil},
 	} {
 		test.run(t, i, buf)
-		test.ds = datastore.NewMockInit(nil,
-			[]*models.Route{
-				{
-					AppName: "a",
-					Path:    "/myroute",
-				},
-			}, nil, nil,
-		)
-		test.run(t, i, buf)
 	}
 }
 

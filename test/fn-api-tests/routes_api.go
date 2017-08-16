@@ -55,19 +55,28 @@ func CheckRouteResponseError(t *testing.T, err error) {
 			msg := err.(*routes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message
 			code := err.(*routes.PatchAppsAppRoutesRouteDefault).Code()
 			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+		case *routes.PutAppsAppRoutesRouteBadRequest:
+			msg := err.(*routes.PutAppsAppRoutesRouteBadRequest).Payload.Error.Message
+			t.Errorf("Unexpected error occurred: %v.", msg)
+		case *routes.PutAppsAppRoutesRouteDefault:
+			msg := err.(*routes.PutAppsAppRoutesRouteDefault).Payload.Error.Message
+			code := err.(*routes.PutAppsAppRoutesRouteDefault).Code()
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
 		default:
 			t.Errorf("Unable to determine type of error: %s", err)
 		}
 	}
 }
 
-func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, routeType string) {
+func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, routeType, routeFormat string) {
 
 	rPath := routeObject.Path
 	rImage := routeObject.Image
 	rType := routeObject.Type
 	rTimeout := *routeObject.Timeout
 	rIdleTimeout := *routeObject.IDLETimeout
+	rFormat := routeObject.Format
+
 	if rPath != path {
 		t.Errorf("Route path mismatch. Expected: %v. Actual: %v", path, rPath)
 	}
@@ -82,6 +91,9 @@ func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, rou
 	}
 	if rIdleTimeout == 0 {
 		t.Error("Route idle timeout should have default value of 30 seconds, but got 0 seconds")
+	}
+	if rFormat != routeFormat {
+		t.Errorf("Route format mismatch. Expected: %v. Actual: %v", routeFormat, rFormat)
 	}
 
 }
@@ -105,11 +117,11 @@ func createRoute(ctx context.Context, fnclient *client.Functions, appName, image
 
 }
 
-func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType string, routeConfig map[string]string, headers map[string][]string) {
+func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) {
 	routeResponse, err := createRoute(ctx, fnclient, appName, image, routePath, routeType, routeConfig, headers)
 	CheckRouteResponseError(t, err)
 
-	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType)
+	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType, routeFormat)
 }
 
 func deleteRoute(ctx context.Context, fnclient *client.Functions, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
@@ -217,4 +229,26 @@ func assertContainsRoute(routeModels []*models.Route, expectedRoute string) bool
 		}
 	}
 	return false
+}
+
+func DeployRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) *models.Route {
+	cfg := &routes.PutAppsAppRoutesRouteParams{
+		App:     appName,
+		Context: ctx,
+		Route:   routePath,
+		Body: &models.RouteWrapper{
+			Route: &models.Route{
+				Config:  routeConfig,
+				Headers: headers,
+				Image:   image,
+				Path:    routePath,
+				Type:    routeType,
+				Format:  routeFormat,
+			},
+		},
+	}
+	cfg.WithTimeout(time.Second * 60)
+	route, err := fnclient.Routes.PutAppsAppRoutesRoute(cfg)
+	CheckRouteResponseError(t, err)
+	return route.Payload.Route
 }
