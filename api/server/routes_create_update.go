@@ -11,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var bad routeResponse
-
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.
    Post will only create route if its not there and create app if its not.
        create only
@@ -79,43 +77,38 @@ func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) e
 
 // ensureApp will only execute if it is on put
 func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.RouteWrapper) (routeResponse, error) {
-	resp := routeResponse{"Route successfully created", nil}
-	up := routeResponse{"Route successfully updated", nil}
+	bad := new(routeResponse)
 
 	switch method {
 	case http.MethodPost:
 		err := s.submitRoute(ctx, wroute)
 		if err != nil {
-			return bad, err
+			return *bad, err
 		}
-		resp.Route = wroute.Route
-		return resp, nil
+		return routeResponse{"Route successfully created", wroute.Route}, nil
 	case http.MethodPut:
 		_, err := s.Datastore.GetRoute(ctx, wroute.Route.AppName, wroute.Route.Path)
 		if err != nil && err == models.ErrRoutesNotFound {
 			err := s.submitRoute(ctx, wroute)
 			if err != nil {
-				return bad, err
+				return *bad, err
 			}
-			resp.Route = wroute.Route
-			return resp, nil
+			return routeResponse{"Route successfully created", wroute.Route}, nil
 		} else {
 			err := s.changeRoute(ctx, wroute)
 			if err != nil {
-				return bad, err
+				return *bad, err
 			}
-			up.Route = wroute.Route
-			return up, nil
+			return routeResponse{"Route successfully updated", wroute.Route}, nil
 		}
 	case http.MethodPatch:
 		err := s.changeRoute(ctx, wroute)
 		if err != nil {
-			return bad, err
+			return *bad, err
 		}
-		up.Route = wroute.Route
-		return up, nil
+		return routeResponse{"Route successfully updated", wroute.Route}, nil
 	}
-	return bad, nil
+	return *bad, nil
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.

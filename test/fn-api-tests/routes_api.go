@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/funcy/functions_go/client"
 	"github.com/funcy/functions_go/client/routes"
@@ -112,7 +111,7 @@ func createRoute(ctx context.Context, fnclient *client.Functions, appName, image
 		},
 		Context: ctx,
 	}
-	cfg.WithTimeout(time.Second * 60)
+
 	return fnclient.Routes.PostAppsAppRoutes(cfg)
 
 }
@@ -130,7 +129,7 @@ func deleteRoute(ctx context.Context, fnclient *client.Functions, appName, route
 		Route:   routePath,
 		Context: ctx,
 	}
-	cfg.WithTimeout(time.Second * 60)
+
 	return fnclient.Routes.DeleteAppsAppRoutesRoute(cfg)
 }
 
@@ -144,7 +143,7 @@ func ListRoutes(t *testing.T, ctx context.Context, fnclient *client.Functions, a
 		App:     appName,
 		Context: ctx,
 	}
-	cfg.WithTimeout(time.Second * 60)
+
 	routesResponse, err := fnclient.Routes.GetAppsAppRoutes(cfg)
 	CheckRouteResponseError(t, err)
 	return routesResponse.Payload.Routes
@@ -156,7 +155,7 @@ func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, app
 		Route:   routePath,
 		Context: ctx,
 	}
-	cfg.WithTimeout(time.Second * 60)
+
 	routeResponse, err := fnclient.Routes.GetAppsAppRoutesRoute(cfg)
 	CheckRouteResponseError(t, err)
 	return routeResponse.Payload.Route
@@ -217,7 +216,6 @@ func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, 
 		},
 		Route: routePath,
 	}
-	cfg.WithTimeout(time.Second * 60)
 
 	return fnclient.Routes.PatchAppsAppRoutesRoute(cfg)
 }
@@ -247,7 +245,7 @@ func DeployRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, 
 			},
 		},
 	}
-	cfg.WithTimeout(time.Second * 60)
+
 	route, err := fnclient.Routes.PutAppsAppRoutesRoute(cfg)
 	CheckRouteResponseError(t, err)
 	return route.Payload.Route
