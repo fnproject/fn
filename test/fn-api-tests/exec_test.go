@@ -57,7 +57,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -84,7 +84,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -115,7 +115,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -141,7 +141,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -202,7 +202,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -253,7 +253,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -298,7 +298,7 @@ func TestRouteExecutions(t *testing.T) {
 		image := "denismakogon/os.environ"
 		routeType := "sync"
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -330,7 +330,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -372,7 +372,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.RouteConfig, s.RouteHeaders)
+			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		size := 1 * 1024 * 1024 * 1024
 		u := url.URL{

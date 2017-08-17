@@ -118,8 +118,9 @@ func RandStringBytes(n int) string {
 }
 
 func SetupDefaultSuite() *SuiteSetup {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	ss := &SuiteSetup{
-		Context:      context.Background(),
+		Context:      ctx,
 		Client:       APIClient(),
 		AppName:      RandStringBytes(10),
 		RoutePath:    "/" + RandStringBytes(10),
@@ -128,7 +129,7 @@ func SetupDefaultSuite() *SuiteSetup {
 		RouteType:    "async",
 		RouteConfig:  map[string]string{},
 		RouteHeaders: map[string][]string{},
-		Cancel:       func() {},
+		Cancel:       cancel,
 	}
 
 	_, ok := ss.Client.Version.GetVersion(nil)

@@ -41,14 +41,8 @@ func TestApps(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{"A": "a"})
-		cfg := &apps.GetAppsAppParams{
-			Context: s.Context,
-			App:     s.AppName,
-		}
-		appPayload, err := s.Client.Apps.GetAppsApp(cfg)
-		CheckAppResponseError(t, err)
-		appBody := appPayload.Payload.App
-		val, ok := appBody.Config["A"]
+		app := GetApp(t, s.Context, s.Client, s.AppName)
+		val, ok := app.Config["A"]
 		if !ok {
 			t.Error("Error during app config inspect: config map misses required entity `A` with value `a`.")
 		}
