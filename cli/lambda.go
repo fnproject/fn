@@ -180,12 +180,12 @@ func createFunctionYaml(opts createImageOptions, functionName string) error {
 
 	funcDesc := &funcfile{
 		Name:    opts.Name,
-		Path:    path,
-		Config:  opts.Config,
 		Version: "0.0.1",
 		Runtime: &opts.Base,
 		Cmd:     opts.Handler,
 	}
+	funcDesc.Config = opts.Config
+	funcDesc.Path = path
 
 	out, err := yaml.Marshal(funcDesc)
 	if err != nil {

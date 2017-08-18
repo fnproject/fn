@@ -56,6 +56,10 @@ func runflags() []cli.Flag {
 			Name:  "runs",
 			Usage: "for hot functions only, will call the function `runs` times in a row.",
 		},
+		cli.Uint64Flag{
+			Name:  "memory",
+			Usage: "RAM to allocate for function, Units: MB",
+		},
 	}
 }
 
@@ -82,12 +86,18 @@ func (r *runCmd) run(c *cli.Context) error {
 		}
 	}
 
+	// means no memory specified through CLI args
+	// memory from func.yaml applied
+	if c.Uint64("memory") != 0 {
+		ff.Memory = c.Uint64("memory")
+	}
+
 	return runff(ff, stdin(), os.Stdout, os.Stderr, c.String("method"), c.StringSlice("e"), c.StringSlice("link"), c.String("format"), c.Int("runs"))
 }
 
 // TODO: share all this stuff with the Docker driver in server or better yet, actually use the Docker driver
 func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method string, envVars []string, links []string, format string, runs int) error {
-	sh := []string{"docker", "run", "--rm", "-i"}
+	sh := []string{"docker", "run", "--rm", "-i", fmt.Sprintf("--memory=%dm", ff.Memory)}
 
 	var err error
 	var env []string    // env for the shelled out docker run command
@@ -109,6 +119,7 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 	runEnv = append(runEnv, kvEq("APP_NAME", "myapp"))
 	runEnv = append(runEnv, kvEq("ROUTE", "/hello")) // TODO: should we change this to PATH ?
 	runEnv = append(runEnv, kvEq("FN_FORMAT", format))
+	runEnv = append(runEnv, kvEq("MEMORY_MB", fmt.Sprintf("%d", ff.Memory)))
 
 	// add user defined envs
 	runEnv = append(runEnv, envVars...)
@@ -130,7 +141,7 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 		runs = 1
 	}
 
-	if ff.Type != nil && *ff.Type == "async" {
+	if ff.Type != "" && ff.Type == "async" {
 		// if async, we'll run this in a separate thread and wait for it to complete
 		// reqID := id.New().String()
 		// I'm starting to think maybe `fn run` locally should work the same whether sync or async?  Or how would we allow to test the output?

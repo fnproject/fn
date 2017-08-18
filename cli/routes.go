@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	client "github.com/fnproject/fn/cli/client"
 	fnclient "github.com/funcy/functions_go/client"
@@ -28,9 +29,10 @@ var routeFlags = []cli.Flag{
 		Name:  "image,i",
 		Usage: "image name",
 	},
-	cli.Int64Flag{
+	cli.Uint64Flag{
 		Name:  "memory,m",
 		Usage: "memory in MiB",
+		Value: uint64(128),
 	},
 	cli.StringFlag{
 		Name:  "type,t",
@@ -46,11 +48,18 @@ var routeFlags = []cli.Flag{
 	},
 	cli.StringFlag{
 		Name:  "format,f",
-		Usage: "hot container IO format - json or http",
+		Usage: "hot container IO format - default or http",
+		Value: "default",
 	},
 	cli.DurationFlag{
 		Name:  "timeout",
 		Usage: "route timeout (eg. 30s)",
+		Value: 30 * time.Second,
+	},
+	cli.DurationFlag{
+		Name:  "idle-timeout",
+		Usage: "route idle timeout (eg. 30s)",
+		Value: 30 * time.Second,
 	},
 }
 
@@ -223,13 +232,18 @@ func routeWithFlags(c *cli.Context, rt *fnmodels.Route) {
 		rt.Type = t
 	}
 
-	if m := c.Int64("memory"); m > 0 {
+	if m := c.Uint64("memory"); m > 0 {
 		rt.Memory = m
 	}
 
 	if t := c.Duration("timeout"); t > 0 {
 		to := int32(t.Seconds())
 		rt.Timeout = &to
+	}
+
+	if t := c.Duration("idle-timeout"); t > 0 {
+		to := int32(t.Seconds())
+		rt.IDLETimeout = &to
 	}
 
 	if len(c.StringSlice("headers")) > 0 {
@@ -257,21 +271,20 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 	if ff.FullName() != "" { // args take precedence
 		rt.Image = ff.FullName()
 	}
-	if ff.Format != nil {
-		rt.Format = *ff.Format
+	if ff.Format != "" {
+		rt.Format = ff.Format
 	}
 	if ff.Timeout != nil {
-		to := int32(ff.Timeout.Seconds())
-		rt.Timeout = &to
+		rt.Timeout = ff.Timeout
 	}
 	if rt.Path == "" && ff.Path != "" {
 		rt.Path = ff.Path
 	}
-	if rt.Type == "" && ff.Type != nil && *ff.Type != "" {
-		rt.Type = *ff.Type
+	if rt.Type == "" && ff.Type != "" {
+		rt.Type = ff.Type
 	}
-	if ff.Memory != nil {
-		rt.Memory = *ff.Memory
+	if ff.Memory != 0 {
+		rt.Memory = ff.Memory
 	}
 	// TODO idle_timeout? headers? config? why is a func file not a yaml unmarshal of a route?
 

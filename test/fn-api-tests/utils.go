@@ -130,6 +130,7 @@ func SetupDefaultSuite() *SuiteSetup {
 		RouteConfig:  map[string]string{},
 		RouteHeaders: map[string][]string{},
 		Cancel:       cancel,
+		Memory:       uint64(256),
 	}
 
 	_, ok := ss.Client.Version.GetVersion(nil)
