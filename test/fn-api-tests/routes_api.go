@@ -9,60 +9,52 @@ import (
 	"github.com/funcy/functions_go/models"
 )
 
-func CheckRouteResponseError(t *testing.T, err error) {
-	if err != nil {
-		switch err.(type) {
-
+func CheckRouteResponseError(t *testing.T, e error) {
+	if e != nil {
+		switch err := e.(type) {
 		case *routes.PostAppsAppRoutesDefault:
-			msg := err.(*routes.PostAppsAppRoutesDefault).Payload.Error.Message
-			code := err.(*routes.PostAppsAppRoutesDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", err.Payload.Error.Message, err.Code())
+			t.FailNow()
 		case *routes.PostAppsAppRoutesBadRequest:
-			msg := err.(*routes.PostAppsAppRoutesBadRequest).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.PostAppsAppRoutesConflict:
-			msg := err.(*routes.PostAppsAppRoutesConflict).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.GetAppsAppRoutesRouteNotFound:
-			msg := err.(*routes.GetAppsAppRoutesRouteNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.GetAppsAppRoutesRouteDefault:
-			msg := err.(*routes.GetAppsAppRoutesRouteDefault).Payload.Error.Message
-			code := err.(*routes.GetAppsAppRoutesRouteDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", err.Payload.Error.Message, err.Code())
+			t.FailNow()
 		case *routes.DeleteAppsAppRoutesRouteNotFound:
-			msg := err.(*routes.DeleteAppsAppRoutesRouteNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.DeleteAppsAppRoutesRouteDefault:
-			msg := err.(*routes.DeleteAppsAppRoutesRouteDefault).Payload.Error.Message
-			code := err.(*routes.DeleteAppsAppRoutesRouteDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", err.Payload.Error.Message, err.Code())
+			t.FailNow()
 		case *routes.GetAppsAppRoutesNotFound:
-			msg := err.(*routes.GetAppsAppRoutesNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.GetAppsAppRoutesDefault:
-			msg := err.(*routes.GetAppsAppRoutesDefault).Payload.Error.Message
-			code := err.(*routes.GetAppsAppRoutesDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", err.Payload.Error.Message, err.Code())
+			t.FailNow()
 		case *routes.PatchAppsAppRoutesRouteBadRequest:
-			msg := err.(*routes.PatchAppsAppRoutesRouteBadRequest).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.PatchAppsAppRoutesRouteNotFound:
-			msg := err.(*routes.PatchAppsAppRoutesRouteNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
+			t.FailNow()
 		case *routes.PatchAppsAppRoutesRouteDefault:
-			msg := err.(*routes.PatchAppsAppRoutesRouteDefault).Payload.Error.Message
-			code := err.(*routes.PatchAppsAppRoutesRouteDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", err.Payload.Error.Message, err.Code())
 		case *routes.PutAppsAppRoutesRouteBadRequest:
-			msg := err.(*routes.PutAppsAppRoutesRouteBadRequest).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v.", err.Payload.Error.Message)
 		case *routes.PutAppsAppRoutesRouteDefault:
-			msg := err.(*routes.PutAppsAppRoutesRouteDefault).Payload.Error.Message
-			code := err.(*routes.PutAppsAppRoutesRouteDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v", err.Payload.Error.Message, err.Code())
+			t.FailNow()
 		default:
 			t.Errorf("Unable to determine type of error: %s", err)
+			t.FailNow()
 		}
 	}
 }
@@ -111,8 +103,18 @@ func createRoute(ctx context.Context, fnclient *client.Functions, appName, image
 		},
 		Context: ctx,
 	}
-
-	return fnclient.Routes.PostAppsAppRoutes(cfg)
+	ok, err := fnclient.Routes.PostAppsAppRoutes(cfg)
+	if err == nil {
+		approutesLock.Lock()
+		r, got := appsandroutes[appName]
+		if got {
+			appsandroutes[appName] = append(r, routePath)
+		} else {
+			appsandroutes[appName] = []string{routePath}
+		}
+		approutesLock.Unlock()
+	}
+	return ok, err
 
 }
 
