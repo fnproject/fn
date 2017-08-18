@@ -1,5 +1,5 @@
 hash: b555054a6f86ac84f6104ad9efabdcd85966c8f6574e485be7337c3ee9f29aa0
-updated: 2017-08-16T11:13:27.488480563-07:00
+updated: 2017-08-18T21:27:39.98453555+03:00
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -116,15 +116,13 @@ imports:
 - name: github.com/fsouza/go-dockerclient
   version: 75772940379e725b5aae213e570f9dcd751951cb
 - name: github.com/funcy/functions_go
-  version: fc7e7ca2fbc8bef236300b7b9f1075410a62447f
+  version: e046aa4ca1f1028a04fc51395297ff07515cb0b6
   subpackages:
   - client
   - client/apps
   - client/call
   - client/operations
   - client/routes
-  - client/tasks
-  - client/version
   - models
 - name: github.com/garyburd/redigo
   version: b925df3cc15d8646e9b5b333ebaf3011385aba11

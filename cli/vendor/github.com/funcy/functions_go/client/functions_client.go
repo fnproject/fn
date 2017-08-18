@@ -15,8 +15,6 @@ import (
 	"github.com/funcy/functions_go/client/call"
 	"github.com/funcy/functions_go/client/operations"
 	"github.com/funcy/functions_go/client/routes"
-	"github.com/funcy/functions_go/client/tasks"
-	"github.com/funcy/functions_go/client/version"
 )
 
 // Default functions HTTP client.
@@ -67,10 +65,6 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Functions 
 	cli.Operations = operations.New(transport, formats)
 
 	cli.Routes = routes.New(transport, formats)
-
-	cli.Tasks = tasks.New(transport, formats)
-
-	cli.Version = version.New(transport, formats)
 
 	return cli
 }
@@ -124,10 +118,6 @@ type Functions struct {
 
 	Routes *routes.Client
 
-	Tasks *tasks.Client
-
-	Version *version.Client
-
 	Transport runtime.ClientTransport
 }
 
@@ -142,9 +132,5 @@ func (c *Functions) SetTransport(transport runtime.ClientTransport) {
 	c.Operations.SetTransport(transport)
 
 	c.Routes.SetTransport(transport)
-
-	c.Tasks.SetTransport(transport)
-
-	c.Version.SetTransport(transport)
 
 }

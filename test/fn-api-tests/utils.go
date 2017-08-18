@@ -133,20 +133,17 @@ func SetupDefaultSuite() *SuiteSetup {
 		Memory:       uint64(256),
 	}
 
-	_, ok := ss.Client.Version.GetVersion(nil)
-	if ok != nil {
-		if Host() != "localhost:8080" {
-			_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
-			if ok != nil {
-				panic("Cannot reach remote api for functions")
-			}
-		} else {
-			_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
-			if ok != nil {
-				log.Println("Making functions server")
-				_, cancel := getServerWithCancel()
-				ss.Cancel = cancel
-			}
+	if Host() != "localhost:8080" {
+		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
+		if ok != nil {
+			panic("Cannot reach remote api for functions")
+		}
+	} else {
+		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
+		if ok != nil {
+			log.Println("Making functions server")
+			_, cancel := getServerWithCancel()
+			ss.Cancel = cancel
 		}
 	}
 
