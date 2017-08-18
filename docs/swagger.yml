@@ -6,7 +6,7 @@ swagger: '2.0'
 info:
   title: Oracle Functions
   description: The open source serverless platform.
-  version: "0.1.36"
+  version: "0.1.37"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -20,16 +20,6 @@ consumes:
 produces:
   - application/json
 paths:
-  /version:
-    get:
-      summary: "Get daemon version."
-      tags:
-        - Version
-      responses:
-        200:
-          description: Daemon version.
-          schema:
-            $ref: '#/definitions/Version'
   /apps:
     get:
       summary: "Get all app names."
@@ -462,23 +452,6 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /tasks:
-    get:
-      summary: Get next task.
-      description: Gets the next task in the queue, ready for processing. Consumers should start processing tasks in order. No other consumer can retrieve this task.
-      tags:
-        - Tasks
-      responses:
-        200:
-          description: Task information
-          schema:
-            $ref:  '#/definitions/TaskWrapper'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
-
-
 definitions:
   Route:
     type: object
@@ -671,69 +644,6 @@ definitions:
         description: Time when call completed, whether it was successul or failed. Always in UTC.
         readOnly: true
 
-  Task:
-    type: object
-    required:
-      - image
-    properties:
-      image:
-        type: string
-        description: Name of Docker image to use. This is optional and can be used to override the image defined at the group level.
-      payload:
-        type: string
-        # 256k
-        # maxLength breaks ruby generator too
-        # maxLength: 268435456
-        description: Payload for the task. This is what you pass into each task to make it do something.
-      group_name:
-        type: string
-        description: "Group this task belongs to."
-        readOnly: true
-      error:
-        type: string
-        description: "The error message, if status is 'error'. This is errors due to things outside the task itself. Errors from user code will be found in the log."
-      reason:
-        type: string
-        description: |
-          Machine usable reason for task being in this state.
-          Valid values for error status are `timeout | killed | bad_exit`.
-          Valid values for cancelled status are `client_request`.
-          For everything else, this is undefined.
-        enum:
-          - timeout
-          - killed
-          - bad_exit
-          - client_request
-      created_at:
-        type: string
-        format: date-time
-        description: Time when task was submitted. Always in UTC.
-        readOnly: true
-      started_at:
-        type: string
-        format: date-time
-        description: Time when task started execution. Always in UTC.
-      completed_at:
-        type: string
-        format: date-time
-        description: Time when task completed, whether it was successul or failed. Always in UTC.
-      # We maintain a doubly linked list of the retried task to the
-      # original task.
-      retry_of:
-        type: string
-        description: If this field is set, then this task is a retry of the ID in this field.
-        readOnly: true
-      retry_at:
-        type: string
-        description: If this field is set, then this task was retried by the task referenced in this field.
-        readOnly: true
-      env_vars:
-        # this is a map: https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#model-with-mapdictionary-properties
-        type: object
-        description: Env vars for the task. Comes from the ones set on the Group.
-        additionalProperties:
-          type: string
-
   ErrorBody:
     type: object
     properties:
@@ -749,11 +659,3 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/ErrorBody'
-
-  TaskWrapper:
-    type: object
-    required:
-      - task
-    properties:
-      task:
-        $ref: '#/definitions/Task'
