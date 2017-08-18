@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -48,9 +49,11 @@ func APIClient() *client.Functions {
 }
 
 var (
-	getServer sync.Once
-	cancel2   context.CancelFunc
-	s         *server.Server
+	getServer     sync.Once
+	cancel2       context.CancelFunc
+	s             *server.Server
+	appsandroutes = make(map[string][]string)
+	approutesLock sync.Mutex
 )
 
 func getServerWithCancel() (*server.Server, context.CancelFunc) {
@@ -122,8 +125,8 @@ func SetupDefaultSuite() *SuiteSetup {
 	ss := &SuiteSetup{
 		Context:      ctx,
 		Client:       APIClient(),
-		AppName:      RandStringBytes(10),
-		RoutePath:    "/" + RandStringBytes(10),
+		AppName:      "fnintegrationtestapp" + RandStringBytes(10),
+		RoutePath:    "/fnintegrationtestroute" + RandStringBytes(10),
 		Image:        "funcy/hello",
 		Format:       "default",
 		RouteType:    "async",
@@ -148,6 +151,20 @@ func SetupDefaultSuite() *SuiteSetup {
 	}
 
 	return ss
+}
+
+func Cleanup() {
+	ctx := context.Background()
+	c := APIClient()
+	approutesLock.Lock()
+	defer approutesLock.Unlock()
+	for appName, rs := range appsandroutes {
+		for _, routePath := range rs {
+			deleteRoute(ctx, c, appName, routePath)
+		}
+		DeleteAppNoT(ctx, c, appName)
+	}
+	appsandroutes = make(map[string][]string)
 }
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
@@ -191,4 +208,22 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	io.Copy(output, resp.Body)
 
 	return nil
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func MyCaller() string {
+	fpcs := make([]uintptr, 1)
+	n := runtime.Callers(3, fpcs)
+	if n == 0 {
+		return "n/a"
+	}
+	fun := runtime.FuncForPC(fpcs[0] - 1)
+	if fun == nil {
+		return "n/a"
+	}
+	f, l := fun.FileLine(fpcs[0] - 1)
+	return fmt.Sprintf("%s:%d", f, l)
 }

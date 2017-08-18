@@ -4,48 +4,44 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/funcy/functions_go/client"
 	"github.com/funcy/functions_go/client/apps"
 	"github.com/funcy/functions_go/models"
 )
 
-func CheckAppResponseError(t *testing.T, err error) {
-	if err != nil {
-		switch err.(type) {
-
+func CheckAppResponseError(t *testing.T, e error) {
+	if e != nil {
+		switch err := e.(type) {
 		case *apps.DeleteAppsAppDefault:
-			msg := err.(*apps.DeleteAppsAppDefault).Payload.Error.Message
-			code := err.(*apps.DeleteAppsAppDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v Orig Location: %s", err.Payload.Error.Message, err.Code(), MyCaller())
+			t.FailNow()
 		case *apps.PostAppsDefault:
-			msg := err.(*apps.PostAppsDefault).Payload.Error.Message
-			code := err.(*apps.PostAppsDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v Orig Location: %s", err.Payload.Error.Message, err.Code(), MyCaller())
+			t.FailNow()
 		case *apps.GetAppsAppNotFound:
-			msg := err.(*apps.GetAppsAppNotFound).Payload.Error.Message
-			if !strings.Contains("App not found", msg) {
-				t.Errorf("Unexpected error occurred: %v", msg)
+			if !strings.Contains("App not found", err.Payload.Error.Message) {
+				t.Errorf("Unexpected error occurred: %v Original Location: %s", err.Payload.Error.Message, MyCaller())
+				t.FailNow()
 			}
 		case *apps.GetAppsAppDefault:
-			msg := err.(*apps.GetAppsAppDefault).Payload.Error.Message
-			code := err.(*apps.GetAppsAppDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v Orig Location: %s", err.Payload.Error.Message, err.Code(), MyCaller())
+			t.FailNow()
 		case *apps.PatchAppsAppDefault:
-			msg := err.(*apps.PatchAppsAppDefault).Payload.Error.Message
-			code := err.(*apps.PatchAppsAppDefault).Code()
-			t.Errorf("Unexpected error occurred: %v. Status code: %v", msg, code)
+			t.Errorf("Unexpected error occurred: %v. Status code: %v Orig Location: %s", err.Payload.Error.Message, err.Code(), MyCaller())
+			t.FailNow()
 		case *apps.PatchAppsAppNotFound:
-			msg := err.(*apps.PatchAppsAppNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v. Original Location: %s", err.Payload.Error.Message, MyCaller())
+			t.FailNow()
 		case *apps.PatchAppsAppBadRequest:
-			msg := err.(*apps.PatchAppsAppBadRequest).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
+			t.Errorf("Unexpected error occurred: %v. Original Location: %s", err.Payload.Error.Message, MyCaller())
+			t.FailNow()
 		default:
-			t.Errorf("Unable to determine type of error: %s", err)
+			t.Errorf("Unable to determine type of error: %s Original Location: %s", err, MyCaller())
+			t.FailNow()
 		}
 	}
-
 }
 
 func CreateAppNoAssert(ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) (*apps.PostAppsOK, error) {
@@ -58,8 +54,16 @@ func CreateAppNoAssert(ctx context.Context, fnclient *client.Functions, appName 
 		},
 		Context: ctx,
 	}
-
-	return fnclient.Apps.PostApps(cfg)
+	ok, err := fnclient.Apps.PostApps(cfg)
+	if err == nil {
+		approutesLock.Lock()
+		_, got := appsandroutes[appName]
+		if !got {
+			appsandroutes[appName] = []string{}
+		}
+		approutesLock.Unlock()
+	}
+	return ok, err
 }
 
 func CreateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) {
@@ -108,4 +112,13 @@ func GetApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appNa
 	app, err := fnclient.Apps.GetAppsApp(cfg)
 	CheckAppResponseError(t, err)
 	return app.Payload.App
+}
+
+func DeleteAppNoT(ctx context.Context, fnclient *client.Functions, appName string) {
+	cfg := &apps.DeleteAppsAppParams{
+		App:     appName,
+		Context: ctx,
+	}
+	cfg.WithTimeout(time.Second * 60)
+	fnclient.Apps.DeleteAppsApp(cfg)
 }
