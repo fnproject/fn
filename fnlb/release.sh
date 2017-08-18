@@ -28,11 +28,12 @@ echo "Version: $version"
 
 make docker-build
 
+gtag=$service-$version
 git add -u
 git commit -m "$service: $version release [skip ci]"
-git tag -f -a "fnlb-$version" -m "version fnlb-$version"
+git tag -f -a "$gtag" -m "version $gtag"
 git push
-git push origin $version
+git push origin $gtag
 
 # Finally tag and push docker images
 docker tag $user/$service:$tag $user/$service:$version
