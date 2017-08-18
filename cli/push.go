@@ -20,7 +20,12 @@ func push() cli.Command {
 }
 
 type pushcmd struct {
-	verbose bool
+	verbose  bool
+	registry string
+}
+
+func (cmd *pushcmd) Registry() string {
+	return cmd.registry
 }
 
 func (p *pushcmd) flags() []cli.Flag {
@@ -30,6 +35,11 @@ func (p *pushcmd) flags() []cli.Flag {
 			Usage:       "verbose mode",
 			Destination: &p.verbose,
 		},
+		cli.StringFlag{
+			Name:        "registry",
+			Usage:       "Sets the Docker owner for images and optionally the registry. This will be prefixed to your function name for pushing to Docker registries. eg: `--registry username` will set your Docker Hub owner. `--registry registry.hub.docker.com/username` will set the registry and owner.",
+			Destination: &p.registry,
+		},
 	}
 }
 
@@ -38,7 +48,7 @@ func (p *pushcmd) flags() []cli.Flag {
 // push the container, and finally it will update function's route. Optionally,
 // the route can be overriden inside the functions file.
 func (p *pushcmd) push(c *cli.Context) error {
-	verbwriter := verbwriter(p.verbose)
+	setRegistryEnv(p)
 
 	ff, err := loadFuncfile()
 	if err != nil {
@@ -48,12 +58,12 @@ func (p *pushcmd) push(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(verbwriter, "pushing", ff.FullName())
+	fmt.Println("pushing", ff.ImageName())
 
 	if err := dockerpush(ff); err != nil {
 		return err
 	}
 
-	fmt.Printf("Function %v pushed successfully to Docker Hub.\n", ff.FullName())
+	fmt.Printf("Function %v pushed successfully to Docker Hub.\n", ff.ImageName())
 	return nil
 }

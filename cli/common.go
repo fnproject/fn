@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -22,18 +23,23 @@ import (
 const (
 	functionsDockerImage     = "funcy/functions"
 	minRequiredDockerVersion = "17.5.0"
+	envFnRegistry            = "FN_REGISTRY"
 )
 
-func verbwriter(verbose bool) io.Writer {
-	// this is too limiting, removes all logs which isn't what we want
-	// verbwriter := ioutil.Discard
-	// if verbose {
-	verbwriter := os.Stderr
-	// }
-	return verbwriter
+type HasRegistry interface {
+	Registry() string
 }
 
-func buildfunc(verbwriter io.Writer, fn string, noCache bool) (*funcfile, error) {
+func setRegistryEnv(hr HasRegistry) {
+	if hr.Registry() != "" {
+		err := os.Setenv(envFnRegistry, hr.Registry())
+		if err != nil {
+			log.Fatalf("Couldn't set %s env var: %v\n", envFnRegistry, err)
+		}
+	}
+}
+
+func buildfunc(fn string, noCache bool) (*funcfile, error) {
 	funcfile, err := parsefuncfile(fn)
 	if err != nil {
 		return nil, err
@@ -53,23 +59,21 @@ func buildfunc(verbwriter io.Writer, fn string, noCache bool) (*funcfile, error)
 		}
 	}
 
-	if err := localbuild(verbwriter, fn, funcfile.Build); err != nil {
+	if err := localbuild(fn, funcfile.Build); err != nil {
 		return nil, err
 	}
 
-	if err := dockerbuild(verbwriter, fn, funcfile, noCache); err != nil {
+	if err := dockerbuild(fn, funcfile, noCache); err != nil {
 		return nil, err
 	}
 
 	return funcfile, nil
 }
 
-func localbuild(verbwriter io.Writer, path string, steps []string) error {
+func localbuild(path string, steps []string) error {
 	for _, cmd := range steps {
 		exe := exec.Command("/bin/sh", "-c", cmd)
 		exe.Dir = filepath.Dir(path)
-		exe.Stderr = verbwriter
-		exe.Stdout = verbwriter
 		if err := exe.Run(); err != nil {
 			return fmt.Errorf("error running command %v (%v)", cmd, err)
 		}
@@ -78,7 +82,7 @@ func localbuild(verbwriter io.Writer, path string, steps []string) error {
 	return nil
 }
 
-func dockerbuild(verbwriter io.Writer, path string, ff *funcfile, noCache bool) error {
+func dockerbuild(path string, ff *funcfile, noCache bool) error {
 	err := dockerVersionCheck()
 	if err != nil {
 		return err
@@ -89,9 +93,9 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile, noCache bool) 
 	var helper langs.LangHelper
 	dockerfile := filepath.Join(dir, "Dockerfile")
 	if !exists(dockerfile) {
-		helper = langs.GetLangHelper(*ff.Runtime)
+		helper = langs.GetLangHelper(ff.Runtime)
 		if helper == nil {
-			return fmt.Errorf("Cannot build, no language helper found for %v", *ff.Runtime)
+			return fmt.Errorf("Cannot build, no language helper found for %v", ff.Runtime)
 		}
 		dockerfile, err = writeTmpDockerfile(helper, dir, ff)
 		if err != nil {
@@ -106,7 +110,7 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile, noCache bool) 
 		}
 	}
 
-	fmt.Printf("Building image %v\n", ff.FullName())
+	fmt.Printf("Building image %v\n", ff.ImageName())
 
 	cancel := make(chan os.Signal, 3)
 	signal.Notify(cancel, os.Interrupt) // and others perhaps
@@ -117,7 +121,7 @@ func dockerbuild(verbwriter io.Writer, path string, ff *funcfile, noCache bool) 
 	go func(done chan<- error) {
 		args := []string{
 			"build",
-			"-t", ff.FullName(),
+			"-t", ff.ImageName(),
 			"-f", dockerfile,
 		}
 		if noCache {
@@ -261,12 +265,29 @@ func extractEnvConfig(configs []string) map[string]string {
 }
 
 func dockerpush(ff *funcfile) error {
-	fmt.Println("Pushing to docker registry...")
-	cmd := exec.Command("docker", "push", ff.FullName())
+	err := validImageName(ff.ImageName())
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Pushing %v to docker registry...", ff.ImageName())
+	cmd := exec.Command("docker", "push", ff.ImageName())
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error running docker push: %v", err)
+	}
+	return nil
+}
+
+func validImageName(n string) error {
+	// must have at least owner name and a tag
+	split := strings.Split(n, ":")
+	if len(split) < 2 {
+		return errors.New("image name must have a tag")
+	}
+	split2 := strings.Split(split[0], "/")
+	if len(split2) < 2 {
+		return errors.New("image name must have an owner and name, eg: username/myfunc. Be sure to set FN_REGISTRY env var or pass in --registry.")
 	}
 	return nil
 }

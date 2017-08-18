@@ -268,8 +268,8 @@ func routeWithFuncFile(c *cli.Context, ff *funcfile, rt *fnmodels.Route) error {
 			return err
 		}
 	}
-	if ff.FullName() != "" { // args take precedence
-		rt.Image = ff.FullName()
+	if ff.ImageName() != "" { // args take precedence
+		rt.Image = ff.ImageName()
 	}
 	if ff.Format != "" {
 		rt.Format = ff.Format

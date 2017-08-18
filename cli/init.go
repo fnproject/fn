@@ -45,12 +45,8 @@ func init() {
 }
 
 type initFnCmd struct {
-	name       string
-	force      bool
-	runtime    string
-	entrypoint string
-	cmd        string
-	version    string
+	force bool
+	funcfile
 }
 
 func initFlags(a *initFnCmd) []cli.Flag {
@@ -63,17 +59,22 @@ func initFlags(a *initFnCmd) []cli.Flag {
 		cli.StringFlag{
 			Name:        "runtime",
 			Usage:       "choose an existing runtime - " + strings.Join(fnInitRuntimes, ", "),
-			Destination: &a.runtime,
+			Destination: &a.Runtime,
 		},
 		cli.StringFlag{
 			Name:        "entrypoint",
 			Usage:       "entrypoint is the command to run to start this function - equivalent to Dockerfile ENTRYPOINT.",
-			Destination: &a.entrypoint,
+			Destination: &a.Entrypoint,
+		},
+		cli.StringFlag{
+			Name:        "cmd",
+			Usage:       "command to run to start this function - equivalent to Dockerfile CMD.",
+			Destination: &a.Entrypoint,
 		},
 		cli.StringFlag{
 			Name:        "version",
 			Usage:       "function version",
-			Destination: &a.version,
+			Destination: &a.Version,
 			Value:       initialVersion,
 		},
 	}
@@ -82,15 +83,16 @@ func initFlags(a *initFnCmd) []cli.Flag {
 }
 
 func initFn() cli.Command {
-	a := initFnCmd{}
+	a := &initFnCmd{}
+	// funcfile := &funcfile{}
 
 	return cli.Command{
 		Name:        "init",
 		Usage:       "create a local func.yaml file",
-		Description: "Creates a func.yaml file in the current directory.  ",
-		ArgsUsage:   "<DOCKERHUB_USERNAME/FUNCTION_NAME>",
+		Description: "Creates a func.yaml file in the current directory.",
+		ArgsUsage:   "[FUNCTION_NAME]",
 		Action:      a.init,
-		Flags:       initFlags(&a),
+		Flags:       initFlags(a),
 	}
 }
 
@@ -109,12 +111,12 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		}
 	}
 
-	runtimeSpecified := a.runtime != ""
-
 	err := a.buildFuncFile(c)
 	if err != nil {
 		return err
 	}
+
+	runtimeSpecified := a.Runtime != ""
 
 	if runtimeSpecified {
 		err := a.generateBoilerplate()
@@ -123,21 +125,12 @@ func (a *initFnCmd) init(c *cli.Context) error {
 		}
 	}
 
-	ff := &funcfile{
-		*rt,
-		a.name,
-		a.version,
-		&a.runtime,
-		a.entrypoint,
-		a.cmd,
-		[]string{},
-		[]fftest{},
-	}
+	ff := a.funcfile
 
-	_, path := appNamePath(ff.FullName())
+	_, path := appNamePath(ff.ImageName())
 	ff.Path = path
 
-	if err := encodeFuncfileYAML("func.yaml", ff); err != nil {
+	if err := encodeFuncfileYAML("func.yaml", &ff); err != nil {
 		return err
 	}
 
@@ -146,7 +139,7 @@ func (a *initFnCmd) init(c *cli.Context) error {
 }
 
 func (a *initFnCmd) generateBoilerplate() error {
-	helper := langs.GetLangHelper(a.runtime)
+	helper := langs.GetLangHelper(a.Runtime)
 	if helper != nil && helper.HasBoilerplate() {
 		if err := helper.GenerateBoilerplate(); err != nil {
 			if err == langs.ErrBoilerplateExists {
@@ -162,47 +155,52 @@ func (a *initFnCmd) generateBoilerplate() error {
 func (a *initFnCmd) buildFuncFile(c *cli.Context) error {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("error detecting current working directory: %s", err)
+		return fmt.Errorf("error detecting current working directory: %v", err)
 	}
 
-	a.name = c.Args().First()
-	if a.name == "" || strings.Contains(a.name, ":") {
-		return errors.New("please specify a name for your function in the following format <DOCKERHUB_USERNAME>/<FUNCTION_NAME>.\nTry: fn init <DOCKERHUB_USERNAME>/<FUNCTION_NAME>")
+	a.Name = c.Args().First()
+	// if a.name == "" {
+	// 	// return errors.New("please specify a name for your function.\nTry: fn init <FUNCTION_NAME>")
+	// } else
+	if a.Name == "" {
+		// then use current directory for name
+		a.Name = filepath.Base(pwd)
+	} else if strings.Contains(a.Name, ":") {
+		return errors.New("function name cannot contain a colon")
 	}
 
 	if exists("Dockerfile") {
 		fmt.Println("Dockerfile found. Let's use that to build...")
 		return nil
 	}
-
 	var rt string
-	if a.runtime == "" {
+	if a.Runtime == "" {
 		rt, err = detectRuntime(pwd)
 		if err != nil {
 			return err
 		}
-		a.runtime = rt
+		a.Runtime = rt
 		fmt.Printf("Found %v, assuming %v runtime.\n", rt, rt)
 	} else {
-		fmt.Println("Runtime:", a.runtime)
+		fmt.Println("Runtime:", a.Runtime)
 	}
-	helper := langs.GetLangHelper(a.runtime)
+	helper := langs.GetLangHelper(a.Runtime)
 	if helper == nil {
-		fmt.Printf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.runtime)
+		fmt.Printf("init does not support the %s runtime, you'll have to create your own Dockerfile for this function", a.Runtime)
 	}
 
-	if a.entrypoint == "" {
+	if a.Entrypoint == "" {
 		if helper != nil {
-			a.entrypoint = helper.Entrypoint()
+			a.Entrypoint = helper.Entrypoint()
 		}
 	}
-	if a.cmd == "" {
+	if a.Cmd == "" {
 		if helper != nil {
-			a.cmd = helper.Cmd()
+			a.Cmd = helper.Cmd()
 		}
 	}
-	if a.entrypoint == "" && a.cmd == "" {
-		return fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.runtime)
+	if a.Entrypoint == "" && a.Cmd == "" {
+		return fmt.Errorf("could not detect entrypoint or cmd for %v, use --entrypoint and/or --cmd to set them explicitly", a.Runtime)
 	}
 
 	return nil
@@ -221,5 +219,5 @@ func detectRuntime(path string) (runtime string, err error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag.")
+	return "", fmt.Errorf("no supported files found to guess runtime, please set runtime explicitly with --runtime flag")
 }

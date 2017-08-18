@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	fnmodels "github.com/funcy/functions_go/models"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -39,43 +38,9 @@ type fftest struct {
 }
 
 type funcfile struct {
-	fnmodels.Route
-
 	Name       string   `yaml:"name,omitempty" json:"name,omitempty"`
 	Version    string   `yaml:"version,omitempty" json:"version,omitempty"`
-	Runtime    *string  `yaml:"runtime,omitempty" json:"runtime,omitempty"`
-	Entrypoint string   `yaml:"entrypoint,omitempty" json:"entrypoint,omitempty"`
-	Cmd        string   `yaml:"cmd,omitempty" json:"cmd,omitempty"`
-	Build      []string `yaml:"build,omitempty" json:"build,omitempty"`
-	Tests      []fftest `yaml:"tests,omitempty" json:"tests,omitempty"`
-}
-
-func (ff *funcfile) FullName() string {
-	fname := ff.Name
-	if ff.Version != "" {
-		fname = fmt.Sprintf("%s:%s", fname, ff.Version)
-	}
-	return fname
-}
-
-func (ff *funcfile) RuntimeTag() (runtime, tag string) {
-	if ff.Runtime == nil {
-		return "", ""
-	}
-
-	rt := *ff.Runtime
-	tagpos := strings.Index(rt, ":")
-	if tagpos == -1 {
-		return rt, ""
-	}
-
-	return rt[:tagpos], rt[tagpos+1:]
-}
-
-type flatfuncfile struct {
-	Name       string   `yaml:"name,omitempty" json:"name,omitempty"`
-	Version    string   `yaml:"version,omitempty" json:"version,omitempty"`
-	Runtime    *string  `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Runtime    string   `yaml:"runtime,omitempty" json:"runtime,omitempty"`
 	Entrypoint string   `yaml:"entrypoint,omitempty" json:"entrypoint,omitempty"`
 	Cmd        string   `yaml:"cmd,omitempty" json:"cmd,omitempty"`
 	Build      []string `yaml:"build,omitempty" json:"build,omitempty"`
@@ -91,44 +56,36 @@ type flatfuncfile struct {
 	Headers map[string][]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 }
 
-func (ff *funcfile) MakeFlat() flatfuncfile {
-	return flatfuncfile{
-		Name:       ff.Name,
-		Version:    ff.Version,
-		Runtime:    ff.Runtime,
-		Entrypoint: ff.Entrypoint,
-		Cmd:        ff.Cmd,
-		Build:      ff.Build,
-		Tests:      ff.Tests,
-		// route-specific
-		Type:    ff.Type,
-		Memory:  ff.Memory,
-		Format:  ff.Format,
-		Timeout: ff.Timeout,
-		Path:    ff.Path,
-		Config:  ff.Config,
-		Headers: ff.Headers,
+func (ff *funcfile) ImageName() string {
+	fname := ff.Name
+	if !strings.Contains(fname, "/") {
+		// then we'll prefix FN_REGISTRY
+		reg := os.Getenv(envFnRegistry)
+		if reg != "" {
+			if reg[len(reg)-1] != '/' {
+				reg += "/"
+			}
+			fname = fmt.Sprintf("%s%s", reg, fname)
+		}
 	}
+	if ff.Version != "" {
+		fname = fmt.Sprintf("%s:%s", fname, ff.Version)
+	}
+	return fname
 }
 
-func (fff *flatfuncfile) MakeFuncFile() *funcfile {
-	ff := &funcfile{
-		Name:       fff.Name,
-		Version:    fff.Version,
-		Runtime:    fff.Runtime,
-		Entrypoint: fff.Entrypoint,
-		Cmd:        fff.Cmd,
-		Build:      fff.Build,
-		Tests:      fff.Tests,
+func (ff *funcfile) RuntimeTag() (runtime, tag string) {
+	if ff.Runtime == "" {
+		return "", ""
 	}
-	ff.Type = fff.Type
-	ff.Memory = fff.Memory
-	ff.Format = fff.Format
-	ff.Timeout = fff.Timeout
-	ff.Path = fff.Path
-	ff.Config = fff.Config
-	ff.Headers = fff.Headers
-	return ff
+
+	rt := ff.Runtime
+	tagpos := strings.Index(rt, ":")
+	if tagpos == -1 {
+		return rt, ""
+	}
+
+	return rt[:tagpos], rt[tagpos+1:]
 }
 
 func findFuncfile(path string) (string, error) {
@@ -176,9 +133,10 @@ func decodeFuncfileJSON(path string) (*funcfile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s for parsing. Error: %v", path, err)
 	}
-	fff := new(flatfuncfile)
-	err = json.NewDecoder(f).Decode(fff)
-	ff := fff.MakeFuncFile()
+	ff := &funcfile{}
+	// ff.Route = &fnmodels.Route{}
+	err = json.NewDecoder(f).Decode(ff)
+	// ff := fff.MakeFuncFile()
 	return ff, err
 }
 
@@ -187,9 +145,9 @@ func decodeFuncfileYAML(path string) (*funcfile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s for parsing. Error: %v", path, err)
 	}
-	fff := new(flatfuncfile)
-	err = yaml.Unmarshal(b, fff)
-	ff := fff.MakeFuncFile()
+	ff := &funcfile{}
+	err = yaml.Unmarshal(b, ff)
+	// ff := fff.MakeFuncFile()
 	return ff, err
 }
 
@@ -198,11 +156,11 @@ func encodeFuncfileJSON(path string, ff *funcfile) error {
 	if err != nil {
 		return fmt.Errorf("could not open %s for encoding. Error: %v", path, err)
 	}
-	return json.NewEncoder(f).Encode(ff.MakeFlat())
+	return json.NewEncoder(f).Encode(ff)
 }
 
 func encodeFuncfileYAML(path string, ff *funcfile) error {
-	b, err := yaml.Marshal(ff.MakeFlat())
+	b, err := yaml.Marshal(ff)
 	if err != nil {
 		return fmt.Errorf("could not encode function file. Error: %v", err)
 	}

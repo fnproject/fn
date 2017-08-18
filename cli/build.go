@@ -40,8 +40,6 @@ func (b *buildcmd) flags() []cli.Flag {
 
 // build will take the found valid function and build it
 func (b *buildcmd) build(c *cli.Context) error {
-	verbwriter := verbwriter(b.verbose)
-
 	path, err := os.Getwd()
 	if err != nil {
 		return err
@@ -51,11 +49,11 @@ func (b *buildcmd) build(c *cli.Context) error {
 		return err
 	}
 
-	ff, err := buildfunc(verbwriter, fn, b.noCache)
+	ff, err := buildfunc(fn, b.noCache)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Function %v built successfully.\n", ff.FullName())
+	fmt.Printf("Function %v built successfully.\n", ff.ImageName())
 	return nil
 }
