@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -8,7 +9,11 @@ import (
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 	s := SetupDefaultSuite()
-	defer Cleanup()
-	defer s.Cancel()
-	os.Exit(m.Run())
+	result := m.Run()
+	Cleanup()
+	s.Cancel()
+	if result == 0 {
+		fmt.Fprintln(os.Stdout, "😀  👍  🎗")
+	}
+	os.Exit(result)
 }
