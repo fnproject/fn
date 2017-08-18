@@ -1,5 +1,10 @@
+<<<<<<< 60da1c5f65dda96b9aeaeb2afbc513bf134a1990
 hash: da81ae46b9ef53596e8daaaa1aeb662af8704d77ae34ce2d33c7da87e6bd1ef5
 updated: 2017-08-09T23:25:49.919468872+03:00
+=======
+hash: fc16e358787292cb0b0d7f71adf4f0685b5994ca1c81788fdd056de21ebe7e55
+updated: 2017-08-18T21:34:47.686061147+03:00
+>>>>>>> Updating CLI dependency: functions_go 0.1.37
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
@@ -50,15 +55,13 @@ imports:
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/funcy/functions_go
-  version: fc7e7ca2fbc8bef236300b7b9f1075410a62447f
+  version: e046aa4ca1f1028a04fc51395297ff07515cb0b6
   subpackages:
   - client
   - client/apps
   - client/call
   - client/operations
   - client/routes
-  - client/tasks
-  - client/version
   - models
 - name: github.com/giantswarm/semver-bump
   version: 88e6c9f2fe390c48839eaba32490fd09cb3b581c
