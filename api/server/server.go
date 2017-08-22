@@ -54,6 +54,7 @@ type Server struct {
 	appListeners    []AppListener
 	middlewares     []Middleware
 	runnerListeners []RunnerListener
+	taskListeners 	[]TaskListener
 
 	routeCache   *cache.Cache
 	singleflight singleflight // singleflight assists Datastore

@@ -66,15 +66,10 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		r = "/"
 	}
 
-	reqRoute := &models.Route{
-		AppName: c.MustGet(api.AppName).(string),
-		Path:    path.Clean(r.(string)),
-	}
 
-	s.FireBeforeDispatch(ctx, reqRoute)
 
-	appName := reqRoute.AppName
-	path := reqRoute.Path
+	appName := c.MustGet(api.AppName).(string)
+	path := path.Clean(r.(string))
 
 	app, err := s.Datastore.GetApp(ctx, appName)
 	if err != nil {
@@ -97,11 +92,13 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		return
 	}
 
+	s.FireBeforeDispatch(ctx, route)
+
 	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
 	log.Debug("Got route from datastore")
 
 	if s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
-		s.FireAfterDispatch(ctx, reqRoute)
+		s.FireAfterDispatch(ctx, route)
 		return
 	}
 
@@ -208,6 +205,12 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	}
 	if cfg.IdleTimeout <= 0 {
 		cfg.IdleTimeout = runner.DefaultIdleTimeout
+	}
+
+	err := s.FireBeforeTaskStart(ctx,cfg)
+	if err !=nil {
+		handleErrorResponse(c,err)
+		return true
 	}
 
 	s.Runner.Enqueue()
