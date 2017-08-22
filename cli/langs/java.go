@@ -21,7 +21,7 @@ func (lh *JavaLangHelper) BuildFromImage() string { return "maven:3.5-jdk-8-alpi
 
 // RunFromImage returns the Docker image used to run the Java function.
 func (lh *JavaLangHelper) RunFromImage() string {
-	return "registry.oracledx.com/skeppare/jfaas-runtime:latest"
+	return "funcy/fn-java-runtime:latest"
 }
 
 // HasPreBuild returns whether the Java runtime has boilerplate that can be generated.
