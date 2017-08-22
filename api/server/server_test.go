@@ -116,8 +116,8 @@ func TestFullStack(t *testing.T) {
 		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0},
 		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
 		// NOTE: cache is lazy, loads when a request comes in for the route, not when added
-		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "funcy/hello", "type": "sync" } }`, http.StatusOK, 0},
-		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "funcy/error", "type": "sync"  } }`, http.StatusOK, 0},
+		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusOK, 0},
+		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/error", "type": "sync"  } }`, http.StatusOK, 0},
 		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},

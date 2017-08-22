@@ -6,8 +6,8 @@ build:
 
 docker: vendor
 	GOOS=linux go build -o fn
-	docker build -t treeder/fn .
-	docker push treeder/fn
+	docker build -t fnproject/fn .
+	docker push fnproject/fn
 
 dep:
 	glide install -v

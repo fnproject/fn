@@ -1,4 +1,4 @@
-FROM funcy/dind
+FROM fnproject/dind
 
 WORKDIR /app
 

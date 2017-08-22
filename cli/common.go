@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	functionsDockerImage     = "funcy/functions"
+	functionsDockerImage     = "fnproject/functions"
 	minRequiredDockerVersion = "17.5.0"
 )
 

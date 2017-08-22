@@ -6,4 +6,4 @@ RUN bundle install
 
 ADD . /function/
 
-ENTRYPOINT ["ruby", "function.rb"]
+ENTRYPOINT ["ruby", "func.rb"]

@@ -26,7 +26,7 @@ func (f *taskDockerTest) EnvVars() map[string]string {
 func (f *taskDockerTest) Labels() map[string]string          { return nil }
 func (f *taskDockerTest) Id() string                         { return f.id }
 func (f *taskDockerTest) Group() string                      { return "" }
-func (f *taskDockerTest) Image() string                      { return "funcy/hello" }
+func (f *taskDockerTest) Image() string                      { return "fnproject/hello" }
 func (f *taskDockerTest) Timeout() time.Duration             { return 30 * time.Second }
 func (f *taskDockerTest) Logger() (stdout, stderr io.Writer) { return f.output, nil }
 func (f *taskDockerTest) WriteStat(drivers.Stat)             { /* TODO */ }
@@ -92,7 +92,7 @@ func TestRunnerDockerStdin(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
-	image := "funcy/hello"
+	image := "fnproject/hello"
 
 	sizer, err := CheckRegistry(context.Background(), image, docker.AuthConfiguration{})
 	if err != nil {
