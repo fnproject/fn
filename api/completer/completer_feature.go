@@ -29,8 +29,8 @@ func (e *invalidCompletionRequest) Error() string {
 }
 
 const (
-	EnvCompleterUrl = "completer_url"
-	EnvCompleterKey = "completer_token"
+	EnvCompleterUrl   = "completer_url"
+	EnvCompleterToken = "completer_token"
 )
 
 // SetupFromEnv Enables the fn completer for all routes that have FN_COMPLETER_ENABLED  set to true
@@ -44,7 +44,7 @@ func SetupFromEnv(ctx context.Context, server *server.Server) {
 		return
 	}
 
-	key := viper.GetString(EnvCompleterKey)
+	key := viper.GetString(EnvCompleterToken)
 	secure := false
 	if key != "" {
 		secure = true
@@ -76,6 +76,7 @@ func (c *completerFeature) BeforeTaskStart(ctx context.Context, task *task.Confi
 	if _, v, ok := findConfigVal(task.Env, "FN_COMPLETER_ENABLED"); ok && strings.ToUpper(v) == "TRUE" {
 		task.Env["FN_COMPLETER_BASE_URL"] = c.completerUrl
 
+		// if threadID is set then this is (defacto) a completer call, require a token  if configured
 		_, _, ok := findConfigVal(task.Env, "HEADER_FNPROJECT_THREADID")
 		if !ok {
 			// normal function invocation
