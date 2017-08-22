@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path"
@@ -40,8 +39,11 @@ type deploycmd struct {
 	incremental bool
 	skippush    bool
 	noCache     bool
+	registry    string
+}
 
-	verbwriter io.Writer
+func (cmd *deploycmd) Registry() string {
+	return cmd.registry
 }
 
 func (p *deploycmd) flags() []cli.Flag {
@@ -73,18 +75,23 @@ func (p *deploycmd) flags() []cli.Flag {
 			Usage:       "does not push Docker built images onto Docker Hub - useful for local development.",
 			Destination: &p.skippush,
 		},
+		cli.StringFlag{
+			Name:        "registry",
+			Usage:       "Sets the Docker owner for images and optionally the registry. This will be prefixed to your function name for pushing to Docker registries. eg: `--registry username` will set your Docker Hub owner. `--registry registry.hub.docker.com/username` will set the registry and owner.",
+			Destination: &p.registry,
+		},
 	}
 }
 
 func (p *deploycmd) scan(c *cli.Context) error {
 	p.appName = c.Args().First()
-	p.verbwriter = verbwriter(p.verbose)
 
 	var walked bool
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Fatalln("Couldn't get working directory:", err)
 	}
+	setRegistryEnv(p)
 
 	err = filepath.Walk(wd, func(path string, info os.FileInfo, err error) error {
 		if path != wd && info.IsDir() {
@@ -101,7 +108,7 @@ func (p *deploycmd) scan(c *cli.Context) error {
 
 		e := p.deploy(c, path)
 		if err != nil {
-			fmt.Fprintln(p.verbwriter, path, e)
+			fmt.Println(path, e)
 		}
 
 		now := time.Now()
@@ -110,7 +117,7 @@ func (p *deploycmd) scan(c *cli.Context) error {
 		return e
 	})
 	if err != nil {
-		fmt.Fprintf(p.verbwriter, "error: %s\n", err)
+		fmt.Printf("error: %s\n", err)
 	}
 
 	if !walked {
@@ -132,7 +139,7 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 		return err
 	}
 
-	funcfile, err := buildfunc(p.verbwriter, funcFileName, p.noCache)
+	funcfile, err := buildfunc(funcFileName, p.noCache)
 	if err != nil {
 		return err
 	}
@@ -152,14 +159,14 @@ func (p *deploycmd) deploy(c *cli.Context, funcFilePath string) error {
 }
 
 func (p *deploycmd) route(c *cli.Context, ff *funcfile) error {
-	fmt.Printf("Updating route %s using image %s...\n", ff.Path, ff.FullName())
+	fmt.Printf("Updating route %s using image %s...\n", ff.Path, ff.ImageName())
 	if err := resetBasePath(p.Configuration); err != nil {
 		return fmt.Errorf("error setting endpoint: %v", err)
 	}
 
 	routesCmd := routesCmd{client: client.APIClient()}
 	rt := &models.Route{}
-	if err := routeWithFuncFile(c, ff, rt); err != nil {
+	if err := routeWithFuncFile(ff, rt); err != nil {
 		return fmt.Errorf("error getting route with funcfile: %s", err)
 	}
 	return routesCmd.putRoute(c, p.appName, ff.Path, rt)

@@ -49,17 +49,19 @@ configuration options [here](docs/operating/options.md). If you are on Windows, 
 
 Functions are small but powerful blocks of code that generally do one simple thing. Forget about monoliths when using functions, just focus on the task that you want the function to perform.
 
-The following is a simple Go program that outputs a string to STDOUT. Copy and paste the code below into a file called `func.go`. Currently the function must be named func.your_language_extention (ie func.go, func.js, etc.)
+First, create an empty directory called `hello` and cd into it.
+
+The following is a simple Go program that outputs a string to STDOUT. Copy and paste the code below into a file called `func.go`.
 
 ```go
 package main
 
 import (
-	"fmt"
+  "fmt"
 )
 
 func main() {
-	fmt.Println("Hello from Fn!")
+  fmt.Println("Hello from Fn!")
 }
 ```
 
@@ -68,11 +70,14 @@ Now run the following CLI commands:
 ```sh
 # Initialize your function
 # This detects your runtime from the code above and creates a func.yaml
-fn init <DOCKERHUB_USERNAME>/hello
+fn init
 
 # Test your function
 # This will run inside a container exactly how it will on the server
 fn run
+
+# Set your Docker Hub username
+export FN_REGISTRY=<DOCKERHUB_USERNAME>
 
 # Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
@@ -83,26 +88,27 @@ Now you can call your function:
 
 ```sh
 curl http://localhost:8080/r/myapp/hello
+# or:
+fn call myapp /hello
 ```
 
 Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-That's it! You just deployed your first function and called it. Now to update your function
+That's it! You just deployed your first function and called it. To update your function
 you can update your code and run `fn deploy myapp` again.
 
 ## To Learn More
 
-- Visit our Functions [Tutorial Series](examples/tutorial/)
-- See our [full documentation](docs/README.md)
-- View all of our [examples](/examples)
-- You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
+* Visit our Functions [Tutorial Series](examples/tutorial/)
+* See our [full documentation](docs/README.md)
+* View all of our [examples](/examples)
+* You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 
 ## Get Involved
 
-- TODO: Slack or Discord community
-- Learn how to [contribute](CONTRIBUTING.md)
-- See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
-
+* TODO: Slack or Discord community
+* Learn how to [contribute](CONTRIBUTING.md)
+* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
 
 ## User Interface
 
@@ -114,9 +120,8 @@ docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:808
 
 For more information, see: [https://github.com/treeder/functions-ui](https://github.com/treeder/functions-ui)
 
+## Next up
 
-# Next up
-
-### Check out the [Tutorial Series](examples/tutorial/).
+### Check out the [Tutorial Series](examples/tutorial/)
 
  It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!

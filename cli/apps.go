@@ -102,17 +102,17 @@ func (a *appsCmd) list(c *cli.Context) error {
 	})
 
 	if err != nil {
-		// fmt.Println("err type:", reflect.TypeOf(err))
-		switch err.(type) {
+		switch e := err.(type) {
 		case *apiapps.GetAppsAppNotFound:
-			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %v", e.Payload.Error.Message)
 		case *apiapps.GetAppsAppDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %v", e.Payload.Error.Message)
 		case *apiapps.GetAppsDefault:
 			// this is the one getting called, not sure what the one above is?
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %v", e.Payload.Error.Message)
+		default:
+			return fmt.Errorf("unexpected error: %v", err)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
 	}
 
 	if len(resp.Payload.Apps) == 0 {
@@ -139,15 +139,16 @@ func (a *appsCmd) create(c *cli.Context) error {
 	})
 
 	if err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *apiapps.PostAppsBadRequest:
-			return fmt.Errorf("error: %v", err.(*apiapps.PostAppsBadRequest).Payload.Error.Message)
+			return fmt.Errorf("error: %v", e.Payload.Error.Message)
 		case *apiapps.PostAppsConflict:
-			return fmt.Errorf("error: %v", err.(*apiapps.PostAppsConflict).Payload.Error.Message)
+			return fmt.Errorf("error: %v", e.Payload.Error.Message)
 		case *apiapps.PostAppsDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.PostAppsDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %v", e.Payload.Error.Message)
+		default:
+			return fmt.Errorf("unexpected error: %v", err)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
 	}
 
 	fmt.Println("Successfully created app: ", resp.Payload.App.Name)
@@ -215,15 +216,16 @@ func (a *appsCmd) patchApp(appName string, app *models.App) error {
 	})
 
 	if err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *apiapps.PatchAppsAppBadRequest:
-			return errors.New(err.(*apiapps.PatchAppsAppBadRequest).Payload.Error.Message)
+			return errors.New(e.Payload.Error.Message)
 		case *apiapps.PatchAppsAppNotFound:
-			return errors.New(err.(*apiapps.PatchAppsAppNotFound).Payload.Error.Message)
+			return errors.New(e.Payload.Error.Message)
 		case *apiapps.PatchAppsAppDefault:
-			return errors.New(err.(*apiapps.PatchAppsAppDefault).Payload.Error.Message)
+			return errors.New(e.Payload.Error.Message)
+		default:
+			return fmt.Errorf("unexpected error: %v", err)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
 	}
 
 	return nil
@@ -243,13 +245,14 @@ func (a *appsCmd) inspect(c *cli.Context) error {
 	})
 
 	if err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *apiapps.GetAppsAppNotFound:
-			return fmt.Errorf("error: %v", err.(*apiapps.GetAppsAppNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %v", e.Payload.Error.Message)
 		case *apiapps.GetAppsAppDefault:
-			return fmt.Errorf("unexpected error: %v", err.(*apiapps.GetAppsAppDefault).Payload.Error.Message)
+			return fmt.Errorf("unexpected error: %v", e.Payload.Error.Message)
+		default:
+			return fmt.Errorf("unexpected error: %v", err)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -294,11 +297,11 @@ func (a *appsCmd) delete(c *cli.Context) error {
 	})
 
 	if err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *apiapps.DeleteAppsAppNotFound:
-			return errors.New(err.(*apiapps.DeleteAppsAppNotFound).Payload.Error.Message)
+			return errors.New(e.Payload.Error.Message)
 		case *apiapps.DeleteAppsAppDefault:
-			return errors.New(err.(*apiapps.DeleteAppsAppDefault).Payload.Error.Message)
+			return errors.New(e.Payload.Error.Message)
 		}
 		return fmt.Errorf("unexpected error: %v", err)
 	}

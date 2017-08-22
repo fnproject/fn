@@ -95,7 +95,7 @@ func (t *testcmd) test(c *cli.Context) error {
 
 	fmt.Printf("Running %v tests...", len(tests))
 
-	target := ff.FullName()
+	target := ff.ImageName()
 	runtest := runlocaltest
 	if t.remote != "" {
 		if ff.Path == "" {
@@ -116,7 +116,7 @@ func (t *testcmd) test(c *cli.Context) error {
 	}
 
 	errorCount := 0
-	fmt.Println("running tests on", ff.FullName(), ":")
+	fmt.Println("running tests on", ff.ImageName(), ":")
 	for i, tt := range tests {
 		fmt.Printf("\nTest %v\n", i+1)
 		start := time.Now()

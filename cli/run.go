@@ -176,7 +176,7 @@ func runff(ff *funcfile, stdin io.Reader, stdout, stderr io.Writer, method strin
 		stdin = strings.NewReader(body)
 	}
 
-	sh = append(sh, ff.FullName())
+	sh = append(sh, ff.ImageName())
 	cmd := exec.Command(sh[0], sh[1:]...)
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
