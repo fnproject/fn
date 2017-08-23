@@ -17,6 +17,8 @@ bolt.db
 .glide/
 /fnctl
 
+_vendor*/
+
 private.sh
 .env
 *.pem
