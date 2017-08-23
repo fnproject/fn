@@ -125,9 +125,9 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "funcy/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myerror", AppName: "myapp", Image: "funcy/error", Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Headers: map[string][]string{"X-Function": {"Test"}}},
 		}, nil, nil,
 	)
 
@@ -223,7 +223,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/sleeper", AppName: "myapp", Image: "funcy/sleeper", Timeout: 1},
+			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Timeout: 1},
 		}, nil, nil,
 	)
 	fnl := logs.NewMock()

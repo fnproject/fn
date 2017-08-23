@@ -36,9 +36,7 @@ docker-dep:
 	docker run --rm -it -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn treeder/glide install -v
 
 docker-build:
-	docker pull funcy/go:dev
-	docker run --rm -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn funcy/go:dev go build -o functions-alpine
-	docker build --build-arg HTTP_PROXY -t funcy/functions:latest .
+	docker build --build-arg HTTP_PROXY -t fnproject/functions:latest .
 
 docker-run: docker-build
 	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 funcy/functions

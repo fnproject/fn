@@ -127,7 +127,7 @@ func SetupDefaultSuite() *SuiteSetup {
 		Client:       APIClient(),
 		AppName:      "fnintegrationtestapp" + RandStringBytes(10),
 		RoutePath:    "/fnintegrationtestroute" + RandStringBytes(10),
-		Image:        "funcy/hello",
+		Image:        "fnproject/hello",
 		Format:       "default",
 		RouteType:    "async",
 		RouteConfig:  map[string]string{},

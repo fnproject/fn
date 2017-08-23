@@ -3,6 +3,7 @@
 set -ex
 
 make build
+make docker-build
 
 docker rm -fv func-postgres-test || echo No prev test db container
 docker run --name func-postgres-test -p 15432:5432 -d postgres
@@ -39,6 +40,8 @@ esac
 
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v cli | grep -v tmp/go/src)
 # go test -v github.com/fnproject/fn/api/runner/drivers/docker
+docker rm --force func-postgres-test 
+docker rm --force func-mysql-test
 
 cd cli && make build && make test
 # TODO: should we install fn here to use throughout?

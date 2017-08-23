@@ -45,8 +45,8 @@ $ export FUNCTIONS=$(docker port functions | cut -d ' ' -f3)
 $ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"funcy/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"funcy/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"type":"sync","config":null}}
 
 $ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
 Hello Johnny!
@@ -125,8 +125,8 @@ $ export FUNCTIONS=$(docker port functions-lb | cut -d ' ' -f3)
 $ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"funcy/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"funcy/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"type":"sync","config":null}}
 
 $ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
 Hello Johnny!

@@ -25,12 +25,12 @@ Now that we have an app, we can route endpoints to functions.
 ### Add a Route
 
 A route is a way to define a path in your application that maps to a function. In this example, we'll map
-`/hello` to a simple `Hello World!` function called `funcy/hello` which is a function we already made that you
+`/hello` to a simple `Hello World!` function called `fnproject/hello` which is a function we already made that you
 can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello/go).
 You can read more about [writing your own functions here](docs/writing.md).
 
 ```sh
-fn routes create myapp /hello -i funcy/hello
+fn routes create myapp /hello -i fnproject/hello
 ```
 
 Or using cURL:
@@ -39,7 +39,7 @@ Or using cURL:
 curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
         "path":"/hello",
-        "image":"funcy/hello"
+        "image":"fnproject/hello"
     }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
@@ -101,7 +101,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
     "route": {
         "type": "async",
         "path":"/hello-async",
-        "image":"funcy/hello"
+        "image":"fnproject/hello"
     }
 }' http://localhost:8080/v1/apps/myapp/routes
 ```

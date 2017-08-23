@@ -52,7 +52,7 @@ func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 func TestRouteExecutions(t *testing.T) {
 	newRouteType := "async"
 
-	t.Run("run-sync-funcy/hello-no-input", func(t *testing.T) {
+	t.Run("run-sync-fnproject/hello-no-input", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
@@ -79,7 +79,7 @@ func TestRouteExecutions(t *testing.T) {
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
-	t.Run("run-sync-funcy/hello-with-input", func(t *testing.T) {
+	t.Run("run-sync-fnproject/hello-with-input", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
@@ -110,7 +110,7 @@ func TestRouteExecutions(t *testing.T) {
 
 	})
 
-	t.Run("run-async-funcy/hello", func(t *testing.T) {
+	t.Run("run-async-fnproject/hello", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
@@ -136,7 +136,7 @@ func TestRouteExecutions(t *testing.T) {
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
-	t.Run("run-async-funcy/hello-with-status-check", func(t *testing.T) {
+	t.Run("run-async-fnproject/hello-with-status-check", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})

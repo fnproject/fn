@@ -310,7 +310,7 @@ func Test(t *testing.T, ds models.Datastore) {
 				// unchanged
 				AppName: testRoute.AppName,
 				Path:    testRoute.Path,
-				Image:   "funcy/hello",
+				Image:   "fnproject/hello",
 				Type:    "sync",
 				Format:  "http",
 				// updated
@@ -353,7 +353,7 @@ func Test(t *testing.T, ds models.Datastore) {
 				// unchanged
 				AppName: testRoute.AppName,
 				Path:    testRoute.Path,
-				Image:   "funcy/hello",
+				Image:   "fnproject/hello",
 				Type:    "sync",
 				Format:  "http",
 				Timeout: 100,
@@ -477,7 +477,7 @@ var testApp = &models.App{
 var testRoute = &models.Route{
 	AppName: testApp.Name,
 	Path:    "/test",
-	Image:   "funcy/hello",
+	Image:   "fnproject/hello",
 	Type:    "sync",
 	Format:  "http",
 }

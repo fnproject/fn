@@ -36,8 +36,8 @@ func TestRunnerHello(t *testing.T) {
 		expectedErr    string
 		taskID         string
 	}{
-		{&models.Route{Image: "funcy/hello"}, ``, "success", "Hello World!", "", id.New().String()},
-		{&models.Route{Image: "funcy/hello"}, `{"name": "test"}`, "success", "Hello test!", "", id.New().String()},
+		{&models.Route{Image: "fnproject/hello"}, ``, "success", "Hello World!", "", id.New().String()},
+		{&models.Route{Image: "fnproject/hello"}, `{"name": "test"}`, "success", "Hello test!", "", id.New().String()},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{
@@ -96,8 +96,8 @@ func TestRunnerError(t *testing.T) {
 		expectedErr    string
 		taskID         string
 	}{
-		{&models.Route{Image: "funcy/error"}, ``, "error", "", "", id.New().String()},
-		{&models.Route{Image: "funcy/error"}, `{"name": "test"}`, "error", "", "", id.New().String()},
+		{&models.Route{Image: "fnproject/error"}, ``, "error", "", "", id.New().String()},
+		{&models.Route{Image: "fnproject/error"}, `{"name": "test"}`, "error", "", "", id.New().String()},
 	} {
 		var stdout, stderr bytes.Buffer
 		cfg := &task.Config{

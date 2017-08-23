@@ -58,7 +58,7 @@ Note: Route level configuration overrides app level configuration.
 Using `fn`:
 
 ```sh
-fn routes create myapp /path --config k1=v1 --config k2=v2 --image funcy/hello
+fn routes create myapp /path --config k1=v1 --config k2=v2 --image fnproject/hello
 ```
 
 Or using cURL:
@@ -80,7 +80,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 ```json
 {
     "path": "/hello",
-    "image": "funcy/hello",
+    "image": "fnproject/hello",
     "type": "sync",
     "memory": 128,
     "config": {

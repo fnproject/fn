@@ -16,7 +16,7 @@ $fn test
 
 someport=50080
 docker rm --force functions || true # just in case
-docker run --name functions -d -v /var/run/docker.sock:/var/run/docker.sock -p $someport:8080 funcy/functions
+docker run --name functions -d -v /var/run/docker.sock:/var/run/docker.sock -p $someport:8080 fnproject/functions
 sleep 10
 docker logs functions
 
