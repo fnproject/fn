@@ -41,12 +41,12 @@ func (log *logsCmd) get(ctx *cli.Context) error {
 	}
 	resp, err := log.client.Operations.GetAppsAppCallsCallLog(&params)
 	if err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *apicall.GetAppsAppCallsCallLogNotFound:
-			return fmt.Errorf("error: %v", err.(*apicall.GetAppsAppCallsCallLogNotFound).Payload.Error.Message)
+			return fmt.Errorf("error: %v", e.Payload.Error.Message)
+		default:
+			return fmt.Errorf("unexpected error: %v", err)
 		}
-		return fmt.Errorf("unexpected error: %v", err)
-
 	}
 	fmt.Print(resp.Payload.Log.Log)
 	return nil

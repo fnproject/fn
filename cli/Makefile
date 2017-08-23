@@ -4,6 +4,9 @@ all: vendor build
 build: 
 	go build -o fn
 
+install:
+	go build -o ${GOPATH}/bin/fn
+
 docker: vendor
 	GOOS=linux go build -o fn
 	docker build -t treeder/fn .
@@ -23,3 +26,5 @@ release:
 	GOOS=darwin go build -o fn_mac
 	GOOS=windows go build -o fn.exe
 	docker run --rm -v ${PWD}:/go/src/github.com/fnproject/fn/cli -w /go/src/github.com/fnproject/fn/cli funcy/go:dev go build -o fn_alpine
+
+.PHONY: install

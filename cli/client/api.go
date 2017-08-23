@@ -11,6 +11,10 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
+const (
+	envFnToken = "FN_TOKEN"
+)
+
 func Host() string {
 	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
@@ -26,8 +30,8 @@ func Host() string {
 
 func APIClient() *fnclient.Functions {
 	transport := httptransport.New(Host(), "/v1", []string{"http"})
-	if os.Getenv("FN_TOKEN") != "" {
-		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("FN_TOKEN"))
+	if os.Getenv(envFnToken) != "" {
+		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv(envFnToken))
 	}
 
 	// create the API client, with the transport

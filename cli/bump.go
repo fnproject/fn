@@ -41,7 +41,6 @@ func (b *bumpcmd) flags() []cli.Flag {
 
 // bump will take the found valid function and bump its version
 func (b *bumpcmd) bump(c *cli.Context) error {
-	verbwriter := verbwriter(b.verbose)
 
 	path, err := os.Getwd()
 	if err != nil {
@@ -52,7 +51,7 @@ func (b *bumpcmd) bump(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(verbwriter, "bumping version for", fn)
+	fmt.Println("bumping version for", fn)
 
 	funcfile, err := parsefuncfile(fn)
 	if err != nil {

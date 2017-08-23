@@ -181,7 +181,7 @@ func createFunctionYaml(opts createImageOptions, functionName string) error {
 	funcDesc := &funcfile{
 		Name:    opts.Name,
 		Version: "0.0.1",
-		Runtime: &opts.Base,
+		Runtime: opts.Base,
 		Cmd:     opts.Handler,
 	}
 	funcDesc.Config = opts.Config
