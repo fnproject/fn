@@ -79,10 +79,10 @@ func (lh *JavaLangHelper) DockerfileBuildCmds() []string {
 	return []string{
 		fmt.Sprintf("ENV MAVEN_OPTS %s", mavenOpts()),
 		"ADD pom.xml /function/pom.xml",
-		"RUN [\"mvn\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", " +
+		"RUN [\"mvn\", \"-X\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", " +
 			"\"-DskipTests=true\", \"-Dmdep.prependGroupId=true\", \"-DoutputDirectory=target\", \"--fail-never\"]",
 		"ADD src /function/src",
-		"RUN [\"mvn\", \"package\"]",
+		"RUN [\"mvn\", \"-X\", \"package\"]",
 	}
 }
 
@@ -124,8 +124,8 @@ func mavenOpts() string {
 	return opts.String()
 }
 
-/*	TODO temporarily generate maven project boilerplate from hardcoded values.
-	Will eventually move to using a maven archetype.
+/*    TODO temporarily generate maven project boilerplate from hardcoded values.
+Will eventually move to using a maven archetype.
 */
 
 const (
@@ -144,7 +144,14 @@ const (
     <repositories>
         <repository>
             <id>oracle-fn-repo</id>
-            <url>https://mvnread:;+kKf24IAwWma{ds)IE5@swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/</url>
+            <url>https://mvnread:;+kKf24IAwWma{ds)IE5@swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
         </repository>
     </repositories>
 
@@ -160,7 +167,7 @@ const (
             <version>1.0.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
-		<dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.12</version>
