@@ -36,8 +36,6 @@ docker-dep:
 	docker run --rm -it -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn treeder/glide install -v
 
 docker-build:
-	docker pull funcy/go:dev
-	docker run --rm -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn funcy/go:dev go build -o functions-alpine
 	docker build --build-arg HTTP_PROXY -t fnproject/functions:latest .
 
 docker-run: docker-build

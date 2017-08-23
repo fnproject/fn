@@ -39,6 +39,8 @@ esac
 
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v cli | grep -v tmp/go/src)
 # go test -v github.com/fnproject/fn/api/runner/drivers/docker
+docker rm --force func-postgres-test 
+docker rm --force func-mysql-test
 
 cd cli && make build && make test
 # TODO: should we install fn here to use throughout?
