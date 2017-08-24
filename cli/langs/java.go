@@ -21,7 +21,7 @@ func (lh *JavaLangHelper) BuildFromImage() string { return "maven:3.5-jdk-8-alpi
 
 // RunFromImage returns the Docker image used to run the Java function.
 func (lh *JavaLangHelper) RunFromImage() string {
-	return "registry.oracledx.com/skeppare/jfaas-runtime:latest"
+	return "fnproject/fn-java-fdk:latest"
 }
 
 // HasPreBuild returns whether the Java runtime has boilerplate that can be generated.
@@ -54,17 +54,17 @@ func (lh *JavaLangHelper) GenerateBoilerplate() error {
 		return ioutil.WriteFile(fullFilePath, []byte(content), os.FileMode(0644))
 	}
 
-	err = mkDirAndWriteFile("src/main/java/com/example/faas", "HelloFunction.java", helloJavaSrcBoilerplate)
+	err = mkDirAndWriteFile("src/main/java/com/example/fn", "HelloFunction.java", helloJavaSrcBoilerplate)
 	if err != nil {
 		return err
 	}
 
-	return mkDirAndWriteFile("src/test/java/com/example/faas", "HelloFunctionTest.java", helloJavaTestBoilerplate)
+	return mkDirAndWriteFile("src/test/java/com/example/fn", "HelloFunctionTest.java", helloJavaTestBoilerplate)
 }
 
 // Entrypoint returns the Java runtime Docker entrypoint that will be executed when the function is executed.
 func (lh *JavaLangHelper) Cmd() string {
-	return "com.example.faas.HelloFunction::handleRequest"
+	return "com.example.fn.HelloFunction::handleRequest"
 }
 
 // DockerfileCopyCmds returns the Docker COPY command to copy the compiled Java function jar and dependencies.
@@ -124,8 +124,8 @@ func mavenOpts() string {
 	return opts.String()
 }
 
-/*	TODO temporarily generate maven project boilerplate from hardcoded values.
-	Will eventually move to using a maven archetype.
+/*    TODO temporarily generate maven project boilerplate from hardcoded values.
+Will eventually move to using a maven archetype.
 */
 
 const (
@@ -137,30 +137,47 @@ const (
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-    <groupId>com.example.faas</groupId>
+    <groupId>com.example.fn</groupId>
     <artifactId>hello</artifactId>
     <version>1.0.0</version>
 
     <repositories>
         <repository>
-            <id>nexus-box</id>
-            <url>http://10.167.103.241:8081/repository/maven-snapshots/</url>
+            <id>fn-release-repo</id>
+            <url>https://swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/releases</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>fn-snapshot-repo</id>
+            <url>https://swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
         </repository>
     </repositories>
 
     <dependencies>
         <dependency>
-            <groupId>com.oracle.faas</groupId>
+            <groupId>com.fnproject.fn</groupId>
             <artifactId>api</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
         <dependency>
-            <groupId>com.oracle.faas</groupId>
+            <groupId>com.fnproject.fn</groupId>
             <artifactId>testing</artifactId>
             <version>1.0.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
-		<dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.12</version>
@@ -184,7 +201,7 @@ const (
 </project>
 `
 
-	helloJavaSrcBoilerplate = `package com.example.faas;
+	helloJavaSrcBoilerplate = `package com.example.fn;
 
 public class HelloFunction {
 
@@ -196,9 +213,9 @@ public class HelloFunction {
 
 }`
 
-	helloJavaTestBoilerplate = `package com.example.faas;
+	helloJavaTestBoilerplate = `package com.example.fn;
 
-import com.oracle.faas.testing.*;
+import com.fnproject.fn.testing.*;
 import org.junit.*;
 
 import static org.junit.Assert.*;
