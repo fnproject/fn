@@ -15,8 +15,8 @@ type diskUsageOptions struct {
 	format  string
 }
 
-// NewDiskUsageCommand creates a new cobra.Command for `docker df`
-func NewDiskUsageCommand(dockerCli *command.DockerCli) *cobra.Command {
+// newDiskUsageCommand creates a new cobra.Command for `docker df`
+func newDiskUsageCommand(dockerCli *command.DockerCli) *cobra.Command {
 	var opts diskUsageOptions
 
 	cmd := &cobra.Command{
@@ -57,11 +57,12 @@ func runDiskUsage(dockerCli *command.DockerCli, opts diskUsageOptions) error {
 			Output: dockerCli.Out(),
 			Format: formatter.NewDiskUsageFormat(format),
 		},
-		LayersSize: du.LayersSize,
-		Images:     du.Images,
-		Containers: du.Containers,
-		Volumes:    du.Volumes,
-		Verbose:    opts.verbose,
+		LayersSize:  du.LayersSize,
+		BuilderSize: du.BuilderSize,
+		Images:      du.Images,
+		Containers:  du.Containers,
+		Volumes:     du.Volumes,
+		Verbose:     opts.verbose,
 	}
 
 	return duCtx.Write()

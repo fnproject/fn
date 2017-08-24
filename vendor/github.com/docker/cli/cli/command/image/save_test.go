@@ -1,15 +1,14 @@
 package image
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/docker/cli/cli/internal/test"
-	"github.com/docker/docker/pkg/testutil"
+	"github.com/docker/cli/internal/test"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,7 @@ func TestNewSaveCommandErrors(t *testing.T) {
 		{
 			name:          "wrong args",
 			args:          []string{},
-			expectedError: "requires at least 1 argument(s).",
+			expectedError: "requires at least 1 argument.",
 		},
 		{
 			name:          "output to terminal",
@@ -43,9 +42,14 @@ func TestNewSaveCommandErrors(t *testing.T) {
 				return ioutil.NopCloser(strings.NewReader("")), errors.Errorf("error saving image")
 			},
 		},
+		{
+			name:          "output directory does not exist",
+			args:          []string{"-o", "fakedir/out.tar", "arg1"},
+			expectedError: "failed to save image: unable to validate output path: directory \"fakedir\" does not exist",
+		},
 	}
 	for _, tc := range testCases {
-		cli := test.NewFakeCli(&fakeClient{imageSaveFunc: tc.imageSaveFunc}, new(bytes.Buffer))
+		cli := test.NewFakeCli(&fakeClient{imageSaveFunc: tc.imageSaveFunc})
 		cli.Out().SetIsTerminal(tc.isTerminal)
 		cmd := NewSaveCommand(cli)
 		cmd.SetOutput(ioutil.Discard)
@@ -89,7 +93,7 @@ func TestNewSaveCommandSuccess(t *testing.T) {
 			imageSaveFunc: func(images []string) (io.ReadCloser, error) {
 				return ioutil.NopCloser(strings.NewReader("")), nil
 			},
-		}, new(bytes.Buffer)))
+		}))
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		assert.NoError(t, cmd.Execute())

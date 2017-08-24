@@ -21,6 +21,14 @@ Then please do not open an issue here yet - you should first try one of the foll
  - irc: #docker-distribution on freenode
  - mailing-list: <distribution@dockerproject.org> or https://groups.google.com/a/dockerproject.org/forum/#!forum/distribution
 
+### Reporting security issues
+
+The Docker maintainers take security seriously. If you discover a security
+issue, please bring it to their attention right away!
+
+Please **DO NOT** file a public issue, instead send your report privately to
+[security@docker.com](mailto:security@docker.com).
+
 ## Reporting an issue properly
 
 By following these simple rules you will get better and faster feedback on your issue.
@@ -43,7 +51,7 @@ By following these simple rules you will get better and faster feedback on your 
  2. copy the output of:
    - `docker version`
    - `docker info`
-   - `docker exec <registry-container> registry -version`
+   - `docker exec <registry-container> registry --version`
  3. copy the command line you used to launch your Registry
  4. restart your docker daemon in debug mode (add `-D` to the daemon launch arguments)
  5. reproduce your problem and get your docker daemon logs showing the error

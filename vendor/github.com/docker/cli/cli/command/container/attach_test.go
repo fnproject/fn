@@ -1,13 +1,12 @@
 package container
 
 import (
-	"bytes"
 	"io/ioutil"
 	"testing"
 
-	"github.com/docker/cli/cli/internal/test"
+	"github.com/docker/cli/internal/test"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/pkg/testutil"
 	"github.com/pkg/errors"
 )
 
@@ -68,8 +67,7 @@ func TestNewAttachCommandErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := NewAttachCommand(test.NewFakeCli(&fakeClient{containerInspectFunc: tc.containerInspectFunc}, buf))
+		cmd := NewAttachCommand(test.NewFakeCli(&fakeClient{containerInspectFunc: tc.containerInspectFunc}))
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		testutil.ErrorContains(t, cmd.Execute(), tc.expectedError)

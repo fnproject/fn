@@ -1,4 +1,4 @@
-version: "3.3"
+version: "3.4"
 
 services:
   foo:
@@ -31,6 +31,7 @@ services:
         failure_action: continue
         monitor: 60s
         max_failure_ratio: 0.3
+        order: start-first
       resources:
         limits:
           cpus: '0.001'
@@ -39,7 +40,7 @@ services:
           cpus: '0.0001'
           memory: 20M
       restart_policy:
-        condition: on_failure
+        condition: on-failure
         delay: 5s
         max_attempts: 3
         window: 120s
@@ -280,6 +281,15 @@ volumes:
       foo: "bar"
       baz: 1
 
+  another-volume:
+    name: "user_specified_name"
+    driver: vsphere
+
+    driver_opts:
+      # Values can be strings or numbers
+      foo: "bar"
+      baz: 1
+
   external-volume:
     # Specifies that a pre-existing volume called "external-volume"
     # can be referred to within this file as "external-volume"
@@ -288,5 +298,12 @@ volumes:
   other-external-volume:
     # Specifies that a pre-existing volume called "my-cool-volume"
     # can be referred to within this file as "other-external-volume"
+    # This example uses the deprecated "volume.external.name" (replaced by "volume.name")
     external:
       name: my-cool-volume
+
+  external-volume3:
+    # Specifies that a pre-existing volume called "this-is-volume3"
+    # can be referred to within this file as "external-volume3"
+    name: this-is-volume3
+    external: true

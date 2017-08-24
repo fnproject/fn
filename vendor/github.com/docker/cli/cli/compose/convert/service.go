@@ -142,6 +142,7 @@ func Service(
 				User:            service.User,
 				Mounts:          mounts,
 				StopGracePeriod: service.StopGracePeriod,
+				StopSignal:      service.StopSignal,
 				TTY:             service.Tty,
 				OpenStdin:       service.StdinOpen,
 				Secrets:         secrets,
@@ -454,6 +455,7 @@ func convertUpdateConfig(source *composetypes.UpdateConfig) *swarm.UpdateConfig 
 		FailureAction:   source.FailureAction,
 		Monitor:         source.Monitor,
 		MaxFailureRatio: source.MaxFailureRatio,
+		Order:           source.Order,
 	}
 }
 
@@ -563,9 +565,6 @@ func convertCredentialSpec(spec composetypes.CredentialSpecConfig) (*swarm.Crede
 	if spec.File != "" && spec.Registry != "" {
 		return nil, errors.New("Invalid credential spec - must provide one of `File` or `Registry`")
 	}
-
-	return &swarm.CredentialSpec{
-		File:     spec.File,
-		Registry: spec.Registry,
-	}, nil
+	swarmCredSpec := swarm.CredentialSpec(spec)
+	return &swarmCredSpec, nil
 }

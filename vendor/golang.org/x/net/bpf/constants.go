@@ -76,54 +76,54 @@ const (
 	// ExtLen returns the length of the packet.
 	ExtLen Extension = 1
 	// ExtProto returns the packet's L3 protocol type.
-	ExtProto Extension = 0
+	ExtProto = 0
 	// ExtType returns the packet's type (skb->pkt_type in the kernel)
 	//
 	// TODO: better documentation. How nice an API do we want to
 	// provide for these esoteric extensions?
-	ExtType Extension = 4
+	ExtType = 4
 	// ExtPayloadOffset returns the offset of the packet payload, or
 	// the first protocol header that the kernel does not know how to
 	// parse.
-	ExtPayloadOffset Extension = 52
+	ExtPayloadOffset = 52
 	// ExtInterfaceIndex returns the index of the interface on which
 	// the packet was received.
-	ExtInterfaceIndex Extension = 8
+	ExtInterfaceIndex = 8
 	// ExtNetlinkAttr returns the netlink attribute of type X at
 	// offset A.
-	ExtNetlinkAttr Extension = 12
+	ExtNetlinkAttr = 12
 	// ExtNetlinkAttrNested returns the nested netlink attribute of
 	// type X at offset A.
-	ExtNetlinkAttrNested Extension = 16
+	ExtNetlinkAttrNested = 16
 	// ExtMark returns the packet's mark value.
-	ExtMark Extension = 20
+	ExtMark = 20
 	// ExtQueue returns the packet's assigned hardware queue.
-	ExtQueue Extension = 24
+	ExtQueue = 24
 	// ExtLinkLayerType returns the packet's hardware address type
 	// (e.g. Ethernet, Infiniband).
-	ExtLinkLayerType Extension = 28
+	ExtLinkLayerType = 28
 	// ExtRXHash returns the packets receive hash.
 	//
 	// TODO: figure out what this rxhash actually is.
-	ExtRXHash Extension = 32
+	ExtRXHash = 32
 	// ExtCPUID returns the ID of the CPU processing the current
 	// packet.
-	ExtCPUID Extension = 36
+	ExtCPUID = 36
 	// ExtVLANTag returns the packet's VLAN tag.
-	ExtVLANTag Extension = 44
+	ExtVLANTag = 44
 	// ExtVLANTagPresent returns non-zero if the packet has a VLAN
 	// tag.
 	//
 	// TODO: I think this might be a lie: it reads bit 0x1000 of the
 	// VLAN header, which changed meaning in recent revisions of the
 	// spec - this extension may now return meaningless information.
-	ExtVLANTagPresent Extension = 48
+	ExtVLANTagPresent = 48
 	// ExtVLANProto returns 0x8100 if the frame has a VLAN header,
 	// 0x88a8 if the frame has a "Q-in-Q" double VLAN header, or some
 	// other value if no VLAN information is present.
-	ExtVLANProto Extension = 60
+	ExtVLANProto = 60
 	// ExtRand returns a uniformly random uint32.
-	ExtRand Extension = 56
+	ExtRand = 56
 )
 
 // The following gives names to various bit patterns used in opcode construction.

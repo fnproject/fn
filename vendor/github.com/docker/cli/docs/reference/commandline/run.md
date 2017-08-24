@@ -4,8 +4,8 @@ description: "The run command description and usage"
 keywords: "run, command, container"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -302,7 +302,7 @@ Contents of file
 ```
 
 The following examples will fail when using Windows-based containers, as the
-destination of a volume or bind-mount inside the container must be one of:
+destination of a volume or bind mount inside the container must be one of:
 a non-existing or empty directory; or a drive other than C:. Further, the source
 of a bind mount must be a local directory, not a file.
 
@@ -318,7 +318,7 @@ docker run -v c:\foo:c:\existing-directory-with-contents ...
 For in-depth information about volumes, refer to [manage data in containers](https://docs.docker.com/engine/tutorials/dockervolumes/)
 
 
-### Add bind-mounts or volumes using the --mount flag
+### Add bind mounts or volumes using the --mount flag
 
 The `--mount` flag allows you to mount volumes, host-directories and `tmpfs`
 mounts in a container.
@@ -744,6 +744,44 @@ PS C:\> docker run -d microsoft/nanoserver powershell echo hyperv
 PS C:\> docker run -d --isolation default microsoft/nanoserver powershell echo hyperv
 PS C:\> docker run -d --isolation hyperv microsoft/nanoserver powershell echo hyperv
 ```
+
+### Specify hard limits on memory available to containers (-m, --memory)
+
+These parameters always set an upper limit on the memory available to the container. On Linux, this
+is set on the cgroup and applications in a container can query it at `/sys/fs/cgroup/memory/memory.limit_in_bytes`.
+
+On Windows, this will affect containers differently depending on what type of isolation is used.
+
+- With `process` isolation, Windows will report the full memory of the host system, not the limit to applications running inside the container
+
+    ```powershell
+    PS C:\> docker run -it -m 2GB --isolation=process microsoft/nanoserver powershell Get-ComputerInfo *memory*
+
+    CsTotalPhysicalMemory      : 17064509440
+    CsPhyicallyInstalledMemory : 16777216
+    OsTotalVisibleMemorySize   : 16664560
+    OsFreePhysicalMemory       : 14646720
+    OsTotalVirtualMemorySize   : 19154928
+    OsFreeVirtualMemory        : 17197440
+    OsInUseVirtualMemory       : 1957488
+    OsMaxProcessMemorySize     : 137438953344
+    ```
+
+- With `hyperv` isolation, Windows will create a utility VM that is big enough to hold the memory limit, plus the minimal OS needed to host the container. That size is reported as "Total Physical Memory."
+
+    ```powershell
+    PS C:\> docker run -it -m 2GB --isolation=hyperv microsoft/nanoserver powershell Get-ComputerInfo *memory*
+
+    CsTotalPhysicalMemory      : 2683355136
+    CsPhyicallyInstalledMemory :
+    OsTotalVisibleMemorySize   : 2620464
+    OsFreePhysicalMemory       : 2306552
+    OsTotalVirtualMemorySize   : 2620464
+    OsFreeVirtualMemory        : 2356692
+    OsInUseVirtualMemory       : 263772
+    OsMaxProcessMemorySize     : 137438953344
+    ```
+
 
 ### Configure namespaced kernel parameters (sysctls) at runtime
 

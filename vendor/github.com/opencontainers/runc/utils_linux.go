@@ -10,16 +10,16 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/coreos/go-systemd/activation"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups/systemd"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/specconv"
 	"github.com/opencontainers/runc/libcontainer/utils"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
 
+	"github.com/coreos/go-systemd/activation"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 	"golang.org/x/sys/unix"
 )
 
@@ -371,7 +371,10 @@ func startContainer(context *cli.Context, spec *specs.Spec, action CtAct, criuOp
 	}
 
 	if notifySocket != nil {
-		notifySocket.setupSocket()
+		err := notifySocket.setupSocket()
+		if err != nil {
+			return -1, err
+		}
 	}
 
 	// Support on-demand socket activation by passing file descriptors into the container init process.

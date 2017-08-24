@@ -508,7 +508,7 @@ func TestServer_Push_RejectAfterGoAway(t *testing.T) {
 				return
 			default:
 			}
-			st.sc.serveMsgCh <- func(loopNum int) {
+			st.sc.testHookCh <- func(loopNum int) {
 				if !st.sc.pushEnabled {
 					readyOnce.Do(func() { close(ready) })
 				}

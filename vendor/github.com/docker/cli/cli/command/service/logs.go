@@ -164,7 +164,7 @@ func runLogs(dockerCli *command.DockerCli, opts *logsOptions) error {
 
 // getMaxLength gets the maximum length of the number in base 10
 func getMaxLength(i int) int {
-	return len(strconv.FormatInt(int64(i), 10))
+	return len(strconv.Itoa(i))
 }
 
 type taskFormatter struct {
@@ -237,7 +237,7 @@ type logWriter struct {
 func (lw *logWriter) Write(buf []byte) (int, error) {
 	// this works but ONLY because stdcopy calls write a whole line at a time.
 	// if this ends up horribly broken or panics, check to see if stdcopy has
-	// reneged on that asssumption. (@god forgive me)
+	// reneged on that assumption. (@god forgive me)
 	// also this only works because the logs format is, like, barely parsable.
 	// if something changes in the logs format, this is gonna break
 

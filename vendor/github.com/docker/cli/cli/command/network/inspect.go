@@ -6,6 +6,7 @@ import (
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/command/inspect"
+	"github.com/docker/docker/api/types"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +16,7 @@ type inspectOptions struct {
 	verbose bool
 }
 
-func newInspectCommand(dockerCli *command.DockerCli) *cobra.Command {
+func newInspectCommand(dockerCli command.Cli) *cobra.Command {
 	var opts inspectOptions
 
 	cmd := &cobra.Command{
@@ -34,13 +35,13 @@ func newInspectCommand(dockerCli *command.DockerCli) *cobra.Command {
 	return cmd
 }
 
-func runInspect(dockerCli *command.DockerCli, opts inspectOptions) error {
+func runInspect(dockerCli command.Cli, opts inspectOptions) error {
 	client := dockerCli.Client()
 
 	ctx := context.Background()
 
 	getNetFunc := func(name string) (interface{}, []byte, error) {
-		return client.NetworkInspectWithRaw(ctx, name, opts.verbose)
+		return client.NetworkInspectWithRaw(ctx, name, types.NetworkInspectOptions{Verbose: opts.verbose})
 	}
 
 	return inspect.Inspect(dockerCli.Out(), opts.names, opts.format, getNetFunc)

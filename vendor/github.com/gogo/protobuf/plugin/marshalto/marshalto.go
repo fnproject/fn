@@ -1367,7 +1367,7 @@ func (p *marshalto) Generate(file *generator.FileDescriptor) {
 			p.P(`func (m *`, ccTypeName, `) MarshalTo(dAtA []byte) (int, error) {`)
 			p.In()
 			p.P(`i := 0`)
-			vanity.TurnOffNullableForNativeTypes(field)
+			vanity.TurnOffNullableForNativeTypesWithoutDefaultsOnly(field)
 			p.generateField(false, numGen, file, message, field)
 			p.P(`return i, nil`)
 			p.Out()

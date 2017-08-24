@@ -4,8 +4,8 @@ description: "The plugin ls command description and usage"
 keywords: "plugin, list"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -68,9 +68,9 @@ might have multiple capabilities. Currently `volumedriver`, `networkdriver`,
 `ipamdriver`, `logdriver`, `metricscollector`, and `authz` are supported capabilities.
 
 ```bash
-$ docker plugin install --disable tiborvass/no-remove
+$ docker plugin install --disable vieux/sshfs
 
-tiborvass/no-remove
+Installed plugin vieux/sshfs
 
 $ docker plugin ls --filter enabled=true
 
@@ -102,7 +102,7 @@ The following example uses a template without headers and outputs the
 ```bash
 $ docker plugin ls --format "{{.ID}}: {{.Name}}"
 
-4be01827a72e: tiborvass/no-remove
+4be01827a72e: vieux/sshfs:latest
 ```
 
 ## Related commands

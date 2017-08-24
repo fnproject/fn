@@ -4,8 +4,8 @@ description: "The service scale command description and usage"
 keywords: "service, scale"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -16,11 +16,12 @@ keywords: "service, scale"
 # service scale
 
 ```markdown
-Usage:  docker service scale SERVICE=REPLICAS [SERVICE=REPLICAS...]
+Usage:  docker service scale [OPTIONS] SERVICE=REPLICAS [SERVICE=REPLICAS...]
 
 Scale one or multiple replicated services
 
 Options:
+  -d, --detach                             Exit immediately instead of waiting for the service to converge (default true)
       --help   Print usage
 ```
 
@@ -100,5 +101,6 @@ ID            NAME      MODE        REPLICAS  IMAGE
 * [service logs](service_logs.md)
 * [service ls](service_ls.md)
 * [service rm](service_rm.md)
+* [service rollback](service_rollback.md)
 * [service ps](service_ps.md)
 * [service update](service_update.md)

@@ -1,6 +1,6 @@
 package: github.com/fnproject/fn/cli
 import:
-- package: github.com/Sirupsen/logrus
+- package: github.com/sirupsen/logrus
   repo: https://github.com/sirupsen/logrus
   vcs: git
   version: v0.11.5

@@ -79,21 +79,21 @@ func (c *historyContext) ID() string {
 }
 
 func (c *historyContext) CreatedAt() string {
-	var created string
-	created = units.HumanDuration(time.Now().UTC().Sub(time.Unix(int64(c.h.Created), 0)))
-	return created
+	return time.Unix(c.h.Created, 0).Format(time.RFC3339)
 }
 
 func (c *historyContext) CreatedSince() string {
-	var created string
-	created = units.HumanDuration(time.Now().UTC().Sub(time.Unix(int64(c.h.Created), 0)))
+	if !c.human {
+		return c.CreatedAt()
+	}
+	created := units.HumanDuration(time.Now().UTC().Sub(time.Unix(c.h.Created, 0)))
 	return created + " ago"
 }
 
 func (c *historyContext) CreatedBy() string {
 	createdBy := strings.Replace(c.h.CreatedBy, "\t", " ", -1)
 	if c.trunc {
-		createdBy = stringutils.Ellipsis(createdBy, 45)
+		return stringutils.Ellipsis(createdBy, 45)
 	}
 	return createdBy
 }

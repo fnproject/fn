@@ -53,10 +53,7 @@ func (s *DockerSuite) TestInspectDefault(c *check.C) {
 }
 
 func (s *DockerSuite) TestInspectStatus(c *check.C) {
-	if testEnv.DaemonPlatform() != "windows" {
-		defer unpauseAllContainers(c)
-	}
-	out, _ := runSleepingContainer(c, "-d")
+	out := runSleepingContainer(c, "-d")
 	out = strings.TrimSpace(out)
 
 	inspectOut := inspectField(c, out, "State.Status")
@@ -466,6 +463,5 @@ func (s *DockerSuite) TestInspectInvalidReference(c *check.C) {
 	// This test should work on both Windows and Linux
 	out, _, err := dockerCmdWithError("inspect", "FooBar")
 	c.Assert(err, checker.NotNil)
-	c.Assert(out, checker.Contains, "Error: No such object: FooBar")
-	c.Assert(err.Error(), checker.Contains, "Error: No such object: FooBar")
+	c.Assert(out, checker.Contains, "no such image: FooBar")
 }

@@ -4,8 +4,8 @@ description: "The search command description and usage"
 keywords: "search, hub, images"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -25,6 +25,7 @@ Options:
                        - is-automated=(true|false)
                        - is-official=(true|false)
                        - stars=<number> - image has at least 'number' stars
+      --format string  Pretty-print images using a Go template
       --help           Print usage
       --limit int      Max number of search results (default 25)
       --no-trunc       Don't truncate output
@@ -94,7 +95,6 @@ radial/busyboxplus   Full-chain, Internet enabled, busybox made from scratch. Co
 The flag `--limit` is the maximum number of results returned by a search. This value could
 be in the range between 1 and 100. The default value of `--limit` is 25.
 
-
 ### Filtering
 
 The filtering flag (`-f` or `--filter`) format is a `key=value` pair. If there is more
@@ -103,9 +103,8 @@ than one filter, then pass multiple flags (e.g. `--filter "foo=bar" --filter "bi
 The currently supported filters are:
 
 * stars (int - number of stars the image has)
-* is-automated (true|false) - is the image automated or not
-* is-official (true|false) - is the image official or not
-
+* is-automated (boolean - true or false) - is the image automated or not
+* is-official (boolean - true or false) - is the image official or not
 
 #### stars
 
@@ -120,7 +119,6 @@ busybox              Busybox base image.                             325       [
 progrium/busybox                                                     50                   [OK]
 radial/busyboxplus   Full-chain, Internet enabled, busybox made...   8                    [OK]
 ```
-
 
 #### is-automated
 
@@ -146,4 +144,59 @@ $ docker search --filter "is-official=true" --filter "stars=3" busybox
 NAME                 DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
 progrium/busybox                                                     50                   [OK]
 radial/busyboxplus   Full-chain, Internet enabled, busybox made...   8                    [OK]
+```
+
+### Format the output
+
+The formatting option (`--format`) pretty-prints search output
+using a Go template.
+
+Valid placeholders for the Go template are:
+
+| Placeholder    | Description                       |
+| -------------- | --------------------------------- |
+| `.Name`        | Image Name                        |
+| `.Description` | Image description                 |
+| `.StarCount`   | Number of stars for the image     |
+| `.IsOfficial`  | "OK" if image is official         |
+| `.IsAutomated` | "OK" if image build was automated |
+
+When you use the `--format` option, the `search` command will
+output the data exactly as the template declares. If you use the
+`table` directive, column headers are included as well.
+
+The following example uses a template without headers and outputs the
+`Name` and `StarCount` entries separated by a colon for all images:
+
+```bash
+{% raw %}
+$ docker search --format "{{.Name}}: {{.StarCount}}" nginx
+
+nginx: 5441
+jwilder/nginx-proxy: 953
+richarvey/nginx-php-fpm: 353
+million12/nginx-php: 75
+webdevops/php-nginx: 70
+h3nrik/nginx-ldap: 35
+bitnami/nginx: 23
+evild/alpine-nginx: 14
+million12/nginx: 9
+maxexcloo/nginx: 7
+{% endraw %}
+```
+
+This example outputs a table format:
+
+```bash
+{% raw %}
+$ docker search --format "table {{.Name}}\t{{.IsAutomated}}\t{{.IsOfficial}}" nginx
+
+NAME                                     AUTOMATED           OFFICIAL
+nginx                                                        [OK]
+jwilder/nginx-proxy                      [OK]                
+richarvey/nginx-php-fpm                  [OK]                
+jrcs/letsencrypt-nginx-proxy-companion   [OK]                
+million12/nginx-php                      [OK]                
+webdevops/php-nginx                      [OK]                
+{% endraw %}
 ```

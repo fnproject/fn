@@ -51,37 +51,37 @@ var durationTests = []struct {
 	dur     time.Duration
 }{
 	// The zero duration.
-	{&Duration{Seconds: 0, Nanos: 0}, true, true, 0},
+	{&Duration{0, 0}, true, true, 0},
 	// Some ordinary non-zero durations.
-	{&Duration{Seconds: 100, Nanos: 0}, true, true, 100 * time.Second},
-	{&Duration{Seconds: -100, Nanos: 0}, true, true, -100 * time.Second},
-	{&Duration{Seconds: 100, Nanos: 987}, true, true, 100*time.Second + 987},
-	{&Duration{Seconds: -100, Nanos: -987}, true, true, -(100*time.Second + 987)},
+	{&Duration{100, 0}, true, true, 100 * time.Second},
+	{&Duration{-100, 0}, true, true, -100 * time.Second},
+	{&Duration{100, 987}, true, true, 100*time.Second + 987},
+	{&Duration{-100, -987}, true, true, -(100*time.Second + 987)},
 	// The largest duration representable in Go.
-	{&Duration{Seconds: maxGoSeconds, Nanos: int32(math.MaxInt64 - 1e9*maxGoSeconds)}, true, true, math.MaxInt64},
+	{&Duration{maxGoSeconds, int32(math.MaxInt64 - 1e9*maxGoSeconds)}, true, true, math.MaxInt64},
 	// The smallest duration representable in Go.
-	{&Duration{Seconds: minGoSeconds, Nanos: int32(math.MinInt64 - 1e9*minGoSeconds)}, true, true, math.MinInt64},
+	{&Duration{minGoSeconds, int32(math.MinInt64 - 1e9*minGoSeconds)}, true, true, math.MinInt64},
 	{nil, false, false, 0},
-	{&Duration{Seconds: -100, Nanos: 987}, false, false, 0},
-	{&Duration{Seconds: 100, Nanos: -987}, false, false, 0},
-	{&Duration{Seconds: math.MinInt64, Nanos: 0}, false, false, 0},
-	{&Duration{Seconds: math.MaxInt64, Nanos: 0}, false, false, 0},
+	{&Duration{-100, 987}, false, false, 0},
+	{&Duration{100, -987}, false, false, 0},
+	{&Duration{math.MinInt64, 0}, false, false, 0},
+	{&Duration{math.MaxInt64, 0}, false, false, 0},
 	// The largest valid duration.
-	{&Duration{Seconds: maxSeconds, Nanos: 1e9 - 1}, true, false, 0},
+	{&Duration{maxSeconds, 1e9 - 1}, true, false, 0},
 	// The smallest valid duration.
-	{&Duration{Seconds: minSeconds, Nanos: -(1e9 - 1)}, true, false, 0},
+	{&Duration{minSeconds, -(1e9 - 1)}, true, false, 0},
 	// The smallest invalid duration above the valid range.
-	{&Duration{Seconds: maxSeconds + 1, Nanos: 0}, false, false, 0},
+	{&Duration{maxSeconds + 1, 0}, false, false, 0},
 	// The largest invalid duration below the valid range.
-	{&Duration{Seconds: minSeconds - 1, Nanos: -(1e9 - 1)}, false, false, 0},
+	{&Duration{minSeconds - 1, -(1e9 - 1)}, false, false, 0},
 	// One nanosecond past the largest duration representable in Go.
-	{&Duration{Seconds: maxGoSeconds, Nanos: int32(math.MaxInt64-1e9*maxGoSeconds) + 1}, true, false, 0},
+	{&Duration{maxGoSeconds, int32(math.MaxInt64-1e9*maxGoSeconds) + 1}, true, false, 0},
 	// One nanosecond past the smallest duration representable in Go.
-	{&Duration{Seconds: minGoSeconds, Nanos: int32(math.MinInt64-1e9*minGoSeconds) - 1}, true, false, 0},
+	{&Duration{minGoSeconds, int32(math.MinInt64-1e9*minGoSeconds) - 1}, true, false, 0},
 	// One second past the largest duration representable in Go.
-	{&Duration{Seconds: maxGoSeconds + 1, Nanos: int32(math.MaxInt64 - 1e9*maxGoSeconds)}, true, false, 0},
+	{&Duration{maxGoSeconds + 1, int32(math.MaxInt64 - 1e9*maxGoSeconds)}, true, false, 0},
 	// One second past the smallest duration representable in Go.
-	{&Duration{Seconds: minGoSeconds - 1, Nanos: int32(math.MinInt64 - 1e9*minGoSeconds)}, true, false, 0},
+	{&Duration{minGoSeconds - 1, int32(math.MinInt64 - 1e9*minGoSeconds)}, true, false, 0},
 }
 
 func TestValidateDuration(t *testing.T) {

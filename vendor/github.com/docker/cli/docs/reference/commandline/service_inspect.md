@@ -4,8 +4,8 @@ description: "The service inspect command description and usage"
 keywords: "service, inspect"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -164,7 +164,8 @@ $ docker service inspect --format='{{.Spec.Mode.Replicated.Replicas}}' redis
 * [service create](service_create.md)
 * [service logs](service_logs.md)
 * [service ls](service_ls.md)
-* [service rm](service_rm.md)
-* [service scale](service_scale.md)
 * [service ps](service_ps.md)
+* [service rm](service_rm.md)
+* [service rollback](service_rollback.md)
+* [service scale](service_scale.md)
 * [service update](service_update.md)

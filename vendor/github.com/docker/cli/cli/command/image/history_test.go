@@ -1,17 +1,15 @@
 package image
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"regexp"
 	"testing"
 	"time"
 
-	"github.com/docker/cli/cli/internal/test"
+	"github.com/docker/cli/internal/test"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/pkg/testutil"
-	"github.com/docker/docker/pkg/testutil/golden"
+	"github.com/gotestyourself/gotestyourself/golden"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +24,7 @@ func TestNewHistoryCommandErrors(t *testing.T) {
 		{
 			name:          "wrong-args",
 			args:          []string{},
-			expectedError: "requires exactly 1 argument(s).",
+			expectedError: "requires exactly 1 argument.",
 		},
 		{
 			name:          "client-error",
@@ -38,8 +36,7 @@ func TestNewHistoryCommandErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := NewHistoryCommand(test.NewFakeCli(&fakeClient{imageHistoryFunc: tc.imageHistoryFunc}, buf))
+		cmd := NewHistoryCommand(test.NewFakeCli(&fakeClient{imageHistoryFunc: tc.imageHistoryFunc}))
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		testutil.ErrorContains(t, cmd.Execute(), tc.expectedError)
@@ -90,19 +87,17 @@ func TestNewHistoryCommandSuccess(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := NewHistoryCommand(test.NewFakeCli(&fakeClient{imageHistoryFunc: tc.imageHistoryFunc}, buf))
+		cli := test.NewFakeCli(&fakeClient{imageHistoryFunc: tc.imageHistoryFunc})
+		cmd := NewHistoryCommand(cli)
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		err := cmd.Execute()
 		assert.NoError(t, err)
-		actual := buf.String()
+		actual := cli.OutBuffer().String()
 		if tc.outputRegex == "" {
-			expected := string(golden.Get(t, []byte(actual), fmt.Sprintf("history-command-success.%s.golden", tc.name))[:])
-			testutil.EqualNormalizedString(t, testutil.RemoveSpace, actual, expected)
+			golden.Assert(t, actual, fmt.Sprintf("history-command-success.%s.golden", tc.name))
 		} else {
-			match, _ := regexp.MatchString(tc.outputRegex, actual)
-			assert.True(t, match)
+			assert.Regexp(t, tc.outputRegex, actual)
 		}
 	}
 }

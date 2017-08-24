@@ -131,87 +131,23 @@ func (f *Formatter) Format(dst []byte, d *Decimal) []byte {
 	return result
 }
 
-// TODO: just return visible digits.
-func decimalVisibleDigits(f *Formatter, d *Decimal) Decimal {
-	if d.NaN || d.Inf {
-		return *d
-	}
-	n := d.normalize()
-	if maxSig := int(f.MaxSignificantDigits); maxSig > 0 {
-		// TODO: really round to zero?
-		n.round(ToZero, maxSig)
-	}
-	digits := n.Digits
-	exp := n.Exp
-	exp += int32(f.Pattern.DigitShift)
-
-	// Cap integer digits. Remove *most-significant* digits.
-	if f.MaxIntegerDigits > 0 {
-		if p := int(exp) - int(f.MaxIntegerDigits); p > 0 {
-			if p > len(digits) {
-				p = len(digits)
-			}
-			if digits = digits[p:]; len(digits) == 0 {
-				exp = 0
-			} else {
-				exp -= int32(p)
-			}
-			// Strip leading zeros.
-			for len(digits) > 0 && digits[0] == 0 {
-				digits = digits[1:]
-				exp--
-			}
-		}
-	}
-
-	// Rounding usually is done by convert, but we don't rely on it.
-	numFrac := len(digits) - int(exp)
-	if f.MaxSignificantDigits == 0 && int(f.MaxFractionDigits) < numFrac {
-		p := int(exp) + int(f.MaxFractionDigits)
-		if p <= 0 {
-			p = 0
-		} else if p >= len(digits) {
-			p = len(digits)
-		}
-		digits = digits[:p] // TODO: round
-	}
-
-	// set End (trailing zeros)
-	n.End = int32(len(digits))
-	if len(digits) == 0 {
-		if f.MinFractionDigits > 0 {
-			n.End = int32(f.MinFractionDigits)
-		}
-		if p := int32(f.MinSignificantDigits) - 1; p > n.End {
-			n.End = p
-		}
-	} else {
-		if end := exp + int32(f.MinFractionDigits); end > n.End {
-			n.End = end
-		}
-		if n.End < int32(f.MinSignificantDigits) {
-			n.End = int32(f.MinSignificantDigits)
-		}
-	}
-	n.Digits = digits
-	n.Exp = exp
-	return n
-}
-
 // appendDecimal appends a formatted number to dst. It returns two possible
 // insertion points for padding.
 func appendDecimal(dst []byte, f *Formatter, d *Decimal) (b []byte, postPre, preSuf int) {
 	if dst, ok := f.renderSpecial(dst, d); ok {
 		return dst, 0, len(dst)
 	}
-	n := decimalVisibleDigits(f, d)
+	n := d.normalize()
+	if maxSig := int(f.MaxSignificantDigits); maxSig > 0 {
+		n.round(ToZero, maxSig)
+	}
 	digits := n.Digits
 	exp := n.Exp
+	exp += int32(f.Pattern.DigitShift)
 
 	// Split in integer and fraction part.
 	var intDigits, fracDigits []byte
-	numInt := 0
-	numFrac := int(n.End - n.Exp)
+	var numInt, numFrac int
 	if exp > 0 {
 		numInt = int(exp)
 		if int(exp) >= len(digits) { // ddddd | ddddd00
@@ -219,9 +155,39 @@ func appendDecimal(dst []byte, f *Formatter, d *Decimal) (b []byte, postPre, pre
 		} else { // ddd.dd
 			intDigits = digits[:exp]
 			fracDigits = digits[exp:]
+			numFrac = len(fracDigits)
 		}
 	} else {
 		fracDigits = digits
+		numFrac = -int(exp) + len(digits)
+	}
+	// Cap integer digits. Remove *most-significant* digits.
+	if f.MaxIntegerDigits > 0 && numInt > int(f.MaxIntegerDigits) {
+		offset := numInt - int(f.MaxIntegerDigits)
+		if offset > len(intDigits) {
+			numInt = 0
+			intDigits = nil
+		} else {
+			numInt = int(f.MaxIntegerDigits)
+			intDigits = intDigits[offset:]
+			// for keeping track of significant digits
+			digits = digits[offset:]
+		}
+		// Strip leading zeros. Resulting number of digits is significant digits.
+		for len(intDigits) > 0 && intDigits[0] == 0 {
+			intDigits = intDigits[1:]
+			digits = digits[1:]
+			numInt--
+		}
+	}
+	if f.MaxSignificantDigits == 0 && int(f.MaxFractionDigits) < numFrac {
+		if extra := numFrac - int(f.MaxFractionDigits); extra > len(fracDigits) {
+			numFrac = 0
+			fracDigits = nil
+		} else {
+			numFrac = int(f.MaxFractionDigits)
+			fracDigits = fracDigits[:len(fracDigits)-extra]
+		}
 	}
 
 	neg := d.Neg
@@ -254,41 +220,43 @@ func appendDecimal(dst []byte, f *Formatter, d *Decimal) (b []byte, postPre, pre
 		}
 	}
 
-	if numFrac > 0 || f.Flags&AlwaysDecimalSeparator != 0 {
+	trailZero := int(f.MinFractionDigits) - numFrac
+	if d := int(f.MinSignificantDigits) - len(digits); d > 0 && d > trailZero {
+		trailZero = d
+	}
+	if numFrac > 0 || trailZero > 0 || f.Flags&AlwaysDecimalSeparator != 0 {
 		dst = append(dst, f.Symbol(SymDecimal)...)
 	}
 	// Add leading zeros
-	i = 0
-	for n := -int(n.Exp); i < n; i++ {
+	for i := numFrac - len(fracDigits); i > 0; i-- {
 		dst = f.AppendDigit(dst, 0)
 	}
-	for _, d := range fracDigits {
-		i++
-		dst = f.AppendDigit(dst, d)
+	i = 0
+	for ; i < len(fracDigits); i++ {
+		dst = f.AppendDigit(dst, fracDigits[i])
 	}
-	for ; i < numFrac; i++ {
+	for ; trailZero > 0; trailZero-- {
 		dst = f.AppendDigit(dst, 0)
 	}
 	return appendAffix(dst, f, suffix, neg), savedLen, len(dst)
 }
 
-func scientificVisibleDigits(f *Formatter, d *Decimal) Decimal {
-	if d.NaN || d.Inf {
-		return *d
+// appendScientific appends a formatted number to dst. It returns two possible
+// insertion points for padding.
+func appendScientific(dst []byte, f *Formatter, d *Decimal) (b []byte, postPre, preSuf int) {
+	if dst, ok := f.renderSpecial(dst, d); ok {
+		return dst, 0, 0
 	}
-	n := d.normalize()
-
-	// Significant digits are transformed by the parser for scientific notation
-	// and do not need to be handled here.
+	// Significant digits are transformed by parser for scientific notation and
+	// do not need to be handled here.
 	maxInt, numInt := int(f.MaxIntegerDigits), int(f.MinIntegerDigits)
 	if numInt == 0 {
 		numInt = 1
 	}
 	maxSig := int(f.MaxFractionDigits) + numInt
 	minSig := int(f.MinFractionDigits) + numInt
-
+	n := d.normalize()
 	if maxSig > 0 {
-		// TODO: really round to zero?
 		n.round(ToZero, maxSig)
 	}
 	digits := n.Digits
@@ -314,30 +282,6 @@ func scientificVisibleDigits(f *Formatter, d *Decimal) Decimal {
 	} else {
 		exp -= int32(numInt)
 	}
-
-	n.Comma = uint8(numInt)
-	n.End = int32(len(digits))
-	if n.End < int32(minSig) {
-		n.End = int32(minSig)
-	}
-	n.Digits = digits
-	n.Exp = exp
-	return n
-}
-
-// appendScientific appends a formatted number to dst. It returns two possible
-// insertion points for padding.
-func appendScientific(dst []byte, f *Formatter, d *Decimal) (b []byte, postPre, preSuf int) {
-	if dst, ok := f.renderSpecial(dst, d); ok {
-		return dst, 0, 0
-	}
-	// n := d.normalize()
-	n := scientificVisibleDigits(f, d)
-	digits := n.Digits
-	exp := n.Exp
-	numInt := int(n.Comma)
-	numFrac := int(n.End) - int(n.Comma)
-
 	var intDigits, fracDigits []byte
 	if numInt <= len(digits) {
 		intDigits = digits[:numInt]
@@ -364,14 +308,15 @@ func appendScientific(dst []byte, f *Formatter, d *Decimal) (b []byte, postPre, 
 		}
 	}
 
-	if numFrac > 0 || f.Flags&AlwaysDecimalSeparator != 0 {
+	trailZero := minSig - numInt - len(fracDigits)
+	if len(fracDigits) > 0 || trailZero > 0 || f.Flags&AlwaysDecimalSeparator != 0 {
 		dst = append(dst, f.Symbol(SymDecimal)...)
 	}
 	i = 0
 	for ; i < len(fracDigits); i++ {
 		dst = f.AppendDigit(dst, fracDigits[i])
 	}
-	for ; i < numFrac; i++ {
+	for ; trailZero > 0; trailZero-- {
 		dst = f.AppendDigit(dst, 0)
 	}
 

@@ -4,8 +4,8 @@ description: "The exec command description and usage"
 keywords: "command, container, run, execute"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -75,6 +75,17 @@ $ docker exec -it ubuntu_bash bash
 ```
 
 This will create a new Bash session in the container `ubuntu_bash`.
+
+Next, set an environment variable in the current bash session.
+
+```bash
+$ docker exec -it -e VAR=1 ubuntu_bash bash
+```
+
+This will create a new Bash session in the container `ubuntu_bash` with environment 
+variable `$VAR` set to "1". Note that this environment variable will only be valid 
+on the current Bash session.
+
 
 ### Try to run `docker exec` on a paused container
 

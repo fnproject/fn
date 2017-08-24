@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/fnlb/lb"
 )

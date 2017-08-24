@@ -1,15 +1,14 @@
 package image
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
 
-	"github.com/docker/cli/cli/internal/test"
+	"github.com/docker/cli/internal/test"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/pkg/testutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,7 +23,7 @@ func TestNewImportCommandErrors(t *testing.T) {
 		{
 			name:          "wrong-args",
 			args:          []string{},
-			expectedError: "requires at least 1 argument(s).",
+			expectedError: "requires at least 1 argument.",
 		},
 		{
 			name:          "import-failed",
@@ -36,8 +35,7 @@ func TestNewImportCommandErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := NewImportCommand(test.NewFakeCli(&fakeClient{imageImportFunc: tc.imageImportFunc}, buf))
+		cmd := NewImportCommand(test.NewFakeCli(&fakeClient{imageImportFunc: tc.imageImportFunc}))
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		testutil.ErrorContains(t, cmd.Execute(), tc.expectedError)
@@ -45,7 +43,7 @@ func TestNewImportCommandErrors(t *testing.T) {
 }
 
 func TestNewImportCommandInvalidFile(t *testing.T) {
-	cmd := NewImportCommand(test.NewFakeCli(&fakeClient{}, new(bytes.Buffer)))
+	cmd := NewImportCommand(test.NewFakeCli(&fakeClient{}))
 	cmd.SetOutput(ioutil.Discard)
 	cmd.SetArgs([]string{"testdata/import-command-success.unexistent-file"})
 	testutil.ErrorContains(t, cmd.Execute(), "testdata/import-command-success.unexistent-file")
@@ -91,8 +89,7 @@ func TestNewImportCommandSuccess(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := NewImportCommand(test.NewFakeCli(&fakeClient{imageImportFunc: tc.imageImportFunc}, buf))
+		cmd := NewImportCommand(test.NewFakeCli(&fakeClient{imageImportFunc: tc.imageImportFunc}))
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		assert.NoError(t, cmd.Execute())

@@ -444,6 +444,12 @@ func LoadVolumes(source map[string]interface{}) (map[string]types.VolumeConfig, 
 			if volume.External.Name == "" {
 				volume.External.Name = name
 				volumes[name] = volume
+			} else {
+				logrus.Warnf("volume %s: volume.external.name is deprecated in favor of volume.name", name)
+
+				if volume.Name != "" {
+					return nil, errors.Errorf("volume %s: volume.external.name and volume.name conflict; only use volume.name", name)
+				}
 			}
 		}
 	}
@@ -564,7 +570,7 @@ func transformStringSourceMap(data interface{}) (interface{}, error) {
 func transformServiceVolumeConfig(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case string:
-		return parseVolume(value)
+		return ParseVolume(value)
 	case map[string]interface{}:
 		return data, nil
 	default:

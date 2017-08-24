@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"

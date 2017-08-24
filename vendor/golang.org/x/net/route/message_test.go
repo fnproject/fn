@@ -14,28 +14,21 @@ import (
 )
 
 func TestFetchAndParseRIB(t *testing.T) {
-	for _, typ := range []RIBType{sysNET_RT_DUMP, sysNET_RT_IFLIST} {
-		var lastErr error
-		var ms []Message
-		for _, af := range []int{sysAF_UNSPEC, sysAF_INET, sysAF_INET6} {
-			rs, err := fetchAndParseRIB(af, typ)
+	for _, af := range []int{sysAF_UNSPEC, sysAF_INET, sysAF_INET6} {
+		for _, typ := range []RIBType{sysNET_RT_DUMP, sysNET_RT_IFLIST} {
+			ms, err := fetchAndParseRIB(af, typ)
 			if err != nil {
-				lastErr = err
+				t.Error(err)
 				continue
 			}
-			ms = append(ms, rs...)
-		}
-		if len(ms) == 0 && lastErr != nil {
-			t.Error(typ, lastErr)
-			continue
-		}
-		ss, err := msgs(ms).validate()
-		if err != nil {
-			t.Error(typ, err)
-			continue
-		}
-		for _, s := range ss {
-			t.Log(typ, s)
+			ss, err := msgs(ms).validate()
+			if err != nil {
+				t.Errorf("%v %d %v", addrFamily(af), typ, err)
+				continue
+			}
+			for _, s := range ss {
+				t.Log(s)
+			}
 		}
 	}
 }
@@ -152,8 +145,8 @@ func TestRouteMessage(t *testing.T) {
 
 	var ms []RouteMessage
 	for _, af := range []int{sysAF_INET, sysAF_INET6} {
-		if _, err := fetchAndParseRIB(af, sysNET_RT_DUMP); err != nil {
-			t.Log(err)
+		rs, err := fetchAndParseRIB(af, sysNET_RT_DUMP)
+		if err != nil || len(rs) == 0 {
 			continue
 		}
 		switch af {
@@ -235,5 +228,6 @@ func TestRouteMessage(t *testing.T) {
 		for _, s := range ss {
 			t.Log(s)
 		}
+
 	}
 }

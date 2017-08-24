@@ -18,17 +18,17 @@ import (
 	"syscall" // only for SysProcAttr and Signal
 	"time"
 
-	"golang.org/x/sys/unix"
-
-	"github.com/Sirupsen/logrus"
-	"github.com/golang/protobuf/proto"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/criurpc"
 	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runc/libcontainer/utils"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 	"github.com/syndtr/gocapability/capability"
 	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/sys/unix"
 )
 
 const stdioFdCount = 3
@@ -40,7 +40,7 @@ type linuxContainer struct {
 	cgroupManager        cgroups.Manager
 	initArgs             []string
 	initProcess          parentProcess
-	initProcessStartTime string
+	initProcessStartTime uint64
 	criuPath             string
 	m                    sync.Mutex
 	criuVersion          int
@@ -186,8 +186,17 @@ func (c *linuxContainer) Set(config configs.Config) error {
 	if status == Stopped {
 		return newGenericError(fmt.Errorf("container not running"), ContainerNotRunning)
 	}
+	if err := c.cgroupManager.Set(&config); err != nil {
+		// Set configs back
+		if err2 := c.cgroupManager.Set(c.config); err2 != nil {
+			logrus.Warnf("Setting back cgroup configs failed due to error: %v, your state.json and actual configs might be inconsistent.", err2)
+		}
+		return err
+	}
+	// After config setting succeed, update config and states
 	c.config = &config
-	return c.cgroupManager.Set(c.config)
+	_, err = c.updateState(nil)
+	return err
 }
 
 func (c *linuxContainer) Start(process *Process) error {
@@ -546,7 +555,8 @@ func (c *linuxContainer) checkCriuFeatures(criuOpts *CriuOpts, rpcOpts *criurpc.
 	var t criurpc.CriuReqType
 	t = criurpc.CriuReqType_FEATURE_CHECK
 
-	if err := c.checkCriuVersion("1.8"); err != nil {
+	// criu 1.8 => 10800
+	if err := c.checkCriuVersion(10800); err != nil {
 		// Feature checking was introduced with CRIU 1.8.
 		// Ignore the feature check if an older CRIU version is used
 		// and just act as before.
@@ -589,19 +599,12 @@ func (c *linuxContainer) checkCriuFeatures(criuOpts *CriuOpts, rpcOpts *criurpc.
 	return nil
 }
 
-// checkCriuVersion checks Criu version greater than or equal to minVersion
-func (c *linuxContainer) checkCriuVersion(minVersion string) error {
-	var x, y, z, versionReq int
+func parseCriuVersion(path string) (int, error) {
+	var x, y, z int
 
-	_, err := fmt.Sscanf(minVersion, "%d.%d.%d\n", &x, &y, &z) // 1.5.2
+	out, err := exec.Command(path, "-V").Output()
 	if err != nil {
-		_, err = fmt.Sscanf(minVersion, "Version: %d.%d\n", &x, &y) // 1.6
-	}
-	versionReq = x*10000 + y*100 + z
-
-	out, err := exec.Command(c.criuPath, "-V").Output()
-	if err != nil {
-		return fmt.Errorf("Unable to execute CRIU command: %s", c.criuPath)
+		return 0, fmt.Errorf("Unable to execute CRIU command: %s", path)
 	}
 
 	x = 0
@@ -613,7 +616,7 @@ func (c *linuxContainer) checkCriuVersion(minVersion string) error {
 		if sp := strings.Index(string(out), "GitID"); sp > 0 {
 			version = string(out)[sp:ep]
 		} else {
-			return fmt.Errorf("Unable to parse the CRIU version: %s", c.criuPath)
+			return 0, fmt.Errorf("Unable to parse the CRIU version: %s", path)
 		}
 
 		n, err := fmt.Sscanf(string(version), "GitID: v%d.%d.%d", &x, &y, &z) // 1.5.2
@@ -624,7 +627,7 @@ func (c *linuxContainer) checkCriuVersion(minVersion string) error {
 			z++
 		}
 		if n < 2 || err != nil {
-			return fmt.Errorf("Unable to parse the CRIU version: %s %d %s", version, n, err)
+			return 0, fmt.Errorf("Unable to parse the CRIU version: %s %d %s", version, n, err)
 		}
 	} else {
 		// criu release version format
@@ -633,17 +636,79 @@ func (c *linuxContainer) checkCriuVersion(minVersion string) error {
 			n, err = fmt.Sscanf(string(out), "Version: %d.%d\n", &x, &y) // 1.6
 		}
 		if n < 2 || err != nil {
-			return fmt.Errorf("Unable to parse the CRIU version: %s %d %s", out, n, err)
+			return 0, fmt.Errorf("Unable to parse the CRIU version: %s %d %s", out, n, err)
 		}
 	}
 
-	c.criuVersion = x*10000 + y*100 + z
+	return x*10000 + y*100 + z, nil
+}
 
-	if c.criuVersion < versionReq {
-		return fmt.Errorf("CRIU version %d must be %d or higher", c.criuVersion, versionReq)
+func compareCriuVersion(criuVersion int, minVersion int) error {
+	// simple function to perform the actual version compare
+	if criuVersion < minVersion {
+		return fmt.Errorf("CRIU version %d must be %d or higher", criuVersion, minVersion)
 	}
 
 	return nil
+}
+
+// This is used to store the result of criu version RPC
+var criuVersionRPC *criurpc.CriuVersion
+
+// checkCriuVersion checks Criu version greater than or equal to minVersion
+func (c *linuxContainer) checkCriuVersion(minVersion int) error {
+
+	// If the version of criu has already been determined there is no need
+	// to ask criu for the version again. Use the value from c.criuVersion.
+	if c.criuVersion != 0 {
+		return compareCriuVersion(c.criuVersion, minVersion)
+	}
+
+	// First try if this version of CRIU support the version RPC.
+	// The CRIU version RPC was introduced with CRIU 3.0.
+
+	// First, reset the variable for the RPC answer to nil
+	criuVersionRPC = nil
+
+	var t criurpc.CriuReqType
+	t = criurpc.CriuReqType_VERSION
+	req := &criurpc.CriuReq{
+		Type: &t,
+	}
+
+	err := c.criuSwrk(nil, req, nil, false)
+	if err != nil {
+		return fmt.Errorf("CRIU version check failed: %s", err)
+	}
+
+	if criuVersionRPC != nil {
+		logrus.Debugf("CRIU version: %s", criuVersionRPC)
+		// major and minor are always set
+		c.criuVersion = int(*criuVersionRPC.Major) * 10000
+		c.criuVersion += int(*criuVersionRPC.Minor) * 100
+		if criuVersionRPC.Sublevel != nil {
+			c.criuVersion += int(*criuVersionRPC.Sublevel)
+		}
+		if criuVersionRPC.Gitid != nil {
+			// runc's convention is that a CRIU git release is
+			// always the same as increasing the minor by 1
+			c.criuVersion -= (c.criuVersion % 100)
+			c.criuVersion += 100
+		}
+		return compareCriuVersion(c.criuVersion, minVersion)
+	}
+
+	// This is CRIU without the version RPC and therefore
+	// older than 3.0. Parsing the output is required.
+
+	// This can be remove once runc does not work with criu older than 3.0
+
+	c.criuVersion, err = parseCriuVersion(c.criuPath)
+	if err != nil {
+		return err
+	}
+
+	return compareCriuVersion(c.criuVersion, minVersion)
 }
 
 const descriptorsFilename = "descriptors.json"
@@ -695,7 +760,8 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 		return fmt.Errorf("cannot checkpoint a rootless container")
 	}
 
-	if err := c.checkCriuVersion("1.5.2"); err != nil {
+	// criu 1.5.2 => 10502
+	if err := c.checkCriuVersion(10502); err != nil {
 		return err
 	}
 
@@ -745,6 +811,7 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 		FileLocks:       proto.Bool(criuOpts.FileLocks),
 		EmptyNs:         proto.Uint32(criuOpts.EmptyNs),
 		OrphanPtsMaster: proto.Bool(true),
+		AutoDedup:       proto.Bool(criuOpts.AutoDedup),
 	}
 
 	fcg := c.cgroupManager.GetPaths()["freezer"]
@@ -768,7 +835,8 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 
 	// append optional manage cgroups mode
 	if criuOpts.ManageCgroupsMode != 0 {
-		if err := c.checkCriuVersion("1.7"); err != nil {
+		// criu 1.7 => 10700
+		if err := c.checkCriuVersion(10700); err != nil {
 			return err
 		}
 		mode := criurpc.CriuCgMode(criuOpts.ManageCgroupsMode)
@@ -800,7 +868,6 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 			switch m.Device {
 			case "bind":
 				c.addCriuDumpMount(req, m)
-				break
 			case "cgroup":
 				binds, err := getCgroupMounts(m)
 				if err != nil {
@@ -809,7 +876,6 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 				for _, b := range binds {
 					c.addCriuDumpMount(req, b)
 				}
-				break
 			}
 		}
 
@@ -862,9 +928,8 @@ func (c *linuxContainer) restoreNetwork(req *criurpc.CriuReq, criuOpts *CriuOpts
 			veth.IfOut = proto.String(iface.HostInterfaceName)
 			veth.IfIn = proto.String(iface.Name)
 			req.Opts.Veths = append(req.Opts.Veths, veth)
-			break
 		case "loopback":
-			break
+			// Do nothing
 		}
 	}
 	for _, i := range criuOpts.VethPairs {
@@ -885,7 +950,8 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 		return fmt.Errorf("cannot restore a rootless container")
 	}
 
-	if err := c.checkCriuVersion("1.5.2"); err != nil {
+	// criu 1.5.2 => 10502
+	if err := c.checkCriuVersion(10502); err != nil {
 		return err
 	}
 	if criuOpts.WorkDirectory == "" {
@@ -947,6 +1013,7 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 			FileLocks:       proto.Bool(criuOpts.FileLocks),
 			EmptyNs:         proto.Uint32(criuOpts.EmptyNs),
 			OrphanPtsMaster: proto.Bool(true),
+			AutoDedup:       proto.Bool(criuOpts.AutoDedup),
 		},
 	}
 
@@ -954,7 +1021,6 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 		switch m.Device {
 		case "bind":
 			c.addCriuRestoreMount(req, m)
-			break
 		case "cgroup":
 			binds, err := getCgroupMounts(m)
 			if err != nil {
@@ -963,7 +1029,6 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 			for _, b := range binds {
 				c.addCriuRestoreMount(req, b)
 			}
-			break
 		}
 	}
 
@@ -983,7 +1048,8 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 
 	// append optional manage cgroups mode
 	if criuOpts.ManageCgroupsMode != 0 {
-		if err := c.checkCriuVersion("1.7"); err != nil {
+		// criu 1.7 => 10700
+		if err := c.checkCriuVersion(10700); err != nil {
 			return err
 		}
 		mode := criurpc.CriuCgMode(criuOpts.ManageCgroupsMode)
@@ -1045,7 +1111,14 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 		return err
 	}
 
-	logPath := filepath.Join(opts.WorkDirectory, req.GetOpts().GetLogFile())
+	var logPath string
+	if opts != nil {
+		logPath = filepath.Join(opts.WorkDirectory, req.GetOpts().GetLogFile())
+	} else {
+		// For the VERSION RPC 'opts' is set to 'nil' and therefore
+		// opts.WorkDirectory does not exist. Set logPath to "".
+		logPath = ""
+	}
 	criuClient := os.NewFile(uintptr(fds[0]), "criu-transport-client")
 	criuClientFileCon, err := net.FileConn(criuClient)
 	criuClient.Close()
@@ -1060,7 +1133,11 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 	defer criuServer.Close()
 
 	args := []string{"swrk", "3"}
-	logrus.Debugf("Using CRIU %d at: %s", c.criuVersion, c.criuPath)
+	if c.criuVersion != 0 {
+		// If the CRIU Version is still '0' then this is probably
+		// the initial CRIU run to detect the version. Skip it.
+		logrus.Debugf("Using CRIU %d at: %s", c.criuVersion, c.criuPath)
+	}
 	logrus.Debugf("Using CRIU with following args: %s", args)
 	cmd := exec.Command(c.criuPath, args...)
 	if process != nil {
@@ -1101,8 +1178,11 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 	logrus.Debugf("Using CRIU in %s mode", req.GetType().String())
 	// In the case of criurpc.CriuReqType_FEATURE_CHECK req.GetOpts()
 	// should be empty. For older CRIU versions it still will be
-	// available but empty.
-	if req.GetType() != criurpc.CriuReqType_FEATURE_CHECK {
+	// available but empty. criurpc.CriuReqType_VERSION actually
+	// has no req.GetOpts().
+	if !(req.GetType() == criurpc.CriuReqType_FEATURE_CHECK ||
+		req.GetType() == criurpc.CriuReqType_VERSION) {
+
 		val := reflect.ValueOf(req.GetOpts())
 		v := reflect.Indirect(val)
 		for i := 0; i < v.NumField(); i++ {
@@ -1145,15 +1225,23 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 		}
 		if !resp.GetSuccess() {
 			typeString := req.GetType().String()
+			if typeString == "VERSION" {
+				// If the VERSION RPC fails this probably means that the CRIU
+				// version is too old for this RPC. Just return 'nil'.
+				return nil
+			}
 			return fmt.Errorf("criu failed: type %s errno %d\nlog file: %s", typeString, resp.GetCrErrno(), logPath)
 		}
 
 		t := resp.GetType()
 		switch {
+		case t == criurpc.CriuReqType_VERSION:
+			logrus.Debugf("CRIU version: %s", resp)
+			criuVersionRPC = resp.GetVersion()
+			break
 		case t == criurpc.CriuReqType_FEATURE_CHECK:
 			logrus.Debugf("Feature check says: %s", resp)
 			criuFeatures = resp.GetFeatures()
-			break
 		case t == criurpc.CriuReqType_NOTIFY:
 			if err := c.criuNotifications(resp, process, opts, extFds, oob[:oobn]); err != nil {
 				return err
@@ -1290,11 +1378,14 @@ func (c *linuxContainer) criuNotifications(resp *criurpc.CriuResp, process *Proc
 			}
 		}
 	case notify.GetScript() == "orphan-pts-master":
-		scm, err := syscall.ParseSocketControlMessage(oob)
+		scm, err := unix.ParseSocketControlMessage(oob)
 		if err != nil {
 			return err
 		}
-		fds, err := syscall.ParseUnixRights(&scm[0])
+		fds, err := unix.ParseUnixRights(&scm[0])
+		if err != nil {
+			return err
+		}
 
 		master := os.NewFile(uintptr(fds[0]), "orphan-pts-master")
 		defer master.Close()
@@ -1308,7 +1399,9 @@ func (c *linuxContainer) criuNotifications(resp *criurpc.CriuResp, process *Proc
 }
 
 func (c *linuxContainer) updateState(process parentProcess) (*State, error) {
-	c.initProcess = process
+	if process != nil {
+		c.initProcess = process
+	}
 	state, err := c.currentState()
 	if err != nil {
 		return nil, err
@@ -1365,40 +1458,17 @@ func (c *linuxContainer) refreshState() error {
 	return c.state.transition(&stoppedState{c: c})
 }
 
-// doesInitProcessExist checks if the init process is still the same process
-// as the initial one, it could happen that the original process has exited
-// and a new process has been created with the same pid, in this case, the
-// container would already be stopped.
-func (c *linuxContainer) doesInitProcessExist(initPid int) (bool, error) {
-	startTime, err := system.GetProcessStartTime(initPid)
-	if err != nil {
-		return false, newSystemErrorWithCausef(err, "getting init process %d start time", initPid)
-	}
-	if c.initProcessStartTime != startTime {
-		return false, nil
-	}
-	return true, nil
-}
-
 func (c *linuxContainer) runType() (Status, error) {
 	if c.initProcess == nil {
 		return Stopped, nil
 	}
 	pid := c.initProcess.pid()
-	// return Running if the init process is alive
-	if err := unix.Kill(pid, 0); err != nil {
-		if err == unix.ESRCH {
-			// It means the process does not exist anymore, could happen when the
-			// process exited just when we call the function, we should not return
-			// error in this case.
-			return Stopped, nil
-		}
-		return Stopped, newSystemErrorWithCausef(err, "sending signal 0 to pid %d", pid)
+	stat, err := system.Stat(pid)
+	if err != nil {
+		return Stopped, nil
 	}
-	// check if the process is still the original init process.
-	exist, err := c.doesInitProcessExist(pid)
-	if !exist || err != nil {
-		return Stopped, err
+	if stat.StartTime != c.initProcessStartTime || stat.State == system.Zombie || stat.State == system.Dead {
+		return Stopped, nil
 	}
 	// We'll create exec fifo and blocking on it after container is created,
 	// and delete it after start container.
@@ -1427,7 +1497,7 @@ func (c *linuxContainer) isPaused() (bool, error) {
 
 func (c *linuxContainer) currentState() (*State, error) {
 	var (
-		startTime           string
+		startTime           uint64
 		externalDescriptors []string
 		pid                 = -1
 	)

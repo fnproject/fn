@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -22,7 +23,7 @@ import (
 )
 
 func deployCompose(ctx context.Context, dockerCli command.Cli, opts deployOptions) error {
-	configDetails, err := getConfigDetails(opts.composefile)
+	configDetails, err := getConfigDetails(opts.composefile, dockerCli.In())
 	if err != nil {
 		return err
 	}
@@ -118,26 +119,31 @@ func propertyWarnings(properties map[string]string) string {
 	return strings.Join(msgs, "\n\n")
 }
 
-func getConfigDetails(composefile string) (composetypes.ConfigDetails, error) {
+func getConfigDetails(composefile string, stdin io.Reader) (composetypes.ConfigDetails, error) {
 	var details composetypes.ConfigDetails
 
-	absPath, err := filepath.Abs(composefile)
-	if err != nil {
-		return details, err
+	if composefile == "-" {
+		workingDir, err := os.Getwd()
+		if err != nil {
+			return details, err
+		}
+		details.WorkingDir = workingDir
+	} else {
+		absPath, err := filepath.Abs(composefile)
+		if err != nil {
+			return details, err
+		}
+		details.WorkingDir = filepath.Dir(absPath)
 	}
-	details.WorkingDir = filepath.Dir(absPath)
 
-	configFile, err := getConfigFile(composefile)
+	configFile, err := getConfigFile(composefile, stdin)
 	if err != nil {
 		return details, err
 	}
 	// TODO: support multiple files
 	details.ConfigFiles = []composetypes.ConfigFile{*configFile}
 	details.Environment, err = buildEnvironment(os.Environ())
-	if err != nil {
-		return details, err
-	}
-	return details, nil
+	return details, err
 }
 
 func buildEnvironment(env []string) (map[string]string, error) {
@@ -153,15 +159,24 @@ func buildEnvironment(env []string) (map[string]string, error) {
 	return result, nil
 }
 
-func getConfigFile(filename string) (*composetypes.ConfigFile, error) {
-	bytes, err := ioutil.ReadFile(filename)
+func getConfigFile(filename string, stdin io.Reader) (*composetypes.ConfigFile, error) {
+	var bytes []byte
+	var err error
+
+	if filename == "-" {
+		bytes, err = ioutil.ReadAll(stdin)
+	} else {
+		bytes, err = ioutil.ReadFile(filename)
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	config, err := loader.ParseYAML(bytes)
 	if err != nil {
 		return nil, err
 	}
+
 	return &composetypes.ConfigFile{
 		Filename: filename,
 		Config:   config,
@@ -174,13 +189,18 @@ func validateExternalNetworks(
 	externalNetworks []string,
 ) error {
 	for _, networkName := range externalNetworks {
-		network, err := client.NetworkInspect(ctx, networkName, false)
+		if !container.NetworkMode(networkName).IsUserDefined() {
+			// Networks that are not user defined always exist on all nodes as
+			// local-scoped networks, so there's no need to inspect them.
+			continue
+		}
+		network, err := client.NetworkInspect(ctx, networkName, types.NetworkInspectOptions{})
 		switch {
 		case dockerclient.IsErrNotFound(err):
 			return errors.Errorf("network %q is declared as external, but could not be found. You need to create a swarm-scoped network before the stack is deployed", networkName)
 		case err != nil:
 			return err
-		case container.NetworkMode(networkName).IsUserDefined() && network.Scope != "swarm":
+		case network.Scope != "swarm":
 			return errors.Errorf("network %q is declared as external, but it is not in the right scope: %q instead of \"swarm\"", networkName, network.Scope)
 		}
 	}
@@ -316,10 +336,17 @@ func deployServices(
 
 			updateOpts := types.ServiceUpdateOptions{EncodedRegistryAuth: encodedAuth}
 
-			if resolveImage == resolveImageAlways || (resolveImage == resolveImageChanged && image != service.Spec.Labels[convert.LabelImage]) {
+			switch {
+			case resolveImage == resolveImageAlways || (resolveImage == resolveImageChanged && image != service.Spec.Labels[convert.LabelImage]):
+				// image should be updated by the server using QueryRegistry
 				updateOpts.QueryRegistry = true
+			case image == service.Spec.Labels[convert.LabelImage]:
+				// image has not changed; update the serviceSpec with the
+				// existing information that was set by QueryRegistry on the
+				// previous deploy. Otherwise this will trigger an incorrect
+				// service update.
+				serviceSpec.TaskTemplate.ContainerSpec.Image = service.Spec.TaskTemplate.ContainerSpec.Image
 			}
-
 			response, err := apiClient.ServiceUpdate(
 				ctx,
 				service.ID,

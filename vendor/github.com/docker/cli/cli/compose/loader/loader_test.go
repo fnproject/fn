@@ -584,6 +584,21 @@ services:
 	assert.Contains(t, forbidden, "extends")
 }
 
+func TestInvalidResource(t *testing.T) {
+	_, err := loadYAML(`
+        version: "3"
+        services:
+          foo:
+            image: busybox
+            deploy:
+              resources:
+                impossible:
+                  x: 1
+`)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Additional property impossible is not allowed")
+}
+
 func TestInvalidExternalAndDriverCombination(t *testing.T) {
 	_, err := loadYAML(`
 version: "3"
@@ -628,11 +643,23 @@ volumes:
 	assert.Contains(t, err.Error(), "external_volume")
 }
 
-func durationPtr(value time.Duration) *time.Duration {
-	return &value
+func TestInvalidExternalNameAndNameCombination(t *testing.T) {
+	_, err := loadYAML(`
+version: "3.4"
+volumes:
+  external_volume:
+    name: user_specified_name
+    external:
+      name:	external_name
+`)
+
+	assert.Error(t, err)
+	fmt.Println(err)
+	assert.Contains(t, err.Error(), "volume.external.name and volume.name conflict; only use volume.name")
+	assert.Contains(t, err.Error(), "external_volume")
 }
 
-func int64Ptr(value int64) *int64 {
+func durationPtr(value time.Duration) *time.Duration {
 	return &value
 }
 
@@ -675,6 +702,7 @@ func TestFullExample(t *testing.T) {
 				FailureAction:   "continue",
 				Monitor:         time.Duration(60 * time.Second),
 				MaxFailureRatio: 0.3,
+				Order:           "start-first",
 			},
 			Resources: types.Resources{
 				Limits: &types.Resource{
@@ -687,7 +715,7 @@ func TestFullExample(t *testing.T) {
 				},
 			},
 			RestartPolicy: &types.RestartPolicy{
-				Condition:   "on_failure",
+				Condition:   "on-failure",
 				Delay:       durationPtr(5 * time.Second),
 				MaxAttempts: uint64Ptr(3),
 				Window:      durationPtr(2 * time.Minute),
@@ -987,6 +1015,14 @@ func TestFullExample(t *testing.T) {
 				"baz": "1",
 			},
 		},
+		"another-volume": {
+			Name:   "user_specified_name",
+			Driver: "vsphere",
+			DriverOpts: map[string]string{
+				"foo": "bar",
+				"baz": "1",
+			},
+		},
 		"external-volume": {
 			External: types.External{
 				Name:     "external-volume",
@@ -996,6 +1032,13 @@ func TestFullExample(t *testing.T) {
 		"other-external-volume": {
 			External: types.External{
 				Name:     "my-cool-volume",
+				External: true,
+			},
+		},
+		"external-volume3": {
+			Name: "this-is-volume3",
+			External: types.External{
+				Name:     "external-volume3",
 				External: true,
 			},
 		},

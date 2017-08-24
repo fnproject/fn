@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func newCreateCommand(dockerCli *command.DockerCli) *cobra.Command {
+func newCreateCommand(dockerCli command.Cli) *cobra.Command {
 	opts := newServiceOptions()
 
 	cmd := &cobra.Command{
@@ -62,7 +62,7 @@ func newCreateCommand(dockerCli *command.DockerCli) *cobra.Command {
 	return cmd
 }
 
-func runCreate(dockerCli *command.DockerCli, flags *pflag.FlagSet, opts *serviceOptions) error {
+func runCreate(dockerCli command.Cli, flags *pflag.FlagSet, opts *serviceOptions) error {
 	apiClient := dockerCli.Client()
 	createOpts := types.ServiceCreateOptions{}
 
@@ -124,12 +124,9 @@ func runCreate(dockerCli *command.DockerCli, flags *pflag.FlagSet, opts *service
 	fmt.Fprintf(dockerCli.Out(), "%s\n", response.ID)
 
 	if opts.detach {
-		if !flags.Changed("detach") {
-			fmt.Fprintln(dockerCli.Err(), "Since --detach=false was not specified, tasks will be created in the background.\n"+
-				"In a future release, --detach=false will become the default.")
-		}
+		warnDetachDefault(dockerCli.Err(), apiClient.ClientVersion(), flags, "created")
 		return nil
 	}
 
-	return waitOnService(ctx, dockerCli, response.ID, opts)
+	return waitOnService(ctx, dockerCli, response.ID, opts.quiet)
 }
