@@ -143,8 +143,18 @@ const (
 
     <repositories>
         <repository>
-            <id>oracle-fn-repo</id>
-            <url>https://mvnread:;+kKf24IAwWma{ds)IE5@swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/snapshots</url>
+            <id>fn-release-repo</id>
+            <url>https://swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/releases</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>fn-snapshot-repo</id>
+            <url>https://swiftobjectstorage.us-phoenix-1.oraclecloud.com/v1/opc0002/mvnrepo/snapshots</url>
             <releases>
                 <enabled>false</enabled>
             </releases>
