@@ -21,7 +21,7 @@ func (lh *JavaLangHelper) BuildFromImage() string { return "maven:3.5-jdk-8-alpi
 
 // RunFromImage returns the Docker image used to run the Java function.
 func (lh *JavaLangHelper) RunFromImage() string {
-	return "fnproject/fn-java-runtime:latest"
+	return "fnproject/fn-java-fdk:latest"
 }
 
 // HasPreBuild returns whether the Java runtime has boilerplate that can be generated.
@@ -79,10 +79,10 @@ func (lh *JavaLangHelper) DockerfileBuildCmds() []string {
 	return []string{
 		fmt.Sprintf("ENV MAVEN_OPTS %s", mavenOpts()),
 		"ADD pom.xml /function/pom.xml",
-		"RUN [\"mvn\", \"-X\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", " +
+		"RUN [\"mvn\", \"package\", \"dependency:copy-dependencies\", \"-DincludeScope=runtime\", " +
 			"\"-DskipTests=true\", \"-Dmdep.prependGroupId=true\", \"-DoutputDirectory=target\", \"--fail-never\"]",
 		"ADD src /function/src",
-		"RUN [\"mvn\", \"-X\", \"package\"]",
+		"RUN [\"mvn\", \"package\"]",
 	}
 }
 
