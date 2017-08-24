@@ -39,6 +39,6 @@ docker tag $user/$service:$tag $user/$service:$version
 docker push $user/$service:$version
 docker push $user/$service:$tag
 
-cd fnlb
-./release.sh
-cd ..
+# cd fnlb
+# ./release.sh
+# cd ..
