@@ -1,5 +1,5 @@
 hash: b555054a6f86ac84f6104ad9efabdcd85966c8f6574e485be7337c3ee9f29aa0
-updated: 2017-08-18T21:27:39.98453555+03:00
+updated: 2017-08-24T11:39:05.56809023-07:00
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -26,7 +26,7 @@ imports:
 - name: github.com/cenkalti/backoff
   version: 61153c768f31ee5f130071d08fc82b85208528de
 - name: github.com/coreos/go-semver
-  version: 1817cd4bea52af76542157eeabd74b057d1a199e
+  version: 8ab6407b697782a06568d4b7f1db25550ec2e4c6
   subpackages:
   - semver
 - name: github.com/davecgh/go-spew
@@ -132,7 +132,7 @@ imports:
 - name: github.com/gin-contrib/sse
   version: 22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae
 - name: github.com/gin-gonic/gin
-  version: a8fa424ae529397d4a0f2a1f9fda8031851a3269
+  version: 80152ac82c413e82275e828fdde8892c458715f7
   subpackages:
   - binding
   - json
@@ -158,13 +158,13 @@ imports:
 - name: github.com/go-openapi/spec
   version: 3faa0055dbbf2110abc1f3b4e3adbb22721e96e7
 - name: github.com/go-openapi/strfmt
-  version: 93a31ef21ac23f317792fff78f9539219dd74619
+  version: 610b6cacdcde6852f4de68998bd20ce1dac85b22
 - name: github.com/go-openapi/swag
   version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-openapi/validate
   version: 8a82927c942c94794a5cd8b8b50ce2f48a955c0c
 - name: github.com/go-sql-driver/mysql
-  version: 3955978caca48c1658a4bb7a9c6a0f084e326af3
+  version: 26471af196a17ee75a22e6481b5a5897fb16b081
 - name: github.com/gogo/protobuf
   version: fcdc5011193ff531a548e9b0301828d5a5b97fd8
   subpackages:
@@ -209,7 +209,7 @@ imports:
   subpackages:
   - reflectx
 - name: github.com/json-iterator/go
-  version: 887789156aeca0b292a5080b24e650d856c28933
+  version: cdbd2ed8105904f45698861f5abe9fa354c1f92a
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/lib/pq
@@ -227,7 +227,7 @@ imports:
 - name: github.com/mattn/go-isatty
   version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/mattn/go-sqlite3
-  version: 6654e412c3c7eabb310d920cf73a2102dbf8c632
+  version: 144deb6596cd6dbb49158b3d6f6a0e742715f9a5
 - name: github.com/Microsoft/go-winio
   version: 78439966b38d69bf38227fbf57ac8a6fee70f69a
 - name: github.com/mitchellh/mapstructure
@@ -249,7 +249,7 @@ imports:
   - ext
   - log
 - name: github.com/openzipkin/zipkin-go-opentracing
-  version: a3f24586d6771f7a52012fc17b05a3f781592173
+  version: 37e942825de0f846d15acc3bc9d027c9134a9b25
   subpackages:
   - flag
   - thrift/gen-go/scribe
@@ -259,7 +259,7 @@ imports:
 - name: github.com/patrickmn/go-cache
   version: a3647f8e31d79543b2d0f0ae2fe5c379d72cedc0
 - name: github.com/pelletier/go-toml
-  version: 69d355db5304c0f7f809a2edc054553e7142f016
+  version: 4692b8f9babfc93db58cc592ba2689d8736781de
 - name: github.com/pierrec/lz4
   version: 5a3d2245f97fc249850e7802e3c01fad02a1c316
 - name: github.com/pierrec/xxHash
@@ -275,7 +275,7 @@ imports:
 - name: github.com/rcrowley/go-metrics
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
 - name: github.com/Shopify/sarama
-  version: 3fee590c5568849516741670af9331a193bbe2a3
+  version: 55b3f6a77f08038b1e82c3db3c1ce619e46de9b6
 - name: github.com/sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/Sirupsen/logrus
@@ -301,7 +301,7 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/crypto
-  version: b176d7def5d71bdd214203491f89843ed217f420
+  version: 1351f936d976c60a0a48d728281922cf63eafb8d
   subpackages:
   - bcrypt
   - blowfish
@@ -313,7 +313,7 @@ imports:
   - idna
   - proxy
 - name: golang.org/x/sys
-  version: 9f7170bcd8e9f4d3691c06401119c46a769a1e03
+  version: 07c182904dbd53199946ba614a412c61d3c548f5
   subpackages:
   - unix
   - windows

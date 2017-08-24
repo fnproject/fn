@@ -6,13 +6,8 @@ package poly1305
 
 import (
 	"bytes"
-	"encoding/hex"
-	"flag"
 	"testing"
-	"unsafe"
 )
-
-var stressFlag = flag.Bool("stress", false, "run slow stress tests")
 
 var testData = []struct {
 	in, k, correct []byte
@@ -37,123 +32,43 @@ var testData = []struct {
 		make([]byte, 32),
 		make([]byte, 16),
 	},
-	{
-		// This test triggers an edge-case. See https://go-review.googlesource.com/#/c/30101/.
-		[]byte{0x81, 0xd8, 0xb2, 0xe4, 0x6a, 0x25, 0x21, 0x3b, 0x58, 0xfe, 0xe4, 0x21, 0x3a, 0x2a, 0x28, 0xe9, 0x21, 0xc1, 0x2a, 0x96, 0x32, 0x51, 0x6d, 0x3b, 0x73, 0x27, 0x27, 0x27, 0xbe, 0xcf, 0x21, 0x29},
-		[]byte{0x3b, 0x3a, 0x29, 0xe9, 0x3b, 0x21, 0x3a, 0x5c, 0x5c, 0x3b, 0x3b, 0x05, 0x3a, 0x3a, 0x8c, 0x0d},
-		[]byte{0x6d, 0xc1, 0x8b, 0x8c, 0x34, 0x4c, 0xd7, 0x99, 0x27, 0x11, 0x8b, 0xbe, 0x84, 0xb7, 0xf3, 0x14},
-	},
-	{
-		// This test generates a result of (2^130-1) % (2^130-5).
-		[]byte{
-			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		},
-		[]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		[]byte{4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	},
-	{
-		// This test generates a result of (2^130-6) % (2^130-5).
-		[]byte{
-			0xfa, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		},
-		[]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		[]byte{0xfa, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-	},
-	{
-		// This test generates a result of (2^130-5) % (2^130-5).
-		[]byte{
-			0xfb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		},
-		[]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	},
 }
 
-func testSum(t *testing.T, unaligned bool) {
+func TestSum(t *testing.T) {
 	var out [16]byte
 	var key [32]byte
 
 	for i, v := range testData {
-		in := v.in
-		if unaligned {
-			in = unalignBytes(in)
-		}
 		copy(key[:], v.k)
-		Sum(&out, in, &key)
+		Sum(&out, v.in, &key)
 		if !bytes.Equal(out[:], v.correct) {
 			t.Errorf("%d: expected %x, got %x", i, v.correct, out[:])
 		}
 	}
 }
 
-func TestBurnin(t *testing.T) {
-	// This test can be used to sanity-check significant changes. It can
-	// take about many minutes to run, even on fast machines. It's disabled
-	// by default.
-	if !*stressFlag {
-		t.Skip("skipping without -stress")
-	}
-
-	var key [32]byte
-	var input [25]byte
-	var output [16]byte
-
-	for i := range key {
-		key[i] = 1
-	}
-	for i := range input {
-		input[i] = 2
-	}
-
-	for i := uint64(0); i < 1e10; i++ {
-		Sum(&output, input[:], &key)
-		copy(key[0:], output[:])
-		copy(key[16:], output[:])
-		copy(input[:], output[:])
-		copy(input[16:], output[:])
-	}
-
-	const expected = "5e3b866aea0b636d240c83c428f84bfa"
-	if got := hex.EncodeToString(output[:]); got != expected {
-		t.Errorf("expected %s, got %s", expected, got)
-	}
-}
-
-func TestSum(t *testing.T)          { testSum(t, false) }
-func TestSumUnaligned(t *testing.T) { testSum(t, true) }
-
-func benchmark(b *testing.B, size int, unaligned bool) {
+func Benchmark1K(b *testing.B) {
+	b.StopTimer()
 	var out [16]byte
 	var key [32]byte
-	in := make([]byte, size)
-	if unaligned {
-		in = unalignBytes(in)
-	}
+	in := make([]byte, 1024)
 	b.SetBytes(int64(len(in)))
-	b.ResetTimer()
+	b.StartTimer()
+
 	for i := 0; i < b.N; i++ {
 		Sum(&out, in, &key)
 	}
 }
 
-func Benchmark64(b *testing.B)          { benchmark(b, 64, false) }
-func Benchmark1K(b *testing.B)          { benchmark(b, 1024, false) }
-func Benchmark64Unaligned(b *testing.B) { benchmark(b, 64, true) }
-func Benchmark1KUnaligned(b *testing.B) { benchmark(b, 1024, true) }
+func Benchmark64(b *testing.B) {
+	b.StopTimer()
+	var out [16]byte
+	var key [32]byte
+	in := make([]byte, 64)
+	b.SetBytes(int64(len(in)))
+	b.StartTimer()
 
-func unalignBytes(in []byte) []byte {
-	out := make([]byte, len(in)+1)
-	if uintptr(unsafe.Pointer(&out[0]))&(unsafe.Alignof(uint32(0))-1) == 0 {
-		out = out[1:]
-	} else {
-		out = out[:len(in)]
+	for i := 0; i < b.N; i++ {
+		Sum(&out, in, &key)
 	}
-	copy(out, in)
-	return out
 }

@@ -277,7 +277,7 @@ func (c *Conversation) Receive(in []byte) (out []byte, encrypted bool, change Se
 		in = in[len(msgPrefix) : len(in)-1]
 	} else if version := isQuery(in); version > 0 {
 		c.authState = authStateAwaitingDHKey
-		c.reset()
+		c.myKeyId = 0
 		toSend = c.encode(c.generateDHCommit())
 		return
 	} else {
@@ -311,7 +311,7 @@ func (c *Conversation) Receive(in []byte) (out []byte, encrypted bool, change Se
 			if err = c.processDHCommit(msg); err != nil {
 				return
 			}
-			c.reset()
+			c.myKeyId = 0
 			toSend = c.encode(c.generateDHKey())
 			return
 		case authStateAwaitingDHKey:
@@ -330,7 +330,7 @@ func (c *Conversation) Receive(in []byte) (out []byte, encrypted bool, change Se
 				if err = c.processDHCommit(msg); err != nil {
 					return
 				}
-				c.reset()
+				c.myKeyId = 0
 				toSend = c.encode(c.generateDHKey())
 				return
 			}
@@ -343,7 +343,7 @@ func (c *Conversation) Receive(in []byte) (out []byte, encrypted bool, change Se
 			if err = c.processDHCommit(msg); err != nil {
 				return
 			}
-			c.reset()
+			c.myKeyId = 0
 			toSend = c.encode(c.generateDHKey())
 			c.authState = authStateAwaitingRevealSig
 		default:
@@ -417,11 +417,12 @@ func (c *Conversation) Receive(in []byte) (out []byte, encrypted bool, change Se
 					change = SMPSecretNeeded
 					c.smp.saved = &inTLV
 					return
-				}
-				if err == smpFailureError {
+				} else if err == smpFailureError {
 					err = nil
 					change = SMPFailed
-				} else if complete {
+					return
+				}
+				if complete {
 					change = SMPComplete
 				}
 				if reply.typ != 0 {
@@ -847,6 +848,7 @@ func (c *Conversation) rotateDHKeys() {
 		slot := &c.keySlots[i]
 		if slot.used && slot.myKeyId == c.myKeyId-1 {
 			slot.used = false
+			c.oldMACs = append(c.oldMACs, slot.sendMACKey...)
 			c.oldMACs = append(c.oldMACs, slot.recvMACKey...)
 		}
 	}
@@ -922,6 +924,7 @@ func (c *Conversation) processData(in []byte) (out []byte, tlvs []tlv, err error
 			slot := &c.keySlots[i]
 			if slot.used && slot.theirKeyId == theirKeyId-1 {
 				slot.used = false
+				c.oldMACs = append(c.oldMACs, slot.sendMACKey...)
 				c.oldMACs = append(c.oldMACs, slot.recvMACKey...)
 			}
 		}
@@ -943,7 +946,6 @@ func (c *Conversation) processData(in []byte) (out []byte, tlvs []tlv, err error
 			t.data, tlvData, ok3 = getNBytes(tlvData, int(t.length))
 			if !ok1 || !ok2 || !ok3 {
 				err = errors.New("otr: corrupt tlv data")
-				return
 			}
 			tlvs = append(tlvs, t)
 		}
@@ -1037,7 +1039,8 @@ func (c *Conversation) calcDataKeys(myKeyId, theirKeyId uint32) (slot *keySlot, 
 		}
 	}
 	if slot == nil {
-		return nil, errors.New("otr: internal error: no more key slots")
+		err = errors.New("otr: internal error: no key slots")
+		return
 	}
 
 	var myPriv, myPub, theirPub *big.Int
@@ -1092,10 +1095,6 @@ func (c *Conversation) calcDataKeys(myKeyId, theirKeyId uint32) (slot *keySlot, 
 	h.Reset()
 	h.Write(slot.recvAESKey)
 	slot.recvMACKey = h.Sum(slot.recvMACKey[:0])
-
-	slot.theirKeyId = theirKeyId
-	slot.myKeyId = myKeyId
-	slot.used = true
 
 	zero(slot.theirLastCtr[:])
 	return
@@ -1161,14 +1160,6 @@ func (c *Conversation) encode(msg []byte) [][]byte {
 	}
 
 	return ret
-}
-
-func (c *Conversation) reset() {
-	c.myKeyId = 0
-
-	for i := range c.keySlots {
-		c.keySlots[i].used = false
-	}
 }
 
 type PublicKey struct {
@@ -1312,12 +1303,6 @@ func (priv *PrivateKey) Import(in []byte) bool {
 		}
 
 		mpis[i] = new(big.Int).SetBytes(mpiBytes)
-	}
-
-	for _, mpi := range mpis {
-		if mpi.Sign() <= 0 {
-			return false
-		}
 	}
 
 	priv.PrivateKey.P = mpis[0]

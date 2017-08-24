@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package agent implements the ssh-agent protocol, and provides both
-// a client and a server. The client can talk to a standard ssh-agent
-// that uses UNIX sockets, and one could implement an alternative
-// ssh-agent process using the sample server.
-//
-// References:
-//  [PROTOCOL.agent]:    http://cvsweb.openbsd.org/cgi-bin/cvsweb/src/usr.bin/ssh/PROTOCOL.agent?rev=HEAD
+/*
+  Package agent implements a client to an ssh-agent daemon.
+
+References:
+  [PROTOCOL.agent]:    http://www.openbsd.org/cgi-bin/cvsweb/src/usr.bin/ssh/PROTOCOL.agent
+*/
 package agent // import "golang.org/x/crypto/ssh/agent"
 
 import (
@@ -25,7 +24,6 @@ import (
 	"math/big"
 	"sync"
 
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -38,8 +36,9 @@ type Agent interface {
 	// in [PROTOCOL.agent] section 2.6.2.
 	Sign(key ssh.PublicKey, data []byte) (*ssh.Signature, error)
 
-	// Add adds a private key to the agent.
-	Add(key AddedKey) error
+	// Insert adds a private key to the agent. If a certificate
+	// is given, that certificate is added as public key.
+	Add(s interface{}, cert *ssh.Certificate, comment string) error
 
 	// Remove removes all identities with the given public key.
 	Remove(key ssh.PublicKey) error
@@ -57,42 +56,9 @@ type Agent interface {
 	Signers() ([]ssh.Signer, error)
 }
 
-// ConstraintExtension describes an optional constraint defined by users.
-type ConstraintExtension struct {
-	// ExtensionName consist of a UTF-8 string suffixed by the
-	// implementation domain following the naming scheme defined
-	// in Section 4.2 of [RFC4251], e.g.  "foo@example.com".
-	ExtensionName string
-	// ExtensionDetails contains the actual content of the extended
-	// constraint.
-	ExtensionDetails []byte
-}
-
-// AddedKey describes an SSH key to be added to an Agent.
-type AddedKey struct {
-	// PrivateKey must be a *rsa.PrivateKey, *dsa.PrivateKey or
-	// *ecdsa.PrivateKey, which will be inserted into the agent.
-	PrivateKey interface{}
-	// Certificate, if not nil, is communicated to the agent and will be
-	// stored with the key.
-	Certificate *ssh.Certificate
-	// Comment is an optional, free-form string.
-	Comment string
-	// LifetimeSecs, if not zero, is the number of seconds that the
-	// agent will store the key for.
-	LifetimeSecs uint32
-	// ConfirmBeforeUse, if true, requests that the agent confirm with the
-	// user before each use of this key.
-	ConfirmBeforeUse bool
-	// ConstraintExtensions are the experimental or private-use constraints
-	// defined by users.
-	ConstraintExtensions []ConstraintExtension
-}
-
 // See [PROTOCOL.agent], section 3.
 const (
-	agentRequestV1Identities   = 1
-	agentRemoveAllV1Identities = 9
+	agentRequestV1Identities = 1
 
 	// 3.2 Requests from client to agent for protocol 2 key operations
 	agentAddIdentity         = 17
@@ -108,9 +74,8 @@ const (
 	agentAddSmartcardKeyConstrained = 26
 
 	// 3.7 Key constraint identifiers
-	agentConstrainLifetime  = 1
-	agentConstrainConfirm   = 2
-	agentConstrainExtension = 3
+	agentConstrainLifetime = 1
+	agentConstrainConfirm  = 2
 )
 
 // maxAgentResponseBytes is the maximum agent reply size that is accepted. This
@@ -166,19 +131,6 @@ type publicKey struct {
 	Rest   []byte `ssh:"rest"`
 }
 
-// 3.7 Key constraint identifiers
-type constrainLifetimeAgentMsg struct {
-	LifetimeSecs uint32 `sshtype:"1"`
-}
-
-type constrainExtensionAgentMsg struct {
-	ExtensionName    string `sshtype:"3"`
-	ExtensionDetails []byte
-
-	// Rest is a field used for parsing, not part of message
-	Rest []byte `ssh:"rest"`
-}
-
 // Key represents a protocol 2 public key as defined in
 // [PROTOCOL.agent], section 2.5.2.
 type Key struct {
@@ -213,13 +165,10 @@ func (k *Key) Marshal() []byte {
 	return k.Blob
 }
 
-// Verify satisfies the ssh.PublicKey interface.
+// Verify satisfies the ssh.PublicKey interface, but is not
+// implemented for agent keys.
 func (k *Key) Verify(data []byte, sig *ssh.Signature) error {
-	pubKey, err := ssh.ParsePublicKey(k.Blob)
-	if err != nil {
-		return fmt.Errorf("agent: bad public key: %v", err)
-	}
-	return pubKey.Verify(data, sig)
+	return errors.New("agent: agent key does not know how to verify")
 }
 
 type wireKey struct {
@@ -409,8 +358,6 @@ func unmarshal(packet []byte) (interface{}, error) {
 		msg = new(identitiesAnswerAgentMsg)
 	case agentSignResponse:
 		msg = new(signResponseAgentMsg)
-	case agentV1IdentitiesAnswer:
-		msg = new(agentV1IdentityMsg)
 	default:
 		return nil, fmt.Errorf("agent: unknown type tag %d", packet[0])
 	}
@@ -421,47 +368,36 @@ func unmarshal(packet []byte) (interface{}, error) {
 }
 
 type rsaKeyMsg struct {
-	Type        string `sshtype:"17|25"`
-	N           *big.Int
-	E           *big.Int
-	D           *big.Int
-	Iqmp        *big.Int // IQMP = Inverse Q Mod P
-	P           *big.Int
-	Q           *big.Int
-	Comments    string
-	Constraints []byte `ssh:"rest"`
+	Type     string `sshtype:"17"`
+	N        *big.Int
+	E        *big.Int
+	D        *big.Int
+	Iqmp     *big.Int // IQMP = Inverse Q Mod P
+	P        *big.Int
+	Q        *big.Int
+	Comments string
 }
 
 type dsaKeyMsg struct {
-	Type        string `sshtype:"17|25"`
-	P           *big.Int
-	Q           *big.Int
-	G           *big.Int
-	Y           *big.Int
-	X           *big.Int
-	Comments    string
-	Constraints []byte `ssh:"rest"`
+	Type     string `sshtype:"17"`
+	P        *big.Int
+	Q        *big.Int
+	G        *big.Int
+	Y        *big.Int
+	X        *big.Int
+	Comments string
 }
 
 type ecdsaKeyMsg struct {
-	Type        string `sshtype:"17|25"`
-	Curve       string
-	KeyBytes    []byte
-	D           *big.Int
-	Comments    string
-	Constraints []byte `ssh:"rest"`
-}
-
-type ed25519KeyMsg struct {
-	Type        string `sshtype:"17|25"`
-	Pub         []byte
-	Priv        []byte
-	Comments    string
-	Constraints []byte `ssh:"rest"`
+	Type     string `sshtype:"17"`
+	Curve    string
+	KeyBytes []byte
+	D        *big.Int
+	Comments string
 }
 
 // Insert adds a private key to the agent.
-func (c *client) insertKey(s interface{}, comment string, constraints []byte) error {
+func (c *client) insertKey(s interface{}, comment string) error {
 	var req []byte
 	switch k := s.(type) {
 	case *rsa.PrivateKey:
@@ -470,54 +406,37 @@ func (c *client) insertKey(s interface{}, comment string, constraints []byte) er
 		}
 		k.Precompute()
 		req = ssh.Marshal(rsaKeyMsg{
-			Type:        ssh.KeyAlgoRSA,
-			N:           k.N,
-			E:           big.NewInt(int64(k.E)),
-			D:           k.D,
-			Iqmp:        k.Precomputed.Qinv,
-			P:           k.Primes[0],
-			Q:           k.Primes[1],
-			Comments:    comment,
-			Constraints: constraints,
+			Type:     ssh.KeyAlgoRSA,
+			N:        k.N,
+			E:        big.NewInt(int64(k.E)),
+			D:        k.D,
+			Iqmp:     k.Precomputed.Qinv,
+			P:        k.Primes[0],
+			Q:        k.Primes[1],
+			Comments: comment,
 		})
 	case *dsa.PrivateKey:
 		req = ssh.Marshal(dsaKeyMsg{
-			Type:        ssh.KeyAlgoDSA,
-			P:           k.P,
-			Q:           k.Q,
-			G:           k.G,
-			Y:           k.Y,
-			X:           k.X,
-			Comments:    comment,
-			Constraints: constraints,
+			Type:     ssh.KeyAlgoDSA,
+			P:        k.P,
+			Q:        k.Q,
+			G:        k.G,
+			Y:        k.Y,
+			X:        k.X,
+			Comments: comment,
 		})
 	case *ecdsa.PrivateKey:
 		nistID := fmt.Sprintf("nistp%d", k.Params().BitSize)
 		req = ssh.Marshal(ecdsaKeyMsg{
-			Type:        "ecdsa-sha2-" + nistID,
-			Curve:       nistID,
-			KeyBytes:    elliptic.Marshal(k.Curve, k.X, k.Y),
-			D:           k.D,
-			Comments:    comment,
-			Constraints: constraints,
-		})
-	case *ed25519.PrivateKey:
-		req = ssh.Marshal(ed25519KeyMsg{
-			Type:        ssh.KeyAlgoED25519,
-			Pub:         []byte(*k)[32:],
-			Priv:        []byte(*k),
-			Comments:    comment,
-			Constraints: constraints,
+			Type:     "ecdsa-sha2-" + nistID,
+			Curve:    nistID,
+			KeyBytes: elliptic.Marshal(k.Curve, k.X, k.Y),
+			D:        k.D,
+			Comments: comment,
 		})
 	default:
 		return fmt.Errorf("agent: unsupported key type %T", s)
 	}
-
-	// if constraints are present then the message type needs to be changed.
-	if len(constraints) != 0 {
-		req[0] = agentAddIdConstrained
-	}
-
 	resp, err := c.call(req)
 	if err != nil {
 		return err
@@ -529,62 +448,40 @@ func (c *client) insertKey(s interface{}, comment string, constraints []byte) er
 }
 
 type rsaCertMsg struct {
-	Type        string `sshtype:"17|25"`
-	CertBytes   []byte
-	D           *big.Int
-	Iqmp        *big.Int // IQMP = Inverse Q Mod P
-	P           *big.Int
-	Q           *big.Int
-	Comments    string
-	Constraints []byte `ssh:"rest"`
+	Type      string `sshtype:"17"`
+	CertBytes []byte
+	D         *big.Int
+	Iqmp      *big.Int // IQMP = Inverse Q Mod P
+	P         *big.Int
+	Q         *big.Int
+	Comments  string
 }
 
 type dsaCertMsg struct {
-	Type        string `sshtype:"17|25"`
-	CertBytes   []byte
-	X           *big.Int
-	Comments    string
-	Constraints []byte `ssh:"rest"`
+	Type      string `sshtype:"17"`
+	CertBytes []byte
+	X         *big.Int
+	Comments  string
 }
 
 type ecdsaCertMsg struct {
-	Type        string `sshtype:"17|25"`
-	CertBytes   []byte
-	D           *big.Int
-	Comments    string
-	Constraints []byte `ssh:"rest"`
+	Type      string `sshtype:"17"`
+	CertBytes []byte
+	D         *big.Int
+	Comments  string
 }
 
-type ed25519CertMsg struct {
-	Type        string `sshtype:"17|25"`
-	CertBytes   []byte
-	Pub         []byte
-	Priv        []byte
-	Comments    string
-	Constraints []byte `ssh:"rest"`
-}
-
-// Add adds a private key to the agent. If a certificate is given,
+// Insert adds a private key to the agent. If a certificate is given,
 // that certificate is added instead as public key.
-func (c *client) Add(key AddedKey) error {
-	var constraints []byte
-
-	if secs := key.LifetimeSecs; secs != 0 {
-		constraints = append(constraints, ssh.Marshal(constrainLifetimeAgentMsg{secs})...)
-	}
-
-	if key.ConfirmBeforeUse {
-		constraints = append(constraints, agentConstrainConfirm)
-	}
-
-	if cert := key.Certificate; cert == nil {
-		return c.insertKey(key.PrivateKey, key.Comment, constraints)
+func (c *client) Add(s interface{}, cert *ssh.Certificate, comment string) error {
+	if cert == nil {
+		return c.insertKey(s, comment)
 	} else {
-		return c.insertCert(key.PrivateKey, cert, key.Comment, constraints)
+		return c.insertCert(s, cert, comment)
 	}
 }
 
-func (c *client) insertCert(s interface{}, cert *ssh.Certificate, comment string, constraints []byte) error {
+func (c *client) insertCert(s interface{}, cert *ssh.Certificate, comment string) error {
 	var req []byte
 	switch k := s.(type) {
 	case *rsa.PrivateKey:
@@ -593,47 +490,30 @@ func (c *client) insertCert(s interface{}, cert *ssh.Certificate, comment string
 		}
 		k.Precompute()
 		req = ssh.Marshal(rsaCertMsg{
-			Type:        cert.Type(),
-			CertBytes:   cert.Marshal(),
-			D:           k.D,
-			Iqmp:        k.Precomputed.Qinv,
-			P:           k.Primes[0],
-			Q:           k.Primes[1],
-			Comments:    comment,
-			Constraints: constraints,
+			Type:      cert.Type(),
+			CertBytes: cert.Marshal(),
+			D:         k.D,
+			Iqmp:      k.Precomputed.Qinv,
+			P:         k.Primes[0],
+			Q:         k.Primes[1],
+			Comments:  comment,
 		})
 	case *dsa.PrivateKey:
 		req = ssh.Marshal(dsaCertMsg{
-			Type:        cert.Type(),
-			CertBytes:   cert.Marshal(),
-			X:           k.X,
-			Comments:    comment,
-			Constraints: constraints,
+			Type:      cert.Type(),
+			CertBytes: cert.Marshal(),
+			X:         k.X,
+			Comments:  comment,
 		})
 	case *ecdsa.PrivateKey:
 		req = ssh.Marshal(ecdsaCertMsg{
-			Type:        cert.Type(),
-			CertBytes:   cert.Marshal(),
-			D:           k.D,
-			Comments:    comment,
-			Constraints: constraints,
-		})
-	case *ed25519.PrivateKey:
-		req = ssh.Marshal(ed25519CertMsg{
-			Type:        cert.Type(),
-			CertBytes:   cert.Marshal(),
-			Pub:         []byte(*k)[32:],
-			Priv:        []byte(*k),
-			Comments:    comment,
-			Constraints: constraints,
+			Type:      cert.Type(),
+			CertBytes: cert.Marshal(),
+			D:         k.D,
+			Comments:  comment,
 		})
 	default:
 		return fmt.Errorf("agent: unsupported key type %T", s)
-	}
-
-	// if constraints are present then the message type needs to be changed.
-	if len(constraints) != 0 {
-		req[0] = agentAddIdConstrained
 	}
 
 	signer, err := ssh.NewSignerFromKey(s)
