@@ -1,6 +1,6 @@
 # Fn [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn)
-<!-- test -->
-<!-- ADD ONCE PUBLIC [![GoDoc](https://godoc.org/github.com/treeder/functions?status.svg)](https://godoc.org/github.com/treeder/functions) -->
+[![GoDoc](https://godoc.org/github.com/fnproject/fn?status.svg)](https://godoc.org/github.com/fnproject/fn)
+
 
 Fn is an event-driven, open source, [functions-as-a-service](serverless.md) compute
 platform that you can run anywhere. Some of it's key features:
@@ -106,9 +106,9 @@ you can update your code and run `fn deploy myapp` again.
 
 ## Get Involved
 
-* TODO: Slack or Discord community
-* Learn how to [contribute](CONTRIBUTING.md)
-* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
+- Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+- Learn how to [contribute](CONTRIBUTING.md)
+- See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
 
 ## User Interface
 
