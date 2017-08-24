@@ -43,11 +43,6 @@ go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v tool | 
 docker rm --force func-postgres-test 
 docker rm --force func-mysql-test
 
-cd cli && make build && make test
-# TODO: should we install fn here to use throughout?
-export FN="$(pwd)/fn"
-cd ..
-
 # test middlware, extensions, examples, etc
 # TODO: do more here, maybe as part of fn tests
 cd examples/middleware
