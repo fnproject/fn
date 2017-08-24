@@ -35,7 +35,7 @@ type Block struct {
 // start is the marker which denotes the beginning of a clearsigned message.
 var start = []byte("\n-----BEGIN PGP SIGNED MESSAGE-----")
 
-// dashEscape is prefixed to any lines that begin with a hyphen so that they
+// dashEscape is prefixed to any lines that begin with a hypen so that they
 // can't be confused with endText.
 var dashEscape = []byte("- ")
 
@@ -118,10 +118,6 @@ func Decode(data []byte) (b *Block, rest []byte) {
 		start := rest
 
 		line, rest = getLine(rest)
-		if len(line) == 0 && len(rest) == 0 {
-			// No armored data was found, so this isn't a complete message.
-			return nil, data
-		}
 		if bytes.Equal(line, endText) {
 			// Back up to the start of the line because armor expects to see the
 			// header line.
@@ -201,17 +197,7 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 				d.h.Write(crlf)
 			}
 			d.isFirstLine = false
-		}
 
-		// Any whitespace at the end of the line has to be removed so we
-		// buffer it until we find out whether there's more on this line.
-		if b == ' ' || b == '\t' || b == '\r' {
-			d.whitespace = append(d.whitespace, b)
-			d.atBeginningOfLine = false
-			continue
-		}
-
-		if d.atBeginningOfLine {
 			// At the beginning of a line, hyphens have to be escaped.
 			if b == '-' {
 				// The signature isn't calculated over the dash-escaped text so
@@ -222,7 +208,7 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 				d.h.Write(d.byteBuf)
 				d.atBeginningOfLine = false
 			} else if b == '\n' {
-				// Nothing to do because we delay writing CRLF to the hash.
+				// Nothing to do because we dely writing CRLF to the hash.
 			} else {
 				d.h.Write(d.byteBuf)
 				d.atBeginningOfLine = false
@@ -231,11 +217,15 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 				return
 			}
 		} else {
-			if b == '\n' {
+			// Any whitespace at the end of the line has to be removed so we
+			// buffer it until we find out whether there's more on this line.
+			if b == ' ' || b == '\t' || b == '\r' {
+				d.whitespace = append(d.whitespace, b)
+			} else if b == '\n' {
 				// We got a raw \n. Drop any trailing whitespace and write a
 				// CRLF.
 				d.whitespace = d.whitespace[:0]
-				// We delay writing CRLF to the hash until the start of the
+				// We dely writing CRLF to the hash until the start of the
 				// next line.
 				if err = d.buffered.WriteByte(b); err != nil {
 					return

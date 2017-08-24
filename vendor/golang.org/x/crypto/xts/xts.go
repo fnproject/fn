@@ -23,7 +23,6 @@ package xts // import "golang.org/x/crypto/xts"
 
 import (
 	"crypto/cipher"
-	"encoding/binary"
 	"errors"
 )
 
@@ -66,20 +65,21 @@ func (c *Cipher) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 	}
 
 	var tweak [blockSize]byte
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	for i := 0; i < 8; i++ {
+		tweak[i] = byte(sectorNum)
+		sectorNum >>= 8
+	}
 
 	c.k2.Encrypt(tweak[:], tweak[:])
 
-	for len(plaintext) > 0 {
-		for j := range tweak {
-			ciphertext[j] = plaintext[j] ^ tweak[j]
+	for i := 0; i < len(plaintext); i += blockSize {
+		for j := 0; j < blockSize; j++ {
+			ciphertext[i+j] = plaintext[i+j] ^ tweak[j]
 		}
-		c.k1.Encrypt(ciphertext, ciphertext)
-		for j := range tweak {
-			ciphertext[j] ^= tweak[j]
+		c.k1.Encrypt(ciphertext[i:], ciphertext[i:])
+		for j := 0; j < blockSize; j++ {
+			ciphertext[i+j] ^= tweak[j]
 		}
-		plaintext = plaintext[blockSize:]
-		ciphertext = ciphertext[blockSize:]
 
 		mul2(&tweak)
 	}
@@ -97,20 +97,21 @@ func (c *Cipher) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 	}
 
 	var tweak [blockSize]byte
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	for i := 0; i < 8; i++ {
+		tweak[i] = byte(sectorNum)
+		sectorNum >>= 8
+	}
 
 	c.k2.Encrypt(tweak[:], tweak[:])
 
-	for len(ciphertext) > 0 {
-		for j := range tweak {
-			plaintext[j] = ciphertext[j] ^ tweak[j]
+	for i := 0; i < len(plaintext); i += blockSize {
+		for j := 0; j < blockSize; j++ {
+			plaintext[i+j] = ciphertext[i+j] ^ tweak[j]
 		}
-		c.k1.Decrypt(plaintext, plaintext)
-		for j := range tweak {
-			plaintext[j] ^= tweak[j]
+		c.k1.Decrypt(plaintext[i:], plaintext[i:])
+		for j := 0; j < blockSize; j++ {
+			plaintext[i+j] ^= tweak[j]
 		}
-		plaintext = plaintext[blockSize:]
-		ciphertext = ciphertext[blockSize:]
 
 		mul2(&tweak)
 	}

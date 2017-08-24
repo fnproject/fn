@@ -44,12 +44,6 @@ func TestParse(t *testing.T) {
 	testParse(t, clearsignInput2, "\r\n\r\n(This message has a couple of blank lines at the start and end.)\r\n\r\n", "\n\n(This message has a couple of blank lines at the start and end.)\n\n\n")
 }
 
-func TestParseInvalid(t *testing.T) {
-	if b, _ := Decode(clearsignInput3); b != nil {
-		t.Fatal("decoded a bad clearsigned message without any error")
-	}
-}
-
 func TestParseWithNoNewlineAtEnd(t *testing.T) {
 	input := clearsignInput
 	input = input[:len(input)-len("trailing")-1]
@@ -70,16 +64,6 @@ var signingTests = []struct {
 	{"a\n", "a", "a\n"},
 	{"-a\n", "-a", "-a\n"},
 	{"--a\nb", "--a\r\nb", "--a\nb\n"},
-	// leading whitespace
-	{" a\n", " a", " a\n"},
-	{"  a\n", "  a", "  a\n"},
-	// trailing whitespace (should be stripped)
-	{"a \n", "a", "a\n"},
-	{"a ", "a", "a\n"},
-	// whitespace-only lines (should be stripped)
-	{"  \n", "", "\n"},
-	{"  ", "", "\n"},
-	{"a\n  \n  \nb\n", "a\r\n\r\n\r\nb", "a\n\n\nb\n"},
 }
 
 func TestSigning(t *testing.T) {
@@ -166,13 +150,6 @@ qZg6BaTvOxepqOxnhVU=
 -----END PGP SIGNATURE-----
 
 trailing`)
-
-var clearsignInput3 = []byte(`
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA256
-
-(This message was truncated.)
-`)
 
 var signingKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1.4.10 (GNU/Linux)
