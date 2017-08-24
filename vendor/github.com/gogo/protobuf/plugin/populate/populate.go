@@ -667,7 +667,7 @@ func (p *plugin) Generate(file *generator.FileDescriptor) {
 			p.P(`func NewPopulated`, ccTypeName, `(r randy`, p.localName, `, easy bool) *`, ccTypeName, ` {`)
 			p.In()
 			p.P(`this := &`, ccTypeName, `{}`)
-			vanity.TurnOffNullableForNativeTypes(f)
+			vanity.TurnOffNullableForNativeTypesWithoutDefaultsOnly(f)
 			p.GenerateField(file, message, f)
 			p.P(`return this`)
 			p.Out()

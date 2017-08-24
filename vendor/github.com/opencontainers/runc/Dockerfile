@@ -40,21 +40,12 @@ RUN cd /tmp \
     && rm -rf /tmp/bats
 
 # install criu
-ENV CRIU_VERSION 2.12
+ENV CRIU_VERSION 3ca8e575b49763030d3ddfec4af190a4c9f9deef
 RUN mkdir -p /usr/src/criu \
-    && curl -sSL https://github.com/xemul/criu/archive/v${CRIU_VERSION}.tar.gz | tar -v -C /usr/src/criu/ -xz --strip-components=1 \
+    && curl -sSL https://github.com/xemul/criu/archive/${CRIU_VERSION}.tar.gz | tar -v -C /usr/src/criu/ -xz --strip-components=1 \
     && cd /usr/src/criu \
     && make install-criu \
     && rm -rf /usr/src/criu
-
-# install shfmt
-RUN mkdir -p /go/src/github.com/mvdan \
-    && cd /go/src/github.com/mvdan \
-    && git clone https://github.com/mvdan/sh \
-    && cd sh \
-    && git checkout -f v0.4.0 \
-    && go install ./cmd/shfmt \
-    && rm -rf /go/src/github.com/mvdan
 
 # setup a playground for us to spawn containers in
 ENV ROOTFS /busybox

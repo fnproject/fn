@@ -12,13 +12,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
+	"vbom.ml/util/sortorder"
 )
 
 type listOptions struct {
 	format string
 }
 
-func newListCommand(dockerCli *command.DockerCli) *cobra.Command {
+func newListCommand(dockerCli command.Cli) *cobra.Command {
 	opts := listOptions{}
 
 	cmd := &cobra.Command{
@@ -36,7 +37,7 @@ func newListCommand(dockerCli *command.DockerCli) *cobra.Command {
 	return cmd
 }
 
-func runList(dockerCli *command.DockerCli, opts listOptions) error {
+func runList(dockerCli command.Cli, opts listOptions) error {
 	client := dockerCli.Client()
 	ctx := context.Background()
 
@@ -60,7 +61,7 @@ type byName []*formatter.Stack
 
 func (n byName) Len() int           { return len(n) }
 func (n byName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
-func (n byName) Less(i, j int) bool { return n[i].Name < n[j].Name }
+func (n byName) Less(i, j int) bool { return sortorder.NaturalLess(n[i].Name, n[j].Name) }
 
 func getStacks(ctx context.Context, apiclient client.APIClient) ([]*formatter.Stack, error) {
 	services, err := apiclient.ServiceList(
@@ -69,7 +70,7 @@ func getStacks(ctx context.Context, apiclient client.APIClient) ([]*formatter.St
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[string]*formatter.Stack, 0)
+	m := make(map[string]*formatter.Stack)
 	for _, service := range services {
 		labels := service.Spec.Labels
 		name, ok := labels[convert.LabelNamespace]

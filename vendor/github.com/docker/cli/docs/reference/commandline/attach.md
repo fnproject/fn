@@ -4,8 +4,8 @@ description: "The attach command description and usage"
 keywords: "attach, running, container"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -40,7 +40,7 @@ interactively, as though the commands were running directly in your terminal.
 > not be interacting with the terminal at that time.
 
 You can attach to the same contained process multiple times simultaneously,
-even as a different user with the appropriate permissions.
+from different sessions on the Docker host.
 
 To stop a container, use `CTRL-c`. This key sequence sends `SIGKILL` to the
 container. If `--sig-proxy` is true (the default),`CTRL-c` sends a `SIGINT` to

@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"syscall" // only for Signal
 
-	"github.com/Sirupsen/logrus"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runc/libcontainer/utils"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -75,11 +75,15 @@ func (h *signalHandler) forward(process *libcontainer.Process, tty *tty, detach 
 	}
 
 	// perform the initial tty resize.
-	tty.resize()
+	if err := tty.resize(); err != nil {
+		logrus.Error(err)
+	}
 	for s := range h.signals {
 		switch s {
 		case unix.SIGWINCH:
-			tty.resize()
+			if err := tty.resize(); err != nil {
+				logrus.Error(err)
+			}
 		case unix.SIGCHLD:
 			exits, err := h.reap()
 			if err != nil {

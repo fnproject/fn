@@ -35,7 +35,7 @@ type parentProcess interface {
 	wait() (*os.ProcessState, error)
 
 	// startTime returns the process start time.
-	startTime() (string, error)
+	startTime() (uint64, error)
 
 	signal(os.Signal) error
 
@@ -55,8 +55,9 @@ type setnsProcess struct {
 	bootstrapData io.Reader
 }
 
-func (p *setnsProcess) startTime() (string, error) {
-	return system.GetProcessStartTime(p.pid())
+func (p *setnsProcess) startTime() (uint64, error) {
+	stat, err := system.Stat(p.pid())
+	return stat.StartTime, err
 }
 
 func (p *setnsProcess) signal(sig os.Signal) error {
@@ -140,6 +141,16 @@ func (p *setnsProcess) execSetns() error {
 		p.cmd.Wait()
 		return newSystemErrorWithCause(err, "reading pid from init pipe")
 	}
+
+	// Clean up the zombie parent process
+	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
+	if err != nil {
+		return err
+	}
+
+	// Ignore the error in case the child has already been reaped for any reason
+	_, _ = firstChildProcess.Wait()
+
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
 		return err
@@ -223,6 +234,16 @@ func (p *initProcess) execSetns() error {
 		p.cmd.Wait()
 		return err
 	}
+
+	// Clean up the zombie parent process
+	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
+	if err != nil {
+		return err
+	}
+
+	// Ignore the error in case the child has already been reaped for any reason
+	_, _ = firstChildProcess.Wait()
+
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
 		return err
@@ -384,8 +405,9 @@ func (p *initProcess) terminate() error {
 	return err
 }
 
-func (p *initProcess) startTime() (string, error) {
-	return system.GetProcessStartTime(p.pid())
+func (p *initProcess) startTime() (uint64, error) {
+	stat, err := system.Stat(p.pid())
+	return stat.StartTime, err
 }
 
 func (p *initProcess) sendConfig() error {

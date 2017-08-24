@@ -5,13 +5,13 @@ import (
 
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
-	"github.com/docker/cli/cli/command/formatter"
 	"github.com/docker/cli/cli/command/idresolver"
 	"github.com/docker/cli/cli/command/node"
 	"github.com/docker/cli/cli/command/task"
 	"github.com/docker/cli/opts"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
@@ -52,6 +52,30 @@ func runPS(dockerCli command.Cli, options psOptions) error {
 	client := dockerCli.Client()
 	ctx := context.Background()
 
+	filter, notfound, err := createFilter(ctx, client, options)
+	if err != nil {
+		return err
+	}
+
+	tasks, err := client.TaskList(ctx, types.TaskListOptions{Filters: filter})
+	if err != nil {
+		return err
+	}
+
+	format := options.format
+	if len(format) == 0 {
+		format = task.DefaultFormat(dockerCli.ConfigFile(), options.quiet)
+	}
+	if err := task.Print(ctx, dockerCli, tasks, idresolver.New(client, options.noResolve), !options.noTrunc, options.quiet, format); err != nil {
+		return err
+	}
+	if len(notfound) != 0 {
+		return errors.New(strings.Join(notfound, "\n"))
+	}
+	return nil
+}
+
+func createFilter(ctx context.Context, client client.APIClient, options psOptions) (filters.Args, []string, error) {
 	filter := options.filter.Value()
 
 	serviceIDFilter := filters.NewArgs()
@@ -62,61 +86,60 @@ func runPS(dockerCli command.Cli, options psOptions) error {
 	}
 	serviceByIDList, err := client.ServiceList(ctx, types.ServiceListOptions{Filters: serviceIDFilter})
 	if err != nil {
-		return err
+		return filter, nil, err
 	}
 	serviceByNameList, err := client.ServiceList(ctx, types.ServiceListOptions{Filters: serviceNameFilter})
 	if err != nil {
-		return err
+		return filter, nil, err
 	}
 
+	var notfound []string
+	serviceCount := 0
+loop:
+	// Match services by 1. Full ID, 2. Full name, 3. ID prefix. An error is returned if the ID-prefix match is ambiguous
 	for _, service := range options.services {
-		serviceCount := 0
-		// Lookup by ID/Prefix
-		for _, serviceEntry := range serviceByIDList {
-			if strings.HasPrefix(serviceEntry.ID, service) {
-				filter.Add("service", serviceEntry.ID)
+		for _, s := range serviceByIDList {
+			if s.ID == service {
+				filter.Add("service", s.ID)
 				serviceCount++
+				continue loop
 			}
 		}
-
-		// Lookup by Name/Prefix
-		for _, serviceEntry := range serviceByNameList {
-			if strings.HasPrefix(serviceEntry.Spec.Annotations.Name, service) {
-				filter.Add("service", serviceEntry.ID)
+		for _, s := range serviceByNameList {
+			if s.Spec.Annotations.Name == service {
+				filter.Add("service", s.ID)
 				serviceCount++
+				continue loop
 			}
 		}
-		// If nothing has been found, return immediately.
-		if serviceCount == 0 {
-			return errors.Errorf("no such services: %s", service)
+		found := false
+		for _, s := range serviceByIDList {
+			if strings.HasPrefix(s.ID, service) {
+				if found {
+					return filter, nil, errors.New("multiple services found with provided prefix: " + service)
+				}
+				filter.Add("service", s.ID)
+				serviceCount++
+				found = true
+			}
+		}
+		if !found {
+			notfound = append(notfound, "no such service: "+service)
 		}
 	}
-
+	if serviceCount == 0 {
+		return filter, nil, errors.New(strings.Join(notfound, "\n"))
+	}
 	if filter.Include("node") {
 		nodeFilters := filter.Get("node")
 		for _, nodeFilter := range nodeFilters {
 			nodeReference, err := node.Reference(ctx, client, nodeFilter)
 			if err != nil {
-				return err
+				return filter, nil, err
 			}
 			filter.Del("node", nodeFilter)
 			filter.Add("node", nodeReference)
 		}
 	}
-
-	tasks, err := client.TaskList(ctx, types.TaskListOptions{Filters: filter})
-	if err != nil {
-		return err
-	}
-
-	format := options.format
-	if len(format) == 0 {
-		if len(dockerCli.ConfigFile().TasksFormat) > 0 && !options.quiet {
-			format = dockerCli.ConfigFile().TasksFormat
-		} else {
-			format = formatter.TableFormatKey
-		}
-	}
-
-	return task.Print(ctx, dockerCli, tasks, idresolver.New(client, options.noResolve), !options.noTrunc, options.quiet, format)
+	return filter, notfound, err
 }

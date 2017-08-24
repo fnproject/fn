@@ -21,12 +21,12 @@ import (
 	mounttypes "github.com/docker/docker/api/types/mount"
 	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/integration-cli/checker"
+	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/integration-cli/request"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/testutil"
 	"github.com/docker/docker/volume"
 	"github.com/go-check/check"
 )
@@ -211,10 +211,10 @@ func (s *DockerSuite) TestGetContainerStats(c *check.C) {
 }
 
 func (s *DockerSuite) TestGetContainerStatsRmRunning(c *check.C) {
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 	id := strings.TrimSpace(out)
 
-	buf := &testutil.ChannelBuffer{C: make(chan []byte, 1)}
+	buf := &ChannelBuffer{C: make(chan []byte, 1)}
 	defer buf.Close()
 
 	_, body, err := request.Get("/containers/"+id+"/stats?stream=1", request.JSON)
@@ -240,6 +240,34 @@ func (s *DockerSuite) TestGetContainerStatsRmRunning(c *check.C) {
 
 	dockerCmd(c, "rm", "-f", id)
 	c.Assert(<-chErr, checker.IsNil)
+}
+
+// ChannelBuffer holds a chan of byte array that can be populate in a goroutine.
+type ChannelBuffer struct {
+	C chan []byte
+}
+
+// Write implements Writer.
+func (c *ChannelBuffer) Write(b []byte) (int, error) {
+	c.C <- b
+	return len(b), nil
+}
+
+// Close closes the go channel.
+func (c *ChannelBuffer) Close() error {
+	close(c.C)
+	return nil
+}
+
+// ReadTimeout reads the content of the channel in the specified byte array with
+// the specified duration as timeout.
+func (c *ChannelBuffer) ReadTimeout(p []byte, n time.Duration) (int, error) {
+	select {
+	case b := <-c.C:
+		return copy(p[0:], b), nil
+	case <-time.After(n):
+		return -1, fmt.Errorf("timeout reading from channel")
+	}
 }
 
 // regression test for gh13421
@@ -347,25 +375,29 @@ func (s *DockerSuite) TestGetStoppedContainerStats(c *check.C) {
 func (s *DockerSuite) TestContainerAPIPause(c *check.C) {
 	// Problematic on Windows as Windows does not support pause
 	testRequires(c, DaemonIsLinux)
-	defer unpauseAllContainers(c)
-	out, _ := dockerCmd(c, "run", "-d", "busybox", "sleep", "30")
+
+	getPaused := func(c *check.C) []string {
+		return strings.Fields(cli.DockerCmd(c, "ps", "-f", "status=paused", "-q", "-a").Combined())
+	}
+
+	out := cli.DockerCmd(c, "run", "-d", "busybox", "sleep", "30").Combined()
 	ContainerID := strings.TrimSpace(out)
 
-	status, _, err := request.SockRequest("POST", "/containers/"+ContainerID+"/pause", nil, daemonHost())
+	resp, _, err := request.Post("/containers/" + ContainerID + "/pause")
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusNoContent)
+	c.Assert(resp.StatusCode, checker.Equals, http.StatusNoContent)
 
-	pausedContainers := getPausedContainers(c)
+	pausedContainers := getPaused(c)
 
 	if len(pausedContainers) != 1 || stringid.TruncateID(ContainerID) != pausedContainers[0] {
 		c.Fatalf("there should be one paused container and not %d", len(pausedContainers))
 	}
 
-	status, _, err = request.SockRequest("POST", "/containers/"+ContainerID+"/unpause", nil, daemonHost())
+	resp, _, err = request.Post("/containers/" + ContainerID + "/unpause")
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusNoContent)
+	c.Assert(resp.StatusCode, checker.Equals, http.StatusNoContent)
 
-	pausedContainers = getPausedContainers(c)
+	pausedContainers = getPaused(c)
 	c.Assert(pausedContainers, checker.HasLen, 0, check.Commentf("There should be no paused container."))
 }
 
@@ -396,7 +428,7 @@ func (s *DockerSuite) TestContainerAPITop(c *check.C) {
 
 func (s *DockerSuite) TestContainerAPITopWindows(c *check.C) {
 	testRequires(c, DaemonIsWindows)
-	out, _ := runSleepingContainer(c, "-d")
+	out := runSleepingContainer(c, "-d")
 	id := strings.TrimSpace(string(out))
 	c.Assert(waitRun(id), checker.IsNil)
 
@@ -503,7 +535,7 @@ func (s *DockerSuite) TestContainerAPIBadPort(c *check.C) {
 
 	status, body, err := request.SockRequest("POST", "/containers/create", config, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusBadRequest)
 	c.Assert(getErrorMessage(c, body), checker.Equals, `invalid port specification: "aa80"`, check.Commentf("Incorrect error msg: %s", body))
 }
 
@@ -532,7 +564,7 @@ func (s *DockerSuite) TestContainerAPICreateEmptyConfig(c *check.C) {
 
 	status, body, err := request.SockRequest("POST", "/containers/create", config, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusBadRequest)
 
 	expected := "Config cannot be empty in order to create a container"
 	c.Assert(getErrorMessage(c, body), checker.Equals, expected)
@@ -668,13 +700,13 @@ func (s *DockerSuite) TestContainerAPIVerifyHeader(c *check.C) {
 	// Try with no content-type
 	res, body, err := create("")
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 	body.Close()
 
 	// Try with wrong content-type
 	res, body, err = create("application/xml")
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 	body.Close()
 
 	// now application/json
@@ -700,9 +732,9 @@ func (s *DockerSuite) TestContainerAPIInvalidPortSyntax(c *check.C) {
 
 	res, body, err := request.Post("/containers/create", request.RawString(config), request.JSON)
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
 	c.Assert(string(b[:]), checker.Contains, "invalid port")
 }
@@ -720,9 +752,9 @@ func (s *DockerSuite) TestContainerAPIRestartPolicyInvalidPolicyName(c *check.C)
 
 	res, body, err := request.Post("/containers/create", request.RawString(config), request.JSON)
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
 	c.Assert(string(b[:]), checker.Contains, "invalid restart policy")
 }
@@ -740,9 +772,9 @@ func (s *DockerSuite) TestContainerAPIRestartPolicyRetryMismatch(c *check.C) {
 
 	res, body, err := request.Post("/containers/create", request.RawString(config), request.JSON)
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
 	c.Assert(string(b[:]), checker.Contains, "maximum retry count cannot be used with restart policy")
 }
@@ -760,9 +792,9 @@ func (s *DockerSuite) TestContainerAPIRestartPolicyNegativeRetryCount(c *check.C
 
 	res, body, err := request.Post("/containers/create", request.RawString(config), request.JSON)
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
 	c.Assert(string(b[:]), checker.Contains, "maximum retry count cannot be negative")
 }
@@ -813,7 +845,7 @@ func (s *DockerSuite) TestContainerAPIPostCreateNull(c *check.C) {
 	c.Assert(err, checker.IsNil)
 	c.Assert(res.StatusCode, checker.Equals, http.StatusCreated)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
 	type createResp struct {
 		ID string
@@ -842,10 +874,10 @@ func (s *DockerSuite) TestCreateWithTooLowMemoryLimit(c *check.C) {
 
 	res, body, err := request.Post("/containers/create", request.RawString(config), request.JSON)
 	c.Assert(err, checker.IsNil)
-	b, err2 := testutil.ReadBody(body)
+	b, err2 := request.ReadBody(body)
 	c.Assert(err2, checker.IsNil)
 
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 	c.Assert(string(b), checker.Contains, "Minimum memory limit allowed is 4MB")
 }
 
@@ -887,7 +919,7 @@ func (s *DockerSuite) TestContainerAPIRestart(c *check.C) {
 
 func (s *DockerSuite) TestContainerAPIRestartNotimeoutParam(c *check.C) {
 	name := "test-api-restart-no-timeout-param"
-	out, _ := runSleepingContainer(c, "-di", "--name", name)
+	out := runSleepingContainer(c, "-di", "--name", name)
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
 
@@ -1000,7 +1032,7 @@ func (s *DockerSuite) TestContainerAPICopyPre124(c *check.C) {
 	c.Assert(found, checker.True)
 }
 
-func (s *DockerSuite) TestContainerAPICopyResourcePathEmptyPr124(c *check.C) {
+func (s *DockerSuite) TestContainerAPICopyResourcePathEmptyPre124(c *check.C) {
 	testRequires(c, DaemonIsLinux) // Windows only supports 1.25 or later
 	name := "test-container-api-copy-resource-empty"
 	dockerCmd(c, "run", "--name", name, "busybox", "touch", "/test.txt")
@@ -1011,7 +1043,7 @@ func (s *DockerSuite) TestContainerAPICopyResourcePathEmptyPr124(c *check.C) {
 
 	status, body, err := request.SockRequest("POST", "/v1.23/containers/"+name+"/copy", postData, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusBadRequest)
 	c.Assert(string(body), checker.Matches, "Path cannot be empty\n")
 }
 
@@ -1026,7 +1058,7 @@ func (s *DockerSuite) TestContainerAPICopyResourcePathNotFoundPre124(c *check.C)
 
 	status, body, err := request.SockRequest("POST", "/v1.23/containers/"+name+"/copy", postData, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusNotFound)
 	c.Assert(string(body), checker.Matches, "Could not find the file /notexist in container "+name+"\n")
 }
 
@@ -1042,7 +1074,7 @@ func (s *DockerSuite) TestContainerAPICopyContainerNotFoundPr124(c *check.C) {
 }
 
 func (s *DockerSuite) TestContainerAPIDelete(c *check.C) {
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
@@ -1062,7 +1094,7 @@ func (s *DockerSuite) TestContainerAPIDeleteNotExist(c *check.C) {
 }
 
 func (s *DockerSuite) TestContainerAPIDeleteForce(c *check.C) {
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
@@ -1097,7 +1129,7 @@ func (s *DockerSuite) TestContainerAPIDeleteRemoveLinks(c *check.C) {
 }
 
 func (s *DockerSuite) TestContainerAPIDeleteConflict(c *check.C) {
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
@@ -1115,7 +1147,7 @@ func (s *DockerSuite) TestContainerAPIDeleteRemoveVolume(c *check.C) {
 		vol = `c:\testvolume`
 	}
 
-	out, _ := runSleepingContainer(c, "-v", vol)
+	out := runSleepingContainer(c, "-v", vol)
 
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
@@ -1153,7 +1185,7 @@ func (s *DockerSuite) TestContainerAPIChunkedEncoding(c *check.C) {
 }
 
 func (s *DockerSuite) TestContainerAPIPostContainerStop(c *check.C) {
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 
 	containerID := strings.TrimSpace(out)
 	c.Assert(waitRun(containerID), checker.IsNil)
@@ -1262,7 +1294,6 @@ func (s *DockerSuite) TestPutContainerArchiveErrSymlinkInVolumeToReadOnlyRootfs(
 		readOnly: true,
 		volumes:  defaultVolumes(testVol), // Our bind mount is at /vol2
 	})
-	defer deleteContainer(cID)
 
 	// Attempt to extract to a symlink in the volume which points to a
 	// directory outside the volume. This should cause an error because the
@@ -1297,7 +1328,7 @@ func (s *DockerSuite) TestPostContainersCreateWithWrongCpusetValues(c *check.C) 
 	name := "wrong-cpuset-cpus"
 	status, body, err := request.SockRequest("POST", "/containers/create?name="+name, c1, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusBadRequest)
 	expected := "Invalid value 1-42,, for cpuset cpus"
 	c.Assert(getErrorMessage(c, body), checker.Equals, expected)
 
@@ -1308,7 +1339,7 @@ func (s *DockerSuite) TestPostContainersCreateWithWrongCpusetValues(c *check.C) 
 	name = "wrong-cpuset-mems"
 	status, body, err = request.SockRequest("POST", "/containers/create?name="+name, c2, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusBadRequest)
 	expected = "Invalid value 42-3,1-- for cpuset mems"
 	c.Assert(getErrorMessage(c, body), checker.Equals, expected)
 }
@@ -1323,7 +1354,7 @@ func (s *DockerSuite) TestPostContainersCreateShmSizeNegative(c *check.C) {
 
 	status, body, err := request.SockRequest("POST", "/containers/create", config, daemonHost())
 	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Equals, http.StatusInternalServerError)
+	c.Assert(status, check.Equals, http.StatusBadRequest)
 	c.Assert(getErrorMessage(c, body), checker.Contains, "SHM size can not be less than 0")
 }
 
@@ -1444,7 +1475,7 @@ func (s *DockerSuite) TestPostContainersCreateMemorySwappinessHostConfigOmitted(
 	var containerJSON types.ContainerJSON
 	c.Assert(json.Unmarshal(body, &containerJSON), check.IsNil)
 
-	c.Assert(*containerJSON.HostConfig.MemorySwappiness, check.Equals, int64(-1))
+	c.Assert(containerJSON.HostConfig.MemorySwappiness, check.IsNil)
 }
 
 // check validation is done daemon side and not only in cli
@@ -1459,7 +1490,7 @@ func (s *DockerSuite) TestPostContainersCreateWithOomScoreAdjInvalidRange(c *che
 	name := "oomscoreadj-over"
 	status, b, err := request.SockRequest("POST", "/containers/create?name="+name, config, daemonHost())
 	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Equals, http.StatusInternalServerError)
+	c.Assert(status, check.Equals, http.StatusBadRequest)
 
 	expected := "Invalid value 1001, range for oom score adj is [-1000, 1000]"
 	msg := getErrorMessage(c, b)
@@ -1474,7 +1505,7 @@ func (s *DockerSuite) TestPostContainersCreateWithOomScoreAdjInvalidRange(c *che
 	name = "oomscoreadj-low"
 	status, b, err = request.SockRequest("POST", "/containers/create?name="+name, config, daemonHost())
 	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Equals, http.StatusInternalServerError)
+	c.Assert(status, check.Equals, http.StatusBadRequest)
 	expected = "Invalid value -1001, range for oom score adj is [-1000, 1000]"
 	msg = getErrorMessage(c, b)
 	if !strings.Contains(msg, expected) {
@@ -1484,10 +1515,9 @@ func (s *DockerSuite) TestPostContainersCreateWithOomScoreAdjInvalidRange(c *che
 
 // test case for #22210 where an empty container name caused panic.
 func (s *DockerSuite) TestContainerAPIDeleteWithEmptyName(c *check.C) {
-	status, out, err := request.SockRequest("DELETE", "/containers/", nil, daemonHost())
+	status, _, err := request.SockRequest("DELETE", "/containers/", nil, daemonHost())
 	c.Assert(err, checker.IsNil)
 	c.Assert(status, checker.Equals, http.StatusBadRequest)
-	c.Assert(string(out), checker.Contains, "No container name or ID supplied")
 }
 
 func (s *DockerSuite) TestContainerAPIStatsWithNetworkDisabled(c *check.C) {
@@ -1928,4 +1958,19 @@ func (s *DockerSuite) TestContainersAPICreateMountsTmpfs(c *check.C) {
 			c.Assert(out, checker.Contains, option)
 		}
 	}
+}
+
+// Regression test for #33334
+// Makes sure that when a container which has a custom stop signal + restart=always
+// gets killed (with SIGKILL) by the kill API, that the restart policy is cancelled.
+func (s *DockerSuite) TestContainerKillCustomStopSignal(c *check.C) {
+	id := strings.TrimSpace(runSleepingContainer(c, "--stop-signal=SIGTERM", "--restart=always"))
+	res, _, err := request.Post("/containers/" + id + "/kill")
+	c.Assert(err, checker.IsNil)
+	defer res.Body.Close()
+
+	b, err := ioutil.ReadAll(res.Body)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusNoContent, check.Commentf(string(b)))
+	err = waitInspect(id, "{{.State.Running}} {{.State.Restarting}}", "false false", 30*time.Second)
+	c.Assert(err, checker.IsNil)
 }

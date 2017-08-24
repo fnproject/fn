@@ -65,7 +65,7 @@ const (
 	sizeofLifIfinfoReq = 0x10
 )
 
-type lifnum struct {
+type sysLifnum struct {
 	Family    uint16
 	Pad_cgo_0 [2]byte
 	Flags     int32

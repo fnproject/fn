@@ -4,8 +4,8 @@ description: "The network create command description and usage"
 keywords: "network, create"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -211,7 +211,7 @@ is also available when creating the ingress network, besides the `--attachable` 
 $ docker network create -d overlay \
   --subnet=10.11.0.0/16 \
   --ingress \
-  --opt com.docker.network.mtu=9216 \
+  --opt com.docker.network.driver.mtu=9216 \
   --opt encrypted=true \
   my-ingress-network
 ```

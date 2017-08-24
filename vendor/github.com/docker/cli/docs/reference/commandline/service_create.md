@@ -4,8 +4,8 @@ description: "The service create command description and usage"
 keywords: "service, create"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -21,8 +21,10 @@ Usage:  docker service create [OPTIONS] IMAGE [COMMAND] [ARG...]
 Create a new service
 
 Options:
+      --config config                      Specify configurations to expose to the service
       --constraint list                    Placement constraints
       --container-label list               Container labels
+      --credential-spec credential-spec    Credential spec for managed service account (Windows only)
   -d, --detach                             Exit immediately instead of waiting for the service to converge (default true)
       --dns list                           Set custom DNS servers
       --dns-option list                    Set DNS options
@@ -48,8 +50,9 @@ Options:
       --mode string                        Service mode (replicated or global) (default "replicated")
       --mount mount                        Attach a filesystem mount to the service
       --name string                        Service name
-      --network list                       Network attachments
+      --network network                    Network attachments
       --no-healthcheck                     Disable any container-specified HEALTHCHECK
+      --no-resolve-image                   Do not query the registry to resolve image digest and supported platforms
       --placement-pref pref                Add a placement preference
   -p, --publish port                       Publish a port as a node port
   -q, --quiet                              Suppress progress output
@@ -167,6 +170,8 @@ $ docker service create --name redis \
 4cdgfyky7ozwh3htjfw0d12qv
 ```
 
+To grant a service access to multiple secrets, use multiple `--secret` flags.
+
 Secrets are located in `/run/secrets` in the container.  If no target is
 specified, the name of the secret will be used as the in memory file in the
 container.  If a target is specified, that will be the filename.  In the
@@ -191,10 +196,26 @@ tutorial](https://docs.docker.com/engine/swarm/swarm-tutorial/rolling-update/).
 
 ### Set environment variables (-e, --env)
 
-This sets environmental variables for all tasks in a service. For example:
+This sets an environmental variable for all tasks in a service. For example:
 
 ```bash
-$ docker service create --name redis_2 --replicas 5 --env MYVAR=foo redis:3.0.6
+$ docker service create \
+  --name redis_2 \
+  --replicas 5 \
+  --env MYVAR=foo \
+  redis:3.0.6
+```
+
+To specify multiple environment variables, specify multiple `--env` flags, each
+with a separate key-value pair.
+
+```bash
+$ docker service create \
+  --name redis_2 \
+  --replicas 5 \
+  --env MYVAR=foo \
+  --env MYVAR2=bar \
+  redis:3.0.6
 ```
 
 ### Create a service with specific hostname (--hostname)
@@ -222,21 +243,19 @@ $ docker service create \
 For more information about labels, refer to [apply custom
 metadata](https://docs.docker.com/engine/userguide/labels-custom-metadata/).
 
-### Add bind-mounts or volumes
+### Add bind mounts, volumes or memory filesystems
 
-Docker supports two different kinds of mounts, which allow containers to read to
-or write from files or directories on other containers or the host operating
-system. These types are _data volumes_ (often referred to simply as volumes) and
-_bind-mounts_.
+Docker supports three different kinds of mounts, which allow containers to read
+from or write to files or directories, either on the host operating system, or
+on memory filesystems. These types are _data volumes_ (often referred to simply
+as volumes), _bind mounts_, and _tmpfs_.
 
-Additionally, Docker supports `tmpfs` mounts.
-
-A **bind-mount** makes a file or directory on the host available to the
-container it is mounted within. A bind-mount may be either read-only or
+A **bind mount** makes a file or directory on the host available to the
+container it is mounted within. A bind mount may be either read-only or
 read-write. For example, a container might share its host's DNS information by
-means of a bind-mount of the host's `/etc/resolv.conf` or a container might
+means of a bind mount of the host's `/etc/resolv.conf` or a container might
 write logs to its host's `/var/log/myContainerLogs` directory. If you use
-bind-mounts and your host and containers have different notions of permissions,
+bind mounts and your host and containers have different notions of permissions,
 access controls, or other such details, you will run into portability issues.
 
 A **named volume** is a mechanism for decoupling persistent data needed by your
@@ -260,7 +279,7 @@ update the named volume.
 For more information about named volumes, see
 [Data Volumes](https://docs.docker.com/engine/tutorials/dockervolumes/).
 
-The following table describes options which apply to both bind-mounts and named
+The following table describes options which apply to both bind mounts and named
 volumes in a service:
 
 <table>
@@ -309,7 +328,7 @@ volumes in a service:
     <td>
       <p>Mount path inside the container, for example <tt>/some/path/in/container/</tt>.
       If the path does not exist in the container's filesystem, the Engine creates
-      a directory at the specified location before mounting the volume or bind-mount.</p>
+      a directory at the specified location before mounting the volume or bind mount.</p>
     </td>
   </tr>
   <tr>
@@ -343,15 +362,15 @@ volumes in a service:
 #### Bind Propagation
 
 Bind propagation refers to whether or not mounts created within a given
-bind-mount or named volume can be propagated to replicas of that mount. Consider
+bind mount or named volume can be propagated to replicas of that mount. Consider
 a mount point `/mnt`, which is also mounted on `/tmp`. The propation settings
 control whether a mount on `/tmp/a` would also be available on `/mnt/a`. Each
 propagation setting has a recursive counterpoint. In the case of recursion,
 consider that `/tmp/a` is also mounted as `/foo`. The propagation settings
 control whether `/mnt/a` and/or `/tmp/a` would exist.
 
-The `bind-propagation` option defaults to `rprivate` for both bind-mounts and
-volume mounts, and is only configurable for bind-mounts. In other words, named
+The `bind-propagation` option defaults to `rprivate` for both bind mounts and
+volume mounts, and is only configurable for bind mounts. In other words, named
 volumes do not support bind propagation.
 
 - **`shared`**: Sub-mounts of the original mount are exposed to replica mounts,
@@ -761,6 +780,24 @@ $ docker service create --name dns-cache -p 53:53/tcp -p 53:53/udp dns-cache
 $ docker service create --name dns-cache -p 53:53/udp dns-cache
 ```
 
+### Provide credential specs for managed service accounts (Windows only)
+
+This option is only used for services using Windows containers. The
+`--credential-spec` must be in the format `file://<filename>` or
+`registry://<value-name>`.
+
+When using the `file://<filename>` format, the referenced file must be
+present in the `CredentialSpecs` subdirectory in the docker data directory,
+which defaults to `C:\ProgramData\Docker\` on Windows. For example,
+specifying `file://spec.json` loads `C:\ProgramData\Docker\CredentialSpecs\spec.json`.
+
+When using the `registry://<value-name>` format, the credential spec is
+read from the Windows registry on the daemon's host. The specified
+registry value must be located in:
+
+    HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization\Containers\CredentialSpecs
+
+
 ### Create services using templates
 
 You can use templates for some flags of `service create`, using the syntax
@@ -838,9 +875,10 @@ x3ti0erg11rjpg64m75kej2mz-hosttempl
 * [service inspect](service_inspect.md)
 * [service logs](service_logs.md)
 * [service ls](service_ls.md)
-* [service rm](service_rm.md)
-* [service scale](service_scale.md)
 * [service ps](service_ps.md)
+* [service rm](service_rm.md)
+* [service rollback](service_rollback.md)
+* [service scale](service_scale.md)
 * [service update](service_update.md)
 
 <style>table tr > td:first-child { white-space: nowrap;}</style>

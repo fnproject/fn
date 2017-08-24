@@ -13,7 +13,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/ccirello/supervisor"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/datastore"

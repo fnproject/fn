@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fsouza/go-dockerclient"

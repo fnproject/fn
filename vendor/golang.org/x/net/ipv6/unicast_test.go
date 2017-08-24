@@ -27,7 +27,7 @@ func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 		t.Skip("ipv6 is not supported")
 	}
 
-	c, err := nettest.NewLocalPacketListener("udp6")
+	c, err := net.ListenPacket("udp6", "[::1]:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,11 @@ func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 	p := ipv6.NewPacketConn(c)
 	defer p.Close()
 
-	dst := c.LocalAddr()
+	dst, err := net.ResolveUDPAddr("udp6", c.LocalAddr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	cm := ipv6.ControlMessage{
 		TrafficClass: iana.DiffServAF11 | iana.CongestionExperienced,
 		Src:          net.IPv6loopback,
@@ -50,8 +54,7 @@ func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 	for i, toggle := range []bool{true, false, true} {
 		if err := p.SetControlMessage(cf, toggle); err != nil {
 			if nettest.ProtocolNotSupported(err) {
-				t.Logf("not supported on %s", runtime.GOOS)
-				continue
+				t.Skipf("not supported on %s", runtime.GOOS)
 			}
 			t.Fatal(err)
 		}
@@ -148,8 +151,7 @@ func TestPacketConnReadWriteUnicastICMP(t *testing.T) {
 		}
 		if err := p.SetControlMessage(cf, toggle); err != nil {
 			if nettest.ProtocolNotSupported(err) {
-				t.Logf("not supported on %s", runtime.GOOS)
-				continue
+				t.Skipf("not supported on %s", runtime.GOOS)
 			}
 			t.Fatal(err)
 		}

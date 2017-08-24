@@ -1,0 +1,35 @@
+sudo: false
+language: go
+
+os:
+  - linux
+  - osx
+
+go:
+  - 1.8
+
+env:
+  - GOFLAGS=
+  - GOFLAGS=-race
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - os: osx
+
+install:
+  - |
+    if [ ! -d $HOME/gopath/src/github.com/google ]; then
+      mkdir -p $HOME/gopath/src/github.com/google
+      ln -s $TRAVIS_BUILD_DIR $HOME/gopath/src/github.com/google/certificate-transparency-go
+    fi
+  - go get -d -t ./...
+  - go get -u github.com/client9/misspell/cmd/misspell
+  - go get -u github.com/fzipp/gocyclo
+  - go get -u github.com/golang/lint/golint
+
+script:
+  - set -e
+  - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
+  - ./scripts/presubmit.sh
+  - set +e

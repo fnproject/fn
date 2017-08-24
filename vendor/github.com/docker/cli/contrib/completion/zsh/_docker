@@ -221,18 +221,19 @@ __docker_get_log_options() {
 
     integer ret=1
     local log_driver=${opt_args[--log-driver]:-"all"}
-    local -a common_options awslogs_options fluentd_options gelf_options journald_options json_file_options logentries_options syslog_options splunk_options
+    local -a common_options common_options2 awslogs_options fluentd_options gelf_options journald_options json_file_options logentries_options syslog_options splunk_options
 
     common_options=("max-buffer-size" "mode")
-    awslogs_options=($common_options "awslogs-region" "awslogs-group" "awslogs-stream" "awslogs-create-group")
-    fluentd_options=($common_options "env" "fluentd-address" "fluentd-async-connect" "fluentd-buffer-limit" "fluentd-retry-wait" "fluentd-max-retries" "labels" "tag")
-    gcplogs_options=($common_options "env" "gcp-log-cmd" "gcp-project" "labels")
-    gelf_options=($common_options "env" "gelf-address" "gelf-compression-level" "gelf-compression-type" "labels" "tag")
-    journald_options=($common_options "env" "labels" "tag")
-    json_file_options=($common_options "env" "labels" "max-file" "max-size")
-    logentries_options=($common_options "logentries-token")
-    syslog_options=($common_options "env" "labels" "syslog-address" "syslog-facility" "syslog-format" "syslog-tls-ca-cert" "syslog-tls-cert" "syslog-tls-key" "syslog-tls-skip-verify" "tag")
-    splunk_options=($common_options "env" "labels" "splunk-caname" "splunk-capath" "splunk-format" "splunk-gzip" "splunk-gzip-level" "splunk-index" "splunk-insecureskipverify" "splunk-source" "splunk-sourcetype" "splunk-token" "splunk-url" "splunk-verify-connection" "tag")
+    common_options2=("env" "env-regex" "labels")
+    awslogs_options=($common_options "awslogs-create-group" "awslogs-datetime-format" "awslogs-group" "awslogs-multiline-pattern" "awslogs-region" "awslogs-stream" "tag")
+    fluentd_options=($common_options $common_options2 "fluentd-address" "fluentd-async-connect" "fluentd-buffer-limit" "fluentd-retry-wait" "fluentd-max-retries" "tag")
+    gcplogs_options=($common_options $common_options2 "gcp-log-cmd" "gcp-meta-id" "gcp-meta-name" "gcp-meta-zone" "gcp-project")
+    gelf_options=($common_options $common_options2 "gelf-address" "gelf-compression-level" "gelf-compression-type" "tag")
+    journald_options=($common_options $common_options2 "tag")
+    json_file_options=($common_options $common_options2 "max-file" "max-size")
+    logentries_options=($common_options $common_options2 "logentries-token" "tag")
+    syslog_options=($common_options $common_options2 "syslog-address" "syslog-facility" "syslog-format" "syslog-tls-ca-cert" "syslog-tls-cert" "syslog-tls-key" "syslog-tls-skip-verify" "tag")
+    splunk_options=($common_options $common_options2 "splunk-caname" "splunk-capath" "splunk-format" "splunk-gzip" "splunk-gzip-level" "splunk-index" "splunk-insecureskipverify" "splunk-source" "splunk-sourcetype" "splunk-token" "splunk-url" "splunk-verify-connection" "tag")
 
     [[ $log_driver = (awslogs|all) ]] && _describe -t awslogs-options "awslogs options" awslogs_options "$@" && ret=0
     [[ $log_driver = (fluentd|all) ]] && _describe -t fluentd-options "fluentd options" fluentd_options "$@" && ret=0
@@ -1520,7 +1521,7 @@ __docker_plugin_complete_ls_filters() {
     if compset -P '*='; then
         case "${${words[-1]%=*}#*=}" in
             (capability)
-                opts=('authz' 'ipamdriver' 'networkdriver' 'volumedriver')
+                opts=('authz' 'ipamdriver' 'logdriver' 'metricscollector' 'networkdriver' 'volumedriver')
                 _describe -t capability-opts "capability options" opts && ret=0
                 ;;
             (enabled)
@@ -1930,6 +1931,7 @@ __docker_service_commands() {
         "logs:Fetch the logs of a service or task"
         "ls:List services"
         "rm:Remove one or more services"
+        "rollback:Revert changes to a service's configuration"
         "scale:Scale one or multiple replicated services"
         "ps:List the tasks of a service"
         "update:Update a service"
@@ -1960,7 +1962,6 @@ __docker_service_subcommand() {
         "($help)*--mount=[Attach a filesystem mount to the service]:mount: "
         "($help)*--network=[Network attachments]:network: "
         "($help)--no-healthcheck[Disable any container-specified HEALTHCHECK]"
-        "($help)*"{-p=,--publish=}"[Publish a port as a node port]:port: "
         "($help)--read-only[Mount the container's root filesystem as read only]"
         "($help)--replicas=[Number of tasks]:replicas: "
         "($help)--reserve-cpu=[Reserve CPUs]:value: "
@@ -2001,7 +2002,7 @@ __docker_service_subcommand() {
                 "($help)--mode=[Service Mode]:mode:(global replicated)" \
                 "($help)--name=[Service name]:name: " \
                 "($help)*--placement-pref=[Add a placement preference]:pref:__docker_service_complete_placement_pref" \
-                "($help)*--publish=[Publish a port]:port: " \
+                "($help)*"{-p=,--publish=}"[Publish a port as a node port]:port: " \
                 "($help -): :__docker_complete_images" \
                 "($help -):command: _command_names -e" \
                 "($help -)*::arguments: _normal" && ret=0
@@ -2037,9 +2038,17 @@ __docker_service_subcommand() {
                 $opts_help \
                 "($help -)*:service:__docker_complete_services" && ret=0
             ;;
+        (rollback)
+            _arguments $(__docker_arguments) \
+                $opts_help \
+                "($help -d --detach)"{-d=false,--detach=false}"[Disable detached mode]" \
+                "($help -q --quiet)"{-q,--quiet}"[Suppress progress output]" \
+                "($help -)*:service:__docker_complete_services" && ret=0
+            ;;
         (scale)
             _arguments $(__docker_arguments) \
                 $opts_help \
+                "($help -d --detach)"{-d=false,--detach=false}"[Disable detached mode]" \
                 "($help -)*:service:->values" && ret=0
             case $state in
                 (values)
@@ -2376,7 +2385,8 @@ __docker_system_subcommand() {
                 $opts_help \
                 "($help -a --all)"{-a,--all}"[Remove all unused data, not just dangling ones]" \
                 "($help)*--filter=[Filter values]:filter:__docker_complete_prune_filters" \
-                "($help -f --force)"{-f,--force}"[Do not prompt for confirmation]" && ret=0
+                "($help -f --force)"{-f,--force}"[Do not prompt for confirmation]" \
+                "($help)--volumes=[Remove all unused volumes]" && ret=0
             ;;
         (help)
             _arguments $(__docker_arguments) ":subcommand:__docker_volume_commands" && ret=0
@@ -2620,7 +2630,7 @@ __docker_subcommand() {
                 "($help)--default-gateway-v6[Container default gateway IPv6 address]:IPv6 address: " \
                 "($help)--default-shm-size=[Default shm size for containers]:size:" \
                 "($help)*--default-ulimit=[Default ulimits for containers]:ulimit: " \
-                "($help)--disable-legacy-registry[Disable contacting legacy registries]" \
+                "($help)--disable-legacy-registry[Disable contacting legacy registries (default true)]" \
                 "($help)*--dns=[DNS server to use]:DNS: " \
                 "($help)*--dns-opt=[DNS options to use]:DNS option: " \
                 "($help)*--dns-search=[DNS search domains to use]:DNS search: " \
@@ -2761,6 +2771,7 @@ __docker_subcommand() {
             _arguments $(__docker_arguments) -A '-*' \
                 $opts_help \
                 "($help -p --password)"{-p=,--password=}"[Password]:password: " \
+                "($help)--password-stdin[Read password from stdin]" \
                 "($help -u --user)"{-u=,--user=}"[Username]:username: " \
                 "($help -)1:server: " && ret=0
             ;;

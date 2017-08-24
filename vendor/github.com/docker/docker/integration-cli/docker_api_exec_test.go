@@ -12,7 +12,6 @@ import (
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/request"
-	"github.com/docker/docker/pkg/testutil"
 	"github.com/go-check/check"
 )
 
@@ -23,7 +22,7 @@ func (s *DockerSuite) TestExecAPICreateNoCmd(c *check.C) {
 
 	status, body, err := request.SockRequest("POST", fmt.Sprintf("/containers/%s/exec", name), map[string]interface{}{"Cmd": nil}, daemonHost())
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusInternalServerError)
+	c.Assert(status, checker.Equals, http.StatusBadRequest)
 
 	comment := check.Commentf("Expected message when creating exec command with no Cmd specified")
 	c.Assert(getErrorMessage(c, body), checker.Contains, "No exec command specified", comment)
@@ -40,9 +39,9 @@ func (s *DockerSuite) TestExecAPICreateNoValidContentType(c *check.C) {
 
 	res, body, err := request.Post(fmt.Sprintf("/containers/%s/exec", name), request.RawContent(ioutil.NopCloser(jsonData)), request.ContentType("test/plain"))
 	c.Assert(err, checker.IsNil)
-	c.Assert(res.StatusCode, checker.Equals, http.StatusInternalServerError)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
 
 	comment := check.Commentf("Expected message when creating exec command with invalid Content-Type specified")
@@ -109,7 +108,7 @@ func (s *DockerSuite) TestExecAPIStartBackwardsCompatible(c *check.C) {
 	resp, body, err := request.Post(fmt.Sprintf("/v1.20/exec/%s/start", id), request.RawString(`{"Detach": true}`), request.ContentType("text/plain"))
 	c.Assert(err, checker.IsNil)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	comment := check.Commentf("response body: %s", b)
 	c.Assert(err, checker.IsNil, comment)
 	c.Assert(resp.StatusCode, checker.Equals, http.StatusOK, comment)
@@ -144,7 +143,7 @@ func (s *DockerSuite) TestExecAPIStartWithDetach(c *check.C) {
 	_, body, err := request.Post(fmt.Sprintf("/exec/%s/start", createResp.ID), request.RawString(`{"Detach": true}`), request.JSON)
 	c.Assert(err, checker.IsNil)
 
-	b, err = testutil.ReadBody(body)
+	b, err = request.ReadBody(body)
 	comment := check.Commentf("response body: %s", b)
 	c.Assert(err, checker.IsNil, comment)
 
@@ -177,7 +176,7 @@ func (s *DockerSuite) TestExecAPIStartInvalidCommand(c *check.C) {
 	dockerCmd(c, "run", "-d", "-t", "--name", name, "busybox", "/bin/sh")
 
 	id := createExecCmd(c, name, "invalid")
-	startExec(c, id, http.StatusNotFound)
+	startExec(c, id, http.StatusBadRequest)
 	waitForExec(c, id)
 
 	var inspectJSON struct{ ExecIDs []string }
@@ -207,7 +206,7 @@ func startExec(c *check.C, id string, code int) {
 	resp, body, err := request.Post(fmt.Sprintf("/exec/%s/start", id), request.RawString(`{"Detach": true}`), request.JSON)
 	c.Assert(err, checker.IsNil)
 
-	b, err := testutil.ReadBody(body)
+	b, err := request.ReadBody(body)
 	comment := check.Commentf("response body: %s", b)
 	c.Assert(err, checker.IsNil, comment)
 	c.Assert(resp.StatusCode, checker.Equals, code, comment)

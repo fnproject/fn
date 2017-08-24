@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/datastore/sql"
 	"github.com/fnproject/fn/api/models"
+	"github.com/sirupsen/logrus"
 )
 
 func New(dbURL string) (models.Datastore, error) {

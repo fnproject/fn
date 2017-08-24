@@ -21,11 +21,10 @@ import (
 var expectedNetworkInterfaceStats = strings.Split("rx_bytes rx_dropped rx_errors rx_packets tx_bytes tx_dropped tx_errors tx_packets", " ")
 
 func (s *DockerSuite) TestAPIStatsNoStreamGetCpu(c *check.C) {
-	out, _ := dockerCmd(c, "run", "-d", "busybox", "/bin/sh", "-c", "while true;do echo 'Hello'; usleep 100000; done")
+	out, _ := dockerCmd(c, "run", "-d", "busybox", "/bin/sh", "-c", "while true;usleep 100; do echo 'Hello'; done")
 
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
-
 	resp, body, err := request.Get(fmt.Sprintf("/containers/%s/stats?stream=false", id))
 	c.Assert(err, checker.IsNil)
 	c.Assert(resp.StatusCode, checker.Equals, http.StatusOK)
@@ -98,7 +97,7 @@ func (s *DockerSuite) TestAPIStatsStoppedContainerInGoroutines(c *check.C) {
 func (s *DockerSuite) TestAPIStatsNetworkStats(c *check.C) {
 	testRequires(c, SameHostDaemon)
 
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
 
@@ -166,7 +165,7 @@ func (s *DockerSuite) TestAPIStatsNetworkStatsVersioning(c *check.C) {
 	// Windows doesn't support API versions less than 1.25, so no point testing 1.17 .. 1.21
 	testRequires(c, SameHostDaemon, DaemonIsLinux)
 
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
 	wg := sync.WaitGroup{}
@@ -274,11 +273,11 @@ func (s *DockerSuite) TestAPIStatsContainerNotFound(c *check.C) {
 func (s *DockerSuite) TestAPIStatsNoStreamConnectedContainers(c *check.C) {
 	testRequires(c, DaemonIsLinux)
 
-	out1, _ := runSleepingContainer(c)
+	out1 := runSleepingContainer(c)
 	id1 := strings.TrimSpace(out1)
 	c.Assert(waitRun(id1), checker.IsNil)
 
-	out2, _ := runSleepingContainer(c, "--net", "container:"+id1)
+	out2 := runSleepingContainer(c, "--net", "container:"+id1)
 	id2 := strings.TrimSpace(out2)
 	c.Assert(waitRun(id2), checker.IsNil)
 

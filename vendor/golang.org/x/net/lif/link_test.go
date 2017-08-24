@@ -21,17 +21,15 @@ type linkPack struct {
 }
 
 func linkPacks() ([]linkPack, error) {
-	var lastErr error
 	var lps []linkPack
 	for _, af := range [...]int{sysAF_UNSPEC, sysAF_INET, sysAF_INET6} {
 		lls, err := Links(af, "")
 		if err != nil {
-			lastErr = err
-			continue
+			return nil, err
 		}
 		lps = append(lps, linkPack{af: af, lls: lls})
 	}
-	return lps, lastErr
+	return lps, nil
 }
 
 func TestLinks(t *testing.T) {

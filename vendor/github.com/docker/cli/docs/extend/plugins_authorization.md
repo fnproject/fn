@@ -6,8 +6,8 @@ redirect_from:
 - "/engine/extend/authorization/"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -27,7 +27,7 @@ same is true for callers using Docker's Engine API to contact the daemon. If you
 require greater access control, you can create authorization plugins and add
 them to your Docker daemon configuration. Using an authorization plugin, a
 Docker administrator can configure granular access policies for managing access
-to Docker daemon.
+to the Docker daemon.
 
 Anyone with the appropriate skills can develop an authorization plugin. These
 skills, at their most basic, are knowledge of Docker, understanding of REST, and

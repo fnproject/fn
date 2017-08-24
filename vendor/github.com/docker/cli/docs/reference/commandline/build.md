@@ -4,8 +4,8 @@ description: "The build command description and usage"
 keywords: "build, docker, image"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -63,11 +63,11 @@ Options:
 
 ## Description
 
-Builds Docker images from a Dockerfile and a "context". A build's context is
-the files located in the specified `PATH` or `URL`. The build process can refer
-to any of the files in the context. For example, your build can use an
-[*ADD*](../builder.md#add) instruction to reference a file in the
-context.
+The `docker build` command builds Docker images from a Dockerfile and a
+"context". A build's context is the set of files located in the specified
+`PATH` or `URL`. The build process can refer to any of the files in the
+context. For example, your build can use a [*COPY*](../builder.md#copy)
+instruction to reference a file in the context.
 
 The `URL` parameter can refer to three kinds of resources: Git repositories,
 pre-packaged tarball contexts and plain text files.
@@ -78,7 +78,7 @@ When the `URL` parameter points to the location of a Git repository, the
 repository acts as the build context. The system recursively fetches the
 repository and its submodules. The commit history is not preserved. A
 repository is first pulled into a temporary directory on your local host. After
-the that succeeds, the directory is sent to the Docker daemon as the context.
+that succeeds, the directory is sent to the Docker daemon as the context.
 Local copy gives you the ability to access private repositories using local
 user credentials, VPN's, and so forth.
 
@@ -88,7 +88,7 @@ user credentials, VPN's, and so forth.
 
 Git URLs accept context configuration in their fragment section, separated by a
 colon `:`.  The first part represents the reference that Git will check out,
-this can be either a branch, a tag, or a remote reference. The second part
+and can be either a branch, a tag, or a remote reference. The second part
 represents a subdirectory inside the repository that will be used as a build
 context.
 

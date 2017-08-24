@@ -6,8 +6,8 @@ redirect_from:
 - /reference/builder/
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -30,13 +30,13 @@ Practices](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-pr
 ## Usage
 
 The [`docker build`](commandline/build.md) command builds an image from
-a `Dockerfile` and a *context*. The build's context is the files at a specified
-location `PATH` or `URL`. The `PATH` is a directory on your local filesystem.
-The `URL` is a Git repository location.
+a `Dockerfile` and a *context*. The build's context is the set of files at a
+specified location `PATH` or `URL`. The `PATH` is a directory on your local
+filesystem. The `URL` is a Git repository location.
 
 A context is processed recursively. So, a `PATH` includes any subdirectories and
-the `URL` includes the repository and its submodules. A simple build command
-that uses the current directory as context:
+the `URL` includes the repository and its submodules. This example shows a
+build command that uses the current directory as context:
 
     $ docker build .
     Sending build context to Docker daemon  6.51 MB
@@ -94,8 +94,8 @@ instructions.
 Whenever possible, Docker will re-use the intermediate images (cache),
 to accelerate the `docker build` process significantly. This is indicated by
 the `Using cache` message in the console output.
-(For more information, see the [Build cache section](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#/build-cache)) in the
-`Dockerfile` best practices guide:
+(For more information, see the [Build cache section](https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#build-cache) in the
+`Dockerfile` best practices guide):
 
     $ docker build -t svendowideit/ambassador .
     Sending build context to Docker daemon 15.36 kB
@@ -138,7 +138,7 @@ be UPPERCASE to distinguish them from arguments more easily.
 Docker runs instructions in a `Dockerfile` in order. A `Dockerfile` **must
 start with a \`FROM\` instruction**. The `FROM` instruction specifies the [*Base
 Image*](glossary.md#base-image) from which you are building. `FROM` may only be
-proceeded by one or more `ARG` instructions, which declare arguments that are used
+preceded by one or more `ARG` instructions, which declare arguments that are used
 in `FROM` lines in the `Dockerfile`.
 
 Docker treats lines that *begin* with `#` as a comment, unless the line is
@@ -499,7 +499,7 @@ valid `Dockerfile` must start with a `FROM` instruction. The image can be
 any valid image – it is especially easy to start by **pulling an image** from 
 the [*Public Repositories*](https://docs.docker.com/engine/tutorials/dockerrepos/).
 
-- `ARG` is the only instruction that may proceed `FROM` in the `Dockerfile`. 
+- `ARG` is the only instruction that may precede `FROM` in the `Dockerfile`.
   See [Understand how ARG and FROM interact](#understand-how-arg-and-from-interact).
 
 - `FROM` can appear multiple times within a single `Dockerfile` to 
@@ -530,15 +530,16 @@ FROM extras:${CODE_VERSION}
 CMD  /code/run-extras
 ```
 
-To use the default value of an `ARG` declared before the first `FROM` use an
-`ARG` instruction without a value:
+An `ARG` declared before a `FROM` is outside of a build stage, so it
+can't be used in any instruction after a `FROM`. To use the default value of
+an `ARG` declared before the first `FROM` use an `ARG` instruction without
+a value inside of a build stage:
 
 ```Dockerfile
-ARG  SETTINGS=default
-
-FROM busybox
-ARG  SETTINGS
-
+ARG VERSION=latest
+FROM busybox:$VERSION
+ARG VERSION
+RUN echo $VERSION > image_version
 ```
 
 ## RUN
@@ -1281,26 +1282,43 @@ This Dockerfile results in an image that causes `docker run`, to
 create a new mount point at `/myvol` and copy the  `greeting` file
 into the newly created volume.
 
-> **Note**:
-> When using Windows-based containers, the destination of a volume inside the
-> container must be one of: a non-existing or empty directory; or a drive other
-> than C:.
+### Notes about specifying volumes
 
-> **Note**:
-> If any build steps change the data within the volume after it has been
-> declared, those changes will be discarded.
+Keep the following things in mind about volumes in the `Dockerfile`.
 
-> **Note**:
-> The list is parsed as a JSON array, which means that
-> you must use double-quotes (") around words not single-quotes (').
+- **Volumes on Windows-based containers**: When using Windows-based containers,
+  the destination of a volume inside the container must be one of:
+  
+  - a non-existing or empty directory
+  - a drive other than `C:`
+
+- **Changing the volume from within the Dockerfile**: If any build steps change the
+  data within the volume after it has been declared, those changes will be discarded.
+
+- **JSON formatting**: The list is parsed as a JSON array.
+  You must enclose words with double quotes (`"`)rather than single quotes (`'`).
+
+- **The host directory is declared at container run-time**: The host directory
+  (the mountpoint) is, by its nature, host-dependent. This is to preserve image
+  portability. since a given host directory can't be guaranteed to be available
+  on all hosts.For this reason, you can't mount a host directory from
+  within the Dockerfile. The `VOLUME` instruction does not support specifying a `host-dir`
+  parameter.  You must specify the mountpoint when you create or run the container.
 
 ## USER
 
-    USER daemon
+    USER <user>[:<group>]
+or
+    USER <UID>[:<GID>]
 
-The `USER` instruction sets the user name or UID to use when running the image
-and for any `RUN`, `CMD` and `ENTRYPOINT` instructions that follow it in the
-`Dockerfile`.
+The `USER` instruction sets the user name (or UID) and optionally the user
+group (or GID) to use when running the image and for any `RUN`, `CMD` and
+`ENTRYPOINT` instructions that follow it in the `Dockerfile`.
+
+> **Warning**:
+> When the user does doesn't have a primary group then the image (or the next
+> instructions) will be run with the `root` group.
+
 
 ## WORKDIR
 
@@ -1311,9 +1329,9 @@ The `WORKDIR` instruction sets the working directory for any `RUN`, `CMD`,
 If the `WORKDIR` doesn't exist, it will be created even if it's not used in any
 subsequent `Dockerfile` instruction.
 
-It can be used multiple times in the one `Dockerfile`. If a relative path
-is provided, it will be relative to the path of the previous `WORKDIR`
-instruction. For example:
+The `WORKDIR` instruction can be used multiple times in a `Dockerfile`. If a
+relative path is provided, it will be relative to the path of the previous
+`WORKDIR` instruction. For example:
 
     WORKDIR /a
     WORKDIR b
@@ -1347,8 +1365,8 @@ defined in the Dockerfile, the build outputs a warning.
 [Warning] One or more build-args [foo] were not consumed.
 ```
 
-The Dockerfile author can define a single variable by specifying `ARG` once or many
-variables by specifying `ARG` more than once. For example, a valid Dockerfile:
+A Dockerfile may include one or more `ARG` instructions. For example,
+the following is a valid Dockerfile:
 
 ```
 FROM busybox
@@ -1357,7 +1375,13 @@ ARG buildno
 ...
 ```
 
-A Dockerfile author may optionally specify a default value for an `ARG` instruction:
+> **Warning:** It is not recommended to use build-time variables for
+>  passing secrets like github keys, user credentials etc. Build-time variable
+>  values are visible to any user of the image with the `docker history` command.
+
+### Default values
+
+An `ARG` instruction can optionally include a default value:
 
 ```
 FROM busybox
@@ -1366,8 +1390,10 @@ ARG buildno=1
 ...
 ```
 
-If an `ARG` value has a default and if there is no value passed at build-time, the
-builder uses the default.
+If an `ARG` instruction has a default value and if there is no value passed
+at build-time, the builder uses the default.
+
+### Scope
 
 An `ARG` variable definition comes into effect from the line on which it is
 defined in the `Dockerfile` not from the argument's use on the command-line or
@@ -1391,9 +1417,21 @@ subsequent line 3. The `USER` at line 4 evaluates to `what_user` as `user` is
 defined and the `what_user` value was passed on the command line. Prior to its definition by an
 `ARG` instruction, any use of a variable results in an empty string.
 
-> **Warning:** It is not recommended to use build-time variables for
->  passing secrets like github keys, user credentials etc. Build-time variable
->  values are visible to any user of the image with the `docker history` command.
+An `ARG` instruction goes out of scope at the end of the build
+stage where it was defined. To use an arg in multiple stages, each stage must
+include the `ARG` instruction.
+
+```
+FROM busybox
+ARG SETTINGS
+RUN ./run/setup $SETTINGS
+
+FROM busybox
+ARG SETTINGS
+RUN ./run/other $SETTINGS
+```
+
+### Using ARG variables
 
 You can use an `ARG` or an `ENV` instruction to specify variables that are
 available to the `RUN` instruction. Environment variables defined using the
@@ -1441,6 +1479,8 @@ The variable expansion technique in this example allows you to pass arguments
 from the command line and persist them in the final image by leveraging the
 `ENV` instruction. Variable expansion is only supported for [a limited set of
 Dockerfile instructions.](#environment-replacement)
+
+### Predefined ARGs
 
 Docker has a set of predefined `ARG` variables that you can use without a
 corresponding `ARG` instruction in the Dockerfile.

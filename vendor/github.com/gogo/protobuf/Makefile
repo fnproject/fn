@@ -83,7 +83,6 @@ regenerate:
 	make -C test/oneof regenerate
 	make -C test/oneof3 regenerate
 	make -C test/theproto3 regenerate
-	make -C test/mapdefaults regenerate
 	make -C test/mapsproto2 regenerate
 	make -C test/issue42order regenerate
 	make -C proto generate-test-pbs
@@ -110,18 +109,14 @@ regenerate:
 	make -C test/issue260 regenerate
 	make -C test/issue261 regenerate
 	make -C test/issue262 regenerate
-	make -C test/issue312 regenerate
 	make -C test/enumdecl regenerate
 	make -C test/typedecl_all regenerate
 	make -C test/enumdecl_all regenerate
-	make -C test/int64support regenerate
-	make -C test/issue322 regenerate
 	make gofmt
 
 tests:
 	go build ./test/enumprefix
 	go test ./...
-	(cd test/stdtypes && make test)
 
 vet:
 	go vet ./...

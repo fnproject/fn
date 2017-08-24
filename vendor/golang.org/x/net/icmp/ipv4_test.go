@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"testing"
 
-	"golang.org/x/net/internal/socket"
 	"golang.org/x/net/ipv4"
 )
 
@@ -56,7 +55,7 @@ var ipv4HeaderLittleEndianTest = ipv4HeaderTest{
 
 func TestParseIPv4Header(t *testing.T) {
 	tt := &ipv4HeaderLittleEndianTest
-	if socket.NativeEndian != binary.LittleEndian {
+	if nativeEndian != binary.LittleEndian {
 		t.Skip("no test for non-little endian machine yet")
 	}
 

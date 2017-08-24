@@ -78,17 +78,15 @@ type addrPack struct {
 }
 
 func addrPacks() ([]addrPack, error) {
-	var lastErr error
 	var aps []addrPack
 	for _, af := range [...]int{sysAF_UNSPEC, sysAF_INET, sysAF_INET6} {
 		as, err := Addrs(af, "")
 		if err != nil {
-			lastErr = err
-			continue
+			return nil, err
 		}
 		aps = append(aps, addrPack{af: af, as: as})
 	}
-	return aps, lastErr
+	return aps, nil
 }
 
 func TestAddrs(t *testing.T) {

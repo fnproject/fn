@@ -1,16 +1,15 @@
 package image
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"testing"
 
-	"github.com/docker/cli/cli/internal/test"
+	"github.com/docker/cli/internal/test"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/pkg/testutil"
-	"github.com/docker/docker/pkg/testutil/golden"
+	"github.com/gotestyourself/gotestyourself/golden"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -25,7 +24,7 @@ func TestNewPruneCommandErrors(t *testing.T) {
 		{
 			name:          "wrong-args",
 			args:          []string{"something"},
-			expectedError: "accepts no argument(s).",
+			expectedError: "accepts no arguments.",
 		},
 		{
 			name:          "prune-error",
@@ -37,10 +36,9 @@ func TestNewPruneCommandErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
 		cmd := NewPruneCommand(test.NewFakeCli(&fakeClient{
 			imagesPruneFunc: tc.imagesPruneFunc,
-		}, buf))
+		}))
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		testutil.ErrorContains(t, cmd.Execute(), tc.expectedError)
@@ -85,16 +83,12 @@ func TestNewPruneCommandSuccess(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := NewPruneCommand(test.NewFakeCli(&fakeClient{
-			imagesPruneFunc: tc.imagesPruneFunc,
-		}, buf))
+		cli := test.NewFakeCli(&fakeClient{imagesPruneFunc: tc.imagesPruneFunc})
+		cmd := NewPruneCommand(cli)
 		cmd.SetOutput(ioutil.Discard)
 		cmd.SetArgs(tc.args)
 		err := cmd.Execute()
 		assert.NoError(t, err)
-		actual := buf.String()
-		expected := string(golden.Get(t, []byte(actual), fmt.Sprintf("prune-command-success.%s.golden", tc.name))[:])
-		testutil.EqualNormalizedString(t, testutil.RemoveSpace, actual, expected)
+		golden.Assert(t, cli.OutBuffer().String(), fmt.Sprintf("prune-command-success.%s.golden", tc.name))
 	}
 }

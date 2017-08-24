@@ -21,7 +21,6 @@ var UnsupportedProperties = []string{
 	"restart",
 	"security_opt",
 	"shm_size",
-	"stop_signal",
 	"sysctls",
 	"tmpfs",
 	"userns_mode",
@@ -187,6 +186,7 @@ type UpdateConfig struct {
 	FailureAction   string `mapstructure:"failure_action"`
 	Monitor         time.Duration
 	MaxFailureRatio float32 `mapstructure:"max_failure_ratio"`
+	Order           string
 }
 
 // Resources the resource limits and reservations
@@ -305,6 +305,7 @@ type IPAMPool struct {
 
 // VolumeConfig for a volume
 type VolumeConfig struct {
+	Name       string
 	Driver     string
 	DriverOpts map[string]string `mapstructure:"driver_opts"`
 	External   External
@@ -313,6 +314,7 @@ type VolumeConfig struct {
 
 // External identifies a Volume or Network as a reference to a resource that is
 // not managed, and should already exist.
+// External.name is deprecated and replaced by Volume.name
 type External struct {
 	Name     string
 	External bool

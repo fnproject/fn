@@ -4,8 +4,8 @@ description: "The volume ls command description and usage"
 keywords: "volume, list"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -168,11 +168,11 @@ Valid placeholders for the Go template are listed below:
 
 Placeholder   | Description
 --------------|------------------------------------------------------------------------------------------
-`.Name`       | Network name
-`.Driver`     | Network driver
-`.Scope`      | Network scope (local, global)
-`.Mountpoint` | Whether the network is internal or not.
-`.Labels`     | All labels assigned to the volume.
+`.Name`       | Volume name
+`.Driver`     | Volume driver
+`.Scope`      | Volume scope (local, global)
+`.Mountpoint` | The mount point of the volume on the host
+`.Labels`     | All labels assigned to the volume
 `.Label`      | Value of a specific label for this volume. For example `{{.Label "project.version"}}`
 
 When using the `--format` option, the `volume ls` command will either

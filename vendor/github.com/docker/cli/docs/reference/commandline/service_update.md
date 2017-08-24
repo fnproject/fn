@@ -4,8 +4,8 @@ description: "The service update command description and usage"
 keywords: "service, update"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -22,10 +22,13 @@ Update a service
 
 Options:
       --args command                       Service command args
+      --config-add config                  Add or update a config file on a service
+      --config-rm list                     Remove a configuration file
       --constraint-add list                Add or update a placement constraint
       --constraint-rm list                 Remove a constraint
       --container-label-add list           Add or update a container label
       --container-label-rm list            Remove a container label by its key
+      --credential-spec credential-spec    Credential spec for managed service account (Windows only)
   -d, --detach                             Exit immediately instead of waiting for the service to converge (default true)
       --dns-add list                       Add or update a custom DNS server
       --dns-option-add list                Add or update a DNS option
@@ -58,9 +61,10 @@ Options:
       --log-opt list                       Logging driver options
       --mount-add mount                    Add or update a mount on a service
       --mount-rm list                      Remove a mount by its target path
-      --network-add list                   Add a network
+      --network-add network                Add a network
       --network-rm list                    Remove a network
       --no-healthcheck                     Disable any container-specified HEALTHCHECK
+      --no-resolve-image                   Do not query the registry to resolve image digest and supported platforms
       --placement-pref-add pref            Add a placement preference
       --placement-pref-rm pref             Remove a placement preference
       --publish-add port                   Add or update a published port
@@ -79,7 +83,7 @@ Options:
       --rollback-failure-action string     Action on rollback failure ("pause"|"continue")
       --rollback-max-failure-ratio float   Failure rate to tolerate during a rollback
       --rollback-monitor duration          Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h)
-      --rollback-order string              Rollback order ("start-first"|"stop-first") (default "stop-first")
+      --rollback-order string              Rollback order ("start-first"|"stop-first")
       --rollback-parallelism uint          Maximum number of tasks rolled back simultaneously (0 to roll back all at once)
       --secret-add secret                  Add or update a secret on a service
       --secret-rm list                     Remove a secret
@@ -132,7 +136,7 @@ that the rolling restart happens gradually.
 
 ### Add or remove mounts
 
-Use the `--mount-add` or `--mount-rm` options add or remove a service's bind-mounts
+Use the `--mount-add` or `--mount-rm` options add or remove a service's bind mounts
 or volumes.
 
 The following example creates a service which mounts the `test-data` volume to
@@ -143,7 +147,7 @@ service name.
 
 - The `--mount-add` flag takes the same parameters as the `--mount` flag on
   `service create`. Refer to the [volumes and
-  bind-mounts](service_create.md#volumes-and-bind-mounts-mount) section in the
+  bind mounts](service_create.md#volumes-and-bind-mounts-mount) section in the
   `service create` reference for details.
 
 - The `--mount-rm` flag takes the `target` path of the mount.
@@ -170,9 +174,9 @@ $ docker service update --mount-rm /somewhere myservice
 myservice
 ```
 
-### Rolling back to the previous version of a service 
+### Roll back to the previous version of a service
 
-Use the `--rollback` option to roll back to the previous version of the service. 
+Use the `--rollback` option to roll back to the previous version of the service.
 
 This will revert the service to the configuration that was in place before the most recent `docker service update` command.
 
@@ -189,7 +193,7 @@ ID            NAME  MODE        REPLICAS  IMAGE
 80bvrzp6vxf3  web   replicated  0/5       nginx:alpine
 
 ```
-Roll back the `web` service... 
+Roll back the `web` service...
 
 ```bash
 $ docker service update --rollback web
@@ -262,4 +266,5 @@ See [`service create`](./service_create.md#templating) for the reference.
 * [service ls](service_ls.md)
 * [service ps](service_ps.md)
 * [service rm](service_rm.md)
+* [service rollback](service_rollback.md)
 * [service scale](service_scale.md)

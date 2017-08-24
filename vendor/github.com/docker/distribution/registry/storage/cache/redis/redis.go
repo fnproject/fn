@@ -1,10 +1,10 @@
 package redis
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/context"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/cache"
 	"github.com/garyburd/redigo/redis"
@@ -224,7 +224,7 @@ func (rsrbds *repositoryScopedRedisBlobDescriptorService) SetDescriptor(ctx cont
 
 	if dgst != desc.Digest {
 		if dgst.Algorithm() == desc.Digest.Algorithm() {
-			return fmt.Errorf("redis cache: digest for descriptors differ but algorthim does not: %q != %q", dgst, desc.Digest)
+			return fmt.Errorf("redis cache: digest for descriptors differ but algorithm does not: %q != %q", dgst, desc.Digest)
 		}
 	}
 

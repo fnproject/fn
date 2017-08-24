@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -13,11 +14,37 @@ import (
 
 var pattern = regexp.MustCompile(`^[a-zA-Z]:\.$`)
 
-// normaliseWorkdir normalises a user requested working directory in a
+// normalizeWorkdir normalizes a user requested working directory in a
 // platform semantically consistent way.
-func normaliseWorkdir(current string, requested string) (string, error) {
+func normalizeWorkdir(platform string, current string, requested string) (string, error) {
+	if platform == "" {
+		platform = "windows"
+	}
+	if platform == "windows" {
+		return normalizeWorkdirWindows(current, requested)
+	}
+	return normalizeWorkdirUnix(current, requested)
+}
+
+// normalizeWorkdirUnix normalizes a user requested working directory in a
+// platform semantically consistent way.
+func normalizeWorkdirUnix(current string, requested string) (string, error) {
 	if requested == "" {
-		return "", errors.New("cannot normalise nothing")
+		return "", errors.New("cannot normalize nothing")
+	}
+	current = strings.Replace(current, string(os.PathSeparator), "/", -1)
+	requested = strings.Replace(requested, string(os.PathSeparator), "/", -1)
+	if !path.IsAbs(requested) {
+		return path.Join(`/`, current, requested), nil
+	}
+	return requested, nil
+}
+
+// normalizeWorkdirWindows normalizes a user requested working directory in a
+// platform semantically consistent way.
+func normalizeWorkdirWindows(current string, requested string) (string, error) {
+	if requested == "" {
+		return "", errors.New("cannot normalize nothing")
 	}
 
 	// `filepath.Clean` will replace "" with "." so skip in that case
@@ -84,4 +111,10 @@ func errNotJSON(command, original string) error {
 		extra = fmt.Sprintf(`. It looks like '%s' includes a file path without an escaped back-slash. JSON requires back-slashes to be escaped such as ["c:\\path\\to\\file.exe", "/parameter"]`, original)
 	}
 	return fmt.Errorf("%s requires the arguments to be in JSON form%s", command, extra)
+}
+
+// equalEnvKeys compare two strings and returns true if they are equal. On
+// Windows this comparison is case insensitive.
+func equalEnvKeys(from, to string) bool {
+	return strings.ToUpper(from) == strings.ToUpper(to)
 }

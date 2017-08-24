@@ -1,18 +1,17 @@
 package config
 
 import (
-	"bytes"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/docker/cli/cli/internal/test"
+	"github.com/docker/cli/internal/test"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/swarm"
-	"github.com/docker/docker/pkg/testutil"
-	"github.com/docker/docker/pkg/testutil/golden"
+	"github.com/gotestyourself/gotestyourself/golden"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,10 +26,10 @@ func TestConfigCreateErrors(t *testing.T) {
 	}{
 		{
 			args:          []string{"too_few"},
-			expectedError: "requires exactly 2 argument(s)",
+			expectedError: "requires exactly 2 arguments",
 		},
 		{args: []string{"too", "many", "arguments"},
-			expectedError: "requires exactly 2 argument(s)",
+			expectedError: "requires exactly 2 arguments",
 		},
 		{
 			args: []string{"name", filepath.Join("testdata", configDataFile)},
@@ -41,11 +40,10 @@ func TestConfigCreateErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
 		cmd := newConfigCreateCommand(
 			test.NewFakeCli(&fakeClient{
 				configCreateFunc: tc.configCreateFunc,
-			}, buf),
+			}),
 		)
 		cmd.SetArgs(tc.args)
 		cmd.SetOutput(ioutil.Discard)
@@ -55,7 +53,6 @@ func TestConfigCreateErrors(t *testing.T) {
 
 func TestConfigCreateWithName(t *testing.T) {
 	name := "foo"
-	buf := new(bytes.Buffer)
 	var actual []byte
 	cli := test.NewFakeCli(&fakeClient{
 		configCreateFunc: func(spec swarm.ConfigSpec) (types.ConfigCreateResponse, error) {
@@ -69,14 +66,13 @@ func TestConfigCreateWithName(t *testing.T) {
 				ID: "ID-" + spec.Name,
 			}, nil
 		},
-	}, buf)
+	})
 
 	cmd := newConfigCreateCommand(cli)
 	cmd.SetArgs([]string{name, filepath.Join("testdata", configDataFile)})
 	assert.NoError(t, cmd.Execute())
-	expected := golden.Get(t, actual, configDataFile)
-	assert.Equal(t, string(expected), string(actual))
-	assert.Equal(t, "ID-"+name, strings.TrimSpace(buf.String()))
+	golden.Assert(t, string(actual), configDataFile)
+	assert.Equal(t, "ID-"+name, strings.TrimSpace(cli.OutBuffer().String()))
 }
 
 func TestConfigCreateWithLabels(t *testing.T) {
@@ -86,7 +82,6 @@ func TestConfigCreateWithLabels(t *testing.T) {
 	}
 	name := "foo"
 
-	buf := new(bytes.Buffer)
 	cli := test.NewFakeCli(&fakeClient{
 		configCreateFunc: func(spec swarm.ConfigSpec) (types.ConfigCreateResponse, error) {
 			if spec.Name != name {
@@ -101,12 +96,12 @@ func TestConfigCreateWithLabels(t *testing.T) {
 				ID: "ID-" + spec.Name,
 			}, nil
 		},
-	}, buf)
+	})
 
 	cmd := newConfigCreateCommand(cli)
 	cmd.SetArgs([]string{name, filepath.Join("testdata", configDataFile)})
 	cmd.Flags().Set("label", "lbl1=Label-foo")
 	cmd.Flags().Set("label", "lbl2=Label-bar")
 	assert.NoError(t, cmd.Execute())
-	assert.Equal(t, "ID-"+name, strings.TrimSpace(buf.String()))
+	assert.Equal(t, "ID-"+name, strings.TrimSpace(cli.OutBuffer().String()))
 }

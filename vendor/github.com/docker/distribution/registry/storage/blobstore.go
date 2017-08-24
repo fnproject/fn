@@ -1,10 +1,11 @@
 package storage
 
 import (
+	"context"
 	"path"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/context"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
 )
@@ -27,7 +28,7 @@ func (bs *blobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error
 		return nil, err
 	}
 
-	p, err := bs.driver.GetContent(ctx, bp)
+	p, err := getContent(ctx, bs.driver, bp)
 	if err != nil {
 		switch err.(type) {
 		case driver.PathNotFoundError:
@@ -37,7 +38,7 @@ func (bs *blobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error
 		return nil, err
 	}
 
-	return p, err
+	return p, nil
 }
 
 func (bs *blobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
@@ -64,7 +65,7 @@ func (bs *blobStore) Put(ctx context.Context, mediaType string, p []byte) (distr
 		// content already present
 		return desc, nil
 	} else if err != distribution.ErrBlobUnknown {
-		context.GetLogger(ctx).Errorf("blobStore: error stating content (%v): %v", dgst, err)
+		dcontext.GetLogger(ctx).Errorf("blobStore: error stating content (%v): %v", dgst, err)
 		// real error, return it
 		return distribution.Descriptor{}, err
 	}
@@ -195,7 +196,7 @@ func (bs *blobStatter) Stat(ctx context.Context, dgst digest.Digest) (distributi
 		// NOTE(stevvooe): This represents a corruption situation. Somehow, we
 		// calculated a blob path and then detected a directory. We log the
 		// error and then error on the side of not knowing about the blob.
-		context.GetLogger(ctx).Warnf("blob path should not be a directory: %q", path)
+		dcontext.GetLogger(ctx).Warnf("blob path should not be a directory: %q", path)
 		return distribution.Descriptor{}, distribution.ErrBlobUnknown
 	}
 

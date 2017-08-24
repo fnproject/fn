@@ -3,12 +3,13 @@ package stack
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/docker/cli/cli/internal/test/network"
+	"github.com/docker/cli/internal/test/network"
+	"github.com/docker/cli/internal/test/testutil"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/pkg/testutil"
-	"github.com/docker/docker/pkg/testutil/tempfile"
+	"github.com/gotestyourself/gotestyourself/fs"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,13 +23,31 @@ services:
   foo:
     image: alpine:3.5
 `
-	file := tempfile.NewTempFile(t, "test-get-config-details", content)
+	file := fs.NewFile(t, "test-get-config-details", fs.WithContent(content))
 	defer file.Remove()
 
-	details, err := getConfigDetails(file.Name())
+	details, err := getConfigDetails(file.Path(), nil)
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Dir(file.Name()), details.WorkingDir)
-	assert.Len(t, details.ConfigFiles, 1)
+	assert.Equal(t, filepath.Dir(file.Path()), details.WorkingDir)
+	require.Len(t, details.ConfigFiles, 1)
+	assert.Equal(t, "3.0", details.ConfigFiles[0].Config["version"])
+	assert.Len(t, details.Environment, len(os.Environ()))
+}
+
+func TestGetConfigDetailsStdin(t *testing.T) {
+	content := `
+version: "3.0"
+services:
+  foo:
+    image: alpine:3.5
+`
+	details, err := getConfigDetails("-", strings.NewReader(content))
+	require.NoError(t, err)
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Equal(t, cwd, details.WorkingDir)
+	require.Len(t, details.ConfigFiles, 1)
+	assert.Equal(t, "3.0", details.ConfigFiles[0].Config["version"])
 	assert.Len(t, details.Environment, len(os.Environ()))
 }
 
@@ -56,7 +75,8 @@ func TestValidateExternalNetworks(t *testing.T) {
 			expectedMsg:  "Unexpected",
 		},
 		{
-			network: "host",
+			inspectError: errors.New("host net does not exist on swarm classic"),
+			network:      "host",
 		},
 		{
 			network:     "user",
@@ -70,7 +90,7 @@ func TestValidateExternalNetworks(t *testing.T) {
 
 	for _, testcase := range testcases {
 		fakeClient := &network.FakeClient{
-			NetworkInspectFunc: func(_ context.Context, _ string, _ bool) (types.NetworkResource, error) {
+			NetworkInspectFunc: func(_ context.Context, _ string, _ types.NetworkInspectOptions) (types.NetworkResource, error) {
 				return testcase.inspectResponse, testcase.inspectError
 			},
 		}

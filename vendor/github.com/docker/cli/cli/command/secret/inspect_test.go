@@ -1,19 +1,18 @@
 package secret
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
 
-	"github.com/docker/cli/cli/internal/test"
+	"github.com/docker/cli/internal/test"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/pkg/errors"
 	// Import builders to get the builder function as package function
-	. "github.com/docker/cli/cli/internal/test/builders"
-	"github.com/docker/docker/pkg/testutil"
-	"github.com/docker/docker/pkg/testutil/golden"
+	. "github.com/docker/cli/internal/test/builders"
+	"github.com/docker/cli/internal/test/testutil"
+	"github.com/gotestyourself/gotestyourself/golden"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,11 +52,10 @@ func TestSecretInspectErrors(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
 		cmd := newSecretInspectCommand(
 			test.NewFakeCli(&fakeClient{
 				secretInspectFunc: tc.secretInspectFunc,
-			}, buf),
+			}),
 		)
 		cmd.SetArgs(tc.args)
 		for key, value := range tc.flags {
@@ -95,17 +93,13 @@ func TestSecretInspectWithoutFormat(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := newSecretInspectCommand(
-			test.NewFakeCli(&fakeClient{
-				secretInspectFunc: tc.secretInspectFunc,
-			}, buf),
-		)
+		cli := test.NewFakeCli(&fakeClient{
+			secretInspectFunc: tc.secretInspectFunc,
+		})
+		cmd := newSecretInspectCommand(cli)
 		cmd.SetArgs(tc.args)
 		assert.NoError(t, cmd.Execute())
-		actual := buf.String()
-		expected := golden.Get(t, []byte(actual), fmt.Sprintf("secret-inspect-without-format.%s.golden", tc.name))
-		testutil.EqualNormalizedString(t, testutil.RemoveSpace, actual, string(expected))
+		golden.Assert(t, cli.OutBuffer().String(), fmt.Sprintf("secret-inspect-without-format.%s.golden", tc.name))
 	}
 }
 
@@ -135,18 +129,14 @@ func TestSecretInspectWithFormat(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := newSecretInspectCommand(
-			test.NewFakeCli(&fakeClient{
-				secretInspectFunc: tc.secretInspectFunc,
-			}, buf),
-		)
+		cli := test.NewFakeCli(&fakeClient{
+			secretInspectFunc: tc.secretInspectFunc,
+		})
+		cmd := newSecretInspectCommand(cli)
 		cmd.SetArgs(tc.args)
 		cmd.Flags().Set("format", tc.format)
 		assert.NoError(t, cmd.Execute())
-		actual := buf.String()
-		expected := golden.Get(t, []byte(actual), fmt.Sprintf("secret-inspect-with-format.%s.golden", tc.name))
-		testutil.EqualNormalizedString(t, testutil.RemoveSpace, actual, string(expected))
+		golden.Assert(t, cli.OutBuffer().String(), fmt.Sprintf("secret-inspect-with-format.%s.golden", tc.name))
 	}
 }
 
@@ -171,16 +161,13 @@ func TestSecretInspectPretty(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		buf := new(bytes.Buffer)
-		cmd := newSecretInspectCommand(
-			test.NewFakeCli(&fakeClient{
-				secretInspectFunc: tc.secretInspectFunc,
-			}, buf))
+		cli := test.NewFakeCli(&fakeClient{
+			secretInspectFunc: tc.secretInspectFunc,
+		})
+		cmd := newSecretInspectCommand(cli)
 		cmd.SetArgs([]string{"secretID"})
 		cmd.Flags().Set("pretty", "true")
 		assert.NoError(t, cmd.Execute())
-		actual := buf.String()
-		expected := golden.Get(t, []byte(actual), fmt.Sprintf("secret-inspect-pretty.%s.golden", tc.name))
-		testutil.EqualNormalizedString(t, testutil.RemoveSpace, actual, string(expected))
+		golden.Assert(t, cli.OutBuffer().String(), fmt.Sprintf("secret-inspect-pretty.%s.golden", tc.name))
 	}
 }

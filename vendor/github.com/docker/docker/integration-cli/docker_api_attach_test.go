@@ -15,7 +15,6 @@ import (
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/request"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/docker/pkg/testutil"
 	"github.com/go-check/check"
 	"golang.org/x/net/websocket"
 )
@@ -74,13 +73,13 @@ func (s *DockerSuite) TestGetContainersAttachWebsocket(c *check.C) {
 
 // regression gh14320
 func (s *DockerSuite) TestPostContainersAttachContainerNotFound(c *check.C) {
-	client, err := request.NewClient(daemonHost())
+	client, err := request.NewHTTPClient(daemonHost())
 	c.Assert(err, checker.IsNil)
 	req, err := request.New(daemonHost(), "/containers/doesnotexist/attach", request.Method(http.MethodPost))
 	resp, err := client.Do(req)
 	// connection will shutdown, err should be "persistent connection closed"
 	c.Assert(resp.StatusCode, checker.Equals, http.StatusNotFound)
-	content, err := testutil.ReadBody(resp.Body)
+	content, err := request.ReadBody(resp.Body)
 	c.Assert(err, checker.IsNil)
 	expected := "No such container: doesnotexist\r\n"
 	c.Assert(string(content), checker.Equals, expected)

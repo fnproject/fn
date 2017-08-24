@@ -6,7 +6,7 @@ package route
 
 func (typ RIBType) parseable() bool { return true }
 
-// RouteMetrics represents route metrics.
+// A RouteMetrics represents route metrics.
 type RouteMetrics struct {
 	PathMTU int // path maximum transmission unit
 }
@@ -23,7 +23,7 @@ func (m *RouteMessage) Sys() []Sys {
 	}
 }
 
-// RouteMetrics represents route metrics.
+// A InterfaceMetrics represents interface metrics.
 type InterfaceMetrics struct {
 	Type int // interface type
 	MTU  int // maximum transmission unit

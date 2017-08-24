@@ -4,8 +4,8 @@ description: "The cp command description and usage"
 keywords: "copy, container, files, folders"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the docker/cli Github
+     repository at https://github.com/docker/cli/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
@@ -28,6 +28,7 @@ container source to stdout.
 
 Options:
   -L, --follow-link   Always follow symbol link in SRC_PATH
+  -a, --archive       Archive mode (copy all uid/gid information)
       --help          Print usage
 ```
 
@@ -53,7 +54,9 @@ copied recursively with permissions preserved if possible. Ownership is set to
 the user and primary group at the destination. For example, files copied to a
 container are created with `UID:GID` of the root user. Files copied to the local
 machine are created with the `UID:GID` of the user which invoked the `docker cp`
-command.  If you specify the `-L` option, `docker cp` follows any symbolic link
+command. However, if you specify the `-a` option, `docker cp` sets the ownership
+to the user and primary group at the source.
+If you specify the `-L` option, `docker cp` follows any symbolic link
 in the `SRC_PATH`.  `docker cp` does *not* create parent directories for
 `DEST_PATH` if they do not exist.
 
@@ -102,11 +105,11 @@ running `tar` in `docker exec`. Both of the following examples do the same thing
 in different ways (consider `SRC_PATH` and `DEST_PATH` are directories):
 
 ```bash
-$ docker exec foo tar Ccf $(dirname SRC_PATH) - $(basename SRC_PATH) | tar Cxf DEST_PATH -
+$ docker exec CONTAINER tar Ccf $(dirname SRC_PATH) - $(basename SRC_PATH) | tar Cxf DEST_PATH -
 ```
 
 ```bash
-$ tar Ccf $(dirname SRC_PATH) - $(basename SRC_PATH) | docker exec -i foo tar Cxf DEST_PATH -
+$ tar Ccf $(dirname SRC_PATH) - $(basename SRC_PATH) | docker exec -i CONTAINER tar Cxf DEST_PATH -
 ```
 
 Using `-` as the `SRC_PATH` streams the contents of `STDIN` as a tar archive.
