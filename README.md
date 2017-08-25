@@ -1,7 +1,6 @@
 # Fn [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn)
 [![GoDoc](https://godoc.org/github.com/fnproject/fn?status.svg)](https://godoc.org/github.com/fnproject/fn)
 
-
 Fn is an event-driven, open source, [functions-as-a-service](serverless.md) compute
 platform that you can run anywhere. Some of it's key features:
 
@@ -125,3 +124,4 @@ For more information, see: [https://github.com/treeder/functions-ui](https://git
 ### Check out the [Tutorial Series](examples/tutorial/)
 
  It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
+
