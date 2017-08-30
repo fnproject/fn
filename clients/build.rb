@@ -9,6 +9,7 @@ require_relative 'utils.rb'
 swaggerUrl = "https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
+version = '0.1.30'
 puts "VERSION: #{version}"
 
 # Can pass in a particular language to only do that one
@@ -21,9 +22,9 @@ ctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
 def clone(lang)
   Dir.chdir 'tmp'
-  ldir = "functions_#{lang}"
+  ldir = "fn_#{lang}"
   if !Dir.exist? ldir
-    cmd = "git clone https://github.com/treeder/#{ldir}"
+    cmd = "git clone https://github.com/fnproject/#{ldir}"
     stream_exec(cmd)
   else
     Dir.chdir ldir
@@ -36,10 +37,11 @@ end
 
 FileUtils.mkdir_p 'tmp'
 languages = nil
+# See all supported langauges here: https://generator.swagger.io/api/gen/clients
 if only
   languages = [only]
-else 
-  languages = JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
+else
+  languages = ['go', 'ruby', 'php', 'python', 'elixir', 'javascript'] # JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
 end
 languages.each do |l|
   puts l
@@ -61,27 +63,24 @@ languages.each do |l|
     options['packageVersion'] = version
   when 'ruby'
     clone(l)
-    fruby = "functions_ruby"
-    gem_name = "oracle_functions"
+    fruby = "fn_ruby"
+    gem_name = "fn_ruby"
     glob_pattern = ["**", "*.rb"] # just rb files
-    skip_files = ["#{gem_name}.gemspec"]
+    skip_files = [] # ["#{gem_name}.gemspec"]
     deploy = ["gem build #{gem_name}.gemspec", "gem push #{gem_name}-#{version}.gem"]
     options['gemName'] = gem_name
-    options['moduleName'] = "OracleFunctions"
+    options['moduleName'] = "Fn"
     options['gemVersion'] = version
-    options['gemHomepage'] = "https://github.com/treeder/#{fruby}"
-    options['gemSummary'] = 'Ruby gem for Oracle Functions'
-    options['gemDescription'] = 'Ruby gem for Oracle Functions.'
+    options['gemHomepage'] = "https://github.com/fnproject/#{fruby}"
+    options['gemSummary'] = 'Ruby gem for Fn Project'
+    options['gemDescription'] = 'Ruby gem for Fn Project.'
     options['gemAuthorEmail'] = 'treeder@gmail.com'
   when 'javascript'
     lshort = 'js'
     # copy_dir = "javascript-client/."
     clone(lshort)
-    options['projectName'] = "oracle_functions"
+    options['projectName'] = "fn_js"
     deploy << "npm publish"
-   else
-    puts "Skipping #{l}"
-    next
   end
   p options
   if l == 'go'
@@ -89,6 +88,13 @@ languages.each do |l|
     # This is using https://goswagger.io/ instead
     # TODO: run this build command instead: this works if run manually
     # dep ensure && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/treeder/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml -A functions
+    # cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/funcy/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/funcy/functions_go", "-A", "functions")
+    # d, err := cmd.CombinedOutput()
+    # if err != nil {
+    #   log.Printf("Error running go-swagger: %s\n", d)
+    #   return err
+    # }
+    next
   else
     gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
     json: {
@@ -117,7 +123,7 @@ languages.each do |l|
   fj = File.join(['tmp', lv, "#{l}-client"] + glob_pattern)
   # FileUtils.mkdir_p "tmp/#{l}-copy"
   # FileUtils.cp_r(Dir.glob(fj), "tmp/#{l}-copy")
-  destdir = "tmp/functions_#{lshort}"
+  destdir = "tmp/fn_#{lshort}"
   puts "Trying cp", "tmp/#{lv}/#{l}-client/#{copy_dir}", destdir
   FileUtils.cp_r("tmp/#{lv}/#{l}-client/#{copy_dir}", destdir)
   # Write a version file, this ensures there's always a change.
@@ -125,7 +131,7 @@ languages.each do |l|
 
   # Commit and push
   begin
-    Dir.chdir("tmp/functions_#{lshort}")
+    Dir.chdir("tmp/fn_#{lshort}")
     stream_exec "git add ."
     stream_exec "git commit -am \"Updated to api version #{version}\""
     begin
@@ -153,5 +159,3 @@ end
 # Uncomment the following lines if we start using the Go lib
 # Dir.chdir("../")
 # stream_exec "glide up"
-Dir.chdir("../tests/")
-stream_exec "bundle update"
