@@ -9,7 +9,7 @@ require_relative 'utils.rb'
 swaggerUrl = "https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
-version = '0.1.30'
+version = '0.1.32'
 puts "VERSION: #{version}"
 
 # Can pass in a particular language to only do that one
@@ -44,7 +44,7 @@ else
   languages = ['go', 'ruby', 'php', 'python', 'elixir', 'javascript'] # JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
 end
 languages.each do |l|
-  puts l
+  puts "\nGenerating client for #{l}..."
   lshort = l
   # lang_options = JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients/#{l}", ssl_context: ctx).body)
   # p lang_options
@@ -81,6 +81,8 @@ languages.each do |l|
     clone(lshort)
     options['projectName'] = "fn_js"
     deploy << "npm publish"
+  else
+    clone(l)
   end
   p options
   if l == 'go'
