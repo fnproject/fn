@@ -9,7 +9,6 @@ require_relative 'utils.rb'
 swaggerUrl = "https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
-version = '0.1.32'
 puts "VERSION: #{version}"
 
 # Can pass in a particular language to only do that one
