@@ -35,6 +35,7 @@ type Runner struct {
 	usedMemMutex sync.RWMutex
 	hcmgr        htfnmgr
 	datastore    models.Datastore
+	runListeners []RunListener
 
 	// I made this explicit to avoid confusion. Calling Enqueue(), Start(), etc on Runner which just updates stats is very confusing.
 	Stats stats
@@ -339,4 +340,24 @@ func checkProc() (uint64, error) {
 	}
 
 	return 0, errCantReadMemInfo
+}
+
+func (r *Runner) FireBeforeRun(ctx context.Context, task *models.Task) error {
+	for _, l := range r.runListeners {
+		err := l.BeforeRun(ctx, task)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Runner) FireAfterRun(ctx context.Context, task *models.Task, result drivers.RunResult) error {
+	for _, l := range r.runListeners {
+		err := l.AfterRun(ctx, task, result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -51,9 +51,8 @@ type Server struct {
 
 	apiURL string
 
-	appListeners    []AppListener
-	middlewares     []Middleware
-	runnerListeners []RunnerListener
+	appListeners []AppListener
+	middlewares  []Middleware
 
 	routeCache   *cache.Cache
 	singleflight singleflight // singleflight assists Datastore

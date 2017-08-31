@@ -162,8 +162,11 @@ func runAsyncTask(ctx context.Context, url string, rnr *Runner, ds models.Datast
 		// Process Task
 		_, err := rnr.Run(ctx, task)
 		if err != nil {
-			log.WithError(err).Error("Cannot run task")
+			log.WithError(err).Error("Error running task")
+			// TODO: HOW DO WE RETURN AN ERROR SO THE CALL STATUS IS UPDATED APPROPRIATELY
+			return
 		}
+		// TODO: Also need to update for success
 		log.Debug("Processed task")
 	}()
 

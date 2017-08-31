@@ -28,3 +28,25 @@ func LoggerWithFields(ctx context.Context, fields logrus.Fields) (context.Contex
 	ctx = WithLogger(ctx, l)
 	return ctx, l
 }
+
+// LoggerWithStack is a helper to add a stack trace to the logs. call is typically the name of the current function.
+func LoggerWithStack(ctx context.Context, call string) (context.Context, logrus.FieldLogger) {
+	l := Logger(ctx)
+	entry, ok := l.(*logrus.Entry)
+	if !ok {
+		// probably a StandardLogger with no "stack" entry yet
+		l = l.WithField("stack", call)
+		ctx = WithLogger(ctx, l)
+		return ctx, l
+	}
+	// grab the stack field and append to it
+	v, ok := entry.Data["stack"]
+	stack := ""
+	if ok && v != nil {
+		stack = v.(string)
+	}
+	stack += "->" + call
+	l = l.WithField("stack", stack)
+	ctx = WithLogger(ctx, l)
+	return ctx, l
+}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/protocol"
 	"github.com/go-openapi/strfmt"
@@ -75,8 +76,15 @@ type Response struct {
 
 // RunTrackedTask is just a wrapper for shared logic for async/sync runners
 func (rnr *Runner) Run(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
+	ctx, log := common.LoggerWithStack(ctx, "runner.Run")
 	startedAt := strfmt.DateTime(time.Now())
 	task.StartedAt = startedAt
+
+	err := rnr.FireBeforeRun(ctx, task)
+	if err != nil {
+		log.WithError(err).Error("error during BeforeRun listeners")
+		return nil, err
+	}
 
 	rnr.Stats.Start() // TODO layering issue ???
 	defer rnr.Stats.Complete()
@@ -104,9 +112,16 @@ func (rnr *Runner) Run(ctx context.Context, task *models.Task) (drivers.RunResul
 	task.CompletedAt = completedAt
 	task.Status = status
 
+	// todo: should this still be called even if there's an error?  Maybe even pass the error along to the listener.
+	err = rnr.FireAfterRun(ctx, task, resp.Result)
+	if err != nil {
+		log.WithError(err).Error("error during AfterRun listeners")
+		return resp.Result, err
+	}
+
 	if err := rnr.datastore.InsertTask(ctx, task); err != nil {
 		// TODO we should just log this error not return it to user? just issue storing task status but task is run
-		logrus.WithError(err).Error("error inserting task into datastore")
+		log.WithError(err).Error("error inserting task into datastore")
 	}
 
 	return resp.Result, resp.Err

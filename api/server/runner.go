@@ -72,8 +72,6 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		Path:    path.Clean(r.(string)),
 	}
 
-	s.FireBeforeDispatch(ctx, reqRoute)
-
 	appName := reqRoute.AppName
 	path := reqRoute.Path
 
@@ -101,12 +99,12 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
 	log.Debug("Got route from datastore")
 
-	if s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
-		s.FireAfterDispatch(ctx, reqRoute)
+	err = s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue)
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 
-	handleErrorResponse(c, models.ErrRoutesNotFound)
 }
 
 func (s *Server) loadroute(ctx context.Context, appName, path string) (*models.Route, error) {
@@ -129,13 +127,8 @@ func (s *Server) loadroute(ctx context.Context, appName, path string) (*models.R
 }
 
 // TODO: Should remove *gin.Context from these functions, should use only context.Context
-func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, route *models.Route, app *models.App, path, callID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
+func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, route *models.Route, app *models.App, path, callID string, payload io.Reader, enqueue models.Enqueue) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"app": appName, "route": route.Path, "image": route.Image})
-
-	params, match := matchRoute(route.Path, path)
-	if !match {
-		return false
-	}
 
 	var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
 
@@ -161,8 +154,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	}
 
 	// envVars contains the full set of env vars, per request + base
-	envVars := make(map[string]string, len(baseVars)+len(params)+len(c.Request.Header)+3)
-
+	envVars := map[string]string{}
 	for k, v := range baseVars {
 		envVars[k] = v
 	}
@@ -176,10 +168,10 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		return "https"
 	}(), c.Request.Host, c.Request.URL.String())
 
-	// params
-	for _, param := range params {
-		envVars[toEnvName("PARAM", param.Key)] = param.Value
-	}
+	// params, once we get params figured out, they can be put in envVars here
+	// for _, param := range params {
+	// 	envVars[toEnvName("PARAM", param.Key)] = param.Value
+	// }
 
 	// headers
 	for header, value := range c.Request.Header {
@@ -217,8 +209,6 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		task.IdleTimeout = runner.DefaultIdleTimeout
 	}
 
-	// THIS IS WHERE OWEN STUFF err := s.FireBeforeTaskStart(ctx,cfg)
-
 	s.Runner.Stats.Enqueue()
 
 	switch route.Type {
@@ -229,8 +219,7 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		// Read payload
 		pl, err := ioutil.ReadAll(task.Stdin)
 		if err != nil {
-			handleErrorResponse(c, models.ErrInvalidPayload)
-			return true
+			return models.ErrInvalidPayload
 		}
 		// Add in payload
 		task.Payload = string(pl)
@@ -238,14 +227,14 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		// Push to queue
 		_, err = enqueue(c, s.MQ, task)
 		if err != nil {
-			handleErrorResponse(c, err)
-			return true
+			return err
 		}
 
 		log.Info("Added new task to queue")
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": task.ID})
 
 	default:
+
 		result, err := s.Runner.Run(ctx, task)
 		if result != nil {
 			waitTime := result.StartTime().Sub(task.ReceivedTime)
@@ -290,19 +279,5 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 			})
 		}
 	}
-
-	return true
-}
-
-var fakeHandler = func(http.ResponseWriter, *http.Request, Params) {}
-
-func matchRoute(baseRoute, route string) (Params, bool) {
-	tree := &node{}
-	tree.addRoute(baseRoute, fakeHandler)
-	handler, p, _ := tree.getValue(route)
-	if handler == nil {
-		return nil, false
-	}
-
-	return p, true
+	return nil
 }
