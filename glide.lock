@@ -170,8 +170,8 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/fsouza/go-dockerclient
-  version: 98edf3edfae6a6500fecc69d2bcccf1302544004
-- name: github.com/funcy/functions_go
+  version: 75772940379e725b5aae213e570f9dcd751951cb
+- name: github.com/fnproject/fn_go
   version: e046aa4ca1f1028a04fc51395297ff07515cb0b6
   subpackages:
   - client

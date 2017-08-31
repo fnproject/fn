@@ -46,9 +46,6 @@ end
 languages.each do |l|
   puts "\nGenerating client for #{l}..."
   lshort = l
-  # lang_options = JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients/#{l}", ssl_context: ctx).body)
-  # p lang_options
-  # only going to do ruby and go for now
   glob_pattern = ["**", "*"]
   copy_dir = "."
   options = {}
@@ -90,14 +87,7 @@ languages.each do |l|
   destdir = "tmp/fn_#{lshort}"
   if l == 'go'
     # This is using https://goswagger.io/ instead
-    # docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/treeder/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml -A functions 
     stream_exec "docker run --rm -v ${PWD}/#{clone_dir}:/go/src/github.com/fnproject/fn_go -w /go/src/github.com/fnproject/fn_go quay.io/goswagger/swagger generate client -f #{swaggerUrl} -A fn "
-    # cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/funcy/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/funcy/functions_go", "-A", "functions")
-    # d, err := cmd.CombinedOutput()
-    # if err != nil {
-    #   log.Printf("Error running go-swagger: %s\n", d)
-    #   return err
-    # }
   else
     gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
       json: {
@@ -122,8 +112,6 @@ languages.each do |l|
 
     # Copy into clone repos
     fj = File.join(['tmp', lv, "#{l}-client"] + glob_pattern)
-    # FileUtils.mkdir_p "tmp/#{l}-copy"
-    # FileUtils.cp_r(Dir.glob(fj), "tmp/#{l}-copy")
     puts "Trying cp", "tmp/#{lv}/#{l}-client/#{copy_dir}", destdir
     FileUtils.cp_r("tmp/#{lv}/#{l}-client/#{copy_dir}", destdir)
     # Write a version file, this ensures there's always a change.
@@ -157,7 +145,3 @@ languages.each do |l|
   Dir.chdir("../../")
 
 end
-
-# Uncomment the following lines if we start using the Go lib
-# Dir.chdir("../")
-# stream_exec "glide up"

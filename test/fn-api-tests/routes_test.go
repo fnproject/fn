@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/id"
-	"github.com/funcy/functions_go/models"
+	"github.com/fnproject/fn_go/models"
 )
 
 func TestRoutes(t *testing.T) {

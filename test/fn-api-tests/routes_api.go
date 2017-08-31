@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/funcy/functions_go/client"
-	"github.com/funcy/functions_go/client/routes"
-	"github.com/funcy/functions_go/models"
+	"github.com/fnproject/fn_go/client"
+	"github.com/fnproject/fn_go/client/routes"
+	"github.com/fnproject/fn_go/models"
 )
 
 func CheckRouteResponseError(t *testing.T, e error) {

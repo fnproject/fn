@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client"
-	"github.com/funcy/functions_go/client/apps"
-	"github.com/funcy/functions_go/models"
+	"github.com/fnproject/fn_go/client"
+	"github.com/fnproject/fn_go/client/apps"
+	"github.com/fnproject/fn_go/models"
 )
 
 func CheckAppResponseError(t *testing.T, e error) {

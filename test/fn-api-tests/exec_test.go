@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client/call"
-	"github.com/funcy/functions_go/client/operations"
+	"github.com/fnproject/fn_go/client/call"
+	"github.com/fnproject/fn_go/client/operations"
 )
 
 type ErrMsg struct {

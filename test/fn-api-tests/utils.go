@@ -17,7 +17,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/funcy/functions_go/client"
+	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"github.com/spf13/viper"
