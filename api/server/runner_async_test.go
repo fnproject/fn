@@ -78,7 +78,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		var wg sync.WaitGroup
 
 		wg.Add(1)
-		fmt.Println("About to start router")
+		t.Log("About to start router")
 		rnr, cancel := testRunner(t)
 		router := testRouterAsync(ds, mq, rnr, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
 			if test.body != task.Payload {
@@ -104,9 +104,9 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		for name, value := range test.headers {
 			req.Header.Set(name, value[0])
 		}
-		fmt.Println("About to start router2")
+		t.Log("About to start router2")
 		router.ServeHTTP(rec, req)
-		fmt.Println("after servehttp")
+		t.Log("after servehttp")
 
 		if rec.Code != test.expectedCode {
 			t.Errorf("Test %d: Expected status code to be %d but was %d",

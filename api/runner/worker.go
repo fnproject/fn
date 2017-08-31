@@ -73,7 +73,7 @@ type Response struct {
 	Err    error
 }
 
-// RunTrackedTask is just a wrapper for shared logic for async/sync runners
+// Run is just a wrapper for shared logic for async/sync runners
 func (rnr *Runner) Run(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
 	startedAt := strfmt.DateTime(time.Now())
 	task.StartedAt = startedAt
