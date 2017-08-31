@@ -13,14 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/runner/drivers"
-	"github.com/fnproject/fn/api/runner/task"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -40,7 +39,7 @@ func getMockTask() models.Task {
 	task.Image = image
 	task.ID = fmt.Sprintf("ID-%d", rand.Int31()%1000)
 	task.AppName = fmt.Sprintf("RouteName-%d", rand.Int31()%1000)
-	task.Priority = &priority
+	task.Priority = priority
 	return *task
 }
 
@@ -218,13 +217,13 @@ func TestAsyncRunnersGracefulShutdown(t *testing.T) {
 	ts := getTestServer([]*models.Task{&mockTask})
 	defer ts.Close()
 
-	tasks := make(chan task.Request)
+	tasks := make(chan Request)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	defer close(tasks)
 	go func() {
 		for t := range tasks {
-			t.Response <- task.Response{
+			t.Response <- Response{
 				Result: RunResult{},
 				Err:    nil,
 			}

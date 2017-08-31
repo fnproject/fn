@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/boltdb/bolt"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
+	"github.com/sirupsen/logrus"
 )
 
 type BoltDbMQ struct {
@@ -197,7 +197,7 @@ func (mq *BoltDbMQ) delayTask(job *models.Task) (*models.Task, error) {
 		}
 
 		pb := make([]byte, 4)
-		binary.BigEndian.PutUint32(pb[:], uint32(*job.Priority))
+		binary.BigEndian.PutUint32(pb[:], uint32(job.Priority))
 		reservation := resKey(key, readyAt)
 		return b.Put(reservation, pb)
 	})
@@ -213,7 +213,7 @@ func (mq *BoltDbMQ) Push(ctx context.Context, job *models.Task) (*models.Task, e
 	}
 
 	err := mq.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(queueName(int(*job.Priority)))
+		b := tx.Bucket(queueName(int(job.Priority)))
 
 		id, _ := b.NextSequence()
 
@@ -329,7 +329,7 @@ func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Task) error {
 	defer log.Println("Deleted")
 
 	return mq.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(timeoutName(int(*job.Priority)))
+		b := tx.Bucket(timeoutName(int(job.Priority)))
 		k := jobKey(job.ID)
 
 		reservationKey := b.Get(k)

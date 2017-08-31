@@ -39,7 +39,7 @@ func (s *stats) Complete() {
 	s.mu.Unlock()
 }
 
-func (s *stats) Stats() Stats {
+func (s *stats) Snapshot() Stats {
 	var stats Stats
 	s.mu.Lock()
 	stats.Running = s.running

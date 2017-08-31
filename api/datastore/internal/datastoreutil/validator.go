@@ -131,7 +131,7 @@ func (v *validator) RemoveRoute(ctx context.Context, appName, routePath string) 
 }
 
 // callID will never be empty.
-func (v *validator) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+func (v *validator) GetTask(ctx context.Context, callID string) (*models.Task, error) {
 	if callID == "" {
 		return nil, models.ErrDatastoreEmptyTaskID
 	}

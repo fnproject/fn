@@ -15,11 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
-	taskpkg "github.com/fnproject/fn/api/runner/task"
 	"github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
 )
 
 var client = &http.Client{
@@ -161,7 +160,7 @@ func runAsyncTask(ctx context.Context, url string, rnr *Runner, ds models.Datast
 	go func() {
 		defer wg.Done()
 		// Process Task
-		_, err := rnr.RunTrackedTask(task, ctx, taskpkg.ConfigFromTask(task))
+		_, err := rnr.Run(ctx, task)
 		if err != nil {
 			log.WithError(err).Error("Cannot run task")
 		}

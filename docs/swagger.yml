@@ -472,8 +472,8 @@ definitions:
             type: string
       memory:
         type: integer
-        format: uint64
-        description: Max usable memory for this route (MiB).
+        format: int32
+        description: Max memory required for this route in MB. Default is 128MB.
       type:
         enum:
           - sync

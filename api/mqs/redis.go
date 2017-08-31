@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/garyburd/redigo/redis"
+	"github.com/sirupsen/logrus"
 )
 
 type RedisMQ struct {
@@ -174,7 +174,7 @@ func redisPush(conn redis.Conn, queue string, job *models.Task) (*models.Task, e
 	if err != nil {
 		return nil, err
 	}
-	_, err = conn.Do("LPUSH", fmt.Sprintf("%s%d", queue, *job.Priority), buf)
+	_, err = conn.Do("LPUSH", fmt.Sprintf("%s%d", queue, job.Priority), buf)
 	if err != nil {
 		return nil, err
 	}

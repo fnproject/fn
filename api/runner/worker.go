@@ -9,14 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/protocol"
-	"github.com/fnproject/fn/api/runner/task"
 	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
 )
 
 // hot functions - theory of operation
@@ -60,39 +59,31 @@ import (
 //                                           Terminate
 //                                           (internal clock)
 
-// RunTrackedTask is just a wrapper for shared logic for async/sync runners
-func (rnr *Runner) RunTrackedTask(newTask *models.Task, ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
-	startedAt := strfmt.DateTime(time.Now())
-	newTask.StartedAt = startedAt
-
-	result, err := rnr.RunTask(ctx, cfg)
-
-	completedAt := strfmt.DateTime(time.Now())
-	status := "error"
-	if result != nil {
-		status = result.Status()
-	}
-	newTask.CompletedAt = completedAt
-	newTask.Status = status
-
-	if err := rnr.datastore.InsertTask(ctx, newTask); err != nil {
-		// TODO we should just log this error not return it to user? just issue storing task status but task is run
-		logrus.WithError(err).Error("error inserting task into datastore")
-	}
-
-	return result, err
+// Request stores the task to be executed, It holds in itself the channel to
+// return its response to its caller.
+type Request struct {
+	Ctx      context.Context
+	Task     *models.Task
+	Response chan Response
 }
 
-// RunTask will dispatch a task specified by cfg to a hot container, if possible,
-// that already exists or will create a new container to run a task and then run it.
-// TODO XXX (reed): merge this and RunTrackedTask to reduce surface area...
-func (rnr *Runner) RunTask(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
-	rnr.Start() // TODO layering issue ???
-	defer rnr.Complete()
+// Response holds the response metainformation of a Request
+type Response struct {
+	Result drivers.RunResult
+	Err    error
+}
 
-	tresp := make(chan task.Response)
-	treq := task.Request{Ctx: ctx, Config: cfg, Response: tresp}
-	tasks := rnr.hcmgr.getPipe(ctx, rnr, cfg)
+// Run is just a wrapper for shared logic for async/sync runners
+func (rnr *Runner) Run(ctx context.Context, task *models.Task) (drivers.RunResult, error) {
+	startedAt := strfmt.DateTime(time.Now())
+	task.StartedAt = startedAt
+
+	rnr.Stats.Start() // TODO layering issue ???
+	defer rnr.Stats.Complete()
+
+	tresp := make(chan Response)
+	treq := Request{Ctx: ctx, Task: task, Response: tresp}
+	tasks := rnr.hcmgr.getPipe(ctx, rnr, task)
 	if tasks == nil {
 		// TODO get rid of this to use herd stuff
 		go runTaskReq(rnr, treq)
@@ -104,6 +95,20 @@ func (rnr *Runner) RunTask(ctx context.Context, cfg *task.Config) (drivers.RunRe
 	if resp.Result == nil && resp.Err == nil {
 		resp.Err = errors.New("error running task with unknown error")
 	}
+
+	completedAt := strfmt.DateTime(time.Now())
+	status := "error"
+	if resp.Result != nil {
+		status = resp.Result.Status()
+	}
+	task.CompletedAt = completedAt
+	task.Status = status
+
+	if err := rnr.datastore.InsertTask(ctx, task); err != nil {
+		// TODO we should just log this error not return it to user? just issue storing task status but task is run
+		logrus.WithError(err).Error("error inserting task into datastore")
+	}
+
 	return resp.Result, resp.Err
 }
 
@@ -115,7 +120,7 @@ type htfnmgr struct {
 	hc map[string]*htfnsvr
 }
 
-func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) chan<- task.Request {
+func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *models.Task) chan<- Request {
 	isStream := protocol.IsStreamable(protocol.Protocol(cfg.Format))
 	if !isStream {
 		// TODO stop doing this, to prevent herds
@@ -150,7 +155,7 @@ func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) ch
 	return svr.tasksin
 }
 
-func key(cfg *task.Config) string {
+func key(cfg *models.Task) string {
 	// TODO we should probably colocate this with Config, but it's kind of hot
 	// specific so it makes sense here, too (just brittle & hidden)
 
@@ -177,25 +182,25 @@ func key(cfg *task.Config) string {
 // needed. In case of absence of workload, it will stop trying to start new hot
 // containers.
 type htfnsvr struct {
-	cfg *task.Config
+	cfg *models.Task
 	rnr *Runner
 	// TODO sharing with only a channel among hot containers will result in
 	// inefficient recycling of containers, we need a stack not a queue, so that
 	// when a lot of hot containers are up and throughput drops they don't all
 	// find a task every few seconds and stay up for a lot longer than we really
 	// need them.
-	tasksin  chan task.Request
-	tasksout chan task.Request
+	tasksin  chan Request
+	tasksout chan Request
 	first    chan struct{}
 	once     sync.Once // TODO this really needs to happen any time runner count goes to 0
 }
 
-func newhtfnsvr(ctx context.Context, cfg *task.Config, rnr *Runner) *htfnsvr {
+func newhtfnsvr(ctx context.Context, cfg *models.Task, rnr *Runner) *htfnsvr {
 	svr := &htfnsvr{
 		cfg:      cfg,
 		rnr:      rnr,
-		tasksin:  make(chan task.Request),
-		tasksout: make(chan task.Request, 1),
+		tasksin:  make(chan Request),
+		tasksout: make(chan Request, 1),
 		first:    make(chan struct{}, 1),
 	}
 	svr.first <- struct{}{} // prime so that 1 thread will start the first container, others will wait
@@ -249,9 +254,9 @@ func (svr *htfnsvr) launch(ctx context.Context) {
 // determine which protocol to use.
 type htfn struct {
 	id    string
-	cfg   *task.Config
+	cfg   *models.Task
 	proto protocol.ContainerIO
-	tasks <-chan task.Request
+	tasks <-chan Request
 	once  func()
 
 	// Receiving side of the container.
@@ -261,7 +266,7 @@ type htfn struct {
 	rnr *Runner
 }
 
-func newhtfn(cfg *task.Config, tasks <-chan task.Request, rnr *Runner, once func()) *htfn {
+func newhtfn(cfg *models.Task, tasks <-chan Request, rnr *Runner, once func()) *htfn {
 	stdinr, stdinw := io.Pipe()
 	stdoutr, stdoutw := io.Pipe()
 
@@ -331,7 +336,7 @@ func (hc *htfn) serve(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(cfg.IdleTimeout):
+			case <-time.After(cfg.IdleTimeoutDuration()):
 				logger.Info("Canceling inactive hot function")
 				cancel()
 			case t := <-hc.tasks:
@@ -353,7 +358,7 @@ func (hc *htfn) serve(ctx context.Context) {
 				stderr.swap(tlog)
 
 				start := time.Now()
-				err := hc.proto.Dispatch(ctx, t.Config)
+				err := hc.proto.Dispatch(ctx, t.Task)
 				status := "success"
 				if err != nil {
 					status = "error"
@@ -365,7 +370,7 @@ func (hc *htfn) serve(ctx context.Context) {
 				stderr.swap(bwLog) // swap back out before flush
 				tlog.Close()       // write to db/flush
 
-				t.Response <- task.Response{
+				t.Response <- Response{
 					Result: &runResult{start: start, status: status, error: err},
 					Err:    err,
 				}
@@ -387,15 +392,15 @@ func (hc *htfn) serve(ctx context.Context) {
 }
 
 // TODO make Default protocol a real thing and get rid of this in favor of Dispatch
-func runTaskReq(rnr *Runner, t task.Request) {
+func runTaskReq(rnr *Runner, t Request) {
 	// TODO this will not be such a shit storm after the above TODO is TODONE
-	cfg := t.Config
-	t.Config.Stderr = rnr.flog.Writer(t.Ctx, cfg.AppName, cfg.Path, cfg.Image, cfg.ID)
-	defer t.Config.Stderr.Close()
+	cfg := t.Task
+	t.Task.Stderr = rnr.flog.Writer(t.Ctx, cfg.AppName, cfg.Path, cfg.Image, cfg.ID)
+	defer t.Task.Stderr.Close()
 
-	result, err := rnr.run(t.Ctx, t.Config)
+	result, err := rnr.run(t.Ctx, t.Task)
 	select {
-	case t.Response <- task.Response{result, err}:
+	case t.Response <- Response{result, err}:
 		close(t.Response)
 	default:
 	}

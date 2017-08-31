@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runner/task"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
@@ -18,7 +17,7 @@ type ContainerIO interface {
 	IsStreamable() bool
 
 	// TODO this should take a drivers.ContainerTask?
-	Dispatch(ctx context.Context, t *task.Config) error
+	Dispatch(ctx context.Context, t *models.Task) error
 }
 
 // Protocol defines all protocols that operates a ContainerIO.
@@ -57,7 +56,7 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 type errorProto struct{}
 
 func (e *errorProto) IsStreamable() bool                                 { return false }
-func (e *errorProto) Dispatch(ctx context.Context, t *task.Config) error { return errInvalidProtocol }
+func (e *errorProto) Dispatch(ctx context.Context, t *models.Task) error { return errInvalidProtocol }
 
 // New creates a valid protocol handler from a I/O pipe representing containers
 // stdin/stdout.

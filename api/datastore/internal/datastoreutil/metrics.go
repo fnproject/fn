@@ -88,13 +88,13 @@ func (m *metricds) InsertTask(ctx context.Context, task *models.Task) error {
 	return m.ds.InsertTask(ctx, task)
 }
 
-func (m *metricds) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+func (m *metricds) GetTask(ctx context.Context, callID string) (*models.Task, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_task")
 	defer span.Finish()
 	return m.ds.GetTask(ctx, callID)
 }
 
-func (m *metricds) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
+func (m *metricds) GetTasks(ctx context.Context, filter *models.CallFilter) ([]*models.Task, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_tasks")
 	defer span.Finish()
 	return m.ds.GetTasks(ctx, filter)
