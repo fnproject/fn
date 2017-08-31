@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
+	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/protocol"
-	"github.com/fnproject/fn/api/runner/task"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -59,7 +59,7 @@ func init() {
 // implements drivers.ContainerTask
 type containerTask struct {
 	ctx    context.Context
-	cfg    *task.Config
+	cfg    *models.Task
 	canRun chan bool
 }
 
@@ -67,7 +67,7 @@ func (t *containerTask) EnvVars() map[string]string {
 	if protocol.IsStreamable(protocol.Protocol(t.cfg.Format)) {
 		return t.cfg.BaseEnv
 	}
-	return t.cfg.Env
+	return t.cfg.EnvVars
 }
 
 func (t *containerTask) Labels() map[string]string {
@@ -79,7 +79,7 @@ func (t *containerTask) Command() string                { return "" }
 func (t *containerTask) Input() io.Reader               { return t.cfg.Stdin }
 func (t *containerTask) Id() string                     { return t.cfg.ID }
 func (t *containerTask) Image() string                  { return t.cfg.Image }
-func (t *containerTask) Timeout() time.Duration         { return t.cfg.Timeout }
+func (t *containerTask) Timeout() time.Duration         { return t.cfg.TimeoutDuration() }
 func (t *containerTask) Logger() (io.Writer, io.Writer) { return t.cfg.Stdout, t.cfg.Stderr }
 func (t *containerTask) Volumes() [][2]string           { return [][2]string{} }
 func (t *containerTask) Memory() uint64                 { return t.cfg.Memory * 1024 * 1024 } // convert MB

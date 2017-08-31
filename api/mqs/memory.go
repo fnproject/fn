@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/google/btree"
+	"github.com/sirupsen/logrus"
 )
 
 type MemoryMQ struct {
@@ -149,7 +149,7 @@ func (mq *MemoryMQ) pushTimeout(job *models.Task) error {
 }
 
 func (mq *MemoryMQ) pushForce(job *models.Task) (*models.Task, error) {
-	mq.PriorityQueues[*job.Priority] <- job
+	mq.PriorityQueues[job.Priority] <- job
 	return job, nil
 }
 
