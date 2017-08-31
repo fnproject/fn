@@ -14,8 +14,8 @@ Listeners are the main way to extend Oracle Functions.
 
 The following listener types are supported:
 
-* App Listeners - [GoDoc](https://godoc.org/github.com/treeder/functions/api/server#AppListener)
-* Runner Listeners - [GoDoc](https://godoc.org/github.com/treeder/functions/api/server#RunnerListener)
+* App Listeners - [GoDoc](https://godoc.org/github.com/fnproject/functions/api/server#AppListener)
+* Run Listeners - [GoDoc](https://godoc.org/github.com/fnproject/functions/api/server#RunListener)
 
 ### Creating a Listener
 

@@ -13,7 +13,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/ccirello/supervisor"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/datastore"
@@ -28,6 +27,7 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/patrickmn/go-cache"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -51,9 +51,8 @@ type Server struct {
 
 	apiURL string
 
-	appListeners    []AppListener
-	middlewares     []Middleware
-	runnerListeners []RunnerListener
+	appListeners []AppListener
+	middlewares  []Middleware
 
 	routeCache   *cache.Cache
 	singleflight singleflight // singleflight assists Datastore
@@ -233,9 +232,7 @@ func loggerWrap(c *gin.Context) {
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
 }
-
 func DefaultEnqueue(ctx context.Context, mq models.MessageQueue, task *models.Task) (*models.Task, error) {
-	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"call_id": task.ID})
 	return mq.Push(ctx, task)
 }
 
@@ -417,13 +414,13 @@ type tasksResponse struct {
 }
 
 type fnCallResponse struct {
-	Message string         `json:"message"`
-	Call    *models.FnCall `json:"call"`
+	Message string       `json:"message"`
+	Call    *models.Task `json:"call"`
 }
 
 type fnCallsResponse struct {
 	Message string         `json:"message"`
-	Calls   models.FnCalls `json:"calls"`
+	Calls   []*models.Task `json:"calls"`
 }
 
 type fnCallLogResponse struct {

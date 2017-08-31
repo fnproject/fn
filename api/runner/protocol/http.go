@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runner/task"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
@@ -27,7 +26,7 @@ func (p *HTTPProtocol) IsStreamable() bool {
 	return true
 }
 
-func (p *HTTPProtocol) Dispatch(ctx context.Context, cfg *task.Config) error {
+func (p *HTTPProtocol) Dispatch(ctx context.Context, cfg *models.Task) error {
 	var retErr error
 	done := make(chan struct{})
 	go func() {
@@ -39,7 +38,7 @@ func (p *HTTPProtocol) Dispatch(ctx context.Context, cfg *task.Config) error {
 			retErr = err
 			return
 		}
-		for k, v := range cfg.Env {
+		for k, v := range cfg.EnvVars {
 			req.Header.Set(k, v)
 		}
 		req.Header.Set("Content-Length", fmt.Sprint(body.Len()))
@@ -61,7 +60,7 @@ func (p *HTTPProtocol) Dispatch(ctx context.Context, cfg *task.Config) error {
 		done <- struct{}{}
 	}()
 
-	timeout := time.After(cfg.Timeout)
+	timeout := time.After(cfg.TimeoutDuration())
 
 	select {
 	case <-ctx.Done():

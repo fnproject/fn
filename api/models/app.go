@@ -1,8 +1,6 @@
 package models
 
 type Apps []*App
-type Tasks []*Task
-type FnCalls []*FnCall
 
 type App struct {
 	Name   string `json:"name"`

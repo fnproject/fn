@@ -13,15 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/common"
 	"github.com/fnproject/fn/api/runner/drivers"
 	"github.com/fnproject/fn/api/runner/drivers/docker"
 	"github.com/fnproject/fn/api/runner/drivers/mock"
-	"github.com/fnproject/fn/api/runner/task"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
+	"github.com/sirupsen/logrus"
 )
 
 // TODO clean all of this up, the exposed API is huge and incohesive,
@@ -36,8 +35,10 @@ type Runner struct {
 	usedMemMutex sync.RWMutex
 	hcmgr        htfnmgr
 	datastore    models.Datastore
+	runListeners []RunListener
 
-	stats
+	// I made this explicit to avoid confusion. Calling Enqueue(), Start(), etc on Runner which just updates stats is very confusing.
+	Stats stats
 }
 
 var (
@@ -47,8 +48,8 @@ var (
 )
 
 const (
-	DefaultTimeout     = 30 * time.Second
-	DefaultIdleTimeout = 30 * time.Second
+	DefaultTimeout     = 30
+	DefaultIdleTimeout = 30
 )
 
 func New(ctx context.Context, flog FuncLogger, ds models.Datastore) (*Runner, error) {
@@ -73,6 +74,10 @@ func New(ctx context.Context, flog FuncLogger, ds models.Datastore) (*Runner, er
 	go r.queueHandler(ctx)
 
 	return r, nil
+}
+
+func (r *Runner) Wait() {
+	r.Stats.Wait()
 }
 
 // This routine checks for available memory;
@@ -185,7 +190,7 @@ func (r *Runner) awaitSlot(ctask *containerTask) error {
 }
 
 // run is responsible for running 1 instance of a docker container
-func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, error) {
+func (r *Runner) run(ctx context.Context, cfg *models.Task) (drivers.RunResult, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "run_container")
 	defer span.Finish()
 
@@ -231,7 +236,7 @@ func (r *Runner) run(ctx context.Context, cfg *task.Config) (drivers.RunResult, 
 	return result, nil
 }
 
-func (r Runner) EnsureImageExists(ctx context.Context, cfg *task.Config) error {
+func (r Runner) EnsureImageExists(ctx context.Context, cfg *models.Task) error {
 	ctask := &containerTask{
 		cfg: cfg,
 	}
@@ -335,4 +340,24 @@ func checkProc() (uint64, error) {
 	}
 
 	return 0, errCantReadMemInfo
+}
+
+func (r *Runner) FireBeforeRun(ctx context.Context, task *models.Task) error {
+	for _, l := range r.runListeners {
+		err := l.BeforeRun(ctx, task)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Runner) FireAfterRun(ctx context.Context, task *models.Task, result drivers.RunResult) error {
+	for _, l := range r.runListeners {
+		err := l.AfterRun(ctx, task, result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

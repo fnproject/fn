@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -21,6 +20,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/sirupsen/logrus"
 )
 
 // this aims to be an ANSI-SQL compliant package that uses only question
@@ -548,12 +548,12 @@ func (ds *sqlStore) InsertTask(ctx context.Context, task *models.Task) error {
 	return nil
 }
 
-func (ds *sqlStore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+func (ds *sqlStore) GetTask(ctx context.Context, callID string) (*models.Task, error) {
 	query := fmt.Sprintf(`%s WHERE id=?`, callSelector)
 	query = ds.db.Rebind(query)
 	row := ds.db.QueryRow(query, callID)
 
-	var call models.FnCall
+	var call models.Task
 	err := scanCall(row, &call)
 	if err != nil {
 		return nil, err
@@ -561,8 +561,8 @@ func (ds *sqlStore) GetTask(ctx context.Context, callID string) (*models.FnCall,
 	return &call, nil
 }
 
-func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	res := models.FnCalls{}
+func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) ([]*models.Task, error) {
+	res := []*models.Task{}
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
 	query = ds.db.Rebind(query)
@@ -573,7 +573,7 @@ func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) (mo
 	defer rows.Close()
 
 	for rows.Next() {
-		var call models.FnCall
+		var call models.Task
 		err := scanCall(rows, &call)
 		if err != nil {
 			continue
@@ -746,7 +746,7 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	return b.String(), args
 }
 
-func scanCall(scanner RowScanner, call *models.FnCall) error {
+func scanCall(scanner RowScanner, call *models.Task) error {
 	err := scanner.Scan(
 		&call.ID,
 		&call.CreatedAt,

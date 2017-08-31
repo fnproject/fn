@@ -11,20 +11,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner"
 	"github.com/fnproject/fn/api/runner/common"
-	"github.com/fnproject/fn/api/runner/task"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/strfmt"
 	cache "github.com/patrickmn/go-cache"
+	"github.com/sirupsen/logrus"
 )
 
 type runnerResponse struct {
-	RequestID string            `json:"request_id,omitempty"`
-	Error     *models.ErrorBody `json:"error,omitempty"`
+	CallID string            `json:"call_id,omitempty"`
+	Error  *models.ErrorBody `json:"error,omitempty"`
 }
 
 func toEnvName(envtype, name string) string {
@@ -35,6 +35,7 @@ func toEnvName(envtype, name string) string {
 	return fmt.Sprintf("%s_%s", envtype, name)
 }
 
+// todo: can we get rid of passing around this enqueue function??
 func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	if strings.HasPrefix(c.Request.URL.Path, "/v1") {
 		c.Status(http.StatusNotFound)
@@ -71,8 +72,6 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 		Path:    path.Clean(r.(string)),
 	}
 
-	s.FireBeforeDispatch(ctx, reqRoute)
-
 	appName := reqRoute.AppName
 	path := reqRoute.Path
 
@@ -100,12 +99,12 @@ func (s *Server) handleRequest(c *gin.Context, enqueue models.Enqueue) {
 	log = log.WithFields(logrus.Fields{"app": appName, "path": route.Path, "image": route.Image})
 	log.Debug("Got route from datastore")
 
-	if s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue) {
-		s.FireAfterDispatch(ctx, reqRoute)
+	err = s.serve(ctx, c, appName, route, app, path, reqID, payload, enqueue)
+	if err != nil {
+		handleErrorResponse(c, err)
 		return
 	}
 
-	handleErrorResponse(c, models.ErrRoutesNotFound)
 }
 
 func (s *Server) loadroute(ctx context.Context, appName, path string) (*models.Route, error) {
@@ -128,13 +127,8 @@ func (s *Server) loadroute(ctx context.Context, appName, path string) (*models.R
 }
 
 // TODO: Should remove *gin.Context from these functions, should use only context.Context
-func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, route *models.Route, app *models.App, path, reqID string, payload io.Reader, enqueue models.Enqueue) (ok bool) {
+func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, route *models.Route, app *models.App, path, callID string, payload io.Reader, enqueue models.Enqueue) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"app": appName, "route": route.Path, "image": route.Image})
-
-	params, match := matchRoute(route.Path, path)
-	if !match {
-		return false
-	}
 
 	var stdout bytes.Buffer // TODO: should limit the size of this, error if gets too big. akin to: https://golang.org/pkg/io/#LimitReader
 
@@ -160,13 +154,12 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 	}
 
 	// envVars contains the full set of env vars, per request + base
-	envVars := make(map[string]string, len(baseVars)+len(params)+len(c.Request.Header)+3)
-
+	envVars := map[string]string{}
 	for k, v := range baseVars {
 		envVars[k] = v
 	}
 
-	envVars["CALL_ID"] = reqID
+	envVars["CALL_ID"] = callID
 	envVars["METHOD"] = c.Request.Method
 	envVars["REQUEST_URL"] = fmt.Sprintf("%v://%v%v", func() string {
 		if c.Request.TLS == nil {
@@ -175,43 +168,48 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		return "https"
 	}(), c.Request.Host, c.Request.URL.String())
 
-	// params
-	for _, param := range params {
-		envVars[toEnvName("PARAM", param.Key)] = param.Value
-	}
+	// params, once we get params figured out, they can be put in envVars here
+	// for _, param := range params {
+	// 	envVars[toEnvName("PARAM", param.Key)] = param.Value
+	// }
 
 	// headers
 	for header, value := range c.Request.Header {
 		envVars[toEnvName("HEADER", header)] = strings.Join(value, ", ")
 	}
 
-	cfg := &task.Config{
-		AppName:      appName,
-		Path:         route.Path,
+	task := &models.Task{
+		// metadata
+		AppName:     appName,
+		Path:        route.Path,
+		Format:      route.Format,
+		Image:       route.Image,
+		Memory:      route.Memory,
+		Timeout:     route.Timeout,
+		IdleTimeout: route.IdleTimeout,
+		// task data
+		ID:           callID,
+		CreatedAt:    strfmt.DateTime(time.Now()),
 		BaseEnv:      baseVars,
-		Env:          envVars,
-		Format:       route.Format,
-		ID:           reqID,
-		Image:        route.Image,
-		Memory:       route.Memory,
-		Stdin:        payload,
-		Stdout:       &stdout,
-		Timeout:      time.Duration(route.Timeout) * time.Second,
-		IdleTimeout:  time.Duration(route.IdleTimeout) * time.Second,
+		EnvVars:      envVars,
 		ReceivedTime: time.Now(),
-		Ready:        make(chan struct{}),
+		Delay:        0,
+		Priority:     0,
+		// i/o - this stuff should probably go in a separate struct
+		Ready:  make(chan struct{}),
+		Stdin:  payload,
+		Stdout: &stdout,
 	}
 
 	// ensure valid values
-	if cfg.Timeout <= 0 {
-		cfg.Timeout = runner.DefaultTimeout
+	if task.Timeout <= 0 {
+		task.Timeout = runner.DefaultTimeout
 	}
-	if cfg.IdleTimeout <= 0 {
-		cfg.IdleTimeout = runner.DefaultIdleTimeout
+	if task.IdleTimeout <= 0 {
+		task.IdleTimeout = runner.DefaultIdleTimeout
 	}
 
-	s.Runner.Enqueue()
-	newTask := task.TaskFromConfig(cfg)
+	s.Runner.Stats.Enqueue()
 
 	switch route.Type {
 	case "async":
@@ -219,34 +217,33 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		// TODO enqueue should unravel the payload?
 
 		// Read payload
-		pl, err := ioutil.ReadAll(cfg.Stdin)
+		pl, err := ioutil.ReadAll(task.Stdin)
 		if err != nil {
-			handleErrorResponse(c, models.ErrInvalidPayload)
-			return true
+			return models.ErrInvalidPayload
 		}
 		// Add in payload
-		newTask.Payload = string(pl)
+		task.Payload = string(pl)
 
 		// Push to queue
-		_, err = enqueue(c, s.MQ, newTask)
+		_, err = enqueue(c, s.MQ, task)
 		if err != nil {
-			handleErrorResponse(c, err)
-			return true
+			return err
 		}
 
 		log.Info("Added new task to queue")
-		c.JSON(http.StatusAccepted, map[string]string{"call_id": cfg.ID})
+		c.JSON(http.StatusAccepted, map[string]string{"call_id": task.ID})
 
 	default:
-		result, err := s.Runner.RunTrackedTask(newTask, ctx, cfg)
+
+		result, err := s.Runner.Run(ctx, task)
 		if result != nil {
-			waitTime := result.StartTime().Sub(cfg.ReceivedTime)
+			waitTime := result.StartTime().Sub(task.ReceivedTime)
 			c.Header("XXX-FXLB-WAIT", waitTime.String())
 		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, runnerResponse{
-				RequestID: cfg.ID,
+				CallID: task.ID,
 				Error: &models.ErrorBody{
 					Message: err.Error(),
 				},
@@ -261,40 +258,26 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 
 		// this will help users to track sync execution in a manner of async
 		// FN_CALL_ID is an equivalent of call_id
-		c.Header("FN_CALL_ID", newTask.ID)
+		c.Header("FN_CALL_ID", task.ID)
 
 		switch result.Status() {
 		case "success":
 			c.Data(http.StatusOK, "", stdout.Bytes())
 		case "timeout":
 			c.JSON(http.StatusGatewayTimeout, runnerResponse{
-				RequestID: cfg.ID,
+				CallID: task.ID,
 				Error: &models.ErrorBody{
 					Message: models.ErrRunnerTimeout.Error(),
 				},
 			})
 		default:
 			c.JSON(http.StatusInternalServerError, runnerResponse{
-				RequestID: cfg.ID,
+				CallID: task.ID,
 				Error: &models.ErrorBody{
 					Message: result.Error(),
 				},
 			})
 		}
 	}
-
-	return true
-}
-
-var fakeHandler = func(http.ResponseWriter, *http.Request, Params) {}
-
-func matchRoute(baseRoute, route string) (Params, bool) {
-	tree := &node{}
-	tree.addRoute(baseRoute, fakeHandler)
-	handler, p, _ := tree.getValue(route)
-	if handler == nil {
-		return nil, false
-	}
-
-	return p, true
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"errors"
+
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -257,33 +258,6 @@ func TestRouteRunnerTimeout(t *testing.T) {
 				t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
 					i, name, header[0], rec.Header().Get(name))
 			}
-		}
-	}
-}
-
-func TestMatchRoute(t *testing.T) {
-	buf := setLogBuffer()
-	for i, test := range []struct {
-		baseRoute      string
-		route          string
-		expectedParams []Param
-	}{
-		{"/myroute/", `/myroute/`, nil},
-		{"/myroute/:mybigparam", `/myroute/1`, []Param{{"mybigparam", "1"}}},
-		{"/:param/*test", `/1/2`, []Param{{"param", "1"}, {"test", "/2"}}},
-	} {
-		if params, match := matchRoute(test.baseRoute, test.route); match {
-			if test.expectedParams != nil {
-				for j, param := range test.expectedParams {
-					if params[j].Key != param.Key || params[j].Value != param.Value {
-						t.Log(buf.String())
-						t.Errorf("Test %d: expected param %d, key = %s, value = %s", i, j, param.Key, param.Value)
-					}
-				}
-			}
-		} else {
-			t.Log(buf.String())
-			t.Errorf("Test %d: %s should match %s", i, test.route, test.baseRoute)
 		}
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runner/task"
 )
 
 func TestRunnerHello(t *testing.T) {
@@ -40,10 +39,10 @@ func TestRunnerHello(t *testing.T) {
 		{&models.Route{Image: "fnproject/hello"}, `{"name": "test"}`, "success", "Hello test!", "", id.New().String()},
 	} {
 		var stdout, stderr bytes.Buffer
-		cfg := &task.Config{
+		cfg := &models.Task{
 			ID:      test.taskID,
 			Image:   test.route.Image,
-			Timeout: 10 * time.Second,
+			Timeout: 10,
 			Memory:  128,
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
@@ -100,10 +99,10 @@ func TestRunnerError(t *testing.T) {
 		{&models.Route{Image: "fnproject/error"}, `{"name": "test"}`, "error", "", "", id.New().String()},
 	} {
 		var stdout, stderr bytes.Buffer
-		cfg := &task.Config{
+		cfg := &models.Task{
 			ID:      fmt.Sprintf("err-%d-%d", i, time.Now().Unix()),
 			Image:   test.route.Image,
-			Timeout: 10 * time.Second,
+			Timeout: 10,
 			Memory:  128,
 			Ready:   make(chan struct{}),
 			Stdin:   strings.NewReader(test.payload),
@@ -138,7 +137,7 @@ func TestRunnerMemory(t *testing.T) {
 	// make sure we get MB out of a task.Config when turned into a containerTask
 	// (so if Config.Memory changes to not be MB we hear about it)
 
-	cfg := &task.Config{
+	cfg := &models.Task{
 		Memory: 128,
 	}
 

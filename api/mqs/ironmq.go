@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	mq_config "github.com/iron-io/iron_go3/config"
 	ironmq "github.com/iron-io/iron_go3/mq"
+	"github.com/sirupsen/logrus"
 )
 
 type assoc struct {
@@ -94,7 +94,7 @@ func NewIronMQ(url *url.URL) *IronMQ {
 }
 
 func (mq *IronMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
-	if job.Priority == nil || *job.Priority < 0 || *job.Priority > 2 {
+	if job.Priority < 0 || job.Priority > 2 {
 		return nil, fmt.Errorf("IronMQ Push job %s: Bad priority", job.ID)
 	}
 
@@ -103,7 +103,7 @@ func (mq *IronMQ) Push(ctx context.Context, job *models.Task) (*models.Task, err
 	if err != nil {
 		return nil, err
 	}
-	_, err = mq.queues[*job.Priority].PushMessage(ironmq.Message{Body: string(buf), Delay: int64(job.Delay)})
+	_, err = mq.queues[job.Priority].PushMessage(ironmq.Message{Body: string(buf), Delay: int64(job.Delay)})
 	return job, err
 }
 
@@ -149,7 +149,7 @@ func (mq *IronMQ) Reserve(ctx context.Context) (*models.Task, error) {
 }
 
 func (mq *IronMQ) Delete(ctx context.Context, job *models.Task) error {
-	if job.Priority == nil || *job.Priority < 0 || *job.Priority > 2 {
+	if job.Priority < 0 || job.Priority > 2 {
 		return fmt.Errorf("IronMQ Delete job %s: Bad priority", job.ID)
 	}
 	mq.Lock()
@@ -158,7 +158,7 @@ func (mq *IronMQ) Delete(ctx context.Context, job *models.Task) error {
 	mq.Unlock()
 
 	if exists {
-		return mq.queues[*job.Priority].DeleteMessage(assoc.msgId, assoc.reservationId)
+		return mq.queues[job.Priority].DeleteMessage(assoc.msgId, assoc.reservationId)
 	}
 	return nil
 }

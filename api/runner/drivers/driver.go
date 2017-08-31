@@ -46,6 +46,7 @@ type Driver interface {
 // RunResult indicates only the final state of the task.
 type RunResult interface {
 	// Error is an actionable/checkable error from the container.
+	// TODO: this should be an Error() method, so user can do a null check on it.
 	error
 
 	// Status should return the current status of the task.

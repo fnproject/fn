@@ -59,8 +59,8 @@ type Datastore interface {
 
 	// InsertTask inserts a task
 	InsertTask(ctx context.Context, task *Task) error
-	GetTask(ctx context.Context, callID string) (*FnCall, error)
-	GetTasks(ctx context.Context, filter *CallFilter) (FnCalls, error)
+	GetTask(ctx context.Context, callID string) (*Task, error)
+	GetTasks(ctx context.Context, filter *CallFilter) ([]*Task, error)
 
 	// Implement FnLog methods for convenience
 	FnLog
