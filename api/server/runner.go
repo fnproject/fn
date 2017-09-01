@@ -210,6 +210,12 @@ func (s *Server) serve(ctx context.Context, c *gin.Context, appName string, rout
 		cfg.IdleTimeout = runner.DefaultIdleTimeout
 	}
 
+	err := s.FireBeforeTaskStart(ctx,cfg)
+	if err !=nil {
+		handleErrorResponse(c,err)
+		return true
+	}
+
 	s.Runner.Enqueue()
 	newTask := task.TaskFromConfig(cfg)
 
