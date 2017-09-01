@@ -37,7 +37,7 @@ position. You may use it to override the calculated route. If you plan to use
 appended to the image as a tag.
 
 `runtime` represents programming language runtime,  for examples,
-`go`, `python3`, `java`, etc.  and the `runtime` `docker` when will use the existing Dockerfile if one exists.
+`go`, `python3`, `java`, etc.  The `runtime` `docker` will use the existing Dockerfile if one exists.
 
 `build` (optional) is an array of local shell calls which are used to help
 building the function.
