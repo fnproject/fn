@@ -7,13 +7,14 @@ If you are a developer using Oracle Functions through the API, this section is f
 * [Quickstart](https://github.com/treeder/functions#quickstart)
 * [Usage](usage.md)
 * [Writing functions](writing.md)
+* [Testing functions](testing.md)
+* [Hot functions](hot-functions.md)
+* [Async functions](async.md)
 * [fn (CLI Tool)](/fn/README.md)
 * [Function file (func.yaml)](function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
 * [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml)
-* [Hot functions](hot-functions.md)
-* [Async functions](async.md)
 * [FAQ](faq.md)
 
 ## For Operators
