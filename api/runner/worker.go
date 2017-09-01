@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/runner/drivers"
@@ -17,6 +17,7 @@ import (
 	"github.com/fnproject/fn/api/runner/task"
 	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
 )
 
 // hot functions - theory of operation
@@ -151,25 +152,31 @@ func (h *htfnmgr) getPipe(ctx context.Context, rnr *Runner, cfg *task.Config) ch
 }
 
 func key(cfg *task.Config) string {
-	// TODO we should probably colocate this with Config, but it's kind of hot
-	// specific so it makes sense here, too (just brittle & hidden)
-
 	// return a sha1 hash of a (hopefully) unique string of all the config
 	// values, to make map lookups quicker [than the giant unique string]
+
 	hash := sha1.New()
 	fmt.Fprint(hash, cfg.AppName, "\x00")
 	fmt.Fprint(hash, cfg.Path, "\x00")
 	fmt.Fprint(hash, cfg.Image, "\x00")
-	for k, v := range cfg.BaseEnv {
-		fmt.Fprint(hash, k, "\x00", v, "\x00")
-	}
 	fmt.Fprint(hash, cfg.Timeout, "\x00")
 	fmt.Fprint(hash, cfg.IdleTimeout, "\x00")
 	fmt.Fprint(hash, cfg.Memory, "\x00")
 	fmt.Fprint(hash, cfg.Format, "\x00")
 
+	// we have to sort these before printing, yay. TODO do better
+	keys := make([]string, 0, len(cfg.BaseEnv))
+	for k := range cfg.BaseEnv {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Fprint(hash, k, "\x00", cfg.BaseEnv[k], "\x00")
+	}
+
 	var buf [sha1.Size]byte
-	return string(hash.Sum(buf[:]))
+	return string(hash.Sum(buf[:0]))
 }
 
 // htfnsvr is part of htfnmgr, abstracted apart for simplicity, its only
