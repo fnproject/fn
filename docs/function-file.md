@@ -36,7 +36,8 @@ position. You may use it to override the calculated route. If you plan to use
 `version` represents current version of the function. When deploying, it is
 appended to the image as a tag.
 
-`runtime` represents programming language runtime (go, python3, java, etc.).
+`runtime` represents programming language runtime, for example,
+'go', 'python', 'java', etc.  The runtime 'docker' will use the existing Dockerfile if one exists.
 
 `build` (optional) is an array of local shell calls which are used to help
 building the function.
