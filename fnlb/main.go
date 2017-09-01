@@ -17,12 +17,12 @@ import (
 	"github.com/fnproject/fn/fnlb/lb"
 )
 
-const VERSION = "0.0.50"
+const VERSION = "0.0.51"
 
 func main() {
 	// XXX (reed): normalize
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
-	minAPIVersion := flag.String("min-api-version", "0.0.17", "minimal node API to accept")
+	minAPIVersion := flag.String("min-api-version", "0.0.18", "minimal node API to accept")
 
 	var conf lb.Config
 	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
