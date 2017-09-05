@@ -407,7 +407,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			return err
 		}
 
-		res, err := tx.ExecContext(ctx, ds.updateAppQuery,
+		res, err := tx.ExecContext(ctx, ds.updateRouteQuery,
 			route.Image,
 			route.Format,
 			route.Memory,
