@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -21,6 +20,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/sirupsen/logrus"
 )
 
 // this aims to be an ANSI-SQL compliant package that uses only question
@@ -71,23 +71,23 @@ const (
 )
 
 type sqlStore struct {
-	db *sqlx.DB
-	insertAppQuery string
-	updateAppQuery string
-	getAppQuery string
+	db                   *sqlx.DB
+	insertAppQuery       string
+	updateAppQuery       string
+	getAppQuery          string
 	selectAppConfigQuery string
-	removeAppQuery string
-	insertRouteQuery string
-	updateRouteQuery string
-	checkRouteAppQuery string
-	checkRouteQuery string
-	getRouteQuery string
-	removeRouteQuery string
-	insertCallQuery string
-	getCallQuery string
-	insertLogQuery string
-	getLogQuery string
-	deleteLogQuery string
+	removeAppQuery       string
+	insertRouteQuery     string
+	updateRouteQuery     string
+	checkRouteAppQuery   string
+	checkRouteQuery      string
+	getRouteQuery        string
+	removeRouteQuery     string
+	insertCallQuery      string
+	getCallQuery         string
+	insertLogQuery       string
+	getLogQuery          string
+	deleteLogQuery       string
 }
 
 // New will open the db specified by url, create any tables necessary
@@ -147,14 +147,14 @@ func New(url *url.URL) (models.Datastore, error) {
 	}
 
 	dstore := &sqlStore{
-		db: db,
-		insertAppQuery: db.Rebind("INSERT INTO apps (name, config) VALUES (?, ?);"),
+		db:                   db,
+		insertAppQuery:       db.Rebind("INSERT INTO apps (name, config) VALUES (?, ?);"),
 		selectAppConfigQuery: db.Rebind(`SELECT config FROM apps WHERE name=?`),
-		updateAppQuery: db.Rebind(`UPDATE apps SET config=? WHERE name=?`),
-		removeAppQuery: db.Rebind(`DELETE FROM apps WHERE name = ?`),
-		getAppQuery: db.Rebind(`SELECT name, config FROM apps WHERE name=?`),
-		checkRouteAppQuery: db.Rebind(`SELECT 1 FROM apps WHERE name=?`),
-		checkRouteQuery: db.Rebind(`SELECT 1 FROM routes WHERE app_name=? AND path=?`),
+		updateAppQuery:       db.Rebind(`UPDATE apps SET config=? WHERE name=?`),
+		removeAppQuery:       db.Rebind(`DELETE FROM apps WHERE name = ?`),
+		getAppQuery:          db.Rebind(`SELECT name, config FROM apps WHERE name=?`),
+		checkRouteAppQuery:   db.Rebind(`SELECT 1 FROM apps WHERE name=?`),
+		checkRouteQuery:      db.Rebind(`SELECT 1 FROM routes WHERE app_name=? AND path=?`),
 		insertRouteQuery: db.Rebind(`INSERT INTO routes (
 			app_name,
 			path,
@@ -190,9 +190,9 @@ func New(url *url.URL) (models.Datastore, error) {
 			path
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?);`),
-		getCallQuery: db.Rebind(fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)),
+		getCallQuery:   db.Rebind(fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)),
 		insertLogQuery: db.Rebind(`INSERT INTO logs (id, log) VALUES (?, ?);`),
-		getLogQuery: db.Rebind(`SELECT log FROM logs WHERE id=?`),
+		getLogQuery:    db.Rebind(`SELECT log FROM logs WHERE id=?`),
 		deleteLogQuery: db.Rebind(`DELETE FROM logs WHERE id=?`),
 	}
 	return dstore, nil
