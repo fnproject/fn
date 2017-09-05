@@ -14,7 +14,7 @@ import (
 
 type routeTestCase struct {
 	ds            models.Datastore
-	logDB         models.FnLog
+	logDB         models.LogStore
 	method        string
 	path          string
 	body          string
@@ -24,7 +24,7 @@ type routeTestCase struct {
 
 func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	rnr, cancel := testRunner(t)
-	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, DefaultEnqueue)
+	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
 
 	body := bytes.NewBuffer([]byte(test.body))
 	_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
@@ -70,7 +70,7 @@ func TestRouteCreate(t *testing.T) {
 					AppName: "a",
 					Path:    "/myroute",
 				},
-			}, nil, nil,
+			}, nil,
 		), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "path": "/myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesAlreadyExists},
 
 		// success
@@ -106,22 +106,22 @@ func TestRoutePut(t *testing.T) {
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	routes := models.Routes{{AppName: "a", Path: "/myroute"}}
-	apps := models.Apps{{Name: "a", Routes: routes, Config: nil}}
+	routes := []*models.Route{{AppName: "a", Path: "/myroute"}}
+	apps := []*models.App{{Name: "a", Routes: routes, Config: nil}}
 
 	for i, test := range []struct {
 		ds            models.Datastore
-		logDB         models.FnLog
+		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
 	}{
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrRoutesNotFound},
-		{datastore.NewMockInit(apps, routes, nil, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		{datastore.NewMockInit(apps, routes, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, DefaultEnqueue)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
@@ -152,7 +152,7 @@ func TestRouteList(t *testing.T) {
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -191,7 +191,7 @@ func TestRouteGet(t *testing.T) {
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -238,7 +238,7 @@ func TestRouteUpdate(t *testing.T) {
 					AppName: "a",
 					Path:    "/myroute/do",
 				},
-			}, nil, nil,
+			}, nil,
 		), logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "image": "fnproject/hello" } }`, http.StatusOK, nil},
 
 		// Addresses #381
@@ -248,7 +248,7 @@ func TestRouteUpdate(t *testing.T) {
 					AppName: "a",
 					Path:    "/myroute/do",
 				},
-			}, nil, nil,
+			}, nil,
 		), logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "path": "/otherpath" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
 	} {
 		test.run(t, i, buf)

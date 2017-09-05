@@ -16,7 +16,7 @@ expects to be an integer. Default: `128`.
 
 `type` is the type of the function. Either `sync`, in which the client waits
 until the request is successfully completed, or `async`, in which the clients
-dispatches a new request, gets a task ID back and closes the HTTP connection.
+dispatches a new request, gets a call ID back and closes the HTTP connection.
 Default: `sync`.
 
 `config` is a map of values passed to the route runtime in the form of

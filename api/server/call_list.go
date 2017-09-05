@@ -20,7 +20,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 
 	filter := models.CallFilter{AppName: appName, Path: c.Query(api.CRoute)}
 
-	calls, err := s.Datastore.GetTasks(ctx, &filter)
+	calls, err := s.Datastore.GetCalls(ctx, &filter)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

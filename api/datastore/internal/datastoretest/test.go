@@ -33,47 +33,47 @@ func Test(t *testing.T, ds models.Datastore) {
 
 	ctx := context.Background()
 
-	task := &models.Task{}
-	task.CreatedAt = strfmt.DateTime(time.Now())
-	task.Status = "success"
-	task.StartedAt = strfmt.DateTime(time.Now())
-	task.CompletedAt = strfmt.DateTime(time.Now())
-	task.AppName = testApp.Name
-	task.Path = testRoute.Path
+	call := new(models.Call)
+	call.CreatedAt = strfmt.DateTime(time.Now())
+	call.Status = "success"
+	call.StartedAt = strfmt.DateTime(time.Now())
+	call.CompletedAt = strfmt.DateTime(time.Now())
+	call.AppName = testApp.Name
+	call.Path = testRoute.Path
 
 	t.Run("call-insert", func(t *testing.T) {
-		task.ID = id.New().String()
-		err := ds.InsertTask(ctx, task)
+		call.ID = id.New().String()
+		err := ds.InsertCall(ctx, call)
 		if err != nil {
 			t.Log(buf.String())
-			t.Fatalf("Test InsertTask(ctx, &task): unexpected error `%v`", err)
+			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
 	})
 
 	t.Run("call-get", func(t *testing.T) {
-		task.ID = id.New().String()
-		ds.InsertTask(ctx, task)
-		newTask, err := ds.GetTask(ctx, task.ID)
+		call.ID = id.New().String()
+		ds.InsertCall(ctx, call)
+		newCall, err := ds.GetCall(ctx, call.AppName, call.ID)
 		if err != nil {
-			t.Fatalf("Test GetTask(ctx, task.ID): unexpected error `%v`", err)
+			t.Fatalf("Test GetCall(ctx, call.ID): unexpected error `%v`", err)
 		}
-		if task.ID != newTask.ID {
+		if call.ID != newCall.ID {
 			t.Log(buf.String())
-			t.Fatalf("Test GetTask(ctx, task.ID): unexpected error `%v`", err)
+			t.Fatalf("Test GetCall(ctx, call.ID): unexpected error `%v`", err)
 		}
 	})
 
 	t.Run("calls-get", func(t *testing.T) {
-		filter := &models.CallFilter{AppName: task.AppName, Path: task.Path}
-		task.ID = id.New().String()
-		ds.InsertTask(ctx, task)
-		calls, err := ds.GetTasks(ctx, filter)
+		filter := &models.CallFilter{AppName: call.AppName, Path: call.Path}
+		call.ID = id.New().String()
+		ds.InsertCall(ctx, call)
+		calls, err := ds.GetCalls(ctx, filter)
 		if err != nil {
-			t.Fatalf("Test GetTasks(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
 		}
 		if len(calls) == 0 {
 			t.Log(buf.String())
-			t.Fatalf("Test GetTasks(ctx, filter): unexpected error `%v`", err)
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
 		}
 	})
 

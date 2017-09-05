@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	defaultRouteTimeout  = 30 // seconds
-	htfnScaleDownTimeout = 30 // seconds
+	DefaultRouteTimeout = 30 // seconds
+	DefaultIdleTimeout  = 30 // seconds
 )
 
 type Routes []*Route
@@ -50,11 +50,11 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Timeout == 0 {
-		r.Timeout = defaultRouteTimeout
+		r.Timeout = DefaultRouteTimeout
 	}
 
 	if r.IdleTimeout == 0 {
-		r.IdleTimeout = htfnScaleDownTimeout
+		r.IdleTimeout = DefaultIdleTimeout
 	}
 }
 

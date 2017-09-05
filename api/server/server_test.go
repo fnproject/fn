@@ -10,29 +10,25 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
+	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"github.com/fnproject/fn/api/runner"
 	"github.com/gin-gonic/gin"
-	cache "github.com/patrickmn/go-cache"
 )
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.FnLog, rnr *runner.Runner, enqueue models.Enqueue) *Server {
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent) *Server {
 	ctx := context.Background()
 
 	s := &Server{
-		Runner:     rnr,
-		Router:     gin.New(),
-		Datastore:  ds,
-		LogDB:      logDB,
-		MQ:         mq,
-		Enqueue:    enqueue,
-		routeCache: cache.New(60*time.Second, 5*time.Minute),
+		Agent:     rnr,
+		Router:    gin.New(),
+		Datastore: ds,
+		LogDB:     logDB,
+		MQ:        mq,
 	}
 
 	r := s.Router
@@ -81,7 +77,7 @@ func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) models.Error
 	return errResp
 }
 
-func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.FnLog, func()) {
+func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogStore, func()) {
 	os.Remove(tmpDatastoreTests)
 	ds, err := datastore.New("sqlite3://" + tmpDatastoreTests)
 	if err != nil {
@@ -99,10 +95,10 @@ func TestFullStack(t *testing.T) {
 	ds, logDB, close := prepareDB(ctx, t)
 	defer close()
 
-	rnr, rnrcancel := testRunner(t)
+	rnr, rnrcancel := testRunner(t, ds)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, DefaultEnqueue)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr)
 
 	for _, test := range []struct {
 		name              string
@@ -110,7 +106,7 @@ func TestFullStack(t *testing.T) {
 		path              string
 		body              string
 		expectedCode      int
-		expectedCacheSize int
+		expectedCacheSize int // TODO kill me
 	}{
 		{"create my app", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusOK, 0},
 		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0},
@@ -137,11 +133,6 @@ func TestFullStack(t *testing.T) {
 			t.Log(buf.String())
 			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
 				test.name, test.expectedCode, rec.Code)
-		}
-		if srv.routeCache.ItemCount() != test.expectedCacheSize {
-			t.Log(buf.String())
-			t.Errorf("Test \"%s\": Expected cache size to be %d but was %d",
-				test.name, test.expectedCacheSize, srv.routeCache.ItemCount())
 		}
 	}
 }

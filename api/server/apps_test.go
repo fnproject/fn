@@ -29,7 +29,7 @@ func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
 	for i, test := range []struct {
 		mock          models.Datastore
-		logDB         models.FnLog
+		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
@@ -48,7 +48,7 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, DefaultEnqueue)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -78,7 +78,7 @@ func TestAppDelete(t *testing.T) {
 
 	for i, test := range []struct {
 		ds            models.Datastore
-		logDB         models.FnLog
+		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
@@ -88,11 +88,11 @@ func TestAppDelete(t *testing.T) {
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil, nil, nil,
+			}}, nil, nil,
 		), logs.NewMock(), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, DefaultEnqueue)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
@@ -122,7 +122,7 @@ func TestAppList(t *testing.T) {
 	defer cancel()
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -159,7 +159,7 @@ func TestAppGet(t *testing.T) {
 	defer cancel()
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, DefaultEnqueue)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
 
 	for i, test := range []struct {
 		path          string
@@ -194,7 +194,7 @@ func TestAppUpdate(t *testing.T) {
 
 	for i, test := range []struct {
 		mock          models.Datastore
-		logDB         models.FnLog
+		logDB         models.LogStore
 		path          string
 		body          string
 		expectedCode  int
@@ -207,18 +207,18 @@ func TestAppUpdate(t *testing.T) {
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil, nil, nil,
+			}}, nil, nil,
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
 		// Addresses #380
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
-			}}, nil, nil, nil,
+			}}, nil, nil,
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, DefaultEnqueue)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)

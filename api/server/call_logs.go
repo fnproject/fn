@@ -10,8 +10,9 @@ import (
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	appName := c.MustGet(api.AppName).(string)
 	callID := c.Param(api.Call)
-	_, err := s.Datastore.GetTask(ctx, callID)
+	_, err := s.Datastore.GetCall(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -29,8 +30,9 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 func (s *Server) handleCallLogDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	appName := c.MustGet(api.AppName).(string)
 	callID := c.Param(api.Call)
-	_, err := s.Datastore.GetTask(ctx, callID)
+	_, err := s.Datastore.GetCall(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

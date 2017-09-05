@@ -44,7 +44,7 @@ building the function.
 
 `type` (optional) allows you to set the type of the route. `sync`, for functions
 whose response are sent back to the requester; or `async`, for functions that
-are started and return a task ID to customer while it executes in background.
+are started and return a call ID to customer while it executes in background.
 Default: `sync`.
 
 `memory` (optional) allows you to set a maximum memory threshold for this

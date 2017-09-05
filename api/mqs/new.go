@@ -46,19 +46,19 @@ type metricMQ struct {
 	mq models.MessageQueue
 }
 
-func (m *metricMQ) Push(ctx context.Context, t *models.Task) (*models.Task, error) {
+func (m *metricMQ) Push(ctx context.Context, t *models.Call) (*models.Call, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "mq_push")
 	defer span.Finish()
 	return m.mq.Push(ctx, t)
 }
 
-func (m *metricMQ) Reserve(ctx context.Context) (*models.Task, error) {
+func (m *metricMQ) Reserve(ctx context.Context) (*models.Call, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "mq_reserve")
 	defer span.Finish()
 	return m.mq.Reserve(ctx)
 }
 
-func (m *metricMQ) Delete(ctx context.Context, t *models.Task) error {
+func (m *metricMQ) Delete(ctx context.Context, t *models.Call) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "mq_delete")
 	defer span.Finish()
 	return m.mq.Delete(ctx, t)
