@@ -214,9 +214,15 @@ func (c *HTTPCollector) send() error {
 	if c.reqCallback != nil {
 		c.reqCallback(req)
 	}
-	if _, err = c.client.Do(req); err != nil {
+	resp, err := c.client.Do(req)
+	if err != nil {
 		c.logger.Log("err", err.Error())
 		return err
+	}
+	resp.Body.Close()
+	// non 2xx code
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		c.logger.Log("err", "HTTP POST span failed", "code", resp.Status)
 	}
 
 	// Remove sent spans from the batch

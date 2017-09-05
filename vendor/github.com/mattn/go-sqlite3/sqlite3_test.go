@@ -6,6 +6,7 @@
 package sqlite3
 
 import (
+	"bytes"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -1231,6 +1232,127 @@ func TestFunctionRegistration(t *testing.T) {
 	}
 }
 
+func rot13(r rune) rune {
+	switch {
+	case r >= 'A' && r <= 'Z':
+		return 'A' + (r-'A'+13)%26
+	case r >= 'a' && r <= 'z':
+		return 'a' + (r-'a'+13)%26
+	}
+	return r
+}
+
+func TestCollationRegistration(t *testing.T) {
+	collateRot13 := func(a, b string) int {
+		ra, rb := strings.Map(rot13, a), strings.Map(rot13, b)
+		return strings.Compare(ra, rb)
+	}
+	collateRot13Reverse := func(a, b string) int {
+		return collateRot13(b, a)
+	}
+
+	sql.Register("sqlite3_CollationRegistration", &SQLiteDriver{
+		ConnectHook: func(conn *SQLiteConn) error {
+			if err := conn.RegisterCollation("rot13", collateRot13); err != nil {
+				return err
+			}
+			if err := conn.RegisterCollation("rot13reverse", collateRot13Reverse); err != nil {
+				return err
+			}
+			return nil
+		},
+	})
+
+	db, err := sql.Open("sqlite3_CollationRegistration", ":memory:")
+	if err != nil {
+		t.Fatal("Failed to open database:", err)
+	}
+	defer db.Close()
+
+	populate := []string{
+		`CREATE TABLE test (s TEXT)`,
+		`INSERT INTO test VALUES ("aaaa")`,
+		`INSERT INTO test VALUES ("ffff")`,
+		`INSERT INTO test VALUES ("qqqq")`,
+		`INSERT INTO test VALUES ("tttt")`,
+		`INSERT INTO test VALUES ("zzzz")`,
+	}
+	for _, stmt := range populate {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatal("Failed to populate test DB:", err)
+		}
+	}
+
+	ops := []struct {
+		query string
+		want  []string
+	}{
+		{
+			"SELECT * FROM test ORDER BY s COLLATE rot13 ASC",
+			[]string{
+				"qqqq",
+				"tttt",
+				"zzzz",
+				"aaaa",
+				"ffff",
+			},
+		},
+		{
+			"SELECT * FROM test ORDER BY s COLLATE rot13 DESC",
+			[]string{
+				"ffff",
+				"aaaa",
+				"zzzz",
+				"tttt",
+				"qqqq",
+			},
+		},
+		{
+			"SELECT * FROM test ORDER BY s COLLATE rot13reverse ASC",
+			[]string{
+				"ffff",
+				"aaaa",
+				"zzzz",
+				"tttt",
+				"qqqq",
+			},
+		},
+		{
+			"SELECT * FROM test ORDER BY s COLLATE rot13reverse DESC",
+			[]string{
+				"qqqq",
+				"tttt",
+				"zzzz",
+				"aaaa",
+				"ffff",
+			},
+		},
+	}
+
+	for _, op := range ops {
+		rows, err := db.Query(op.query)
+		if err != nil {
+			t.Fatalf("Query %q failed: %s", op.query, err)
+		}
+		got := []string{}
+		defer rows.Close()
+		for rows.Next() {
+			var s string
+			if err = rows.Scan(&s); err != nil {
+				t.Fatalf("Reading row for %q: %s", op.query, err)
+			}
+			got = append(got, s)
+		}
+		if err = rows.Err(); err != nil {
+			t.Fatalf("Reading rows for %q: %s", op.query, err)
+		}
+
+		if !reflect.DeepEqual(got, op.want) {
+			t.Fatalf("Unexpected output from %q\ngot:\n%s\n\nwant:\n%s", op.query, strings.Join(got, "\n"), strings.Join(op.want, "\n"))
+		}
+	}
+}
+
 func TestDeclTypes(t *testing.T) {
 
 	d := SQLiteDriver{}
@@ -1340,6 +1462,61 @@ func TestUpdateAndTransactionHooks(t *testing.T) {
 	}
 	if !reflect.DeepEqual(events, expected) {
 		t.Errorf("Expected notifications %v but got %v", expected, events)
+	}
+}
+
+func TestNilAndEmptyBytes(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	actualNil := []byte("use this to use an actual nil not a reference to nil")
+	emptyBytes := []byte{}
+	for tsti, tst := range []struct {
+		name          string
+		columnType    string
+		insertBytes   []byte
+		expectedBytes []byte
+	}{
+		{"actual nil blob", "blob", actualNil, nil},
+		{"referenced nil blob", "blob", nil, nil},
+		{"empty blob", "blob", emptyBytes, emptyBytes},
+		{"actual nil text", "text", actualNil, nil},
+		{"referenced nil text", "text", nil, nil},
+		{"empty text", "text", emptyBytes, emptyBytes},
+	} {
+		if _, err = db.Exec(fmt.Sprintf("create table tbl%d (txt %s)", tsti, tst.columnType)); err != nil {
+			t.Fatal(tst.name, err)
+		}
+		if bytes.Equal(tst.insertBytes, actualNil) {
+			if _, err = db.Exec(fmt.Sprintf("insert into tbl%d (txt) values (?)", tsti), nil); err != nil {
+				t.Fatal(tst.name, err)
+			}
+		} else {
+			if _, err = db.Exec(fmt.Sprintf("insert into tbl%d (txt) values (?)", tsti), &tst.insertBytes); err != nil {
+				t.Fatal(tst.name, err)
+			}
+		}
+		rows, err := db.Query(fmt.Sprintf("select txt from tbl%d", tsti))
+		if err != nil {
+			t.Fatal(tst.name, err)
+		}
+		if !rows.Next() {
+			t.Fatal(tst.name, "no rows")
+		}
+		var scanBytes []byte
+		if err = rows.Scan(&scanBytes); err != nil {
+			t.Fatal(tst.name, err)
+		}
+		if err = rows.Err(); err != nil {
+			t.Fatal(tst.name, err)
+		}
+		if tst.expectedBytes == nil && scanBytes != nil {
+			t.Errorf("%s: %#v != %#v", tst.name, scanBytes, tst.expectedBytes)
+		} else if !bytes.Equal(scanBytes, tst.expectedBytes) {
+			t.Errorf("%s: %#v != %#v", tst.name, scanBytes, tst.expectedBytes)
+		}
 	}
 }
 

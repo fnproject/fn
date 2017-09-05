@@ -22,7 +22,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO remove ccirello/supervisor from vendor/
 // TODO make sure some errors that user should see (like image doesn't exist) bubble up
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
 // TODO async calls need to add route.Headers as well

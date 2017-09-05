@@ -1,6 +1,7 @@
 package jsoniter
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -97,4 +98,35 @@ func Test_invalid_float(t *testing.T) {
 			should.NotNil(iter.Error)
 		})
 	}
+}
+
+func Test_chan(t *testing.T) {
+	t.Skip("do not support chan")
+
+	type TestObject struct {
+		MyChan  chan bool
+		MyField int
+	}
+
+	should := require.New(t)
+	obj := TestObject{}
+	str, err := json.Marshal(obj)
+	should.Nil(err)
+	should.Equal(``, str)
+}
+
+func Test_invalid_number(t *testing.T) {
+	type Message struct {
+		Number int `json:"number"`
+	}
+	obj := Message{}
+	decoder := ConfigCompatibleWithStandardLibrary.NewDecoder(bytes.NewBufferString(`{"number":"5"}`))
+	err := decoder.Decode(&obj)
+	invalidStr := err.Error()
+	result, err := ConfigCompatibleWithStandardLibrary.Marshal(invalidStr)
+	should := require.New(t)
+	should.Nil(err)
+	result2, err := json.Marshal(invalidStr)
+	should.Nil(err)
+	should.Equal(string(result2), string(result))
 }

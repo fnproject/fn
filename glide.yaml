@@ -15,7 +15,6 @@ import:
 - package: github.com/cactus/go-statsd-client
   subpackages:
   - statsd
-- package: github.com/ccirello/supervisor
 - package: github.com/dchest/siphash
 - package: github.com/dghubble/go-twitter
   subpackages:
