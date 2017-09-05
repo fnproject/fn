@@ -76,7 +76,7 @@ func (db *MemDB) Snapshot() *MemDB {
 func (db *MemDB) initialize() error {
 	root := db.getRoot()
 	for tName, tableSchema := range db.schema.Tables {
-		for iName, _ := range tableSchema.Indexes {
+		for iName := range tableSchema.Indexes {
 			index := iradix.New()
 			path := indexPath(tName, iName)
 			root, _, _ = root.Insert(path, index)

@@ -100,6 +100,8 @@ int _sqlite3_create_function(
 }
 
 void callbackTrampoline(sqlite3_context*, int, sqlite3_value**);
+
+int compareTrampoline(void*, int, char*, int, char*);
 int commitHookTrampoline(void*);
 void rollbackHookTrampoline(void*);
 void updateHookTrampoline(void*, int, char*, char*, sqlite3_int64);
@@ -182,6 +184,7 @@ type SQLiteTx struct {
 
 // SQLiteStmt implement sql.Stmt.
 type SQLiteStmt struct {
+	mu     sync.Mutex
 	c      *SQLiteConn
 	s      *C.sqlite3_stmt
 	t      string
@@ -323,6 +326,29 @@ func (tx *SQLiteTx) Commit() error {
 func (tx *SQLiteTx) Rollback() error {
 	_, err := tx.c.exec(context.Background(), "ROLLBACK", nil)
 	return err
+}
+
+// RegisterCollation makes a Go function available as a collation.
+//
+// cmp receives two UTF-8 strings, a and b. The result should be 0 if
+// a==b, -1 if a < b, and +1 if a > b.
+//
+// cmp must always return the same result given the same
+// inputs. Additionally, it must have the following properties for all
+// strings A, B and C: if A==B then B==A; if A==B and B==C then A==C;
+// if A<B then B>A; if A<B and B<C then A<C.
+//
+// If cmp does not obey these constraints, sqlite3's behavior is
+// undefined when the collation is used.
+func (c *SQLiteConn) RegisterCollation(name string, cmp func(string, string) int) error {
+	handle := newHandle(c, cmp)
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	rv := C.sqlite3_create_collation(c.db, cname, C.SQLITE_UTF8, unsafe.Pointer(handle), (*[0]byte)(unsafe.Pointer(C.compareTrampoline)))
+	if rv != C.SQLITE_OK {
+		return c.lastError()
+	}
+	return nil
 }
 
 // RegisterCommitHook sets the commit hook for a connection.
@@ -803,6 +829,8 @@ func (c *SQLiteConn) prepare(ctx context.Context, query string) (driver.Stmt, er
 
 // Close the statement.
 func (s *SQLiteStmt) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.closed {
 		return nil
 	}
@@ -811,6 +839,7 @@ func (s *SQLiteStmt) Close() error {
 		return errors.New("sqlite statement with already closed database connection")
 	}
 	rv := C.sqlite3_finalize(s.s)
+	s.s = nil
 	if rv != C.SQLITE_OK {
 		return s.c.lastError()
 	}
@@ -867,10 +896,11 @@ func (s *SQLiteStmt) bind(args []namedValue) error {
 		case float64:
 			rv = C.sqlite3_bind_double(s.s, n, C.double(v))
 		case []byte:
-			if len(v) == 0 {
+			ln := len(v)
+			if ln == 0 {
 				v = placeHolder
 			}
-			rv = C._sqlite3_bind_blob(s.s, n, unsafe.Pointer(&v[0]), C.int(len(v)))
+			rv = C._sqlite3_bind_blob(s.s, n, unsafe.Pointer(&v[0]), C.int(ln))
 		case time.Time:
 			b := []byte(v.Format(SQLiteTimestampFormats[0]))
 			rv = C._sqlite3_bind_text(s.s, n, (*C.char)(unsafe.Pointer(&b[0])), C.int(len(b)))
@@ -978,7 +1008,9 @@ func (s *SQLiteStmt) exec(ctx context.Context, args []namedValue) (driver.Result
 
 // Close the rows.
 func (rc *SQLiteRows) Close() error {
+	rc.s.mu.Lock()
 	if rc.s.closed || rc.closed {
+		rc.s.mu.Unlock()
 		return nil
 	}
 	rc.closed = true
@@ -986,18 +1018,23 @@ func (rc *SQLiteRows) Close() error {
 		close(rc.done)
 	}
 	if rc.cls {
+		rc.s.mu.Unlock()
 		return rc.s.Close()
 	}
 	rv := C.sqlite3_reset(rc.s.s)
 	if rv != C.SQLITE_OK {
+		rc.s.mu.Unlock()
 		return rc.s.c.lastError()
 	}
+	rc.s.mu.Unlock()
 	return nil
 }
 
 // Columns return column names.
 func (rc *SQLiteRows) Columns() []string {
-	if rc.nc != len(rc.cols) {
+	rc.s.mu.Lock()
+	defer rc.s.mu.Unlock()
+	if rc.s.s != nil && rc.nc != len(rc.cols) {
 		rc.cols = make([]string, rc.nc)
 		for i := 0; i < rc.nc; i++ {
 			rc.cols[i] = C.GoString(C.sqlite3_column_name(rc.s.s, C.int(i)))
@@ -1006,9 +1043,8 @@ func (rc *SQLiteRows) Columns() []string {
 	return rc.cols
 }
 
-// DeclTypes return column types.
-func (rc *SQLiteRows) DeclTypes() []string {
-	if rc.decltype == nil {
+func (rc *SQLiteRows) declTypes() []string {
+	if rc.s.s != nil && rc.decltype == nil {
 		rc.decltype = make([]string, rc.nc)
 		for i := 0; i < rc.nc; i++ {
 			rc.decltype[i] = strings.ToLower(C.GoString(C.sqlite3_column_decltype(rc.s.s, C.int(i))))
@@ -1017,8 +1053,20 @@ func (rc *SQLiteRows) DeclTypes() []string {
 	return rc.decltype
 }
 
+// DeclTypes return column types.
+func (rc *SQLiteRows) DeclTypes() []string {
+	rc.s.mu.Lock()
+	defer rc.s.mu.Unlock()
+	return rc.declTypes()
+}
+
 // Next move cursor to next.
 func (rc *SQLiteRows) Next(dest []driver.Value) error {
+	if rc.s.closed {
+		return io.EOF
+	}
+	rc.s.mu.Lock()
+	defer rc.s.mu.Unlock()
 	rv := C.sqlite3_step(rc.s.s)
 	if rv == C.SQLITE_DONE {
 		return io.EOF
@@ -1031,7 +1079,7 @@ func (rc *SQLiteRows) Next(dest []driver.Value) error {
 		return nil
 	}
 
-	rc.DeclTypes()
+	rc.declTypes()
 
 	for i := range dest {
 		switch C.sqlite3_column_type(rc.s.s, C.int(i)) {

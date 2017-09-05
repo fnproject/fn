@@ -1470,6 +1470,21 @@ func TestJsonLargeInteger(t *testing.T) {
 	}
 }
 
+func TestJsonDecodeNonStringScalarInStringContext(t *testing.T) {
+	var b = `{"s.true": "true", "b.true": true, "s.false": "false", "b.false": false, "s.10": "10", "i.10": 10, "i.-10": -10}`
+	var golden = map[string]string{"s.true": "true", "b.true": "true", "s.false": "false", "b.false": "false", "s.10": "10", "i.10": "10", "i.-10": "-10"}
+
+	var m map[string]string
+	d := NewDecoderBytes([]byte(b), testJsonH)
+	d.MustDecode(&m)
+	if err := deepEqual(golden, m); err == nil {
+		logT(t, "++++ match: decoded: %#v", m)
+	} else {
+		logT(t, "---- mismatch: %v ==> golden: %#v, decoded: %#v", err, golden, m)
+		failT(t)
+	}
+}
+
 // TODO:
 //   Add Tests for:
 //   - decoding empty list/map in stream into a nil slice/map
