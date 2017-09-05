@@ -71,12 +71,12 @@ Now run the following CLI commands:
 # This detects your runtime from the code above and creates a func.yaml
 fn init
 
+# Set your Docker Hub username
+export FN_REGISTRY=<DOCKERHUB_USERNAME>
+
 # Test your function
 # This will run inside a container exactly how it will on the server
 fn run
-
-# Set your Docker Hub username
-export FN_REGISTRY=<DOCKERHUB_USERNAME>
 
 # Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
@@ -124,4 +124,3 @@ For more information, see: [https://github.com/treeder/functions-ui](https://git
 ### Check out the [Tutorial Series](examples/tutorial/)
 
  It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
-
