@@ -224,7 +224,9 @@ func (a *agent) Submit(callI Call) error {
 
 	// TODO if the context is timed out here we need to allocate some more time...
 	// right now this only works b/c the db isn't using the context
-	return call.End(ctx, err)
+	call.End(ctx, err)
+
+	return err
 }
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise

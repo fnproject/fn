@@ -35,7 +35,7 @@ type Call interface {
 	// regardless of whether the execution failed or not. An error will be passed
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error) error
+	End(ctx context.Context, err error)
 }
 
 // TODO build w/o closures... lazy
@@ -267,7 +267,7 @@ func (c *call) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *call) End(ctx context.Context, err error) error {
+func (c *call) End(ctx context.Context, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
 	defer span.Finish()
 
@@ -287,19 +287,13 @@ func (c *call) End(ctx context.Context, err error) error {
 		// XXX (reed): delete MQ message, eventually
 	}
 
-	// TODO since the function itself can reply directly to a client (or logs),
-	// this means that we could potentially store an error / timeout status for a
-	// call that ran successfully [by a user's perspective]
-	// TODO this should be update, really
-	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
-		// TODO we should just log this error not return it to user? just issue storing call status but call is run
+	// need newer context because original one may be modified
+	// and no longer be valid for further context-bound operations
+	if err := c.ds.InsertCall(context.Background(), c.Call); err != nil {
+		// TODO we should just log this error not return it to user?
+		// just issue storing call status but call is run
 		logrus.WithError(err).Error("error inserting call into datastore")
 	}
-
-	// return the original error so that this is returned from Submit (for sync)
-	// TODO we could just skip over (and log) and End errors and return slot.exec error
-	// in submit instead of doing this, it's a bit odd. thoughts?
-	return err
 }
 
 func (a *agent) route(ctx context.Context, appName, path string) (*models.Route, error) {

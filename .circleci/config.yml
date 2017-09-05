@@ -33,7 +33,6 @@ jobs:
       # login here for tests
       - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run: ./test.sh
-      - run: ./go-fmt.sh
       - deploy:
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
