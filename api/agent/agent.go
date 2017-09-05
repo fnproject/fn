@@ -38,7 +38,6 @@ import (
 // TODO all Datastore methods need to take unit of tenancy (app or route) at least (e.g. not just call id)
 // TODO limit the request body length when making calls
 // TODO discuss concrete policy for hot launch or timeout / timeout vs time left
-// TODO can we get rid of 'GET url?payload' weirdness?
 // TODO call env need to be map[string][]string to match headers behavior...
 // TODO it may be nice to have an interchange type for Dispatch that can have
 // all the info we need to build e.g. http req, grpc req, json, etc.  so that

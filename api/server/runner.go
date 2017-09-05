@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"net/http"
 	"path"
 	"strings"
@@ -26,12 +25,6 @@ func (s *Server) handleRequest(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-
-	if c.Request.Method == "GET" {
-		// TODO we _could_ check the normal body, this is still weird
-		// TODO do we need to flush the original body if we do this? (hint: yes)
-		c.Request.Body = ioutil.NopCloser(strings.NewReader(c.Request.URL.Query().Get("payload")))
-	}
 
 	r, routeExists := c.Get(api.Path)
 	if !routeExists {
