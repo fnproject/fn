@@ -11,7 +11,7 @@ If you are a developer using Fn through the API, this section is for you.
 * [Function file (func.yaml)](function-file.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
-* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml?token=AAFp-BC7bv6KA3TJYwSdf3vEP-0u4Pbdks5ZuU1RwA%3D%3D)
+* API Reference (coming soon)
 * [Hot functions](hot-functions.md)
 * [Async functions](async.md)
 * [FAQ](faq.md)
