@@ -113,13 +113,19 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		headerVars := make(map[string]string, len(req.Header))
 
 		for k, v := range req.Header {
-			headerVars[toEnvName("FN_HEADER", k)] = strings.Join(v, ", ")
+			if !noOverrideVars(k) { // NOTE if we don't do this, they'll leak in (don't want people relying on this behavior)
+				headerVars[toEnvName("FN_HEADER", k)] = strings.Join(v, ", ")
+			}
 		}
 
 		// add all the env vars we build to the request headers
-		// TODO should we save req.Headers and copy OVER app.Config / route.Config ?
 		for k, v := range envVars {
-			req.Header.Add(k, v)
+			if noOverrideVars(k) {
+				// overwrite the passed in request headers explicitly with the generated ones
+				req.Header.Set(k, v)
+			} else {
+				req.Header.Add(k, v)
+			}
 		}
 
 		for k, v := range headerVars {
@@ -169,6 +175,24 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		c.req = req
 		return nil
 	}
+}
+
+func noOverrideVars(key string) bool {
+	// descrepency in casing b/w req headers and env vars, force matches
+	return overrideVars[strings.ToUpper(key)]
+}
+
+// overrideVars means that the app config, route config or header vars
+// must not overwrite the generated values in call construction.
+var overrideVars = map[string]bool{
+	"FN_FORMAT":      true,
+	"FN_APP_NAME":    true,
+	"FN_ROUTE":       true,
+	"FN_MEMORY":      true,
+	"FN_TYPE":        true,
+	"FN_CALL_ID":     true,
+	"FN_METHOD":      true,
+	"FN_REQUEST_URL": true,
 }
 
 // TODO this currently relies on FromRequest having happened before to create the model

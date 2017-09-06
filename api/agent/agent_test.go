@@ -64,6 +64,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("MYREALHEADER", "FOOLORD")
 	req.Header.Add("MYREALHEADER", "FOOPEASANT")
 	req.Header.Add("Content-Length", contentLength)
+	req.Header.Add("FN_ROUTE", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
