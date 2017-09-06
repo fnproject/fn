@@ -103,10 +103,10 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			envVars[toEnvName("PARAM", param.Key)] = param.Value
 		}
 
-		headerVars := make(map[string]string,len(req.Header))
+		headerVars := make(map[string]string, len(req.Header))
 
 		for k, v := range req.Header {
-			headerVars[toEnvName("HEADER",k)] = strings.Join(v, ", ")
+			headerVars[toEnvName("HEADER", k)] = strings.Join(v, ", ")
 		}
 
 		// add all the env vars we build to the request headers
@@ -115,7 +115,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			req.Header.Add(k, v)
 		}
 
-		for k,v := range headerVars {
+		for k, v := range headerVars {
 			envVars[k] = v
 		}
 
