@@ -65,12 +65,8 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		// baseVars are the vars on the route & app, not on this specific request [for hot functions]
 		baseVars := make(map[string]string, len(app.Config)+len(route.Config)+3)
-		baseVars["FN_FORMAT"] = route.Format
-		baseVars["FN_APP_NAME"] = appName
-		baseVars["FN_ROUTE"] = route.Path
-		baseVars["FN_MEMORY_MB"] = fmt.Sprintf("%d", route.Memory)
 
-		// app config
+		// add app & route config before our standard additions
 		for k, v := range app.Config {
 			k = toEnvName("", k)
 			baseVars[k] = v
@@ -79,6 +75,12 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			k = toEnvName("", k)
 			baseVars[k] = v
 		}
+
+		baseVars["FN_FORMAT"] = route.Format
+		baseVars["FN_APP_NAME"] = appName
+		baseVars["FN_ROUTE"] = route.Path
+		baseVars["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
+		baseVars["FN_TYPE"] = route.Type
 
 		// envVars contains the full set of env vars, per request + base
 		envVars := make(map[string]string, len(baseVars)+len(params)+len(req.Header)+3)
@@ -169,6 +171,9 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 	}
 }
 
+// TODO this currently relies on FromRequest having happened before to create the model
+// here, to be a fully qualified model. We probably should double check but having a way
+// to bypass will likely be what's used anyway unless forced.
 func FromModel(mCall *models.Call) CallOpt {
 	return func(a *agent, c *call) error {
 		c.Call = mCall

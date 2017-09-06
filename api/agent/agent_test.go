@@ -22,6 +22,8 @@ func TestCallConfigurationRequest(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
+	typ := "sync"
+	format := "default"
 
 	cfg := models.Config{"APP_VAR": "FOO"}
 	rCfg := models.Config{"ROUTE_VAR": "BAR"}
@@ -36,8 +38,8 @@ func TestCallConfigurationRequest(t *testing.T) {
 				Path:        path,
 				AppName:     appName,
 				Image:       image,
-				Type:        "sync",
-				Format:      "default",
+				Type:        typ,
+				Format:      format,
 				Timeout:     timeout,
 				IdleTimeout: idleTimeout,
 				Memory:      memory,
@@ -112,12 +114,13 @@ func TestCallConfigurationRequest(t *testing.T) {
 	}
 
 	expectedBase := map[string]string{
-		"FN_FORMAT":    "default",
-		"FN_APP_NAME":  appName,
-		"FN_ROUTE":     path,
-		"FN_MEMORY_MB": strconv.Itoa(memory),
-		"APP_VAR":      "FOO",
-		"ROUTE_VAR":    "BAR",
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_ROUTE":    path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
 	}
 
 	expectedEnv := make(map[string]string)
@@ -199,14 +202,17 @@ func TestCallConfigurationModel(t *testing.T) {
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
+	typ := "sync"
+	format := "default"
 	env := map[string]string{
-		"FN_FORMAT":    "default",
-		"FN_APP_NAME":  appName,
-		"FN_ROUTE":     path,
-		"FN_MEMORY_MB": strconv.Itoa(memory),
-		"APP_VAR":      "FOO",
-		"ROUTE_VAR":    "BAR",
-		"DOUBLE_VAR":   "BIZ, BAZ",
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_ROUTE":    path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
 	}
 
 	cm := &models.Call{
@@ -215,8 +221,8 @@ func TestCallConfigurationModel(t *testing.T) {
 		AppName:     appName,
 		Path:        path,
 		Image:       image,
-		Type:        "sync",
-		Format:      "default",
+		Type:        typ,
+		Format:      format,
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
