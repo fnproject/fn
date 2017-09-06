@@ -103,10 +103,10 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			envVars[toEnvName("PARAM", param.Key)] = param.Value
 		}
 
-		var headerVars = make(map[string]string)
+		headerVars := make(map[string]string,len(req.Header))
+
 		for k, v := range req.Header {
-			joinedHeader := strings.Join(v,",")
-			headerVars[toEnvName("HEADER",k)] = joinedHeader
+			headerVars[toEnvName("HEADER",k)] = strings.Join(v, ", ")
 		}
 
 		// add all the env vars we build to the request headers
@@ -118,8 +118,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		for k,v := range headerVars {
 			envVars[k] = v
 		}
-
-
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
 		if rw, ok := c.w.(http.ResponseWriter); ok {
