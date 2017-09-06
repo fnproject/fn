@@ -10,6 +10,7 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -56,7 +57,7 @@ func NewFuncLogger(ctx context.Context, appName, path, image, reqID string, logD
 		reqID:  reqID,
 	})
 
-	// TODO / NOTE: we want linew to be first becauase limitw may error if limit
+	// TODO / NOTE: we want linew to be first because limitw may error if limit
 	// is reached but we still want to log. we should probably ignore hitting the
 	// limit error since we really just want to not write too much to db and
 	// that's handled as is. put buffers back last to avoid misuse, if there's
@@ -110,7 +111,7 @@ type logWriter struct {
 func (l *logWriter) Write(b []byte) (int, error) {
 	log := common.Logger(l.ctx)
 	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": l.appName, "path": l.path, "image": l.image, "call_id": l.reqID})
-	log.Println(string(b))
+	log.Debug(string(b))
 	return len(b), nil
 }
 
@@ -182,7 +183,9 @@ type dbWriter struct {
 }
 
 func (w *dbWriter) Close() error {
-	return w.db.InsertLog(w.ctx, w.reqID, w.String())
+	span, ctx := opentracing.StartSpanFromContext(context.Background(), "agent_log_write")
+	defer span.Finish()
+	return w.db.InsertLog(ctx, w.reqID, w.String())
 }
 
 func (w *dbWriter) Write(b []byte) (int, error) {

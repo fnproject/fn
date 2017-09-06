@@ -287,11 +287,7 @@ func (c *call) End(ctx context.Context, err error) {
 		// XXX (reed): delete MQ message, eventually
 	}
 
-	// need newer context because original one may be modified
-	// and no longer be valid for further context-bound operations
-	if err := c.ds.InsertCall(context.Background(), c.Call); err != nil {
-		// TODO we should just log this error not return it to user?
-		// just issue storing call status but call is run
+	if err := c.ds.InsertCall(opentracing.ContextWithSpan(ctx, span), c.Call); err != nil {
 		logrus.WithError(err).Error("error inserting call into datastore")
 	}
 }

@@ -222,9 +222,8 @@ func (a *agent) Submit(callI Call) error {
 
 	a.stats.Complete()
 
-	// TODO if the context is timed out here we need to allocate some more time...
-	// right now this only works b/c the db isn't using the context
-	call.End(ctx, err)
+	// TODO if the context is timed out here we need to allocate new one
+	call.End(context.Background(), err)
 
 	return err
 }
