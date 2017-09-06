@@ -16,11 +16,11 @@ import (
 
 var (
 	// command to execute, 'SELECT' or 'INSERT'
-	command = os.Getenv("HEADER_COMMAND")
+	command = os.Getenv("FN_HEADER_COMMAND")
 	// postgres host:port, e.g. 'postgres:5432'
-	server = os.Getenv("HEADER_SERVER")
+	server = os.Getenv("FN_HEADER_SERVER")
 	// postgres table name
-	table = os.Getenv("HEADER_TABLE")
+	table = os.Getenv("FN_HEADER_TABLE")
 )
 
 func main() {

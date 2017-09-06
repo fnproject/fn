@@ -21,21 +21,21 @@ if payload != ""
 end
 
 # Also check for expected env vars: https://gitlab.oracledx.com/odx/functions/blob/master/docs/writing.md#inputs
-e = ENV["REQUEST_URL"]
+e = ENV["FN_REQUEST_URL"]
 puts e
 uri = URI.parse(e)
 if !uri.scheme.start_with?('http') 
   raise "invalid REQUEST_URL, does not start with http"
 end
-e = ENV["METHOD"]
+e = ENV["FN_METHOD"]
 if !(e == "GET" || e == "POST" || e == "DELETE" || e == "PATCH" || e == "PUT")
   raise "Invalid METHOD: #{e}"
 end
-e = ENV["APP_NAME"]
+e = ENV["FN_APP_NAME"]
 if e == nil || e == ''
   raise "No APP_NAME found"
 end
-e = ENV["ROUTE"]
+e = ENV["FN_ROUTE"]
 if e == nil || e == ''
   raise "No ROUTE found"
 end

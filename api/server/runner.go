@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
@@ -58,8 +59,9 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	}
 
 	// TODO we could add FireBeforeDispatch right here with Call in hand
+	model := call.Model()
 
-	if model := call.Model(); model.Type == "async" {
+	if model.Type == "async" {
 		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
 		buf := bytes.NewBuffer(make([]byte, 0, c.Request.ContentLength)) // TODO sync.Pool me
 		_, err := buf.ReadFrom(c.Request.Body)
@@ -86,6 +88,10 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		// we could filter that error out here too as right now it yells a little
 
 		if err == context.DeadlineExceeded {
+			// TODO maneuver
+			// add this, since it means that start may not have been called [and it's relevant]
+			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
+
 			err = models.ErrCallTimeout // 504 w/ friendly note
 		}
 		// NOTE: if the task wrote the headers already then this will fail to write

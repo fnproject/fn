@@ -7,7 +7,7 @@ import (
 )
 
 func HandlePostRead(db *database.Database, auth map[string]interface{}) {
-	id := os.Getenv("PARAM_ID")
+	id := os.Getenv("FN_PARAM_ID")
 
 	if id == "" {
 		SendError("Missing post ID")

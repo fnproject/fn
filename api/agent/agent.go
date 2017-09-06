@@ -30,9 +30,7 @@ import (
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
 // TODO herd launch prevention part deux
-// TODO plumb FXLB-WAIT back - can we use headers now? maybe let's use api
-// TODO none of the Datastore methods actually use the ctx for timeouts :(
-// TODO not adding padding if call times out to store appropriately (ctx timed out, happenstance it works now cuz of ^)
+// TODO storing logs / call can push call over the timeout
 // TODO all Datastore methods need to take unit of tenancy (app or route) at least (e.g. not just call id)
 // TODO limit the request body length when making calls
 // TODO discuss concrete policy for hot launch or timeout / timeout vs time left
@@ -50,7 +48,6 @@ import (
 // dies). need coordination w/ db.
 // TODO if a cold call times out but container is created but hasn't replied, could
 // end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
-// TODO we should prob not be logging all async output to the logs by default...
 // TODO the call api should fill in all the fields
 // TODO the log api should be plaintext (or at least offer it)
 // TODO func logger needs to be hanged, dragged and quartered. in reverse order.

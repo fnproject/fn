@@ -30,7 +30,7 @@ func main() {
 	numLoops := 1
 
 	// Parse the query string
-	s := strings.Split(os.Getenv("REQUEST_URL"), "?")
+	s := strings.Split(os.Getenv("FN_REQUEST_URL"), "?")
 	if len(s) > 1 {
 		for _, pair := range strings.Split(s[1], "&") {
 			kv := strings.Split(pair, "=")
