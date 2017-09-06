@@ -428,7 +428,6 @@ type slot interface {
 type coldSlot struct {
 	cookie drivers.Cookie
 	tok    Token
-	stderr io.Closer
 }
 
 func (s *coldSlot) exec(ctx context.Context, call *call) error {
@@ -459,7 +458,6 @@ func (s *coldSlot) Close() error {
 		s.cookie.Close(context.Background()) // ensure container removal, separate ctx
 	}
 	s.tok.Close()
-	s.stderr.Close()
 	return nil
 }
 
@@ -477,20 +475,11 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_exec")
 	defer span.Finish()
 
-	stderr := NewFuncLogger(ctx, call.AppName, call.Path, call.Image, call.ID, call.ds)
-	if call.w == nil {
-		// send STDOUT to logs if no writer given (async...)
-		// TODO fuck func logger, change it to not need a context and make calls
-		// require providing their own stderr and writer instead of this crap. punting atm.
-		call.w = stderr
-	}
-
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
-	// swap in the new id and the new stderr logger
-	s.container.swap(stderr)
-	defer stderr.Close() // TODO shove in Close / elsewhere (to upload logs after exec exits)
+	// swap in the new stderr logger
+	s.container.swap(call.stderr)
 
 	errApp := make(chan error, 1)
 	go func() {
@@ -541,15 +530,6 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok T
 }
 
 func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok Token) error {
-	// TODO dupe stderr code, reduce me
-	stderr := NewFuncLogger(ctx, call.AppName, call.Path, call.Image, call.ID, call.ds)
-	if call.w == nil {
-		// send STDOUT to logs if no writer given (async...)
-		// TODO fuck func logger, change it to not need a context and make calls
-		// require providing their own stderr and writer instead of this crap. punting atm.
-		call.w = stderr
-	}
-
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -558,7 +538,7 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
 		stdout:  call.w,
-		stderr:  stderr,
+		stderr:  call.stderr,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -569,7 +549,7 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 		return err
 	}
 
-	slot := &coldSlot{cookie, tok, stderr}
+	slot := &coldSlot{cookie, tok}
 	select {
 	case slots <- slot: // TODO need to make sure receiver will be ready (go routine race)
 	default:
@@ -600,19 +580,22 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 	ctx, shutdownContainer := context.WithCancel(context.Background())
 	defer shutdownContainer() // close this if our waiter returns
 
+	cid := id.New().String()
+
 	// set up the stderr for the first one to capture any logs before the slot is
-	// executed.
-	// TODO need to figure out stderr logging for hot functions at a high level
-	stderr := &ghostWriter{inner: newLineWriter(&logWriter{ctx: ctx, appName: call.AppName, path: call.Path, image: call.Image, reqID: call.ID})}
+	// executed and between hot functions TODO this is still a little tobias funke
+	stderr := newLineWriter(&logWriter{
+		logrus.WithFields(logrus.Fields{"between_log": true, "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": cid}),
+	})
 
 	container := &container{
-		id:     id.New().String(), // XXX we could just let docker generate ids...
+		id:     cid, // XXX we could just let docker generate ids...
 		image:  call.Image,
 		env:    call.BaseEnv, // only base env
 		memory: call.Memory,
 		stdin:  stdinRead,
 		stdout: stdoutWrite,
-		stderr: stderr,
+		stderr: &ghostWriter{inner: stderr},
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -663,6 +646,7 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-done
+			container.swap(stderr) // log between tasks
 		}
 	}()
 

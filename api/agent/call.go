@@ -246,7 +246,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	// TODO move func logger here
 	// TODO add log store interface (yagni?)
 	c.ds = a.ds
 	c.mq = a.mq
@@ -254,6 +253,15 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
 		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
 	c.req = c.req.WithContext(ctx)
+
+	// setup stderr logger separate (don't inherit ctx vars)
+	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": c.AppName, "path": c.Path, "image": c.Image, "call_id": c.ID})
+	c.stderr = setupLogger(logger)
+	if c.w == nil {
+		// send STDOUT to logs if no writer given (async...)
+		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
+		c.w = c.stderr
+	}
 
 	return &c, nil
 }
@@ -265,7 +273,7 @@ type call struct {
 	mq     models.MessageQueue
 	w      io.Writer
 	req    *http.Request
-	stderr io.WriteCloser
+	stderr io.ReadWriteCloser
 }
 
 func (c *call) Model() *models.Call { return c.Call }
@@ -335,8 +343,15 @@ func (c *call) End(ctx context.Context, err error) {
 	// call that ran successfully [by a user's perspective]
 	// TODO: this should be update, really
 	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
-		logrus.WithError(err).Error("error inserting call into datastore")
+		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
 	}
+
+	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
+		common.Logger(ctx).WithError(err).Error("error uploading log")
+	}
+
+	// NOTE call this after InsertLog or the buffer will get reset
+	c.stderr.Close()
 }
 
 func fakeHandler(http.ResponseWriter, *http.Request, Params) {}

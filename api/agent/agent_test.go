@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	"github.com/sirupsen/logrus"
 )
 
 func TestCallConfigurationRequest(t *testing.T) {
@@ -272,4 +274,29 @@ func TestCallConfigurationModel(t *testing.T) {
 	if b.String() != payload {
 		t.Fatal("expected payload to match, but it was a lie")
 	}
+}
+
+func TestLoggerIsStringerAndWorks(t *testing.T) {
+	// TODO test limit writer, logrus writer, etc etc
+
+	loggyloo := logrus.WithFields(logrus.Fields{"yodawg": true})
+	logger := setupLogger(loggyloo)
+
+	if _, ok := logger.(fmt.Stringer); !ok {
+		// NOTE: if you are reading, maybe what you've done is ok, but be aware we were relying on this for optimization...
+		t.Fatal("you turned the logger into something inefficient and possibly better all at the same time, how dare ye!")
+	}
+
+	str := "0 line\n1 line\n2 line\n\n4 line"
+	logger.Write([]byte(str))
+
+	strGot := logger.(fmt.Stringer).String()
+
+	if strGot != str {
+		t.Fatal("logs did not match expectations, like being an adult", strGot, str)
+	}
+
+	logger.Close() // idk maybe this would panic might as well call this
+
+	// TODO we could check for the toilet to flush here to logrus
 }

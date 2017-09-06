@@ -2,6 +2,7 @@ package datastoreutil
 
 import (
 	"context"
+	"io"
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
@@ -100,7 +101,7 @@ func (m *metricds) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*
 	return m.ds.GetCalls(ctx, filter)
 }
 
-func (m *metricds) InsertLog(ctx context.Context, appName, callID, callLog string) error {
+func (m *metricds) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_log")
 	defer span.Finish()
 	return m.ds.InsertLog(ctx, appName, callID, callLog)
