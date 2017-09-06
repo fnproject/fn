@@ -41,8 +41,10 @@ func (h *HTTPProtocol) Dispatch(w io.Writer, req *http.Request) error {
 			return err
 		}
 
-		for k, v := range res.Header {
-			rw.Header().Add(k, v) // on top of any specified on the route
+		for k, vs := range res.Header {
+			for _, v := range vs {
+				rw.Header().Add(k, v) // on top of any specified on the route
+			}
 		}
 		rw.WriteHeader(res.StatusCode)
 		// TODO should we TCP_CORK ?
