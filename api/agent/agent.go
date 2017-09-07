@@ -222,9 +222,12 @@ func (a *agent) Submit(callI Call) error {
 
 	a.stats.Complete()
 
-	// TODO if the context is timed out here we need to allocate some more time...
-	// right now this only works b/c the db isn't using the context
-	return call.End(ctx, err)
+	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
+	// but this could put us over the timeout if the call did not reply yet (need better policy).
+	ctx = opentracing.ContextWithSpan(context.Background(), span)
+	call.End(ctx, err)
+
+	return err
 }
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise

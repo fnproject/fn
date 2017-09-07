@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -21,6 +20,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/sirupsen/logrus"
 )
 
 // this aims to be an ANSI-SQL compliant package that uses only question
@@ -147,7 +147,7 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 	}
 
 	query := ds.db.Rebind("INSERT INTO apps (name, config) VALUES (?, ?);")
-	_, err = ds.db.Exec(query, app.Name, string(cbyte))
+	_, err = ds.db.ExecContext(ctx, query, app.Name, string(cbyte))
 	if err != nil {
 		switch err := err.(type) {
 		case *mysql.MySQLError:
@@ -173,7 +173,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	app := &models.App{Name: newapp.Name}
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT config FROM apps WHERE name=?`)
-		row := tx.QueryRow(query, app.Name)
+		row := tx.QueryRowContext(ctx, query, app.Name)
 
 		var config string
 		if err := row.Scan(&config); err != nil {
@@ -198,7 +198,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		}
 
 		query = tx.Rebind(`UPDATE apps SET config=? WHERE name=?`)
-		res, err := tx.Exec(query, string(cbyte), app.Name)
+		res, err := tx.ExecContext(ctx, query, string(cbyte), app.Name)
 		if err != nil {
 			return err
 		}
@@ -221,13 +221,13 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 	query := ds.db.Rebind(`DELETE FROM apps WHERE name = ?`)
-	_, err := ds.db.Exec(query, appName)
+	_, err := ds.db.ExecContext(ctx, query, appName)
 	return err
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
 	query := ds.db.Rebind(`SELECT name, config FROM apps WHERE name=?`)
-	row := ds.db.QueryRow(query, name)
+	row := ds.db.QueryRowContext(ctx, query, name)
 
 	var resName, config string
 	err := row.Scan(&resName, &config)
@@ -257,7 +257,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	res := []*models.App{}
 	query, args := buildFilterAppQuery(filter)
 	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config FROM apps %s", query))
-	rows, err := ds.db.Query(query, args...)
+	rows, err := ds.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -295,14 +295,14 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 
 	err = ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE name=?`)
-		r := tx.QueryRow(query, route.AppName)
+		r := tx.QueryRowContext(ctx, query, route.AppName)
 		if err := r.Scan(new(int)); err != nil {
 			if err == sql.ErrNoRows {
 				return models.ErrAppsNotFound
 			}
 		}
 		query = tx.Rebind(`SELECT 1 FROM routes WHERE app_name=? AND path=?`)
-		same, err := tx.Query(query, route.AppName, route.Path)
+		same, err := tx.QueryContext(ctx, query, route.AppName, route.Path)
 		if err != nil {
 			return err
 		}
@@ -325,7 +325,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`)
 
-		_, err = tx.Exec(query,
+		_, err = tx.ExecContext(ctx, query,
 			route.AppName,
 			route.Path,
 			route.Image,
@@ -348,7 +348,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 	var route models.Route
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(fmt.Sprintf("%s WHERE app_name=? AND path=?", routeSelector))
-		row := tx.QueryRow(query, newroute.AppName, newroute.Path)
+		row := tx.QueryRowContext(ctx, query, newroute.AppName, newroute.Path)
 		if err := scanRoute(row, &route); err == sql.ErrNoRows {
 			return models.ErrRoutesNotFound
 		} else if err != nil {
@@ -378,7 +378,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			config = ?
 		WHERE app_name=? AND path=?;`)
 
-		res, err := tx.Exec(query,
+		res, err := tx.ExecContext(ctx, query,
 			route.Image,
 			route.Format,
 			route.Memory,
@@ -413,7 +413,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 
 func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	query := ds.db.Rebind(`DELETE FROM routes WHERE path = ? AND app_name = ?`)
-	res, err := ds.db.Exec(query, routePath, appName)
+	res, err := ds.db.ExecContext(ctx, query, routePath, appName)
 	if err != nil {
 		return err
 	}
@@ -433,7 +433,7 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) 
 func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
 	rSelectCondition := "%s WHERE app_name=? AND path=?"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
-	row := ds.db.QueryRow(query, appName, routePath)
+	row := ds.db.QueryRowContext(ctx, query, appName, routePath)
 
 	var route models.Route
 	err := scanRoute(row, &route)
@@ -451,7 +451,7 @@ func (ds *sqlStore) GetRoutes(ctx context.Context, filter *models.RouteFilter) (
 	query, args := buildFilterRouteQuery(filter)
 	query = fmt.Sprintf("%s %s", routeSelector, query)
 	query = ds.db.Rebind(query)
-	rows, err := ds.db.Query(query, args...)
+	rows, err := ds.db.QueryContext(ctx, query, args...)
 	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
 		return nil, err
@@ -490,7 +490,7 @@ func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appName string, filter *
 
 	query := fmt.Sprintf("%s %s", routeSelector, filterQuery)
 	query = ds.db.Rebind(query)
-	rows, err := ds.db.Query(query, args...)
+	rows, err := ds.db.QueryContext(ctx, query, args...)
 	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
 		return nil, err
@@ -538,7 +538,7 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 	)
 	VALUES (?, ?, ?, ?, ?, ?, ?);`)
 
-	_, err := ds.db.Exec(query, call.ID, call.CreatedAt.String(),
+	_, err := ds.db.ExecContext(ctx, query, call.ID, call.CreatedAt.String(),
 		call.StartedAt.String(), call.CompletedAt.String(),
 		call.Status, call.AppName, call.Path)
 	if err != nil {
@@ -554,7 +554,7 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	query := fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)
 	query = ds.db.Rebind(query)
-	row := ds.db.QueryRow(query, callID, appName)
+	row := ds.db.QueryRowContext(ctx, query, callID, appName)
 
 	var call models.Call
 	err := scanCall(row, &call)
@@ -569,7 +569,7 @@ func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
 	query = ds.db.Rebind(query)
-	rows, err := ds.db.Query(query, args...)
+	rows, err := ds.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -591,13 +591,13 @@ func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 
 func (ds *sqlStore) InsertLog(ctx context.Context, callID, callLog string) error {
 	query := ds.db.Rebind(`INSERT INTO logs (id, log) VALUES (?, ?);`)
-	_, err := ds.db.Exec(query, callID, callLog)
+	_, err := ds.db.ExecContext(ctx, query, callID, callLog)
 	return err
 }
 
 func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.CallLog, error) {
 	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=?`)
-	row := ds.db.QueryRow(query, callID)
+	row := ds.db.QueryRowContext(ctx, query, callID)
 
 	var log string
 	err := row.Scan(&log)
@@ -616,7 +616,7 @@ func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.CallLog,
 
 func (ds *sqlStore) DeleteLog(ctx context.Context, callID string) error {
 	query := ds.db.Rebind(`DELETE FROM logs WHERE id=?`)
-	_, err := ds.db.Exec(query, callID)
+	_, err := ds.db.ExecContext(ctx, query, callID)
 	return err
 }
 

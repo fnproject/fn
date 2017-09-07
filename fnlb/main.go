@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/fnlb/lb"
+	"github.com/sirupsen/logrus"
 )
 
 const VERSION = "0.0.56"

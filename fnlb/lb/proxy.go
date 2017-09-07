@@ -7,11 +7,11 @@ import (
 	"net/http/httputil"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"github.com/coreos/go-semver/semver"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/sirupsen/logrus"
 )
 
 // TODO the load balancers all need to have the same list of nodes. gossip?

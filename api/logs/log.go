@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/datastore/sql"
 	"github.com/fnproject/fn/api/models"
+	"github.com/sirupsen/logrus"
 )
 
 func New(dbURL string) (models.LogStore, error) {

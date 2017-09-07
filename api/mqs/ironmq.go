@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	mq_config "github.com/iron-io/iron_go3/config"
 	ironmq "github.com/iron-io/iron_go3/mq"
+	"github.com/sirupsen/logrus"
 )
 
 type assoc struct {
