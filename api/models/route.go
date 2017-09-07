@@ -95,7 +95,7 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidType
 	}
 
-	if r.Format != FormatDefault && r.Format != FormatHTTP {
+	if r.Format != FormatDefault && r.Format != FormatHTTP && r.Format != FormatJSON {
 		return ErrRoutesInvalidFormat
 	}
 

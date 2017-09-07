@@ -18,6 +18,8 @@ const (
 	FormatDefault = "default"
 	// FormatHTTP ...
 	FormatHTTP = "http"
+	// FormatJSON ...
+	FormatJSON = "json"
 )
 
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
