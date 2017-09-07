@@ -222,7 +222,8 @@ func (a *agent) Submit(callI Call) error {
 
 	a.stats.Complete()
 
-	// TODO if the context is timed out here we need to allocate new one
+	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
+	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
 	call.End(ctx, err)
 
