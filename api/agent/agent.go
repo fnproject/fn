@@ -32,9 +32,7 @@ import (
 // TODO herd launch prevention part deux
 // TODO storing logs / call can push call over the timeout
 // TODO all Datastore methods need to take unit of tenancy (app or route) at least (e.g. not just call id)
-// TODO limit the request body length when making calls
 // TODO discuss concrete policy for hot launch or timeout / timeout vs time left
-// TODO call env need to be map[string][]string to match headers behavior...
 // TODO it may be nice to have an interchange type for Dispatch that can have
 // all the info we need to build e.g. http req, grpc req, json, etc.  so that
 // we can easily do e.g. http->grpc, grpc->http, http->json. ofc grpc<->http is
@@ -50,7 +48,6 @@ import (
 // end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
 // TODO the call api should fill in all the fields
 // TODO the log api should be plaintext (or at least offer it)
-// TODO func logger needs to be hanged, dragged and quartered. in reverse order.
 // TODO we should probably differentiate ran-but-timeout vs timeout-before-run
 // TODO between calls, logs and stderr can contain output/ids from previous call. need elegant solution. grossness.
 // TODO if async would store requests (or interchange format) it would be slick, but
