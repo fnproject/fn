@@ -168,6 +168,8 @@ type err struct {
 
 func (e err) Code() int { return e.code }
 
+func NewAPIError(code int, e error) APIError { return err{code, e} }
+
 // uniform error output
 type Error struct {
 	Error *ErrorBody `json:"error,omitempty"`

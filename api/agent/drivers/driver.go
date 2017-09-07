@@ -4,7 +4,6 @@ package drivers
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strings"
 	"time"
@@ -53,19 +52,17 @@ type Driver interface {
 
 // RunResult indicates only the final state of the task.
 type RunResult interface {
-	// Error is an actionable/checkable error from the container.
-	error
+	// Error is an actionable/checkable error from the container, nil if
+	// Status() returns "success", otherwise non-nil
+	Error() error
 
 	// Status should return the current status of the task.
 	// Only valid options are {"error", "success", "timeout", "killed", "cancelled"}.
 	Status() string
 }
 
-// The ContainerTask interface guides task execution across a wide variety of
+// The ContainerTask interface guides container execution across a wide variety of
 // container oriented runtimes.
-// This interface is unstable.
-//
-// FIXME: This interface is large, and it is currently a little Docker specific.
 type ContainerTask interface {
 	// Command returns the command to run within the container.
 	Command() string
@@ -115,21 +112,6 @@ type Stat struct {
 	Timestamp time.Time
 	Metrics   map[string]uint64
 }
-
-// Set of acceptable errors coming from container engines to TaskRunner
-var (
-	// ErrOutOfMemory for OOM in container engine
-	ErrOutOfMemory = userError(errors.New("out of memory error"))
-)
-
-// TODO agent.UserError should be elsewhere
-func userError(err error) error { return &ue{err} }
-
-type ue struct {
-	error
-}
-
-func (u *ue) UserVisible() bool { return true }
 
 // TODO: ensure some type is applied to these statuses.
 const (

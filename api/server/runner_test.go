@@ -131,6 +131,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist"},
+			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Format: "http"},
 		}, nil,
 	)
 
@@ -149,12 +151,14 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}{
 		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", ``, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil},
+		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil},
 
 		// Added same tests again to check if time is reduced by the auth cache
 		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", ``, "GET", http.StatusInternalServerError, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", ``, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
