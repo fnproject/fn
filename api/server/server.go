@@ -50,7 +50,7 @@ type Server struct {
 }
 
 // NewFromEnv creates a new Functions server based on env vars.
-func NewFromEnv(ctx context.Context) *Server {
+func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	ds, err := datastore.New(viper.GetString(EnvDBURL))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Error initializing datastore.")
@@ -69,7 +69,7 @@ func NewFromEnv(ctx context.Context) *Server {
 		}
 	}
 
-	return New(ctx, ds, mq, logDB)
+	return New(ctx, ds, mq, logDB, opts...)
 }
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
