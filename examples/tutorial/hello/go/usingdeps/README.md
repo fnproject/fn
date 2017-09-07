@@ -9,7 +9,7 @@ This example will show you how to test and deploy Go (Golang) code with vendored
 glide install -v #Or what ever vendor tool you want. We have a glide.yaml for you here already.
 
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/hello-go
+fn init --name hello-go
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
@@ -19,7 +19,7 @@ cat sample.payload.json | fn run
 
 # Deploy your functions to the Oracle Functions server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy myapp
+fn deploy --app myapp
 ```
 
 ### Now call your function:

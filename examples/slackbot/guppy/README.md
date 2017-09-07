@@ -4,7 +4,7 @@ This example will show you how to test and deploy a SlackBot command to Oracle F
 
 ```sh
 # create your func.yaml file
-fn init <YOUR_DOCKERHUB_USERNAME>/guppy
+fn init
 # build the function - install dependencies from json gem
 fn build
 # test it

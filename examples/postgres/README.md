@@ -4,7 +4,7 @@ This function executes an INSERT or SELECT against a table in a given postgres s
 
 ```
 # Create your func.yaml file
-fn init <YOUR_DOCKERHUB_USERNAME>/func-postgres
+fn init --name func-postgres
 # Build the function
 fn build
 # Test it

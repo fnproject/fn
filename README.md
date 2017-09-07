@@ -80,7 +80,7 @@ fn run
 
 # Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy myapp
+fn deploy --app myapp
 ```
 
 Now you can call your function:
