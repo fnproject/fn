@@ -7,7 +7,6 @@ Other than a different runtime, this is no different than any other node example
 To use the lambda-nodejs4.3 runtime, use this `fn init` command:
 
 ```sh
-fn init --runtime lambda-nodejs4.3 <DOCKER_HUB_USERNAME>/lambda-node
-fn build
+fn init --runtime lambda-nodejs4.3 --name lambda-node
 cat payload.json | fn run
 ```

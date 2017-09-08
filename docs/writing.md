@@ -81,7 +81,7 @@ Creating Lambda functions is not much different than using regular functions, ju
 the `lambda-node` runtime.
 
 ```sh
-fn init --runtime lambda-node <DOCKER_HUB_USERNAME>/lambda-node
+fn init --runtime lambda-node --name lambda-node
 ```
 
 Be sure the filename for your main handler is `func.js`.

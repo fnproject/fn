@@ -52,6 +52,6 @@ by passing `--version <version>.`
 
 You can then deploy the imported lambda as follows:
 ```
-./fn deploy myapp
+./fn deploy --app myapp
 ````
 Now the function can be reached via ```http://$HOSTNAME/r/user/my-function```

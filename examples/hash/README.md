@@ -13,7 +13,7 @@ Now change the code as you desire to do whatever magic you need it to do. Once d
 Simply run
 
 ```bash
-fn init <username>/<funcname>
+fn init --name <funcname>
 ```
 
 This will create the ```func.yaml``` file required by functions, which can be built by running:
