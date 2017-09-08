@@ -107,5 +107,5 @@ requests:
 `format` (mandatory) either "default" or "http". If "http", then it is a hot
 container.
 
-`idle_timeout` (optional) - idle timeout (in seconds) before function termination.
+`idle_timeout` (optional) - idle timeout (in seconds) before function termination, default 30 seconds.
 
