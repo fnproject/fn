@@ -180,6 +180,7 @@ func (a *agent) Submit(callI Call) error {
 
 	call := callI.(*call)
 	ctx := call.req.Context()
+
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
 	defer span.Finish()
 
@@ -485,8 +486,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 
 	// link the container id and id in the logs [for us!]
-	// TODO go is broke idk why logrus.Fields doesn't work
-	common.Logger(ctx).WithField("container_id", s.container.id).WithField("id", call.ID).Info("starting call")
+	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
 	// swap in the new id and the new stderr logger
 	s.container.swap(stderr)
