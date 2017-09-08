@@ -69,7 +69,11 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 
 	if model.Type == "async" {
 		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
-		buf := bytes.NewBuffer(make([]byte, c.Request.ContentLength)[:0]) // TODO sync.Pool me
+		contentLength := c.Request.ContentLength
+		if contentLength < 128 { // contentLength could be -1 or really small, sanitize
+			contentLength = 128
+		}
+		buf := bytes.NewBuffer(make([]byte, int(contentLength))[:0]) // TODO sync.Pool me
 		_, err := buf.ReadFrom(c.Request.Body)
 		if err != nil {
 			handleErrorResponse(c, models.ErrInvalidPayload)
