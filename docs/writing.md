@@ -31,7 +31,7 @@ To read in the function body, just read from STDIN.
 
 You will also have access to a set of environment variables.
 
-* REQUEST_URL - the full URL for the request ([example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
+* REQUEST_URL - the full URL for the request ([parsing example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
 * APP_NAME - the name of the application that matched this route, eg: `myapp`
 * ROUTE - the matched route, eg: `/hello`
 * METHOD - the HTTP method for the request, eg: `GET` or `POST`
