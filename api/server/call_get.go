@@ -18,5 +18,5 @@ func (s *Server) handleCallGet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, fnCallResponse{"Successfully loaded call", callObj})
+	c.JSON(http.StatusOK, callResponse{"Successfully loaded call", callObj})
 }

@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -120,17 +122,36 @@ func TestAppList(t *testing.T) {
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
-	ds := datastore.NewMock()
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: "myapp"},
+			{Name: "myapp2"},
+			{Name: "myapp3"},
+		},
+		nil, // no routes
+		nil, // no calls
+	)
 	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+
+	a1b := base64.RawURLEncoding.EncodeToString([]byte("myapp"))
+	a2b := base64.RawURLEncoding.EncodeToString([]byte("myapp2"))
+	a3b := base64.RawURLEncoding.EncodeToString([]byte("myapp3"))
 
 	for i, test := range []struct {
 		path          string
 		body          string
 		expectedCode  int
 		expectedError error
+		expectedLen   int
+		nextCursor    string
 	}{
-		{"/v1/apps", "", http.StatusOK, nil},
+		{"/v1/apps?per_page", "", http.StatusOK, nil, 3, ""},
+		{"/v1/apps?per_page=1", "", http.StatusOK, nil, 1, a1b},
+		{"/v1/apps?per_page=1&cursor=" + a1b, "", http.StatusOK, nil, 1, a2b},
+		{"/v1/apps?per_page=1&cursor=" + a2b, "", http.StatusOK, nil, 1, a3b},
+		{"/v1/apps?per_page=100&cursor=" + a2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
+		{"/v1/apps?per_page=1&cursor=" + a3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -147,6 +168,20 @@ func TestAppList(t *testing.T) {
 				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
+			}
+		} else {
+			// normal path
+
+			var resp appsResponse
+			err := json.NewDecoder(rec.Body).Decode(&resp)
+			if err != nil {
+				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
+			}
+			if len(resp.Apps) != test.expectedLen {
+				t.Errorf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Apps))
+			}
+			if resp.NextCursor != test.nextCursor {
+				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
 			}
 		}
 	}

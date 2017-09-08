@@ -1,7 +1,7 @@
 package models
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 const (
@@ -130,6 +130,10 @@ type Call struct {
 }
 
 type CallFilter struct {
-	Path    string
-	AppName string
+	Path     string // match
+	AppName  string // match
+	FromTime strfmt.DateTime
+	ToTime   strfmt.DateTime
+	Cursor   string
+	PerPage  int
 }

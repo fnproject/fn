@@ -55,6 +55,7 @@ func (a *App) UpdateConfig(patch Config) {
 }
 
 type AppFilter struct {
-	// An SQL LIKE query. Empty does not filter.
-	Name string
+	Name    string // prefix query TODO implemented
+	PerPage int
+	Cursor  string
 }

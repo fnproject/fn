@@ -19,9 +19,20 @@ paths:
   /apps:
     get:
       summary: "Get all app names."
-      description: "Get a list of all the apps in the system."
+      description: "Get a list of all the apps in the system, returned in alphabetical order."
       tags:
         - Apps
+      parameters:
+        - name: cursor
+          description: Cursor from previous response.next_cursor to begin results after, if any.
+          required: false
+          type: string
+          in: query
+        - name: per_page
+          description: Number of results to return, defaults to 30. Max of 100.
+          required: false
+          type: int
+          in: query
       responses:
         200:
           description: List of apps.
@@ -182,7 +193,7 @@ paths:
 
     get:
       summary: Get route list by app name.
-      description: This will list routes for a particular app.
+      description: This will list routes for a particular app, returned in alphabetical order.
       tags:
         - Routes
       parameters:
@@ -191,6 +202,21 @@ paths:
           description: Name of app for this set of routes.
           required: true
           type: string
+        - name: image
+          description: Route image to match, exact.
+          required: false
+          type: string
+          in: query
+        - name: cursor
+          description: Cursor from previous response.next_cursor to begin results after, if any.
+          required: false
+          type: string
+          in: query
+        - name: per_page
+          description: Number of results to return, defaults to 30. Max of 100.
+          required: false
+          type: int
+          in: query
       responses:
         200:
           description: Route information
@@ -424,7 +450,7 @@ paths:
   /apps/{app}/calls:
     get:
       summary: Get app-bound calls.
-      description: Get app-bound calls can filter to route-bound calls.
+      description: Get app-bound calls can filter to route-bound calls, results returned in created_at, descending order (newest first).
       tags:
         - Call
       parameters:
@@ -433,10 +459,30 @@ paths:
           required: true
           type: string
           in: path
-        - name: route
-          description: App route.
+        - name: path
+          description: Route path to match, exact.
           required: false
           type: string
+          in: query
+        - name: cursor
+          description: Cursor from previous response.next_cursor to begin results after, if any.
+          required: false
+          type: string
+          in: query
+        - name: per_page
+          description: Number of results to return, defaults to 30. Max of 100.
+          required: false
+          type: int
+          in: query
+        - name: from_time
+          description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
+          required: false
+          type: int
+          in: query
+        - name: to_time
+          description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
+          required: false
+          type: int
           in: query
       responses:
         200:
@@ -524,6 +570,10 @@ definitions:
     required:
       - routes
     properties:
+      next_cursor:
+        type: string
+        description: cursor to send with subsequent request to receive the next page, if non-empty
+        readOnly: true
       routes:
         type: array
         items:
@@ -548,6 +598,10 @@ definitions:
     required:
       - apps
     properties:
+      next_cursor:
+        type: string
+        description: cursor to send with subsequent request to receive the next page, if non-empty
+        readOnly: true
       apps:
         type: array
         items:
@@ -570,6 +624,10 @@ definitions:
     required:
       - calls
     properties:
+      next_cursor:
+        type: string
+        description: cursor to send with subsequent request to receive the next page, if non-empty
+        readOnly: true
       calls:
         type: array
         items:

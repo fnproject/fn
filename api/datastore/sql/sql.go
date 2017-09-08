@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
@@ -471,54 +472,23 @@ func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*m
 	return &route, nil
 }
 
-// GetRoutes retrieves an array of routes according to a specific filter.
-func (ds *sqlStore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
-	res := []*models.Route{}
-	query, args := buildFilterRouteQuery(filter)
-	query = fmt.Sprintf("%s %s", routeSelector, query)
-	query = ds.db.Rebind(query)
-	rows, err := ds.db.QueryContext(ctx, query, args...)
-	// todo: check for no rows so we don't respond with a sql 500 err
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var route models.Route
-		err := scanRoute(rows, &route)
-		if err != nil {
-			continue
-		}
-		res = append(res, &route)
-
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-/*
-GetRoutesByApp retrieves a route with a specific app name.
-*/
+// GetRoutesByApp retrieves a route with a specific app name.
 func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
-	var filterQuery string
-	var args []interface{}
 	if filter == nil {
-		filterQuery = "WHERE app_name = ?"
-		args = []interface{}{appName}
-	} else {
-		filter.AppName = appName
-		filterQuery, args = buildFilterRouteQuery(filter)
+		filter = new(models.RouteFilter)
 	}
+
+	filter.AppName = appName
+	filterQuery, args := buildFilterRouteQuery(filter)
 
 	query := fmt.Sprintf("%s %s", routeSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryContext(ctx, query, args...)
-	// todo: check for no rows so we don't respond with a sql 500 err
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, nil // no error for empty list
+		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -533,7 +503,9 @@ func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appName string, filter *
 
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return res, nil // no error for empty list
+		}
 	}
 
 	return res, nil
@@ -739,26 +711,52 @@ func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
 		if val != "" {
 			args = append(args, val)
 			if len(args) == 1 {
-				fmt.Fprintf(&b, `WHERE %s?`, colOp)
+				fmt.Fprintf(&b, `WHERE %s`, colOp)
 			} else {
-				fmt.Fprintf(&b, ` AND %s?`, colOp)
+				fmt.Fprintf(&b, ` AND %s`, colOp)
 			}
 		}
 	}
 
-	where("path=", filter.Path)
-	where("app_name=", filter.AppName)
-	where("image=", filter.Image)
+	where("app_name=? ", filter.AppName)
+	where("image=?", filter.Image)
+	where("path>?", filter.Cursor)
+	// where("path LIKE ?%", filter.PathPrefix) TODO needs escaping
+
+	fmt.Fprintf(&b, ` ORDER BY path ASC`) // TODO assert this is indexed
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
 
 	return b.String(), args
 }
 
 func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}) {
-	if filter == nil || filter.Name == "" {
+	if filter == nil {
 		return "", nil
 	}
 
-	return "WHERE name LIKE ?", []interface{}{filter.Name}
+	var b bytes.Buffer
+	var args []interface{}
+
+	where := func(colOp, val string) {
+		if val != "" {
+			args = append(args, val)
+			if len(args) == 1 {
+				fmt.Fprintf(&b, `WHERE %s`, colOp)
+			} else {
+				fmt.Fprintf(&b, ` AND %s`, colOp)
+			}
+		}
+	}
+
+	// where("name LIKE ?%", filter.Name) // TODO needs escaping?
+	where("name>?", filter.Cursor)
+
+	fmt.Fprintf(&b, ` ORDER BY name ASC`) // TODO assert this is indexed
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
+
+	return b.String(), args
 }
 
 func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
@@ -779,11 +777,19 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 		}
 	}
 
-	where("app_name=", filter.AppName)
-
-	if filter.Path != "" {
-		where("path=", filter.Path)
+	where("id<", filter.Cursor)
+	if !time.Time(filter.ToTime).IsZero() {
+		where("created_at<", filter.ToTime.String())
 	}
+	if !time.Time(filter.FromTime).IsZero() {
+		where("created_at>", filter.FromTime.String())
+	}
+	where("app_name=", filter.AppName)
+	where("path=", filter.Path)
+
+	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
 
 	return b.String(), args
 }

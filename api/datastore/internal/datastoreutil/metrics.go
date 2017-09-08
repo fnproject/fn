@@ -53,12 +53,6 @@ func (m *metricds) GetRoute(ctx context.Context, appName, routePath string) (*mo
 	return m.ds.GetRoute(ctx, appName, routePath)
 }
 
-func (m *metricds) GetRoutes(ctx context.Context, filter *models.RouteFilter) (routes []*models.Route, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_routes")
-	defer span.Finish()
-	return m.ds.GetRoutes(ctx, filter)
-}
-
 func (m *metricds) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) (routes []*models.Route, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_routes_by_app")
 	defer span.Finish()

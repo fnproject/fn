@@ -26,24 +26,6 @@ func TestCalls(t *testing.T) {
 		}
 	})
 
-	t.Run("list-calls-for-missing-route", func(t *testing.T) {
-		t.Parallel()
-		s := SetupDefaultSuite()
-		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-
-		cfg := &call.GetAppsAppCallsParams{
-			App:     s.AppName,
-			Route:   &s.RoutePath,
-			Context: s.Context,
-		}
-		_, err := s.Client.Call.GetAppsAppCalls(cfg)
-		if err == nil {
-			t.Errorf("Must fail with missing route error, but got %s", err)
-		}
-
-		DeleteApp(t, s.Context, s.Client, s.AppName)
-	})
-
 	t.Run("get-dummy-call", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()

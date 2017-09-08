@@ -63,51 +63,51 @@ func (r *Route) SetDefaults() {
 func (r *Route) Validate(skipZero bool) error {
 	if !skipZero {
 		if r.AppName == "" {
-			return ErrRoutesValidationMissingAppName
+			return ErrMissingAppName
 		}
 
 		if r.Path == "" {
-			return ErrRoutesValidationMissingPath
+			return ErrMissingPath
 		}
 
 		if r.Image == "" {
-			return ErrRoutesValidationMissingImage
+			return ErrMissingImage
 		}
 	}
 
 	if !skipZero || r.Path != "" {
 		u, err := url.Parse(r.Path)
 		if err != nil {
-			return ErrRoutesValidationPathMalformed
+			return ErrPathMalformed
 		}
 
 		if strings.Contains(u.Path, ":") {
-			return ErrRoutesValidationFoundDynamicURL
+			return ErrFoundDynamicURL
 		}
 
 		if !path.IsAbs(u.Path) {
-			return ErrRoutesValidationInvalidPath
+			return ErrInvalidPath
 		}
 	}
 
 	if !skipZero || r.Type != "" {
 		if r.Type != TypeAsync && r.Type != TypeSync {
-			return ErrRoutesValidationInvalidType
+			return ErrInvalidType
 		}
 	}
 
 	if !skipZero || r.Format != "" {
 		if r.Format != FormatDefault && r.Format != FormatHTTP {
-			return ErrRoutesValidationInvalidFormat
+			return ErrInvalidFormat
 		}
 	}
 
 	if r.Timeout < 0 {
-		return ErrRoutesValidationNegativeTimeout
+		return ErrNegativeTimeout
 	}
 
 	if r.IdleTimeout < 0 {
-		return ErrRoutesValidationNegativeIdleTimeout
+		return ErrNegativeIdleTimeout
 	}
 
 	return nil
@@ -170,9 +170,11 @@ func (r *Route) Update(new *Route) {
 	}
 }
 
-//TODO are these sql LIKE queries? or strict matches?
 type RouteFilter struct {
-	Path    string
-	AppName string
-	Image   string
+	PathPrefix string // this is prefix match TODO
+	AppName    string // this is exact match (important for security)
+	Image      string // this is exact match
+
+	Cursor  string
+	PerPage int
 }

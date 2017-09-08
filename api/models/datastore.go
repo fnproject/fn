@@ -36,9 +36,6 @@ type Datastore interface {
 	// Returns ErrRoutesNotFound when no matching route is found.
 	GetRoute(ctx context.Context, appName, routePath string) (*Route, error)
 
-	// GetRoutes gets a slice of Routes, optionally filtered by filter.
-	GetRoutes(ctx context.Context, filter *RouteFilter) ([]*Route, error)
-
 	// GetRoutesByApp gets a slice of routes for a appName, optionally filtering on filter (filter.AppName is ignored).
 	// Returns ErrDatastoreEmptyAppName if appName is empty.
 	GetRoutesByApp(ctx context.Context, appName string, filter *RouteFilter) ([]*Route, error)
