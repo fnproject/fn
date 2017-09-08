@@ -14,6 +14,7 @@ import (
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/datastore/cache"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -74,7 +75,7 @@ func NewFromEnv(ctx context.Context) *Server {
 // New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
 	s := &Server{
-		Agent:     agent.New(ds, mq),
+		Agent:     agent.New(cache.Wrap(ds), mq), // only add datastore caching to agent
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,

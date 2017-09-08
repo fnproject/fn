@@ -14,11 +14,9 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/common/singleflight"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/opentracing/opentracing-go"
-	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -57,7 +55,6 @@ import (
 // TODO the log api should be plaintext (or at least offer it)
 // TODO func logger needs to be hanged, dragged and quartered. in reverse order.
 // TODO we should probably differentiate ran-but-timeout vs timeout-before-run
-// TODO push down the app/route cache into Datastore that decorates
 // TODO between calls, logs and stderr can contain output/ids from previous call. need elegant solution. grossness.
 // TODO if async would store requests (or interchange format) it would be slick, but
 // if we're going to store full calls in db maybe we should only queue pointers to ids?
@@ -127,11 +124,6 @@ type agent struct {
 	hMu sync.RWMutex // protects hot
 	hot map[string]chan slot
 
-	// TODO could make this separate too...
-	// cache for apps and routes
-	cache        *cache.Cache
-	singleflight singleflight.SingleFlight // singleflight assists Datastore // TODO rename
-
 	// TODO we could make a separate struct for the memory stuff
 	// cond protects access to ramUsed
 	cond *sync.Cond
@@ -157,7 +149,6 @@ func New(ds models.Datastore, mq models.MessageQueue) Agent {
 		mq:       mq,
 		driver:   driver,
 		hot:      make(map[string]chan slot),
-		cache:    cache.New(5*time.Second, 1*time.Minute),
 		cond:     sync.NewCond(new(sync.Mutex)),
 		ramTotal: getAvailableMemory(),
 		shutdown: make(chan struct{}),

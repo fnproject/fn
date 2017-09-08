@@ -13,7 +13,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
-	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,13 +42,12 @@ type CallOpt func(a *agent, c *call) error
 
 func FromRequest(appName, path string, req *http.Request) CallOpt {
 	return func(a *agent, c *call) error {
-		// TODO we need to add a little timeout to these 2 things
-		app, err := a.app(req.Context(), appName)
+		app, err := a.ds.GetApp(req.Context(), appName)
 		if err != nil {
 			return err
 		}
 
-		route, err := a.route(req.Context(), appName, path)
+		route, err := a.ds.GetRoute(req.Context(), appName, path)
 		if err != nil {
 			return err
 		}
@@ -293,50 +291,6 @@ func (c *call) End(ctx context.Context, err error) {
 	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
 		logrus.WithError(err).Error("error inserting call into datastore")
 	}
-}
-
-func (a *agent) route(ctx context.Context, appName, path string) (*models.Route, error) {
-	key := routeCacheKey(appName, path)
-	route, ok := a.cache.Get(key)
-	if ok {
-		return route.(*models.Route), nil
-	}
-
-	resp, err := a.singleflight.Do(key,
-		func() (interface{}, error) { return a.ds.GetRoute(ctx, appName, path) },
-	)
-	if err != nil {
-		return nil, err
-	}
-	route = resp.(*models.Route)
-	a.cache.Set(key, route, cache.DefaultExpiration)
-	return route.(*models.Route), nil
-}
-
-func (a *agent) app(ctx context.Context, appName string) (*models.App, error) {
-	key := appCacheKey(appName)
-	app, ok := a.cache.Get(key)
-	if ok {
-		return app.(*models.App), nil
-	}
-
-	resp, err := a.singleflight.Do(key,
-		func() (interface{}, error) { return a.ds.GetApp(ctx, appName) },
-	)
-	if err != nil {
-		return nil, err
-	}
-	app = resp.(*models.App)
-	a.cache.Set(key, app, cache.DefaultExpiration)
-	return app.(*models.App), nil
-}
-
-func routeCacheKey(appname, path string) string {
-	return "r:" + appname + "\x00" + path
-}
-
-func appCacheKey(appname string) string {
-	return "a:" + appname
 }
 
 func fakeHandler(http.ResponseWriter, *http.Request, Params) {}
