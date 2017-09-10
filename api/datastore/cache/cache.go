@@ -44,7 +44,9 @@ func (c *cacheDB) GetApp(ctx context.Context, appName string) (*models.App, erro
 	return app.(*models.App), nil
 }
 
-func (c *cacheDB) GetRoute(ctx context.Context, appName, path string) (*models.Route, error) {
+
+
+func (c *cacheDB) MatchRoute(ctx context.Context, appName, path string) (*models.Route, error) {
 	key := routeCacheKey(appName, path)
 	route, ok := c.cache.Get(key)
 	if ok {
@@ -52,7 +54,7 @@ func (c *cacheDB) GetRoute(ctx context.Context, appName, path string) (*models.R
 	}
 
 	resp, err := c.singleflight.Do(key,
-		func() (interface{}, error) { return c.Datastore.GetRoute(ctx, appName, path) },
+		func() (interface{}, error) { return c.Datastore.MatchRoute(ctx, appName, path) },
 	)
 	if err != nil {
 		return nil, err
