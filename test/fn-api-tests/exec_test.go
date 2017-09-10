@@ -319,6 +319,8 @@ func TestRouteExecutions(t *testing.T) {
 	})
 
 	t.Run("exec-log-test", func(t *testing.T) {
+		//XXX: Fix this test.
+		t.Skip("Flaky test needs to be rewritten. https://github.com/fnproject/fn/issues/253")
 		t.Parallel()
 		s := SetupDefaultSuite()
 		routePath := "/log"
