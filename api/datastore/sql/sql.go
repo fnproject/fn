@@ -610,8 +610,9 @@ func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (*models
 	}
 
 	return &models.CallLog{
-		CallID: callID,
-		Log:    log,
+		CallID:  callID,
+		Log:     log,
+		AppName: appName,
 	}, nil
 }
 

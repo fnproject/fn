@@ -7,6 +7,7 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"strconv"
 )
 
 func (s *Server) handleAppDelete(c *gin.Context) {
@@ -21,10 +22,16 @@ func (s *Server) handleAppDelete(c *gin.Context) {
 		handleErrorResponse(c, err)
 		return
 	}
-	//TODO allow this? #528
-	if len(routes) > 0 {
-		handleErrorResponse(c, models.ErrDeleteAppsWithRoutes)
-		return
+	forceDelete, _ := strconv.ParseBool(c.Query("force"))
+	if !forceDelete {
+		if len(routes) > 0 {
+			handleErrorResponse(c, models.ErrDeleteAppsWithRoutes)
+			return
+		}
+	} else {
+		s.Datastore.BatchDeleteLogs(ctx, app.Name)
+		s.Datastore.BatchDeleteCalls(ctx, app.Name)
+		s.Datastore.BatchDeleteRoutes(ctx, app.Name)
 	}
 
 	err = s.FireBeforeAppDelete(ctx, app)
