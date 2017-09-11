@@ -79,7 +79,7 @@ func registryFromEnv() map[string]docker.AuthConfiguration {
 	}
 
 	if err != nil {
-		logrus.WithError(err).Error("error getting docker auths from config files")
+		logrus.WithError(err).Info("no docker auths from config files found (this is fine)")
 		return nil
 	}
 	return auths.Configs
