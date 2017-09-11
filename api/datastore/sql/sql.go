@@ -221,6 +221,8 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 }
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
+	ds.db.ExecContext(ctx, ds.db.Rebind(
+		`DELETE FROM routes, calls, logs WHERE app_name=?`), appName)
 	query := ds.db.Rebind(`DELETE FROM apps WHERE name = ?`)
 	_, err := ds.db.ExecContext(ctx, query, appName)
 	return err

@@ -20,6 +20,4 @@ type LogStore interface {
 	// DeleteLog will remove the log at callID, it will not return an error if
 	// the log does not exist before removal.
 	DeleteLog(ctx context.Context, appName, callID string) error
-
-	BatchDeleteLogs(ctx context.Context, appName string) error
 }

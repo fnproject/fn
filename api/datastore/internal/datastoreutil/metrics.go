@@ -118,23 +118,5 @@ func (m *metricds) DeleteLog(ctx context.Context, appName, callID string) error 
 	return m.ds.DeleteLog(ctx, appName, callID)
 }
 
-func (m *metricds) BatchDeleteLogs(ctx context.Context, appName string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_batch_delete_logs")
-	defer span.Finish()
-	return m.ds.BatchDeleteLogs(ctx, appName)
-}
-
-func (m *metricds) BatchDeleteCalls(ctx context.Context, appName string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_batch_delete_calls")
-	defer span.Finish()
-	return m.ds.BatchDeleteCalls(ctx, appName)
-}
-
-func (m *metricds) BatchDeleteRoutes(ctx context.Context, appName string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_batch_delete_routes")
-	defer span.Finish()
-	return m.ds.BatchDeleteRoutes(ctx, appName)
-}
-
 // instant & no context ;)
 func (m *metricds) GetDatabase() *sqlx.DB { return m.ds.GetDatabase() }
