@@ -73,17 +73,11 @@ paths:
       tags:
         - Apps
       parameters:
-        - in: path
-          name: app
+        - name: app
+          in: path
           description: Name of the app.
           required: true
-          schema:
-            type: string
-        - in: query
-          name: force
-          schema:
-            type: bool
-          description: Query parameter that enables force delete for app
+          type: string
       responses:
         200:
           description: Apps successfully deleted.
