@@ -27,12 +27,12 @@ func (m *mock) SetDatastore(ctx context.Context, ds models.Datastore) {
 	m.ds = ds
 }
 
-func (m *mock) InsertLog(ctx context.Context, callID string, callLog string) error {
+func (m *mock) InsertLog(ctx context.Context, appName, callID, callLog string) error {
 	m.Logs[callID] = &models.CallLog{CallID: callID, Log: callLog}
 	return nil
 }
 
-func (m *mock) GetLog(ctx context.Context, callID string) (*models.CallLog, error) {
+func (m *mock) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
 	logEntry := m.Logs[callID]
 	if logEntry == nil {
 		return nil, errors.New("Call log not found")
@@ -41,7 +41,7 @@ func (m *mock) GetLog(ctx context.Context, callID string) (*models.CallLog, erro
 	return m.Logs[callID], nil
 }
 
-func (m *mock) DeleteLog(ctx context.Context, callID string) error {
+func (m *mock) DeleteLog(ctx context.Context, appName, callID string) error {
 	delete(m.Logs, callID)
 	return nil
 }

@@ -51,10 +51,11 @@ func NewFuncLogger(ctx context.Context, appName, path, image, reqID string, logD
 
 	// we don't need to log per line to db, but we do need to limit it
 	limitw := newLimitWriter(MB, &dbWriter{
-		Buffer: dbuf,
-		db:     logDB,
-		ctx:    ctx,
-		reqID:  reqID,
+		Buffer:  dbuf,
+		db:      logDB,
+		ctx:     ctx,
+		reqID:   reqID,
+		appName: appName,
 	})
 
 	// TODO / NOTE: we want linew to be first because limitw may error if limit
@@ -177,15 +178,16 @@ func (li *lineWriter) Close() error {
 type dbWriter struct {
 	*bytes.Buffer
 
-	db    models.LogStore
-	ctx   context.Context
-	reqID string
+	db      models.LogStore
+	ctx     context.Context
+	reqID   string
+	appName string
 }
 
 func (w *dbWriter) Close() error {
 	span, ctx := opentracing.StartSpanFromContext(context.Background(), "agent_log_write")
 	defer span.Finish()
-	return w.db.InsertLog(ctx, w.reqID, w.String())
+	return w.db.InsertLog(ctx, w.appName, w.reqID, w.String())
 }
 
 func (w *dbWriter) Write(b []byte) (int, error) {

@@ -100,22 +100,22 @@ func (m *metricds) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*
 	return m.ds.GetCalls(ctx, filter)
 }
 
-func (m *metricds) InsertLog(ctx context.Context, callID string, callLog string) error {
+func (m *metricds) InsertLog(ctx context.Context, appName, callID, callLog string) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_log")
 	defer span.Finish()
-	return m.ds.InsertLog(ctx, callID, callLog)
+	return m.ds.InsertLog(ctx, appName, callID, callLog)
 }
 
-func (m *metricds) GetLog(ctx context.Context, callID string) (*models.CallLog, error) {
+func (m *metricds) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_log")
 	defer span.Finish()
-	return m.ds.GetLog(ctx, callID)
+	return m.ds.GetLog(ctx, appName, callID)
 }
 
-func (m *metricds) DeleteLog(ctx context.Context, callID string) error {
+func (m *metricds) DeleteLog(ctx context.Context, appName, callID string) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_delete_log")
 	defer span.Finish()
-	return m.ds.DeleteLog(ctx, callID)
+	return m.ds.DeleteLog(ctx, appName, callID)
 }
 
 // instant & no context ;)

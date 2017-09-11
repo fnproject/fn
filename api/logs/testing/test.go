@@ -44,7 +44,7 @@ func Test(t *testing.T, fnl models.LogStore, ds models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
-		err = fnl.InsertLog(ctx, call.ID, "test")
+		err = fnl.InsertLog(ctx, call.AppName, call.ID, "test")
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
@@ -56,11 +56,11 @@ func Test(t *testing.T, fnl models.LogStore, ds models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
-		err = fnl.InsertLog(ctx, call.ID, logText)
+		err = fnl.InsertLog(ctx, call.AppName, call.ID, logText)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, call.ID)
+		logEntry, err := fnl.GetLog(ctx, call.AppName, call.ID)
 		if !strings.Contains(logEntry.Log, logText) {
 			t.Fatalf("Test GetLog(ctx, call.ID, logText): unexpected error, log mismatch. "+
 				"Expected: `%v`. Got `%v`.", logText, logEntry.Log)
@@ -73,16 +73,16 @@ func Test(t *testing.T, fnl models.LogStore, ds models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test InsertCall(ctx, &call): unexpected error `%v`", err)
 		}
-		err = fnl.InsertLog(ctx, call.ID, logText)
+		err = fnl.InsertLog(ctx, call.AppName, call.ID, logText)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, call.ID)
+		logEntry, err := fnl.GetLog(ctx, call.AppName, call.ID)
 		if !strings.Contains(logEntry.Log, logText) {
 			t.Fatalf("Test GetLog(ctx, call.ID, logText): unexpected error, log mismatch. "+
 				"Expected: `%v`. Got `%v`.", logText, logEntry.Log)
 		}
-		err = fnl.DeleteLog(ctx, call.ID)
+		err = fnl.DeleteLog(ctx, call.AppName, call.ID)
 		if err != nil {
 			t.Fatalf("Test DeleteLog(ctx, call.ID): unexpected error during deleting log `%v`", err)
 		}
