@@ -29,7 +29,6 @@ func TestRoutes(t *testing.T) {
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.Format, s.RouteConfig, s.RouteHeaders)
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -42,7 +41,6 @@ func TestRoutes(t *testing.T) {
 		if !assertContainsRoute(ListRoutes(t, s.Context, s.Client, s.AppName), s.RoutePath) {
 			t.Errorf("Unable to find corresponding route `%v` in list", s.RoutePath)
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -58,7 +56,6 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("Unable to find corresponding route `%v` in list", s.RoutePath)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -78,7 +75,6 @@ func TestRoutes(t *testing.T) {
 		CheckRouteResponseError(t, err)
 		assertRouteFields(t, routeResp.Payload.Route, s.RoutePath, s.Image, newRouteType, s.Format)
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -102,7 +98,6 @@ func TestRoutes(t *testing.T) {
 		CheckRouteResponseError(t, err)
 		assertRouteFields(t, routeResp.Payload.Route, s.RoutePath, s.Image, s.RouteType, s.Format)
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -122,7 +117,6 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("Route path suppose to be immutable, but it's not.")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -138,7 +132,6 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("Route duplicate error should appear, but it didn't")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -171,7 +164,6 @@ func TestRoutes(t *testing.T) {
 		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, s.RouteHeaders)
 		GetApp(t, s.Context, s.Client, s.AppName)
 		GetRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -181,7 +173,6 @@ func TestRoutes(t *testing.T) {
 		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, s.RouteHeaders)
 		GetApp(t, s.Context, s.Client, s.AppName)
 		GetRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -199,8 +190,6 @@ func TestRoutes(t *testing.T) {
 			s.Format, s.RouteConfig, s.RouteHeaders)
 		assertRouteFields(t, updatedRoute, s.RoutePath, s.Image, newRouteType, s.Format)
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
-
 }

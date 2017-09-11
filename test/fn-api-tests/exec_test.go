@@ -75,7 +75,6 @@ func TestRouteExecutions(t *testing.T) {
 		if !strings.Contains(expectedOutput, output.String()) {
 			t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -105,7 +104,6 @@ func TestRouteExecutions(t *testing.T) {
 		if !strings.Contains(expectedOutput, output.String()) {
 			t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 
 	})
@@ -132,7 +130,6 @@ func TestRouteExecutions(t *testing.T) {
 		CheckRouteResponseError(t, err)
 
 		CallAsync(t, u, &bytes.Buffer{})
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -188,7 +185,6 @@ func TestRouteExecutions(t *testing.T) {
 			t.Errorf("Call object status mismatch.\n\tExpected: %v\n\tActual:%v", "success", callObject.Status)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 
 	})
@@ -237,7 +233,6 @@ func TestRouteExecutions(t *testing.T) {
 				"output", "callObj.Payload.Call.Status")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -283,7 +278,6 @@ func TestRouteExecutions(t *testing.T) {
 				"string, but got: %v", logObj.Payload.Log.Log)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -354,7 +348,6 @@ func TestRouteExecutions(t *testing.T) {
 			t.Errorf("Unexpected error: %s", err)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -399,7 +392,6 @@ func TestRouteExecutions(t *testing.T) {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
 				size/1024, len(logObj.Payload.Log.Log))
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 

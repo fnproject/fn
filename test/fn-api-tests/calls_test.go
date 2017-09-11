@@ -62,7 +62,6 @@ func TestCalls(t *testing.T) {
 			t.Error("Must fail because `dummy` call does not exist.")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -97,7 +96,6 @@ func TestCalls(t *testing.T) {
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -135,7 +133,6 @@ func TestCalls(t *testing.T) {
 				t.Errorf("Call path mismatch.\n\tExpected: %v\n\tActual: %v", c.Path, s.RoutePath)
 			}
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
