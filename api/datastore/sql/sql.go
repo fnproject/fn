@@ -621,6 +621,24 @@ func (ds *sqlStore) DeleteLog(ctx context.Context, appName, callID string) error
 	return err
 }
 
+func (ds *sqlStore) BatchDeleteLogs(ctx context.Context, appName string) error {
+	query := ds.db.Rebind(`DELETE FROM logs WHERE app_name=?`)
+	_, err := ds.db.ExecContext(ctx, query, appName)
+	return err
+}
+
+func (ds *sqlStore) BatchDeleteCalls(ctx context.Context, appName string) error {
+	query := ds.db.Rebind(`DELETE FROM calls WHERE app_name=?`)
+	_, err := ds.db.ExecContext(ctx, query, appName)
+	return err
+}
+
+func (ds *sqlStore) BatchDeleteRoutes(ctx context.Context, appName string) error {
+	query := ds.db.Rebind(`DELETE FROM routes WHERE app_name=?`)
+	_, err := ds.db.ExecContext(ctx, query, appName)
+	return err
+}
+
 // TODO scrap for sqlx scanx ?? some things aren't perfect (e.g. config is a json string)
 type RowScanner interface {
 	Scan(dest ...interface{}) error

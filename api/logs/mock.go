@@ -45,3 +45,12 @@ func (m *mock) DeleteLog(ctx context.Context, appName, callID string) error {
 	delete(m.Logs, callID)
 	return nil
 }
+
+func (m *mock) BatchDeleteLogs(ctx context.Context, appName string) error {
+	for _, log := range m.Logs {
+		if log.AppName == appName {
+			m.DeleteLog(ctx, appName, log.CallID)
+		}
+	}
+	return nil
+}

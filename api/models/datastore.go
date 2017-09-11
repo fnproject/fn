@@ -68,6 +68,8 @@ type Datastore interface {
 	// calls exist, an empty list and a nil error are returned.
 	GetCalls(ctx context.Context, filter *CallFilter) ([]*Call, error)
 
+	BatchDeleteCalls(ctx context.Context, appName string) error
+	BatchDeleteRoutes(ctx context.Context, appName string) error
 	// Implement LogStore methods for convenience
 	LogStore
 

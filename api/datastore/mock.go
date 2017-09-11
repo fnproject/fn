@@ -157,6 +157,28 @@ func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mode
 	return m.Calls, nil
 }
 
+func (m *mock) BatchDeleteCalls(ctx context.Context, appName string) error {
+	newCalls := []*models.Call{}
+	for _, c := range m.Calls {
+		if c.AppName != appName {
+			newCalls = append(newCalls, c)
+		}
+	}
+	m.Calls = newCalls
+	return nil
+}
+
+func (m *mock) BatchDeleteRoutes(ctx context.Context, appName string) error {
+	newRoutes := []*models.Route{}
+	for _, c := range m.Routes {
+		if c.AppName != appName {
+			newRoutes = append(newRoutes, c)
+		}
+	}
+	m.Routes = newRoutes
+	return nil
+}
+
 // GetDatabase returns nil here since shouldn't really be used
 func (m *mock) GetDatabase() *sqlx.DB {
 	return nil

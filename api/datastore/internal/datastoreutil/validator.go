@@ -142,6 +142,18 @@ func (v *validator) DeleteLog(ctx context.Context, appName, callID string) error
 	return v.Datastore.DeleteLog(ctx, appName, callID)
 }
 
+func (v *validator) BatchDeleteLogs(ctx context.Context, appName string) error {
+	return v.Datastore.BatchDeleteLogs(ctx, appName)
+}
+
+func (v *validator) BatchDeleteCalls(ctx context.Context, appName string) error {
+	return v.Datastore.BatchDeleteCalls(ctx, appName)
+}
+
+func (v *validator) BatchDeleteRoutes(ctx context.Context, appName string) error {
+	return v.Datastore.BatchDeleteRoutes(ctx, appName)
+}
+
 // GetDatabase returns the underlying sqlx database implementation
 func (v *validator) GetDatabase() *sqlx.DB {
 	return v.Datastore.GetDatabase()
