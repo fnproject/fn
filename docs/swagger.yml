@@ -508,7 +508,7 @@ definitions:
         readOnly: true
       config:
         type: object
-        description: Application configuration
+        description: Application configuration, applied to all routes.
         additionalProperties:
           type: string
 
