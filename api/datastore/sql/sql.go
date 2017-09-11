@@ -445,6 +445,32 @@ func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*m
 	return &route, nil
 }
 
+
+func (ds *sqlStore) MatchRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
+
+	pathSearches := PossibleRoutePaths(routePath)
+
+	logrus.New().Infof("Searching for %v  from %s", len(pathSearches), routePath)
+	rSelectCondition := "%s WHERE app_name=? AND  path IN (?) ORDER BY LENGTH(path) DESC LIMIT 1"
+	fullQuery := fmt.Sprintf(rSelectCondition, routeSelector)
+
+	inQuery, args, err := sqlx.In(fullQuery, appName,pathSearches)
+	if err != nil {
+		return nil, err
+	}
+
+	inQuery = ds.db.Rebind(inQuery)
+	row := ds.db.QueryRowContext(ctx, inQuery, args...)
+
+	var route models.Route
+	err = scanRoute(row, &route)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrRoutesNotFound
+	} else if err != nil {
+		return nil, err
+	}
+	return &route, nil
+}
 // GetRoutes retrieves an array of routes according to a specific filter.
 func (ds *sqlStore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
@@ -771,4 +797,23 @@ func scanCall(scanner RowScanner, call *models.Call) error {
 // GetDatabase returns the underlying sqlx database implementation
 func (ds *sqlStore) GetDatabase() *sqlx.DB {
 	return ds.db
+}
+
+
+
+// PossibleRoutePaths returns the possible route paths  that could match this path, including the original route
+func PossibleRoutePaths(routePath string) []string{
+
+	splitPath := strings.Split(routePath, "/")
+
+	pathSearches := make([]string, 0, len(splitPath)+1)
+	pathSearches = append(pathSearches, routePath)
+	pathSearches = append(pathSearches, "/*")
+	var curPath = ""
+
+	for _, p := range splitPath[1:] {
+		curPath = curPath + "/" + p
+		pathSearches = append(pathSearches, curPath+"/*")
+	}
+	return pathSearches
 }

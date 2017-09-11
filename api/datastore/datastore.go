@@ -32,3 +32,4 @@ func newds(dbURL string) (models.Datastore, error) {
 		return nil, fmt.Errorf("db type not supported %v", u.Scheme)
 	}
 }
+

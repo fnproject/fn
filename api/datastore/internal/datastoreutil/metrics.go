@@ -46,6 +46,12 @@ func (m *metricds) RemoveApp(ctx context.Context, appName string) error {
 	return m.ds.RemoveApp(ctx, appName)
 }
 
+func (m *metricds) MatchRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_match_route")
+	defer span.Finish()
+	return m.ds.MatchRoute(ctx, appName, routePath)
+}
+
 func (m *metricds) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_route")
 	defer span.Finish()

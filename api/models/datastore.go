@@ -31,11 +31,15 @@ type Datastore interface {
 	// TODO remove routes automatically? #528
 	RemoveApp(ctx context.Context, appName string) error
 
-	// GetRoute looks up a matching Route for appName and the literal request route routePath.
+	// GetRoute looks up a the exact route matching a given route path
 	// Returns ErrDatastoreEmptyAppName when appName is empty, and ErrDatastoreEmptyRoutePath when
 	// routePath is empty.
 	// Returns ErrRoutesNotFound when no matching route is found.
 	GetRoute(ctx context.Context, appName, routePath string) (*Route, error)
+
+	// MatchRoute finds the most-specific route that matches a given path,
+	// this includes wildcard routes with less-specific paths than the given path
+	MatchRoute(ctx context.Context, appName, routePath string) (*Route, error)
 
 	// GetRoutes gets a slice of Routes, optionally filtered by filter.
 	GetRoutes(ctx context.Context, filter *RouteFilter) ([]*Route, error)

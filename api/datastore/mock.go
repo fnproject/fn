@@ -8,6 +8,7 @@ import (
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/datastore/sql"
 )
 
 type mock struct {
@@ -76,6 +77,30 @@ func (m *mock) GetRoute(ctx context.Context, appName, routePath string) (*models
 		}
 	}
 	return nil, models.ErrRoutesNotFound
+}
+
+
+
+func (m *mock) MatchRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
+	var longestMatch *models.Route
+	possibleRoutes := sql.PossibleRoutePaths(routePath)
+	routesMap := make(map[string]bool,len(possibleRoutes))
+	for _,r:= range possibleRoutes {
+		routesMap[r] = true
+	}
+
+	for _, r := range m.Routes {
+		if r.AppName == appName && routesMap[r.Path] {
+			if longestMatch ==nil || len(r.Path) > len(longestMatch.Path) {
+				longestMatch = r
+			}
+		}
+	}
+	if longestMatch !=nil {
+		return longestMatch,nil
+	}else{
+		return nil, models.ErrRoutesNotFound
+	}
 }
 
 func (m *mock) GetRoutes(ctx context.Context, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {

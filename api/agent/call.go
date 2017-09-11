@@ -47,14 +47,9 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			return err
 		}
 
-		route, err := a.ds.GetRoute(req.Context(), appName, path)
+		route, err := a.ds.MatchRoute(req.Context(), appName, path)
 		if err != nil {
 			return err
-		}
-
-		params, match := matchRoute(route.Path, path)
-		if !match {
-			return errors.New("route does not match") // TODO wtf, can we ignore match?
 		}
 
 		if route.Format == "" {
@@ -81,7 +76,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		}
 
 		// envVars contains the full set of env vars, per request + base
-		envVars := make(map[string]string, len(baseVars)+len(params)+len(req.Header)+3)
+		envVars := make(map[string]string, len(baseVars)+len(req.Header)+3)
 
 		for k, v := range baseVars {
 			envVars[k] = v
@@ -96,10 +91,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			return "https"
 		}(), req.Host, req.URL.String())
 
-		// params
-		for _, param := range params {
-			envVars[toEnvName("PARAM", param.Key)] = param.Value
-		}
 
 		headerVars := make(map[string]string, len(req.Header))
 
@@ -293,19 +284,7 @@ func (c *call) End(ctx context.Context, err error) {
 	}
 }
 
-func fakeHandler(http.ResponseWriter, *http.Request, Params) {}
 
-// TODO what is this stuff anyway?
-func matchRoute(baseRoute, route string) (Params, bool) {
-	tree := &node{}
-	tree.addRoute(baseRoute, fakeHandler)
-	handler, p, _ := tree.getValue(route)
-	if handler == nil {
-		return nil, false
-	}
-
-	return p, true
-}
 
 func toEnvName(envtype, name string) string {
 	name = strings.Replace(name, "-", "_", -1)
