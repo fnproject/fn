@@ -6,9 +6,9 @@ import (
 )
 
 func main() {
-	envvar := os.Getenv("HEADER_ENVVAR")
+	envvar := os.Getenv("FN_HEADER_ENVVAR")
 	if envvar != "" {
-		fmt.Println("HEADER_ENVVAR:", envvar)
+		fmt.Println("FN_HEADER_ENVVAR:", envvar)
 	}
 	fmt.Println("hw")
 }

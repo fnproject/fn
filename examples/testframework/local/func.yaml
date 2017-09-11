@@ -9,7 +9,7 @@ tests:
     hw
 - name: envvar
   out: |
-    HEADER_ENVVAR: trololo
+    FN_HEADER_ENVVAR: trololo
     hw
   env:
     envvar: trololo

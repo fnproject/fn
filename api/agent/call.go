@@ -65,12 +65,8 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		// baseVars are the vars on the route & app, not on this specific request [for hot functions]
 		baseVars := make(map[string]string, len(app.Config)+len(route.Config)+3)
-		baseVars["FN_FORMAT"] = route.Format
-		baseVars["APP_NAME"] = appName
-		baseVars["ROUTE"] = route.Path
-		baseVars["MEMORY_MB"] = fmt.Sprintf("%d", route.Memory)
 
-		// app config
+		// add app & route config before our standard additions
 		for k, v := range app.Config {
 			k = toEnvName("", k)
 			baseVars[k] = v
@@ -80,6 +76,12 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			baseVars[k] = v
 		}
 
+		baseVars["FN_FORMAT"] = route.Format
+		baseVars["FN_APP_NAME"] = appName
+		baseVars["FN_ROUTE"] = route.Path
+		baseVars["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
+		baseVars["FN_TYPE"] = route.Type
+
 		// envVars contains the full set of env vars, per request + base
 		envVars := make(map[string]string, len(baseVars)+len(params)+len(req.Header)+3)
 
@@ -87,30 +89,43 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			envVars[k] = v
 		}
 
-		envVars["CALL_ID"] = id
-		envVars["METHOD"] = req.Method
-		envVars["REQUEST_URL"] = fmt.Sprintf("%v://%v%v", func() string {
-			if req.TLS == nil {
-				return "http"
+		envVars["FN_CALL_ID"] = id
+		envVars["FN_METHOD"] = req.Method
+		envVars["FN_REQUEST_URL"] = func() string {
+			if req.URL.Scheme == "" {
+				if req.TLS == nil {
+					req.URL.Scheme = "http"
+				} else {
+					req.URL.Scheme = "https"
+				}
 			}
-			return "https"
-		}(), req.Host, req.URL.String())
+			if req.URL.Host == "" {
+				req.URL.Host = req.Host
+			}
+			return req.URL.String()
+		}()
 
 		// params
 		for _, param := range params {
-			envVars[toEnvName("PARAM", param.Key)] = param.Value
+			envVars[toEnvName("FN_PARAM", param.Key)] = param.Value
 		}
 
 		headerVars := make(map[string]string, len(req.Header))
 
 		for k, v := range req.Header {
-			headerVars[toEnvName("HEADER", k)] = strings.Join(v, ", ")
+			if !noOverrideVars(k) { // NOTE if we don't do this, they'll leak in (don't want people relying on this behavior)
+				headerVars[toEnvName("FN_HEADER", k)] = strings.Join(v, ", ")
+			}
 		}
 
 		// add all the env vars we build to the request headers
-		// TODO should we save req.Headers and copy OVER app.Config / route.Config ?
 		for k, v := range envVars {
-			req.Header.Add(k, v)
+			if noOverrideVars(k) {
+				// overwrite the passed in request headers explicitly with the generated ones
+				req.Header.Set(k, v)
+			} else {
+				req.Header.Add(k, v)
+			}
 		}
 
 		for k, v := range headerVars {
@@ -118,6 +133,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		}
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
+		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
 		if rw, ok := c.w.(http.ResponseWriter); ok {
 			rw.Header().Add("FN_CALL_ID", id)
 			for k, vs := range route.Headers {
@@ -161,6 +177,27 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 	}
 }
 
+func noOverrideVars(key string) bool {
+	// descrepency in casing b/w req headers and env vars, force matches
+	return overrideVars[strings.ToUpper(key)]
+}
+
+// overrideVars means that the app config, route config or header vars
+// must not overwrite the generated values in call construction.
+var overrideVars = map[string]bool{
+	"FN_FORMAT":      true,
+	"FN_APP_NAME":    true,
+	"FN_ROUTE":       true,
+	"FN_MEMORY":      true,
+	"FN_TYPE":        true,
+	"FN_CALL_ID":     true,
+	"FN_METHOD":      true,
+	"FN_REQUEST_URL": true,
+}
+
+// TODO this currently relies on FromRequest having happened before to create the model
+// here, to be a fully qualified model. We probably should double check but having a way
+// to bypass will likely be what's used anyway unless forced.
 func FromModel(mCall *models.Call) CallOpt {
 	return func(a *agent, c *call) error {
 		c.Call = mCall
@@ -245,6 +282,10 @@ func (c *call) Start(ctx context.Context) error {
 
 	c.StartedAt = strfmt.DateTime(time.Now())
 	c.Status = "running"
+
+	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
+		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+	}
 
 	if c.Type == models.TypeAsync {
 		// XXX (reed): make sure MQ reservation is lengthy. to skirt MQ semantics,
