@@ -221,10 +221,16 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 }
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
-	ds.db.ExecContext(ctx, ds.db.Rebind(
-		`DELETE FROM routes, calls, logs WHERE app_name=?`), appName)
 	query := ds.db.Rebind(`DELETE FROM apps WHERE name = ?`)
-	_, err := ds.db.ExecContext(ctx, query, appName)
+	res, err := ds.db.ExecContext(ctx, query, appName)
+	if _, err := res.RowsAffected(); err != nil {
+		return models.ErrAppsNotFound
+	}
+	_, err = ds.db.ExecContext(ctx, ds.db.Rebind(
+		`DELETE FROM routes, calls, logs WHERE app_name=?`), appName)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
@@ -621,24 +627,6 @@ func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (*models
 func (ds *sqlStore) DeleteLog(ctx context.Context, appName, callID string) error {
 	query := ds.db.Rebind(`DELETE FROM logs WHERE id=? AND app_name=?`)
 	_, err := ds.db.ExecContext(ctx, query, callID, appName)
-	return err
-}
-
-func (ds *sqlStore) BatchDeleteLogs(ctx context.Context, appName string) error {
-	query := ds.db.Rebind(`DELETE FROM logs WHERE app_name=?`)
-	_, err := ds.db.ExecContext(ctx, query, appName)
-	return err
-}
-
-func (ds *sqlStore) BatchDeleteCalls(ctx context.Context, appName string) error {
-	query := ds.db.Rebind(`DELETE FROM calls WHERE app_name=?`)
-	_, err := ds.db.ExecContext(ctx, query, appName)
-	return err
-}
-
-func (ds *sqlStore) BatchDeleteRoutes(ctx context.Context, appName string) error {
-	query := ds.db.Rebind(`DELETE FROM routes WHERE app_name=?`)
-	_, err := ds.db.ExecContext(ctx, query, appName)
 	return err
 }
 
