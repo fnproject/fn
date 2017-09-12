@@ -227,7 +227,17 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 		return models.ErrAppsNotFound
 	}
 	_, err = ds.db.ExecContext(ctx, ds.db.Rebind(
-		`DELETE FROM routes, calls, logs WHERE app_name=?`), appName)
+		`DELETE FROM logs WHERE app_name=?`), appName)
+	if err != nil {
+		return err
+	}
+	_, err = ds.db.ExecContext(ctx, ds.db.Rebind(
+		`DELETE FROM calls WHERE app_name=?`), appName)
+	if err != nil {
+		return err
+	}
+	_, err = ds.db.ExecContext(ctx, ds.db.Rebind(
+		`DELETE FROM routes WHERE app_name=?`), appName)
 	if err != nil {
 		return err
 	}
