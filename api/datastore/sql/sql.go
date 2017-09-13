@@ -229,10 +229,11 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := res.RowsAffected(); err != nil {
+	_, err = res.RowsAffected()
+	if err == sql.ErrNoRows {
 		return models.ErrAppsNotFound
 	}
-	return nil
+	return err
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
