@@ -15,30 +15,7 @@ func (s *Server) handleAppDelete(c *gin.Context) {
 
 	app := &models.App{Name: c.MustGet(api.AppName).(string)}
 
-	routes, err := s.Datastore.GetRoutesByApp(ctx, app.Name, &models.RouteFilter{})
-	if err != nil {
-		log.WithError(err).Error("error getting route in app delete")
-		handleErrorResponse(c, err)
-		return
-	}
-	//TODO allow this? #528
-	if len(routes) > 0 {
-		handleErrorResponse(c, models.ErrDeleteAppsWithRoutes)
-		return
-	}
-
-	err = s.FireBeforeAppDelete(ctx, app)
-	if err != nil {
-		log.WithError(err).Error("error firing before app delete")
-		handleErrorResponse(c, err)
-		return
-	}
-
-	app, err = s.Datastore.GetApp(ctx, app.Name)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
+	err := s.FireBeforeAppDelete(ctx, app)
 
 	err = s.Datastore.RemoveApp(ctx, app.Name)
 	if err != nil {

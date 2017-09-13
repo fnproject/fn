@@ -61,6 +61,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 	`CREATE TABLE IF NOT EXISTS logs (
 	id varchar(256) NOT NULL PRIMARY KEY,
+	app_name varchar(256) NOT NULL,
 	log text NOT NULL
 );`,
 }
@@ -220,9 +221,18 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 }
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
-	query := ds.db.Rebind(`DELETE FROM apps WHERE name = ?`)
-	_, err := ds.db.ExecContext(ctx, query, appName)
-	return err
+	res, err := ds.db.ExecContext(ctx, ds.db.Rebind(
+		`DELETE FROM apps WHERE name = ?;
+		DELETE FROM logs WHERE app_name=?;
+		DELETE FROM calls WHERE app_name=?;
+		DELETE FROM routes WHERE app_name=?;`), appName, appName, appName, appName)
+	if err != nil {
+		return err
+	}
+	if _, err := res.RowsAffected(); err != nil {
+		return models.ErrAppsNotFound
+	}
+	return nil
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
@@ -589,15 +599,15 @@ func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 	return res, nil
 }
 
-func (ds *sqlStore) InsertLog(ctx context.Context, callID, callLog string) error {
-	query := ds.db.Rebind(`INSERT INTO logs (id, log) VALUES (?, ?);`)
-	_, err := ds.db.ExecContext(ctx, query, callID, callLog)
+func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID, callLog string) error {
+	query := ds.db.Rebind(`INSERT INTO logs (id, app_name, log) VALUES (?, ?, ?);`)
+	_, err := ds.db.ExecContext(ctx, query, callID, appName, callLog)
 	return err
 }
 
-func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.CallLog, error) {
-	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=?`)
-	row := ds.db.QueryRowContext(ctx, query, callID)
+func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
+	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_name=?`)
+	row := ds.db.QueryRowContext(ctx, query, callID, appName)
 
 	var log string
 	err := row.Scan(&log)
@@ -609,14 +619,15 @@ func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.CallLog,
 	}
 
 	return &models.CallLog{
-		CallID: callID,
-		Log:    log,
+		CallID:  callID,
+		Log:     log,
+		AppName: appName,
 	}, nil
 }
 
-func (ds *sqlStore) DeleteLog(ctx context.Context, callID string) error {
-	query := ds.db.Rebind(`DELETE FROM logs WHERE id=?`)
-	_, err := ds.db.ExecContext(ctx, query, callID)
+func (ds *sqlStore) DeleteLog(ctx context.Context, appName, callID string) error {
+	query := ds.db.Rebind(`DELETE FROM logs WHERE id=? AND app_name=?`)
+	_, err := ds.db.ExecContext(ctx, query, callID, appName)
 	return err
 }
 

@@ -60,6 +60,8 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) RemoveApp(ctx context.Context, appName string) error {
+	m.batchDeleteCalls(ctx, appName)
+	m.batchDeleteRoutes(ctx, appName)
 	for i, a := range m.Apps {
 		if a.Name == appName {
 			m.Apps = append(m.Apps[:i], m.Apps[i+1:]...)
@@ -155,6 +157,28 @@ func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Cal
 
 func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
 	return m.Calls, nil
+}
+
+func (m *mock) batchDeleteCalls(ctx context.Context, appName string) error {
+	newCalls := []*models.Call{}
+	for _, c := range m.Calls {
+		if c.AppName != appName {
+			newCalls = append(newCalls, c)
+		}
+	}
+	m.Calls = newCalls
+	return nil
+}
+
+func (m *mock) batchDeleteRoutes(ctx context.Context, appName string) error {
+	newRoutes := []*models.Route{}
+	for _, c := range m.Routes {
+		if c.AppName != appName {
+			newRoutes = append(newRoutes, c)
+		}
+	}
+	m.Routes = newRoutes
+	return nil
 }
 
 // GetDatabase returns nil here since shouldn't really be used

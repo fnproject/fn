@@ -121,7 +121,6 @@ func TestFullStack(t *testing.T) {
 		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusInternalServerError, 2},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},
-		{"delete app (fail)", "DELETE", "/v1/apps/myapp", ``, http.StatusConflict, 1},
 		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"delete app (success)", "DELETE", "/v1/apps/myapp", ``, http.StatusOK, 0},
 		{"get deleted app", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0},

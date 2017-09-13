@@ -18,7 +18,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 		return
 	}
 
-	callObj, err := s.LogDB.GetLog(ctx, callID)
+	callObj, err := s.LogDB.GetLog(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -37,7 +37,7 @@ func (s *Server) handleCallLogDelete(c *gin.Context) {
 		handleErrorResponse(c, err)
 		return
 	}
-	err = s.LogDB.DeleteLog(ctx, callID)
+	err = s.LogDB.DeleteLog(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
