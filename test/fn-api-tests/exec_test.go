@@ -165,8 +165,8 @@ func TestRouteExecutions(t *testing.T) {
 		callResponse, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 		if err != nil {
 			switch err.(type) {
-			case *call.GetCallsCallNotFound:
-				msg := err.(*call.GetCallsCallNotFound).Payload.Error.Message
+			case *call.GetAppsAppCallsCallNotFound:
+				msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}

@@ -78,21 +78,15 @@ func TestCalls(t *testing.T) {
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-		callID := CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 5)
-		cfg := &call.GetCallsCallParams{
-			Call:    callID,
-			Context: s.Context,
-		}
-		cfg.WithTimeout(time.Second * 60)
 		_, err := s.Client.Call.GetAppsAppCalls(&call.GetAppsAppCallsParams{
 			App:   s.AppName,
 			Route: &s.RoutePath,
 		})
 		if err != nil {
 			switch err.(type) {
-			case *call.GetCallsCallNotFound:
-				msg := err.(*call.GetCallsCallNotFound).Payload.Error.Message
+			case *call.GetAppsAppCallsCallNotFound:
+				msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}

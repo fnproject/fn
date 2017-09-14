@@ -89,7 +89,7 @@ func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, rou
 
 }
 
-func createRoute(ctx context.Context, fnclient *client.Functions, appName, image, routePath, routeType string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
+func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, routePath, routeType string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
 	cfg := &routes.PostAppsAppRoutesParams{
 		App: appName,
 		Body: &models.RouteWrapper{
@@ -118,14 +118,14 @@ func createRoute(ctx context.Context, fnclient *client.Functions, appName, image
 
 }
 
-func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) {
+func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) {
 	routeResponse, err := createRoute(ctx, fnclient, appName, image, routePath, routeType, routeConfig, headers)
 	CheckRouteResponseError(t, err)
 
 	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType, routeFormat)
 }
 
-func deleteRoute(ctx context.Context, fnclient *client.Functions, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
+func deleteRoute(ctx context.Context, fnclient *client.Fn, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
 	cfg := &routes.DeleteAppsAppRoutesRouteParams{
 		App:     appName,
 		Route:   routePath,
@@ -135,12 +135,12 @@ func deleteRoute(ctx context.Context, fnclient *client.Functions, appName, route
 	return fnclient.Routes.DeleteAppsAppRoutesRoute(cfg)
 }
 
-func DeleteRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath string) {
+func DeleteRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath string) {
 	_, err := deleteRoute(ctx, fnclient, appName, routePath)
 	CheckRouteResponseError(t, err)
 }
 
-func ListRoutes(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string) []*models.Route {
+func ListRoutes(t *testing.T, ctx context.Context, fnclient *client.Fn, appName string) []*models.Route {
 	cfg := &routes.GetAppsAppRoutesParams{
 		App:     appName,
 		Context: ctx,
@@ -151,7 +151,7 @@ func ListRoutes(t *testing.T, ctx context.Context, fnclient *client.Functions, a
 	return routesResponse.Payload.Routes
 }
 
-func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath string) *models.Route {
+func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath string) *models.Route {
 	cfg := &routes.GetAppsAppRoutesRouteParams{
 		App:     appName,
 		Route:   routePath,
@@ -163,7 +163,7 @@ func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, app
 	return routeResponse.Payload.Route
 }
 
-func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, format string, memory uint64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
+func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath, image, routeType, format string, memory uint64, routeConfig map[string]string, headers map[string][]string, newRoutePath string) (*routes.PatchAppsAppRoutesRouteOK, error) {
 
 	routeObject := GetRoute(t, ctx, fnclient, appName, routePath)
 	if routeObject.Config == nil {
@@ -231,7 +231,7 @@ func assertContainsRoute(routeModels []*models.Route, expectedRoute string) bool
 	return false
 }
 
-func DeployRoute(t *testing.T, ctx context.Context, fnclient *client.Functions, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) *models.Route {
+func DeployRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) *models.Route {
 	cfg := &routes.PutAppsAppRoutesRouteParams{
 		App:     appName,
 		Context: ctx,

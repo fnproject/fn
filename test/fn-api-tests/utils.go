@@ -38,7 +38,7 @@ func Host() string {
 	return u.Host
 }
 
-func APIClient() *client.Functions {
+func APIClient() *client.Fn {
 	transport := httptransport.New(Host(), "/v1", []string{"http"})
 	if os.Getenv("FN_TOKEN") != "" {
 		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("FN_TOKEN"))
@@ -100,7 +100,7 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 
 type SuiteSetup struct {
 	Context      context.Context
-	Client       *client.Functions
+	Client       *client.Fn
 	AppName      string
 	RoutePath    string
 	Image        string
