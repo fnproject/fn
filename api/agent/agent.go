@@ -442,12 +442,12 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	res, err := waiter.Wait(ctx)
 	if err != nil {
 		return err
-	} else if res.Error() != "" {
+	} else if res.Error() != nil {
 		// check for call error (oom/exit) and beam it up
-		return res
+		return res.Error()
 	}
 
-	// nil or timed out (Wait will silently return nil if it encounters a timeout, maybe TODO)
+	// nil or timed out
 	return ctx.Err()
 }
 
@@ -666,10 +666,11 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 		}
 	}()
 
-	// we can discard the result, mostly for timeouts / cancels.
-	_, err = waiter.Wait(ctx)
+	res, err := waiter.Wait(ctx)
 	if err != nil {
 		errC <- err
+	} else if res.Error() != nil {
+		errC <- res.Error()
 	}
 
 	logger.WithError(err).Info("hot function terminated")

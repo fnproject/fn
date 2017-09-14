@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -33,6 +32,8 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 }
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
+	buf := setLogBuffer()
+
 	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
@@ -71,20 +72,21 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
 
-		fmt.Println("About to start router")
+		t.Log("About to start router")
 		rnr, cancel := testRunner(t, ds)
 		router := testRouterAsync(ds, mq, rnr)
 
-		fmt.Println("makeing requests")
+		t.Log("making requests")
 		req, rec := newRouterRequest(t, "POST", test.path, body)
 		for name, value := range test.headers {
 			req.Header.Set(name, value[0])
 		}
-		fmt.Println("About to start router2")
+		t.Log("About to start router2")
 		router.ServeHTTP(rec, req)
-		fmt.Println("after servehttp")
+		t.Log("after servehttp")
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}

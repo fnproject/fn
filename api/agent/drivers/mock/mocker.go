@@ -32,18 +32,18 @@ func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 		return nil, fmt.Errorf("Mocker error! Bad.")
 	}
 	return &runResult{
-		error:  nil,
+		err:    nil,
 		status: "success",
 		start:  time.Now(),
 	}, nil
 }
 
 type runResult struct {
-	error
+	err    error
 	status string
 	start  time.Time
 }
 
 func (r *runResult) Wait(context.Context) (drivers.RunResult, error) { return r, nil }
 func (r *runResult) Status() string                                  { return r.status }
-func (r *runResult) StartTime() time.Time                            { return r.start }
+func (r *runResult) Error() error                                    { return r.err }

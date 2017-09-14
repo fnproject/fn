@@ -5,8 +5,6 @@ package docker
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -130,25 +128,7 @@ func isDocker50x(err error) bool {
 	return ok && derr.Status >= 500
 }
 
-func containerConfigError(err error) error {
-	derr, ok := err.(*docker.Error)
-	if ok && derr.Status == 400 {
-		// derr.Message is a JSON response from docker, which has a "message" field we want to extract if possible.
-		var v struct {
-			Msg string `json:"message"`
-		}
-
-		err := json.Unmarshal([]byte(derr.Message), &v)
-		if err != nil {
-			// If message was not valid JSON, the raw body is still better than nothing.
-			return fmt.Errorf("%s", derr.Message)
-		}
-		return fmt.Errorf("%s", v.Msg)
-	}
-
-	return nil
-}
-
+// implement common.Temporary()
 type temporary struct {
 	error
 }

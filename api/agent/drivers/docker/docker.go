@@ -2,14 +2,18 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
@@ -32,19 +36,12 @@ type Auther interface {
 }
 
 type runResult struct {
-	error
+	err    error
 	status string
 }
 
-func (r *runResult) Error() string {
-	if r.error == nil {
-		return ""
-	}
-	return r.error.Error()
-}
-
-func (r *runResult) Status() string    { return r.status }
-func (r *runResult) UserVisible() bool { return common.IsUserVisibleError(r.error) }
+func (r *runResult) Error() error   { return r.err }
+func (r *runResult) Status() string { return r.status }
 
 type DockerDriver struct {
 	conf     drivers.Config
@@ -146,9 +143,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 				"image": container.Config.Image, "volumes": container.Config.Volumes, "binds": container.HostConfig.Binds, "container": container.Name,
 			}).WithError(err).Error("Could not create container")
 
-			if ce := containerConfigError(err); ce != nil {
-				return nil, common.UserError(fmt.Errorf("Failed to create container from task configuration '%s'", ce))
-			}
+			// NOTE: if the container fails to create we don't really want to show to user since they aren't directly configuring the container
 			return nil, err
 		}
 	}
@@ -190,10 +185,12 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 	var config docker.AuthConfiguration // default, tries docker hub w/o user/pass
 
 	// if any configured host auths match task registry, try them (task docker auth can override)
+	// TODO this is still a little hairy using suffix, we should probably try to parse it as a
+	// url and extract the host (from both the config file & image)
 	for _, v := range drv.auths {
-		// TODO doubt this works. copied to attempt to keep parity. nobody using so... glhf
-		if strings.HasSuffix(v.ServerAddress, reg) {
+		if reg != "" && strings.HasSuffix(v.ServerAddress, reg) {
 			config = v
+			break
 		}
 	}
 
@@ -240,15 +237,35 @@ func (drv *DockerDriver) pullImage(ctx context.Context, task drivers.ContainerTa
 	if err != nil {
 		log.WithFields(logrus.Fields{"registry": config.ServerAddress, "username": config.Username, "image": task.Image()}).WithError(err).Error("Failed to pull image")
 
-		// TODO need to inspect for hub or network errors and pick.
-		return common.UserError(fmt.Errorf("Failed to pull image '%s': %s", task.Image(), err))
+		// TODO need to inspect for hub or network errors and pick; for now, assume
+		// 500 if not a docker error
+		msg := err.Error()
+		code := http.StatusInternalServerError
+		if dErr, ok := err.(*docker.Error); ok {
+			msg = dockerMsg(dErr)
+			code = dErr.Status // 401/404
+		}
 
-		// TODO what about a case where credentials were good, then credentials
-		// were invalidated -- do we need to keep the credential cache docker
-		// driver side and after pull for this case alone?
+		return models.NewAPIError(code, fmt.Errorf("Failed to pull image '%s': %s", task.Image(), msg))
 	}
 
 	return nil
+}
+
+// removes docker err formatting: 'API Error (code) {"message":"..."}'
+func dockerMsg(derr *docker.Error) string {
+	// derr.Message is a JSON response from docker, which has a "message" field we want to extract if possible.
+	// this is pretty lame, but it is what it is
+	var v struct {
+		Msg string `json:"message"`
+	}
+
+	err := json.Unmarshal([]byte(derr.Message), &v)
+	if err != nil {
+		// If message was not valid JSON, the raw body is still better than nothing.
+		return derr.Message
+	}
+	return v.Msg
 }
 
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
@@ -305,7 +322,7 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	status, err := w.drv.wait(ctx, w.container)
 	return &runResult{
 		status: status,
-		error:  err,
+		err:    err,
 	}, nil
 }
 
@@ -428,9 +445,9 @@ func (drv *DockerDriver) wait(ctx context.Context, container string) (status str
 		case <-ctx.Done(): // check if task was canceled or timed out
 			switch ctx.Err() {
 			case context.DeadlineExceeded:
-				return drivers.StatusTimeout, nil
+				return drivers.StatusTimeout, context.DeadlineExceeded
 			case context.Canceled:
-				return drivers.StatusCancelled, nil
+				return drivers.StatusCancelled, context.Canceled
 			}
 		default:
 		}
@@ -438,11 +455,11 @@ func (drv *DockerDriver) wait(ctx context.Context, container string) (status str
 
 	switch exitCode {
 	default:
-		return drivers.StatusError, common.UserError(fmt.Errorf("container exit code %d", exitCode))
+		return drivers.StatusError, models.NewAPIError(http.StatusBadGateway, fmt.Errorf("container exit code %d", exitCode))
 	case 0:
 		return drivers.StatusSuccess, nil
 	case 137: // OOM
 		opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
-		return drivers.StatusKilled, drivers.ErrOutOfMemory
+		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, errors.New("container out of memory"))
 	}
 }
