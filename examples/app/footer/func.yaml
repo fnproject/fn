@@ -1,5 +1,5 @@
 name: footer
-version: 0.0.10
+version: 0.0.12
 runtime: ruby
 entrypoint: ruby func.rb
 headers:
