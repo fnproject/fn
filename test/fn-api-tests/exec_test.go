@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client/call"
-	"github.com/funcy/functions_go/client/operations"
+	"github.com/fnproject/fn_go/client/call"
+	"github.com/fnproject/fn_go/client/operations"
 )
 
 type ErrMsg struct {
@@ -165,8 +165,8 @@ func TestRouteExecutions(t *testing.T) {
 		callResponse, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 		if err != nil {
 			switch err.(type) {
-			case *call.GetCallsCallNotFound:
-				msg := err.(*call.GetCallsCallNotFound).Payload.Error.Message
+			case *call.GetAppsAppCallsCallNotFound:
+				msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client"
-	"github.com/funcy/functions_go/client/apps"
-	"github.com/funcy/functions_go/models"
+	"github.com/fnproject/fn_go/client"
+	"github.com/fnproject/fn_go/client/apps"
+	"github.com/fnproject/fn_go/models"
 )
 
 func CheckAppResponseError(t *testing.T, e error) {
@@ -44,7 +44,7 @@ func CheckAppResponseError(t *testing.T, e error) {
 	}
 }
 
-func CreateAppNoAssert(ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) (*apps.PostAppsOK, error) {
+func CreateAppNoAssert(ctx context.Context, fnclient *client.Fn, appName string, config map[string]string) (*apps.PostAppsOK, error) {
 	cfg := &apps.PostAppsParams{
 		Body: &models.AppWrapper{
 			App: &models.App{
@@ -66,7 +66,7 @@ func CreateAppNoAssert(ctx context.Context, fnclient *client.Functions, appName 
 	return ok, err
 }
 
-func CreateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) {
+func CreateApp(t *testing.T, ctx context.Context, fnclient *client.Fn, appName string, config map[string]string) {
 	appPayload, err := CreateAppNoAssert(ctx, fnclient, appName, config)
 	CheckAppResponseError(t, err)
 	if !strings.Contains(appName, appPayload.Payload.App.Name) {
@@ -75,7 +75,7 @@ func CreateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, ap
 	}
 }
 
-func CreateUpdateApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string, config map[string]string) *apps.PatchAppsAppOK {
+func CreateUpdateApp(t *testing.T, ctx context.Context, fnclient *client.Fn, appName string, config map[string]string) *apps.PatchAppsAppOK {
 	CreateApp(t, ctx, fnclient, appName, map[string]string{"A": "a"})
 	cfg := &apps.PatchAppsAppParams{
 		App: appName,
@@ -93,7 +93,7 @@ func CreateUpdateApp(t *testing.T, ctx context.Context, fnclient *client.Functio
 	return appPayload
 }
 
-func DeleteApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string) {
+func DeleteApp(t *testing.T, ctx context.Context, fnclient *client.Fn, appName string) {
 	cfg := &apps.DeleteAppsAppParams{
 		App:     appName,
 		Context: ctx,
@@ -103,7 +103,7 @@ func DeleteApp(t *testing.T, ctx context.Context, fnclient *client.Functions, ap
 	CheckAppResponseError(t, err)
 }
 
-func GetApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appName string) *models.App {
+func GetApp(t *testing.T, ctx context.Context, fnclient *client.Fn, appName string) *models.App {
 	cfg := &apps.GetAppsAppParams{
 		App:     appName,
 		Context: ctx,
@@ -114,7 +114,7 @@ func GetApp(t *testing.T, ctx context.Context, fnclient *client.Functions, appNa
 	return app.Payload.App
 }
 
-func DeleteAppNoT(ctx context.Context, fnclient *client.Functions, appName string) {
+func DeleteAppNoT(ctx context.Context, fnclient *client.Fn, appName string) {
 	cfg := &apps.DeleteAppsAppParams{
 		App:     appName,
 		Context: ctx,

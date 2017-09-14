@@ -9,6 +9,7 @@ If you are a developer using Fn through the API, this section is for you.
 * [Writing functions](writing.md)
 * [fn (CLI Tool)](https://github.com/fnproject/cli/blob/master/README.md)
 * [Function file (func.yaml)](function-file.md)
+* [Client Libraries](developers/clients.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
 * API Reference (coming soon)

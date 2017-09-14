@@ -9,7 +9,6 @@ require_relative 'utils.rb'
 swaggerUrl = "https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
-version = '0.1.30'
 puts "VERSION: #{version}"
 
 # Can pass in a particular language to only do that one
@@ -33,6 +32,7 @@ def clone(lang)
     Dir.chdir '../'
   end
   Dir.chdir '../'
+  return "tmp/#{ldir}"
 end
 
 FileUtils.mkdir_p 'tmp'
@@ -44,25 +44,23 @@ else
   languages = ['go', 'ruby', 'php', 'python', 'elixir', 'javascript'] # JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
 end
 languages.each do |l|
-  puts l
+  puts "\nGenerating client for #{l}..."
   lshort = l
-  # lang_options = JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients/#{l}", ssl_context: ctx).body)
-  # p lang_options
-  # only going to do ruby and go for now
   glob_pattern = ["**", "*"]
   copy_dir = "."
   options = {}
   skip_files = []
   deploy = []
+  clone_dir = ""
   case l
   when 'go'
-    clone(lshort)
+    clone_dir = clone(lshort)
     glob_pattern = ['functions', "**", "*.go"]
     copy_dir = "."
     options['packageName'] = 'functions'
     options['packageVersion'] = version
   when 'ruby'
-    clone(l)
+    clone_dir = clone(l)
     fruby = "fn_ruby"
     gem_name = "fn_ruby"
     glob_pattern = ["**", "*.rb"] # just rb files
@@ -78,60 +76,52 @@ languages.each do |l|
   when 'javascript'
     lshort = 'js'
     # copy_dir = "javascript-client/."
-    clone(lshort)
+    clone_dir = clone(lshort)
     options['projectName'] = "fn_js"
     deploy << "npm publish"
+  else
+    clone_dir = clone(l)
   end
   p options
+  lv = "#{lshort}-#{version}"  
+  destdir = "tmp/fn_#{lshort}"
   if l == 'go'
-    puts "SKIPPING GO, it's manual for now."
     # This is using https://goswagger.io/ instead
-    # TODO: run this build command instead: this works if run manually
-    # dep ensure && docker run --rm -it  -v $HOME/dev/go:/go -w /go/src/github.com/treeder/functions_go quay.io/goswagger/swagger generate client -f https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml -A functions
-    # cmd := exec.Command("docker", "run", "--rm", "-u", fmt.Sprintf("%s:%s", u.Uid, u.Gid), "-v", fmt.Sprintf("%s/%s:/go/src/github.com/funcy/functions_go", cwd, target), "-v", fmt.Sprintf("%s/%s:/go/swagger.spec", cwd, swaggerURL), "-w", "/go/src", "quay.io/goswagger/swagger", "generate", "client", "-f", "/go/swagger.spec", "-t", "github.com/funcy/functions_go", "-A", "functions")
-    # d, err := cmd.CombinedOutput()
-    # if err != nil {
-    #   log.Printf("Error running go-swagger: %s\n", d)
-    #   return err
-    # }
-    next
+    stream_exec "docker run --rm -v ${PWD}/#{clone_dir}:/go/src/github.com/fnproject/fn_go -w /go/src/github.com/fnproject/fn_go quay.io/goswagger/swagger generate client -f #{swaggerUrl} -A fn "
   else
     gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
-    json: {
-      swaggerUrl: swaggerUrl,
-      options: options,
-    },
-    ssl_context: ctx).body)
+      json: {
+        swaggerUrl: swaggerUrl,
+        options: options,
+      },
+      ssl_context: ctx).body)
     p gen
 
-    lv = "#{lshort}-#{version}"
     zipfile = "tmp/#{lv}.zip"
     stream_exec "curl -o #{zipfile} #{gen['link']} -k"
     stream_exec "unzip -o #{zipfile} -d tmp/#{lv}"
-  end
 
-  # delete the skip_files
-  skip_files.each do |sf|
-    begin
-      File.delete("tmp/#{lv}/#{lshort}-client/" + sf)
-    rescue => ex
-      puts "Error deleting file: #{ex.backtrace}"
+    # delete the skip_files
+    skip_files.each do |sf|
+      begin
+        File.delete("tmp/#{lv}/#{lshort}-client/" + sf)
+      rescue => ex
+        puts "Error deleting file: #{ex.backtrace}"
+      end
     end
-  end
 
-  # Copy into clone repos
-  fj = File.join(['tmp', lv, "#{l}-client"] + glob_pattern)
-  # FileUtils.mkdir_p "tmp/#{l}-copy"
-  # FileUtils.cp_r(Dir.glob(fj), "tmp/#{l}-copy")
-  destdir = "tmp/fn_#{lshort}"
-  puts "Trying cp", "tmp/#{lv}/#{l}-client/#{copy_dir}", destdir
-  FileUtils.cp_r("tmp/#{lv}/#{l}-client/#{copy_dir}", destdir)
-  # Write a version file, this ensures there's always a change.
+    # Copy into clone repos
+    fj = File.join(['tmp', lv, "#{l}-client"] + glob_pattern)
+    puts "Trying cp", "tmp/#{lv}/#{l}-client/#{copy_dir}", destdir
+    FileUtils.cp_r("tmp/#{lv}/#{l}-client/#{copy_dir}", destdir)
+    # Write a version file, this ensures there's always a change.
+  end
   File.open("#{destdir}/VERSION", 'w') { |file| file.write(version) }
+
 
   # Commit and push
   begin
-    Dir.chdir("tmp/fn_#{lshort}")
+    Dir.chdir(destdir)
     stream_exec "git add ."
     stream_exec "git commit -am \"Updated to api version #{version}\""
     begin
@@ -155,7 +145,3 @@ languages.each do |l|
   Dir.chdir("../../")
 
 end
-
-# Uncomment the following lines if we start using the Go lib
-# Dir.chdir("../")
-# stream_exec "glide up"

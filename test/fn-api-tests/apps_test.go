@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client/apps"
+	"github.com/fnproject/fn_go/client/apps"
 )
 
 func TestApps(t *testing.T) {

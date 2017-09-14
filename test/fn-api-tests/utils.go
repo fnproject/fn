@@ -17,7 +17,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/funcy/functions_go/client"
+	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"github.com/spf13/viper"
@@ -38,7 +38,7 @@ func Host() string {
 	return u.Host
 }
 
-func APIClient() *client.Functions {
+func APIClient() *client.Fn {
 	transport := httptransport.New(Host(), "/v1", []string{"http"})
 	if os.Getenv("FN_TOKEN") != "" {
 		transport.DefaultAuthentication = httptransport.BearerToken(os.Getenv("FN_TOKEN"))
@@ -100,7 +100,7 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 
 type SuiteSetup struct {
 	Context      context.Context
-	Client       *client.Functions
+	Client       *client.Fn
 	AppName      string
 	RoutePath    string
 	Image        string
