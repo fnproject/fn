@@ -10,8 +10,10 @@ import (
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type runnerResponse struct {
@@ -60,6 +62,10 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 
 	// TODO we could add FireBeforeDispatch right here with Call in hand
 	model := call.Model()
+	{ // scope this, to disallow ctx use outside of this scope. add id for handleErrorResponse logger
+		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
+		c.Request = c.Request.WithContext(ctx)
+	}
 
 	if model.Type == "async" {
 		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?

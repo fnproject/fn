@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
@@ -249,6 +250,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	// TODO add log store interface (yagni?)
 	c.ds = a.ds
 	c.mq = a.mq
+
+	ctx, _ := common.LoggerWithFields(c.req.Context(),
+		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
+	c.req = c.req.WithContext(ctx)
 
 	return &c, nil
 }
