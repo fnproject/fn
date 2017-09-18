@@ -16,7 +16,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/sirupsen/logrus"
 )
 
@@ -459,7 +458,8 @@ func (drv *DockerDriver) wait(ctx context.Context, container string) (status str
 	case 0:
 		return drivers.StatusSuccess, nil
 	case 137: // OOM
-		opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
+		// TODO put in stats opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
+		common.Logger(ctx).Error("docker oom")
 		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, errors.New("container out of memory"))
 	}
 }

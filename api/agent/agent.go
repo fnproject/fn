@@ -596,6 +596,7 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
