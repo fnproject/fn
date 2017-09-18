@@ -2,15 +2,11 @@ package agent
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
 
-	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/models"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,13 +15,10 @@ var (
 	logPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
-// TODO we can have different types of these func loggers later
-// TODO move this to a different package
-
-// DefaultFuncLogger returns a WriteCloser that writes STDERR output from a
-// container and outputs it in a parsed structured log format to attached
-// STDERR as well as writing the log to the db when Close is called.
-func NewFuncLogger(ctx context.Context, appName, path, image, reqID string, logDB models.LogStore) io.WriteCloser {
+// setupLogger returns an io.ReadWriteCloser which may write to multiple io.Writer's,
+// and may be read from the returned io.Reader (singular). After Close is called,
+// the Reader is not safe to read from, nor the Writer to write to.
+func setupLogger(logger logrus.FieldLogger) io.ReadWriteCloser {
 	lbuf := bufPool.Get().(*bytes.Buffer)
 	dbuf := logPool.Get().(*bytes.Buffer)
 
@@ -39,40 +32,45 @@ func NewFuncLogger(ctx context.Context, appName, path, image, reqID string, logD
 	}
 
 	// we don't need to limit the log writer, but we do need it to dispense lines
-	linew := newLineWriterWithBuffer(lbuf, &logWriter{
-		ctx:     ctx,
-		appName: appName,
-		path:    path,
-		image:   image,
-		reqID:   reqID,
-	})
+	linew := newLineWriterWithBuffer(lbuf, &logWriter{logger})
 
 	const MB = 1 * 1024 * 1024 // pick a number any number.. TODO configurable ?
 
 	// we don't need to log per line to db, but we do need to limit it
-	limitw := newLimitWriter(MB, &dbWriter{
-		Buffer:  dbuf,
-		db:      logDB,
-		ctx:     ctx,
-		reqID:   reqID,
-		appName: appName,
-	})
+	limitw := &nopCloser{newLimitWriter(MB, dbuf)}
 
 	// TODO / NOTE: we want linew to be first because limitw may error if limit
 	// is reached but we still want to log. we should probably ignore hitting the
 	// limit error since we really just want to not write too much to db and
 	// that's handled as is. put buffers back last to avoid misuse, if there's
 	// an error they won't get put back and that's really okay too.
-	return multiWriteCloser{linew, limitw, &fCloser{close}}
+	mw := multiWriteCloser{linew, limitw, &fCloser{close}}
+	return &rwc{mw, dbuf}
 }
 
-// implements passthrough Write & arbitrary func close to have a seat at the cool kids lunch table
+// implements io.ReadWriteCloser, keeps the buffer for all its handy methods
+type rwc struct {
+	io.WriteCloser
+	*bytes.Buffer
+}
+
+// these are explicit to override the *bytes.Buffer's methods
+func (r *rwc) Write(b []byte) (int, error) { return r.WriteCloser.Write(b) }
+func (r *rwc) Close() error                { return r.WriteCloser.Close() }
+
+// implements passthrough Write & closure call in Close
 type fCloser struct {
 	close func() error
 }
 
 func (f *fCloser) Write(b []byte) (int, error) { return len(b), nil }
 func (f *fCloser) Close() error                { return f.close() }
+
+type nopCloser struct {
+	io.Writer
+}
+
+func (n *nopCloser) Close() error { return nil }
 
 // multiWriteCloser returns the first write or close that returns a non-nil
 // err, if no non-nil err is returned, then the returned bytes written will be
@@ -102,17 +100,11 @@ func (m multiWriteCloser) Close() (err error) {
 // logWriter will log (to real stderr) every call to Write as a line. it should
 // be wrapped with a lineWriter so that the output makes sense.
 type logWriter struct {
-	ctx     context.Context
-	appName string
-	path    string
-	image   string
-	reqID   string
+	logrus.FieldLogger
 }
 
 func (l *logWriter) Write(b []byte) (int, error) {
-	log := common.Logger(l.ctx)
-	log = log.WithFields(logrus.Fields{"user_log": true, "app_name": l.appName, "path": l.path, "image": l.image, "call_id": l.reqID})
-	log.Debug(string(b))
+	l.Debug(string(b))
 	return len(b), nil
 }
 
@@ -171,37 +163,14 @@ func (li *lineWriter) Close() error {
 	return err
 }
 
-// dbWriter accumulates all calls to Write into an in memory buffer
-// and writes them to the database when Close is called, returning
-// any error from Close. it should be wrapped in a limitWriter to
-// prevent blowing out the buffer and bloating the db.
-type dbWriter struct {
-	*bytes.Buffer
-
-	db      models.LogStore
-	ctx     context.Context
-	reqID   string
-	appName string
-}
-
-func (w *dbWriter) Close() error {
-	span, ctx := opentracing.StartSpanFromContext(context.Background(), "agent_log_write")
-	defer span.Finish()
-	return w.db.InsertLog(ctx, w.appName, w.reqID, w.String())
-}
-
-func (w *dbWriter) Write(b []byte) (int, error) {
-	return w.Buffer.Write(b)
-}
-
-// overrides Write, keeps Close
+// io.Writer that allows limiting bytes written to w
 type limitWriter struct {
 	n, max int
-	io.WriteCloser
+	io.Writer
 }
 
-func newLimitWriter(max int, w io.WriteCloser) io.WriteCloser {
-	return &limitWriter{max: max, WriteCloser: w}
+func newLimitWriter(max int, w io.Writer) io.Writer {
+	return &limitWriter{max: max, Writer: w}
 }
 
 func (l *limitWriter) Write(b []byte) (int, error) {
@@ -212,11 +181,11 @@ func (l *limitWriter) Write(b []byte) (int, error) {
 		// cut off to prevent gigantic line attack
 		b = b[:l.max-l.n]
 	}
-	n, err := l.WriteCloser.Write(b)
+	n, err := l.Writer.Write(b)
 	l.n += n
 	if l.n >= l.max {
 		// write in truncation message to log once
-		l.WriteCloser.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n")))
+		l.Writer.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n")))
 	}
 	return n, err
 }

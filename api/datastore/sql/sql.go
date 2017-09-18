@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -600,9 +601,21 @@ func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 	return res, nil
 }
 
-func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID, callLog string) error {
+func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID string, logR io.Reader) error {
+	// coerce this into a string for sql
+	var log string
+	if stringer, ok := logR.(fmt.Stringer); ok {
+		log = stringer.String()
+	} else {
+		// TODO we could optimize for Size / buffer pool, but atm we aren't hitting
+		// this code path anyway (a fallback)
+		var b bytes.Buffer
+		io.Copy(&b, logR)
+		log = b.String()
+	}
+
 	query := ds.db.Rebind(`INSERT INTO logs (id, app_name, log) VALUES (?, ?, ?);`)
-	_, err := ds.db.ExecContext(ctx, query, callID, appName, callLog)
+	_, err := ds.db.ExecContext(ctx, query, callID, appName, log)
 	return err
 }
 

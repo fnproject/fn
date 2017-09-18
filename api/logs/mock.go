@@ -1,7 +1,10 @@
 package logs
 
 import (
+	"bytes"
 	"context"
+	"io"
+
 	"github.com/fnproject/fn/api/models"
 	"github.com/pkg/errors"
 )
@@ -27,8 +30,10 @@ func (m *mock) SetDatastore(ctx context.Context, ds models.Datastore) {
 	m.ds = ds
 }
 
-func (m *mock) InsertLog(ctx context.Context, appName, callID, callLog string) error {
-	m.Logs[callID] = &models.CallLog{CallID: callID, Log: callLog}
+func (m *mock) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
+	var b bytes.Buffer
+	io.Copy(&b, callLog)
+	m.Logs[callID] = &models.CallLog{CallID: callID, Log: b.String()}
 	return nil
 }
 
