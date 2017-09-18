@@ -110,8 +110,10 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			AttachStdin: true,
 			StdinOnce:   true,
 		},
-		HostConfig: &docker.HostConfig{},
-		Context:    ctx,
+		HostConfig: &docker.HostConfig{
+			OOMKillDisable: true,
+		},
+		Context: ctx,
 	}
 
 	volumes := task.Volumes()
