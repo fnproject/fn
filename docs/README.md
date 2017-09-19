@@ -8,13 +8,15 @@ If you are a developer using Fn through the API, this section is for you.
 * [Usage](usage.md)
 * [Writing functions](writing.md)
 * [fn (CLI Tool)](https://github.com/fnproject/cli/blob/master/README.md)
+* [Hot functions](hot-functions.md)
+* [Async functions](async.md)
+* [Organizing functions into an application](developers/apps.md)
 * [Function file (func.yaml)](function-file.md)
 * [Client Libraries](developers/clients.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
 * API Reference (coming soon)
-* [Hot functions](hot-functions.md)
-* [Async functions](async.md)
+* [Object Model](developers/model.md)
 * [FAQ](faq.md)
 
 ## For Operators

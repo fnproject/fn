@@ -1,5 +1,5 @@
 name: ruby
-version: 0.0.22
+version: 0.0.23
 runtime: ruby
 entrypoint: ruby func.rb
 headers:
