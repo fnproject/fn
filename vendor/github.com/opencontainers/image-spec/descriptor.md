@@ -24,7 +24,7 @@ The following fields contain the primary properties that constitute a Descriptor
 
 - **`digest`** *string*
 
-  This REQUIRED property is the _digest_ of the targeted content, conforming to the requirements outlined in [Digests and Verification](#digests-and-verification).
+  This REQUIRED property is the _digest_ of the targeted content, conforming to the requirements outlined in [Digests](#digests).
   Retrieved content SHOULD be verified against this digest when consumed via untrusted sources.
 
 - **`size`** *int64*

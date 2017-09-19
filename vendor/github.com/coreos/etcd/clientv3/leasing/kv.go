@@ -15,6 +15,7 @@
 package leasing
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -25,9 +26,8 @@ import (
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type leasingKV struct {
@@ -282,7 +282,10 @@ func (lkv *leasingKV) acquire(ctx context.Context, key string, op v3.Op) (*v3.Tx
 			return resp, nil
 		}
 		// retry if transient error
-		if _, ok := err.(rpctypes.EtcdError); ok || grpc.Code(err) != codes.Unavailable {
+		if _, ok := err.(rpctypes.EtcdError); ok {
+			return nil, err
+		}
+		if ev, _ := status.FromError(err); ev.Code() != codes.Unavailable {
 			return nil, err
 		}
 	}

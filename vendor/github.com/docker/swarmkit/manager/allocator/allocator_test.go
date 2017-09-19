@@ -666,6 +666,157 @@ func TestNoDuplicateIPs(t *testing.T) {
 	}
 }
 
+func TestNodeAllocator(t *testing.T) {
+	s := store.NewMemoryStore(nil)
+	assert.NotNil(t, s)
+	defer s.Close()
+
+	a, err := New(s, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, a)
+
+	var node1FromStore *api.Node
+	node1 := &api.Node{
+		ID: "nodeID1",
+	}
+
+	// Try adding some objects to store before allocator is started
+	assert.NoError(t, s.Update(func(tx store.Tx) error {
+		// populate ingress network
+		in := &api.Network{
+			ID: "ingress",
+			Spec: api.NetworkSpec{
+				Annotations: api.Annotations{
+					Name: "ingress",
+				},
+				Ingress: true,
+			},
+		}
+		assert.NoError(t, store.CreateNetwork(tx, in))
+
+		n1 := &api.Network{
+			ID: "overlayID1",
+			Spec: api.NetworkSpec{
+				Annotations: api.Annotations{
+					Name: "overlayID1",
+				},
+			},
+		}
+		assert.NoError(t, store.CreateNetwork(tx, n1))
+
+		assert.NoError(t, store.CreateNode(tx, node1))
+		return nil
+	}))
+
+	nodeWatch, cancel := state.Watch(s.WatchQueue(), api.EventUpdateNode{}, api.EventDeleteNode{})
+	defer cancel()
+	netWatch, cancel := state.Watch(s.WatchQueue(), api.EventUpdateNetwork{}, api.EventDeleteNetwork{})
+	defer cancel()
+
+	// Start allocator
+	go func() {
+		assert.NoError(t, a.Run(context.Background()))
+	}()
+	defer a.Stop()
+
+	// Validate node has 2 LB IP address (1 for each network).
+	watchNetwork(t, netWatch, false, isValidNetwork)                                      // ingress
+	watchNetwork(t, netWatch, false, isValidNetwork)                                      // overlayID1
+	watchNode(t, nodeWatch, false, isValidNode, node1, []string{"ingress", "overlayID1"}) // node1
+
+	// Add a node and validate it gets a LB ip on each network.
+	node2 := &api.Node{
+		ID: "nodeID2",
+	}
+	assert.NoError(t, s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.CreateNode(tx, node2))
+		return nil
+	}))
+	watchNode(t, nodeWatch, false, isValidNode, node2, []string{"ingress", "overlayID1"}) // node2
+
+	// Add a network and validate each node has 3 LB IP addresses
+	n2 := &api.Network{
+		ID: "overlayID2",
+		Spec: api.NetworkSpec{
+			Annotations: api.Annotations{
+				Name: "overlayID2",
+			},
+		},
+	}
+	assert.NoError(t, s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.CreateNetwork(tx, n2))
+		return nil
+	}))
+	watchNetwork(t, netWatch, false, isValidNetwork)                                                    // overlayID2
+	watchNode(t, nodeWatch, false, isValidNode, node1, []string{"ingress", "overlayID1", "overlayID3"}) // node1
+	watchNode(t, nodeWatch, false, isValidNode, node2, []string{"ingress", "overlayID1", "overlayID3"}) // node2
+
+	// Remove a network and validate each node has 2 LB IP addresses
+	assert.NoError(t, s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.DeleteNetwork(tx, n2.ID))
+		return nil
+	}))
+	watchNetwork(t, netWatch, false, isValidNetwork)                                      // overlayID2
+	watchNode(t, nodeWatch, false, isValidNode, node1, []string{"ingress", "overlayID1"}) // node1
+	watchNode(t, nodeWatch, false, isValidNode, node2, []string{"ingress", "overlayID1"}) // node2
+
+	// Remove a node and validate remaining node has 2 LB IP addresses
+	assert.NoError(t, s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.DeleteNode(tx, node2.ID))
+		return nil
+	}))
+	watchNode(t, nodeWatch, false, nil, nil, nil) // node2
+	s.View(func(tx store.ReadTx) {
+		node1FromStore = store.GetNode(tx, node1.ID)
+	})
+
+	isValidNode(t, node1, node1FromStore, []string{"ingress", "overlayID1"})
+
+	// Validate that a LB IP address is not allocated for node-local networks
+	p := &api.Network{
+		ID: "bridge",
+		Spec: api.NetworkSpec{
+			Annotations: api.Annotations{
+				Name: "pred_bridge_network",
+				Labels: map[string]string{
+					"com.docker.swarm.predefined": "true",
+				},
+			},
+			DriverConfig: &api.Driver{Name: "bridge"},
+		},
+	}
+	assert.NoError(t, s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.CreateNetwork(tx, p))
+		return nil
+	}))
+	watchNetwork(t, netWatch, false, isValidNetwork) // bridge
+
+	s.View(func(tx store.ReadTx) {
+		node1FromStore = store.GetNode(tx, node1.ID)
+	})
+
+	isValidNode(t, node1, node1FromStore, []string{"ingress", "overlayID1"})
+}
+
+func isValidNode(t assert.TestingT, originalNode, updatedNode *api.Node, networks []string) bool {
+
+	if !assert.Equal(t, originalNode.ID, updatedNode.ID) {
+		return false
+	}
+
+	if !assert.Equal(t, len(updatedNode.LbAttachments), len(networks)) {
+		return false
+	}
+
+	for _, na := range updatedNode.LbAttachments {
+		if !assert.Equal(t, len(na.Addresses), 1) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func isValidNetwork(t assert.TestingT, n *api.Network) bool {
 	if _, ok := n.Spec.Annotations.Labels["com.docker.swarm.predefined"]; ok {
 		return true
@@ -732,6 +883,43 @@ func getWatchTimeout(expectTimeout bool) time.Duration {
 		return 350 * time.Millisecond
 	}
 	return 5 * time.Second
+}
+
+func watchNode(t *testing.T, watch chan events.Event, expectTimeout bool,
+	fn func(t assert.TestingT, originalNode, updatedNode *api.Node, networks []string) bool,
+	originalNode *api.Node,
+	networks []string) {
+	for {
+
+		var node *api.Node
+		select {
+		case event := <-watch:
+			if n, ok := event.(api.EventUpdateNode); ok {
+				node = n.Node.Copy()
+				if fn == nil || (fn != nil && fn(mockTester{}, originalNode, node, networks)) {
+					return
+				}
+			}
+
+			if n, ok := event.(api.EventDeleteNode); ok {
+				node = n.Node.Copy()
+				if fn == nil || (fn != nil && fn(mockTester{}, originalNode, node, networks)) {
+					return
+				}
+			}
+
+		case <-time.After(1 * time.Millisecond):
+			if !expectTimeout {
+				if node != nil && fn != nil {
+					fn(t, originalNode, node, networks)
+				}
+
+				t.Fatal("timed out before watchNode found expected node state")
+			}
+
+			return
+		}
+	}
 }
 
 func watchNetwork(t *testing.T, watch chan events.Event, expectTimeout bool, fn func(t assert.TestingT, n *api.Network) bool) {

@@ -38,7 +38,7 @@ To start using iron_go, you need to sign up and get an oauth token.
 import "github.com/iron-io/iron_go3/mq"
 ```
 
-2\. [Setup your Iron.io credentials](http://dev.iron.io/mq/reference/configuration/)
+2\. [Setup your Iron.io credentials](http://dev.iron.io/mq/3/reference/configuration/)
 
 3\. Create an IronMQ client object:
 

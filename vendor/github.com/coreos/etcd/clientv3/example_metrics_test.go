@@ -15,6 +15,7 @@
 package clientv3_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -26,7 +27,6 @@ import (
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -43,7 +43,7 @@ func ExampleClient_metrics() {
 	}
 	defer cli.Close()
 
-	// get a key so it shows up in the metrics as a range rpc
+	// get a key so it shows up in the metrics as a range RPC
 	cli.Get(context.TODO(), "test_key")
 
 	// listen for all prometheus metrics
@@ -80,5 +80,6 @@ func ExampleClient_metrics() {
 			break
 		}
 	}
-	// Output: grpc_client_started_total{grpc_method="Range",grpc_service="etcdserverpb.KV",grpc_type="unary"} 1
+	// Output:
+	//	grpc_client_started_total{grpc_method="Range",grpc_service="etcdserverpb.KV",grpc_type="unary"} 1
 }
