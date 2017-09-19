@@ -28,8 +28,9 @@ func (s *svc2) Sum(ctx context.Context, a int64, b int64) (int64, error) {
 
 	// Example binary annotations.
 	span.SetTag("service", "svc2")
-	span.SetTag("key1", "value1")
-	span.SetTag("key2", 2)
+	span.SetTag("string", "some value")
+	span.SetTag("int", 123)
+	span.SetTag("bool", true)
 
 	// Example annotation
 	span.LogEvent("MyEventAnnotation")
@@ -63,7 +64,7 @@ func (s *svc2) fakeDBCall(span opentracing.Span) {
 	// hostname of the resource
 	ext.PeerHostname.Set(resourceSpan, "localhost")
 	// port of the resource
-	ext.PeerPort.Set(resourceSpan, 5432)
+	ext.PeerPort.Set(resourceSpan, 3306)
 	// let's binary annotate the query we run
 	resourceSpan.SetTag(
 		"query", "SELECT recipes FROM cookbook WHERE topic = 'world domination'",

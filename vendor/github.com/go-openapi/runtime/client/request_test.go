@@ -38,20 +38,20 @@ var testProducers = map[string]runtime.Producer{
 func TestBuildRequest_SetHeaders(t *testing.T) {
 	r, _ := newRequest("GET", "/flats/{id}/", nil)
 	// single value
-	_ = r.SetHeaderParam("X-Rate-Limit", "500")
+	r.SetHeaderParam("X-Rate-Limit", "500")
 	assert.Equal(t, "500", r.header.Get("X-Rate-Limit"))
-	_ = r.SetHeaderParam("X-Rate-Limit", "400")
+	r.SetHeaderParam("X-Rate-Limit", "400")
 	assert.Equal(t, "400", r.header.Get("X-Rate-Limit"))
 
 	// multi value
-	_ = r.SetHeaderParam("X-Accepts", "json", "xml", "yaml")
+	r.SetHeaderParam("X-Accepts", "json", "xml", "yaml")
 	assert.EqualValues(t, []string{"json", "xml", "yaml"}, r.header["X-Accepts"])
 }
 
 func TestBuildRequest_SetPath(t *testing.T) {
 	r, _ := newRequest("GET", "/flats/{id}/?hello=world", nil)
 
-	_ = r.SetPathParam("id", "1345")
+	r.SetPathParam("id", "1345")
 	assert.Equal(t, "1345", r.pathParams["id"])
 }
 
@@ -59,20 +59,20 @@ func TestBuildRequest_SetQuery(t *testing.T) {
 	r, _ := newRequest("GET", "/flats/{id}/", nil)
 
 	// single value
-	_ = r.SetQueryParam("hello", "there")
+	r.SetQueryParam("hello", "there")
 	assert.Equal(t, "there", r.query.Get("hello"))
 
 	// multi value
-	_ = r.SetQueryParam("goodbye", "cruel", "world")
+	r.SetQueryParam("goodbye", "cruel", "world")
 	assert.Equal(t, []string{"cruel", "world"}, r.query["goodbye"])
 }
 
 func TestBuildRequest_SetForm(t *testing.T) {
 	// non-multipart
 	r, _ := newRequest("POST", "/flats", nil)
-	_ = r.SetFormParam("hello", "world")
+	r.SetFormParam("hello", "world")
 	assert.Equal(t, "world", r.formFields.Get("hello"))
-	_ = r.SetFormParam("goodbye", "cruel", "world")
+	r.SetFormParam("goodbye", "cruel", "world")
 	assert.Equal(t, []string{"cruel", "world"}, r.formFields["goodbye"])
 }
 
@@ -107,16 +107,16 @@ func TestBuildRequest_SetBody(t *testing.T) {
 	r, _ := newRequest("GET", "/flats/{id}/?hello=world", nil)
 	bd := []struct{ Name, Hobby string }{{"Tom", "Organ trail"}, {"John", "Bird watching"}}
 
-	_ = r.SetBodyParam(bd)
+	r.SetBodyParam(bd)
 	assert.Equal(t, bd, r.payload)
 }
 
 func TestBuildRequest_BuildHTTP_NoPayload(t *testing.T) {
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetBodyParam(nil)
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetBodyParam(nil)
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("POST", "/flats/{id}/", reqWrtr)
@@ -133,14 +133,14 @@ func TestBuildRequest_BuildHTTP_NoPayload(t *testing.T) {
 func TestBuildRequest_BuildHTTP_Payload(t *testing.T) {
 	bd := []struct{ Name, Hobby string }{{"Tom", "Organ trail"}, {"John", "Bird watching"}}
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetBodyParam(bd)
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetBodyParam(bd)
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("GET", "/flats/{id}/", reqWrtr)
-	_ = r.SetHeaderParam(runtime.HeaderContentType, runtime.JSONMime)
+	r.SetHeaderParam(runtime.HeaderContentType, runtime.JSONMime)
 
 	req, err := r.BuildHTTP(runtime.JSONMime, testProducers, nil)
 	if assert.NoError(t, err) && assert.NotNil(t, req) {
@@ -160,14 +160,14 @@ func TestBuildRequest_BuildHTTP_XMLPayload(t *testing.T) {
 		Hobby   string   `xml:"hobby"`
 	}{{xml.Name{}, "Tom", "Organ trail"}, {xml.Name{}, "John", "Bird watching"}}
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetBodyParam(bd)
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetBodyParam(bd)
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("GET", "/flats/{id}/", reqWrtr)
-	_ = r.SetHeaderParam(runtime.HeaderContentType, runtime.XMLMime)
+	r.SetHeaderParam(runtime.HeaderContentType, runtime.XMLMime)
 
 	req, err := r.BuildHTTP(runtime.XMLMime, testProducers, nil)
 	if assert.NoError(t, err) && assert.NotNil(t, req) {
@@ -183,14 +183,14 @@ func TestBuildRequest_BuildHTTP_XMLPayload(t *testing.T) {
 func TestBuildRequest_BuildHTTP_TextPayload(t *testing.T) {
 	bd := "Tom: Organ trail; John: Bird watching"
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetBodyParam(bd)
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetBodyParam(bd)
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("GET", "/flats/{id}/", reqWrtr)
-	_ = r.SetHeaderParam(runtime.HeaderContentType, runtime.TextMime)
+	r.SetHeaderParam(runtime.HeaderContentType, runtime.TextMime)
 
 	req, err := r.BuildHTTP(runtime.TextMime, testProducers, nil)
 	if assert.NoError(t, err) && assert.NotNil(t, req) {
@@ -205,14 +205,14 @@ func TestBuildRequest_BuildHTTP_TextPayload(t *testing.T) {
 
 func TestBuildRequest_BuildHTTP_Form(t *testing.T) {
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetFormParam("something", "some value")
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetFormParam("something", "some value")
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("GET", "/flats/{id}/", reqWrtr)
-	_ = r.SetHeaderParam(runtime.HeaderContentType, runtime.JSONMime)
+	r.SetHeaderParam(runtime.HeaderContentType, runtime.JSONMime)
 
 	req, err := r.BuildHTTP(runtime.JSONMime, testProducers, nil)
 	if assert.NoError(t, err) && assert.NotNil(t, req) {
@@ -227,14 +227,14 @@ func TestBuildRequest_BuildHTTP_Form(t *testing.T) {
 
 func TestBuildRequest_BuildHTTP_Form_Content_Length(t *testing.T) {
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetFormParam("something", "some value")
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetFormParam("something", "some value")
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("GET", "/flats/{id}/", reqWrtr)
-	_ = r.SetHeaderParam(runtime.HeaderContentType, runtime.MultipartFormMime)
+	r.SetHeaderParam(runtime.HeaderContentType, runtime.MultipartFormMime)
 
 	req, err := r.BuildHTTP(runtime.JSONMime, testProducers, nil)
 	if assert.NoError(t, err) && assert.NotNil(t, req) {
@@ -252,15 +252,15 @@ func TestBuildRequest_BuildHTTP_Form_Content_Length(t *testing.T) {
 func TestBuildRequest_BuildHTTP_Files(t *testing.T) {
 	cont, _ := ioutil.ReadFile("./runtime.go")
 	reqWrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, reg strfmt.Registry) error {
-		_ = req.SetFormParam("something", "some value")
-		_ = req.SetFileParam("file", mustGetFile("./runtime.go"))
-		_ = req.SetQueryParam("hello", "world")
-		_ = req.SetPathParam("id", "1234")
-		_ = req.SetHeaderParam("X-Rate-Limit", "200")
+		req.SetFormParam("something", "some value")
+		req.SetFileParam("file", mustGetFile("./runtime.go"))
+		req.SetQueryParam("hello", "world")
+		req.SetPathParam("id", "1234")
+		req.SetHeaderParam("X-Rate-Limit", "200")
 		return nil
 	})
 	r, _ := newRequest("GET", "/flats/{id}/", reqWrtr)
-	_ = r.SetHeaderParam(runtime.HeaderContentType, runtime.JSONMime)
+	r.SetHeaderParam(runtime.HeaderContentType, runtime.JSONMime)
 	req, err := r.BuildHTTP(runtime.JSONMime, testProducers, nil)
 	if assert.NoError(t, err) && assert.NotNil(t, req) {
 		assert.Equal(t, "200", req.Header.Get("x-rate-limit"))

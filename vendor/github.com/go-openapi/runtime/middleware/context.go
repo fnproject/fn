@@ -75,6 +75,7 @@ type Context struct {
 	analyzer *analysis.Spec
 	api      RoutableAPI
 	router   Router
+	formats  strfmt.Registry
 }
 
 type routableUntypedAPI struct {
@@ -172,9 +173,6 @@ func (r *routableUntypedAPI) ProducersFor(mediaTypes []string) map[string]runtim
 func (r *routableUntypedAPI) AuthenticatorsFor(schemes map[string]spec.SecurityScheme) map[string]runtime.Authenticator {
 	return r.api.AuthenticatorsFor(schemes)
 }
-func (r *routableUntypedAPI) Authorizer() runtime.Authorizer {
-	return r.api.Authorizer()
-}
 func (r *routableUntypedAPI) Formats() strfmt.Registry {
 	return r.api.Formats()
 }
@@ -227,9 +225,12 @@ const (
 	ctxContentType
 	ctxResponseFormat
 	ctxMatchedRoute
+	ctxAllowedMethods
 	ctxBoundParams
 	ctxSecurityPrincipal
 	ctxSecurityScopes
+
+	ctxConsumer
 )
 
 type contentTypeValue struct {
@@ -395,11 +396,6 @@ func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interfa
 			}
 			continue
 		}
-		if route.Authorizer != nil {
-			if err := route.Authorizer.Authorize(request, usr); err != nil {
-				return nil, nil, errors.New(http.StatusForbidden, err.Error())
-			}
-		}
 		rCtx = stdContext.WithValue(rCtx, ctxSecurityPrincipal, usr)
 		rCtx = stdContext.WithValue(rCtx, ctxSecurityScopes, route.Scopes[scheme])
 		return usr, request.WithContext(rCtx), nil
@@ -546,7 +542,7 @@ func (c *Context) APIHandler(builder Builder) http.Handler {
 		Title:    title,
 	}
 
-	return Spec("", c.spec.Raw(), Redoc(redocOpts, c.RoutesHandler(b)))
+	return Spec("", c.spec.Raw(), Redoc(redocOpts, c.RoutesHandler(builder)))
 }
 
 // RoutesHandler returns a handler to serve the API, just the routes and the contract defined in the swagger spec

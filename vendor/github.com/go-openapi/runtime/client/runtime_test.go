@@ -77,7 +77,7 @@ func TestRuntime_Concurrent(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime)
 		rw.WriteHeader(http.StatusOK)
 		jsongen := json.NewEncoder(rw)
-		_ = jsongen.Encode(result)
+		jsongen.Encode(result)
 	}))
 	defer server.Close()
 
@@ -153,7 +153,7 @@ func TestRuntime_Canary(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime)
 		rw.WriteHeader(http.StatusOK)
 		jsongen := json.NewEncoder(rw)
-		_ = jsongen.Encode(result)
+		jsongen.Encode(result)
 	}))
 	defer server.Close()
 
@@ -204,7 +204,7 @@ func TestRuntime_XMLCanary(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.XMLMime)
 		rw.WriteHeader(http.StatusOK)
 		xmlgen := xml.NewEncoder(rw)
-		_ = xmlgen.Encode(result)
+		xmlgen.Encode(result)
 	}))
 	defer server.Close()
 
@@ -245,7 +245,7 @@ func TestRuntime_TextCanary(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.TextMime)
 		rw.WriteHeader(http.StatusOK)
-		_, _ = rw.Write([]byte(result))
+		rw.Write([]byte(result))
 	}))
 	defer server.Close()
 
@@ -305,7 +305,7 @@ func TestRuntime_CustomTransport(t *testing.T) {
 		resp.Header.Set("content-type", "application/json")
 		buf := bytes.NewBuffer(nil)
 		enc := json.NewEncoder(buf)
-		_ = enc.Encode(result)
+		enc.Encode(result)
 		resp.Body = ioutil.NopCloser(buf)
 		return &resp, nil
 	})
@@ -354,7 +354,7 @@ func TestRuntime_CustomCookieJar(t *testing.T) {
 			rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime)
 			rw.WriteHeader(http.StatusOK)
 			jsongen := json.NewEncoder(rw)
-			_ = jsongen.Encode([]task{})
+			jsongen.Encode([]task{})
 		} else {
 			rw.WriteHeader(http.StatusUnauthorized)
 		}
@@ -407,7 +407,7 @@ func TestRuntime_AuthCanary(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime)
 		rw.WriteHeader(http.StatusOK)
 		jsongen := json.NewEncoder(rw)
-		_ = jsongen.Encode(result)
+		jsongen.Encode(result)
 	}))
 	defer server.Close()
 
@@ -455,12 +455,13 @@ func TestRuntime_PickConsumer(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime+";charset=utf-8")
 		rw.WriteHeader(http.StatusOK)
 		jsongen := json.NewEncoder(rw)
-		_ = jsongen.Encode(result)
+		jsongen.Encode(result)
 	}))
 	defer server.Close()
 
 	rwrtr := runtime.ClientRequestWriterFunc(func(req runtime.ClientRequest, _ strfmt.Registry) error {
-		return req.SetBodyParam(bytes.NewBufferString("hello"))
+		req.SetBodyParam(bytes.NewBufferString("hello"))
+		return nil
 	})
 
 	hu, _ := url.Parse(server.URL)
@@ -508,7 +509,7 @@ func TestRuntime_ContentTypeCanary(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime+";charset=utf-8")
 		rw.WriteHeader(http.StatusOK)
 		jsongen := json.NewEncoder(rw)
-		_ = jsongen.Encode(result)
+		jsongen.Encode(result)
 	}))
 	defer server.Close()
 
@@ -562,7 +563,7 @@ func TestRuntime_ChunkedResponse(t *testing.T) {
 		rw.Header().Add(runtime.HeaderContentType, runtime.JSONMime+";charset=utf-8")
 		rw.WriteHeader(http.StatusOK)
 		jsongen := json.NewEncoder(rw)
-		_ = jsongen.Encode(result)
+		jsongen.Encode(result)
 	}))
 	defer server.Close()
 
@@ -604,26 +605,26 @@ func TestRuntime_DebugValue(t *testing.T) {
 	original := os.Getenv("DEBUG")
 
 	// Emtpy DEBUG means Debug is False
-	_ = os.Setenv("DEBUG", "")
+	os.Setenv("DEBUG", "")
 	runtime := New("", "/", []string{"https"})
 	assert.False(t, runtime.Debug)
 
 	// Non-Empty Debug means Debug is True
 
-	_ = os.Setenv("DEBUG", "1")
+	os.Setenv("DEBUG", "1")
 	runtime = New("", "/", []string{"https"})
 	assert.True(t, runtime.Debug)
 
-	_ = os.Setenv("DEBUG", "true")
+	os.Setenv("DEBUG", "true")
 	runtime = New("", "/", []string{"https"})
 	assert.True(t, runtime.Debug)
 
-	_ = os.Setenv("DEBUG", "foo")
+	os.Setenv("DEBUG", "foo")
 	runtime = New("", "/", []string{"https"})
 	assert.True(t, runtime.Debug)
 
 	// Make sure DEBUG is initial value once again
-	_ = os.Setenv("DEBUG", original)
+	os.Setenv("DEBUG", original)
 }
 
 func TestRuntime_OverrideScheme(t *testing.T) {

@@ -277,6 +277,8 @@ References issue [#774](https://github.com/gin-gonic/gin/issues/774) and detail 
 ```go
 func main() {
 	router := gin.Default()
+	// Set a lower memory limit for multipart forms (default is 32 MiB)
+	// router.MaxMultipartMemory = 8 << 20  // 8 MiB
 	router.POST("/upload", func(c *gin.Context) {
 		// single file
 		file, _ := c.FormFile("file")
@@ -306,6 +308,8 @@ See the detail [example code](examples/upload-file/multiple).
 ```go
 func main() {
 	router := gin.Default()
+	// Set a lower memory limit for multipart forms (default is 32 MiB)
+	// router.MaxMultipartMemory = 8 << 20  // 8 MiB
 	router.POST("/upload", func(c *gin.Context) {
 		// Multipart form
 		form, _ := c.MultipartForm()
@@ -1220,7 +1224,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server Shutdown:", err)
 	}
-	log.Println("Server exist")
+	log.Println("Server exiting")
 }
 ```
 

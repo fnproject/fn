@@ -15,16 +15,16 @@
 package naming
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/naming"
-
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
 	"github.com/coreos/etcd/pkg/testutil"
+
+	"google.golang.org/grpc/naming"
 )
 
 func TestGRPCResolver(t *testing.T) {
@@ -83,7 +83,7 @@ func TestGRPCResolver(t *testing.T) {
 	}
 }
 
-// TestGRPCResolverMultiInit ensures the resolver will initialize
+// TestGRPCResolverMulti ensures the resolver will initialize
 // correctly with multiple hosts and correctly receive multiple
 // updates in a single revision.
 func TestGRPCResolverMulti(t *testing.T) {

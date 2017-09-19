@@ -407,7 +407,7 @@ func (d *cborDecDriver) decAppendIndefiniteBytes(bs []byte) []byte {
 	return bs
 }
 
-func (d *cborDecDriver) DecodeBytes(bs []byte, isstring, zerocopy bool) (bsOut []byte) {
+func (d *cborDecDriver) DecodeBytes(bs []byte, zerocopy bool) (bsOut []byte) {
 	if !d.bdRead {
 		d.readNextBd()
 	}
@@ -434,7 +434,11 @@ func (d *cborDecDriver) DecodeBytes(bs []byte, isstring, zerocopy bool) (bsOut [
 }
 
 func (d *cborDecDriver) DecodeString() (s string) {
-	return string(d.DecodeBytes(d.b[:], true, true))
+	return string(d.DecodeBytes(d.b[:], true))
+}
+
+func (d *cborDecDriver) DecodeStringAsBytes() (s []byte) {
+	return d.DecodeBytes(d.b[:], true)
 }
 
 func (d *cborDecDriver) DecodeExt(rv interface{}, xtag uint64, ext Ext) (realxtag uint64) {
@@ -485,7 +489,7 @@ func (d *cborDecDriver) DecodeNaked() {
 		n.f = d.DecodeFloat(false)
 	case cborBdIndefiniteBytes:
 		n.v = valueTypeBytes
-		n.l = d.DecodeBytes(nil, false, false)
+		n.l = d.DecodeBytes(nil, false)
 	case cborBdIndefiniteString:
 		n.v = valueTypeString
 		n.s = d.DecodeString()
@@ -510,7 +514,7 @@ func (d *cborDecDriver) DecodeNaked() {
 			n.i = d.DecodeInt(64)
 		case d.bd >= cborBaseBytes && d.bd < cborBaseString:
 			n.v = valueTypeBytes
-			n.l = d.DecodeBytes(nil, false, false)
+			n.l = d.DecodeBytes(nil, false)
 		case d.bd >= cborBaseString && d.bd < cborBaseArray:
 			n.v = valueTypeString
 			n.s = d.DecodeString()

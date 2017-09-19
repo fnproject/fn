@@ -15,7 +15,7 @@
 package namespace
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
@@ -180,8 +180,8 @@ func (kv *kvPrefix) unprefixTxnResponse(resp *clientv3.TxnResponse) {
 	}
 }
 
-func (p *kvPrefix) prefixInterval(key, end []byte) (pfxKey []byte, pfxEnd []byte) {
-	return prefixInterval(p.pfx, key, end)
+func (kv *kvPrefix) prefixInterval(key, end []byte) (pfxKey []byte, pfxEnd []byte) {
+	return prefixInterval(kv.pfx, key, end)
 }
 
 func (kv *kvPrefix) prefixCmps(cs []clientv3.Cmp) []clientv3.Cmp {

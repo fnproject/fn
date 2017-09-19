@@ -15,6 +15,7 @@
 package integration
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 	"testing"
@@ -25,9 +26,6 @@ import (
 	"github.com/coreos/etcd/integration"
 	"github.com/coreos/etcd/pkg/testutil"
 	"github.com/coreos/etcd/pkg/transport"
-
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -56,14 +54,14 @@ func TestDialTLSExpired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// expect remote errors 'tls: bad certificate'
+	// expect remote errors "tls: bad certificate"
 	_, err = clientv3.New(clientv3.Config{
 		Endpoints:   []string{clus.Members[0].GRPCAddr()},
 		DialTimeout: 3 * time.Second,
 		TLS:         tls,
 	})
-	if err != grpc.ErrClientConnTimeout {
-		t.Fatalf("expected %v, got %v", grpc.ErrClientConnTimeout, err)
+	if err != context.DeadlineExceeded {
+		t.Fatalf("expected %v, got %v", context.DeadlineExceeded, err)
 	}
 }
 
@@ -73,17 +71,18 @@ func TestDialTLSNoConfig(t *testing.T) {
 	defer testutil.AfterTest(t)
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1, ClientTLS: &testTLSInfo})
 	defer clus.Terminate(t)
-	// expect 'signed by unknown authority'
+	// expect "signed by unknown authority"
 	_, err := clientv3.New(clientv3.Config{
 		Endpoints:   []string{clus.Members[0].GRPCAddr()},
 		DialTimeout: time.Second,
 	})
-	if err != grpc.ErrClientConnTimeout {
-		t.Fatalf("expected %v, got %v", grpc.ErrClientConnTimeout, err)
+	if err != context.DeadlineExceeded {
+		t.Fatalf("expected %v, got %v", context.DeadlineExceeded, err)
 	}
 }
 
-// TestDialSetEndpoints ensures SetEndpoints can replace unavailable endpoints with available ones.
+// TestDialSetEndpointsBeforeFail ensures SetEndpoints can replace unavailable
+// endpoints with available ones.
 func TestDialSetEndpointsBeforeFail(t *testing.T) {
 	testDialSetEndpoints(t, true)
 }
@@ -191,7 +190,7 @@ func TestDialForeignEndpoint(t *testing.T) {
 	}
 }
 
-// TestSetEndpointAndPut checks that a Put following a SetEndpoint
+// TestSetEndpointAndPut checks that a Put following a SetEndpoints
 // to a working endpoint will always succeed.
 func TestSetEndpointAndPut(t *testing.T) {
 	defer testutil.AfterTest(t)

@@ -126,7 +126,18 @@ func newTestStruc(depth int, bench bool, useInterface, useStringKeyOnly bool) (t
 				"Afour.reverse_solidus.\u005c", "Afive.Gclef.\U0001d11E"},
 			AI64slice: []int64{1, -22, 333, -4444, 55555, -666666},
 			AMSU16:    map[string]uint16{"1": 1, "22": 2, "333": 3, "4444": 4},
-			AF64slice: []float64{11.11e-11, 22.22E+22, 33.33E-33, 44.44e+44, 555.55E-6, 666.66E6},
+			AF64slice: []float64{
+				11.11e-11, -11.11e+11,
+				2.222E+12, -2.222E-12,
+				-555.55E-5, 555.55E+5,
+				666.66E-6, -666.66E+6,
+				7777.7777E-7, -7777.7777E-7,
+				-8888.8888E+8, 8888.8888E+8,
+				-99999.9999E+9, 99999.9999E+9,
+				// these below are hairy enough to need strconv.ParseFloat
+				33.33E-33, -33.33E+33,
+				44.44e+44, -44.44e-44,
+			},
 		},
 	}
 	if useInterface {

@@ -67,6 +67,21 @@ type jsonRequestSlice struct {
 	Friend    []friend
 }
 
+type jsonRequestAllTypes struct {
+	Confirmed bool
+	Planned   strfmt.Date
+	Delivered strfmt.DateTime
+	Age       int32
+	ID        int64
+	Score     float32
+	Factor    float64
+	Friend    friend
+	Name      string
+	Tags      []string
+	Picture   []byte
+	RequestID int64
+}
+
 func parametersForAllTypes(fmt string) map[string]spec.Parameter {
 	if fmt == "" {
 		fmt = "csv"
@@ -284,7 +299,7 @@ func TestRequestBindingForValid(t *testing.T) {
 		binder := newUntypedRequestBinder(op1, new(spec.Swagger), strfmt.Default)
 
 		lval := []string{"one", "two", "three"}
-		var queryString string
+		queryString := ""
 		switch fmt {
 		case "multi":
 			queryString = strings.Join(lval, "&tags=")
@@ -413,8 +428,8 @@ func TestBindingFileUpload(t *testing.T) {
 	part, err := writer.CreateFormFile("file", "plain-jane.txt")
 	assert.NoError(t, err)
 
-	_, _ = part.Write([]byte("the file contents"))
-	_ = writer.WriteField("name", "the-name")
+	part.Write([]byte("the file contents"))
+	writer.WriteField("name", "the-name")
 	assert.NoError(t, writer.Close())
 
 	urlStr := "http://localhost:8002/hello"
@@ -447,8 +462,8 @@ func TestBindingFileUpload(t *testing.T) {
 	part, err = writer.CreateFormFile("bad-name", "plain-jane.txt")
 	assert.NoError(t, err)
 
-	_, _ = part.Write([]byte("the file contents"))
-	_ = writer.WriteField("name", "the-name")
+	part.Write([]byte("the file contents"))
+	writer.WriteField("name", "the-name")
 	assert.NoError(t, writer.Close())
 	req, _ = http.NewRequest("POST", urlStr, body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -458,7 +473,7 @@ func TestBindingFileUpload(t *testing.T) {
 
 	req, _ = http.NewRequest("POST", urlStr, body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	_, _ = req.MultipartReader()
+	req.MultipartReader()
 
 	data = fileRequest{}
 	assert.Error(t, binder.Bind(req, nil, runtime.JSONConsumer(), &data))

@@ -15,13 +15,13 @@
 package integration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/coreos/etcd/integration"
 	"github.com/coreos/etcd/pkg/testutil"
-	"golang.org/x/net/context"
 )
 
 func TestUserError(t *testing.T) {
@@ -62,7 +62,7 @@ func TestUserErrorAuth(t *testing.T) {
 	authapi := clus.RandClient()
 	authSetupRoot(t, authapi.Auth)
 
-	// un-authenticated client
+	// unauthenticated client
 	if _, err := authapi.UserAdd(context.TODO(), "foo", "bar"); err != rpctypes.ErrUserNotFound {
 		t.Fatalf("expected %v, got %v", rpctypes.ErrUserNotFound, err)
 	}

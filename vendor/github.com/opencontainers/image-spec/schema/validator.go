@@ -157,7 +157,7 @@ func validateIndex(r io.Reader) error {
 
 	err = json.Unmarshal(buf, &header)
 	if err != nil {
-		return errors.Wrap(err, "manifestlist format mismatch")
+		return errors.Wrap(err, "index format mismatch")
 	}
 
 	for _, manifest := range header.Manifests {
