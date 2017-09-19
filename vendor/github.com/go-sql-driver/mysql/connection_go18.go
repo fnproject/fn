@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 )
 
 // Ping implements driver.Pinger interface
@@ -40,9 +41,15 @@ func (mc *mysqlConn) Ping(ctx context.Context) error {
 
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if opts.ReadOnly {
+		// TODO: support read-only transactions
+		return nil, errors.New("mysql: read-only transactions not supported")
+	}
+
 	if err := mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
+
 	defer mc.finish()
 
 	if sql.IsolationLevel(opts.Isolation) != sql.LevelDefault {
@@ -56,7 +63,7 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		}
 	}
 
-	return mc.begin(opts.ReadOnly)
+	return mc.Begin()
 }
 
 func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {

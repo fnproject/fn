@@ -1,5 +1,5 @@
-hash: fb250d2ab2c11e79e99b1ca52628db958a9b578ff74f3f3d18a741fc1bf4832b
-updated: 2017-09-18T23:22:20.345095297-07:00
+hash: 9c04b00c52a7378e748a93c062aacd32f39fece29a79b50fddad6aa81e2cbab0
+updated: 2017-09-19T14:13:44.550343214-07:00
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -220,7 +220,7 @@ imports:
 - name: github.com/go-openapi/validate
   version: 8a82927c942c94794a5cd8b8b50ce2f48a955c0c
 - name: github.com/go-sql-driver/mysql
-  version: be22b3051b3467094e9908389d900e74f72cf08f
+  version: 21d7e97c9f760ca685a01ecea202e1c84276daa1
 - name: github.com/gogo/protobuf
   version: 100ba4e885062801d56799d78530b73b178a78f3
   subpackages:
