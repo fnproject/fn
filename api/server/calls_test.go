@@ -23,20 +23,6 @@ func TestCallGet(t *testing.T) {
 		ID:      id.New().String(),
 		AppName: "myapp",
 		Path:    "/thisisatest",
-		Image:   "fnproject/hello",
-		// Delay: 0,
-		Type:   "sync",
-		Format: "default",
-		// Payload: TODO,
-		Priority:    new(int32), // TODO this is crucial, apparently
-		Timeout:     30,
-		IdleTimeout: 30,
-		Memory:      256,
-		BaseEnv:     map[string]string{"YO": "DAWG"},
-		EnvVars:     map[string]string{"YO": "DAWG"},
-		CreatedAt:   strfmt.DateTime(time.Now()),
-		URL:         "http://localhost:8080/r/myapp/thisisatest",
-		Method:      "GET",
 	}
 
 	rnr, cancel := testRunner(t)
@@ -90,20 +76,6 @@ func TestCallList(t *testing.T) {
 		ID:      id.New().String(),
 		AppName: "myapp",
 		Path:    "/thisisatest",
-		Image:   "fnproject/hello",
-		// Delay: 0,
-		Type:   "sync",
-		Format: "default",
-		// Payload: TODO,
-		Priority:    new(int32), // TODO this is crucial, apparently
-		Timeout:     30,
-		IdleTimeout: 30,
-		Memory:      256,
-		BaseEnv:     map[string]string{"YO": "DAWG"},
-		EnvVars:     map[string]string{"YO": "DAWG"},
-		CreatedAt:   strfmt.DateTime(time.Now()),
-		URL:         "http://localhost:8080/r/myapp/thisisatest",
-		Method:      "GET",
 	}
 	c2 := *call
 	c3 := *call

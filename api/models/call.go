@@ -1,6 +1,8 @@
 package models
 
 import (
+	"net/http"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/go-openapi/strfmt"
 )
@@ -116,11 +118,11 @@ type Call struct {
 	// Memory is the amount of RAM this call is allocated.
 	Memory uint64 `json:"memory,omitempty" db:"-"`
 
-	// BaseEnv are the env vars for hot containers, not request specific.
-	BaseEnv map[string]string `json:"base_env,omitempty" db:"-"`
+	// Config is the set of configuration variables for the call
+	Config Config `json:"config,omitempty" db:"-"`
 
-	// Env vars for the call. Comes from the ones set on the Route.
-	EnvVars map[string]string `json:"env_vars,omitempty" db:"-"`
+	// Headers are headers from the request that created this call
+	Headers http.Header `json:"headers,omitempty" db:"-"`
 
 	// Time when call completed, whether it was successul or failed. Always in UTC.
 	CompletedAt strfmt.DateTime `json:"completed_at,omitempty" db:"completed_at"`

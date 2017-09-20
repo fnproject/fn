@@ -27,20 +27,42 @@ db.update(return_struct)
 Inputs are provided through standard input and environment variables. We'll just talk about the default input format here, but you can find others [here](function-format.md).
 To read in the function body, just read from STDIN.
 
-You will also have access to a set of environment variables.
+You will also have access to a set of environment variables, independent of
+the function's format:
 
-* `FN_REQUEST_URL` - the full URL for the request ([parsing example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
 * `FN_APP_NAME` - the name of the application that matched this route, eg: `myapp`
 * `FN_PATH` - the matched route, eg: `/hello`
 * `FN_METHOD` - the HTTP method for the request, eg: `GET` or `POST`
-* `FN_CALL_ID` - a unique ID for each function execution.
-* `FN_DEADLINE` - RFC3339 time stamp of the expiration (deadline) date of function execution.
 * `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`.
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
 * `FN_TYPE` - the type for this call, currently 'sync' or 'async'
+
+Dependent upon the function's format, additional variables that change on a
+per invocation basis will be in a certain location.
+
+For `default` format, these will be in environment variables as well:
+
+* `FN_DEADLINE` - RFC3339 time stamp of the expiration (deadline) date of function execution.
+* `FN_REQUEST_URL` - the full URL for the request ([parsing example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
+* `FN_CALL_ID` - a unique ID for each function execution.
+* `FN_METHOD` - http method used to invoke this function
 * `FN_HEADER_$X` - the HTTP headers that were set for this request. Replace $X with the upper cased name of the header and replace dashes in the header with underscores.
-  * `$X` - any [configuration values](https://github.com/fnproject/cli/blob/master/README.md#application-level-configuration) you've set
-  for the Application or the Route. Replace X with the upper cased name of the config variable you set. Ex: `minio_secret=secret` will be exposed via MINIO_SECRET env var.
+  * `$X` - $X is the header that came in the http request that invoked this function.
+
+For `http` format these will be in http headers:
+
+* `Fn_deadline` - RFC3339 time stamp of the expiration (deadline) date of function execution.
+* `Fn_request_url` - the full URL for the request ([parsing example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
+* `Fn_call_id` - a unique ID for each function execution.
+* `Fn_method` - the HTTP method used to invoke
+* `$X` - the HTTP headers that were set for this request, exactly as they were sent in the request.
+
+For `json` format, these will be fields in the json object (see
+[format](functions-format.md)):
+
+* `call_id`
+* `protocol: { "headers": { "$X": [ "$Y" ] } }` where `$X:$Y` is each http
+  header exactly as it was sent in the request
 
 Warning: these may change before release.
 

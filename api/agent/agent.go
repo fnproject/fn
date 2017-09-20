@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -513,11 +514,25 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// TODO we REALLY need to wait for dispatch to return before conceding our slot
 }
 
+func specialHeader(k string) bool {
+	return k == "Fn_call_id" || k == "Fn_method" || k == "Fn_request_url"
+}
+
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
+	// add additional headers to the config to shove everything into env vars for cold
+	for k, v := range call.Headers {
+		if !specialHeader(k) {
+			k = "FN_HEADER_" + k
+		} else {
+			k = strings.ToUpper(k) // for compat, FN_CALL_ID, etc. in env for cold
+		}
+		call.Config[k] = strings.Join(v, ", ")
+	}
+
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
-		env:     call.EnvVars, // full env
+		env:     map[string]string(call.Config),
 		memory:  call.Memory,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
@@ -577,7 +592,7 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	container := &container{
 		id:     cid, // XXX we could just let docker generate ids...
 		image:  call.Image,
-		env:    call.BaseEnv, // only base env
+		env:    map[string]string(call.Config),
 		memory: call.Memory,
 		stdin:  stdinRead,
 		stdout: stdoutWrite,

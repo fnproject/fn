@@ -21,13 +21,14 @@ type HTTPProtocol struct {
 
 func (p *HTTPProtocol) IsStreamable() bool { return true }
 
-// this is just an http.Handler really
 // TODO handle req.Context better with io.Copy. io.Copy could push us
 // over the timeout.
-// TODO maybe we should take io.Writer, io.Reader but then we have to
-// dump the request to a buffer again :(
 func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	err := DumpRequestTo(h.in, ci) // TODO timeout
+	req := ci.Request()
+
+	req.RequestURI = ci.RequestURL() // force set to this, for DumpRequestTo to use
+
+	err := DumpRequestTo(h.in, req) // TODO timeout
 	if err != nil {
 		return err
 	}
@@ -70,17 +71,32 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 // the body in the process.
 //
 // TODO we should support h2!
-func DumpRequestTo(w io.Writer, ci CallInfo) error {
+func DumpRequestTo(w io.Writer, req *http.Request) error {
+	// By default, print out the unmodified req.RequestURI, which
+	// is always set for incoming server requests. But because we
+	// previously used req.URL.RequestURI and the docs weren't
+	// always so clear about when to use DumpRequest vs
+	// DumpRequestOut, fall back to the old way if the caller
+	// provides a non-server Request.
 
-	req := ci.Request()
-	reqURI := ci.RequestURL()
+	reqURI := req.RequestURI
+	if reqURI == "" {
+		reqURI = req.URL.RequestURI()
+	}
 
 	fmt.Fprintf(w, "%s %s HTTP/%d.%d\r\n", valueOrDefault(req.Method, "GET"),
 		reqURI, req.ProtoMajor, req.ProtoMinor)
 
-	absRequestURI := strings.HasPrefix(reqURI, "http://") || strings.HasPrefix(reqURI, "https://")
-	if !absRequestURI && req.URL.Host != "" {
-		fmt.Fprintf(w, "Host: %s\r\n", req.URL.Host)
+	absRequestURI := strings.HasPrefix(req.RequestURI, "http://") || strings.HasPrefix(req.RequestURI, "https://")
+	if !absRequestURI {
+		host := req.Host
+		if host == "" && req.URL != nil {
+			host = req.URL.Host
+		}
+
+		if host != "" {
+			fmt.Fprintf(w, "Host: %s\r\n", host)
+		}
 	}
 
 	chunked := len(req.TransferEncoding) > 0 && req.TransferEncoding[0] == "chunked"
