@@ -154,7 +154,7 @@ var (
 	}
 )
 
-// any error that implements this interface will return an API response
+// APIError any error that implements this interface will return an API response
 // with the provided status code and error message body
 type APIError interface {
 	Code() int
@@ -170,7 +170,7 @@ func (e err) Code() int { return e.code }
 
 func NewAPIError(code int, e error) APIError { return err{code, e} }
 
-// uniform error output
+// Error uniform error output
 type Error struct {
 	Error *ErrorBody `json:"error,omitempty"`
 }

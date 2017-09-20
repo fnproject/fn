@@ -1,0 +1,4 @@
+name: python
+version: 0.0.11
+runtime: python
+entrypoint: python2 func.py

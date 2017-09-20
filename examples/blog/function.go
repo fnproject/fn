@@ -13,7 +13,7 @@ import (
 var noAuth = map[string]interface{}{}
 
 func main() {
-	request := fmt.Sprintf("%s %s", os.Getenv("FN_METHOD"), os.Getenv("FN_ROUTE"))
+	request := fmt.Sprintf("%s %s", os.Getenv("FN_METHOD"), os.Getenv("FN_PATH"))
 
 	dbURI := os.Getenv("DB")
 	if dbURI == "" {
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// GETTING TOKEN
-	if os.Getenv("FN_ROUTE") == "/token" {
+	if os.Getenv("FN_PATH") == "/token" {
 		route.HandleToken(db)
 		return
 	}

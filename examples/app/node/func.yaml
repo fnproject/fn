@@ -1,0 +1,4 @@
+name: node
+version: 0.0.13
+runtime: node
+entrypoint: node func.js

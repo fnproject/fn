@@ -66,7 +66,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("MYREALHEADER", "FOOLORD")
 	req.Header.Add("MYREALHEADER", "FOOPEASANT")
 	req.Header.Add("Content-Length", contentLength)
-	req.Header.Add("FN_ROUTE", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
+	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
@@ -119,7 +119,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	expectedBase := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
-		"FN_ROUTE":    path,
+		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
@@ -210,7 +210,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	env := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
-		"FN_ROUTE":    path,
+		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",

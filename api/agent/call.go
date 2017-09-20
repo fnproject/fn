@@ -79,7 +79,8 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		baseVars["FN_FORMAT"] = route.Format
 		baseVars["FN_APP_NAME"] = appName
-		baseVars["FN_ROUTE"] = route.Path
+		baseVars["FN_PATH"] = route.Path
+		// TODO: might be a good idea to pass in: envVars["FN_BASE_PATH"] = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 		baseVars["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
 		baseVars["FN_TYPE"] = route.Type
 
@@ -188,7 +189,7 @@ func noOverrideVars(key string) bool {
 var overrideVars = map[string]bool{
 	"FN_FORMAT":      true,
 	"FN_APP_NAME":    true,
-	"FN_ROUTE":       true,
+	"FN_PATH":        true,
 	"FN_MEMORY":      true,
 	"FN_TYPE":        true,
 	"FN_CALL_ID":     true,

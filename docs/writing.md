@@ -31,7 +31,7 @@ You will also have access to a set of environment variables.
 
 * `FN_REQUEST_URL` - the full URL for the request ([parsing example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
 * `FN_APP_NAME` - the name of the application that matched this route, eg: `myapp`
-* `FN_ROUTE` - the matched route, eg: `/hello`
+* `FN_PATH` - the matched route, eg: `/hello`
 * `FN_METHOD` - the HTTP method for the request, eg: `GET` or `POST`
 * `FN_CALL_ID` - a unique ID for each function execution.
 * `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`. 

@@ -1,0 +1,4 @@
+name: app
+version: 0.0.70
+runtime: go
+entrypoint: ./func
