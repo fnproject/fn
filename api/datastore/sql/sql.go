@@ -222,10 +222,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 	res, err := ds.db.ExecContext(ctx, ds.db.Rebind(
-		`DELETE FROM apps WHERE name = ?;
-		DELETE FROM logs WHERE app_name=?;
-		DELETE FROM calls WHERE app_name=?;
-		DELETE FROM routes WHERE app_name=?;`), appName, appName, appName, appName)
+		`DELETE FROM apps WHERE name = ?`), appName)
 	if err != nil {
 		return err
 	}
@@ -233,7 +230,21 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 	if err == sql.ErrNoRows {
 		return models.ErrAppsNotFound
 	}
-	return err
+
+	deletes := []string{
+		`DELETE FROM logs WHERE app_name=?`,
+		`DELETE FROM calls WHERE app_name=?`,
+		`DELETE FROM routes WHERE app_name=?`,
+	}
+
+	for _, stmt := range deletes {
+		_, err = ds.db.ExecContext(ctx, ds.db.Rebind(stmt), appName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
