@@ -1,6 +1,9 @@
 package models
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/go-openapi/strfmt"
 )
@@ -116,11 +119,8 @@ type Call struct {
 	// Memory is the amount of RAM this call is allocated.
 	Memory uint64 `json:"memory,omitempty" db:"-"`
 
-	// BaseEnv are the env vars for hot containers, not request specific.
-	BaseEnv map[string]string `json:"base_env,omitempty" db:"-"`
-
-	// Env vars for the call. Comes from the ones set on the Route.
-	EnvVars map[string]string `json:"env_vars,omitempty" db:"-"`
+	// Env are the env vars / headers for the given call.
+	Env *CallEnv `json:"env,omitempty" db:"-"`
 
 	// Time when call completed, whether it was successul or failed. Always in UTC.
 	CompletedAt strfmt.DateTime `json:"completed_at,omitempty" db:"completed_at"`
@@ -133,6 +133,58 @@ type Call struct {
 
 	// Stats is a list of metrics from this call's execution, possibly empty.
 	Stats drivers.Stats `json:"stats,omitempty" db:"stats"`
+}
+
+// CallEnv are similar to http.Header, but since they need to be translated
+// into an env var map there is extra sugar for accessing them. CallEnv also
+// preserve the casing of keys when storing them, unlike http.Header. To access
+// a version with the headers in http format, use HTTP().
+type CallEnv struct {
+	// Full list of headers
+	Header map[string][]string `json:"header,omitempty"`
+
+	// List of headers to return from B()
+	B []string `json:"base,omitempty"`
+}
+
+func (r *CallEnv) Set(key, value string) {
+	// delete in http form first, for casing!
+	http.Header(r.Header).Del(key)
+
+	s := [1]string{value}
+	r.Header[key] = s[:]
+}
+
+func (r *CallEnv) SetBase(key, value string) {
+	r.Set(key, value)
+	r.B = append(r.B, key)
+}
+
+func (r *CallEnv) Base() map[string]string {
+	m := make(map[string]string, len(r.B))
+	for _, k := range r.B {
+		m[k] = strings.Join(r.Header[k], ", ")
+	}
+	return m
+}
+
+func (r *CallEnv) Full() map[string]string {
+	m := make(map[string]string, len(r.Header))
+	for k, v := range r.Header {
+		m[k] = strings.Join(v, ", ")
+	}
+	return m
+}
+
+func (r *CallEnv) HTTP() http.Header {
+	m := make(http.Header, len(r.Header))
+	for k, vs := range r.Header {
+		for _, v := range vs {
+			// important, for casing
+			m.Add(k, v)
+		}
+	}
+	return m
 }
 
 type CallFilter struct {

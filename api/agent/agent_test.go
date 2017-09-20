@@ -136,9 +136,10 @@ func TestCallConfigurationRequest(t *testing.T) {
 		expectedEnv[k] = v
 	}
 
+	base := model.Env.Base()
 	for k, v := range expectedBase {
-		if v2 := model.BaseEnv[k]; v2 != v {
-			t.Fatal("base var mismatch", k, v, v2, model.BaseEnv)
+		if v2 := base[k]; v2 != v {
+			t.Fatal("base var mismatch", k, v, v2, base)
 		}
 		delete(expectedBase, k)
 	}
@@ -164,12 +165,13 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	// from the request headers (look different in env than in req.Header, idk, up to user anger)
 	// req headers down cases things
-	expectedEnv["FN_HEADER_Myrealheader"] = "FOOLORD, FOOPEASANT"
-	expectedEnv["FN_HEADER_Content_Length"] = contentLength
+	expectedEnv["Myrealheader"] = "FOOLORD, FOOPEASANT"
+	expectedEnv["Content-Length"] = contentLength
 
+	env := model.Env.Full()
 	for k, v := range expectedEnv {
-		if v2 := model.EnvVars[k]; v2 != v {
-			t.Fatal("env var mismatch", k, v, v2, model.EnvVars)
+		if v2 := env[k]; v2 != v {
+			t.Fatal("env var mismatch", k, v, v2, env)
 		}
 		delete(expectedEnv, k)
 	}
@@ -217,20 +219,28 @@ func TestCallConfigurationModel(t *testing.T) {
 	payload := "payload"
 	typ := "sync"
 	format := "default"
-	env := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
-		"DOUBLE_VAR":  "BIZ, BAZ",
-	}
+	callenv := &models.CallEnv{map[string][]string{
+		"FN_FORMAT":   []string{format},
+		"FN_APP_NAME": []string{appName},
+		"FN_PATH":     []string{path},
+		"FN_MEMORY":   []string{strconv.Itoa(memory)},
+		"FN_TYPE":     []string{typ},
+		"APP_VAR":     []string{"FOO"},
+		"ROUTE_VAR":   []string{"BAR"},
+		"DOUBLE_VAR":  []string{"BIZ", "BAZ"},
+	}, []string{
+		"FN_FORMAT",
+		"FN_APP_NAME",
+		"FN_PATH",
+		"FN_MEMORY",
+		"FN_TYPE",
+		"APP_VAR",
+		"ROUTE_VAR",
+		"DOUBLE_VAR",
+	}}
 
 	cm := &models.Call{
-		BaseEnv:     env,
-		EnvVars:     env,
+		Env:         callenv,
 		AppName:     appName,
 		Path:        path,
 		Image:       image,
@@ -261,8 +271,10 @@ func TestCallConfigurationModel(t *testing.T) {
 	// NOTE these are added as is atm, and if the env vars were comma joined
 	// they are not again here comma separated.
 	expectedHeaders := make(http.Header)
-	for k, v := range env {
-		expectedHeaders.Add(k, v)
+	for k, vs := range callenv.Header {
+		for _, v := range vs {
+			expectedHeaders.Add(k, v)
+		}
 	}
 
 	for k, vs := range req.Header {
@@ -275,7 +287,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 
 	if len(expectedHeaders) > 0 {
-		t.Fatal("got extra headers, bad")
+		t.Fatal("got extra headers, bad", expectedHeaders)
 	}
 
 	var b bytes.Buffer

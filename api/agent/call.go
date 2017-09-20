@@ -66,76 +66,6 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 
 		id := id.New().String()
 
-		// baseVars are the vars on the route & app, not on this specific request [for hot functions]
-		baseVars := make(map[string]string, len(app.Config)+len(route.Config)+3)
-
-		// add app & route config before our standard additions
-		for k, v := range app.Config {
-			k = toEnvName("", k)
-			baseVars[k] = v
-		}
-		for k, v := range route.Config {
-			k = toEnvName("", k)
-			baseVars[k] = v
-		}
-
-		baseVars["FN_FORMAT"] = route.Format
-		baseVars["FN_APP_NAME"] = appName
-		baseVars["FN_PATH"] = route.Path
-		// TODO: might be a good idea to pass in: envVars["FN_BASE_PATH"] = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
-		baseVars["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
-		baseVars["FN_TYPE"] = route.Type
-
-		// envVars contains the full set of env vars, per request + base
-		envVars := make(map[string]string, len(baseVars)+len(params)+len(req.Header)+3)
-
-		for k, v := range baseVars {
-			envVars[k] = v
-		}
-
-		envVars["FN_CALL_ID"] = id
-		envVars["FN_METHOD"] = req.Method
-		envVars["FN_REQUEST_URL"] = func() string {
-			if req.URL.Scheme == "" {
-				if req.TLS == nil {
-					req.URL.Scheme = "http"
-				} else {
-					req.URL.Scheme = "https"
-				}
-			}
-			if req.URL.Host == "" {
-				req.URL.Host = req.Host
-			}
-			return req.URL.String()
-		}()
-
-		// params
-		for _, param := range params {
-			envVars[toEnvName("FN_PARAM", param.Key)] = param.Value
-		}
-
-		headerVars := make(map[string]string, len(req.Header))
-
-		for k, v := range req.Header {
-			if !noOverrideVars(k) { // NOTE if we don't do this, they'll leak in (don't want people relying on this behavior)
-				headerVars[toEnvName("FN_HEADER", k)] = strings.Join(v, ", ")
-			}
-		}
-
-		// add all the env vars we build to the request headers
-		for k, v := range envVars {
-			if noOverrideVars(k) {
-				// overwrite the passed in request headers explicitly with the generated ones
-				req.Header.Set(k, v)
-			} else {
-				req.Header.Add(k, v)
-			}
-		}
-
-		for k, v := range headerVars {
-			envVars[k] = v
-		}
-
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
 		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
 		if rw, ok := c.w.(http.ResponseWriter); ok {
@@ -155,6 +85,10 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 			return err
 		}
 
+		// build headers and re-set the request ones w/ additions
+		headers := buildEnv(id, params, req, app, route)
+		req.Header = headers.HTTP()
+
 		c.Call = &models.Call{
 			ID:      id,
 			AppName: appName,
@@ -168,8 +102,7 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
 			Memory:      route.Memory,
-			BaseEnv:     baseVars,
-			EnvVars:     envVars,
+			Env:         headers,
 			CreatedAt:   strfmt.DateTime(time.Now()),
 			URL:         req.URL.String(), // TODO we should probably strip host/port
 			Method:      req.Method,
@@ -180,22 +113,52 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 	}
 }
 
-func noOverrideVars(key string) bool {
-	// descrepency in casing b/w req headers and env vars, force matches
-	return overrideVars[strings.ToUpper(key)]
+func buildEnv(id string, params Params, req *http.Request, app *models.App, route *models.Route) *models.CallEnv {
+	var env models.CallEnv
+	// we can base our new ones off our old ones, for speed
+	env.Header = map[string][]string(req.Header)
+
+	// TODO do we need to assert these all pass httplex.ValidHeaderFieldValue
+	for k, v := range app.Config {
+		env.SetBase(k, v)
+	}
+	for k, v := range route.Config {
+		env.SetBase(k, v)
+	}
+
+	env.SetBase("FN_FORMAT", route.Format)
+	env.SetBase("FN_APP_NAME", app.Name)
+	env.SetBase("FN_PATH", route.Path)
+	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
+	env.SetBase("FN_MEMORY", fmt.Sprintf("%d", route.Memory))
+	env.SetBase("FN_TYPE", route.Type)
+
+	// these [could] change every request, not base
+	env.Set("FN_CALL_ID", id)
+	env.Set("FN_METHOD", req.Method)
+	env.Set("FN_REQUEST_URL", reqURL(req))
+
+	// params
+	// TODO nobody knows why these exist yet
+	for _, param := range params {
+		env.Set("FN_PARAM_"+param.Key, param.Value)
+	}
+
+	return &env
 }
 
-// overrideVars means that the app config, route config or header vars
-// must not overwrite the generated values in call construction.
-var overrideVars = map[string]bool{
-	"FN_FORMAT":      true,
-	"FN_APP_NAME":    true,
-	"FN_PATH":        true,
-	"FN_MEMORY":      true,
-	"FN_TYPE":        true,
-	"FN_CALL_ID":     true,
-	"FN_METHOD":      true,
-	"FN_REQUEST_URL": true,
+func reqURL(req *http.Request) string {
+	if req.URL.Scheme == "" {
+		if req.TLS == nil {
+			req.URL.Scheme = "http"
+		} else {
+			req.URL.Scheme = "https"
+		}
+	}
+	if req.URL.Host == "" {
+		req.URL.Host = req.Host
+	}
+	return req.URL.String()
 }
 
 // TODO this currently relies on FromRequest having happened before to create the model
@@ -210,10 +173,7 @@ func FromModel(mCall *models.Call) CallOpt {
 		if err != nil {
 			return err
 		}
-		for k, v := range c.EnvVars {
-			// TODO if we don't store env as []string headers are messed up
-			req.Header.Set(k, v)
-		}
+		req.Header = c.Env.HTTP()
 
 		c.req = req
 		// TODO anything else really?
@@ -231,7 +191,6 @@ func WithWriter(w io.Writer) CallOpt {
 
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
-// TODO we could make this package level just moving the cache around. meh.
 // TODO where to put this? async and sync both call this
 func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
@@ -371,12 +330,4 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 		return fmt.Errorf("AfterCall: %v", err)
 	}
 	return errIn
-}
-
-func toEnvName(envtype, name string) string {
-	name = strings.Replace(name, "-", "_", -1)
-	if envtype == "" {
-		return name
-	}
-	return fmt.Sprintf("%s_%s", envtype, name)
 }

@@ -355,14 +355,15 @@ func hotKey(call *call) string {
 	fmt.Fprint(hash, call.Format, "\x00")
 
 	// we have to sort these before printing, yay. TODO do better
-	keys := make([]string, 0, len(call.BaseEnv))
-	for k := range call.BaseEnv {
+	env := call.Env.Base()
+	keys := make([]string, 0, len(env))
+	for k := range env {
 		keys = append(keys, k)
 	}
 
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprint(hash, k, "\x00", call.BaseEnv[k], "\x00")
+		fmt.Fprint(hash, k, "\x00", env[k], "\x00")
 	}
 
 	var buf [sha1.Size]byte
@@ -482,7 +483,7 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
-		env:     call.EnvVars, // full env
+		env:     call.Env.Full(), // full env
 		memory:  call.Memory,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
@@ -550,7 +551,7 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 	container := &container{
 		id:     cid, // XXX we could just let docker generate ids...
 		image:  call.Image,
-		env:    call.BaseEnv, // only base env
+		env:    call.Env.Base(), // only base env
 		memory: call.Memory,
 		stdin:  stdinRead,
 		stdout: stdoutWrite,
