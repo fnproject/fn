@@ -222,13 +222,13 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
-		res, err := ds.db.ExecContext(ctx, ds.db.Rebind(
-			`DELETE FROM apps WHERE name = ?`), appName)
+		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=?`), appName)
+		n, err := res.RowsAffected()
 		if err != nil {
 			return err
 		}
-		_, err = res.RowsAffected()
-		if err == sql.ErrNoRows {
+
+		if n == 0 {
 			return models.ErrAppsNotFound
 		}
 
@@ -239,12 +239,11 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 		}
 
 		for _, stmt := range deletes {
-			_, err = ds.db.ExecContext(ctx, ds.db.Rebind(stmt), appName)
+			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), appName)
 			if err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 }
