@@ -223,11 +223,13 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
 		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=?`), appName)
+		if err != nil {
+			return err
+		}
 		n, err := res.RowsAffected()
 		if err != nil {
 			return err
 		}
-
 		if n == 0 {
 			return models.ErrAppsNotFound
 		}
