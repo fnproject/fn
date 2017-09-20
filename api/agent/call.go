@@ -189,7 +189,7 @@ func noOverrideVars(key string) bool {
 var overrideVars = map[string]bool{
 	"FN_FORMAT":      true,
 	"FN_APP_NAME":    true,
-	"FN_ROUTE":       true,
+	"FN_PATH":        true,
 	"FN_MEMORY":      true,
 	"FN_TYPE":        true,
 	"FN_CALL_ID":     true,

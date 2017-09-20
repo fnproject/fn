@@ -35,7 +35,7 @@ e = ENV["FN_APP_NAME"]
 if e == nil || e == ''
   raise "No APP_NAME found"
 end
-e = ENV["FN_ROUTE"]
+e = ENV["FN_PATH"]
 if e == nil || e == ''
   raise "No ROUTE found"
 end
