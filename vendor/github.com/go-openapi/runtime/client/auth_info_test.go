@@ -25,8 +25,7 @@ func TestBasicAuth(t *testing.T) {
 	r, _ := newRequest("GET", "/", nil)
 
 	writer := BasicAuth("someone", "with a password")
-	err := writer.AuthenticateRequest(r, nil)
-	assert.NoError(t, err)
+	writer.AuthenticateRequest(r, nil)
 
 	req := new(http.Request)
 	req.Header = make(http.Header)
@@ -42,8 +41,7 @@ func TestAPIKeyAuth_Query(t *testing.T) {
 	r, _ := newRequest("GET", "/", nil)
 
 	writer := APIKeyAuth("api_key", "query", "the-shared-key")
-	err := writer.AuthenticateRequest(r, nil)
-	assert.NoError(t, err)
+	writer.AuthenticateRequest(r, nil)
 
 	assert.Equal(t, "the-shared-key", r.query.Get("api_key"))
 }
@@ -52,8 +50,7 @@ func TestAPIKeyAuth_Header(t *testing.T) {
 	r, _ := newRequest("GET", "/", nil)
 
 	writer := APIKeyAuth("x-api-token", "header", "the-shared-key")
-	err := writer.AuthenticateRequest(r, nil)
-	assert.NoError(t, err)
+	writer.AuthenticateRequest(r, nil)
 
 	assert.Equal(t, "the-shared-key", r.header.Get("x-api-token"))
 }
@@ -62,8 +59,7 @@ func TestBearerTokenAuth(t *testing.T) {
 	r, _ := newRequest("GET", "/", nil)
 
 	writer := BearerToken("the-shared-token")
-	err := writer.AuthenticateRequest(r, nil)
-	assert.NoError(t, err)
+	writer.AuthenticateRequest(r, nil)
 
 	assert.Equal(t, "Bearer the-shared-token", r.header.Get("Authorization"))
 }

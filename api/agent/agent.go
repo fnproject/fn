@@ -173,7 +173,7 @@ func (a *agent) Submit(callI Call) error {
 	default:
 	}
 
-	a.stats.Enqueue()
+	a.stats.Enqueue(callI.Model().Path)
 
 	call := callI.(*call)
 	ctx := call.req.Context()
@@ -188,6 +188,7 @@ func (a *agent) Submit(callI Call) error {
 
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
+		a.stats.Dequeue(callI.Model().Path)
 		return err
 	}
 	// TODO if the call times out & container is created, we need
@@ -197,16 +198,17 @@ func (a *agent) Submit(callI Call) error {
 	// TODO Start is checking the timer now, we could do it here, too.
 	err = call.Start(ctx)
 	if err != nil {
+		a.stats.Dequeue(callI.Model().Path)
 		return err
 	}
 
-	a.stats.Start()
+	a.stats.Start(callI.Model().Path)
 
 	err = slot.exec(ctx, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	// End may rewrite the error or elect to return it
 
-	a.stats.Complete()
+	a.stats.Complete(callI.Model().Path)
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).

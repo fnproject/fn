@@ -60,6 +60,7 @@ RUN apt-get install -y --no-install-recommends \
       llvm \
       ninja-build \
       pkg-config \
+      valgrind \
       vim
 ENV PATH /usr/lib/llvm-3.8/bin:$PATH
 
@@ -140,7 +141,8 @@ RUN apt-get install -y --no-install-recommends \
       neko-dev \
       libneko0
 RUN haxelib setup --always /usr/share/haxe/lib && \
-    haxelib install --always hxcpp
+    haxelib install --always hxcpp 3.4.64
+# note: hxcpp 3.4.185 (latest) no longer ships static libraries, and caused a build failure
 
 RUN apt-get install -y --no-install-recommends \
 `# Java dependencies` \

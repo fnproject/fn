@@ -23,11 +23,11 @@ import (
 
 func TestAuthInfoWriter(t *testing.T) {
 	hand := ClientAuthInfoWriterFunc(func(r ClientRequest, _ strfmt.Registry) error {
-		return r.SetHeaderParam("authorization", "Bearer the-token-goes-here")
+		r.SetHeaderParam("authorization", "Bearer the-token-goes-here")
+		return nil
 	})
 
 	tr := new(trw)
-	err := hand.AuthenticateRequest(tr, nil)
-	assert.NoError(t, err)
+	hand.AuthenticateRequest(tr, nil)
 	assert.Equal(t, "Bearer the-token-goes-here", tr.Headers.Get("Authorization"))
 }

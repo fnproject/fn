@@ -2254,6 +2254,14 @@ file {
       json_name: "readonly"
     }
     field {
+      name: "consistency"
+      number: 8
+      label: LABEL_OPTIONAL
+      type: TYPE_ENUM
+      type_name: ".docker.swarmkit.v1.Mount.Consistency"
+      json_name: "consistency"
+    }
+    field {
       name: "bind_options"
       number: 5
       label: LABEL_OPTIONAL
@@ -2433,6 +2441,41 @@ file {
       options {
         62001: 0
         62023: "MountType"
+      }
+    }
+    enum_type {
+      name: "Consistency"
+      value {
+        name: "DEFAULT"
+        number: 0
+        options {
+          66001: "MountConsistencyDefault"
+        }
+      }
+      value {
+        name: "CONSISTENT"
+        number: 1
+        options {
+          66001: "MountConsistencyFull"
+        }
+      }
+      value {
+        name: "CACHED"
+        number: 2
+        options {
+          66001: "MountConsistencyCached"
+        }
+      }
+      value {
+        name: "DELEGATED"
+        number: 3
+        options {
+          66001: "MountConsistencyDelegated"
+        }
+      }
+      options {
+        62001: 0
+        62023: "MountConsistency"
       }
     }
   }

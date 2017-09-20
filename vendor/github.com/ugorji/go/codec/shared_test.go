@@ -21,7 +21,7 @@ package codec
 // Benchmarks should also take this parameter, to include the sereal, xdr, etc.
 // To run against codecgen, etc, make sure you pass extra parameters.
 // Example usage:
-//    go test "-tags=x codecgen unsafe" -bench=. <other parameters ...>
+//    go test "-tags=x codecgen" -bench=. <other parameters ...>
 //
 // To fully test everything:
 //    go test -tags=x -benchtime=100ms -tv -bg -bi  -brw -bu -v -run=. -bench=.
@@ -88,6 +88,7 @@ var (
 	testMaxInitLen     int
 
 	testJsonHTMLCharsAsIs bool
+	testJsonPreferFloat   bool
 )
 
 // flag variables used by bench
@@ -127,6 +128,7 @@ func testInitFlags() {
 	flag.BoolVar(&testUseMust, "tm", true, "Use Must(En|De)code")
 	flag.BoolVar(&testCheckCircRef, "tl", false, "Use Check Circular Ref")
 	flag.BoolVar(&testJsonHTMLCharsAsIs, "tas", false, "Set JSON HTMLCharsAsIs")
+	flag.BoolVar(&testJsonPreferFloat, "tjf", false, "Prefer Float in json")
 }
 
 func benchInitFlags() {
@@ -149,8 +151,16 @@ func testHEDGet(h Handle) *testHED {
 	return &testHEDs[len(testHEDs)-1]
 }
 
+func testReinit() {
+	testOnce = sync.Once{}
+	testHEDs = nil
+}
+
 func testInitAll() {
-	flag.Parse()
+	// only parse it once.
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 	for _, f := range testPreInitFns {
 		f()
 	}

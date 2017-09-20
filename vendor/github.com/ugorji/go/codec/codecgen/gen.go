@@ -62,7 +62,7 @@ func CodecGenTempWrite{{ .RandString }}() {
 	var t{{ $index }} {{ . }}
 	typs = append(typs, reflect.TypeOf(t{{ $index }}))
 {{ end }}
-	{{ if not .CodecPkgFiles }}{{ .CodecPkgName }}.{{ end }}Gen(&out, "{{ .BuildTag }}", "{{ .PackageName }}", "{{ .RandString }}", {{ .UseUnsafe }}, {{ if not .CodecPkgFiles }}{{ .CodecPkgName }}.{{ end }}NewTypeInfos(strings.Split("{{ .StructTags }}", ",")), typs...)
+	{{ if not .CodecPkgFiles }}{{ .CodecPkgName }}.{{ end }}Gen(&out, "{{ .BuildTag }}", "{{ .PackageName }}", "{{ .RandString }}", {{ if not .CodecPkgFiles }}{{ .CodecPkgName }}.{{ end }}NewTypeInfos(strings.Split("{{ .StructTags }}", ",")), typs...)
 	bout, err := format.Source(out.Bytes())
 	if err != nil {
 		fout.Write(out.Bytes())
@@ -82,7 +82,7 @@ func CodecGenTempWrite{{ .RandString }}() {
 // Tool then executes: "go run __frun__" which creates fout.
 // fout contains Codec(En|De)codeSelf implementations for every type T.
 //
-func Generate(outfile, buildTag, codecPkgPath string, uid int64, useUnsafe bool, goRunTag string,
+func Generate(outfile, buildTag, codecPkgPath string, uid int64, goRunTag string,
 	st string, regexName *regexp.Regexp, notRegexName *regexp.Regexp, deleteTempFile bool, infiles ...string) (err error) {
 	// For each file, grab AST, find each type, and write a call to it.
 	if len(infiles) == 0 {
@@ -121,14 +121,12 @@ func Generate(outfile, buildTag, codecPkgPath string, uid int64, useUnsafe bool,
 		StructTags      string
 		Types           []string
 		CodecPkgFiles   bool
-		UseUnsafe       bool
 	}
 	tv := tmplT{
 		CodecPkgName:    genCodecPkg,
 		OutFile:         outfile,
 		CodecImportPath: codecPkgPath,
 		BuildTag:        buildTag,
-		UseUnsafe:       useUnsafe,
 		RandString:      strconv.FormatInt(uid, 10),
 		StructTags:      st,
 	}
@@ -256,7 +254,7 @@ func Generate(outfile, buildTag, codecPkgPath string, uid int64, useUnsafe bool,
 	os.Remove(outfile)
 
 	// execute go run frun
-	cmd := exec.Command("go", "run", "-tags="+goRunTag, frunMainName) //, frunPkg.Name())
+	cmd := exec.Command("go", "run", "-tags", "codecgen.exec safe "+goRunTag, frunMainName) //, frunPkg.Name())
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
@@ -313,10 +311,10 @@ func main() {
 	rt := flag.String("rt", "", "tags for go run")
 	st := flag.String("st", "codec,json", "struct tag keys to introspect")
 	x := flag.Bool("x", false, "keep temp file")
-	u := flag.Bool("u", false, "Use unsafe, e.g. to avoid unnecessary allocation on []byte->string")
+	_ = flag.Bool("u", false, "*IGNORED - kept for backwards compatibility*: Allow unsafe use")
 	d := flag.Int64("d", 0, "random identifier for use in generated code")
 	flag.Parse()
-	if err := Generate(*o, *t, *c, *d, *u, *rt, *st,
+	if err := Generate(*o, *t, *c, *d, *rt, *st,
 		regexp.MustCompile(*r), regexp.MustCompile(*nr), !*x, flag.Args()...); err != nil {
 		fmt.Fprintf(os.Stderr, "codecgen error: %v\n", err)
 		os.Exit(1)

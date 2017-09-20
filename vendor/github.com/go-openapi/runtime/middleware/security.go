@@ -27,12 +27,12 @@ func newSecureAPI(ctx *Context, next http.Handler) http.Handler {
 			return
 		}
 
-		_, rCtx, err := ctx.Authorize(r, route)
-		if err != nil {
+		if _, rCtx, err := ctx.Authorize(r, route); err != nil {
 			ctx.Respond(rw, r, route.Produces, route, err)
 			return
+		} else {
+			r = rCtx
 		}
-		r = rCtx
 
 		next.ServeHTTP(rw, r)
 	})

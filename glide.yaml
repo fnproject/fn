@@ -22,7 +22,7 @@ import:
 - package: github.com/dghubble/oauth1
 - package: github.com/dgrijalva/jwt-go
 - package: github.com/docker/cli
-  version: f5a192bcc4c2794e44eb9dd7d91c2be95c5c6342
+  version: 139fcd3ee95f37f3ac17b1200fb0a63908cb6781
   subpackages:
   - cli/config/configfile
 - package: github.com/docker/distribution
@@ -44,6 +44,7 @@ import:
 - package: github.com/go-openapi/swag
 - package: github.com/go-openapi/validate
 - package: github.com/go-sql-driver/mysql
+  version: 21d7e97c9f760ca685a01ecea202e1c84276daa1
 - package: github.com/google/btree
 - package: github.com/iron-io/iron_go3
   subpackages:
@@ -67,7 +68,9 @@ import:
 - package: github.com/opencontainers/runc
   version: ae2948042b08ad3d6d13cd09f40a50ffff4fc688
 - package: github.com/Azure/go-ansiterm
-  version: fa152c58bc15761d0200cb75fe958b89a9d4888e
+  version: 19f72df4d05d31cbe1c56bfc8045c96babff6c7e
+- package: github.com/prometheus/common
+  version: 2f17f4a9d485bf34b4bfaccc273805040e4f86c8
 testImport:
 - package: github.com/patrickmn/go-cache
   branch: master

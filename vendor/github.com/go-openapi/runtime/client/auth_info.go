@@ -32,7 +32,8 @@ func init() {
 func BasicAuth(username, password string) runtime.ClientAuthInfoWriter {
 	return runtime.ClientAuthInfoWriterFunc(func(r runtime.ClientRequest, _ strfmt.Registry) error {
 		encoded := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-		return r.SetHeaderParam("Authorization", "Basic "+encoded)
+		r.SetHeaderParam("Authorization", "Basic "+encoded)
+		return nil
 	})
 }
 
@@ -40,13 +41,15 @@ func BasicAuth(username, password string) runtime.ClientAuthInfoWriter {
 func APIKeyAuth(name, in, value string) runtime.ClientAuthInfoWriter {
 	if in == "query" {
 		return runtime.ClientAuthInfoWriterFunc(func(r runtime.ClientRequest, _ strfmt.Registry) error {
-			return r.SetQueryParam(name, value)
+			r.SetQueryParam(name, value)
+			return nil
 		})
 	}
 
 	if in == "header" {
 		return runtime.ClientAuthInfoWriterFunc(func(r runtime.ClientRequest, _ strfmt.Registry) error {
-			return r.SetHeaderParam(name, value)
+			r.SetHeaderParam(name, value)
+			return nil
 		})
 	}
 	return nil
@@ -55,6 +58,7 @@ func APIKeyAuth(name, in, value string) runtime.ClientAuthInfoWriter {
 // BearerToken provides a header based oauth2 bearer access token auth info writer
 func BearerToken(token string) runtime.ClientAuthInfoWriter {
 	return runtime.ClientAuthInfoWriterFunc(func(r runtime.ClientRequest, _ strfmt.Registry) error {
-		return r.SetHeaderParam("Authorization", "Bearer "+token)
+		r.SetHeaderParam("Authorization", "Bearer "+token)
+		return nil
 	})
 }

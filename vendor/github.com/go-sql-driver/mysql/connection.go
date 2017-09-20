@@ -81,16 +81,6 @@ func (mc *mysqlConn) handleParams() (err error) {
 	return
 }
 
-func (mc *mysqlConn) markBadConn(err error) error {
-	if mc == nil {
-		return err
-	}
-	if err != errBadConnNoWrite {
-		return err
-	}
-	return driver.ErrBadConn
-}
-
 func (mc *mysqlConn) Begin() (driver.Tx, error) {
 	if mc.closed.IsSet() {
 		errLog.Print(ErrInvalidConn)
@@ -100,7 +90,8 @@ func (mc *mysqlConn) Begin() (driver.Tx, error) {
 	if err == nil {
 		return &mysqlTx{mc}, err
 	}
-	return nil, mc.markBadConn(err)
+
+	return nil, err
 }
 
 func (mc *mysqlConn) Close() (err error) {
@@ -151,7 +142,7 @@ func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	// Send command
 	err := mc.writeCommandPacketStr(comStmtPrepare, query)
 	if err != nil {
-		return nil, mc.markBadConn(err)
+		return nil, err
 	}
 
 	stmt := &mysqlStmt{
@@ -185,7 +176,7 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 	if buf == nil {
 		// can not take the buffer. Something must be wrong with the connection
 		errLog.Print(ErrBusyBuffer)
-		return "", ErrInvalidConn
+		return "", driver.ErrBadConn
 	}
 	buf = buf[:0]
 	argPos := 0
@@ -323,14 +314,14 @@ func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, err
 			insertId:     int64(mc.insertId),
 		}, err
 	}
-	return nil, mc.markBadConn(err)
+	return nil, err
 }
 
 // Internal function to execute commands
 func (mc *mysqlConn) exec(query string) error {
 	// Send command
 	if err := mc.writeCommandPacketStr(comQuery, query); err != nil {
-		return mc.markBadConn(err)
+		return err
 	}
 
 	// Read Result
@@ -399,7 +390,7 @@ func (mc *mysqlConn) query(query string, args []driver.Value) (*textRows, error)
 			return rows, err
 		}
 	}
-	return nil, mc.markBadConn(err)
+	return nil, err
 }
 
 // Gets the value of the given MySQL System Variable
