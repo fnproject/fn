@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"log"
-	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -440,7 +439,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 			var expected models.Route = *testRoute
 			if !reflect.DeepEqual(*route, expected) {
 				t.Log(buf.String())
-				t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", expected, route)
+				t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", expected, *route)
 			}
 		}
 
@@ -456,7 +455,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 					"SECOND": "2",
 					"THIRD":  "3",
 				},
-				Headers: http.Header{
+				Headers: models.Headers{
 					"First":  []string{"test"},
 					"Second": []string{"test", "test"},
 					"Third":  []string{"test", "test2"},
@@ -480,7 +479,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 					"SECOND": "2",
 					"THIRD":  "3",
 				},
-				Headers: http.Header{
+				Headers: models.Headers{
 					"First":  []string{"test"},
 					"Second": []string{"test", "test"},
 					"Third":  []string{"test", "test2"},
@@ -500,7 +499,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 					"SECOND": "",
 					"THIRD":  "3",
 				},
-				Headers: http.Header{
+				Headers: models.Headers{
 					"First":  []string{"test2"},
 					"Second": nil,
 				},
@@ -522,7 +521,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 					"FIRST": "first",
 					"THIRD": "3",
 				},
-				Headers: http.Header{
+				Headers: models.Headers{
 					"First": []string{"test2"},
 					"Third": []string{"test", "test2"},
 				},

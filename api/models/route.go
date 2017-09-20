@@ -15,16 +15,16 @@ const (
 type Routes []*Route
 
 type Route struct {
-	AppName     string      `json:"app_name"`
-	Path        string      `json:"path"`
-	Image       string      `json:"image"`
-	Memory      uint64      `json:"memory"`
-	Headers     http.Header `json:"headers"`
-	Type        string      `json:"type"`
-	Format      string      `json:"format"`
-	Timeout     int32       `json:"timeout"`
-	IdleTimeout int32       `json:"idle_timeout"`
-	Config      `json:"config"`
+	AppName     string  `json:"app_name" db:"app_name"`
+	Path        string  `json:"path" db:"path"`
+	Image       string  `json:"image" db:"image"`
+	Memory      uint64  `json:"memory" db:"memory"`
+	Headers     Headers `json:"headers" db:"headers"`
+	Type        string  `json:"type" db:"type"`
+	Format      string  `json:"format" db":format"`
+	Timeout     int32   `json:"timeout" db:"timeout"`
+	IdleTimeout int32   `json:"idle_timeout" db:"idle_timeout"`
+	Config      Config  `json:"config" db:"config"`
 }
 
 // SetDefaults sets zeroed field to defaults.
@@ -42,7 +42,7 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Headers == nil {
-		r.Headers = http.Header{}
+		r.Headers = Headers(http.Header{})
 	}
 
 	if r.Config == nil {
@@ -144,11 +144,11 @@ func (r *Route) Update(new *Route) {
 	}
 	if new.Headers != nil {
 		if r.Headers == nil {
-			r.Headers = make(http.Header)
+			r.Headers = Headers(make(http.Header))
 		}
 		for k, v := range new.Headers {
 			if len(v) == 0 {
-				r.Headers.Del(k)
+				http.Header(r.Headers).Del(k)
 			} else {
 				r.Headers[k] = v
 			}

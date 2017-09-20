@@ -1,9 +1,8 @@
 package models
 
 type App struct {
-	Name   string `json:"name"`
-	Routes Routes `json:"routes,omitempty"`
-	Config `json:"config"`
+	Name   string `json:"name" db:"name"`
+	Config Config `json:"config" db:"config"`
 }
 
 func (a *App) Validate() error {
@@ -24,11 +23,6 @@ func (a *App) Validate() error {
 func (a *App) Clone() *App {
 	var c App
 	c.Name = a.Name
-	if a.Routes != nil {
-		for i := range a.Routes {
-			c.Routes = append(c.Routes, a.Routes[i].Clone())
-		}
-	}
 	if a.Config != nil {
 		c.Config = make(Config)
 		for k, v := range a.Config {
