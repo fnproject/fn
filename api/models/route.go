@@ -150,9 +150,7 @@ func (r *Route) Update(new *Route) {
 			if len(v) == 0 {
 				r.Headers.Del(k)
 			} else {
-				for _, val := range v {
-					r.Headers.Set(k, val)
-				}
+				r.Headers[k] = v
 			}
 		}
 	}
