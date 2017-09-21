@@ -460,6 +460,7 @@ func (drv *DockerDriver) wait(ctx context.Context, container string) (status str
 	case 137: // OOM
 		// TODO put in stats opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
 		common.Logger(ctx).Error("docker oom")
-		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, errors.New("container out of memory"))
+		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
+		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
 	}
 }
