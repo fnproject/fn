@@ -215,7 +215,7 @@ func loggerWrap(c *gin.Context) {
 func appWrap(c *gin.Context) {
 	appName := c.GetString(api.AppName)
 	if appName == "" {
-		handleErrorResponse(c, models.ErrMissingAppName)
+		handleErrorResponse(c, models.ErrAppsMissingName)
 		c.Abort()
 		return
 	}

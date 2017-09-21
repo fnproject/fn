@@ -335,6 +335,10 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 		}
 
 		route.Update(newroute)
+		err = route.Validate()
+		if err != nil {
+			return err
+		}
 
 		query = tx.Rebind(`UPDATE routes SET
 			image = :image,

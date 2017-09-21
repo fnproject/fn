@@ -10,6 +10,9 @@ dep-up:
 build:
 	go build -o functions
 
+install:
+	go install
+
 test:
 	./test.sh
 

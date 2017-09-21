@@ -49,7 +49,8 @@ func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
 }
 
 func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) error {
-	err := s.setDefaultsAndValidate(wroute)
+	wroute.Route.SetDefaults()
+	err := wroute.Route.Validate()
 	if err != nil {
 		return err
 	}
@@ -62,10 +63,6 @@ func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) e
 }
 
 func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) error {
-	err := wroute.Validate(true)
-	if err != nil {
-		return err
-	}
 	r, err := s.Datastore.UpdateRoute(ctx, wroute.Route)
 	if err != nil {
 		return err
@@ -163,13 +160,8 @@ func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error
 	}
 	if method == http.MethodPost {
 		if wroute.Route.Path == "" {
-			return models.ErrMissingPath
+			return models.ErrRoutesMissingPath
 		}
 	}
 	return nil
-}
-
-func (s *Server) setDefaultsAndValidate(wroute *models.RouteWrapper) error {
-	wroute.Route.SetDefaults()
-	return wroute.Validate(false)
 }

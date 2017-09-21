@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -128,11 +129,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist"},
-			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Format: "http"},
+			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
+			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
 		}, nil,
 	)
 
@@ -165,8 +166,9 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
+			bod, _ := ioutil.ReadAll(rec.Body)
+			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+				i, test.expectedCode, rec.Code, string(bod))
 		}
 
 		if test.expectedHeaders == nil {
@@ -200,7 +202,7 @@ func TestFailedEnqueue(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/dummy", AppName: "myapp", Image: "dummy/dummy", Type: "async"},
+			{Path: "/dummy", AppName: "myapp", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30},
 		}, nil,
 	)
 	err := errors.New("Unable to push task to queue")

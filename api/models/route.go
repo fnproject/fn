@@ -8,8 +8,14 @@ import (
 )
 
 const (
-	DefaultRouteTimeout = 30 // seconds
-	DefaultIdleTimeout  = 30 // seconds
+	DefaultTimeout     = 30  // seconds
+	DefaultIdleTimeout = 30  // seconds
+	DefaultMemory      = 128 // MB
+
+	MaxSyncTimeout  = 120  // 2 minutes
+	MaxAsyncTimeout = 3600 // 1 hour
+	MaxIdleTimeout  = MaxAsyncTimeout
+	MaxMemory       = 1024 * 8 // 8GB TODO should probably be a var of machine max?
 )
 
 type Routes []*Route
@@ -30,7 +36,7 @@ type Route struct {
 // SetDefaults sets zeroed field to defaults.
 func (r *Route) SetDefaults() {
 	if r.Memory == 0 {
-		r.Memory = 128
+		r.Memory = DefaultMemory
 	}
 
 	if r.Type == TypeNone {
@@ -50,7 +56,7 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Timeout == 0 {
-		r.Timeout = DefaultRouteTimeout
+		r.Timeout = DefaultTimeout
 	}
 
 	if r.IdleTimeout == 0 {
@@ -58,24 +64,15 @@ func (r *Route) SetDefaults() {
 	}
 }
 
-// Validate validates field values, skipping zeroed fields if skipZero is true.
-// it returns the first error, if any.
-func (r *Route) Validate(skipZero bool) error {
-	if !skipZero {
-		if r.AppName == "" {
-			return ErrMissingAppName
-		}
-
-		if r.Path == "" {
-			return ErrMissingPath
-		}
-
-		if r.Image == "" {
-			return ErrMissingImage
-		}
+// Validate validates all field values, returning the first error, if any.
+func (r *Route) Validate() error {
+	if r.AppName == "" {
+		return ErrRoutesMissingAppName
 	}
 
-	if !skipZero || r.Path != "" {
+	if r.Path == "" {
+		return ErrRoutesMissingPath
+	} else {
 		u, err := url.Parse(r.Path)
 		if err != nil {
 			return ErrPathMalformed
@@ -86,28 +83,38 @@ func (r *Route) Validate(skipZero bool) error {
 		}
 
 		if !path.IsAbs(u.Path) {
-			return ErrInvalidPath
+			return ErrRoutesInvalidPath
 		}
 	}
 
-	if !skipZero || r.Type != "" {
-		if r.Type != TypeAsync && r.Type != TypeSync {
-			return ErrInvalidType
-		}
+	if r.Image == "" {
+		return ErrRoutesMissingImage
 	}
 
-	if !skipZero || r.Format != "" {
-		if r.Format != FormatDefault && r.Format != FormatHTTP {
-			return ErrInvalidFormat
-		}
+	if r.Type != TypeAsync && r.Type != TypeSync {
+		return ErrRoutesInvalidType
 	}
 
-	if r.Timeout < 0 {
-		return ErrNegativeTimeout
+	if r.Format != FormatDefault && r.Format != FormatHTTP {
+		return ErrRoutesInvalidFormat
 	}
 
-	if r.IdleTimeout < 0 {
-		return ErrNegativeIdleTimeout
+	if r.Timeout <= 0 ||
+		(r.Type == TypeSync && r.Timeout > MaxSyncTimeout) ||
+		(r.Type == TypeAsync && r.Timeout > MaxAsyncTimeout) {
+		return ErrRoutesInvalidTimeout
+	}
+
+	if r.IdleTimeout <= 0 || r.IdleTimeout > MaxIdleTimeout {
+		return ErrRoutesInvalidIdleTimeout
+	}
+
+	if r.Timeout > r.IdleTimeout {
+		return ErrRoutesTimeoutLongerThanIdle
+	}
+
+	if r.Memory < 1 || r.Memory > MaxMemory {
+		return ErrRoutesInvalidMemory
 	}
 
 	return nil

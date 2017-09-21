@@ -449,7 +449,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 			updated, err := ds.UpdateRoute(ctx, &models.Route{
 				AppName: testRoute.AppName,
 				Path:    testRoute.Path,
-				Timeout: 100,
+				Timeout: 2,
 				Config: map[string]string{
 					"FIRST":  "1",
 					"SECOND": "2",
@@ -467,13 +467,15 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 			}
 			expected := &models.Route{
 				// unchanged
-				AppName: testRoute.AppName,
-				Path:    testRoute.Path,
-				Image:   "fnproject/hello",
-				Type:    "sync",
-				Format:  "http",
+				AppName:     testRoute.AppName,
+				Path:        testRoute.Path,
+				Image:       "fnproject/hello",
+				Type:        "sync",
+				Format:      "http",
+				IdleTimeout: testRoute.IdleTimeout,
+				Memory:      testRoute.Memory,
 				// updated
-				Timeout: 100,
+				Timeout: 2,
 				Config: map[string]string{
 					"FIRST":  "1",
 					"SECOND": "2",
@@ -510,12 +512,14 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 			}
 			expected = &models.Route{
 				// unchanged
-				AppName: testRoute.AppName,
-				Path:    testRoute.Path,
-				Image:   "fnproject/hello",
-				Type:    "sync",
-				Format:  "http",
-				Timeout: 100,
+				AppName:     testRoute.AppName,
+				Path:        testRoute.Path,
+				Image:       "fnproject/hello",
+				Type:        "sync",
+				Format:      "http",
+				Timeout:     2,
+				Memory:      testRoute.Memory,
+				IdleTimeout: testRoute.IdleTimeout,
 				// updated
 				Config: map[string]string{
 					"FIRST": "first",
@@ -682,9 +686,12 @@ var testApp = &models.App{
 }
 
 var testRoute = &models.Route{
-	AppName: testApp.Name,
-	Path:    "/test",
-	Image:   "fnproject/hello",
-	Type:    "sync",
-	Format:  "http",
+	AppName:     testApp.Name,
+	Path:        "/test",
+	Image:       "fnproject/hello",
+	Type:        "sync",
+	Format:      "http",
+	Timeout:     models.DefaultTimeout,
+	IdleTimeout: models.DefaultIdleTimeout,
+	Memory:      models.DefaultMemory,
 }
