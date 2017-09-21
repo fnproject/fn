@@ -156,10 +156,6 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", MaxMemory),
 	}
-	ErrRoutesTimeoutLongerThanIdle = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("timeout must be less than idle_timeout"),
-	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call not found"),

@@ -109,10 +109,6 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidIdleTimeout
 	}
 
-	if r.Timeout > r.IdleTimeout {
-		return ErrRoutesTimeoutLongerThanIdle
-	}
-
 	if r.Memory < 1 || r.Memory > MaxMemory {
 		return ErrRoutesInvalidMemory
 	}

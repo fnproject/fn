@@ -290,7 +290,6 @@ func TestRouteUpdate(t *testing.T) {
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "async", "timeout": 3601 } }`, http.StatusBadRequest, models.ErrRoutesInvalidTimeout},
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "async", "timeout": 121, "idle_timeout": 240 } }`, http.StatusOK, nil}, // should work if async
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "idle_timeout": 3601 } }`, http.StatusBadRequest, models.ErrRoutesInvalidIdleTimeout},
-		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "timeout": 241 } }`, http.StatusBadRequest, models.ErrRoutesTimeoutLongerThanIdle},
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "memory": 100000000000000 } }`, http.StatusBadRequest, models.ErrRoutesInvalidMemory},
 		// TODO this should be correct, waiting for patch to come in
 		//{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/b/routes/myroute/dont", `{ "route": {} }`, http.StatusNotFound, models.ErrAppsNotFound},
