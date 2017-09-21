@@ -363,7 +363,7 @@ func Test(t *testing.T, ds models.Datastore) {
 					"THIRD": "3",
 				},
 				Headers: http.Header{
-					"First": []string{"test", "test2"},
+					"First": []string{"test2"},
 					"Third": []string{"test", "test2"},
 				},
 			}

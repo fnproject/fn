@@ -6,6 +6,7 @@ import (
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn_go/models"
+	"reflect"
 )
 
 func TestRoutes(t *testing.T) {
@@ -192,4 +193,19 @@ func TestRoutes(t *testing.T) {
 
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
+
+	t.Run("multiple-deploy-route-with-headers", func(T *testing.T) {
+		s := SetupDefaultSuite()
+		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		routeHeaders := map[string][]string{}
+		routeHeaders["A"] = []string{"a"}
+		routeHeaders["B"] = []string{"b"}
+		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, routeHeaders)
+		sameRoute := DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, routeHeaders)
+		if ok := reflect.DeepEqual(sameRoute.Headers, routeHeaders); !ok {
+			t.Error("Route headers should remain the same after multiple deploys with exact the same parameters")
+		}
+		DeleteApp(t, s.Context, s.Client, s.AppName)
+	})
+
 }
