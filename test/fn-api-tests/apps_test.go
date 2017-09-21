@@ -11,6 +11,20 @@ import (
 
 func TestApps(t *testing.T) {
 
+	t.Run("delete-app-not-found-test", func(t *testing.T) {
+		t.Parallel()
+		s := SetupDefaultSuite()
+		cfg := &apps.DeleteAppsAppParams{
+			App:     "missing-app",
+			Context: s.Context,
+		}
+		cfg.WithTimeout(time.Second * 60)
+		_, err := s.Client.Apps.DeleteAppsApp(cfg)
+		if err == nil {
+			t.Errorf("Error during app delete: we should get HTTP 404, but got: %s", err.Error())
+		}
+	})
+
 	t.Run("app-not-found-test", func(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()

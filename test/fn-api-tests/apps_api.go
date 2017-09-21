@@ -14,6 +14,9 @@ import (
 func CheckAppResponseError(t *testing.T, e error) {
 	if e != nil {
 		switch err := e.(type) {
+		case *apps.DeleteAppsAppNotFound:
+			t.Errorf("Unexpected error occurred: %v Original Location: %s", err.Payload.Error.Message, MyCaller())
+			t.FailNow()
 		case *apps.DeleteAppsAppDefault:
 			t.Errorf("Unexpected error occurred: %v. Status code: %v Orig Location: %s", err.Payload.Error.Message, err.Code(), MyCaller())
 			t.FailNow()
