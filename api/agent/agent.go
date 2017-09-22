@@ -172,6 +172,7 @@ func (a *agent) Submit(callI Call) error {
 	default:
 	}
 
+	// increment queued count
 	a.stats.Enqueue(callI.Model().Path)
 
 	call := callI.(*call)
@@ -201,13 +202,20 @@ func (a *agent) Submit(callI Call) error {
 		return err
 	}
 
-	a.stats.Start(callI.Model().Path)
+	// decrement queued count, increment running count
+	a.stats.DequeueAndStart(callI.Model().Path)
 
 	err = slot.exec(ctx, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	// End may rewrite the error or elect to return it
 
-	a.stats.Complete(callI.Model().Path)
+	if err == nil {
+		// decrement running count, increment completed count
+		a.stats.Complete(callI.Model().Path)
+	} else {
+		// decrement running count, increment failed count
+		a.stats.Failed(callI.Model().Path)
+	}
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).

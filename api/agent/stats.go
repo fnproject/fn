@@ -13,6 +13,7 @@ type stats struct {
 	queue    uint64
 	running  uint64
 	complete uint64
+	failed   uint64
 	// statistics for individual functions, keyed by function path
 	functionStatsMap map[string]*functionStats
 }
@@ -22,6 +23,7 @@ type functionStats struct {
 	queue    uint64
 	running  uint64
 	complete uint64
+	failed   uint64
 }
 
 type Stats struct {
@@ -29,6 +31,7 @@ type Stats struct {
 	Queue    uint64
 	Running  uint64
 	Complete uint64
+	Failed   uint64
 	// statistics for individual functions, keyed by function path
 	FunctionStatsMap map[string]*FunctionStats
 }
@@ -38,6 +41,7 @@ type FunctionStats struct {
 	Queue    uint64
 	Running  uint64
 	Complete uint64
+	Failed   uint64
 }
 
 func (s *stats) getStatsForFunction(path string) *functionStats {
@@ -68,7 +72,7 @@ func (s *stats) Dequeue(path string) {
 	s.mu.Unlock()
 }
 
-func (s *stats) Start(path string) {
+func (s *stats) DequeueAndStart(path string) {
 	s.mu.Lock()
 	s.queue--
 	s.getStatsForFunction(path).queue--
@@ -86,15 +90,34 @@ func (s *stats) Complete(path string) {
 	s.mu.Unlock()
 }
 
+func (s *stats) Failed(path string) {
+	s.mu.Lock()
+	s.running--
+	s.getStatsForFunction(path).running--
+	s.failed++
+	s.getStatsForFunction(path).failed++
+	s.mu.Unlock()
+}
+
+func (s *stats) DequeueAndFail(path string) {
+	s.mu.Lock()
+	s.queue--
+	s.getStatsForFunction(path).queue--
+	s.failed++
+	s.getStatsForFunction(path).failed++
+	s.mu.Unlock()
+}
+
 func (s *stats) Stats() Stats {
 	var stats Stats
 	s.mu.Lock()
 	stats.Running = s.running
 	stats.Complete = s.complete
 	stats.Queue = s.queue
+	stats.Failed = s.failed
 	stats.FunctionStatsMap = make(map[string]*FunctionStats)
 	for key, value := range s.functionStatsMap {
-		thisFunctionStats := &FunctionStats{Queue: value.queue, Running: value.running, Complete: value.complete}
+		thisFunctionStats := &FunctionStats{Queue: value.queue, Running: value.running, Complete: value.complete, Failed: value.failed}
 		stats.FunctionStatsMap[key] = thisFunctionStats
 	}
 	s.mu.Unlock()
