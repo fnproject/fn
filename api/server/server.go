@@ -19,6 +19,7 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	"github.com/fnproject/fn/api/version"
 	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -232,13 +233,14 @@ func (s *Server) startGears(ctx context.Context) {
 	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
 
 	const runHeader = `
-      ______
-     / ____/___
-    / /_  / __ \
-   / __/ / / / /
-  /_/   /_/ /_/
-`
+        ______
+       / ____/___
+      / /_  / __ \
+     / __/ / / / /
+    /_/   /_/ /_/`
 	fmt.Println(runHeader)
+	fmt.Printf("        v%s\n\n", version.Version)
+
 	logrus.Infof("Serving Functions API on address `%s`", listen)
 
 	server := http.Server{
