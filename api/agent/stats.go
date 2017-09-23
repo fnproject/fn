@@ -1,6 +1,9 @@
 package agent
 
-import "sync"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"sync"
+)
 
 // TODO this should expose:
 // * hot containers active
@@ -44,6 +47,44 @@ type FunctionStats struct {
 	Failed   uint64
 }
 
+var (
+	fnQueue = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "fn_api_queued",
+			Help: "Current queued requests by path",
+		},
+		[](string){"path"},
+	)
+	fnRunning = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "fn_api_running",
+			Help: "Current queued requests by path",
+		},
+		[](string){"path"},
+	)
+	fnComplete = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fn_api_completed",
+			Help: "Completed requests by path",
+		},
+		[](string){"path"},
+	)
+	fnFailed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fn_api_failed",
+			Help: "Completed requests by path",
+		},
+		[](string){"path"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(fnQueue)
+	prometheus.MustRegister(fnRunning)
+	prometheus.MustRegister(fnFailed)
+	prometheus.MustRegister(fnComplete)
+}
+
 func (s *stats) getStatsForFunction(path string) *functionStats {
 	if s.functionStatsMap == nil {
 		s.functionStatsMap = make(map[string]*functionStats)
@@ -61,6 +102,7 @@ func (s *stats) Enqueue(path string) {
 	s.mu.Lock()
 	s.queue++
 	s.getStatsForFunction(path).queue++
+	fnQueue.WithLabelValues(path).Inc()
 	s.mu.Unlock()
 }
 
@@ -69,6 +111,7 @@ func (s *stats) Dequeue(path string) {
 	s.mu.Lock()
 	s.queue--
 	s.getStatsForFunction(path).queue--
+	fnQueue.WithLabelValues(path).Dec()
 	s.mu.Unlock()
 }
 
@@ -76,8 +119,10 @@ func (s *stats) DequeueAndStart(path string) {
 	s.mu.Lock()
 	s.queue--
 	s.getStatsForFunction(path).queue--
+	fnQueue.WithLabelValues(path).Dec()
 	s.running++
 	s.getStatsForFunction(path).running++
+	fnRunning.WithLabelValues(path).Inc()
 	s.mu.Unlock()
 }
 
@@ -85,8 +130,10 @@ func (s *stats) Complete(path string) {
 	s.mu.Lock()
 	s.running--
 	s.getStatsForFunction(path).running--
+	fnRunning.WithLabelValues(path).Dec()
 	s.complete++
 	s.getStatsForFunction(path).complete++
+	fnComplete.WithLabelValues(path).Inc()
 	s.mu.Unlock()
 }
 
@@ -94,8 +141,10 @@ func (s *stats) Failed(path string) {
 	s.mu.Lock()
 	s.running--
 	s.getStatsForFunction(path).running--
+	fnRunning.WithLabelValues(path).Dec()
 	s.failed++
 	s.getStatsForFunction(path).failed++
+	fnFailed.WithLabelValues(path).Inc()
 	s.mu.Unlock()
 }
 
@@ -103,8 +152,10 @@ func (s *stats) DequeueAndFail(path string) {
 	s.mu.Lock()
 	s.queue--
 	s.getStatsForFunction(path).queue--
+	fnQueue.WithLabelValues(path).Dec()
 	s.failed++
 	s.getStatsForFunction(path).failed++
+	fnFailed.WithLabelValues(path).Inc()
 	s.mu.Unlock()
 }
 
