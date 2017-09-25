@@ -4,4 +4,4 @@ runtime: docker
 type: sync
 memory: 521
 format: http
-path: /hot-json
+path: /hotfn-py
