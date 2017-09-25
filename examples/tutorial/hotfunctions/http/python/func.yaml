@@ -1,0 +1,7 @@
+name: fnproject/hotfn-py
+version: 0.0.1
+runtime: docker
+type: sync
+memory: 521
+format: http
+path: /hotfn-py
