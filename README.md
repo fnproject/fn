@@ -25,17 +25,33 @@ platform that you can run anywhere. Some of it's key features:
 
 ### Install CLI tool
 
-This isn't required, but it sure makes things a lot easier. Just run the following to install:
+The command line tool isn't required, but it sure makes things a lot easier. There are a few options to install it:
+
+#### 1. Homebrew
+
+If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
+
+```sh
+brew install fn
+```
+
+#### 2. Shell script
+
+This one works on Linux and MacOS (partially on Windows):
 
 ```sh
 curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 ```
 
-This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
+This will download a shell script and execute it. If the script asks for a password, that is because it invokes sudo.
+
+#### 3. Download the bin
+
+Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
 
 ### Run Fn Server
 
-Then fire up an Fn server:
+Now fire up an Fn server:
 
 ```sh
 fn start
