@@ -109,7 +109,7 @@ func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
 
 	routes := []*models.Route{{AppName: "a", Path: "/myroute"}}
-	apps := []*models.App{{Name: "a", Routes: routes, Config: nil}}
+	apps := []*models.App{{Name: "a", Config: nil}}
 
 	for i, test := range []struct {
 		ds            models.Datastore
