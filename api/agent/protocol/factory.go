@@ -47,7 +47,7 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 	case HTTP:
 		*p = HTTP
 	case JSON:
-		*p = JSON 
+		*p = JSON
 	default:
 		return errInvalidProtocol
 	}

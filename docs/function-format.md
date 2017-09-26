@@ -62,7 +62,7 @@ The header keys and values would be populated with information about the functio
 
 Pros:
 
-* Streamable
+* Supports streaming
 * Common format
 
 Cons:
@@ -78,19 +78,8 @@ An easy to parse JSON structure.
 
 ```json
 {
-  "request_url": "http://....",
-  "call_id": "abc123",
-  "method": "GET",
   "body": {
     "some": "input"
-  }
-}
-{
-  "request_url":"http://....",
-  "call_id": "edf456",
-  "method": "GET",
-  "body": {
-    "other": "input"
   }
 }
 ```

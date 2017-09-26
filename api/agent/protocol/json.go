@@ -11,10 +11,7 @@ import (
 // JSONInput is what's sent into the function
 // All HTTP request headers should be set in env
 type JSONInput struct {
-	RequestURL string `json:"request_url"`
-	CallID     string `json:"call_id"`
-	Method     string `json:"method"`
-	Body       string `json:"body"`
+	Body string `json:"body"`
 }
 
 // JSONOutput function must return this format
@@ -35,10 +32,6 @@ func (p *JSONProtocol) IsStreamable() bool {
 }
 
 func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
-	reqURL := req.Header.Get("REQUEST_URL")
-	method := req.Header.Get("METHOD")
-	callID := req.Header.Get("CALL_ID")
-
 	// TODO content-length or chunked encoding
 	var body bytes.Buffer
 	if req.Body != nil {
@@ -50,10 +43,7 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 
 	// convert to JSON func format
 	jin := &JSONInput{
-		RequestURL: reqURL,
-		Method:     method,
-		CallID:     callID,
-		Body:       body.String(),
+		Body: body.String(),
 	}
 	b, err := json.Marshal(jin)
 	if err != nil {
