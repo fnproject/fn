@@ -163,7 +163,7 @@ func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error
 	}
 	if method == http.MethodPost {
 		if wroute.Route.Path == "" {
-			return models.ErrRoutesValidationMissingPath
+			return models.ErrMissingPath
 		}
 	}
 	return nil

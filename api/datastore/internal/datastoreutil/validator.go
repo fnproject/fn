@@ -73,14 +73,6 @@ func (v *validator) GetRoute(ctx context.Context, appName, routePath string) (*m
 	return v.Datastore.GetRoute(ctx, appName, routePath)
 }
 
-func (v *validator) GetRoutes(ctx context.Context, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
-	if routeFilter != nil && routeFilter.AppName != "" {
-		return v.Datastore.GetRoutesByApp(ctx, routeFilter.AppName, routeFilter)
-	}
-
-	return v.Datastore.GetRoutes(ctx, routeFilter)
-}
-
 // appName will never be empty
 func (v *validator) GetRoutesByApp(ctx context.Context, appName string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if appName == "" {

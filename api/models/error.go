@@ -96,51 +96,59 @@ var (
 		code:  http.StatusConflict,
 		error: errors.New("Could not update route - path is immutable"),
 	}
-	ErrRoutesValidationFoundDynamicURL = err{
+	ErrFoundDynamicURL = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Dynamic URL is not allowed"),
 	}
-	ErrRoutesValidationInvalidPath = err{
+	ErrInvalidPath = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid Path format"),
 	}
-	ErrRoutesValidationInvalidType = err{
+	ErrInvalidType = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Type"),
 	}
-	ErrRoutesValidationInvalidFormat = err{
+	ErrInvalidFormat = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Format"),
 	}
-	ErrRoutesValidationMissingAppName = err{
+	ErrMissingAppName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route AppName"),
 	}
-	ErrRoutesValidationMissingImage = err{
+	ErrMissingImage = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Image"),
 	}
-	ErrRoutesValidationMissingName = err{
+	ErrMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Name"),
 	}
-	ErrRoutesValidationMissingPath = err{
+	ErrMissingPath = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Path"),
 	}
-	ErrRoutesValidationMissingType = err{
+	ErrMissingType = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Type"),
 	}
-	ErrRoutesValidationPathMalformed = err{
+	ErrPathMalformed = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Path malformed"),
 	}
-	ErrRoutesValidationNegativeTimeout = err{
+	ErrInvalidToTime = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("to_time is not an epoch time"),
+	}
+	ErrInvalidFromTime = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("from_time is not an epoch time"),
+	}
+	ErrNegativeTimeout = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Negative timeout"),
 	}
-	ErrRoutesValidationNegativeIdleTimeout = err{
+	ErrNegativeIdleTimeout = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Negative idle timeout"),
 	}

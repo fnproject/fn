@@ -3,12 +3,14 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
@@ -210,6 +212,16 @@ func loggerWrap(c *gin.Context) {
 	c.Next()
 }
 
+func appWrap(c *gin.Context) {
+	appName := c.GetString(api.AppName)
+	if appName == "" {
+		handleErrorResponse(c, models.ErrMissingAppName)
+		c.Abort()
+		return
+	}
+	c.Next()
+}
+
 func (s *Server) handleRunnerRequest(c *gin.Context) {
 	s.handleRequest(c)
 }
@@ -269,18 +281,20 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/version", handleVersion)
 	engine.GET("/stats", s.handleStats)
 
-	v1 := engine.Group("/v1")
-	v1.Use(s.middlewareWrapperFunc(ctx))
 	{
+		v1 := engine.Group("/v1")
+		v1.Use(s.middlewareWrapperFunc(ctx))
 		v1.GET("/apps", s.handleAppList)
 		v1.POST("/apps", s.handleAppCreate)
 
-		v1.GET("/apps/:app", s.handleAppGet)
-		v1.PATCH("/apps/:app", s.handleAppUpdate)
-		v1.DELETE("/apps/:app", s.handleAppDelete)
-
-		apps := v1.Group("/apps/:app")
 		{
+			apps := v1.Group("/apps/:app")
+			apps.Use(appWrap)
+
+			apps.GET("", s.handleAppGet)
+			apps.PATCH("", s.handleAppUpdate)
+			apps.DELETE("", s.handleAppDelete)
+
 			apps.GET("/routes", s.handleRouteList)
 			apps.POST("/routes", s.handleRoutesPostPutPatch)
 			apps.GET("/routes/*route", s.handleRouteGet)
@@ -293,17 +307,39 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			apps.GET("/calls/:call", s.handleCallGet)
 			apps.GET("/calls/:call/log", s.handleCallLogGet)
 			apps.DELETE("/calls/:call/log", s.handleCallLogDelete)
-
 		}
 	}
 
-	engine.Any("/r/:app", s.handleRunnerRequest)
-	engine.Any("/r/:app/*route", s.handleRunnerRequest)
+	{
+		runner := engine.Group("/r")
+		runner.Use(appWrap)
+		runner.Any("/:app", s.handleRunnerRequest)
+		runner.Any("/:app/*route", s.handleRunnerRequest)
+	}
 
 	engine.NoRoute(func(c *gin.Context) {
 		logrus.Debugln("not found", c.Request.URL.Path)
 		c.JSON(http.StatusNotFound, simpleError(errors.New("Path not found")))
 	})
+}
+
+// returns the unescaped ?cursor and ?perPage values
+// pageParams clamps 0 < ?perPage <= 100 and defaults to 30 if 0
+// ignores parsing errors and falls back to defaults.
+func pageParams(c *gin.Context, base64d bool) (cursor string, perPage int) {
+	cursor = c.Query("cursor")
+	if base64d {
+		cbytes, _ := base64.RawURLEncoding.DecodeString(cursor)
+		cursor = string(cbytes)
+	}
+
+	perPage, _ = strconv.Atoi(c.Query("per_page"))
+	if perPage > 100 {
+		perPage = 100
+	} else if perPage <= 0 {
+		perPage = 30
+	}
+	return cursor, perPage
 }
 
 type appResponse struct {
@@ -312,8 +348,9 @@ type appResponse struct {
 }
 
 type appsResponse struct {
-	Message string        `json:"message"`
-	Apps    []*models.App `json:"apps"`
+	Message    string        `json:"message"`
+	NextCursor string        `json:"next_cursor"`
+	Apps       []*models.App `json:"apps"`
 }
 
 type routeResponse struct {
@@ -322,21 +359,23 @@ type routeResponse struct {
 }
 
 type routesResponse struct {
-	Message string          `json:"message"`
-	Routes  []*models.Route `json:"routes"`
+	Message    string          `json:"message"`
+	NextCursor string          `json:"next_cursor"`
+	Routes     []*models.Route `json:"routes"`
 }
 
-type fnCallResponse struct {
+type callResponse struct {
 	Message string       `json:"message"`
 	Call    *models.Call `json:"call"`
 }
 
-type fnCallsResponse struct {
-	Message string         `json:"message"`
-	Calls   []*models.Call `json:"calls"`
+type callsResponse struct {
+	Message    string         `json:"message"`
+	NextCursor string         `json:"next_cursor"`
+	Calls      []*models.Call `json:"calls"`
 }
 
-type fnCallLogResponse struct {
+type callLogResponse struct {
 	Message string          `json:"message"`
 	Log     *models.CallLog `json:"log"`
 }

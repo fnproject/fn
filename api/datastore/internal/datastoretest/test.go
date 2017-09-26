@@ -4,15 +4,13 @@ import (
 	"bytes"
 	"context"
 	"log"
+	"net/http"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
-
-	"net/http"
-	"reflect"
-	"time"
-
 	"github.com/gin-gonic/gin"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -28,7 +26,7 @@ func setLogBuffer() *bytes.Buffer {
 	return &buf
 }
 
-func Test(t *testing.T, ds models.Datastore) {
+func Test(t *testing.T, dsf func() models.Datastore) {
 	buf := setLogBuffer()
 
 	ctx := context.Background()
@@ -42,6 +40,7 @@ func Test(t *testing.T, ds models.Datastore) {
 	call.Path = testRoute.Path
 
 	t.Run("call-insert", func(t *testing.T) {
+		ds := dsf()
 		call.ID = id.New().String()
 		err := ds.InsertCall(ctx, call)
 		if err != nil {
@@ -51,6 +50,7 @@ func Test(t *testing.T, ds models.Datastore) {
 	})
 
 	t.Run("call-get", func(t *testing.T) {
+		ds := dsf()
 		call.ID = id.New().String()
 		ds.InsertCall(ctx, call)
 		newCall, err := ds.GetCall(ctx, call.AppName, call.ID)
@@ -64,20 +64,120 @@ func Test(t *testing.T, ds models.Datastore) {
 	})
 
 	t.Run("calls-get", func(t *testing.T) {
-		filter := &models.CallFilter{AppName: call.AppName, Path: call.Path}
+		ds := dsf()
+		filter := &models.CallFilter{AppName: call.AppName, Path: call.Path, PerPage: 100}
 		call.ID = id.New().String()
-		ds.InsertCall(ctx, call)
+		call.CreatedAt = strfmt.DateTime(time.Now())
+		err := ds.InsertCall(ctx, call)
+		if err != nil {
+			t.Fatal(err)
+		}
 		calls, err := ds.GetCalls(ctx, filter)
 		if err != nil {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
 		}
-		if len(calls) == 0 {
+		if len(calls) != 1 {
 			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		}
+
+		c2 := *call
+		c3 := *call
+		c2.ID = id.New().String()
+		c2.CreatedAt = strfmt.DateTime(time.Now().Add(100 * time.Millisecond)) // add ms cuz db uses it for sort
+		c3.ID = id.New().String()
+		c3.CreatedAt = strfmt.DateTime(time.Now().Add(200 * time.Millisecond))
+
+		err = ds.InsertCall(ctx, &c2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = ds.InsertCall(ctx, &c3)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// test that no filter works too
+		calls, err = ds.GetCalls(ctx, &models.CallFilter{PerPage: 100})
+		if err != nil {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) != 3 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		}
+
+		// test that pagination stuff works. id, descending
+		filter.PerPage = 1
+		calls, err = ds.GetCalls(ctx, filter)
+		if err != nil {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) != 1 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		} else if calls[0].ID != c3.ID {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls: call ids not in expected order: %v %v", calls[0].ID, c3.ID)
+		}
+
+		filter.PerPage = 100
+		filter.Cursor = calls[0].ID
+		calls, err = ds.GetCalls(ctx, filter)
+		if err != nil {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) != 2 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		} else if calls[0].ID != c2.ID {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls: call ids not in expected order: %v %v", calls[0].ID, c2.ID)
+		} else if calls[1].ID != call.ID {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls: call ids not in expected order: %v %v", calls[1].ID, call.ID)
+		}
+
+		// test that filters actually applied
+		calls, err = ds.GetCalls(ctx, &models.CallFilter{AppName: "wrongappname", PerPage: 100})
+		if err != nil {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) != 0 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		}
+
+		calls, err = ds.GetCalls(ctx, &models.CallFilter{Path: "wrongpath", PerPage: 100})
+		if err != nil {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) != 0 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		}
+
+		// make sure from_time and to_time work
+		filter = &models.CallFilter{
+			PerPage:  100,
+			FromTime: call.CreatedAt,
+			ToTime:   c3.CreatedAt,
+		}
+		calls, err = ds.GetCalls(ctx, filter)
+		if err != nil {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(calls) != 1 {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
+		} else if calls[0].ID != c2.ID {
+			t.Log(buf.String())
+			t.Fatalf("Test GetCalls: call id not expected", calls[0].ID, c2.ID)
 		}
 	})
 
 	t.Run("apps", func(t *testing.T) {
+		ds := dsf()
 		// Testing insert app
 		_, err := ds.InsertApp(ctx, nil)
 		if err != models.ErrDatastoreEmptyApp {
@@ -166,7 +266,7 @@ func Test(t *testing.T, ds models.Datastore) {
 		}
 
 		// Testing list apps
-		apps, err := ds.GetApps(ctx, &models.AppFilter{})
+		apps, err := ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
 		if err != nil {
 			t.Log(buf.String())
 			t.Fatalf("Test GetApps: unexpected error %v", err)
@@ -179,14 +279,73 @@ func Test(t *testing.T, ds models.Datastore) {
 			t.Fatalf("Test GetApps: expected `app.Name` to be `%s` but it was `%s`", app.Name, testApp.Name)
 		}
 
-		apps, err = ds.GetApps(ctx, &models.AppFilter{Name: "Tes%"})
+		// test pagination stuff (ordering / limits / cursoring)
+		a2 := *testApp
+		a3 := *testApp
+		a2.Name = "Testa"
+		a3.Name = "Testb"
+		if _, err = ds.InsertApp(ctx, &a2); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = ds.InsertApp(ctx, &a3); err != nil {
+			t.Fatal(err)
+		}
+
+		apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 1})
 		if err != nil {
 			t.Log(buf.String())
-			t.Fatalf("Test GetApps(filter): unexpected error %v", err)
+			t.Fatalf("Test GetApps: error: %s", err)
 		}
-		if len(apps) == 0 {
-			t.Fatal("Test GetApps(filter): expected result count to be greater than 0")
+		if len(apps) != 1 {
+			t.Fatalf("Test GetApps: expected result count to be 1 but got %d", len(apps))
+		} else if apps[0].Name != testApp.Name {
+			t.Log(buf.String())
+			t.Fatalf("Test GetApps: expected `app.Name` to be `%s` but it was `%s`", testApp.Name, apps[0].Name)
 		}
+
+		apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100, Cursor: apps[0].Name})
+		if err != nil {
+			t.Log(buf.String())
+			t.Fatalf("Test GetApps: error: %s", err)
+		}
+		if len(apps) != 2 {
+			t.Fatalf("Test GetApps: expected result count to be 2 but got %d", len(apps))
+		} else if apps[0].Name != a2.Name {
+			t.Log(buf.String())
+			t.Fatalf("Test GetApps: expected `app.Name` to be `%s` but it was `%s`", a2.Name, apps[0].Name)
+		} else if apps[1].Name != a3.Name {
+			t.Log(buf.String())
+			t.Fatalf("Test GetApps: expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps[1].Name)
+		}
+
+		a4 := *testApp
+		a4.Name = "Abcdefg" // < /test lexicographically, but not in length
+
+		if _, err = ds.InsertApp(ctx, &a4); err != nil {
+			t.Fatal(err)
+		}
+
+		apps, err = ds.GetApps(ctx, &models.AppFilter{PerPage: 100})
+		if err != nil {
+			t.Log(buf.String())
+			t.Fatalf("Test GetApps: error: %s", err)
+		}
+		if len(apps) != 4 {
+			t.Fatalf("Test GetApps: expected result count to be 4 but got %d", len(apps))
+		} else if apps[0].Name != a4.Name {
+			t.Log(buf.String())
+			t.Fatalf("Test GetApps: expected `app.Name` to be `%s` but it was `%s`", a4.Name, apps[0].Name)
+		}
+
+		// TODO fix up prefix stuff
+		//apps, err = ds.GetApps(ctx, &models.AppFilter{Name: "Tes"})
+		//if err != nil {
+		//t.Log(buf.String())
+		//t.Fatalf("Test GetApps(filter): unexpected error %v", err)
+		//}
+		//if len(apps) != 3 {
+		//t.Fatal("Test GetApps(filter): expected result count to be 3, got", len(apps))
+		//}
 
 		// Testing app delete
 		err = ds.RemoveApp(ctx, "")
@@ -224,6 +383,7 @@ func Test(t *testing.T, ds models.Datastore) {
 	})
 
 	t.Run("routes", func(t *testing.T) {
+		ds := dsf()
 		// Insert app again to test routes
 		_, err := ds.InsertApp(ctx, testApp)
 		if err != nil && err != models.ErrAppsAlreadyExists {
@@ -374,7 +534,7 @@ func Test(t *testing.T, ds models.Datastore) {
 		}
 
 		// Testing list routes
-		routes, err := ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{})
+		routes, err := ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{PerPage: 1})
 		if err != nil {
 			t.Log(buf.String())
 			t.Fatalf("Test GetRoutesByApp: unexpected error %v", err)
@@ -390,7 +550,7 @@ func Test(t *testing.T, ds models.Datastore) {
 			t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 		}
 
-		routes, err = ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{Image: testRoute.Image})
+		routes, err = ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{Image: testRoute.Image, PerPage: 1})
 		if err != nil {
 			t.Log(buf.String())
 			t.Fatalf("Test GetRoutesByApp: unexpected error %v", err)
@@ -400,13 +560,13 @@ func Test(t *testing.T, ds models.Datastore) {
 		}
 		if routes[0] == nil {
 			t.Log(buf.String())
-			t.Fatalf("Test GetRoutes: expected non-nil route")
+			t.Fatalf("Test GetRoutesByApp: expected non-nil route")
 		} else if routes[0].Path != testRoute.Path {
 			t.Log(buf.String())
-			t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
+			t.Fatalf("Test GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 		}
 
-		routes, err = ds.GetRoutesByApp(ctx, "notreal", nil)
+		routes, err = ds.GetRoutesByApp(ctx, "notreal", &models.RouteFilter{PerPage: 1})
 		if err != nil {
 			t.Log(buf.String())
 			t.Fatalf("Test GetRoutesByApp: error: %s", err)
@@ -415,19 +575,67 @@ func Test(t *testing.T, ds models.Datastore) {
 			t.Fatalf("Test GetRoutesByApp: expected result count to be 0 but got %d", len(routes))
 		}
 
-		// Testing list routes
-		routes, err = ds.GetRoutes(ctx, &models.RouteFilter{Image: testRoute.Image})
+		// test pagination stuff
+		r2 := *testRoute
+		r3 := *testRoute
+		r2.Path = "/testa"
+		r3.Path = "/testb"
+
+		if _, err = ds.InsertRoute(ctx, &r2); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = ds.InsertRoute(ctx, &r3); err != nil {
+			t.Fatal(err)
+		}
+
+		routes, err = ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{PerPage: 1})
 		if err != nil {
 			t.Log(buf.String())
-			t.Fatalf("Test GetRoutes: error: %s", err)
+			t.Fatalf("Test GetRoutesByApp: error: %s", err)
 		}
-		if len(routes) == 0 {
-			t.Fatal("Test GetRoutes: expected result count to be greater than 0")
-		}
-		if routes[0].Path != testRoute.Path {
+		if len(routes) != 1 {
+			t.Fatalf("Test GetRoutesByApp: expected result count to be 1 but got %d", len(routes))
+		} else if routes[0].Path != testRoute.Path {
 			t.Log(buf.String())
-			t.Fatalf("Test GetRoutes: expected `app.Name` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
+			t.Fatalf("Test GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", testRoute.Path, routes[0].Path)
 		}
+
+		routes, err = ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{PerPage: 2, Cursor: routes[0].Path})
+		if err != nil {
+			t.Log(buf.String())
+			t.Fatalf("Test GetRoutesByApp: error: %s", err)
+		}
+		if len(routes) != 2 {
+			t.Fatalf("Test GetRoutesByApp: expected result count to be 2 but got %d", len(routes))
+		} else if routes[0].Path != r2.Path {
+			t.Log(buf.String())
+			t.Fatalf("Test GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r2.Path, routes[0].Path)
+		} else if routes[1].Path != r3.Path {
+			t.Log(buf.String())
+			t.Fatalf("Test GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r3.Path, routes[1].Path)
+		}
+
+		r4 := *testRoute
+		r4.Path = "/abcdefg" // < /test lexicographically, but not in length
+
+		if _, err = ds.InsertRoute(ctx, &r4); err != nil {
+			t.Fatal(err)
+		}
+
+		routes, err = ds.GetRoutesByApp(ctx, testApp.Name, &models.RouteFilter{PerPage: 100})
+		if err != nil {
+			t.Log(buf.String())
+			t.Fatalf("Test GetRoutesByApp: error: %s", err)
+		}
+		if len(routes) != 4 {
+			t.Fatalf("Test GetRoutesByApp: expected result count to be 4 but got %d", len(routes))
+		} else if routes[0].Path != r4.Path {
+			t.Log(buf.String())
+			t.Fatalf("Test GetRoutesByApp: expected `route.Path` to be `%s` but it was `%s`", r4.Path, routes[0].Path)
+		}
+
+		// TODO test weird ordering possibilities ?
+		// TODO test prefix filtering
 
 		// Testing route delete
 		err = ds.RemoveRoute(ctx, "", "")
