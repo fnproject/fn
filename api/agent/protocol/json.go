@@ -32,6 +32,14 @@ func (p *JSONProtocol) IsStreamable() bool {
 	return true
 }
 
+type Error struct {
+	Message string `json:"message"`
+}
+
+type ErrMsg struct {
+	Err Error `json:"error"`
+}
+
 func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 	var body bytes.Buffer
 	if req.Body != nil {
@@ -42,7 +50,7 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 			req.Header.Get("Content-Length"), 10, 64)
 		_, err := io.Copy(dest, io.LimitReader(req.Body, nBytes))
 		if err != nil {
-			// TODO: maybe mask this error if favour of something different
+			respondWithError(w, err)
 			return err
 		}
 	}
@@ -54,28 +62,27 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 	b, err := json.Marshal(jin)
 	if err != nil {
 		// this shouldn't happen
-		return fmt.Errorf("error marshalling JSONInput: %v", err)
+		err = fmt.Errorf("error marshalling JSONInput: %v", err)
+		respondWithError(w, err)
+		return err
 	}
 	h.in.Write(b)
 
-	// TODO: put max size on how big the response can be so we don't blow up
+	maxContentSize := int64(1 * 1024 * 1024) // 1Mb should be enough
 	jout := &JSONOutput{}
-	dec := json.NewDecoder(h.out)
+	dec := json.NewDecoder(io.LimitReader(h.out, maxContentSize))
 	if err := dec.Decode(jout); err != nil {
-		// TODO: how do we get an error back to the client??
-		return fmt.Errorf("error unmarshalling JSONOutput: %v", err)
+		err = fmt.Errorf("Unable to decode JSON response object: %s", err.Error())
+		respondWithError(w, err)
+		return err
 	}
-
-	// res := &http.Response{}
-	// res.Body = strings.NewReader(jout.Body)
-	// TODO: shouldn't we pass back the full response object or something so we can set some things on it here?
-	// For instance, user could set response content type or what have you.
-	//io.Copy(cfg.Stdout, strings.NewReader(jout.Body))
 
 	if rw, ok := w.(http.ResponseWriter); ok {
 		b, err = json.Marshal(jout.Body)
 		if err != nil {
-			return fmt.Errorf("error unmarshalling JSONOutput.Body: %v", err)
+			err = fmt.Errorf("error unmarshalling JSON body: %s", err.Error())
+			respondWithError(w, err)
+			return err
 		}
 		rw.WriteHeader(jout.StatusCode)
 		rw.Write(b) // TODO timeout
@@ -83,12 +90,32 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		// logs can just copy the full thing in there, headers and all.
 		b, err = json.Marshal(jout)
 		if err != nil {
-			return fmt.Errorf("error unmarshalling JSONOutput: %v", err)
+			err = fmt.Errorf("error unmarshalling JSON response: %s", err.Error())
+			respondWithError(w, err)
+			return err
 		}
-
 		w.Write(b) // TODO timeout
-
 	}
 	return nil
+}
 
+func respondWithError(w io.Writer, err error) {
+	errMsg := ErrMsg{
+		Err: Error{
+			Message: err.Error(),
+		},
+	}
+	b, _ := json.Marshal(errMsg)
+	statusCode := 500
+	writeResponse(w, b, statusCode)
+}
+
+func writeResponse(w io.Writer, b []byte, statusCode int) {
+	if rw, ok := w.(http.ResponseWriter); ok {
+		rw.WriteHeader(statusCode)
+		rw.Write(b) // TODO timeout
+	} else {
+		// logs can just copy the full thing in there, headers and all.
+		w.Write(b) // TODO timeout
+	}
 }
