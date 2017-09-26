@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 // JSONInput is what's sent into the function
@@ -32,13 +33,18 @@ func (p *JSONProtocol) IsStreamable() bool {
 }
 
 func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
-	// TODO content-length or chunked encoding
 	var body bytes.Buffer
 	if req.Body != nil {
 		var dest io.Writer = &body
 
-		// TODO copy w/ ctx and check err
-		io.Copy(dest, req.Body)
+		// TODO copy w/ ctx
+		nBytes, _ := strconv.ParseInt(
+			req.Header.Get("Content-Length"), 10, 64)
+		_, err := io.Copy(dest, io.LimitReader(req.Body, nBytes))
+		if err != nil {
+			// TODO: maybe mask this error if favour of something different
+			return err
+		}
 	}
 
 	// convert to JSON func format
