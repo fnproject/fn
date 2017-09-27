@@ -146,6 +146,13 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			}
 		}
 
+		// this ensures that there is an image, path, timeouts, memory, etc are valid.
+		// NOTE: this means assign any changes above into route's fields
+		err = route.Validate()
+		if err != nil {
+			return err
+		}
+
 		c.Call = &models.Call{
 			ID:      id,
 			AppName: appName,
@@ -164,14 +171,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			CreatedAt:   strfmt.DateTime(time.Now()),
 			URL:         req.URL.String(), // TODO we should probably strip host/port
 			Method:      req.Method,
-		}
-
-		// TODO if these made it to here we have a problemo. error instead?
-		if c.Timeout <= 0 {
-			c.Timeout = models.DefaultRouteTimeout
-		}
-		if c.IdleTimeout <= 0 {
-			c.IdleTimeout = models.DefaultIdleTimeout
 		}
 
 		c.req = req

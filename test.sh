@@ -2,9 +2,6 @@
 
 set -ex
 
-make build
-make docker-build
-
 docker rm -fv func-postgres-test || echo No prev test db container
 docker run --name func-postgres-test -p 15432:5432 -d postgres
 docker rm -fv func-mysql-test || echo No prev mysql test db container

@@ -32,7 +32,10 @@ jobs:
       - run: docker version
       # login here for tests
       - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
-      - run: ./test.sh
+      - run: make docker-build
+      - run: make install
+      - run: make test
+      # TODO these should be inside test.sh file ?
       - run: ./api_test.sh mysql 4
       - run: ./api_test.sh postgres 4
       - run: ./api_test.sh sqlite 4

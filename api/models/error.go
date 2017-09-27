@@ -20,15 +20,15 @@ var (
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
-	ErrAppsValidationMissingName = err{
+	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),
 	}
-	ErrAppsValidationTooLongName = err{
+	ErrAppsTooLongName = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
 	}
-	ErrAppsValidationInvalidName = err{
+	ErrAppsInvalidName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid app name"),
 	}
@@ -42,7 +42,7 @@ var (
 	}
 	ErrAppsNameImmutable = err{
 		code:  http.StatusConflict,
-		error: errors.New("Could not update app - name is immutable"),
+		error: errors.New("Could not update - name is immutable"),
 	}
 	ErrAppsNotFound = err{
 		code:  http.StatusNotFound,
@@ -94,41 +94,41 @@ var (
 	}
 	ErrRoutesPathImmutable = err{
 		code:  http.StatusConflict,
-		error: errors.New("Could not update route - path is immutable"),
+		error: errors.New("Could not update - path is immutable"),
 	}
 	ErrFoundDynamicURL = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Dynamic URL is not allowed"),
 	}
-	ErrInvalidPath = err{
+	ErrRoutesInvalidPath = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid Path format"),
+		error: errors.New("Invalid route path format"),
 	}
-	ErrInvalidType = err{
+	ErrRoutesInvalidType = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Type"),
 	}
-	ErrInvalidFormat = err{
+	ErrRoutesInvalidFormat = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Format"),
 	}
-	ErrMissingAppName = err{
+	ErrRoutesMissingAppName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route AppName"),
 	}
-	ErrMissingImage = err{
+	ErrRoutesMissingImage = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Image"),
 	}
-	ErrMissingName = err{
+	ErrRoutesMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Name"),
 	}
-	ErrMissingPath = err{
+	ErrRoutesMissingPath = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Path"),
 	}
-	ErrMissingType = err{
+	ErrRoutesMissingType = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Type"),
 	}
@@ -144,13 +144,17 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("from_time is not an epoch time"),
 	}
-	ErrNegativeTimeout = err{
+	ErrRoutesInvalidTimeout = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Negative timeout"),
+		error: fmt.Errorf("timeout value is too large or small. 0 < timeout < max. async max: %d sync max: %d", MaxAsyncTimeout, MaxSyncTimeout),
 	}
-	ErrNegativeIdleTimeout = err{
+	ErrRoutesInvalidIdleTimeout = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Negative idle timeout"),
+		error: fmt.Errorf("idle_timeout value is too large or small. 0 < timeout < %d", MaxIdleTimeout),
+	}
+	ErrRoutesInvalidMemory = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", MaxMemory),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,

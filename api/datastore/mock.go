@@ -144,8 +144,14 @@ func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Ro
 	if err != nil {
 		return nil, err
 	}
-	r.Update(route)
-	return r.Clone(), nil
+	clone := r.Clone()
+	clone.Update(route)
+	err = clone.Validate()
+	if err != nil {
+		return nil, err
+	}
+	r.Update(route) // only if validate works (pointer)
+	return clone, nil
 }
 
 func (m *mock) RemoveRoute(ctx context.Context, appName, routePath string) error {
