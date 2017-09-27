@@ -119,11 +119,21 @@ you can update your code and run `fn deploy myapp` again.
 * View all of our [examples](/examples)
 * You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 
+## Get Help
+
+* [Ask your question on StackOverflow](https://stackoverflow.com/questions/tagged/fn) and tag it with `fn`
+* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+
+## Stay Informed
+
+* [Blog](https://medium.com/fnproject)
+* [Twitter](https://twitter.com/fnproj) TODO
+
 ## Get Involved
 
-- Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
-- Learn how to [contribute](CONTRIBUTING.md)
-- See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
+* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+* Learn how to [contribute](CONTRIBUTING.md)
+* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
 
 ## User Interface
 
