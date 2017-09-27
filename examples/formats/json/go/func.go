@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 )
 
 type Person struct {
-	Name string
+	Name string `json:"name"`
 }
 
 type JSONInput struct {
@@ -22,14 +25,19 @@ type JSONOutput struct {
 
 func main() {
 
-	dec := json.NewDecoder(os.Stdin)
 	enc := json.NewEncoder(os.Stdout)
+	r := bufio.NewReader(os.Stdin)
 	for {
-
+		var buf bytes.Buffer
 		in := &JSONInput{}
-		if err := dec.Decode(in); err != nil {
+		_, err := io.Copy(&buf, r)
+		if err != nil {
 			log.Fatalln(err)
-			return
+		}
+
+		err = json.Unmarshal(buf.Bytes(), in)
+		if err != nil {
+			log.Fatalln(err)
 		}
 
 		person := Person{}

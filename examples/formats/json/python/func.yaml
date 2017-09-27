@@ -1,0 +1,7 @@
+name: fnproject/hot-json-python
+version: 0.0.1
+runtime: docker
+type: sync
+memory: 256
+format: http
+path: /hot-json-python

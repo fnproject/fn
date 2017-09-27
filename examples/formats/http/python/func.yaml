@@ -1,7 +1,7 @@
-name: fnproject/hotfn-py
+name: fnproject/hot-http-python
 version: 0.0.1
 runtime: docker
 type: sync
 memory: 521
 format: http
-path: /hotfn-py
+path: /hot-http-python
