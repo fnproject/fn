@@ -1,0 +1,151 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fn-service-config
+  namespace: default
+data:
+  MQ_URL: redis://fn-redis-master.default
+  DB_URL: mysql://root:fnsecretpassword@tcp(fn-mysql-master:3306)/fn
+  API_URL: http://fn-service:8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-service
+  labels:
+    app: fn
+    role: fn-service
+spec:
+  type: LoadBalancer
+  ports:
+  - name: fn-service
+    port: 8080
+    targetPort: 8080
+  - name: fn-ui
+    port: 80
+    targetPort: 80
+  selector:
+    app: fn
+    role: fn-service
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: fn-service
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  minReadySeconds: 30
+  template:
+    metadata:
+      labels:
+        app: fn
+        role: fn-service
+    spec:
+      containers:
+      - name: fn-service
+        image: fnproject/functions:latest
+        securityContext:
+          privileged: true
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MQ_URL
+          valueFrom:
+            configMapKeyRef:
+              name: fn-service-config
+              key: MQ_URL
+        - name: DB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: fn-service-config
+              key: DB_URL
+      - name: fn-ui
+        image: fnproject/ui:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: PORT
+          value: "80"
+        - name: API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: fn-service-config
+              key: API_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-mysql-master
+  labels:
+    app: mysql
+    role: datastore
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mysql
+    role: datastore
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-mysql-master
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+        role: datastore
+    spec:
+      containers:
+      - name: fn-mysql
+        image: mysql:5.7
+        args:
+          - "--max-connections=500"
+          - "--wait-timeout=300"
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: fnsecretpassword
+        - name: MYSQL_DATABASE
+          value: fn
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-redis-master
+  labels:
+    app: redis
+    role: mq
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+    role: mq
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-redis-master
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: mq
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+      - name: fn-redis
+        image: redis:4.0
+        ports:
+        - containerPort: 6379
