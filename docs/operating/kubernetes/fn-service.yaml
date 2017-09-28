@@ -143,7 +143,6 @@ spec:
         app: redis
         role: mq
     spec:
-      terminationGracePeriodSeconds: 1
       containers:
       - name: fn-redis
         image: redis:4.0
