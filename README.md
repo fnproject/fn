@@ -19,7 +19,10 @@ platform that you can run anywhere. Some of it's key features:
 ## Prequisites
 
 * Docker 17.05 or later installed and running
-* Logged into Docker Hub (`docker login`)
+* A Docker Hub account ([Docker Hub](https://hub.docker.com/))
+* Log Docker into your Docker Hub account
+    * Linux: `docker login`
+    * MacOS: Click Docker icon in menu bar. Select **Sign In**.
 
 ## Quickstart
 
@@ -27,11 +30,12 @@ platform that you can run anywhere. Some of it's key features:
 
 The command line tool isn't required, but it sure makes things a lot easier. There are a few options to install it:
 
-#### 1. Homebrew
+#### 1. Homebrew - MacOS
 
 If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
 
 ```sh
+brew update
 brew install fn
 ```
 
@@ -127,7 +131,7 @@ you can update your code and run `fn deploy myapp` again.
 ## Stay Informed
 
 * [Blog](https://medium.com/fnproject)
-* [Twitter](https://twitter.com/fnproj) TODO
+* [Twitter](https://twitter.com/fnproj)
 
 ## Get Involved
 
@@ -137,16 +141,16 @@ you can update your code and run `fn deploy myapp` again.
 
 ## User Interface
 
-This is the graphical user interface for Fn. It is currently not buildable.
+Check out this graphical user interface for Fn.
 
 ```sh
-docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" treeder/functions-ui
+docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" fnproject/ui
 ```
 
-For more information, see: [https://github.com/treeder/functions-ui](https://github.com/treeder/functions-ui)
+For more information, see: [https://github.com/fnproject/ui](https://github.com/fnproject/ui)
 
 ## Next up
 
 ### Check out the [Tutorial Series](examples/tutorial/)
 
- It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
+It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
