@@ -1,0 +1,5 @@
+version: 0.0.8
+runtime: ruby
+entrypoint: ruby func.rb
+build_image: treeder/ruby-mysql
+run_image: treeder/ruby-mysql
