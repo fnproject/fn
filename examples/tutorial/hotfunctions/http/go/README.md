@@ -14,6 +14,7 @@ export FN_REGISTRY=<DOCKERHUB_USERNAME>
 
 Build and deploy the function to the Fn server (default localhost:8080)
 
+```sh
 fn deploy --app hot-app
 ```
 
