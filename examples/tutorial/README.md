@@ -15,7 +15,7 @@ Learn the basics about sending data into your function. Choose your language:
 * [php](hello/php)
 * [python](hello/python)
 * [ruby](hello/ruby)
-* [rust](helo/rust) 
+* [rust](hello/rust) 
 
 ### Part 2
 

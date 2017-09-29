@@ -79,7 +79,7 @@ Open `func.rb` to see it in action.
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](examples/tutorial/params)
+## [Tutorial 2: Input Parameters](../../params)
 
 
 
