@@ -19,8 +19,7 @@ input/output.
 
 ## Implementing a hot function
 
-In the [examples directory](https://github.com/treeder/functions/blob/master/examples/hotfunctions/http/func.go), there is one simple implementation of a hot function
-which we are going to get in the details here.
+Let's look at a simple hot function. The examples directory contains a [simple example of a hot function written in go](/examples/tutorial/hotfunctions/http/go). Here's [func.go](/examples/tutorial/hotfunctions/http/go/func.go) from that example. 
 
 The basic cycle comprises three steps: read standard input up to a previosly
 known point, process the work, the write the output to stdout with some
