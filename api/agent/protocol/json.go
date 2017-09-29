@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -51,45 +52,35 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		return respondWithError(
 			w, fmt.Errorf("error marshalling JSONInput: %s", err.Error()))
 	}
+	// TODO: write in chunks, how big should chunk be?
 	_, err = h.in.Write(b)
 	if err != nil {
 		return respondWithError(
 			w, fmt.Errorf("error writing JSON object to function's STDIN: %s", err.Error()))
 	}
 
-	// this has to be done for pulling out:
-	// - status code
-	// - body
-	jout := new(JSONIO)
-	dec := json.NewDecoder(h.out)
-	if err := dec.Decode(jout); err != nil {
-		return respondWithError(
-			w, fmt.Errorf("unable to decode JSON response object: %s", err.Error()))
-	}
-
 	if rw, ok := w.(http.ResponseWriter); ok {
-		rw.WriteHeader(jout.StatusCode)
-		outBytes, err := json.Marshal(jout.Body)
-		if err != nil {
+		// this has to be done for pulling out:
+		// - status code
+		// - body
+		jout := new(JSONIO)
+		dec := json.NewDecoder(h.out)
+		if err := dec.Decode(jout); err != nil {
 			return respondWithError(
-				w, fmt.Errorf("unable to marshal JSON response object: %s", err.Error()))
+				w, fmt.Errorf("unable to decode JSON response object: %s", err.Error()))
 		}
-		_, err = rw.Write(outBytes) // TODO timeout
+		rw.WriteHeader(jout.StatusCode)
+		_, err = rw.Write([]byte(jout.Body)) // TODO timeout
 		if err != nil {
 			return respondWithError(
 				w, fmt.Errorf("unable to write JSON response object: %s", err.Error()))
 		}
 	} else {
 		// logs can just copy the full thing in there, headers and all.
-		outBytes, err := json.Marshal(jout.Body)
+		_, err = io.Copy(w, bufio.NewReader(h.out))
 		if err != nil {
 			return respondWithError(
-				w, fmt.Errorf("unable to marshal JSON response object: %s", err.Error()))
-		}
-		_, err = w.Write(outBytes) // TODO timeout
-		if err != nil {
-			return respondWithError(
-				w, fmt.Errorf("unable to write JSON response object: %s", err.Error()))
+				w, fmt.Errorf("error reading function response: %s", err.Error()))
 		}
 	}
 	return nil
