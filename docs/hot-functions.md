@@ -13,7 +13,7 @@ Thus, it means that once you decide to use a hot function, you must be able to
 tell the moment it should reading from standard input to start writing to
 standard output.
 
-Currently, Functions implements a HTTP-like protocol to operate hot
+Currently, Fn implements a HTTP-like protocol to operate hot
 containers, but instead of communication through a TCP/IP port, it uses standard
 input/output.
 
@@ -83,7 +83,7 @@ In your func.yaml, add "format: http". That's it.
 <!--
 
 Once your functions is adapted to be handled as hot function, you must tell
-Functions daemon that this function is now ready to be reused across
+Fn that this function is now ready to be reused across
 requests:
 
 ```json
