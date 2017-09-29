@@ -64,4 +64,4 @@ In Python, we create a [requirements](https://pip.pypa.io/en/stable/user_guide/)
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](examples/tutorial/params)
+## [Part 2: Input Parameters](../../params)

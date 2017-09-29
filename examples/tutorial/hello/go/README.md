@@ -63,4 +63,4 @@ In Go, simply put them all in the `vendor/` directory.
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](examples/tutorial/params)
+## [Part 2: Input Parameters](../../params)
