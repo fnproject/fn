@@ -8,7 +8,8 @@ Install the CLI tool, start a Fn server and run `docker login` to login to Docke
 
 Set your Docker Hub username 
 
-```export FN_REGISTRY=<DOCKERHUB_USERNAME>
+```sh
+export FN_REGISTRY=<DOCKERHUB_USERNAME>
 ```
 
 Build and deploy the function to the Fn server (default localhost:8080)
@@ -18,5 +19,6 @@ fn deploy --app hot-app
 
 Now call your function:
 
-```curl -X POST -d "World" http://localhost:8080/r/hot-app/%2Fhotfn-go
+```sh
+curl -X POST -d "World" http://localhost:8080/r/hot-app/%2Fhotfn-go
 ```
