@@ -1,16 +1,16 @@
-# Extending FN
+# Extending Fn
 
 FN is extensible so you can add custom functionality and extend the project without needing to modify the core.
 
-There are multiple ways to extend the functionality of FN.
+There are multiple ways to extend the functionality of Fn.
 
 1. Listeners - listen to API events such as a route getting updated and react accordingly.
 1. Middleware - a chain of middleware is executed before an API handler is called.
-1. Add API Endpoints - extend the default FN API.
+1. Add API Endpoints - extend the default Fn API.
 
 ## Listeners
 
-Listeners are the main way to extend FN.
+Listeners are the main way to extend Fn.
 
 The following listener types are supported:
 
@@ -19,7 +19,7 @@ The following listener types are supported:
 
 ### Creating a Listener
 
-You can easily use app and runner listeners by creating a struct with valid methods satisfying the interface for the respective listener and adding it to the FN API
+You can easily use app and runner listeners by creating a struct with valid methods satisfying the interface for the respective listener and adding it to the Fn API
 
 Example:
 
@@ -67,6 +67,6 @@ See examples of this in [examples/middleware/main.go](../../examples/middleware/
 
 ## Adding API Endpoints
 
-You can add API endpoints to the FN server by using the `AddEndpoint` and `AddEndpointFunc` methods.
+You can add API endpoints to the Fn server by using the `AddEndpoint` and `AddEndpointFunc` methods.
 
 See examples of this in [examples/extensions/main.go](../../examples/extensions/main.go).

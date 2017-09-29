@@ -1,4 +1,4 @@
-# Contributing to FN
+# Contributing to Fn
 
 We welcome all contributions!
 

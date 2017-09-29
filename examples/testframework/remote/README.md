@@ -1,4 +1,4 @@
-# Example of FN test framework - running functions remotely
+# Example of Fn test framework - running functions remotely
 
 This example will show you how to run a test suite on a function.
 

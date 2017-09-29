@@ -1,7 +1,7 @@
 # fnlb-test-harness
 Test harness that exercises the fnlb load balancer in order to verify that it works properly.
 ## How it works
-This is a test harness that makes calls to an FN route through the fnlb load balancer, which routes traffic to multiple FN nodes.
+This is a test harness that makes calls to an Fn route through the fnlb load balancer, which routes traffic to multiple Fn nodes.
 The test harness keeps track of which node each request was routed to so we can assess how the requests are being distributed across the nodes.  The functionality
 of fnlb is to normally route traffic to the same small number of nodes so that efficiences can be achieved and to support reuse of hot functions.
 ### Primes function
@@ -14,19 +14,19 @@ where:
 - *loops*: number of times to calculate the primes (repeating the count consumes additional CPU without consuming additional memory)
 
 ## How to use it
-The test harness requires running one or more FN nodes and one instance of fnlb.  The list of nodes must be provided both to fnlb and to the test harness
+The test harness requires running one or more Fn nodes and one instance of fnlb.  The list of nodes must be provided both to fnlb and to the test harness
 because the test harness must call each node directly one time in order to discover the node's container id.
 
 After it has run, examine the results to see how the requests were distributed across the nodes.
 ### How to run it locally
-Each of the FN nodes needs to connect to the same database.
+Each of the Fn nodes needs to connect to the same database.
 
 STEP 1: Create a route for the primes function.  Example:
 ```
 fn apps create primesapp
 fn routes create primesapp /primes jconning/primes:0.0.1
 ```
-STEP 2: Run five FN nodes locally.  Example (runs five nodes in the background using Docker):
+STEP 2: Run five Fn nodes locally.  Example (runs five nodes in the background using Docker):
 ```
 sudo docker run -d -it --name functions-8082 --privileged -v ${HOME}/data-8082:/app/data -p 8082:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/functions
 sudo docker run -d -it --name functions-8083 --privileged -v ${HOME}/data-8083:/app/data -p 8083:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/functions

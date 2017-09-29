@@ -1,6 +1,6 @@
 # Detailed Usage
 
-This is a more detailed explanation of the main commands you'll use in FN as a developer.
+This is a more detailed explanation of the main commands you'll use in Fn as a developer.
 
 ### Create an Application
 

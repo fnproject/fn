@@ -7,7 +7,7 @@ Test dependencies
 
 ```bash
 DOCKER_HOST - for building images
-API_URL - FN API endpoint
+API_URL - Fn API endpoint
 ```
 
 How to run tests?

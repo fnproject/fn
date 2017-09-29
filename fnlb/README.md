@@ -1,7 +1,7 @@
-# FN LoadBalancer
+# Fn LoadBalancer
 
-## Loadbalancing several FN
-You can run multiple FN instances and balance the load amongst them using `fnlb` as follows:
+## Loadbalancing several Fn
+You can run multiple Fn instances and balance the load amongst them using `fnlb` as follows:
 
 ```sh
 fnlb --listen <address-for-incoming> --nodes <node1>,<node2>,<node3>

@@ -5,7 +5,7 @@ A simple serverless blog API
 ## Requirements
 
 - Remote MongoDB instance (for example heroku)
-- Running FN API
+- Running Fn API
 
 ## Development
 
@@ -31,9 +31,9 @@ docker tag $USERNAME/func-blog:latest $USERNAME/func-blog:`cat VERSION`
 docker push $USERNAME/func-blog
 ```
 
-## Running it on FN
+## Running it on Fn
 
-First you need a running FN API
+First you need a running Fn API
 
 ### First, let's define this environment variables
 
@@ -53,7 +53,7 @@ MONGODB=YOUR_MONGODB_ADDRESS
 ./test.sh
 ```
 
-### Running with FN
+### Running with Fn
 
 With this command we are going to create an application with name `blog` and also defining the app configuration `DB`.
 
@@ -101,7 +101,7 @@ curl -X POST --data '{
 
 #### Testing function
 
-Now that we created our FN route, let's test our routes
+Now that we created our Fn route, let's test our routes
 
 ```
 curl -X POST http://$FUNCAPI/r/blog/posts

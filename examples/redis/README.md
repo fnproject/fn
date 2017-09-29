@@ -36,7 +36,7 @@ docker push $USERNAME/func-redis
 ./test.sh
 ```
 
-## Running it on FN
+## Running it on Fn
 
 ### Let's define some environment variables
 
@@ -53,7 +53,7 @@ REDIS=YOUR_REDIS_ADDRESS
 REDIS_AUTH=REDIS_AUTH_KEY
 ```
 
-### Running with FN
+### Running with Fn
 
 With this command we are going to create an application with name `redis`.
 
@@ -101,7 +101,7 @@ curl -X POST --data '{
 
 #### Testing function
 
-Now that we created our FN route, let's test our new route
+Now that we created our Fn route, let's test our new route
 
 ```
 curl -X POST --data '{"key": "name", "value": "Johnny"}' http://$FUNCAPI/r/redis/set

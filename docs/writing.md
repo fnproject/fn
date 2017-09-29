@@ -75,7 +75,7 @@ STDERR.puts("hi")
 
 ### Lambda everywhere
 
-Lambda support for FN enables you to take your AWS Lambda functions and run them
+Lambda support for Fn enables you to take your AWS Lambda functions and run them
 anywhere. You should be able to take your code and run them without any changes.
 
 Creating Lambda functions is not much different than using regular functions, just use

@@ -1,6 +1,6 @@
 # Logging
 
-There are a few things to note about what FN logs.
+There are a few things to note about what Fn logs.
 
 ## Logspout
 

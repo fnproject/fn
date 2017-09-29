@@ -1,19 +1,19 @@
-# FN Load Balance example using Caddy
+# Fn Load Balance example using Caddy
 
-Simple example of FN load balancer using Caddy Server
+Simple example of Fn load balancer using Caddy Server
 
 
-## Run FN
+## Run Fn
 
-Start the FN instances
+Start the Fn instances
 
 Ref: https://github.com/fnproject/functions/blob/master/README.md#start-the-functions-api
 
 
 ## Configure environment variable
 
-Pass the host and port of FN instances in environment variables, 
-this example uses three FN instances.
+Pass the host and port of Fn instances in environment variables, 
+this example uses three Fn instances.
 
 ```sh
 export LB_HOST01="172.17.0.1:8080"
