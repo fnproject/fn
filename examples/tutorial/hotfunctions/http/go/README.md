@@ -4,7 +4,7 @@ This is an example of a hot function. The [hot function documentation](/docs/hot
 
 ### How to run the example
 
-Install the CLI tool, start a Fn server and run `docker login` to login to DockerHub. See the [front page](README.md) for instructions. 
+Install the CLI tool, start a Fn server and run `docker login` to login to DockerHub. See the [front page](/README.md) for instructions. 
 
 Set your Docker Hub username 
 
