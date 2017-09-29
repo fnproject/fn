@@ -87,20 +87,15 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 }
 
 func respondWithError(w io.Writer, err error) error {
-	writeResponse(w, []byte(err.Error()), http.StatusInternalServerError)
-	return err
-}
-
-func writeResponse(w io.Writer, b []byte, statusCode int) {
+	errMsg := []byte(err.Error())
+	statusCode := http.StatusInternalServerError
 	if rw, ok := w.(http.ResponseWriter); ok {
 		rw.WriteHeader(statusCode)
-		_, err := rw.Write(b) // TODO timeout
-		if err != nil {
-			err = fmt.Errorf("unable to write JSON response object: %s", err.Error())
-			respondWithError(w, err)
-		}
+		rw.Write(errMsg)
 	} else {
 		// logs can just copy the full thing in there, headers and all.
-		w.Write(b) // TODO timeout
+		w.Write(errMsg)
 	}
+
+	return err
 }
