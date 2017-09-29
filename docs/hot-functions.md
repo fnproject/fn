@@ -1,6 +1,6 @@
 # Hot functions
 
-Oracle Functions is built on top of container technologies, for each incoming
+Fn is built on top of container technologies. For each incoming
 workload, it spins a new container, feed it with the payload and sends the
 answer back to the caller. You can expect an average start time of 300ms per
 container. You may refer to [this blog](https://medium.com/travis-on-docker/the-overhead-of-docker-run-f2f06d47c9f3#.96tj75ugb) post to understand the details better.
@@ -8,7 +8,7 @@ container. You may refer to [this blog](https://medium.com/travis-on-docker/the-
 In the case you need faster start times for your function, you may use a hot
 container instead.
 
-hot functions are started once and kept alive while there is incoming workload.
+Hot functions are started once and kept alive while there is incoming workload.
 Thus, it means that once you decide to use a hot function, you must be able to
 tell the moment it should reading from standard input to start writing to
 standard output.
@@ -21,7 +21,7 @@ input/output.
 
 Let's look at a simple hot function. The examples directory contains a [simple example of a hot function written in go](/examples/tutorial/hotfunctions/http/go). Here's [func.go](/examples/tutorial/hotfunctions/http/go/func.go) from that example. 
 
-The basic cycle comprises three steps: read standard input up to a previosly
+The basic cycle comprises three steps: read standard input up to a previously
 known point, process the work, the write the output to stdout with some
 information about when functions daemon should stop reading from stdout.
 
@@ -104,7 +104,7 @@ requests:
 
 
 `format` (mandatory) either "default" or "http". If "http", then it is a hot
-container.
+function.
 
 `idle_timeout` (optional) - idle timeout (in seconds) before function termination, default 30 seconds.
 
