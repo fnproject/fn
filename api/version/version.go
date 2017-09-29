@@ -1,4 +1,4 @@
 package version
 
 // Version of Functions
-var Version = "0.3.120"
+var Version = "0.3.121"
