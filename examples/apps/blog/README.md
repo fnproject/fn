@@ -29,6 +29,23 @@ fn apps config set blog DB_PASS pass
 fn deploy --all
 ```
 
+Now surf to: http://localhost/r/blog/
+
+To create posts:
+
+```
+echo '{
+    "title": "Blog Post 1",
+    "body": "This is the body. This is the body. This is the body. This is the body. This is the body. This is the body. "
+}' | fn call blog /posts/create
+```
+
+To get posts:
+
+```
+fn call blog /posts
+```
+
 ## TODO:
 
 * [ ] Add some way to ignore funcs on deploy, ie: schema
