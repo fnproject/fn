@@ -46,10 +46,6 @@ import:
 - package: github.com/go-sql-driver/mysql
   version: 21d7e97c9f760ca685a01ecea202e1c84276daa1
 - package: github.com/google/btree
-- package: github.com/iron-io/iron_go3
-  subpackages:
-  - config
-  - mq
 - package: github.com/jmoiron/jsonq
 - package: github.com/lib/pq
 - package: github.com/docker/docker

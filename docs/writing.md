@@ -1,5 +1,5 @@
 # Writing Functions
- 
+
 This will give you the basic overview of writing base level functions. You can also use higher level
 abstractions that make it easier such as [lambda](lambda/README.md).
 
@@ -34,7 +34,7 @@ You will also have access to a set of environment variables.
 * `FN_PATH` - the matched route, eg: `/hello`
 * `FN_METHOD` - the HTTP method for the request, eg: `GET` or `POST`
 * `FN_CALL_ID` - a unique ID for each function execution.
-* `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`. 
+* `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`.
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
 * `FN_TYPE` - the type for this call, currently 'sync' or 'async'
 * `FN_HEADER_$X` - the HTTP headers that were set for this request. Replace $X with the upper cased name of the header and replace dashes in the header with underscores.
@@ -75,7 +75,7 @@ STDERR.puts("hi")
 
 ### Lambda everywhere
 
-Lambda support for Oracle Functios enables you to take your AWS Lambda functions and run them
+Lambda support for FN enables you to take your AWS Lambda functions and run them
 anywhere. You should be able to take your code and run them without any changes.
 
 Creating Lambda functions is not much different than using regular functions, just use
@@ -87,7 +87,7 @@ fn init --runtime lambda-node --name lambda-node
 
 Be sure the filename for your main handler is `func.js`.
 
-TODO: Make Java and Python use the new workflow too. 
+TODO: Make Java and Python use the new workflow too.
 
 ## Next Steps
 

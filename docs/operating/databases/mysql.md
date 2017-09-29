@@ -1,4 +1,4 @@
-# Oracle Functions using Postgres
+# FN using Postgres
 
 Let's presuppose you don't have even a MySQL DB ready.
 
@@ -6,8 +6,8 @@ Let's presuppose you don't have even a MySQL DB ready.
 
 ```
 docker run --name func-mysql \
-        -e MYSQL_DATABASE=funcs -e MYSQL_USER=funcy -e MYSQL_PASSWORD=funcypass -d mysql
-``` 
+        -e MYSQL_DATABASE=funcs -e MYSQL_USER=func -e MYSQL_PASSWORD=funcpass -d mysql
+```
 
 For more configuration options, see [docker mysql docs](https://hub.docker.com/_/mysql/).
 
@@ -15,6 +15,6 @@ For more configuration options, see [docker mysql docs](https://hub.docker.com/_
 
 ```
 docker run --rm --privileged --link "iron-mysql:mysql" \
-    -e "DB_URL=mysql://funcy:funcypass@tcp(mysql:3306)/funcs" \
-    -it -p 8080:8080 treeder/functions
+    -e "DB_URL=mysql://func:funcpass@tcp(mysql:3306)/funcs" \
+    -it -p 8080:8080 fnproject/fn
 ```

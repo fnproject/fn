@@ -1,4 +1,4 @@
-# Oracle Functions using Postgres
+# FN using Postgres
 
 Let's presuppose you don't have even a postgres DB ready.
 

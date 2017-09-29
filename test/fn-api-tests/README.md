@@ -1,4 +1,4 @@
-Oracle Functions integration API tests
+FN integration API tests
 ======================================
 
 
@@ -7,7 +7,7 @@ Test dependencies
 
 ```bash
 DOCKER_HOST - for building images
-API_URL - Oracle Functions API endpoint
+API_URL - FN API endpoint
 ```
 
 How to run tests?

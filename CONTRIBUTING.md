@@ -1,4 +1,4 @@
-# Contributing to Oracle Functions
+# Contributing to FN
 
 We welcome all contributions!
 
@@ -32,7 +32,7 @@ The first time after you fork or after dependencies get updated, run:
 make dep
 ```
 
-Then after every change, run 
+Then after every change, run
 
 ```sh
 make run

@@ -1,8 +1,8 @@
-# Oracle Functions Runtime Options
+# FN Runtime Options
 
 ## Configuration
 
-When starting Oracle Functions, you can pass in the following configuration variables as environment variables. Use `-e VAR_NAME=VALUE` in
+When starting FN, you can pass in the following configuration variables as environment variables. Use `-e VAR_NAME=VALUE` in
 docker run.  For example:
 
 ```sh
@@ -13,7 +13,7 @@ docker run -e VAR_NAME=VALUE ...
 | --------------|-------------|----------------|
 | DB_URL | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
 | MQ_URL | The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. | bolt:///app/data/worker_mq.db |
-| API_URL | The primary Oracle Functions API URL to that this instance will talk to. In a production environment, this would be your load balancer URL. | N/A |
+| API_URL | The primary FN API URL to that this instance will talk to. In a production environment, this would be your load balancer URL. | N/A |
 | PORT | Sets the port to run on | 8080 |
 | LOG_LEVEL | Set to DEBUG to enable debugging | INFO |
 | DOCKER_HOST | Docker remote API URL | /var/run/docker.sock:/var/run/docker.sock |
@@ -23,12 +23,12 @@ docker run -e VAR_NAME=VALUE ...
 
 ## Starting without Docker in Docker
 
-The default way to run Oracle Functions, as it is in the Quickstart guide, is to use docker-in-docker (dind). There are
+The default way to run FN, as it is in the Quickstart guide, is to use docker-in-docker (dind). There are
 a couple reasons why we did it this way:
 
 * It's clean. Once the container exits, there is nothing left behind including all the function images.
-* You can set resource restrictions for the entire Oracle Functions instance. For instance, you can set `--memory` on
-the docker run command to set the max memory for the Oracle Functions instance AND all of the functions it's running.
+* You can set resource restrictions for the entire FN instance. For instance, you can set `--memory` on
+the docker run command to set the max memory for the FN instance AND all of the functions it's running.
 
 There are some reasons you may not want to use dind, such as using the image cache during testing or you're running
 [Windows](windows.md).

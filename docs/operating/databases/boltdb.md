@@ -1,4 +1,4 @@
-# Oracle Functions using BoltDB
+# FN using BoltDB
 
 SQLite3 is the default database, you just need to run the API.
 
