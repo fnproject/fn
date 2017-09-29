@@ -21,5 +21,5 @@ fn deploy --app hot-app
 Now call your function:
 
 ```sh
-curl -X POST -d "World" http://localhost:8080/r/hot-app/%2Fhotfn-go
+curl -X POST -d "World" http://localhost:8080/r/hot-app/hotfn-go
 ```
