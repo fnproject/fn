@@ -46,17 +46,11 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		Headers: req.Header,
 		Body:    body.String(),
 	}
-	b, err := json.Marshal(jin)
+	err := json.NewEncoder(h.in).Encode(&jin)
 	if err != nil {
 		// this shouldn't happen
 		return respondWithError(
 			w, fmt.Errorf("error marshalling JSONInput: %s", err.Error()))
-	}
-	// TODO: write in chunks, how big should chunk be?
-	_, err = h.in.Write(b)
-	if err != nil {
-		return respondWithError(
-			w, fmt.Errorf("error writing JSON object to function's STDIN: %s", err.Error()))
 	}
 
 	if rw, ok := w.(http.ResponseWriter); ok {
