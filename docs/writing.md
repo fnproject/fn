@@ -38,7 +38,7 @@ You will also have access to a set of environment variables.
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
 * `FN_TYPE` - the type for this call, currently 'sync' or 'async'
 * `FN_HEADER_$X` - the HTTP headers that were set for this request. Replace $X with the upper cased name of the header and replace dashes in the header with underscores.
-  * `$X` - any [configuration values](https://gitlab.oracledx.com/odx/functions/blob/master/fn/README.md#application-level-configuration) you've set
+  * `$X` - any [configuration values](https://github.com/fnproject/cli/blob/master/README.md#application-level-configuration) you've set
   for the Application or the Route. Replace X with the upper cased name of the config variable you set. Ex: `minio_secret=secret` will be exposed via MINIO_SECRET env var.
 * `FN_PARAM_$Y` - any variables found from parsing the URL. Replace $Y with any `:var` from the url.
 

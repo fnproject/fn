@@ -21,11 +21,11 @@ such assumptions, please rewrite it.
 
 ## nodejs
 
-* node.js version [0.10.42][funcy/node]
+* node.js version [0.10.42][fnproject/node]
 * ImageMagick version [6.9.3][magickv] and nodejs [wrapper 6.9.3][magickwrapperv]
 * aws-sdk version [2.2.12][awsnodev]
 
-[funcy/node]: https://github.com/treeder/dockers/blob/master/node/Dockerfile
+[fnproject/node]: https://github.com/treeder/dockers/blob/master/node/Dockerfile
 [magickv]: https://pkgs.alpinelinux.org/package/main/x86_64/imagemagick
 [magickwrapperv]: https://www.npmjs.com/package/imagemagick
 [awsnodev]: https://aws.amazon.com/sdk-for-node-js/
@@ -57,7 +57,7 @@ If your handler throws an exception, we only log the error message. There is no
 * CPython [2.7.11][pythonv]
 * boto3 (Python AWS SDK) [1.2.3][botov].
 
-[pythonv]: https://hub.docker.com/r/funcy/python/tags/
+[pythonv]: https://hub.docker.com/r/fnproject/python/tags/
 [botov]: https://github.com/boto/boto3/releases/tag/1.2.3
 
 ### Event
@@ -84,7 +84,7 @@ a JSON object with trace information.
 
 * OpenJDK Java Runtime [1.8.0][javav]
 
-[javav]: https://hub.docker.com/r/funcy/java/tags/
+[javav]: https://hub.docker.com/r/fnproject/java/tags/
 
 The Java8 runtime is significantly lacking at this piont and we **do not
 recommend** using it.

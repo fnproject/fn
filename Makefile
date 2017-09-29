@@ -42,7 +42,7 @@ docker-build:
 	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/functions:latest .
 
 docker-run: docker-build
-	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 funcy/functions
+	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/functions
 
 docker-test-run-with-sqlite3:
 	./api_test.sh sqlite3 4
@@ -58,7 +58,7 @@ docker-test:
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	-v ${CURDIR}:/go/src/github.com/fnproject/fn \
 	-w /go/src/github.com/fnproject/fn \
-	funcy/go:dev go test \
+	fnproject/go:dev go test \
 	-v $(shell docker run --rm -ti -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn -e GOPATH=/go golang:alpine sh -c 'go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v fn')
 
 all: dep build

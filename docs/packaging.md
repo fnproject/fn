@@ -20,7 +20,7 @@ The basic Dockerfile for most languages is along these lines:
 
 ```
 # Choose base image
-FROM funcy/node:dev
+FROM fnproject/node:dev
 # Set the working directory
 WORKDIR /function
 # Add your binary or code to the working directory

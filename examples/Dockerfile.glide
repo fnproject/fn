@@ -1,4 +1,4 @@
-FROM funcy/go:dev
+FROM fnproject/go:dev
  
 RUN mkdir -p /go/src/github.com/Masterminds
 ENV GOPATH=/go
