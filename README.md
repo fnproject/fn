@@ -20,9 +20,7 @@ platform that you can run anywhere. Some of it's key features:
 
 * Docker 17.05 or later installed and running
 * A Docker Hub account ([Docker Hub](https://hub.docker.com/))
-* Log Docker into your Docker Hub account
-    * Linux: `docker login`
-    * MacOS: Click Docker icon in menu bar. Select **Sign In**.
+* Log Docker into your Docker Hub account: `docker login`
 
 ## Quickstart
 
@@ -35,7 +33,6 @@ The command line tool isn't required, but it sure makes things a lot easier. The
 If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
 
 ```sh
-brew update
 brew install fn
 ```
 
@@ -153,4 +150,4 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 
 ### Check out the [Tutorial Series](examples/tutorial/)
 
-The series will demonstrate some of the core Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
+This tutorial will demonstrate some of the core Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great Fn place to start!
