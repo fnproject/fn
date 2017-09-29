@@ -153,4 +153,4 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 
 ### Check out the [Tutorial Series](examples/tutorial/)
 
-It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
+The series will demonstrate some of the core Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!

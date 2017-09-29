@@ -1,7 +1,7 @@
 
 # Tutorial Series
 
-Welcome to the Oracle Functions Tutorial Series, the best way to get started with Oracle Functions and serverless computing. In the following tutorials, we'll gradually introduce many of the key features of Oracle Functions.
+Welcome to the Fn Tutorial Series, the best way to get started with Fn and serverless computing. In the following tutorials, we'll gradually introduce many of the key features of Fn.
 
 ## Guided Tour
 
@@ -25,7 +25,7 @@ Learn how to get parameters from a web request. [Click here](params)
 
 Write your first HotFunction (stays alive to minimize latency between requests). [Click here](hotfunctions/http)
 
-## Oracle Open World Tutorials
+## Other Tutorials
 
 * [Introduction to Fn](https://github.com/fnproject/tutorials/tree/master/Introduction)
 * [Introduction to Java Fn](https://github.com/fnproject/tutorials/tree/master/JavaFDKIntroduction)
