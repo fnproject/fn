@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -9,7 +8,7 @@ import (
 	"net/http"
 )
 
-// JSONIn is what's sent into the function
+// This is sent into the function
 // All HTTP request headers should be set in env
 type JSONIO struct {
 	Headers    http.Header `json:"headers,omitempty"`
@@ -40,29 +39,26 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		}
 		defer req.Body.Close()
 	}
-
-	// convert to JSON func format
-	jin := &JSONIO{
+	err := json.NewEncoder(h.in).Encode(&JSONIO{
 		Headers: req.Header,
 		Body:    body.String(),
-	}
-	err := json.NewEncoder(h.in).Encode(&jin)
+	})
 	if err != nil {
 		// this shouldn't happen
 		return respondWithError(
 			w, fmt.Errorf("error marshalling JSONInput: %s", err.Error()))
 	}
 
+	jout := new(JSONIO)
+	dec := json.NewDecoder(h.out)
+	if err := dec.Decode(jout); err != nil {
+		return respondWithError(
+			w, fmt.Errorf("unable to decode JSON response object: %s", err.Error()))
+	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		// this has to be done for pulling out:
 		// - status code
 		// - body
-		jout := new(JSONIO)
-		dec := json.NewDecoder(h.out)
-		if err := dec.Decode(jout); err != nil {
-			return respondWithError(
-				w, fmt.Errorf("unable to decode JSON response object: %s", err.Error()))
-		}
 		rw.WriteHeader(jout.StatusCode)
 		_, err = rw.Write([]byte(jout.Body)) // TODO timeout
 		if err != nil {
@@ -71,10 +67,10 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		}
 	} else {
 		// logs can just copy the full thing in there, headers and all.
-		_, err = io.Copy(w, bufio.NewReader(h.out))
+		err = json.NewEncoder(w).Encode(jout)
 		if err != nil {
 			return respondWithError(
-				w, fmt.Errorf("error reading function response: %s", err.Error()))
+				w, fmt.Errorf("error writing function response: %s", err.Error()))
 		}
 	}
 	return nil
