@@ -73,14 +73,6 @@ func (v *validator) GetRoute(ctx context.Context, appName, routePath string) (*m
 	return v.Datastore.GetRoute(ctx, appName, routePath)
 }
 
-func (v *validator) GetRoutes(ctx context.Context, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
-	if routeFilter != nil && routeFilter.AppName != "" {
-		return v.Datastore.GetRoutesByApp(ctx, routeFilter.AppName, routeFilter)
-	}
-
-	return v.Datastore.GetRoutes(ctx, routeFilter)
-}
-
 // appName will never be empty
 func (v *validator) GetRoutesByApp(ctx context.Context, appName string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if appName == "" {
@@ -131,15 +123,15 @@ func (v *validator) RemoveRoute(ctx context.Context, appName, routePath string) 
 }
 
 // callID will never be empty.
-func (v *validator) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+func (v *validator) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	if callID == "" {
-		return nil, models.ErrDatastoreEmptyTaskID
+		return nil, models.ErrDatastoreEmptyCallID
 	}
-	return v.Datastore.GetTask(ctx, callID)
+	return v.Datastore.GetCall(ctx, appName, callID)
 }
 
-func (v *validator) DeleteLog(ctx context.Context, callID string) error {
-	return v.Datastore.DeleteLog(ctx, callID)
+func (v *validator) DeleteLog(ctx context.Context, appName, callID string) error {
+	return v.Datastore.DeleteLog(ctx, appName, callID)
 }
 
 // GetDatabase returns the underlying sqlx database implementation

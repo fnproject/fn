@@ -16,19 +16,19 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),
 	}
-	ErrRunnerTimeout = err{
+	ErrCallTimeout = err{
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
-	ErrAppsValidationMissingName = err{
+	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),
 	}
-	ErrAppsValidationTooLongName = err{
+	ErrAppsTooLongName = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
 	}
-	ErrAppsValidationInvalidName = err{
+	ErrAppsInvalidName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid app name"),
 	}
@@ -42,7 +42,7 @@ var (
 	}
 	ErrAppsNameImmutable = err{
 		code:  http.StatusConflict,
-		error: errors.New("Could not update app - name is immutable"),
+		error: errors.New("Could not update - name is immutable"),
 	}
 	ErrAppsNotFound = err{
 		code:  http.StatusNotFound,
@@ -72,9 +72,9 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing key"),
 	}
-	ErrDatastoreEmptyTaskID = err{
+	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing task ID"),
+		error: errors.New("Missing call ID"),
 	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
@@ -94,55 +94,67 @@ var (
 	}
 	ErrRoutesPathImmutable = err{
 		code:  http.StatusConflict,
-		error: errors.New("Could not update route - path is immutable"),
+		error: errors.New("Could not update - path is immutable"),
 	}
-	ErrRoutesValidationFoundDynamicURL = err{
+	ErrFoundDynamicURL = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Dynamic URL is not allowed"),
 	}
-	ErrRoutesValidationInvalidPath = err{
+	ErrRoutesInvalidPath = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid Path format"),
+		error: errors.New("Invalid route path format"),
 	}
-	ErrRoutesValidationInvalidType = err{
+	ErrRoutesInvalidType = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Type"),
 	}
-	ErrRoutesValidationInvalidFormat = err{
+	ErrRoutesInvalidFormat = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Format"),
 	}
-	ErrRoutesValidationMissingAppName = err{
+	ErrRoutesMissingAppName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route AppName"),
 	}
-	ErrRoutesValidationMissingImage = err{
+	ErrRoutesMissingImage = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Image"),
 	}
-	ErrRoutesValidationMissingName = err{
+	ErrRoutesMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Name"),
 	}
-	ErrRoutesValidationMissingPath = err{
+	ErrRoutesMissingPath = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Path"),
 	}
-	ErrRoutesValidationMissingType = err{
+	ErrRoutesMissingType = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Type"),
 	}
-	ErrRoutesValidationPathMalformed = err{
+	ErrPathMalformed = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Path malformed"),
 	}
-	ErrRoutesValidationNegativeTimeout = err{
+	ErrInvalidToTime = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Negative timeout"),
+		error: errors.New("to_time is not an epoch time"),
 	}
-	ErrRoutesValidationNegativeIdleTimeout = err{
+	ErrInvalidFromTime = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Negative idle timeout"),
+		error: errors.New("from_time is not an epoch time"),
+	}
+	ErrRoutesInvalidTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("timeout value is too large or small. 0 < timeout < max. async max: %d sync max: %d", MaxAsyncTimeout, MaxSyncTimeout),
+	}
+	ErrRoutesInvalidIdleTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("idle_timeout value is too large or small. 0 < timeout < %d", MaxIdleTimeout),
+	}
+	ErrRoutesInvalidMemory = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", MaxMemory),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
@@ -154,7 +166,7 @@ var (
 	}
 )
 
-// any error that implements this interface will return an API response
+// APIError any error that implements this interface will return an API response
 // with the provided status code and error message body
 type APIError interface {
 	Code() int
@@ -168,7 +180,9 @@ type err struct {
 
 func (e err) Code() int { return e.code }
 
-// uniform error output
+func NewAPIError(code int, e error) APIError { return err{code, e} }
+
+// Error uniform error output
 type Error struct {
 	Error *ErrorBody `json:"error,omitempty"`
 }

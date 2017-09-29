@@ -15,6 +15,7 @@
 package leasing
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +23,6 @@ import (
 	v3 "github.com/coreos/etcd/clientv3"
 	v3pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/mvcc/mvccpb"
-	"golang.org/x/net/context"
 )
 
 const revokeBackoff = 2 * time.Second
@@ -285,7 +285,7 @@ func (lc *leaseCache) evalOps(ops []v3.Op) ([]*v3pb.ResponseOp, bool) {
 	resps := make([]*v3pb.ResponseOp, len(ops))
 	for i, op := range ops {
 		if !op.IsGet() || isBadOp(op) {
-			// TODO: support read-only txns
+			// TODO: support read-only Txn
 			return nil, false
 		}
 		lk := lc.entries[string(op.KeyBytes())]

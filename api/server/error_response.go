@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/sirupsen/logrus"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runner/common"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 // ErrInternalServerError returned when something exceptional happens.
@@ -28,13 +28,12 @@ func handleErrorResponse(c *gin.Context, err error) {
 func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) {
 	log := common.Logger(ctx)
 	var statuscode int
-	switch e := err.(type) {
-	case models.APIError:
+	if e, ok := err.(models.APIError); ok {
 		if e.Code() >= 500 {
 			log.WithFields(logrus.Fields{"code": e.Code()}).WithError(e).Error("api error")
 		}
 		statuscode = e.Code()
-	default:
+	} else {
 		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
 		statuscode = http.StatusInternalServerError
 		err = ErrInternalServerError

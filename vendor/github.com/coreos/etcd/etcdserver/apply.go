@@ -16,6 +16,7 @@ package etcdserver
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"time"
 
@@ -24,8 +25,8 @@ import (
 	"github.com/coreos/etcd/mvcc"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/coreos/etcd/pkg/types"
+
 	"github.com/gogo/protobuf/proto"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -423,7 +424,7 @@ func applyCompares(rv mvcc.ReadView, cmps []*pb.Compare) bool {
 // applyCompare applies the compare request.
 // If the comparison succeeds, it returns true. Otherwise, returns false.
 func applyCompare(rv mvcc.ReadView, c *pb.Compare) bool {
-	// TOOD: possible optimizations
+	// TODO: possible optimizations
 	// * chunk reads for large ranges to conserve memory
 	// * rewrite rules for common patterns:
 	//	ex. "[a, b) createrev > 0" => "limit 1 /\ kvs > 0"

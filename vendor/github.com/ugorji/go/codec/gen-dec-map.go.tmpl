@@ -2,7 +2,7 @@
 {{var "l"}} := r.ReadMapStart()
 {{var "bh"}} := z.DecBasicHandle()
 if {{var "v"}} == nil {
-	{{var "rl"}}, _ := z.DecInferLen({{var "l"}}, {{var "bh"}}.MaxInitLen, {{ .Size }})
+	{{var "rl"}} := z.DecInferLen({{var "l"}}, {{var "bh"}}.MaxInitLen, {{ .Size }})
 	{{var "v"}} = make(map[{{ .KTyp }}]{{ .Typ }}, {{var "rl"}})
 	*{{ .Varname }} = {{var "v"}}
 }
@@ -14,34 +14,15 @@ if {{var "bh"}}.MapValueReset {
 	{{else if decElemKindIntf}}if !{{var "bh"}}.InterfaceReset { {{var "mg"}} = true }
 	{{else if not decElemKindImmutable}}{{var "mg"}} = true
 	{{end}} }
-if {{var "l"}} > 0  {
-for {{var "j"}} := 0; {{var "j"}} < {{var "l"}}; {{var "j"}}++ {
+if {{var "l"}} != 0 {
+{{var "hl"}} := {{var "l"}} > 0 
+	for {{var "j"}} := 0; ({{var "hl"}} && {{var "j"}} < {{var "l"}}) || !({{var "hl"}} || r.CheckBreak()); {{var "j"}}++ {
 	z.DecSendContainerState(codecSelfer_containerMapKey{{ .Sfx }})
 	{{ $x := printf "%vmk%v" .TempVar .Rand }}{{ decLineVarK $x }}
 {{ if eq .KTyp "interface{}" }}{{/* // special case if a byte array. */}}if {{var "bv"}}, {{var "bok"}} := {{var "mk"}}.([]byte); {{var "bok"}} {
 		{{var "mk"}} = string({{var "bv"}})
 	}{{ end }}{{if decElemKindPtr}}
 	{{var "ms"}} = true{{end}}
-	if {{var "mg"}} {
-		{{if decElemKindPtr}}{{var "mv"}}, {{var "mok"}} = {{var "v"}}[{{var "mk"}}] 
-		if {{var "mok"}} {
-			{{var "ms"}} = false
-		} {{else}}{{var "mv"}} = {{var "v"}}[{{var "mk"}}] {{end}}
-	} {{if not decElemKindImmutable}}else { {{var "mv"}} = {{decElemZero}} }{{end}}
-	z.DecSendContainerState(codecSelfer_containerMapValue{{ .Sfx }})
-	{{ $x := printf "%vmv%v" .TempVar .Rand }}{{ decLineVar $x }}
-	if {{if decElemKindPtr}} {{var "ms"}} && {{end}} {{var "v"}} != nil {
-		{{var "v"}}[{{var "mk"}}] = {{var "mv"}}
-	}
-}
-} else if {{var "l"}} < 0  {
-for {{var "j"}} := 0; !r.CheckBreak(); {{var "j"}}++ {
-	z.DecSendContainerState(codecSelfer_containerMapKey{{ .Sfx }})
-	{{ $x := printf "%vmk%v" .TempVar .Rand }}{{ decLineVarK $x }}
-{{ if eq .KTyp "interface{}" }}{{/* // special case if a byte array. */}}if {{var "bv"}}, {{var "bok"}} := {{var "mk"}}.([]byte); {{var "bok"}} {
-		{{var "mk"}} = string({{var "bv"}})
-	}{{ end }}{{if decElemKindPtr}}
-	{{var "ms"}} = true {{ end }}
 	if {{var "mg"}} {
 		{{if decElemKindPtr}}{{var "mv"}}, {{var "mok"}} = {{var "v"}}[{{var "mk"}}] 
 		if {{var "mok"}} {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"net/http"
 
 	"github.com/fnproject/fn/api"
@@ -11,24 +12,20 @@ import (
 func (s *Server) handleRouteList(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	filter := &models.RouteFilter{}
+	appName := c.MustGet(api.AppName).(string)
 
-	if img := c.Query("image"); img != "" {
-		filter.Image = img
-	}
+	var filter models.RouteFilter
+	filter.Image = c.Query("image")
+	// filter.PathPrefix = c.Query("path_prefix") TODO not hooked up
+	filter.Cursor, filter.PerPage = pageParams(c, true)
 
-	var routes []*models.Route
-	var err error
-	appName, exists := c.Get(api.AppName)
-	name, ok := appName.(string)
-	if exists && ok && name != "" {
-		routes, err = s.Datastore.GetRoutesByApp(ctx, name, filter)
-		// if there are no routes for the app, check if the app exists to return 404 if it does not
-		if len(routes) == 0 {
-			_, err = s.Datastore.GetApp(ctx, name)
-		}
-	} else {
-		routes, err = s.Datastore.GetRoutes(ctx, filter)
+	routes, err := s.Datastore.GetRoutesByApp(ctx, appName, &filter)
+
+	// if there are no routes for the app, check if the app exists to return
+	// 404 if it does not
+	// TODO this should be done in front of this handler to even get here...
+	if err == nil && len(routes) == 0 {
+		_, err = s.Datastore.GetApp(ctx, appName)
 	}
 
 	if err != nil {
@@ -36,5 +33,15 @@ func (s *Server) handleRouteList(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, routesResponse{"Successfully listed routes", routes})
+	var nextCursor string
+	if len(routes) > 0 && len(routes) == filter.PerPage {
+		last := []byte(routes[len(routes)-1].Path)
+		nextCursor = base64.RawURLEncoding.EncodeToString(last)
+	}
+
+	c.JSON(http.StatusOK, routesResponse{
+		Message:    "Successfully listed routes",
+		NextCursor: nextCursor,
+		Routes:     routes,
+	})
 }

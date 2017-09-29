@@ -15,7 +15,10 @@ import (
 )
 
 // Version is Framework's version.
-const Version = "v1.2"
+const (
+	Version                = "v1.2"
+	defaultMultipartMemory = 32 << 20 // 32 MB
+)
 
 var default404Body = []byte("404 page not found")
 var default405Body = []byte("405 method not allowed")
@@ -92,6 +95,10 @@ type Engine struct {
 	// If UseRawPath is false (by default), the UnescapePathValues effectively is true,
 	// as url.Path gonna be used, which is already unescaped.
 	UnescapePathValues bool
+
+	// Value of 'maxMemory' param that is given to http.Request's ParseMultipartForm
+	// method call.
+	MaxMultipartMemory int64
 }
 
 var _ IRouter = &Engine{}
@@ -120,6 +127,7 @@ func New() *Engine {
 		AppEngine:              defaultAppEngine,
 		UseRawPath:             false,
 		UnescapePathValues:     true,
+		MaxMultipartMemory:     defaultMultipartMemory,
 		trees:                  make(methodTrees, 0, 9),
 		delims:                 render.Delims{Left: "{{", Right: "}}"},
 		secureJsonPrefix:       "while(1);",
@@ -316,14 +324,11 @@ func (engine *Engine) HandleContext(c *Context) {
 
 func (engine *Engine) handleHTTPRequest(context *Context) {
 	httpMethod := context.Request.Method
-	var path string
-	var unescape bool
+	path := context.Request.URL.Path
+	unescape := false
 	if engine.UseRawPath && len(context.Request.URL.RawPath) > 0 {
 		path = context.Request.URL.RawPath
 		unescape = engine.UnescapePathValues
-	} else {
-		path = context.Request.URL.Path
-		unescape = false
 	}
 
 	// Find root of the tree for the given HTTP method

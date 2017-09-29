@@ -13,14 +13,14 @@ type Mock struct {
 	Routes    []*models.Route
 }
 
-func (mock *Mock) Push(context.Context, *models.Task) (*models.Task, error) {
+func (mock *Mock) Push(context.Context, *models.Call) (*models.Call, error) {
 	return nil, nil
 }
 
-func (mock *Mock) Reserve(context.Context) (*models.Task, error) {
+func (mock *Mock) Reserve(context.Context) (*models.Call, error) {
 	return nil, nil
 }
 
-func (mock *Mock) Delete(context.Context, *models.Task) error {
+func (mock *Mock) Delete(context.Context, *models.Call) error {
 	return nil
 }

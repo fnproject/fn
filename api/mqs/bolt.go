@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/boltdb/bolt"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runner/common"
+	"github.com/sirupsen/logrus"
 )
 
 type BoltDbMQ struct {
@@ -180,7 +180,7 @@ func (mq *BoltDbMQ) Start() {
 // We insert a "reservation" at readyAt, and store the json blob at the msg
 // key. The timer loop plucks this out and puts it in the jobs bucket when the
 // time elapses. The value stored at the reservation key is the priority.
-func (mq *BoltDbMQ) delayTask(job *models.Task) (*models.Task, error) {
+func (mq *BoltDbMQ) delayCall(job *models.Call) (*models.Call, error) {
 	readyAt := time.Now().Add(time.Duration(job.Delay) * time.Second)
 	err := mq.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(delayQueueName)
@@ -204,12 +204,12 @@ func (mq *BoltDbMQ) delayTask(job *models.Task) (*models.Task, error) {
 	return job, err
 }
 
-func (mq *BoltDbMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
+func (mq *BoltDbMQ) Push(ctx context.Context, job *models.Call) (*models.Call, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
 	log.Println("Pushed to MQ")
 
 	if job.Delay > 0 {
-		return mq.delayTask(job)
+		return mq.delayCall(job)
 	}
 
 	err := mq.db.Update(func(tx *bolt.Tx) error {
@@ -264,7 +264,7 @@ func resKeyToProperties(key []byte) (uint64, []byte) {
 	return reservedUntil, key[len(resKeyPrefix)+8:]
 }
 
-func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Task, error) {
+func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Call, error) {
 	// Start a writable transaction.
 	tx, err := mq.db.Begin(true)
 	if err != nil {
@@ -284,7 +284,7 @@ func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Task, error) {
 
 		b.Delete(key)
 
-		var job models.Task
+		var job models.Call
 		err = json.Unmarshal([]byte(value), &job)
 		if err != nil {
 			return nil, err
@@ -324,7 +324,7 @@ func (mq *BoltDbMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	return nil, nil
 }
 
-func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Task) error {
+func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Call) error {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
 	defer log.Println("Deleted")
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client/call"
+	"github.com/fnproject/fn_go/client/call"
 )
 
 func TestCalls(t *testing.T) {
@@ -24,24 +24,6 @@ func TestCalls(t *testing.T) {
 		if err == nil {
 			t.Errorf("Must fail with missing app error, but got %s", err)
 		}
-	})
-
-	t.Run("list-calls-for-missing-route", func(t *testing.T) {
-		t.Parallel()
-		s := SetupDefaultSuite()
-		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-
-		cfg := &call.GetAppsAppCallsParams{
-			App:     s.AppName,
-			Route:   &s.RoutePath,
-			Context: s.Context,
-		}
-		_, err := s.Client.Call.GetAppsAppCalls(cfg)
-		if err == nil {
-			t.Errorf("Must fail with missing route error, but got %s", err)
-		}
-
-		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
 	t.Run("get-dummy-call", func(t *testing.T) {
@@ -62,7 +44,6 @@ func TestCalls(t *testing.T) {
 			t.Error("Must fail because `dummy` call does not exist.")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -79,25 +60,18 @@ func TestCalls(t *testing.T) {
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-		callID := CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 5)
-		cfg := &call.GetCallsCallParams{
-			Call:    callID,
-			Context: s.Context,
-		}
-		cfg.WithTimeout(time.Second * 60)
 		_, err := s.Client.Call.GetAppsAppCalls(&call.GetAppsAppCallsParams{
 			App:   s.AppName,
 			Route: &s.RoutePath,
 		})
 		if err != nil {
 			switch err.(type) {
-			case *call.GetCallsCallNotFound:
-				msg := err.(*call.GetCallsCallNotFound).Payload.Error.Message
+			case *call.GetAppsAppCallsCallNotFound:
+				msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -135,7 +109,6 @@ func TestCalls(t *testing.T) {
 				t.Errorf("Call path mismatch.\n\tExpected: %v\n\tActual: %v", c.Path, s.RoutePath)
 			}
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 

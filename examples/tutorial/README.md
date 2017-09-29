@@ -1,15 +1,31 @@
 
 # Tutorial Series
 
-Welcome to the Oracle Functions Tutorial Series, the best way to get started with Oracle Functions and serverless computing. In the following
-tutorials, we'll gradually introduce many of the key features of Oracle Functions.
+Welcome to the Fn Tutorial Series, the best way to get started with Fn and serverless computing. In the following tutorials, we'll gradually introduce many of the key features of Fn.
 
+## Guided Tour
 
-**[Tutorial 1](examples/tutorial/hello)**
-: Learn the basics about sending data into your function
+### Part 1
 
-**[Tutorial 2](examples/tutorial/params)**: Learn how to get parameters from a web request
+Learn the basics about sending data into your function. Choose your language:
 
-**[Tutorial 3](examples/tutorial/hotfunctions)**: Write your first HotFunction (stays alive to minimize latency between requests)
+* [go](hello/go)
+* [java](hello/java)
+* [node](hello/node)
+* [php](hello/php)
+* [python](hello/python)
+* [ruby](hello/ruby)
+* [rust](hello/rust) 
 
-**[Tutorial 4]()**: TBD
+### Part 2
+
+Learn how to get parameters from a web request. [Click here](params)
+
+### Part 3
+
+Write your first HotFunction (stays alive to minimize latency between requests). [Click here](hotfunctions/http)
+
+## Other Tutorials
+
+* [Introduction to Fn](https://github.com/fnproject/tutorials/tree/master/Introduction)
+* [Introduction to Java Fn](https://github.com/fnproject/tutorials/tree/master/JavaFDKIntroduction)

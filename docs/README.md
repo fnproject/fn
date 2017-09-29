@@ -1,10 +1,10 @@
-# Oracle Functions Documentation
+# Fn Documentation
 
 ## For Developers
 
-If you are a developer using Oracle Functions through the API, this section is for you.
+If you are a developer using Fn through the API, this section is for you.
 
-* [Quickstart](https://github.com/treeder/functions#quickstart)
+* [Quickstart](https://github.com/fnproject/fn)
 * [Usage](usage.md)
 * [Writing functions](writing.md)
 * [Testing functions](testing.md)
@@ -12,10 +12,15 @@ If you are a developer using Oracle Functions through the API, this section is f
 * [Async functions](async.md)
 * [Configuration](developers/configs.md)
 * [fn (CLI Tool)](https://github.com/fnproject/cli/blob/master/README.md)
+* [Hot functions](hot-functions.md)
+* [Async functions](async.md)
+* [Organizing functions into an application](developers/apps.md)
 * [Function file (func.yaml)](function-file.md)
+* [Client Libraries](developers/clients.md)
 * [Packaging functions](packaging.md)
 * [Open Function Format](function-format.md)
-* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml)
+* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
+* [Object Model](developers/model.md)
 * [FAQ](faq.md)
 
 ## For Operators

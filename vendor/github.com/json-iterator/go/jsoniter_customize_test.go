@@ -2,11 +2,12 @@ package jsoniter
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/stretchr/testify/require"
 )
 
 func Test_customize_type_decoder(t *testing.T) {
@@ -82,7 +83,7 @@ func Test_customize_field_decoder(t *testing.T) {
 }
 
 type TestObject1 struct {
-	field1 string
+	Field1 string
 }
 
 type testExtension struct {
@@ -93,7 +94,7 @@ func (extension *testExtension) UpdateStructDescriptor(structDescriptor *StructD
 	if structDescriptor.Type.String() != "jsoniter.TestObject1" {
 		return
 	}
-	binding := structDescriptor.GetField("field1")
+	binding := structDescriptor.GetField("Field1")
 	binding.Encoder = &funcEncoder{fun: func(ptr unsafe.Pointer, stream *Stream) {
 		str := *((*string)(ptr))
 		val, _ := strconv.Atoi(str)
@@ -112,7 +113,7 @@ func Test_customize_field_by_extension(t *testing.T) {
 	obj := TestObject1{}
 	err := UnmarshalFromString(`{"field-1": 100}`, &obj)
 	should.Nil(err)
-	should.Equal("100", obj.field1)
+	should.Equal("100", obj.Field1)
 	str, err := MarshalToString(obj)
 	should.Nil(err)
 	should.Equal(`{"field-1":100}`, str)
@@ -284,4 +285,57 @@ func Test_marshal_json_with_time(t *testing.T) {
 	obj = TestObject{}
 	should.Nil(Unmarshal([]byte(`{"TF1":{"F1":"fake","F2":"fake"}}`), &obj))
 	should.NotNil(obj.TF1.F2)
+}
+
+func Test_customize_tag_key(t *testing.T) {
+
+	type TestObject struct {
+		Field string `orm:"field"`
+	}
+
+	should := require.New(t)
+	json := Config{TagKey: "orm"}.Froze()
+	str, err := json.MarshalToString(TestObject{"hello"})
+	should.Nil(err)
+	should.Equal(`{"field":"hello"}`, str)
+}
+
+func Test_recursive_empty_interface_customization(t *testing.T) {
+	t.Skip()
+	var obj interface{}
+	RegisterTypeDecoderFunc("interface {}", func(ptr unsafe.Pointer, iter *Iterator) {
+		switch iter.WhatIsNext() {
+		case NumberValue:
+			*(*interface{})(ptr) = iter.ReadInt64()
+		default:
+			*(*interface{})(ptr) = iter.Read()
+		}
+	})
+	should := require.New(t)
+	Unmarshal([]byte("[100]"), &obj)
+	should.Equal([]interface{}{int64(100)}, obj)
+}
+
+type GeoLocation struct {
+	Id string `json:"id,omitempty" db:"id"`
+}
+
+func (p *GeoLocation) MarshalJSON() ([]byte, error) {
+	return []byte(`{}`), nil
+}
+
+func (p *GeoLocation) UnmarshalJSON(input []byte) error {
+	p.Id = "hello"
+	return nil
+}
+
+func Test_marshal_and_unmarshal_on_non_pointer(t *testing.T) {
+	should := require.New(t)
+	locations := []GeoLocation{{"000"}}
+	bytes, err := Marshal(locations)
+	should.Nil(err)
+	should.Equal("[{}]", string(bytes))
+	err = Unmarshal([]byte("[1]"), &locations)
+	should.Nil(err)
+	should.Equal("hello", locations[0].Id)
 }

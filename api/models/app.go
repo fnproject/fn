@@ -1,25 +1,20 @@
 package models
 
-type Apps []*App
-type Tasks []*Task
-type FnCalls []*FnCall
-
 type App struct {
-	Name   string `json:"name"`
-	Routes Routes `json:"routes,omitempty"`
-	Config `json:"config"`
+	Name   string `json:"name" db:"name"`
+	Config Config `json:"config" db:"config"`
 }
 
 func (a *App) Validate() error {
 	if a.Name == "" {
-		return ErrAppsValidationMissingName
+		return ErrAppsMissingName
 	}
 	if len(a.Name) > maxAppName {
-		return ErrAppsValidationTooLongName
+		return ErrAppsTooLongName
 	}
 	for _, c := range a.Name {
 		if (c < '0' || '9' < c) && (c < 'A' || 'Z' > c) && (c < 'a' || 'z' < c) && c != '_' && c != '-' {
-			return ErrAppsValidationInvalidName
+			return ErrAppsInvalidName
 		}
 	}
 	return nil
@@ -28,11 +23,6 @@ func (a *App) Validate() error {
 func (a *App) Clone() *App {
 	var c App
 	c.Name = a.Name
-	if a.Routes != nil {
-		for i := range a.Routes {
-			c.Routes = append(c.Routes, a.Routes[i].Clone())
-		}
-	}
 	if a.Config != nil {
 		c.Config = make(Config)
 		for k, v := range a.Config {
@@ -59,6 +49,7 @@ func (a *App) UpdateConfig(patch Config) {
 }
 
 type AppFilter struct {
-	// An SQL LIKE query. Empty does not filter.
-	Name string
+	Name    string // prefix query TODO implemented
+	PerPage int
+	Cursor  string
 }

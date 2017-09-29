@@ -15,6 +15,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -27,9 +28,8 @@ import (
 	"github.com/coreos/etcd/client"
 	"github.com/coreos/etcd/etcdserver"
 	"github.com/coreos/etcd/pkg/testutil"
-	"github.com/coreos/pkg/capnslog"
 
-	"golang.org/x/net/context"
+	"github.com/coreos/pkg/capnslog"
 )
 
 func init() {
@@ -151,7 +151,15 @@ func testDecreaseClusterSize(t *testing.T, size int) {
 	// TODO: remove the last but one member
 	for i := 0; i < size-1; i++ {
 		id := c.Members[len(c.Members)-1].s.ID()
-		c.RemoveMember(t, uint64(id))
+		// may hit second leader election on slow machines
+		if err := c.removeMember(t, uint64(id)); err != nil {
+			if strings.Contains(err.Error(), "no leader") {
+				t.Logf("got leader error (%v)", err)
+				i--
+				continue
+			}
+			t.Fatal(err)
+		}
 		c.waitLeader(t, c.Members)
 	}
 	clusterMustProgress(t, c.Members)

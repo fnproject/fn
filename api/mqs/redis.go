@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runner/common"
 	"github.com/garyburd/redigo/redis"
+	"github.com/sirupsen/logrus"
 )
 
 type RedisMQ struct {
@@ -100,7 +100,7 @@ func (mq *RedisMQ) processPendingReservations() {
 		return
 	}
 
-	var job models.Task
+	var job models.Call
 	err = json.Unmarshal(response, &job)
 	if err != nil {
 		logrus.WithError(err).Error("error unmarshaling job json")
@@ -114,7 +114,7 @@ func (mq *RedisMQ) processPendingReservations() {
 	redisPush(conn, mq.queueName, &job)
 }
 
-func (mq *RedisMQ) processDelayedTasks() {
+func (mq *RedisMQ) processDelayedCalls() {
 	conn := mq.pool.Get()
 	defer conn.Close()
 
@@ -141,7 +141,7 @@ func (mq *RedisMQ) processDelayedTasks() {
 			continue
 		}
 
-		var job models.Task
+		var job models.Call
 		err = json.Unmarshal(buf, &job)
 		if err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservationId": resId}).Error("Error unmarshaling job")
@@ -164,12 +164,12 @@ func (mq *RedisMQ) start() {
 	go func() {
 		for range mq.ticker.C {
 			mq.processPendingReservations()
-			mq.processDelayedTasks()
+			mq.processDelayedCalls()
 		}
 	}()
 }
 
-func redisPush(conn redis.Conn, queue string, job *models.Task) (*models.Task, error) {
+func redisPush(conn redis.Conn, queue string, job *models.Call) (*models.Call, error) {
 	buf, err := json.Marshal(job)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func redisPush(conn redis.Conn, queue string, job *models.Task) (*models.Task, e
 	return job, nil
 }
 
-func (mq *RedisMQ) delayTask(conn redis.Conn, job *models.Task) (*models.Task, error) {
+func (mq *RedisMQ) delayCall(conn redis.Conn, job *models.Call) (*models.Call, error) {
 	buf, err := json.Marshal(job)
 	if err != nil {
 		return nil, err
@@ -209,7 +209,7 @@ func (mq *RedisMQ) delayTask(conn redis.Conn, job *models.Task) (*models.Task, e
 	return job, nil
 }
 
-func (mq *RedisMQ) Push(ctx context.Context, job *models.Task) (*models.Task, error) {
+func (mq *RedisMQ) Push(ctx context.Context, job *models.Call) (*models.Call, error) {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
 	defer log.Println("Pushed to MQ")
 
@@ -217,7 +217,7 @@ func (mq *RedisMQ) Push(ctx context.Context, job *models.Task) (*models.Task, er
 	defer conn.Close()
 
 	if job.Delay > 0 {
-		return mq.delayTask(conn, job)
+		return mq.delayCall(conn, job)
 	}
 	return redisPush(conn, mq.queueName, job)
 }
@@ -226,11 +226,11 @@ func (mq *RedisMQ) checkNilResponse(err error) bool {
 }
 
 // Would be nice to switch to this model http://redis.io/commands/rpoplpush#pattern-reliable-queue
-func (mq *RedisMQ) Reserve(ctx context.Context) (*models.Task, error) {
+func (mq *RedisMQ) Reserve(ctx context.Context) (*models.Call, error) {
 
 	conn := mq.pool.Get()
 	defer conn.Close()
-	var job models.Task
+	var job models.Call
 	var resp []byte
 	var err error
 	for i := 2; i >= 0; i-- {
@@ -286,7 +286,7 @@ func (mq *RedisMQ) Reserve(ctx context.Context) (*models.Task, error) {
 	return &job, nil
 }
 
-func (mq *RedisMQ) Delete(ctx context.Context, job *models.Task) error {
+func (mq *RedisMQ) Delete(ctx context.Context, job *models.Call) error {
 	_, log := common.LoggerWithFields(ctx, logrus.Fields{"call_id": job.ID})
 	defer log.Println("Deleted")
 

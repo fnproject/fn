@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -21,6 +21,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/sirupsen/logrus"
 )
 
 // this aims to be an ANSI-SQL compliant package that uses only question
@@ -61,6 +62,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 	`CREATE TABLE IF NOT EXISTS logs (
 	id varchar(256) NOT NULL PRIMARY KEY,
+	app_name varchar(256) NOT NULL,
 	log text NOT NULL
 );`,
 }
@@ -72,9 +74,6 @@ const (
 
 type sqlStore struct {
 	db *sqlx.DB
-
-	// TODO we should prepare all of the statements, rebind them
-	// and store them all here.
 }
 
 // New will open the db specified by url, create any tables necessary
@@ -137,17 +136,8 @@ func New(url *url.URL) (models.Datastore, error) {
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	var cbyte []byte
-	var err error
-	if app.Config != nil {
-		cbyte, err = json.Marshal(app.Config)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	query := ds.db.Rebind("INSERT INTO apps (name, config) VALUES (?, ?);")
-	_, err = ds.db.Exec(query, app.Name, string(cbyte))
+	query := ds.db.Rebind("INSERT INTO apps (name, config) VALUES (:name, :config);")
+	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
 		switch err := err.(type) {
 		case *mysql.MySQLError:
@@ -173,32 +163,19 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	app := &models.App{Name: newapp.Name}
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT config FROM apps WHERE name=?`)
-		row := tx.QueryRow(query, app.Name)
+		row := tx.QueryRowxContext(ctx, query, app.Name)
 
-		var config string
-		if err := row.Scan(&config); err != nil {
-			if err == sql.ErrNoRows {
-				return models.ErrAppsNotFound
-			}
+		err := row.StructScan(app)
+		if err == sql.ErrNoRows {
+			return models.ErrAppsNotFound
+		} else if err != nil {
 			return err
-		}
-
-		if config != "" {
-			err := json.Unmarshal([]byte(config), &app.Config)
-			if err != nil {
-				return err
-			}
 		}
 
 		app.UpdateConfig(newapp.Config)
 
-		cbyte, err := json.Marshal(app.Config)
-		if err != nil {
-			return err
-		}
-
-		query = tx.Rebind(`UPDATE apps SET config=? WHERE name=?`)
-		res, err := tx.Exec(query, string(cbyte), app.Name)
+		query = tx.Rebind(`UPDATE apps SET config=:config WHERE name=:name`)
+		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
 		}
@@ -220,36 +197,47 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 }
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
-	query := ds.db.Rebind(`DELETE FROM apps WHERE name = ?`)
-	_, err := ds.db.Exec(query, appName)
-	return err
+	return ds.Tx(func(tx *sqlx.Tx) error {
+		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=?`), appName)
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return models.ErrAppsNotFound
+		}
+
+		deletes := []string{
+			`DELETE FROM logs WHERE app_name=?`,
+			`DELETE FROM calls WHERE app_name=?`,
+			`DELETE FROM routes WHERE app_name=?`,
+		}
+
+		for _, stmt := range deletes {
+			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), appName)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
 	query := ds.db.Rebind(`SELECT name, config FROM apps WHERE name=?`)
-	row := ds.db.QueryRow(query, name)
+	row := ds.db.QueryRowxContext(ctx, query, name)
 
-	var resName, config string
-	err := row.Scan(&resName, &config)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, models.ErrAppsNotFound
-		}
+	var res models.App
+	err := row.StructScan(&res)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrAppsNotFound
+	} else if err != nil {
 		return nil, err
 	}
-
-	res := &models.App{
-		Name: resName,
-	}
-
-	if len(config) > 0 {
-		err := json.Unmarshal([]byte(config), &res.Config)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return res, nil
+	return &res, nil
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
@@ -257,7 +245,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	res := []*models.App{}
 	query, args := buildFilterAppQuery(filter)
 	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config FROM apps %s", query))
-	rows, err := ds.db.Query(query, args...)
+	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +253,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 
 	for rows.Next() {
 		var app models.App
-		err := scanApp(rows, &app)
-
+		err := rows.StructScan(&app)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return res, nil
@@ -283,26 +270,16 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 }
 
 func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	hbyte, err := json.Marshal(route.Headers)
-	if err != nil {
-		return nil, err
-	}
-
-	cbyte, err := json.Marshal(route.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	err = ds.Tx(func(tx *sqlx.Tx) error {
+	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE name=?`)
-		r := tx.QueryRow(query, route.AppName)
+		r := tx.QueryRowContext(ctx, query, route.AppName)
 		if err := r.Scan(new(int)); err != nil {
 			if err == sql.ErrNoRows {
 				return models.ErrAppsNotFound
 			}
 		}
 		query = tx.Rebind(`SELECT 1 FROM routes WHERE app_name=? AND path=?`)
-		same, err := tx.Query(query, route.AppName, route.Path)
+		same, err := tx.QueryContext(ctx, query, route.AppName, route.Path)
 		if err != nil {
 			return err
 		}
@@ -323,20 +300,20 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			headers,
 			config
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`)
+		VALUES (
+			:app_name,
+			:path,
+			:image,
+			:format,
+			:memory,
+			:type,
+			:timeout,
+			:idle_timeout,
+			:headers,
+			:config
+		);`)
 
-		_, err = tx.Exec(query,
-			route.AppName,
-			route.Path,
-			route.Image,
-			route.Format,
-			route.Memory,
-			route.Type,
-			route.Timeout,
-			route.IdleTimeout,
-			string(hbyte),
-			string(cbyte),
-		)
+		_, err = tx.NamedExecContext(ctx, query, route)
 
 		return err
 	})
@@ -348,49 +325,33 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 	var route models.Route
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(fmt.Sprintf("%s WHERE app_name=? AND path=?", routeSelector))
-		row := tx.QueryRow(query, newroute.AppName, newroute.Path)
-		if err := scanRoute(row, &route); err == sql.ErrNoRows {
+		row := tx.QueryRowxContext(ctx, query, newroute.AppName, newroute.Path)
+
+		err := row.StructScan(&route)
+		if err == sql.ErrNoRows {
 			return models.ErrRoutesNotFound
 		} else if err != nil {
 			return err
 		}
 
 		route.Update(newroute)
-
-		hbyte, err := json.Marshal(route.Headers)
-		if err != nil {
-			return err
-		}
-
-		cbyte, err := json.Marshal(route.Config)
+		err = route.Validate()
 		if err != nil {
 			return err
 		}
 
 		query = tx.Rebind(`UPDATE routes SET
-			image = ?,
-			format = ?,
-			memory = ?,
-			type = ?,
-			timeout = ?,
-			idle_timeout = ?,
-			headers = ?,
-			config = ?
-		WHERE app_name=? AND path=?;`)
+			image = :image,
+			format = :format,
+			memory = :memory,
+			type = :type,
+			timeout = :timeout,
+			idle_timeout = :idle_timeout,
+			headers = :headers,
+			config = :config
+		WHERE app_name=:app_name AND path=:path;`)
 
-		res, err := tx.Exec(query,
-			route.Image,
-			route.Format,
-			route.Memory,
-			route.Type,
-			route.Timeout,
-			route.IdleTimeout,
-			string(hbyte),
-			string(cbyte),
-			route.AppName,
-			route.Path,
-		)
-
+		res, err := tx.NamedExecContext(ctx, query, &route)
 		if err != nil {
 			return err
 		}
@@ -413,7 +374,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 
 func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	query := ds.db.Rebind(`DELETE FROM routes WHERE path = ? AND app_name = ?`)
-	res, err := ds.db.Exec(query, routePath, appName)
+	res, err := ds.db.ExecContext(ctx, query, routePath, appName)
 	if err != nil {
 		return err
 	}
@@ -433,10 +394,10 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) 
 func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
 	rSelectCondition := "%s WHERE app_name=? AND path=?"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
-	row := ds.db.QueryRow(query, appName, routePath)
+	row := ds.db.QueryRowxContext(ctx, query, appName, routePath)
 
 	var route models.Route
-	err := scanRoute(row, &route)
+	err := row.StructScan(&route)
 	if err == sql.ErrNoRows {
 		return nil, models.ErrRoutesNotFound
 	} else if err != nil {
@@ -445,69 +406,39 @@ func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*m
 	return &route, nil
 }
 
-// GetRoutes retrieves an array of routes according to a specific filter.
-func (ds *sqlStore) GetRoutes(ctx context.Context, filter *models.RouteFilter) ([]*models.Route, error) {
-	res := []*models.Route{}
-	query, args := buildFilterRouteQuery(filter)
-	query = fmt.Sprintf("%s %s", routeSelector, query)
-	query = ds.db.Rebind(query)
-	rows, err := ds.db.Query(query, args...)
-	// todo: check for no rows so we don't respond with a sql 500 err
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var route models.Route
-		err := scanRoute(rows, &route)
-		if err != nil {
-			continue
-		}
-		res = append(res, &route)
-
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-/*
-GetRoutesByApp retrieves a route with a specific app name.
-*/
+// GetRoutesByApp retrieves a route with a specific app name.
 func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
-	var filterQuery string
-	var args []interface{}
 	if filter == nil {
-		filterQuery = "WHERE app_name = ?"
-		args = []interface{}{appName}
-	} else {
-		filter.AppName = appName
-		filterQuery, args = buildFilterRouteQuery(filter)
+		filter = new(models.RouteFilter)
 	}
+
+	filter.AppName = appName
+	filterQuery, args := buildFilterRouteQuery(filter)
 
 	query := fmt.Sprintf("%s %s", routeSelector, filterQuery)
 	query = ds.db.Rebind(query)
-	rows, err := ds.db.Query(query, args...)
-	// todo: check for no rows so we don't respond with a sql 500 err
+	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, nil // no error for empty list
+		}
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var route models.Route
-		err := scanRoute(rows, &route)
+		err := rows.StructScan(&route)
 		if err != nil {
 			continue
 		}
 		res = append(res, &route)
-
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return res, nil // no error for empty list
+		}
 	}
 
 	return res, nil
@@ -526,7 +457,7 @@ func (ds *sqlStore) Tx(f func(*sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func (ds *sqlStore) InsertTask(ctx context.Context, task *models.Task) error {
+func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 	query := ds.db.Rebind(`INSERT INTO calls (
 		id,
 		created_at,
@@ -536,45 +467,47 @@ func (ds *sqlStore) InsertTask(ctx context.Context, task *models.Task) error {
 		app_name,
 		path
 	)
-	VALUES (?, ?, ?, ?, ?, ?, ?);`)
+	VALUES (
+		:id,
+		:created_at,
+		:started_at,
+		:completed_at,
+		:status,
+		:app_name,
+		:path
+	);`)
 
-	_, err := ds.db.Exec(query, task.ID, task.CreatedAt.String(),
-		task.StartedAt.String(), task.CompletedAt.String(),
-		task.Status, task.AppName, task.Path)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ds.db.NamedExecContext(ctx, query, call)
+	return err
 }
 
-func (ds *sqlStore) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
-	query := fmt.Sprintf(`%s WHERE id=?`, callSelector)
+func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
+	query := fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)
 	query = ds.db.Rebind(query)
-	row := ds.db.QueryRow(query, callID)
+	row := ds.db.QueryRowxContext(ctx, query, callID, appName)
 
-	var call models.FnCall
-	err := scanCall(row, &call)
+	var call models.Call
+	err := row.StructScan(&call)
 	if err != nil {
 		return nil, err
 	}
 	return &call, nil
 }
 
-func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	res := models.FnCalls{}
+func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+	res := []*models.Call{}
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
 	query = ds.db.Rebind(query)
-	rows, err := ds.db.Query(query, args...)
+	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var call models.FnCall
-		err := scanCall(rows, &call)
+		var call models.Call
+		err := rows.StructScan(&call)
 		if err != nil {
 			continue
 		}
@@ -586,15 +519,27 @@ func (ds *sqlStore) GetTasks(ctx context.Context, filter *models.CallFilter) (mo
 	return res, nil
 }
 
-func (ds *sqlStore) InsertLog(ctx context.Context, callID, callLog string) error {
-	query := ds.db.Rebind(`INSERT INTO logs (id, log) VALUES (?, ?);`)
-	_, err := ds.db.Exec(query, callID, callLog)
+func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID string, logR io.Reader) error {
+	// coerce this into a string for sql
+	var log string
+	if stringer, ok := logR.(fmt.Stringer); ok {
+		log = stringer.String()
+	} else {
+		// TODO we could optimize for Size / buffer pool, but atm we aren't hitting
+		// this code path anyway (a fallback)
+		var b bytes.Buffer
+		io.Copy(&b, logR)
+		log = b.String()
+	}
+
+	query := ds.db.Rebind(`INSERT INTO logs (id, app_name, log) VALUES (?, ?, ?);`)
+	_, err := ds.db.ExecContext(ctx, query, callID, appName, log)
 	return err
 }
 
-func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.FnCallLog, error) {
-	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=?`)
-	row := ds.db.QueryRow(query, callID)
+func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
+	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_name=?`)
+	row := ds.db.QueryRowContext(ctx, query, callID, appName)
 
 	var log string
 	err := row.Scan(&log)
@@ -605,85 +550,17 @@ func (ds *sqlStore) GetLog(ctx context.Context, callID string) (*models.FnCallLo
 		return nil, err
 	}
 
-	return &models.FnCallLog{
-		CallID: callID,
-		Log:    log,
+	return &models.CallLog{
+		CallID:  callID,
+		Log:     log,
+		AppName: appName,
 	}, nil
 }
 
-func (ds *sqlStore) DeleteLog(ctx context.Context, callID string) error {
-	query := ds.db.Rebind(`DELETE FROM logs WHERE id=?`)
-	_, err := ds.db.Exec(query, callID)
+func (ds *sqlStore) DeleteLog(ctx context.Context, appName, callID string) error {
+	query := ds.db.Rebind(`DELETE FROM logs WHERE id=? AND app_name=?`)
+	_, err := ds.db.ExecContext(ctx, query, callID, appName)
 	return err
-}
-
-// TODO scrap for sqlx scanx ?? some things aren't perfect (e.g. config is a json string)
-type RowScanner interface {
-	Scan(dest ...interface{}) error
-}
-
-func ScanLog(scanner RowScanner, log *models.FnCallLog) error {
-	return scanner.Scan(
-		&log.CallID,
-		&log.Log,
-	)
-}
-
-func scanRoute(scanner RowScanner, route *models.Route) error {
-	var headerStr string
-	var configStr string
-
-	err := scanner.Scan(
-		&route.AppName,
-		&route.Path,
-		&route.Image,
-		&route.Format,
-		&route.Memory,
-		&route.Type,
-		&route.Timeout,
-		&route.IdleTimeout,
-		&headerStr,
-		&configStr,
-	)
-	if err != nil {
-		return err
-	}
-
-	if len(headerStr) > 0 {
-		err = json.Unmarshal([]byte(headerStr), &route.Headers)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(configStr) > 0 {
-		err = json.Unmarshal([]byte(configStr), &route.Config)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func scanApp(scanner RowScanner, app *models.App) error {
-	var configStr string
-
-	err := scanner.Scan(
-		&app.Name,
-		&configStr,
-	)
-	if err != nil {
-		return err
-	}
-	if len(configStr) > 0 {
-		err = json.Unmarshal([]byte(configStr), &app.Config)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
@@ -697,26 +574,52 @@ func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
 		if val != "" {
 			args = append(args, val)
 			if len(args) == 1 {
-				fmt.Fprintf(&b, `WHERE %s?`, colOp)
+				fmt.Fprintf(&b, `WHERE %s`, colOp)
 			} else {
-				fmt.Fprintf(&b, ` AND %s?`, colOp)
+				fmt.Fprintf(&b, ` AND %s`, colOp)
 			}
 		}
 	}
 
-	where("path=", filter.Path)
-	where("app_name=", filter.AppName)
-	where("image=", filter.Image)
+	where("app_name=? ", filter.AppName)
+	where("image=?", filter.Image)
+	where("path>?", filter.Cursor)
+	// where("path LIKE ?%", filter.PathPrefix) TODO needs escaping
+
+	fmt.Fprintf(&b, ` ORDER BY path ASC`) // TODO assert this is indexed
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
 
 	return b.String(), args
 }
 
 func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}) {
-	if filter == nil || filter.Name == "" {
+	if filter == nil {
 		return "", nil
 	}
 
-	return "WHERE name LIKE ?", []interface{}{filter.Name}
+	var b bytes.Buffer
+	var args []interface{}
+
+	where := func(colOp, val string) {
+		if val != "" {
+			args = append(args, val)
+			if len(args) == 1 {
+				fmt.Fprintf(&b, `WHERE %s`, colOp)
+			} else {
+				fmt.Fprintf(&b, ` AND %s`, colOp)
+			}
+		}
+	}
+
+	// where("name LIKE ?%", filter.Name) // TODO needs escaping?
+	where("name>?", filter.Cursor)
+
+	fmt.Fprintf(&b, ` ORDER BY name ASC`) // TODO assert this is indexed
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
+
+	return b.String(), args
 }
 
 func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
@@ -737,32 +640,21 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 		}
 	}
 
-	where("app_name=", filter.AppName)
-
-	if filter.Path != "" {
-		where("path=", filter.Path)
+	where("id<", filter.Cursor)
+	if !time.Time(filter.ToTime).IsZero() {
+		where("created_at<", filter.ToTime.String())
 	}
+	if !time.Time(filter.FromTime).IsZero() {
+		where("created_at>", filter.FromTime.String())
+	}
+	where("app_name=", filter.AppName)
+	where("path=", filter.Path)
+
+	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
 
 	return b.String(), args
-}
-
-func scanCall(scanner RowScanner, call *models.FnCall) error {
-	err := scanner.Scan(
-		&call.ID,
-		&call.CreatedAt,
-		&call.StartedAt,
-		&call.CompletedAt,
-		&call.Status,
-		&call.AppName,
-		&call.Path,
-	)
-
-	if err == sql.ErrNoRows {
-		return models.ErrCallNotFound
-	} else if err != nil {
-		return err
-	}
-	return nil
 }
 
 // GetDatabase returns the underlying sqlx database implementation

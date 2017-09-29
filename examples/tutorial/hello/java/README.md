@@ -5,7 +5,7 @@ This example will show you how to test and deploy Java code to Oracle Functions.
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init hello-java --runtime java
+fn init --name hello-java --runtime java
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
@@ -15,7 +15,7 @@ echo "Michael FassBender" | fn run
 
 # Deploy your functions to the Oracle Functions server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy myapp
+fn deploy --app myapp
 ```
 
 ### Now call your function:
@@ -48,4 +48,4 @@ That's it!
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](examples/tutorial/params)
+## [Part 2: Input Parameters](../../params)

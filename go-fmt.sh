@@ -1,7 +1,7 @@
 #! /bin/sh
 set -e
 
-function listFilesExit() {
+function listFilesExit () {
 	echo The following files need to have go fmt ran:
 	echo $NEED_TO_FORMAT
 	exit 1

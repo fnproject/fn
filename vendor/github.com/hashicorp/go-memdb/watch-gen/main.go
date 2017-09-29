@@ -17,11 +17,12 @@ import (
 const aFew = 32
 
 // source is the template we use to generate the source file.
-const source = `//go:generate sh -c "go run watch-gen/main.go >watch_few.go"
-package memdb
+const source = `package memdb
+
+//go:generate sh -c "go run watch-gen/main.go >watch_few.go"
 
 import(
-	"time"
+	"context"
 )
 
 // aFew gives how many watchers this function is wired to support. You must
@@ -30,14 +31,14 @@ const aFew = {{len .}}
 
 // watchFew is used if there are only a few watchers as a performance
 // optimization.
-func watchFew(ch []<-chan struct{}, timeoutCh <-chan time.Time) bool {
+func watchFew(ctx context.Context, ch []<-chan struct{}) error {
 	select {
 {{range $i, $unused := .}}
 	case <-ch[{{printf "%d" $i}}]:
-		return false
+		return nil
 {{end}}
-	case <-timeoutCh:
-		return true
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 `

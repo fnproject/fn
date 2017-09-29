@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funcy/functions_go/client/call"
-	"github.com/funcy/functions_go/client/operations"
+	"github.com/fnproject/fn_go/client/call"
+	"github.com/fnproject/fn_go/client/operations"
 )
 
 type ErrMsg struct {
@@ -25,7 +25,7 @@ type TimeoutBody struct {
 
 func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
-	err := CallFN(u.String(), content, output, "POST", []string{})
+	_, err := CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		content := &bytes.Buffer{}
 		output := &bytes.Buffer{}
-		err := CallFN(u.String(), content, output, "POST", []string{})
+		_, err := CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Errorf("Got unexpected error: %v", err)
 		}
@@ -75,7 +75,6 @@ func TestRouteExecutions(t *testing.T) {
 		if !strings.Contains(expectedOutput, output.String()) {
 			t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -97,7 +96,7 @@ func TestRouteExecutions(t *testing.T) {
 			Name string
 		}{Name: "John"})
 		output := &bytes.Buffer{}
-		err := CallFN(u.String(), content, output, "POST", []string{})
+		_, err := CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Errorf("Got unexpected error: %v", err)
 		}
@@ -105,7 +104,6 @@ func TestRouteExecutions(t *testing.T) {
 		if !strings.Contains(expectedOutput, output.String()) {
 			t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 
 	})
@@ -132,7 +130,6 @@ func TestRouteExecutions(t *testing.T) {
 		CheckRouteResponseError(t, err)
 
 		CallAsync(t, u, &bytes.Buffer{})
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -168,8 +165,8 @@ func TestRouteExecutions(t *testing.T) {
 		callResponse, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 		if err != nil {
 			switch err.(type) {
-			case *call.GetCallsCallNotFound:
-				msg := err.(*call.GetCallsCallNotFound).Payload.Error.Message
+			case *call.GetAppsAppCallsCallNotFound:
+				msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}
@@ -188,7 +185,6 @@ func TestRouteExecutions(t *testing.T) {
 			t.Errorf("Call object status mismatch.\n\tExpected: %v\n\tActual:%v", "success", callObject.Status)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 
 	})
@@ -216,17 +212,14 @@ func TestRouteExecutions(t *testing.T) {
 		}{Seconds: 31})
 		output := &bytes.Buffer{}
 
-		CallFN(u.String(), content, output, "POST", []string{})
+		headers, _ := CallFN(u.String(), content, output, "POST", []string{})
 
 		if !strings.Contains(output.String(), "Timed out") {
 			t.Errorf("Must fail because of timeout, but got error message: %v", output.String())
 		}
-		tB := &TimeoutBody{}
-
-		json.NewDecoder(output).Decode(tB)
 
 		cfg := &call.GetAppsAppCallsCallParams{
-			Call:    tB.CallID,
+			Call:    headers.Get("FN_CALL_ID"),
 			App:     s.AppName,
 			Context: s.Context,
 		}
@@ -240,7 +233,6 @@ func TestRouteExecutions(t *testing.T) {
 				"output", "callObj.Payload.Call.Status")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -286,7 +278,6 @@ func TestRouteExecutions(t *testing.T) {
 				"string, but got: %v", logObj.Payload.Log.Log)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -322,6 +313,8 @@ func TestRouteExecutions(t *testing.T) {
 	})
 
 	t.Run("exec-log-test", func(t *testing.T) {
+		//XXX: Fix this test.
+		t.Skip("Flaky test needs to be rewritten. https://github.com/fnproject/fn/issues/253")
 		t.Parallel()
 		s := SetupDefaultSuite()
 		routePath := "/log"
@@ -357,7 +350,6 @@ func TestRouteExecutions(t *testing.T) {
 			t.Errorf("Unexpected error: %s", err)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -402,7 +394,6 @@ func TestRouteExecutions(t *testing.T) {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
 				size/1024, len(logObj.Payload.Log.Log))
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/fn/api/datastore/sql"
 	"github.com/fnproject/fn/api/models"
+	"github.com/sirupsen/logrus"
 )
 
-func New(dbURL string) (models.FnLog, error) {
+func New(dbURL string) (models.LogStore, error) {
 	u, err := url.Parse(dbURL)
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"url": dbURL}).Fatal("bad DB URL")

@@ -40,7 +40,7 @@ $ go run example.go
 
 ## Benchmarks
 
-Gin uses a custom version of [HttpRouter](https://github.com/julienschmidt/httprouter)  
+Gin uses a custom version of [HttpRouter](https://github.com/julienschmidt/httprouter)
 
 [See all benchmarks](/BENCHMARKS.md)
 
@@ -74,10 +74,10 @@ BenchmarkTigerTonic_GithubAll               |    1000    |  1439483    |  239104
 BenchmarkTraffic_GithubAll                  |     100    | 11383067    | 2659329    | 21848
 BenchmarkVulcan_GithubAll                   |    5000    |   394253    |   19894    |   609
 
-(1): Total Repetitions achieved in constant time, higher means more confident result  
-(2): Single Repetition Duration (ns/op), lower is better  
-(3): Heap Memory (B/op), lower is better  
-(4): Average Allocations per Repetition (allocs/op), lower is better  
+(1): Total Repetitions achieved in constant time, higher means more confident result
+(2): Single Repetition Duration (ns/op), lower is better
+(3): Heap Memory (B/op), lower is better
+(4): Average Allocations per Repetition (allocs/op), lower is better
 
 ## Gin v1. stable
 
@@ -277,14 +277,16 @@ References issue [#774](https://github.com/gin-gonic/gin/issues/774) and detail 
 ```go
 func main() {
 	router := gin.Default()
+	// Set a lower memory limit for multipart forms (default is 32 MiB)
+	// router.MaxMultipartMemory = 8 << 20  // 8 MiB
 	router.POST("/upload", func(c *gin.Context) {
 		// single file
 		file, _ := c.FormFile("file")
 		log.Println(file.Filename)
-        
+
 		// Upload the file to specific dst.
-		// c.SaveUploadedFile(file, dst)       
-		
+		// c.SaveUploadedFile(file, dst)
+
 		c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
 	})
 	router.Run(":8080")
@@ -306,6 +308,8 @@ See the detail [example code](examples/upload-file/multiple).
 ```go
 func main() {
 	router := gin.Default()
+	// Set a lower memory limit for multipart forms (default is 32 MiB)
+	// router.MaxMultipartMemory = 8 << 20  // 8 MiB
 	router.POST("/upload", func(c *gin.Context) {
 		// Multipart form
 		form, _ := c.MultipartForm()
@@ -313,9 +317,9 @@ func main() {
 
 		for _, file := range files {
 			log.Println(file.Filename)
-			
+
 			// Upload the file to specific dst.
-			// c.SaveUploadedFile(file, dst)       
+			// c.SaveUploadedFile(file, dst)
 		}
 		c.String(http.StatusOK, fmt.Sprintf("%d files uploaded!", len(files)))
 	})
@@ -369,6 +373,7 @@ r := gin.New()
 instead of
 
 ```go
+// Default With the Logger and Recovery middleware already attached
 r := gin.Default()
 ```
 
@@ -380,7 +385,11 @@ func main() {
 	r := gin.New()
 
 	// Global middleware
+	// Logger middleware will write the logs to gin.DefaultWriter even you set with GIN_MODE=release.
+	// By default gin.DefaultWriter = os.Stdout
 	r.Use(gin.Logger())
+	
+	// Recovery middleware recovers from any panics and writes a 500 if there was one.
 	r.Use(gin.Recovery())
 
 	// Per route middleware, you can add as many as you desire.
@@ -405,6 +414,28 @@ func main() {
 
 	// Listen and serve on 0.0.0.0:8080
 	r.Run(":8080")
+}
+```
+
+### How to write log file
+```go
+func main() {
+    // Disable Console Color, you don't need console color when writing the logs to file.
+    gin.DisableConsoleColor()
+    
+    // Logging to a file.
+    f, _ := os.Create("gin.log")
+    gin.DefaultWriter = io.MultiWriter(f)
+    
+    // Use the following code if you need to write the logs to file and console at the same time.
+    // gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
+    router := gin.Default()
+    router.GET("/ping", func(c *gin.Context) {
+        c.String(200, "pong")
+    })
+
+    r.Run(":8080")
 }
 ```
 
@@ -460,6 +491,67 @@ func main() {
 }
 ```
 
+### Custom Validators
+
+It is also possible to register custom validators. See the [example code](examples/custom-validation/server.go).
+
+[embedmd]:# (examples/custom-validation/server.go go)
+```go
+package main
+
+import (
+	"net/http"
+	"reflect"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	validator "gopkg.in/go-playground/validator.v8"
+)
+
+type Booking struct {
+	CheckIn  time.Time `form:"check_in" binding:"required,bookabledate" time_format:"2006-01-02"`
+	CheckOut time.Time `form:"check_out" binding:"required,gtfield=CheckIn" time_format:"2006-01-02"`
+}
+
+func bookableDate(
+	v *validator.Validate, topStruct reflect.Value, currentStructOrField reflect.Value,
+	field reflect.Value, fieldType reflect.Type, fieldKind reflect.Kind, param string,
+) bool {
+	if date, ok := field.Interface().(time.Time); ok {
+		today := time.Now()
+		if today.Year() > date.Year() || today.YearDay() > date.YearDay() {
+			return false
+		}
+	}
+	return true
+}
+
+func main() {
+	route := gin.Default()
+	binding.Validator.RegisterValidation("bookabledate", bookableDate)
+	route.GET("/bookable", getBookable)
+	route.Run(":8085")
+}
+
+func getBookable(c *gin.Context) {
+	var b Booking
+	if err := c.ShouldBindWith(&b, binding.Query); err == nil {
+		c.JSON(http.StatusOK, gin.H{"message": "Booking dates are valid!"})
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+}
+```
+
+```console
+$ curl "localhost:8085/bookable?check_in=2017-08-16&check_out=2017-08-17"
+{"message":"Booking dates are valid!"}
+
+$ curl "localhost:8085/bookable?check_in=2017-08-15&check_out=2017-08-16"
+{"error":"Key: 'Booking.CheckIn' Error:Field validation for 'CheckIn' failed on the 'bookabledate' tag"}
+```
+
 ### Only Bind Query String
 
 `BindQuery` function only binds the query params and not the post data. See the [detail information](https://github.com/gin-gonic/gin/issues/742#issuecomment-315953017).
@@ -505,10 +597,12 @@ package main
 
 import "log"
 import "github.com/gin-gonic/gin"
+import "time"
 
 type Person struct {
-	Name    string `form:"name"`
-	Address string `form:"address"`
+	Name     string    `form:"name"`
+	Address  string    `form:"address"`
+	Birthday time.Time `form:"birthday" time_format:"2006-01-02" time_utc:"1"`
 }
 
 func main() {
@@ -525,10 +619,16 @@ func startPage(c *gin.Context) {
 	if c.Bind(&person) == nil {
 		log.Println(person.Name)
 		log.Println(person.Address)
+		log.Println(person.Birthday)
 	}
 
 	c.String(200, "Success")
 }
+```
+
+Test it with:
+```sh
+$ curl -X GET "localhost:8085/testing?name=appleboy&address=xyz&birthday=1992-03-15"
 ```
 
 ### Bind HTML checkboxes
@@ -676,7 +776,7 @@ func main() {
 	// Listen and serve on 0.0.0.0:8080
 	r.Run(":8080")
 }
-```  
+```
 
 ### Serving static files
 
@@ -787,7 +887,7 @@ You may use custom delims
 	r := gin.Default()
 	r.Delims("{[{", "}]}")
 	r.LoadHTMLGlob("/path/to/templates"))
-```  
+```
 
 #### Custom Template Funcs
 
@@ -1124,7 +1224,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server Shutdown:", err)
 	}
-	log.Println("Server exist")
+	log.Println("Server exiting")
 }
 ```
 

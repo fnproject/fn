@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"github.com/coreos/go-semver/semver"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
+	"github.com/sirupsen/logrus"
 )
 
 // NewAllGrouper returns a Grouper that will return the entire list of nodes

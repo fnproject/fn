@@ -1,0 +1,7 @@
+name: header
+version: 0.0.11
+runtime: ruby
+entrypoint: ruby func.rb
+headers:
+  content-type:
+  - text/html

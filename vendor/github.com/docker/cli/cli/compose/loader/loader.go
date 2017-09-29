@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/cli/cli/compose/interpolation"
 	"github.com/docker/cli/cli/compose/schema"
 	"github.com/docker/cli/cli/compose/template"
@@ -19,6 +18,7 @@ import (
 	shellwords "github.com/mattn/go-shellwords"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -93,11 +93,7 @@ func Load(configDetails types.ConfigDetails) (*types.Config, error) {
 	}
 
 	cfg.Configs, err = LoadConfigObjs(config["configs"], configDetails.WorkingDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
+	return &cfg, err
 }
 
 func interpolateConfig(configDict map[string]interface{}, lookupEnv template.Mapping) (map[string]map[string]interface{}, error) {
@@ -576,7 +572,6 @@ func transformServiceVolumeConfig(data interface{}) (interface{}, error) {
 	default:
 		return data, errors.Errorf("invalid type %T for service volume", value)
 	}
-
 }
 
 func transformServiceNetworkMap(value interface{}) (interface{}, error) {

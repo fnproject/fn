@@ -15,6 +15,7 @@
 package clientv3
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -27,12 +28,12 @@ import (
 
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -54,14 +55,15 @@ type Client struct {
 
 	cfg      Config
 	creds    *credentials.TransportCredentials
-	balancer *simpleBalancer
+	balancer balancer
+	mu       sync.Mutex
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	// Username is a username for authentication
+	// Username is a user name for authentication.
 	Username string
-	// Password is a password for authentication
+	// Password is a password for authentication.
 	Password string
 	// tokenCred is an instance of WithPerRPCCredentials()'s argument
 	tokenCred *authTokenCredential
@@ -115,8 +117,10 @@ func (c *Client) Endpoints() (eps []string) {
 
 // SetEndpoints updates client's endpoints.
 func (c *Client) SetEndpoints(eps ...string) {
+	c.mu.Lock()
 	c.cfg.Endpoints = eps
-	c.balancer.updateAddrs(eps)
+	c.mu.Unlock()
+	c.balancer.updateAddrs(eps...)
 }
 
 // Sync synchronizes client's endpoints with the known endpoints from the etcd membership.
@@ -143,8 +147,10 @@ func (c *Client) autoSync() {
 		case <-c.ctx.Done():
 			return
 		case <-time.After(c.cfg.AutoSyncInterval):
-			ctx, _ := context.WithTimeout(c.ctx, 5*time.Second)
-			if err := c.Sync(ctx); err != nil && err != c.ctx.Err() {
+			ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+			err := c.Sync(ctx)
+			cancel()
+			if err != nil && err != c.ctx.Err() {
 				logger.Println("Auto sync endpoints failed:", err)
 			}
 		}
@@ -216,18 +222,15 @@ func (c *Client) dialSetupOpts(endpoint string, dopts ...grpc.DialOption) (opts 
 	}
 	if c.cfg.DialKeepAliveTime > 0 {
 		params := keepalive.ClientParameters{
-			Time: c.cfg.DialKeepAliveTime,
-		}
-		// Only relevant when KeepAliveTime is non-zero
-		if c.cfg.DialKeepAliveTimeout > 0 {
-			params.Timeout = c.cfg.DialKeepAliveTimeout
+			Time:    c.cfg.DialKeepAliveTime,
+			Timeout: c.cfg.DialKeepAliveTimeout,
 		}
 		opts = append(opts, grpc.WithKeepaliveParams(params))
 	}
 	opts = append(opts, dopts...)
 
 	f := func(host string, t time.Duration) (net.Conn, error) {
-		proto, host, _ := parseEndpoint(c.balancer.getEndpoint(host))
+		proto, host, _ := parseEndpoint(c.balancer.endpoint(host))
 		if host == "" && endpoint != "" {
 			// dialing an endpoint not in the balancer; use
 			// endpoint passed into dial
@@ -320,7 +323,7 @@ func (c *Client) dial(endpoint string, dopts ...grpc.DialOption) (*grpc.ClientCo
 		if err != nil {
 			if toErr(ctx, err) != rpctypes.ErrAuthNotEnabled {
 				if err == ctx.Err() && ctx.Err() != c.ctx.Err() {
-					err = grpc.ErrClientConnTimeout
+					err = context.DeadlineExceeded
 				}
 				return nil, err
 			}
@@ -375,9 +378,12 @@ func newClient(cfg *Config) (*Client, error) {
 		client.Password = cfg.Password
 	}
 
-	client.balancer = newSimpleBalancer(cfg.Endpoints)
+	sb := newSimpleBalancer(cfg.Endpoints)
+	hc := func(ep string) (bool, error) { return grpcHealthCheck(client, ep) }
+	client.balancer = newHealthBalancer(sb, cfg.DialTimeout, hc)
+
 	// use Endpoints[0] so that for https:// without any tls config given, then
-	// grpc will assume the ServerName is in the endpoint.
+	// grpc will assume the certificate server name is the endpoint host.
 	conn, err := client.dial(cfg.Endpoints[0], grpc.WithBalancer(client.balancer))
 	if err != nil {
 		client.cancel()
@@ -391,13 +397,13 @@ func newClient(cfg *Config) (*Client, error) {
 		hasConn := false
 		waitc := time.After(cfg.DialTimeout)
 		select {
-		case <-client.balancer.readyc:
+		case <-client.balancer.ready():
 			hasConn = true
 		case <-ctx.Done():
 		case <-waitc:
 		}
 		if !hasConn {
-			err := grpc.ErrClientConnTimeout
+			err := context.DeadlineExceeded
 			select {
 			case err = <-client.dialerrc:
 			default:
@@ -432,7 +438,7 @@ func (c *Client) checkVersion() (err error) {
 	errc := make(chan error, len(c.cfg.Endpoints))
 	ctx, cancel := context.WithCancel(c.ctx)
 	if c.cfg.DialTimeout > 0 {
-		ctx, _ = context.WithTimeout(ctx, c.cfg.DialTimeout)
+		ctx, cancel = context.WithTimeout(ctx, c.cfg.DialTimeout)
 	}
 	wg.Add(len(c.cfg.Endpoints))
 	for _, ep := range c.cfg.Endpoints {
@@ -479,14 +485,14 @@ func isHaltErr(ctx context.Context, err error) bool {
 	if err == nil {
 		return false
 	}
-	code := grpc.Code(err)
+	ev, _ := status.FromError(err)
 	// Unavailable codes mean the system will be right back.
 	// (e.g., can't connect, lost leader)
 	// Treat Internal codes as if something failed, leaving the
 	// system in an inconsistent state, but retrying could make progress.
 	// (e.g., failed in middle of send, corrupted frame)
 	// TODO: are permanent Internal errors possible from grpc?
-	return code != codes.Unavailable && code != codes.Internal
+	return ev.Code() != codes.Unavailable && ev.Code() != codes.Internal
 }
 
 func toErr(ctx context.Context, err error) error {
@@ -497,7 +503,8 @@ func toErr(ctx context.Context, err error) error {
 	if _, ok := err.(rpctypes.EtcdError); ok {
 		return err
 	}
-	code := grpc.Code(err)
+	ev, _ := status.FromError(err)
+	code := ev.Code()
 	switch code {
 	case codes.DeadlineExceeded:
 		fallthrough

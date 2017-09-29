@@ -6,10 +6,8 @@
 
 If this is your first time building the clients, you'll need to do the following:
 
-1) Install this single gem:
-
 ```sh
-gem install http
+bundle install
 ```
 
 ### Every Time
@@ -21,12 +19,6 @@ ruby build.rb
 ```
 
 Boom. That's it.
-
-## Building with the Go Builder
-
-```sh
-go run main.go
-```
 
 ## Troubleshooting
 

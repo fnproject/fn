@@ -28,7 +28,6 @@ type Datastore interface {
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
 	// Returns ErrAppsNotFound if an App is not found.
-	// TODO remove routes automatically? #528
 	RemoveApp(ctx context.Context, appName string) error
 
 	// GetRoute looks up a matching Route for appName and the literal request route routePath.
@@ -37,12 +36,9 @@ type Datastore interface {
 	// Returns ErrRoutesNotFound when no matching route is found.
 	GetRoute(ctx context.Context, appName, routePath string) (*Route, error)
 
-	// GetRoutes gets a slice of Routes, optionally filtered by filter.
-	GetRoutes(ctx context.Context, filter *RouteFilter) (routes []*Route, err error)
-
 	// GetRoutesByApp gets a slice of routes for a appName, optionally filtering on filter (filter.AppName is ignored).
 	// Returns ErrDatastoreEmptyAppName if appName is empty.
-	GetRoutesByApp(ctx context.Context, appName string, filter *RouteFilter) (routes []*Route, err error)
+	GetRoutesByApp(ctx context.Context, appName string, filter *RouteFilter) ([]*Route, error)
 
 	// InsertRoute inserts a route. Returns ErrDatastoreEmptyRoute when route is nil, and ErrDatastoreEmptyAppName
 	// or ErrDatastoreEmptyRoutePath for empty AppName or Path.
@@ -57,13 +53,19 @@ type Datastore interface {
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appName, routePath string) error
 
-	// InsertTask inserts a task
-	InsertTask(ctx context.Context, task *Task) error
-	GetTask(ctx context.Context, callID string) (*FnCall, error)
-	GetTasks(ctx context.Context, filter *CallFilter) (FnCalls, error)
+	// InsertCall inserts a call into the datastore, it will error if the call already
+	// exists.
+	InsertCall(ctx context.Context, call *Call) error
 
-	// Implement FnLog methods for convenience
-	FnLog
+	// GetCall returns a call at a certain id and app name.
+	GetCall(ctx context.Context, appName, callID string) (*Call, error)
+
+	// GetCalls returns a list of calls that satisfy the given CallFilter. If no
+	// calls exist, an empty list and a nil error are returned.
+	GetCalls(ctx context.Context, filter *CallFilter) ([]*Call, error)
+
+	// Implement LogStore methods for convenience
+	LogStore
 
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB

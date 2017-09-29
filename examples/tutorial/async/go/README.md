@@ -6,7 +6,7 @@ This is an example of an [asynchronous function](/docs/async.md).
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init --type async <DOCKERHUB_USERNAME>/hello-go-async
+fn init --type async --name hello-go-async
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
@@ -16,7 +16,7 @@ cat sample.payload.json | fn run
 
 # Deploy your functions to the Oracle Functions server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy myapp
+fn deploy --app myapp
 ```
 
 ### Now call your function:

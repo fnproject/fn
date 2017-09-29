@@ -1361,6 +1361,10 @@ func TestRecvMsgVote(t *testing.T) {
 	testRecvMsgVote(t, pb.MsgVote)
 }
 
+func TestRecvMsgPreVote(t *testing.T) {
+	testRecvMsgVote(t, pb.MsgPreVote)
+}
+
 func testRecvMsgVote(t *testing.T, msgType pb.MessageType) {
 	tests := []struct {
 		state          StateType
@@ -1751,6 +1755,13 @@ func TestFreeStuckCandidateWithCheckQuorum(t *testing.T) {
 	if c.Term != a.Term {
 		t.Errorf("term = %d, want %d", c.Term, a.Term)
 	}
+
+	// Vote again, should become leader this time
+	nt.send(pb.Message{From: 3, To: 3, Type: pb.MsgHup})
+
+	if c.state != StateLeader {
+		t.Errorf("peer 3 state: %s, want %s", c.state, StateLeader)
+	}
 }
 
 func TestNonPromotableVoterWithCheckQuorum(t *testing.T) {
@@ -1895,30 +1906,6 @@ func TestReadOnlyOptionLease(t *testing.T) {
 			t.Errorf("#%d: requestCtx = %v, want %v", i, rs.RequestCtx, tt.wctx)
 		}
 		r.readStates = nil
-	}
-}
-
-func TestReadOnlyOptionLeaseWithoutCheckQuorum(t *testing.T) {
-	a := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	b := newTestRaft(2, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	c := newTestRaft(3, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	a.readOnly.option = ReadOnlyLeaseBased
-	b.readOnly.option = ReadOnlyLeaseBased
-	c.readOnly.option = ReadOnlyLeaseBased
-
-	nt := newNetwork(a, b, c)
-	nt.send(pb.Message{From: 1, To: 1, Type: pb.MsgHup})
-
-	ctx := []byte("ctx1")
-	nt.send(pb.Message{From: 2, To: 2, Type: pb.MsgReadIndex, Entries: []pb.Entry{{Data: ctx}}})
-
-	rs := b.readStates[0]
-	if rs.Index != None {
-		t.Errorf("readIndex = %d, want %d", rs.Index, None)
-	}
-
-	if !bytes.Equal(rs.RequestCtx, ctx) {
-		t.Errorf("requestCtx = %v, want %v", rs.RequestCtx, ctx)
 	}
 }
 

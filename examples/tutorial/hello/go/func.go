@@ -18,6 +18,7 @@ func main() {
 	mapB, _ := json.Marshal(mapD)
 	fmt.Println(string(mapB))
 
+	// TODO: move these lines to a test, this was for testing log output issues
 	log.Println("---> stderr goes to the server logs.")
 	log.Println("---> LINE 2")
 	log.Println("---> LINE 3 with a break right here\nand LINE 4")

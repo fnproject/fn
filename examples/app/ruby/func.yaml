@@ -1,0 +1,7 @@
+name: ruby
+version: 0.0.23
+runtime: ruby
+entrypoint: ruby func.rb
+headers:
+  content-type:
+  - text/html

@@ -20,7 +20,7 @@ The format is still up for discussion and in order to move forward and remain fl
 
 #### Default I/O Format
 
-The default I/O format is simply the request body itself plus some environment variables. For instance, if someone were to post a JSON body, the unmodified body would be sent in via STDIN. The result comes via STDOUT. When task is done, pipes are closed and the container running the function is terminated.
+The default I/O format is simply the request body itself plus some environment variables. For instance, if someone were to post a JSON body, the unmodified body would be sent in via STDIN. The result comes via STDOUT. When call is done, pipes are closed and the container running the function is terminated.
 
 Pros:
 

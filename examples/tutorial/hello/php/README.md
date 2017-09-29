@@ -6,7 +6,7 @@ This example will show you how to test and deploy PHP code to Oracle Functions. 
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init <DOCKERHUB_USERNAME>/hello-php
+fn init --name hello-php
 
 # Test your function. 
 # This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
@@ -17,7 +17,7 @@ cat sample.payload.json | fn run
 
 # Deploy your functions to the Oracle Functions server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy myapp
+fn deploy --app myapp
 ```
 ### Now call your function:
 
@@ -78,4 +78,4 @@ Open `func.php` to see it in action.
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](examples/tutorial/params)
+## [Part 2: Input Parameters](../../params)

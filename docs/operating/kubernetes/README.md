@@ -1,121 +1,66 @@
-# HOWTO run Oracle Functions in Kubernetes at AWS
+# How to run Fn on Kubernetes
 
-*Prerequisite 1: it assumes you have a working Kubernetes, and a locally configured kubectl.*
-
-*Prerequisite 2: It assumes you are using Kubernetes 1.4 or newer.*
-
+*Prerequisite 1: working Kubernetes cluster (v1.7+), and a locally configured kubectl.*
 
 ## Quickstart
 
 ### Steps
 
-1. Start Oracle Functions in the Kubernetes cluster:
-```ShellSession
-$ cd docs/
-$ kubectl create -f kubernetes-quick
+1. Deploy Fn to the Kubernetes cluster:
+
+```bash
+$ cd docs/operating/
+$ kubectl create -f fn-service.yaml
 ```
 
-2. Once the daemon is started, check where it is listening for connections:
+2. Once the Pods have started, check the service for the load balanacer IP:
 
-```ShellSession
-# kubectl describe svc functions
-
-Name:			functions
-Namespace:		default
-Labels:			app=functions
-Selector:		app=functions
-Type:			LoadBalancer
-IP:			10.0.116.122
-LoadBalancer Ingress:	a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com
-Port:			<unset>	8080/TCP
-NodePort:		<unset>	30802/TCP
-Endpoints:		10.244.1.12:8080
-Session Affinity:	None
-Events:
-  FirstSeen	LastSeen	Count	From			SubobjectPath	Type		Reason			Message
-  ---------	--------	-----	----			-------------	--------	------			-------
-  22m		22m		1	{service-controller }			Normal		CreatingLoadBalancer	Creating load balancer
-  22m		22m		1	{service-controller }			Normal		CreatedLoadBalancer	Created load balancer
-
+```bash
+$ kubectl get svc --watch
+NAME                                CLUSTER-IP      EXTERNAL-IP     PORT(S)                                                       AGE
+fn-mysql-master                     10.96.57.185    <none>          3306/TCP                                                      10m
+fn-redis-master                     10.96.127.51    <none>          6379/TCP                                                      10m
+fn-service                          10.96.245.95    <pending>       8080:30768/TCP,80:31921/TCP                                   10m
+kubernetes                          10.96.0.1       <none>          443/TCP                                                       15d
 ```
 
-Note `a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com` in `LoadBalancer Ingress` line, this is where the service is listening.
+Note that `fn-service` is initially pending on allocating an external IP. The `kubectl get svc --watch` command  will update this once an IP has been assigned.
 
 3. Test the cluster:
 
-If you are using a Kubernetes setup that can expose a public loadbalancer run:
-```ShellSession
-$ export FUNCTIONS=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
+If you are using a Kubernetes setup that can expose a public load balancer, run:
+
+```bash
+$ export FUNCTIONS=$(kubectl get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
 ```
 
-If you are using a Kubernetes setup like minikube run
-```ShellSession
-$ export ns=default ; export label='app=functions';  kubectl -n $ns get pod -l $label -o jsonpath='{.items[0].metadata.name}' | xargs -I{} kubectl -n $ns port-forward {} 8080:8080
-$ export FUNCTIONS=localhost:8080
+If you are using a Kubernetes setup like minikube, run
+```bash
+$ echo $(minikube ip):$(kubectl get svc fn-service -o json | jq -r '.spec.ports[0].nodePort')
+192.168.99.100:30966
+$ export API_URL=http://192.168.99.100:30966
 ```
 
-Now setup the functions:
+Now, test by creating a function via curl:
 
-```ShellSession
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
+```bash
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$API_URL/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"type":"sync","config":null}}
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$API_URL/v1/apps/myapp/routes
+{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"headers":{},"type":"sync","format":"default","timeout":30,"idle_timeout":30,"config":{}}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$API_URL/r/myapp/hello-sync
 Hello Johnny!
 ```
 
-## Production
+You can also use the [Fn CLI](https://github.com/fnproject/cli):
 
-### Steps
-
-1. Start Oracle Functions and its dependencies:
-```ShellSession
-$ cd docs/
-$ kubectl create -f kubernetes-production
-```
-
-*Optionally, you might have both Redis and PostgreSQL started somewhere else, in this case, remember to update kubernetes-production/functions-config.yaml with the appropriate configuration.*
-
-2. Once the daemon is started, check where it is listening for connections:
-
-```ShellSession
-# kubectl describe svc functions
-
-Name:			functions
-Namespace:		default
-Labels:			app=functions
-Selector:		app=functions
-Type:			LoadBalancer
-IP:			10.0.116.122
-LoadBalancer Ingress:	a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com
-Port:			<unset>	8080/TCP
-NodePort:		<unset>	30802/TCP
-Endpoints:		10.244.1.12:8080
-Session Affinity:	None
-Events:
-  FirstSeen	LastSeen	Count	From			SubobjectPath	Type		Reason			Message
-  ---------	--------	-----	----			-------------	--------	------			-------
-  22m		22m		1	{service-controller }			Normal		CreatingLoadBalancer	Creating load balancer
-  22m		22m		1	{service-controller }			Normal		CreatedLoadBalancer	Created load balancer
-
-```
-
-Note `a23122e39900111e681ba0e29b70bb46-630391493.us-east-1.elb.amazonaws.com` in `LoadBalancer Ingress` line, this is where the service is listening.
-
-3. Test the cluster:
-
-```ShellSession
-$ export FUNCTIONS=$(kubectl get -o json svc functions | jq -r '.status.loadBalancer.ingress[0].hostname'):8080
-
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$FUNCTIONS/v1/apps
-{"message":"App successfully created","app":{"name":"myapp","config":null}}
-
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$FUNCTIONS/v1/apps/myapp/routes
-{"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"type":"sync","config":null}}
-
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$FUNCTIONS/r/myapp/hello-sync
-Hello Johnny!
+```bash
+$ export API_URL=http://192.168.99.100:30966
+$ fn apps list
+myapp
+$ fn routes list myapp
+path            image           endpoint
+/hello-sync     fnproject/hello 192.168.99.100:30966/r/myapp/hello-sync
 ```

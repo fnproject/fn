@@ -227,7 +227,7 @@ func describeStruct(cfg *frozenConfig, typ reflect.Type) (*StructDescriptor, err
 	bindings := []*Binding{}
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		tag := field.Tag.Get("json")
+		tag := field.Tag.Get(cfg.getTagKey())
 		tagParts := strings.Split(tag, ",")
 		if tag == "-" {
 			continue
@@ -269,7 +269,7 @@ func describeStruct(cfg *frozenConfig, typ reflect.Type) (*StructDescriptor, err
 		if decoder == nil {
 			var err error
 			decoder, err = decoderOfType(cfg, field.Type)
-			if err != nil {
+			if len(fieldNames) > 0 && err != nil {
 				return nil, err
 			}
 		}
@@ -277,11 +277,11 @@ func describeStruct(cfg *frozenConfig, typ reflect.Type) (*StructDescriptor, err
 		if encoder == nil {
 			var err error
 			encoder, err = encoderOfType(cfg, field.Type)
-			if err != nil {
+			if len(fieldNames) > 0 && err != nil {
 				return nil, err
 			}
 			// map is stored as pointer in the struct
-			if field.Type.Kind() == reflect.Map {
+			if encoder != nil && field.Type.Kind() == reflect.Map {
 				encoder = &optionalEncoder{encoder}
 			}
 		}
@@ -373,7 +373,7 @@ func (bindings sortableBindings) Swap(i, j int) {
 func processTags(structDescriptor *StructDescriptor, cfg *frozenConfig) {
 	for _, binding := range structDescriptor.Fields {
 		shouldOmitEmpty := false
-		tagParts := strings.Split(binding.Field.Tag.Get("json"), ",")
+		tagParts := strings.Split(binding.Field.Tag.Get(cfg.getTagKey()), ",")
 		for _, tagPart := range tagParts[1:] {
 			if tagPart == "omitempty" {
 				shouldOmitEmpty = true

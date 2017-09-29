@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-	s := os.Getenv("REQUEST_URL")
+	s := os.Getenv("FN_REQUEST_URL")
 
-	fmt.Printf("REQUEST_URL --> %v\n\n", s)
+	fmt.Printf("FN_REQUEST_URL --> %v\n\n", s)
 
 	u, err := url.Parse(s)
 	if err != nil {

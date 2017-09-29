@@ -1,6 +1,7 @@
 package memdb
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -8,8 +9,9 @@ import (
 
 // testWatch makes a bunch of watch channels based on the given size and fires
 // the one at the given fire index to make sure it's detected (or a timeout
-// occurs if the fire index isn't hit).
-func testWatch(size, fire int) error {
+// occurs if the fire index isn't hit). useCtx parameterizes whether the context
+// based watch is used or timer based.
+func testWatch(size, fire int, useCtx bool) error {
 	shouldTimeout := true
 	ws := NewWatchSet()
 	for i := 0; i < size; i++ {
@@ -21,10 +23,22 @@ func testWatch(size, fire int) error {
 		}
 	}
 
-	timeoutCh := make(chan time.Time)
+	var timeoutCh chan time.Time
+	var ctx context.Context
+	var cancelFn context.CancelFunc
+	if useCtx {
+		ctx, cancelFn = context.WithCancel(context.Background())
+	} else {
+		timeoutCh = make(chan time.Time)
+	}
+
 	doneCh := make(chan bool, 1)
 	go func() {
-		doneCh <- ws.Watch(timeoutCh)
+		if useCtx {
+			doneCh <- ws.WatchCtx(ctx) != nil
+		} else {
+			doneCh <- ws.Watch(timeoutCh)
+		}
 	}()
 
 	if shouldTimeout {
@@ -34,7 +48,11 @@ func testWatch(size, fire int) error {
 		default:
 		}
 
-		close(timeoutCh)
+		if useCtx {
+			cancelFn()
+		} else {
+			close(timeoutCh)
+		}
 		select {
 		case didTimeout := <-doneCh:
 			if !didTimeout {
@@ -52,28 +70,39 @@ func testWatch(size, fire int) error {
 		case <-time.After(10 * time.Second):
 			return fmt.Errorf("should have triggered")
 		}
-		close(timeoutCh)
+		if useCtx {
+			cancelFn()
+		} else {
+			close(timeoutCh)
+		}
 	}
 	return nil
 }
 
 func TestWatch(t *testing.T) {
-	// Sweep through a bunch of chunks to hit the various cases of dividing
-	// the work into watchFew calls.
-	for size := 0; size < 3*aFew; size++ {
-		// Fire each possible channel slot.
-		for fire := 0; fire < size; fire++ {
-			if err := testWatch(size, fire); err != nil {
-				t.Fatalf("err %d %d: %v", size, fire, err)
+	testFactory := func(useCtx bool) func(t *testing.T) {
+		return func(t *testing.T) {
+			// Sweep through a bunch of chunks to hit the various cases of dividing
+			// the work into watchFew calls.
+			for size := 0; size < 3*aFew; size++ {
+				// Fire each possible channel slot.
+				for fire := 0; fire < size; fire++ {
+					if err := testWatch(size, fire, useCtx); err != nil {
+						t.Fatalf("err %d %d: %v", size, fire, err)
+					}
+				}
+
+				// Run a timeout case as well.
+				fire := -1
+				if err := testWatch(size, fire, useCtx); err != nil {
+					t.Fatalf("err %d %d: %v", size, fire, err)
+				}
 			}
 		}
-
-		// Run a timeout case as well.
-		fire := -1
-		if err := testWatch(size, fire); err != nil {
-			t.Fatalf("err %d %d: %v", size, fire, err)
-		}
 	}
+
+	t.Run("Timer", testFactory(false))
+	t.Run("Context", testFactory(true))
 }
 
 func TestWatch_AddWithLimit(t *testing.T) {

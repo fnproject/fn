@@ -2,6 +2,7 @@ package datastoreutil
 
 import (
 	"context"
+	"io"
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
@@ -52,12 +53,6 @@ func (m *metricds) GetRoute(ctx context.Context, appName, routePath string) (*mo
 	return m.ds.GetRoute(ctx, appName, routePath)
 }
 
-func (m *metricds) GetRoutes(ctx context.Context, filter *models.RouteFilter) (routes []*models.Route, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_routes")
-	defer span.Finish()
-	return m.ds.GetRoutes(ctx, filter)
-}
-
 func (m *metricds) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) (routes []*models.Route, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_routes_by_app")
 	defer span.Finish()
@@ -82,40 +77,40 @@ func (m *metricds) RemoveRoute(ctx context.Context, appName, routePath string) e
 	return m.ds.RemoveRoute(ctx, appName, routePath)
 }
 
-func (m *metricds) InsertTask(ctx context.Context, task *models.Task) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_task")
+func (m *metricds) InsertCall(ctx context.Context, call *models.Call) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_call")
 	defer span.Finish()
-	return m.ds.InsertTask(ctx, task)
+	return m.ds.InsertCall(ctx, call)
 }
 
-func (m *metricds) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_task")
+func (m *metricds) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_call")
 	defer span.Finish()
-	return m.ds.GetTask(ctx, callID)
+	return m.ds.GetCall(ctx, appName, callID)
 }
 
-func (m *metricds) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_tasks")
+func (m *metricds) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_calls")
 	defer span.Finish()
-	return m.ds.GetTasks(ctx, filter)
+	return m.ds.GetCalls(ctx, filter)
 }
 
-func (m *metricds) InsertLog(ctx context.Context, callID string, callLog string) error {
+func (m *metricds) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_log")
 	defer span.Finish()
-	return m.ds.InsertLog(ctx, callID, callLog)
+	return m.ds.InsertLog(ctx, appName, callID, callLog)
 }
 
-func (m *metricds) GetLog(ctx context.Context, callID string) (*models.FnCallLog, error) {
+func (m *metricds) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_log")
 	defer span.Finish()
-	return m.ds.GetLog(ctx, callID)
+	return m.ds.GetLog(ctx, appName, callID)
 }
 
-func (m *metricds) DeleteLog(ctx context.Context, callID string) error {
+func (m *metricds) DeleteLog(ctx context.Context, appName, callID string) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_delete_log")
 	defer span.Finish()
-	return m.ds.DeleteLog(ctx, callID)
+	return m.ds.DeleteLog(ctx, appName, callID)
 }
 
 // instant & no context ;)

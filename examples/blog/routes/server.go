@@ -63,7 +63,7 @@ func HandleToken(db *database.Database) {
 }
 
 func Authentication() (map[string]interface{}, bool) {
-	authorization := os.Getenv("HEADER_AUTHORIZATION")
+	authorization := os.Getenv("FN_HEADER_AUTHORIZATION")
 
 	p := strings.Split(authorization, " ")
 	if len(p) <= 1 {

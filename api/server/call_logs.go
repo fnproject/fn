@@ -10,32 +10,34 @@ import (
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	appName := c.MustGet(api.AppName).(string)
 	callID := c.Param(api.Call)
-	_, err := s.Datastore.GetTask(ctx, callID)
+	_, err := s.Datastore.GetCall(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	callObj, err := s.LogDB.GetLog(ctx, callID)
+	callObj, err := s.LogDB.GetLog(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, fnCallLogResponse{"Successfully loaded call", callObj})
+	c.JSON(http.StatusOK, callLogResponse{"Successfully loaded call", callObj})
 }
 
 func (s *Server) handleCallLogDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	appName := c.MustGet(api.AppName).(string)
 	callID := c.Param(api.Call)
-	_, err := s.Datastore.GetTask(ctx, callID)
+	_, err := s.Datastore.GetCall(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
-	err = s.LogDB.DeleteLog(ctx, callID)
+	err = s.LogDB.DeleteLog(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

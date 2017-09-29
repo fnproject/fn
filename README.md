@@ -19,23 +19,40 @@ platform that you can run anywhere. Some of it's key features:
 ## Prequisites
 
 * Docker 17.05 or later installed and running
-* Logged into Docker Hub (`docker login`)
+* A Docker Hub account ([Docker Hub](https://hub.docker.com/))
+* Log Docker into your Docker Hub account: `docker login`
 
 ## Quickstart
 
 ### Install CLI tool
 
-This isn't required, but it sure makes things a lot easier. Just run the following to install:
+The command line tool isn't required, but it sure makes things a lot easier. There are a few options to install it:
+
+#### 1. Homebrew - MacOS
+
+If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
+
+```sh
+brew install fn
+```
+
+#### 2. Shell script
+
+This one works on Linux and MacOS (partially on Windows):
 
 ```sh
 curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 ```
 
-This will download a shell script and execute it.  If the script asks for a password, that is because it invokes sudo.
+This will download a shell script and execute it. If the script asks for a password, that is because it invokes sudo.
+
+#### 3. Download the bin
+
+Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
 
 ### Run Fn Server
 
-Then fire up an Fn server:
+Now fire up an Fn server:
 
 ```sh
 fn start
@@ -71,16 +88,16 @@ Now run the following CLI commands:
 # This detects your runtime from the code above and creates a func.yaml
 fn init
 
+# Set your Docker Hub username
+export FN_REGISTRY=<DOCKERHUB_USERNAME>
+
 # Test your function
 # This will run inside a container exactly how it will on the server
 fn run
 
-# Set your Docker Hub username
-export FN_REGISTRY=<DOCKERHUB_USERNAME>
-
 # Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy myapp
+fn deploy --app myapp
 ```
 
 Now you can call your function:
@@ -103,25 +120,34 @@ you can update your code and run `fn deploy myapp` again.
 * View all of our [examples](/examples)
 * You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 
+## Get Help
+
+* [Ask your question on StackOverflow](https://stackoverflow.com/questions/tagged/fn) and tag it with `fn`
+* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+
+## Stay Informed
+
+* [Blog](https://medium.com/fnproject)
+* [Twitter](https://twitter.com/fnproj)
+
 ## Get Involved
 
-- Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
-- Learn how to [contribute](CONTRIBUTING.md)
-- See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
+* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+* Learn how to [contribute](CONTRIBUTING.md)
+* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
 
 ## User Interface
 
-This is the graphical user interface for Fn. It is currently not buildable.
+Check out this graphical user interface for Fn.
 
 ```sh
-docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" treeder/functions-ui
+docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" fnproject/ui
 ```
 
-For more information, see: [https://github.com/treeder/functions-ui](https://github.com/treeder/functions-ui)
+For more information, see: [https://github.com/fnproject/ui](https://github.com/fnproject/ui)
 
 ## Next up
 
 ### Check out the [Tutorial Series](examples/tutorial/)
 
- It will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
-
+This tutorial will demonstrate some of the core Fn capabilities through a series of examples. We'll try to show examples in most major languages. This is a great Fn place to start!

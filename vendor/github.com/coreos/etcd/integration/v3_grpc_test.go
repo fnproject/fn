@@ -16,6 +16,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -30,7 +31,6 @@ import (
 	"github.com/coreos/etcd/pkg/testutil"
 	"github.com/coreos/etcd/pkg/transport"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -1537,7 +1537,7 @@ func TestTLSGRPCRejectInsecureClient(t *testing.T) {
 	// nil out TLS field so client will use an insecure connection
 	clus.Members[0].ClientTLSInfo = nil
 	client, err := NewClientV3(clus.Members[0])
-	if err != nil && err != grpc.ErrClientConnTimeout {
+	if err != nil && err != context.DeadlineExceeded {
 		t.Fatalf("unexpected error (%v)", err)
 	} else if client == nil {
 		// Ideally, no client would be returned. However, grpc will
@@ -1573,7 +1573,7 @@ func TestTLSGRPCRejectSecureClient(t *testing.T) {
 	client, err := NewClientV3(clus.Members[0])
 	if client != nil || err == nil {
 		t.Fatalf("expected no client")
-	} else if err != grpc.ErrClientConnTimeout {
+	} else if err != context.DeadlineExceeded {
 		t.Fatalf("unexpected error (%v)", err)
 	}
 }
@@ -1730,8 +1730,8 @@ func testTLSReload(t *testing.T, cloneFunc func() transport.TLSInfo, replaceFunc
 	// 5. expect dial time-out when loading expired certs
 	select {
 	case gerr := <-errc:
-		if gerr != grpc.ErrClientConnTimeout {
-			t.Fatalf("expected %v, got %v", grpc.ErrClientConnTimeout, gerr)
+		if gerr != context.DeadlineExceeded {
+			t.Fatalf("expected %v, got %v", context.DeadlineExceeded, gerr)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("failed to receive dial timeout error")
@@ -1778,7 +1778,7 @@ func TestGRPCRequireLeader(t *testing.T) {
 	md := metadata.Pairs(rpctypes.MetadataRequireLeaderKey, rpctypes.MetadataHasLeader)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	reqput := &pb.PutRequest{Key: []byte("foo"), Value: []byte("bar")}
-	if _, err := toGRPC(client).KV.Put(ctx, reqput); grpc.ErrorDesc(err) != rpctypes.ErrNoLeader.Error() {
+	if _, err := toGRPC(client).KV.Put(ctx, reqput); rpctypes.ErrorDesc(err) != rpctypes.ErrNoLeader.Error() {
 		t.Errorf("err = %v, want %v", err, rpctypes.ErrNoLeader)
 	}
 }
@@ -1809,7 +1809,7 @@ func TestGRPCStreamRequireLeader(t *testing.T) {
 
 	// existing stream should be rejected
 	_, err = wStream.Recv()
-	if grpc.ErrorDesc(err) != rpctypes.ErrNoLeader.Error() {
+	if rpctypes.ErrorDesc(err) != rpctypes.ErrNoLeader.Error() {
 		t.Errorf("err = %v, want %v", err, rpctypes.ErrNoLeader)
 	}
 
@@ -1819,7 +1819,7 @@ func TestGRPCStreamRequireLeader(t *testing.T) {
 		t.Fatalf("wAPI.Watch error: %v", err)
 	}
 	_, err = wStream.Recv()
-	if grpc.ErrorDesc(err) != rpctypes.ErrNoLeader.Error() {
+	if rpctypes.ErrorDesc(err) != rpctypes.ErrNoLeader.Error() {
 		t.Errorf("err = %v, want %v", err, rpctypes.ErrNoLeader)
 	}
 

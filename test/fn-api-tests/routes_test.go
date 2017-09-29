@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/id"
-	"github.com/funcy/functions_go/models"
+	"github.com/fnproject/fn_go/models"
+	"reflect"
 )
 
 func TestRoutes(t *testing.T) {
@@ -29,7 +30,6 @@ func TestRoutes(t *testing.T) {
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.Format, s.RouteConfig, s.RouteHeaders)
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -42,7 +42,6 @@ func TestRoutes(t *testing.T) {
 		if !assertContainsRoute(ListRoutes(t, s.Context, s.Client, s.AppName), s.RoutePath) {
 			t.Errorf("Unable to find corresponding route `%v` in list", s.RoutePath)
 		}
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -58,7 +57,6 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("Unable to find corresponding route `%v` in list", s.RoutePath)
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -78,7 +76,6 @@ func TestRoutes(t *testing.T) {
 		CheckRouteResponseError(t, err)
 		assertRouteFields(t, routeResp.Payload.Route, s.RoutePath, s.Image, newRouteType, s.Format)
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -102,7 +99,6 @@ func TestRoutes(t *testing.T) {
 		CheckRouteResponseError(t, err)
 		assertRouteFields(t, routeResp.Payload.Route, s.RoutePath, s.Image, s.RouteType, s.Format)
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -122,7 +118,6 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("Route path suppose to be immutable, but it's not.")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -138,7 +133,6 @@ func TestRoutes(t *testing.T) {
 			t.Errorf("Route duplicate error should appear, but it didn't")
 		}
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -171,7 +165,6 @@ func TestRoutes(t *testing.T) {
 		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, s.RouteHeaders)
 		GetApp(t, s.Context, s.Client, s.AppName)
 		GetRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -181,7 +174,6 @@ func TestRoutes(t *testing.T) {
 		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, s.RouteHeaders)
 		GetApp(t, s.Context, s.Client, s.AppName)
 		GetRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
@@ -199,7 +191,20 @@ func TestRoutes(t *testing.T) {
 			s.Format, s.RouteConfig, s.RouteHeaders)
 		assertRouteFields(t, updatedRoute, s.RoutePath, s.Image, newRouteType, s.Format)
 
-		DeleteRoute(t, s.Context, s.Client, s.AppName, s.RoutePath)
+		DeleteApp(t, s.Context, s.Client, s.AppName)
+	})
+
+	t.Run("multiple-deploy-route-with-headers", func(T *testing.T) {
+		s := SetupDefaultSuite()
+		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		routeHeaders := map[string][]string{}
+		routeHeaders["A"] = []string{"a"}
+		routeHeaders["B"] = []string{"b"}
+		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, routeHeaders)
+		sameRoute := DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, routeHeaders)
+		if ok := reflect.DeepEqual(sameRoute.Headers, routeHeaders); !ok {
+			t.Error("Route headers should remain the same after multiple deploys with exact the same parameters")
+		}
 		DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 

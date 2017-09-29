@@ -8,29 +8,35 @@ import (
 )
 
 const (
-	defaultRouteTimeout  = 30 // seconds
-	htfnScaleDownTimeout = 30 // seconds
+	DefaultTimeout     = 30  // seconds
+	DefaultIdleTimeout = 30  // seconds
+	DefaultMemory      = 128 // MB
+
+	MaxSyncTimeout  = 120  // 2 minutes
+	MaxAsyncTimeout = 3600 // 1 hour
+	MaxIdleTimeout  = MaxAsyncTimeout
+	MaxMemory       = 1024 * 8 // 8GB TODO should probably be a var of machine max?
 )
 
 type Routes []*Route
 
 type Route struct {
-	AppName     string      `json:"app_name"`
-	Path        string      `json:"path"`
-	Image       string      `json:"image"`
-	Memory      uint64      `json:"memory"`
-	Headers     http.Header `json:"headers"`
-	Type        string      `json:"type"`
-	Format      string      `json:"format"`
-	Timeout     int32       `json:"timeout"`
-	IdleTimeout int32       `json:"idle_timeout"`
-	Config      `json:"config"`
+	AppName     string  `json:"app_name" db:"app_name"`
+	Path        string  `json:"path" db:"path"`
+	Image       string  `json:"image" db:"image"`
+	Memory      uint64  `json:"memory" db:"memory"`
+	Headers     Headers `json:"headers" db:"headers"`
+	Type        string  `json:"type" db:"type"`
+	Format      string  `json:"format" db":format"`
+	Timeout     int32   `json:"timeout" db:"timeout"`
+	IdleTimeout int32   `json:"idle_timeout" db:"idle_timeout"`
+	Config      Config  `json:"config" db:"config"`
 }
 
 // SetDefaults sets zeroed field to defaults.
 func (r *Route) SetDefaults() {
 	if r.Memory == 0 {
-		r.Memory = 128
+		r.Memory = DefaultMemory
 	}
 
 	if r.Type == TypeNone {
@@ -42,7 +48,7 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Headers == nil {
-		r.Headers = http.Header{}
+		r.Headers = Headers(http.Header{})
 	}
 
 	if r.Config == nil {
@@ -50,64 +56,61 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Timeout == 0 {
-		r.Timeout = defaultRouteTimeout
+		r.Timeout = DefaultTimeout
 	}
 
 	if r.IdleTimeout == 0 {
-		r.IdleTimeout = htfnScaleDownTimeout
+		r.IdleTimeout = DefaultIdleTimeout
 	}
 }
 
-// Validate validates field values, skipping zeroed fields if skipZero is true.
-// it returns the first error, if any.
-func (r *Route) Validate(skipZero bool) error {
-	if !skipZero {
-		if r.AppName == "" {
-			return ErrRoutesValidationMissingAppName
-		}
-
-		if r.Path == "" {
-			return ErrRoutesValidationMissingPath
-		}
-
-		if r.Image == "" {
-			return ErrRoutesValidationMissingImage
-		}
+// Validate validates all field values, returning the first error, if any.
+func (r *Route) Validate() error {
+	if r.AppName == "" {
+		return ErrRoutesMissingAppName
 	}
 
-	if !skipZero || r.Path != "" {
+	if r.Path == "" {
+		return ErrRoutesMissingPath
+	} else {
 		u, err := url.Parse(r.Path)
 		if err != nil {
-			return ErrRoutesValidationPathMalformed
+			return ErrPathMalformed
 		}
 
 		if strings.Contains(u.Path, ":") {
-			return ErrRoutesValidationFoundDynamicURL
+			return ErrFoundDynamicURL
 		}
 
 		if !path.IsAbs(u.Path) {
-			return ErrRoutesValidationInvalidPath
+			return ErrRoutesInvalidPath
 		}
 	}
 
-	if !skipZero || r.Type != "" {
-		if r.Type != TypeAsync && r.Type != TypeSync {
-			return ErrRoutesValidationInvalidType
-		}
+	if r.Image == "" {
+		return ErrRoutesMissingImage
 	}
 
-	if !skipZero || r.Format != "" {
-		if r.Format != FormatDefault && r.Format != FormatHTTP {
-			return ErrRoutesValidationInvalidFormat
-		}
+	if r.Type != TypeAsync && r.Type != TypeSync {
+		return ErrRoutesInvalidType
 	}
 
-	if r.Timeout < 0 {
-		return ErrRoutesValidationNegativeTimeout
+	if r.Format != FormatDefault && r.Format != FormatHTTP {
+		return ErrRoutesInvalidFormat
 	}
 
-	if r.IdleTimeout < 0 {
-		return ErrRoutesValidationNegativeIdleTimeout
+	if r.Timeout <= 0 ||
+		(r.Type == TypeSync && r.Timeout > MaxSyncTimeout) ||
+		(r.Type == TypeAsync && r.Timeout > MaxAsyncTimeout) {
+		return ErrRoutesInvalidTimeout
+	}
+
+	if r.IdleTimeout <= 0 || r.IdleTimeout > MaxIdleTimeout {
+		return ErrRoutesInvalidIdleTimeout
+	}
+
+	if r.Memory < 1 || r.Memory > MaxMemory {
+		return ErrRoutesInvalidMemory
 	}
 
 	return nil
@@ -144,15 +147,13 @@ func (r *Route) Update(new *Route) {
 	}
 	if new.Headers != nil {
 		if r.Headers == nil {
-			r.Headers = make(http.Header)
+			r.Headers = Headers(make(http.Header))
 		}
 		for k, v := range new.Headers {
 			if len(v) == 0 {
-				r.Headers.Del(k)
+				http.Header(r.Headers).Del(k)
 			} else {
-				for _, val := range v {
-					r.Headers.Add(k, val)
-				}
+				r.Headers[k] = v
 			}
 		}
 	}
@@ -170,9 +171,11 @@ func (r *Route) Update(new *Route) {
 	}
 }
 
-//TODO are these sql LIKE queries? or strict matches?
 type RouteFilter struct {
-	Path    string
-	AppName string
-	Image   string
+	PathPrefix string // this is prefix match TODO
+	AppName    string // this is exact match (important for security)
+	Image      string // this is exact match
+
+	Cursor  string
+	PerPage int
 }

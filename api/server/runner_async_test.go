@@ -3,30 +3,24 @@ package server
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/http"
-	"sync"
 	"testing"
-	"time"
 
+	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"github.com/fnproject/fn/api/runner"
 	"github.com/gin-gonic/gin"
-	cache "github.com/patrickmn/go-cache"
 )
 
-func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Runner, enqueue models.Enqueue) *gin.Engine {
+func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agent) *gin.Engine {
 	ctx := context.Background()
 
 	s := &Server{
-		Runner:     rnr,
-		Router:     gin.New(),
-		Datastore:  ds,
-		MQ:         mq,
-		Enqueue:    enqueue,
-		routeCache: cache.New(60*time.Second, 5*time.Minute),
+		Agent:     rnr,
+		Router:    gin.New(),
+		Datastore: ds,
+		MQ:        mq,
 	}
 
 	r := s.Router
@@ -38,15 +32,17 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr *runner.Ru
 }
 
 func TestRouteRunnerAsyncExecution(t *testing.T) {
+	buf := setLogBuffer()
+
 	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
 		[]*models.Route{
-			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Config: map[string]string{"test": "true"}},
-			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Config: map[string]string{"test": "true"}},
-			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "fnproject/hello", Config: map[string]string{"test": "true"}},
-		}, nil, nil,
+			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
+			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
+			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "fnproject/hello", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
+		}, nil,
 	)
 	mq := &mqs.Mock{}
 
@@ -75,45 +71,28 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		},
 	} {
 		body := bytes.NewBuffer([]byte(test.body))
-		var wg sync.WaitGroup
 
-		wg.Add(1)
-		fmt.Println("About to start router")
-		rnr, cancel := testRunner(t)
-		router := testRouterAsync(ds, mq, rnr, func(_ context.Context, _ models.MessageQueue, task *models.Task) (*models.Task, error) {
-			if test.body != task.Payload {
-				t.Errorf("Test %d: Expected task Payload to be the same as the test body", i)
-			}
+		t.Log("About to start router")
+		rnr, cancel := testRunner(t, ds)
+		router := testRouterAsync(ds, mq, rnr)
 
-			if test.expectedEnv != nil {
-				for name, value := range test.expectedEnv {
-					taskName := name
-					if value != task.EnvVars[taskName] {
-						t.Errorf("Test %d: Expected header `%s` to be `%s` but was `%s`",
-							i, name, value, task.EnvVars[taskName])
-					}
-				}
-			}
-
-			wg.Done()
-			return task, nil
-		})
-
-		fmt.Println("makeing requests")
+		t.Log("making requests")
 		req, rec := newRouterRequest(t, "POST", test.path, body)
 		for name, value := range test.headers {
 			req.Header.Set(name, value[0])
 		}
-		fmt.Println("About to start router2")
+		t.Log("About to start router2")
 		router.ServeHTTP(rec, req)
-		fmt.Println("after servehttp")
+		t.Log("after servehttp")
 
 		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
+		// TODO can test body and headers in the actual mq message w/ an agent that doesn't dequeue?
+		// this just makes sure tasks are submitted (ok)...
 
-		wg.Wait()
 		cancel()
 	}
 }

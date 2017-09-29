@@ -517,12 +517,14 @@ version: "3"
 services:
   web:
     image: web
-    build: ./web
+    build: 
+     context: ./web
     links:
       - bar
   db:
     image: db
-    build: ./db
+    build: 
+     context: ./db
 `))
 	assert.NoError(t, err)
 
@@ -686,6 +688,15 @@ func TestFullExample(t *testing.T) {
 	expectedServiceConfig := types.ServiceConfig{
 		Name: "foo",
 
+		Build: types.BuildConfig{
+			Context:    "./dir",
+			Dockerfile: "Dockerfile",
+			Args:       map[string]*string{"foo": strPtr("bar")},
+			Target:     "foo",
+			Network:    "foo",
+			CacheFrom:  []string{"foo", "bar"},
+			Labels:     map[string]string{"FOO": "BAR"},
+		},
 		CapAdd:        []string{"ALL"},
 		CapDrop:       []string{"NET_ADMIN", "SYS_ADMIN"},
 		CgroupParent:  "m-executor-abcd",
@@ -756,10 +767,11 @@ func TestFullExample(t *testing.T) {
 			"somehost":  "162.242.195.82",
 		},
 		HealthCheck: &types.HealthCheckConfig{
-			Test:     types.HealthCheckTest([]string{"CMD-SHELL", "echo \"hello world\""}),
-			Interval: "10s",
-			Timeout:  "1s",
-			Retries:  uint64Ptr(5),
+			Test:        types.HealthCheckTest([]string{"CMD-SHELL", "echo \"hello world\""}),
+			Interval:    durationPtr(10 * time.Second),
+			Timeout:     durationPtr(1 * time.Second),
+			Retries:     uint64Ptr(5),
+			StartPeriod: durationPtr(15 * time.Second),
 		},
 		Hostname: "foo",
 		Image:    "redis",

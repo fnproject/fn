@@ -2,40 +2,30 @@ package datastore
 
 import (
 	"context"
-
-	"github.com/jmoiron/sqlx"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
+	"github.com/jmoiron/sqlx"
 )
 
 type mock struct {
-	Apps   models.Apps
-	Routes models.Routes
-	Calls  models.FnCalls
+	Apps   []*models.App
+	Routes []*models.Route
+	Calls  []*models.Call
 	data   map[string][]byte
 
-	models.FnLog
+	models.LogStore
 }
 
 func NewMock() models.Datastore {
-	return NewMockInit(nil, nil, nil, nil)
+	return NewMockInit(nil, nil, nil)
 }
 
-func NewMockInit(apps models.Apps, routes models.Routes, calls models.FnCalls, loggos []*models.FnCallLog) models.Datastore {
-	if apps == nil {
-		apps = models.Apps{}
-	}
-	if routes == nil {
-		routes = models.Routes{}
-	}
-	if calls == nil {
-		calls = models.FnCalls{}
-	}
-	if loggos == nil {
-		loggos = []*models.FnCallLog{}
-	}
+func NewMockInit(apps []*models.App, routes []*models.Route, calls []*models.Call) models.Datastore {
 	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte), logs.NewMock()})
 }
 
@@ -49,8 +39,27 @@ func (m *mock) GetApp(ctx context.Context, appName string) (app *models.App, err
 	return nil, models.ErrAppsNotFound
 }
 
+type sortA []*models.App
+
+func (s sortA) Len() int           { return len(s) }
+func (s sortA) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
+func (s sortA) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
 func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*models.App, error) {
-	return m.Apps, nil
+	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
+	sort.Sort(sortA(m.Apps))
+
+	var apps []*models.App
+	for _, a := range m.Apps {
+		if len(apps) == appFilter.PerPage {
+			break
+		}
+		if strings.Compare(appFilter.Cursor, a.Name) < 0 {
+			apps = append(apps, a)
+		}
+	}
+
+	return apps, nil
 }
 
 func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
@@ -72,6 +81,8 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) RemoveApp(ctx context.Context, appName string) error {
+	m.batchDeleteCalls(ctx, appName)
+	m.batchDeleteRoutes(ctx, appName)
 	for i, a := range m.Apps {
 		if a.Name == appName {
 			m.Apps = append(m.Apps[:i], m.Apps[i+1:]...)
@@ -90,16 +101,26 @@ func (m *mock) GetRoute(ctx context.Context, appName, routePath string) (*models
 	return nil, models.ErrRoutesNotFound
 }
 
-func (m *mock) GetRoutes(ctx context.Context, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
-	for _, r := range m.Routes {
-		routes = append(routes, r)
-	}
-	return
-}
+type sortR []*models.Route
+
+func (s sortR) Len() int           { return len(s) }
+func (s sortR) Less(i, j int) bool { return strings.Compare(s[i].Path, s[j].Path) < 0 }
+func (s sortR) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (m *mock) GetRoutesByApp(ctx context.Context, appName string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
+	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
+	sort.Sort(sortR(m.Routes))
+
 	for _, r := range m.Routes {
-		if r.AppName == appName && (routeFilter.Path == "" || r.Path == routeFilter.Path) && (routeFilter.AppName == "" || r.AppName == routeFilter.AppName) {
+		if len(routes) == routeFilter.PerPage {
+			break
+		}
+
+		if r.AppName == appName &&
+			//strings.HasPrefix(r.Path, routeFilter.PathPrefix) && // TODO
+			(routeFilter.Image == "" || routeFilter.Image == r.Image) &&
+			strings.Compare(routeFilter.Cursor, r.Path) < 0 {
+
 			routes = append(routes, r)
 		}
 	}
@@ -123,8 +144,14 @@ func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Ro
 	if err != nil {
 		return nil, err
 	}
-	r.Update(route)
-	return r.Clone(), nil
+	clone := r.Clone()
+	clone.Update(route)
+	err = clone.Validate()
+	if err != nil {
+		return nil, err
+	}
+	r.Update(route) // only if validate works (pointer)
+	return clone, nil
 }
 
 func (m *mock) RemoveRoute(ctx context.Context, appName, routePath string) error {
@@ -150,15 +177,14 @@ func (m *mock) Get(ctx context.Context, key []byte) ([]byte, error) {
 	return m.data[string(key)], nil
 }
 
-func (m *mock) InsertTask(ctx context.Context, task *models.Task) error {
-	var call *models.FnCall
-	m.Calls = append(m.Calls, call.FromTask(task))
+func (m *mock) InsertCall(ctx context.Context, call *models.Call) error {
+	m.Calls = append(m.Calls, call)
 	return nil
 }
 
-func (m *mock) GetTask(ctx context.Context, callID string) (*models.FnCall, error) {
+func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	for _, t := range m.Calls {
-		if t.ID == callID {
+		if t.ID == callID && t.AppName == appName {
 			return t, nil
 		}
 	}
@@ -166,8 +192,56 @@ func (m *mock) GetTask(ctx context.Context, callID string) (*models.FnCall, erro
 	return nil, models.ErrCallNotFound
 }
 
-func (m *mock) GetTasks(ctx context.Context, filter *models.CallFilter) (models.FnCalls, error) {
-	return m.Calls, nil
+type sortC []*models.Call
+
+func (s sortC) Len() int           { return len(s) }
+func (s sortC) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
+func (s sortC) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
+	// calls are in DESC order so use sort.Reverse
+	sort.Sort(sort.Reverse(sortC(m.Calls)))
+
+	var calls []*models.Call
+	for _, c := range m.Calls {
+		if len(calls) == filter.PerPage {
+			break
+		}
+
+		if (filter.AppName == "" || c.AppName == filter.AppName) &&
+			(filter.Path == "" || filter.Path == c.Path) &&
+			(time.Time(filter.FromTime).IsZero() || time.Time(filter.FromTime).Before(time.Time(c.CreatedAt))) &&
+			(time.Time(filter.ToTime).IsZero() || time.Time(c.CreatedAt).Before(time.Time(filter.ToTime))) &&
+			(filter.Cursor == "" || strings.Compare(filter.Cursor, c.ID) > 0) {
+
+			calls = append(calls, c)
+		}
+	}
+
+	return calls, nil
+}
+
+func (m *mock) batchDeleteCalls(ctx context.Context, appName string) error {
+	newCalls := []*models.Call{}
+	for _, c := range m.Calls {
+		if c.AppName != appName {
+			newCalls = append(newCalls, c)
+		}
+	}
+	m.Calls = newCalls
+	return nil
+}
+
+func (m *mock) batchDeleteRoutes(ctx context.Context, appName string) error {
+	newRoutes := []*models.Route{}
+	for _, c := range m.Routes {
+		if c.AppName != appName {
+			newRoutes = append(newRoutes, c)
+		}
+	}
+	m.Routes = newRoutes
+	return nil
 }
 
 // GetDatabase returns nil here since shouldn't really be used

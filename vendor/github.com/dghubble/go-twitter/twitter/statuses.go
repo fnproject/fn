@@ -57,8 +57,10 @@ func (t Tweet) CreatedAtTime() (time.Time, error) {
 // compatibility mode (default).
 // https://dev.twitter.com/overview/api/upcoming-changes-to-tweets
 type ExtendedTweet struct {
-	FullText         string  `json:"full_text"`
-	DisplayTextRange Indices `json:"display_text_range"`
+	FullText         string          `json:"full_text"`
+	DisplayTextRange Indices         `json:"display_text_range"`
+	Entities         *Entities       `json:"entities"`
+	ExtendedEntities *ExtendedEntity `json:"extended_entities"`
 }
 
 // Place represents a Twitter Place / Location

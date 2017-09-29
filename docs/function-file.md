@@ -41,14 +41,15 @@ position. You may use it to override the calculated route. If you plan to use
 `version` represents current version of the function. When deploying, it is
 appended to the image as a tag.
 
-`runtime` represents programming language runtime (go, python3, java, etc.).
+`runtime` represents programming language runtime, for example,
+'go', 'python', 'java', etc.  The runtime 'docker' will use the existing Dockerfile if one exists.
 
 `build` (optional) is an array of local shell calls which are used to help
 building the function. TODO: Deprecate this?
 
 `type` (optional) allows you to set the type of the route. `sync`, for functions
 whose response are sent back to the requester; or `async`, for functions that
-are started and return a task ID to customer while it executes in background.
+are started and return a call ID to customer while it executes in background.
 Default: `sync`.
 
 `memory` (optional) allows you to set a maximum memory threshold for this
