@@ -20,25 +20,25 @@ The basic Dockerfile for most languages is along these lines:
 
 ```
 # Choose base image
-FROM fnproject/node:dev
+FROM node:alpine
 # Set the working directory
 WORKDIR /function
 # Add your binary or code to the working directory
-ADD funcbin /function/
+ADD . /function/
 # Set what will run when a container is started for this image
-ENTRYPOINT ["./funcbin"]
+ENTRYPOINT ["node func.js"]
 ```
 
 Then build your function image:
 
 ```sh
-docker build -t $USERNAME/myfunction .
+fn build
 ```
 
 ### Push your image
 
 ```sh
-docker push $USERNAME/myfunction
+fn push
 ```
 
-Now you can use that image when creating or updating routes. 
+Now you can use that image when creating or updating routes.

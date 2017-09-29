@@ -1,0 +1,5 @@
+version: 0.0.20
+runtime: go
+entrypoint: ./func
+build_image: ""
+run_image: ""
