@@ -56,7 +56,7 @@ The next step in the cycle is to do some processing:
 ```
 
 And finally, we return the result with a `Content-Length` header, so
-Functions daemon would know when to stop reading the gotten response.
+Fn would know when to stop reading the gotten response.
 
 ```go
 res := http.Response{
