@@ -48,4 +48,4 @@ That's it!
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](../../params)
+## [Part 2: Input Parameters](../../params)

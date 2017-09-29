@@ -77,7 +77,7 @@ request('http://www.google.com', function (error, response, body) {
 
 
 # Next Up
-## [Tutorial 2: Input Parameters](../../params)
+## [Part 2: Input Parameters](../../params)
 
 
 
