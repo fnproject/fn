@@ -1,4 +1,4 @@
-# Oracle Functions using BoltDB
+# Fn using BoltDB
 
 SQLite3 is the default database, you just need to run the API.
 
@@ -7,5 +7,5 @@ SQLite3 is the default database, you just need to run the API.
 To keep it persistent, add a volume flag to the command:
 
 ```
-docker run --rm -it --privileged -v $PWD/fn.db:/app/fn.db -p 8080:8080 treeder/functions
+docker run --rm -it --privileged -v $PWD/fn.db:/app/fn.db -p 8080:8080 fnproject/functions
 ```

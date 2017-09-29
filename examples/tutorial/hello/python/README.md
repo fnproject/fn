@@ -1,6 +1,6 @@
 # Tutorial 1: Python Function w/ Input (3 minutes)
 
-This example will show you how to test and deploy Python code to Oracle Functions. It will also demonstrate passing data in through stdin.
+This example will show you how to test and deploy Python code to Fn. It will also demonstrate passing data in through stdin.
 
 ### First, run the following commands:
 
@@ -15,7 +15,7 @@ fn run
 # Now try with an input
 cat sample.payload.json | fn run
 
-# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
 fn deploy --app myapp
 ```
@@ -33,7 +33,7 @@ And now with the JSON input:
 curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-python
 ```
 
-That's it! Our `fn deploy` packaged our function and sent it to the Oracle Functions server. Try editing `func.py` 
+That's it! Our `fn deploy` packaged our function and sent it to the Fn server. Try editing `func.py` 
 and then doing another `fn deploy`.
 
 ### Note on Dependencies

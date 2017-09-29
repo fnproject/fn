@@ -1,6 +1,6 @@
 # Middleware Example
 
-This example adds a simple authentication middleware to Oracle Functions. See [main.go](main.go) for example code. 
+This example adds a simple authentication middleware to Fn. See [main.go](main.go) for example code. 
 
 ## Building and Running
 

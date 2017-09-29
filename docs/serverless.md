@@ -12,12 +12,12 @@ The main benefits that most people refer to are on the developer side and they i
 * Pay by the milliseconds your code is executing -- unlike a typical application that runs 24/7, and you're paying
   24/7, functions only run when needed
 
-Since you'll be running Oracle Functions yourself, the paying part may not apply, but it does apply to
+Since you'll be running Fn yourself, the paying part may not apply, but it does apply to
 cost savings on your infrastructure bills as you'll read below.
 
 ## Benefits for operators
 
-If you will be operating Oracle Functions (the person who has to manage the servers behind the serverless),
+If you will be operating Fn (the person who has to manage the servers behind the serverless),
 then the benefits are different, but related.
 
 * Extremely efficient use of resources
@@ -28,7 +28,7 @@ then the benefits are different, but related.
   * Single system for code written in any language or any technology
   * Single system to monitor
   * Scaling is the same for all functions, you don't scale each app independently
-  * Scaling is simply adding more Oracle Functions nodes
+  * Scaling is simply adding more Fn nodes
 
 There is a lot more reading you can do on the topic, just search for 
 ["what is serverless"](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=what%20is%20serverless)

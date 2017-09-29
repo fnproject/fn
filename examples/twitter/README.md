@@ -4,7 +4,7 @@ This function exemplifies an authentication in Twitter API and get latest tweets
 
 ## Requirements
 
-- Oracle Functions API
+- Fn API
 - Configure a [Twitter App](https://apps.twitter.com/) and [configure Customer Access and Access Token](https://dev.twitter.com/oauth/overview/application-owner-access-tokens).
 
 ## Development
@@ -36,7 +36,7 @@ docker push $USERNAME/func-twitter
 ./test.sh
 ```
 
-## Running it on Oracle Functions
+## Running it on Fn
 
 ### Let's define some environment variables
 
@@ -51,7 +51,7 @@ ACCESS_TOKEN="XXXXXX"
 ACCESS_SECRET="XXXXXX"
 ```
 
-### Running with Oracle Functions
+### Running with Fn
 
 With this command we are going to create an application with name `twitter`.
 
@@ -82,7 +82,7 @@ curl -X POST --data '{
 
 #### Testing function
 
-Now that we created our Oracle Functions route, let's test our new route
+Now that we created our Fn route, let's test our new route
 
 ```
 curl -X POST --data '{"username": "getiron"}' http://$FUNCAPI/r/twitter/tweets

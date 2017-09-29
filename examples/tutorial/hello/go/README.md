@@ -1,6 +1,6 @@
 # Tutorial 1: Go Function w/ Input (3 minutes)
 
-This example will show you how to test and deploy Go (Golang) code to Oracle Functions. It will also demonstrate passing data in through stdin.
+This example will show you how to test and deploy Go (Golang) code to Fn. It will also demonstrate passing data in through stdin.
 
 ### First, run the following commands:
 
@@ -14,7 +14,7 @@ fn run
 # Now try with an input
 cat sample.payload.json | fn run
 
-# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
 fn deploy --app myapp
 ```

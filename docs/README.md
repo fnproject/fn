@@ -25,7 +25,7 @@ If you are a developer using Fn through the API, this section is for you.
 
 ## For Operators
 
-If you are operating Oracle Functions, this section is for you.
+If you are operating Fn, this section is for you.
 
 * [Running in Production Overview](operating/production.md)
 * [Runtime Options](operating/options.md)
@@ -35,9 +35,9 @@ If you are operating Oracle Functions, this section is for you.
 * [Logging](operating/logging.md)
 * [Metrics](operating/metrics.md)
 * [Triggers](operating/triggers.md)
-* [Extending Oracle Functions](operating/extending.md)
+* [Extending Fn](operating/extending.md)
 * [Docker Configuration](operating/docker.md)
 * [Operating On Windows](operating/windows.md)
-* Running Oracle Functions on:
+* Running Fn on:
   * [Kubernetes](operating/kubernetes/README.md)
   * [Docker Swarm](operating/docker-swarm/README.md)

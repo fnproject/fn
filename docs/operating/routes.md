@@ -1,8 +1,8 @@
-# Oracle Functions Routes
+# Fn Routes
 
 Routes have a many-to-one mapping to an [app](apps.md).
 
-A good practice to get the best performance on your Oracle Functions API is define
+A good practice to get the best performance on your Fn API is define
 the required memory for each function.
 
 ## Route level configuration
@@ -26,9 +26,9 @@ Note: Route level configuration overrides app level configuration.
 
 TODO: link to swagger doc on swaggerhub after it's updated.
 
-## Understanding Oracle Functions memory management
+## Understanding Fn memory management
 
-When Oracle Functions starts it registers the total available memory in your system
+When Fn starts it registers the total available memory in your system
 in order to know during its runtime if the system has the required amount of
 free memory to run each function. Every function starts the runner reduces the
 amount of memory used by that function from the available memory register. When

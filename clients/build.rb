@@ -6,7 +6,7 @@ require 'openssl'
 
 require_relative 'utils.rb'
 
-swaggerUrl = "https://raw.githubusercontent.com/treeder/functions/master/docs/swagger.yml"
+swaggerUrl = "https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml"
 spec = YAML.load(open(swaggerUrl))
 version = spec['info']['version']
 puts "VERSION: #{version}"
@@ -83,7 +83,7 @@ languages.each do |l|
     clone_dir = clone(l)
   end
   p options
-  lv = "#{lshort}-#{version}"  
+  lv = "#{lshort}-#{version}"
   destdir = "tmp/fn_#{lshort}"
   if l == 'go'
     # This is using https://goswagger.io/ instead
@@ -126,7 +126,7 @@ languages.each do |l|
     stream_exec "git commit -am \"Updated to api version #{version}\""
     begin
       stream_exec "git tag -a #{version} -m \"Version #{version}\""
-    rescue => ex 
+    rescue => ex
       puts "WARNING: Tag #{version} already exists."
     end
     stream_exec "git push --follow-tags"

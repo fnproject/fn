@@ -1,4 +1,4 @@
-FROM funcy/ruby:dev
+FROM fnproject/ruby:dev
 
 WORKDIR /function
 ADD Gemfile /function/

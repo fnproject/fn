@@ -1,6 +1,6 @@
 # Tutorial 1: Rust Function w/ Input (3 minutes)
 
-This example will show you how to test and deploy Rust code to Oracle Functions. It will also demonstrate passing data in through stdin.
+This example will show you how to test and deploy Rust code to Fn. It will also demonstrate passing data in through stdin.
 
 The easiest way to create a function in rust is via ***cargo*** and ***fn***.
 
@@ -42,7 +42,7 @@ fn run
 # Now try with an input (copy sample.payload.json from this repo)
 cat sample.payload.json | fn run
 
-# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
 fn deploy --app myapp
 ```

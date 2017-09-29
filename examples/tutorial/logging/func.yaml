@@ -1,4 +1,4 @@
-name: funcy/stderr-logging
+name: fnproject/stderr-logging
 version: 0.0.1
 runtime: go
 entrypoint: ./func

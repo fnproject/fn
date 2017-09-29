@@ -1,6 +1,6 @@
 # Detailed Usage
 
-This is a more detailed explanation of the main commands you'll use in Oracle Functions as a developer.
+This is a more detailed explanation of the main commands you'll use in Fn as a developer.
 
 ### Create an Application
 
@@ -85,7 +85,7 @@ You should see it say `Hello Johnny!` now instead of `Hello World!`.
 
 ### Add an asynchronous function
 
-Oracle Functions supports synchronous function calls like we just tried above, and asynchronous for background processing.
+FN supports synchronous function calls like we just tried above, and asynchronous for background processing.
 
 [Asynchronous functions](async.md) are great for tasks that are CPU heavy or take more than a few seconds to complete.
 For instance, image processing, video processing, data processing, ETL, etc.

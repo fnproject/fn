@@ -5,7 +5,7 @@
 Docker images created by running the `create-function` subcommand on a Lambda function are ready to execute.
 
 You can convert any Lambda function of type nodejs 0.10, python 2.7 and Java 8 into an
-Oracle Functions compatible Docker Image as follows:
+FN compatible Docker Image as follows:
 
 ```bash
 fn lambda create-function <name> <runtime> <handler> <files...>

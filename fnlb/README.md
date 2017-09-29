@@ -1,7 +1,7 @@
-# Oracle Functions LoadBalancer
+# Fn LoadBalancer
 
-## Loadbalancing several Oracle Functions
-You can run multiple Oracle Functions instances and balance the load amongst them using `fnlb` as follows:
+## Loadbalancing several Fn
+You can run multiple Fn instances and balance the load amongst them using `fnlb` as follows:
 
 ```sh
 fnlb --listen <address-for-incoming> --nodes <node1>,<node2>,<node3>
@@ -23,15 +23,15 @@ To start the `fnlb` proxy with the addresses of functions nodes in a docker
 container:
 
 ```sh
-docker run -d --name fnlb -p 8081:8081 funcy/fnlb:latest --nodes <node1>,<node2>
+docker run -d --name fnlb -p 8081:8081 fnproject/fnlb:latest --nodes <node1>,<node2>
 ```
 
 If running locally with functions servers in docker, running with docker links
 can make things easier (can use local addresses). for example:
 
 ```sh
-docker run -d --name fn-8080 --privileged -p 8080:8080 funcy/functions:latest
-docker run -d --name fnlb --link fn-8080 -p 8081:8081 funcy/fnlb:latest --nodes 127.0.0.1:8080
+docker run -d --name fn-8080 --privileged -p 8080:8080 fnproject/functions:latest
+docker run -d --name fnlb --link fn-8080 -p 8081:8081 fnproject/fnlb:latest --nodes 127.0.0.1:8080
 ```
 
 ## Operating / usage

@@ -1,4 +1,4 @@
-FROM funcy/go
+FROM fnproject/go
 
 ADD func .
 

@@ -4,7 +4,7 @@ This images compares the payload info with the header.
 
 ## Requirements
 
-- Oracle Functions API
+- Fn API
 
 ## Development
 
@@ -35,7 +35,7 @@ docker push $USERNAME/func-checker
 ./test.sh
 ```
 
-## Running it on Oracle Functions
+## Running it on Fn
 
 ### Let's define some environment variables
 
@@ -45,7 +45,7 @@ docker push $USERNAME/func-checker
 FUNCAPI=YOUR_FUNCTIONS_ADDRESS
 ```
 
-### Running with Oracle Functions
+### Running with Fn
 
 With this command we are going to create an application with name `checker`.
 
@@ -71,7 +71,7 @@ curl -X POST --data '{
 
 #### Testing function
 
-Now that we created our Oracle Functions route, let's test our new route
+Now that we created our Fn route, let's test our new route
 
 ```
 curl -X POST --data '{ "env_vars": { "test": "1" } }' http://$FUNCAPI/r/checker/check

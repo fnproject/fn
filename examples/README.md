@@ -4,4 +4,4 @@ This directory has a collection of example functions you can look at to learn mo
 
 ## Tutorial Series
 
-The [Tutorial Series](tutorial/) will demonstrate some of Oracle Functions capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!
+The [Tutorial Series](tutorial/) will demonstrate some of Fn capabilities through a series of exmaples. We'll try to show examples in most major languages. This is a great place to start!

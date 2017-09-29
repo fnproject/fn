@@ -9,7 +9,7 @@ Install the CLI tool, start a Fn server and run `docker login` to login to Docke
 Set your Docker Hub username 
 
 ```sh
-export FN_REGISTRY=<DOCKERHUB_USERNAME>
+export Fn_REGISTRY=<DOCKERHUB_USERNAME>
 ```
 
 Build and deploy the function to the Fn server (default localhost:8080)

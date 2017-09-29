@@ -89,7 +89,7 @@ Now run the following CLI commands:
 fn init
 
 # Set your Docker Hub username
-export FN_REGISTRY=<DOCKERHUB_USERNAME>
+export Fn_REGISTRY=<DOCKERHUB_USERNAME>
 
 # Test your function
 # This will run inside a container exactly how it will on the server

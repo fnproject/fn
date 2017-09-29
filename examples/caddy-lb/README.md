@@ -1,19 +1,19 @@
-# Oracle Functions Load Balance example using Caddy
+# Fn Load Balance example using Caddy
 
-Simple example of Oracle Functions load balancer using Caddy Server
+Simple example of Fn load balancer using Caddy Server
 
 
-## Run Oracle Functions
+## Run Fn
 
-Start the Oracle Functions instances
+Start the Fn instances
 
-Ref: https://github.com/treeder/functions/blob/master/README.md#start-the-functions-api
+Ref: https://github.com/fnproject/functions/blob/master/README.md#start-the-functions-api
 
 
 ## Configure environment variable
 
-Pass the host and port of Oracle Functions instances in environment variables, 
-this example uses three Oracle Functions instances.
+Pass the host and port of Fn instances in environment variables, 
+this example uses three Fn instances.
 
 ```sh
 export LB_HOST01="172.17.0.1:8080"
@@ -38,7 +38,7 @@ docker run --rm  \
 
 Follow the Quick-Start steps replacing the example hosts by the Caddy host (localhost:9000)
 
-https://github.com/treeder/functions/blob/master/README.md#quick-start
+https://github.com/fnproject/functions/blob/master/README.md#quick-start
 
 
 ## Docker Compose example

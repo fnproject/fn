@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/opentracing/opentracing-go"
@@ -34,9 +33,6 @@ func newmq(mqURL string) (models.MessageQueue, error) {
 		return NewRedisMQ(u)
 	case "bolt":
 		return NewBoltMQ(u)
-	}
-	if strings.HasPrefix(u.Scheme, "ironmq") {
-		return NewIronMQ(u), nil
 	}
 
 	return nil, fmt.Errorf("mq type not supported %v", u.Scheme)

@@ -14,7 +14,7 @@ fn run
 # Now try with an input
 cat sample.payload.json | fn run
 
-# Deploy your functions to the Oracle Functions server (default localhost:8080)
+# Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
 fn deploy --app myapp
 ```

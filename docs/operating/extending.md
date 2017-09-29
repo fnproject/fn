@@ -1,25 +1,25 @@
-# Extending Oracle Functions
+# Extending Fn
 
-Oracle Functions is extensible so you can add custom functionality and extend the project without needing to modify the core.
+FN is extensible so you can add custom functionality and extend the project without needing to modify the core.
 
-There are multiple ways to extend the functionality of Oracle Functions.
+There are multiple ways to extend the functionality of Fn.
 
 1. Listeners - listen to API events such as a route getting updated and react accordingly.
 1. Middleware - a chain of middleware is executed before an API handler is called.
-1. Add API Endpoints - extend the default Oracle Functions API.
+1. Add API Endpoints - extend the default Fn API.
 
 ## Listeners
 
-Listeners are the main way to extend Oracle Functions.
+Listeners are the main way to extend Fn.
 
 The following listener types are supported:
 
-* App Listeners - [GoDoc](https://godoc.org/github.com/treeder/functions/api/server#AppListener)
-* Runner Listeners - [GoDoc](https://godoc.org/github.com/treeder/functions/api/server#RunnerListener)
+* App Listeners - [GoDoc](https://godoc.org/github.com/fnproject/functions/api/server#AppListener)
+* Runner Listeners - [GoDoc](https://godoc.org/github.com/fnproject/functions/api/server#RunnerListener)
 
 ### Creating a Listener
 
-You can easily use app and runner listeners by creating a struct with valid methods satisfying the interface for the respective listener and adding it to the Oracle Functions API
+You can easily use app and runner listeners by creating a struct with valid methods satisfying the interface for the respective listener and adding it to the Fn API
 
 Example:
 
@@ -29,8 +29,8 @@ package main
 import (
     "context"
 
-    "github.com/treeder/functions/api/server"
-    "github.com/treeder/functions/api/models"
+    "github.com/fnproject/functions/api/server"
+    "github.com/fnproject/functions/api/models"
 )
 
 type myCustomListener struct{}
@@ -67,6 +67,6 @@ See examples of this in [examples/middleware/main.go](../../examples/middleware/
 
 ## Adding API Endpoints
 
-You can add API endpoints to the Oracle Functions server by using the `AddEndpoint` and `AddEndpointFunc` methods.
+You can add API endpoints to the Fn server by using the `AddEndpoint` and `AddEndpointFunc` methods.
 
 See examples of this in [examples/extensions/main.go](../../examples/extensions/main.go).

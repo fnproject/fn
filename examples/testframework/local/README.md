@@ -1,4 +1,4 @@
-# Example of Oracle Functions test framework - running functions locally
+# Example of Fn test framework - running functions locally
 
 This example will show you how to run a test suite on a function.
 

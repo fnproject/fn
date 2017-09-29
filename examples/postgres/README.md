@@ -11,13 +11,13 @@ fn build
 ./test.sh
 # Push it to Docker Hub
 fn push
-# Create routes to this function on Oracle Functions
+# Create routes to this function on Fn
 fn apps create <YOUR_APP> --config SERVER=<POSTGRES>
 fn routes create --config TABLE=<TABLE_NAME> --config COMMAND=INSERT <YOUR_APP> /<TABLE_NAME>/insert
 fn routes create --config TABLE=<TABLE_NAME> --config COMMAND=SELECT <YOUR_APP> /<TABLE_NAME>/select
 ```
 
-Now you can call your function on Oracle Functions:
+Now you can call your function on Fn:
 
 ```
 echo <JSON_RECORD> | fn call /<YOUR_APP>/<TABLE_NAME>/insert

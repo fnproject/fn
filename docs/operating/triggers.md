@@ -1,6 +1,6 @@
 # Triggers
 
-Triggers are integrations that you can use in other systems to fire off functions in Oracle Functions.
+Triggers are integrations that you can use in other systems to fire off functions in Fn.
 
 ## OpenStack
 
@@ -12,7 +12,7 @@ Triggers are integrations that you can use in other systems to fire off function
     * Kernel: 4.7 or newer with overlay2 or aufs module
     * Docker: 1.12 or newer
 
-2. [Picasso](https://github.com/openstack/picasso) - Picasso provides an OpenStack API and Keystone authentication layer on top of Oracle Functions.
+2. [Picasso](https://github.com/openstack/picasso) - Picasso provides an OpenStack API and Keystone authentication layer on top of Fn.
 Please refer to the [Picasso on DevStack](https://github.com/openstack/picasso/blob/master/devstack/README.md) guide for setup instructions.
 
 ### Examples
