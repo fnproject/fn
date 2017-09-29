@@ -1,4 +1,4 @@
-package: github.com/treeder/functions/examples/twitter
+package: github.com/fnproject/functions/examples/twitter
 import:
 - package: github.com/dghubble/go-twitter
   subpackages:

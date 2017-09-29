@@ -30,5 +30,5 @@ docker run -it --rm --link func-postgres:postgres postgres \
 ```
 docker run --rm --privileged --link "iron-postgres:postgres" \
     -e "DB_URL=postgres://postgres:funcpass@postgres/funcs?sslmode=disable" \
-    -it -p 8080:8080 treeder/functions
+    -it -p 8080:8080 fnproject/functions
 ```

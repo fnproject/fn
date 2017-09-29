@@ -38,7 +38,7 @@ There are some reasons you may not want to use dind, such as using the image cac
 One way is to mount the host Docker. Everything is essentially the same except you add a `-v` flag:
 
 ```sh
-docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 treeder/functions
+docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 fnproject/functions
 ```
 
 ### Run outside Docker

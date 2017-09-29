@@ -1,4 +1,4 @@
-package: github.com/treeder/functions/examples/postgres
+package: github.com/fnproject/functions/examples/postgres
 import:
 - package: github.com/lib/pq
 - package: github.com/pkg/errors

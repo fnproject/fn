@@ -1,4 +1,4 @@
-package: github.com/treeder/functions/examples/redis
+package: github.com/fnproject/functions/examples/redis
 import:
 - package: github.com/garyburd/redigo
   version: ^1.0.0

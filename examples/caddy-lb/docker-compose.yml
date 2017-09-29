@@ -1,12 +1,12 @@
 functions01:
   restart: always
-  image: treeder/functions
+  image: fnproject/functions
 functions02:
   restart: always
-  image: treeder/functions
+  image: fnproject/functions
 functions03:
   restart: always
-  image: treeder/functions
+  image: fnproject/functions
 caddy:
   image: abiosoft/caddy
   volumes:
