@@ -71,7 +71,7 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 	err := h.DumpJSON(w, req)
 	if err != nil {
 		return respondWithError(
-			w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
+			w, fmt.Errorf("unable to write JSON into STDIN: %s", err.Error()))
 	}
 	jout := new(JSONIO)
 	dec := json.NewDecoder(h.out)
@@ -83,6 +83,12 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		// this has to be done for pulling out:
 		// - status code
 		// - body
+		// - headers
+		for k, vs := range jout.Headers {
+			for _, v := range vs {
+				rw.Header().Add(k, v) // on top of any specified on the route
+			}
+		}
 		rw.WriteHeader(jout.StatusCode)
 		_, err = rw.Write([]byte(jout.Body)) // TODO timeout
 		if err != nil {
