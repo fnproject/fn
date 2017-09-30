@@ -39,7 +39,7 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 			return respondWithError(
 				w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
 		}
-		_, err = io.CopyN(h.in, req.Body, req.ContentLength)
+		_, err = io.Copy(h.in, req.Body)
 		if err != nil {
 			// this shouldn't happen
 			return respondWithError(
