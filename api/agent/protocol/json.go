@@ -25,53 +25,54 @@ func (p *JSONProtocol) IsStreamable() bool {
 	return true
 }
 
-func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
+func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 	_, err := io.WriteString(h.in, `{`)
 	if err != nil {
 		// this shouldn't happen
-		return respondWithError(
-			w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
+		return err
 	}
 	if req.Body != nil {
 		_, err := io.WriteString(h.in, `"body":"`)
 		if err != nil {
 			// this shouldn't happen
-			return respondWithError(
-				w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
+			return err
 		}
 		_, err = io.Copy(h.in, req.Body)
 		if err != nil {
 			// this shouldn't happen
-			return respondWithError(
-				w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
+			return err
 		}
 		_, err = io.WriteString(h.in, `",`)
 		if err != nil {
 			// this shouldn't happen
-			return respondWithError(
-				w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
+			return err
 		}
 		defer req.Body.Close()
 	}
 	_, err = io.WriteString(h.in, `"headers:"`)
 	if err != nil {
 		// this shouldn't happen
-		return respondWithError(
-			w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
+		return err
 	}
 	err = json.NewEncoder(h.in).Encode(req.Header)
 	if err != nil {
 		// this shouldn't happen
-		return respondWithError(
-			w, fmt.Errorf("error marshalling JSONInput: %s", err.Error()))
+		return err
 	}
 	_, err = io.WriteString(h.in, `"}`)
 	if err != nil {
 		// this shouldn't happen
+		return err
+	}
+	return nil
+}
+
+func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
+	err := h.DumpJSON(w, req)
+	if err != nil {
 		return respondWithError(
 			w, fmt.Errorf("error reader JSON object from request body: %s", err.Error()))
 	}
-
 	jout := new(JSONIO)
 	dec := json.NewDecoder(h.out)
 	if err := dec.Decode(jout); err != nil {
