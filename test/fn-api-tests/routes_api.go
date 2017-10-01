@@ -89,7 +89,7 @@ func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, rou
 
 }
 
-func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, routePath, routeType string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
+func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, routePath, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
 	cfg := &routes.PostAppsAppRoutesParams{
 		App: appName,
 		Body: &models.RouteWrapper{
@@ -99,6 +99,7 @@ func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, route
 				Image:   image,
 				Path:    routePath,
 				Type:    routeType,
+				Format:  routeFormat,
 			},
 		},
 		Context: ctx,
@@ -119,7 +120,7 @@ func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, route
 }
 
 func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) {
-	routeResponse, err := createRoute(ctx, fnclient, appName, image, routePath, routeType, routeConfig, headers)
+	routeResponse, err := createRoute(ctx, fnclient, appName, image, routePath, routeType, routeFormat, routeConfig, headers)
 	CheckRouteResponseError(t, err)
 
 	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType, routeFormat)
