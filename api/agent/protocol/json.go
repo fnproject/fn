@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,23 @@ type JSONProtocol struct {
 
 func (p *JSONProtocol) IsStreamable() bool {
 	return true
+}
+
+type RequestEncoder struct {
+	*json.Encoder
+}
+
+func (re *RequestEncoder) EncodeRequest(rq *http.Request) error {
+	bb := new(bytes.Buffer)
+	_, err := bb.ReadFrom(rq.Body)
+	if err != nil {
+		return err
+	}
+	defer bb.Reset()
+	return re.Encode(JSONIO{
+		Headers: rq.Header,
+		Body:    bb.String(),
+	})
 }
 
 func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
@@ -68,7 +86,9 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 }
 
 func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
-	err := h.DumpJSON(w, req)
+	ce := RequestEncoder{json.NewEncoder(h.in)}
+	err := ce.EncodeRequest(req)
+	//err := h.DumpJSON(w, req)
 	if err != nil {
 		return respondWithError(
 			w, fmt.Errorf("unable to write JSON into STDIN: %s", err.Error()))

@@ -1,6 +1,0 @@
-name: hotfunction-http
-version: 0.0.10
-runtime: go
-entrypoint: ./func
-format: http
-path: /hotfn-go
