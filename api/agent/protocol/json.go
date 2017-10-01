@@ -36,6 +36,7 @@ func (re *RequestEncoder) EncodeRequest(rq *http.Request) error {
 	if err != nil {
 		return err
 	}
+	defer rq.Body.Close()
 	defer bb.Reset()
 	return re.Encode(JSONIO{
 		Headers: rq.Header,
