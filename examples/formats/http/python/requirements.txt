@@ -1,2 +1,2 @@
-hotfn
-uvloop
+hotfn==0.0.5
+uvloop==0.8.1
