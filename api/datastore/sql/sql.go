@@ -489,6 +489,9 @@ func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*model
 	var call models.Call
 	err := row.StructScan(&call)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, models.ErrCallNotFound
+		}
 		return nil, err
 	}
 	return &call, nil
