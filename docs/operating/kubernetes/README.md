@@ -13,7 +13,7 @@ $ cd docs/operating/
 $ kubectl create -f fn-service.yaml
 ```
 
-2. Once the Pods have started, check the service for the load balanacer IP:
+2. Once the Pods have started, check the service for the load balancer IP:
 
 ```bash
 $ kubectl get svc --watch
