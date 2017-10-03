@@ -2,6 +2,9 @@
 
 This is an example of a hot function. The [hot function documentation](/docs/hot-functions.md) contains an analysis of how this example works.
 
+Note that you should probably be using the [fdk](https://github.com/fnproject/fdk-go) but this serves
+as a good example of how to do a hot functions raw without the fdk.
+
 ### How to run the example
 
 Install the CLI tool, start a Fn server and run `docker login` to login to DockerHub. See the [front page](/README.md) for instructions. 
