@@ -31,7 +31,7 @@ jobs:
           curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
       # login here for tests
-      - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
+      # - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run: make docker-build
       - run: make install
       - run: make test
@@ -42,6 +42,7 @@ jobs:
       - deploy:
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              docker login -u $DOCKER_USER -p $DOCKER_PASS
               git config --global user.email "ci@fnproject.com"
               git config --global user.name "CI"
               git branch --set-upstream-to=origin/${CIRCLE_BRANCH} ${CIRCLE_BRANCH}
