@@ -1,4 +1,4 @@
-# Fn using Postgres
+# Fn using MySQL DB
 
 Let's presuppose you don't have even a MySQL DB ready.
 
