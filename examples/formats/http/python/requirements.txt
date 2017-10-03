@@ -1,2 +1,2 @@
-hotfn==0.0.5
+hotfn==0.0.6
 uvloop==0.8.1
