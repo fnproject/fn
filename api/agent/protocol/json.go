@@ -30,21 +30,8 @@ type RequestEncoder struct {
 	*json.Encoder
 }
 
-func (re *RequestEncoder) EncodeRequest(rq *http.Request) error {
-	bb := new(bytes.Buffer)
-	_, err := bb.ReadFrom(rq.Body)
-	if err != nil {
-		return err
-	}
-	defer rq.Body.Close()
-	defer bb.Reset()
-	return re.Encode(JSONIO{
-		Headers: rq.Header,
-		Body:    bb.String(),
-	})
-}
-
 func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
+	stdin := json.NewEncoder(h.in)
 	_, err := io.WriteString(h.in, `{`)
 	if err != nil {
 		// this shouldn't happen
@@ -56,9 +43,14 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 			// this shouldn't happen
 			return err
 		}
-		_, err = io.Copy(h.in, req.Body)
+		bb := new(bytes.Buffer)
+		_, err = bb.ReadFrom(req.Body)
 		if err != nil {
-			// this shouldn't happen
+			return err
+		}
+
+		err = stdin.Encode(bb.String())
+		if err != nil {
 			return err
 		}
 		_, err = io.WriteString(h.in, `",`)
@@ -66,6 +58,7 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 			// this shouldn't happen
 			return err
 		}
+		defer bb.Reset()
 		defer req.Body.Close()
 	}
 	_, err = io.WriteString(h.in, `"headers:"`)
@@ -73,7 +66,7 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 		// this shouldn't happen
 		return err
 	}
-	err = json.NewEncoder(h.in).Encode(req.Header)
+	err = stdin.Encode(req.Header)
 	if err != nil {
 		// this shouldn't happen
 		return err
@@ -87,9 +80,7 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 }
 
 func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
-	ce := RequestEncoder{json.NewEncoder(h.in)}
-	err := ce.EncodeRequest(req)
-	//err := h.DumpJSON(w, req)
+	err := h.DumpJSON(w, req)
 	if err != nil {
 		return respondWithError(
 			w, fmt.Errorf("unable to write JSON into STDIN: %s", err.Error()))
