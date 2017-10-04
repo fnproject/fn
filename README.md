@@ -30,7 +30,15 @@ platform that you can run anywhere. Some of it's key features:
 
 The command line tool isn't required, but it sure makes things a lot easier. There are a few options to install it:
 
-#### Shell script
+#### 1. Homebrew - MacOS
+
+If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
+
+```sh
+brew install fn
+```
+
+#### 2. Shell script
 
 This one works on Linux and MacOS (partially on Windows):
 
@@ -40,7 +48,7 @@ curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 
 This will download a shell script and execute it. If the script asks for a password, that is because it invokes sudo.
 
-#### Download the bin
+#### 3. Download the bin
 
 Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
 
