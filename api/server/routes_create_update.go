@@ -119,18 +119,15 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 			return err
 		}
 
-		err = s.FireBeforeAppCreate(ctx, newapp)
-		if err != nil {
+		if err = s.FireBeforeAppCreate(ctx, newapp); err != nil {
 			return err
 		}
 
-		_, err = s.Datastore.InsertApp(ctx, newapp)
-		if err != nil {
+		if _, err = s.Datastore.InsertApp(ctx, newapp); err != nil {
 			return err
 		}
 
-		err = s.FireAfterAppCreate(ctx, newapp)
-		if err != nil {
+		if err = s.FireAfterAppCreate(ctx, newapp); err != nil {
 			return err
 		}
 
