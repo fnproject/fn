@@ -28,8 +28,8 @@ jobs:
       # update Docker
       - run: |
           docker version
-          sudo service docker stop
-          curl -fsSL https://get.docker.com/ | sudo sh
+#          sudo service docker stop
+#          curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
       # login here for tests
       # - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
