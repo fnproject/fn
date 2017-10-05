@@ -2,7 +2,7 @@
 
 The Fn server exports metrics using [Prometheus](https://prometheus.io/). This allows [Grafana](https://grafana.com/) to be used to display these metrics graphically. 
 
--- screenshot
+<img src="../../docs/assets/GrafanaDashboard.png" width="800">
 
 ## Start a fn server and deploy some functions
 
