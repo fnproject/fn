@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -105,6 +107,9 @@ type Agent interface {
 	// Stats should be burned at the stake. adding so as to not ruffle feathers.
 	// TODO this should be derived from our metrics
 	Stats() Stats
+
+	// Return the http.Handler used to handle Prometheus metric requests
+	PromHandler() http.Handler
 }
 
 type agent struct {
@@ -131,6 +136,9 @@ type agent struct {
 	shutdown chan struct{}
 
 	stats // TODO kill me
+
+	// Prometheus HTTP handler
+	promHandler http.Handler
 }
 
 func New(ds models.Datastore, mq models.MessageQueue) Agent {
@@ -138,13 +146,14 @@ func New(ds models.Datastore, mq models.MessageQueue) Agent {
 	driver := docker.NewDocker(drivers.Config{})
 
 	a := &agent{
-		ds:       ds,
-		mq:       mq,
-		driver:   driver,
-		hot:      make(map[string]chan slot),
-		cond:     sync.NewCond(new(sync.Mutex)),
-		ramTotal: getAvailableMemory(),
-		shutdown: make(chan struct{}),
+		ds:          ds,
+		mq:          mq,
+		driver:      driver,
+		hot:         make(map[string]chan slot),
+		cond:        sync.NewCond(new(sync.Mutex)),
+		ramTotal:    getAvailableMemory(),
+		shutdown:    make(chan struct{}),
+		promHandler: promhttp.Handler(),
 	}
 
 	go a.asyncDequeue() // safe shutdown can nanny this fine

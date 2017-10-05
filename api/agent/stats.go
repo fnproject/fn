@@ -1,6 +1,9 @@
 package agent
 
-import "sync"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"sync"
+)
 
 // TODO this should expose:
 // * hot containers active
@@ -44,6 +47,44 @@ type FunctionStats struct {
 	Failed   uint64
 }
 
+var (
+	fnQueued = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "fn_api_queued",
+			Help: "Queued requests by path",
+		},
+		[](string){"path"},
+	)
+	fnRunning = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "fn_api_running",
+			Help: "Running requests by path",
+		},
+		[](string){"path"},
+	)
+	fnCompleted = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fn_api_completed",
+			Help: "Completed requests by path",
+		},
+		[](string){"path"},
+	)
+	fnFailed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fn_api_failed",
+			Help: "Failed requests by path",
+		},
+		[](string){"path"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(fnQueued)
+	prometheus.MustRegister(fnRunning)
+	prometheus.MustRegister(fnFailed)
+	prometheus.MustRegister(fnCompleted)
+}
+
 func (s *stats) getStatsForFunction(path string) *functionStats {
 	if s.functionStatsMap == nil {
 		s.functionStatsMap = make(map[string]*functionStats)
@@ -59,52 +100,78 @@ func (s *stats) getStatsForFunction(path string) *functionStats {
 
 func (s *stats) Enqueue(path string) {
 	s.mu.Lock()
+
 	s.queue++
 	s.getStatsForFunction(path).queue++
+	fnQueued.WithLabelValues(path).Inc()
+
 	s.mu.Unlock()
 }
 
 // Call when a function has been queued but cannot be started because of an error
 func (s *stats) Dequeue(path string) {
 	s.mu.Lock()
+
 	s.queue--
 	s.getStatsForFunction(path).queue--
+	fnQueued.WithLabelValues(path).Dec()
+
 	s.mu.Unlock()
 }
 
 func (s *stats) DequeueAndStart(path string) {
 	s.mu.Lock()
+
 	s.queue--
 	s.getStatsForFunction(path).queue--
+	fnQueued.WithLabelValues(path).Dec()
+
 	s.running++
 	s.getStatsForFunction(path).running++
+	fnRunning.WithLabelValues(path).Inc()
+
 	s.mu.Unlock()
 }
 
 func (s *stats) Complete(path string) {
 	s.mu.Lock()
+
 	s.running--
 	s.getStatsForFunction(path).running--
+	fnRunning.WithLabelValues(path).Dec()
+
 	s.complete++
 	s.getStatsForFunction(path).complete++
+	fnCompleted.WithLabelValues(path).Inc()
+
 	s.mu.Unlock()
 }
 
 func (s *stats) Failed(path string) {
 	s.mu.Lock()
+
 	s.running--
 	s.getStatsForFunction(path).running--
+	fnRunning.WithLabelValues(path).Dec()
+
 	s.failed++
 	s.getStatsForFunction(path).failed++
+	fnFailed.WithLabelValues(path).Inc()
+
 	s.mu.Unlock()
 }
 
 func (s *stats) DequeueAndFail(path string) {
 	s.mu.Lock()
+
 	s.queue--
 	s.getStatsForFunction(path).queue--
+	fnQueued.WithLabelValues(path).Dec()
+
 	s.failed++
 	s.getStatsForFunction(path).failed++
+	fnFailed.WithLabelValues(path).Inc()
+
 	s.mu.Unlock()
 }
 
