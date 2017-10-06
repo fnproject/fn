@@ -3,7 +3,6 @@ package protocol
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 )
@@ -82,14 +81,12 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 	err := h.DumpJSON(w, req)
 	if err != nil {
-		return respondWithError(
-			w, fmt.Errorf("unable to write JSON into STDIN: %s", err.Error()))
+		return err
 	}
 	jout := new(JSONIO)
 	dec := json.NewDecoder(h.out)
 	if err := dec.Decode(jout); err != nil {
-		return respondWithError(
-			w, fmt.Errorf("unable to decode JSON response object: %s", err.Error()))
+		return err
 	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		// this has to be done for pulling out:
@@ -104,30 +101,14 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		rw.WriteHeader(jout.StatusCode)
 		_, err = rw.Write([]byte(jout.Body)) // TODO timeout
 		if err != nil {
-			return respondWithError(
-				w, fmt.Errorf("unable to write JSON response object: %s", err.Error()))
+			return err
 		}
 	} else {
 		// logs can just copy the full thing in there, headers and all.
 		err = json.NewEncoder(w).Encode(jout)
 		if err != nil {
-			return respondWithError(
-				w, fmt.Errorf("error writing function response: %s", err.Error()))
+			return err
 		}
 	}
 	return nil
-}
-
-func respondWithError(w io.Writer, err error) error {
-	errMsg := []byte(err.Error())
-	statusCode := http.StatusInternalServerError
-	if rw, ok := w.(http.ResponseWriter); ok {
-		rw.WriteHeader(statusCode)
-		rw.Write(errMsg)
-	} else {
-		// logs can just copy the full thing in there, headers and all.
-		w.Write(errMsg)
-	}
-
-	return err
 }
