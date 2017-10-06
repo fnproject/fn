@@ -88,9 +88,7 @@ Internally function receives data in following format:
 
 ```json
 {
-  "body": {
-    "some": "data"
-  },
+  "body": "{\"some\":\"data\"}\n",
   "headers": {
     "yo": ["dawg"]
   }
