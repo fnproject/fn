@@ -88,7 +88,9 @@ Internally function receives data in following format:
 
 ```json
 {
-  "body": "{\"some\": \"input\"}",
+  "body": {
+    "some": "data"
+  },
   "headers": {
     "yo": ["dawg"]
   }
@@ -102,7 +104,7 @@ Function's output format should have following format:
   "status_code": 200,
   "body": "...",
   "headeres": {
-    "A": "b"
+    "A": ["b"]
   }
 }
 ```

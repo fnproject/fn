@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"io"
 	"encoding/json"
+	"reflect"
 )
 
 type RequestData struct {
@@ -33,7 +34,8 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 		Host: "localhost:8080",
 	}
 	var buf bytes.Buffer
-	json.NewEncoder(&buf).Encode(RequestData{A: "a"})
+	rDataBefore := RequestData{A: "a"}
+	json.NewEncoder(&buf).Encode(rDataBefore)
 	req.Body = ioutil.NopCloser(&buf)
 
 	r, w := io.Pipe()
@@ -55,6 +57,15 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 	err = json.Unmarshal(bb.Bytes(), incomingReq)
 	if err != nil {
 		t.Error(err.Error())
+	}
+	rDataAfter := new(RequestData)
+	err = json.Unmarshal([]byte(incomingReq.Body), &rDataAfter)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if rDataBefore.A != rDataAfter.A {
+		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
+			rDataBefore.A, rDataAfter.A)
 	}
 }
 
@@ -98,5 +109,10 @@ func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
 	err = json.Unmarshal(bb.Bytes(), incomingReq)
 	if err != nil {
 		t.Error(err.Error())
+	}
+	if ok := reflect.DeepEqual(req.Header, incomingReq.Headers); !ok {
+		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
+			req.Header, incomingReq.Headers)
+
 	}
 }
