@@ -13,7 +13,7 @@ Configuration values, environment information and other things will be passed in
 The goals of the input format are the following:
 
 * Very easy to use and parse
-* Streamable for increasing performance (more than one call per container execution)
+* Supports hot for increasing performance (more than one call per container execution)
 * Ability to build higher level abstractions on top (ie: Lambda syntax compatible)
 
 The format is still up for discussion and in order to move forward and remain flexible, it's likely we will just allow different input formats and the function creator can decide what they want, on a per function basis. Default being the simplest format to use.
@@ -30,13 +30,13 @@ Pros:
 
 Cons:
 
-* Not streamable
+* Not very efficient resource utilization - one function for one event.
 
 #### HTTP Input Format
 
 `--format http`
 
-HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it's streamable. The response will look like a HTTP response. The communication is still done via stdin/stdout, but these pipes are never closed unless the container is explicitly terminated. The basic format is:
+HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it's supports hot format. The response will look like a HTTP response. The communication is still done via stdin/stdout, but these pipes are never closed unless the container is explicitly terminated. The basic format is:
 
 Request:
 
@@ -74,7 +74,7 @@ Cons:
 
 `--format json`
 
-An easy to parse JSON structure.
+Fn accepts request data of the following format:
 
 ```json
 {
@@ -84,14 +84,38 @@ An easy to parse JSON structure.
 }
 ```
 
+Internally function receives data in following format:
+
+```json
+{
+  "body": "{\"some\": \"input\"}",
+  "headers": {
+    "yo": ["dawg"]
+  }
+}
+
+```
+
+Function's output format should have following format:
+```json
+{
+  "status_code": 200,
+  "body": "...",
+  "headeres": {
+    "A": "b"
+  }
+}
+```
+At client side user will receive HTTP response with HTTP headers, status code and the body from taken from function's response.
+
 Pros:
 
-* Streamable
+* Supports hot format
 * Easy to parse
 
 Cons:
 
-* ???
+* Not streamable
 
 ## Output
 
