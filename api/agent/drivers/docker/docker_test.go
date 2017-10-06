@@ -112,6 +112,6 @@ func TestRegistry(t *testing.T) {
 	}
 
 	if size <= 0 {
-		t.Fatalf("expected positive size for image that exists, got size:", size)
+		t.Fatal("expected positive size for image that exists, got size:", size)
 	}
 }

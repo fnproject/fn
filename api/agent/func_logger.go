@@ -185,7 +185,7 @@ func (l *limitWriter) Write(b []byte) (int, error) {
 	l.n += n
 	if l.n >= l.max {
 		// write in truncation message to log once
-		l.Writer.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n")))
+		l.Writer.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n", l.max)))
 	}
 	return n, err
 }

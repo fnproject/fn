@@ -160,7 +160,7 @@ func (p *proxy) startSpan(req *http.Request) (opentracing.Span, *http.Request) {
 	// Create the span referring to the RPC client if available.
 	// If wireContext == nil, a root span will be created.
 	// TODO we should add more tags?
-	serverSpan := opentracing.StartSpan("lb_serve", ext.RPCServerOption(wireContext), opentracing.Tag{"path", req.URL.Path})
+	serverSpan := opentracing.StartSpan("lb_serve", ext.RPCServerOption(wireContext), opentracing.Tag{Key: "path", Value: req.URL.Path})
 
 	ctx := opentracing.ContextWithSpan(req.Context(), serverSpan)
 	req = req.WithContext(ctx)

@@ -16,9 +16,6 @@ install:
 test:
 	./test.sh
 
-fmt:
-	./go-fmt.sh
-
 test-datastore:
 	cd api/datastore && go test -v ./...
 
