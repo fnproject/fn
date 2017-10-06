@@ -2,7 +2,7 @@ package models
 
 type App struct {
 	Name   string `json:"name" db:"name"`
-	Config Config `json:"config" db:"config"`
+	Config Config `json:"config,omitempty" db:"config"`
 }
 
 func (a *App) Validate() error {
