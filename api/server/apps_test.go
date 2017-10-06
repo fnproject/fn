@@ -29,6 +29,12 @@ func setLogBuffer() *bytes.Buffer {
 
 func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+
 	for i, test := range []struct {
 		mock          models.Datastore
 		logDB         models.LogStore
@@ -57,7 +63,6 @@ func TestAppCreate(t *testing.T) {
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -66,7 +71,6 @@ func TestAppCreate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -77,6 +81,11 @@ func TestAppCreate(t *testing.T) {
 
 func TestAppDelete(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -99,7 +108,6 @@ func TestAppDelete(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -108,7 +116,6 @@ func TestAppDelete(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -119,6 +126,11 @@ func TestAppDelete(t *testing.T) {
 
 func TestAppList(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -156,7 +168,6 @@ func TestAppList(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -165,7 +176,6 @@ func TestAppList(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -189,6 +199,11 @@ func TestAppList(t *testing.T) {
 
 func TestAppGet(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -207,7 +222,6 @@ func TestAppGet(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -216,7 +230,6 @@ func TestAppGet(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -226,6 +239,11 @@ func TestAppGet(t *testing.T) {
 
 func TestAppUpdate(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	for i, test := range []struct {
 		mock          models.Datastore
@@ -259,7 +277,6 @@ func TestAppUpdate(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -268,7 +285,6 @@ func TestAppUpdate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}

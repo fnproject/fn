@@ -13,12 +13,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"github.com/mattes/migrate"
+	_ "github.com/mattes/migrate/database/mysql"
+	_ "github.com/mattes/migrate/database/postgres"
+	_ "github.com/mattes/migrate/database/sqlite3"
+	"github.com/mattes/migrate/source"
+	"github.com/mattes/migrate/source/go-bindata"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
@@ -41,6 +48,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
+	created_at text,
 	PRIMARY KEY (app_name, path)
 );`,
 
@@ -68,7 +76,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config FROM routes`
+	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
 )
 
@@ -79,11 +87,16 @@ type sqlStore struct {
 // New will open the db specified by url, create any tables necessary
 // and return a models.Datastore safe for concurrent usage.
 func New(url *url.URL) (models.Datastore, error) {
+	return newDS(url)
+}
+
+// for test methods, return concrete type, but don't expose
+func newDS(url *url.URL) (*sqlStore, error) {
 	driver := url.Scheme
 
 	// driver must be one of these for sqlx to work, double check:
 	switch driver {
-	case "postgres", "pgx", "mysql", "sqlite3", "oci8", "ora", "goracle":
+	case "postgres", "pgx", "mysql", "sqlite3":
 	default:
 		return nil, errors.New("invalid db driver, refer to the code")
 	}
@@ -121,6 +134,12 @@ func New(url *url.URL) (models.Datastore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
+	err = runMigrations(url.String(), checkExistence(db)) // original url string
+	if err != nil {
+		logrus.WithError(err).Error("error running migrations")
+		return nil, err
+	}
+
 	switch driver {
 	case "sqlite3":
 		db.SetMaxOpenConns(1)
@@ -133,6 +152,104 @@ func New(url *url.URL) (models.Datastore, error) {
 	}
 
 	return &sqlStore{db: db}, nil
+}
+
+// checkExistence checks if tables have been created yet, it is not concerned
+// about the existence of the schema migration version (since migrations were
+// added to existing dbs, we need to know whether the db exists without migrations
+// or if it's brand new).
+func checkExistence(db *sqlx.DB) bool {
+	query := db.Rebind(`SELECT name FROM apps LIMIT 1`)
+	row := db.QueryRow(query)
+
+	var dummy string
+	err := row.Scan(&dummy)
+	if err != nil && err != sql.ErrNoRows {
+		// TODO we should probably ensure this is a certain 'no such table' error
+		// and if it's not that or err no rows, we should probably block start up.
+		// if we return false here spuriously, then migrations could be skipped,
+		// which would be bad.
+		return false
+	}
+	return true
+}
+
+// check if the db already existed, if the db is brand new then we can skip
+// over all the migrations BUT we must be sure to set the right migration
+// number so that only current migrations are skipped, not any future ones.
+func runMigrations(url string, exists bool) error {
+	m, err := migrator(url)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	if !exists {
+		// set to highest and bail
+		return m.Force(latestVersion(migrations.AssetNames()))
+	}
+
+	// run any migrations needed to get to latest, if any
+	err = m.Up()
+	if err == migrate.ErrNoChange { // we don't care, but want other errors
+		err = nil
+	}
+	return err
+}
+
+func migrator(url string) (*migrate.Migrate, error) {
+	s := bindata.Resource(migrations.AssetNames(),
+		func(name string) ([]byte, error) {
+			return migrations.Asset(name)
+		})
+
+	d, err := bindata.WithInstance(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return migrate.NewWithSourceInstance("go-bindata", d, url)
+}
+
+// latest version will find the latest version from a list of migration
+// names (not from the db)
+func latestVersion(migs []string) int {
+	var highest uint
+	for _, m := range migs {
+		mig, _ := source.Parse(m)
+		if mig.Version > highest {
+			highest = mig.Version
+		}
+	}
+
+	return int(highest)
+}
+
+// clear is for tests only, be careful, it deletes all records.
+func (ds *sqlStore) clear() error {
+	return ds.Tx(func(tx *sqlx.Tx) error {
+		query := tx.Rebind(`DELETE FROM routes`)
+		_, err := tx.Exec(query)
+		if err != nil {
+			return err
+		}
+
+		query = tx.Rebind(`DELETE FROM calls`)
+		_, err = tx.Exec(query)
+		if err != nil {
+			return err
+		}
+
+		query = tx.Rebind(`DELETE FROM apps`)
+		_, err = tx.Exec(query)
+		if err != nil {
+			return err
+		}
+
+		query = tx.Rebind(`DELETE FROM logs`)
+		_, err = tx.Exec(query)
+		return err
+	})
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
@@ -298,7 +415,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			timeout,
 			idle_timeout,
 			headers,
-			config
+			config,
+			created_at
 		)
 		VALUES (
 			:app_name,
@@ -310,7 +428,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			:timeout,
 			:idle_timeout,
 			:headers,
-			:config
+			:config,
+			:created_at
 		);`)
 
 		_, err = tx.NamedExecContext(ctx, query, route)
@@ -348,7 +467,8 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			timeout = :timeout,
 			idle_timeout = :idle_timeout,
 			headers = :headers,
-			config = :config
+			config = :config,
+			created_at = :created_at
 		WHERE app_name=:app_name AND path=:path;`)
 
 		res, err := tx.NamedExecContext(ctx, query, &route)

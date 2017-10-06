@@ -17,7 +17,7 @@ func TestCalls(t *testing.T) {
 		s := SetupDefaultSuite()
 		cfg := &call.GetAppsAppCallsParams{
 			App:     s.AppName,
-			Route:   &s.RoutePath,
+			Path:    &s.RoutePath,
 			Context: s.Context,
 		}
 		_, err := s.Client.Call.GetAppsAppCalls(cfg)
@@ -62,8 +62,8 @@ func TestCalls(t *testing.T) {
 
 		time.Sleep(time.Second * 5)
 		_, err := s.Client.Call.GetAppsAppCalls(&call.GetAppsAppCallsParams{
-			App:   s.AppName,
-			Route: &s.RoutePath,
+			App:  s.AppName,
+			Path: &s.RoutePath,
 		})
 		if err != nil {
 			switch err.(type) {
@@ -93,7 +93,7 @@ func TestCalls(t *testing.T) {
 
 		cfg := &call.GetAppsAppCallsParams{
 			App:     s.AppName,
-			Route:   &s.RoutePath,
+			Path:    &s.RoutePath,
 			Context: s.Context,
 		}
 		calls, err := s.Client.Call.GetAppsAppCalls(cfg)
