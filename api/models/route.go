@@ -27,7 +27,7 @@ type Route struct {
 	Memory      uint64  `json:"memory" db:"memory"`
 	Headers     Headers `json:"headers" db:"headers"`
 	Type        string  `json:"type" db:"type"`
-	Format      string  `json:"format" db":format"`
+	Format      string  `json:"format" db:"format"`
 	Timeout     int32   `json:"timeout" db:"timeout"`
 	IdleTimeout int32   `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config  `json:"config" db:"config"`

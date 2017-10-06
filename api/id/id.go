@@ -26,10 +26,10 @@ func SetMachineId(id uint64) {
 // with an addition that net.IP must be a ipv4 address.
 func SetMachineIdHost(addr net.IP, port uint16) {
 	var machineId uint64 // 48 bits
-	machineId |= uint64(addr[0] << 40)
-	machineId |= uint64(addr[1] << 32)
-	machineId |= uint64(addr[2] << 24)
-	machineId |= uint64(addr[3] << 16)
+	machineId |= uint64(addr[0]) << 40
+	machineId |= uint64(addr[1]) << 32
+	machineId |= uint64(addr[2]) << 24
+	machineId |= uint64(addr[3]) << 16
 	machineId |= uint64(port)
 
 	SetMachineId(machineId)

@@ -171,7 +171,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
 		} else if calls[0].ID != c2.ID {
 			t.Log(buf.String())
-			t.Fatalf("Test GetCalls: call id not expected", calls[0].ID, c2.ID)
+			t.Fatalf("Test GetCalls: call id not expected %s vs %s", calls[0].ID, c2.ID)
 		}
 	})
 
@@ -387,7 +387,7 @@ func Test(t *testing.T, dsf func() models.Datastore) {
 		_, err := ds.InsertApp(ctx, testApp)
 		if err != nil && err != models.ErrAppsAlreadyExists {
 			t.Log(buf.String())
-			t.Fatalf("Test InsertRoute Prep: failed to insert app: ", err)
+			t.Fatal("Test InsertRoute Prep: failed to insert app: ", err)
 		}
 
 		// Testing insert route

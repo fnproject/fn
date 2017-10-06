@@ -19,11 +19,7 @@ jobs:
           cd tmp
           sudo rm -rf /usr/local/go
           wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
-          # mkdir -p $HOME/golang
-          # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
           sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
-          # go get -u github.com/golang/dep/...
-          # go get -u github.com/Masterminds/glide
       - run: go version
       # update Docker
       - run: |
@@ -31,11 +27,10 @@ jobs:
           sudo service docker stop
           curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
-      # login here for tests
-      # - run: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run: make docker-build
       - run: make install
       - run: make test
+      - run: ./go-fmt.sh
       # TODO these should be inside test.sh file ?
       - run: ./api_test.sh mysql 4
       - run: ./api_test.sh postgres 4

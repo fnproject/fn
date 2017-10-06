@@ -35,7 +35,8 @@ container_ip)
     ;;
 esac
 
-go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v tool | grep -v cli | grep -v tmp/go/src | grep -v test/fn-api-tests)
+go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests)
+go vet -v $(go list ./... | grep -v vendor)
 docker rm --force func-postgres-test 
 docker rm --force func-mysql-test
 

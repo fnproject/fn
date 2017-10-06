@@ -200,6 +200,7 @@ func (ch *chRouter) besti(key string, i int, nodes []string) (string, error) {
 
 	for ; ; i++ {
 		// theoretically this could take infinite time, but practically improbable...
+		// TODO we need a way to add a node for a given key from down here if a node is overloaded.
 		node := f(nodes[i])
 		if node != "" {
 			return node, nil
@@ -207,10 +208,6 @@ func (ch *chRouter) besti(key string, i int, nodes []string) (string, error) {
 			i = -1 // reset i to 0
 		}
 	}
-
-	// TODO we need a way to add a node for a given key from down here if a node is overloaded.
-
-	panic("strange things are afoot at the circle k")
 }
 
 func translate(val, inFrom, inTo, outFrom, outTo int64) int {
