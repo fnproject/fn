@@ -32,7 +32,7 @@ The command line tool isn't required, but it sure makes things a lot easier. The
 
 #### 1. Homebrew - MacOS
 
-If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
+If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you:
 
 ```sh
 brew install fn
@@ -117,7 +117,8 @@ you can update your code and run `fn deploy myapp` again.
 
 ## To Learn More
 
-* Visit our Functions [Tutorial Series](examples/tutorial/)
+* Try out a [Tutorial](../tutorials/README.md) 
+* Visit our Functions [Quickstart Series](examples/tutorial/)
 * See our [full documentation](docs/README.md)
 * View all of our [examples](/examples)
 * You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
