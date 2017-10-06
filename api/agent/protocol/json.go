@@ -37,6 +37,9 @@ func (h *JSONProtocol) DumpJSON(req *http.Request) error {
 	stdin := json.NewEncoder(h.in)
 	bb := new(bytes.Buffer)
 	_, err := bb.ReadFrom(req.Body)
+	if err != nil {
+		return err
+	}
 	err = writeString(err, h.in, "{")
 	err = writeString(err, h.in, `"body":`)
 	err = stdin.Encode(bb.String())
