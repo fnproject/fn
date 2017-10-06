@@ -37,19 +37,19 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 		return err
 	}
 
-	if req.ContentLength != 0 {
+	bb := new(bytes.Buffer)
+	_, err = bb.ReadFrom(req.Body)
+	if err != nil {
+		return err
+	}
+	reqData := bb.String()
+	if reqData != "" {
 		_, err := io.WriteString(h.in, `"body": `)
 		if err != nil {
 			// this shouldn't happen
 			return err
 		}
-		bb := new(bytes.Buffer)
-		_, err = bb.ReadFrom(req.Body)
-		if err != nil {
-			return err
-		}
-
-		err = stdin.Encode(bb.String())
+		err = stdin.Encode(reqData)
 		if err != nil {
 			return err
 		}
