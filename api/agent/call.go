@@ -114,16 +114,14 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 }
 
 func buildEnv(id string, params Params, req *http.Request, app *models.App, route *models.Route) *models.CallEnv {
-	var env models.CallEnv
-	// we can base our new ones off our old ones, for speed
-	env.Header = map[string][]string(req.Header)
+	env := models.EnvFromReq(req)
 
 	// TODO do we need to assert these all pass httplex.ValidHeaderFieldValue
 	for k, v := range app.Config {
-		env.SetBase(k, v)
+		env.AddBase(k, v)
 	}
 	for k, v := range route.Config {
-		env.SetBase(k, v)
+		env.AddBase(k, v)
 	}
 
 	env.SetBase("FN_FORMAT", route.Format)
@@ -144,7 +142,7 @@ func buildEnv(id string, params Params, req *http.Request, app *models.App, rout
 		env.Set("FN_PARAM_"+param.Key, param.Value)
 	}
 
-	return &env
+	return env
 }
 
 func reqURL(req *http.Request) string {

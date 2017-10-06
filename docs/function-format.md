@@ -60,6 +60,15 @@ hello world
 
 The header keys and values would be populated with information about the function call such as the request URL and query parameters.
 
+HTTP Headers will not be populated with app config, route config or any of the
+following, that may be found in the environment instead:
+
+* `FN_APP_NAME` - the name of the application that matched this route, eg: `myapp`
+* `FN_PATH` - the matched route, eg: `/hello`
+* `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`.
+* `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
+* `FN_TYPE` - the type for this call, currently 'sync' or 'async'
+
 `Content-Length` is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory both for input and output. It is used by Functions to know when stop writing to STDIN and reading from STDOUT.
 
 #### Pros/Cons
