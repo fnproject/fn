@@ -36,8 +36,9 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 		// this shouldn't happen
 		return err
 	}
-	if req.Body != nil {
-		_, err := io.WriteString(h.in, `"body":"`)
+
+	if req.ContentLength != 0 {
+		_, err := io.WriteString(h.in, `"body": `)
 		if err != nil {
 			// this shouldn't happen
 			return err
@@ -52,13 +53,12 @@ func (h *JSONProtocol) DumpJSON(w io.Writer, req *http.Request) error {
 		if err != nil {
 			return err
 		}
-		_, err = io.WriteString(h.in, `",`)
+		_, err = io.WriteString(h.in, `,`)
 		if err != nil {
 			// this shouldn't happen
 			return err
 		}
 		defer bb.Reset()
-		defer req.Body.Close()
 	}
 	_, err = io.WriteString(h.in, `"headers:"`)
 	if err != nil {
@@ -99,7 +99,7 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 			}
 		}
 		rw.WriteHeader(jout.StatusCode)
-		_, err = rw.Write([]byte(jout.Body)) // TODO timeout
+		_, err = io.WriteString(rw, jout.Body) // TODO timeout
 		if err != nil {
 			return err
 		}
