@@ -2,7 +2,7 @@
 
 ## Language Wrappers to help writing functions
 
-* [Java](https://github.com/fnproject/fn-java-fdk)
+* [Java](https://github.com/fnproject/fdk-java)
 
 ## Clients for the API
 
