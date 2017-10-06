@@ -40,10 +40,16 @@ func (h *JSONProtocol) DumpJSON(req *http.Request) error {
 	err = writeString(err, h.in, "{")
 	err = writeString(err, h.in, `"body":`)
 	err = stdin.Encode(bb.String())
+	if err != nil {
+		return err
+	}
 	err = writeString(err, h.in, ",")
 	defer bb.Reset()
 	err = writeString(err, h.in, `"headers":`)
 	err = stdin.Encode(req.Header)
+	if err != nil {
+		return err
+	}
 	err = writeString(err, h.in, "}")
 	return err
 }
