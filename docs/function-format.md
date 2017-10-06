@@ -78,9 +78,7 @@ Fn accepts request data of the following format:
 
 ```json
 {
-  "body": {
-    "some": "input"
-  }
+  "some": "input"
 }
 ```
 
@@ -88,12 +86,11 @@ Internally function receives data in following format:
 
 ```json
 {
-  "body": "{\"some\":\"data\"}\n",
+  "body": "{\"some\":\"input\"}\n",
   "headers": {
     "yo": ["dawg"]
   }
 }
-
 ```
 
 Function's output format should have following format:
