@@ -47,7 +47,6 @@ func (h *JSONProtocol) DumpJSON(req *http.Request) error {
 	}
 	err = stdin.Encode(bb.String())
 	err = writeString(err, h.in, ",")
-	defer bb.Reset()
 	err = writeString(err, h.in, `"headers":`)
 	if err != nil {
 		return err
@@ -77,7 +76,11 @@ func (h *JSONProtocol) Dispatch(w io.Writer, req *http.Request) error {
 				rw.Header().Add(k, v) // on top of any specified on the route
 			}
 		}
-		rw.WriteHeader(jout.StatusCode)
+		if jout.StatusCode != 0 {
+			rw.WriteHeader(jout.StatusCode)
+		} else {
+			rw.WriteHeader(200)
+		}
 		_, err = io.WriteString(rw, jout.Body) // TODO timeout
 		if err != nil {
 			return err
