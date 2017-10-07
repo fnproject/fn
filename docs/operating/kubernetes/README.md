@@ -31,7 +31,7 @@ Note that `fn-service` is initially pending on allocating an external IP. The `k
 If you are using a Kubernetes setup that can expose a public load balancer, run:
 
 ```bash
-$ export FUNCTIONS=$(kubectl get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
+$ export API_URL=$(kubectl get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
 ```
 
 If you are using a Kubernetes setup like minikube, run
@@ -57,7 +57,6 @@ Hello Johnny!
 You can also use the [Fn CLI](https://github.com/fnproject/cli):
 
 ```bash
-$ export API_URL=http://192.168.99.100:30966
 $ fn apps list
 myapp
 $ fn routes list myapp
