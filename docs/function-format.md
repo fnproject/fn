@@ -2,7 +2,7 @@
 
 This document will describe the details of how a function works, inputs/outputs, etc.
 
-## Input Formats
+## I/O Formats
 
 ### STDIN and Environment Variables
 
@@ -10,17 +10,17 @@ While wanting to keep things simple, flexible and expandable, we decided to go b
 
 Configuration values, environment information and other things will be passed in through environment variables.
 
-The goals of the input format are the following:
+The goals of the I/O format are the following:
 
 * Very easy to use and parse
 * Supports hot for increasing performance (more than one call per container execution)
 * Ability to build higher level abstractions on top (ie: Lambda syntax compatible)
 
-The format is still up for discussion and in order to move forward and remain flexible, it's likely we will just allow different input formats and the function creator can decide what they want, on a per function basis. Default being the simplest format to use.
+The format is still up for discussion and in order to move forward and remain flexible, it's likely we will just allow different I/O formats and the function creator can decide what they want, on a per function basis. Default being the simplest format to use.
 
 TODO: Put common env vars here, that show up in all formats.
 
-#### Default Input Format
+#### Default I/O Format
 
 The default format is simply the request body itself plus some environment variables. For instance, if someone were to post a JSON body, the unmodified body would be sent in via STDIN. The result comes via STDOUT. When task is done, pipes are closed and the container running the function is terminated.
 
@@ -32,7 +32,7 @@ Cons:
 
 * Not very efficient resource utilization - one function for one event.
 
-#### HTTP Input Format
+#### HTTP I/O Format
 
 `--format http`
 
@@ -70,7 +70,7 @@ Cons:
 * Requires a parsing library or fair amount of code to parse headers properly
 * Double parsing - headers + body (if body is to be parsed, such as json)
 
-#### JSON Input Format
+#### JSON I/O Format
 
 `--format json`
 
