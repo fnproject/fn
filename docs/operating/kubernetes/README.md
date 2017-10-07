@@ -31,12 +31,12 @@ Note that `fn-service` is initially pending on allocating an external IP. The `k
 If you are using a Kubernetes setup that can expose a public load balancer, run:
 
 ```bash
-$ export FUNCTIONS=$(kubectl get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
+$ export FUNCTIONS=$(kubectl get service/fn-service --output=jsonpath='{.status.loadBalancer.ingress[0].ip}'):8080
 ```
 
 If you are using a Kubernetes setup like minikube, run
 ```bash
-$ echo $(minikube ip):$(kubectl get svc fn-service -o json | jq -r '.spec.ports[0].nodePort')
+$ echo $(minikube ip):$(kubectl get service/fn-service --output=jsonpath='{.spec.ports[0].nodePort}')
 192.168.99.100:30966
 $ export API_URL=http://192.168.99.100:30966
 ```
