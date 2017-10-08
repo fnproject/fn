@@ -21,7 +21,7 @@ platform that you can run anywhere. Some of it's key features:
 ## Prequisites
 
 * Docker 17.05 or later installed and running
-* A Docker Hub account ([Docker Hub](https://hub.docker.com/))
+* A Docker Hub account ([Docker Hub](https://hub.docker.com/)) (or other Docker-compliant registry)
 * Log Docker into your Docker Hub account: `docker login`
 
 ## Quickstart
