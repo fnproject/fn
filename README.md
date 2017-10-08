@@ -125,16 +125,10 @@ docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:808
 
 For more information, see: [https://github.com/fnproject/ui](https://github.com/fnproject/ui)
 
-## Next up
-
-### Check out the [Tutorial Series](examples/tutorial/)
-
-This tutorial will demonstrate some of the core Fn capabilities through a series of examples. We'll try to show examples in most major languages. This is a great Fn place to start!
-
 
 ## Learn More
 
-* Visit our Functions [Tutorial Series](examples/tutorial/)
+* Visit our Functions [Tutorial Series](examples/tutorial/). This tutorial will demonstrate some of the core Fn capabilities through a series of examples. We'll try to show examples in most major languages. This is a great Fn place to start!
 * See our [full documentation](docs/README.md)
 * View all of our [examples](/examples)
 * You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
