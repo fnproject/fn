@@ -115,32 +115,9 @@ Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/m
 That's it! You just deployed your first function and called it. To update your function
 you can update your code and run `fn deploy myapp` again.
 
-## To Learn More
-
-* Visit our Functions [Tutorial Series](examples/tutorial/)
-* See our [full documentation](docs/README.md)
-* View all of our [examples](/examples)
-* You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
-
-## Get Help
-
-* [Ask your question on StackOverflow](https://stackoverflow.com/questions/tagged/fn) and tag it with `fn`
-* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
-
-## Stay Informed
-
-* [Blog](https://medium.com/fnproject)
-* [Twitter](https://twitter.com/fnproj)
-
-## Get Involved
-
-* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
-* Learn how to [contribute](CONTRIBUTING.md)
-* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
-
 ## User Interface
 
-Check out this graphical user interface for Fn.
+We also have an open source graphical user interface for Fn. It's very easy to use, simply run the command below:
 
 ```sh
 docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" fnproject/ui
@@ -153,3 +130,29 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 ### Check out the [Tutorial Series](examples/tutorial/)
 
 This tutorial will demonstrate some of the core Fn capabilities through a series of examples. We'll try to show examples in most major languages. This is a great Fn place to start!
+
+
+## Learn More
+
+* Visit our Functions [Tutorial Series](examples/tutorial/)
+* See our [full documentation](docs/README.md)
+* View all of our [examples](/examples)
+* You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
+* View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
+
+## Get Help
+
+* [Ask your question on StackOverflow](https://stackoverflow.com/questions/tagged/fn) and tag it with `fn`
+* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+
+## Get Involved
+
+* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+* Learn how to [contribute](CONTRIBUTING.md)
+* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
+
+## Stay Informed
+
+* [Blog](https://medium.com/fnproject)
+* [Twitter](https://twitter.com/fnproj)
+* [YouTube](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
