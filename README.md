@@ -131,7 +131,6 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 * Visit our Functions [Tutorial Series](examples/tutorial/). This tutorial will demonstrate some of the core Fn capabilities through a series of examples. We'll try to show examples in most major languages. This is a great Fn place to start!
 * See our [full documentation](docs/README.md)
 * View all of our [examples](/examples)
-* You can also write your functions in AWS [Lambda format](docs/lambda/README.md)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 
 ## Get Help
