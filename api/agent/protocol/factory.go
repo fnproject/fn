@@ -36,6 +36,7 @@ type Protocol string
 const (
 	Default Protocol = models.FormatDefault
 	HTTP    Protocol = models.FormatHTTP
+	JSON    Protocol = models.FormatJSON
 	Empty   Protocol = ""
 )
 
@@ -45,6 +46,8 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 		*p = Default
 	case HTTP:
 		*p = HTTP
+	case JSON:
+		*p = JSON
 	default:
 		return errInvalidProtocol
 	}
@@ -57,6 +60,8 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 		return []byte(Default), nil
 	case HTTP:
 		return []byte(HTTP), nil
+	case JSON:
+		return []byte(JSON), nil
 	}
 	return nil, errInvalidProtocol
 }
@@ -67,6 +72,8 @@ func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	switch p {
 	case HTTP:
 		return &HTTPProtocol{in, out}
+	case JSON:
+		return &JSONProtocol{in, out}
 	case Default, Empty:
 		return &DefaultProtocol{}
 	}

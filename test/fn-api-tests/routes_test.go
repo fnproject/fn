@@ -16,7 +16,7 @@ func TestRoutes(t *testing.T) {
 		t.Parallel()
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-		_, err := createRoute(s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "",
+		_, err := createRoute(s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "", s.Format,
 			s.RouteConfig, s.RouteHeaders)
 		if err == nil {
 			t.Errorf("Should fail with Invalid route Type.")
@@ -128,7 +128,8 @@ func TestRoutes(t *testing.T) {
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.Format, s.RouteConfig, s.RouteHeaders)
 
-		_, err := createRoute(s.Context, s.Client, s.AppName, s.Image, s.RoutePath, newRouteType, s.RouteConfig, s.RouteHeaders)
+		_, err := createRoute(s.Context, s.Client, s.AppName, s.Image, s.RoutePath,
+			newRouteType, s.Format, s.RouteConfig, s.RouteHeaders)
 		if err == nil {
 			t.Errorf("Route duplicate error should appear, but it didn't")
 		}
