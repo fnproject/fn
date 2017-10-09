@@ -4,9 +4,9 @@ The Fn server exports metrics using [Prometheus](https://prometheus.io/). This a
 
 <img src="../../docs/assets/GrafanaDashboard.png" width="800">
 
-## Start a fn server and deploy some functions
+## Start an Fn server and deploy some functions
 
-This example requires a Fn server to be running and that you have deployed one or more functions. 
+This example requires an Fn server to be running and that you have deployed one or more functions. 
 See the [front page](/README.md) or any of the other examples for instructions. 
 
 The steps below assume that the Fn server is running at `localhost:8080`.
@@ -49,7 +49,7 @@ scrape_configs:
     scrape_interval: 5s
 
     static_configs:
-      # Specify all the fn servers from which metrics will be scraped
+      # Specify all the Fn servers from which metrics will be scraped
       - targets: ['localhost:8080'] # Uses /metrics by default
 ```
 Note the last line. This specifies the host and port of the Fn server from which metrics will be obtained. 
@@ -63,7 +63,7 @@ docker run --name=prometheus -d -p 9090:9090 \
 ```
 Note: The parameter `` --add-host="localhost:`route | grep default | awk '{print $2}'`" `` means that Prometheus can use localhost to refer to the host. (The expression `` `route | grep default | awk '{print $2}'` ``  returns the IP of the host).
 
-Open a browser on Prometheus's graph tool at [http://localhost:9090/graph](http://localhost:9090/graph). If you wish you can use this to view metrics and display metrics from the fn server: see the [Prometheus](https://prometheus.io/) documentation for instructions. Alternatively continue with the next step to view a ready-made set of graphs in Grafana.
+Open a browser on Prometheus's graph tool at [http://localhost:9090/graph](http://localhost:9090/graph). If you wish you can use this to view metrics and display metrics from the Fn server: see the [Prometheus](https://prometheus.io/) documentation for instructions. Alternatively continue with the next step to view a ready-made set of graphs in Grafana.
 
 ## Start Grafana and load the example dashboard
 
