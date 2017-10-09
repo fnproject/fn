@@ -37,7 +37,7 @@ jobs:
       - run: ./api_test.sh sqlite 4
       - deploy:
           command: |
-            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+            if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
               docker login -u $DOCKER_USER -p $DOCKER_PASS
               git config --global user.email "ci@fnproject.com"
               git config --global user.name "CI"
