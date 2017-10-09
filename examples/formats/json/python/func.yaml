@@ -1,0 +1,7 @@
+name: denismakogon/hot-json-python:0.0.1
+version: 0.0.1
+runtime: docker
+type: sync
+memory: 256
+format: json
+path: /hot-json-python

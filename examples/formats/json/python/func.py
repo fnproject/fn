@@ -15,21 +15,20 @@
 import fdk
 
 
-@fdk.coerce_http_input_to_content_type
-def app(context, data=None, loop=None):
+def handler(context, data=None, loop=None):
     """
-    User's request body handler
+    This is just an echo function
     :param context: request context
     :type context: hotfn.http.request.RequestContext
-    :param data: request body, it's type depends on request Content-Type header
+    :param data: request body
     :type data: object
     :param loop: asyncio event loop
-    :type loop asyncio.AbstractEventLoop
-    :return: echo of data
+    :type loop: asyncio.AbstractEventLoop
+    :return: echo of request body
     :rtype: object
     """
     return data
 
 
 if __name__ == "__main__":
-    fdk.handle(app)
+    fdk.handle(handler)
