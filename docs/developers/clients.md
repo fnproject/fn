@@ -3,6 +3,7 @@
 ## Language Wrappers to help writing functions
 
 * [Java](https://github.com/fnproject/fdk-java)
+* [Go](https://github.com/fnproject/fdk-go)
 
 ## Clients for the API
 
