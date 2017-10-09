@@ -140,7 +140,7 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 
 ## Get Involved
 
-* Join our [Slack Community](https://join.slack.com/t/fnproject/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)
+* Join our [Slack Community](http://slack.fnproject.io)
 * Learn how to [contribute](CONTRIBUTING.md)
 * See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
 
