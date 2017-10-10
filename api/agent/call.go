@@ -331,7 +331,7 @@ func (c *call) End(ctx context.Context, err error) {
 	case context.DeadlineExceeded:
 		c.Status = "timeout"
 	default:
-		// XXX (reed): should we append the error to logs? Error field?
+		// XXX (reed): should we append the error to logs? Error field? (TR) think so, otherwise it's lost looks like?
 		c.Status = "error"
 	}
 

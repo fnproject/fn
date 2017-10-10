@@ -27,8 +27,6 @@ func (s *Server) handleRequest(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-
 	r, routeExists := c.Get(api.Path)
 	if !routeExists {
 		r = "/"
@@ -39,11 +37,8 @@ func (s *Server) handleRequest(c *gin.Context) {
 		Path:    path.Clean(r.(string)),
 	}
 
-	s.FireBeforeDispatch(ctx, reqRoute)
-
 	s.serve(c, reqRoute.AppName, reqRoute.Path)
 
-	s.FireAfterDispatch(ctx, reqRoute)
 }
 
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
@@ -60,7 +55,6 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
-	// TODO we could add FireBeforeDispatch right here with Call in hand
 	model := call.Model()
 	{ // scope this, to disallow ctx use outside of this scope. add id for handleErrorResponse logger
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
@@ -92,11 +86,11 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
+	err = doCall(call)
 	err = s.Agent.Submit(call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little
-
 		if err == context.DeadlineExceeded {
 			// TODO maneuver
 			// add this, since it means that start may not have been called [and it's relevant]
