@@ -2,6 +2,32 @@
 
 We welcome all contributions!
 
+## Rules of Fn core (ie: what belongs here and what doesn't)
+
+Fn server (core) is only for the essential parts of the entire Fn ecosystem. 
+These include:
+
+- The core API (apps, routes, calls, logs)
+- Executing functions (sync and async)
+- Extension points (callbacks, middleware, API additions)
+
+That's it. Everything else should be built as an extension.
+
+This does not include:
+
+- authentication
+- stats/metrics
+- special/optional features such as triggers, fdk's, workflows, event sources, etc.
+- could be argued that additional I/O formats beyond the basic ones we support should be built as plugins too
+
+Rule of thumb: If it could be built as an extension, then build it as an extension. 
+
+We WILL accept any reasonable additions to extension points in order to support building extensions. 
+
+We WILL do whatever we can to make it easy for users to add extensions (easy builds or use Go plugins). 
+
+Graduation: Some extensions can graduate into core if they become commonplace in the community (ie: majority of users are using it). 
+
 ## How to contribute
 
 * Fork the repo
