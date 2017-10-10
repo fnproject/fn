@@ -19,7 +19,8 @@ The following listener types are supported:
 
 ### Creating a Listener
 
-You can easily use app and runner listeners by creating a struct with valid methods satisfying the interface for the respective listener and adding it to the Fn API
+You can easily use add listeners by creating a struct with valid methods satisfying the interface
+for the respective listener, adding it to `main.go` then compiling.
 
 Example:
 
