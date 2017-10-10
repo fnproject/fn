@@ -67,6 +67,7 @@ import:
   version: 19f72df4d05d31cbe1c56bfc8045c96babff6c7e
 - package: github.com/prometheus/common
   version: 2f17f4a9d485bf34b4bfaccc273805040e4f86c8
+- package: github.com/prometheus/client_golang
 testImport:
 - package: github.com/patrickmn/go-cache
   branch: master

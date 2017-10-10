@@ -280,6 +280,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 	engine.GET("/stats", s.handleStats)
+	engine.GET("/metrics", s.handlePrometheusMetrics)
 
 	{
 		v1 := engine.Group("/v1")
