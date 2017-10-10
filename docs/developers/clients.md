@@ -4,6 +4,7 @@
 
 * [Java](https://github.com/fnproject/fdk-java)
 * [Go](https://github.com/fnproject/fdk-go)
+* [Python](https://github.com/fnproject/fdk-python)
 
 ## Clients for the API
 
