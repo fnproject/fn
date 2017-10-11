@@ -36,7 +36,7 @@ Cons:
 
 `--format http`
 
-HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it's supports hot format. The response will look like a HTTP response. The communication is still done via stdin/stdout, but these pipes are never closed unless the container is explicitly terminated. The basic format is:
+HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it supports hot format. The response will look like a HTTP response. The communication is still done via stdin/stdout, but these pipes are never closed unless the container is explicitly terminated. The basic format is:
 
 Request:
 
