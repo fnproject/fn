@@ -15,9 +15,10 @@ type Person struct {
 }
 
 type JSON struct {
-	Headers    http.Header `json:"headers"`
-	Body       string      `json:"body,omitempty"`
-	StatusCode int         `json:"status,omitempty"`
+	Headers         http.Header `json:"headers"`
+	Body            string      `json:"body,omitempty"`
+	StatusCode      int         `json:"status,omitempty"`
+	QueryParameters string      `json:"query_parameters,omitempty"`
 }
 
 func main() {
