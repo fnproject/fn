@@ -49,15 +49,15 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-rust
+curl http://localhost:8080/r/myapp/rust
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/hello-rust](http://localhost:8080/r/myapp/hello-rust)
+Or call from a browser: [http://localhost:8080/r/myapp/rust](http://localhost:8080/r/myapp/rust)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-rust
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/rust
 ```
 
 That's it!

@@ -3,6 +3,19 @@
 
 Welcome to the Fn Tutorial Series, the best way to get started with Fn and serverless computing. In the following tutorials, we'll gradually introduce many of the key features of Fn.
 
+## Prequisites
+* [../../README.md](Quickstart) has been completed.
+
+When starting a new shell, remember to:
+
+```
+# Log Docker into your Docker Hub account
+docker login
+
+# Set your Docker Hub username
+export FN_REGISTRY=<DOCKERHUB_USERNAME>
+```
+
 ## Guided Tour
 
 ### Part 1

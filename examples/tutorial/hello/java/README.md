@@ -21,10 +21,10 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-java
+curl http://localhost:8080/r/myapp/java
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/hello-java](http://localhost:8080/r/myapp/hello-java)
+Or call from a browser: [http://localhost:8080/r/myapp/java](http://localhost:8080/r/myapp/java)
 
 That's it!
 

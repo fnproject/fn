@@ -22,15 +22,15 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-go
+curl http://localhost:8080/r/myapp/go
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/go](http://localhost:8080/r/myapp/hello-go)
+Or call from a browser: [http://localhost:8080/r/myapp/go](http://localhost:8080/r/myapp/go)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-go
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/go
 ```
 
 That's it!

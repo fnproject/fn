@@ -22,15 +22,15 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-node
+curl http://localhost:8080/r/myapp/node
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/hello-node](http://localhost:8080/r/myapp/hello-node)
+Or call from a browser: [http://localhost:8080/r/myapp/node](http://localhost:8080/r/myapp/node)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-node
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/node
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Fn server. Try editing `func.js` 
