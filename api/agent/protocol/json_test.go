@@ -16,9 +16,9 @@ type RequestData struct {
 }
 
 type funcRequestBody struct {
-	Body string `json:"body"`
-	Headers http.Header `json:"headers"`
-	QueryParameters string `json:"query_parameters"`
+	Body            string      `json:"body"`
+	Headers         http.Header `json:"headers"`
+	QueryParameters string      `json:"query_parameters"`
 }
 
 func setupRequest(data interface{}) *http.Request {
@@ -80,7 +80,6 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
 			rDataBefore.A, rDataAfter.A)
 	}
-
 }
 
 func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
