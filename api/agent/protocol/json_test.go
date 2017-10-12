@@ -15,11 +15,13 @@ type RequestData struct {
 	A string `json:"a"`
 }
 
-type fuckReed struct {
-	Body RequestData `json:"body"`
+type funcRequestBody struct {
+	Body string `json:"body"`
+	Headers http.Header `json:"headers"`
+	QueryParameters string `json:"query_parameters"`
 }
 
-func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
+func setupRequest(data interface{}) *http.Request {
 	req := &http.Request{
 		Method: http.MethodPost,
 		URL: &url.URL{
@@ -38,10 +40,17 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 		Host: "localhost:8080",
 	}
 	var buf bytes.Buffer
-	rDataBefore := RequestData{A: "a"}
-	json.NewEncoder(&buf).Encode(rDataBefore)
-	req.Body = ioutil.NopCloser(&buf)
 
+	if data != nil {
+		_ = json.NewEncoder(&buf).Encode(data)
+	}
+	req.Body = ioutil.NopCloser(&buf)
+	return req
+}
+
+func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
+	rDataBefore := RequestData{A: "a"}
+	req := setupRequest(rDataBefore)
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
@@ -51,7 +60,7 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 		}
 		w.Close()
 	}()
-	incomingReq := new(jsonio)
+	incomingReq := new(funcRequestBody)
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -71,28 +80,11 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
 			rDataBefore.A, rDataAfter.A)
 	}
+
 }
 
 func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
-	req := &http.Request{
-		Method: http.MethodPost,
-		URL: &url.URL{
-			Scheme:   "http",
-			Host:     "localhost:8080",
-			Path:     "/v1/apps",
-			RawQuery: "something=something&etc=etc",
-		},
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header: http.Header{
-			"Host":         []string{"localhost:8080"},
-			"User-Agent":   []string{"curl/7.51.0"},
-			"Content-Type": []string{"application/json"},
-		},
-		Host: "localhost:8080",
-	}
-	var buf bytes.Buffer
-	req.Body = ioutil.NopCloser(&buf)
+	req := setupRequest(nil)
 
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
@@ -103,7 +95,7 @@ func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
 		}
 		w.Close()
 	}()
-	incomingReq := new(jsonio)
+	incomingReq := new(funcRequestBody)
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -114,9 +106,41 @@ func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
+	if incomingReq.Body != "" {
+		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
+			"<empty-string>", incomingReq.Body)
+	}
 	if ok := reflect.DeepEqual(req.Header, incomingReq.Headers); !ok {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
 			req.Header, incomingReq.Headers)
+	}
+}
 
+func TestJSONProtocolDumpJSONRequestWithQuery(t *testing.T) {
+	req := setupRequest(nil)
+
+	r, w := io.Pipe()
+	proto := JSONProtocol{w, r}
+	go func() {
+		err := proto.DumpJSON(req)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		w.Close()
+	}()
+	incomingReq := new(funcRequestBody)
+	bb := new(bytes.Buffer)
+
+	_, err := bb.ReadFrom(r)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = json.Unmarshal(bb.Bytes(), incomingReq)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if incomingReq.QueryParameters != req.URL.RawQuery {
+		t.Errorf("Request query string assertion mismatch: expected: %s, got %s",
+			req.URL.RawQuery, incomingReq.QueryParameters)
 	}
 }
