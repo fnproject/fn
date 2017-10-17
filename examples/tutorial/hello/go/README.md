@@ -6,7 +6,7 @@ This example will show you how to test and deploy Go (Golang) code to Fn. It wil
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init --name hello-go
+fn init --name hello-go --runtime go
 
 # Test your function. This will run inside a container exactly how it will on the server
 fn run
