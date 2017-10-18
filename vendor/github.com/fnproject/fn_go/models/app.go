@@ -17,7 +17,7 @@ import (
 
 type App struct {
 
-	// Application configuration
+	// Application configuration, applied to all routes.
 	Config map[string]string `json:"config,omitempty"`
 
 	// Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _.

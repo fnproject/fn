@@ -6,8 +6,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"strconv"
-
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -22,15 +20,21 @@ type CallsWrapper struct {
 
 	// calls
 	// Required: true
-	Calls []*Call `json:"calls"`
+	Calls CallsWrapperCalls `json:"calls"`
 
 	// error
 	Error *ErrorBody `json:"error,omitempty"`
+
+	// cursor to send with subsequent request to receive the next page, if non-empty
+	// Read Only: true
+	NextCursor string `json:"next_cursor,omitempty"`
 }
 
 /* polymorph CallsWrapper calls false */
 
 /* polymorph CallsWrapper error false */
+
+/* polymorph CallsWrapper next_cursor false */
 
 // Validate validates this calls wrapper
 func (m *CallsWrapper) Validate(formats strfmt.Registry) error {
@@ -56,24 +60,6 @@ func (m *CallsWrapper) validateCalls(formats strfmt.Registry) error {
 
 	if err := validate.Required("calls", "body", m.Calls); err != nil {
 		return err
-	}
-
-	for i := 0; i < len(m.Calls); i++ {
-
-		if swag.IsZero(m.Calls[i]) { // not required
-			continue
-		}
-
-		if m.Calls[i] != nil {
-
-			if err := m.Calls[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("calls" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
 	}
 
 	return nil

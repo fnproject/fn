@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/swag"
 
 	strfmt "github.com/go-openapi/strfmt"
 )
@@ -21,7 +22,7 @@ import (
 // NewGetAppsParams creates a new GetAppsParams object
 // with the default values initialized.
 func NewGetAppsParams() *GetAppsParams {
-
+	var ()
 	return &GetAppsParams{
 
 		timeout: cr.DefaultTimeout,
@@ -31,7 +32,7 @@ func NewGetAppsParams() *GetAppsParams {
 // NewGetAppsParamsWithTimeout creates a new GetAppsParams object
 // with the default values initialized, and the ability to set a timeout on a request
 func NewGetAppsParamsWithTimeout(timeout time.Duration) *GetAppsParams {
-
+	var ()
 	return &GetAppsParams{
 
 		timeout: timeout,
@@ -41,7 +42,7 @@ func NewGetAppsParamsWithTimeout(timeout time.Duration) *GetAppsParams {
 // NewGetAppsParamsWithContext creates a new GetAppsParams object
 // with the default values initialized, and the ability to set a context for a request
 func NewGetAppsParamsWithContext(ctx context.Context) *GetAppsParams {
-
+	var ()
 	return &GetAppsParams{
 
 		Context: ctx,
@@ -51,7 +52,7 @@ func NewGetAppsParamsWithContext(ctx context.Context) *GetAppsParams {
 // NewGetAppsParamsWithHTTPClient creates a new GetAppsParams object
 // with the default values initialized, and the ability to set a custom HTTPClient for a request
 func NewGetAppsParamsWithHTTPClient(client *http.Client) *GetAppsParams {
-
+	var ()
 	return &GetAppsParams{
 		HTTPClient: client,
 	}
@@ -61,6 +62,18 @@ func NewGetAppsParamsWithHTTPClient(client *http.Client) *GetAppsParams {
 for the get apps operation typically these are written to a http.Request
 */
 type GetAppsParams struct {
+
+	/*Cursor
+	  Cursor from previous response.next_cursor to begin results after, if any.
+
+	*/
+	Cursor *string
+	/*PerPage
+	  Number of results to return, defaults to 30. Max of 100.
+
+	*/
+	PerPage *int64
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -99,6 +112,28 @@ func (o *GetAppsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithCursor adds the cursor to the get apps params
+func (o *GetAppsParams) WithCursor(cursor *string) *GetAppsParams {
+	o.SetCursor(cursor)
+	return o
+}
+
+// SetCursor adds the cursor to the get apps params
+func (o *GetAppsParams) SetCursor(cursor *string) {
+	o.Cursor = cursor
+}
+
+// WithPerPage adds the perPage to the get apps params
+func (o *GetAppsParams) WithPerPage(perPage *int64) *GetAppsParams {
+	o.SetPerPage(perPage)
+	return o
+}
+
+// SetPerPage adds the perPage to the get apps params
+func (o *GetAppsParams) SetPerPage(perPage *int64) {
+	o.PerPage = perPage
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetAppsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -106,6 +141,38 @@ func (o *GetAppsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Regis
 		return err
 	}
 	var res []error
+
+	if o.Cursor != nil {
+
+		// query param cursor
+		var qrCursor string
+		if o.Cursor != nil {
+			qrCursor = *o.Cursor
+		}
+		qCursor := qrCursor
+		if qCursor != "" {
+			if err := r.SetQueryParam("cursor", qCursor); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.PerPage != nil {
+
+		// query param per_page
+		var qrPerPage int64
+		if o.PerPage != nil {
+			qrPerPage = *o.PerPage
+		}
+		qPerPage := swag.FormatInt64(qrPerPage)
+		if qPerPage != "" {
+			if err := r.SetQueryParam("per_page", qPerPage); err != nil {
+				return err
+			}
+		}
+
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

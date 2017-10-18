@@ -32,6 +32,9 @@ import:
   subpackages:
   - redis
 - package: github.com/gin-gonic/gin
+- package: github.com/rdallman/migrate
+  # TODO change to mattes/migrate w/ https://github.com/mattes/migrate/pull/299
+  version: bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef
 - package: github.com/go-openapi/errors
 - package: github.com/go-openapi/loads
   subpackages:
