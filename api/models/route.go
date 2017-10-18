@@ -25,12 +25,12 @@ type Route struct {
 	Path        string  `json:"path" db:"path"`
 	Image       string  `json:"image" db:"image"`
 	Memory      uint64  `json:"memory" db:"memory"`
-	Headers     Headers `json:"headers" db:"headers"`
+	Headers     Headers `json:"headers,omitempty" db:"headers"`
 	Type        string  `json:"type" db:"type"`
 	Format      string  `json:"format" db:"format"`
 	Timeout     int32   `json:"timeout" db:"timeout"`
 	IdleTimeout int32   `json:"idle_timeout" db:"idle_timeout"`
-	Config      Config  `json:"config" db:"config"`
+	Config      Config  `json:"config,omitempty" db:"config"`
 }
 
 // SetDefaults sets zeroed field to defaults.
