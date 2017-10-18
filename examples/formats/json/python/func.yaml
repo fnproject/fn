@@ -1,0 +1,7 @@
+name: fnproject/hot-json-python
+version: 0.0.1
+runtime: python3.6.2
+type: sync
+memory: 256
+format: json
+path: /hot-json-python
