@@ -35,6 +35,7 @@ jobs:
       - run: ./api_test.sh mysql 4
       - run: ./api_test.sh postgres 4
       - run: ./api_test.sh sqlite 4
+      - run: docker run --rm  quay.io/goswagger/swagger validate https://raw.githubusercontent.com/fnproject/fn/${CIRCLE_BRANCH}/docs/swagger.yml
       - deploy:
           command: |
             if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
