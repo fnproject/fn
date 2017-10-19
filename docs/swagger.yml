@@ -31,7 +31,7 @@ paths:
         - name: per_page
           description: Number of results to return, defaults to 30. Max of 100.
           required: false
-          type: int
+          type: integer
           in: query
       responses:
         200:
@@ -215,7 +215,7 @@ paths:
         - name: per_page
           description: Number of results to return, defaults to 30. Max of 100.
           required: false
-          type: int
+          type: integer
           in: query
       responses:
         200:
@@ -454,36 +454,42 @@ paths:
       tags:
         - Call
       parameters:
-        - name: app
+        - in: path
+          name: app
           description: App name.
           required: true
-          type: string
-          in: path
-        - name: path
+          schema:
+            type: string
+        - in: query
+          name: path
           description: Route path to match, exact.
           required: false
-          type: string
-          in: query
-        - name: cursor
+          schema:
+              type: string
+        - in: query
+          name: cursor
           description: Cursor from previous response.next_cursor to begin results after, if any.
           required: false
-          type: string
-          in: query
-        - name: per_page
+          schema:
+              type: string
+        - in: query
+          name: per_page
           description: Number of results to return, defaults to 30. Max of 100.
           required: false
-          type: int
-          in: query
-        - name: from_time
+          schema:
+              type: integer
+        - in: query
+          name: from_time
           description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
           required: false
-          type: int
-          in: query
-        - name: to_time
+          schema:
+            type: integer
+        - in: query
+          name: to_time
           description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
           required: false
-          type: int
-          in: query
+          schema:
+            type: integer
       responses:
         200:
           description: Calls found
