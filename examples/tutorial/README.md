@@ -6,7 +6,7 @@ Welcome to the Fn Tutorial Series, the best way to get started with Fn and serve
 ## Prequisites
 * [Quickstart](../../README.md) has been completed.
 
-When starting a new shell, remember to:
+When starting a new shell, remember to: 
 
 ```
 # Log Docker into your Docker Hub account
