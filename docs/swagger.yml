@@ -454,42 +454,36 @@ paths:
       tags:
         - Call
       parameters:
-        - in: path
-          name: app
+        - name: app
           description: App name.
           required: true
-          schema:
-            type: string
-        - in: query
-          name: path
+          type: string
+          in: path
+        - name: path
           description: Route path to match, exact.
           required: false
-          schema:
-              type: string
-        - in: query
-          name: cursor
+          type: string
+          in: query
+        - name: cursor
           description: Cursor from previous response.next_cursor to begin results after, if any.
           required: false
-          schema:
-              type: string
-        - in: query
-          name: per_page
+          type: string
+          in: query
+        - name: per_page
           description: Number of results to return, defaults to 30. Max of 100.
           required: false
-          schema:
-              type: integer
-        - in: query
-          name: from_time
+          type: integer
+          in: query
+        - name: from_time
           description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
           required: false
-          schema:
-            type: integer
-        - in: query
-          name: to_time
+          type: integer
+          in: query
+        - name: to_time
           description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
           required: false
-          schema:
-            type: integer
+          type: integer
+          in: query
       responses:
         200:
           description: Calls found
