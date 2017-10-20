@@ -155,7 +155,7 @@ func (s *Server) setTracer() {
 	if err != nil {
 		logrus.WithError(err).Fatalln("couldn't start tracer")
 	}
-	
+
 	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
 	fntracer := NewFnTracer(ziptracer)
 
