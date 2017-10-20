@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/fn)](https://goreportcard.com/report/github.com/fnproject/fn)
 
 Fn is an event-driven, open source, [functions-as-a-service](docs/serverless.md) compute
-platform that you can run anywhere. Some of it's key features:
+platform that you can run anywhere. Some of its key features:
 
 * Write once
   * [Any language](docs/faq.md#which-languages-are-supported)
