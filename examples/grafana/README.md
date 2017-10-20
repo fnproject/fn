@@ -99,11 +99,12 @@ You should then see the dashboard shown above. Now execute some functions and se
 
 ## Tracing metrics
 
-Tracing spans from the Fn server are available as Prometheus metrics. Each span has a name that describes the operation being performed (for example `docker_wait_container`), and its duration in seconds. Each span name is represented by a separate histogram metric, which has a name of the form `fn_span_<span-name>_duration_seconds`. 
+Tracing spans from the Fn server are available as Prometheus metrics. Each span represents a timed internal operation such as a function call, and has
+two main attributes: a name that describes the operation being performed (for example `docker_wait_container`), and its duration in seconds. Each span name is represented by a separate histogram metric, which has a name of the form `fn_span_<span-name>_duration_seconds`. 
 
 If the span is associated with a specific function invocation, the corresponding metric is given the labels `fn_app` and `fn_path` which are set to the application name and function path respectively.
 
-A second example dashboard `fn_grafana_dashboard2.json` in this example's directory extends the first dashboard to show rate and duration data for a selection of tracing spans. 
+A second example dashboard `fn_grafana_dashboard2.json` in this example's directory shows rate and duration data for some significant operations.
 
 <img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
  
