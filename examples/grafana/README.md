@@ -90,11 +90,20 @@ Create a datasource to obtain metrics from Promethesus:
 * Click **Add** and then **Save and test**
 
 Import the example dashboard that displays metrics from the Fn server:
-* Click on the main menu at the top left and choose **Dashboards** and then **Home**
-* Click on **Home** at the top and then **Import dashboard**
+* Click on the main menu at the top left and choose **Dashboards** and then **Import**
 * In the dialog that opens, click **Upload .json file** and specify `fn_grafana_dashboard.json` in this example's directory.
 * Specify the Prometheus data source that you just created
 * Click **Import**
 
 You should then see the dashboard shown above. Now execute some functions and see the graphs update.
 
+## Tracing metrics
+
+Tracing spans from the Fn server are available as Prometheus metrics. Each span has a name that describes the operation being performed (for example `docker_wait_container`), and its duration in seconds. Each span name is represented by a separate histogram metric, which has a name of the form `fn_span_<span-name>_duration_seconds`. 
+
+If the span is associated with a specific function invocation, the corresponding metric is given the labels `fn_app` and `fn_path` which are set to the application name and function path respectively.
+
+A second example dashboard shows rate and duration data for a selection of tracing spans. This is `fn_grafana_dashboard2.json` in this example's directory. 
+
+<img src="../../docs/assets/GrafanaDashboard.png" width="800">
+ 
