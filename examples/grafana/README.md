@@ -105,5 +105,5 @@ If the span is associated with a specific function invocation, the corresponding
 
 A second example dashboard `fn_grafana_dashboard2.json` in this example's directory extends the first dashboard to show rate and duration data for a selection of tracing spans. 
 
-<img src="../../docs/assets/GrafanaDashboard2.png" width="800">
+<img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
  
