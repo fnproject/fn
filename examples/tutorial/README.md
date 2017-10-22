@@ -23,7 +23,7 @@ Learn how to get parameters from a web request. [Click here](params)
 
 ### Part 3
 
-Write your first HotFunction (stays alive to minimize latency between requests). [Click here](hotfunctions/http)
+Write your first HotFunction (stays alive to minimize latency between requests). [Click here](https://github.com/fnproject/fn/tree/master/examples/formats)
 
 ## Other Tutorials
 
