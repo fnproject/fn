@@ -17,8 +17,7 @@ CMD ["./functions"]
 ONBUILD ARG REPO
 ONBUILD ENV REPOPATH=$GOPATH/src/$REPO
 ONBUILD ADD . $REPOPATH
-# dep just way too slow and error prone... :(
-# It might be a good idea to move interfaces and models to a new repo with minimal depenencies, then this might work nice
+# note: It might be a good idea to move interfaces and models to a new repo with minimal dependencies, then doing a dep ensure/install might work nice
 # ONBUILD RUN go get -u github.com/golang/dep/cmd/dep
 # ONBUILD RUN cd $REPOPATH && dep init && dep ensure
 # Try doing regular go get:
