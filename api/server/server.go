@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
@@ -23,6 +24,7 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/version"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/handlers"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go-opentracing"
@@ -37,6 +39,7 @@ const (
 	EnvLOGDBURL  = "logstore_url"
 	EnvPort      = "port" // be careful, Gin expects this variable to be "port"
 	EnvAPIURL    = "api_url"
+	EnvAPICORS   = "api_cors"
 	EnvZipkinURL = "zipkin_url"
 )
 
@@ -255,9 +258,17 @@ func (s *Server) startGears(ctx context.Context) {
 
 	logrus.Infof("Serving Functions API on address `%s`", listen)
 
+	// By default no CORS are allowed unless one
+	// or more Origins are defined by the API_CORS
+	// environment variable.
+	origins := strings.Split(strings.Replace(viper.GetString(EnvAPICORS), " ", "", -1), ",")
+	corsObj := handlers.AllowedOrigins(origins)
+
+	logrus.Infof("CORS enabled for domains: %s", origins)
+
 	server := http.Server{
 		Addr:    listen,
-		Handler: s.Router,
+		Handler: handlers.CORS(corsObj)(s.Router),
 		// TODO we should set read/write timeouts
 	}
 

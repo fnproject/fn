@@ -2,8 +2,10 @@ package: github.com/fnproject/fn
 excludeDirs:
 - cli
 import:
-- package: golang.org/x/crypto/pkcs12
+- package: golang.org/x/crypto
   version: master
+  subpackages:
+  - pkcs12
 - package: github.com/fnproject/fn_go
   version: ^0.2.0
   subpackages:
@@ -68,6 +70,7 @@ import:
 - package: github.com/prometheus/common
   version: 2f17f4a9d485bf34b4bfaccc273805040e4f86c8
 - package: github.com/prometheus/client_golang
+- package: github.com/gorilla/handlers
+  version: ~1.2.1
 testImport:
 - package: github.com/patrickmn/go-cache
-  branch: master
