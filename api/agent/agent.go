@@ -502,7 +502,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	go func() {
 		// TODO make sure stdin / stdout not blocked if container dies or we leak goroutine
 		// we have to make sure this gets shut down or 2 threads will be reading/writing in/out
-		errApp <- s.proto.Dispatch(call.w, call.req)
+		errApp <- s.proto.Dispatch(call.Call, call.w, call.req)
 	}()
 
 	select {

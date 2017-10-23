@@ -14,8 +14,8 @@ type errorProto struct {
 	error
 }
 
-func (e errorProto) IsStreamable() bool                      { return false }
-func (e errorProto) Dispatch(io.Writer, *http.Request) error { return e }
+func (e errorProto) IsStreamable() bool                                    { return false }
+func (e errorProto) Dispatch(*models.Call, io.Writer, *http.Request) error { return e }
 
 // ContainerIO defines the interface used to talk to a hot function.
 // Internally, a protocol must know when to alternate between stdin and stdout.
@@ -26,7 +26,7 @@ type ContainerIO interface {
 	// Dispatch will handle sending stdin and stdout to a container. Implementers
 	// of Dispatch may format the input and output differently. Dispatch must respect
 	// the req.Context() timeout / cancellation.
-	Dispatch(w io.Writer, req *http.Request) error
+	Dispatch(call *models.Call, w io.Writer, req *http.Request) error
 }
 
 // Protocol defines all protocols that operates a ContainerIO.

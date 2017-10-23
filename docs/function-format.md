@@ -34,7 +34,7 @@ Cons:
 
 #### HTTP I/O Format
 
-`--format http`
+`format: http`
 
 HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it supports hot format. The response will look like a HTTP response. The communication is still done via stdin/stdout, but these pipes are never closed unless the container is explicitly terminated. The basic format is:
 
@@ -72,9 +72,11 @@ Cons:
 
 #### JSON I/O Format
 
-`--format json`
+`format: json`
 
-Fn accepts request data of the following format:
+The JSON format is a nice hot format as it is easy to parse in most languages.
+
+If a request comes in like this:
 
 ```json
 {
@@ -86,23 +88,33 @@ Internally function receives data in following format:
 
 ```json
 {
-  "body": "{\"some\":\"input\"}\n",
+  "body": "{\"some\":\"input\"}",
+  "request_url": "http://localhost:8080/r/myapp/myfunc?q=hi",
   "headers": {
-    "yo": ["dawg"]
+    "Content-Type": "application/json"
+  },
+  "config": {
+    "MY_KEY": "something",
   }
 }
 ```
 
-Function's output format should have following format:
+Each request will be separated by a new line.
+
+Function's output format should have the following format:
+
 ```json
 {
   "status_code": 200,
-  "body": "...",
-  "headeres": {
-    "A": ["b"]
+  "body": "{\"some\":\"output\"}",
+  "headers": {
+    "Content-Type": "application/json"
   }
 }
 ```
+
+Only body is required.
+
 At client side user will receive HTTP response with HTTP headers, status code and the body from taken from function's response.
 
 Pros:

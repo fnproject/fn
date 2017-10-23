@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
@@ -25,7 +27,7 @@ func (p *HTTPProtocol) IsStreamable() bool { return true }
 // over the timeout.
 // TODO maybe we should take io.Writer, io.Reader but then we have to
 // dump the request to a buffer again :(
-func (h *HTTPProtocol) Dispatch(w io.Writer, req *http.Request) error {
+func (h *HTTPProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Request) error {
 	err := DumpRequestTo(h.in, req) // TODO timeout
 	if err != nil {
 		return err
