@@ -129,7 +129,7 @@ func (s *Server) setTracer() {
 	var collector zipkintracer.Collector
 
 	// custom Zipkin collector to send tracing spans to Prometheus
-	promCollector, promErr := NewPrometheusCollector(s.Agent)
+	promCollector, promErr := NewPrometheusCollector()
 	if promErr != nil {
 		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
 	}

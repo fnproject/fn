@@ -1,22 +1,33 @@
 package server
 
 import (
-	"github.com/fnproject/fn/api/agent"
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go-opentracing/thrift/gen-go/zipkincore"
 	"github.com/prometheus/client_golang/prometheus"
 	"strings"
+	"time"
 )
 
-// Each span name is published as a separate Histogram metric
-// Using metric names of the form fn_span_<span-name>_duration_seconds
-var histogramVecMap = make(map[string]*prometheus.HistogramVec)
+// PrometheusCollector is a custom Collector
+// which sends ZipKin traces to Prometheus
+type PrometheusCollector struct {
+
+	// Each span name is published as a separate Histogram metric
+	// Using metric names of the form fn_span_<span-name>_duration_seconds
+	histogramVecMap map[string]*prometheus.HistogramVec
+}
+
+// NewPrometheusCollector returns a new PrometheusCollector
+func NewPrometheusCollector() (zipkintracer.Collector, error) {
+	pc := &PrometheusCollector{make(map[string]*prometheus.HistogramVec)}
+	return pc, nil
+}
 
 // Return the HistogramVec corresponding to the specified spanName.
 // If a HistogramVec does not already exist for specified spanName then one is created and configured with the specified labels
 // otherwise the labels parameter is ignored.
-func getHistogramVecForSpanName(spanName string, labels []string) *prometheus.HistogramVec {
-	thisHistogramVec, found := histogramVecMap[spanName]
+func (pc PrometheusCollector) getHistogramVecForSpanName(spanName string, labels []string) *prometheus.HistogramVec {
+	thisHistogramVec, found := pc.histogramVecMap[spanName]
 	if !found {
 		thisHistogramVec = prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -25,23 +36,10 @@ func getHistogramVecForSpanName(spanName string, labels []string) *prometheus.Hi
 			},
 			labels,
 		)
-		histogramVecMap[spanName] = thisHistogramVec
+		pc.histogramVecMap[spanName] = thisHistogramVec
 		prometheus.MustRegister(thisHistogramVec)
 	}
 	return thisHistogramVec
-}
-
-// PrometheusCollector is a custom Collector
-// which sends ZipKin traces to Prometheus
-type PrometheusCollector struct {
-	a agent.Agent
-}
-
-// NewPrometheusCollector returns a new PrometheusCollector
-func NewPrometheusCollector(agent agent.Agent) (zipkintracer.Collector, error) {
-	pc := &PrometheusCollector{}
-	pc.a = agent
-	return pc, nil
 }
 
 // PrometheusCollector implements Collector.
@@ -50,8 +48,7 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 	// extract any label values from the span
 	labelKeys, labelValueMap := getLabels(span)
 
-	getHistogramVecForSpanName(span.GetName(), labelKeys).With(labelValueMap).Observe(float64(span.GetDuration()) / 1000000)
-
+	pc.getHistogramVecForSpanName(span.GetName(), labelKeys).With(labelValueMap).Observe((time.Duration(span.GetDuration()) * time.Microsecond).Seconds())
 	return nil
 }
 
