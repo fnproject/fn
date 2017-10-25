@@ -110,6 +110,7 @@ func traceWrap(c *gin.Context) {
 	// If wireContext == nil, a root span will be created.
 	// TODO we should add more tags?
 	serverSpan := opentracing.StartSpan("serve_http", ext.RPCServerOption(wireContext), opentracing.Tag{Key: "path", Value: c.Request.URL.Path})
+	serverSpan.SetBaggageItem("fn_appname", c.Param(api.CApp))
 	defer serverSpan.Finish()
 
 	ctx := opentracing.ContextWithSpan(c.Request.Context(), serverSpan)

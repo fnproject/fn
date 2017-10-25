@@ -1,4 +1,34 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMDS",
+      "label": "PromDS",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "4.6.0-beta3"
+    },
+    {
+      "type": "panel",
+      "id": "graph",
+      "name": "Graph",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -16,29 +46,32 @@
   "gnetId": null,
   "graphTooltip": 0,
   "hideControls": false,
-  "id": 1,
+  "id": null,
   "links": [],
   "refresh": "30s",
   "rows": [
     {
       "collapse": false,
-      "height": 267,
+      "height": 297,
       "panels": [
         {
           "aliasColors": {},
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "PromDS",
+          "datasource": "${DS_PROMDS}",
           "description": "",
           "fill": 1,
-          "id": 20,
+          "id": 44,
           "legend": {
             "alignAsTable": true,
             "avg": false,
             "current": true,
+            "hideEmpty": false,
+            "hideZero": false,
             "max": false,
             "min": false,
+            "rightSide": false,
             "show": true,
             "total": false,
             "values": true
@@ -46,30 +79,34 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
+          "minSpan": 3,
           "nullPointMode": "null",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
+          "repeat": "span_rate_name",
           "seriesOverrides": [],
           "spaceLength": 10,
-          "span": 3,
+          "span": 6,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(fn_span_agent_submit_duration_seconds_count[1m])",
+              "expr": "rate(fn_span_[[span_rate_name]]_duration_seconds_count[1m])",
               "format": "time_series",
+              "hide": false,
+              "instant": false,
               "intervalFactor": 2,
               "legendFormat": "{{fn_path}} ({{fn_appname}})",
               "refId": "A",
-              "step": 2
+              "step": 1
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "agent_submit rate (1 min rolling avg)",
+          "title": "[[span_rate_name]] rate (1 min rolling avg)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -101,266 +138,33 @@
               "show": true
             }
           ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "PromDS",
-          "fill": 1,
-          "id": 17,
-          "legend": {
-            "alignAsTable": true,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "span": 3,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "rate(fn_span_agent_submit_duration_seconds_sum[1m]) /  rate(fn_span_agent_submit_duration_seconds_count[1m])\n\n\n\n",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "{{fn_path}} ({{fn_appname}})",
-              "refId": "A",
-              "step": 2
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "agent submit duration (1min rolling avg)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": "Seconds",
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "PromDS",
-          "fill": 1,
-          "id": 21,
-          "legend": {
-            "alignAsTable": true,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "span": 3,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "rate(fn_span_agent_get_slot_duration_seconds_sum[1m]) /  rate(fn_span_agent_get_slot_duration_seconds_count[1m])\n\n\n\n",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "{{fn_path}} ({{fn_appname}})",
-              "refId": "A",
-              "step": 2
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "agent_get_slot duration (1min rolling avg)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": "Seconds",
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "PromDS",
-          "fill": 1,
-          "id": 42,
-          "legend": {
-            "alignAsTable": true,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "span": 3,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "rate(fn_span_agent_cold_exec_duration_seconds_sum[1m]) /  rate(fn_span_agent_cold_exec_duration_seconds_count[1m])\n",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "{{fn_path}} ({{fn_appname}})",
-              "refId": "A",
-              "step": 2
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "agent_cold_exec duration (1min rolling avg)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": "Seconds",
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ]
         }
       ],
       "repeat": null,
       "repeatIteration": null,
       "repeatRowId": null,
       "showTitle": false,
-      "title": "Agent",
+      "title": "Dashboard Row",
       "titleSize": "h6"
     },
     {
       "collapse": false,
-      "height": 228,
+      "height": 250,
       "panels": [
         {
           "aliasColors": {},
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "PromDS",
+          "datasource": "${DS_PROMDS}",
           "fill": 1,
-          "id": 43,
+          "id": 45,
           "legend": {
             "alignAsTable": true,
             "avg": false,
             "current": true,
             "max": false,
             "min": false,
-            "rightSide": false,
             "show": true,
             "total": false,
             "values": true
@@ -368,19 +172,21 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
+          "minSpan": 3,
           "nullPointMode": "null",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
+          "repeat": "span_duration_name",
           "seriesOverrides": [],
           "spaceLength": 10,
-          "span": 4,
+          "span": 3,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(fn_span_docker_create_container_duration_seconds_sum[1m]) /  rate(fn_span_docker_create_container_duration_seconds_count[1m])\n",
+              "expr": "rate(fn_span_[[span_duration_name]]_duration_seconds_sum[1m]) /  rate(fn_span_[[span_duration_name]]_duration_seconds_count[1m])\n\n\n\n",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{fn_path}} ({{fn_appname}})",
@@ -391,163 +197,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "docker_create_container duration (1min rolling average)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": "Seconds",
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "PromDS",
-          "fill": 1,
-          "id": 33,
-          "legend": {
-            "alignAsTable": true,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "span": 4,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "rate(fn_span_docker_start_container_duration_seconds_sum[1m]) /  rate(fn_span_docker_start_container_duration_seconds_count[1m])\n",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "{{fn_path}} ({{fn_appname}})",
-              "refId": "A",
-              "step": 1
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "docker_start_container duration (1min rolling average)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": "Seconds",
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "PromDS",
-          "fill": 1,
-          "id": 35,
-          "legend": {
-            "alignAsTable": true,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "span": 4,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "rate(fn_span_docker_wait_container_duration_seconds_sum[1m]) /  rate(fn_span_docker_start_container_duration_seconds_count[1m])\n",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "{{fn_path}} ({{fn_appname}})",
-              "refId": "A",
-              "step": 1
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "docker_wait_container duration (1min rolling average)",
+          "title": "[[span_duration_name]] duration (1min rolling avg)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -585,7 +235,7 @@
       "repeatIteration": null,
       "repeatRowId": null,
       "showTitle": false,
-      "title": "Docker",
+      "title": "Dashboard Row",
       "titleSize": "h6"
     }
   ],
@@ -593,7 +243,48 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_PROMDS}",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Choose spans to display rates",
+        "multi": true,
+        "name": "span_rate_name",
+        "options": [],
+        "query": "metrics(fn_span.*)",
+        "refresh": 2,
+        "regex": "fn_span_(.*)_duration_seconds_count",
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_PROMDS}",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Choose spans to display durations",
+        "multi": true,
+        "name": "span_duration_name",
+        "options": [],
+        "query": "metrics(fn_span.*)",
+        "refresh": 2,
+        "regex": "fn_span_(.*)_duration_seconds_count",
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      }
+    ]
   },
   "time": {
     "from": "now-5m",
@@ -625,6 +316,6 @@
     ]
   },
   "timezone": "",
-  "title": "Fn tracing span data",
-  "version": 8
+  "title": "Fn tracing spans",
+  "version": 23
 }

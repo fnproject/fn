@@ -105,6 +105,7 @@ two main attributes: a name that describes the operation being performed (for ex
 If the span is associated with a specific function invocation, the corresponding metric is given the labels `fn_app` and `fn_path` which are set to the application name and function path respectively.
 
 A second example dashboard `fn_grafana_dashboard2.json` in this example's directory shows rate and duration data for some significant operations.
+You can use the pulldown lists at the top of the dashboard to choose which tracing spans to examine.
 
 <img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
  
