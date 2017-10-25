@@ -325,13 +325,13 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 	return nil
 }
 
-func (c *call) End(ctx context.Context, err error, t callTrigger) error {
+func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
 	defer span.Finish()
 
 	c.CompletedAt = strfmt.DateTime(time.Now())
 
-	switch err {
+	switch errIn {
 	case nil:
 		c.Status = "success"
 	case context.DeadlineExceeded:
@@ -360,13 +360,11 @@ func (c *call) End(ctx context.Context, err error, t callTrigger) error {
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()
-
-	err = t.fireAfterCall(ctx, c.Model())
+	err := t.fireAfterCall(ctx, c.Model())
 	if err != nil {
 		return fmt.Errorf("AfterCall: %v", err)
 	}
-	return err
-
+	return errIn
 }
 
 func fakeHandler(http.ResponseWriter, *http.Request, Params) {}
