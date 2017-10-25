@@ -104,8 +104,9 @@ two main attributes: a name that describes the operation being performed (for ex
 
 If the span is associated with a specific function invocation, the corresponding metric is given the labels `fn_app` and `fn_path` which are set to the application name and function path respectively.
 
-A second example dashboard `fn_grafana_dashboard2.json` in this example's directory shows rate and duration data for some significant operations.
-You can use the pulldown lists at the top of the dashboard to choose which tracing spans to examine.
+A second example dashboard `fn_grafana_dashboard2.json` in this example's directory displays rate and duration data for any number of spans. Use the dropdown lists at the top of the dashboard to choose which tracing spans to examine.
+
+In the following screenshot, the "Choose spans to display rates" dropdown has been used to select `agent_submit` and `serve_http`, and the "Choose spans to display durations" dropdown, has been used to select `agent_cold_exec`, `agent_get_slot`, `agent_submit`, `docker_create_container`, `docker_start_container` and `docker_wait_container`. 
 
 <img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
  
