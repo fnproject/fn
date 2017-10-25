@@ -90,11 +90,23 @@ Create a datasource to obtain metrics from Promethesus:
 * Click **Add** and then **Save and test**
 
 Import the example dashboard that displays metrics from the Fn server:
-* Click on the main menu at the top left and choose **Dashboards** and then **Home**
-* Click on **Home** at the top and then **Import dashboard**
+* Click on the main menu at the top left and choose **Dashboards** and then **Import**
 * In the dialog that opens, click **Upload .json file** and specify `fn_grafana_dashboard.json` in this example's directory.
 * Specify the Prometheus data source that you just created
 * Click **Import**
 
 You should then see the dashboard shown above. Now execute some functions and see the graphs update.
 
+## Tracing metrics
+
+Tracing spans from the Fn server are available as Prometheus metrics. Each span represents a timed internal operation such as a function call, and has
+two main attributes: a name that describes the operation being performed (for example `docker_wait_container`), and its duration in seconds. Each span name is represented by a separate histogram metric, which has a name of the form `fn_span_<span-name>_duration_seconds`. 
+
+If the span is associated with a specific function invocation, the corresponding metric is given the labels `fn_app` and `fn_path` which are set to the application name and function path respectively.
+
+A second example dashboard `fn_grafana_dashboard2.json` in this example's directory displays rate and duration data for any number of spans. Use the dropdown lists at the top of the dashboard to choose which tracing spans to examine.
+
+In the following screenshot, the "Choose spans to display rates" dropdown has been used to select `agent_submit` and `serve_http`, and the "Choose spans to display durations" dropdown, has been used to select `agent_cold_exec`, `agent_get_slot`, `agent_submit`, `docker_create_container`, `docker_start_container` and `docker_wait_container`. 
+
+<img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
+ 

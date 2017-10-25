@@ -86,7 +86,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 	}
 
 	setMachineId()
-	setTracer()
+	s.setTracer()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap)
 	s.bindHandlers(ctx)
 
@@ -110,6 +110,8 @@ func traceWrap(c *gin.Context) {
 	// If wireContext == nil, a root span will be created.
 	// TODO we should add more tags?
 	serverSpan := opentracing.StartSpan("serve_http", ext.RPCServerOption(wireContext), opentracing.Tag{Key: "path", Value: c.Request.URL.Path})
+	serverSpan.SetBaggageItem("fn_appname", c.Param(api.CApp))
+	serverSpan.SetBaggageItem("fn_path", c.Param(api.CRoute))
 	defer serverSpan.Finish()
 
 	ctx := opentracing.ContextWithSpan(c.Request.Context(), serverSpan)
@@ -117,7 +119,7 @@ func traceWrap(c *gin.Context) {
 	c.Next()
 }
 
-func setTracer() {
+func (s *Server) setTracer() {
 	var (
 		debugMode          = false
 		serviceName        = "fn-server"
@@ -126,17 +128,29 @@ func setTracer() {
 		// ex: "http://zipkin:9411/api/v1/spans"
 	)
 
-	if zipkinHTTPEndpoint == "" {
-		return
+	var collector zipkintracer.Collector
+
+	// custom Zipkin collector to send tracing spans to Prometheus
+	promCollector, promErr := NewPrometheusCollector()
+	if promErr != nil {
+		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
 	}
 
 	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
 
-	collector, err := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
-	if err != nil {
-		logrus.WithError(err).Fatalln("couldn't start trace collector")
+	if zipkinHTTPEndpoint != "" {
+		// Custom PrometheusCollector and Zipkin HTTPCollector
+		httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+		if zipErr != nil {
+			logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
+		}
+		collector = zipkintracer.MultiCollector{httpCollector, promCollector}
+	} else {
+		// Custom PrometheusCollector only
+		collector = promCollector
 	}
-	tracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+
+	ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
 		zipkintracer.ClientServerSameSpan(true),
 		zipkintracer.TraceID128Bit(true),
 	)
@@ -144,7 +158,10 @@ func setTracer() {
 		logrus.WithError(err).Fatalln("couldn't start tracer")
 	}
 
-	opentracing.SetGlobalTracer(tracer)
+	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
+	fntracer := NewFnTracer(ziptracer)
+
+	opentracing.SetGlobalTracer(fntracer)
 	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
