@@ -1,10 +1,15 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: fn
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fn-service-config
-  namespace: default
+  namespace: fn
 data:
-  MQ_URL: redis://fn-redis-master.default
+  MQ_URL: redis://fn-redis-master.fn
   DB_URL: mysql://root:fnsecretpassword@tcp(fn-mysql-master:3306)/fn
   API_URL: http://fn-service:8080
 ---
@@ -12,6 +17,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fn-service
+  namespace: fn
   labels:
     app: fn
     role: fn-service
@@ -32,6 +38,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: fn-service
+  namespace: fn
 spec:
   updateStrategy:
     type: RollingUpdate
@@ -79,6 +86,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fn-mysql-master
+  namespace: fn
   labels:
     app: mysql
     role: datastore
@@ -94,6 +102,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: fn-mysql-master
+  namespace: fn
 spec:
   replicas: 1
   template:
@@ -120,6 +129,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fn-redis-master
+  namespace: fn
   labels:
     app: redis
     role: mq
@@ -135,6 +145,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: fn-redis-master
+  namespace: fn
 spec:
   replicas: 1
   template:

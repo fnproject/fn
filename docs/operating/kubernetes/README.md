@@ -9,7 +9,7 @@
 1. Deploy Fn to the Kubernetes cluster:
 
 ```bash
-$ cd docs/operating/
+$ cd docs/operating/kubernetes
 $ kubectl create -f fn-service.yaml
 ```
 
@@ -44,13 +44,13 @@ $ export API_URL=http://192.168.99.100:30966
 Now, test by creating a function via curl:
 
 ```bash
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$API_URL/v1/apps
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' $API_URL/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$API_URL/v1/apps/myapp/routes
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' $API_URL/v1/apps/myapp/routes
 {"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"headers":{},"type":"sync","format":"default","timeout":30,"idle_timeout":30,"config":{}}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$API_URL/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' $API_URL/r/myapp/hello-sync
 Hello Johnny!
 ```
 
