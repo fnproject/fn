@@ -70,7 +70,7 @@ import:
 - package: github.com/prometheus/common
   version: 2f17f4a9d485bf34b4bfaccc273805040e4f86c8
 - package: github.com/prometheus/client_golang
-- package: github.com/gorilla/handlers
-  version: ~1.2.1
+- package: github.com/gin-contrib/cors
+  version: ~1.2.0
 testImport:
 - package: github.com/patrickmn/go-cache

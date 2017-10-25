@@ -23,8 +23,8 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/version"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/handlers"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go-opentracing"
@@ -78,6 +78,22 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	return New(ctx, ds, mq, logDB, opts...)
 }
 
+func optionalCorsWrap(r *gin.Engine) {
+	// By default no CORS are allowed unless one
+	// or more Origins are defined by the API_CORS
+	// environment variable.
+	if len(viper.GetString(EnvAPICORS)) > 0 {
+		origins := strings.Split(strings.Replace(viper.GetString(EnvAPICORS), " ", "", -1), ",")
+
+		corsConfig := cors.DefaultConfig()
+		corsConfig.AllowOrigins = origins
+
+		logrus.Infof("CORS enabled for domains: %s", origins)
+
+		r.Use(cors.New(corsConfig))
+	}
+}
+
 // New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
 	s := &Server{
@@ -91,6 +107,8 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 	setMachineId()
 	setTracer()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap)
+	optionalCorsWrap(s.Router)
+
 	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
@@ -258,17 +276,9 @@ func (s *Server) startGears(ctx context.Context) {
 
 	logrus.Infof("Serving Functions API on address `%s`", listen)
 
-	// By default no CORS are allowed unless one
-	// or more Origins are defined by the API_CORS
-	// environment variable.
-	origins := strings.Split(strings.Replace(viper.GetString(EnvAPICORS), " ", "", -1), ",")
-	corsObj := handlers.AllowedOrigins(origins)
-
-	logrus.Infof("CORS enabled for domains: %s", origins)
-
 	server := http.Server{
 		Addr:    listen,
-		Handler: handlers.CORS(corsObj)(s.Router),
+		Handler: s.Router,
 		// TODO we should set read/write timeouts
 	}
 

@@ -1,5 +1,5 @@
-hash: de6e086e5e17578d4970f6295095f2527e138cd015e819e2afe99e12d5e509fe
-updated: 2017-10-23T11:22:39.259699723+01:00
+hash: 7b26ee32b59fb74c690457d59f411bf264503cc6b60c4c0e7cda0822915f45b3
+updated: 2017-10-25T10:50:17.059368524+01:00
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -185,6 +185,8 @@ imports:
   subpackages:
   - internal
   - redis
+- name: github.com/gin-contrib/cors
+  version: cf4846e6a636a76237a28d9286f163c132e841bc
 - name: github.com/gin-contrib/sse
   version: 22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae
 - name: github.com/gin-gonic/gin
@@ -254,8 +256,6 @@ imports:
   - query
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
-- name: github.com/gorilla/handlers
-  version: a4043c62cc2329bacda331d33fc908ab11ef0ec3
 - name: github.com/gorilla/mux
   version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
 - name: github.com/grpc-ecosystem/go-grpc-prometheus
@@ -402,7 +402,7 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/crypto
-  version: edd5e9b0879d13ee6970a50153d85b8fec9f7686
+  version: 2509b142fb2b797aa7587dad548f113b2c0f20ce
   subpackages:
   - bcrypt
   - blowfish
