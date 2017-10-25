@@ -14,13 +14,11 @@ WORKDIR /app
 CMD ["./functions"]
 
 # For building extensions
-ONBUILD ARG REPO
-ONBUILD ENV REPOPATH=$GOPATH/src/$REPO
+ONBUILD ENV REPOPATH=$GOPATH/src/github.com/x/y
 ONBUILD ADD . $REPOPATH
 # note: It might be a good idea to move interfaces and models to a new repo with minimal dependencies, then doing a dep ensure/install might work nice
 # ONBUILD RUN go get -u github.com/golang/dep/cmd/dep
 # ONBUILD RUN cd $REPOPATH && dep init && dep ensure
 # Try doing regular go get:
 ONBUILD RUN cd $REPOPATH && go get
-# ONBUILD ADD main.go $D
 ONBUILD RUN cd $REPOPATH && go build -o /app/functions
