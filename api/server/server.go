@@ -17,7 +17,7 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/cache"
-	"github.com/fnproject/fn/api/extenders"
+	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -48,7 +48,7 @@ type Server struct {
 	MQ        models.MessageQueue
 	LogDB     models.LogStore
 
-	appListeners []extenders.AppListener
+	appListeners []extensions.AppListener
 	middlewares  []Middleware
 }
 

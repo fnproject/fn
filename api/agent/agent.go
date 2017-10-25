@@ -15,7 +15,7 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/extenders"
+	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/opentracing/opentracing-go"
@@ -111,14 +111,14 @@ type Agent interface {
 
 	// Return the http.Handler used to handle Prometheus metric requests
 	PromHandler() http.Handler
-	AddCallListener(extenders.CallListener)
+	AddCallListener(extensions.CallListener)
 }
 
 type agent struct {
 	// TODO maybe these should be on GetCall? idk. was getting bloated.
 	mq            models.MessageQueue
 	ds            models.Datastore
-	callListeners []extenders.CallListener
+	callListeners []extensions.CallListener
 
 	driver drivers.Driver
 
@@ -207,13 +207,8 @@ func (a *agent) Submit(callI Call) error {
 	// to make this remove the container asynchronously?
 	defer slot.Close() // notify our slot is free once we're done
 
-	err = a.fireBeforeCall(ctx, call.Model())
-	if err != nil {
-		return fmt.Errorf("BeforeCall: %v", err)
-	}
-
 	// TODO Start is checking the timer now, we could do it here, too.
-	err = call.Start(ctx)
+	err = call.Start(ctx, a)
 	if err != nil {
 		a.stats.Dequeue(callI.Model().Path)
 		return err
@@ -237,13 +232,7 @@ func (a *agent) Submit(callI Call) error {
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
-	call.End(ctx, err)
-
-	err = a.fireAfterCall(ctx, call.Model())
-	if err != nil {
-		return fmt.Errorf("AfterCall: %v", err)
-	}
-
+	err = call.End(ctx, err, a)
 	return err
 }
 

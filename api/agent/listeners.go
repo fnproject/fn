@@ -3,11 +3,16 @@ package agent
 import (
 	"context"
 
-	"github.com/fnproject/fn/api/extenders"
+	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/models"
 )
 
-func (a *agent) AddCallListener(listener extenders.CallListener) {
+type callTrigger interface {
+	fireBeforeCall(context.Context, *models.Call) error
+	fireAfterCall(context.Context, *models.Call) error
+}
+
+func (a *agent) AddCallListener(listener extensions.CallListener) {
 	a.callListeners = append(a.callListeners, listener)
 }
 

@@ -3,12 +3,12 @@ package server
 import (
 	"context"
 
-	"github.com/fnproject/fn/api/extenders"
+	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/models"
 )
 
 // AddAppListener adds a listener that will be notified on App created.
-func (s *Server) AddAppListener(listener extenders.AppListener) {
+func (s *Server) AddAppListener(listener extensions.AppListener) {
 	s.appListeners = append(s.appListeners, listener)
 }
 
