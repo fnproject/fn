@@ -29,13 +29,13 @@ type Call interface {
 	// etc.
 	// TODO Start and End can likely be unexported as they are only used in the agent,
 	// and on a type which is constructed in a specific agent. meh.
-	Start(ctx context.Context) error
+	Start(ctx context.Context, t callTrigger) error
 
 	// End will be called immediately after attempting a call execution,
 	// regardless of whether the execution failed or not. An error will be passed
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error)
+	End(ctx context.Context, err error, t callTrigger) error
 }
 
 // TODO build w/o closures... lazy
@@ -278,7 +278,7 @@ type call struct {
 
 func (c *call) Model() *models.Call { return c.Call }
 
-func (c *call) Start(ctx context.Context) error {
+func (c *call) Start(ctx context.Context, t callTrigger) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
@@ -316,22 +316,28 @@ func (c *call) Start(ctx context.Context) error {
 			return err // let another thread try this
 		}
 	}
+
+	err := t.fireBeforeCall(ctx, c.Model())
+	if err != nil {
+		return fmt.Errorf("BeforeCall: %v", err)
+	}
+
 	return nil
 }
 
-func (c *call) End(ctx context.Context, err error) {
+func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
 	defer span.Finish()
 
 	c.CompletedAt = strfmt.DateTime(time.Now())
 
-	switch err {
+	switch errIn {
 	case nil:
 		c.Status = "success"
 	case context.DeadlineExceeded:
 		c.Status = "timeout"
 	default:
-		// XXX (reed): should we append the error to logs? Error field?
+		// XXX (reed): should we append the error to logs? Error field? (TR) yes, think so, otherwise it's lost looks like?
 		c.Status = "error"
 	}
 
@@ -344,14 +350,21 @@ func (c *call) End(ctx context.Context, err error) {
 	// TODO: this should be update, really
 	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
 		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
+		// note: Not returning err here since the job could have already finished successfully.
 	}
 
 	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
+		// note: Not returning err here since the job could have already finished successfully.
 	}
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()
+	err := t.fireAfterCall(ctx, c.Model())
+	if err != nil {
+		return fmt.Errorf("AfterCall: %v", err)
+	}
+	return errIn
 }
 
 func fakeHandler(http.ResponseWriter, *http.Request, Params) {}

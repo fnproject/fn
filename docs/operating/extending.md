@@ -14,12 +14,13 @@ Listeners are the main way to extend Fn.
 
 The following listener types are supported:
 
-* App Listeners - [GoDoc](https://godoc.org/github.com/fnproject/functions/api/server#AppListener)
-* Runner Listeners - [GoDoc](https://godoc.org/github.com/fnproject/functions/api/server#RunnerListener)
+* App Listeners - [GoDoc](https://godoc.org/github.com/fnproject/fn/api/server#AppListener)
+* Call Listeners - [GoDoc](https://godoc.org/github.com/fnproject/fn/api/server#CallListener)
 
 ### Creating a Listener
 
-You can easily use app and runner listeners by creating a struct with valid methods satisfying the interface for the respective listener and adding it to the Fn API
+You can easily use add listeners by creating a struct with valid methods satisfying the interface
+for the respective listener, adding it to `main.go` then compiling.
 
 Example:
 
