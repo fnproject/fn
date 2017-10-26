@@ -40,6 +40,8 @@ go vet -v $(go list ./... | grep -v vendor)
 docker rm --force func-postgres-test
 docker rm --force func-mysql-test
 
+docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm  quay.io/goswagger/swagger validate /go/src/github.com/fnproject/fn/docs/swagger.yml
+
 # test middlware, extensions, examples, etc
 # TODO: do more here, maybe as part of fn tests
 cd examples/middleware
@@ -48,8 +50,3 @@ cd ../..
 cd examples/extensions
 go build
 cd ../..
-
-swagger_modified=$(git diff master --stat | grep "swagger.yml")
-if [ "${swagger_modified}" ]; then
-    docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm  quay.io/goswagger/swagger validate /go/src/github.com/fnproject/fn/docs/swagger.yml
-fi
