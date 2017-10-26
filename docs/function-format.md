@@ -84,7 +84,7 @@ If a request comes in like this:
 }
 ```
 
-Internally function receives data in following format:
+Internally functions receive data in the following format:
 
 ```json
 {
@@ -96,6 +96,10 @@ Internally function receives data in following format:
   "config": {
     "MY_KEY": "something",
   }
+}
+BLANK LINE
+{ 
+  NEXT INPUT OBJECT
 }
 ```
 
@@ -110,6 +114,10 @@ Function's output format should have the following format:
   "headers": {
     "Content-Type": "application/json"
   }
+}
+BLANK LINE
+{
+  NEXT OUTPUT OBJECT
 }
 ```
 

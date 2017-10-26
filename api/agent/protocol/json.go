@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -12,8 +13,8 @@ import (
 // This is sent into the function
 // All HTTP request headers should be set in env
 type jsonio struct {
-	Headers http.Header `json:"headers,omitempty"`
-	Body    string      `json:"body"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Body    string            `json:"body"`
 }
 
 type jsonIn struct {
@@ -59,7 +60,18 @@ func (h *JSONProtocol) DumpJSON(call *models.Call, req *http.Request) error {
 		return err
 	}
 
+	// call_id
+	err = writeString(err, h.in, `"call_id":`)
+	if err != nil {
+		return err
+	}
+	err = stdin.Encode(call.ID)
+	if err != nil {
+		return err
+	}
+
 	// body
+	err = writeString(err, h.in, ",")
 	err = writeString(err, h.in, `"body":`)
 	if err != nil {
 		return err
@@ -70,6 +82,7 @@ func (h *JSONProtocol) DumpJSON(call *models.Call, req *http.Request) error {
 	}
 
 	// request URL
+	err = writeString(err, h.in, ",")
 	err = writeString(err, h.in, `"request_url":`)
 	if err != nil {
 		return err
@@ -98,7 +111,7 @@ func (h *JSONProtocol) DumpJSON(call *models.Call, req *http.Request) error {
 	}
 
 	// close
-	err = writeString(err, h.in, "}")
+	err = writeString(err, h.in, "}\n\n")
 	return err
 }
 
@@ -110,17 +123,15 @@ func (h *JSONProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Reques
 	jout := new(jsonOut)
 	dec := json.NewDecoder(h.out)
 	if err := dec.Decode(jout); err != nil {
-		return err
+		return fmt.Errorf("error decoding JSON from user function: %v", err)
 	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		// this has to be done for pulling out:
 		// - status code
 		// - body
 		// - headers
-		for k, vs := range jout.Headers {
-			for _, v := range vs {
-				rw.Header().Add(k, v) // on top of any specified on the route
-			}
+		for k, v := range jout.Headers {
+			rw.Header().Set(k, v) // on top of any specified on the route
 		}
 		if jout.StatusCode != 0 {
 			rw.WriteHeader(jout.StatusCode)

@@ -509,6 +509,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp:
+		// would be great to be able to decipher what error is returning from here so we can show better messages
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
