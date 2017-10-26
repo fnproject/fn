@@ -350,12 +350,12 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	// TODO: this should be update, really
 	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
 		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
-		return err
+		// note: Not returning err here since the job could have already finished successfully.
 	}
 
 	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
-		return err
+		// note: Not returning err here since the job could have already finished successfully.
 	}
 
 	// NOTE call this after InsertLog or the buffer will get reset
