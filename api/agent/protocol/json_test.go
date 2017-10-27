@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 type RequestData struct {
@@ -16,9 +18,8 @@ type RequestData struct {
 }
 
 type funcRequestBody struct {
-	Body            string      `json:"body"`
-	Headers         http.Header `json:"headers"`
-	QueryParameters string      `json:"query_parameters"`
+	Body    string            `json:"body"`
+	Headers map[string]string `json:"headers"`
 }
 
 func setupRequest(data interface{}) *http.Request {
@@ -52,9 +53,10 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
 	req := setupRequest(rDataBefore)
 	r, w := io.Pipe()
+	call := &models.Call{}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(req)
+		err := proto.DumpJSON(call, req)
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -85,10 +87,11 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
 	req := setupRequest(nil)
 
+	call := &models.Call{}
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(req)
+		err := proto.DumpJSON(call, req)
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -119,9 +122,10 @@ func TestJSONProtocolDumpJSONRequestWithQuery(t *testing.T) {
 	req := setupRequest(nil)
 
 	r, w := io.Pipe()
+	call := &models.Call{}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(req)
+		err := proto.DumpJSON(call, req)
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -138,8 +142,8 @@ func TestJSONProtocolDumpJSONRequestWithQuery(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if incomingReq.QueryParameters != req.URL.RawQuery {
-		t.Errorf("Request query string assertion mismatch: expected: %s, got %s",
-			req.URL.RawQuery, incomingReq.QueryParameters)
-	}
+	// if incomingReq.QueryParameters != req.URL.RawQuery {
+	// 	t.Errorf("Request query string assertion mismatch: expected: %s, got %s",
+	// 		req.URL.RawQuery, incomingReq.QueryParameters)
+	// }
 }
