@@ -79,7 +79,7 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
 
 	setTracer()
-	
+
 	s := &Server{
 		Agent:     agent.New(cache.Wrap(ds), mq), // only add datastore caching to agent
 		Router:    gin.New(),
