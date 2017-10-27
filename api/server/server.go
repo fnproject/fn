@@ -77,6 +77,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
+
+	setTracer()
+
 	s := &Server{
 		Agent:     agent.New(cache.Wrap(ds), mq), // only add datastore caching to agent
 		Router:    gin.New(),
@@ -86,7 +89,6 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 	}
 
 	setMachineId()
-	s.setTracer()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap)
 	s.bindHandlers(ctx)
 
@@ -119,7 +121,7 @@ func traceWrap(c *gin.Context) {
 	c.Next()
 }
 
-func (s *Server) setTracer() {
+func setTracer() {
 	var (
 		debugMode          = false
 		serviceName        = "fn-server"
