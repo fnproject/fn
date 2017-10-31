@@ -86,7 +86,6 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
-	err = doCall(call)
 	err = s.Agent.Submit(call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
