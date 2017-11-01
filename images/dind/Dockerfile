@@ -1,4 +1,4 @@
-FROM docker:edge-dind
+FROM docker:17.09-dind
 
 RUN apk add --no-cache ca-certificates
 
