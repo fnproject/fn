@@ -209,11 +209,6 @@ func (a *agent) Submit(callI Call) error {
 	// to make this remove the container asynchronously?
 	defer slot.Close() // notify our slot is free once we're done
 
-	err = a.fireBeforeCall(ctx, call.Model())
-	if err != nil {
-		return fmt.Errorf("BeforeCall: %v", err)
-	}
-
 	// TODO Start is checking the timer now, we could do it here, too.
 	err = call.Start(ctx, a)
 	if err != nil {
