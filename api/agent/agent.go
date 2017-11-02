@@ -417,9 +417,9 @@ func (a *agent) ramToken(ctx context.Context, memory uint64) <-chan Token {
 	return ch
 }
 
-// asyncRam will send a signal on the returned channel when at least half of
+// asyncRAM will send a signal on the returned channel when at least half of
 // the available RAM on this machine is free.
-func (a *agent) asyncRam() chan struct{} {
+func (a *agent) asyncRAM() chan struct{} {
 	ch := make(chan struct{})
 
 	c := a.cond

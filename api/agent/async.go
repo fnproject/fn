@@ -15,7 +15,7 @@ func (a *agent) asyncDequeue() {
 		select {
 		case <-a.shutdown:
 			return
-		case <-a.asyncRam():
+		case <-a.asyncRAM():
 			// TODO we _could_ return a token here to reserve the ram so that there's
 			// not a race between here and Submit but we're single threaded
 			// dequeueing and retries handled gracefully inside of Submit if we run

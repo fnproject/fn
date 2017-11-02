@@ -81,7 +81,7 @@ func (mq *RedisMQ) processPendingReservations() {
 		logrus.WithError(err).Error("Redis command error")
 	}
 
-	reservationId, timeoutString, err := getFirstKeyValue(resp)
+	reservationID, timeoutString, err := getFirstKeyValue(resp)
 	if err != nil {
 		logrus.WithError(err).Error("error getting kv")
 		return
@@ -91,7 +91,7 @@ func (mq *RedisMQ) processPendingReservations() {
 	if err != nil || timeout > time.Now().Unix() {
 		return
 	}
-	response, err := redis.Bytes(conn.Do("HGET", mq.k("timeout_jobs"), reservationId))
+	response, err := redis.Bytes(conn.Do("HGET", mq.k("timeout_jobs"), reservationID))
 	if mq.checkNilResponse(err) {
 		return
 	}
@@ -108,8 +108,8 @@ func (mq *RedisMQ) processPendingReservations() {
 	}
 
 	// :( because fuck atomicity right?
-	conn.Do("ZREM", mq.k("timeouts"), reservationId)
-	conn.Do("HDEL", mq.k("timeout_jobs"), reservationId)
+	conn.Do("ZREM", mq.k("timeouts"), reservationID)
+	conn.Do("HDEL", mq.k("timeout_jobs"), reservationID)
 	conn.Do("HDEL", mq.k("reservations"), job.ID)
 	redisPush(conn, mq.queueName, &job)
 }
@@ -127,9 +127,9 @@ func (mq *RedisMQ) processDelayedCalls() {
 		return
 	}
 
-	for _, resId := range resIds {
+	for _, resID := range resIds {
 		// Might be a good idea to do this transactionally so we do not have left over reservationIds if the delete fails.
-		buf, err := redis.Bytes(conn.Do("HGET", mq.k("delayed_jobs"), resId))
+		buf, err := redis.Bytes(conn.Do("HGET", mq.k("delayed_jobs"), resID))
 		// If:
 		// a) A HSET in Push() failed, or
 		// b) A previous zremrangebyscore failed,
@@ -137,23 +137,23 @@ func (mq *RedisMQ) processDelayedCalls() {
 		if err == redis.ErrNil {
 			continue
 		} else if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resId}).Error("Error HGET delayed_jobs")
+			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resID}).Error("Error HGET delayed_jobs")
 			continue
 		}
 
 		var job models.Call
 		err = json.Unmarshal(buf, &job)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservationId": resId}).Error("Error unmarshaling job")
+			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservationId": resID}).Error("Error unmarshaling job")
 			return
 		}
 
 		_, err = redisPush(conn, mq.queueName, &job)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resId}).Error("Pushing delayed job")
+			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resID}).Error("Pushing delayed job")
 			return
 		}
-		conn.Do("HDEL", mq.k("delayed_jobs"), resId)
+		conn.Do("HDEL", mq.k("delayed_jobs"), resID)
 	}
 
 	// Remove everything we processed.
@@ -192,16 +192,16 @@ func (mq *RedisMQ) delayCall(conn redis.Conn, job *models.Call) (*models.Call, e
 		return nil, err
 	}
 
-	reservationId := strconv.FormatInt(resp, 10)
+	reservationID := strconv.FormatInt(resp, 10)
 
 	// Timestamp -> resID
-	_, err = conn.Do("ZADD", mq.k("delays"), time.Now().UTC().Add(time.Duration(job.Delay)*time.Second).Unix(), reservationId)
+	_, err = conn.Do("ZADD", mq.k("delays"), time.Now().UTC().Add(time.Duration(job.Delay)*time.Second).Unix(), reservationID)
 	if err != nil {
 		return nil, err
 	}
 
 	// resID -> Task
-	_, err = conn.Do("HSET", mq.k("delayed_jobs"), reservationId, buf)
+	_, err = conn.Do("HSET", mq.k("delayed_jobs"), reservationID, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -264,18 +264,18 @@ func (mq *RedisMQ) Reserve(ctx context.Context) (*models.Call, error) {
 	if err != nil {
 		return nil, err
 	}
-	reservationId := strconv.FormatInt(response, 10)
-	_, err = conn.Do("ZADD", "timeout:", time.Now().Add(time.Minute).Unix(), reservationId)
+	reservationID := strconv.FormatInt(response, 10)
+	_, err = conn.Do("ZADD", "timeout:", time.Now().Add(time.Minute).Unix(), reservationID)
 	if err != nil {
 		return nil, err
 	}
-	_, err = conn.Do("HSET", "timeout", reservationId, resp)
+	_, err = conn.Do("HSET", "timeout", reservationID, resp)
 	if err != nil {
 		return nil, err
 	}
 
 	// Map from job.ID -> reservation ID
-	_, err = conn.Do("HSET", "reservations", job.ID, reservationId)
+	_, err = conn.Do("HSET", "reservations", job.ID, reservationID)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (mq *RedisMQ) Delete(ctx context.Context, job *models.Call) error {
 
 	conn := mq.pool.Get()
 	defer conn.Close()
-	resId, err := conn.Do("HGET", "reservations", job.ID)
+	resID, err := conn.Do("HGET", "reservations", job.ID)
 	if err != nil {
 		return err
 	}
@@ -300,10 +300,10 @@ func (mq *RedisMQ) Delete(ctx context.Context, job *models.Call) error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.Do("ZREM", "timeout:", resId)
+	_, err = conn.Do("ZREM", "timeout:", resID)
 	if err != nil {
 		return err
 	}
-	_, err = conn.Do("HDEL", "timeout", resId)
+	_, err = conn.Do("HDEL", "timeout", resID)
 	return err
 }

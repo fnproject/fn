@@ -88,7 +88,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 		LogDB:     logDB,
 	}
 
-	setMachineId()
+	setMachineID()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap)
 	s.bindHandlers(ctx)
 
@@ -167,7 +167,7 @@ func setTracer() {
 	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
-func setMachineId() {
+func setMachineID() {
 	port := uint16(viper.GetInt(EnvPort))
 	addr := whoAmI().To4()
 	if addr == nil {

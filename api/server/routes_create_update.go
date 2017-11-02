@@ -90,13 +90,12 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 				return *bad, err
 			}
 			return routeResponse{"Route successfully created", wroute.Route}, nil
-		} else {
-			err := s.changeRoute(ctx, wroute)
-			if err != nil {
-				return *bad, err
-			}
-			return routeResponse{"Route successfully updated", wroute.Route}, nil
 		}
+		err = s.changeRoute(ctx, wroute)
+		if err != nil {
+			return *bad, err
+		}
+		return routeResponse{"Route successfully updated", wroute.Route}, nil
 	case http.MethodPatch:
 		err := s.changeRoute(ctx, wroute)
 		if err != nil {
