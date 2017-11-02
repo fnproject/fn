@@ -101,16 +101,10 @@ func (m *metricds) InsertLog(ctx context.Context, appName, callID string, callLo
 	return m.ds.InsertLog(ctx, appName, callID, callLog)
 }
 
-func (m *metricds) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
+func (m *metricds) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_log")
 	defer span.Finish()
 	return m.ds.GetLog(ctx, appName, callID)
-}
-
-func (m *metricds) DeleteLog(ctx context.Context, appName, callID string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_delete_log")
-	defer span.Finish()
-	return m.ds.DeleteLog(ctx, appName, callID)
 }
 
 // instant & no context ;)

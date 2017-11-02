@@ -76,16 +76,15 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 }
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
-
+func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, ls models.LogStore, opts ...ServerOption) *Server {
 	setTracer()
 
 	s := &Server{
-		Agent:     agent.New(cache.Wrap(ds), mq), // only add datastore caching to agent
+		Agent:     agent.New(cache.Wrap(ds), ls, mq), // only add datastore caching to agent
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
-		LogDB:     logDB,
+		LogDB:     ls,
 	}
 
 	setMachineID()
@@ -334,7 +333,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 			apps.GET("/calls/:call", s.handleCallGet)
 			apps.GET("/calls/:call/log", s.handleCallLogGet)
-			apps.DELETE("/calls/:call/log", s.handleCallLogDelete)
 		}
 	}
 

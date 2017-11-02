@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/fnproject/fn/api/datastore/sql"
+	"github.com/fnproject/fn/api/logs/s3"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
 )
@@ -18,6 +19,8 @@ func New(dbURL string) (models.LogStore, error) {
 	switch u.Scheme {
 	case "sqlite3", "postgres", "mysql":
 		return sql.New(u)
+	case "s3":
+		return s3.New(u)
 	default:
 		return nil, fmt.Errorf("db type not supported %v", u.Scheme)
 	}

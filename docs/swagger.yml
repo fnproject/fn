@@ -391,34 +391,6 @@ paths:
           description: Log not found.
           schema:
             $ref: '#/definitions/Error'
-    delete:
-      summary: Delete call log entry
-      description: Delete call log entry
-      tags:
-         - Call
-         - Log
-      parameters:
-        - name: call
-          description: Call ID.
-          required: true
-          type: string
-          in: path
-        - name: app
-          description: App name.
-          required: true
-          type: string
-          in: path
-      responses:
-        202:
-          description: Log delete request accepted
-        404:
-          description: Does not exist.
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
 
   /apps/{app}/calls/{call}:
     get:
