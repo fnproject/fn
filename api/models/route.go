@@ -72,19 +72,19 @@ func (r *Route) Validate() error {
 
 	if r.Path == "" {
 		return ErrRoutesMissingPath
-	} else {
-		u, err := url.Parse(r.Path)
-		if err != nil {
-			return ErrPathMalformed
-		}
+	}
 
-		if strings.Contains(u.Path, ":") {
-			return ErrFoundDynamicURL
-		}
+	u, err := url.Parse(r.Path)
+	if err != nil {
+		return ErrPathMalformed
+	}
 
-		if !path.IsAbs(u.Path) {
-			return ErrRoutesInvalidPath
-		}
+	if strings.Contains(u.Path, ":") {
+		return ErrFoundDynamicURL
+	}
+
+	if !path.IsAbs(u.Path) {
+		return ErrRoutesInvalidPath
 	}
 
 	if r.Image == "" {

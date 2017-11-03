@@ -43,10 +43,10 @@ func (c *Config) Scan(value interface{}) error {
 
 		if len(b) > 0 {
 			return json.Unmarshal(b, c)
-		} else {
-			*c = nil
-			return nil
 		}
+
+		*c = nil
+		return nil
 	}
 
 	// otherwise, return an error
@@ -85,10 +85,10 @@ func (h *Headers) Scan(value interface{}) error {
 
 		if len(b) > 0 {
 			return json.Unmarshal(b, h)
-		} else {
-			*h = nil
-			return nil
 		}
+
+		*h = nil
+		return nil
 	}
 
 	// otherwise, return an error
