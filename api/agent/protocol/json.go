@@ -46,7 +46,7 @@ func writeString(err error, dst io.Writer, str string) error {
 
 // TODO(xxx): headers, query parameters, body - what else should we add to func's payload?
 // TODO(xxx): get rid of request body buffering somehow
-func (h *JSONProtocol) DumpJSON(call *models.Call, req *http.Request) error {
+func (h *JSONProtocol) writeJSONInput(call *models.Call, req *http.Request) error {
 	stdin := json.NewEncoder(h.in)
 	bb := new(bytes.Buffer)
 	_, err := bb.ReadFrom(req.Body)
@@ -116,7 +116,7 @@ func (h *JSONProtocol) DumpJSON(call *models.Call, req *http.Request) error {
 }
 
 func (h *JSONProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Request) error {
-	err := h.DumpJSON(call, req)
+	err := h.writeJSONInput(call, req)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (h *JSONProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Reques
 		if jout.StatusCode != 0 {
 			rw.WriteHeader(jout.StatusCode)
 		} else {
-			rw.WriteHeader(200)
+			rw.WriteHeader(http.StatusOK)
 		}
 		_, err = io.WriteString(rw, jout.Body) // TODO timeout
 		if err != nil {

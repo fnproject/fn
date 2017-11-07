@@ -49,14 +49,14 @@ func setupRequest(data interface{}) *http.Request {
 	return req
 }
 
-func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
+func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
 	req := setupRequest(rDataBefore)
 	r, w := io.Pipe()
 	call := &models.Call{}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(call, req)
+		err := proto.writeJSONInput(call, req)
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -84,14 +84,14 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 	}
 }
 
-func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
+func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	req := setupRequest(nil)
 
 	call := &models.Call{}
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(call, req)
+		err := proto.writeJSONInput(call, req)
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -118,14 +118,14 @@ func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
 	}
 }
 
-func TestJSONProtocolDumpJSONRequestWithQuery(t *testing.T) {
+func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	req := setupRequest(nil)
 
 	r, w := io.Pipe()
 	call := &models.Call{}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(call, req)
+		err := proto.writeJSONInput(call, req)
 		if err != nil {
 			t.Error(err.Error())
 		}
