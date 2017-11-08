@@ -14,5 +14,5 @@ TODO hook up zipkin to poop out to logs/statsd/something else too
 
 ## Statsd
 
-The [Logspout Statsd Adapter](https://github.com/treeder/logspout-statsd) adapter can parse the log metrics and forward
+The [Logspout Statsd Adapter](https://github.com/iron-io/logspout-statsd) adapter can parse the log metrics and forward
 them to any statsd server.
