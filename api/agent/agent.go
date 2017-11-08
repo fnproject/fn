@@ -19,6 +19,7 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
@@ -451,7 +452,9 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
 	defer span.Finish()
 
-	waiter, err := s.cookie.Run(ctx)
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+	waiter, err := s.cookie.Run(ctxWithCancel)
 	if err != nil {
 		return err
 	}
@@ -535,7 +538,7 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok T
 	}
 
 	go func() {
-		err := a.runHot(slots, call, tok)
+		err := a.runHot(ctx, slots, call, tok)
 		if err != nil {
 			ch <- err
 		}
@@ -572,8 +575,15 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 	return nil
 }
 
-// TODO add ctx back but be careful to only use for logs/spans
-func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
+func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, tok Token) error {
+	// We must be careful to only use ctxArg for logs/spans
+
+	// create a span from ctxArg but ignore the new Context
+	// instead we will create a new Context below and explicitly set its span
+	span, _ := opentracing.StartSpanFromContext(ctxArg, "docker_run_hot")
+	defer span.Finish()
+	// note won't use the orifinal or returned Context. Ind
+
 	if tok == nil {
 		// TODO we should panic, probably ;)
 		return errors.New("no token provided, not giving you a slot")
@@ -593,6 +603,9 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 	// TODO this ctx needs to inherit logger, etc
 	ctx, shutdownContainer := context.WithCancel(context.Background())
 	defer shutdownContainer() // close this if our waiter returns
+
+	// add the span we created above to the new Context
+	ctx = opentracing.ContextWithSpan(ctx, span)
 
 	cid := id.New().String()
 
@@ -707,11 +720,22 @@ func (c *container) Logger() (io.Writer, io.Writer) { return c.stdout, c.stderr 
 func (c *container) Volumes() [][2]string           { return nil }
 func (c *container) WorkDir() string                { return "" }
 func (c *container) Close()                         {}
-func (c *container) WriteStat(drivers.Stat)         {}
 func (c *container) Image() string                  { return c.image }
 func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
+
+// Log the specified stats to a tracing span.
+// Spans are not processed by the collector until the span ends, so to prevent any delay
+// in processing the stats when the function is long-lived we create a new span for every call
+func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_stats")
+	defer span.Finish()
+	for key, value := range stat.Metrics {
+		span.LogFields(log.Uint64("fn_"+key, value))
+	}
+}
+
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
 // Implementing the docker.AuthConfiguration interface.
 // TODO per call could implement this stored somewhere (vs. configured on host)

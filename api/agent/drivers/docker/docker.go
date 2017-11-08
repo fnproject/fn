@@ -271,14 +271,9 @@ func dockerMsg(derr *docker.Error) string {
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
 	timeout := task.Timeout()
-
-	var cancel context.CancelFunc
-	if timeout <= 0 {
-		ctx, cancel = context.WithCancel(ctx)
-	} else {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
+	if timeout > 0 {
+		ctx, _ = context.WithTimeout(ctx, timeout)
 	}
-	defer cancel() // do this so that after Run exits, collect stops
 	go drv.collectStats(ctx, container, task)
 
 	mwOut, mwErr := task.Logger()
@@ -326,6 +321,9 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 }
 
 func (drv *DockerDriver) collectStats(ctx context.Context, container string, task drivers.ContainerTask) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_collect_stats")
+	defer span.Finish()
+
 	log := common.Logger(ctx)
 	done := make(chan bool)
 	defer close(done)
@@ -347,6 +345,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 		}
 	}()
 
+	// collect stats until context is done (i.e. until the container is terminated)
 	for {
 		select {
 		case <-ctx.Done():
@@ -355,7 +354,11 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 			if !ok {
 				return
 			}
-			task.WriteStat(cherryPick(ds))
+			stats := cherryPick(ds)
+			if !stats.Timestamp.IsZero() {
+				task.WriteStat(ctx, stats)
+			}
+
 		}
 	}
 }
