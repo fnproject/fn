@@ -144,7 +144,7 @@ func TestWaitResultImpl(t *testing.T) {
 		go func(index int) {
 			defer func() {
 				close(finishedSignals[index])
-			} ()
+			}()
 			<-startingSignal
 			println("Starting goroutine ", index)
 			result, err := waiter.Wait(ctx)

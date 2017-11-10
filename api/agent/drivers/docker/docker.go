@@ -314,14 +314,14 @@ func (drv *DockerDriver) run(ctx0 context.Context, container string, task driver
 
 	go func() {
 		// wait for the container to have stopped and then cancel the collection of statistics
-		waitResult.Wait(ctx0) 
+		waitResult.Wait(ctx0)
 		cancelCtxForStats()
 	}()
 
 	return waitResult, nil
 }
 
-// waitResult implements drivers.WaitResult 
+// waitResult implements drivers.WaitResult
 // This implementation allows multiple concurrent calls to Wait()
 type waitResult struct {
 	container    string
