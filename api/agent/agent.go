@@ -452,9 +452,9 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
 	defer span.Finish()
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
+	ctxForRun, cancel := context.WithCancel(ctx)
 	defer cancel()
-	waiter, err := s.cookie.Run(ctxWithCancel)
+	waiter, err := s.cookie.Run(ctxForRun)
 	if err != nil {
 		return err
 	}

@@ -22,18 +22,18 @@ func (f *taskDockerTest) Command() string { return "" }
 func (f *taskDockerTest) EnvVars() map[string]string {
 	return map[string]string{}
 }
-func (f *taskDockerTest) Labels() map[string]string          { return nil }
-func (f *taskDockerTest) Id() string                         { return f.id }
-func (f *taskDockerTest) Group() string                      { return "" }
-func (f *taskDockerTest) Image() string                      { return "fnproject/hello" }
-func (f *taskDockerTest) Timeout() time.Duration             { return 30 * time.Second }
-func (f *taskDockerTest) Logger() (stdout, stderr io.Writer) { return f.output, nil }
-func (f *taskDockerTest) WriteStat(context.Context, drivers.Stat)             { /* TODO */ }
-func (f *taskDockerTest) Volumes() [][2]string               { return [][2]string{} }
-func (f *taskDockerTest) Memory() uint64                     { return 256 * 1024 * 1024 }
-func (f *taskDockerTest) WorkDir() string                    { return "" }
-func (f *taskDockerTest) Close()                             {}
-func (f *taskDockerTest) Input() io.Reader                   { return f.input }
+func (f *taskDockerTest) Labels() map[string]string               { return nil }
+func (f *taskDockerTest) Id() string                              { return f.id }
+func (f *taskDockerTest) Group() string                           { return "" }
+func (f *taskDockerTest) Image() string                           { return "fnproject/hello" }
+func (f *taskDockerTest) Timeout() time.Duration                  { return 30 * time.Second }
+func (f *taskDockerTest) Logger() (stdout, stderr io.Writer)      { return f.output, nil }
+func (f *taskDockerTest) WriteStat(context.Context, drivers.Stat) { /* TODO */ }
+func (f *taskDockerTest) Volumes() [][2]string                    { return [][2]string{} }
+func (f *taskDockerTest) Memory() uint64                          { return 256 * 1024 * 1024 }
+func (f *taskDockerTest) WorkDir() string                         { return "" }
+func (f *taskDockerTest) Close()                                  {}
+func (f *taskDockerTest) Input() io.Reader                        { return f.input }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
@@ -114,4 +114,55 @@ func TestRegistry(t *testing.T) {
 	if size <= 0 {
 		t.Fatal("expected positive size for image that exists, got size:", size)
 	}
+}
+
+// Test the docker driver's of the drivers.WaitResult interface
+// This is a variant of TestRunnerDocker
+func TestWaitResultImpl(t *testing.T) {
+	dkr := NewDocker(drivers.Config{})
+	ctx := context.Background()
+
+	task := &taskDockerTest{"TestWaitResultImplx", nil, nil}
+
+	cookie, err := dkr.Prepare(ctx, task)
+	if err != nil {
+		t.Fatal("Couldn't prepare task test")
+	}
+	defer cookie.Close(ctx)
+
+	waiter, err := cookie.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create multiple goroutines which all wait concurrently for the same WaitResult
+	// use a starting signal to start them all at the same time
+	startingSignal := make(chan struct{})
+	var finishedSignals [10]chan struct{}
+	for i := 0; i < 10; i++ {
+		finishedSignals[i] = make(chan struct{})
+		go func(index int) {
+			defer func() {
+				close(finishedSignals[index])
+			} ()
+			<-startingSignal
+			println("Starting goroutine ", index)
+			result, err := waiter.Wait(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Status() != "success" {
+				t.Fatal("Test should successfully run the image")
+			}
+		}(i)
+	}
+
+	// fire the starting signal
+	close(startingSignal)
+
+	// wait for all goroutines to finish successfully
+	for i, _ := range finishedSignals {
+		<-finishedSignals[i]
+	}
+
 }
