@@ -3,9 +3,9 @@
 The [QuickStart guide](/README.md#quickstart) is intended to quickly get started and kick the tires. To run in production and be ready to scale, you need
 to use more production ready components.
 
-* Put the Fn API behind a load balancer and launch run several instances of them (the more the merrier).
+* Put the Fn Servers (API) behind a load balancer. You can run several instances of them (the more the merrier).
 * Run a database that can scale.
-* Asynchronous functions requires a message queue (preferably one that scales).
+* Asynchronous functions require a message queue (preferably one that scales).
 
 Here's a rough diagram of what a production deployment looks like:
 
