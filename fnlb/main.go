@@ -17,12 +17,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const VERSION = "0.0.141"
+const VERSION = "0.0.142"
 
 func main() {
 	// XXX (reed): normalize
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
-	minAPIVersion := flag.String("min-api-version", "0.0.108", "minimal node API to accept")
+	minAPIVersion := flag.String("min-api-version", "0.0.109", "minimal node API to accept")
 
 	var conf lb.Config
 	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
