@@ -23,20 +23,16 @@ The database is pluggable and we currently support a few options that can be [fo
 
 ## Message Queue
 
-The message queue is an important part of asynchronous functions, essentially buffering requests for processing when resources are available. The reliability and scale of the message queue will play an important part
-in how well Fn runs, in particular if you use a lot of asynchronous function calls.
+The message queue is an important part of asynchronous functions, buffering requests for processing when resources are available. The reliability and scale of the message queue will play an important part in how well Fn runs, in particular if you use a lot of asynchronous function calls.
 
 The message queue is pluggable and we currently support a few options that can be [found here](mqs/README.md). We welcome pull requests for more!
 
 ## Logging, Metrics and Monitoring
 
-Logging is a particularly important part of Fn. It not only emits logs, but metrics are also emitted to the logs. Ops teams can then decide how they want
-to use the logs and metrics without us prescribing a particular technology. For instance, you can [logspout-statsd](https://github.com/treeder/logspout-statsd) to capture metrics
-from the logs and forward them to statsd.
+Logging is a particularly important part of Fn, such that it emits both logs and metrics the same way. Ops teams can then decide how they want to use the logs and metrics without us prescribing a particular technology. For instance, you can use [logspout-statsd](https://github.com/treeder/logspout-statsd) to capture metrics from the logs and forward them to statsd.
 
 [More about Metrics](metrics.md)
 
 ## Scaling
 
-There are metrics emitted to the logs that can be used to notify you when to scale. The most important being the `wait_time` metrics for both the
-synchronous and asynchronous functions. If `wait_time` increases, you'll want to start more Fn instances.
+There are metrics emitted to the logs that can be used to notify you when to scale. The most important being the `wait_time` metrics for both the synchronous and asynchronous functions. If `wait_time` increases, you'll want to start more Fn instances.
