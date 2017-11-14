@@ -35,10 +35,9 @@ $ export FUNCTIONS=$(kubectl -n fn get -o json svc fn-service | jq -r '.status.l
 ```
 
 If you are using a Kubernetes setup like minikube, run
+
 ```bash
-$ echo $(minikube ip):$(kubectl -n fn get svc fn-service -o json | jq -r '.spec.ports[0].nodePort')
-192.168.99.100:30966
-$ export API_URL=http://192.168.99.100:30966
+$ export API_URL=$(minikube -n fn service fn-service --url)
 ```
 
 Now, test by creating a function via curl:
