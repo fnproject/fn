@@ -16,7 +16,7 @@ The Fn Project is a container native serverless platform that you can run anywhe
 
 ### Why build another serverless framework?
 
-Our vision at Iron.io was a lot larger than a simple FaaS platform. We set out to build a platform, a rich ecosystem, and an experience that is both welcoming and embracing to developers of all skill levels and companies from small 1-person teams to the largest global enterprises. This proved difficult as a startup ourselves, but now at Oracle we are equipped and resourced to carry out this vision. Here are some of the key differentiators we believe will set the Fn Project apart:
+The Fn Project is an evolution of the IronFunctions project from Iron.io and our original vision for IronFunctions was a lot larger than a simple FaaS platform. We set out to build a platform, a rich ecosystem, and an experience that is both welcoming and embracing to developers of all skill levels and companies from small 1-person teams to the largest global enterprises. This proved difficult as a startup ourselves, but now at Oracle we are equipped and resourced to carry out this vision. Here are some of the key differentiators we believe will set the Fn Project apart:
 
 * **Open Source:** We believe that open source is the way software is now delivered and adopted. Everything in the Fn Project is open source under Apache 2.0 with an open and transparent governance model.
 
