@@ -9,7 +9,7 @@
 1. Deploy Fn to the Kubernetes cluster:
 
 ```bash
-$ cd docs/operating/
+$ cd docs/operating/kubernetes/
 $ kubectl create -f fn-service.yaml
 ```
 
