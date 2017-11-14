@@ -21,9 +21,6 @@ spec:
   - name: fn-service
     port: 8080
     targetPort: 8080
-  - name: fn-ui
-    port: 80
-    targetPort: 80
   selector:
     app: fn
     role: fn-service
@@ -62,6 +59,39 @@ spec:
             configMapKeyRef:
               name: fn-service-config
               key: DB_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-ui
+  labels:
+    app: fn
+    role: fn-ui
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: fn
+    role: fn-ui
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-ui
+  labels:
+    app: fn
+    role: fn-ui
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fn
+        role: fn-ui
+    spec:
+      containers:
       - name: fn-ui
         image: fnproject/ui:latest
         ports:
