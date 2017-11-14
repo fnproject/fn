@@ -16,7 +16,7 @@ $ kubectl create -f fn-service.yaml
 2. Once the Pods have started, check the service for the load balancer IP:
 
 ```bash
-$ kubectl get svc --watch
+$ kubectl -n fn get svc --watch
 NAME                                CLUSTER-IP      EXTERNAL-IP     PORT(S)                                                       AGE
 fn-mysql-master                     10.96.57.185    <none>          3306/TCP                                                      10m
 fn-redis-master                     10.96.127.51    <none>          6379/TCP                                                      10m
@@ -31,12 +31,12 @@ Note that `fn-service` is initially pending on allocating an external IP. The `k
 If you are using a Kubernetes setup that can expose a public load balancer, run:
 
 ```bash
-$ export FUNCTIONS=$(kubectl get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
+$ export FUNCTIONS=$(kubectl -n fn get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
 ```
 
 If you are using a Kubernetes setup like minikube, run
 ```bash
-$ echo $(minikube ip):$(kubectl get svc fn-service -o json | jq -r '.spec.ports[0].nodePort')
+$ echo $(minikube ip):$(kubectl -n fn get svc fn-service -o json | jq -r '.spec.ports[0].nodePort')
 192.168.99.100:30966
 $ export API_URL=http://192.168.99.100:30966
 ```
