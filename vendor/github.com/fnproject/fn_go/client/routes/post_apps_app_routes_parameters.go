@@ -148,12 +148,10 @@ func (o *PostAppsAppRoutesParams) WriteToRequest(r runtime.ClientRequest, reg st
 		return err
 	}
 
-	if o.Body == nil {
-		o.Body = new(models.RouteWrapper)
-	}
-
-	if err := r.SetBodyParam(o.Body); err != nil {
-		return err
+	if o.Body != nil {
+		if err := r.SetBodyParam(o.Body); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

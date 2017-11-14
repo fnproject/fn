@@ -1,3 +1,4 @@
+#!/bin/bash
 # Top level test script to start all other tests
 
 set -ex

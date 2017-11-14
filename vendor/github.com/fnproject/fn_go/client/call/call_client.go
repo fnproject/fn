@@ -27,7 +27,7 @@ type Client struct {
 /*
 GetAppsAppCalls gets app bound calls
 
-Get app-bound calls can filter to route-bound calls.
+Get app-bound calls can filter to route-bound calls, results returned in created_at, descending order (newest first).
 */
 func (a *Client) GetAppsAppCalls(params *GetAppsAppCallsParams) (*GetAppsAppCallsOK, error) {
 	// TODO: Validate the params before sending

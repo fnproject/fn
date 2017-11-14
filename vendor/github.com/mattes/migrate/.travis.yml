@@ -1,0 +1,62 @@
+language: go
+sudo: required
+
+go:
+  - 1.7
+  - 1.8
+  - 1.9
+
+env:
+  - MIGRATE_TEST_CONTAINER_BOOT_DELAY=10
+
+# TODO: https://docs.docker.com/engine/installation/linux/ubuntu/    
+# pre-provision with travis docker setup and pin down docker version in install step
+services:
+  - docker 
+
+install:
+  - make deps
+  - (cd $GOPATH/src/github.com/docker/docker && git fetch --all --tags --prune && git checkout v17.05.0-ce)
+  - sudo apt-get update && sudo apt-get install docker-ce=17.05.0*
+  - go get github.com/mattn/goveralls 
+
+script:
+  - make test
+
+after_success:
+  - goveralls -service=travis-ci -coverprofile .coverage/combined.txt
+  - make list-external-deps > dependency_tree.txt && cat dependency_tree.txt
+
+before_deploy:
+  - make build-cli
+  - gem install --no-ri --no-rdoc fpm 
+  - fpm -s dir -t deb -n migrate -v "$(git describe --tags 2>/dev/null | cut -c 2-)" --license MIT -m matthias.kadenbach@gmail.com --url https://github.com/mattes/migrate --description='Database migrations' -a amd64 -p migrate.$(git describe --tags 2>/dev/null | cut -c 2-).deb --deb-no-default-config-files -f -C cli/build migrate.linux-amd64=/usr/bin/migrate
+
+deploy:
+  - provider: releases
+    api_key:
+      secure: EFow50BI448HVb/uQ1Kk2Kq0xzmwIYq3V67YyymXIuqSCodvXEsMiBPUoLrxEknpPEIc67LEQTNdfHBgvyHk6oRINWAfie+7pr5tKrpOTF9ghyxoN1PlO8WKQCqwCvGMBCnc5ur5rvzp0bqfpV2rs5q9/nngy3kBuEvs12V7iho=
+    skip_cleanup: true
+    on:
+      go: 1.8
+      repo: mattes/migrate
+      tags: true
+    file:
+      - cli/build/migrate.linux-amd64.tar.gz
+      - cli/build/migrate.darwin-amd64.tar.gz
+      - cli/build/migrate.windows-amd64.exe.tar.gz
+      - cli/build/sha256sum.txt
+      - dependency_tree.txt
+  - provider: packagecloud
+    repository: migrate
+    username: mattes
+    token:
+      secure: RiHJ/+J9DvXUah/APYdWySWZ5uOOISYJ0wS7xddc7/BNStRVjzFzvJ9zmb67RkyZZrvGuVjPiL4T8mtDyCJCj47RmU/56wPdEHbar/FjsiUCgwvR19RlulkgbV4okBCePbwzMw6HNHRp14TzfQCPtnN4kef0lOI4gZJkImN7rtQ=
+    dist: ubuntu/xenial
+    package_glob: '*.deb'
+    skip_cleanup: true
+    on:
+      go: 1.8
+      repo: mattes/migrate
+      tags: true
+

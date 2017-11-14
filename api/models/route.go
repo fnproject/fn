@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/go-openapi/strfmt"
 )
 
 const (
@@ -21,16 +23,17 @@ const (
 type Routes []*Route
 
 type Route struct {
-	AppName     string  `json:"app_name" db:"app_name"`
-	Path        string  `json:"path" db:"path"`
-	Image       string  `json:"image" db:"image"`
-	Memory      uint64  `json:"memory" db:"memory"`
-	Headers     Headers `json:"headers,omitempty" db:"headers"`
-	Type        string  `json:"type" db:"type"`
-	Format      string  `json:"format" db:"format"`
-	Timeout     int32   `json:"timeout" db:"timeout"`
-	IdleTimeout int32   `json:"idle_timeout" db:"idle_timeout"`
-	Config      Config  `json:"config,omitempty" db:"config"`
+	AppName     string          `json:"app_name" db:"app_name"`
+	Path        string          `json:"path" db:"path"`
+	Image       string          `json:"image" db:"image"`
+	Memory      uint64          `json:"memory" db:"memory"`
+	Headers     Headers         `json:"headers,omitempty" db:"headers"`
+	Type        string          `json:"type" db:"type"`
+	Format      string          `json:"format" db:"format"`
+	Timeout     int32           `json:"timeout" db:"timeout"`
+	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
+	Config      Config          `json:"config,omitempty" db:"config"`
+	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 }
 
 // SetDefaults sets zeroed field to defaults.

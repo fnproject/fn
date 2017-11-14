@@ -4,8 +4,12 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
+	"github.com/fnproject/fn/api/models"
 )
 
 func TestDatastore(t *testing.T) {
-	datastoretest.Test(t, NewMock)
+	f := func(t *testing.T) models.Datastore {
+		return NewMock()
+	}
+	datastoretest.Test(t, f)
 }
