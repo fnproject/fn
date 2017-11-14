@@ -2,32 +2,49 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/fnproject/fn/api/models"
 )
 
 // This is sent into the function
 // All HTTP request headers should be set in env
 type jsonio struct {
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    string            `json:"body"`
+	Body        string `json:"body"`
+	ContentType string `json:"content_type"`
 }
 
+// CallRequestHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
+type CallRequestHTTP struct {
+	Type       string      `json:"type"`
+	RequestURL string      `json:"request_url"`
+	Headers    http.Header `json:"headers"`
+}
+
+// CallResponseHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
+type CallResponseHTTP struct {
+	StatusCode int         `json:"status_code,omitempty"`
+	Headers    http.Header `json:"headers,omitempty"`
+}
+
+// jsonIn We're not using this since we're writing JSON directly right now, but trying to keep it current anyways, much easier to read/follow
 type jsonIn struct {
 	jsonio
-	Config map[string]string `json:"config,omitempty"`
+	CallID   string           `json:"call_id"`
+	Protocol *CallRequestHTTP `json:"protocol"`
 }
+
+// jsonOut the expected response from the function container
 type jsonOut struct {
 	jsonio
-	StatusCode int `json:"status_code,omitempty"`
+	Protocol *CallResponseHTTP `json:"protocol,omitempty"`
 }
 
 // JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
 type JSONProtocol struct {
+	// These are the container input streams, not the input from the request or the output for the response
 	in  io.Writer
 	out io.Reader
 }
@@ -46,10 +63,11 @@ func writeString(err error, dst io.Writer, str string) error {
 
 // TODO(xxx): headers, query parameters, body - what else should we add to func's payload?
 // TODO(xxx): get rid of request body buffering somehow
-func (h *JSONProtocol) writeJSONInput(call *models.Call, req *http.Request) error {
+// @treeder: I don't know why we don't just JSON marshal this, this is rough...
+func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	stdin := json.NewEncoder(h.in)
 	bb := new(bytes.Buffer)
-	_, err := bb.ReadFrom(req.Body)
+	_, err := bb.ReadFrom(ci.Input())
 	// todo: better/simpler err handling
 	if err != nil {
 		return err
@@ -65,7 +83,18 @@ func (h *JSONProtocol) writeJSONInput(call *models.Call, req *http.Request) erro
 	if err != nil {
 		return err
 	}
-	err = stdin.Encode(call.ID)
+	err = stdin.Encode(ci.CallID())
+	if err != nil {
+		return err
+	}
+
+	// content_type
+	err = writeString(err, h.in, ",")
+	err = writeString(err, h.in, `"content_type":`)
+	if err != nil {
+		return err
+	}
+	err = stdin.Encode(ci.ContentType())
 	if err != nil {
 		return err
 	}
@@ -76,50 +105,63 @@ func (h *JSONProtocol) writeJSONInput(call *models.Call, req *http.Request) erro
 	if err != nil {
 		return err
 	}
-	err = stdin.Encode(bb.String())
-	if err != nil {
-		return err
-	}
-
-	// request URL
-	err = writeString(err, h.in, ",")
-	err = writeString(err, h.in, `"request_url":`)
-	if err != nil {
-		return err
-	}
-	err = stdin.Encode(req.URL.String())
-	if err != nil {
-		return err
-	}
-
-	// headers
-	err = writeString(err, h.in, ",")
-	err = writeString(err, h.in, `"headers":`)
-	if err != nil {
-		return err
-	}
-	err = stdin.Encode(req.Header)
-
-	// config
-	if call.EnvVars != nil && len(call.EnvVars) > 0 {
-		err = writeString(err, h.in, ",")
-		err = writeString(err, h.in, `"config":`)
+	if bb.Len() > 0 {
+		err = stdin.Encode(bb.String())
 		if err != nil {
 			return err
 		}
-		err = stdin.Encode(call.EnvVars)
+	} else {
+		// pass in empty json body
+		err = stdin.Encode("{}")
+		if err != nil {
+			return err
+		}
 	}
+
+	// now the extras
+	err = writeString(err, h.in, ",")
+	err = writeString(err, h.in, `"protocol":{`) // OK name? This is what OpenEvents is calling it in initial proposal
+	{
+		err = writeString(err, h.in, `"type":`)
+		if err != nil {
+			return err
+		}
+		err = stdin.Encode(ci.ProtocolType())
+
+		// request URL
+		err = writeString(err, h.in, ",")
+		err = writeString(err, h.in, `"request_url":`)
+		if err != nil {
+			return err
+		}
+		err = stdin.Encode(ci.RequestURL())
+		if err != nil {
+			return err
+		}
+
+		// HTTP headers
+		err = writeString(err, h.in, ",")
+		err = writeString(err, h.in, `"headers":`)
+		if err != nil {
+			return err
+		}
+		err = stdin.Encode(ci.Headers())
+	}
+	err = writeString(err, h.in, "}")
 
 	// close
 	err = writeString(err, h.in, "}\n\n")
 	return err
 }
 
-func (h *JSONProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Request) error {
-	err := h.writeJSONInput(call, req)
+func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+	// write input into container
+	err := h.writeJSONToContainer(ci)
 	if err != nil {
 		return err
 	}
+
+	// now read the container output
 	jout := new(jsonOut)
 	dec := json.NewDecoder(h.out)
 	if err := dec.Decode(jout); err != nil {
@@ -130,13 +172,16 @@ func (h *JSONProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Reques
 		// - status code
 		// - body
 		// - headers
-		for k, v := range jout.Headers {
-			rw.Header().Set(k, v) // on top of any specified on the route
-		}
-		if jout.StatusCode != 0 {
-			rw.WriteHeader(jout.StatusCode)
-		} else {
-			rw.WriteHeader(http.StatusOK)
+		if jout.Protocol != nil {
+			p := jout.Protocol
+			for k, v := range p.Headers {
+				for _, vv := range v {
+					rw.Header().Add(k, vv) // on top of any specified on the route
+				}
+			}
+			if p.StatusCode != 0 {
+				rw.WriteHeader(p.StatusCode)
+			}
 		}
 		_, err = io.WriteString(rw, jout.Body) // TODO timeout
 		if err != nil {

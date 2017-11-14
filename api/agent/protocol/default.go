@@ -1,16 +1,14 @@
 package protocol
 
 import (
+	"context"
 	"io"
-	"net/http"
-
-	"github.com/fnproject/fn/api/models"
 )
 
 // DefaultProtocol is the protocol used by cold-containers
 type DefaultProtocol struct{}
 
 func (p *DefaultProtocol) IsStreamable() bool { return false }
-func (d *DefaultProtocol) Dispatch(call *models.Call, w io.Writer, req *http.Request) error {
+func (d *DefaultProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
 	return nil
 }
