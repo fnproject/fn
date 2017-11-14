@@ -254,11 +254,11 @@ func extractFields(c *gin.Context) logrus.Fields {
 }
 
 func (s *Server) Start(ctx context.Context) {
-	ctx = contextWithSignal(ctx, os.Interrupt)
-	s.startGears(ctx)
+	newctx, cancel := contextWithSignal(ctx, os.Interrupt)
+	s.startGears(newctx, cancel)
 }
 
-func (s *Server) startGears(ctx context.Context) {
+func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
 	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
@@ -281,13 +281,21 @@ func (s *Server) startGears(ctx context.Context) {
 	}
 
 	go func() {
-		<-ctx.Done()                          // listening for signals...
-		server.Shutdown(context.Background()) // we can wait
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			logrus.WithError(err).Error("server error")
+			cancel()
+		} else {
+			logrus.Info("server stopped")
+		}
 	}()
 
-	err := server.ListenAndServe()
-	if err != nil {
-		logrus.WithError(err).Error("error opening server")
+	// listening for signals or listener errors...
+	<-ctx.Done()
+
+	// TODO: do not wait forever during graceful shutdown (add graceful shutdown timeout)
+	if err := server.Shutdown(context.Background()); err != nil {
+		logrus.WithError(err).Error("server shutdown error")
 	}
 
 	s.Agent.Close() // after we stop taking requests, wait for all tasks to finish
