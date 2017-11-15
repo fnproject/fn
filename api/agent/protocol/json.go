@@ -105,17 +105,9 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	if err != nil {
 		return err
 	}
-	if bb.Len() > 0 {
-		err = stdin.Encode(bb.String())
-		if err != nil {
-			return err
-		}
-	} else {
-		// pass in empty json body
-		err = stdin.Encode("{}")
-		if err != nil {
-			return err
-		}
+	err = stdin.Encode(bb.String())
+	if err != nil {
+		return err
 	}
 
 	// now the extras

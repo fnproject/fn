@@ -17,11 +17,6 @@ type RequestData struct {
 	A string `json:"a"`
 }
 
-type funcRequestBody struct {
-	Body    string            `json:"body"`
-	Headers map[string]string `json:"headers"`
-}
-
 func setupRequest(data interface{}) *http.Request {
 	req := &http.Request{
 		Method: http.MethodPost,
@@ -54,15 +49,16 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	req := setupRequest(rDataBefore)
 	r, w := io.Pipe()
 	call := &models.Call{}
+	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.writeJSONInput(call, req)
+		err := proto.writeJSONToContainer(ci)
 		if err != nil {
 			t.Error(err.Error())
 		}
 		w.Close()
 	}()
-	incomingReq := new(funcRequestBody)
+	incomingReq := &jsonIn{}
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -89,15 +85,16 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 
 	call := &models.Call{}
 	r, w := io.Pipe()
+	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.writeJSONInput(call, req)
+		err := proto.writeJSONToContainer(ci)
 		if err != nil {
 			t.Error(err.Error())
 		}
 		w.Close()
 	}()
-	incomingReq := new(funcRequestBody)
+	incomingReq := &jsonIn{}
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -112,9 +109,9 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
 			"<empty-string>", incomingReq.Body)
 	}
-	if ok := reflect.DeepEqual(req.Header, incomingReq.Headers); !ok {
+	if ok := reflect.DeepEqual(req.Header, incomingReq.Protocol.Headers); !ok {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
-			req.Header, incomingReq.Headers)
+			req.Header, incomingReq.Protocol.Headers)
 	}
 }
 
@@ -123,15 +120,16 @@ func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 
 	r, w := io.Pipe()
 	call := &models.Call{}
+	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.writeJSONInput(call, req)
+		err := proto.writeJSONToContainer(ci)
 		if err != nil {
 			t.Error(err.Error())
 		}
 		w.Close()
 	}()
-	incomingReq := new(funcRequestBody)
+	incomingReq := &jsonIn{}
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -142,8 +140,8 @@ func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	// if incomingReq.QueryParameters != req.URL.RawQuery {
-	// 	t.Errorf("Request query string assertion mismatch: expected: %s, got %s",
-	// 		req.URL.RawQuery, incomingReq.QueryParameters)
-	// }
+	if incomingReq.Protocol.RequestURL != req.URL.RequestURI() {
+		t.Errorf("Request URL does not match protocol URL: expected: %s, got %s",
+			req.URL.RequestURI(), incomingReq.Protocol.RequestURL)
+	}
 }
