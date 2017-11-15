@@ -269,95 +269,49 @@ func dockerMsg(derr *docker.Error) string {
 
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
-func (drv *DockerDriver) run(ctx0 context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
-	timeout := task.Timeout()
-
-	// we create and use the following contexts in this func
-	// ctx0        - parent context
-	// ctxForStats - new child context (with timeout if specified) - passed to collectStats and cancelled when the waiter completes
-	// ctx2        - new child context (with timeout if specified) - used for remaining calls and cancelled at end of func
-	var ctxForStats, ctx2 context.Context
-	var cancelCtxForStats, cancel2 context.CancelFunc
-	if timeout <= 0 {
-		ctxForStats, cancelCtxForStats = context.WithCancel(ctx0)
-		ctx2, cancel2 = context.WithCancel(ctx0)
-	} else {
-		ctxForStats, cancelCtxForStats = context.WithTimeout(ctx0, timeout)
-		ctx2, cancel2 = context.WithCancel(ctx0)
-	}
-	defer cancel2()
-
-	// start the collection of statistics
-	// this will continue until ctxForStats is cancelled
-	go drv.collectStats(ctxForStats, container, task)
-
+func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
 	mwOut, mwErr := task.Logger()
 
-	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx2, docker.AttachToContainerOptions{
+	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container: container, OutputStream: mwOut, ErrorStream: mwErr,
 		Stream: true, Logs: true, Stdout: true, Stderr: true,
 		Stdin: true, InputStream: task.Input()})
-	if err != nil && ctx2.Err() == nil {
-		// ignore if ctx2 has errored, rewrite status lay below
-		cancelCtxForStats()
+	if err != nil && ctx.Err() == nil {
+		// ignore if ctx has errored, rewrite status lay below
 		return nil, err
 	}
 
-	err = drv.startTask(ctx2, container)
-	if err != nil && ctx2.Err() == nil {
+	ctxForStats, cancel := context.WithCancel(ctx) // to shut down collectStats once container exits
+	go drv.collectStats(ctxForStats, container, task)
+
+	err = drv.startTask(ctx, container)
+	if err != nil && ctx.Err() == nil {
 		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
-		cancelCtxForStats()
 		return nil, err
 	}
 
-	waitResult := newWaitResult(container, waiter, drv)
-
-	go func() {
-		// wait for the container to have stopped and then cancel the collection of statistics
-		waitResult.Wait(ctx0)
-		cancelCtxForStats()
-	}()
-
-	return waitResult, nil
-}
-
-// waitResult implements drivers.WaitResult
-// This implementation allows multiple concurrent calls to Wait()
-type waitResult struct {
-	container    string
-	waiter       docker.CloseWaiter
-	drv          *DockerDriver
-	closedSignal chan struct{} // used by the first call to Wait() to signal to subsequent calls that w.waiter is already closed
-}
-
-// newWaitResult returns a new waitResult which implements drivers.WaitResult
-// This implementation allows multiple concurrent calls to Wait()
-func newWaitResult(container string, waiter docker.CloseWaiter, drv *DockerDriver) *waitResult {
 	return &waitResult{
-		container:    container,
-		waiter:       waiter,
-		drv:          drv,
-		closedSignal: make(chan struct{}),
-	}
-
+		container: container,
+		waiter:    waiter,
+		drv:       drv,
+		cancel:    cancel,
+	}, nil
 }
 
 // waitResult implements drivers.WaitResult
-// This implementation allows multiple concurrent calls to Wait()
+type waitResult struct {
+	container string
+	waiter    docker.CloseWaiter
+	drv       *DockerDriver
+	cancel    func()
+}
+
+// waitResult implements drivers.WaitResult
 func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	defer func() {
-		// Only one caller can call w.waiter.Close() without getting a panic.
-		// This caller will then call w.waiter.Wait() and then close closeSignal to tell the other threads that processing is finished
-		// Other callers will get a panic.
-		// They will recover() here and wait for closeSignal to be closed before returning
-		defer func() {
-			if recover() != nil {
-				<-w.closedSignal
-			}
-		}()
 		w.waiter.Close()
 		w.waiter.Wait() // wait for Close() to finish processing, to make sure we gather all logs
-		close(w.closedSignal)
+		w.cancel()
 	}()
 
 	// wait until container is stopped (or ctx is cancelled if sooner)

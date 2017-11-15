@@ -116,15 +116,15 @@ During the execution of the docker container, a selected number of statistics fr
 
 | Prometheus metric name |
 | ------------- |
-| `fn_docker_stats_fn_cpu_kernel` |
-| `fn_docker_stats_fn_cpu_kernel`  |
-| `fn_docker_stats_fn_cpu_user` |
-| `fn_docker_stats_fn_disk_read` |
-| `fn_docker_stats_fn_disk_write` |
-| `fn_docker_stats_fn_mem_limit` |
-| `fn_docker_stats_fn_mem_usage` |
-| `fn_docker_stats_fn_net_rx` |
-| `fn_docker_stats_fn_net_tx` |
+| `fn_docker_stats_cpu_kernel` |
+| `fn_docker_stats_cpu_kernel`  |
+| `fn_docker_stats_cpu_user` |
+| `fn_docker_stats_disk_read` |
+| `fn_docker_stats_disk_write` |
+| `fn_docker_stats_mem_limit` |
+| `fn_docker_stats_mem_usage` |
+| `fn_docker_stats_net_rx` |
+| `fn_docker_stats_net_tx` |
  
  Note that if the container runs for a very short length of time there may be insufficient time to obtain statistics before the container terminates.
  

@@ -51,7 +51,7 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 
 		// get the HistogramVec for this metric
 		thisMetricHistogramVec, labelValuesToUse := pc.getHistogramVec(
-			("fn_span_" + spanName + "_" + key), (spanName + " metric " + key), labelKeysFromSpan, labelValuesFromSpan)
+			("fn_" + spanName + "_" + key), (spanName + " metric " + key), labelKeysFromSpan, labelValuesFromSpan)
 
 		// now report the metric value
 		thisMetricHistogramVec.With(labelValuesToUse).Observe(float64(value))
@@ -133,6 +133,7 @@ func getLoggedMetrics(span *zipkincore.Span) map[string]uint64 {
 			if len(keyvalue) == 2 {
 				if value, err := strconv.ParseUint(keyvalue[1], 10, 64); err == nil {
 					key := strings.TrimSpace(keyvalue[0])
+					key = key[3:] // strip off leading fn_
 					keyValueMap[key] = value
 				}
 			}

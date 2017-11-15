@@ -89,7 +89,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(fn_span_docker_stats_fn_[[docker_metric_name]]_sum[1m]) /  rate(fn_span_docker_stats_fn_[[docker_metric_name]]_count[1m])\n\n\n\n",
+              "expr": "rate(fn_docker_stats_[[docker_metric_name]]_sum[1m]) /  rate(fn_docker_stats_[[docker_metric_name]]_count[1m])\n\n\n\n",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "{{fn_path}} ({{fn_appname}})",
@@ -157,9 +157,9 @@
         "multi": true,
         "name": "docker_metric_name",
         "options": [],
-        "query": "metrics(fn_span.*)",
+        "query": "metrics(fn_.*)",
         "refresh": 2,
-        "regex": "fn_span_docker_stats_fn_(.*)_count",
+        "regex": "fn_docker_stats_(.*)_count",
         "sort": 1,
         "tagValuesQuery": "",
         "tags": [],

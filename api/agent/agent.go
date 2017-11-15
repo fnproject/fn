@@ -452,9 +452,7 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
 	defer span.Finish()
 
-	ctxForRun, cancel := context.WithCancel(ctx)
-	defer cancel()
-	waiter, err := s.cookie.Run(ctxForRun)
+	waiter, err := s.cookie.Run(ctx)
 	if err != nil {
 		return err
 	}
@@ -582,7 +580,6 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 	// instead we will create a new Context below and explicitly set its span
 	span, _ := opentracing.StartSpanFromContext(ctxArg, "docker_run_hot")
 	defer span.Finish()
-	// note won't use the orifinal or returned Context. Ind
 
 	if tok == nil {
 		// TODO we should panic, probably ;)
