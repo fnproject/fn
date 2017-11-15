@@ -2,8 +2,8 @@
 set -ex
 
 user="fnproject"
-service="fnlb"
-tag="latest"
+image="fn-lb"
+image_deprecated="fnlb"
 
 # ensure working dir is clean
 git status
@@ -28,14 +28,19 @@ echo "Version: $version"
 
 make docker-build
 
-gtag=$service-$version
+gtag=$image-$version
 git add -u
-git commit -m "$service: $version release [skip ci]"
+git commit -m "$image: $version release [skip ci]"
 git tag -f -a "$gtag" -m "version $gtag"
 git push
 git push origin $gtag
 
 # Finally tag and push docker images
-docker tag $user/$service:$tag $user/$service:$version
-docker push $user/$service:$version
-docker push $user/$service:$tag
+docker tag $user/$image:latest $user/$image:$version
+docker push $user/$image:$version
+docker push $user/$image:latest
+
+# Deprecated images, should remove this sometime in near future
+docker tag $user/$image_deprecated:latest $user/$image_deprecated:$version
+docker push $user/$image_deprecated:$version
+docker push $user/$image_deprecated:latest
