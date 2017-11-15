@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"fmt"
@@ -22,8 +21,9 @@ import (
 // pass/fail and exposes endpoints for adding, removing and listing nodes.
 func NewAllGrouper(conf Config, db DBStore) (Grouper, error) {
 	a := &allGrouper{
-		nodeList: make(map[string]*nodeState),
-		db:       db,
+		nodeList:        make(map[string]nodeState),
+		nodeHealthyList: make([]string, 0),
+		db:              db,
 
 		// XXX (reed): need to be reconfigurable at some point
 		hcInterval:    time.Duration(conf.HealthcheckInterval) * time.Second,
@@ -36,9 +36,6 @@ func NewAllGrouper(conf Config, db DBStore) (Grouper, error) {
 		// for health checks
 		httpClient: &http.Client{Transport: conf.Transport},
 	}
-
-	empty_list := make([]string, 0)
-	a.healthyList.Store(&empty_list)
 
 	for _, n := range conf.Nodes {
 		err := a.add(n)
@@ -53,14 +50,6 @@ func NewAllGrouper(conf Config, db DBStore) (Grouper, error) {
 
 // nodeState is used to store success/fail counts and other health related data.
 type nodeState struct {
-	// name/address of the node
-	name string
-
-	// used to purge/delete old nodes when synching the nodes with DB
-	intervalID uint64
-
-	// exclusion for multiple go routine pingers
-	lock sync.Mutex
 
 	// num of consecutive successes & failures
 	success uint64
@@ -82,11 +71,9 @@ type nodeState struct {
 type allGrouper struct {
 
 	// health checker state and lock
-	nodeLock sync.Mutex
-	nodeList map[string]*nodeState
-
-	// current atomic store/load protected healthy list
-	healthyList atomic.Value
+	nodeLock        sync.RWMutex
+	nodeList        map[string]nodeState
+	nodeHealthyList []string
 
 	db DBStore
 
@@ -117,69 +104,87 @@ func (a *allGrouper) remove(ded string) error {
 
 func (a *allGrouper) publishHealth() {
 
-	// get a list of healthy nodes
 	a.nodeLock.Lock()
-	new_list := make([]string, 0, len(a.nodeList))
+
+	// get a list of healthy nodes
+	newList := make([]string, 0, len(a.nodeList))
 	for key, value := range a.nodeList {
 		if value.healthy {
-			new_list = append(new_list, key)
+			newList = append(newList, key)
 		}
 	}
-	a.nodeLock.Unlock()
 
-	// sort and set the healty list pointer
-	sort.Strings(new_list)
-	a.healthyList.Store(&new_list)
+	// sort and update healthy List
+	sort.Strings(newList)
+	a.nodeHealthyList = newList
+
+	a.nodeLock.Unlock()
 }
 
 // return a copy
 func (a *allGrouper) List(string) ([]string, error) {
 
-	// safe atomic load on the current healthy list
-	ptr := a.healthyList.Load().(*[]string)
-	if len(*ptr) == 0 {
-		return nil, ErrNoNodes
-	}
+	a.nodeLock.RLock()
+	ret := make([]string, len(a.nodeHealthyList))
+	copy(ret, a.nodeHealthyList)
+	a.nodeLock.RUnlock()
 
-	ret := make([]string, len(*ptr))
-	copy(ret, *ptr)
-	return ret, nil
+	var err error
+	if len(ret) == 0 {
+		err = ErrNoNodes
+	}
+	return ret, err
 }
 
-func (a *allGrouper) runHealthCheck(iteration *uint64) {
+func (a *allGrouper) runHealthCheck() {
 
 	// fetch a list of nodes from DB
 	list, err := a.db.List()
 	if err != nil {
 		// if DB fails, the show must go on, report it but perform HC
 		logrus.WithError(err).Error("error checking db for nodes")
+
+		// compile a list of nodes to be health checked
+		a.nodeLock.RLock()
+		list = make([]string, 0, len(a.nodeList))
+		for key, _ := range a.nodeList {
+			list = append(list, key)
+		}
+		a.nodeLock.RUnlock()
+
 	} else {
-		*iteration++
+
 		isChanged := false
+
+		// compile a map of DB nodes for deletion check
+		deleteCheck := make(map[string]bool, len(list))
+		for _, node := range list {
+			deleteCheck[node] = true
+		}
+
 		a.nodeLock.Lock()
-		// handle existing & new nodes
+
+		// handle new nodes
 		for _, node := range list {
 			_, ok := a.nodeList[node]
-			if ok {
-				// mark existing node
-				a.nodeList[node].intervalID = *iteration
-			} else {
+			if !ok {
 				// add new node
-				a.nodeList[node] = &nodeState{
-					name:       node,
-					intervalID: *iteration,
-					healthy:    true,
+				a.nodeList[node] = nodeState{
+					healthy: true,
 				}
 				isChanged = true
 			}
 		}
+
 		// handle deleted nodes: purge unmarked nodes
-		for key, value := range a.nodeList {
-			if value.intervalID != *iteration {
+		for key, _ := range a.nodeList {
+			_, ok := deleteCheck[key]
+			if !ok {
 				delete(a.nodeList, key)
 				isChanged = true
 			}
 		}
+
 		a.nodeLock.Unlock()
 
 		// publish if add/deleted nodes
@@ -188,29 +193,19 @@ func (a *allGrouper) runHealthCheck(iteration *uint64) {
 		}
 	}
 
-	// get a list of node pointers
-	a.nodeLock.Lock()
-	run_list := make([]*nodeState, 0, len(a.nodeList))
-	for _, value := range a.nodeList {
-		run_list = append(run_list, value)
-	}
-	a.nodeLock.Unlock()
-
-	for _, node := range run_list {
-		go a.ping(node)
+	// spawn health checkers
+	for _, key := range list {
+		go a.ping(key)
 	}
 }
 
 func (a *allGrouper) healthcheck() {
 
-	// keep track of iteration id in order to mark/sweep deleted nodes
-	iteration := uint64(0)
-
 	// run hc immediately upon startup
-	a.runHealthCheck(&iteration)
+	a.runHealthCheck()
 
 	for range time.Tick(a.hcInterval) {
-		a.runHealthCheck(&iteration)
+		a.runHealthCheck()
 	}
 }
 
@@ -260,56 +255,82 @@ func (a *allGrouper) checkAPIVersion(node string) error {
 	return nil
 }
 
-func (a *allGrouper) ping(node *nodeState) {
-	err := a.checkAPIVersion(node.name)
+func (a *allGrouper) ping(node string) {
+	err := a.checkAPIVersion(node)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"node": node.name}).Error("Unable to check API version")
+		logrus.WithError(err).WithFields(logrus.Fields{"node": node}).Error("Unable to check API version")
 		a.fail(node)
 	} else {
 		a.alive(node)
 	}
 }
 
-func (a *allGrouper) fail(node *nodeState) {
+func (a *allGrouper) fail(key string) {
 
 	isChanged := false
 
-	node.lock.Lock()
+	a.nodeLock.Lock()
+
+	// if deleted, skip
+	node, ok := a.nodeList[key]
+	if !ok {
+		a.nodeLock.Unlock()
+		return
+	}
 
 	node.success = 0
 	node.fail++
+
+	// overflow case
+	if node.fail == 0 {
+		node.fail = uint64(a.hcUnhealthy)
+	}
 
 	if node.healthy && node.fail >= uint64(a.hcUnhealthy) {
 		node.healthy = false
 		isChanged = true
 	}
 
-	node.lock.Unlock()
+	a.nodeList[key] = node
+	a.nodeLock.Unlock()
 
 	if isChanged {
-		logrus.WithFields(logrus.Fields{"node": node.name}).Info("is unhealthy")
+		logrus.WithFields(logrus.Fields{"node": key}).Info("is unhealthy")
 		a.publishHealth()
 	}
 }
 
-func (a *allGrouper) alive(node *nodeState) {
+func (a *allGrouper) alive(key string) {
 
 	isChanged := false
 
-	node.lock.Lock()
+	a.nodeLock.Lock()
+
+	// if deleted, skip
+	node, ok := a.nodeList[key]
+	if !ok {
+		a.nodeLock.Unlock()
+		return
+	}
 
 	node.fail = 0
 	node.success++
+
+	// overflow case
+	if node.success == 0 {
+		node.success = uint64(a.hcHealthy)
+	}
 
 	if !node.healthy && node.success >= uint64(a.hcHealthy) {
 		node.healthy = true
 		isChanged = true
 	}
 
-	node.lock.Unlock()
+	a.nodeList[key] = node
+	a.nodeLock.Unlock()
 
 	if isChanged {
-		logrus.WithFields(logrus.Fields{"node": node.name}).Info("is healthy")
+		logrus.WithFields(logrus.Fields{"node": key}).Info("is healthy")
 		a.publishHealth()
 	}
 }
@@ -371,27 +392,19 @@ func (a *allGrouper) removeNode(w http.ResponseWriter, r *http.Request) {
 
 func (a *allGrouper) listNodes(w http.ResponseWriter, r *http.Request) {
 
-	// get a list of node pointers
-	a.nodeLock.Lock()
-	run_list := make([]*nodeState, 0, len(a.nodeList))
-	for _, value := range a.nodeList {
-		run_list = append(run_list, value)
-	}
-	a.nodeLock.Unlock()
+	a.nodeLock.RLock()
 
-	out := make(map[string]string, len(run_list))
-	for _, node := range run_list {
+	out := make(map[string]string, len(a.nodeList))
 
-		node.lock.Lock()
-		healthy := node.healthy
-		node.lock.Unlock()
-
-		if healthy {
-			out[node.name] = "online"
+	for key, value := range a.nodeList {
+		if value.healthy {
+			out[key] = "online"
 		} else {
-			out[node.name] = "offline"
+			out[key] = "offline"
 		}
 	}
+
+	a.nodeLock.RUnlock()
 
 	sendValue(w, struct {
 		Nodes map[string]string `json:"nodes"`
