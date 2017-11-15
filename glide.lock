@@ -1,5 +1,5 @@
-hash: bcface74504c6e95fdb7e0de5d0803ae55c7913ae9c83a293f7b0828313d5f63
-updated: 2017-10-25T14:12:02.585493659-07:00
+hash: f5176ffa46ec8ac2a1900aee611589c59b5404e9fc668ec3e833dc67c0ad842d
+updated: 2017-11-15T14:57:38.939238313-08:00
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -193,6 +193,8 @@ imports:
   - binding
   - json
   - render
+- name: github.com/go-ini/ini
+  version: c787282c39ac1fc618827141a1f762240def08a3
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/analysis
@@ -314,6 +316,17 @@ imports:
   - pbutil
 - name: github.com/Microsoft/go-winio
   version: 78439966b38d69bf38227fbf57ac8a6fee70f69a
+- name: github.com/minio/go-homedir
+  version: 21304a94172ae3a09dee2cd86a12fb6f842138c7
+- name: github.com/minio/minio-go
+  version: a62e2045a5d3a6630dbb7040260994583ac56b10
+  subpackages:
+  - pkg/credentials
+  - pkg/encrypt
+  - pkg/policy
+  - pkg/s3signer
+  - pkg/s3utils
+  - pkg/set
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/Nvveen/Gotty
@@ -413,7 +426,7 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/crypto
-  version: 2509b142fb2b797aa7587dad548f113b2c0f20ce
+  version: 9f005a07e0d31d45e6656d241bb5c0f2efd4bc94
   subpackages:
   - bcrypt
   - blowfish
