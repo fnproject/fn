@@ -164,12 +164,10 @@ func (o *PatchAppsAppRoutesRouteParams) WriteToRequest(r runtime.ClientRequest, 
 		return err
 	}
 
-	if o.Body == nil {
-		o.Body = new(models.RouteWrapper)
-	}
-
-	if err := r.SetBodyParam(o.Body); err != nil {
-		return err
+	if o.Body != nil {
+		if err := r.SetBodyParam(o.Body); err != nil {
+			return err
+		}
 	}
 
 	// path param route

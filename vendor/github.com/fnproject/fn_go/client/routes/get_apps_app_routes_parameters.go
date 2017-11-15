@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/swag"
 
 	strfmt "github.com/go-openapi/strfmt"
 )
@@ -67,6 +68,21 @@ type GetAppsAppRoutesParams struct {
 
 	*/
 	App string
+	/*Cursor
+	  Cursor from previous response.next_cursor to begin results after, if any.
+
+	*/
+	Cursor *string
+	/*Image
+	  Route image to match, exact.
+
+	*/
+	Image *string
+	/*PerPage
+	  Number of results to return, defaults to 30. Max of 100.
+
+	*/
+	PerPage *int64
 
 	timeout    time.Duration
 	Context    context.Context
@@ -117,6 +133,39 @@ func (o *GetAppsAppRoutesParams) SetApp(app string) {
 	o.App = app
 }
 
+// WithCursor adds the cursor to the get apps app routes params
+func (o *GetAppsAppRoutesParams) WithCursor(cursor *string) *GetAppsAppRoutesParams {
+	o.SetCursor(cursor)
+	return o
+}
+
+// SetCursor adds the cursor to the get apps app routes params
+func (o *GetAppsAppRoutesParams) SetCursor(cursor *string) {
+	o.Cursor = cursor
+}
+
+// WithImage adds the image to the get apps app routes params
+func (o *GetAppsAppRoutesParams) WithImage(image *string) *GetAppsAppRoutesParams {
+	o.SetImage(image)
+	return o
+}
+
+// SetImage adds the image to the get apps app routes params
+func (o *GetAppsAppRoutesParams) SetImage(image *string) {
+	o.Image = image
+}
+
+// WithPerPage adds the perPage to the get apps app routes params
+func (o *GetAppsAppRoutesParams) WithPerPage(perPage *int64) *GetAppsAppRoutesParams {
+	o.SetPerPage(perPage)
+	return o
+}
+
+// SetPerPage adds the perPage to the get apps app routes params
+func (o *GetAppsAppRoutesParams) SetPerPage(perPage *int64) {
+	o.PerPage = perPage
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetAppsAppRoutesParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -128,6 +177,54 @@ func (o *GetAppsAppRoutesParams) WriteToRequest(r runtime.ClientRequest, reg str
 	// path param app
 	if err := r.SetPathParam("app", o.App); err != nil {
 		return err
+	}
+
+	if o.Cursor != nil {
+
+		// query param cursor
+		var qrCursor string
+		if o.Cursor != nil {
+			qrCursor = *o.Cursor
+		}
+		qCursor := qrCursor
+		if qCursor != "" {
+			if err := r.SetQueryParam("cursor", qCursor); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.Image != nil {
+
+		// query param image
+		var qrImage string
+		if o.Image != nil {
+			qrImage = *o.Image
+		}
+		qImage := qrImage
+		if qImage != "" {
+			if err := r.SetQueryParam("image", qImage); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.PerPage != nil {
+
+		// query param per_page
+		var qrPerPage int64
+		if o.PerPage != nil {
+			qrPerPage = *o.PerPage
+		}
+		qPerPage := swag.FormatInt64(qrPerPage)
+		if qPerPage != "" {
+			if err := r.SetQueryParam("per_page", qPerPage); err != nil {
+				return err
+			}
+		}
+
 	}
 
 	if len(res) > 0 {

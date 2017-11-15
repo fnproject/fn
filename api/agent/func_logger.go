@@ -48,15 +48,20 @@ func setupLogger(logger logrus.FieldLogger) io.ReadWriteCloser {
 	return &rwc{mw, dbuf}
 }
 
-// implements io.ReadWriteCloser, keeps the buffer for all its handy methods
+// implements io.ReadWriteCloser, fmt.Stringer and Bytes()
+// TODO WriteString and ReadFrom would be handy to implement,
+// ReadFrom is a little involved.
 type rwc struct {
 	io.WriteCloser
-	*bytes.Buffer
+
+	// buffer is not embedded since it would bypass calls to WriteCloser.Write
+	// in cases such as WriteString and ReadFrom
+	b *bytes.Buffer
 }
 
-// these are explicit to override the *bytes.Buffer's methods
-func (r *rwc) Write(b []byte) (int, error) { return r.WriteCloser.Write(b) }
-func (r *rwc) Close() error                { return r.WriteCloser.Close() }
+func (r *rwc) Read(b []byte) (int, error) { return r.b.Read(b) }
+func (r *rwc) String() string             { return r.b.String() }
+func (r *rwc) Bytes() []byte              { return r.b.Bytes() }
 
 // implements passthrough Write & closure call in Close
 type fCloser struct {

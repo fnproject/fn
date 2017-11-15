@@ -1,3 +1,4 @@
+#!/bin/bash
 # Top level test script to start all other tests
 
 set -ex
@@ -37,8 +38,10 @@ esac
 
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests)
 go vet -v $(go list ./... | grep -v vendor)
-docker rm --force func-postgres-test 
+docker rm --force func-postgres-test
 docker rm --force func-mysql-test
+
+docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm  quay.io/goswagger/swagger validate /go/src/github.com/fnproject/fn/docs/swagger.yml
 
 # test middlware, extensions, examples, etc
 # TODO: do more here, maybe as part of fn tests

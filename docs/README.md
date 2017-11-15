@@ -38,6 +38,4 @@ If you are operating Fn, this section is for you.
 * [Extending Fn](operating/extending.md)
 * [Docker Configuration](operating/docker.md)
 * [Operating On Windows](operating/windows.md)
-* Running Fn on:
-  * [Kubernetes](operating/kubernetes/README.md)
-  * [Docker Swarm](operating/docker-swarm/README.md)
+* [Running Fn on Kubernetes](operating/kubernetes/README.md)

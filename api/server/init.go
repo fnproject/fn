@@ -41,7 +41,7 @@ func init() {
 	}
 }
 
-func contextWithSignal(ctx context.Context, signals ...os.Signal) context.Context {
+func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Context, context.CancelFunc) {
 	newCTX, halt := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, signals...)
@@ -59,5 +59,5 @@ func contextWithSignal(ctx context.Context, signals ...os.Signal) context.Contex
 			}
 		}
 	}()
-	return newCTX
+	return newCTX, halt
 }

@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"github.com/go-openapi/strfmt"
 )
 
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.
@@ -49,6 +51,7 @@ func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
 }
 
 func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) error {
+	wroute.Route.CreatedAt = strfmt.DateTime(time.Now())
 	wroute.Route.SetDefaults()
 	err := wroute.Route.Validate()
 	if err != nil {
@@ -90,13 +93,12 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 				return *bad, err
 			}
 			return routeResponse{"Route successfully created", wroute.Route}, nil
-		} else {
-			err := s.changeRoute(ctx, wroute)
-			if err != nil {
-				return *bad, err
-			}
-			return routeResponse{"Route successfully updated", wroute.Route}, nil
 		}
+		err = s.changeRoute(ctx, wroute)
+		if err != nil {
+			return *bad, err
+		}
+		return routeResponse{"Route successfully updated", wroute.Route}, nil
 	case http.MethodPatch:
 		err := s.changeRoute(ctx, wroute)
 		if err != nil {

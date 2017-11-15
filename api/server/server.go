@@ -18,6 +18,7 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/cache"
+	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -50,9 +51,8 @@ type Server struct {
 	MQ        models.MessageQueue
 	LogDB     models.LogStore
 
-	appListeners    []AppListener
-	middlewares     []Middleware
-	runnerListeners []RunnerListener
+	appListeners []extensions.AppListener
+	middlewares  []Middleware
 }
 
 // NewFromEnv creates a new Functions server based on env vars.
@@ -96,6 +96,9 @@ func optionalCorsWrap(r *gin.Engine) {
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
+
+	setTracer()
+
 	s := &Server{
 		Agent:     agent.New(cache.Wrap(ds), mq), // only add datastore caching to agent
 		Router:    gin.New(),
@@ -104,8 +107,7 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 		LogDB:     logDB,
 	}
 
-	setMachineId()
-	setTracer()
+	setMachineID()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap)
 	optionalCorsWrap(s.Router)
 
@@ -131,6 +133,8 @@ func traceWrap(c *gin.Context) {
 	// If wireContext == nil, a root span will be created.
 	// TODO we should add more tags?
 	serverSpan := opentracing.StartSpan("serve_http", ext.RPCServerOption(wireContext), opentracing.Tag{Key: "path", Value: c.Request.URL.Path})
+	serverSpan.SetBaggageItem("fn_appname", c.Param(api.CApp))
+	serverSpan.SetBaggageItem("fn_path", c.Param(api.CRoute))
 	defer serverSpan.Finish()
 
 	ctx := opentracing.ContextWithSpan(c.Request.Context(), serverSpan)
@@ -147,17 +151,29 @@ func setTracer() {
 		// ex: "http://zipkin:9411/api/v1/spans"
 	)
 
-	if zipkinHTTPEndpoint == "" {
-		return
+	var collector zipkintracer.Collector
+
+	// custom Zipkin collector to send tracing spans to Prometheus
+	promCollector, promErr := NewPrometheusCollector()
+	if promErr != nil {
+		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
 	}
 
 	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
 
-	collector, err := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
-	if err != nil {
-		logrus.WithError(err).Fatalln("couldn't start trace collector")
+	if zipkinHTTPEndpoint != "" {
+		// Custom PrometheusCollector and Zipkin HTTPCollector
+		httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+		if zipErr != nil {
+			logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
+		}
+		collector = zipkintracer.MultiCollector{httpCollector, promCollector}
+	} else {
+		// Custom PrometheusCollector only
+		collector = promCollector
 	}
-	tracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+
+	ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
 		zipkintracer.ClientServerSameSpan(true),
 		zipkintracer.TraceID128Bit(true),
 	)
@@ -165,11 +181,14 @@ func setTracer() {
 		logrus.WithError(err).Fatalln("couldn't start tracer")
 	}
 
-	opentracing.SetGlobalTracer(tracer)
+	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
+	fntracer := NewFnTracer(ziptracer)
+
+	opentracing.SetGlobalTracer(fntracer)
 	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
-func setMachineId() {
+func setMachineID() {
 	port := uint16(viper.GetInt(EnvPort))
 	addr := whoAmI().To4()
 	if addr == nil {
@@ -256,11 +275,11 @@ func extractFields(c *gin.Context) logrus.Fields {
 }
 
 func (s *Server) Start(ctx context.Context) {
-	ctx = contextWithSignal(ctx, os.Interrupt)
-	s.startGears(ctx)
+	newctx, cancel := contextWithSignal(ctx, os.Interrupt)
+	s.startGears(newctx, cancel)
 }
 
-func (s *Server) startGears(ctx context.Context) {
+func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
 	// PORT environment variable was defined.
 	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
@@ -283,13 +302,21 @@ func (s *Server) startGears(ctx context.Context) {
 	}
 
 	go func() {
-		<-ctx.Done()                          // listening for signals...
-		server.Shutdown(context.Background()) // we can wait
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			logrus.WithError(err).Error("server error")
+			cancel()
+		} else {
+			logrus.Info("server stopped")
+		}
 	}()
 
-	err := server.ListenAndServe()
-	if err != nil {
-		logrus.WithError(err).Error("error opening server")
+	// listening for signals or listener errors...
+	<-ctx.Done()
+
+	// TODO: do not wait forever during graceful shutdown (add graceful shutdown timeout)
+	if err := server.Shutdown(context.Background()); err != nil {
+		logrus.WithError(err).Error("server shutdown error")
 	}
 
 	s.Agent.Close() // after we stop taking requests, wait for all tasks to finish

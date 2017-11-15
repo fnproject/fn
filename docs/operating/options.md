@@ -1,5 +1,15 @@
 # Fn Runtime Options
 
+## Default run command for production
+
+This will run with docker in docker. 
+
+```sh
+docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 80:8080 fnproject/functions
+```
+
+See below for starting without docker in docker.
+
 ## Configuration
 
 When starting Fn, you can pass in the following configuration variables as environment variables. Use `-e VAR_NAME=VALUE` in

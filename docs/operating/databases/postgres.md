@@ -28,7 +28,7 @@ docker run -it --rm --link func-postgres:postgres postgres \
 ### 3. Now let's start Functions connecting to our new postgres instance
 
 ```
-docker run --rm --privileged --link "iron-postgres:postgres" \
+docker run --rm --privileged --link "func-postgres:postgres" \
     -e "DB_URL=postgres://postgres:funcpass@postgres/funcs?sslmode=disable" \
     -it -p 8080:8080 fnproject/functions
 ```

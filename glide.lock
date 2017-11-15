@@ -1,5 +1,5 @@
-hash: 7b26ee32b59fb74c690457d59f411bf264503cc6b60c4c0e7cda0822915f45b3
-updated: 2017-10-25T10:50:17.059368524+01:00
+hash: bcface74504c6e95fdb7e0de5d0803ae55c7913ae9c83a293f7b0828313d5f63
+updated: 2017-10-25T14:12:02.585493659-07:00
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -301,6 +301,11 @@ imports:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/mattes/migrate
+  version: 5b98c13eff7657ab49a1a5f705b72f961d7fc558
+  subpackages:
+  - database
+  - source
 - name: github.com/mattn/go-isatty
   version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/mattn/go-sqlite3
@@ -379,6 +384,14 @@ imports:
   version: de5bf2ad457846296e2031421a34e2568e304e35
 - name: github.com/rcrowley/go-metrics
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+- name: github.com/rdallman/migrate
+  version: bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef
+  subpackages:
+  - database/mysql
+  - database/postgres
+  - database/sqlite3
+  - source
+  - source/go-bindata
 - name: github.com/Shopify/sarama
   version: 4704a3a8c95920361c47e9a2adec13c3d757c757
 - name: github.com/sirupsen/logrus
