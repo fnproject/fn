@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
@@ -23,6 +24,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/version"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -38,6 +40,7 @@ const (
 	EnvLOGDBURL  = "logstore_url"
 	EnvPort      = "port" // be careful, Gin expects this variable to be "port"
 	EnvAPIURL    = "api_url"
+	EnvAPICORS   = "api_cors"
 	EnvZipkinURL = "zipkin_url"
 )
 
@@ -75,6 +78,22 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	return New(ctx, ds, mq, logDB, opts...)
 }
 
+func optionalCorsWrap(r *gin.Engine) {
+	// By default no CORS are allowed unless one
+	// or more Origins are defined by the API_CORS
+	// environment variable.
+	if len(viper.GetString(EnvAPICORS)) > 0 {
+		origins := strings.Split(strings.Replace(viper.GetString(EnvAPICORS), " ", "", -1), ",")
+
+		corsConfig := cors.DefaultConfig()
+		corsConfig.AllowOrigins = origins
+
+		logrus.Infof("CORS enabled for domains: %s", origins)
+
+		r.Use(cors.New(corsConfig))
+	}
+}
+
 // New creates a new Functions server with the passed in datastore, message queue and API URL
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
 
@@ -90,6 +109,8 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB
 
 	setMachineID()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap)
+	optionalCorsWrap(s.Router)
+
 	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
