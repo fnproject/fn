@@ -1,3 +1,0 @@
-name: username/func-echo
-build:
-  - ./build.sh
