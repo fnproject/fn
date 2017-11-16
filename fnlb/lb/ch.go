@@ -150,61 +150,61 @@ func loadKey(node, key string) string {
 	return node + "\x00" + key
 }
 
+func (ch *chRouter) checkLoad(key, n string) bool {
+	var load time.Duration
+	ch.loadMu.RLock()
+	loadPtr := ch.load[loadKey(n, key)]
+	ch.loadMu.RUnlock()
+	if loadPtr != nil {
+		load = time.Duration(atomic.LoadInt64(loadPtr))
+	}
+
+	const (
+		// TODO we should probably use deltas rather than fixed wait times. for 'cold'
+		// functions these could always trigger. i.e. if wait time increased 5x over last
+		// 100 data points, point the cannon elsewhere (we'd have to track 2 numbers but meh)
+		lowerLat = 500 * time.Millisecond
+		upperLat = 2 * time.Second
+	)
+
+	// TODO flesh out these values.
+	// if we send < 50% of traffic off to other nodes when loaded
+	// then as function scales nodes will get flooded, need to be careful.
+	//
+	// back off loaded node/function combos slightly to spread load
+	if load < lowerLat {
+		return true
+	} else if load > upperLat {
+		// really loaded
+		if ch.rng.Intn(100) < 10 { // XXX (reed): 10% could be problematic, should sliding scale prob with log(x) ?
+			return true
+		}
+	} else {
+		// 10 < x < 40, as load approaches upperLat, x decreases [linearly]
+		x := translate(int64(load), int64(lowerLat), int64(upperLat), 10, 40)
+		if ch.rng.Intn(100) < x {
+			return true
+		}
+	}
+
+	// return invalid node to try next node
+	return false
+}
+
 func (ch *chRouter) besti(key string, i int, nodes []string) (string, error) {
 	if len(nodes) < 1 {
 		// supposed to be caught in grouper, but double check
 		return "", ErrNoNodes
 	}
 
-	// XXX (reed): trash the closure
-	f := func(n string) string {
-		var load time.Duration
-		ch.loadMu.RLock()
-		loadPtr := ch.load[loadKey(n, key)]
-		ch.loadMu.RUnlock()
-		if loadPtr != nil {
-			load = time.Duration(atomic.LoadInt64(loadPtr))
-		}
-
-		const (
-			// TODO we should probably use deltas rather than fixed wait times. for 'cold'
-			// functions these could always trigger. i.e. if wait time increased 5x over last
-			// 100 data points, point the cannon elsewhere (we'd have to track 2 numbers but meh)
-			lowerLat = 500 * time.Millisecond
-			upperLat = 2 * time.Second
-		)
-
-		// TODO flesh out these values.
-		// if we send < 50% of traffic off to other nodes when loaded
-		// then as function scales nodes will get flooded, need to be careful.
-		//
-		// back off loaded node/function combos slightly to spread load
-		if load < lowerLat {
-			return n
-		} else if load > upperLat {
-			// really loaded
-			if ch.rng.Intn(100) < 10 { // XXX (reed): 10% could be problematic, should sliding scale prob with log(x) ?
-				return n
-			}
-		} else {
-			// 10 < x < 40, as load approaches upperLat, x decreases [linearly]
-			x := translate(int64(load), int64(lowerLat), int64(upperLat), 10, 40)
-			if ch.rng.Intn(100) < x {
-				return n
-			}
-		}
-
-		// return invalid node to try next node
-		return ""
-	}
-
 	for ; ; i++ {
 		// theoretically this could take infinite time, but practically improbable...
 		// TODO we need a way to add a node for a given key from down here if a node is overloaded.
-		node := f(nodes[i])
-		if node != "" {
-			return node, nil
-		} else if i == len(nodes)-1 {
+		if ch.checkLoad(key, nodes[i]) {
+			return nodes[i], nil
+		}
+
+		if i == len(nodes)-1 {
 			i = -1 // reset i to 0
 		}
 	}
@@ -221,7 +221,6 @@ func translate(val, inFrom, inTo, outFrom, outTo int64) int {
 func (ch *chRouter) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		// XXX (reed): probably do these on a separate port to avoid conflicts
 		case "/1/lb/stats":
 			ch.statsGet(w, r)
 			return

@@ -2,26 +2,16 @@ package lb
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"fmt"
 	"github.com/coreos/go-semver/semver"
-	"github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,26 +19,24 @@ import (
 // that are being maintained, regardless of key.  An 'AllGrouper' will health
 // check servers at a specified interval, taking them in and out as they
 // pass/fail and exposes endpoints for adding, removing and listing nodes.
-func NewAllGrouper(conf Config) (Grouper, error) {
-	db, err := db(conf.DBurl)
-	if err != nil {
-		return nil, err
-	}
-
+func NewAllGrouper(conf Config, db DBStore) (Grouper, error) {
 	a := &allGrouper{
-		ded: make(map[string]int64),
-		db:  db,
+		nodeList:        make(map[string]nodeState),
+		nodeHealthyList: make([]string, 0),
+		db:              db,
 
 		// XXX (reed): need to be reconfigurable at some point
 		hcInterval:    time.Duration(conf.HealthcheckInterval) * time.Second,
 		hcEndpoint:    conf.HealthcheckEndpoint,
 		hcUnhealthy:   int64(conf.HealthcheckUnhealthy),
+		hcHealthy:     int64(conf.HealthcheckHealthy),
 		hcTimeout:     time.Duration(conf.HealthcheckTimeout) * time.Second,
 		minAPIVersion: *conf.MinAPIVersion,
 
 		// for health checks
 		httpClient: &http.Client{Transport: conf.Transport},
 	}
+
 	for _, n := range conf.Nodes {
 		err := a.add(n)
 		if err != nil {
@@ -58,6 +46,17 @@ func NewAllGrouper(conf Config) (Grouper, error) {
 	}
 	go a.healthcheck()
 	return a, nil
+}
+
+// nodeState is used to store success/fail counts and other health related data.
+type nodeState struct {
+
+	// num of consecutive successes & failures
+	success uint64
+	fail    uint64
+
+	// current health state
+	healthy bool
 }
 
 // allGrouper will return all healthy nodes it is tracking from List.
@@ -70,14 +69,12 @@ func NewAllGrouper(conf Config) (Grouper, error) {
 // to maintain a list among nodes in the db, which could have thrashing
 // due to network connectivity between any pair).
 type allGrouper struct {
-	// protects allNodes, healthy & ded
-	sync.RWMutex
-	// TODO rename nodes to 'allNodes' or something so everything breaks and then stitch
-	// ded is the set of disjoint nodes nodes from intersecting nodes & healthy
-	allNodes, healthy []string
-	ded               map[string]int64 // [node] -> failedCount
 
-	// allNodes is a cache of db.List, we can probably trash it..
+	// health checker state and lock
+	nodeLock        sync.RWMutex
+	nodeList        map[string]nodeState
+	nodeHealthyList []string
+
 	db DBStore
 
 	httpClient *http.Client
@@ -85,136 +82,9 @@ type allGrouper struct {
 	hcInterval    time.Duration
 	hcEndpoint    string
 	hcUnhealthy   int64
+	hcHealthy     int64
 	hcTimeout     time.Duration
 	minAPIVersion semver.Version
-}
-
-// TODO put this somewhere better
-type DBStore interface {
-	Add(string) error
-	Delete(string) error
-	List() ([]string, error)
-}
-
-// implements DBStore
-type sqlStore struct {
-	db *sqlx.DB
-
-	// TODO we should prepare all of the statements, rebind them
-	// and store them all here.
-}
-
-// New will open the db specified by url, create any tables necessary
-// and return a models.Datastore safe for concurrent usage.
-func db(uri string) (DBStore, error) {
-	url, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	driver := url.Scheme
-	// driver must be one of these for sqlx to work, double check:
-	switch driver {
-	case "postgres", "pgx", "mysql", "sqlite3", "oci8", "ora", "goracle":
-	default:
-		return nil, errors.New("invalid db driver, refer to the code")
-	}
-
-	if driver == "sqlite3" {
-		// make all the dirs so we can make the file..
-		dir := filepath.Dir(url.Path)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	uri = url.String()
-	if driver != "postgres" {
-		// postgres seems to need this as a prefix in lib/pq, everyone else wants it stripped of scheme
-		uri = strings.TrimPrefix(url.String(), url.Scheme+"://")
-	}
-
-	sqldb, err := sql.Open(driver, uri)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't open db")
-		return nil, err
-	}
-
-	db := sqlx.NewDb(sqldb, driver)
-	// force a connection and test that it worked
-	err = db.Ping()
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't ping db")
-		return nil, err
-	}
-
-	maxIdleConns := 30 // c.MaxIdleConnections
-	db.SetMaxIdleConns(maxIdleConns)
-	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
-
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS lb_nodes (
-		address text NOT NULL PRIMARY KEY
-	);`)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sqlStore{db: db}, nil
-}
-
-func (s *sqlStore) Add(node string) error {
-	query := s.db.Rebind("INSERT INTO lb_nodes (address) VALUES (?);")
-	_, err := s.db.Exec(query, node)
-	if err != nil {
-		// if it already exists, just filter that error out
-		switch err := err.(type) {
-		case *mysql.MySQLError:
-			if err.Number == 1062 {
-				return nil
-			}
-		case *pq.Error:
-			if err.Code == "23505" {
-				return nil
-			}
-		case sqlite3.Error:
-			if err.ExtendedCode == sqlite3.ErrConstraintUnique || err.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
-				return nil
-			}
-		}
-	}
-	return err
-}
-
-func (s *sqlStore) Delete(node string) error {
-	query := s.db.Rebind(`DELETE FROM lb_nodes WHERE address=?`)
-	_, err := s.db.Exec(query, node)
-	// TODO we can filter if it didn't exist, too...
-	return err
-}
-
-func (s *sqlStore) List() ([]string, error) {
-	query := s.db.Rebind(`SELECT DISTINCT address FROM lb_nodes`)
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-
-	var nodes []string
-	for rows.Next() {
-		var node string
-		err := rows.Scan(&node)
-		if err == nil {
-			nodes = append(nodes, node)
-		}
-	}
-
-	err = rows.Err()
-	if err == sql.ErrNoRows {
-		err = nil // don't care...
-	}
-
-	return nodes, err
 }
 
 func (a *allGrouper) add(newb string) error {
@@ -232,32 +102,33 @@ func (a *allGrouper) remove(ded string) error {
 	return a.db.Delete(ded)
 }
 
-// call with a.Lock held
-func (a *allGrouper) addHealthy(newb string) {
-	// filter dupes, under lock. sorted, so binary search
-	i := sort.SearchStrings(a.healthy, newb)
-	if i < len(a.healthy) && a.healthy[i] == newb {
-		return
-	}
-	a.healthy = append(a.healthy, newb)
-	// need to keep in sorted order so that hash index works across nodes
-	sort.Sort(sort.StringSlice(a.healthy))
-}
+func (a *allGrouper) publishHealth() {
 
-// call with a.Lock held
-func (a *allGrouper) removeHealthy(ded string) {
-	i := sort.SearchStrings(a.healthy, ded)
-	if i < len(a.healthy) && a.healthy[i] == ded {
-		a.healthy = append(a.healthy[:i], a.healthy[i+1:]...)
+	a.nodeLock.Lock()
+
+	// get a list of healthy nodes
+	newList := make([]string, 0, len(a.nodeList))
+	for key, value := range a.nodeList {
+		if value.healthy {
+			newList = append(newList, key)
+		}
 	}
+
+	// sort and update healthy List
+	sort.Strings(newList)
+	a.nodeHealthyList = newList
+
+	a.nodeLock.Unlock()
 }
 
 // return a copy
 func (a *allGrouper) List(string) ([]string, error) {
-	a.RLock()
-	ret := make([]string, len(a.healthy))
-	copy(ret, a.healthy)
-	a.RUnlock()
+
+	a.nodeLock.RLock()
+	ret := make([]string, len(a.nodeHealthyList))
+	copy(ret, a.nodeHealthyList)
+	a.nodeLock.RUnlock()
+
 	var err error
 	if len(ret) == 0 {
 		err = ErrNoNodes
@@ -265,22 +136,76 @@ func (a *allGrouper) List(string) ([]string, error) {
 	return ret, err
 }
 
+func (a *allGrouper) runHealthCheck() {
+
+	// fetch a list of nodes from DB
+	list, err := a.db.List()
+	if err != nil {
+		// if DB fails, the show must go on, report it but perform HC
+		logrus.WithError(err).Error("error checking db for nodes")
+
+		// compile a list of nodes to be health checked
+		a.nodeLock.RLock()
+		list = make([]string, 0, len(a.nodeList))
+		for key, _ := range a.nodeList {
+			list = append(list, key)
+		}
+		a.nodeLock.RUnlock()
+
+	} else {
+
+		isChanged := false
+
+		// compile a map of DB nodes for deletion check
+		deleteCheck := make(map[string]bool, len(list))
+		for _, node := range list {
+			deleteCheck[node] = true
+		}
+
+		a.nodeLock.Lock()
+
+		// handle new nodes
+		for _, node := range list {
+			_, ok := a.nodeList[node]
+			if !ok {
+				// add new node
+				a.nodeList[node] = nodeState{
+					healthy: true,
+				}
+				isChanged = true
+			}
+		}
+
+		// handle deleted nodes: purge unmarked nodes
+		for key, _ := range a.nodeList {
+			_, ok := deleteCheck[key]
+			if !ok {
+				delete(a.nodeList, key)
+				isChanged = true
+			}
+		}
+
+		a.nodeLock.Unlock()
+
+		// publish if add/deleted nodes
+		if isChanged {
+			a.publishHealth()
+		}
+	}
+
+	// spawn health checkers
+	for _, key := range list {
+		go a.ping(key)
+	}
+}
+
 func (a *allGrouper) healthcheck() {
+
+	// run hc immediately upon startup
+	a.runHealthCheck()
+
 	for range time.Tick(a.hcInterval) {
-		// health check the entire list of nodes [from db]
-		list, err := a.db.List()
-		if err != nil {
-			logrus.WithError(err).Error("error checking db for nodes")
-			continue
-		}
-
-		a.Lock()
-		a.allNodes = list
-		a.Unlock()
-
-		for _, n := range list {
-			go a.ping(n)
-		}
+		a.runHealthCheck()
 	}
 }
 
@@ -312,14 +237,18 @@ func (a *allGrouper) getVersion(urlString string) (string, error) {
 }
 
 func (a *allGrouper) checkAPIVersion(node string) error {
-	versionURL := "http://" + node + "/version"
+	versionURL := "http://" + node + a.hcEndpoint
 
 	version, err := a.getVersion(versionURL)
 	if err != nil {
 		return err
 	}
 
-	nodeVer := semver.New(version)
+	nodeVer, err := semver.NewVersion(version)
+	if err != nil {
+		return err
+	}
+
 	if nodeVer.LessThan(a.minAPIVersion) {
 		return fmt.Errorf("incompatible API version: %v", nodeVer)
 	}
@@ -336,32 +265,79 @@ func (a *allGrouper) ping(node string) {
 	}
 }
 
-func (a *allGrouper) fail(node string) {
-	// shouldn't be a hot path so shouldn't be too contended on since health
-	// checks are infrequent
-	a.Lock()
-	a.ded[node]++
-	failed := a.ded[node]
-	if failed >= a.hcUnhealthy {
-		a.removeHealthy(node)
+func (a *allGrouper) fail(key string) {
+
+	isChanged := false
+
+	a.nodeLock.Lock()
+
+	// if deleted, skip
+	node, ok := a.nodeList[key]
+	if !ok {
+		a.nodeLock.Unlock()
+		return
 	}
-	a.Unlock()
+
+	node.success = 0
+	node.fail++
+
+	// overflow case
+	if node.fail == 0 {
+		node.fail = uint64(a.hcUnhealthy)
+	}
+
+	if node.healthy && node.fail >= uint64(a.hcUnhealthy) {
+		node.healthy = false
+		isChanged = true
+	}
+
+	a.nodeList[key] = node
+	a.nodeLock.Unlock()
+
+	if isChanged {
+		logrus.WithFields(logrus.Fields{"node": key}).Info("is unhealthy")
+		a.publishHealth()
+	}
 }
 
-func (a *allGrouper) alive(node string) {
-	// TODO alive is gonna get called a lot, should maybe start w/ every node in ded
-	// so we can RLock (but lock contention should be low since these are ~quick) --
-	// "a lot" being every 1s per node, so not too crazy really, but 1k nodes @ ms each...
-	a.Lock()
-	delete(a.ded, node)
-	a.addHealthy(node)
-	a.Unlock()
+func (a *allGrouper) alive(key string) {
+
+	isChanged := false
+
+	a.nodeLock.Lock()
+
+	// if deleted, skip
+	node, ok := a.nodeList[key]
+	if !ok {
+		a.nodeLock.Unlock()
+		return
+	}
+
+	node.fail = 0
+	node.success++
+
+	// overflow case
+	if node.success == 0 {
+		node.success = uint64(a.hcHealthy)
+	}
+
+	if !node.healthy && node.success >= uint64(a.hcHealthy) {
+		node.healthy = true
+		isChanged = true
+	}
+
+	a.nodeList[key] = node
+	a.nodeLock.Unlock()
+
+	if isChanged {
+		logrus.WithFields(logrus.Fields{"node": key}).Info("is healthy")
+		a.publishHealth()
+	}
 }
 
 func (a *allGrouper) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		// XXX (reed): probably do these on a separate port to avoid conflicts
 		case "/1/lb/nodes":
 			switch r.Method {
 			case "PUT":
@@ -415,33 +391,24 @@ func (a *allGrouper) removeNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *allGrouper) listNodes(w http.ResponseWriter, r *http.Request) {
-	a.RLock()
-	nodes := make([]string, len(a.allNodes))
-	copy(nodes, a.allNodes)
-	a.RUnlock()
 
-	// TODO this isn't correct until at least one health check has hit all nodes (on start up).
-	// seems like not a huge deal, but here's a note anyway (every node will simply 'appear' healthy
-	// from this api even if we aren't routing to it [until first health check]).
-	out := make(map[string]string, len(nodes))
-	for _, n := range nodes {
-		if a.isDead(n) {
-			out[n] = "offline"
+	a.nodeLock.RLock()
+
+	out := make(map[string]string, len(a.nodeList))
+
+	for key, value := range a.nodeList {
+		if value.healthy {
+			out[key] = "online"
 		} else {
-			out[n] = "online"
+			out[key] = "offline"
 		}
 	}
+
+	a.nodeLock.RUnlock()
 
 	sendValue(w, struct {
 		Nodes map[string]string `json:"nodes"`
 	}{
 		Nodes: out,
 	})
-}
-
-func (a *allGrouper) isDead(node string) bool {
-	a.RLock()
-	val, ok := a.ded[node]
-	a.RUnlock()
-	return ok && val >= a.hcUnhealthy
 }
