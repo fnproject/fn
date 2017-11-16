@@ -142,7 +142,7 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	err = writeString(err, h.in, "}")
 
 	// close
-	err = writeString(err, h.in, "}\n")
+	err = writeString(err, h.in, "\n}\n\n")
 	return err
 }
 
