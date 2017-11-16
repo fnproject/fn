@@ -48,6 +48,12 @@ func NewAllGrouper(conf Config, db DBStore) (Grouper, error) {
 	return a, nil
 }
 
+const (
+	UNKNOWN   = iota
+	HEALTHY   = iota
+	UNHEALTHY = iota
+)
+
 // nodeState is used to store success/fail counts and other health related data.
 type nodeState struct {
 
@@ -56,7 +62,7 @@ type nodeState struct {
 	fail    uint64
 
 	// current health state
-	healthy bool
+	healthy int
 }
 
 // allGrouper will return all healthy nodes it is tracking from List.
@@ -88,13 +94,6 @@ type allGrouper struct {
 }
 
 func (a *allGrouper) add(newb string) error {
-	if newb == "" {
-		return nil // we can't really do a lot of validation since hosts could be an ip or domain but we have health checks
-	}
-	err := a.checkAPIVersion(newb)
-	if err != nil {
-		return err
-	}
 	return a.db.Add(newb)
 }
 
@@ -109,7 +108,7 @@ func (a *allGrouper) publishHealth() {
 	// get a list of healthy nodes
 	newList := make([]string, 0, len(a.nodeList))
 	for key, value := range a.nodeList {
-		if value.healthy {
+		if value.healthy == HEALTHY {
 			newList = append(newList, key)
 		}
 	}
@@ -128,12 +127,7 @@ func (a *allGrouper) List(string) ([]string, error) {
 	ret := make([]string, len(a.nodeHealthyList))
 	copy(ret, a.nodeHealthyList)
 	a.nodeLock.RUnlock()
-
-	var err error
-	if len(ret) == 0 {
-		err = ErrNoNodes
-	}
-	return ret, err
+	return ret, nil
 }
 
 func (a *allGrouper) runHealthCheck() {
@@ -169,9 +163,7 @@ func (a *allGrouper) runHealthCheck() {
 			_, ok := a.nodeList[node]
 			if !ok {
 				// add new node
-				a.nodeList[node] = nodeState{
-					healthy: true,
-				}
+				a.nodeList[node] = nodeState{healthy: UNKNOWN}
 				isChanged = true
 			}
 		}
@@ -286,8 +278,8 @@ func (a *allGrouper) fail(key string) {
 		node.fail = uint64(a.hcUnhealthy)
 	}
 
-	if node.healthy && node.fail >= uint64(a.hcUnhealthy) {
-		node.healthy = false
+	if (node.healthy == HEALTHY && node.fail >= uint64(a.hcUnhealthy)) || node.healthy == UNKNOWN {
+		node.healthy = UNHEALTHY
 		isChanged = true
 	}
 
@@ -321,8 +313,8 @@ func (a *allGrouper) alive(key string) {
 		node.success = uint64(a.hcHealthy)
 	}
 
-	if !node.healthy && node.success >= uint64(a.hcHealthy) {
-		node.healthy = true
+	if (node.healthy == UNHEALTHY && node.success >= uint64(a.hcHealthy)) || node.healthy == UNKNOWN {
+		node.healthy = HEALTHY
 		isChanged = true
 	}
 
@@ -397,7 +389,7 @@ func (a *allGrouper) listNodes(w http.ResponseWriter, r *http.Request) {
 	out := make(map[string]string, len(a.nodeList))
 
 	for key, value := range a.nodeList {
-		if value.healthy {
+		if value.healthy == HEALTHY {
 			out[key] = "online"
 		} else {
 			out[key] = "offline"
