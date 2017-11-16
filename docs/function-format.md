@@ -106,7 +106,6 @@ Internally functions receive data in the example format below:
     }
   }
 }
-BLANK LINE
 { 
   NEXT INPUT OBJECT
 }
@@ -133,7 +132,6 @@ Function's output format should have the following format:
     }
   }
 }
-BLANK LINE
 {
   NEXT OUTPUT OBJECT
 }

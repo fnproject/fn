@@ -73,7 +73,7 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 		return err
 	}
 	// open
-	err = writeString(err, h.in, "{")
+	err = writeString(err, h.in, "{\n")
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	err = writeString(err, h.in, "}")
 
 	// close
-	err = writeString(err, h.in, "}\n\n")
+	err = writeString(err, h.in, "}\n")
 	return err
 }
 
