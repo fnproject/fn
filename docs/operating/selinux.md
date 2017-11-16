@@ -11,5 +11,10 @@ setenforce permissive
 
 Then you will be able to run `fn start` as normal.
 
-Of course this isn't recommended for operating Fn in production systems, for security reasons. Check the operating
-[options](docs/operating/options.md) instead.
+Alternatively, use the docker-in-docker deployment that a production system would use:
+
+```sh
+docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 8080:8080 fnproject/functions
+```
+
+Check the [operating options](docs/operating/options.md) for further details about this.
