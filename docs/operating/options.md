@@ -53,7 +53,7 @@ docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.soc
 
 On Linux systems where SELinux is enabled and set to "Enforcing", SELinux will stop the container from accessing
 the host docker and the local directory mounted as a volume, so this method cannot be used unless security restrictions
-are disabled; of course this is not acceptable in production.
+are disabled.
 
 ### Run outside Docker
 
