@@ -281,8 +281,10 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
-	ctxForStats, cancel := context.WithCancel(ctx) // to shut down collectStats once container exits
-	go drv.collectStats(ctxForStats, container, task)
+	// we want to stop trying to collect stats when the container exits
+	// collectStats will stop when stopSignal is closed or ctx is cancelled
+	stopSignal := make(chan struct{})
+	go drv.collectStats(ctx, stopSignal, container, task)
 
 	err = drv.startTask(ctx, container)
 	if err != nil && ctx.Err() == nil {
@@ -294,7 +296,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		container: container,
 		waiter:    waiter,
 		drv:       drv,
-		cancel:    cancel,
+		done:      stopSignal,
 	}, nil
 }
 
@@ -303,7 +305,7 @@ type waitResult struct {
 	container string
 	waiter    docker.CloseWaiter
 	drv       *DockerDriver
-	cancel    func()
+	done      chan struct{}
 }
 
 // waitResult implements drivers.WaitResult
@@ -311,7 +313,7 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	defer func() {
 		w.waiter.Close()
 		w.waiter.Wait() // wait for Close() to finish processing, to make sure we gather all logs
-		w.cancel()
+		close(w.done)
 	}()
 
 	// wait until container is stopped (or ctx is cancelled if sooner)
@@ -322,13 +324,17 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	}, nil
 }
 
-func (drv *DockerDriver) collectStats(ctx context.Context, container string, task drivers.ContainerTask) {
+// Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
+func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan struct{}, container string, task drivers.ContainerTask) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_collect_stats")
 	defer span.Finish()
 
 	log := common.Logger(ctx)
-	done := make(chan bool)
-	defer close(done)
+
+	// dockerCallDone is used to cancel the call to drv.docker.Stats when this method exits
+	dockerCallDone := make(chan bool)
+	defer close(dockerCallDone)
+
 	dstats := make(chan *docker.Stats, 1)
 	go func() {
 		// NOTE: docker automatically streams every 1s. we can skip or avg samples if we'd like but
@@ -339,7 +345,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 			ID:     container,
 			Stats:  dstats,
 			Stream: true,
-			Done:   done, // A flag that enables stopping the stats operation
+			Done:   dockerCallDone, // A flag that enables stopping the stats operation
 		})
 
 		if err != nil && err != io.ErrClosedPipe {
@@ -351,6 +357,8 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-stopSignal:
 			return
 		case ds, ok := <-dstats:
 			if !ok {
