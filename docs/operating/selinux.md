@@ -17,4 +17,4 @@ Alternatively, use the docker-in-docker deployment that a production system woul
 docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 8080:8080 fnproject/functions
 ```
 
-Check the [operating options](docs/operating/options.md) for further details about this.
+Check the [operating options](options.md) for further details about this.
