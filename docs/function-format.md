@@ -90,7 +90,7 @@ If a request comes in like this:
 
 #### Input
 
-Internally functions receive data in the following format:
+Internally functions receive data in the example format below:
 
 ```json
 {
@@ -112,7 +112,11 @@ BLANK LINE
 }
 ```
 
-Each request will be separated by a new line.
+* call_id - the unique ID for the call.
+* content_type - format of the `body` parameter.
+* protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
+
+Each request will be separated by a blank line.
 
 #### Output
 
@@ -137,7 +141,7 @@ BLANK LINE
 
 * body - required - the response body.
 * content_type - optional - format of `body`. Default is application/json.
-* protocol - optional - protocol specific response options. Available options defined by each protocol.
+* protocol - optional - protocol specific response options. Entirely optional. Contents defined by each protocol.
 
 #### Pros/Cons
 
