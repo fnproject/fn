@@ -270,17 +270,6 @@ func dockerMsg(derr *docker.Error) string {
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
-	timeout := task.Timeout()
-
-	var cancel context.CancelFunc
-	if timeout <= 0 {
-		ctx, cancel = context.WithCancel(ctx)
-	} else {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-	}
-	defer cancel() // do this so that after Run exits, collect stops
-	go drv.collectStats(ctx, container, task)
-
 	mwOut, mwErr := task.Logger()
 
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
@@ -292,6 +281,11 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
+	// we want to stop trying to collect stats when the container exits
+	// collectStats will stop when stopSignal is closed or ctx is cancelled
+	stopSignal := make(chan struct{})
+	go drv.collectStats(ctx, stopSignal, container, task)
+
 	err = drv.startTask(ctx, container)
 	if err != nil && ctx.Err() == nil {
 		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
@@ -302,22 +296,27 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		container: container,
 		waiter:    waiter,
 		drv:       drv,
+		done:      stopSignal,
 	}, nil
 }
 
-// implements drivers.WaitResult
+// waitResult implements drivers.WaitResult
 type waitResult struct {
 	container string
 	waiter    docker.CloseWaiter
 	drv       *DockerDriver
+	done      chan struct{}
 }
 
+// waitResult implements drivers.WaitResult
 func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	defer func() {
 		w.waiter.Close()
-		w.waiter.Wait() // make sure we gather all logs
+		w.waiter.Wait() // wait for Close() to finish processing, to make sure we gather all logs
+		close(w.done)
 	}()
 
+	// wait until container is stopped (or ctx is cancelled if sooner)
 	status, err := w.drv.wait(ctx, w.container)
 	return &runResult{
 		status: status,
@@ -325,10 +324,17 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	}, nil
 }
 
-func (drv *DockerDriver) collectStats(ctx context.Context, container string, task drivers.ContainerTask) {
+// Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
+func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan struct{}, container string, task drivers.ContainerTask) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_collect_stats")
+	defer span.Finish()
+
 	log := common.Logger(ctx)
-	done := make(chan bool)
-	defer close(done)
+
+	// dockerCallDone is used to cancel the call to drv.docker.Stats when this method exits
+	dockerCallDone := make(chan bool)
+	defer close(dockerCallDone)
+
 	dstats := make(chan *docker.Stats, 1)
 	go func() {
 		// NOTE: docker automatically streams every 1s. we can skip or avg samples if we'd like but
@@ -339,7 +345,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 			ID:     container,
 			Stats:  dstats,
 			Stream: true,
-			Done:   done, // A flag that enables stopping the stats operation
+			Done:   dockerCallDone, // A flag that enables stopping the stats operation
 		})
 
 		if err != nil && err != io.ErrClosedPipe {
@@ -347,15 +353,22 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 		}
 	}()
 
+	// collect stats until context is done (i.e. until the container is terminated)
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-stopSignal:
 			return
 		case ds, ok := <-dstats:
 			if !ok {
 				return
 			}
-			task.WriteStat(cherryPick(ds))
+			stats := cherryPick(ds)
+			if !stats.Timestamp.IsZero() {
+				task.WriteStat(ctx, stats)
+			}
+
 		}
 	}
 }

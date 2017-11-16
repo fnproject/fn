@@ -22,18 +22,18 @@ func (f *taskDockerTest) Command() string { return "" }
 func (f *taskDockerTest) EnvVars() map[string]string {
 	return map[string]string{}
 }
-func (f *taskDockerTest) Labels() map[string]string          { return nil }
-func (f *taskDockerTest) Id() string                         { return f.id }
-func (f *taskDockerTest) Group() string                      { return "" }
-func (f *taskDockerTest) Image() string                      { return "fnproject/hello" }
-func (f *taskDockerTest) Timeout() time.Duration             { return 30 * time.Second }
-func (f *taskDockerTest) Logger() (stdout, stderr io.Writer) { return f.output, nil }
-func (f *taskDockerTest) WriteStat(drivers.Stat)             { /* TODO */ }
-func (f *taskDockerTest) Volumes() [][2]string               { return [][2]string{} }
-func (f *taskDockerTest) Memory() uint64                     { return 256 * 1024 * 1024 }
-func (f *taskDockerTest) WorkDir() string                    { return "" }
-func (f *taskDockerTest) Close()                             {}
-func (f *taskDockerTest) Input() io.Reader                   { return f.input }
+func (f *taskDockerTest) Labels() map[string]string               { return nil }
+func (f *taskDockerTest) Id() string                              { return f.id }
+func (f *taskDockerTest) Group() string                           { return "" }
+func (f *taskDockerTest) Image() string                           { return "fnproject/hello" }
+func (f *taskDockerTest) Timeout() time.Duration                  { return 30 * time.Second }
+func (f *taskDockerTest) Logger() (stdout, stderr io.Writer)      { return f.output, nil }
+func (f *taskDockerTest) WriteStat(context.Context, drivers.Stat) { /* TODO */ }
+func (f *taskDockerTest) Volumes() [][2]string                    { return [][2]string{} }
+func (f *taskDockerTest) Memory() uint64                          { return 256 * 1024 * 1024 }
+func (f *taskDockerTest) WorkDir() string                         { return "" }
+func (f *taskDockerTest) Close()                                  {}
+func (f *taskDockerTest) Input() io.Reader                        { return f.input }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})

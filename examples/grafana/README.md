@@ -109,4 +109,27 @@ A second example dashboard `fn_grafana_dashboard2.json` in this example's direct
 In the following screenshot, the "Choose spans to display rates" dropdown has been used to select `agent_submit` and `serve_http`, and the "Choose spans to display durations" dropdown, has been used to select `agent_cold_exec`, `agent_get_slot`, `agent_submit`, `docker_create_container`, `docker_start_container` and `docker_wait_container`. 
 
 <img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
+
+## Docker statistics
+
+During the execution of the docker container, a selected number of statistics from docker are available as Prometheus metrics. The available metrics are listed in the following table:
+
+| Prometheus metric name |
+| ------------- |
+| `fn_docker_stats_cpu_kernel` |
+| `fn_docker_stats_cpu_kernel`  |
+| `fn_docker_stats_cpu_user` |
+| `fn_docker_stats_disk_read` |
+| `fn_docker_stats_disk_write` |
+| `fn_docker_stats_mem_limit` |
+| `fn_docker_stats_mem_usage` |
+| `fn_docker_stats_net_rx` |
+| `fn_docker_stats_net_tx` |
+ 
+ Note that if the container runs for a very short length of time there may be insufficient time to obtain statistics before the container terminates.
+ 
+An example dashboard `fn_grafana_dashboard3.json` in this example's directory displays the available docker statistics. Use the dropdown lists at the top of the dashboard to choose which metrics to examine.
+
+<img src="../../docs/assets/GrafanaDashboard3.png" width="100%">
+
  
