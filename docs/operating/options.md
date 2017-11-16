@@ -52,14 +52,8 @@ docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.soc
 ```
 
 On Linux systems where SELinux is enabled and set to "Enforcing", SELinux will stop the container from accessing
-the host docker and the local directory mounted as a volume. In that case you will have to add options to relax SELinux
-restrictions for this specific container:
-
-```sh
-docker run --rm --name functions -it --security-opt label=type:container_runtime_t -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data:Z -p 8080:8080 fnproject/functions
-```
-
-Note that in both cases this is equivalent to giving the Fn container full privileged access to the host.
+the host docker and the local directory mounted as a volume, so this method cannot be used unless security restrictions
+are disabled; of course this is not acceptable in production.
 
 ### Run outside Docker
 
