@@ -48,10 +48,12 @@ func NewAllGrouper(conf Config, db DBStore) (Grouper, error) {
 	return a, nil
 }
 
+type healthState uint8
+
 const (
-	UNKNOWN   = iota
-	HEALTHY   = iota
-	UNHEALTHY = iota
+	StateUnknown = iota
+	StateHealthy
+	StateUnhealthy
 )
 
 // nodeState is used to store success/fail counts and other health related data.
@@ -62,7 +64,7 @@ type nodeState struct {
 	fail    uint64
 
 	// current health state
-	healthy int
+	healthy healthState
 }
 
 // allGrouper will return all healthy nodes it is tracking from List.
@@ -108,7 +110,7 @@ func (a *allGrouper) publishHealth() {
 	// get a list of healthy nodes
 	newList := make([]string, 0, len(a.nodeList))
 	for key, value := range a.nodeList {
-		if value.healthy == HEALTHY {
+		if value.healthy == StateHealthy {
 			newList = append(newList, key)
 		}
 	}
@@ -163,7 +165,7 @@ func (a *allGrouper) runHealthCheck() {
 			_, ok := a.nodeList[node]
 			if !ok {
 				// add new node
-				a.nodeList[node] = nodeState{healthy: UNKNOWN}
+				a.nodeList[node] = nodeState{healthy: StateUnknown}
 				isChanged = true
 			}
 		}
@@ -278,8 +280,8 @@ func (a *allGrouper) fail(key string) {
 		node.fail = uint64(a.hcUnhealthy)
 	}
 
-	if (node.healthy == HEALTHY && node.fail >= uint64(a.hcUnhealthy)) || node.healthy == UNKNOWN {
-		node.healthy = UNHEALTHY
+	if (node.healthy == StateHealthy && node.fail >= uint64(a.hcUnhealthy)) || node.healthy == StateUnknown {
+		node.healthy = StateUnhealthy
 		isChanged = true
 	}
 
@@ -313,8 +315,8 @@ func (a *allGrouper) alive(key string) {
 		node.success = uint64(a.hcHealthy)
 	}
 
-	if (node.healthy == UNHEALTHY && node.success >= uint64(a.hcHealthy)) || node.healthy == UNKNOWN {
-		node.healthy = HEALTHY
+	if (node.healthy == StateUnhealthy && node.success >= uint64(a.hcHealthy)) || node.healthy == StateUnknown {
+		node.healthy = StateHealthy
 		isChanged = true
 	}
 
@@ -389,7 +391,7 @@ func (a *allGrouper) listNodes(w http.ResponseWriter, r *http.Request) {
 	out := make(map[string]string, len(a.nodeList))
 
 	for key, value := range a.nodeList {
-		if value.healthy == HEALTHY {
+		if value.healthy == StateHealthy {
 			out[key] = "online"
 		} else {
 			out[key] = "offline"
