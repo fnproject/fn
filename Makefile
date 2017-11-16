@@ -11,7 +11,7 @@ build:
 	go build -o functions
 
 install:
-	go install
+	go build -o ${GOPATH}/bin/fn-server
 
 test:
 	./test.sh

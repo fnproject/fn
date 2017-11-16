@@ -502,13 +502,15 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	go func() {
 		// TODO make sure stdin / stdout not blocked if container dies or we leak goroutine
 		// we have to make sure this gets shut down or 2 threads will be reading/writing in/out
-		errApp <- s.proto.Dispatch(call.w, call.req)
+		ci := protocol.NewCallInfo(call.Model(), call.req)
+		errApp <- s.proto.Dispatch(ctx, ci, call.w)
 	}()
 
 	select {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp:
+		// would be great to be able to decipher what error is returning from here so we can show better messages
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
