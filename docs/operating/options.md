@@ -2,7 +2,7 @@
 
 ## Default run command for production
 
-This will run with docker in docker. 
+This will run with docker in docker.
 
 ```sh
 docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 80:8080 fnproject/functions
@@ -50,6 +50,16 @@ One way is to mount the host Docker. Everything is essentially the same except y
 ```sh
 docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 fnproject/functions
 ```
+
+On Linux systems where SELinux is enabled and set to "Enforcing", SELinux will stop the container from accessing
+the host docker and the local directory mounted as a volume. In that case you will have to add options to relax SELinux
+restrictions for this specific container:
+
+```sh
+docker run --rm --name functions -it --security-opt label=type:container_runtime_t -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data:Z -p 8080:8080 fnproject/functions
+```
+
+Note that in both cases this is equivalent to giving the Fn container full privileged access to the host.
 
 ### Run outside Docker
 
