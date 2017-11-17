@@ -36,7 +36,7 @@ func NewPrometheusCollector() (zipkintracer.Collector, error) {
 }
 
 // PrometheusCollector implements Collector.
-func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
+func (pc *PrometheusCollector) Collect(span *zipkincore.Span) error {
 
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
@@ -68,7 +68,7 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 }
 
 // Return (and create, if necessary) a HistogramVec for the specified Prometheus metric
-func (pc PrometheusCollector) getHistogramVec(
+func (pc *PrometheusCollector) getHistogramVec(
 	metricName string, metricHelp string, labelKeysFromSpan []string, labelValuesFromSpan map[string]string) (
 	*prometheus.HistogramVec, map[string]string) {
 
@@ -150,4 +150,4 @@ func getLoggedMetrics(span *zipkincore.Span) map[string]uint64 {
 }
 
 // PrometheusCollector implements Collector.
-func (PrometheusCollector) Close() error { return nil }
+func (*PrometheusCollector) Close() error { return nil }
