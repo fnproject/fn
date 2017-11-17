@@ -126,7 +126,7 @@ func (d *retryWrap) RoundTrip(req *http.Request) (*http.Response, error) {
 	// and then retry it (it will get authed and the challenge then accepted).
 	// why the docker distribution transport doesn't do this for you is
 	// a real testament to what sadists those docker people are.
-	if resp.StatusCode == http.StatusUnauthorized {
+	if resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		pingPath := req.URL.Path
 		if v2Root := strings.Index(req.URL.Path, "/v2/"); v2Root != -1 {
 			pingPath = pingPath[:v2Root+4]
