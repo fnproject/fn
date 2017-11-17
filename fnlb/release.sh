@@ -41,6 +41,7 @@ docker push $user/$image:$version
 docker push $user/$image:latest
 
 # Deprecated images, should remove this sometime in near future
-docker tag $user/$image_deprecated:latest $user/$image_deprecated:$version
+docker tag $user/$image:latest $user/$image_deprecated:$version
+docker tag $user/$image:latest $user/$image_deprecated:latest
 docker push $user/$image_deprecated:$version
 docker push $user/$image_deprecated:latest
