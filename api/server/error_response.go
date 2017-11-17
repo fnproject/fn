@@ -32,6 +32,11 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 		if e.Code() >= 500 {
 			log.WithFields(logrus.Fields{"code": e.Code()}).WithError(e).Error("api error")
 		}
+		if err == models.ErrCallTimeoutServerBusy {
+			// TODO: Determine a better delay value here (perhaps ask Agent). For now 15 secs with
+			// the hopes that fnlb will land this on a better server immediately.
+			w.Header().Set("Retry-After", "15")
+		}
 		statuscode = e.Code()
 	} else {
 		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")

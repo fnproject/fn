@@ -17,7 +17,7 @@ const (
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
 	MaxIdleTimeout  = MaxAsyncTimeout
-	MaxMemory       = 1024 * 8 // 8GB TODO should probably be a var of machine max?
+	MaxMemory       = 1024 * 1024 * 100 // 100TB TODO should probably be a var of machine max?
 )
 
 type Routes []*Route

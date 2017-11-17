@@ -86,7 +86,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
-	err = s.Agent.Submit(call)
+	err, execState := s.Agent.Submit(call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little
@@ -95,7 +95,11 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 			// add this, since it means that start may not have been called [and it's relevant]
 			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
 
-			err = models.ErrCallTimeout // 504 w/ friendly note
+			if execState == agent.SubmitStateWaitSlot {
+				err = models.ErrCallTimeoutServerBusy // 503 w/ retriable header
+			} else {
+				err = models.ErrCallTimeout // 504 w/ friendly note
+			}
 		}
 		// NOTE: if the task wrote the headers already then this will fail to write
 		// a 5xx (and log about it to us) -- that's fine (nice, even!)

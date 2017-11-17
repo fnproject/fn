@@ -20,6 +20,10 @@ var (
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
+	ErrCallTimeoutServerBusy = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("Timed out - server too busy"),
+	}
 	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),

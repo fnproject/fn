@@ -99,8 +99,9 @@ type Agent interface {
 	// immediately before and after the Call is executed, respectively. An error
 	// will be returned if there is an issue executing the call or the error
 	// may be from the call's execution itself (if, say, the container dies,
-	// or the call times out).
-	Submit(Call) error
+	// or the call times out). submitState returned will show the last execution flow
+	// progress Submit() call was able to reach.
+	Submit(Call) (error, submitState)
 
 	// Close will wait for any outstanding calls to complete and then exit.
 	// Close is not safe to be called from multiple threads.
@@ -145,6 +146,16 @@ type agent struct {
 	promHandler http.Handler
 }
 
+// the execution flow state of the Submit() procedure.
+type submitState int
+
+const (
+	SubmitStateInitial = iota
+	SubmitStateWaitSlot
+	SubmitStateSlotExec
+	SubmitStateFinal
+)
+
 func New(ds models.Datastore, mq models.MessageQueue) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
@@ -175,13 +186,16 @@ func (a *agent) Close() error {
 	return nil
 }
 
-func (a *agent) Submit(callI Call) error {
+func (a *agent) Submit(callI Call) (error, submitState) {
+
 	a.wg.Add(1)
 	defer a.wg.Done()
 
+	currentState := submitState(SubmitStateInitial)
+
 	select {
 	case <-a.shutdown:
-		return errors.New("agent shut down")
+		return errors.New("agent shut down"), currentState
 	default:
 	}
 
@@ -201,10 +215,11 @@ func (a *agent) Submit(callI Call) error {
 	call.req = call.req.WithContext(ctx)
 	defer cancel()
 
+	currentState = SubmitStateWaitSlot
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
 		a.stats.Dequeue(callI.Model().Path)
-		return err
+		return err, currentState
 	}
 	// TODO if the call times out & container is created, we need
 	// to make this remove the container asynchronously?
@@ -214,12 +229,13 @@ func (a *agent) Submit(callI Call) error {
 	err = call.Start(ctx, a)
 	if err != nil {
 		a.stats.Dequeue(callI.Model().Path)
-		return err
+		return err, currentState
 	}
 
 	// decrement queued count, increment running count
 	a.stats.DequeueAndStart(callI.Model().Path)
 
+	currentState = SubmitStateSlotExec
 	err = slot.exec(ctx, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	// End may rewrite the error or elect to return it
@@ -236,7 +252,8 @@ func (a *agent) Submit(callI Call) error {
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
 	err = call.End(ctx, err, a)
-	return err
+	currentState = SubmitStateFinal
+	return err, currentState
 }
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
