@@ -38,9 +38,6 @@ func NewPrometheusCollector() (zipkintracer.Collector, error) {
 // PrometheusCollector implements Collector.
 func (pc *PrometheusCollector) Collect(span *zipkincore.Span) error {
 
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
-
 	spanName := span.GetName()
 
 	// extract any label values from the span
@@ -73,6 +70,9 @@ func (pc *PrometheusCollector) getHistogramVec(
 	*prometheus.HistogramVec, map[string]string) {
 
 	var labelValuesToUse map[string]string
+
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
 
 	histogramVec, found := pc.histogramVecMap[metricName]
 	if !found {
