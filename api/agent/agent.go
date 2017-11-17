@@ -126,14 +126,8 @@ type agent struct {
 	hMu sync.RWMutex // protects hot
 	hot map[string]chan slot
 
-	// TODO we could make a separate struct for the memory stuff
-	// cond protects access to ramUsed
-	cond *sync.Cond
-	// ramTotal is the total accessible memory by this process
-	ramTotal uint64
-	// ramUsed is ram reserved for running containers. idle hot containers
-	// count against ramUsed.
-	ramUsed uint64
+	// track usage
+	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
 	wg       sync.WaitGroup // TODO rename
@@ -154,8 +148,7 @@ func New(ds models.Datastore, mq models.MessageQueue) Agent {
 		mq:          mq,
 		driver:      driver,
 		hot:         make(map[string]chan slot),
-		cond:        sync.NewCond(new(sync.Mutex)),
-		ramTotal:    getAvailableMemory(),
+		resources:   NewResourceTracker(),
 		shutdown:    make(chan struct{}),
 		promHandler: promhttp.Handler(),
 	}
@@ -279,7 +272,7 @@ func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (
 	select {
 	case s := <-slots:
 		return s, nil
-	case tok := <-a.ramToken(ctx, call.Memory*1024*1024): // convert MB TODO mangle
+	case tok := <-a.resources.GetResourceToken(ctx, call):
 		errCh = a.launch(ctx, slots, call, tok) // TODO mangle
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -363,80 +356,6 @@ func hotKey(call *call) string {
 	return string(hash.Sum(buf[:0]))
 }
 
-// TODO we could rename this more appropriately (ideas?)
-type Token interface {
-	// Close must be called by any thread that receives a token.
-	io.Closer
-}
-
-type token struct {
-	decrement func()
-}
-
-func (t *token) Close() error {
-	t.decrement()
-	return nil
-}
-
-// the received token should be passed directly to launch (unconditionally), launch
-// will close this token (i.e. the receiver should not call Close)
-func (a *agent) ramToken(ctx context.Context, memory uint64) <-chan Token {
-	c := a.cond
-	ch := make(chan Token)
-
-	go func() {
-		c.L.Lock()
-		for (a.ramUsed + memory) > a.ramTotal {
-			select {
-			case <-ctx.Done():
-				c.L.Unlock()
-				return
-			default:
-			}
-
-			c.Wait()
-		}
-
-		a.ramUsed += memory
-		c.L.Unlock()
-
-		t := &token{decrement: func() {
-			c.L.Lock()
-			a.ramUsed -= memory
-			c.L.Unlock()
-			c.Broadcast()
-		}}
-
-		select {
-		case ch <- t:
-		case <-ctx.Done():
-			// if we can't send b/c nobody is waiting anymore, need to decrement here
-			t.Close()
-		}
-	}()
-
-	return ch
-}
-
-// asyncRAM will send a signal on the returned channel when at least half of
-// the available RAM on this machine is free.
-func (a *agent) asyncRAM() chan struct{} {
-	ch := make(chan struct{})
-
-	c := a.cond
-	go func() {
-		c.L.Lock()
-		for (a.ramTotal/2)-a.ramUsed < 0 {
-			c.Wait()
-		}
-		c.L.Unlock()
-		ch <- struct{}{}
-		// TODO this could leak forever (only in shutdown, blech)
-	}()
-
-	return ch
-}
-
 type slot interface {
 	exec(ctx context.Context, call *call) error
 	io.Closer
@@ -445,7 +364,7 @@ type slot interface {
 // implements Slot
 type coldSlot struct {
 	cookie drivers.Cookie
-	tok    Token
+	tok    ResourceToken
 }
 
 func (s *coldSlot) exec(ctx context.Context, call *call) error {
@@ -523,7 +442,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 // this will work for hot & cold (woo)
 // if launch encounters a non-nil error it will send it on the returned channel,
 // this can be useful if an image doesn't exist, e.g.
-func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok Token) <-chan error {
+func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok ResourceToken) <-chan error {
 	ch := make(chan error, 1)
 
 	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
@@ -546,7 +465,7 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok T
 	return ch
 }
 
-func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok Token) error {
+func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok ResourceToken) error {
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -575,7 +494,7 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 	return nil
 }
 
-func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, tok Token) error {
+func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, tok ResourceToken) error {
 	// We must be careful to only use ctxArg for logs/spans
 
 	// create a span from ctxArg but ignore the new Context
