@@ -50,7 +50,7 @@ spec:
     spec:
       containers:
       - name: fn-service
-        image: fnproject/functions:latest
+        image: fnproject/fnserver:latest
         securityContext:
           privileged: true
         ports:

@@ -145,7 +145,7 @@ func traceWrap(c *gin.Context) {
 func setTracer() {
 	var (
 		debugMode          = false
-		serviceName        = "fn-server"
+		serviceName        = "fnserver"
 		serviceHostPort    = "localhost:8080" // meh
 		zipkinHTTPEndpoint = viper.GetString(EnvZipkinURL)
 		// ex: "http://zipkin:9411/api/v1/spans"

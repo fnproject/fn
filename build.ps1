@@ -21,12 +21,11 @@ function quick() {
 }
 
 function build () {
-    docker run --rm -v ${pwd}:/go/src/github.com/fnproject/functions -w /go/src/github.com/fnproject/functions golang:alpine go build -o functions-alpine
-    docker build -t fnproject/functions:latest .
-}
+    docker run --rm -v ${pwd}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn golang:alpine go build -o fn-alpine
+    docker build -t fnproject/fnserver:latest .
 
 function run () {
-    docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v $PWD/data:/app/data -p 8080:8080 fnproject/functions
+    docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v $PWD/data:/app/data -p 8080:8080 fnproject/fnserver
 }
 
 switch ($cmd)
