@@ -30,5 +30,5 @@ docker run -it --rm --link func-postgres:postgres postgres \
 ```sh
 docker run --rm --privileged --link "func-postgres:postgres" \
     -e "DB_URL=postgres://postgres:funcpass@postgres/funcs?sslmode=disable" \
-    -it -p 8080:8080 fnproject/fn-server
+    -it -p 8080:8080 fnproject/fnserver
 ```

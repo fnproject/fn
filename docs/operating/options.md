@@ -5,7 +5,7 @@
 This will run with docker in docker. 
 
 ```sh
-docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 80:8080 fnproject/fn-server
+docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 80:8080 fnproject/fnserver
 ```
 
 See below for starting without docker in docker.
@@ -47,7 +47,7 @@ There are some reasons you may not want to use dind, such as using the image cac
 One way is to mount the host Docker. Everything is essentially the same except you add a `-v` flag:
 
 ```sh
-docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 fnproject/fn-server
+docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 fnproject/fnserver
 ```
 
 ### Run outside Docker

@@ -28,11 +28,11 @@ fn routes create primesapp /primes jconning/primes:0.0.1
 ```
 STEP 2: Run five Fn nodes locally.  Example (runs five nodes in the background using Docker):
 ```
-sudo docker run -d -it --name functions-8082 --privileged -v ${HOME}/data-8082:/app/data -p 8082:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fn-server
-sudo docker run -d -it --name functions-8083 --privileged -v ${HOME}/data-8083:/app/data -p 8083:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fn-server
-sudo docker run -d -it --name functions-8084 --privileged -v ${HOME}/data-8084:/app/data -p 8084:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fn-server
-sudo docker run -d -it --name functions-8085 --privileged -v ${HOME}/data-8085:/app/data -p 8085:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fn-server
-sudo docker run -d -it --name functions-8086 --privileged -v ${HOME}/data-8086:/app/data -p 8086:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fn-server
+sudo docker run -d -it --name functions-8082 --privileged -v ${HOME}/data-8082:/app/data -p 8082:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fnserver
+sudo docker run -d -it --name functions-8083 --privileged -v ${HOME}/data-8083:/app/data -p 8083:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fnserver
+sudo docker run -d -it --name functions-8084 --privileged -v ${HOME}/data-8084:/app/data -p 8084:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fnserver
+sudo docker run -d -it --name functions-8085 --privileged -v ${HOME}/data-8085:/app/data -p 8085:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fnserver
+sudo docker run -d -it --name functions-8086 --privileged -v ${HOME}/data-8086:/app/data -p 8086:8080 -e "DB_URL=postgres://dbUser:dbPassword@dbHost:5432/dbName" fnproject/fnserver
 ```
 STEP 3: Run fnlb locally.  Example (runs fnlb on the default port 8081):
 ```
