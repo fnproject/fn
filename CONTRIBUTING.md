@@ -33,7 +33,7 @@ Graduation: Some extensions can graduate into core if they become commonplace in
 * Fork the repo
 * Fix an issue or create an issue and fix it
 * Create a Pull Request that fixes the issue
-* Sign the CLA
+* Sign the [CLA](https://cla.fnproject.io/)
 * Good Job! Thanks for being awesome!
 
 ## Documentation
