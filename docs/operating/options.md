@@ -5,7 +5,7 @@
 This will run with docker in docker. 
 
 ```sh
-docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 80:8080 fnproject/functions
+docker run --privileged --rm --name fns -it -v $PWD/data:/app/data -p 80:8080 fnproject/fn-server
 ```
 
 See below for starting without docker in docker.
@@ -37,8 +37,7 @@ The default way to run Fn, as it is in the Quickstart guide, is to use docker-in
 a couple reasons why we did it this way:
 
 * It's clean. Once the container exits, there is nothing left behind including all the function images.
-* You can set resource restrictions for the entire Fn instance. For instance, you can set `--memory` on
-the docker run command to set the max memory for the Fn instance AND all of the functions it's running.
+* You can set resource restrictions for the entire Fn instance. For instance, you can set `--memory` on the docker run command to set the max memory for the Fn instance AND all of the functions it's running.
 
 There are some reasons you may not want to use dind, such as using the image cache during testing or you're running
 [Windows](windows.md).
@@ -48,7 +47,7 @@ There are some reasons you may not want to use dind, such as using the image cac
 One way is to mount the host Docker. Everything is essentially the same except you add a `-v` flag:
 
 ```sh
-docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 fnproject/functions
+docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 fnproject/fn-server
 ```
 
 ### Run outside Docker

@@ -8,7 +8,7 @@ dep-up:
 	glide up -v
 
 build:
-	go build -o functions
+	go build -o fn-server
 
 install:
 	go build -o ${GOPATH}/bin/fn-server
@@ -29,17 +29,17 @@ test-build-arm:
 	GOARCH=arm64 $(MAKE) build
 
 run: build
-	GIN_MODE=debug ./functions
+	GIN_MODE=debug ./fn-server
 
 docker-dep:
 # todo: need to create a dep tool image for this (or just ditch this)
 	docker run --rm -it -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn treeder/glide install -v
 
 docker-build:
-	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/functions:latest .
+	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fn-server:latest .
 
 docker-run: docker-build
-	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/functions
+	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/fn-server
 
 docker-test-run-with-sqlite3:
 	./api_test.sh sqlite3 4

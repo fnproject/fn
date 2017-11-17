@@ -32,8 +32,8 @@ If running locally with functions servers in docker, running with docker links
 can make things easier (can use local addresses). for example:
 
 ```sh
-docker run -d --name fn-8080 --privileged -p 8080:8080 fnproject/functions:latest
-docker run -d --name fnlb --link fn-8080 -p 8081:8081 fnproject/fnlb:latest --nodes 127.0.0.1:8080
+docker run -d --name fn-8080 --privileged -p 8080:8080 fnproject/fn-server:latest
+docker run -d --name fnlb --link fn-8080 -p 8081:8081 fnproject/fn-lb:latest --nodes 127.0.0.1:8080
 ```
 
 ## Operating / usage
