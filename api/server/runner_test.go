@@ -241,6 +241,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
+			{Path: "/pull", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 1, IdleTimeout: 30},
 			{Path: "/waitmemory", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
 		}, nil,
@@ -259,19 +260,14 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/r/myapp/sleeper", `{"sleep": 0}`, "POST", http.StatusOK, nil},
+		// first request with large timeout, we let the docker pull go through...
+		{"/r/myapp/pull", `{"sleep": 0}`, "POST", http.StatusOK, nil},
 		{"/r/myapp/sleeper", `{"sleep": 0}`, "POST", http.StatusOK, nil},
 		{"/r/myapp/sleeper", `{"sleep": 4}`, "POST", http.StatusGatewayTimeout, nil},
 		{"/r/myapp/waitmemory", `{"sleep": 0}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
-
-		// first request, we ignore... This is to avoid docker pull related timing issues.. Let first request to
-		// pull fnproject/sleeper image
-		if i == 0 {
-			continue
-		}
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
