@@ -1,6 +1,6 @@
 # Go Function Hello World
 
-This example will show you how to test and deploy Go code to Fn. It will also demonstrate passing JSON data in through `stdin`.
+This example will shows you how to test and deploy Go code to Fn. It will also demonstrates passing JSON data to your function through `stdin`.
 
 This tutorial assumes you have installed Docker, Fn server, and Fn CLI. See the [Fn Quickstart](https://github.com/fnproject/fn) for installation steps.
 
@@ -17,8 +17,8 @@ configuration options [here](docs/operating/options.md). If you are on Windows, 
 
 ## Create your Function 
 
-1. Create an empty directory called `hello` and cd into it.
-1. Create a file for the Go function: `func.go`.
+1. Create an empty directory called `hello` and `cd` into it.
+1. Create a source file for your Go function: `func.go`.
 1. Add the following code to the file.
 
 ```go
@@ -55,7 +55,7 @@ Found go, assuming go runtime.
 func.yaml created
 ```
 
-Fn found your `func.go` file and generated a `func.yaml` file with contents that should look like:
+Examine the files in your directory. Fn found your `func.go` file and generated the following `func.yaml` file:
 
 ```yaml
 name: hello
@@ -92,7 +92,7 @@ Deploy your functions to the Fn server.
 
     fn deploy --app myapp
 
-The command creates an app on the server named `myapp`. In addition, a route to your function created based on your directory name `/hello`.
+The command creates an app on the server named `myapp`. In addition, a route to your function created based on your directory name: `/hello`
 
 ## Test your Function on the Server
 
