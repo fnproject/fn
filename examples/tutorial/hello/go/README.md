@@ -1,8 +1,8 @@
 # Go Function Hello World
 
-This example will shows you how to test and deploy Go code to Fn. It will also demonstrates passing JSON data to your function through `stdin`.
+This example will shows you how to test and deploy Go code to Fn. It will also demonstrate passing JSON data to your function through `stdin`.
 
-This tutorial assumes you have installed Docker, Fn server, and Fn CLI. See the [Fn Quickstart](https://github.com/fnproject/fn) for installation steps.
+This tutorial assumes you have installed Docker, Fn server, and Fn CLI.
 
 ## Start Fn Server
 
@@ -17,9 +17,10 @@ configuration options [here](docs/operating/options.md). If you are on Windows, 
 
 ## Create your Function 
 
-1. Create an empty directory called `hello` and `cd` into it.
-1. Create a source file for your Go function: `func.go`.
-1. Add the following code to the file.
+1. Change into the directory where you want to create your function.
+1. Run the following command to create a boilerplate Go function: `fn init --runtime go hello`
+    * A directory named `hello` is created with several files in it.
+1. Open the generated `func.go` file and you will see the following source code.
 
 ```go
 package main
@@ -37,32 +38,20 @@ type Person struct {
 func main() {
 	p := &Person{Name: "World"}
 	json.NewDecoder(os.Stdin).Decode(p)
-	mapD := map[string]string{"message": fmt.Sprintf("Hello %s!", p.Name)}
+	mapD := map[string]string{"message": fmt.Sprintf("Hello %s", p.Name)}
 	mapB, _ := json.Marshal(mapD)
 	fmt.Println(string(mapB))
 }
 ```
 <ol start="4">
-  <li>Initialize your function file by entering.</li>
+  <li>The command also generates a <code>yaml</code> metadata file. Open <code>func.yaml</code> file.</li>
 </ol>
-
-    fn init
-
-Which returns
-
-```sh
-Found go, assuming go runtime.
-func.yaml created
-```
-
-Examine the files in your directory. Fn found your `func.go` file and generated the following `func.yaml` file:
 
 ```yaml
 name: hello
 version: 0.0.1
 runtime: go
 entrypoint: ./func
-Understanding func.yaml
 ```
 
 The generated `func.yaml` file contains metadata about your function and declares a number of properties including:
@@ -74,31 +63,49 @@ The generated `func.yaml` file contains metadata about your function and declare
 
 There are other user specifiable properties but these will suffice for this example.
 
+## Add Fn Registry Environment Variable
+
+Before we start developing we need to set the `FN_REGISTRY` environment variable. Normally, set the value to your Docker Hub username. However, you can work with Fn locally.  Set the `FN_REGISTRY` variable to an invented value: `local`.
+
+    export FN_REGISTRY=local
+
+The value is used to identify your Fn generated Docker images.
+
 ## Test your Function
 
 Test your function using the following command.
 
     fn run
 
-Fn runs your function inside a container exactly how it executes on the server.
+Fn runs your function inside a container exactly how it executes on the server. When execution is complete, the function returns output to `stout`. In this case, `fn run` returns:
 
-Run the function again with JSON input.
+    {"message":"Hello World"}
 
-    echo '{"name":"joe"}' | fn run
+To pass data to our function, pass input to `stdin`. You could pass JSON data to your function like this:
+
+    echo '{"name":"Johnny"}' | fn run
+
+Or with.
+
+    cat payload.json | fn run
+
+The function reads the JSON data and returns:
+
+    {"message":"Hello Johnny"}
 
 ## Deploy your Function to Fn Server
 
-Deploy your functions to the Fn server. 
+When you used `fn run` your function was run in your local environment. Now deploy your function to the Fn server we started previously. This server could be running in the cloud, in your datacenter, or on your local machine. In this case we are deploying to our local machine. Enter the following command: 
 
-    fn deploy --app myapp
+    fn deploy --app myapp --local
 
-The command creates an app on the server named `myapp`. In addition, a route to your function created based on your directory name: `/hello`
+The command creates an app on the server named `myapp`. In addition, a route to your function created based on your directory name: `/hello`. The `--local` option allows the application to deploy without a container registry.
 
 ## Test your Function on the Server
 
 With the function deployed to the server, you can make calls to the function. 
 
-### Call your Function without Input
+### Call your Function without Data
 
 Call your function using the Fn CLI.
 
@@ -114,7 +121,7 @@ All of these options should return:
 
     {"message":"Hello World!"}
     
-### Call your Function with Input
+### Call your Function with Data
 
 You can use `curl` to pass JSON data to your function.
 
@@ -124,7 +131,7 @@ curl -X POST -d '{"name":"Johnny"}' -H "Content-Type: application/json" http://l
 Or specify a file.
 
 ```sh
-curl -X POST -d @name.json -H "Content-Type: application/json" http://localhost:8080/r/myapp/hello
+curl -X POST -d @payload.json -H "Content-Type: application/json" http://localhost:8080/r/myapp/hello
 ```
 Both commands should return:
 
