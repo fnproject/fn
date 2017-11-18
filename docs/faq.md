@@ -55,7 +55,7 @@ We believe that an open container native cloud platform based on Docker and Kube
 
 ### What languages can be used to write functions on Fn?
 
-Out of the box support includes: Java, Go, Ruby, Python, PHP, Rust, .NET Core, and Node.js (including AWS Lambda compatibility).
+Out of the box support includes: Java, Go, Python, and Node.js (including AWS Lambda compatibility).
 
 Since we use containers as the base building block, all languages can be used. There may not be higher level helper libraries like our Lambda wrapper for every language, but you can use any language if you follow the base function format. You can make your own docker image with whatever you want.
 
@@ -91,9 +91,14 @@ Yes, as Fn packages and deploys all functions as Docker containers it’s possib
 
 Functions are packaged as Docker images and by default individual containers are created to handle a function request and are then destroyed.  However, [Hot Functions](hot-functions.md) are not disposed of after handling a single request.
 
+Hot functions are started once and kept alive while there is an incoming workload. A hot function hangs around based on an idle timeout. By default this parameter is set to 30 seconds. The timer starts after the last request is processed by the hot function.
+
+Hot functions can process two types of input. Using JSON, Fn reads the HTTP request body, assembles JSON and writes it to function’s STDIN. Using HTTP, Fn dumps incoming HTTP requests to the function’s STDIN.
+
+
 ### What’s a `Hot Function`?
 
-`Hot Functions` are functions that are not destroyed after a single use but are retained and used to handle subsequent requests.  Hot Functions must accept HTTP input.
+`Hot Functions` are functions that are not destroyed after a single use but are retained and used to handle subsequent requests.  Hot Functions accept HTTP and JSON input.
 
 <a id="General"></a>
 ## General
@@ -149,7 +154,7 @@ We currently don't yet offer Fn as a managed service which would manage network 
 
 We support 'hot functions' (see the end of [this tutorial](https://github.com/fnproject/tutorials/blob/master/JavaFDKIntroduction/README.md) for an example).  Hot functions will continue to live if they are used but, if not, will eventually be cleaned up.
 
-Function timeout is configurable. Please see <https://github.com/fnproject/fn/blob/master/docs/function-file.md>
+Function timeout is configurable. Please see <https://github.com/fnproject/fn/blob/master/docs/function-file.md>. Note though configurable, timeouts do have limits. For example, sync functions have a maximum upper limit of 120 seconds.
 
 ### How does the service trace the liveliness of the function? If my function dies/crashes will the service provision it again?
 
