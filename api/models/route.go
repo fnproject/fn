@@ -17,8 +17,9 @@ const (
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
 	MaxIdleTimeout  = MaxAsyncTimeout
-	MaxMemory       = 1024 * 1024 * 100 // 100TB TODO should probably be a var of machine max?
 )
+
+var RouteMaxMemory = uint64(8 * 1024) // 8GB TODO should probably be a var of machine max?
 
 type Routes []*Route
 
@@ -112,7 +113,7 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidIdleTimeout
 	}
 
-	if r.Memory < 1 || r.Memory > MaxMemory {
+	if r.Memory < 1 || r.Memory > RouteMaxMemory {
 		return ErrRoutesInvalidMemory
 	}
 

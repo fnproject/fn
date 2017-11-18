@@ -234,7 +234,8 @@ func TestFailedEnqueue(t *testing.T) {
 func TestRouteRunnerTimeout(t *testing.T) {
 	buf := setLogBuffer()
 
-	hugeMem := uint64(models.MaxMemory - 1)
+	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
+	hugeMem := uint64(models.RouteMaxMemory - 1)
 
 	ds := datastore.NewMockInit(
 		[]*models.App{

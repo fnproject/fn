@@ -158,7 +158,7 @@ var (
 	}
 	ErrRoutesInvalidMemory = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", MaxMemory),
+		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", RouteMaxMemory),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
