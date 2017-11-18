@@ -2,7 +2,7 @@
 set -ex
 
 user="fnproject"
-image="fn-server"
+image="fnserver"
 image_deprecated="functions"
 
 # ensure working dir is clean
