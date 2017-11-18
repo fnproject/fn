@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
@@ -439,6 +440,35 @@ func (drv *DockerDriver) startTask(ctx context.Context, container string) error 
 		} else {
 			return err
 		}
+	}
+
+	// see if there's any healthcheck, and if so, wait for it to complete
+	return drv.awaitHealthcheck(ctx, container)
+}
+
+func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string) error {
+	// inspect the container and check if there is any health check presented,
+	// if there is, then wait for it to move to healthy before returning.
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		cont, err := drv.docker.InspectContainerWithContext(container, ctx)
+		if err != nil {
+			// TODO unknown fiddling to be had
+			return err
+		}
+
+		// if no health check for this image (""), or it's healthy, then stop waiting.
+		// state machine is "starting" -> "healthy" | "unhealthy"
+		if cont.State.Health.Status == "" || cont.State.Health.Status == "healthy" {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond) // avoid spin loop in case docker is actually fast
 	}
 	return nil
 }
