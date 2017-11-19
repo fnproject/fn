@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/fnproject/fn/api/models"
+	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
 )
@@ -83,6 +84,18 @@ func (m *metricds) InsertCall(ctx context.Context, call *models.Call) error {
 	return m.ds.InsertCall(ctx, call)
 }
 
+func (m *metricds) UpdateCallStatus(ctx context.Context, appName, callID, status string, completedAt strfmt.DateTime) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_update_call_status")
+	defer span.Finish()
+	return m.ds.UpdateCallStatus(ctx, appName, callID, status, completedAt)
+}
+
+func (m *metricds) UpdateCallMetrics(ctx context.Context, appName, callID string, CPUUsage, MemoryUsage uint64) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_update_call_metrics")
+	defer span.Finish()
+	return m.ds.UpdateCallMetrics(ctx, appName, callID, CPUUsage, MemoryUsage)
+}
+
 func (m *metricds) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_call")
 	defer span.Finish()
@@ -115,9 +128,3 @@ func (m *metricds) DeleteLog(ctx context.Context, appName, callID string) error 
 
 // instant & no context ;)
 func (m *metricds) GetDatabase() *sqlx.DB { return m.ds.GetDatabase() }
-
-func (m *metricds) InsertCallStat(ctx context.Context, callStat models.CallStat) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_call_stats")
-	defer span.Finish()
-	return m.ds.InsertCallStat(ctx, callStat)
-}

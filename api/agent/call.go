@@ -322,6 +322,10 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
 
+	if errInsert := c.ds.InsertCall(ctx, c.Model()); errInsert != nil {
+		common.Logger(ctx).WithError(err).Error("error inserting call during call.Start")
+	}
+
 	return nil
 }
 
@@ -347,12 +351,10 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 
 	// this means that we could potentially store an error / timeout status for a
 	// call that ran successfully [by a user's perspective]
-	// TODO: this should be update, really
-	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
-		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
+	if err := c.ds.UpdateCallStatus(ctx, c.AppName, c.ID, c.Status, c.CompletedAt); err != nil {
+		common.Logger(ctx).WithError(err).Error("error updating call with status")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
-
 	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.

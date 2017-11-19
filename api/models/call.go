@@ -30,13 +30,6 @@ type CallLog struct {
 	AppName string `json:"app_name" db:"app_name"`
 }
 
-type CallStat struct {
-	CallID      string `json:"call_id" db:"id"`
-	MemoryUsage uint64 `json:"memory_usage" db:"memory_usage"`
-	CPUUsage    uint64 `json:"cpu_usage" db:"cpu_usage"`
-	AppName     string `json:"app_name" db:"app_name"`
-}
-
 // Call is a representation of a specific invocation of a route.
 type Call struct {
 	// Unique identifier representing a specific call.
@@ -135,7 +128,9 @@ type Call struct {
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 
 	// Time when call started execution. Always in UTC.
-	StartedAt strfmt.DateTime `json:"started_at,omitempty" db:"started_at"`
+	StartedAt   strfmt.DateTime `json:"started_at,omitempty" db:"started_at"`
+	MemoryUsage uint64          `json:"memory_usage" db:"memory_usage"`
+	CPUUsage    uint64          `json:"cpu_usage" db:"cpu_usage"`
 }
 
 type CallFilter struct {
