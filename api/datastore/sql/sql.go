@@ -73,6 +73,13 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_name varchar(256) NOT NULL,
 	log text NOT NULL
 );`,
+
+	`CREATE TABLE IF NOT EXISTS call_stats (
+	id varchar(256) NOT NULL PRIMARY KEY,
+	app_name varchar(256) NOT NULL,
+	memory_usage int NOT NULL,
+	cpu_usage int NOT NULL,
+);`,
 }
 
 const (
@@ -783,4 +790,22 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 // GetDatabase returns the underlying sqlx database implementation
 func (ds *sqlStore) GetDatabase() *sqlx.DB {
 	return ds.db
+}
+
+func (ds *sqlStore) InsertCallStat(ctx context.Context, callStat models.CallStat) error {
+	query := ds.db.Rebind(`INSERT INTO call_stats (
+		id,
+		app_name,
+		memory_usage,
+		cpu_usage,
+	)
+	VALUES (
+		:id,
+		:app_name,
+		:memory_usage,
+		:cpu_usage,
+	);`)
+
+	_, err := ds.db.NamedExecContext(ctx, query, callStat)
+	return err
 }

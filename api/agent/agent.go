@@ -475,6 +475,9 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 		stdin:   call.req.Body,
 		stdout:  call.w,
 		stderr:  call.stderr,
+
+		ds:      a.ds,
+		appName: call.AppName,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -541,6 +544,9 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 		stdin:  stdinRead,
 		stdout: stdoutWrite,
 		stderr: &ghostWriter{inner: stderr},
+
+		ds:      a.ds,
+		appName: call.AppName,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -621,6 +627,9 @@ type container struct {
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
+
+	ds      models.Datastore
+	appName string
 }
 
 func (c *container) swap(stderr io.Writer) {
@@ -652,6 +661,14 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	for key, value := range stat.Metrics {
 		span.LogFields(log.Uint64("fn_"+key, value))
 	}
+	callStat := models.CallStat{
+		CallID:      c.Id(),
+		CPUUsage:    stat.Metrics["cpu_user"],
+		MemoryUsage: stat.Metrics["mem_usage"],
+		AppName:     c.appName,
+	}
+
+	_ = c.ds.InsertCallStat(ctx, callStat)
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {

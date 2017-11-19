@@ -115,3 +115,9 @@ func (m *metricds) DeleteLog(ctx context.Context, appName, callID string) error 
 
 // instant & no context ;)
 func (m *metricds) GetDatabase() *sqlx.DB { return m.ds.GetDatabase() }
+
+func (m *metricds) InsertCallStat(ctx context.Context, callStat models.CallStat) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_insert_call_stats")
+	defer span.Finish()
+	return m.ds.InsertCallStat(ctx, callStat)
+}

@@ -69,4 +69,7 @@ type Datastore interface {
 
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB
+
+	// InsertCallStat
+	InsertCallStat(ctx context.Context, stat CallStat) error
 }

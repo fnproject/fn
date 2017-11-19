@@ -369,7 +369,6 @@ func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan str
 			if !stats.Timestamp.IsZero() {
 				task.WriteStat(ctx, stats)
 			}
-
 		}
 	}
 }

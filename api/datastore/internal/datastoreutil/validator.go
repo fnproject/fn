@@ -138,3 +138,7 @@ func (v *validator) DeleteLog(ctx context.Context, appName, callID string) error
 func (v *validator) GetDatabase() *sqlx.DB {
 	return v.Datastore.GetDatabase()
 }
+
+func (v *validator) InsertCallStat(ctx context.Context, callStat models.CallStat) error {
+	return v.Datastore.InsertCallStat(ctx, callStat)
+}

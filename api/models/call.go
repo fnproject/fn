@@ -30,6 +30,13 @@ type CallLog struct {
 	AppName string `json:"app_name" db:"app_name"`
 }
 
+type CallStat struct {
+	CallID      string `json:"call_id" db:"id"`
+	MemoryUsage uint64 `json:"memory_usage" db:"memory_usage"`
+	CPUUsage    uint64 `json:"cpu_usage" db:"cpu_usage"`
+	AppName     string `json:"app_name" db:"app_name"`
+}
+
 // Call is a representation of a specific invocation of a route.
 type Call struct {
 	// Unique identifier representing a specific call.
