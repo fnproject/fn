@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -56,6 +57,12 @@ type Datastore interface {
 	// InsertCall inserts a call into the datastore, it will error if the call already
 	// exists.
 	InsertCall(ctx context.Context, call *Call) error
+
+	// UpdateCallMetrics updates call
+	UpdateCallMetrics(ctx context.Context, appName, callID string, CPUUsage, MemoryUsage uint64) error
+
+	// UpdateCallMetrics updates call
+	UpdateCallStatus(ctx context.Context, appName, callID, status string, completedAt strfmt.DateTime) error
 
 	// GetCall returns a call at a certain id and app name.
 	GetCall(ctx context.Context, appName, callID string) (*Call, error)

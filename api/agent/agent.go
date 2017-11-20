@@ -416,7 +416,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
 	// swap in the new stderr logger
-	s.container.swap(call.stderr)
+	s.container.swap(call.ID, call.stderr)
 
 	errApp := make(chan error, 1)
 	go func() {
@@ -475,6 +475,11 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 		stdin:   call.req.Body,
 		stdout:  call.w,
 		stderr:  call.stderr,
+
+		ds:      a.ds,
+		appName: call.AppName,
+		path:    call.Path,
+		callID:  call.ID,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -541,6 +546,11 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 		stdin:  stdinRead,
 		stdout: stdoutWrite,
 		stderr: &ghostWriter{inner: stderr},
+
+		ds:      a.ds,
+		appName: call.AppName,
+		path:    call.Path,
+		callID:  call.ID,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -592,7 +602,7 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-done
-			container.swap(stderr) // log between tasks
+			container.swap(call.ID, stderr) // log between tasks
 		}
 	}()
 
@@ -621,14 +631,20 @@ type container struct {
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
+
+	ds      models.Datastore
+	appName string
+	path    string
+	callID  string
 }
 
-func (c *container) swap(stderr io.Writer) {
+func (c *container) swap(callID string, stderr io.Writer) {
 	// TODO meh, maybe shouldn't bury this
 	gw, ok := c.stderr.(*ghostWriter)
 	if ok {
 		gw.swap(stderr)
 	}
+	c.callID = callID
 }
 
 func (c *container) Id() string                     { return c.id }
@@ -651,6 +667,20 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	defer span.Finish()
 	for key, value := range stat.Metrics {
 		span.LogFields(log.Uint64("fn_"+key, value))
+	}
+	// Fn polls for stats as long as container lives,
+	// so we have to write stats only once
+	if c.callID != "" {
+		err := c.ds.UpdateCallMetrics(ctx,
+			c.appName, c.callID,
+			stat.Metrics["cpu_user"],
+			uint64(stat.Metrics["mem_max_usage"]/(1024*1024)),
+		)
+		if err != nil {
+			common.Logger(ctx).WithError(err).Error("error updating call with metrics")
+		}
+		// preventing stats to be overridden
+		c.callID = ""
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -65,6 +66,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	id varchar(256) NOT NULL,
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
+	memory_usage int NOT NULL,
+	cpu_usage int NOT NULL,
 	PRIMARY KEY (id)
 );`,
 
@@ -77,7 +80,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 const (
 	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at FROM routes`
-	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
+	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, cpu_usage, memory_usage FROM calls`
 )
 
 type sqlStore struct {
@@ -585,7 +588,9 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		completed_at,
 		status,
 		app_name,
-		path
+		path,
+		memory_usage,
+		cpu_usage
 	)
 	VALUES (
 		:id,
@@ -594,11 +599,63 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		:completed_at,
 		:status,
 		:app_name,
-		:path
+		:path,
+		:memory_usage,
+		:cpu_usage
 	);`)
-
 	_, err := ds.db.NamedExecContext(ctx, query, call)
 	return err
+}
+
+func (ds *sqlStore) updateCall(ctx context.Context, appName, callID, callQuery string, args ...interface{}) error {
+	var call models.Call
+	err := ds.Tx(func(tx *sqlx.Tx) error {
+		query := tx.Rebind(fmt.Sprintf("%s WHERE id=? AND app_name=?", callSelector))
+		row := tx.QueryRowxContext(ctx, query, callID, appName)
+
+		err := row.StructScan(&call)
+		if err == sql.ErrNoRows {
+			return models.ErrCallNotFound
+		} else if err != nil {
+			return err
+		}
+
+		args = append(args, callID)
+		res, err := tx.ExecContext(ctx, tx.Rebind(callQuery), args...)
+		if err != nil {
+			return err
+		}
+
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			// inside of the transaction, we are querying for the row, so we know that it exists
+			return nil
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *sqlStore) UpdateCallStatus(ctx context.Context, appName, callID, status string, completedAt strfmt.DateTime) error {
+	query := `UPDATE calls SET
+			status = ?,
+			completed_at = ?
+		WHERE id=?;`
+	return ds.updateCall(ctx, appName, callID, query, status, completedAt)
+}
+
+func (ds *sqlStore) UpdateCallMetrics(ctx context.Context, appName, callID string, CPUUsage, MemoryUsage uint64) error {
+	query := `UPDATE calls SET
+			cpu_usage = ?,
+			memory_usage = ?
+		WHERE id=?;`
+	return ds.updateCall(ctx, appName, callID, query, CPUUsage, MemoryUsage)
 }
 
 func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {

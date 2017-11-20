@@ -128,7 +128,9 @@ type Call struct {
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 
 	// Time when call started execution. Always in UTC.
-	StartedAt strfmt.DateTime `json:"started_at,omitempty" db:"started_at"`
+	StartedAt   strfmt.DateTime `json:"started_at,omitempty" db:"started_at"`
+	MemoryUsage uint64          `json:"memory_usage" db:"memory_usage"`
+	CPUUsage    uint64          `json:"cpu_usage" db:"cpu_usage"`
 }
 
 type CallFilter struct {

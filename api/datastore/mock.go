@@ -9,6 +9,7 @@ import (
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
+	"github.com/go-openapi/strfmt"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -180,6 +181,28 @@ func (m *mock) Get(ctx context.Context, key []byte) ([]byte, error) {
 func (m *mock) InsertCall(ctx context.Context, call *models.Call) error {
 	m.Calls = append(m.Calls, call)
 	return nil
+}
+
+func (m *mock) UpdateCallStatus(ctx context.Context, appName, callID, status string, completedAt strfmt.DateTime) error {
+	for i, oldCall := range m.Calls {
+		if oldCall.ID == callID && oldCall.AppName == appName {
+			m.Calls[i].Status = status
+			m.Calls[i].CompletedAt = completedAt
+			return nil
+		}
+	}
+	return models.ErrCallNotFound
+}
+
+func (m *mock) UpdateCallMetrics(ctx context.Context, appName, callID string, CPUUsage, MemoryUsage uint64) error {
+	for i, oldCall := range m.Calls {
+		if oldCall.ID == callID && oldCall.AppName == appName {
+			m.Calls[i].CPUUsage = CPUUsage
+			m.Calls[i].MemoryUsage = MemoryUsage
+			return nil
+		}
+	}
+	return models.ErrCallNotFound
 }
 
 func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {

@@ -369,7 +369,6 @@ func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan str
 			if !stats.Timestamp.IsZero() {
 				task.WriteStat(ctx, stats)
 			}
-
 		}
 	}
 }
@@ -415,8 +414,9 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 			"net_rx": uint64(rx),
 			"net_tx": uint64(tx),
 			// mem
-			"mem_limit": ds.MemoryStats.Limit,
-			"mem_usage": ds.MemoryStats.Usage,
+			"mem_limit":     ds.MemoryStats.Limit,
+			"mem_usage":     ds.MemoryStats.Usage,
+			"mem_max_usage": ds.MemoryStats.MaxUsage,
 			// i/o
 			"disk_read":  blkRead,
 			"disk_write": blkWrite,
