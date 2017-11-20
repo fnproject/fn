@@ -53,7 +53,7 @@ scrape_configs:
 
     static_configs:
       # Specify all the Fn servers from which metrics will be scraped
-      - targets: ['localhost:8080'] # Uses /metrics by default
+      - targets: ['fnserver:8080'] # Uses /metrics by default
 ```
 Note the last line. This specifies the host and port of the Fn server from which metrics will be obtained. 
 If you are running a cluster of Fn servers then you can specify them all here.
@@ -61,8 +61,8 @@ If you are running a cluster of Fn servers then you can specify them all here.
 Now start Prometheus, specifying this config file:
 ```
   docker run --name=prometheus -d -p 9090:9090 \
-    --mount type=bind,source=`pwd`/prometheus.yml,target=/etc/prometheus/prometheus.yml \
-    --link functions:localhost prom/prometheus
+    -v ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml \
+    --link fnserver prom/prometheus
 ```
 Note: The parameter `--link localhost` means that Prometheus can use `localhost` to refer to the running Fn server. This requires the Fn server to be running in docker.
 
@@ -77,7 +77,7 @@ Open a terminal window and navigate to the directory containing this example.
 Start Grafana on port 3000:
 ```
 docker run --name=grafana -d -p 3000:3000 \
-  --link functions:localhost grafana/grafana
+  --link functions --link prometheus grafana/grafana
 ```
 
 Open a browser on Grafana at [http://localhost:3000](http://localhost:3000).
@@ -88,7 +88,7 @@ Create a datasource to obtain metrics from Promethesus:
 * Click on **Add data source**. In the form that opens:
 * Set **Name** to `PromDS` (or whatever name you choose)
 * Set **Type** to `Prometheus`
-* Set **URL** to `http://localhost:9090` 
+* Set **URL** to `http://prometheus:9090` 
 * Set **Access** to `direct`
 * Click **Add** and then **Save and test**
 
