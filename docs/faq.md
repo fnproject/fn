@@ -44,7 +44,7 @@ The Fn Project today consists of 4 major components:
 
 3. Fn FDK’s — Starting with Java, we are releasing a number of FDK’s, or Function Development Kits, aimed at quickly bootstrapping functions in all languages, providing a data binding model for function inputs, make testing your functions easier, as well as lay the foundation for building more complex serverless applications.
 
-4. Fn Flow allows developers to build and orchestrate higher level workflows of functions all inside their programming language of choice. It makes it easy to use parallelism, sequencing/chaining, error handling, fan in/out, etc., without learning complicated external models built with long JSON or YAML templates. Best of all, Flow tracks all of the function call graphs, allowing for visualization in the dashboard, full stack logs of entire “Flows”, and variable/memory reconstitution throughout the entire function graph.
+4. Fn Flow allows developers to build and orchestrate higher level workflows of functions all inside their programming language of choice. It makes it easy to use parallelism, sequencing/chaining, error handling, fan in/out, etc., without learning complicated external models built with long JSON or YAML templates. Best of all, Flow tracks all of the function call graphs, allowing for visualization in the dashboard, full stack logs of entire “Flows”, and variable/memory reconstitution throughout the entire function graph. For more information on flow see <https://github.com/fnproject/flow>
 
 ### Why open source Fn?
 
@@ -179,6 +179,6 @@ State management is not part of Fn but you can use any storage service or databa
 
 ### Can we build a state function which will update itself based on the previous computation? Will it persist across function restarts?
 
-The problem you face is the lack of a guarantee of which instance of a hot function is called.  Standard practice is to externalize state.  The State Service is essentially Oracle Coherence which offers excellent performance as you may know.
+The problem you face is the lack of a guarantee of which instance of a hot function is called.  Standard practice is to externalize state.
 
-Also check out Fn Flow if you’re writing Java (currently the primary supported language).
+If your need for stateful functions is motivated by managing steps of a workflow that spans several functions (or several calls to the same function), check out [Fn Flow](If your need for stateful functions is motivated by managing steps of a workflow that spans several functions (or several calls to the same function), check out Fn Flow). 
