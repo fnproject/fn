@@ -63,6 +63,16 @@ fn start
 This will start Fn in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
 
+### Quickstart with docker-compose
+
+With help of [compose file](./docker-compose.yml) it's easy to bootstrap whole development stack that includes:
+
+ - instance of MySQL server for database
+ - instance of Redis server for message queue
+ - instance of Fn server with scale group (supported only for Docker Swarm)
+ - instance of Fn UI
+ 
+
 ### Your First Function
 
 Functions are small but powerful blocks of code that generally do one simple thing. Forget about monoliths when using functions, just focus on the task that you want the function to perform.

@@ -28,3 +28,12 @@ services:
     deploy:
       mode: replicated
       replicas: 3
+  fnserver-ui:
+    image: fnproject/ui
+    restart: always
+    ports:
+      - "4000:4000"
+    links:
+      - "fnserver"
+    environment:
+      - API_URL=http://fnserver:8080
