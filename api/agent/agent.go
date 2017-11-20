@@ -668,13 +668,19 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	for key, value := range stat.Metrics {
 		span.LogFields(log.Uint64("fn_"+key, value))
 	}
-	err := c.ds.UpdateCallMetrics(ctx,
-		c.appName, c.callID,
-		stat.Metrics["cpu_user"],
-		uint64(stat.Metrics["mem_max_usage"]/(1024*1024)),
-	)
-	if err != nil {
-		common.Logger(ctx).WithError(err).Error("error updating call with metrics")
+	// Fn polls for stats as long as container lives,
+	// so we have to write stats only once
+	if c.callID != "" {
+		err := c.ds.UpdateCallMetrics(ctx,
+			c.appName, c.callID,
+			stat.Metrics["cpu_user"],
+			uint64(stat.Metrics["mem_max_usage"]/(1024*1024)),
+		)
+		if err != nil {
+			common.Logger(ctx).WithError(err).Error("error updating call with metrics")
+		}
+		// preventing stats to be overridden
+		c.callID = ""
 	}
 }
 
