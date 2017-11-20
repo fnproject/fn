@@ -38,8 +38,10 @@ services:
       - "3000:3000"
     links:
       - fnserver
+      - prometheus
     depends_on:
       - fnserver
+      - prometheus
   prometheus:
     image: prom/prometheus
     restart: always
