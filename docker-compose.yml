@@ -14,6 +14,9 @@ services:
     ports:
       - "6379:6379"
   fnserver:
+    depends_on:
+      - mq
+      - db
     build: .
     ports:
       - "8080:8080"
@@ -29,6 +32,8 @@ services:
       mode: replicated
       replicas: 3
   fnserver-ui:
+    depends_on:
+      - fnserver
     image: fnproject/ui
     restart: always
     ports:
