@@ -17,4 +17,4 @@ scrape_configs:
 
     static_configs:
       # Specify all the fn servers from which metrics will be scraped
-      - targets: ['localhost:8080'] # Uses /metrics by default
+      - targets: ['fnserver:8080'] # Uses /metrics by default

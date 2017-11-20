@@ -31,6 +31,26 @@ services:
     deploy:
       mode: replicated
       replicas: 3
+  grafana:
+    image: grafana/grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    links:
+      - fnserver
+    depends_on:
+      - fnserver
+  prometheus:
+    image: prom/prometheus
+    restart: always
+    depends_on:
+      - fnserver
+    ports:
+      - "9090:9090"
+    links:
+      - fnserver
+    volumes:
+      - ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
   fnserver-ui:
     depends_on:
       - fnserver
