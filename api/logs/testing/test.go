@@ -56,4 +56,12 @@ func Test(t *testing.T, fnl models.LogStore) {
 				"Expected: `%v`. Got `%v`.", logText, b.String())
 		}
 	})
+
+	t.Run("call-log-not-found", func(t *testing.T) {
+		call.ID = id.New().String()
+		_, err := fnl.GetLog(ctx, call.AppName, call.ID)
+		if err != models.ErrCallLogNotFound {
+			t.Fatal("GetLog should return not found, but got:", err)
+		}
+	})
 }

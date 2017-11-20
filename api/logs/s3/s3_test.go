@@ -11,7 +11,7 @@ import (
 func TestS3(t *testing.T) {
 	minio := os.Getenv("MINIO_URL")
 	if minio == "" {
-		t.Skip()
+		t.Skip("no minio specified in url, skipping (use `make test`)")
 		return
 	}
 

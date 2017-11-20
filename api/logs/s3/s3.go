@@ -91,5 +91,19 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 
 func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
 	objectName := path(appName, callID)
-	return s.client.GetObjectWithContext(ctx, s.bucket, objectName, minio.GetObjectOptions{})
+	obj, err := s.client.GetObjectWithContext(ctx, s.bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err // this is always nil, for now, thanks minio :(
+	}
+
+	_, err = obj.Stat()
+	if err != nil {
+		errResp := minio.ToErrorResponse(err)
+		if errResp.StatusCode == 404 {
+			return nil, models.ErrCallLogNotFound
+		}
+		return nil, err
+	}
+
+	return obj, nil
 }
