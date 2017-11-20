@@ -1,0 +1,30 @@
+version: '3'
+services:
+  db:
+    image: "mysql"
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - "MYSQL_DATABASE=funcs"
+      - "MYSQL_ROOT_PASSWORD=root"
+  mq:
+    image: "redis"
+    restart: always
+    ports:
+      - "6379:6379"
+  fnserver:
+    build: .
+    ports:
+      - "8080:8080"
+    links:
+      - "db"
+      - "mq"
+    environment:
+      - DB_URL=mysql://root:root@tcp(db:3306)/funcs
+      - MQ_URL=redis://mq:6379/
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      mode: replicated
+      replicas: 3
