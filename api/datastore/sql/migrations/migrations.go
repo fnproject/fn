@@ -246,11 +246,11 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"1_add_route_created_at.down.sql": _1_add_route_created_atDownSql,
-	"1_add_route_created_at.up.sql": _1_add_route_created_atUpSql,
-	"2_add_call_stats.down.sql": _2_add_call_statsDownSql,
-	"2_add_call_stats.up.sql": _2_add_call_statsUpSql,
-	"3_add_call_error.down.sql": _3_add_call_errorDownSql,
-	"3_add_call_error.up.sql": _3_add_call_errorUpSql,
+	"1_add_route_created_at.up.sql":   _1_add_route_created_atUpSql,
+	"2_add_call_stats.down.sql":       _2_add_call_statsDownSql,
+	"2_add_call_stats.up.sql":         _2_add_call_statsUpSql,
+	"3_add_call_error.down.sql":       _3_add_call_errorDownSql,
+	"3_add_call_error.up.sql":         _3_add_call_errorUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -292,13 +292,14 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"1_add_route_created_at.down.sql": &bintree{_1_add_route_created_atDownSql, map[string]*bintree{}},
-	"1_add_route_created_at.up.sql": &bintree{_1_add_route_created_atUpSql, map[string]*bintree{}},
-	"2_add_call_stats.down.sql": &bintree{_2_add_call_statsDownSql, map[string]*bintree{}},
-	"2_add_call_stats.up.sql": &bintree{_2_add_call_statsUpSql, map[string]*bintree{}},
-	"3_add_call_error.down.sql": &bintree{_3_add_call_errorDownSql, map[string]*bintree{}},
-	"3_add_call_error.up.sql": &bintree{_3_add_call_errorUpSql, map[string]*bintree{}},
+	"1_add_route_created_at.up.sql":   &bintree{_1_add_route_created_atUpSql, map[string]*bintree{}},
+	"2_add_call_stats.down.sql":       &bintree{_2_add_call_statsDownSql, map[string]*bintree{}},
+	"2_add_call_stats.up.sql":         &bintree{_2_add_call_statsUpSql, map[string]*bintree{}},
+	"3_add_call_error.down.sql":       &bintree{_3_add_call_errorDownSql, map[string]*bintree{}},
+	"3_add_call_error.up.sql":         &bintree{_3_add_call_errorUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
@@ -347,4 +348,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-
