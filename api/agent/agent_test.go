@@ -49,7 +49,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(ds, new(mqs.Mock))
+	a := New(ds, ds, new(mqs.Mock))
 	defer a.Close()
 
 	w := httptest.NewRecorder()
@@ -237,7 +237,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(ds, new(mqs.Mock))
+	a := New(ds, ds, new(mqs.Mock))
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))

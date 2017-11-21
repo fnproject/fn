@@ -246,8 +246,8 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	// TODO add log store interface (yagni?)
 	c.ds = a.ds
+	c.ls = a.ls
 	c.mq = a.mq
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
@@ -270,6 +270,7 @@ type call struct {
 	*models.Call
 
 	ds     models.Datastore
+	ls     models.LogStore
 	mq     models.MessageQueue
 	w      io.Writer
 	req    *http.Request
@@ -353,7 +354,7 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
+	if err := c.ls.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

@@ -119,6 +119,7 @@ type agent struct {
 	// TODO maybe these should be on GetCall? idk. was getting bloated.
 	mq            models.MessageQueue
 	ds            models.Datastore
+	ls            models.LogStore
 	callListeners []extensions.CallListener
 
 	driver drivers.Driver
@@ -139,12 +140,13 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(ds models.Datastore, mq models.MessageQueue) Agent {
+func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
 
 	a := &agent{
 		ds:          ds,
+		ls:          ls,
 		mq:          mq,
 		driver:      driver,
 		hot:         make(map[string]chan slot),
