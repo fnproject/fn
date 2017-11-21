@@ -50,7 +50,7 @@ func (a *agent) asyncDequeue() {
 			// are at least once semantics, which is really preferable to at most
 			// once, so let's do it for now
 
-			err, _ = a.Submit(call)
+			err = a.Submit(call)
 			if err != nil {
 				// NOTE: these could be errors / timeouts from the call that we're
 				// logging here (i.e. not our fault), but it's likely better to log
