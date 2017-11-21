@@ -30,13 +30,13 @@ type Call interface {
 	// etc.
 	// TODO Start and End can likely be unexported as they are only used in the agent,
 	// and on a type which is constructed in a specific agent. meh.
-	Start(ctx context.Context, t callTrigger) error
+	Start(ctx context.Context) error
 
 	// End will be called immediately after attempting a call execution,
 	// regardless of whether the execution failed or not. An error will be passed
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error, t callTrigger) error
+	End(ctx context.Context, err error) error
 }
 
 // TODO build w/o closures... lazy
@@ -251,6 +251,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.ds = a.ds
 	c.ls = a.ls
 	c.mq = a.mq
+	c.ct = a
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
 		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
@@ -277,11 +278,12 @@ type call struct {
 	w      io.Writer
 	req    *http.Request
 	stderr io.ReadWriteCloser
+	ct     callTrigger
 }
 
 func (c *call) Model() *models.Call { return c.Call }
 
-func (c *call) Start(ctx context.Context, t callTrigger) error {
+func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
@@ -320,7 +322,7 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 		}
 	}
 
-	err := t.fireBeforeCall(ctx, c.Model())
+	err := c.ct.fireBeforeCall(ctx, c.Model())
 	if err != nil {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
@@ -328,7 +330,7 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 	return nil
 }
 
-func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
+func (c *call) End(ctx context.Context, errIn error) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
 	defer span.Finish()
 
@@ -340,8 +342,8 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	case context.DeadlineExceeded:
 		c.Status = "timeout"
 	default:
-		// XXX (reed): should we append the error to logs? Error field? (TR) yes, think so, otherwise it's lost looks like?
 		c.Status = "error"
+		c.Error = errIn.Error()
 	}
 
 	if c.Type == models.TypeAsync {
@@ -366,11 +368,12 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()
-	err := t.fireAfterCall(ctx, c.Model())
-	if err != nil {
+
+	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return fmt.Errorf("AfterCall: %v", err)
 	}
-	return errIn
+
+	return errIn // original error, important for use in sync call returns
 }
 
 func toEnvName(envtype, name string) string {

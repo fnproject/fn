@@ -181,7 +181,6 @@ func transformTimeout(e error, isRetriable bool) error {
 }
 
 func (a *agent) Submit(callI Call) error {
-
 	a.wg.Add(1)
 	defer a.wg.Done()
 
@@ -217,7 +216,7 @@ func (a *agent) Submit(callI Call) error {
 	defer slot.Close() // notify our slot is free once we're done
 
 	// TODO Start is checking the timer now, we could do it here, too.
-	err = call.Start(ctx, a)
+	err = call.Start(ctx)
 	if err != nil {
 		a.stats.Dequeue(callI.Model().Path)
 		return transformTimeout(err, true)
@@ -241,7 +240,7 @@ func (a *agent) Submit(callI Call) error {
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
-	err = call.End(ctx, err, a)
+	err = call.End(ctx, err)
 	return transformTimeout(err, false)
 }
 
