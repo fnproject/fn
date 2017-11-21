@@ -28,7 +28,11 @@ docker rm -fv func-mysql-test || echo No prev mysql test db container
 docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
 docker rm -fv func-minio-test || echo No prev minio test container
 docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
-sleep 5
+
+# pull all images used in tests so that tests don't time out and fail spuriously
+docker pull fnproject/sleeper
+docker pull fnproject/error
+docker pull fnproject/hello
 
 MYSQL_HOST=`host func-mysql-test`
 MYSQL_PORT=3306
