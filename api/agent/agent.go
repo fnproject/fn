@@ -247,6 +247,12 @@ func (a *agent) Submit(callI Call) error {
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
 // a container will be locked up forever waiting for slot to free.
 func (a *agent) getSlot(ctx context.Context, call *call) (slot, error) {
+
+	// slot was already obtained before.
+	if call.slot != nil {
+		return call.slot, nil
+	}
+
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
@@ -275,6 +281,11 @@ func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (
 	default:
 	}
 
+	// IMPORTANT: This means, if this request was submitted indirectly through fnlb or
+	// other proxy, we will continue classifying it as 'async' which is good as async
+	// regardless of origin should use the async resources.
+	isAsync := call.Type == models.TypeAsync
+
 	// add context cancel here to prevent ramToken/launch race, w/o this ramToken /
 	// launch won't know whether we are no longer receiving or not yet receiving.
 	ctx, launchCancel := context.WithCancel(ctx)
@@ -284,7 +295,10 @@ func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (
 	select {
 	case s := <-slots:
 		return s, nil
-	case tok := <-a.resources.GetResourceToken(ctx, call):
+	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+		if !isOpen {
+			return nil, models.ErrCallTimeoutServerBusy
+		}
 		errCh = a.launch(ctx, slots, call, tok) // TODO mangle
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -494,7 +508,7 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 	// about timing out if this takes a while...
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
-		tok.Close() // TODO make this less brittle
+		tok.Close()
 		return err
 	}
 
