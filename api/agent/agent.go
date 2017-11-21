@@ -170,7 +170,18 @@ func (a *agent) Close() error {
 	return nil
 }
 
+func transformTimeout(e error, isRetriable bool) error {
+	if e == context.DeadlineExceeded {
+		if isRetriable {
+			return models.ErrCallTimeoutServerBusy
+		}
+		return models.ErrCallTimeout
+	}
+	return e
+}
+
 func (a *agent) Submit(callI Call) error {
+
 	a.wg.Add(1)
 	defer a.wg.Done()
 
@@ -199,7 +210,7 @@ func (a *agent) Submit(callI Call) error {
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
 		a.stats.Dequeue(callI.Model().Path)
-		return err
+		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
 	// to make this remove the container asynchronously?
@@ -209,7 +220,7 @@ func (a *agent) Submit(callI Call) error {
 	err = call.Start(ctx, a)
 	if err != nil {
 		a.stats.Dequeue(callI.Model().Path)
-		return err
+		return transformTimeout(err, true)
 	}
 
 	// decrement queued count, increment running count
@@ -231,7 +242,7 @@ func (a *agent) Submit(callI Call) error {
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
 	err = call.End(ctx, err, a)
-	return err
+	return transformTimeout(err, false)
 }
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
