@@ -1,6 +1,6 @@
 package migrations
 
-//go:generate go-bindata -ignore migrations.go -ignore index.go -o migrations.go -pkg migrations .
+//go:generate go-bindata -ignore README.md -ignore migrations.go -ignore index.go -o migrations.go -pkg migrations .
 
 // migrations are generated from this cwd with go generate.
 // install https://github.com/jteeuwen/go-bindata for go generate

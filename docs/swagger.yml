@@ -669,6 +669,40 @@ definitions:
         format: date-time
         description: Time when call completed, whether it was successul or failed. Always in UTC.
         readOnly: true
+      stats:
+        type: array
+        items:
+          $ref: '#/definitions/Stat'
+        description: A histogram of stats for a call, each is a snapshot of a calls state at the timestamp.
+        readOnly: true
+
+  Stat:
+    type: object
+    properties:
+      timestamp:
+        type: string
+        format: date-time
+      metrics:
+        type: object
+        properties:
+          net_rx:
+            type: integer
+          net_tx:
+            type: integer
+          mem_limit:
+            type: integer
+          mem_usage:
+            type: integer
+          disk_read:
+            type: integer
+          disk_write:
+            type: integer
+          cpu_user:
+            type: integer
+          cpu_total:
+            type: integer
+          cpu_kernel:
+            type: integer
 
   ErrorBody:
     type: object

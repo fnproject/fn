@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -345,6 +346,9 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	if c.Type == models.TypeAsync {
 		// XXX (reed): delete MQ message, eventually
 	}
+
+	// ensure stats histogram is reasonably bounded
+	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
 
 	// this means that we could potentially store an error / timeout status for a
 	// call that ran successfully [by a user's perspective]
