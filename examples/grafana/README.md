@@ -6,10 +6,13 @@ The Fn server exports metrics using [Prometheus](https://prometheus.io/). This a
 
 ## Start an Fn server and deploy some functions
 
-This example requires an Fn server to be running and that you have deployed one or more functions. 
-See the [front page](/README.md) or any of the other examples for instructions. 
+Start an fn server
 
-The steps below assume that the Fn server is running at `localhost:8080`.
+```sh
+fn start
+```
+Deploy one or more functions as required.
+See the [front page](/README.md) or any of the other examples for instructions. 
 
 ## Examine the endpoint used to export metrics to Prometheus
 
@@ -22,7 +25,7 @@ This will display the metrics in prometheus format.
 
 Open a terminal window and navigate to the directory containing this example.
 
-Examine the provised Prometheus configuration file:
+Examine the provided Prometheus configuration file:
 
 ```
 cat prometheus.yml
@@ -50,18 +53,18 @@ scrape_configs:
 
     static_configs:
       # Specify all the Fn servers from which metrics will be scraped
-      - targets: ['localhost:8080'] # Uses /metrics by default
+      - targets: ['fnserver:8080'] # Uses /metrics by default
 ```
 Note the last line. This specifies the host and port of the Fn server from which metrics will be obtained. 
 If you are running a cluster of Fn servers then you can specify them all here.
 
 Now start Prometheus, specifying this config file:
 ```
-docker run --name=prometheus -d -p 9090:9090 \
-  --mount type=bind,source=`pwd`/prometheus.yml,target=/etc/prometheus/prometheus.yml \
-  --add-host="localhost:`route | grep default | awk '{print $2}'`" prom/prometheus
+  docker run --name=prometheus -d -p 9090:9090 \
+    -v ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml \
+    --link fnserver prom/prometheus
 ```
-Note: The parameter `` --add-host="localhost:`route | grep default | awk '{print $2}'`" `` means that Prometheus can use localhost to refer to the host. (The expression `` `route | grep default | awk '{print $2}'` ``  returns the IP of the host).
+Note: The parameter `--link fnserver` means that Prometheus can use `fnserver` to refer to the running Fn server. This requires the Fn server to be running in docker.
 
 Open a browser on Prometheus's graph tool at [http://localhost:9090/graph](http://localhost:9090/graph). If you wish you can use this to view metrics and display metrics from the Fn server: see the [Prometheus](https://prometheus.io/) documentation for instructions. Alternatively continue with the next step to view a ready-made set of graphs in Grafana.
 
@@ -74,7 +77,7 @@ Open a terminal window and navigate to the directory containing this example.
 Start Grafana on port 3000:
 ```
 docker run --name=grafana -d -p 3000:3000 \
-  --add-host="localhost:`route | grep default | awk '{print $2}'`" grafana/grafana
+  --link fnserver --link prometheus grafana/grafana
 ```
 
 Open a browser on Grafana at [http://localhost:3000](http://localhost:3000).
@@ -85,8 +88,8 @@ Create a datasource to obtain metrics from Promethesus:
 * Click on **Add data source**. In the form that opens:
 * Set **Name** to `PromDS` (or whatever name you choose)
 * Set **Type** to `Prometheus`
-* Set **URL** to `http://localhost:9090` 
-* Set **Access** to `proxy`
+* Set **URL** to `http://prometheus:9090` 
+* Set **Access** to `direct`
 * Click **Add** and then **Save and test**
 
 Import the example dashboard that displays metrics from the Fn server:
