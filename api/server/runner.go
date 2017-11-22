@@ -40,6 +40,16 @@ func (s *Server) handleRequest(c *gin.Context) {
 
 }
 
+// convert gin.Params to agent.Params to avoid introducing gin
+// dependency to agent
+func parseParams(params gin.Params) agent.Params {
+	out := make(agent.Params, 0, len(params))
+	for _, val := range params {
+		out = append(out, agent.Param{Key: val.Key, Value: val.Value})
+	}
+	return out
+}
+
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
 func (s *Server) serve(c *gin.Context, appName, path string) {
@@ -47,7 +57,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	// strip params, etc.
 	call, err := s.Agent.GetCall(
 		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(appName, path, c.Request),
+		agent.FromRequest(appName, path, c.Request, parseParams(c.Params)),
 	)
 	if err != nil {
 		handleErrorResponse(c, err)

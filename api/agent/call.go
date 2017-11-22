@@ -41,7 +41,13 @@ type Call interface {
 // TODO build w/o closures... lazy
 type CallOpt func(a *agent, c *call) error
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
+type Param struct {
+	Key   string
+	Value string
+}
+type Params []Param
+
+func FromRequest(appName, path string, req *http.Request, params Params) CallOpt {
 	return func(a *agent, c *call) error {
 		app, err := a.ds.GetApp(req.Context(), appName)
 		if err != nil {
@@ -51,11 +57,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		route, err := a.ds.GetRoute(req.Context(), appName, path)
 		if err != nil {
 			return err
-		}
-
-		params, match := matchRoute(route.Path, path)
-		if !match {
-			return errors.New("route does not match") // TODO wtf, can we ignore match?
 		}
 
 		if route.Format == "" {
@@ -366,20 +367,6 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 		return fmt.Errorf("AfterCall: %v", err)
 	}
 	return errIn
-}
-
-func fakeHandler(http.ResponseWriter, *http.Request, Params) {}
-
-// TODO what is this stuff anyway?
-func matchRoute(baseRoute, route string) (Params, bool) {
-	tree := &node{}
-	tree.addRoute(baseRoute, fakeHandler)
-	handler, p, _ := tree.getValue(route)
-	if handler == nil {
-		return nil, false
-	}
-
-	return p, true
 }
 
 func toEnvName(envtype, name string) string {
