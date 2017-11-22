@@ -68,9 +68,14 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("Content-Length", contentLength)
 	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
+	// let's assume we got there params from the URL
+	params := make(Params, 0, 2)
+	params = append(params, Param{Key: "YOGURT", Value: "garlic"})
+	params = append(params, Param{Key: "LEGUME", Value: "garbanzo"})
+
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(appName, path, req),
+		FromRequest(appName, path, req, params),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +150,11 @@ func TestCallConfigurationRequest(t *testing.T) {
 	expectedEnv["FN_CALL_ID"] = model.ID
 	expectedEnv["FN_METHOD"] = method
 	expectedEnv["FN_REQUEST_URL"] = url
+
+	// add expected parameters from URL
+	for _, val := range params {
+		expectedEnv[fmt.Sprintf("FN_PARAM_%s", val.Key)] = val.Value
+	}
 
 	// do this before the "real" headers get sucked in cuz they are formatted differently
 	expectedHeaders := make(http.Header)
