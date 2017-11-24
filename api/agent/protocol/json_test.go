@@ -48,7 +48,7 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
 	req := setupRequest(rDataBefore)
 	r, w := io.Pipe()
-	call := &models.Call{}
+	call := &models.Call{Type: "json"}
 	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
@@ -78,12 +78,16 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
 			rDataBefore.A, rDataAfter.A)
 	}
+	if incomingReq.Protocol.Type != call.Type {
+		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
+			call.Type, incomingReq.Protocol.Type)
+	}
 }
 
 func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	req := setupRequest(nil)
 
-	call := &models.Call{}
+	call := &models.Call{Type: "json"}
 	r, w := io.Pipe()
 	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
@@ -119,7 +123,7 @@ func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	req := setupRequest(nil)
 
 	r, w := io.Pipe()
-	call := &models.Call{}
+	call := &models.Call{Type: "json"}
 	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
