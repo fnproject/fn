@@ -64,7 +64,7 @@ func (ci callInfoImpl) Input() io.Reader {
 }
 
 func (ci callInfoImpl) ProtocolType() string {
-	return "http"
+	return ci.call.Type
 }
 
 // Request basically just for the http format, since that's the only that makes sense to have the full request as is
