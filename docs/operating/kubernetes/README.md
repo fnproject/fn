@@ -56,7 +56,6 @@ Hello Johnny!
 You can also use the [Fn CLI](https://github.com/fnproject/cli):
 
 ```bash
-$ export API_URL=http://192.168.99.100:30966
 $ fn apps list
 myapp
 $ fn routes list myapp
