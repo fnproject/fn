@@ -39,7 +39,7 @@ docker-build:
 	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fnserver:latest .
 
 docker-run: docker-build
-	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/fnserver
+	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e FN_LOG_LEVEL=debug -e "FN_DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/fnserver
 
 docker-test-run-with-sqlite3:
 	./api_test.sh sqlite3 4
@@ -51,7 +51,7 @@ docker-test-run-with-postgres:
 	./api_test.sh postgres 4
 
 docker-test:
-	docker run -ti --privileged --rm -e LOG_LEVEL=debug \
+	docker run -ti --privileged --rm -e FN_LOG_LEVEL=debug \
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	-v ${CURDIR}:/go/src/github.com/fnproject/fn \
 	-w /go/src/github.com/fnproject/fn \

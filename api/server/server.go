@@ -298,7 +298,7 @@ func (s *Server) Start(ctx context.Context) {
 
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
-	// PORT environment variable was defined.
+	// FN_PORT environment variable was defined.
 	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
 
 	const runHeader = `

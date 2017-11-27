@@ -62,7 +62,7 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 
 		common.SetLogLevel("fatal")
 		timeString := time.Now().Format("2006_01_02_15_04_05")
-		dbURL := os.Getenv("DB_URL")
+		dbURL := os.Getenv(server.EnvDBURL)
 		tmpDir := os.TempDir()
 		tmpMq := fmt.Sprintf("%s/fn_integration_test_%s_worker_mq.db", tmpDir, timeString)
 		tmpDb := fmt.Sprintf("%s/fn_integration_test_%s_fn.db", tmpDir, timeString)

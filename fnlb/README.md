@@ -41,7 +41,7 @@ docker run -d --name fnlb --link fn-8080 -p 8081:8081 fnproject/fnlb:latest --no
 To make functions requests against the lb with the cli:
 
 ```sh
-API_URL=http://<fnlb_address> fn call my/function
+FN_API_URL=http://<fnlb_address> fn call my/function
 ```
 
 To add a functions node later:
