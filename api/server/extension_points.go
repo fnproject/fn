@@ -59,6 +59,54 @@ func (s *Server) apiAppHandlerWrapperFunc(apiHandler ApiAppHandler) gin.HandlerF
 	}
 }
 
+// per Route
+
+type ApiRouteHandler interface {
+	// Handle(ctx context.Context)
+	ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
+}
+
+type ApiRouteHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
+
+// ServeHTTP calls f(w, r).
+func (f ApiRouteHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route) {
+	f(w, r, app, route)
+}
+
+func (s *Server) apiRouteHandlerWrapperFunc(apiHandler ApiRouteHandler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// get the app
+		appName := c.Param(api.CApp)
+		app, err := s.Datastore.GetApp(c.Request.Context(), appName)
+		if err != nil {
+			handleErrorResponse(c, err)
+			c.Abort()
+			return
+		}
+		if app == nil {
+			handleErrorResponse(c, models.ErrAppsNotFound)
+			c.Abort()
+			return
+		}
+		println("apiRouteHandlerWrapperFunc")
+		// get the route TODO
+		routePath := "/" + c.Param(api.CRoute)
+		route, err := s.Datastore.GetRoute(c.Request.Context(), appName, routePath)
+		if err != nil {
+			handleErrorResponse(c, err)
+			c.Abort()
+			return
+		}
+		if route == nil {
+			handleErrorResponse(c, models.ErrRoutesNotFound)
+			c.Abort()
+			return
+		}
+
+		apiHandler.ServeHTTP(c.Writer, c.Request, app, route)
+	}
+}
+
 // AddEndpoint adds an endpoint to /v1/x
 func (s *Server) AddEndpoint(method, path string, handler ApiHandler) {
 	v1 := s.Router.Group("/v1")
@@ -80,4 +128,15 @@ func (s *Server) AddAppEndpoint(method, path string, handler ApiAppHandler) {
 // AddAppEndpoint adds an endpoints to /v1/apps/:app/x
 func (s *Server) AddAppEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App)) {
 	s.AddAppEndpoint(method, path, ApiAppHandlerFunc(handler))
+}
+
+// AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
+func (s *Server) AddRouteEndpoint(method, path string, handler ApiRouteHandler) {
+	v1 := s.Router.Group("/v1")
+	v1.Handle(method, "/apps/:app/routes/:route"+path, s.apiRouteHandlerWrapperFunc(handler)) // conflicts with existing wildcard
+}
+
+// AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
+func (s *Server) AddRouteEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)) {
+	s.AddRouteEndpoint(method, path, ApiRouteHandlerFunc(handler))
 }
