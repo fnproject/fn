@@ -24,7 +24,10 @@ import (
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func Host() string {
-	apiURL := "http://localhost:8080"
+	apiURL := os.Getenv("FN_API_URL")
+	if apiURL == "" {
+		apiURL = "http://localhost:8080"
+	}
 
 	u, err := url.Parse(apiURL)
 	if err != nil {

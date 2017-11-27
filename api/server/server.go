@@ -37,13 +37,13 @@ var (
 )
 
 const (
-	EnvLogLevel  = "LOG_LEVEL"
-	EnvMQURL     = "MQ_URL"
-	EnvDBURL     = "DB_URL"
-	EnvLOGDBURL  = "LOGSTORE_URL"
-	EnvPort      = "PORT" // be careful, Gin expects this variable to be "port"
-	EnvAPICORS   = "API_CORS"
-	EnvZipkinURL = "ZIPKIN_URL"
+	EnvLogLevel  = "FN_LOG_LEVEL"
+	EnvMQURL     = "FN_MQ_URL"
+	EnvDBURL     = "FN_DB_URL"
+	EnvLOGDBURL  = "FN_LOGSTORE_URL"
+	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvAPICORS   = "FN_API_CORS"
+	EnvZipkinURL = "FN_ZIPKIN_URL"
 
 	// Defaults
 	DefaultLogLevel = "info"

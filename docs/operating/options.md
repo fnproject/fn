@@ -21,11 +21,12 @@ docker run -e VAR_NAME=VALUE ...
 
 | Env Variables | Description | Default values |
 | --------------|-------------|----------------|
-| `DB_URL` | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
-| `MQ_URL` | The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. | bolt:///app/data/worker_mq.db |
-| `PORT` | Sets the port to run on | 8080 |
-| `LOG_LEVEL` | Set to DEBUG to enable debugging | INFO |
-| `DOCKER_HOST` | Docker remote API URL | /var/run/docker.sock:/var/run/docker.sock |
+| `FN_DB_URL` | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
+| `FN_MQ_URL` | The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. | bolt:///app/data/worker_mq.db |
+| `FN_API_URL` | The primary Fn API URL to that this instance will talk to. In a production environment, this would be your load balancer URL. | N/A |
+| `FN_PORT `| Sets the port to run on | 8080 |
+| `FN_LOG_LEVEL` | Set to DEBUG to enable debugging | INFO |
+| `DOCKER_HOST` | Docker remote API URL | /var/run/docker.sock |
 | `DOCKER_API_VERSION` | Docker remote API version | 1.24 |
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |
 | `DOCKER_CERT_PATH` | Set this option to specify where CA cert placeholder | ~/.docker/cert.pem |
