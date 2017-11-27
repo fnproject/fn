@@ -428,8 +428,9 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
-	// swap in the new stderr logger
-	s.container.swap(call.stderr)
+	// swap in the new stderr logger & stat accumulator
+	oldStderr := s.container.swap(call.stderr, &call.Stats)
+	defer s.container.swap(oldStderr, nil) // once we're done, swap out in this scope to prevent races
 
 	errApp := make(chan error, 1)
 	go func() {
@@ -442,8 +443,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	select {
 	case err := <-s.errC: // error from container
 		return err
-	case err := <-errApp:
-		// would be great to be able to decipher what error is returning from here so we can show better messages
+	case err := <-errApp: // from dispatch
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
@@ -488,6 +488,7 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 		stdin:   call.req.Body,
 		stdout:  call.w,
 		stderr:  call.stderr,
+		stats:   &call.Stats,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -605,7 +606,6 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-done
-			container.swap(stderr) // log between tasks
 		}
 	}()
 
@@ -634,14 +634,25 @@ type container struct {
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
+
+	// lock protects the swap and any fields that need to be swapped
+	sync.Mutex
+	stats *drivers.Stats
 }
 
-func (c *container) swap(stderr io.Writer) {
+func (c *container) swap(stderr io.Writer, cs *drivers.Stats) (old io.Writer) {
+	c.Lock()
+	defer c.Unlock()
+
 	// TODO meh, maybe shouldn't bury this
+	old = c.stderr
 	gw, ok := c.stderr.(*ghostWriter)
 	if ok {
-		gw.swap(stderr)
+		old = gw.swap(stderr)
 	}
+
+	c.stats = cs
+	return old
 }
 
 func (c *container) Id() string                     { return c.id }
@@ -665,6 +676,12 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	for key, value := range stat.Metrics {
 		span.LogFields(log.Uint64("fn_"+key, value))
 	}
+
+	c.Lock()
+	defer c.Unlock()
+	if c.stats != nil {
+		*(c.stats) = append(*(c.stats), stat)
+	}
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
@@ -679,10 +696,12 @@ type ghostWriter struct {
 	inner io.Writer
 }
 
-func (g *ghostWriter) swap(w io.Writer) {
+func (g *ghostWriter) swap(w io.Writer) (old io.Writer) {
 	g.Lock()
+	old = g.inner
 	g.inner = w
 	g.Unlock()
+	return old
 }
 
 func (g *ghostWriter) Write(b []byte) (int, error) {
