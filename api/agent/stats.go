@@ -103,7 +103,7 @@ func (s *stats) Enqueue(app string, path string) {
 
 	s.queue++
 	s.getStatsForFunction(path).queue++
-	fnQueued.WithLabelValues(path).Inc()
+	fnQueued.WithLabelValues(app, path).Inc()
 
 	s.mu.Unlock()
 }

@@ -54,7 +54,7 @@
   "hideControls": false,
   "id": null,
   "links": [],
-  "refresh": false,
+  "refresh": "30s",
   "rows": [
     {
       "collapse": false,
@@ -1076,5 +1076,5 @@
   },
   "timezone": "",
   "title": "Fn usage",
-  "version": 2
+  "version": 5
 }
