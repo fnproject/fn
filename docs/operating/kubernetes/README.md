@@ -31,7 +31,7 @@ Note that `fn-service` is initially pending on allocating an external IP. The `k
 If you are using a Kubernetes setup that can expose a public load balancer, run:
 
 ```bash
-$ export API_URL=$(kubectl -n fn get -o json svc fn-service | jq -r '.status.loadBalancer.ingress[0].ip'):8080
+$ export API_URL=http://$(kubectl -n fn get service/fn-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}:{.spec.ports[?(@.name=="fn-service")].port}')
 ```
 
 If you are using a Kubernetes setup like minikube, run
@@ -43,23 +43,26 @@ $ export API_URL=$(minikube -n fn service fn-service --url)
 Now, test by creating a function via curl:
 
 ```bash
-$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' http://$API_URL/v1/apps
+$ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp" } }' $API_URL/v1/apps
 {"message":"App successfully created","app":{"name":"myapp","config":null}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' http://$API_URL/v1/apps/myapp/routes
+$ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' $API_URL/v1/apps/myapp/routes
 {"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"headers":{},"type":"sync","format":"default","timeout":30,"idle_timeout":30,"config":{}}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' http://$API_URL/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' $API_URL/r/myapp/hello-sync
 Hello Johnny!
 ```
 
 You can also use the [Fn CLI](https://github.com/fnproject/cli):
 
 ```bash
-$ export API_URL=http://192.168.99.100:30966
 $ fn apps list
 myapp
+
 $ fn routes list myapp
 path            image           endpoint
 /hello-sync     fnproject/hello 192.168.99.100:30966/r/myapp/hello-sync
+
+$ echo '{"name":"Johnny"}' | fn call myapp /hello-sync
+Hello Johnny!
 ```
