@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	fnTest "github.com/fnproject/fn/test"
 )
 
 type JSONResponse struct {
@@ -18,20 +20,20 @@ func TestFnFormats(t *testing.T) {
 
 	t.Run("test-json-format", func(t *testing.T) {
 		t.Parallel()
-		s := SetupDefaultSuite()
+		s := fnTest.SetupDefaultSuite()
 
 		// TODO(treeder): put image in fnproject @ dockerhub
 		image := "denismakogon/test-hot-json-go:0.0.1"
 		format := "json"
 		route := "/test-hot-json-go"
 
-		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-		CreateRoute(t, s.Context, s.Client, s.AppName, route, image, "sync",
+		fnTest.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		fnTest.CreateRoute(t, s.Context, s.Client, s.AppName, route, image, "sync",
 			format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
-			Host:   Host(),
+			Host:   fnTest.Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
@@ -42,7 +44,7 @@ func TestFnFormats(t *testing.T) {
 		})
 		content := bytes.NewBuffer(b)
 		output := &bytes.Buffer{}
-		headers, err := CallFN(u.String(), content, output, "POST", []string{})
+		headers, err := fnTest.CallFN(u.String(), content, output, "POST", []string{})
 		if err != nil {
 			t.Errorf("Got unexpected error: %v", err)
 		}
@@ -65,7 +67,7 @@ func TestFnFormats(t *testing.T) {
 			}
 		}
 
-		DeleteApp(t, s.Context, s.Client, s.AppName)
+		fnTest.DeleteApp(t, s.Context, s.Client, s.AppName)
 
 	})
 
