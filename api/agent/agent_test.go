@@ -315,7 +315,7 @@ func TestSubmitError(t *testing.T) {
 	appName := "myapp"
 	path := "/error"
 	image := "fnproject/error"
-	const timeout = 1
+	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
 	method := "GET"
