@@ -421,8 +421,6 @@ imports:
   version: 12bd96e66386c1960ab0f74ced1362f66f552f7b
 - name: github.com/spf13/pflag
   version: 7aff26db30c1be810f9de5038ec5ef96ac41fd7c
-- name: github.com/spf13/viper
-  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - name: github.com/ugorji/go
   version: 54210f4e076c57f351166f0ed60e67d3fca57a36
   subpackages:
