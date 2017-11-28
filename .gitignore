@@ -1,7 +1,6 @@
 .idea/
 *.sublime*
 *.swp
-functions
 iron.json
 dj.config.json
 dj.cluster.*.json

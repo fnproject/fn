@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"bytes"
+	"encoding/json"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"testing"
-	"bytes"
-	"encoding/json"
 )
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -204,7 +204,7 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	if err != nil {
 		return nil, fmt.Errorf("error running route: %s", err)
 	}
-
+	fmt.Println("call response status code: ", resp.Status)
 	io.Copy(output, resp.Body)
 
 	return resp.Header, nil
