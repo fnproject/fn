@@ -128,7 +128,8 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 
 ## Learn More
 
-* Visit our Functions [Tutorial Series](examples/tutorial/). This tutorial will demonstrate some of the core Fn capabilities through a series of examples. We'll try to show examples in most major languages. This is a great Fn place to start!
+* Visit [Fn tutorials](https://github.com/fnproject/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced. 
+* With our [Fn Getting Started Series](examples/tutorial/), quickly create Fn Hello World applications in multiple languages. This is a great Fn place to start!
 * See our [full documentation](docs/README.md)
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
