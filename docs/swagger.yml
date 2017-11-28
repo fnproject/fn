@@ -646,6 +646,10 @@ definitions:
         type: string
         description: Call execution status.
         readOnly: true
+      error:
+        type: string
+        description: Call execution error, if status is 'error'.
+        readOnly: true
       app_name:
         type: string
         description: App name that is assigned to a route that is being executed.

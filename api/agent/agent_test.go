@@ -310,3 +310,67 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 
 	// TODO we could check for the toilet to flush here to logrus
 }
+
+func TestSubmitError(t *testing.T) {
+	appName := "myapp"
+	path := "/error"
+	image := "fnproject/error"
+	const timeout = 1
+	const idleTimeout = 20
+	const memory = 256
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+	payload := "payload"
+	typ := "sync"
+	format := "default"
+	env := map[string]string{
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
+	}
+
+	cm := &models.Call{
+		BaseEnv:     env,
+		EnvVars:     env,
+		AppName:     appName,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	a := New(ds, ds, new(mqs.Mock))
+	defer a.Close()
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err == nil {
+		t.Fatal("expected error but got none")
+	}
+
+	if cm.Status != "error" {
+		t.Fatal("expected status to be set to 'error' but was", cm.Status)
+	}
+
+	if cm.Error == "" {
+		t.Fatal("expected error string to be set on call")
+	}
+}

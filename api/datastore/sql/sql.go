@@ -66,6 +66,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
 	stats text,
+	error text,
 	PRIMARY KEY (id)
 );`,
 
@@ -78,7 +79,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 const (
 	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at FROM routes`
-	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, stats FROM calls`
+	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, stats, error FROM calls`
 )
 
 type sqlStore struct {
@@ -587,7 +588,8 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		status,
 		app_name,
 		path,
-		stats
+		stats,
+		error
 	)
 	VALUES (
 		:id,
@@ -597,7 +599,8 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		:status,
 		:app_name,
 		:path,
-		:stats
+		:stats,
+		:error
 	);`)
 
 	_, err := ds.db.NamedExecContext(ctx, query, call)
