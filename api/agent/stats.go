@@ -53,28 +53,28 @@ var (
 			Name: "fn_api_queued",
 			Help: "Queued requests by path",
 		},
-		[](string){"app","path"},
+		[](string){"app", "path"},
 	)
 	fnRunning = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "fn_api_running",
 			Help: "Running requests by path",
 		},
-		[](string){"app","path"},
+		[](string){"app", "path"},
 	)
 	fnCompleted = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "fn_api_completed",
 			Help: "Completed requests by path",
 		},
-		[](string){"app","path"},
+		[](string){"app", "path"},
 	)
 	fnFailed = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "fn_api_failed",
 			Help: "Failed requests by path",
 		},
-		[](string){"app","path"},
+		[](string){"app", "path"},
 	)
 )
 
@@ -109,12 +109,12 @@ func (s *stats) Enqueue(app string, path string) {
 }
 
 // Call when a function has been queued but cannot be started because of an error
-func (s *stats) Dequeue(path string) {
+func (s *stats) Dequeue(app string, path string) {
 	s.mu.Lock()
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	fnQueued.WithLabelValues(app,path).Dec()
+	fnQueued.WithLabelValues(app, path).Dec()
 
 	s.mu.Unlock()
 }
@@ -124,11 +124,11 @@ func (s *stats) DequeueAndStart(app string, path string) {
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	fnQueued.WithLabelValues(app,path).Dec()
+	fnQueued.WithLabelValues(app, path).Dec()
 
 	s.running++
 	s.getStatsForFunction(path).running++
-	fnRunning.WithLabelValues(app,path).Inc()
+	fnRunning.WithLabelValues(app, path).Inc()
 
 	s.mu.Unlock()
 }
@@ -138,11 +138,11 @@ func (s *stats) Complete(app string, path string) {
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	fnRunning.WithLabelValues(app,path).Dec()
+	fnRunning.WithLabelValues(app, path).Dec()
 
 	s.complete++
 	s.getStatsForFunction(path).complete++
-	fnCompleted.WithLabelValues(app,path).Inc()
+	fnCompleted.WithLabelValues(app, path).Inc()
 
 	s.mu.Unlock()
 }
@@ -152,11 +152,11 @@ func (s *stats) Failed(app string, path string) {
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	fnRunning.WithLabelValues(app,path).Dec()
+	fnRunning.WithLabelValues(app, path).Dec()
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
-	fnFailed.WithLabelValues(app,path).Inc()
+	fnFailed.WithLabelValues(app, path).Inc()
 
 	s.mu.Unlock()
 }
@@ -166,11 +166,11 @@ func (s *stats) DequeueAndFail(app string, path string) {
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	fnQueued.WithLabelValues(app,path).Dec()
+	fnQueued.WithLabelValues(app, path).Dec()
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
-	fnFailed.WithLabelValues(app,path).Inc()
+	fnFailed.WithLabelValues(app, path).Inc()
 
 	s.mu.Unlock()
 }
