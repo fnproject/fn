@@ -1,6 +1,0 @@
-name: fnproject/test-fdk-python-http-format
-version: 0.0.1
-runtime: python
-format: http
-timeout: 100
-path: /test-fdk-python-http-format

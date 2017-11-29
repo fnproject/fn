@@ -10,7 +10,7 @@ Prerequisites
 
 This testing framework allows to run FDK tests against live Fn service, to let tests know of where Fn service is hosted please set following environment variable:
 ```bash
-    export FN_API_URL=http://fn.io:8080
+    export API_URL=http://fn.io:8080
 ```
 
 As an alternative test suite capable to bootstrap its own copy of Fn service locally, for this particular case following environment variables must be set:
@@ -38,8 +38,8 @@ Test suite contains following tests:
 
 FDK should support following formats:
 
- - HTTP
- - JSON
+ - HTTP (subtest: `test-fdk-http-small-body`)
+ - JSON (subtest: `test-fdk-json-small-body`)
 
 Request input body:
 ```json
@@ -47,7 +47,31 @@ Request input body:
   "name": "John"
 }
 ```
+
 Response output body:
 ```text
 Hello John
 ```
+
+How to run tests?
+-----------------
+
+There are couple options: from source code, from release binary
+
+From source code:
+```bash
+    go test -v ./...
+```
+
+How to build test binary executable?
+------------------------------------
+
+Regular `go build` does not work with tests, so following command will create a binary executable for this particular test suite:
+```bash
+    go test -c -i
+```
+
+Sample FDK-based functions
+--------------------------
+
+As an example test suite supplied with general purpose test [function written with FDK Python](./functions/python).

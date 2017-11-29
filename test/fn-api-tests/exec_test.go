@@ -177,14 +177,14 @@ func TestRouteExecutions(t *testing.T) {
 		}{Seconds: 31})
 		output := &bytes.Buffer{}
 
-		headers, _ := fnTest.CallFN(u.String(), content, output, "POST", []string{})
+		response, _ := fnTest.CallFN(u.String(), content, output, "POST", []string{})
 
 		if !strings.Contains(output.String(), "Timed out") {
 			t.Errorf("Must fail because of timeout, but got error message: %v", output.String())
 		}
 
 		cfg := &call.GetAppsAppCallsCallParams{
-			Call:    headers.Get("FN_CALL_ID"),
+			Call:    response.Header.Get("FN_CALL_ID"),
 			App:     s.AppName,
 			Context: s.Context,
 		}
