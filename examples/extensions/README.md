@@ -9,12 +9,9 @@ go build
 ./extensions
 ```
 
-Then test with:
+First create an app `myapp` and a function `myroute`. Then test with:
 
 ```sh
-# First, create an app
-fn apps create myapp
-# And test
 curl http://localhost:8080/v1/custom1
 curl http://localhost:8080/v1/custom2
 curl http://localhost:8080/v1/apps/myapp/custom3
