@@ -12,8 +12,6 @@ If you are a developer using Fn through the API, this section is for you.
 * [Async functions](async.md)
 * [Configuration](developers/configs.md)
 * [fn (CLI Tool)](https://github.com/fnproject/cli/blob/master/README.md)
-* [Hot functions](hot-functions.md)
-* [Async functions](async.md)
 * [Organizing functions into an application](developers/apps.md)
 * [Function file (func.yaml)](function-file.md)
 * [Client Libraries](developers/clients.md)
