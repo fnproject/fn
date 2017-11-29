@@ -491,6 +491,7 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok R
 		go func() {
 			err := a.prepCold(ctx, slots, call, tok)
 			if err != nil {
+				tok.Close()
 				ch <- err
 			}
 		}()
@@ -507,6 +508,12 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok R
 }
 
 func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok ResourceToken) error {
+
+	_, err := call.CheckUpdateDeadline(ctx)
+	if err != nil {
+		return err
+	}
+
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -523,7 +530,10 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 	// about timing out if this takes a while...
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
+<<<<<<< HEAD
 		tok.Close()
+=======
+>>>>>>> fn: check and update deadline related headers
 		return err
 	}
 

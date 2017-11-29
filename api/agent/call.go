@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,13 @@ type Call interface {
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
 	End(ctx context.Context, err error) error
+
+	// CheckUpdateDeadline returns the duration remaining in the Call lifecycle. An error
+	// will be returned if deadline is not set or if deadline is reached an error
+	// instance of context.DeadlineExceeded will be returned. As a side effect, env
+	// variables (cold) or http request (hot) FN_DEADLINE is updated based on the
+	// returned deadline.
+	CheckUpdateDeadline(ctx context.Context) (*time.Duration, error)
 }
 
 // TODO build w/o closures... lazy
@@ -279,26 +287,43 @@ type call struct {
 
 func (c *call) Model() *models.Call { return c.Call }
 
+func (c *call) CheckUpdateDeadline(ctx context.Context) (*time.Duration, error) {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return nil, errors.New("call without deadline provided")
+	}
+
+	now := time.Now()
+	if !deadline.After(now) {
+		return nil, context.DeadlineExceeded
+	}
+
+	secs := now.Sub(deadline) * time.Second
+
+	if c.req != nil {
+		c.req.Header.Set("FN_DEADLINE", strconv.FormatFloat(secs.Seconds(), 'f', 0, 64))
+	} else {
+		c.EnvVars["FN_DEADLINE"] = strconv.FormatFloat(secs.Seconds(), 'f', 0, 64)
+	}
+
+	return &secs, nil
+}
+
 func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
-	// TODO discuss this policy. cold has not yet started the container,
-	// hot just has to dispatch
-	//
-	// make sure we have at least half our timeout to run, or timeout here
-	deadline, ok := ctx.Deadline()
-	need := time.Now().Add(time.Duration(c.Timeout) * time.Second) // > deadline, always
-	// need.Sub(deadline) = elapsed time
-	if ok && need.Sub(deadline) > (time.Duration(c.Timeout)*time.Second)/2 {
-		return context.DeadlineExceeded
+	_, err := c.CheckUpdateDeadline(ctx)
+	if err != nil {
+		return err
 	}
 
-	c.StartedAt = strfmt.DateTime(time.Now())
+	now := time.Now()
+	c.StartedAt = strfmt.DateTime(now)
 	c.Status = "running"
 
 	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+		rw.Header().Set("XXX-FXLB-WAIT", now.Sub(time.Time(c.CreatedAt)).String())
 	}
 
 	if c.Type == models.TypeAsync {
@@ -318,7 +343,7 @@ func (c *call) Start(ctx context.Context) error {
 		}
 	}
 
-	err := c.ct.fireBeforeCall(ctx, c.Model())
+	err = c.ct.fireBeforeCall(ctx, c.Model())
 	if err != nil {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
