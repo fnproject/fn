@@ -1,6 +1,0 @@
-name: fnproject/test-fdk-python-json-format
-version: 0.0.1
-runtime: python
-format: json
-timeout: 100
-path: /test-fdk-python-json-format

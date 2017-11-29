@@ -15,13 +15,26 @@
 import fdk
 import ujson
 
+from fdk.http import request as http_request
+
 
 def handler(context, data=None, loop=None):
-    if len(data):
-        json = ujson.loads(data)
-    else:
-        json = {}
-    name = json.get("name", "World")
+
+    # specifically for http protocol
+    if isinstance(data, (http_request.ChunkedStream,
+                         http_request.ContentLengthStream)):
+        data = data.readall()
+
+    # specifically for json protocol
+    if isinstance(data, str):
+        try:
+            data = ujson.loads(data)
+        except Exception:
+            pass
+
+    name = data.get("name")
+    if not len(name):
+        name = "World"
     return "Hello {}".format(name)
 
 

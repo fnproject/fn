@@ -1,6 +1,0 @@
-name: fnproject/test-fdk-go-http-format
-version: 0.0.1
-runtime: go
-format: http
-timeout: 100
-path: /test-fdk-go-http-format
