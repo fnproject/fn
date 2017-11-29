@@ -15,9 +15,7 @@ func (BoxTime) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
 type Backoff int
 
-func (b *Backoff) Sleep() { b.RandomSleep(nil, nil) }
-
-func (b *Backoff) RandomSleep(rng *rand.Rand, clock Clock) {
+func (b *Backoff) Sleep(ctx context.Context) {
 	const (
 		maxexp   = 7
 		interval = 25 * time.Millisecond
@@ -34,7 +32,10 @@ func (b *Backoff) RandomSleep(rng *rand.Rand, clock Clock) {
 	d := time.Duration(math.Pow(2, float64(*b))) * interval
 	d += (d * time.Duration(rng.Float64()))
 
-	clock.Sleep(d)
+	select {
+	case <-ctx.Done():
+	case <-clock.After(d):
+	}
 
 	if *b < maxexp {
 		(*b)++
