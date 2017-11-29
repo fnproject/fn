@@ -19,7 +19,7 @@ const (
 	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
-var RouteMaxMemory = uint64(8 * 1024) // 8GB TODO should probably be a var of machine max?
+var RouteMaxMemory = uint64(8 * 1024)
 
 type Routes []*Route
 
@@ -35,6 +35,7 @@ type Route struct {
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 // SetDefaults sets zeroed field to defaults.
@@ -65,6 +66,14 @@ func (r *Route) SetDefaults() {
 
 	if r.IdleTimeout == 0 {
 		r.IdleTimeout = DefaultIdleTimeout
+	}
+
+	if time.Time(r.CreatedAt).IsZero() {
+		r.CreatedAt = strfmt.DateTime(time.Now())
+	}
+
+	if time.Time(r.UpdatedAt).IsZero() {
+		r.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 }
 
@@ -128,28 +137,38 @@ func (r *Route) Clone() *Route {
 	return &clone
 }
 
-// Update updates fields in r with non-zero field values from new.
-// 0-length slice Header values, and empty-string Config values trigger removal of map entry.
+func (r *Route) up() { r.UpdatedAt = strfmt.DateTime(time.Now()) }
+
+// Update updates fields in r with non-zero field values from new, and sets
+// updated_at if any of the fields change. 0-length slice Header values, and
+// empty-string Config values trigger removal of map entry.
 func (r *Route) Update(new *Route) {
 	if new.Image != "" {
+		r.up()
 		r.Image = new.Image
 	}
 	if new.Memory != 0 {
+		r.up()
 		r.Memory = new.Memory
 	}
 	if new.Type != "" {
+		r.up()
 		r.Type = new.Type
 	}
 	if new.Timeout != 0 {
+		r.up()
 		r.Timeout = new.Timeout
 	}
 	if new.IdleTimeout != 0 {
+		r.up()
 		r.IdleTimeout = new.IdleTimeout
 	}
 	if new.Format != "" {
+		r.up()
 		r.Format = new.Format
 	}
 	if new.Headers != nil {
+		r.up()
 		if r.Headers == nil {
 			r.Headers = Headers(make(http.Header))
 		}
@@ -162,6 +181,7 @@ func (r *Route) Update(new *Route) {
 		}
 	}
 	if new.Config != nil {
+		r.up()
 		if r.Config == nil {
 			r.Config = make(Config)
 		}

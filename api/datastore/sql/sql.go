@@ -37,6 +37,11 @@ import (
 //
 // currently tested and working are postgres, mysql and sqlite3.
 
+// TODO routes.created_at should be varchar(256), mysql will store 'text'
+// fields not contiguous with other fields and this field is a fixed size,
+// we'll get better locality with varchar. it's not terribly easy to do this
+// with migrations (sadly, need complex transaction)
+
 var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
@@ -49,6 +54,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	headers text NOT NULL,
 	config text NOT NULL,
 	created_at text,
+	updated_at varchar(256),
 	PRIMARY KEY (app_name, path)
 );`,
 
@@ -78,7 +84,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at FROM routes`
+	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, stats, error FROM calls`
 )
 
@@ -427,7 +433,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			idle_timeout,
 			headers,
 			config,
-			created_at
+			created_at,
+			updated_at
 		)
 		VALUES (
 			:app_name,
@@ -440,7 +447,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			:idle_timeout,
 			:headers,
 			:config,
-			:created_at
+			:created_at,
+			:updated_at
 		);`)
 
 		_, err = tx.NamedExecContext(ctx, query, route)
@@ -479,7 +487,8 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			idle_timeout = :idle_timeout,
 			headers = :headers,
 			config = :config,
-			created_at = :created_at
+			created_at = :created_at,
+			updated_at = :updated_at
 		WHERE app_name=:app_name AND path=:path;`)
 
 		res, err := tx.NamedExecContext(ctx, query, &route)

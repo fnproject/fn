@@ -51,7 +51,6 @@ func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
 }
 
 func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) error {
-	wroute.Route.CreatedAt = strfmt.DateTime(time.Now())
 	wroute.Route.SetDefaults()
 	err := wroute.Route.Validate()
 	if err != nil {

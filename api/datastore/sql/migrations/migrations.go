@@ -6,6 +6,8 @@
 // 2_add_call_stats.up.sql
 // 3_add_call_error.down.sql
 // 3_add_call_error.up.sql
+// 4_add_route_updated_at.down.sql
+// 4_add_route_updated_at.up.sql
 // DO NOT EDIT!
 
 package migrations
@@ -108,7 +110,7 @@ func _1_add_route_created_atUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1_add_route_created_at.up.sql", size: 40, mode: os.FileMode(420), modTime: time.Unix(1511259011, 0)}
+	info := bindataFileInfo{name: "1_add_route_created_at.up.sql", size: 40, mode: os.FileMode(420), modTime: time.Unix(1511919777, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -168,7 +170,7 @@ func _3_add_call_errorDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "3_add_call_error.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1511265731, 0)}
+	info := bindataFileInfo{name: "3_add_call_error.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1511301534, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -188,7 +190,47 @@ func _3_add_call_errorUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "3_add_call_error.up.sql", size: 34, mode: os.FileMode(420), modTime: time.Unix(1511265909, 0)}
+	info := bindataFileInfo{name: "3_add_call_error.up.sql", size: 34, mode: os.FileMode(420), modTime: time.Unix(1511301534, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __4_add_route_updated_atDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x28\xca\x2f\x2d\x49\x2d\x56\x70\x09\xf2\x0f\x50\x70\xf6\xf7\x09\xf5\xf5\x53\x28\x2d\x48\x49\x2c\x49\x4d\x89\x4f\x2c\xb1\xe6\x02\x04\x00\x00\xff\xff\xa4\x67\xb0\xea\x2b\x00\x00\x00")
+
+func _4_add_route_updated_atDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__4_add_route_updated_atDownSql,
+		"4_add_route_updated_at.down.sql",
+	)
+}
+
+func _4_add_route_updated_atDownSql() (*asset, error) {
+	bytes, err := _4_add_route_updated_atDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "4_add_route_updated_at.down.sql", size: 43, mode: os.FileMode(420), modTime: time.Unix(1513728957, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __4_add_route_updated_atUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x28\xca\x2f\x2d\x49\x2d\x56\x70\x74\x71\x51\x28\x2d\x48\x49\x2c\x49\x4d\x89\x4f\x2c\x51\x28\x4b\x2c\x4a\xce\x48\x2c\xd2\x30\x32\x35\xd3\xb4\xe6\x02\x04\x00\x00\xff\xff\x54\xf7\xac\x11\x30\x00\x00\x00")
+
+func _4_add_route_updated_atUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__4_add_route_updated_atUpSql,
+		"4_add_route_updated_at.up.sql",
+	)
+}
+
+func _4_add_route_updated_atUpSql() (*asset, error) {
+	bytes, err := _4_add_route_updated_atUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "4_add_route_updated_at.up.sql", size: 48, mode: os.FileMode(420), modTime: time.Unix(1513730260, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -251,6 +293,8 @@ var _bindata = map[string]func() (*asset, error){
 	"2_add_call_stats.up.sql":         _2_add_call_statsUpSql,
 	"3_add_call_error.down.sql":       _3_add_call_errorDownSql,
 	"3_add_call_error.up.sql":         _3_add_call_errorUpSql,
+	"4_add_route_updated_at.down.sql": _4_add_route_updated_atDownSql,
+	"4_add_route_updated_at.up.sql":   _4_add_route_updated_atUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -300,6 +344,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"2_add_call_stats.up.sql":         &bintree{_2_add_call_statsUpSql, map[string]*bintree{}},
 	"3_add_call_error.down.sql":       &bintree{_3_add_call_errorDownSql, map[string]*bintree{}},
 	"3_add_call_error.up.sql":         &bintree{_3_add_call_errorUpSql, map[string]*bintree{}},
+	"4_add_route_updated_at.down.sql": &bintree{_4_add_route_updated_atDownSql, map[string]*bintree{}},
+	"4_add_route_updated_at.up.sql":   &bintree{_4_add_route_updated_atUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
