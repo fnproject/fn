@@ -75,9 +75,10 @@ func (f ApiRouteHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, a
 
 func (s *Server) apiRouteHandlerWrapperFunc(apiHandler ApiRouteHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		context := c.Request.Context()
 		// get the app
 		appName := c.Param(api.CApp)
-		app, err := s.Datastore.GetApp(c.Request.Context(), appName)
+		app, err := s.Datastore.GetApp(context, appName)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
@@ -90,7 +91,7 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler ApiRouteHandler) gin.Hand
 		}
 		// get the route TODO
 		routePath := "/" + c.Param(api.CRoute)
-		route, err := s.Datastore.GetRoute(c.Request.Context(), appName, routePath)
+		route, err := s.Datastore.GetRoute(context, appName, routePath)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
