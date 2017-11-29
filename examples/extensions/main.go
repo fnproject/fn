@@ -29,6 +29,14 @@ func main() {
 		fmt.Println("Custom4Handler called")
 		fmt.Fprintf(w, "Hello app %v func, %q", app.Name, html.EscapeString(r.URL.Path))
 	})
+	// the following will be at /v1/apps/:app_name/routes/:route_name/custom5
+	// and                      /v1/apps/:app_name/routes/:route_name/custom6
+	funcServer.AddRouteEndpoint("GET", "/custom5", &Custom5Handler{})
+	funcServer.AddRouteEndpointFunc("GET", "/custom6", func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route) {
+		// fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+		fmt.Println("Custom6Handler called")
+		fmt.Fprintf(w, "Hello app %v, route %v, request %q", app.Name, route.Path, html.EscapeString(r.URL.Path))
+	})
 	funcServer.Start(ctx)
 }
 
@@ -46,4 +54,12 @@ type Custom3Handler struct {
 func (h *Custom3Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App) {
 	fmt.Println("Custom3Handler called")
 	fmt.Fprintf(w, "Hello app %v, %q", app.Name, html.EscapeString(r.URL.Path))
+}
+
+type Custom5Handler struct {
+}
+
+func (h *Custom5Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route) {
+	fmt.Println("Custom5Handler called")
+	fmt.Fprintf(w, "Hello! app %v, route %v, request %q", app.Name, route.Path, html.EscapeString(r.URL.Path))
 }
