@@ -45,10 +45,13 @@ reply with a 500 error to the client as if this call never existed
 
 ##### /v1/runner/dequeue
 
-the runner queries for a call to run. the request contains an identifier for
+the runner long polls for a call to run. the request contains an identifier for
 this runner node to pull from the partition in kafka for this runner node`***`.
-the response contains an app name and a route name (the runner will cache apps
-and routes, otherwise looking this up at respective API call positions).
+the response contains a list of {app_name, route_name} (the runner will cache apps
+and routes, otherwise looking this up at respective API call positions),
+possibly an empty list. This call will timeout and return an empty list after
+30 seconds if no messages are found. For now, it should return the first
+message it finds immediately.
 
 * dequeue a message from the MQ if there is some capacity
 
