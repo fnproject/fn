@@ -88,7 +88,6 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler ApiRouteHandler) gin.Hand
 			c.Abort()
 			return
 		}
-		println("apiRouteHandlerWrapperFunc")
 		// get the route TODO
 		routePath := "/" + c.Param(api.CRoute)
 		route, err := s.Datastore.GetRoute(c.Request.Context(), appName, routePath)
