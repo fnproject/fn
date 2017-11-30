@@ -172,6 +172,18 @@ var (
 		code:  http.StatusNotFound,
 		error: errors.New("Call log not found"),
 	}
+	ErrInvokeNotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking routes /r/ is not supported on nodes configured as type API"),
+	}
+	ErrAPINotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking api /v1/ requests is not supported on nodes configured as type Runner"),
+	}
+	ErrPathNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Path not found"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response

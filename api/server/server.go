@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/fnproject/fn/api/agent"
@@ -203,7 +203,6 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		s.Agent = agent.New(agent.NewDirectDataAccess(cache.Wrap(s.Datastore), s.LogDB, s.MQ))
 	}
 
-	// NOTE: testServer() in tests doesn't use these, need to change tests
 	setMachineID()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap) // TODO should be opts
 	optionalCorsWrap(s.Router)                     // TODO should be an opt
@@ -347,7 +346,9 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		logrus.WithError(err).Error("server shutdown error")
 	}
 
-	s.Agent.Close() // after we stop taking requests, wait for all tasks to finish
+	if s.Agent != nil {
+		s.Agent.Close() // after we stop taking requests, wait for all tasks to finish
+	}
 }
 
 func (s *Server) bindHandlers(ctx context.Context) {
@@ -406,8 +407,17 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		logrus.Debugln("not found", c.Request.URL.Path)
-		c.JSON(http.StatusNotFound, simpleError(errors.New("Path not found")))
+		var err error
+		switch {
+		case s.nodeType == ServerTypeAPI && strings.HasPrefix(c.Request.URL.Path, "/r/"):
+			err = models.ErrInvokeNotSupported
+		case s.nodeType == ServerTypeRunner && strings.HasPrefix(c.Request.URL.Path, "/v1/"):
+			err = models.ErrAPINotSupported
+		default:
+			var e models.APIError = models.ErrPathNotFound
+			err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
+		}
+		handleErrorResponse(c, err)
 	})
 }
 

@@ -170,6 +170,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		default:
 			// this error wasn't from us [most likely], probably a conn refused/timeout, just retry it out
 		}
+
 		common.Logger(ctx).WithError(err).Error("error from API server, retrying")
 
 		b.Sleep(ctx)

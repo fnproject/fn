@@ -24,7 +24,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO make sure some errors that user should see (like image doesn't exist) bubble up
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
 // TODO async calls need to add route.Headers as well
 // TODO need to shut off reads/writes in dispatch to the pipes when call times out so that
@@ -32,15 +31,8 @@ import (
 // TODO add spans back around container launching for hot (follows from?) + other more granular spans
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
-// TODO herd launch prevention part deux
 // TODO storing logs / call can push call over the timeout
-// TODO all Datastore methods need to take unit of tenancy (app or route) at least (e.g. not just call id)
 // TODO discuss concrete policy for hot launch or timeout / timeout vs time left
-// TODO it may be nice to have an interchange type for Dispatch that can have
-// all the info we need to build e.g. http req, grpc req, json, etc.  so that
-// we can easily do e.g. http->grpc, grpc->http, http->json. ofc grpc<->http is
-// weird for proto specifics like e.g. proto version, method, headers, et al.
-// discuss.
 // TODO if we don't cap the number of any one container we could get into a situation
 // where the machine is full but all the containers are idle up to the idle timeout. meh.
 // TODO async is still broken, but way less so. we need to modify mq semantics
@@ -49,9 +41,7 @@ import (
 // dies). need coordination w/ db.
 // TODO if a cold call times out but container is created but hasn't replied, could
 // end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
-// TODO the call api should fill in all the fields
 // TODO the log api should be plaintext (or at least offer it)
-// TODO we should probably differentiate ran-but-timeout vs timeout-before-run
 // TODO between calls, logs and stderr can contain output/ids from previous call. need elegant solution. grossness.
 // TODO if async would store requests (or interchange format) it would be slick, but
 // if we're going to store full calls in db maybe we should only queue pointers to ids?

@@ -55,25 +55,23 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
-	// TODO finalize (return whole call?) and move
-	type m struct {
-		AppName string `json:"app_name"`
-		Path    string `json:"path"`
+	var resp struct {
+		M []*models.Call `json:"calls"`
 	}
-	type resp struct {
-		M []m `json:"calls"`
-	}
+	var m [1]*models.Call // avoid alloc
+	resp.M = m[:0]
 
 	// long poll until ctx expires / we find a message
 	var b common.Backoff
 	for {
-		msg, err := s.MQ.Reserve(ctx)
+		call, err := s.MQ.Reserve(ctx)
 		if err != nil {
 			handleErrorResponse(c, err)
 			return
 		}
-		if msg != nil {
-			c.JSON(200, resp{M: []m{{AppName: msg.AppName, Path: msg.Path}}})
+		if call != nil {
+			resp.M = append(resp.M, call)
+			c.JSON(200, resp)
 			return
 		}
 
@@ -81,9 +79,9 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 
 		select {
 		case <-ctx.Done():
-			c.JSON(200, resp{M: make([]m, 0)})
+			c.JSON(200, resp) // TODO assert this return `[]` & not 'nil'
 			return
-		default:
+		default: // poll until we find a cookie
 		}
 	}
 }
