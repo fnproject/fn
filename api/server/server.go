@@ -24,6 +24,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/version"
+	"github.com/fnproject/fn/api/fncommon"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go"
@@ -64,9 +65,9 @@ type Server struct {
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	return NewFromURLs(ctx,
-		getEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)),
-		getEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir)),
-		getEnv(EnvLOGDBURL, ""),
+		fncommon.GetEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)),
+		fncommon.GetEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir)),
+		fncommon.GetEnv(EnvLOGDBURL, ""),
 		opts...,
 	)
 }
@@ -99,7 +100,7 @@ func optionalCorsWrap(r *gin.Engine) {
 	// By default no CORS are allowed unless one
 	// or more Origins are defined by the API_CORS
 	// environment variable.
-	corsStr := getEnv(EnvAPICORS, "")
+	corsStr := fncommon.GetEnv(EnvAPICORS, "")
 	if len(corsStr) > 0 {
 		origins := strings.Split(strings.Replace(corsStr, " ", "", -1), ",")
 
@@ -164,7 +165,7 @@ func setTracer() {
 		debugMode          = false
 		serviceName        = "fnserver"
 		serviceHostPort    = "localhost:8080" // meh
-		zipkinHTTPEndpoint = getEnv(EnvZipkinURL, "")
+		zipkinHTTPEndpoint = fncommon.GetEnv(EnvZipkinURL, "")
 		// ex: "http://zipkin:9411/api/v1/spans"
 	)
 
@@ -206,7 +207,7 @@ func setTracer() {
 }
 
 func setMachineID() {
-	port := uint16(getEnvInt(EnvPort, DefaultPort))
+	port := uint16(fncommon.GetEnvInt(EnvPort, DefaultPort))
 	addr := whoAmI().To4()
 	if addr == nil {
 		addr = net.ParseIP("127.0.0.1").To4()
@@ -299,7 +300,7 @@ func (s *Server) Start(ctx context.Context) {
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
 	// FN_PORT environment variable was defined.
-	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
+	listen := fmt.Sprintf(":%d", fncommon.GetEnvInt(EnvPort, DefaultPort))
 
 	const runHeader = `
         ______
