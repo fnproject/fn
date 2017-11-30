@@ -48,7 +48,7 @@ export MYSQL_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
 export MINIO_URL="s3://admin:password@${MINIO_HOST}:${MINIO_PORT}/us-east-1/fnlogs"
 
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests)
-go vet -v $(go list ./... | grep -v vendor)
+go vet $(go list ./... | grep -v vendor)
 docker rm --force func-postgres-test
 docker rm --force func-mysql-test
 docker rm --force func-minio-test

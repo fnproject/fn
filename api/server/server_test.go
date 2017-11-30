@@ -24,23 +24,13 @@ import (
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
 func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType ServerNodeType) *Server {
-	ctx := context.Background()
-
-	s := &Server{
-		Agent:     rnr,
-		Router:    gin.New(),
-		Datastore: ds,
-		LogDB:     logDB,
-		MQ:        mq,
-		nodeType:  nodeType,
-	}
-
-	r := s.Router
-	r.Use(gin.Logger())
-
-	s.Router.Use(loggerWrap)
-	s.bindHandlers(ctx)
-	return s
+	return New(context.Background(),
+		WithDatastore(ds),
+		WithMQ(mq),
+		WithLogstore(logDB),
+		WithAgent(rnr),
+		WithType(nodeType),
+	)
 }
 
 func routerRequest(t *testing.T, router *gin.Engine, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
@@ -231,12 +221,10 @@ func TestApiNode(t *testing.T) {
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
 
-		// Don't support calling sync
-		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusBadRequest, 1},
-		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusBadRequest, 2},
-
-		// Do support calling async
-		{"execute myasyncroute", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusAccepted, 1},
+		// Don't support calling sync or async
+		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusNotFound, 1},
+		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusNotFound, 2},
+		{"execute myasyncroute", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusNotFound, 1},
 
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},

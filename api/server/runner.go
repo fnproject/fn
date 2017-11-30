@@ -15,22 +15,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type runnerResponse struct {
-	RequestID string            `json:"request_id,omitempty"`
-	Error     *models.ErrorBody `json:"error,omitempty"`
-}
-
 // handleFunctionCall executes the function.
 // Requires the following in the context:
 // * "app_name"
 // * "path"
 func (s *Server) handleFunctionCall(c *gin.Context) {
-	// @treeder: Is this necessary? An app could have this prefix too. Leaving here for review.
-	// if strings.HasPrefix(c.Request.URL.Path, "/v1") {
-	// 	c.Status(http.StatusNotFound)
-	// 	return
-	// }
-
 	ctx := c.Request.Context()
 	var p string
 	r := ctx.Value(api.Path)
@@ -106,24 +95,19 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
-	// Don't serve sync requests from API nodes
-	if s.nodeType != ServerTypeAPI {
-		err = s.Agent.Submit(call)
-		if err != nil {
-			// NOTE if they cancel the request then it will stop the call (kind of cool),
-			// we could filter that error out here too as right now it yells a little
-			if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
-				// TODO maneuver
-				// add this, since it means that start may not have been called [and it's relevant]
-				c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
-			}
-			// NOTE: if the task wrote the headers already then this will fail to write
-			// a 5xx (and log about it to us) -- that's fine (nice, even!)
-			handleErrorResponse(c, err)
-			return
+	err = s.Agent.Submit(call)
+	if err != nil {
+		// NOTE if they cancel the request then it will stop the call (kind of cool),
+		// we could filter that error out here too as right now it yells a little
+		if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
+			// TODO maneuver
+			// add this, since it means that start may not have been called [and it's relevant]
+			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
 		}
-	} else {
-		handleErrorResponse(c, models.ErrSyncCallNotSupported)
+		// NOTE: if the task wrote the headers already then this will fail to write
+		// a 5xx (and log about it to us) -- that's fine (nice, even!)
+		handleErrorResponse(c, err)
+		return
 	}
 
 	// TODO plumb FXLB-WAIT somehow (api?)
