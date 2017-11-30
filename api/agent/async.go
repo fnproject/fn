@@ -40,8 +40,8 @@ func (a *agent) asyncDequeue() {
 		defer cancel()
 
 		// We'll wait up to 900 secs for resources for this async job
+		a.wg.Add(1)
 		go func() {
-			a.wg.Add(1)
 			defer a.wg.Done()
 
 			slot, err := a.getSlot(ctx, call)
@@ -66,8 +66,8 @@ func (a *agent) asyncDequeue() {
 			}
 		}
 
+		a.wg.Add(1) // need to add 1 in this thread to ensure safe shutdown
 		go func() {
-			a.wg.Add(1)       // need to add 1 in this thread to ensure safe shutdown
 			defer a.wg.Done() // can shed it after this is done, Submit will add 1 too but it's fine
 
 			// TODO if the task is cold and doesn't require reading STDIN, it could
