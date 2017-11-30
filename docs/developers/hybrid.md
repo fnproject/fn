@@ -55,11 +55,11 @@ message it finds immediately.
 
 * dequeue a message from the MQ if there is some capacity
 
-##### /v1/runner/start
+##### POST /v1/runner/start
 
 the runner calls this endpoint immediately before starting a task, only
 starting the task if this endpoint returns a success. the request contains the
-app name and route name. the response returns success/fail code.
+app name and the call id. the response returns success/fail code.
 
 sync:
 
@@ -75,12 +75,13 @@ async:
   success), delete the mq message and return a failure status code. if the
   update to status=running succeeds, return a success status code.
 
-##### /v1/runner/finish
+##### PUT /v1/runner/finish
 
 the runner calls this endpoint after a call has completed, either because of
-an error, a timeout, or because it ran successfully. it will always return a
-success code as the call is completed at this point, the runner may retry this
-endpoint if it fails (timeout, etc).
+an error, a timeout, or because it ran successfully. the request must contain
+an entire completed call object as well as its log (multipart?). it will
+always return a success code as the call is completed at this point, the
+runner may retry this endpoint if it fails (timeout, etc).
 
 sync:
 
