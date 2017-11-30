@@ -55,7 +55,7 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
-	// TODO finalize and move
+	// TODO finalize (return whole call?) and move
 	type m struct {
 		AppName string `json:"app_name"`
 		Path    string `json:"path"`
@@ -91,9 +91,10 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 func (s *Server) handleRunnerStart(c *gin.Context) {
 	var body struct {
 		AppName string `json:"app_name"`
-		CallID  string `json:"call_id"`
+		CallID  string `json:"id"`
 	}
 
+	// TODO just take a whole call here? maybe the runner wants to mark it as error?
 	err := c.BindJSON(&body)
 	if err != nil {
 		handleErrorResponse(c, models.ErrInvalidJSON)
