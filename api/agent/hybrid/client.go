@@ -121,18 +121,23 @@ func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, erro
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app")
 	defer span.Finish()
 
-	var app models.App
-	err := cl.do(ctx, nil, &app, "GET", "apps", appName)
-	return &app, err
+	var a struct {
+		A models.App `json:"app"`
+	}
+	err := cl.do(ctx, nil, &a, "GET", "apps", appName)
+	return &a.A, err
 }
 
 func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_route")
 	defer span.Finish()
 
-	var r models.Route
-	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", route)
-	return &r, err
+	// TODO trim prefix is pretty odd here eh?
+	var r struct {
+		R models.Route `json:"route"`
+	}
+	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", strings.TrimPrefix(route, "/"))
+	return &r.R, err
 }
 
 type httpErr struct {
@@ -144,6 +149,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 	// TODO determine policy (should we count to infinity?)
 
 	var b common.Backoff
+	var err error
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
@@ -152,7 +158,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		}
 
 		// TODO this isn't re-using buffers very efficiently, but retries should be rare...
-		err := cl.once(ctx, request, result, method, url...)
+		err = cl.once(ctx, request, result, method, url...)
 		switch err := err.(type) {
 		case nil:
 			return err
@@ -160,16 +166,17 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 			if err.code < 500 {
 				return err
 			}
-			common.Logger(ctx).WithError(err).Error("error from API server, retrying")
 			// retry 500s...
 		default:
 			// this error wasn't from us [most likely], probably a conn refused/timeout, just retry it out
 		}
+		common.Logger(ctx).WithError(err).Error("error from API server, retrying")
 
 		b.Sleep(ctx)
 	}
 
-	return context.DeadlineExceeded // basically, right?
+	// return last error
+	return err
 }
 
 func (cl *client) once(ctx context.Context, request, result interface{}, method string, url ...string) error {
@@ -219,7 +226,7 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 	}
 
 	if result != nil {
-		err := json.NewDecoder(resp.Body).Decode(result)
+		err := json.NewDecoder(resp.Body).Decode(&result)
 		if err != nil {
 			return err
 		}

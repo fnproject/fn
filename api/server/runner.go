@@ -84,8 +84,8 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		}
 		model.Payload = buf.String()
 
-		// TODO we should probably add this to the datastore too. consider the plumber!
-		_, err = s.MQ.Push(c.Request.Context(), model)
+		// TODO idk where to put this, but agent is all runner really has...
+		err = s.Agent.Enqueue(c.Request.Context(), model)
 		if err != nil {
 			handleErrorResponse(c, err)
 			return

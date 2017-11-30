@@ -113,6 +113,10 @@ type Agent interface {
 	// Return the http.Handler used to handle Prometheus metric requests
 	PromHandler() http.Handler
 	AddCallListener(fnext.CallListener)
+
+	// Enqueue is to use the agent's sweet sweet client bindings to remotely
+	// queue async tasks and should be removed from Agent interface ASAP.
+	Enqueue(context.Context, *models.Call) error
 }
 
 type agent struct {
@@ -154,6 +158,11 @@ func New(da DataAccess) Agent {
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
+}
+
+// TODO shuffle this around somewhere else (maybe)
+func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
+	return a.da.Enqueue(ctx, call)
 }
 
 func (a *agent) Close() error {
