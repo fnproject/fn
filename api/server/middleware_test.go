@@ -91,9 +91,8 @@ func TestRootMiddleware(t *testing.T) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("funcit") != "" {
 				fmt.Fprintf(os.Stderr, "breaker breaker!\n")
-				// TODO: I'm not sure this will work correctly, because as soon as someone does something like this, we don't have our context type anymore.
-				// Maybe we should have some special thing under a key in the context, then grab it with context.Value("middleware-control-flow")
 				ctx := r.Context()
+				// TODO: this is a little dicey, should have some functions to set these in case the context keys change or something.
 				ctx = context.WithValue(ctx, "app_name", "myapp2")
 				ctx = context.WithValue(ctx, "path", "/app2func")
 				mctx := fnext.GetMiddlewareController(ctx)
