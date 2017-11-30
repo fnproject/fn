@@ -250,12 +250,14 @@ func (a *agent) getSlot(ctx context.Context, call *call) (slot, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
+	var ch chan slot
+
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		return a.hotSlot(ctx, call)
+		ch = a.slots(hotKey(call))
+	} else {
+		ch = make(chan slot)
 	}
 
-	// make new channel and launch 1 for cold
-	ch := make(chan slot)
 	return a.launchOrSlot(ctx, ch, call)
 }
 
@@ -300,26 +302,6 @@ func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-}
-
-func (a *agent) hotSlot(ctx context.Context, call *call) (slot, error) {
-	slots := a.slots(hotKey(call))
-
-	// TODO if we track avg run time we could know how long to wait or
-	// if we need to launch instead of waiting.
-
-	// if we can get a slot in a reasonable amount of time, use it
-	select {
-	case s := <-slots:
-		return s, nil
-	case <-time.After(100 * time.Millisecond): // XXX(reed): precise^
-		// TODO this means the first launched container if none are running eats
-		// this. yes it sucks but there are a lot of other fish to fry, opening a
-		// policy discussion...
-	}
-
-	// then wait for a slot or try to launch...
-	return a.launchOrSlot(ctx, slots, call)
 }
 
 // TODO this should be a LIFO stack of channels, perhaps. a queue (channel)
