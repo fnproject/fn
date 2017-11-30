@@ -9,9 +9,9 @@ metadata:
   name: fn-service-config
   namespace: fn
 data:
-  MQ_URL: redis://fn-redis-master.fn
-  DB_URL: mysql://root:fnsecretpassword@tcp(fn-mysql-master.fn:3306)/fn
-  API_URL: http://fn-service.fn:8080
+  FN_MQ_URL: redis://fn-redis-master.fn
+  FN_DB_URL: mysql://root:fnsecretpassword@tcp(fn-mysql-master.fn:3306)/fn
+  FN_API_URL: http://fn-service.fn:8080
 ---
 apiVersion: v1
 kind: Service
@@ -56,16 +56,16 @@ spec:
         ports:
         - containerPort: 8080
         env:
-        - name: MQ_URL
+        - name: FN_MQ_URL
           valueFrom:
             configMapKeyRef:
               name: fn-service-config
-              key: MQ_URL
-        - name: DB_URL
+              key: FN_MQ_URL
+        - name: FN_DB_URL
           valueFrom:
             configMapKeyRef:
               name: fn-service-config
-              key: DB_URL
+              key: FN_DB_URL
 ---
 apiVersion: v1
 kind: Service
@@ -108,11 +108,11 @@ spec:
         env:
         - name: PORT
           value: "80"
-        - name: API_URL
+        - name: FN_API_URL
           valueFrom:
             configMapKeyRef:
               name: fn-service-config
-              key: API_URL
+              key: FN_API_URL
 ---
 apiVersion: v1
 kind: Service

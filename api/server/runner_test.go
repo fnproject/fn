@@ -243,7 +243,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		},
 		[]*models.Route{
 			{Path: "/pull", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
-			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 1, IdleTimeout: 30},
+			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 2, IdleTimeout: 30},
 			{Path: "/waitmemory", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
 		}, nil,
 	)

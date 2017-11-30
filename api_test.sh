@@ -23,7 +23,7 @@ case "$1" in
     "sqlite3" )
     rm -fr /tmp/fn_integration_tests.db
     touch /tmp/fn_integration_tests.db
-    DB_URL="sqlite3:///tmp/fn_integration_tests.db"
+    FN_DB_URL="sqlite3:///tmp/fn_integration_tests.db"
     ;;
 
     "mysql" )
@@ -33,7 +33,7 @@ case "$1" in
     sleep 15
     MYSQL_HOST=`host ${DB_CONTAINER}`
     MYSQL_PORT=3306
-    DB_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
+    FN_DB_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
 
     ;;
 
@@ -44,9 +44,9 @@ case "$1" in
     sleep 15
     POSTGRES_HOST=`host ${DB_CONTAINER}`
     POSTGRES_PORT=5432
-    DB_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable"
+    FN_DB_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable"
 
     ;;
 esac
 
-cd test/fn-api-tests && API_URL="http://localhost:8080"  DB_URL=${DB_URL} go test -v  -parallel ${2:-1} ./...; cd ../../
+cd test/fn-api-tests && FN_API_URL="http://localhost:8080"  FN_DB_URL=${FN_DB_URL} go test -v  -parallel ${2:-1} ./...; cd ../../

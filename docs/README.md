@@ -23,6 +23,7 @@ If you are a developer using Fn through the API, this section is for you.
 ### Advanced
 * [Open Function Format](function-format.md)
 * [Packaging functions](packaging.md)
+* [Setting up development environment with Docker compose](./operating/compose.md)
 
 ## For Operators
 

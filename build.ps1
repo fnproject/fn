@@ -25,7 +25,7 @@ function build () {
     docker build -t fnproject/fnserver:latest .
 
 function run () {
-    docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -e LOG_LEVEL=debug -e "DB_URL=sqlite3:///app/data/fn.db" -v $PWD/data:/app/data -p 8080:8080 fnproject/fnserver
+    docker run --rm --name functions -it -v /var/run/docker.sock:/var/run/docker.sock -e FN_LOG_LEVEL=debug -e "FN_DB_URL=sqlite3:///app/data/fn.db" -v $PWD/data:/app/data -p 8080:8080 fnproject/fnserver
 }
 
 switch ($cmd)

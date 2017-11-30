@@ -37,7 +37,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	call := new(models.Call)
 	call.CreatedAt = strfmt.DateTime(time.Now())
-	call.Status = "success"
+	call.Status = "error"
+	call.Error = "ya dun goofed"
 	call.StartedAt = strfmt.DateTime(time.Now())
 	call.CompletedAt = strfmt.DateTime(time.Now())
 	call.AppName = testApp.Name
@@ -55,13 +56,37 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 	t.Run("call-get", func(t *testing.T) {
 		ds := dsf(t)
 		call.ID = id.New().String()
-		ds.InsertCall(ctx, call)
+		err := ds.InsertCall(ctx, call)
+		if err != nil {
+			t.Fatalf("Test GetCall: unexpected error `%v`", err)
+		}
 		newCall, err := ds.GetCall(ctx, call.AppName, call.ID)
 		if err != nil {
-			t.Fatalf("Test GetCall(ctx, call.ID): unexpected error `%v`", err)
+			t.Fatalf("Test GetCall: unexpected error `%v`", err)
 		}
 		if call.ID != newCall.ID {
-			t.Fatalf("Test GetCall(ctx, call.ID): unexpected error `%v`", err)
+			t.Fatalf("Test GetCall: id mismatch `%v` `%v`", call.ID, newCall.ID)
+		}
+		if call.Status != newCall.Status {
+			t.Fatalf("Test GetCall: status mismatch `%v` `%v`", call.Status, newCall.Status)
+		}
+		if call.Error != newCall.Error {
+			t.Fatalf("Test GetCall: error mismatch `%v` `%v`", call.Error, newCall.Error)
+		}
+		if time.Time(call.CreatedAt).Unix() != time.Time(newCall.CreatedAt).Unix() {
+			t.Fatalf("Test GetCall: created_at mismatch `%v` `%v`", call.CreatedAt, newCall.CreatedAt)
+		}
+		if time.Time(call.StartedAt).Unix() != time.Time(newCall.StartedAt).Unix() {
+			t.Fatalf("Test GetCall: started_at mismatch `%v` `%v`", call.StartedAt, newCall.StartedAt)
+		}
+		if time.Time(call.CompletedAt).Unix() != time.Time(newCall.CompletedAt).Unix() {
+			t.Fatalf("Test GetCall: completed_at mismatch `%v` `%v`", call.CompletedAt, newCall.CompletedAt)
+		}
+		if call.AppName != newCall.AppName {
+			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppName, newCall.AppName)
+		}
+		if call.Path != newCall.Path {
+			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
 		}
 	})
 

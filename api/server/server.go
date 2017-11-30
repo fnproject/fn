@@ -30,18 +30,24 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+)
+
+var (
+	currDir string
 )
 
 const (
-	EnvLogLevel  = "log_level"
-	EnvMQURL     = "mq_url"
-	EnvDBURL     = "db_url"
-	EnvLOGDBURL  = "logstore_url"
-	EnvPort      = "port" // be careful, Gin expects this variable to be "port"
-	EnvAPIURL    = "api_url"
-	EnvAPICORS   = "api_cors"
-	EnvZipkinURL = "zipkin_url"
+	EnvLogLevel  = "FN_LOG_LEVEL"
+	EnvMQURL     = "FN_MQ_URL"
+	EnvDBURL     = "FN_DB_URL"
+	EnvLOGDBURL  = "FN_LOGSTORE_URL"
+	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvAPICORS   = "FN_API_CORS"
+	EnvZipkinURL = "FN_ZIPKIN_URL"
+
+	// Defaults
+	DefaultLogLevel = "info"
+	DefaultPort     = 8080
 )
 
 type Server struct {
@@ -57,19 +63,30 @@ type Server struct {
 
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
-	ds, err := datastore.New(viper.GetString(EnvDBURL))
+	return NewFromURLs(ctx,
+		getEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)),
+		getEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir)),
+		getEnv(EnvLOGDBURL, ""),
+		opts...,
+	)
+}
+
+// Create a new server based on the string URLs for each service.
+// Sits in the middle of NewFromEnv and New
+func NewFromURLs(ctx context.Context, dbURL, mqURL, logstoreURL string, opts ...ServerOption) *Server {
+	ds, err := datastore.New(dbURL)
 	if err != nil {
 		logrus.WithError(err).Fatalln("Error initializing datastore.")
 	}
 
-	mq, err := mqs.New(viper.GetString(EnvMQURL))
+	mq, err := mqs.New(mqURL)
 	if err != nil {
 		logrus.WithError(err).Fatal("Error initializing message queue.")
 	}
 
 	var logDB models.LogStore = ds
-	if ldb := viper.GetString(EnvLOGDBURL); ldb != "" && ldb != viper.GetString(EnvDBURL) {
-		logDB, err = logs.New(viper.GetString(EnvLOGDBURL))
+	if ldb := logstoreURL; ldb != "" && ldb != dbURL {
+		logDB, err = logs.New(logstoreURL)
 		if err != nil {
 			logrus.WithError(err).Fatal("Error initializing logs store.")
 		}
@@ -82,8 +99,9 @@ func optionalCorsWrap(r *gin.Engine) {
 	// By default no CORS are allowed unless one
 	// or more Origins are defined by the API_CORS
 	// environment variable.
-	if len(viper.GetString(EnvAPICORS)) > 0 {
-		origins := strings.Split(strings.Replace(viper.GetString(EnvAPICORS), " ", "", -1), ",")
+	corsStr := getEnv(EnvAPICORS, "")
+	if len(corsStr) > 0 {
+		origins := strings.Split(strings.Replace(corsStr, " ", "", -1), ",")
 
 		corsConfig := cors.DefaultConfig()
 		corsConfig.AllowOrigins = origins
@@ -146,7 +164,7 @@ func setTracer() {
 		debugMode          = false
 		serviceName        = "fnserver"
 		serviceHostPort    = "localhost:8080" // meh
-		zipkinHTTPEndpoint = viper.GetString(EnvZipkinURL)
+		zipkinHTTPEndpoint = getEnv(EnvZipkinURL, "")
 		// ex: "http://zipkin:9411/api/v1/spans"
 	)
 
@@ -188,7 +206,7 @@ func setTracer() {
 }
 
 func setMachineID() {
-	port := uint16(viper.GetInt(EnvPort))
+	port := uint16(getEnvInt(EnvPort, DefaultPort))
 	addr := whoAmI().To4()
 	if addr == nil {
 		addr = net.ParseIP("127.0.0.1").To4()
@@ -280,8 +298,8 @@ func (s *Server) Start(ctx context.Context) {
 
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
-	// PORT environment variable was defined.
-	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
+	// FN_PORT environment variable was defined.
+	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
 
 	const runHeader = `
         ______
@@ -345,7 +363,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 			apps.GET("/routes", s.handleRouteList)
 			apps.POST("/routes", s.handleRoutesPostPutPatch)
-			apps.GET("/routes/*route", s.handleRouteGet)
+			apps.GET("/routes/:route", s.handleRouteGet)
 			apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
 			apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)

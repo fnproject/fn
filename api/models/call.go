@@ -133,6 +133,10 @@ type Call struct {
 
 	// Stats is a list of metrics from this call's execution, possibly empty.
 	Stats drivers.Stats `json:"stats,omitempty" db:"stats"`
+
+	// Error is the reason why the call failed, it is only non-empty if
+	// status is equal to "error".
+	Error string `json:"error,omitempty" db:"error"`
 }
 
 type CallFilter struct {

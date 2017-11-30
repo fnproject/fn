@@ -181,7 +181,6 @@ func transformTimeout(e error, isRetriable bool) error {
 }
 
 func (a *agent) Submit(callI Call) error {
-
 	a.wg.Add(1)
 	defer a.wg.Done()
 
@@ -192,7 +191,7 @@ func (a *agent) Submit(callI Call) error {
 	}
 
 	// increment queued count
-	a.stats.Enqueue(callI.Model().Path)
+	a.stats.Enqueue(callI.Model().AppName, callI.Model().Path)
 
 	call := callI.(*call)
 	ctx := call.req.Context()
@@ -209,7 +208,7 @@ func (a *agent) Submit(callI Call) error {
 
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
-		a.stats.Dequeue(callI.Model().Path)
+		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
 		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
@@ -217,14 +216,14 @@ func (a *agent) Submit(callI Call) error {
 	defer slot.Close() // notify our slot is free once we're done
 
 	// TODO Start is checking the timer now, we could do it here, too.
-	err = call.Start(ctx, a)
+	err = call.Start(ctx)
 	if err != nil {
-		a.stats.Dequeue(callI.Model().Path)
+		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
 		return transformTimeout(err, true)
 	}
 
 	// decrement queued count, increment running count
-	a.stats.DequeueAndStart(callI.Model().Path)
+	a.stats.DequeueAndStart(callI.Model().AppName, callI.Model().Path)
 
 	err = slot.exec(ctx, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
@@ -232,16 +231,16 @@ func (a *agent) Submit(callI Call) error {
 
 	if err == nil {
 		// decrement running count, increment completed count
-		a.stats.Complete(callI.Model().Path)
+		a.stats.Complete(callI.Model().AppName, callI.Model().Path)
 	} else {
 		// decrement running count, increment failed count
-		a.stats.Failed(callI.Model().Path)
+		a.stats.Failed(callI.Model().AppName, callI.Model().Path)
 	}
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
-	err = call.End(ctx, err, a)
+	err = call.End(ctx, err)
 	return transformTimeout(err, false)
 }
 
