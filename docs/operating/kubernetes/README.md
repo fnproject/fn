@@ -49,7 +49,7 @@ $ curl -H "Content-Type: application/json" -X POST -d '{ "app": { "name":"myapp"
 $ curl -H "Content-Type: application/json" -X POST -d '{ "route": { "type": "sync", "path":"/hello-sync", "image":"fnproject/hello" } }' $FN_API_URL/v1/apps/myapp/routes
 {"message":"Route successfully created","route":{"app_name":"myapp","path":"/hello-sync","image":"fnproject/hello","memory":128,"headers":{},"type":"sync","format":"default","timeout":30,"idle_timeout":30,"config":{}}}
 
-$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' $API_URL/r/myapp/hello-sync
+$ curl -H "Content-Type: application/json" -X POST -d '{ "name":"Johnny" }' $FN_API_URL/r/myapp/hello-sync
 Hello Johnny!
 ```
 
