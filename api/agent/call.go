@@ -275,6 +275,7 @@ type call struct {
 	req    *http.Request
 	stderr io.ReadWriteCloser
 	ct     callTrigger
+	slots  *slotQueue
 }
 
 func (c *call) Model() *models.Call { return c.Call }
