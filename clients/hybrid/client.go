@@ -125,12 +125,18 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader) error
 }
 
 func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app")
+	defer span.Finish()
+
 	var app models.App
 	err := cl.do(ctx, nil, &app, "GET", "apps", appName)
 	return &app, err
 }
 
 func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_route")
+	defer span.Finish()
+
 	var r models.Route
 	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", route)
 	return &r, err
@@ -205,7 +211,7 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 		// one of our errors
 		var msg struct {
 			Err *struct {
-				Msg string `json:"error"`
+				Msg string `json:"message"`
 			} `json:"error"`
 		}
 		// copy into a buffer in case it wasn't from us
