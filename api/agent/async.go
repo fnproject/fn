@@ -26,7 +26,7 @@ func (a *agent) asyncDequeue() {
 		model, err := a.da.Dequeue(ctx)
 		cancel()
 		if err != nil || model == nil {
-			if err != nil {
+			if err != nil && err != context.DeadlineExceeded {
 				logrus.WithError(err).Error("error fetching queued calls")
 			}
 			time.Sleep(1 * time.Second) // backoff a little

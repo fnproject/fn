@@ -82,12 +82,19 @@ func nodeTypeFromString(value string) ServerNodeType {
 
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
+	var defaultDB, defaultMQ string
+	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
+	if nodeType != ServerTypeRunner {
+		// only want to activate these for full and api nodes
+		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)
+		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", currDir)
+	}
 	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
-	opts = append(opts, WithDBURL(getEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir))))
-	opts = append(opts, WithMQURL(getEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir))))
+	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
+	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
-	opts = append(opts, WithType(nodeTypeFromString(getEnv(EnvNodeType, ""))))
+	opts = append(opts, WithType(nodeType))
 	return New(ctx, opts...)
 }
 
