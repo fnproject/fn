@@ -155,6 +155,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		default:
 		}
 
 		// TODO this isn't re-using buffers very efficiently, but retries should be rare...
