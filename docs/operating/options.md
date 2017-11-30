@@ -24,9 +24,6 @@ docker run -e VAR_NAME=VALUE ...
 | `DB_URL` | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
 | `MQ_URL` | The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. | bolt:///app/data/worker_mq.db |
 | `PORT` | Sets the port to run on | 8080 |
-| `FN_SYNC_MEMORY` | Set the reserved memory size in MB for sync only functions. | 0 (unlimited - fallback to %20 of (docker --memory or system memory)) |
-| `FN_ASYNC_MEMORY` | Set the reserved memory size in MB for both sync and async functions. | 0 (unlimited - fallback to %80 of (docker --memory or system memory)) |
-| `FN_ASYNC_LW_MEMORY` | Set the low water free memory threshold in MB to start dequeuing async functions. | 0 (not set - fallback to %20 of async memory) |
 | `LOG_LEVEL` | Set to DEBUG to enable debugging | INFO |
 | `DOCKER_HOST` | Docker remote API URL | /var/run/docker.sock:/var/run/docker.sock |
 | `DOCKER_API_VERSION` | Docker remote API version | 1.24 |
