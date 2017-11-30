@@ -27,7 +27,7 @@ All functionality listed here will be implemented in the API nodes under the
 given endpoint. The runner is responsible for calling each of these endpoints
 with the given input.
 
-##### /v1/runner/enqueue
+##### POST /v1/runner/async
 
 this is called when a runner receives a request for an async route.  the
 request contains an entire constructed `models.Call` object, as well as an
@@ -43,7 +43,7 @@ special cases:
 reply with a 500 error to the client as if this call never existed
 * if insert fails, we ignore this error, which will be handled in Start
 
-##### /v1/runner/dequeue
+##### GET /v1/runner/async
 
 the runner long polls for a call to run. the request contains an identifier for
 this runner node to pull from the partition in kafka for this runner node`***`.
@@ -59,7 +59,10 @@ message it finds immediately.
 
 the runner calls this endpoint immediately before starting a task, only
 starting the task if this endpoint returns a success. the request contains the
-app name and the call id. the response returns success/fail code.
+app name and the call id. the response returns success/fail code. this
+transition _could_ be done in the dequeue portion of the call lifecycle since
+it's only for async, however this exists because the time between dequeueing
+and being prepared to execute a task may be long (or even succeed).
 
 sync:
 
@@ -75,7 +78,7 @@ async:
   success), delete the mq message and return a failure status code. if the
   update to status=running succeeds, return a success status code.
 
-##### PUT /v1/runner/finish
+##### POST /v1/runner/finish
 
 the runner calls this endpoint after a call has completed, either because of
 an error, a timeout, or because it ran successfully. the request must contain

@@ -291,6 +291,15 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			apps.GET("/calls/:call", s.handleCallGet)
 			apps.GET("/calls/:call/log", s.handleCallLogGet)
 		}
+
+		{
+			runner := v1.Group("/runner")
+			runner.PUT("/async", s.handleRunnerEnqueue)
+			runner.GET("/async", s.handleRunnerDequeue)
+
+			runner.POST("/start", s.handleRunnerStart)
+			runner.POST("/finish", s.handleRunnerFinish)
+		}
 	}
 
 	{

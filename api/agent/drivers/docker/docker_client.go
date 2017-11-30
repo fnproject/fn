@@ -113,7 +113,7 @@ func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
 		err := filter(ctx, f())
 		if common.IsTemporary(err) || isDocker50x(err) {
 			logger.WithError(err).Warn("docker temporary error, retrying")
-			b.Sleep()
+			b.Sleep(ctx)
 			span.LogFields(log.String("task", "tmperror.docker"))
 			continue
 		}

@@ -9,10 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/gin-gonic/gin"
@@ -131,6 +134,62 @@ func TestFullStack(t *testing.T) {
 		{"get deleteds route on deleted app", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
 	} {
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
+
+		if rec.Code != test.expectedCode {
+			t.Log(buf.String())
+			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
+				test.name, test.expectedCode, rec.Code)
+		}
+	}
+}
+
+func TestHybridEndpoints(t *testing.T) {
+	buf := setLogBuffer()
+	ds := datastore.NewMockInit(
+		[]*models.App{{
+			Name: "myapp",
+		}},
+		[]*models.Route{{
+			AppName: "myapp",
+			Path:    "yodawg",
+		}}, nil,
+	)
+
+	logDB := logs.NewMock()
+
+	srv := testServer(ds, &mqs.Mock{}, logDB, nil /* TODO */)
+
+	newCallBody := func() string {
+		call := &models.Call{
+			ID:      id.New().String(),
+			AppName: "myapp",
+			Path:    "yodawg",
+			// TODO ?
+		}
+		var b bytes.Buffer
+		json.NewEncoder(&b).Encode(&call)
+		return b.String()
+	}
+
+	for _, test := range []struct {
+		name         string
+		method       string
+		path         string
+		body         string
+		expectedCode int
+	}{
+		// TODO change all these tests to just do an async task in normal order once plumbing is done
+
+		{"post async call", "PUT", "/v1/runner/async", newCallBody(), http.StatusOK},
+
+		// TODO this one only works if it's not the same as the first since update isn't hooked up
+		{"finish call", "POST", "/v1/runner/finish", newCallBody(), http.StatusOK},
+
+		// TODO these won't work until update works and the agent gets shut off
+		//{"get async call", "GET", "/v1/runner/async", "", http.StatusOK},
+		//{"start call", "POST", "/v1/runner/start", "TODO", http.StatusOK},
+	} {
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, strings.NewReader(test.body))
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
