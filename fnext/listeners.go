@@ -1,4 +1,4 @@
-package extensions
+package fnext
 
 import (
 	"context"

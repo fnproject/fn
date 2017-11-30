@@ -33,7 +33,7 @@ func main() {
 type CustomMiddleware struct {
 }
 
-func (h *CustomMiddleware) Chain(next http.Handler) http.Handler {
+func (h *CustomMiddleware) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("CustomMiddleware called")
 

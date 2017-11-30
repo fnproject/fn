@@ -2,9 +2,9 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/fnproject/fn/api"
@@ -20,24 +20,35 @@ type runnerResponse struct {
 	Error     *models.ErrorBody `json:"error,omitempty"`
 }
 
-func (s *Server) handleRequest(c *gin.Context) {
-	if strings.HasPrefix(c.Request.URL.Path, "/v1") {
-		c.Status(http.StatusNotFound)
+// handleFunctionCall executes the function.
+// Requires the following in the context:
+// * "app_name"
+// * "path"
+func (s *Server) handleFunctionCall(c *gin.Context) {
+	// @treeder: Is this necessary? An app could have this prefix too. Leaving here for review.
+	// if strings.HasPrefix(c.Request.URL.Path, "/v1") {
+	// 	c.Status(http.StatusNotFound)
+	// 	return
+	// }
+
+	ctx := c.Request.Context()
+	var p string
+	r := ctx.Value(api.Path)
+	if r == nil {
+		p = "/"
+	} else {
+		p = r.(string)
+	}
+
+	var a string
+	ai := ctx.Value(api.AppName)
+	if ai == nil {
+		handleErrorResponse(c, errors.New("app name not set"))
 		return
 	}
+	a = ai.(string)
 
-	r, routeExists := c.Get(api.Path)
-	if !routeExists {
-		r = "/"
-	}
-
-	reqRoute := &models.Route{
-		AppName: c.MustGet(api.AppName).(string),
-		Path:    path.Clean(r.(string)),
-	}
-
-	s.serve(c, reqRoute.AppName, reqRoute.Path)
-
+	s.serve(c, a, path.Clean(p))
 }
 
 // convert gin.Params to agent.Params to avoid introducing gin

@@ -44,6 +44,10 @@ func routerRequest(t *testing.T, router *gin.Engine, method, path string, body i
 	if err != nil {
 		t.Fatalf("Test: Could not create %s request to %s: %v", method, path, err)
 	}
+	return routerRequest2(t, router, req)
+}
+
+func routerRequest2(t *testing.T, router *gin.Engine, req *http.Request) (*http.Request, *httptest.ResponseRecorder) {
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
