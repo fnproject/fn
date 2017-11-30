@@ -19,7 +19,7 @@ type DataAccess interface {
 	GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error)
 
 	// Enqueue will add a Call to the queue (ultimately forwards to mq.Push).
-	Enqueue(ctx context.Context, mCall *models.Call) (*models.Call, error)
+	Enqueue(ctx context.Context, mCall *models.Call) error
 
 	// Dequeue will query the queue for the next available Call that can be run
 	// by this Agent, and reserve it (ultimately forwards to mq.Reserve).
@@ -31,7 +31,7 @@ type DataAccess interface {
 
 	// Finish will notify the system that the Call has been processed, and
 	// fulfill the reservation in the queue if the call came from a queue.
-	Finish(ctx context.Context, mCall *models.Call, stderr io.ReadWriteCloser, async bool) error
+	Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error
 }
 
 type directDataAccess struct {
@@ -57,8 +57,9 @@ func (da *directDataAccess) GetRoute(ctx context.Context, appName string, routeP
 	return da.ds.GetRoute(ctx, appName, routePath)
 }
 
-func (da *directDataAccess) Enqueue(ctx context.Context, mCall *models.Call) (*models.Call, error) {
-	return da.mq.Push(ctx, mCall)
+func (da *directDataAccess) Enqueue(ctx context.Context, mCall *models.Call) error {
+	_, err := da.mq.Push(ctx, mCall)
+	return err
 	// TODO: Insert a call in the datastore with the 'queued' state
 }
 
@@ -77,7 +78,7 @@ func (da *directDataAccess) Start(ctx context.Context, mCall *models.Call) error
 	return da.mq.Delete(ctx, mCall)
 }
 
-func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stderr io.ReadWriteCloser, async bool) error {
+func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error {
 	// this means that we could potentially store an error / timeout status for a
 	// call that ran successfully [by a user's perspective]
 	// TODO: this should be update, really
@@ -90,8 +91,6 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
-	// NOTE call this after InsertLog or the buffer will get reset
-	stderr.Close()
 
 	if async {
 		// XXX (reed): delete MQ message, eventually

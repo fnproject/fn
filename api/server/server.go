@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/fnproject/fn/api/agent"
+	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/cache"
 	"github.com/fnproject/fn/api/id"
@@ -37,6 +38,7 @@ const (
 	EnvMQURL     = "FN_MQ_URL"
 	EnvDBURL     = "FN_DB_URL"
 	EnvLOGDBURL  = "FN_LOGSTORE_URL"
+	EnvRunnerURL = "FN_RUNNER_URL"
 	EnvNodeType  = "FN_NODE_TYPE"
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
@@ -80,68 +82,89 @@ func nodeTypeFromString(value string) ServerNodeType {
 
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
-
-	return NewFromURLs(ctx,
-		getEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)),
-		getEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir)),
-		getEnv(EnvLOGDBURL, ""),
-		nodeTypeFromString(getEnv(EnvNodeType, "")),
-		opts...,
-	)
+	opts = append(opts, WithDBURL(getEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir))))
+	opts = append(opts, WithMQURL(getEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir))))
+	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
+	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
+	opts = append(opts, WithType(nodeTypeFromString(getEnv(EnvNodeType, ""))))
+	return New(ctx, opts...)
 }
 
-// Create a new server based on the string URLs for each service.
-// Sits in the middle of NewFromEnv and New
-func NewFromURLs(ctx context.Context, dbURL, mqURL, logstoreURL string, nodeType ServerNodeType, opts ...ServerOption) *Server {
-	ds, err := datastore.New(dbURL)
-	if err != nil {
-		logrus.WithError(err).Fatalln("Error initializing datastore.")
+func WithDBURL(dbURL string) ServerOption {
+	if dbURL != "" {
+		ds, err := datastore.New(dbURL)
+		if err != nil {
+			logrus.WithError(err).Fatalln("Error initializing datastore.")
+		}
+		return WithDatastore(ds)
 	}
+	return noop
+}
 
-	mq, err := mqs.New(mqURL)
-	if err != nil {
-		logrus.WithError(err).Fatal("Error initializing message queue.")
+func WithMQURL(mqURL string) ServerOption {
+	if mqURL != "" {
+		mq, err := mqs.New(mqURL)
+		if err != nil {
+			logrus.WithError(err).Fatal("Error initializing message queue.")
+		}
+		return WithMQ(mq)
 	}
+	return noop
+}
 
-	var logDB models.LogStore = ds
-	if ldb := logstoreURL; ldb != "" && ldb != dbURL {
-		logDB, err = logs.New(logstoreURL)
+func WithLogURL(logstoreURL string) ServerOption {
+	if ldb := logstoreURL; ldb != "" {
+		logDB, err := logs.New(logstoreURL)
 		if err != nil {
 			logrus.WithError(err).Fatal("Error initializing logs store.")
 		}
+		return WithLogstore(logDB)
 	}
-
-	return New(ctx, ds, mq, logDB, nodeType, opts...)
+	return noop
 }
 
-// New creates a new Functions server with the passed in datastore, message queue and API URL
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, ls models.LogStore, nodeType ServerNodeType, opts ...ServerOption) *Server {
-	setTracer()
-
-	var tp agent.AgentNodeType
-	switch nodeType {
-	case ServerTypeAPI:
-		tp = agent.AgentTypeAPI
-	case ServerTypeRunner:
-		tp = agent.AgentTypeRunner
-	default:
-		tp = agent.AgentTypeFull
+func WithRunnerURL(runnerURL string) ServerOption {
+	if runnerURL != "" {
+		cl, err := hybrid.NewClient(runnerURL)
+		if err != nil {
+			logrus.WithError(err).Fatal("Error initializing runner API client.")
+		}
+		return WithAgent(agent.New(cl))
 	}
+	return noop
+}
+
+func noop(s *Server) {}
+
+func WithType(t ServerNodeType) ServerOption {
+	return func(s *Server) { s.nodeType = t }
+}
+
+func WithDatastore(ds models.Datastore) ServerOption {
+	return func(s *Server) { s.Datastore = ds }
+}
+
+func WithMQ(mq models.MessageQueue) ServerOption {
+	return func(s *Server) { s.MQ = mq }
+}
+
+func WithLogstore(ls models.LogStore) ServerOption {
+	return func(s *Server) { s.LogDB = ls }
+}
+
+func WithAgent(agent agent.Agent) ServerOption {
+	return func(s *Server) { s.Agent = agent }
+}
+
+// New creates a new Functions server with the opts given. Use NewFromENV or NewFromURLs for more
+// convenience.
+func New(ctx context.Context, opts ...ServerOption) *Server {
+	setTracer() // NOTE: this is first, if agent was started before this is done, we got paniced. TODO should be an opt
 
 	s := &Server{
-		Agent:     agent.New(cache.Wrap(ds), ls, mq, tp), // only add datastore caching to agent
-		Router:    gin.New(),
-		Datastore: ds,
-		MQ:        mq,
-		LogDB:     ls,
-		nodeType:  nodeType,
+		Router: gin.New(),
+		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
-
-	// NOTE: testServer() in tests doesn't use these
-	setMachineID()
-	s.Router.Use(loggerWrap, traceWrap, panicWrap)
-	optionalCorsWrap(s.Router)
-	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
 		if opt == nil {
@@ -149,6 +172,36 @@ func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, ls mo
 		}
 		opt(s)
 	}
+
+	if s.LogDB == nil { // TODO seems weird?
+		s.LogDB = s.Datastore
+	}
+
+	// TODO we maybe should use the agent.DirectDataAccess in the /runner endpoints server side?
+
+	switch s.nodeType {
+	case ServerTypeAPI:
+		s.Agent = nil
+	case ServerTypeRunner:
+		if s.Agent == nil {
+			logrus.Fatal("No agent started for a runner node, add FN_RUNNER_URL to configuration.")
+		}
+	default:
+		s.nodeType = ServerTypeFull
+		if s.Datastore == nil || s.LogDB == nil || s.MQ == nil {
+			logrus.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+		}
+
+		// TODO force caller to use WithAgent option ?
+		// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
+		s.Agent = agent.New(agent.NewDirectDataAccess(cache.Wrap(s.Datastore), s.LogDB, s.MQ))
+	}
+
+	// NOTE: testServer() in tests doesn't use these, need to change tests
+	setMachineID()
+	s.Router.Use(loggerWrap, traceWrap, panicWrap) // TODO should be opts
+	optionalCorsWrap(s.Router)                     // TODO should be an opt
+	s.bindHandlers(ctx)
 	return s
 }
 
@@ -335,7 +388,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 	}
 
-	{
+	if s.nodeType != ServerTypeAPI {
 		runner := engine.Group("/r")
 		runner.Use(appWrap)
 		runner.Any("/:app", s.handleFunctionCall)

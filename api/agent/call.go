@@ -350,6 +350,9 @@ func (c *call) End(ctx context.Context, errIn error) error {
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
+	// NOTE call this after InsertLog or the buffer will get reset
+	c.stderr.Close()
+
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return fmt.Errorf("AfterCall: %v", err)
 	}

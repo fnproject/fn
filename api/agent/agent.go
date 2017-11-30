@@ -115,18 +115,9 @@ type Agent interface {
 	AddCallListener(fnext.CallListener)
 }
 
-type AgentNodeType int32
-
-const (
-	AgentTypeFull AgentNodeType = iota
-	AgentTypeAPI
-	AgentTypeRunner
-)
-
 type agent struct {
 	da            DataAccess
 	callListeners []fnext.CallListener
-	tp            AgentNodeType
 
 	driver drivers.Driver
 
@@ -146,13 +137,12 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, tp AgentNodeType) Agent {
+func New(da DataAccess) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
 
 	a := &agent{
-		tp:          tp,
-		da:          NewDirectDataAccess(ds, ls, mq),
+		da:          da,
 		driver:      driver,
 		hot:         make(map[string]chan slot),
 		resources:   NewResourceTracker(),
@@ -160,12 +150,8 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, tp Age
 		promHandler: promhttp.Handler(),
 	}
 
-	switch tp {
-	case AgentTypeAPI:
-		// Don't start dequeuing
-	default:
-		go a.asyncDequeue() // safe shutdown can nanny this fine
-	}
+	// TODO assert that agent doesn't get started for API nodes up above ?
+	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
 }
@@ -191,10 +177,6 @@ func transformTimeout(e error, isRetriable bool) error {
 }
 
 func (a *agent) Submit(callI Call) error {
-	if a.tp == AgentTypeAPI {
-		return errors.New("API agent cannot execute calls")
-	}
-
 	a.wg.Add(1)
 	defer a.wg.Done()
 

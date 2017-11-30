@@ -14,30 +14,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
 )
 
-type Client interface {
-	Enqueue(context.Context, *models.Call) error
-	Dequeue(context.Context) ([]*models.Call, error)
-	Start(context.Context, *models.Call) error
-	Finish(context.Context, *models.Call, io.Reader) error
-
-	// TODO we could/should make GetAppAndRoute endpoint? saves a round trip...
-	GetApp(ctx context.Context, appName string) (*models.App, error)
-	GetRoute(ctx context.Context, appName, route string) (*models.Route, error)
-}
-
-var _ Client = new(client)
-
+// client implements agent.DataAccess
 type client struct {
 	base string
 	http *http.Client
 }
 
-func New(u string) (Client, error) {
+func NewClient(u string) (agent.DataAccess, error) {
 	uri, err := url.Parse(u)
 	if err != nil {
 		return nil, err
@@ -84,7 +73,7 @@ func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
 	return err
 }
 
-func (cl *client) Dequeue(ctx context.Context) ([]*models.Call, error) {
+func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_dequeue")
 	defer span.Finish()
 
@@ -92,7 +81,10 @@ func (cl *client) Dequeue(ctx context.Context) ([]*models.Call, error) {
 		C []*models.Call `json:"calls"`
 	}
 	err := cl.do(ctx, nil, &c, "GET", "runner", "async")
-	return c.C, err
+	if len(c.C) > 0 {
+		return c.C[0], nil
+	}
+	return nil, err
 }
 
 func (cl *client) Start(ctx context.Context, c *models.Call) error {
@@ -103,7 +95,7 @@ func (cl *client) Start(ctx context.Context, c *models.Call) error {
 	return err
 }
 
-func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader) error {
+func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_end")
 	defer span.Finish()
 
@@ -120,6 +112,7 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader) error
 		L: b.String(),
 	}
 
+	// TODO add async bit to query params or body
 	err = cl.do(ctx, bod, nil, "POST", "runner", "finish")
 	return err
 }
