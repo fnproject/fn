@@ -11,35 +11,100 @@ services:
     volumes:
       - ./data/logstore:/data
     command: server /data
-  db:
-    image: "mysql"
+  mysql-initiator:
+    image: "mattalord/innodb-cluster"
+    hostname: mysql-initiator
     restart: always
-    ports:
-      - "3306:3306"
     environment:
       - "MYSQL_DATABASE=funcs"
       - "MYSQL_ROOT_PASSWORD=root"
+      - "GROUP_NAME=C55153C1-1574-4972-BF06-7332D6AD46A7"
+      - "BOOTSTRAP=1"
+  mysql-2:
+    image: "mattalord/innodb-cluster"
+    hostname: mysql-2
+    restart: always
+    environment:
+      - "MYSQL_DATABASE=funcs"
+      - "MYSQL_ROOT_PASSWORD=root"
+      - "GROUP_NAME=C55153C1-1574-4972-BF06-7332D6AD46A7"
+      - "GROUP_SEEDS=mysql-initiator:6606"
+    depends_on:
+      - mysql-initiator
+  mysql-3:
+    image: "mattalord/innodb-cluster"
+    hostname: mysql-3
+    restart: always
+    environment:
+      - "MYSQL_DATABASE=funcs"
+      - "MYSQL_ROOT_PASSWORD=root"
+      - "GROUP_NAME=C55153C1-1574-4972-BF06-7332D6AD46A7"
+      - "GROUP_SEEDS=mysql-initiator:6606"
     volumes:
       - ./data/mysql:/var/lib/mysql
+    depends_on:
+      - mysql-initiator
+  router:
+    image: "mattalord/innodb-cluster"
+    hostname: router
+    restart: always
+    depends_on:
+      - mysql-initiator
+      - mysql-2
+      - mysql-3
+    environment:
+      - "NODE_TYPE=router"
+      - "MYSQL_ROOT_PASSWORD=root"
+      - "MYSQL_HOST=mysql-initiator"
   mq:
     image: "redis"
     restart: always
     ports:
       - "6379:6379"
-  fnserver:
+  fnserver-1:
     restart: always
     depends_on:
       - mq
-      - db
+      - router
       - logstore
     build: .
-    ports:
-      - "8080:8080"
     links:
-      - "db"
+      - "router"
       - "mq"
       - "logstore"
     environment:
+      FN_LOG_LEVEL: "DEBUG"
+      FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
+      FN_MQ_URL: "redis://mq:6379/"
+      FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  fnserver-2:
+    restart: always
+    depends_on:
+      - mq
+      - router
+    build: .
+    links:
+      - "router"
+      - "mq"
+    environment:
+      - "FN_DB_URL=mysql://root:root@tcp(router:6446)/funcs"
+      - "FN_MQ_URL=redis://mq:6379/"
+      - "FN_LOG_LEVEL=DEBUG"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  fnserver-3:
+    restart: always
+    depends_on:
+      - mq
+      - router
+    build: .
+    links:
+      - "router"
+      - "mq"
+    environment:
+      FN_LOG_LEVEL: "DEBUG"
       FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
@@ -51,30 +116,46 @@ services:
     ports:
       - "3000:3000"
     links:
-      - fnserver
       - prometheus
     depends_on:
-      - fnserver
       - prometheus
   prometheus:
     image: prom/prometheus
     restart: always
     depends_on:
-      - fnserver
+      - fnserver-1
+      - fnserver-2
+      - fnserver-3
     ports:
       - "9090:9090"
     links:
-      - fnserver
+      - fnserver-1
+      - fnserver-2
+      - fnserver-3
     volumes:
       - ./examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
+  fnlb:
+    ports:
+      - "8080:8081"
+    depends_on:
+      - fnserver-1
+      - fnserver-2
+      - fnserver-3
+    image: fnproject/fnlb
+    restart: always
+    links:
+      - "fnserver-1"
+      - "fnserver-2"
+      - "fnserver-3"
+    command: "--nodes fnserver-1:8080,fnserver-2:8080,fnserver-3:8080"
   fnserver-ui:
     depends_on:
-      - fnserver
+      - fnlb
     image: fnproject/ui
     restart: always
     ports:
       - "4000:4000"
     links:
-      - "fnserver"
+      - fnlb
     environment:
-      - FN_API_URL=http://fnserver:8080
+      - "FN_API_URL=http://fnlb:8081"
