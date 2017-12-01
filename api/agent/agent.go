@@ -2,12 +2,9 @@ package agent
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"sync"
 	"time"
 
@@ -124,9 +121,7 @@ type agent struct {
 
 	driver drivers.Driver
 
-	hMu sync.RWMutex // protects hot
-	hot map[string]chan slot
-
+	slotMgr *slotMgr
 	// track usage
 	resources ResourceTracker
 
@@ -149,7 +144,7 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue) Agent 
 		ls:          ls,
 		mq:          mq,
 		driver:      driver,
-		hot:         make(map[string]chan slot),
+		slotMgr:     NewSlotMgr(),
 		resources:   NewResourceTracker(),
 		shutdown:    make(chan struct{}),
 		promHandler: promhttp.Handler(),
@@ -244,37 +239,34 @@ func (a *agent) Submit(callI Call) error {
 	return transformTimeout(err, false)
 }
 
-// getSlot must ensure that if it receives a slot, it will be returned, otherwise
-// a container will be locked up forever waiting for slot to free.
-func (a *agent) getSlot(ctx context.Context, call *call) (slot, error) {
+// getSlot returns a Slot (or error) for the request to run. This may
+// launch a new container or wait for other containers to become idle
+// or it may wait for resources to become available to launch a new
+// container.
+func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
-	var ch chan slot
+	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
+	slots := a.slotMgr.getSlot(call, isHot)
+	inChan := slots.getDequeueChan()
 
-	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		ch = a.slots(hotKey(call))
-	} else {
-		ch = make(chan slot)
-	}
-
-	return a.launchOrSlot(ctx, ch, call)
-}
-
-// launchOrSlot will launch a container that will send slots on the provided channel when it
-// is free if no slots are available on that channel first. the returned slot may or may not
-// be from the launched container. if there is an error launching a new container (if necessary),
-// then that will be returned rather than a slot, if no slot is free first.
-func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (slot, error) {
-	var errCh <-chan error
-
-	// check if any slot immediately without trying to get a ram token
-	select {
-	case s := <-slots:
-		return s, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	// if some hot containers are running, then dampen the launch with 100 msec delay
+	// TODO: we can use stats to estimate this better based on avg query completion time,
+	// avg new container launch time as well as other heuristics such as num of queued/waiting
+	// requests and num of running hot containers.
+	if slots.getHotRunnerCount() > 0 {
+		select {
+		case s, ok := <-inChan:
+			if !ok {
+				return nil, errors.New("slot shut down")
+			}
+			return s, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+			return nil, nil
+		}
 	}
 
 	// add context cancel here to prevent ramToken/launch race, w/o this ramToken /
@@ -282,9 +274,14 @@ func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (
 	ctx, launchCancel := context.WithCancel(ctx)
 	defer launchCancel()
 
-	// if nothing free, wait for ram token or a slot
+	var errCh <-chan error
+
+	// if nothing free, wait for resource token or a slot
 	select {
-	case s := <-slots:
+	case s, ok := <-inChan:
+		if !ok {
+			return nil, errors.New("slot shut down")
+		}
 		return s, nil
 	case tok := <-a.resources.GetResourceToken(ctx, call):
 		errCh = a.launch(ctx, slots, call, tok) // TODO mangle
@@ -297,62 +294,14 @@ func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (
 	case err := <-errCh:
 		// if we get a launch err, try to return to user (e.g. image not found)
 		return nil, err
-	case slot := <-slots:
+	case slot, ok := <-inChan:
+		if !ok {
+			return nil, errors.New("slot shut down")
+		}
 		return slot, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-}
-
-// TODO this should be a LIFO stack of channels, perhaps. a queue (channel)
-// will always send the least recently used, not ideal.
-func (a *agent) slots(key string) chan slot {
-	a.hMu.RLock()
-	slots, ok := a.hot[key]
-	a.hMu.RUnlock()
-	if !ok {
-		a.hMu.Lock()
-		slots, ok = a.hot[key]
-		if !ok {
-			slots = make(chan slot) // should not be buffered
-			a.hot[key] = slots
-		}
-		a.hMu.Unlock()
-	}
-	return slots
-}
-
-func hotKey(call *call) string {
-	// return a sha1 hash of a (hopefully) unique string of all the config
-	// values, to make map lookups quicker [than the giant unique string]
-
-	hash := sha1.New()
-	fmt.Fprint(hash, call.AppName, "\x00")
-	fmt.Fprint(hash, call.Path, "\x00")
-	fmt.Fprint(hash, call.Image, "\x00")
-	fmt.Fprint(hash, call.Timeout, "\x00")
-	fmt.Fprint(hash, call.IdleTimeout, "\x00")
-	fmt.Fprint(hash, call.Memory, "\x00")
-	fmt.Fprint(hash, call.Format, "\x00")
-
-	// we have to sort these before printing, yay. TODO do better
-	keys := make([]string, 0, len(call.BaseEnv))
-	for k := range call.BaseEnv {
-		keys = append(keys, k)
-	}
-
-	sort.Strings(keys)
-	for _, k := range keys {
-		fmt.Fprint(hash, k, "\x00", call.BaseEnv[k], "\x00")
-	}
-
-	var buf [sha1.Size]byte
-	return string(hash.Sum(buf[:0]))
-}
-
-type slot interface {
-	exec(ctx context.Context, call *call) error
-	io.Closer
 }
 
 // implements Slot
@@ -436,22 +385,16 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 // this will work for hot & cold (woo)
 // if launch encounters a non-nil error it will send it on the returned channel,
 // this can be useful if an image doesn't exist, e.g.
-func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok ResourceToken) <-chan error {
+func (a *agent) launch(ctx context.Context, slots *slots, call *call, tok ResourceToken) <-chan error {
 	ch := make(chan error, 1)
-
-	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// TODO no
-		go func() {
-			err := a.prepCold(ctx, slots, call, tok)
-			if err != nil {
-				ch <- err
-			}
-		}()
-		return ch
-	}
-
+	slots.enterHotRunner()
 	go func() {
-		err := a.runHot(ctx, slots, call, tok)
+		var err error
+		if slots.isHot {
+			err = a.runHot(ctx, slots, call, tok)
+		} else {
+			err = a.prepCold(ctx, slots, call, tok)
+		}
 		if err != nil {
 			ch <- err
 		}
@@ -459,7 +402,7 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok R
 	return ch
 }
 
-func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok ResourceToken) error {
+func (a *agent) prepCold(ctx context.Context, slots *slots, call *call, tok ResourceToken) error {
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -481,26 +424,24 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 	}
 
 	slot := &coldSlot{cookie, tok}
+	outChan := slots.getQueueChan()
 	select {
-	case slots <- slot:
+	case outChan <- slot:
 	case <-ctx.Done():
 		slot.Close() // if we can't send this slot, need to take care of it ourselves
 	}
+	close(outChan)
 	return nil
 }
 
-func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, tok ResourceToken) error {
+func (a *agent) runHot(ctxArg context.Context, slots *slots, call *call, tok ResourceToken) error {
 	// We must be careful to only use ctxArg for logs/spans
+	defer slots.exitHotRunner()
 
 	// create a span from ctxArg but ignore the new Context
 	// instead we will create a new Context below and explicitly set its span
 	span, _ := opentracing.StartSpanFromContext(ctxArg, "docker_run_hot")
 	defer span.Finish()
-
-	if tok == nil {
-		// TODO we should panic, probably ;)
-		return errors.New("no token provided, not giving you a slot")
-	}
 	defer tok.Close()
 
 	// TODO we have to make sure we flush these pipes or we will deadlock
@@ -556,6 +497,7 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
+	outChan := slots.getQueueChan()
 
 	go func() {
 		for {
@@ -563,6 +505,7 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 			case <-ctx.Done(): // container shutdown
 				return
 			case <-a.shutdown: // server shutdown
+				close(outChan)
 				shutdownContainer()
 				return
 			default: // ok
@@ -572,7 +515,7 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 			slot := &hotSlot{done, proto, errC, container}
 
 			select {
-			case slots <- slot:
+			case outChan <- slot:
 			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
 				logger.Info("Canceling inactive hot function")
 				shutdownContainer()
@@ -580,6 +523,7 @@ func (a *agent) runHot(ctxArg context.Context, slots chan<- slot, call *call, to
 			case <-ctx.Done(): // container shutdown
 				return
 			case <-a.shutdown: // server shutdown
+				close(outChan)
 				shutdownContainer()
 				return
 			}
