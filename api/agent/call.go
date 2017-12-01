@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -29,19 +30,25 @@ type Call interface {
 	// etc.
 	// TODO Start and End can likely be unexported as they are only used in the agent,
 	// and on a type which is constructed in a specific agent. meh.
-	Start(ctx context.Context, t callTrigger) error
+	Start(ctx context.Context) error
 
 	// End will be called immediately after attempting a call execution,
 	// regardless of whether the execution failed or not. An error will be passed
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error, t callTrigger) error
+	End(ctx context.Context, err error) error
 }
 
 // TODO build w/o closures... lazy
 type CallOpt func(a *agent, c *call) error
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
+type Param struct {
+	Key   string
+	Value string
+}
+type Params []Param
+
+func FromRequest(appName, path string, req *http.Request, params Params) CallOpt {
 	return func(a *agent, c *call) error {
 		app, err := a.ds.GetApp(req.Context(), appName)
 		if err != nil {
@@ -51,11 +58,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		route, err := a.ds.GetRoute(req.Context(), appName, path)
 		if err != nil {
 			return err
-		}
-
-		params, match := matchRoute(route.Path, path)
-		if !match {
-			return errors.New("route does not match") // TODO wtf, can we ignore match?
 		}
 
 		if route.Format == "" {
@@ -246,9 +248,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	// TODO add log store interface (yagni?)
 	c.ds = a.ds
+	c.ls = a.ls
 	c.mq = a.mq
+	c.ct = a
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
 		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
@@ -270,15 +273,17 @@ type call struct {
 	*models.Call
 
 	ds     models.Datastore
+	ls     models.LogStore
 	mq     models.MessageQueue
 	w      io.Writer
 	req    *http.Request
 	stderr io.ReadWriteCloser
+	ct     callTrigger
 }
 
 func (c *call) Model() *models.Call { return c.Call }
 
-func (c *call) Start(ctx context.Context, t callTrigger) error {
+func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
@@ -317,7 +322,7 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 		}
 	}
 
-	err := t.fireBeforeCall(ctx, c.Model())
+	err := c.ct.fireBeforeCall(ctx, c.Model())
 	if err != nil {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
@@ -325,7 +330,7 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 	return nil
 }
 
-func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
+func (c *call) End(ctx context.Context, errIn error) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
 	defer span.Finish()
 
@@ -337,13 +342,16 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	case context.DeadlineExceeded:
 		c.Status = "timeout"
 	default:
-		// XXX (reed): should we append the error to logs? Error field? (TR) yes, think so, otherwise it's lost looks like?
 		c.Status = "error"
+		c.Error = errIn.Error()
 	}
 
 	if c.Type == models.TypeAsync {
 		// XXX (reed): delete MQ message, eventually
 	}
+
+	// ensure stats histogram is reasonably bounded
+	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
 
 	// this means that we could potentially store an error / timeout status for a
 	// call that ran successfully [by a user's perspective]
@@ -353,32 +361,19 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
+	if err := c.ls.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()
-	err := t.fireAfterCall(ctx, c.Model())
-	if err != nil {
+
+	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return fmt.Errorf("AfterCall: %v", err)
 	}
-	return errIn
-}
 
-func fakeHandler(http.ResponseWriter, *http.Request, Params) {}
-
-// TODO what is this stuff anyway?
-func matchRoute(baseRoute, route string) (Params, bool) {
-	tree := &node{}
-	tree.addRoute(baseRoute, fakeHandler)
-	handler, p, _ := tree.getValue(route)
-	if handler == nil {
-		return nil, false
-	}
-
-	return p, true
+	return errIn // original error, important for use in sync call returns
 }
 
 func toEnvName(envtype, name string) string {

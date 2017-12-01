@@ -32,7 +32,7 @@ If running locally with functions servers in docker, running with docker links
 can make things easier (can use local addresses). for example:
 
 ```sh
-docker run -d --name fn-8080 --privileged -p 8080:8080 fnproject/functions:latest
+docker run -d --name fn-8080 --privileged -p 8080:8080 fnproject/fnserver:latest
 docker run -d --name fnlb --link fn-8080 -p 8081:8081 fnproject/fnlb:latest --nodes 127.0.0.1:8080
 ```
 
@@ -41,7 +41,7 @@ docker run -d --name fnlb --link fn-8080 -p 8081:8081 fnproject/fnlb:latest --no
 To make functions requests against the lb with the cli:
 
 ```sh
-API_URL=http://<fnlb_address> fn call my/function
+FN_API_URL=http://<fnlb_address> fn call my/function
 ```
 
 To add a functions node later:

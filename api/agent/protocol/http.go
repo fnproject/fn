@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,8 +26,8 @@ func (p *HTTPProtocol) IsStreamable() bool { return true }
 // over the timeout.
 // TODO maybe we should take io.Writer, io.Reader but then we have to
 // dump the request to a buffer again :(
-func (h *HTTPProtocol) Dispatch(w io.Writer, req *http.Request) error {
-	err := DumpRequestTo(h.in, req) // TODO timeout
+func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+	err := DumpRequestTo(h.in, ci.Request()) // TODO timeout
 	if err != nil {
 		return err
 	}
@@ -36,7 +37,7 @@ func (h *HTTPProtocol) Dispatch(w io.Writer, req *http.Request) error {
 		// and status code first since calling res.Write will just write the http
 		// response as the body (headers and all)
 
-		res, err := http.ReadResponse(bufio.NewReader(h.out), req) // TODO timeout
+		res, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request()) // TODO timeout
 		if err != nil {
 			return err
 		}
@@ -54,7 +55,7 @@ func (h *HTTPProtocol) Dispatch(w io.Writer, req *http.Request) error {
 	} else {
 		// logs can just copy the full thing in there, headers and all.
 
-		res, err := http.ReadResponse(bufio.NewReader(h.out), req) // TODO timeout
+		res, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request()) // TODO timeout
 		if err != nil {
 			return err
 		}

@@ -9,16 +9,12 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 type RequestData struct {
 	A string `json:"a"`
-}
-
-type funcRequestBody struct {
-	Body            string      `json:"body"`
-	Headers         http.Header `json:"headers"`
-	QueryParameters string      `json:"query_parameters"`
 }
 
 func setupRequest(data interface{}) *http.Request {
@@ -48,19 +44,21 @@ func setupRequest(data interface{}) *http.Request {
 	return req
 }
 
-func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
+func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
 	req := setupRequest(rDataBefore)
 	r, w := io.Pipe()
+	call := &models.Call{Type: "json"}
+	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(req)
+		err := proto.writeJSONToContainer(ci)
 		if err != nil {
 			t.Error(err.Error())
 		}
 		w.Close()
 	}()
-	incomingReq := new(funcRequestBody)
+	incomingReq := &jsonIn{}
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -80,21 +78,27 @@ func TestJSONProtocolDumpJSONRequestWithData(t *testing.T) {
 		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
 			rDataBefore.A, rDataAfter.A)
 	}
+	if incomingReq.Protocol.Type != call.Type {
+		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
+			call.Type, incomingReq.Protocol.Type)
+	}
 }
 
-func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
+func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	req := setupRequest(nil)
 
+	call := &models.Call{Type: "json"}
 	r, w := io.Pipe()
+	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(req)
+		err := proto.writeJSONToContainer(ci)
 		if err != nil {
 			t.Error(err.Error())
 		}
 		w.Close()
 	}()
-	incomingReq := new(funcRequestBody)
+	incomingReq := &jsonIn{}
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -109,25 +113,27 @@ func TestJSONProtocolDumpJSONRequestWithoutData(t *testing.T) {
 		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
 			"<empty-string>", incomingReq.Body)
 	}
-	if ok := reflect.DeepEqual(req.Header, incomingReq.Headers); !ok {
+	if ok := reflect.DeepEqual(req.Header, incomingReq.Protocol.Headers); !ok {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
-			req.Header, incomingReq.Headers)
+			req.Header, incomingReq.Protocol.Headers)
 	}
 }
 
-func TestJSONProtocolDumpJSONRequestWithQuery(t *testing.T) {
+func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	req := setupRequest(nil)
 
 	r, w := io.Pipe()
+	call := &models.Call{Type: "json"}
+	ci := &callInfoImpl{call, req}
 	proto := JSONProtocol{w, r}
 	go func() {
-		err := proto.DumpJSON(req)
+		err := proto.writeJSONToContainer(ci)
 		if err != nil {
 			t.Error(err.Error())
 		}
 		w.Close()
 	}()
-	incomingReq := new(funcRequestBody)
+	incomingReq := &jsonIn{}
 	bb := new(bytes.Buffer)
 
 	_, err := bb.ReadFrom(r)
@@ -138,8 +144,8 @@ func TestJSONProtocolDumpJSONRequestWithQuery(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if incomingReq.QueryParameters != req.URL.RawQuery {
-		t.Errorf("Request query string assertion mismatch: expected: %s, got %s",
-			req.URL.RawQuery, incomingReq.QueryParameters)
+	if incomingReq.Protocol.RequestURL != req.URL.RequestURI() {
+		t.Errorf("Request URL does not match protocol URL: expected: %s, got %s",
+			req.URL.RequestURI(), incomingReq.Protocol.RequestURL)
 	}
 }

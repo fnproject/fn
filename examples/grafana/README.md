@@ -6,10 +6,13 @@ The Fn server exports metrics using [Prometheus](https://prometheus.io/). This a
 
 ## Start an Fn server and deploy some functions
 
-This example requires an Fn server to be running and that you have deployed one or more functions. 
-See the [front page](/README.md) or any of the other examples for instructions. 
+Start an fn server
 
-The steps below assume that the Fn server is running at `localhost:8080`.
+```sh
+fn start
+```
+Deploy one or more functions as required.
+See the [front page](/README.md) or any of the other examples for instructions. 
 
 ## Examine the endpoint used to export metrics to Prometheus
 
@@ -22,7 +25,7 @@ This will display the metrics in prometheus format.
 
 Open a terminal window and navigate to the directory containing this example.
 
-Examine the provised Prometheus configuration file:
+Examine the provided Prometheus configuration file:
 
 ```
 cat prometheus.yml
@@ -50,18 +53,18 @@ scrape_configs:
 
     static_configs:
       # Specify all the Fn servers from which metrics will be scraped
-      - targets: ['localhost:8080'] # Uses /metrics by default
+      - targets: ['fnserver:8080'] # Uses /metrics by default
 ```
 Note the last line. This specifies the host and port of the Fn server from which metrics will be obtained. 
 If you are running a cluster of Fn servers then you can specify them all here.
 
 Now start Prometheus, specifying this config file:
 ```
-docker run --name=prometheus -d -p 9090:9090 \
-  --mount type=bind,source=`pwd`/prometheus.yml,target=/etc/prometheus/prometheus.yml \
-  --add-host="localhost:`route | grep default | awk '{print $2}'`" prom/prometheus
+  docker run --name=prometheus -d -p 9090:9090 \
+    -v ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml \
+    --link fnserver prom/prometheus
 ```
-Note: The parameter `` --add-host="localhost:`route | grep default | awk '{print $2}'`" `` means that Prometheus can use localhost to refer to the host. (The expression `` `route | grep default | awk '{print $2}'` ``  returns the IP of the host).
+Note: The parameter `--link fnserver` means that Prometheus can use `fnserver` to refer to the running Fn server. This requires the Fn server to be running in docker.
 
 Open a browser on Prometheus's graph tool at [http://localhost:9090/graph](http://localhost:9090/graph). If you wish you can use this to view metrics and display metrics from the Fn server: see the [Prometheus](https://prometheus.io/) documentation for instructions. Alternatively continue with the next step to view a ready-made set of graphs in Grafana.
 
@@ -74,7 +77,7 @@ Open a terminal window and navigate to the directory containing this example.
 Start Grafana on port 3000:
 ```
 docker run --name=grafana -d -p 3000:3000 \
-  --add-host="localhost:`route | grep default | awk '{print $2}'`" grafana/grafana
+  --link fnserver --link prometheus grafana/grafana
 ```
 
 Open a browser on Grafana at [http://localhost:3000](http://localhost:3000).
@@ -85,8 +88,8 @@ Create a datasource to obtain metrics from Promethesus:
 * Click on **Add data source**. In the form that opens:
 * Set **Name** to `PromDS` (or whatever name you choose)
 * Set **Type** to `Prometheus`
-* Set **URL** to `http://localhost:9090` 
-* Set **Access** to `proxy`
+* Set **URL** to `http://prometheus:9090` 
+* Set **Access** to `direct`
 * Click **Add** and then **Save and test**
 
 Import the example dashboard that displays metrics from the Fn server:
@@ -109,4 +112,27 @@ A second example dashboard `fn_grafana_dashboard2.json` in this example's direct
 In the following screenshot, the "Choose spans to display rates" dropdown has been used to select `agent_submit` and `serve_http`, and the "Choose spans to display durations" dropdown, has been used to select `agent_cold_exec`, `agent_get_slot`, `agent_submit`, `docker_create_container`, `docker_start_container` and `docker_wait_container`. 
 
 <img src="../../docs/assets/GrafanaDashboard2.png" width="100%">
+
+## Docker statistics
+
+During the execution of the docker container, a selected number of statistics from docker are available as Prometheus metrics. The available metrics are listed in the following table:
+
+| Prometheus metric name |
+| ------------- |
+| `fn_docker_stats_cpu_kernel` |
+| `fn_docker_stats_cpu_kernel`  |
+| `fn_docker_stats_cpu_user` |
+| `fn_docker_stats_disk_read` |
+| `fn_docker_stats_disk_write` |
+| `fn_docker_stats_mem_limit` |
+| `fn_docker_stats_mem_usage` |
+| `fn_docker_stats_net_rx` |
+| `fn_docker_stats_net_tx` |
+ 
+ Note that if the container runs for a very short length of time there may be insufficient time to obtain statistics before the container terminates.
+ 
+An example dashboard `fn_grafana_dashboard3.json` in this example's directory displays the available docker statistics. Use the dropdown lists at the top of the dashboard to choose which metrics to examine.
+
+<img src="../../docs/assets/GrafanaDashboard3.png" width="100%">
+
  

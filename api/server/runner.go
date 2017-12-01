@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"path"
 	"strings"
@@ -41,6 +40,16 @@ func (s *Server) handleRequest(c *gin.Context) {
 
 }
 
+// convert gin.Params to agent.Params to avoid introducing gin
+// dependency to agent
+func parseParams(params gin.Params) agent.Params {
+	out := make(agent.Params, 0, len(params))
+	for _, val := range params {
+		out = append(out, agent.Param{Key: val.Key, Value: val.Value})
+	}
+	return out
+}
+
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
 func (s *Server) serve(c *gin.Context, appName, path string) {
@@ -48,7 +57,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	// strip params, etc.
 	call, err := s.Agent.GetCall(
 		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(appName, path, c.Request),
+		agent.FromRequest(appName, path, c.Request, parseParams(c.Params)),
 	)
 	if err != nil {
 		handleErrorResponse(c, err)
@@ -90,12 +99,10 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little
-		if err == context.DeadlineExceeded {
+		if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
 			// TODO maneuver
 			// add this, since it means that start may not have been called [and it's relevant]
 			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
-
-			err = models.ErrCallTimeout // 504 w/ friendly note
 		}
 		// NOTE: if the task wrote the headers already then this will fail to write
 		// a 5xx (and log about it to us) -- that's fine (nice, even!)

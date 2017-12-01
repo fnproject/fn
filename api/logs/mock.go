@@ -1,52 +1,30 @@
 package logs
 
 import (
-	"bytes"
 	"context"
 	"io"
 
 	"github.com/fnproject/fn/api/models"
-	"github.com/pkg/errors"
 )
 
 type mock struct {
-	Logs map[string]*models.CallLog
-	ds   models.Datastore
+	Logs map[string]io.Reader
 }
 
 func NewMock() models.LogStore {
-	return NewMockInit(nil)
-}
-
-func NewMockInit(logs map[string]*models.CallLog) models.LogStore {
-	if logs == nil {
-		logs = map[string]*models.CallLog{}
-	}
-	fnl := &mock{logs, nil}
-	return fnl
-}
-
-func (m *mock) SetDatastore(ctx context.Context, ds models.Datastore) {
-	m.ds = ds
+	return &mock{make(map[string]io.Reader)}
 }
 
 func (m *mock) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
-	var b bytes.Buffer
-	io.Copy(&b, callLog)
-	m.Logs[callID] = &models.CallLog{CallID: callID, Log: b.String()}
+	m.Logs[callID] = callLog
 	return nil
 }
 
-func (m *mock) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
+func (m *mock) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
 	logEntry := m.Logs[callID]
 	if logEntry == nil {
-		return nil, errors.New("Call log not found")
+		return nil, models.ErrCallLogNotFound
 	}
 
-	return m.Logs[callID], nil
-}
-
-func (m *mock) DeleteLog(ctx context.Context, appName, callID string) error {
-	delete(m.Logs, callID)
-	return nil
+	return logEntry, nil
 }

@@ -65,6 +65,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	id varchar(256) NOT NULL,
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
+	stats text,
+	error text,
 	PRIMARY KEY (id)
 );`,
 
@@ -77,7 +79,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 const (
 	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at FROM routes`
-	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path FROM calls`
+	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, stats, error FROM calls`
 )
 
 type sqlStore struct {
@@ -585,7 +587,9 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		completed_at,
 		status,
 		app_name,
-		path
+		path,
+		stats,
+		error
 	)
 	VALUES (
 		:id,
@@ -594,7 +598,9 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		:completed_at,
 		:status,
 		:app_name,
-		:path
+		:path,
+		:stats,
+		:error
 	);`)
 
 	_, err := ds.db.NamedExecContext(ctx, query, call)
@@ -660,7 +666,7 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID string, logR 
 	return err
 }
 
-func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (*models.CallLog, error) {
+func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
 	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_name=?`)
 	row := ds.db.QueryRowContext(ctx, query, callID, appName)
 
@@ -673,17 +679,7 @@ func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (*models
 		return nil, err
 	}
 
-	return &models.CallLog{
-		CallID:  callID,
-		Log:     log,
-		AppName: appName,
-	}, nil
-}
-
-func (ds *sqlStore) DeleteLog(ctx context.Context, appName, callID string) error {
-	query := ds.db.Rebind(`DELETE FROM logs WHERE id=? AND app_name=?`)
-	_, err := ds.db.ExecContext(ctx, query, callID, appName)
-	return err
+	return strings.NewReader(log), nil
 }
 
 func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {

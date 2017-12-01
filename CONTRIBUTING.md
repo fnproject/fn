@@ -52,6 +52,8 @@ asking for suggestions on how to address the documentation part.
 
 ### Build
 
+Use go 1.9.1 or newer.
+
 The first time after you fork or after dependencies get updated, run:
 
 ```sh

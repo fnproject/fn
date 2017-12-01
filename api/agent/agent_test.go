@@ -49,7 +49,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(ds, new(mqs.Mock))
+	a := New(ds, ds, new(mqs.Mock))
 	defer a.Close()
 
 	w := httptest.NewRecorder()
@@ -68,9 +68,14 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("Content-Length", contentLength)
 	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
+	// let's assume we got there params from the URL
+	params := make(Params, 0, 2)
+	params = append(params, Param{Key: "YOGURT", Value: "garlic"})
+	params = append(params, Param{Key: "LEGUME", Value: "garbanzo"})
+
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(appName, path, req),
+		FromRequest(appName, path, req, params),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +150,11 @@ func TestCallConfigurationRequest(t *testing.T) {
 	expectedEnv["FN_CALL_ID"] = model.ID
 	expectedEnv["FN_METHOD"] = method
 	expectedEnv["FN_REQUEST_URL"] = url
+
+	// add expected parameters from URL
+	for _, val := range params {
+		expectedEnv[fmt.Sprintf("FN_PARAM_%s", val.Key)] = val.Value
+	}
 
 	// do this before the "real" headers get sucked in cuz they are formatted differently
 	expectedHeaders := make(http.Header)
@@ -237,7 +247,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(ds, new(mqs.Mock))
+	a := New(ds, ds, new(mqs.Mock))
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -299,4 +309,68 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 	logger.Close() // idk maybe this would panic might as well call this
 
 	// TODO we could check for the toilet to flush here to logrus
+}
+
+func TestSubmitError(t *testing.T) {
+	appName := "myapp"
+	path := "/error"
+	image := "fnproject/error"
+	const timeout = 10
+	const idleTimeout = 20
+	const memory = 256
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+	payload := "payload"
+	typ := "sync"
+	format := "default"
+	env := map[string]string{
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
+	}
+
+	cm := &models.Call{
+		BaseEnv:     env,
+		EnvVars:     env,
+		AppName:     appName,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	a := New(ds, ds, new(mqs.Mock))
+	defer a.Close()
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err == nil {
+		t.Fatal("expected error but got none")
+	}
+
+	if cm.Status != "error" {
+		t.Fatal("expected status to be set to 'error' but was", cm.Status)
+	}
+
+	if cm.Error == "" {
+		t.Fatal("expected error string to be set on call")
+	}
 }

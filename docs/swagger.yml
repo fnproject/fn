@@ -391,34 +391,6 @@ paths:
           description: Log not found.
           schema:
             $ref: '#/definitions/Error'
-    delete:
-      summary: Delete call log entry
-      description: Delete call log entry
-      tags:
-         - Call
-         - Log
-      parameters:
-        - name: call
-          description: Call ID.
-          required: true
-          type: string
-          in: path
-        - name: app
-          description: App name.
-          required: true
-          type: string
-          in: path
-      responses:
-        202:
-          description: Log delete request accepted
-        404:
-          description: Does not exist.
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
 
   /apps/{app}/calls/{call}:
     get:
@@ -674,6 +646,10 @@ definitions:
         type: string
         description: Call execution status.
         readOnly: true
+      error:
+        type: string
+        description: Call execution error, if status is 'error'.
+        readOnly: true
       app_name:
         type: string
         description: App name that is assigned to a route that is being executed.
@@ -697,6 +673,49 @@ definitions:
         format: date-time
         description: Time when call completed, whether it was successul or failed. Always in UTC.
         readOnly: true
+      stats:
+        type: array
+        items:
+          $ref: '#/definitions/Stat'
+        description: A histogram of stats for a call, each is a snapshot of a calls state at the timestamp.
+        readOnly: true
+
+  Stat:
+    type: object
+    properties:
+      timestamp:
+        type: string
+        format: date-time
+      metrics:
+        type: object
+        properties:
+          net_rx:
+            type: integer
+            format: int64
+          net_tx:
+            type: integer
+            format: int64
+          mem_limit:
+            type: integer
+            format: int64
+          mem_usage:
+            type: integer
+            format: int64
+          disk_read:
+            type: integer
+            format: int64
+          disk_write:
+            type: integer
+            format: int64
+          cpu_user:
+            type: integer
+            format: int64
+          cpu_total:
+            type: integer
+            format: int64
+          cpu_kernel:
+            type: integer
+            format: int64
 
   ErrorBody:
     type: object

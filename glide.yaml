@@ -56,12 +56,12 @@ import:
 - package: github.com/docker/docker
   version: cdf870bd0b5fa678b10ef2708cca7ad776b4913c
 - package: github.com/pkg/errors
-- package: github.com/spf13/viper
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
 - package: github.com/jmoiron/sqlx
 - package: github.com/mattn/go-sqlite3
+- package: github.com/minio/minio-go
 - package: github.com/opentracing/opentracing-go
 - package: github.com/openzipkin/zipkin-go-opentracing
 - package: github.com/opencontainers/go-digest

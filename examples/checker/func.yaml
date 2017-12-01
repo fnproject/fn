@@ -1,4 +1,0 @@
-name: username/func-checker
-version: 0.0.1
-entrypoint: ruby function.rb
-runtime: ruby

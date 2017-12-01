@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/go-openapi/strfmt"
 )
 
@@ -129,6 +130,13 @@ type Call struct {
 
 	// Time when call started execution. Always in UTC.
 	StartedAt strfmt.DateTime `json:"started_at,omitempty" db:"started_at"`
+
+	// Stats is a list of metrics from this call's execution, possibly empty.
+	Stats drivers.Stats `json:"stats,omitempty" db:"stats"`
+
+	// Error is the reason why the call failed, it is only non-empty if
+	// status is equal to "error".
+	Error string `json:"error,omitempty" db:"error"`
 }
 
 type CallFilter struct {

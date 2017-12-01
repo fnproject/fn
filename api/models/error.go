@@ -20,6 +20,10 @@ var (
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
+	ErrCallTimeoutServerBusy = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("Timed out - server too busy"),
+	}
 	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),
@@ -154,7 +158,7 @@ var (
 	}
 	ErrRoutesInvalidMemory = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", MaxMemory),
+		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", RouteMaxMemory),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,

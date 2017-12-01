@@ -3,6 +3,8 @@ package drivers
 import (
 	"testing"
 	"time"
+
+	"github.com/go-openapi/strfmt"
 )
 
 func TestAverage(t *testing.T) {
@@ -10,7 +12,7 @@ func TestAverage(t *testing.T) {
 	stats := make([]Stat, 10)
 	for i := 0; i < len(stats); i++ {
 		stats[i] = Stat{
-			Timestamp: start.Add(time.Duration(i) * time.Minute),
+			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Minute)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -26,7 +28,7 @@ func TestAverage(t *testing.T) {
 	}
 
 	expectedT := time.Unix(1470873870, 0)
-	if res.Timestamp != expectedT {
+	if time.Time(res.Timestamp) != expectedT {
 		t.Error("Actual average didn't match expected", "actual", res.Timestamp, "expected", expectedT)
 	}
 }
@@ -36,10 +38,9 @@ func TestDecimate(t *testing.T) {
 	stats := make([]Stat, 480)
 	for i := range stats {
 		stats[i] = Stat{
-			Timestamp: start.Add(time.Duration(i) * time.Second),
+			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
-		//		t.Log(stats[i])
 	}
 
 	stats = Decimate(240, stats)
@@ -54,7 +55,7 @@ func TestDecimate(t *testing.T) {
 	stats = make([]Stat, 700)
 	for i := range stats {
 		stats[i] = Stat{
-			Timestamp: start.Add(time.Duration(i) * time.Second),
+			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -66,7 +67,7 @@ func TestDecimate(t *testing.T) {
 	stats = make([]Stat, 300)
 	for i := range stats {
 		stats[i] = Stat{
-			Timestamp: start.Add(time.Duration(i) * time.Second),
+			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -82,7 +83,7 @@ func TestDecimate(t *testing.T) {
 			start = start.Add(20 * time.Minute)
 		}
 		stats[i] = Stat{
-			Timestamp: start.Add(time.Duration(i) * time.Second),
+			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}

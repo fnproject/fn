@@ -20,9 +20,11 @@ The format is still up for discussion and in order to move forward and remain fl
 
 TODO: Put common env vars here, that show up in all formats.
 
-#### Default I/O Format
+### Default I/O Format
 
 The default format is simply the request body itself plus some environment variables. For instance, if someone were to post a JSON body, the unmodified body would be sent in via STDIN. The result comes via STDOUT. When task is done, pipes are closed and the container running the function is terminated.
+
+#### Pros/Cons
 
 Pros:
 
@@ -32,13 +34,13 @@ Cons:
 
 * Not very efficient resource utilization - one function for one event.
 
-#### HTTP I/O Format
+### HTTP I/O Format
 
-`--format http`
+`format: http`
 
 HTTP format could be a good option as it is in very common use obviously, most languages have some semi-easy way to parse it, and it supports hot format. The response will look like a HTTP response. The communication is still done via stdin/stdout, but these pipes are never closed unless the container is explicitly terminated. The basic format is:
 
-Request:
+#### Request
 
 ```text
 GET / HTTP/1.1
@@ -47,7 +49,7 @@ Content-Length: 5
 world
 ```
 
-Response:
+#### Response
 
 ```text
 HTTP/1.1 200 OK
@@ -60,6 +62,8 @@ The header keys and values would be populated with information about the functio
 
 `Content-Length` is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory both for input and output. It is used by Functions to know when stop writing to STDIN and reading from STDOUT.
 
+#### Pros/Cons
+
 Pros:
 
 * Supports streaming
@@ -70,11 +74,13 @@ Cons:
 * Requires a parsing library or fair amount of code to parse headers properly
 * Double parsing - headers + body (if body is to be parsed, such as json)
 
-#### JSON I/O Format
+### JSON I/O Format
 
-`--format json`
+`format: json`
 
-Fn accepts request data of the following format:
+The JSON format is a nice hot format as it is easy to parse in most languages.
+
+If a request comes in like this:
 
 ```json
 {
@@ -82,28 +88,62 @@ Fn accepts request data of the following format:
 }
 ```
 
-Internally function receives data in following format:
+#### Input
+
+Internally functions receive data in the example format below:
 
 ```json
 {
-  "body": "{\"some\":\"input\"}\n",
-  "headers": {
-    "yo": ["dawg"]
+  "call_id": "123",
+  "content_type": "application/json",
+  "body": "{\"some\":\"input\"}",
+  "protocol": {
+    "type": "http",
+    "request_url": "http://localhost:8080/r/myapp/myfunc?q=hi",
+    "headers": {
+      "Content-Type": ["application/json"],
+      "Other-Header": ["something"]
+    }
   }
+}
+BLANK LINE
+{ 
+  NEXT INPUT OBJECT
 }
 ```
 
-Function's output format should have following format:
+* call_id - the unique ID for the call.
+* content_type - format of the `body` parameter.
+* protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
+
+Each request will be separated by a blank line.
+
+#### Output
+
+Function's output format should have the following format:
+
 ```json
 {
-  "status_code": 200,
-  "body": "...",
-  "headeres": {
-    "A": ["b"]
+  "body": "{\"some\":\"output\"}",
+  "content_type": "application/json",
+  "protocol": {
+    "status_code": 200,
+    "headers": {
+      "Other-Header": ["something"]
+    }
   }
 }
+BLANK LINE
+{
+  NEXT OUTPUT OBJECT
+}
 ```
-At client side user will receive HTTP response with HTTP headers, status code and the body from taken from function's response.
+
+* body - required - the response body.
+* content_type - optional - format of `body`. Default is application/json.
+* protocol - optional - protocol specific response options. Entirely optional. Contents defined by each protocol.
+
+#### Pros/Cons
 
 Pros:
 
@@ -114,13 +154,7 @@ Cons:
 
 * Not streamable
 
-## Output
-
-### Output back to client
-
-Typically JSON is the output format and is the default output, but any format can be used.
-
-### Logging
+## Logging
 
 Standard error is reserved for logging, like it was meant to be. Anything you output to STDERR will show up in the logs. And if you use a log
 collector like logspout, you can collect those logs in a central location. See [logging](logging.md).

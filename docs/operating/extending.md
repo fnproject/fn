@@ -30,8 +30,8 @@ package main
 import (
     "context"
 
-    "github.com/fnproject/functions/api/server"
-    "github.com/fnproject/functions/api/models"
+    "github.com/fnproject/fn/api/server"
+    "github.com/fnproject/fn/api/models"
 )
 
 type myCustomListener struct{}

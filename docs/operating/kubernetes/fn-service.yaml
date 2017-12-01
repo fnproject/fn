@@ -1,17 +1,23 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: fn
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fn-service-config
-  namespace: default
+  namespace: fn
 data:
-  MQ_URL: redis://fn-redis-master.default
-  DB_URL: mysql://root:fnsecretpassword@tcp(fn-mysql-master:3306)/fn
-  API_URL: http://fn-service:8080
+  FN_MQ_URL: redis://fn-redis-master.fn
+  FN_DB_URL: mysql://root:fnsecretpassword@tcp(fn-mysql-master.fn:3306)/fn
+  FN_API_URL: http://fn-service.fn:8080
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: fn-service
+  namespace: fn
   labels:
     app: fn
     role: fn-service
@@ -21,9 +27,6 @@ spec:
   - name: fn-service
     port: 8080
     targetPort: 8080
-  - name: fn-ui
-    port: 80
-    targetPort: 80
   selector:
     app: fn
     role: fn-service
@@ -32,6 +35,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: fn-service
+  namespace: fn
 spec:
   updateStrategy:
     type: RollingUpdate
@@ -46,22 +50,57 @@ spec:
     spec:
       containers:
       - name: fn-service
-        image: fnproject/functions:latest
+        image: fnproject/fnserver:latest
         securityContext:
           privileged: true
         ports:
         - containerPort: 8080
         env:
-        - name: MQ_URL
+        - name: FN_MQ_URL
           valueFrom:
             configMapKeyRef:
               name: fn-service-config
-              key: MQ_URL
-        - name: DB_URL
+              key: FN_MQ_URL
+        - name: FN_DB_URL
           valueFrom:
             configMapKeyRef:
               name: fn-service-config
-              key: DB_URL
+              key: FN_DB_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-ui
+  namespace: fn
+  labels:
+    app: fn
+    role: fn-ui
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: fn
+    role: fn-ui
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fn-ui
+  namespace: fn
+  labels:
+    app: fn
+    role: fn-ui
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fn
+        role: fn-ui
+    spec:
+      containers:
       - name: fn-ui
         image: fnproject/ui:latest
         ports:
@@ -69,16 +108,17 @@ spec:
         env:
         - name: PORT
           value: "80"
-        - name: API_URL
+        - name: FN_API_URL
           valueFrom:
             configMapKeyRef:
               name: fn-service-config
-              key: API_URL
+              key: FN_API_URL
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: fn-mysql-master
+  namespace: fn
   labels:
     app: mysql
     role: datastore
@@ -94,6 +134,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: fn-mysql-master
+  namespace: fn
 spec:
   replicas: 1
   template:
@@ -120,6 +161,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fn-redis-master
+  namespace: fn
   labels:
     app: redis
     role: mq
@@ -135,6 +177,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: fn-redis-master
+  namespace: fn
 spec:
   replicas: 1
   template:

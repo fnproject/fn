@@ -10,11 +10,13 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
@@ -270,17 +272,6 @@ func dockerMsg(derr *docker.Error) string {
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
-	timeout := task.Timeout()
-
-	var cancel context.CancelFunc
-	if timeout <= 0 {
-		ctx, cancel = context.WithCancel(ctx)
-	} else {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-	}
-	defer cancel() // do this so that after Run exits, collect stops
-	go drv.collectStats(ctx, container, task)
-
 	mwOut, mwErr := task.Logger()
 
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
@@ -292,6 +283,11 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
+	// we want to stop trying to collect stats when the container exits
+	// collectStats will stop when stopSignal is closed or ctx is cancelled
+	stopSignal := make(chan struct{})
+	go drv.collectStats(ctx, stopSignal, container, task)
+
 	err = drv.startTask(ctx, container)
 	if err != nil && ctx.Err() == nil {
 		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
@@ -302,22 +298,27 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		container: container,
 		waiter:    waiter,
 		drv:       drv,
+		done:      stopSignal,
 	}, nil
 }
 
-// implements drivers.WaitResult
+// waitResult implements drivers.WaitResult
 type waitResult struct {
 	container string
 	waiter    docker.CloseWaiter
 	drv       *DockerDriver
+	done      chan struct{}
 }
 
+// waitResult implements drivers.WaitResult
 func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	defer func() {
 		w.waiter.Close()
-		w.waiter.Wait() // make sure we gather all logs
+		w.waiter.Wait() // wait for Close() to finish processing, to make sure we gather all logs
+		close(w.done)
 	}()
 
+	// wait until container is stopped (or ctx is cancelled if sooner)
 	status, err := w.drv.wait(ctx, w.container)
 	return &runResult{
 		status: status,
@@ -325,10 +326,17 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	}, nil
 }
 
-func (drv *DockerDriver) collectStats(ctx context.Context, container string, task drivers.ContainerTask) {
+// Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
+func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan struct{}, container string, task drivers.ContainerTask) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_collect_stats")
+	defer span.Finish()
+
 	log := common.Logger(ctx)
-	done := make(chan bool)
-	defer close(done)
+
+	// dockerCallDone is used to cancel the call to drv.docker.Stats when this method exits
+	dockerCallDone := make(chan bool)
+	defer close(dockerCallDone)
+
 	dstats := make(chan *docker.Stats, 1)
 	go func() {
 		// NOTE: docker automatically streams every 1s. we can skip or avg samples if we'd like but
@@ -339,7 +347,7 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 			ID:     container,
 			Stats:  dstats,
 			Stream: true,
-			Done:   done, // A flag that enables stopping the stats operation
+			Done:   dockerCallDone, // A flag that enables stopping the stats operation
 		})
 
 		if err != nil && err != io.ErrClosedPipe {
@@ -347,15 +355,21 @@ func (drv *DockerDriver) collectStats(ctx context.Context, container string, tas
 		}
 	}()
 
+	// collect stats until context is done (i.e. until the container is terminated)
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-stopSignal:
 			return
 		case ds, ok := <-dstats:
 			if !ok {
 				return
 			}
-			task.WriteStat(cherryPick(ds))
+			stats := cherryPick(ds)
+			if !time.Time(stats.Timestamp).IsZero() {
+				task.WriteStat(ctx, stats)
+			}
 		}
 	}
 }
@@ -391,7 +405,7 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 	}
 
 	return drivers.Stat{
-		Timestamp: ds.Read,
+		Timestamp: strfmt.DateTime(ds.Read),
 		Metrics: map[string]uint64{
 			// source: https://godoc.org/github.com/fsouza/go-dockerclient#Stats
 			// ex (for future expansion): {"read":"2016-08-03T18:08:05Z","pids_stats":{},"network":{},"networks":{"eth0":{"rx_bytes":508,"tx_packets":6,"rx_packets":6,"tx_bytes":508}},"memory_stats":{"stats":{"cache":16384,"pgpgout":281,"rss":8826880,"pgpgin":2440,"total_rss":8826880,"hierarchical_memory_limit":536870912,"total_pgfault":3809,"active_anon":8843264,"total_active_anon":8843264,"total_pgpgout":281,"total_cache":16384,"pgfault":3809,"total_pgpgin":2440},"max_usage":8953856,"usage":8953856,"limit":536870912},"blkio_stats":{"io_service_bytes_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}],"io_serviced_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}]},"cpu_stats":{"cpu_usage":{"percpu_usage":[47641874],"usage_in_usermode":30000000,"total_usage":47641874},"system_cpu_usage":8880800500000000,"throttling_data":{}},"precpu_stats":{"cpu_usage":{"percpu_usage":[44946186],"usage_in_usermode":30000000,"total_usage":44946186},"system_cpu_usage":8880799510000000,"throttling_data":{}}}
@@ -426,6 +440,35 @@ func (drv *DockerDriver) startTask(ctx context.Context, container string) error 
 		} else {
 			return err
 		}
+	}
+
+	// see if there's any healthcheck, and if so, wait for it to complete
+	return drv.awaitHealthcheck(ctx, container)
+}
+
+func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string) error {
+	// inspect the container and check if there is any health check presented,
+	// if there is, then wait for it to move to healthy before returning.
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		cont, err := drv.docker.InspectContainerWithContext(container, ctx)
+		if err != nil {
+			// TODO unknown fiddling to be had
+			return err
+		}
+
+		// if no health check for this image (""), or it's healthy, then stop waiting.
+		// state machine is "starting" -> "healthy" | "unhealthy"
+		if cont.State.Health.Status == "" || cont.State.Health.Status == "healthy" {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond) // avoid spin loop in case docker is actually fast
 	}
 	return nil
 }

@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "4.5.2"
+      "version": "4.6.2"
     },
     {
       "type": "panel",
@@ -36,7 +36,17 @@
     }
   ],
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
   "editable": true,
   "gnetId": null,
@@ -44,7 +54,7 @@
   "hideControls": false,
   "id": null,
   "links": [],
-  "refresh": false,
+  "refresh": "30s",
   "rows": [
     {
       "collapse": false,
@@ -721,6 +731,7 @@
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
+          "seriesOverrides": [],
           "spaceLength": 10,
           "span": 3,
           "stack": false,
@@ -731,7 +742,7 @@
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "{{path}}",
+              "legendFormat": "{{app}} {{path}}",
               "refId": "A",
               "step": 1
             }
@@ -814,7 +825,7 @@
               "expr": "fn_api_running",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{path}}",
+              "legendFormat": "{{app}} {{path}}",
               "refId": "A",
               "step": 2
             }
@@ -896,7 +907,7 @@
               "expr": "fn_api_completed",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{path}}",
+              "legendFormat": "{{app}} {{path}}",
               "refId": "A",
               "step": 2
             }
@@ -978,7 +989,7 @@
               "expr": "fn_api_failed",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{path}}",
+              "legendFormat": "{{app}} {{path}}",
               "refId": "A",
               "step": 2
             }
@@ -1065,5 +1076,5 @@
   },
   "timezone": "",
   "title": "Fn usage",
-  "version": 1
+  "version": 5
 }
