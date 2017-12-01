@@ -8,10 +8,10 @@ platform that you can run anywhere. Some of it's key features:
 
 * Open Source
 * Native Docker: use any Docker container as your Function
-* Supports all languages even AWS [Lambda format](docs/lambda/README.md)
+* Supports all languages
 * Run anywhere
   * Public, private and hybrid cloud
-  * [Import functions directly from Lambda](docs/lambda/import.md) and run them wherever you want
+  * Import Lambda functions and run them anywhere
 * Easy to use for developers
 * Easy to manage for operators
 * Written in Go
