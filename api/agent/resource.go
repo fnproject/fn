@@ -154,8 +154,8 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, i
 	return ch
 }
 
-// WaitAsyncResource will send a signal on the returned channel when at least half of
-// the available RAM on this machine is free.
+// WaitAsyncResource will send a signal on the returned channel when RAM in-use
+// in the async area is less than high water mark
 func (a *resourceTracker) WaitAsyncResource() chan struct{} {
 	ch := make(chan struct{})
 
