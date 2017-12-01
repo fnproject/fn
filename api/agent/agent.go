@@ -201,12 +201,12 @@ func (a *agent) Submit(callI Call) error {
 	span.SetBaggageItem("fn_path", callI.Model().Path)
 	defer span.Finish()
 	
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit_app")
-	span.SetBaggageItem("fn_appname", callI.Model().AppName)
-	defer span.Finish()
+	span_app,_ := opentracing.StartSpanFromContext(ctx, "agent_submit_app")
+	span_app.SetBaggageItem("fn_appname", callI.Model().AppName)
+	defer span_app.Finish()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit_global")
-	defer span.Finish()
+	span_global, _ := opentracing.StartSpanFromContext(ctx, "agent_submit_global")
+	defer span_global.Finish()
 
 	// start the timer STAT! TODO add some wiggle room
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
