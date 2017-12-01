@@ -5,21 +5,12 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
 func init() {
-	var err error
-	currDir, err = os.Getwd()
-	if err != nil {
-		logrus.WithError(err).Fatalln("")
-	}
-	// Replace forward slashes in case this is windows, URL parser errors
-	currDir = strings.Replace(currDir, "\\", "/", -1)
-
 	logLevel, err := logrus.ParseLevel(getEnv(EnvLogLevel, DefaultLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")
@@ -30,6 +21,11 @@ func init() {
 	if logLevel == logrus.DebugLevel {
 		gin.SetMode(gin.DebugMode)
 	}
+
+	// do this in init so that it's only run once & before server.New() which may
+	// start things that use spans, which are global.
+	// TODO there's not a great reason that our fn spans don't work w/ noop spans, should fix this really.
+	setupTracer(getEnv(EnvZipkinURL, ""))
 }
 
 func getEnv(key, fallback string) string {
