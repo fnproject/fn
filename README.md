@@ -32,7 +32,7 @@ The command line tool isn't required, but it sure makes things a lot easier. The
 
 #### 1. Homebrew - MacOS
 
-If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you: 
+If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you:
 
 ```sh
 brew install fn
@@ -62,7 +62,8 @@ fn start
 
 This will start Fn in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
- 
+If you are on a Linux system where the SELinux security policy is set to "Enforcing", such as OEL7.x, check
+[here](docs/operating/selinux.md).
 
 ### Your First Function
 
