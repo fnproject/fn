@@ -330,7 +330,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	fmt.Println(runHeader)
 	fmt.Printf("        v%s\n\n", version.Version)
 
-	logrus.WithField("type", s.nodeType).Infof("Serving Functions API on address `%s`", listen)
+	logrus.WithField("type", s.nodeType).Infof("Serving Functions %s API on address `%s`", s.nodeType, listen)
 
 	server := http.Server{
 		Addr:    listen,
