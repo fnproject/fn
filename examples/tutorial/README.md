@@ -1,7 +1,7 @@
 
 # Getting Started Series
 
-Welcome to the Fn Getting Started Series, the best way to get started with Fn and serverless computing. Use the following links, to introduce the key features of Fn.
+Welcome to the Fn Getting Started Series, the best way to get started with Fn and serverless computing.
 
 
 ## Hello World Examples

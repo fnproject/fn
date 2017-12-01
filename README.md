@@ -6,25 +6,27 @@
 Fn is an event-driven, open source, [functions-as-a-service](docs/serverless.md) compute
 platform that you can run anywhere. Some of it's key features:
 
-* Write once
-  * [Any language](docs/faq.md#which-languages-are-supported)
-  * [AWS Lambda format supported](docs/lambda/README.md)
-* [Run anywhere](docs/faq.md#where-can-i-run-functions)
+* Open Source
+* Native Docker: use any Docker container as your Function
+* Supports all languages even AWS [Lambda format](docs/lambda/README.md)
+* Run anywhere
   * Public, private and hybrid cloud
   * [Import functions directly from Lambda](docs/lambda/import.md) and run them wherever you want
-* Easy to use [for developers](docs/README.md#for-developers)
-* Easy to manage [for operators](docs/README.md#for-operators)
-* Written in [Go](https://golang.org)
+* Easy to use for developers
+* Easy to manage for operators
+* Written in Go
 * Simple yet powerful extensibility
 
+The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](docs/README.md), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml), or his us up in our [Slack Community](http://slack.fnproject.io)!
 
-## Prequisites
+
+## Quickstart
+
+### Pre-requisites
 
 * Docker 17.05 or later installed and running
 * A Docker Hub account ([Docker Hub](https://hub.docker.com/)) (or other Docker-compliant registry)
 * Log Docker into your Docker Hub account: `docker login`
-
-## Quickstart
 
 ### Install CLI tool
 
@@ -129,8 +131,8 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 
 ## Learn More
 
-* Visit [Fn tutorials](https://github.com/fnproject/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced. 
 * With our [Fn Getting Started Series](examples/tutorial/), quickly create Fn Hello World applications in multiple languages. This is a great Fn place to start!
+* Visit [Fn tutorials](https://github.com/fnproject/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced. 
 * See our [full documentation](docs/README.md)
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
