@@ -29,3 +29,15 @@ type ApiAppHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.
 func (f ApiAppHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App) {
 	f(w, r, app)
 }
+
+type ApiRouteHandler interface {
+	// Handle(ctx context.Context)
+	ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
+}
+
+type ApiRouteHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
+
+// ServeHTTP calls f(w, r).
+func (f ApiRouteHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route) {
+	f(w, r, app, route)
+}
