@@ -19,6 +19,7 @@ import (
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
 type ResourceTracker interface {
+	WaitAsyncResource() chan struct{}
 	// returns a closed channel if the resource can never me met.
 	GetResourceToken(ctx context.Context, memory uint64, isAsync bool) <-chan ResourceToken
 }
@@ -34,6 +35,8 @@ type resourceTracker struct {
 	ramAsyncTotal uint64
 	// ramAsyncUsed is ram reserved for running async + sync containers including hot/idle
 	ramAsyncUsed uint64
+	// memory in use for async area in which agent stops dequeuing async jobs
+	ramAsyncHWMark uint64
 }
 
 func NewResourceTracker() ResourceTracker {
@@ -151,6 +154,25 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, i
 	return ch
 }
 
+// WaitAsyncResource will send a signal on the returned channel when at least half of
+// the available RAM on this machine is free.
+func (a *resourceTracker) WaitAsyncResource() chan struct{} {
+	ch := make(chan struct{})
+
+	c := a.cond
+	go func() {
+		c.L.Lock()
+		for a.ramSyncUsed >= a.ramAsyncHWMark {
+			c.Wait()
+		}
+		c.L.Unlock()
+		ch <- struct{}{}
+		// TODO this could leak forever (only in shutdown, blech)
+	}()
+
+	return ch
+}
+
 func minUint64(a, b uint64) uint64 {
 	if a <= b {
 		return a
@@ -173,7 +195,7 @@ func clampUint64(val, min, max uint64) uint64 {
 
 func (a *resourceTracker) initializeMemory() {
 
-	var maxSyncMemory, maxAsyncMemory uint64
+	var maxSyncMemory, maxAsyncMemory, ramAsyncHWMark uint64
 
 	if runtime.GOOS == "linux" {
 
@@ -207,23 +229,27 @@ func (a *resourceTracker) initializeMemory() {
 		// %20 of ram for sync only reserve
 		maxSyncMemory = uint64(availMemory * 2 / 10)
 		maxAsyncMemory = availMemory - maxSyncMemory
+		ramAsyncHWMark = maxAsyncMemory * 8 / 10
 
 	} else {
 		// non-linux: assume 512MB sync only memory and 1.5GB async + sync memory
 		maxSyncMemory = 512 * 1024 * 1024
 		maxAsyncMemory = (1024 + 512) * 1024 * 1024
+		ramAsyncHWMark = 1024 * 1024 * 1024
 	}
 
 	// For non-linux OS, we expect these (or their defaults) properly configured from command-line/env
 	logrus.WithFields(logrus.Fields{
-		"ramSync":  maxSyncMemory,
-		"ramAsync": maxAsyncMemory,
+		"ramSync":        maxSyncMemory,
+		"ramAsync":       maxAsyncMemory,
+		"ramAsyncHWMark": ramAsyncHWMark,
 	}).Info("sync and async reservations")
 
 	if maxSyncMemory == 0 || maxAsyncMemory == 0 {
 		logrus.Fatal("Cannot get the proper memory pool information to size server")
 	}
 
+	a.ramAsyncHWMark = ramAsyncHWMark
 	a.ramSyncTotal = maxSyncMemory
 	a.ramAsyncTotal = maxAsyncMemory
 }

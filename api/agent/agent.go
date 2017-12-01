@@ -247,12 +247,6 @@ func (a *agent) Submit(callI Call) error {
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
 // a container will be locked up forever waiting for slot to free.
 func (a *agent) getSlot(ctx context.Context, call *call) (slot, error) {
-
-	// slot was already obtained before.
-	if call.slot != nil {
-		return call.slot, nil
-	}
-
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
