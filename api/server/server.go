@@ -12,6 +12,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
@@ -292,7 +293,7 @@ func extractFields(c *gin.Context) logrus.Fields {
 }
 
 func (s *Server) Start(ctx context.Context) {
-	newctx, cancel := contextWithSignal(ctx, os.Interrupt)
+	newctx, cancel := contextWithSignal(ctx, os.Interrupt, syscall.SIGTERM)
 	s.startGears(newctx, cancel)
 }
 
