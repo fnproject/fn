@@ -2,13 +2,12 @@ package server
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-
+	"github.com/fnproject/fn/api/fncommon"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
+	"strings"
 )
 
 func init() {
@@ -20,7 +19,7 @@ func init() {
 	// Replace forward slashes in case this is windows, URL parser errors
 	currDir = strings.Replace(currDir, "\\", "/", -1)
 
-	logLevel, err := logrus.ParseLevel(getEnv(EnvLogLevel, DefaultLogLevel))
+	logLevel, err := logrus.ParseLevel(fncommon.GetEnv(EnvLogLevel, DefaultLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")
 	}
@@ -30,26 +29,6 @@ func init() {
 	if logLevel == logrus.DebugLevel {
 		gin.SetMode(gin.DebugMode)
 	}
-}
-
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
-}
-
-func getEnvInt(key string, fallback int) int {
-	if value, ok := os.LookupEnv(key); ok {
-		// linter liked this better than if/else
-		var err error
-		var i int
-		if i, err = strconv.Atoi(value); err != nil {
-			panic(err) // not sure how to handle this
-		}
-		return i
-	}
-	return fallback
 }
 
 func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Context, context.CancelFunc) {
