@@ -37,6 +37,7 @@ const (
 	EnvMQURL     = "FN_MQ_URL"
 	EnvDBURL     = "FN_DB_URL"
 	EnvLOGDBURL  = "FN_LOGSTORE_URL"
+	EnvNodeType  = "FN_NODE_TYPE"
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
 	EnvZipkinURL = "FN_ZIPKIN_URL"
@@ -46,31 +47,52 @@ const (
 	DefaultPort     = 8080
 )
 
-type Server struct {
-	Router    *gin.Engine
-	Agent     agent.Agent
-	Datastore models.Datastore
-	MQ        models.MessageQueue
-	LogDB     models.LogStore
+type serverNodeType int32
 
+const (
+	nodeTypeFull serverNodeType = iota
+	nodeTypeAPI
+	nodeTypeRunner
+)
+
+type Server struct {
+	Router          *gin.Engine
+	Agent           agent.Agent
+	Datastore       models.Datastore
+	MQ              models.MessageQueue
+	LogDB           models.LogStore
+	nodeType        serverNodeType
 	appListeners    []fnext.AppListener
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 }
 
+func nodeTypeFromString(value string) serverNodeType {
+	switch value {
+	case "api":
+		return nodeTypeAPI
+	case "runner":
+		return nodeTypeRunner
+	default:
+		return nodeTypeFull
+	}
+}
+
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
+
 	return NewFromURLs(ctx,
 		getEnv(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)),
 		getEnv(EnvMQURL, fmt.Sprintf("bolt://%s/data/fn.mq", currDir)),
 		getEnv(EnvLOGDBURL, ""),
+		nodeTypeFromString(getEnv(EnvNodeType, "")),
 		opts...,
 	)
 }
 
 // Create a new server based on the string URLs for each service.
 // Sits in the middle of NewFromEnv and New
-func NewFromURLs(ctx context.Context, dbURL, mqURL, logstoreURL string, opts ...ServerOption) *Server {
+func NewFromURLs(ctx context.Context, dbURL, mqURL, logstoreURL string, nodeType serverNodeType, opts ...ServerOption) *Server {
 	ds, err := datastore.New(dbURL)
 	if err != nil {
 		logrus.WithError(err).Fatalln("Error initializing datastore.")
@@ -89,19 +111,29 @@ func NewFromURLs(ctx context.Context, dbURL, mqURL, logstoreURL string, opts ...
 		}
 	}
 
-	return New(ctx, ds, mq, logDB, opts...)
+	return New(ctx, ds, mq, logDB, nodeType, opts...)
 }
 
 // New creates a new Functions server with the passed in datastore, message queue and API URL
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, ls models.LogStore, opts ...ServerOption) *Server {
+func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, ls models.LogStore, nodeType serverNodeType, opts ...ServerOption) *Server {
 	setTracer()
 
+	startAsync := true
+
+	// Don't start the async agent processing on the API nodes
+	// Perhaps don't have an agent at all, but I want to check its
+	// responsibilities before making it optional
+	if nodeType == nodeTypeAPI {
+		startAsync = false
+	}
+
 	s := &Server{
-		Agent:     agent.New(cache.Wrap(ds), ls, mq), // only add datastore caching to agent
+		Agent:     agent.New(cache.Wrap(ds), ls, mq, startAsync), // only add datastore caching to agent
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
 		LogDB:     ls,
+		nodeType:  nodeType,
 	}
 
 	// NOTE: testServer() in tests doesn't use these
@@ -265,7 +297,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/stats", s.handleStats)
 	engine.GET("/metrics", s.handlePrometheusMetrics)
 
-	{
+	if s.nodeType != nodeTypeRunner {
 		v1 := engine.Group("/v1")
 		v1.Use(s.apiMiddlewareWrapper())
 		v1.GET("/apps", s.handleAppList)

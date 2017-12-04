@@ -29,6 +29,7 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogSto
 		Datastore: ds,
 		LogDB:     logDB,
 		MQ:        mq,
+		nodeType:  nodeTypeFull,
 	}
 
 	r := s.Router

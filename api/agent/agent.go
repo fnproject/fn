@@ -140,7 +140,7 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue) Agent {
+func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, startDequeue bool) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
 
@@ -155,7 +155,9 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue) Agent 
 		promHandler: promhttp.Handler(),
 	}
 
-	go a.asyncDequeue() // safe shutdown can nanny this fine
+	if startDequeue {
+		go a.asyncDequeue() // safe shutdown can nanny this fine
+	}
 
 	return a
 }

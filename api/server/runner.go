@@ -106,19 +106,24 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
-	err = s.Agent.Submit(call)
-	if err != nil {
-		// NOTE if they cancel the request then it will stop the call (kind of cool),
-		// we could filter that error out here too as right now it yells a little
-		if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
-			// TODO maneuver
-			// add this, since it means that start may not have been called [and it's relevant]
-			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
+	// Don't serve sync requests from API nodes
+	if s.nodeType != nodeTypeAPI {
+		err = s.Agent.Submit(call)
+		if err != nil {
+			// NOTE if they cancel the request then it will stop the call (kind of cool),
+			// we could filter that error out here too as right now it yells a little
+			if err == models.ErrCallTimeoutServerBusy || err == models.ErrCallTimeout {
+				// TODO maneuver
+				// add this, since it means that start may not have been called [and it's relevant]
+				c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
+			}
+			// NOTE: if the task wrote the headers already then this will fail to write
+			// a 5xx (and log about it to us) -- that's fine (nice, even!)
+			handleErrorResponse(c, err)
+			return
 		}
-		// NOTE: if the task wrote the headers already then this will fail to write
-		// a 5xx (and log about it to us) -- that's fine (nice, even!)
-		handleErrorResponse(c, err)
-		return
+	} else {
+		handleErrorResponse(c, models.ErrSyncCallNotSupported)
 	}
 
 	// TODO plumb FXLB-WAIT somehow (api?)

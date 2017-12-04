@@ -168,6 +168,10 @@ var (
 		code:  http.StatusNotFound,
 		error: errors.New("Call log not found"),
 	}
+	ErrSyncCallNotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking routes of type sync is not supported on nodes configured as type API"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
