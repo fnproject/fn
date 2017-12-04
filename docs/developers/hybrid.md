@@ -4,15 +4,15 @@ TODO fill in auth information herein (possibly do w/o first?)
 
 Hybrid API will consist of a few endpoints that encapsulate all functionality
 required for `fn` to run tasks using split API and 'runner' nodes. These
-endpoints exist under the `/runner/` endpoints. In addition to these
+endpoints exist under the `/v1/runner/` endpoints. In addition to these
 endpoints, the runner has access to any `/v1/` endpoints it needs as well
 (namely, `GetApp` and `GetRoute`).
 
 API nodes are responsible for interacting with an MQ and DB [on behalf of the
 runner], as well as handling all requests under the `/v1/` routes.
 
-runner nodes are responsible for receiving requests under the `/r/` endpoints
-from the fnlb and sending requests to the `/runner/` endpoints to API nodes,
+Runner nodes are responsible for receiving requests under the `/r/` endpoints
+from the fnlb and sending requests to the `/v1/runner/` endpoints to API nodes,
 its duties are:
 
 * enqueueing async calls
@@ -27,12 +27,12 @@ All functionality listed here will be implemented in the API nodes under the
 given endpoint. The runner is responsible for calling each of these endpoints
 with the given input.
 
-##### /runner/enqueue
+##### /v1/runner/enqueue
 
 this is called when a runner receives a request for an async route.  the
 request contains an entire constructed `models.Call` object, as well as an
 identifier for this runner node to queue this call to a specific partition in
-kafka [mapping to the runner node]***. returns success/fail.
+kafka [mapping to the runner node]`***`. returns success/fail.
 
 * enqueue an async call to an MQ
 * insert a call to the DB with 'queued' state
@@ -43,16 +43,16 @@ special cases:
 reply with a 500 error to the client as if this call never existed
 * if insert fails, we ignore this error, which will be handled in Start
 
-##### /runner/dequeue
+##### /v1/runner/dequeue
 
 the runner queries for a call to run. the request contains an identifier for
-this runner node to pull from the partition in kafka for this runner node***.
+this runner node to pull from the partition in kafka for this runner node`***`.
 the response contains an app name and a route name (the runner will cache apps
 and routes, otherwise looking this up at respective API call positions).
 
 * dequeue a message from the MQ if there is some capacity
 
-##### /runner/start
+##### /v1/runner/start
 
 the runner calls this endpoint immediately before starting a task, only
 starting the task if this endpoint returns a success. the request contains the
@@ -72,7 +72,7 @@ async:
   success), delete the mq message and return a failure status code. if the
   update to status=running succeeds, return a success status code.
 
-##### /runner/finish
+##### /v1/runner/finish
 
 the runner calls this endpoint after a call has completed, either because of
 an error, a timeout, or because it ran successfully. it will always return a
@@ -107,7 +107,7 @@ async:
   danger, however, kafka messaging semantics have no idea of timeouts and we
   make no real SLAs about time between enqueue and start, so its somewhat sexy
   to think that runners don't have to think about maneuvering timeouts. This
-  likely needs further fleshing out, as noted in***.
+  likely needs further fleshing out, as noted in`***`.
 
 `***` current understanding of kafka consumer groups semantics is largely
 incomplete and this is making the assumption that if a runner fails, consumer
