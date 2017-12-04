@@ -30,6 +30,7 @@ import (
 // TODO TLS
 
 type Config struct {
+	Driver               string          `json:"driver"`
 	DBurl                string          `json:"db_url"`
 	Listen               string          `json:"port"`
 	MgmtListen           string          `json:"mgmt_port"`
@@ -42,6 +43,10 @@ type Config struct {
 	HealthcheckHealthy   int             `json:"healthcheck_healthy"`
 	HealthcheckTimeout   int             `json:"healthcheck_timeout"`
 	MinAPIVersion        *semver.Version `json:"min_api_version"`
+
+	// Kubernetes support
+	Namespace            string          `json:"k8s_namespace"`
+	LabelSelector        string          `json:"k8s_label_selector"`
 
 	Transport *http.Transport
 }

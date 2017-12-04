@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"errors"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/fnlb/lb"
@@ -25,6 +26,7 @@ func main() {
 	minAPIVersion := flag.String("min-api-version", "0.0.149", "minimal node API to accept")
 
 	var conf lb.Config
+	flag.StringVar(&conf.Driver, "driver", "rest", "node-watcher driver, rest (default) or kubernetes")
 	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
 	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
 	flag.StringVar(&conf.MgmtListen, "mgmt-listen", ":8081", "management port to run on")
@@ -35,6 +37,9 @@ func main() {
 	flag.IntVar(&conf.HealthcheckHealthy, "hc-healthy", 1, "threshold of success checks to declare node healthy")
 	flag.IntVar(&conf.HealthcheckTimeout, "hc-timeout", 5, "timeout of healthcheck endpoint, in seconds")
 	flag.StringVar(&conf.ZipkinURL, "zipkin", "", "zipkin endpoint to send traces")
+	flag.StringVar(&conf.Namespace, "namespace", "", "kubernetes namespace to monitor")
+	flag.StringVar(&conf.LabelSelector, "label-selector", "", "kubernetes label selector to monitor")
+
 	flag.Parse()
 
 	conf.MinAPIVersion = semver.New(*minAPIVersion)
@@ -62,7 +67,15 @@ func main() {
 		logrus.WithError(err).Fatal("error setting up database")
 	}
 
-	g, err := lb.NewAllGrouper(conf, db)
+	var g lb.Grouper
+	switch conf.Driver {
+	case lb.AllGrouperDriver:
+		g, err = lb.NewAllGrouper(conf, db)
+	case lb.K8sGrouperDriver:
+		g, err = lb.NewK8sGrouper(conf)
+	default:
+		err = errors.New("Bad driver specification")
+	}
 	if err != nil {
 		logrus.WithError(err).Fatal("error setting up grouper")
 	}
