@@ -115,12 +115,21 @@ type Agent interface {
 	AddCallListener(fnext.CallListener)
 }
 
+type AgentNodeType int32
+
+const (
+	AgentTypeFull AgentNodeType = iota
+	AgentTypeAPI
+	AgentTypeRunner
+)
+
 type agent struct {
 	// TODO maybe these should be on GetCall? idk. was getting bloated.
 	mq            models.MessageQueue
 	ds            models.Datastore
 	ls            models.LogStore
 	callListeners []fnext.CallListener
+	tp            AgentNodeType
 
 	driver drivers.Driver
 
@@ -140,7 +149,7 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, startDequeue bool) Agent {
+func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, tp AgentNodeType) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
 
@@ -148,6 +157,7 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, startD
 		ds:          ds,
 		ls:          ls,
 		mq:          mq,
+		tp:          tp,
 		driver:      driver,
 		hot:         make(map[string]chan slot),
 		resources:   NewResourceTracker(),
@@ -155,7 +165,10 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, startD
 		promHandler: promhttp.Handler(),
 	}
 
-	if startDequeue {
+	switch tp {
+	case AgentTypeAPI:
+		// Don't start dequeuing
+	default:
 		go a.asyncDequeue() // safe shutdown can nanny this fine
 	}
 
@@ -183,6 +196,10 @@ func transformTimeout(e error, isRetriable bool) error {
 }
 
 func (a *agent) Submit(callI Call) error {
+	if a.tp == AgentTypeAPI {
+		return errors.New("API agent cannot execute calls")
+	}
+
 	a.wg.Add(1)
 	defer a.wg.Done()
 

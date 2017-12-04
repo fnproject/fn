@@ -118,17 +118,18 @@ func NewFromURLs(ctx context.Context, dbURL, mqURL, logstoreURL string, nodeType
 func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, ls models.LogStore, nodeType serverNodeType, opts ...ServerOption) *Server {
 	setTracer()
 
-	startAsync := true
-
-	// Don't start the async agent processing on the API nodes
-	// Perhaps don't have an agent at all, but I want to check its
-	// responsibilities before making it optional
-	if nodeType == nodeTypeAPI {
-		startAsync = false
+	var tp agent.AgentNodeType
+	switch nodeType {
+	case nodeTypeAPI:
+		tp = agent.AgentTypeAPI
+	case nodeTypeRunner:
+		tp = agent.AgentTypeRunner
+	default:
+		tp = agent.AgentTypeFull
 	}
 
 	s := &Server{
-		Agent:     agent.New(cache.Wrap(ds), ls, mq, startAsync), // only add datastore caching to agent
+		Agent:     agent.New(cache.Wrap(ds), ls, mq, tp), // only add datastore caching to agent
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
