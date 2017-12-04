@@ -1,24 +1,25 @@
 # Building Custom Server with Extensions
 
-To create an extension, there are just a couple of things to do.
+You can easily add any number of extensions to Fn and then build your own custom image.
 
-* All config should be via ENV vars.
+Simply create an `ext.yaml` file with the extensions you want added:
 
-## Code
+```yaml
+extensions:
+  - name: github.com/treeder/fn-ext-example/logspam
+  - name: github.com/treeder/fn-ext-example/logspam2
+```
 
-You need to register your extension with an init() method and write a function to be called 
-for setup:
+Build it:
 
-```go
-func init() {
-	server.RegisterExtension(&fnext.Extension{
-		Name:  "logspam",
-		Setup: setup, // Fn will call this during startup
-	})
-}
+```sh
+fn build-server -t imageuser/imagename
+```
 
-func setup(s *fnext.ExtServer) error {
-    // Add all the hooks you extension needs here
-	s.AddCallListener(&LogSpam{})
-}
+`-t` takes the same input as `docker build -t`, tagging your image.
+
+Now run your new server:
+
+```sh
+docker run --rm --name fnserver -it -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/data:/app/data -p 8080:8080 imageuser/imagename
 ```

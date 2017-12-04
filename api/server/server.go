@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/fnproject/fn/api/agent"

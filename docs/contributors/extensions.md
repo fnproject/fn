@@ -8,6 +8,29 @@ There are multiple ways to extend the functionality of Fn.
 1. Middleware - a chain of middleware is executed before an API handler is called.
 1. Add API Endpoints - extend the default Fn API.
 
+To create an extension, there are just a couple of rules to follow.
+
+* All config should be via ENV vars.
+
+## Code
+
+Your extension code needs to register itself with an `init()` method which states it's name and a function
+to be called during setup:
+
+```go
+func init() {
+    server.RegisterExtension(&fnext.Extension{
+        Name:  "logspam",
+        Setup: setup, // Fn will call this during startup
+    })
+}
+
+func setup(s *fnext.ExtServer) error {
+    // Add all the hooks you extension needs here
+    s.AddCallListener(&LogSpam{})
+}
+```
+
 ## Listeners
 
 Listeners are the main way to extend Fn.
