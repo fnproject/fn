@@ -62,6 +62,8 @@ services:
     ports:
       - "6379:6379"
   fnserver-1:
+    ports:
+      - "8083:8080"
     restart: always
     depends_on:
       - mq
@@ -80,6 +82,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   fnserver-2:
+    ports:
+      - "8082:8080"
     restart: always
     depends_on:
       - mq
@@ -95,6 +99,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   fnserver-3:
+    ports:
+      - "8081:8080"
     restart: always
     depends_on:
       - mq
