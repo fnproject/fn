@@ -26,11 +26,13 @@ def handler(context, data=None, loop=None):
         data = data.readall()
 
     # specifically for json protocol
-    if isinstance(data, str):
+    if isinstance(data, (bytes, str)):
+        if isinstance(data, bytes):
+            data = data.decode("utf-8")
         try:
             data = ujson.loads(data)
         except Exception:
-            pass
+            data = {}
 
     name = data.get("name")
     if not len(name):
