@@ -30,3 +30,4 @@ fnlb/fnlb
 /fn
 .DS_Store
 /fnserver
+vendor/
