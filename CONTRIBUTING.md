@@ -52,9 +52,9 @@ asking for suggestions on how to address the documentation part.
 
 ### Build
 
-Use go 1.9.1 or newer.
+Requires Go >=1.9.1.
 
-The first time after you fork or after dependencies get updated, run:
+The first time after you clone or after dependencies get updated, run:
 
 ```sh
 make dep

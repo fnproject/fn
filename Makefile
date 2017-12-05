@@ -1,11 +1,14 @@
 # Just builds
 .PHONY: all test dep build test-log-datastore
 
-dep:
-	glide install -v
+dep-install:
+	go get -u github.com/golang/dep/cmd/dep
 
-dep-up:
-	glide up -v
+dep: dep-install
+	dep ensure --vendor-only
+
+dep-up: dep-install
+	dep ensure
 
 build:
 	go build -o fnserver

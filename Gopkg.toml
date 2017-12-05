@@ -1,0 +1,106 @@
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#  name = "github.com/x/y"
+#  version = "2.4.0"
+
+ignored = ["github.com/fnproject/fn/cli"]
+
+[[constraint]]
+  name = "github.com/boltdb/bolt"
+  revision = "fa5367d20c994db73282594be0146ab221657943"
+
+[[constraint]]
+  name = "github.com/coreos/go-semver"
+  version = "^0.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/dchest/siphash"
+
+[[constraint]]
+  name = "github.com/fnproject/fn_go"
+  version = "0.2.0"
+
+[[constraint]]
+  name = "github.com/gin-contrib/cors"
+  version = "~1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/go-openapi/strfmt"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/google/btree"
+
+[[constraint]]
+  name = "github.com/minio/minio-go"
+  version = "4.0.1"
+
+[[constraint]]
+  name = "github.com/openzipkin/zipkin-go-opentracing"
+  version = "0.3.1"
+
+[[constraint]]
+  name = "github.com/patrickmn/go-cache"
+  version = "2.1.0"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "0.8.0"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
+
+[[constraint]]
+  name = "github.com/docker/docker"
+  revision = "cdf870bd0b5fa678b10ef2708cca7ad776b4913c"
+
+[[constraint]]
+  name = "github.com/docker/cli"
+  revision = "139fcd3ee95f37f3ac17b1200fb0a63908cb6781"
+  
+[[constraint]]
+  name = "github.com/docker/distribution"
+  revision = "bc3c7b0525e59d3ecfab3e1568350895fd4a462f"
+
+[[constraint]]
+  name = "github.com/rdallman/migrate" # TODO change to mattes/migrate w/ https://github.com/mattes/migrate/pull/299
+  revision = "bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef"
+
+[[constraint]]
+  name = "github.com/go-sql-driver/mysql"
+  revision = "21d7e97c9f760ca685a01ecea202e1c84276daa1"
+
+[[constraint]]
+  name = "github.com/opencontainers/go-digest"
+  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
+
+[[constraint]]
+  name = "github.com/opencontainers/runc"
+  revision = "ae2948042b08ad3d6d13cd09f40a50ffff4fc688"
+
+[[constraint]]
+  name = "github.com/Azure/go-ansiterm"
+  revision = "19f72df4d05d31cbe1c56bfc8045c96babff6c7e"
+
+[[constraint]]
+  name = "github.com/prometheus/common"
+  revision = "2f17f4a9d485bf34b4bfaccc273805040e4f86c8"
