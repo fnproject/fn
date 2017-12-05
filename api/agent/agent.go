@@ -124,10 +124,7 @@ const (
 )
 
 type agent struct {
-	// TODO maybe these should be on GetCall? idk. was getting bloated.
-	mq            models.MessageQueue
-	ds            models.Datastore
-	ls            models.LogStore
+	da            DataAccess
 	callListeners []fnext.CallListener
 	tp            AgentNodeType
 
@@ -154,10 +151,8 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, tp Age
 	driver := docker.NewDocker(drivers.Config{})
 
 	a := &agent{
-		ds:          ds,
-		ls:          ls,
-		mq:          mq,
 		tp:          tp,
+		da:          NewDirectDataAccess(ds, ls, mq),
 		driver:      driver,
 		hot:         make(map[string]chan slot),
 		resources:   NewResourceTracker(),

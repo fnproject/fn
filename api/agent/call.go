@@ -50,12 +50,12 @@ type Params []Param
 
 func FromRequest(appName, path string, req *http.Request, params Params) CallOpt {
 	return func(a *agent, c *call) error {
-		app, err := a.ds.GetApp(req.Context(), appName)
+		app, err := a.da.GetApp(req.Context(), appName)
 		if err != nil {
 			return err
 		}
 
-		route, err := a.ds.GetRoute(req.Context(), appName, path)
+		route, err := a.da.GetRoute(req.Context(), appName, path)
 		if err != nil {
 			return err
 		}
@@ -248,9 +248,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	c.ds = a.ds
-	c.ls = a.ls
-	c.mq = a.mq
+	c.da = a.da
 	c.ct = a
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
@@ -272,9 +270,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 type call struct {
 	*models.Call
 
-	ds     models.Datastore
-	ls     models.LogStore
-	mq     models.MessageQueue
+	da     DataAccess
 	w      io.Writer
 	req    *http.Request
 	stderr io.ReadWriteCloser
@@ -316,7 +312,7 @@ func (c *call) Start(ctx context.Context) error {
 		// running to avoid running the call twice and potentially mark it as
 		// errored (built in long running task detector, so to speak...)
 
-		err := c.mq.Delete(ctx, c.Call)
+		err := c.da.Start(ctx, c.Call)
 		if err != nil {
 			return err // let another thread try this
 		}
@@ -346,28 +342,13 @@ func (c *call) End(ctx context.Context, errIn error) error {
 		c.Error = errIn.Error()
 	}
 
-	if c.Type == models.TypeAsync {
-		// XXX (reed): delete MQ message, eventually
-	}
-
 	// ensure stats histogram is reasonably bounded
 	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
 
-	// this means that we could potentially store an error / timeout status for a
-	// call that ran successfully [by a user's perspective]
-	// TODO: this should be update, really
-	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
-		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
+	if err := c.da.Finish(ctx, c.Call, c.stderr, c.Type == models.TypeAsync); err != nil {
+		common.Logger(ctx).WithError(err).Error("error finalizing call on datastore/mq")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
-
-	if err := c.ls.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
-		common.Logger(ctx).WithError(err).Error("error uploading log")
-		// note: Not returning err here since the job could have already finished successfully.
-	}
-
-	// NOTE call this after InsertLog or the buffer will get reset
-	c.stderr.Close()
 
 	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return fmt.Errorf("AfterCall: %v", err)
