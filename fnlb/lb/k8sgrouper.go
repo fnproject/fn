@@ -24,22 +24,23 @@ import (
 
 const K8sGrouperDriver = "kubernetes"
 
+
+func NewK8sClient(conf Config) (*kubernetes.Clientset, error) {
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(k8sConfig)
+}
+
 // NewK8sGrouper returns a Grouper that will return the entire list of nodes
 // that match a particular Kubernetes pattern and that pass a healthcheck.
 // Healthchecks happen at a specified interval.
 // Each fnlb instance mainains its own list of healthy nodes.
 // An endpoint is exposed for listing nodes.
-func NewK8sGrouper(conf Config) (Grouper, error) {
+func NewK8sGrouper(conf Config, clientset *kubernetes.Clientset) (Grouper, error) {
 	// Sanity-check this up-front.
-	k8sConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	clientset, err := kubernetes.NewForConfig(k8sConfig)
-	if err != nil {
-		panic(err.Error())
-	}
-	_, err = labels.Parse(conf.LabelSelector)
+	_, err := labels.Parse(conf.LabelSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +51,7 @@ func NewK8sGrouper(conf Config) (Grouper, error) {
 
 		// for k8s watching
 		k8sClient:     clientset,
+		targetPort:    conf.TargetPort,
 
 		// XXX (per reed): need to be reconfigurable at some point
 		hcInterval:    time.Duration(conf.HealthcheckInterval) * time.Second,
@@ -80,30 +82,35 @@ type k8sGrouper struct {
 	nodeList        map[string]nodeState
 	nodeHealthyList []string
 
-	k8sClient      *kubernetes.Clientset
+	k8sClient       *kubernetes.Clientset
+	targetPort      int
 
-	httpClient *http.Client
+	httpClient      *http.Client
 
-	hcInterval    time.Duration
-	hcEndpoint    string
-	hcUnhealthy   int64
-	hcHealthy     int64
-	hcTimeout     time.Duration
-	minAPIVersion semver.Version
+	hcInterval      time.Duration
+	hcEndpoint      string
+	hcUnhealthy     int64
+	hcHealthy       int64
+	hcTimeout       time.Duration
+	minAPIVersion   semver.Version
 }
 
-// TODO (jang): many of these are identical with the allGrouper implementations. Factor them out.
+// TODO (jang): many of these are near-identical with the allGrouper implementations. Factor them out.
 
 
-func (k *k8sGrouper) add(newb string) error {
+func (k *k8sGrouper) add(newb string, address string) error {
 	k.nodeLock.Lock()
 	defer k.nodeLock.Unlock()
 	if node, ok := k.nodeList[newb]; ok {
-		logrus.WithFields(logrus.Fields{"node": node}).Warn("Attempt to add extant node")
-		return fmt.Errorf("Attempt to add extant node %s", newb)
+		if node.address != address {
+			logrus.WithField("node", node).WithField("address", address).Info("Updating address of registered node")
+		} else {
+			logrus.WithField("node", node).WithField("address", address).Debug("Attempt to add extant node at known address")
+			return fmt.Errorf("Attempt to add extant node %s", newb)
+		}
 	}
 
-	k.nodeList[newb] = nodeState{healthy: StateUnknown}
+	k.nodeList[newb] = nodeState{healthy: StateUnknown, address: address}
 	return nil
 }
 
@@ -113,6 +120,8 @@ func (k *k8sGrouper) remove(dead string) error {
 	if node, ok := k.nodeList[dead]; !ok {
 		logrus.WithFields(logrus.Fields{"node": node}).Warn("Attempt to delete nonexistent node")
 		return fmt.Errorf("Attempt to delete nonexistent node %s", dead)
+	} else {
+		logrus.WithField("node", node).WithField("address", node.address).Info("Removing registered node")
 	}
 
 	delete (k.nodeList, dead)
@@ -125,9 +134,9 @@ func (k *k8sGrouper) publishHealth() {
 
 	// get a list of healthy nodes
 	newList := make([]string, 0, len(k.nodeList))
-	for key, value := range k.nodeList {
+	for _, value := range k.nodeList {
 		if value.healthy == StateHealthy {
-			newList = append(newList, key)
+			newList = append(newList, value.address)
 		}
 	}
 
@@ -149,16 +158,13 @@ func (k *k8sGrouper) List(string) ([]string, error) {
 func (k *k8sGrouper) runHealthCheck() {
 	// Use the list we're maintaining from k8s
 	k.nodeLock.RLock()
-	list := make([]string, len(k.nodeList))
-	nodes := k.nodeList
-	for n, _ := range nodes {
-		list = append(list, n)
-	}
-	k.nodeLock.RUnlock()
+	defer k.nodeLock.RUnlock()
 
-	// spawn health checkers
-	for _, key := range list {
-		go k.ping(key)
+	nodes := k.nodeList
+	for key, n := range nodes {
+		if n.address != "" {
+			go k.ping(key, n.address)
+		}
 	}
 }
 
@@ -213,8 +219,8 @@ func (k *k8sGrouper) checkAPIVersion(node string) error {
 	return nil
 }
 
-func (k *k8sGrouper) ping(node string) {
-	err := k.checkAPIVersion(node)
+func (k *k8sGrouper) ping(node string, address string) {
+	err := k.checkAPIVersion(address)
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"node": node}).Error("Unable to check API version")
 		k.fail(node)
@@ -349,14 +355,25 @@ func (k *k8sGrouper) watchForPods(namespace string, labelSelector string) {
 		select {
 		case event := <-pods.ResultChan():
 			if pod, ok := event.Object.(*v1.Pod); ok {
-				logrus.WithField("Pod", pod).WithField("Event", event.Type).Debug("New pod detected")
+				logrus.
+					WithField("Event", event.Type).
+					WithField("Pod", pod.SelfLink).
+					WithField("PodPhase", pod.Status.Phase).
+					WithField("Address", pod.Status.PodIP).
+					Debug("Change detected")
 				switch (event.Type) {
 				case watch.Added:
-					logrus.WithField("PodIp", pod.Status.PodIP).Debug("New pod detected")
-					k.add(pod.Status.PodIP)
+					fallthrough
+				case watch.Modified:
+					logrus.WithField("Pod", pod.SelfLink).WithField("PodIp", pod.Status.PodIP).Debug("New pod detected")
+					address := ""
+					if pod.Status.PodIP != "" && pod.Status.Phase == v1.PodRunning {
+						address = fmt.Sprintf("%s:%d", pod.Status.PodIP, k.targetPort)
+					}
+					k.add(pod.SelfLink, address)
 				case watch.Deleted:
-					logrus.WithField("PodIp", pod.Status.PodIP).Debug("Pod removed")
-					k.remove(pod.Status.PodIP)
+					logrus.WithField("Pod", pod.SelfLink).WithField("PodIp", pod.Status.PodIP).Debug("Pod removed")
+					k.remove(pod.SelfLink)
 				}
 			}
 		}

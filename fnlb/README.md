@@ -66,3 +66,65 @@ To list functions nodes and their state:
 ```sh
 curl -sSL -X GET <fnlb_address>/1/lb/nodes
 ```
+
+## Running under Kubernetes
+
+The fnlb supports a mode of operation which relies on Kubernetes to inform it as Fn pods come in and out of service. In order to run in this mode, some additional command-line flags are required. `-driver=kubernetes` will select Kubernetes operation; in this mode, the `nodes` flag is ignored. `-label-selector=...` is a standard Kubernetes selector expression.
+
+A sample k8s configuration follows; this expects Fn pods to be labelled `app=fn,role=fn-service`. By default, the lb will look in its own namespace for Fn pods. This can be changed by explicitly passing the `-namespace=...` option.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: fn-service
+  namespace: fn
+  labels:
+    app: fn
+    role: fn-lb
+spec:
+  type: NodePort
+  ports:
+  - name: fn-service
+    port: 8080
+    targetPort: 8080
+    nodePort: 32180
+  selector:
+    app: fn
+    role: fn-lb
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: fn-lb
+  namespace: fn
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  minReadySeconds: 30
+  template:
+    metadata:
+      labels:
+        app: fn
+        role: fn-lb
+    spec:
+      containers:
+      - name: fn-lb
+        image: fnproject/fnlb
+        imagePullPolicy: Always
+        args:
+        - "-driver=kubernetes"
+        - "-label-selector=app=fn,role=fn-service"
+        - "-listen=:8080"
+        - "-mgmt-listen=:8080"
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LOG_LEVEL
+          value: debug
+
+```
+
+In this mode, the database is not required; each lb will listen to the Kubernetes master independently to derive the same information. The lb nodes continue to health-check Fn pods *in addition* to the health checks running directly as part of a Pod definition.

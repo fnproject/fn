@@ -22,6 +22,12 @@ const VERSION = "0.0.182"
 
 func main() {
 	// XXX (reed): normalize
+	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+	logrus.SetLevel(level)
+
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
 	minAPIVersion := flag.String("min-api-version", "0.0.149", "minimal node API to accept")
 
@@ -39,6 +45,7 @@ func main() {
 	flag.StringVar(&conf.ZipkinURL, "zipkin", "", "zipkin endpoint to send traces")
 	flag.StringVar(&conf.Namespace, "namespace", "", "kubernetes namespace to monitor")
 	flag.StringVar(&conf.LabelSelector, "label-selector", "", "kubernetes label selector to monitor")
+	flag.IntVar(&conf.TargetPort, "target-port", 8080, "kubernetes port to target on selected pods")
 
 	flag.Parse()
 
@@ -62,17 +69,21 @@ func main() {
 		},
 	}
 
-	db, err := lb.NewDB(conf)
-	if err != nil {
-		logrus.WithError(err).Fatal("error setting up database")
-	}
-
 	var g lb.Grouper
+
 	switch conf.Driver {
 	case lb.AllGrouperDriver:
+		db, err := lb.NewDB(conf)
+		if err != nil {
+			logrus.WithError(err).Fatal("error setting up database")
+		}
 		g, err = lb.NewAllGrouper(conf, db)
 	case lb.K8sGrouperDriver:
-		g, err = lb.NewK8sGrouper(conf)
+		k8s, err := lb.NewK8sClient(conf)
+		if err != nil {
+			logrus.WithError(err).Fatal("error setting up k8s client")
+		}
+		g, err = lb.NewK8sGrouper(conf, k8s)
 	default:
 		err = errors.New("Bad driver specification")
 	}

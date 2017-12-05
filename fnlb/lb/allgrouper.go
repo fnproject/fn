@@ -67,6 +67,9 @@ type nodeState struct {
 
 	// current health state
 	healthy healthState
+
+	// IP address of remote
+	address string
 }
 
 // allGrouper will return all healthy nodes it is tracking from List.

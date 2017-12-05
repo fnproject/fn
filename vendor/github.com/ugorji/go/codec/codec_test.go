@@ -22,6 +22,7 @@ package codec
 import (
 	"bytes"
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -41,6 +42,7 @@ import (
 )
 
 func init() {
+	testInitFlags()
 	testPreInitFns = append(testPreInitFns, testInit)
 }
 
@@ -90,6 +92,22 @@ var (
 	testRpcInt = new(TestRpcInt)
 )
 
+func testInitFlags() {
+	// delete(testDecOpts.ExtFuncs, timeTyp)
+	flag.BoolVar(&testVerbose, "tv", false, "Test Verbose")
+	flag.BoolVar(&testInitDebug, "tg", false, "Test Init Debug")
+	flag.BoolVar(&testUseIoEncDec, "ti", false, "Use IO Reader/Writer for Marshal/Unmarshal")
+	flag.BoolVar(&testStructToArray, "ts", false, "Set StructToArray option")
+	flag.BoolVar(&testWriteNoSymbols, "tn", false, "Set NoSymbols option")
+	flag.BoolVar(&testCanonical, "tc", false, "Set Canonical option")
+	flag.BoolVar(&testInternStr, "te", false, "Set InternStr option")
+	flag.BoolVar(&testSkipIntf, "tf", false, "Skip Interfaces")
+	flag.BoolVar(&testUseReset, "tr", false, "Use Reset")
+	flag.IntVar(&testJsonIndent, "td", 0, "Use JSON Indent")
+	flag.BoolVar(&testUseMust, "tm", true, "Use Must(En|De)code")
+	flag.BoolVar(&testCheckCircRef, "tl", false, "Use Check Circular Ref")
+}
+
 func testByteBuf(in []byte) *bytes.Buffer {
 	return bytes.NewBuffer(in)
 }
@@ -132,14 +150,6 @@ func (x *TestABC2) UnmarshalText(data []byte) (err error) {
 	x.A, x.B, x.C = ss[0], ss[1], ss[2]
 	return
 	// _, err = fmt.Sscanf(string(data), "%s %s %s", &x.A, &x.B, &x.C)
-}
-
-type TestSimplish struct {
-	Ii int
-	Ss string
-	Ar [2]*TestSimplish
-	Sl []*TestSimplish
-	Mm map[string]*TestSimplish
 }
 
 type TestRpcABC struct {
@@ -336,7 +346,6 @@ func testInit() {
 		bh.Canonical = testCanonical
 		bh.CheckCircularRef = testCheckCircRef
 		bh.StructToArray = testStructToArray
-		bh.MaxInitLen = testMaxInitLen
 		// mostly doing this for binc
 		if testWriteNoSymbols {
 			bh.AsSymbols = AsSymbolNone
@@ -346,9 +355,6 @@ func testInit() {
 	}
 
 	testJsonH.Indent = int8(testJsonIndent)
-	testJsonH.HTMLCharsAsIs = testJsonHTMLCharsAsIs
-	testJsonH.PreferFloat = testJsonPreferFloat
-
 	testMsgpackH.RawToString = true
 
 	// testMsgpackH.AddExt(byteSliceTyp, 0, testMsgpackH.BinaryEncodeExt, testMsgpackH.BinaryDecodeExt)
@@ -358,20 +364,7 @@ func testInit() {
 	// use different flavors of XXXExt calls, including deprecated ones.
 	// NOTE:
 	// DO NOT set extensions for JsonH, so we can test json(M|Unm)arshal support.
-	var (
-		timeExtEncFn = func(rv reflect.Value) (bs []byte, err error) {
-			defer panicToErr(&err)
-			bs = timeExt{}.WriteExt(rv.Interface())
-			return
-		}
-		timeExtDecFn = func(rv reflect.Value, bs []byte) (err error) {
-			defer panicToErr(&err)
-			timeExt{}.ReadExt(rv.Interface(), bs)
-			return
-		}
-	)
 	testSimpleH.AddExt(timeTyp, 1, timeExtEncFn, timeExtDecFn)
-
 	testMsgpackH.SetBytesExt(timeTyp, 1, timeExt{})
 	testCborH.SetInterfaceExt(timeTyp, 1, &testUnixNanoTimeExt{})
 	// testJsonH.SetInterfaceExt(timeTyp, 1, &testUnixNanoTimeExt{})
@@ -396,7 +389,7 @@ func testInit() {
 		true,
 		"null",
 		nil,
-		"some&day>some<day",
+		"someday",
 		timeToCompare1,
 		"",
 		timeToCompare2,
@@ -430,22 +423,9 @@ func testInit() {
 				},
 				[]interface{}{true, false},
 			},
-			"int32": int32(32323232),
-			"bool":  true,
-			"LONG STRING": `
-1234567890 1234567890 
-1234567890 1234567890 
-1234567890 1234567890 
-ABCDEDFGHIJKLMNOPQRSTUVWXYZ 
-abcdedfghijklmnopqrstuvwxyz 
-ABCDEDFGHIJKLMNOPQRSTUVWXYZ 
-abcdedfghijklmnopqrstuvwxyz 
-"ABCDEDFGHIJKLMNOPQRSTUVWXYZ" 
-'	a tab	'
-\a\b\c\d\e
-\b\f\n\r\t all literally
-ugorji
-`,
+			"int32":        int32(32323232),
+			"bool":         true,
+			"LONG STRING":  "123456789012345678901234567890123456789012345678901234567890",
 			"SHORT STRING": "1234567890",
 		},
 		map[interface{}]interface{}{
@@ -525,7 +505,7 @@ func testMarshal(v interface{}, h Handle) (bs []byte, err error) {
 func testMarshalErr(v interface{}, h Handle, t *testing.T, name string) (bs []byte, err error) {
 	if bs, err = testMarshal(v, h); err != nil {
 		logT(t, "Error encoding %s: %v, Err: %v", name, v, err)
-		failT(t)
+		t.FailNow()
 	}
 	return
 }
@@ -533,17 +513,7 @@ func testMarshalErr(v interface{}, h Handle, t *testing.T, name string) (bs []by
 func testUnmarshalErr(v interface{}, data []byte, h Handle, t *testing.T, name string) (err error) {
 	if err = testUnmarshal(v, data, h); err != nil {
 		logT(t, "Error Decoding into %s: %v, Err: %v", name, v, err)
-		failT(t)
-	}
-	return
-}
-
-func testDeepEqualErr(v1, v2 interface{}, t *testing.T, name string) (err error) {
-	if err = deepEqual(v1, v2); err == nil {
-		logT(t, "%s: values equal", name)
-	} else {
-		logT(t, "%s: values not equal: %v. 1: %v, 2: %v", name, err, v1, v2)
-		failT(t)
+		t.FailNow()
 	}
 	return
 }
@@ -667,13 +637,13 @@ func testCodecMiscOne(t *testing.T, h Handle) {
 	// var i *int32
 	// if err = testUnmarshal(b, i, nil); err == nil {
 	// 	logT(t, "------- Expecting error because we cannot unmarshal to int32 nil ptr")
-	// 	failT(t)
+	// 	t.FailNow()
 	// }
 	var i2 int32 = 0
 	err = testUnmarshalErr(&i2, b, h, t, "int32-ptr")
 	if i2 != int32(32) {
 		logT(t, "------- didn't unmarshal to 32: Received: %d", i2)
-		failT(t)
+		t.FailNow()
 	}
 
 	// func TestMsgpackDecodePtr(t *testing.T) {
@@ -681,7 +651,7 @@ func testCodecMiscOne(t *testing.T, h Handle) {
 	b, err = testMarshalErr(ts, h, t, "pointer-to-struct")
 	if len(b) < 40 {
 		logT(t, "------- Size must be > 40. Size: %d", len(b))
-		failT(t)
+		t.FailNow()
 	}
 	if h.isBinary() {
 		logT(t, "------- b: %v", b)
@@ -692,7 +662,7 @@ func testCodecMiscOne(t *testing.T, h Handle) {
 	err = testUnmarshalErr(ts2, b, h, t, "pointer-to-struct")
 	if ts2.I64 != math.MaxInt64*2/3 {
 		logT(t, "------- Unmarshal wrong. Expect I64 = 64. Got: %v", ts2.I64)
-		failT(t)
+		t.FailNow()
 	}
 
 	// func TestMsgpackIntfDecode(t *testing.T) {
@@ -706,7 +676,7 @@ func testCodecMiscOne(t *testing.T, h Handle) {
 
 	if m2["A"] != 2 || m2["B"] != 3 {
 		logT(t, "m2 not as expected: expecting: %v, got: %v", m, m2)
-		failT(t)
+		t.FailNow()
 	}
 	// log("m: %v, m2: %v, p: %v, p2: %v", m, m2, p, p2)
 	checkEqualT(t, p, p2, "p=p2")
@@ -715,13 +685,13 @@ func testCodecMiscOne(t *testing.T, h Handle) {
 		logT(t, "p and p2 match")
 	} else {
 		logT(t, "Not Equal: %v. p: %v, p2: %v", err, p, p2)
-		failT(t)
+		t.FailNow()
 	}
 	if err = deepEqual(m, m2); err == nil {
 		logT(t, "m and m2 match")
 	} else {
 		logT(t, "Not Equal: %v. m: %v, m2: %v", err, m, m2)
-		failT(t)
+		t.FailNow()
 	}
 
 	// func TestMsgpackDecodeStructSubset(t *testing.T) {
@@ -751,7 +721,7 @@ func testCodecMiscOne(t *testing.T, h Handle) {
 		bs, err = testMarshalErr(tarr1, h, t, "tarr1")
 		if err != nil {
 			logT(t, "Error marshalling: %v", err)
-			failT(t)
+			t.FailNow()
 		}
 		if _, ok := h.(*JsonHandle); ok {
 			logT(t, "Marshal as: %s", bs)
@@ -861,7 +831,7 @@ func testCodecRpcOne(t *testing.T, rr Rpc, h Handle, doRequest bool, exitSleepMs
 	// rpc needs EOF, which is sent via a panic, and so must be recovered.
 	if !recoverPanicToErr {
 		logT(t, "EXPECTED. set recoverPanicToErr=true, since rpc needs EOF")
-		failT(t)
+		t.FailNow()
 	}
 	srv := rpc.NewServer()
 	srv.Register(testRpcInt)
@@ -1004,7 +974,7 @@ func doTestMapEncodeForCanonical(t *testing.T, name string, h Handle) {
 	e2.MustEncode(v2)
 	if !bytes.Equal(b1, b2) {
 		logT(t, "Unequal bytes: %v VS %v", b1, b2)
-		failT(t)
+		t.FailNow()
 	}
 }
 
@@ -1058,13 +1028,13 @@ func doTestEncCircularRef(t *testing.T, name string, h Handle) {
 	err = NewEncoderBytes(&bs, h).Encode(&t3)
 	if err == nil {
 		logT(t, "expecting error due to circular reference. found none")
-		failT(t)
+		t.FailNow()
 	}
 	if x := err.Error(); strings.Contains(x, "circular") || strings.Contains(x, "cyclic") {
 		logT(t, "error detected as expected: %v", x)
 	} else {
 		logT(t, "error detected was not as expected: %v", x)
-		failT(t)
+		t.FailNow()
 	}
 }
 
@@ -1092,7 +1062,7 @@ func doTestAnonCycle(t *testing.T, name string, h Handle) {
 
 	// just check that you can get typeInfo for T1
 	rt := reflect.TypeOf((*TestAnonCycleT1)(nil)).Elem()
-	rtid := rt2id(rt)
+	rtid := reflect.ValueOf(rt).Pointer()
 	pti := h.getBasicHandle().getTypeInfo(rtid, rt)
 	logT(t, "pti: %v", pti)
 }
@@ -1199,7 +1169,7 @@ func doTestRawValue(t *testing.T, name string, h Handle) {
 	// logT(t, "Encoded %v, decoded %v", i, i2)
 	if i != i2 {
 		logT(t, "Error: encoded %v, decoded %v", i, i2)
-		failT(t)
+		t.FailNow()
 	}
 }
 
@@ -1212,7 +1182,7 @@ func doTestPythonGenStreams(t *testing.T, name string, h Handle) {
 	tmpdir, err := ioutil.TempDir("", "golang-"+name+"-test")
 	if err != nil {
 		logT(t, "-------- Unable to create temp directory\n")
-		failT(t)
+		t.FailNow()
 	}
 	defer os.RemoveAll(tmpdir)
 	logT(t, "tmpdir: %v", tmpdir)
@@ -1223,7 +1193,7 @@ func doTestPythonGenStreams(t *testing.T, name string, h Handle) {
 	if cmdout, err = cmd.CombinedOutput(); err != nil {
 		logT(t, "-------- Error running test.py testdata. Err: %v", err)
 		logT(t, "         %v", string(cmdout))
-		failT(t)
+		t.FailNow()
 	}
 
 	bh := h.getBasicHandle()
@@ -1344,95 +1314,11 @@ func doTestMsgpackRpcSpecPythonClientToGoSvc(t *testing.T) {
 	if cmdout, err = cmd.CombinedOutput(); err != nil {
 		logT(t, "-------- Error running test.py rpc-client-go-service. Err: %v", err)
 		logT(t, "         %v", string(cmdout))
-		failT(t)
+		t.FailNow()
 	}
 	checkEqualT(t, string(cmdout),
 		fmt.Sprintf("%#v\n%#v\n", []string{"A1", "B2", "C3"}, TestRpcABC{"Aa", "Bb", "Cc"}), "cmdout=")
 }
-
-func testRandomFillRV(v reflect.Value) {
-	fneg := func() int64 {
-		i := rand.Intn(1)
-		if i == 1 {
-			return 1
-		}
-		return -1
-	}
-
-	switch v.Kind() {
-	case reflect.Invalid:
-	case reflect.Ptr:
-		if v.IsNil() {
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		testRandomFillRV(v.Elem())
-	case reflect.Interface:
-		if v.IsNil() {
-			v.Set(reflect.ValueOf("nothing"))
-		} else {
-			testRandomFillRV(v.Elem())
-		}
-	case reflect.Struct:
-		for i, n := 0, v.NumField(); i < n; i++ {
-			testRandomFillRV(v.Field(i))
-		}
-	case reflect.Slice:
-		if v.IsNil() {
-			v.Set(reflect.MakeSlice(v.Type(), 4, 4))
-		}
-		fallthrough
-	case reflect.Array:
-		for i, n := 0, v.Len(); i < n; i++ {
-			testRandomFillRV(v.Index(i))
-		}
-	case reflect.Map:
-		if v.IsNil() {
-			v.Set(reflect.MakeMap(v.Type()))
-		}
-		if v.Len() == 0 {
-			kt, vt := v.Type().Key(), v.Type().Elem()
-			for i := 0; i < 4; i++ {
-				k0 := reflect.New(kt).Elem()
-				v0 := reflect.New(vt).Elem()
-				testRandomFillRV(k0)
-				testRandomFillRV(v0)
-				v.SetMapIndex(k0, v0)
-			}
-		} else {
-			for _, k := range v.MapKeys() {
-				testRandomFillRV(v.MapIndex(k))
-			}
-		}
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v.SetInt(fneg() * rand.Int63n(127))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		v.SetUint(uint64(rand.Int63n(255)))
-	case reflect.Bool:
-		if fneg() == 1 {
-			v.SetBool(true)
-		} else {
-			v.SetBool(false)
-		}
-	case reflect.Float32, reflect.Float64:
-		v.SetFloat(float64(fneg()) * float64(rand.Float32()))
-	case reflect.String:
-		v.SetString(strings.Repeat(strconv.FormatInt(rand.Int63n(99), 10), rand.Intn(8)))
-	default:
-		panic(fmt.Errorf("testRandomFillRV: unsupported type: %v", v.Kind()))
-	}
-}
-
-func testMammoth(t *testing.T, name string, h Handle) {
-	testOnce.Do(testInitAll)
-	var m, m2 TestMammoth
-	testRandomFillRV(reflect.ValueOf(&m).Elem())
-	b, _ := testMarshalErr(&m, h, t, "mammoth-"+name)
-	testUnmarshalErr(&m2, b, h, t, "mammoth-"+name)
-	// fmt.Printf("m2: %v", &m2)
-	testDeepEqualErr(&m, &m2, t, "mammoth-"+name)
-}
-
-// -----------------
 
 func TestBincCodecsTable(t *testing.T) {
 	testCodecTableOne(t, testBincH)
@@ -1448,10 +1334,6 @@ func TestBincCodecsEmbeddedPointer(t *testing.T) {
 
 func TestBincStdEncIntf(t *testing.T) {
 	doTestStdEncIntf(t, "binc", testBincH)
-}
-
-func TestBincMammoth(t *testing.T) {
-	testMammoth(t, "binc", testBincH)
 }
 
 func TestSimpleCodecsTable(t *testing.T) {
@@ -1470,10 +1352,6 @@ func TestSimpleStdEncIntf(t *testing.T) {
 	doTestStdEncIntf(t, "simple", testSimpleH)
 }
 
-func TestSimpleMammoth(t *testing.T) {
-	testMammoth(t, "simple", testSimpleH)
-}
-
 func TestMsgpackCodecsTable(t *testing.T) {
 	testCodecTableOne(t, testMsgpackH)
 }
@@ -1488,10 +1366,6 @@ func TestMsgpackCodecsEmbeddedPointer(t *testing.T) {
 
 func TestMsgpackStdEncIntf(t *testing.T) {
 	doTestStdEncIntf(t, "msgpack", testMsgpackH)
-}
-
-func TestMsgpackMammoth(t *testing.T) {
-	testMammoth(t, "msgpack", testMsgpackH)
 }
 
 func TestCborCodecsTable(t *testing.T) {
@@ -1518,10 +1392,6 @@ func TestCborStdEncIntf(t *testing.T) {
 	doTestStdEncIntf(t, "cbor", testCborH)
 }
 
-func TestCborMammoth(t *testing.T) {
-	testMammoth(t, "cbor", testCborH)
-}
-
 func TestJsonCodecsTable(t *testing.T) {
 	testCodecTableOne(t, testJsonH)
 }
@@ -1540,10 +1410,6 @@ func TestJsonCodecChan(t *testing.T) {
 
 func TestJsonStdEncIntf(t *testing.T) {
 	doTestStdEncIntf(t, "json", testJsonH)
-}
-
-func TestJsonMammoth(t *testing.T) {
-	testMammoth(t, "json", testJsonH)
 }
 
 // ----- Raw ---------
@@ -1620,134 +1486,6 @@ func TestJsonLargeInteger(t *testing.T) {
 	}
 }
 
-func TestJsonDecodeNonStringScalarInStringContext(t *testing.T) {
-	var b = `{"s.true": "true", "b.true": true, "s.false": "false", "b.false": false, "s.10": "10", "i.10": 10, "i.-10": -10}`
-	var golden = map[string]string{"s.true": "true", "b.true": "true", "s.false": "false", "b.false": "false", "s.10": "10", "i.10": "10", "i.-10": "-10"}
-
-	var m map[string]string
-	d := NewDecoderBytes([]byte(b), testJsonH)
-	d.MustDecode(&m)
-	if err := deepEqual(golden, m); err == nil {
-		logT(t, "++++ match: decoded: %#v", m)
-	} else {
-		logT(t, "---- mismatch: %v ==> golden: %#v, decoded: %#v", err, golden, m)
-		failT(t)
-	}
-}
-
-func TestJsonEncodeIndent(t *testing.T) {
-	v := TestSimplish{
-		Ii: -794,
-		Ss: `A Man is
-after the new line
-	after new line and tab
-`,
-	}
-	v2 := v
-	v.Mm = make(map[string]*TestSimplish)
-	for i := 0; i < len(v.Ar); i++ {
-		v3 := v2
-		v3.Ii += (i * 4)
-		v3.Ss = fmt.Sprintf("%d - %s", v3.Ii, v3.Ss)
-		if i%2 == 0 {
-			v.Ar[i] = &v3
-		}
-		// v3 = v2
-		v.Sl = append(v.Sl, &v3)
-		v.Mm[strconv.FormatInt(int64(i), 10)] = &v3
-	}
-	oldcan := testJsonH.Canonical
-	oldIndent := testJsonH.Indent
-	oldS2A := testJsonH.StructToArray
-	defer func() {
-		testJsonH.Canonical = oldcan
-		testJsonH.Indent = oldIndent
-		testJsonH.StructToArray = oldS2A
-	}()
-	testJsonH.Canonical = true
-	testJsonH.Indent = -1
-	testJsonH.StructToArray = false
-	var bs []byte
-	NewEncoderBytes(&bs, testJsonH).MustEncode(&v)
-	txt1Tab := string(bs)
-	bs = nil
-	testJsonH.Indent = 120
-	NewEncoderBytes(&bs, testJsonH).MustEncode(&v)
-	txtSpaces := string(bs)
-	// fmt.Printf("\n-----------\n%s\n------------\n%s\n-------------\n", txt1Tab, txtSpaces)
-
-	goldenResultTab := `{
-	"Ar": [
-		{
-			"Ar": [
-				null,
-				null
-			],
-			"Ii": -794,
-			"Mm": null,
-			"Sl": null,
-			"Ss": "-794 - A Man is\nafter the new line\n\tafter new line and tab\n"
-		},
-		null
-	],
-	"Ii": -794,
-	"Mm": {
-		"0": {
-			"Ar": [
-				null,
-				null
-			],
-			"Ii": -794,
-			"Mm": null,
-			"Sl": null,
-			"Ss": "-794 - A Man is\nafter the new line\n\tafter new line and tab\n"
-		},
-		"1": {
-			"Ar": [
-				null,
-				null
-			],
-			"Ii": -790,
-			"Mm": null,
-			"Sl": null,
-			"Ss": "-790 - A Man is\nafter the new line\n\tafter new line and tab\n"
-		}
-	},
-	"Sl": [
-		{
-			"Ar": [
-				null,
-				null
-			],
-			"Ii": -794,
-			"Mm": null,
-			"Sl": null,
-			"Ss": "-794 - A Man is\nafter the new line\n\tafter new line and tab\n"
-		},
-		{
-			"Ar": [
-				null,
-				null
-			],
-			"Ii": -790,
-			"Mm": null,
-			"Sl": null,
-			"Ss": "-790 - A Man is\nafter the new line\n\tafter new line and tab\n"
-		}
-	],
-	"Ss": "A Man is\nafter the new line\n\tafter new line and tab\n"
-}`
-
-	if txt1Tab != goldenResultTab {
-		logT(t, "decoded indented with tabs != expected: \nexpected: %s\nencoded: %s", goldenResultTab, txt1Tab)
-		failT(t)
-	}
-	if txtSpaces != strings.Replace(goldenResultTab, "\t", strings.Repeat(" ", 120), -1) {
-		logT(t, "decoded indented with spaces != expected: \nexpected: %s\nencoded: %s", goldenResultTab, txtSpaces)
-		failT(t)
-	}
-}
-
 // TODO:
 //   Add Tests for:
 //   - decoding empty list/map in stream into a nil slice/map
@@ -1762,6 +1500,7 @@ after the new line
 //   - struct tags:
 //     on anonymous fields, _struct (all fields), etc
 //   - codecgen of struct containing channels.
-//
-//  Add negative tests for failure conditions:
 //   - bad input with large array length prefix
+//
+//   Cleanup tests:
+//   - The are brittle in their handling of validation and skipping

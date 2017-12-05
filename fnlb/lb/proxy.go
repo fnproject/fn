@@ -47,6 +47,7 @@ type Config struct {
 	// Kubernetes support
 	Namespace            string          `json:"k8s_namespace"`
 	LabelSelector        string          `json:"k8s_label_selector"`
+	TargetPort           int             `json:"target_port"`
 
 	Transport *http.Transport
 }
