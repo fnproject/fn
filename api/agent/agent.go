@@ -196,8 +196,15 @@ func (a *agent) Submit(callI Call) error {
 	call := callI.(*call)
 	ctx := call.req.Context()
 
+	// start spans in the correct order so each span is given, and inherits, the correct baggage
+	span_global, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit_global")
+	defer span_global.Finish()
+
+	span_app, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit_app")
+	span_app.SetBaggageItem("fn_appname", callI.Model().AppName)
+	defer span_app.Finish()
+
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
-	span.SetBaggageItem("fn_appname", callI.Model().AppName)
 	span.SetBaggageItem("fn_path", callI.Model().Path)
 	defer span.Finish()
 
