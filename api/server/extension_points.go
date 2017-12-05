@@ -6,40 +6,17 @@ import (
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
 )
 
-type ApiHandlerFunc func(w http.ResponseWriter, r *http.Request)
-
-// ServeHTTP calls f(w, r).
-func (f ApiHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	f(w, r)
-}
-
-type ApiHandler interface {
-	// Handle(ctx context.Context)
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
-}
-
-type ApiAppHandler interface {
-	// Handle(ctx context.Context)
-	ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App)
-}
-
-type ApiAppHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.App)
-
-// ServeHTTP calls f(w, r).
-func (f ApiAppHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App) {
-	f(w, r, app)
-}
-
-func (s *Server) apiHandlerWrapperFunc(apiHandler ApiHandler) gin.HandlerFunc {
+func (s *Server) apiHandlerWrapperFunc(apiHandler fnext.ApiHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiHandler.ServeHTTP(c.Writer, c.Request)
 	}
 }
 
-func (s *Server) apiAppHandlerWrapperFunc(apiHandler ApiAppHandler) gin.HandlerFunc {
+func (s *Server) apiAppHandlerWrapperFunc(apiHandler fnext.ApiAppHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get the app
 		appName := c.Param(api.CApp)
@@ -59,21 +36,7 @@ func (s *Server) apiAppHandlerWrapperFunc(apiHandler ApiAppHandler) gin.HandlerF
 	}
 }
 
-// per Route
-
-type ApiRouteHandler interface {
-	// Handle(ctx context.Context)
-	ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
-}
-
-type ApiRouteHandlerFunc func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)
-
-// ServeHTTP calls f(w, r).
-func (f ApiRouteHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route) {
-	f(w, r, app, route)
-}
-
-func (s *Server) apiRouteHandlerWrapperFunc(apiHandler ApiRouteHandler) gin.HandlerFunc {
+func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		context := c.Request.Context()
 		// get the app
@@ -108,7 +71,7 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler ApiRouteHandler) gin.Hand
 }
 
 // AddEndpoint adds an endpoint to /v1/x
-func (s *Server) AddEndpoint(method, path string, handler ApiHandler) {
+func (s *Server) AddEndpoint(method, path string, handler fnext.ApiHandler) {
 	v1 := s.Router.Group("/v1")
 	// v1.GET("/apps/:app/log", logHandler(cfg))
 	v1.Handle(method, path, s.apiHandlerWrapperFunc(handler))
@@ -116,27 +79,27 @@ func (s *Server) AddEndpoint(method, path string, handler ApiHandler) {
 
 // AddEndpoint adds an endpoint to /v1/x
 func (s *Server) AddEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request)) {
-	s.AddEndpoint(method, path, ApiHandlerFunc(handler))
+	s.AddEndpoint(method, path, fnext.ApiHandlerFunc(handler))
 }
 
 // AddAppEndpoint adds an endpoints to /v1/apps/:app/x
-func (s *Server) AddAppEndpoint(method, path string, handler ApiAppHandler) {
+func (s *Server) AddAppEndpoint(method, path string, handler fnext.ApiAppHandler) {
 	v1 := s.Router.Group("/v1")
 	v1.Handle(method, "/apps/:app"+path, s.apiAppHandlerWrapperFunc(handler))
 }
 
 // AddAppEndpoint adds an endpoints to /v1/apps/:app/x
 func (s *Server) AddAppEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App)) {
-	s.AddAppEndpoint(method, path, ApiAppHandlerFunc(handler))
+	s.AddAppEndpoint(method, path, fnext.ApiAppHandlerFunc(handler))
 }
 
 // AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
-func (s *Server) AddRouteEndpoint(method, path string, handler ApiRouteHandler) {
+func (s *Server) AddRouteEndpoint(method, path string, handler fnext.ApiRouteHandler) {
 	v1 := s.Router.Group("/v1")
 	v1.Handle(method, "/apps/:app/routes/:route"+path, s.apiRouteHandlerWrapperFunc(handler)) // conflicts with existing wildcard
 }
 
 // AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
 func (s *Server) AddRouteEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route)) {
-	s.AddRouteEndpoint(method, path, ApiRouteHandlerFunc(handler))
+	s.AddRouteEndpoint(method, path, fnext.ApiRouteHandlerFunc(handler))
 }

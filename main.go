@@ -4,12 +4,11 @@ import (
 	"context"
 
 	"github.com/fnproject/fn/api/server"
+	// EXTENSIONS: Add extension imports here or use `fn build-server`. Learn more: https://github.com/fnproject/fn/blob/master/docs/operating/extending.md
 )
 
 func main() {
 	ctx := context.Background()
-
 	funcServer := server.NewFromEnv(ctx)
-	// Setup your custom extensions, listeners, etc here
 	funcServer.Start(ctx)
 }

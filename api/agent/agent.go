@@ -15,9 +15,9 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers/docker"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -112,7 +112,7 @@ type Agent interface {
 
 	// Return the http.Handler used to handle Prometheus metric requests
 	PromHandler() http.Handler
-	AddCallListener(extensions.CallListener)
+	AddCallListener(fnext.CallListener)
 }
 
 type agent struct {
@@ -120,7 +120,7 @@ type agent struct {
 	mq            models.MessageQueue
 	ds            models.Datastore
 	ls            models.LogStore
-	callListeners []extensions.CallListener
+	callListeners []fnext.CallListener
 
 	driver drivers.Driver
 
