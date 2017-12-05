@@ -32,7 +32,7 @@ jobs:
           name: install dependencies
           command: |
             go get -u github.com/golang/dep/cmd/dep
-            dep ensure --vendor-only
+            ${GOPATH}/bin/dep ensure --vendor-only
       - run: make install
       - run: make test
       - run: ./go-fmt.sh
