@@ -1,0 +1,7 @@
+name: fn-example/spring-cloud-fn
+version: 0.0.1
+runtime: java8
+cmd: com.fnproject.fn.examples.SCFExample::handleRequest
+format: http
+timeout: 30
+path: /fn
