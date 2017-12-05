@@ -93,7 +93,7 @@ of resources, ...) and should not be addressed in this PR.
 $ # Single resource
 $ swarmctl service create --name nginx --image nginx:latest --generic-resources "banana=2"
 $ # Multiple resources
-$ swarmctl service create --name nginx --image nginx:latest --generic-resources "banana=2;apple=3"
+$ swarmctl service create --name nginx --image nginx:latest --generic-resources "banana=2,apple=3"
 ```
 
 ### Generic Resource advertising
@@ -103,7 +103,7 @@ It is the scheduler's job to decide which resource to assign and keep track of w
 owns which resource.
 
 ```
-$ swarmd -d $DIR --join-addr $IP --join-token $TOKEN --generic-node-resources "banana={blue,red,green};apple=8"
+$ swarmd -d $DIR --join-addr $IP --join-token $TOKEN --generic-node-resources "banana=blue,banana=red,banana=green,apple=8"
 ```
 
 ### Generic Resource communication
@@ -142,7 +142,7 @@ Plugins:
   Volume                  : [local nvidia-docker]
 Engine Version            : 1.13.1
 
-$ swarmctl service create --name nginx --image nginx:latest --generic-resources "banana=2;apple=2"
+$ swarmctl service create --name nginx --image nginx:latest --generic-resources "banana=2,apple=2"
 $ swarmctl service inspect nginx
 ID                       : abxelhl822d8zyjqam3m3szb0
 Name                     : nginx
@@ -161,7 +161,7 @@ Task ID                      Service    Slot    Image           Desired State   
 
 $ # ssh to the node
 $ docker inspect $CONTAINER_ID --format '{{.Config.Env}}' | tr -s ' ' '\n'
-[DOCKER_RESOURCE_BANANA=2
+[DOCKER_RESOURCE_BANANA=red,blue
 DOCKER_RESOURCE_APPLE=2
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 NGINX_VERSION=1.13.0-1~stretch

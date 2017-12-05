@@ -9,16 +9,13 @@ package codec
 import (
 	"errors"
 	"fmt"
-	"math"
 	"reflect"
+	"time"
 )
 
 func panicValToErr(panicVal interface{}, err *error) {
-	if panicVal == nil {
-		return
-	}
-	// case nil
 	switch xerr := panicVal.(type) {
+	case nil:
 	case error:
 		*err = xerr
 	case string:
@@ -49,10 +46,13 @@ func hIsEmptyValue(v reflect.Value, deref, checkStruct bool) bool {
 				return true
 			}
 			return hIsEmptyValue(v.Elem(), deref, checkStruct)
-		} else {
-			return v.IsNil()
 		}
+		return v.IsNil()
 	case reflect.Struct:
+		// check for time.Time, and return true if IsZero
+		if rv2rtid(v) == timeTypId {
+			return rv2i(v).(time.Time).IsZero()
+		}
 		if !checkStruct {
 			return false
 		}
@@ -86,37 +86,6 @@ func pruneSignExt(v []byte, pos bool) (n int) {
 	return
 }
 
-func implementsIntf(typ, iTyp reflect.Type) (success bool, indir int8) {
-	if typ == nil {
-		return
-	}
-	rt := typ
-	// The type might be a pointer and we need to keep
-	// dereferencing to the base type until we find an implementation.
-	for {
-		if rt.Implements(iTyp) {
-			return true, indir
-		}
-		if p := rt; p.Kind() == reflect.Ptr {
-			indir++
-			if indir >= math.MaxInt8 { // insane number of indirections
-				return false, 0
-			}
-			rt = p.Elem()
-			continue
-		}
-		break
-	}
-	// No luck yet, but if this is a base type (non-pointer), the pointer might satisfy.
-	if typ.Kind() != reflect.Ptr {
-		// Not a pointer, but does the pointer work?
-		if reflect.PtrTo(typ).Implements(iTyp) {
-			return true, -1
-		}
-	}
-	return false, 0
-}
-
 // validate that this function is correct ...
 // culled from OGRE (Object-Oriented Graphics Rendering Engine)
 // function: halfToFloatI (http://stderr.org/doc/ogre-doc/api/OgreBitwise_8h-source.html)
@@ -129,21 +98,20 @@ func halfFloatToFloatBits(yy uint16) (d uint32) {
 	if e == 0 {
 		if m == 0 { // plu or minus 0
 			return s << 31
-		} else { // Denormalized number -- renormalize it
-			for (m & 0x00000400) == 0 {
-				m <<= 1
-				e -= 1
-			}
-			e += 1
-			const zz uint32 = 0x0400
-			m &= ^zz
 		}
+		// Denormalized number -- renormalize it
+		for (m & 0x00000400) == 0 {
+			m <<= 1
+			e -= 1
+		}
+		e += 1
+		const zz uint32 = 0x0400
+		m &= ^zz
 	} else if e == 31 {
 		if m == 0 { // Inf
 			return (s << 31) | 0x7f800000
-		} else { // NaN
-			return (s << 31) | 0x7f800000 | (m << 13)
 		}
+		return (s << 31) | 0x7f800000 | (m << 13) // NaN
 	}
 	e = e + (127 - 15)
 	m = m << 13

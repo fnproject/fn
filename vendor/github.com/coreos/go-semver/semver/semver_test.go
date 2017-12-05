@@ -72,6 +72,7 @@ var fixtures = []fixture{
 	fixture{"1.0.0-beta", "1.0.0-alpha.beta"},
 	fixture{"1.0.0-alpha.beta", "1.0.0-alpha.1"},
 	fixture{"1.0.0-alpha.1", "1.0.0-alpha"},
+	fixture{"1.2.3-rc.1-1-1hash", "1.2.3-rc.2"},
 }
 
 func TestCompare(t *testing.T) {
@@ -176,7 +177,7 @@ func TestBumpMajor(t *testing.T) {
 
 	version, _ = NewVersion("1.0.0+build.1-alpha.1")
 	version.BumpMajor()
-	if version.PreRelease != "" && version.PreRelease != "" {
+	if version.PreRelease != "" && version.Metadata != "" {
 		t.Fatalf("bumping major on 1.0.0+build.1-alpha.1 resulted in %v", version)
 	}
 }
@@ -195,7 +196,7 @@ func TestBumpMinor(t *testing.T) {
 
 	version, _ = NewVersion("1.0.0+build.1-alpha.1")
 	version.BumpMinor()
-	if version.PreRelease != "" && version.PreRelease != "" {
+	if version.PreRelease != "" && version.Metadata != "" {
 		t.Fatalf("bumping major on 1.0.0+build.1-alpha.1 resulted in %v", version)
 	}
 }
@@ -218,7 +219,7 @@ func TestBumpPatch(t *testing.T) {
 
 	version, _ = NewVersion("1.0.0+build.1-alpha.1")
 	version.BumpPatch()
-	if version.PreRelease != "" && version.PreRelease != "" {
+	if version.PreRelease != "" && version.Metadata != "" {
 		t.Fatalf("bumping major on 1.0.0+build.1-alpha.1 resulted in %v", version)
 	}
 }
@@ -338,6 +339,8 @@ func TestBadInput(t *testing.T) {
 		"0x1.3.4",
 		"-1.2.3",
 		"1.2.3.4",
+		"0.88.0-11_e4e5dcabb",
+		"0.88.0+11_e4e5dcabb",
 	}
 	for _, b := range bad {
 		if _, err := NewVersion(b); err == nil {

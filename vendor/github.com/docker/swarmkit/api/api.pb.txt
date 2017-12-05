@@ -263,6 +263,14 @@ file {
         type: TYPE_INT32
         json_name: "end"
       }
+      field {
+        name: "options"
+        number: 3
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.ExtensionRangeOptions"
+        json_name: "options"
+      }
     }
     nested_type {
       name: "ReservedRange"
@@ -280,6 +288,21 @@ file {
         type: TYPE_INT32
         json_name: "end"
       }
+    }
+  }
+  message_type {
+    name: "ExtensionRangeOptions"
+    field {
+      name: "uninterpreted_option"
+      number: 999
+      label: LABEL_REPEATED
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.UninterpretedOption"
+      json_name: "uninterpretedOption"
+    }
+    extension_range {
+      start: 1000
+      end: 536870912
     }
   }
   message_type {
@@ -674,6 +697,14 @@ file {
       json_name: "pyGenericServices"
     }
     field {
+      name: "php_generic_services"
+      number: 19
+      label: LABEL_OPTIONAL
+      type: TYPE_BOOL
+      default_value: "false"
+      json_name: "phpGenericServices"
+    }
+    field {
       name: "deprecated"
       number: 23
       label: LABEL_OPTIONAL
@@ -716,6 +747,13 @@ file {
       label: LABEL_OPTIONAL
       type: TYPE_STRING
       json_name: "phpClassPrefix"
+    }
+    field {
+      name: "php_namespace"
+      number: 41
+      label: LABEL_OPTIONAL
+      type: TYPE_STRING
+      json_name: "phpNamespace"
     }
     field {
       name: "uninterpreted_option"
@@ -4069,6 +4107,13 @@ file {
       }
     }
     value {
+      name: "REMOVE"
+      number: 800
+      options {
+        66001: "TaskStateRemove"
+      }
+    }
+    value {
       name: "ORPHANED"
       number: 832
       options {
@@ -4134,12 +4179,117 @@ file {
   syntax: "proto3"
 }
 file {
+  name: "google/protobuf/wrappers.proto"
+  package: "google.protobuf"
+  message_type {
+    name: "DoubleValue"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_DOUBLE
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "FloatValue"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_FLOAT
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "Int64Value"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_INT64
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "UInt64Value"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_UINT64
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "Int32Value"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_INT32
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "UInt32Value"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_UINT32
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "BoolValue"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_BOOL
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "StringValue"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_STRING
+      json_name: "value"
+    }
+  }
+  message_type {
+    name: "BytesValue"
+    field {
+      name: "value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_BYTES
+      json_name: "value"
+    }
+  }
+  options {
+    java_package: "com.google.protobuf"
+    java_outer_classname: "WrappersProto"
+    java_multiple_files: true
+    go_package: "github.com/golang/protobuf/ptypes/wrappers"
+    cc_enable_arenas: true
+    objc_class_prefix: "GPB"
+    csharp_namespace: "Google.Protobuf.WellKnownTypes"
+  }
+  syntax: "proto3"
+}
+file {
   name: "github.com/docker/swarmkit/api/specs.proto"
   package: "docker.swarmkit.v1"
   dependency: "github.com/docker/swarmkit/api/types.proto"
   dependency: "gogoproto/gogo.proto"
   dependency: "google/protobuf/duration.proto"
   dependency: "google/protobuf/any.proto"
+  dependency: "google/protobuf/wrappers.proto"
   message_type {
     name: "NodeSpec"
     field {
@@ -4531,6 +4681,14 @@ file {
       json_name: "privileges"
     }
     field {
+      name: "init"
+      number: 23
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.BoolValue"
+      json_name: "init"
+    }
+    field {
       name: "tty"
       number: 13
       label: LABEL_OPTIONAL
@@ -4630,6 +4788,21 @@ file {
       type_name: ".docker.swarmkit.v1.HealthConfig"
       json_name: "healthcheck"
     }
+    field {
+      name: "isolation"
+      number: 24
+      label: LABEL_OPTIONAL
+      type: TYPE_ENUM
+      type_name: ".docker.swarmkit.v1.ContainerSpec.Isolation"
+      json_name: "isolation"
+    }
+    field {
+      name: "pidsLimit"
+      number: 25
+      label: LABEL_OPTIONAL
+      type: TYPE_INT64
+      json_name: "pidsLimit"
+    }
     nested_type {
       name: "LabelsEntry"
       field {
@@ -4682,6 +4855,33 @@ file {
         label: LABEL_REPEATED
         type: TYPE_STRING
         json_name: "options"
+      }
+    }
+    enum_type {
+      name: "Isolation"
+      value {
+        name: "ISOLATION_DEFAULT"
+        number: 0
+        options {
+          66001: "ContainerIsolationDefault"
+        }
+      }
+      value {
+        name: "ISOLATION_PROCESS"
+        number: 1
+        options {
+          66001: "ContainerIsolationProcess"
+        }
+      }
+      value {
+        name: "ISOLATION_HYPERV"
+        number: 2
+        options {
+          66001: "ContainerIsolationHyperV"
+        }
+      }
+      options {
+        62001: 0
       }
     }
   }
@@ -5392,6 +5592,9 @@ file {
       label: LABEL_OPTIONAL
       type: TYPE_MESSAGE
       type_name: ".docker.swarmkit.v1.NetworkAttachment"
+      options {
+        deprecated: true
+      }
       json_name: "attachment"
     }
     field {
@@ -5412,6 +5615,14 @@ file {
       type: TYPE_ENUM
       type_name: ".docker.swarmkit.v1.NodeRole"
       json_name: "role"
+    }
+    field {
+      name: "attachments"
+      number: 10
+      label: LABEL_REPEATED
+      type: TYPE_MESSAGE
+      type_name: ".docker.swarmkit.v1.NetworkAttachment"
+      json_name: "attachments"
     }
     options {
       70001 {
@@ -8870,6 +9081,23 @@ file {
     name: "ProcessRaftMessageResponse"
   }
   message_type {
+    name: "StreamRaftMessageRequest"
+    field {
+      name: "message"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".raftpb.Message"
+      json_name: "message"
+    }
+    options {
+      70000: 0
+    }
+  }
+  message_type {
+    name: "StreamRaftMessageResponse"
+  }
+  message_type {
     name: "ResolveAddressRequest"
     field {
       name: "raft_id"
@@ -9051,6 +9279,17 @@ file {
           1: "swarm-manager"
         }
       }
+    }
+    method {
+      name: "StreamRaftMessage"
+      input_type: ".docker.swarmkit.v1.StreamRaftMessageRequest"
+      output_type: ".docker.swarmkit.v1.StreamRaftMessageResponse"
+      options {
+        73626345 {
+          1: "swarm-manager"
+        }
+      }
+      client_streaming: true
     }
     method {
       name: "ResolveAddress"

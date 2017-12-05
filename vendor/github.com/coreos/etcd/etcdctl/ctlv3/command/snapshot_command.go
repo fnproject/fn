@@ -392,6 +392,7 @@ func makeDB(snapdir, dbfile string, commit int) {
 	txn.End()
 	s.Commit()
 	s.Close()
+	be.Close()
 }
 
 type dbstatus struct {
@@ -408,7 +409,7 @@ func dbStatus(p string) dbstatus {
 
 	ds := dbstatus{}
 
-	db, err := bolt.Open(p, 0400, nil)
+	db, err := bolt.Open(p, 0400, &bolt.Options{ReadOnly: true})
 	if err != nil {
 		ExitWithError(ExitError, err)
 	}

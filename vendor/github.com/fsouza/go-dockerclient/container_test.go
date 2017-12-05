@@ -921,6 +921,21 @@ func TestCreateContainerDuplicateName(t *testing.T) {
 	}
 }
 
+// Workaround for 17.09 bug returning 400 instead of 409.
+// See https://github.com/moby/moby/issues/35021
+func TestCreateContainerDuplicateNameWorkaroundDocker17_09(t *testing.T) {
+	t.Parallel()
+	client := newTestClient(&FakeRoundTripper{message: `{"message":"Conflict. The container name \"/c1\" is already in use by container \"2ce137e165dfca5e087f247b5d05a2311f91ef3da4bb7772168446a1a47e2f68\". You have to remove (or rename) that container to be able to reuse that name."}`, status: http.StatusBadRequest})
+	config := Config{AttachStdout: true, AttachStdin: true}
+	container, err := client.CreateContainer(CreateContainerOptions{Config: &config})
+	if container != nil {
+		t.Errorf("CreateContainer: expected <nil> container, got %#v.", container)
+	}
+	if err != ErrContainerAlreadyExists {
+		t.Errorf("CreateContainer: Wrong error type. Want %#v. Got %#v.", ErrContainerAlreadyExists, err)
+	}
+}
+
 func TestCreateContainerWithHostConfig(t *testing.T) {
 	t.Parallel()
 	fakeRT := &FakeRoundTripper{message: "{}", status: http.StatusOK}
@@ -2721,11 +2736,11 @@ func TestStartContainerWhenContextTimesOut(t *testing.T) {
 
 func TestStopContainerWhenContextTimesOut(t *testing.T) {
 	t.Parallel()
-	rt := sleepyRoudTripper{sleepDuration: 200 * time.Millisecond}
+	rt := sleepyRoudTripper{sleepDuration: 300 * time.Millisecond}
 
 	client := newTestClient(&rt)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.TODO(), 50*time.Millisecond)
 	defer cancel()
 
 	err := client.StopContainerWithContext("id", 10, ctx)

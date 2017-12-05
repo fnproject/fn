@@ -12,24 +12,26 @@ import (
 // Config customize how the API should behave.
 // The API is created from Config by Froze.
 type Config struct {
-	IndentionStep           int
-	MarshalFloatWith6Digits bool
-	EscapeHTML              bool
-	SortMapKeys             bool
-	UseNumber               bool
-	TagKey                  string
-	ValidateJsonRawMessage  bool
+	IndentionStep                 int
+	MarshalFloatWith6Digits       bool
+	EscapeHTML                    bool
+	SortMapKeys                   bool
+	UseNumber                     bool
+	TagKey                        string
+	ValidateJsonRawMessage        bool
+	ObjectFieldMustBeSimpleString bool
 }
 
 type frozenConfig struct {
-	configBeforeFrozen Config
-	sortMapKeys        bool
-	indentionStep      int
-	decoderCache       unsafe.Pointer
-	encoderCache       unsafe.Pointer
-	extensions         []Extension
-	streamPool         chan *Stream
-	iteratorPool       chan *Iterator
+	configBeforeFrozen            Config
+	sortMapKeys                   bool
+	indentionStep                 int
+	objectFieldMustBeSimpleString bool
+	decoderCache                  unsafe.Pointer
+	encoderCache                  unsafe.Pointer
+	extensions                    []Extension
+	streamPool                    chan *Stream
+	iteratorPool                  chan *Iterator
 }
 
 // API the public interface of this package.
@@ -45,6 +47,8 @@ type API interface {
 	Get(data []byte, path ...interface{}) Any
 	NewEncoder(writer io.Writer) *Encoder
 	NewDecoder(reader io.Reader) *Decoder
+	Valid(data []byte) bool
+	RegisterExtension(extension Extension)
 }
 
 // ConfigDefault the default API
@@ -61,18 +65,20 @@ var ConfigCompatibleWithStandardLibrary = Config{
 
 // ConfigFastest marshals float with only 6 digits precision
 var ConfigFastest = Config{
-	EscapeHTML:              false,
-	MarshalFloatWith6Digits: true,
+	EscapeHTML:                    false,
+	MarshalFloatWith6Digits:       true, // will lose precession
+	ObjectFieldMustBeSimpleString: true, // do not unescape object field
 }.Froze()
 
 // Froze forge API from config
 func (cfg Config) Froze() API {
 	// TODO: cache frozen config
 	frozenConfig := &frozenConfig{
-		sortMapKeys:   cfg.SortMapKeys,
-		indentionStep: cfg.IndentionStep,
-		streamPool:    make(chan *Stream, 16),
-		iteratorPool:  make(chan *Iterator, 16),
+		sortMapKeys:                   cfg.SortMapKeys,
+		indentionStep:                 cfg.IndentionStep,
+		objectFieldMustBeSimpleString: cfg.ObjectFieldMustBeSimpleString,
+		streamPool:                    make(chan *Stream, 16),
+		iteratorPool:                  make(chan *Iterator, 16),
 	}
 	atomic.StorePointer(&frozenConfig.decoderCache, unsafe.Pointer(&map[string]ValDecoder{}))
 	atomic.StorePointer(&frozenConfig.encoderCache, unsafe.Pointer(&map[string]ValEncoder{}))
@@ -127,7 +133,7 @@ func (cfg *frozenConfig) getTagKey() string {
 	return tagKey
 }
 
-func (cfg *frozenConfig) registerExtension(extension Extension) {
+func (cfg *frozenConfig) RegisterExtension(extension Extension) {
 	cfg.extensions = append(cfg.extensions, extension)
 }
 
@@ -332,4 +338,11 @@ func (cfg *frozenConfig) NewEncoder(writer io.Writer) *Encoder {
 func (cfg *frozenConfig) NewDecoder(reader io.Reader) *Decoder {
 	iter := Parse(cfg, reader, 512)
 	return &Decoder{iter}
+}
+
+func (cfg *frozenConfig) Valid(data []byte) bool {
+	iter := cfg.BorrowIterator(data)
+	defer cfg.ReturnIterator(iter)
+	iter.Skip()
+	return iter.Error == nil
 }

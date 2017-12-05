@@ -575,6 +575,15 @@ Thrift.TWebSocketTransport.prototype = {
             clientCallback();
           };
         }()));
+        if(callback) {
+          this.callbacks.push((function() {
+            var clientCallback = callback;
+            return function(msg) {
+              self.setRecvBuffer(msg);
+              clientCallback();
+            };
+          }()));
+        }
       } else {
         //Queue the send to go out __onOpen
         this.send_pending.push({
@@ -590,8 +599,8 @@ Thrift.TWebSocketTransport.prototype = {
           //If the user made calls before the connection was fully
           //open, send them now
           this.send_pending.forEach(function(elem) {
-             this.socket.send(elem.buf);
-             this.callbacks.push((function() {
+             self.socket.send(elem.buf);
+             self.callbacks.push((function() {
                var clientCallback = elem.cb;
                return function(msg) {
                   self.setRecvBuffer(msg);

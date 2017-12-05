@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"runtime/debug"
 	"sort"
-	"strings"
 
 	"github.com/minio/minio-go/pkg/encrypt"
 	"github.com/minio/minio-go/pkg/s3utils"
@@ -79,7 +78,7 @@ func (opts PutObjectOptions) Header() (header http.Header) {
 		header[amzHeaderMatDesc] = []string{opts.EncryptMaterials.GetDesc()}
 	}
 	for k, v := range opts.UserMetadata {
-		if !strings.HasPrefix(strings.ToLower(k), "x-amz-meta-") && !isStandardHeader(k) && !isSSEHeader(k) {
+		if !isAmzHeader(k) && !isStandardHeader(k) && !isSSEHeader(k) {
 			header["X-Amz-Meta-"+k] = []string{v}
 		} else {
 			header[k] = []string{v}

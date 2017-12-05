@@ -12,12 +12,18 @@ import (
 	"io"
 
 	pb_testproto "github.com/grpc-ecosystem/go-grpc-prometheus/examples/testproto"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+)
+
+var (
+	// client metrics must satisfy the Collector interface
+	_ prometheus.Collector = NewClientMetrics()
 )
 
 func TestClientInterceptorSuite(t *testing.T) {

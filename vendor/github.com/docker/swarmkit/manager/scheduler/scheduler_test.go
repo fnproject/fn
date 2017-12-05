@@ -1145,7 +1145,7 @@ func TestSchedulerNoReadyNodes(t *testing.T) {
 	defer scheduler.Stop()
 
 	failure := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node", failure.Status.Message)
+	assert.Equal(t, "no suitable node", failure.Status.Err)
 
 	err = s.Update(func(tx store.Tx) error {
 		// Create a ready node. The task should get assigned to this
@@ -1584,7 +1584,7 @@ func TestSchedulerResourceConstraint(t *testing.T) {
 	defer scheduler.Stop()
 
 	failure := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (2 nodes not available for new tasks; insufficient resources on 1 node)", failure.Status.Message)
+	assert.Equal(t, "no suitable node (2 nodes not available for new tasks; insufficient resources on 1 node)", failure.Status.Err)
 
 	err = s.Update(func(tx store.Tx) error {
 		// Create a node with enough memory. The task should get
@@ -1844,7 +1844,7 @@ func TestSchedulerResourceConstraintDeadTask(t *testing.T) {
 	assert.NoError(t, err)
 
 	failure := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (insufficient resources on 1 node)", failure.Status.Message)
+	assert.Equal(t, "no suitable node (insufficient resources on 1 node)", failure.Status.Err)
 
 	err = s.Update(func(tx store.Tx) error {
 		// The task becomes dead
@@ -2138,7 +2138,7 @@ func TestSchedulerCompatiblePlatform(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	failure := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (unsupported platform on 3 nodes)", failure.Status.Message)
+	assert.Equal(t, "no suitable node (unsupported platform on 3 nodes)", failure.Status.Err)
 
 	// add task3
 	err = s.Update(func(tx store.Tx) error {
@@ -2565,6 +2565,46 @@ func TestSchedulerPluginConstraint(t *testing.T) {
 		},
 	}
 
+	// no logging
+	t6 := &api.Task{
+		ID:           "task6_ID",
+		DesiredState: api.TaskStateRunning,
+		Spec: api.TaskSpec{
+			Runtime: &api.TaskSpec_Container{
+				Container: &api.ContainerSpec{},
+			},
+			LogDriver: &api.Driver{Name: "none"},
+		},
+		ServiceAnnotations: api.Annotations{
+			Name: "task6",
+		},
+		Status: api.TaskStatus{
+			State: api.TaskStatePending,
+		},
+	}
+
+	// log driver with no name
+	t7 := &api.Task{
+		ID:           "task7_ID",
+		DesiredState: api.TaskStateRunning,
+		Spec: api.TaskSpec{
+			Runtime: &api.TaskSpec_Container{
+				Container: &api.ContainerSpec{},
+			},
+			LogDriver: &api.Driver{
+				Options: map[string]string{
+					"max-size": "50k",
+				},
+			},
+		},
+		ServiceAnnotations: api.Annotations{
+			Name: "task7",
+		},
+		Status: api.TaskStatus{
+			State: api.TaskStatePending,
+		},
+	}
+
 	s := store.NewMemoryStore(nil)
 	assert.NotNil(t, s)
 	defer s.Close()
@@ -2600,7 +2640,7 @@ func TestSchedulerPluginConstraint(t *testing.T) {
 	assert.NoError(t, err)
 
 	failure := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (missing plugin on 1 node)", failure.Status.Message)
+	assert.Equal(t, "no suitable node (missing plugin on 1 node)", failure.Status.Err)
 
 	// Now add the second node
 	err = s.Update(func(tx store.Tx) error {
@@ -2623,7 +2663,7 @@ func TestSchedulerPluginConstraint(t *testing.T) {
 	assert.NoError(t, err)
 
 	failure = watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (missing plugin on 2 nodes)", failure.Status.Message)
+	assert.Equal(t, "no suitable node (missing plugin on 2 nodes)", failure.Status.Err)
 
 	// Now add the node3
 	err = s.Update(func(tx store.Tx) error {
@@ -2647,7 +2687,7 @@ func TestSchedulerPluginConstraint(t *testing.T) {
 
 	// check that t4 has been assigned
 	failure2 := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (missing plugin on 3 nodes)", failure2.Status.Message)
+	assert.Equal(t, "no suitable node (missing plugin on 3 nodes)", failure2.Status.Err)
 
 	err = s.Update(func(tx store.Tx) error {
 		assert.NoError(t, store.CreateNode(tx, n4))
@@ -2668,6 +2708,26 @@ func TestSchedulerPluginConstraint(t *testing.T) {
 	assignment4 := watchAssignment(t, watch)
 	assert.Equal(t, assignment4.ID, "task5_ID")
 	assert.Equal(t, assignment4.NodeID, "node4_ID")
+
+	// check that t6 gets assigned to some node
+	err = s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.CreateTask(tx, t6))
+		return nil
+	})
+	assert.NoError(t, err)
+	assignment5 := watchAssignment(t, watch)
+	assert.Equal(t, assignment5.ID, "task6_ID")
+	assert.NotEqual(t, assignment5.NodeID, "")
+
+	// check that t7 gets assigned to some node
+	err = s.Update(func(tx store.Tx) error {
+		assert.NoError(t, store.CreateTask(tx, t7))
+		return nil
+	})
+	assert.NoError(t, err)
+	assignment6 := watchAssignment(t, watch)
+	assert.Equal(t, assignment6.ID, "task7_ID")
+	assert.NotEqual(t, assignment6.NodeID, "")
 }
 
 func BenchmarkScheduler1kNodes1kTasks(b *testing.B) {
@@ -2952,5 +3012,5 @@ func TestSchedulerHostPort(t *testing.T) {
 	assert.NoError(t, err)
 
 	failure := watchAssignmentFailure(t, watch)
-	assert.Equal(t, "no suitable node (host-mode port already in use on 2 nodes)", failure.Status.Message)
+	assert.Equal(t, "no suitable node (host-mode port already in use on 2 nodes)", failure.Status.Err)
 }

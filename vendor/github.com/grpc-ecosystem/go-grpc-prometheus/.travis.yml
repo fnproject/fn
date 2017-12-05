@@ -1,7 +1,10 @@
+sudo: false
 language: go
 go:
-  - 1.6
-  - 1.7
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
+  - master
 
 install:
   - go get github.com/prometheus/client_golang/prometheus
@@ -10,4 +13,7 @@ install:
   - go get github.com/stretchr/testify
 
 script:
- - go test -race -v ./...
+ - ./test_all.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

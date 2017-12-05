@@ -3,7 +3,8 @@
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// //     http://www.apache.org/licenses/LICENSE-2.0
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -682,6 +683,76 @@ func TestLeasingTxnOwnerGet(t *testing.T) {
 		if string(rr.Kvs[0].Key) != k || string(rr.Kvs[0].Value) != k+k {
 			t.Errorf(`expected key for %q, got %+v`, k, rr.Kvs)
 		}
+	}
+}
+
+func TestLeasingTxnOwnerDeleteRange(t *testing.T) {
+	defer testutil.AfterTest(t)
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	lkv, closeLKV, err := leasing.NewKV(clus.Client(0), "pfx/")
+	testutil.AssertNil(t, err)
+	defer closeLKV()
+
+	keyCount := rand.Intn(10) + 1
+	for i := 0; i < keyCount; i++ {
+		k := fmt.Sprintf("k-%d", i)
+		if _, perr := clus.Client(0).Put(context.TODO(), k, k+k); perr != nil {
+			t.Fatal(perr)
+		}
+	}
+
+	// cache in lkv
+	resp, err := lkv.Get(context.TODO(), "k-", clientv3.WithPrefix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Kvs) != keyCount {
+		t.Fatalf("expected %d keys, got %d", keyCount, len(resp.Kvs))
+	}
+
+	if _, terr := lkv.Txn(context.TODO()).Then(clientv3.OpDelete("k-", clientv3.WithPrefix())).Commit(); terr != nil {
+		t.Fatal(terr)
+	}
+
+	resp, err = lkv.Get(context.TODO(), "k-", clientv3.WithPrefix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Kvs) != 0 {
+		t.Fatalf("expected no keys, got %d", len(resp.Kvs))
+	}
+}
+
+func TestLeasingTxnOwnerDelete(t *testing.T) {
+	defer testutil.AfterTest(t)
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	lkv, closeLKV, err := leasing.NewKV(clus.Client(0), "pfx/")
+	testutil.AssertNil(t, err)
+	defer closeLKV()
+
+	if _, err = clus.Client(0).Put(context.TODO(), "k", "abc"); err != nil {
+		t.Fatal(err)
+	}
+
+	// cache in lkv
+	if _, gerr := lkv.Get(context.TODO(), "k"); gerr != nil {
+		t.Fatal(gerr)
+	}
+
+	if _, terr := lkv.Txn(context.TODO()).Then(clientv3.OpDelete("k")).Commit(); terr != nil {
+		t.Fatal(terr)
+	}
+
+	resp, err := lkv.Get(context.TODO(), "k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Kvs) != 0 {
+		t.Fatalf("expected no keys, got %d", len(resp.Kvs))
 	}
 }
 
@@ -1828,7 +1899,7 @@ func TestLeasingSessionExpire(t *testing.T) {
 
 	// down endpoint lkv uses for keepalives
 	clus.Members[0].Stop(t)
-	if err := waitForLeasingExpire(clus.Client(1), "foo/abc"); err != nil {
+	if err = waitForLeasingExpire(clus.Client(1), "foo/abc"); err != nil {
 		t.Fatal(err)
 	}
 	waitForExpireAck(t, lkv)

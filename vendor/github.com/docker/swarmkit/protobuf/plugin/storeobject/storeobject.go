@@ -552,7 +552,7 @@ func (d *storeObjectGen) genMsgStoreObject(m *generator.Descriptor, storeObject 
 
 	/*                switch v := filter.By.(type) {
 	default:
-	        return nil, grpc.Errorf(codes.InvalidArgument, "selector type %T is unsupported for tasks", filter.By)
+	        return nil, status.Errorf(codes.InvalidArgument, "selector type %T is unsupported for tasks", filter.By)
 	}
 	*/
 

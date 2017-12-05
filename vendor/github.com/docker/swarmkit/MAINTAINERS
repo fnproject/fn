@@ -10,6 +10,7 @@
 			"aaronlehmann",
 			"aluzzardi",
 			"amitshukla",
+			"anshulpundir",
 			"cyli",
 			"diogomonica",
 			"dongluochen",
@@ -68,6 +69,11 @@
 	Email = "amit.shukla@docker.com"
 	GitHub = "amitshukla"
 
+	[people.anshulpundir]
+	Name = "Anshul Pundir"
+	Email = "anshul.x.pundir@gmail.com"
+	GitHub = "anshulpundir"
+
 	[people.cyli]
 	Name = "Ying Li"
 	Email = "ying.li@docker.com"
@@ -96,7 +102,7 @@
 	[people.misty]
 	Name = "Misty Stanley-Jones"
 	Email = "misty@docker.com"
-	GitHub = "mstanleyjones"
+	GitHub = "mistyhacks"
 
 	[people.nishanttotla]
 	Name = "Nishant Totla"

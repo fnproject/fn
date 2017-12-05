@@ -772,8 +772,8 @@ func TestServiceAddRemovePortsIngressMode(t *testing.T) {
 	assert.Len(t, s.Endpoint.Ports, 0)
 	assert.Len(t, s.Endpoint.VirtualIPs, 0)
 
-	// Publish port again and ensure VIP is the same that was deallocated
-	// and there is  no leak.
+	// Publish port again and ensure VIP is not the same that was deallocated.
+	// Since IP allocation is serial we should  receive the next available IP.
 	s.Spec.Endpoint.Ports = append(s.Spec.Endpoint.Ports, &api.PortConfig{Name: "some_tcp",
 		TargetPort:    1234,
 		PublishedPort: 1234,
@@ -786,7 +786,7 @@ func TestServiceAddRemovePortsIngressMode(t *testing.T) {
 	assert.Len(t, s.Endpoint.Ports, 1)
 	assert.Equal(t, uint32(1234), s.Endpoint.Ports[0].PublishedPort)
 	assert.Len(t, s.Endpoint.VirtualIPs, 1)
-	assert.Equal(t, allocatedVIP, s.Endpoint.VirtualIPs[0].Addr)
+	assert.NotEqual(t, allocatedVIP, s.Endpoint.VirtualIPs[0].Addr)
 }
 
 func TestServiceUpdate(t *testing.T) {

@@ -36,7 +36,7 @@ func createCluster(t *testing.T, s *store.MemoryStore, id, name string) *api.Clu
 func TestKeyManagerDefaultSubsystem(t *testing.T) {
 	st := store.NewMemoryStore(nil)
 	defer st.Close()
-	createCluster(t, st, "default", "default")
+	createCluster(t, st, "default", store.DefaultClusterName)
 
 	k := New(st, DefaultConfig())
 
@@ -72,7 +72,7 @@ func TestKeyManagerDefaultSubsystem(t *testing.T) {
 func TestKeyManagerCustomSubsystem(t *testing.T) {
 	st := store.NewMemoryStore(nil)
 	defer st.Close()
-	createCluster(t, st, "default", "default")
+	createCluster(t, st, "default", store.DefaultClusterName)
 
 	config := &Config{
 		ClusterName:      store.DefaultClusterName,
@@ -118,7 +118,7 @@ func TestKeyManagerCustomSubsystem(t *testing.T) {
 func TestKeyManagerInvalidSubsystem(t *testing.T) {
 	st := store.NewMemoryStore(nil)
 	defer st.Close()
-	createCluster(t, st, "default", "default")
+	createCluster(t, st, "default", store.DefaultClusterName)
 
 	config := &Config{
 		ClusterName:      store.DefaultClusterName,

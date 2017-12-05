@@ -16,6 +16,8 @@
  *
  */
 
+//go:generate protoc -I grpc_testing --go_out=plugins=grpc:grpc_testing grpc_testing/control.proto grpc_testing/messages.proto grpc_testing/payloads.proto grpc_testing/services.proto grpc_testing/stats.proto
+
 /*
 Package benchmark implements the building blocks to setup end-to-end gRPC benchmarks.
 */
@@ -36,6 +38,17 @@ import (
 	"google.golang.org/grpc/benchmark/stats"
 	"google.golang.org/grpc/grpclog"
 )
+
+// AddOne add 1 to the features slice
+func AddOne(features []int, featuresMaxPosition []int) {
+	for i := len(features) - 1; i >= 0; i-- {
+		features[i] = (features[i] + 1)
+		if features[i]/featuresMaxPosition[i] == 0 {
+			break
+		}
+		features[i] = features[i] % featuresMaxPosition[i]
+	}
+}
 
 // Allows reuse of the same testpb.Payload object.
 func setPayload(p *testpb.Payload, t testpb.PayloadType, size int) {
@@ -150,6 +163,8 @@ func StartServer(info ServerInfo, opts ...grpc.ServerOption) (string, func()) {
 	if nw != nil {
 		lis = nw.Listener(lis)
 	}
+	opts = append(opts, grpc.WriteBufferSize(128*1024))
+	opts = append(opts, grpc.ReadBufferSize(128*1024))
 	s := grpc.NewServer(opts...)
 	switch info.Type {
 	case "protobuf":
@@ -223,6 +238,8 @@ func DoByteBufStreamingRoundTrip(stream testpb.BenchmarkService_StreamingCallCli
 
 // NewClientConn creates a gRPC client connection to addr.
 func NewClientConn(addr string, opts ...grpc.DialOption) *grpc.ClientConn {
+	opts = append(opts, grpc.WithWriteBufferSize(128*1024))
+	opts = append(opts, grpc.WithReadBufferSize(128*1024))
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		grpclog.Fatalf("NewClientConn(%q) failed to create a ClientConn %v", addr, err)
@@ -230,11 +247,10 @@ func NewClientConn(addr string, opts ...grpc.DialOption) *grpc.ClientConn {
 	return conn
 }
 
-func runUnary(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu int, ltc time.Duration) {
+func runUnary(b *testing.B, benchFeatures stats.Features) {
 	s := stats.AddStats(b, 38)
-	nw := &latency.Network{Kbps: kbps, Latency: ltc, MTU: mtu}
-	b.StopTimer()
-	target, stopper := StartServer(ServerInfo{Addr: "localhost:0", Type: "protobuf", Network: nw}, grpc.MaxConcurrentStreams(uint32(maxConcurrentCalls+1)))
+	nw := &latency.Network{Kbps: benchFeatures.Kbps, Latency: benchFeatures.Latency, MTU: benchFeatures.Mtu}
+	target, stopper := StartServer(ServerInfo{Addr: "localhost:0", Type: "protobuf", Network: nw}, grpc.MaxConcurrentStreams(uint32(benchFeatures.MaxConcurrentCalls+1)))
 	defer stopper()
 	conn := NewClientConn(
 		target, grpc.WithInsecure(),
@@ -246,21 +262,21 @@ func runUnary(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu int
 
 	// Warm up connection.
 	for i := 0; i < 10; i++ {
-		unaryCaller(tc, reqSize, respSize)
+		unaryCaller(tc, benchFeatures.ReqSizeBytes, benchFeatures.RespSizeBytes)
 	}
-	ch := make(chan int, maxConcurrentCalls*4)
+	ch := make(chan int, benchFeatures.MaxConcurrentCalls*4)
 	var (
 		mu sync.Mutex
 		wg sync.WaitGroup
 	)
-	wg.Add(maxConcurrentCalls)
+	wg.Add(benchFeatures.MaxConcurrentCalls)
 
 	// Distribute the b.N calls over maxConcurrentCalls workers.
-	for i := 0; i < maxConcurrentCalls; i++ {
+	for i := 0; i < benchFeatures.MaxConcurrentCalls; i++ {
 		go func() {
 			for range ch {
 				start := time.Now()
-				unaryCaller(tc, reqSize, respSize)
+				unaryCaller(tc, benchFeatures.ReqSizeBytes, benchFeatures.RespSizeBytes)
 				elapse := time.Since(start)
 				mu.Lock()
 				s.Add(elapse)
@@ -269,21 +285,20 @@ func runUnary(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu int
 			wg.Done()
 		}()
 	}
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ch <- i
 	}
-	b.StopTimer()
 	close(ch)
 	wg.Wait()
+	b.StopTimer()
 	conn.Close()
 }
 
-func runStream(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu int, ltc time.Duration) {
+func runStream(b *testing.B, benchFeatures stats.Features) {
 	s := stats.AddStats(b, 38)
-	nw := &latency.Network{Kbps: kbps, Latency: ltc, MTU: mtu}
-	b.StopTimer()
-	target, stopper := StartServer(ServerInfo{Addr: "localhost:0", Type: "protobuf", Network: nw}, grpc.MaxConcurrentStreams(uint32(maxConcurrentCalls+1)))
+	nw := &latency.Network{Kbps: benchFeatures.Kbps, Latency: benchFeatures.Latency, MTU: benchFeatures.Mtu}
+	target, stopper := StartServer(ServerInfo{Addr: "localhost:0", Type: "protobuf", Network: nw}, grpc.MaxConcurrentStreams(uint32(benchFeatures.MaxConcurrentCalls+1)))
 	defer stopper()
 	conn := NewClientConn(
 		target, grpc.WithInsecure(),
@@ -299,18 +314,18 @@ func runStream(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu in
 		b.Fatalf("%v.StreamingCall(_) = _, %v", tc, err)
 	}
 	for i := 0; i < 10; i++ {
-		streamCaller(stream, reqSize, respSize)
+		streamCaller(stream, benchFeatures.ReqSizeBytes, benchFeatures.RespSizeBytes)
 	}
 
-	ch := make(chan struct{}, maxConcurrentCalls*4)
+	ch := make(chan struct{}, benchFeatures.MaxConcurrentCalls*4)
 	var (
 		mu sync.Mutex
 		wg sync.WaitGroup
 	)
-	wg.Add(maxConcurrentCalls)
+	wg.Add(benchFeatures.MaxConcurrentCalls)
 
 	// Distribute the b.N calls over maxConcurrentCalls workers.
-	for i := 0; i < maxConcurrentCalls; i++ {
+	for i := 0; i < benchFeatures.MaxConcurrentCalls; i++ {
 		stream, err := tc.StreamingCall(context.Background())
 		if err != nil {
 			b.Fatalf("%v.StreamingCall(_) = _, %v", tc, err)
@@ -318,7 +333,7 @@ func runStream(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu in
 		go func() {
 			for range ch {
 				start := time.Now()
-				streamCaller(stream, reqSize, respSize)
+				streamCaller(stream, benchFeatures.ReqSizeBytes, benchFeatures.RespSizeBytes)
 				elapse := time.Since(start)
 				mu.Lock()
 				s.Add(elapse)
@@ -327,13 +342,13 @@ func runStream(b *testing.B, maxConcurrentCalls, reqSize, respSize, kbps, mtu in
 			wg.Done()
 		}()
 	}
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ch <- struct{}{}
 	}
-	b.StopTimer()
 	close(ch)
 	wg.Wait()
+	b.StopTimer()
 	conn.Close()
 }
 func unaryCaller(client testpb.BenchmarkServiceClient, reqSize, respSize int) {

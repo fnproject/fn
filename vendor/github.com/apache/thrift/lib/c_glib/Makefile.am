@@ -34,10 +34,12 @@ libthrift_c_glib_la_SOURCES = src/thrift/c_glib/thrift.c \
                               src/thrift/c_glib/thrift_application_exception.c \
                               src/thrift/c_glib/processor/thrift_processor.c \
                               src/thrift/c_glib/processor/thrift_dispatch_processor.c \
+                              src/thrift/c_glib/processor/thrift_multiplexed_processor.c \
                               src/thrift/c_glib/protocol/thrift_protocol.c \
                               src/thrift/c_glib/protocol/thrift_protocol_decorator.c \
                               src/thrift/c_glib/protocol/thrift_protocol_factory.c \
                               src/thrift/c_glib/protocol/thrift_binary_protocol.c \
+                              src/thrift/c_glib/protocol/thrift_stored_message_protocol.c \
                               src/thrift/c_glib/protocol/thrift_multiplexed_protocol.c \
                               src/thrift/c_glib/protocol/thrift_binary_protocol_factory.c \
                               src/thrift/c_glib/protocol/thrift_compact_protocol.c \
@@ -58,7 +60,7 @@ libthrift_c_glib_la_SOURCES = src/thrift/c_glib/thrift.c \
                               src/thrift/c_glib/server/thrift_simple_server.c
 
 libthrift_c_glib_la_CFLAGS = $(AM_CFLAGS) $(GLIB_CFLAGS) $(GOBJECT_CFLAGS) $(OPENSSL_INCLUDES)
-libthrift_c_glib_la_LDFLAGS = $(AM_LDFLAGS)  $(OPENSSL_LDFLAGS) $(OPENSSL_LIBS)
+libthrift_c_glib_la_LDFLAGS = $(AM_LDFLAGS) $(GLIB_LIBS) $(GOBJECT_LIBS)  $(OPENSSL_LDFLAGS) $(OPENSSL_LIBS) 
 
 include_thriftdir = $(includedir)/thrift/c_glib
 include_thrift_HEADERS = \
@@ -75,7 +77,9 @@ include_protocol_HEADERS = src/thrift/c_glib/protocol/thrift_protocol.h \
                            src/thrift/c_glib/protocol/thrift_binary_protocol_factory.h \
                            src/thrift/c_glib/protocol/thrift_compact_protocol.h \
                            src/thrift/c_glib/protocol/thrift_compact_protocol_factory.h \
-                           src/thrift/c_glib/protocol/thrift_multiplexed_protocol.h 
+                           src/thrift/c_glib/protocol/thrift_multiplexed_protocol.h \
+                           src/thrift/c_glib/protocol/thrift_stored_message_protocol.h
+                           
 
 include_transportdir = $(include_thriftdir)/transport
 include_transport_HEADERS = src/thrift/c_glib/transport/thrift_buffered_transport.h \
@@ -98,7 +102,8 @@ include_server_HEADERS = src/thrift/c_glib/server/thrift_server.h \
 
 include_processordir = $(include_thriftdir)/processor
 include_processor_HEADERS = src/thrift/c_glib/processor/thrift_processor.h \
-                            src/thrift/c_glib/processor/thrift_dispatch_processor.h
+                            src/thrift/c_glib/processor/thrift_dispatch_processor.h \
+                            src/thrift/c_glib/processor/thrift_multiplexed_processor.h
 
 
 EXTRA_DIST = \

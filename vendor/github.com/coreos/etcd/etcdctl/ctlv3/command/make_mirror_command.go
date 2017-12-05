@@ -66,6 +66,8 @@ func makeMirrorCommandFunc(cmd *cobra.Command, args []string) {
 	}
 
 	dialTimeout := dialTimeoutFromCmd(cmd)
+	keepAliveTime := keepAliveTimeFromCmd(cmd)
+	keepAliveTimeout := keepAliveTimeoutFromCmd(cmd)
 	sec := &secureCfg{
 		cert:              mmcert,
 		key:               mmkey,
@@ -73,7 +75,15 @@ func makeMirrorCommandFunc(cmd *cobra.Command, args []string) {
 		insecureTransport: mminsecureTr,
 	}
 
-	dc := mustClient([]string{args[0]}, dialTimeout, sec, nil)
+	cc := &clientConfig{
+		endpoints:        []string{args[0]},
+		dialTimeout:      dialTimeout,
+		keepAliveTime:    keepAliveTime,
+		keepAliveTimeout: keepAliveTimeout,
+		scfg:             sec,
+		acfg:             nil,
+	}
+	dc := cc.mustClient()
 	c := mustClientFromCmd(cmd)
 
 	err := makeMirror(context.TODO(), c, dc)

@@ -390,6 +390,12 @@ func TestTxn_InsertDelete_Simple(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
+	// Delete obj1 again and expect ErrNotFound
+	err = txn.Delete("main", obj1)
+	if err != ErrNotFound {
+		t.Fatalf("expected err to be %v, got %v", ErrNotFound, err)
+	}
+
 	// Lookup of the primary obj1 should fail
 	raw, err = txn.First("main", "id", obj1.ID)
 	if err != nil {

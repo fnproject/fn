@@ -55,7 +55,7 @@ type Client struct {
 
 	cfg      Config
 	creds    *credentials.TransportCredentials
-	balancer balancer
+	balancer *healthBalancer
 	mu       sync.Mutex
 
 	ctx    context.Context
@@ -121,6 +121,19 @@ func (c *Client) SetEndpoints(eps ...string) {
 	c.cfg.Endpoints = eps
 	c.mu.Unlock()
 	c.balancer.updateAddrs(eps...)
+
+	// updating notifyCh can trigger new connections,
+	// need update addrs if all connections are down
+	// or addrs does not include pinAddr.
+	c.balancer.mu.RLock()
+	update := !hasAddr(c.balancer.addrs, c.balancer.pinAddr)
+	c.balancer.mu.RUnlock()
+	if update {
+		select {
+		case c.balancer.updateAddrsC <- notifyNext:
+		case <-c.balancer.stopc:
+		}
+	}
 }
 
 // Sync synchronizes client's endpoints with the known endpoints from the etcd membership.
@@ -179,7 +192,7 @@ func parseEndpoint(endpoint string) (proto string, host string, scheme string) {
 	host = endpoint
 	url, uerr := url.Parse(endpoint)
 	if uerr != nil || !strings.Contains(endpoint, "://") {
-		return
+		return proto, host, scheme
 	}
 	scheme = url.Scheme
 
@@ -193,7 +206,7 @@ func parseEndpoint(endpoint string) (proto string, host string, scheme string) {
 	default:
 		proto, host = "", ""
 	}
-	return
+	return proto, host, scheme
 }
 
 func (c *Client) processCreds(scheme string) (creds *credentials.TransportCredentials) {
@@ -212,7 +225,7 @@ func (c *Client) processCreds(scheme string) (creds *credentials.TransportCreden
 	default:
 		creds = nil
 	}
-	return
+	return creds
 }
 
 // dialSetupOpts gives the dial opts prior to any authentication
@@ -378,9 +391,9 @@ func newClient(cfg *Config) (*Client, error) {
 		client.Password = cfg.Password
 	}
 
-	sb := newSimpleBalancer(cfg.Endpoints)
-	hc := func(ep string) (bool, error) { return grpcHealthCheck(client, ep) }
-	client.balancer = newHealthBalancer(sb, cfg.DialTimeout, hc)
+	client.balancer = newHealthBalancer(cfg.Endpoints, cfg.DialTimeout, func(ep string) (bool, error) {
+		return grpcHealthCheck(client, ep)
+	})
 
 	// use Endpoints[0] so that for https:// without any tls config given, then
 	// grpc will assume the certificate server name is the endpoint host.
@@ -453,7 +466,7 @@ func (c *Client) checkVersion() (err error) {
 			vs := strings.Split(resp.Version, ".")
 			maj, min := 0, 0
 			if len(vs) >= 2 {
-				maj, rerr = strconv.Atoi(vs[0])
+				maj, _ = strconv.Atoi(vs[0])
 				min, rerr = strconv.Atoi(vs[1])
 			}
 			if maj < 3 || (maj == 3 && min < 2) {

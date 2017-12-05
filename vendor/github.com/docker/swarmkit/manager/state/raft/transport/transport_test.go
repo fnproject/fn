@@ -12,14 +12,51 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Build a snapshot message where each byte in the data is of the value (index % sizeof(byte))
+func newSnapshotMessage(from uint64, to uint64) raftpb.Message {
+	data := make([]byte, GRPCMaxMsgSize)
+	for i := 0; i < GRPCMaxMsgSize; i++ {
+		data[i] = byte(i % (1 << 8))
+	}
+
+	return raftpb.Message{
+		Type: raftpb.MsgSnap,
+		From: from,
+		To:   to,
+		Snapshot: raftpb.Snapshot{
+			Data: data,
+			// Include the snapshot size in the Index field for testing.
+			Metadata: raftpb.SnapshotMetadata{
+				Index: uint64(len(data)),
+			},
+		},
+	}
+}
+
+// Verify that the snapshot data where each byte is of the value (index % sizeof(byte)).
+func verifySnapshot(raftMsg *raftpb.Message) bool {
+	for i, b := range raftMsg.Snapshot.Data {
+		if int(b) != i%(1<<8) {
+			return false
+		}
+	}
+
+	return len(raftMsg.Snapshot.Data) == int(raftMsg.Snapshot.Metadata.Index)
+}
+
 func sendMessages(ctx context.Context, c *mockCluster, from uint64, to []uint64, msgType raftpb.MessageType) error {
 	var firstErr error
 	for _, id := range to {
-		err := c.Get(from).tr.Send(raftpb.Message{
-			Type: msgType,
-			From: from,
-			To:   id,
-		})
+		var err error
+		if msgType == raftpb.MsgSnap {
+			err = c.Get(from).tr.Send(newSnapshotMessage(from, id))
+		} else {
+			err = c.Get(from).tr.Send(raftpb.Message{
+				Type: msgType,
+				From: from,
+				To:   id,
+			})
+		}
 		if firstErr == nil {
 			firstErr = err
 		}
@@ -80,6 +117,14 @@ func TestSend(t *testing.T) {
 
 	t.Run("Send Message", testSend(ctx, c, 1, []uint64{2, 3}, raftpb.MsgHup))
 	t.Run("Send_Snapshot_Message", testSend(ctx, c, 1, []uint64{2, 3}, raftpb.MsgSnap))
+
+	// Return error on streaming.
+	for _, raft := range c.rafts {
+		raft.forceErrorStream = true
+	}
+
+	// Messages should still be delivered.
+	t.Run("Send Message", testSend(ctx, c, 1, []uint64{2, 3}, raftpb.MsgHup))
 }
 
 func TestSendRemoved(t *testing.T) {

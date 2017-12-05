@@ -72,24 +72,24 @@ func init() {
 	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 }
 
-type optionalDecoder struct {
-	valueType    reflect.Type
-	valueDecoder ValDecoder
+type OptionalDecoder struct {
+	ValueType    reflect.Type
+	ValueDecoder ValDecoder
 }
 
-func (decoder *optionalDecoder) Decode(ptr unsafe.Pointer, iter *Iterator) {
+func (decoder *OptionalDecoder) Decode(ptr unsafe.Pointer, iter *Iterator) {
 	if iter.ReadNil() {
 		*((*unsafe.Pointer)(ptr)) = nil
 	} else {
 		if *((*unsafe.Pointer)(ptr)) == nil {
 			//pointer to null, we have to allocate memory to hold the value
-			value := reflect.New(decoder.valueType)
+			value := reflect.New(decoder.ValueType)
 			newPtr := extractInterface(value.Interface()).word
-			decoder.valueDecoder.Decode(newPtr, iter)
+			decoder.ValueDecoder.Decode(newPtr, iter)
 			*((*uintptr)(ptr)) = uintptr(newPtr)
 		} else {
 			//reuse existing instance
-			decoder.valueDecoder.Decode(*((*unsafe.Pointer)(ptr)), iter)
+			decoder.ValueDecoder.Decode(*((*unsafe.Pointer)(ptr)), iter)
 		}
 	}
 }
@@ -113,11 +113,31 @@ func (decoder *deferenceDecoder) Decode(ptr unsafe.Pointer, iter *Iterator) {
 	}
 }
 
-type optionalEncoder struct {
+type OptionalEncoder struct {
+	ValueEncoder ValEncoder
+}
+
+func (encoder *OptionalEncoder) Encode(ptr unsafe.Pointer, stream *Stream) {
+	if *((*unsafe.Pointer)(ptr)) == nil {
+		stream.WriteNil()
+	} else {
+		encoder.ValueEncoder.Encode(*((*unsafe.Pointer)(ptr)), stream)
+	}
+}
+
+func (encoder *OptionalEncoder) EncodeInterface(val interface{}, stream *Stream) {
+	WriteToStream(val, stream, encoder)
+}
+
+func (encoder *OptionalEncoder) IsEmpty(ptr unsafe.Pointer) bool {
+	return *((*unsafe.Pointer)(ptr)) == nil
+}
+
+type optionalMapEncoder struct {
 	valueEncoder ValEncoder
 }
 
-func (encoder *optionalEncoder) Encode(ptr unsafe.Pointer, stream *Stream) {
+func (encoder *optionalMapEncoder) Encode(ptr unsafe.Pointer, stream *Stream) {
 	if *((*unsafe.Pointer)(ptr)) == nil {
 		stream.WriteNil()
 	} else {
@@ -125,15 +145,13 @@ func (encoder *optionalEncoder) Encode(ptr unsafe.Pointer, stream *Stream) {
 	}
 }
 
-func (encoder *optionalEncoder) EncodeInterface(val interface{}, stream *Stream) {
+func (encoder *optionalMapEncoder) EncodeInterface(val interface{}, stream *Stream) {
 	WriteToStream(val, stream, encoder)
 }
 
-func (encoder *optionalEncoder) IsEmpty(ptr unsafe.Pointer) bool {
-	if *((*unsafe.Pointer)(ptr)) == nil {
-		return true
-	}
-	return false
+func (encoder *optionalMapEncoder) IsEmpty(ptr unsafe.Pointer) bool {
+	p := *((*unsafe.Pointer)(ptr))
+	return p == nil || encoder.valueEncoder.IsEmpty(p)
 }
 
 type placeholderEncoder struct {
@@ -146,7 +164,7 @@ func (encoder *placeholderEncoder) Encode(ptr unsafe.Pointer, stream *Stream) {
 }
 
 func (encoder *placeholderEncoder) EncodeInterface(val interface{}, stream *Stream) {
-	WriteToStream(val, stream, encoder)
+	encoder.getRealEncoder().EncodeInterface(val, stream)
 }
 
 func (encoder *placeholderEncoder) IsEmpty(ptr unsafe.Pointer) bool {
@@ -256,7 +274,7 @@ func decoderOfType(cfg *frozenConfig, typ reflect.Type) (ValDecoder, error) {
 	if decoder != nil {
 		return decoder, nil
 	}
-	decoder = getTypeDecoderFromExtension(typ)
+	decoder = getTypeDecoderFromExtension(cfg, typ)
 	if decoder != nil {
 		cfg.addDecoderToCache(cacheKey, decoder)
 		return decoder, nil
@@ -265,6 +283,9 @@ func decoderOfType(cfg *frozenConfig, typ reflect.Type) (ValDecoder, error) {
 	cfg.addDecoderToCache(cacheKey, decoder)
 	decoder, err := createDecoderOfType(cfg, typ)
 	for _, extension := range extensions {
+		decoder = extension.DecorateDecoder(typ, decoder)
+	}
+	for _, extension := range cfg.extensions {
 		decoder = extension.DecorateDecoder(typ, decoder)
 	}
 	cfg.addDecoderToCache(cacheKey, decoder)
@@ -289,7 +310,7 @@ func createDecoderOfType(cfg *frozenConfig, typ reflect.Type) (ValDecoder, error
 		templateInterface := reflect.New(typ).Elem().Interface()
 		var decoder ValDecoder = &unmarshalerDecoder{extractInterface(templateInterface)}
 		if typ.Kind() == reflect.Ptr {
-			decoder = &optionalDecoder{typ.Elem(), decoder}
+			decoder = &OptionalDecoder{typ.Elem(), decoder}
 		}
 		return decoder, nil
 	}
@@ -302,7 +323,7 @@ func createDecoderOfType(cfg *frozenConfig, typ reflect.Type) (ValDecoder, error
 		templateInterface := reflect.New(typ).Elem().Interface()
 		var decoder ValDecoder = &textUnmarshalerDecoder{extractInterface(templateInterface)}
 		if typ.Kind() == reflect.Ptr {
-			decoder = &optionalDecoder{typ.Elem(), decoder}
+			decoder = &OptionalDecoder{typ.Elem(), decoder}
 		}
 		return decoder, nil
 	}
@@ -423,7 +444,7 @@ func encoderOfType(cfg *frozenConfig, typ reflect.Type) (ValEncoder, error) {
 	if encoder != nil {
 		return encoder, nil
 	}
-	encoder = getTypeEncoderFromExtension(typ)
+	encoder = getTypeEncoderFromExtension(cfg, typ)
 	if encoder != nil {
 		cfg.addEncoderToCache(cacheKey, encoder)
 		return encoder, nil
@@ -432,6 +453,9 @@ func encoderOfType(cfg *frozenConfig, typ reflect.Type) (ValEncoder, error) {
 	cfg.addEncoderToCache(cacheKey, encoder)
 	encoder, err := createEncoderOfType(cfg, typ)
 	for _, extension := range extensions {
+		encoder = extension.DecorateEncoder(typ, encoder)
+	}
+	for _, extension := range cfg.extensions {
 		encoder = extension.DecorateEncoder(typ, encoder)
 	}
 	cfg.addEncoderToCache(cacheKey, encoder)
@@ -462,7 +486,7 @@ func createEncoderOfType(cfg *frozenConfig, typ reflect.Type) (ValEncoder, error
 			checkIsEmpty:      checkIsEmpty,
 		}
 		if typ.Kind() == reflect.Ptr {
-			encoder = &optionalEncoder{encoder}
+			encoder = &OptionalEncoder{encoder}
 		}
 		return encoder, nil
 	}
@@ -489,7 +513,7 @@ func createEncoderOfType(cfg *frozenConfig, typ reflect.Type) (ValEncoder, error
 			checkIsEmpty:      checkIsEmpty,
 		}
 		if typ.Kind() == reflect.Ptr {
-			encoder = &optionalEncoder{encoder}
+			encoder = &OptionalEncoder{encoder}
 		}
 		return encoder, nil
 	}
@@ -549,7 +573,7 @@ func createCheckIsEmpty(typ reflect.Type) (checkIsEmpty, error) {
 	case reflect.Map:
 		return &mapEncoder{}, nil
 	case reflect.Ptr:
-		return &optionalEncoder{}, nil
+		return &OptionalEncoder{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", typ)
 	}
@@ -660,7 +684,7 @@ func decoderOfOptional(cfg *frozenConfig, typ reflect.Type) (ValDecoder, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &optionalDecoder{elemType, decoder}, nil
+	return &OptionalDecoder{elemType, decoder}, nil
 }
 
 func encoderOfOptional(cfg *frozenConfig, typ reflect.Type) (ValEncoder, error) {
@@ -669,9 +693,9 @@ func encoderOfOptional(cfg *frozenConfig, typ reflect.Type) (ValEncoder, error) 
 	if err != nil {
 		return nil, err
 	}
-	encoder := &optionalEncoder{elemEncoder}
+	encoder := &OptionalEncoder{elemEncoder}
 	if elemType.Kind() == reflect.Map {
-		encoder = &optionalEncoder{encoder}
+		encoder = &OptionalEncoder{encoder}
 	}
 	return encoder, nil
 }

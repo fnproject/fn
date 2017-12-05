@@ -120,6 +120,18 @@ func (c *containerConfig) portBindings() nat.PortMap {
 	return portBindings
 }
 
+func (c *containerConfig) isolation() enginecontainer.Isolation {
+	switch c.spec().Isolation {
+	case api.ContainerIsolationDefault:
+		return enginecontainer.Isolation("default")
+	case api.ContainerIsolationHyperV:
+		return enginecontainer.Isolation("hyperv")
+	case api.ContainerIsolationProcess:
+		return enginecontainer.Isolation("process")
+	}
+	return enginecontainer.Isolation("")
+}
+
 func (c *containerConfig) exposedPorts() map[nat.Port]struct{} {
 	exposedPorts := make(map[nat.Port]struct{})
 	if c.task.Endpoint == nil {
@@ -196,6 +208,7 @@ func (c *containerConfig) hostConfig() *enginecontainer.HostConfig {
 		GroupAdd:     c.spec().Groups,
 		PortBindings: c.portBindings(),
 		Init:         c.init(),
+		Isolation:    c.isolation(),
 	}
 
 	// The format of extra hosts on swarmkit is specified in:
@@ -410,6 +423,12 @@ func (c *containerConfig) volumeCreateRequest(mount *api.Mount) *volume.VolumesC
 func (c *containerConfig) resources() enginecontainer.Resources {
 	resources := enginecontainer.Resources{}
 
+	// set pids limit
+	pidsLimit := c.spec().PidsLimit
+	if pidsLimit > 0 {
+		resources.PidsLimit = pidsLimit
+	}
+
 	// If no limits are specified let the engine use its defaults.
 	//
 	// TODO(aluzzardi): We might want to set some limits anyway otherwise
@@ -534,10 +553,8 @@ func (c containerConfig) eventFilter() filters.Args {
 }
 
 func (c *containerConfig) init() *bool {
-	init := c.spec().GetInit()
-	if init != nil {
-		value := c.spec().GetInitValue()
-		return &value
+	if c.spec().Init != nil {
+		return &c.spec().Init.Value
 	}
 	return nil
 }

@@ -804,11 +804,11 @@ func isValidNode(t assert.TestingT, originalNode, updatedNode *api.Node, network
 		return false
 	}
 
-	if !assert.Equal(t, len(updatedNode.LbAttachments), len(networks)) {
+	if !assert.Equal(t, len(updatedNode.Attachments), len(networks)) {
 		return false
 	}
 
-	for _, na := range updatedNode.LbAttachments {
+	for _, na := range updatedNode.Attachments {
 		if !assert.Equal(t, len(na.Addresses), 1) {
 			return false
 		}

@@ -90,7 +90,12 @@ func TestInfo(t *testing.T) {
          }
        },
        "Mirrors":null
-     }
+     },
+     "SecurityOptions": [
+     	"name=apparmor",
+     	"name=seccomp",
+     	"profile=default"
+     ]
 }`
 	fakeRT := FakeRoundTripper{message: body, status: http.StatusOK}
 	client := newTestClient(&fakeRT)
@@ -116,6 +121,11 @@ func TestInfo(t *testing.T) {
 					Official: true,
 				},
 			},
+		},
+		SecurityOptions: []string{
+			"name=apparmor",
+			"name=seccomp",
+			"profile=default",
 		},
 	}
 	info, err := client.Info()

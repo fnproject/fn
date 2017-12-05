@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	etcdraft "github.com/coreos/etcd/raft"
+	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/ca"
 	cautils "github.com/docker/swarmkit/ca/testutils"
@@ -636,4 +637,39 @@ func GetAllValuesOnNode(t *testing.T, clockSource *fakeclock.FakeClock, raftNode
 	}))
 
 	return ids, values
+}
+
+// NewSnapshotMessage creates and returns a raftpb.Message of type MsgSnap
+// where the snapshot data is of the given size and the value of each byte
+// is (index of the byte) % 256.
+func NewSnapshotMessage(from, to uint64, size int) *raftpb.Message {
+	data := make([]byte, size)
+	for i := 0; i < size; i++ {
+		data[i] = byte(i % (1 << 8))
+	}
+
+	return &raftpb.Message{
+		Type: raftpb.MsgSnap,
+		From: from,
+		To:   to,
+		Snapshot: raftpb.Snapshot{
+			Data: data,
+			// Include the snapshot size in the Index field for testing.
+			Metadata: raftpb.SnapshotMetadata{
+				Index: uint64(len(data)),
+			},
+		},
+	}
+}
+
+// VerifySnapshot verifies that the snapshot data where each byte is
+// of the value (index % sizeof(byte)).
+func VerifySnapshot(raftMsg *raftpb.Message) bool {
+	for i, b := range raftMsg.Snapshot.Data {
+		if int(b) != i%(1<<8) {
+			return false
+		}
+	}
+
+	return len(raftMsg.Snapshot.Data) == int(raftMsg.Snapshot.Metadata.Index)
 }

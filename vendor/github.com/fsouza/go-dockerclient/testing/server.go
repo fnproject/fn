@@ -196,6 +196,7 @@ func (s *DockerServer) buildMuxer() {
 	s.mux.Path("/networks/{id:.*}").Methods("GET").HandlerFunc(s.handlerWrapper(s.networkInfo))
 	s.mux.Path("/networks/{id:.*}").Methods("DELETE").HandlerFunc(s.handlerWrapper(s.removeNetwork))
 	s.mux.Path("/networks/create").Methods("POST").HandlerFunc(s.handlerWrapper(s.createNetwork))
+	s.mux.Path("/networks/{id:.*}/connect").Methods("POST").HandlerFunc(s.handlerWrapper(s.networksConnect))
 	s.mux.Path("/volumes").Methods("GET").HandlerFunc(s.handlerWrapper(s.listVolumes))
 	s.mux.Path("/volumes/create").Methods("POST").HandlerFunc(s.handlerWrapper(s.createVolume))
 	s.mux.Path("/volumes/{name:.*}").Methods("GET").HandlerFunc(s.handlerWrapper(s.inspectVolume))
@@ -978,12 +979,6 @@ func (s *DockerServer) buildImage(w http.ResponseWriter, r *http.Request) {
 func (s *DockerServer) pullImage(w http.ResponseWriter, r *http.Request) {
 	fromImageName := r.URL.Query().Get("fromImage")
 	tag := r.URL.Query().Get("tag")
-	image := docker.Image{
-		ID:     s.generateID(),
-		Config: &docker.Config{},
-	}
-	s.iMut.Lock()
-	s.images = append(s.images, image)
 	if fromImageName != "" {
 		if tag != "" {
 			separator := ":"
@@ -992,7 +987,17 @@ func (s *DockerServer) pullImage(w http.ResponseWriter, r *http.Request) {
 			}
 			fromImageName = fmt.Sprintf("%s%s%s", fromImageName, separator, tag)
 		}
-		s.imgIDs[fromImageName] = image.ID
+	}
+	image := docker.Image{
+		ID:     s.generateID(),
+		Config: &docker.Config{},
+	}
+	s.iMut.Lock()
+	if _, exists := s.imgIDs[fromImageName]; fromImageName == "" || !exists {
+		s.images = append(s.images, image)
+		if fromImageName != "" {
+			s.imgIDs[fromImageName] = image.ID
+		}
 	}
 	s.iMut.Unlock()
 }
@@ -1293,9 +1298,10 @@ func (s *DockerServer) createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	generatedID := s.generateID()
 	network := docker.Network{
-		Name:   config.Name,
-		ID:     generatedID,
-		Driver: config.Driver,
+		Name:       config.Name,
+		ID:         generatedID,
+		Driver:     config.Driver,
+		Containers: map[string]docker.Endpoint{},
 	}
 	s.netMut.Lock()
 	s.networks = append(s.networks, &network)
@@ -1317,6 +1323,35 @@ func (s *DockerServer) removeNetwork(w http.ResponseWriter, r *http.Request) {
 	s.networks[index] = s.networks[len(s.networks)-1]
 	s.networks = s.networks[:len(s.networks)-1]
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *DockerServer) networksConnect(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	var config *docker.NetworkConnectionOptions
+	defer r.Body.Close()
+	err := json.NewDecoder(r.Body).Decode(&config)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	network, index, _ := s.findNetwork(id)
+	container, _, _ := s.findContainer(config.Container)
+	if network == nil || container == nil {
+		http.Error(w, "network or container not found", http.StatusNotFound)
+		return
+	}
+
+	if _, found := network.Containers[container.ID]; found == true {
+		http.Error(w, "endpoint already exists in network", http.StatusBadRequest)
+		return
+	}
+
+	s.netMut.Lock()
+	s.networks[index].Containers[config.Container] = docker.Endpoint{}
+	s.netMut.Unlock()
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *DockerServer) listVolumes(w http.ResponseWriter, r *http.Request) {

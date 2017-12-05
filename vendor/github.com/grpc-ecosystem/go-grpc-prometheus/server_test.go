@@ -24,6 +24,11 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+var (
+	// server metrics must satisfy the Collector interface
+	_ prometheus.Collector = NewServerMetrics()
+)
+
 const (
 	pingDefaultValue   = "I like kittens."
 	countListResponses = 20

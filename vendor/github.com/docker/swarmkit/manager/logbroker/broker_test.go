@@ -402,18 +402,14 @@ func TestLogBrokerNoFollow(t *testing.T) {
 			return err
 		}
 
-		if err := store.CreateTask(tx, &api.Task{
+		return store.CreateTask(tx, &api.Task{
 			ID:        "task2",
 			ServiceID: "service",
 			Status: api.TaskStatus{
 				State: api.TaskStateRunning,
 			},
 			NodeID: agent2Security.ServerTLSCreds.NodeID(),
-		}); err != nil {
-			return err
-		}
-
-		return nil
+		})
 	}))
 
 	// We need to sleep here to give ListenSubscriptions time to call
@@ -524,18 +520,14 @@ func TestLogBrokerNoFollowMissingNode(t *testing.T) {
 			return err
 		}
 
-		if err := store.CreateTask(tx, &api.Task{
+		return store.CreateTask(tx, &api.Task{
 			ID:        "task2",
 			ServiceID: "service",
 			NodeID:    "node-2",
 			Status: api.TaskStatus{
 				State: api.TaskStateRunning,
 			},
-		}); err != nil {
-			return err
-		}
-
-		return nil
+		})
 	}))
 
 	// We need to sleep here to give ListenSubscriptions time to call
@@ -655,18 +647,14 @@ func TestLogBrokerNoFollowDisconnect(t *testing.T) {
 			return err
 		}
 
-		if err := store.CreateTask(tx, &api.Task{
+		return store.CreateTask(tx, &api.Task{
 			ID:        "task2",
 			ServiceID: "service",
 			Status: api.TaskStatus{
 				State: api.TaskStateRunning,
 			},
 			NodeID: agent2Security.ServerTLSCreds.NodeID(),
-		}); err != nil {
-			return err
-		}
-
-		return nil
+		})
 	}))
 
 	// We need to sleep here to give ListenSubscriptions time to call
