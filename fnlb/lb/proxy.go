@@ -45,9 +45,9 @@ type Config struct {
 	MinAPIVersion        *semver.Version `json:"min_api_version"`
 
 	// Kubernetes support
-	Namespace            string          `json:"k8s_namespace"`
-	LabelSelector        string          `json:"k8s_label_selector"`
-	TargetPort           int             `json:"target_port"`
+	Namespace     string `json:"k8s_namespace"`
+	LabelSelector string `json:"k8s_label_selector"`
+	TargetPort    int    `json:"target_port"`
 
 	Transport *http.Transport
 }

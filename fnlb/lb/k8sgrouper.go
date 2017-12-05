@@ -14,16 +14,15 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/sirupsen/logrus"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/rest"
 )
 
 const K8sGrouperDriver = "kubernetes"
-
 
 func NewK8sClient(conf Config) (*kubernetes.Clientset, error) {
 	k8sConfig, err := rest.InClusterConfig()
@@ -50,8 +49,8 @@ func NewK8sGrouper(conf Config, clientset *kubernetes.Clientset) (Grouper, error
 		nodeHealthyList: make([]string, 0),
 
 		// for k8s watching
-		k8sClient:     clientset,
-		targetPort:    conf.TargetPort,
+		k8sClient:  clientset,
+		targetPort: conf.TargetPort,
 
 		// XXX (per reed): need to be reconfigurable at some point
 		hcInterval:    time.Duration(conf.HealthcheckInterval) * time.Second,
@@ -82,21 +81,20 @@ type k8sGrouper struct {
 	nodeList        map[string]nodeState
 	nodeHealthyList []string
 
-	k8sClient       *kubernetes.Clientset
-	targetPort      int
+	k8sClient  *kubernetes.Clientset
+	targetPort int
 
-	httpClient      *http.Client
+	httpClient *http.Client
 
-	hcInterval      time.Duration
-	hcEndpoint      string
-	hcUnhealthy     int64
-	hcHealthy       int64
-	hcTimeout       time.Duration
-	minAPIVersion   semver.Version
+	hcInterval    time.Duration
+	hcEndpoint    string
+	hcUnhealthy   int64
+	hcHealthy     int64
+	hcTimeout     time.Duration
+	minAPIVersion semver.Version
 }
 
 // TODO (jang): many of these are near-identical with the allGrouper implementations. Factor them out.
-
 
 func (k *k8sGrouper) add(newb string, address string) error {
 	k.nodeLock.Lock()
@@ -124,7 +122,7 @@ func (k *k8sGrouper) remove(dead string) error {
 		logrus.WithField("node", node).WithField("address", node.address).Info("Removing registered node")
 	}
 
-	delete (k.nodeList, dead)
+	delete(k.nodeList, dead)
 	return nil
 }
 
@@ -361,7 +359,7 @@ func (k *k8sGrouper) watchForPods(namespace string, labelSelector string) {
 					WithField("PodPhase", pod.Status.Phase).
 					WithField("Address", pod.Status.PodIP).
 					Debug("Change detected")
-				switch (event.Type) {
+				switch event.Type {
 				case watch.Added:
 					fallthrough
 				case watch.Modified:

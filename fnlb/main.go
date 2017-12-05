@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"net"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"errors"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/fnlb/lb"
