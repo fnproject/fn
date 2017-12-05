@@ -33,9 +33,7 @@ const (
 	MIMEMultipartPOSTForm = binding.MIMEMultipartPOSTForm
 )
 
-const (
-	abortIndex int8 = math.MaxInt8 / 2
-)
+const abortIndex int8 = math.MaxInt8 / 2
 
 // Context is the most important part of gin. It allows us to pass variables between middleware,
 // manage the flow, validate the JSON of a request and render a JSON response for example.
@@ -105,8 +103,7 @@ func (c *Context) Handler() HandlerFunc {
 // See example in GitHub.
 func (c *Context) Next() {
 	c.index++
-	s := int8(len(c.handlers))
-	for ; c.index < s; c.index++ {
+	for s := int8(len(c.handlers)); c.index < s; c.index++ {
 		c.handlers[c.index](c)
 	}
 }
@@ -482,6 +479,29 @@ func (c *Context) MustBindWith(obj interface{}, b binding.Binding) (err error) {
 	return
 }
 
+// ShouldBind checks the Content-Type to select a binding engine automatically,
+// Depending the "Content-Type" header different bindings are used:
+//     "application/json" --> JSON binding
+//     "application/xml"  --> XML binding
+// otherwise --> returns an error
+// It parses the request's body as JSON if Content-Type == "application/json" using JSON or XML as a JSON input.
+// It decodes the json payload into the struct specified as a pointer.
+// Like c.Bind() but this method does not set the response status code to 400 and abort if the json is not valid.
+func (c *Context) ShouldBind(obj interface{}) error {
+	b := binding.Default(c.Request.Method, c.ContentType())
+	return c.ShouldBindWith(obj, b)
+}
+
+// ShouldBindJSON is a shortcut for c.ShouldBindWith(obj, binding.JSON).
+func (c *Context) ShouldBindJSON(obj interface{}) error {
+	return c.ShouldBindWith(obj, binding.JSON)
+}
+
+// ShouldBindQuery is a shortcut for c.ShouldBindWith(obj, binding.Query).
+func (c *Context) ShouldBindQuery(obj interface{}) error {
+	return c.ShouldBindWith(obj, binding.Query)
+}
+
 // ShouldBindWith binds the passed struct pointer using the specified binding engine.
 // See the binding package.
 func (c *Context) ShouldBindWith(obj interface{}, b binding.Binding) error {
@@ -498,11 +518,11 @@ func (c *Context) ClientIP() string {
 			clientIP = clientIP[0:index]
 		}
 		clientIP = strings.TrimSpace(clientIP)
-		if len(clientIP) > 0 {
+		if clientIP != "" {
 			return clientIP
 		}
 		clientIP = strings.TrimSpace(c.requestHeader("X-Real-Ip"))
-		if len(clientIP) > 0 {
+		if clientIP != "" {
 			return clientIP
 		}
 	}
@@ -565,7 +585,7 @@ func (c *Context) Status(code int) {
 // It writes a header in the response.
 // If value == "", this method removes the header `c.Writer.Header().Del(key)`
 func (c *Context) Header(key, value string) {
-	if len(value) == 0 {
+	if value == "" {
 		c.Writer.Header().Del(key)
 	} else {
 		c.Writer.Header().Set(key, value)

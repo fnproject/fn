@@ -15,11 +15,13 @@
 package embed
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,22 +33,29 @@ import (
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/etcd/pkg/types"
 
+	"github.com/coreos/pkg/capnslog"
 	"github.com/ghodss/yaml"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 )
 
 const (
 	ClusterStateFlagNew      = "new"
 	ClusterStateFlagExisting = "existing"
 
-	DefaultName            = "default"
-	DefaultMaxSnapshots    = 5
-	DefaultMaxWALs         = 5
-	DefaultMaxTxnOps       = uint(128)
-	DefaultMaxRequestBytes = 1.5 * 1024 * 1024
+	DefaultName                  = "default"
+	DefaultMaxSnapshots          = 5
+	DefaultMaxWALs               = 5
+	DefaultMaxTxnOps             = uint(128)
+	DefaultMaxRequestBytes       = 1.5 * 1024 * 1024
+	DefaultGRPCKeepAliveMinTime  = 5 * time.Second
+	DefaultGRPCKeepAliveInterval = 2 * time.Hour
+	DefaultGRPCKeepAliveTimeout  = 20 * time.Second
 
 	DefaultListenPeerURLs   = "http://localhost:2380"
 	DefaultListenClientURLs = "http://localhost:2379"
+
+	DefaultLogOutput = "default"
 
 	// maxElectionMs specifies the maximum value of election timeout.
 	// More details are listed in ../Documentation/tuning.md#time-parameters.
@@ -81,7 +90,7 @@ type Config struct {
 	MaxWalFiles             uint   `json:"max-wals"`
 	Name                    string `json:"name"`
 	SnapCount               uint64 `json:"snapshot-count"`
-	AutoCompactionRetention int    `json:"auto-compaction-retention"`
+	AutoCompactionRetention string `json:"auto-compaction-retention"`
 	AutoCompactionMode      string `json:"auto-compaction-mode"`
 
 	// TickMs is the number of milliseconds between heartbeat ticks.
@@ -92,6 +101,23 @@ type Config struct {
 	QuotaBackendBytes int64 `json:"quota-backend-bytes"`
 	MaxTxnOps         uint  `json:"max-txn-ops"`
 	MaxRequestBytes   uint  `json:"max-request-bytes"`
+
+	// gRPC server options
+
+	// GRPCKeepAliveMinTime is the minimum interval that a client should
+	// wait before pinging server. When client pings "too fast", server
+	// sends goaway and closes the connection (errors: too_many_pings,
+	// http2.ErrCodeEnhanceYourCalm). When too slow, nothing happens.
+	// Server expects client pings only when there is any active streams
+	// (PermitWithoutStream is set false).
+	GRPCKeepAliveMinTime time.Duration `json:"grpc-keepalive-min-time"`
+	// GRPCKeepAliveInterval is the frequency of server-to-client ping
+	// to check if a connection is alive. Close a non-responsive connection
+	// after an additional duration of Timeout. 0 to disable.
+	GRPCKeepAliveInterval time.Duration `json:"grpc-keepalive-interval"`
+	// GRPCKeepAliveTimeout is the additional duration of wait
+	// before closing a non-responsive connection. 0 to disable.
+	GRPCKeepAliveTimeout time.Duration `json:"grpc-keepalive-timeout"`
 
 	// clustering
 
@@ -116,6 +142,7 @@ type Config struct {
 
 	Debug                 bool   `json:"debug"`
 	LogPkgLevels          string `json:"log-package-levels"`
+	LogOutput             string `json:"log-output"`
 	EnablePprof           bool   `json:"enable-pprof"`
 	Metrics               string `json:"metrics"`
 	ListenMetricsUrls     []url.URL
@@ -144,8 +171,9 @@ type Config struct {
 
 	// Experimental flags
 
-	ExperimentalCorruptCheckTime time.Duration `json:"experimental-corrupt-check-time"`
-	ExperimentalEnableV2V3       string        `json:"experimental-enable-v2v3"`
+	ExperimentalInitialCorruptCheck bool          `json:"experimental-initial-corrupt-check"`
+	ExperimentalCorruptCheckTime    time.Duration `json:"experimental-corrupt-check-time"`
+	ExperimentalEnableV2V3          string        `json:"experimental-enable-v2v3"`
 }
 
 // configYAML holds the config suitable for yaml parsing
@@ -181,28 +209,82 @@ func NewConfig() *Config {
 	lcurl, _ := url.Parse(DefaultListenClientURLs)
 	acurl, _ := url.Parse(DefaultAdvertiseClientURLs)
 	cfg := &Config{
-		CorsInfo:            &cors.CORSInfo{},
-		MaxSnapFiles:        DefaultMaxSnapshots,
-		MaxWalFiles:         DefaultMaxWALs,
-		Name:                DefaultName,
-		SnapCount:           etcdserver.DefaultSnapCount,
-		MaxTxnOps:           DefaultMaxTxnOps,
-		MaxRequestBytes:     DefaultMaxRequestBytes,
-		TickMs:              100,
-		ElectionMs:          1000,
-		LPUrls:              []url.URL{*lpurl},
-		LCUrls:              []url.URL{*lcurl},
-		APUrls:              []url.URL{*apurl},
-		ACUrls:              []url.URL{*acurl},
-		ClusterState:        ClusterStateFlagNew,
-		InitialClusterToken: "etcd-cluster",
-		StrictReconfigCheck: true,
-		Metrics:             "basic",
-		EnableV2:            true,
-		AuthToken:           "simple",
+		CorsInfo:              &cors.CORSInfo{},
+		MaxSnapFiles:          DefaultMaxSnapshots,
+		MaxWalFiles:           DefaultMaxWALs,
+		Name:                  DefaultName,
+		SnapCount:             etcdserver.DefaultSnapCount,
+		MaxTxnOps:             DefaultMaxTxnOps,
+		MaxRequestBytes:       DefaultMaxRequestBytes,
+		GRPCKeepAliveMinTime:  DefaultGRPCKeepAliveMinTime,
+		GRPCKeepAliveInterval: DefaultGRPCKeepAliveInterval,
+		GRPCKeepAliveTimeout:  DefaultGRPCKeepAliveTimeout,
+		TickMs:                100,
+		ElectionMs:            1000,
+		LPUrls:                []url.URL{*lpurl},
+		LCUrls:                []url.URL{*lcurl},
+		APUrls:                []url.URL{*apurl},
+		ACUrls:                []url.URL{*acurl},
+		ClusterState:          ClusterStateFlagNew,
+		InitialClusterToken:   "etcd-cluster",
+		StrictReconfigCheck:   true,
+		LogOutput:             DefaultLogOutput,
+		Metrics:               "basic",
+		EnableV2:              true,
+		AuthToken:             "simple",
 	}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 	return cfg
+}
+
+func logTLSHandshakeFailure(conn *tls.Conn, err error) {
+	state := conn.ConnectionState()
+	remoteAddr := conn.RemoteAddr().String()
+	serverName := state.ServerName
+	if len(state.PeerCertificates) > 0 {
+		cert := state.PeerCertificates[0]
+		ips, dns := cert.IPAddresses, cert.DNSNames
+		plog.Infof("rejected connection from %q (error %q, ServerName %q, IPAddresses %q, DNSNames %q)", remoteAddr, err.Error(), serverName, ips, dns)
+	} else {
+		plog.Infof("rejected connection from %q (error %q, ServerName %q)", remoteAddr, err.Error(), serverName)
+	}
+}
+
+// SetupLogging initializes etcd logging.
+// Must be called after flag parsing.
+func (cfg *Config) SetupLogging() {
+	cfg.ClientTLSInfo.HandshakeFailure = logTLSHandshakeFailure
+	cfg.PeerTLSInfo.HandshakeFailure = logTLSHandshakeFailure
+
+	capnslog.SetGlobalLogLevel(capnslog.INFO)
+	if cfg.Debug {
+		capnslog.SetGlobalLogLevel(capnslog.DEBUG)
+		grpc.EnableTracing = true
+	} else {
+		grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+	}
+	if cfg.LogPkgLevels != "" {
+		repoLog := capnslog.MustRepoLogger("github.com/coreos/etcd")
+		settings, err := repoLog.ParseLogLevelConfig(cfg.LogPkgLevels)
+		if err != nil {
+			plog.Warningf("couldn't parse log level string: %s, continuing with default levels", err.Error())
+			return
+		}
+		repoLog.SetLogLevel(settings)
+	}
+
+	// capnslog initially SetFormatter(NewDefaultFormatter(os.Stderr))
+	// where NewDefaultFormatter returns NewJournaldFormatter when syscall.Getppid() == 1
+	// specify 'stdout' or 'stderr' to skip journald logging even when running under systemd
+	switch cfg.LogOutput {
+	case "stdout":
+		capnslog.SetFormatter(capnslog.NewPrettyFormatter(os.Stdout, cfg.Debug))
+	case "stderr":
+		capnslog.SetFormatter(capnslog.NewPrettyFormatter(os.Stderr, cfg.Debug))
+	case DefaultLogOutput:
+	default:
+		plog.Panicf(`unknown log-output %q (only supports %q, "stdout", "stderr")`, cfg.LogOutput, DefaultLogOutput)
+	}
 }
 
 func ConfigFromFile(path string) (*Config, error) {
@@ -338,6 +420,12 @@ func (cfg *Config) Validate() error {
 		return ErrConflictBootstrapFlags
 	}
 
+	if cfg.TickMs <= 0 {
+		return fmt.Errorf("--heartbeat-interval must be >0 (set to %dms)", cfg.TickMs)
+	}
+	if cfg.ElectionMs <= 0 {
+		return fmt.Errorf("--election-timeout must be >0 (set to %dms)", cfg.ElectionMs)
+	}
 	if 5*cfg.TickMs > cfg.ElectionMs {
 		return fmt.Errorf("--election-timeout[%vms] should be at least as 5 times as --heartbeat-interval[%vms]", cfg.ElectionMs, cfg.TickMs)
 	}

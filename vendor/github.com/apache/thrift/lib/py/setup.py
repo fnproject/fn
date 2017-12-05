@@ -22,7 +22,7 @@
 import sys
 try:
     from setuptools import setup, Extension
-except:
+except Exception:
     from distutils.core import setup, Extension
 
 from distutils.command.build_ext import build_ext
@@ -120,6 +120,7 @@ def run_setup(with_binary):
           zip_safe=False,
           **extensions
           )
+
 
 try:
     with_binary = True

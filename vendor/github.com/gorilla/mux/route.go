@@ -72,7 +72,13 @@ func (r *Route) Match(req *http.Request, match *RouteMatch) bool {
 		return false
 	}
 
-	match.MatchErr = nil
+	if match.MatchErr == ErrMethodMismatch {
+		// We found a route which matches request method, clear MatchErr
+		match.MatchErr = nil
+		// Then override the mis-matched handler
+		match.Handler = r.handler
+	}
+
 	// Yay, we have a match. Let's collect some info about it.
 	if match.Route == nil {
 		match.Route = r
@@ -252,7 +258,8 @@ func (m headerRegexMatcher) Match(r *http.Request, match *RouteMatch) bool {
 //               "X-Requested-With", "XMLHttpRequest")
 //
 // The above route will only match if both the request header matches both regular expressions.
-// It the value is an empty string, it will match any value if the key is set.
+// If the value is an empty string, it will match any value if the key is set.
+// Use the start and end of string anchors (^ and $) to match an exact value.
 func (r *Route) HeadersRegexp(pairs ...string) *Route {
 	if r.err == nil {
 		var headers map[string]*regexp.Regexp
@@ -606,6 +613,44 @@ func (r *Route) GetPathRegexp() (string, error) {
 		return "", errors.New("mux: route does not have a path")
 	}
 	return r.regexp.path.regexp.String(), nil
+}
+
+// GetQueriesRegexp returns the expanded regular expressions used to match the
+// route queries.
+// This is useful for building simple REST API documentation and for instrumentation
+// against third-party services.
+// An empty list will be returned if the route does not have queries.
+func (r *Route) GetQueriesRegexp() ([]string, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.regexp == nil || r.regexp.queries == nil {
+		return nil, errors.New("mux: route doesn't have queries")
+	}
+	var queries []string
+	for _, query := range r.regexp.queries {
+		queries = append(queries, query.regexp.String())
+	}
+	return queries, nil
+}
+
+// GetQueriesTemplates returns the templates used to build the
+// query matching.
+// This is useful for building simple REST API documentation and for instrumentation
+// against third-party services.
+// An empty list will be returned if the route does not define queries.
+func (r *Route) GetQueriesTemplates() ([]string, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.regexp == nil || r.regexp.queries == nil {
+		return nil, errors.New("mux: route doesn't have queries")
+	}
+	var queries []string
+	for _, query := range r.regexp.queries {
+		queries = append(queries, query.template)
+	}
+	return queries, nil
 }
 
 // GetMethods returns the methods the route matches against

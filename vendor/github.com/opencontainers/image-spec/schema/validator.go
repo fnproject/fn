@@ -217,8 +217,8 @@ func checkPlatform(OS string, Architecture string) {
 					return
 				}
 			}
-			fmt.Printf("warning: combination of %q and %q is invalid.", OS, Architecture)
+			fmt.Printf("warning: combination of %q and %q is invalid.\n", OS, Architecture)
 		}
 	}
-	fmt.Printf("warning: operating system %q of the bundle is not supported yet.", OS)
+	fmt.Printf("warning: operating system %q of the bundle is not supported yet.\n", OS)
 }

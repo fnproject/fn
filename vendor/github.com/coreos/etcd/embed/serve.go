@@ -37,6 +37,7 @@ import (
 
 	gw "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/soheilhy/cmux"
+	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"golang.org/x/net/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -66,7 +67,12 @@ func newServeCtx() *serveCtx {
 // serve accepts incoming connections on the listener l,
 // creating a new service goroutine for each. The service goroutines
 // read requests and then call handler to reply to them.
-func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlsinfo *transport.TLSInfo, handler http.Handler, errHandler func(error)) error {
+func (sctx *serveCtx) serve(
+	s *etcdserver.EtcdServer,
+	tlsinfo *transport.TLSInfo,
+	handler http.Handler,
+	errHandler func(error),
+	gopts ...grpc.ServerOption) error {
 	logger := defaultLog.New(ioutil.Discard, "etcdhttp", 0)
 	<-s.ReadyNotify()
 	plog.Info("ready to serve client requests")
@@ -77,7 +83,7 @@ func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlsinfo *transport.TLSInfo
 	servLock := v3lock.NewLockServer(v3c)
 
 	if sctx.insecure {
-		gs := v3rpc.Server(s, nil)
+		gs := v3rpc.Server(s, nil, gopts...)
 		sctx.grpcServerC <- gs
 		v3electionpb.RegisterElectionServer(gs, servElection)
 		v3lockpb.RegisterLockServer(gs, servLock)
@@ -98,7 +104,7 @@ func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlsinfo *transport.TLSInfo
 		httpmux := sctx.createMux(gwmux, handler)
 
 		srvhttp := &http.Server{
-			Handler:  httpmux,
+			Handler:  wrapMux(httpmux),
 			ErrorLog: logger, // do not log user error
 		}
 		httpl := m.Match(cmux.HTTP1())
@@ -111,7 +117,7 @@ func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlsinfo *transport.TLSInfo
 		if tlsErr != nil {
 			return tlsErr
 		}
-		gs := v3rpc.Server(s, tlscfg)
+		gs := v3rpc.Server(s, tlscfg, gopts...)
 		sctx.grpcServerC <- gs
 		v3electionpb.RegisterElectionServer(gs, servElection)
 		v3lockpb.RegisterLockServer(gs, servLock)
@@ -138,7 +144,7 @@ func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlsinfo *transport.TLSInfo
 		httpmux := sctx.createMux(gwmux, handler)
 
 		srv := &http.Server{
-			Handler:   httpmux,
+			Handler:   wrapMux(httpmux),
 			TLSConfig: tlscfg,
 			ErrorLog:  logger, // do not log user error
 		}
@@ -209,11 +215,38 @@ func (sctx *serveCtx) createMux(gwmux *gw.ServeMux, handler http.Handler) *http.
 		httpmux.Handle(path, h)
 	}
 
-	httpmux.Handle("/v3alpha/", gwmux)
+	httpmux.Handle(
+		"/v3beta/",
+		wsproxy.WebsocketProxy(
+			gwmux,
+			wsproxy.WithRequestMutator(
+				// Default to the POST method for streams
+				func(incoming *http.Request, outgoing *http.Request) *http.Request {
+					outgoing.Method = "POST"
+					return outgoing
+				},
+			),
+		),
+	)
 	if handler != nil {
 		httpmux.Handle("/", handler)
 	}
 	return httpmux
+}
+
+// wraps HTTP multiplexer to mute requests to /v3alpha
+// TODO: deprecate this in 3.4 release
+func wrapMux(mux *http.ServeMux) http.Handler { return &v3alphaMutator{mux: mux} }
+
+type v3alphaMutator struct {
+	mux *http.ServeMux
+}
+
+func (m *v3alphaMutator) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if req != nil && req.URL != nil && strings.HasPrefix(req.URL.Path, "/v3alpha/") {
+		req.URL.Path = strings.Replace(req.URL.Path, "/v3alpha/", "/v3beta/", 1)
+	}
+	m.mux.ServeHTTP(rw, req)
 }
 
 func (sctx *serveCtx) registerUserHandler(s string, h http.Handler) {

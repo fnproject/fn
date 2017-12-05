@@ -1307,6 +1307,41 @@ func TestPullImageWithShaTag(t *testing.T) {
 	}
 }
 
+func TestPullImageExisting(t *testing.T) {
+	t.Parallel()
+	server := DockerServer{imgIDs: make(map[string]string)}
+	server.buildMuxer()
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("POST", "/images/create?fromImage=base", nil)
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Errorf("PullImage: wrong status. Want %d. Got %d.", http.StatusOK, recorder.Code)
+	}
+	if len(server.images) != 1 {
+		t.Errorf("PullImage: Want 1 image. Got %d.", len(server.images))
+	}
+	if _, ok := server.imgIDs["base"]; !ok {
+		t.Error("PullImage: Repository should not be empty.")
+	}
+	oldID := server.imgIDs["base"]
+	recorder = httptest.NewRecorder()
+	request, _ = http.NewRequest("POST", "/images/create?fromImage=base", nil)
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Errorf("PullImage: wrong status. Want %d. Got %d.", http.StatusOK, recorder.Code)
+	}
+	if len(server.images) != 1 {
+		t.Errorf("PullImage: Want 1 image. Got %d.", len(server.images))
+	}
+	if _, ok := server.imgIDs["base"]; !ok {
+		t.Error("PullImage: Repository should not be empty.")
+	}
+	newID := server.imgIDs["base"]
+	if oldID != newID {
+		t.Error("PullImage: Image ID should be the same after second pull.")
+	}
+}
+
 func TestPushImage(t *testing.T) {
 	t.Parallel()
 	server := DockerServer{imgIDs: map[string]string{"tsuru/python": "a123"}}
@@ -2165,6 +2200,25 @@ func TestRemoveNetwork(t *testing.T) {
 	expected = []*docker.Network{}
 	if !reflect.DeepEqual(server.networks, expected) {
 		t.Errorf("RemoveNetwork: expected networks to be %#v, got %#v", expected, server.networks)
+	}
+}
+
+func TestNetworkConnect(t *testing.T) {
+	t.Parallel()
+	server := DockerServer{}
+	server.buildMuxer()
+	addNetworks(&server, 1)
+	server.networks[0].ID = fmt.Sprintf("%x", rand.Int()%10000)
+	server.imgIDs = map[string]string{"base": "a1234"}
+	addContainers(&server, 1)
+	server.containers[0].ID = fmt.Sprintf("%x", rand.Int()%10000)
+
+	recorder := httptest.NewRecorder()
+	body := fmt.Sprintf(`{"Container": "%s" }`, server.containers[0].ID)
+	request, _ := http.NewRequest("POST", fmt.Sprintf("/networks/%s/connect", server.networks[0].ID), strings.NewReader(body))
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Errorf("NetworkConnect: wrong status. Want %d. Got %d.", http.StatusOK, recorder.Code)
 	}
 }
 

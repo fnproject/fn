@@ -368,6 +368,74 @@ func TestShutdown(t *testing.T) {
 	})
 }
 
+// TestDesiredStateRemove checks that the agent maintains SHUTDOWN as the
+// maximum state in the agent. This is particularly relevant for the case
+// where a service scale down or deletion sets the desired state of tasks
+// that are supposed to be removed to REMOVE.
+func TestDesiredStateRemove(t *testing.T) {
+	var (
+		task              = newTestTask(t, api.TaskStateNew, api.TaskStateRemove)
+		ctx, ctlr, finish = buildTestEnv(t, task)
+	)
+	defer func() {
+		finish()
+		assert.Equal(t, 1, ctlr.calls["Shutdown"])
+	}()
+	ctlr.ShutdownFn = func(_ context.Context) error {
+		return nil
+	}
+
+	checkDo(ctx, t, task, ctlr, &api.TaskStatus{
+		State:   api.TaskStateShutdown,
+		Message: "shutdown",
+	})
+}
+
+// TestDesiredStateRemoveOnlyNonterminal checks that the agent will only stop
+// a container on REMOVE if it's not already in a terminal state. If the
+// container is already in a terminal state, (like COMPLETE) the agent should
+// take no action
+func TestDesiredStateRemoveOnlyNonterminal(t *testing.T) {
+	// go through all terminal states, just for completeness' sake
+	for _, state := range []api.TaskState{
+		api.TaskStateCompleted,
+		api.TaskStateShutdown,
+		api.TaskStateFailed,
+		api.TaskStateRejected,
+		api.TaskStateRemove,
+		// no TaskStateOrphaned becaused that's not a state the task can be in
+		// on the agent
+	} {
+		// capture state variable here to run in parallel
+		state := state
+		t.Run(state.String(), func(t *testing.T) {
+			// go parallel to go faster
+			t.Parallel()
+			var (
+				// create a new task, actual state `state`, desired state
+				// shutdown
+				task              = newTestTask(t, state, api.TaskStateShutdown)
+				ctx, ctlr, finish = buildTestEnv(t, task)
+			)
+			// make the shutdown function a noop
+			ctlr.ShutdownFn = func(_ context.Context) error {
+				return nil
+			}
+
+			// Note we check for error ErrTaskNoop, which will be raised
+			// because nothing happens
+			checkDo(ctx, t, task, ctlr, &api.TaskStatus{
+				State: state,
+			}, ErrTaskNoop)
+			defer func() {
+				finish()
+				// we should never have called shutdown
+				assert.Equal(t, 0, ctlr.calls["Shutdown"])
+			}()
+		})
+	}
+}
+
 // StatuserController is used to create a new Controller, which is also a ContainerStatuser.
 // We cannot add ContainerStatus() to the Controller, due to the check in controller.go:242
 type StatuserController struct {

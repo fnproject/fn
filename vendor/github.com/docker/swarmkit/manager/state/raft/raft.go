@@ -2,6 +2,7 @@ package raft
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/go-events"
+	"github.com/docker/go-metrics"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/ca"
 	"github.com/docker/swarmkit/log"
@@ -34,6 +36,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -62,6 +65,9 @@ var (
 	// work around lint
 	lostQuorumMessage = "The swarm does not have a leader. It's possible that too few managers are online. Make sure more than half of the managers are online."
 	errLostQuorum     = errors.New(lostQuorumMessage)
+
+	// Timer to capture ProposeValue() latency.
+	proposeLatencyTimer metrics.Timer
 )
 
 // LeadershipState indicates whether the node is a leader or follower.
@@ -190,6 +196,9 @@ type NodeOptions struct {
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	ns := metrics.NewNamespace("swarm", "raft", nil)
+	proposeLatencyTimer = ns.NewTimer("transaction_latency", "Raft transaction latency.")
+	metrics.Register(ns)
 }
 
 // NewNode generates a new Raft node
@@ -542,6 +551,7 @@ func (n *Node) Run(ctx context.Context) error {
 		n.done()
 	}()
 
+	// Flag that indicates if this manager node is *currently* the raft leader.
 	wasLeader := false
 	transferLeadershipLimit := rate.NewLimiter(rate.Every(time.Minute), 1)
 
@@ -563,10 +573,13 @@ func (n *Node) Run(ctx context.Context) error {
 				return errors.Wrap(err, "failed to save entries to storage")
 			}
 
+			// If the memory store lock has been held for too long,
+			// transferring leadership is an easy way to break out of it.
 			if wasLeader &&
 				(rd.SoftState == nil || rd.SoftState.RaftState == raft.StateLeader) &&
 				n.memoryStore.Wedged() &&
 				transferLeadershipLimit.Allow() {
+				log.G(ctx).Error("Attempting to transfer leadership")
 				if !n.opts.DisableStackDump {
 					signal.DumpStacks("")
 				}
@@ -612,6 +625,8 @@ func (n *Node) Run(ctx context.Context) error {
 			if rd.SoftState != nil {
 				if wasLeader && rd.SoftState.RaftState != raft.StateLeader {
 					wasLeader = false
+					log.G(ctx).Error("soft state changed, node no longer a leader, resetting and cancelling all waits")
+
 					if atomic.LoadUint32(&n.signalledLeadership) == 1 {
 						atomic.StoreUint32(&n.signalledLeadership, 0)
 						n.leadershipBroadcast.Publish(IsFollower)
@@ -630,6 +645,7 @@ func (n *Node) Run(ctx context.Context) error {
 					// cancelAll, or by its own check of signalledLeadership.
 					n.wait.cancelAll()
 				} else if !wasLeader && rd.SoftState.RaftState == raft.StateLeader {
+					// Node just became a leader.
 					wasLeader = true
 				}
 			}
@@ -648,7 +664,7 @@ func (n *Node) Run(ctx context.Context) error {
 			if n.snapshotInProgress == nil &&
 				(n.needsSnapshot(ctx) || raftConfig.SnapshotInterval > 0 &&
 					n.appliedIndex-n.snapshotMeta.Index >= raftConfig.SnapshotInterval) {
-				n.doSnapshot(ctx, raftConfig)
+				n.triggerSnapshot(ctx, raftConfig)
 			}
 
 			if wasLeader && atomic.LoadUint32(&n.signalledLeadership) != 1 {
@@ -690,7 +706,7 @@ func (n *Node) Run(ctx context.Context) error {
 				// there was a key rotation that took place before while the snapshot
 				// was in progress - we have to take another snapshot and encrypt with the new key
 				n.rotationQueued = false
-				n.doSnapshot(ctx, raftConfig)
+				n.triggerSnapshot(ctx, raftConfig)
 			}
 		case <-n.keyRotator.RotationNotify():
 			// There are 2 separate checks:  rotationQueued, and n.needsSnapshot().
@@ -703,7 +719,7 @@ func (n *Node) Run(ctx context.Context) error {
 			case n.snapshotInProgress != nil:
 				n.rotationQueued = true
 			case n.needsSnapshot(ctx):
-				n.doSnapshot(ctx, n.getCurrentRaftConfig())
+				n.triggerSnapshot(ctx, n.getCurrentRaftConfig())
 			}
 		case <-ctx.Done():
 			return nil
@@ -913,11 +929,11 @@ func (n *Node) Join(ctx context.Context, req *api.JoinRequest) (*api.JoinRespons
 	defer n.membershipLock.Unlock()
 
 	if !n.IsMember() {
-		return nil, grpc.Errorf(codes.FailedPrecondition, "%s", ErrNoRaftMember.Error())
+		return nil, status.Errorf(codes.FailedPrecondition, "%s", ErrNoRaftMember.Error())
 	}
 
 	if !n.isLeader() {
-		return nil, grpc.Errorf(codes.FailedPrecondition, "%s", ErrLostLeadership.Error())
+		return nil, status.Errorf(codes.FailedPrecondition, "%s", ErrLostLeadership.Error())
 	}
 
 	remoteAddr := req.Addr
@@ -928,7 +944,7 @@ func (n *Node) Join(ctx context.Context, req *api.JoinRequest) (*api.JoinRespons
 
 	requestHost, requestPort, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		return nil, grpc.Errorf(codes.InvalidArgument, "invalid address %s in raft join request", remoteAddr)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid address %s in raft join request", remoteAddr)
 	}
 
 	requestIP := net.ParseIP(requestHost)
@@ -1102,7 +1118,7 @@ func (n *Node) UpdateNode(id uint64, addr string) {
 // membership to an active member of the raft
 func (n *Node) Leave(ctx context.Context, req *api.LeaveRequest) (*api.LeaveResponse, error) {
 	if req.Node == nil {
-		return nil, grpc.Errorf(codes.InvalidArgument, "no node information provided")
+		return nil, status.Errorf(codes.InvalidArgument, "no node information provided")
 	}
 
 	nodeInfo, err := ca.RemoteNode(ctx)
@@ -1283,10 +1299,83 @@ func (n *Node) reportNewAddress(ctx context.Context, id uint64) error {
 		return err
 	}
 	newAddr := net.JoinHostPort(newHost, officialPort)
-	if err := n.transport.UpdatePeerAddr(id, newAddr); err != nil {
-		return err
+	return n.transport.UpdatePeerAddr(id, newAddr)
+}
+
+// StreamRaftMessage is the server endpoint for streaming Raft messages.
+// It accepts a stream of raft messages to be processed on this raft member,
+// returning a StreamRaftMessageResponse when processing of the streamed
+// messages is complete.
+// It is called from the Raft leader, which uses it to stream messages
+// to this raft member.
+// A single stream corresponds to a single raft message,
+// which may be disassembled and streamed by the sender
+// as individual messages. Therefore, each of the messages
+// received by the stream will have the same raft message type and index.
+// Currently, only messages of type raftpb.MsgSnap can be disassembled, sent
+// and received on the stream.
+func (n *Node) StreamRaftMessage(stream api.Raft_StreamRaftMessageServer) error {
+	// recvdMsg is the current messasge received from the stream.
+	// assembledMessage is where the data from recvdMsg is appended to.
+	var recvdMsg, assembledMessage *api.StreamRaftMessageRequest
+	var err error
+
+	// First message index.
+	var raftMsgIndex uint64
+
+	for {
+		recvdMsg, err = stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			log.G(stream.Context()).WithError(err).Error("error while reading from stream")
+			return err
+		}
+
+		// Initialized the message to be used for assembling
+		// the raft message.
+		if assembledMessage == nil {
+			// For all message types except raftpb.MsgSnap,
+			// we don't expect more than a single message
+			// on the stream so we'll get an EOF on the next Recv()
+			// and go on to process the received message.
+			assembledMessage = recvdMsg
+			raftMsgIndex = recvdMsg.Message.Index
+			continue
+		}
+
+		// Verify raft message index.
+		if recvdMsg.Message.Index != raftMsgIndex {
+			errMsg := fmt.Sprintf("Raft message chunk with index %d is different from the previously received raft message index %d",
+				recvdMsg.Message.Index, raftMsgIndex)
+			log.G(stream.Context()).Errorf(errMsg)
+			return status.Errorf(codes.InvalidArgument, "%s", errMsg)
+		}
+
+		// Verify that multiple message received on a stream
+		// can only be of type raftpb.MsgSnap.
+		if recvdMsg.Message.Type != raftpb.MsgSnap {
+			errMsg := fmt.Sprintf("Raft message chunk is not of type %d",
+				raftpb.MsgSnap)
+			log.G(stream.Context()).Errorf(errMsg)
+			return status.Errorf(codes.InvalidArgument, "%s", errMsg)
+		}
+
+		// Append the received snapshot data.
+		assembledMessage.Message.Snapshot.Data = append(assembledMessage.Message.Snapshot.Data, recvdMsg.Message.Snapshot.Data...)
 	}
-	return nil
+
+	// We should have the complete snapshot. Verify and process.
+	if err == io.EOF {
+		_, err = n.ProcessRaftMessage(stream.Context(), &api.ProcessRaftMessageRequest{Message: assembledMessage.Message})
+		if err == nil {
+			// Translate the response of ProcessRaftMessage() from
+			// ProcessRaftMessageResponse to StreamRaftMessageResponse if needed.
+			return stream.SendAndClose(&api.StreamRaftMessageResponse{})
+		}
+	}
+
+	return err
 }
 
 // ProcessRaftMessage calls 'Step' which advances the
@@ -1302,7 +1391,7 @@ func (n *Node) ProcessRaftMessage(ctx context.Context, msg *api.ProcessRaftMessa
 	// a node in the remove set
 	if n.cluster.IsIDRemoved(msg.Message.From) {
 		n.processRaftMessageLogger(ctx, msg).Debug("received message from removed member")
-		return nil, grpc.Errorf(codes.NotFound, "%s", membership.ErrMemberRemoved.Error())
+		return nil, status.Errorf(codes.NotFound, "%s", membership.ErrMemberRemoved.Error())
 	}
 
 	ctx, cancel := n.WithContext(ctx)
@@ -1380,7 +1469,7 @@ func (n *Node) ResolveAddress(ctx context.Context, msg *api.ResolveAddressReques
 
 	member := n.cluster.GetMember(msg.RaftID)
 	if member == nil {
-		return nil, grpc.Errorf(codes.NotFound, "member %x not found", msg.RaftID)
+		return nil, status.Errorf(codes.NotFound, "member %x not found", msg.RaftID)
 	}
 	return &api.ResolveAddressResponse{Addr: member.Addr}, nil
 }
@@ -1481,12 +1570,14 @@ func (n *Node) registerNode(node *api.RaftMember) error {
 	return nil
 }
 
-// ProposeValue calls Propose on the raft and waits
+// ProposeValue calls Propose on the underlying raft library(etcd/raft) and waits
 // on the commit log action before returning a result
 func (n *Node) ProposeValue(ctx context.Context, storeAction []api.StoreAction, cb func()) error {
+	defer metrics.StartTimer(proposeLatencyTimer)()
 	ctx, cancel := n.WithContext(ctx)
 	defer cancel()
 	_, err := n.processInternalRaftRequest(ctx, &api.InternalRaftRequest{Action: storeAction}, cb)
+
 	if err != nil {
 		return err
 	}
@@ -1657,11 +1748,14 @@ func (n *Node) saveToStorage(
 	return nil
 }
 
-// processInternalRaftRequest sends a message to nodes participating
-// in the raft to apply a log entry and then waits for it to be applied
-// on the server. It will block until the update is performed, there is
-// an error or until the raft node finalizes all the proposals on node
-// shutdown.
+// processInternalRaftRequest proposes a value to be appended to the raft log.
+// It calls Propose() on etcd/raft, which calls back into the raft FSM,
+// which then sends a message to each of the participating nodes
+// in the raft group to apply a log entry and then waits for it to be applied
+// on this node. It will block until the this node:
+// 1. Gets the necessary replies back from the participating nodes and also performs the commit itself, or
+// 2. There is an error, or
+// 3. Until the raft node finalizes all the proposals on node shutdown.
 func (n *Node) processInternalRaftRequest(ctx context.Context, r *api.InternalRaftRequest, cb func()) (proto.Message, error) {
 	n.stopMu.RLock()
 	if !n.IsMember() {
@@ -1682,6 +1776,7 @@ func (n *Node) processInternalRaftRequest(ctx context.Context, r *api.InternalRa
 
 	// Do this check after calling register to avoid a race.
 	if atomic.LoadUint32(&n.signalledLeadership) != 1 {
+		log.G(ctx).Error("node is no longer leader, aborting propose")
 		n.wait.cancel(r.ID)
 		return nil, ErrLostLeadership
 	}
@@ -1706,14 +1801,23 @@ func (n *Node) processInternalRaftRequest(ctx context.Context, r *api.InternalRa
 	select {
 	case x, ok := <-ch:
 		if !ok {
+			// Wait notification channel was closed. This should only happen if the wait was cancelled.
+			log.G(ctx).Error("wait cancelled")
+			if atomic.LoadUint32(&n.signalledLeadership) == 1 {
+				log.G(ctx).Error("wait cancelled but node is still a leader")
+			}
 			return nil, ErrLostLeadership
 		}
 		return x.(proto.Message), nil
 	case <-waitCtx.Done():
 		n.wait.cancel(r.ID)
-		// if channel is closed, wait item was canceled, otherwise it was triggered
+		// If we can read from the channel, wait item was triggered. Otherwise it was cancelled.
 		x, ok := <-ch
 		if !ok {
+			log.G(ctx).WithError(waitCtx.Err()).Error("wait context cancelled")
+			if atomic.LoadUint32(&n.signalledLeadership) == 1 {
+				log.G(ctx).Error("wait context cancelled but node is still a leader")
+			}
 			return nil, ErrLostLeadership
 		}
 		return x.(proto.Message), nil
@@ -1784,14 +1888,19 @@ func (n *Node) processEntry(ctx context.Context, entry raftpb.Entry) error {
 	if !n.wait.trigger(r.ID, r) {
 		// There was no wait on this ID, meaning we don't have a
 		// transaction in progress that would be committed to the
-		// memory store by the "trigger" call. Either a different node
-		// wrote this to raft, or we wrote it before losing the leader
-		// position and cancelling the transaction. Create a new
-		// transaction to commit the data.
+		// memory store by the "trigger" call. This could mean that:
+		// 1. Startup is in progress, and the raft WAL is being parsed,
+		// processed and applied to the store, or
+		// 2. Either a different node wrote this to raft,
+		// or we wrote it before losing the leader
+		// position and cancelling the transaction. This entry still needs
+		// to be committed since other nodes have already committed it.
+		// Create a new transaction to commit this entry.
 
 		// It should not be possible for processInternalRaftRequest
 		// to be running in this situation, but out of caution we
 		// cancel any current invocations to avoid a deadlock.
+		// TODO(anshul) This call is likely redundant, remove after consideration.
 		n.wait.cancelAll()
 
 		err := n.memoryStore.ApplyStoreActions(r.Action)
@@ -1848,10 +1957,7 @@ func (n *Node) applyAddNode(cc raftpb.ConfChange) error {
 		return nil
 	}
 
-	if err = n.registerNode(member); err != nil {
-		return err
-	}
-	return nil
+	return n.registerNode(member)
 }
 
 // applyUpdateNode is called when we receive a ConfChange from a member in the

@@ -320,6 +320,7 @@ project.lock.json
 /test/haxe/bin
 /test/hs/TestClient
 /test/hs/TestServer
+/test/php/php_ext_dir/
 /test/py.twisted/_trial_temp/
 /test/rb/Gemfile.lock
 /test/netcore/**/.vs
@@ -327,6 +328,7 @@ project.lock.json
 /test/netcore/**/obj
 /test/netcore/**/gen-*
 /test/netcore/Thrift
+/test/php/php_ext_dir/
 /test/rs/Cargo.lock
 /test/rs/src/thrift_test.rs
 /test/rs/bin/

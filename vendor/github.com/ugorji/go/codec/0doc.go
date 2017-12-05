@@ -2,8 +2,9 @@
 // Use of this source code is governed by a MIT license found in the LICENSE file.
 
 /*
-High Performance, Feature-Rich Idiomatic Go 1.4+ codec/encoding library for
-binc, msgpack, cbor, json
+Package codec provides a
+High Performance, Feature-Rich Idiomatic Go 1.4+ codec/encoding library
+for binc, msgpack, cbor, json.
 
 Supported Serialization formats are:
 
@@ -31,8 +32,13 @@ the standard library (ie json, xml, gob, etc).
 Rich Feature Set includes:
 
   - Simple but extremely powerful and feature-rich API
+  - Support for go1.4 and above, while selectively using newer APIs for later releases
+  - Good code coverage ( > 70% )
   - Very High Performance.
     Our extensive benchmarks show us outperforming Gob, Json, Bson, etc by 2-4X.
+  - Careful selected use of 'unsafe' for targeted performance gains.
+    100% mode exists where 'unsafe' is not used at all.
+  - Lock-free (sans mutex) concurrency for scaling to 100's of cores
   - Multiple conversions:
     Package coerces types where appropriate
     e.g. decode an int in the stream into a float, etc.
@@ -87,6 +93,27 @@ As an illustration, MyStructWithUnexportedFields would normally be
 encoded as an empty map because it has no exported fields, while UUID
 would be encoded as a string. However, with extension support, you can
 encode any of these however you like.
+
+Custom Encoding and Decoding
+
+This package maintains symmetry in the encoding and decoding halfs.
+We determine how to encode or decode by walking this decision tree
+
+  - is type a codec.Selfer?
+  - is there an extension registered for the type?
+  - is format binary, and is type a encoding.BinaryMarshaler and BinaryUnmarshaler?
+  - is format specifically json, and is type a encoding/json.Marshaler and Unmarshaler?
+  - is format text-based, and type an encoding.TextMarshaler?
+  - else we use a pair of functions based on the "kind" of the type e.g. map, slice, int64, etc
+
+This symmetry is important to reduce chances of issues happening because the
+encoding and decoding sides are out of sync e.g. decoded via very specific
+encoding.TextUnmarshaler but encoded via kind-specific generalized mode.
+
+Consequently, if a type only defines one-half of the symmetry
+(e.g. it implements UnmarshalJSON() but not MarshalJSON() ),
+then that type doesn't satisfy the check and we will continue walking down the
+decision tree.
 
 RPC
 
@@ -156,40 +183,51 @@ Sample usage model:
     //OR rpcCodec := codec.MsgpackSpecRpc.ClientCodec(conn, h)
     client := rpc.NewClientWithCodec(rpcCodec)
 
+Running Tests
+
+To run tests, use the following:
+
+    go test
+
+To run the full suite of tests, use the following:
+
+    go test -tags alltests -run Suite
+
+You can run the tag 'safe' to run tests or build in safe mode. e.g.
+
+    go test -tags safe -run Json
+    go test -tags "alltests safe" -run Suite
+
+Running Benchmarks
+
+Please see http://github.com/ugorji/go-codec-bench .
+
+Caveats
+
+Struct fields matching the following are ignored during encoding and decoding
+    - struct tag value set to -
+    - func, complex numbers, unsafe pointers
+    - unexported and not embedded
+    - unexported embedded non-struct
+    - unexported embedded pointers (from go1.10)
+
+Every other field in a struct will be encoded/decoded.
+
+Embedded fields are encoded as if they exist in the top-level struct,
+with some caveats. See Encode documentation.
+
 */
 package codec
 
-// Benefits of go-codec:
-//
-//    - encoding/json always reads whole file into memory first.
-//      This makes it unsuitable for parsing very large files.
-//    - encoding/xml cannot parse into a map[string]interface{}
-//      I found this out on reading https://github.com/clbanning/mxj
-
 // TODO:
-//
-//   - optimization for codecgen:
-//     if len of entity is <= 3 words, then support a value receiver for encode.
-//   - (En|De)coder should store an error when it occurs.
-//     Until reset, subsequent calls return that error that was stored.
-//     This means that free panics must go away.
-//     All errors must be raised through errorf method.
-//   - Decoding using a chan is good, but incurs concurrency costs.
-//     This is because there's no fast way to use a channel without it
-//     having to switch goroutines constantly.
-//     Callback pattern is still the best. Maybe consider supporting something like:
-//        type X struct {
-//             Name string
-//             Ys []Y
-//             Ys chan <- Y
-//             Ys func(Y) -> call this function for each entry
-//        }
-//    - Consider adding a isZeroer interface { isZero() bool }
-//      It is used within isEmpty, for omitEmpty support.
-//    - Consider making Handle used AS-IS within the encoding/decoding session.
-//      This means that we don't cache Handle information within the (En|De)coder,
-//      except we really need it at Reset(...)
-//    - Consider adding math/big support
-//    - Consider reducing the size of the generated functions:
-//      Maybe use one loop, and put the conditionals in the loop.
-//      for ... { if cLen > 0 { if j == cLen { break } } else if dd.CheckBreak() { break } }
+//   - In Go 1.10, when mid-stack inlining is enabled,
+//     we should use committed functions for writeXXX and readXXX calls.
+//     This involves uncommenting the methods for decReaderSwitch and encWriterSwitch
+//     and using those (decReaderSwitch and encWriterSwitch in all handles
+//     instead of encWriter and decReader.
+//   - removing conditionals used to avoid calling no-op functions via interface calls.
+//     esep, etc.
+//     It *should* make the code cleaner, and maybe more performant,
+//     as conditional branches are expensive.
+//     However, per https://groups.google.com/forum/#!topic/golang-nuts/DNELyNnTzFA ,
+//     there is no optimization if calling an empty function via an interface.

@@ -139,6 +139,14 @@ func TestRemoveVolumeNotFound(t *testing.T) {
 	}
 }
 
+func TestRemoveVolumeInternalError(t *testing.T) {
+	t.Parallel()
+	client := newTestClient(&FakeRoundTripper{message: "something went wrong", status: http.StatusInternalServerError})
+	if err := client.RemoveVolume("test:test"); err == nil {
+		t.Error("RemoveVolume: unexpected <nil> error")
+	}
+}
+
 func TestRemoveVolumeInUse(t *testing.T) {
 	t.Parallel()
 	client := newTestClient(&FakeRoundTripper{message: "volume in use and cannot be removed", status: http.StatusConflict})

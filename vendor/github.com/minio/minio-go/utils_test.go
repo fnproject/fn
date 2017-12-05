@@ -366,3 +366,30 @@ func TestIsCSEHeader(t *testing.T) {
 	}
 
 }
+
+// Tests if header is x-amz-meta or x-amz-acl
+func TestIsAmzHeader(t *testing.T) {
+	testCases := []struct {
+		// Input.
+		header string
+		// Expected result.
+		expectedValue bool
+	}{
+		{"x-amz-iv", false},
+		{"x-amz-key", false},
+		{"x-amz-matdesc", false},
+		{"x-amz-meta-x-amz-iv", true},
+		{"x-amz-meta-x-amz-key", true},
+		{"x-amz-meta-x-amz-matdesc", true},
+		{"x-amz-acl", true},
+		{"random-header", false},
+	}
+
+	for i, testCase := range testCases {
+		actual := isAmzHeader(testCase.header)
+		if actual != testCase.expectedValue {
+			t.Errorf("Test %d: Expected to pass, but failed", i+1)
+		}
+	}
+
+}

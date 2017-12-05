@@ -31,7 +31,7 @@ Rich Feature Set includes:
 
   - Simple but extremely powerful and feature-rich API
   - Support for go1.4 and above, while selectively using newer APIs for later releases
-  - Good code coverage ( > 70% )
+  - Excellent code coverage ( > 90% )
   - Very High Performance.
     Our extensive benchmarks show us outperforming Gob, Json, Bson, etc by 2-4X.
   - Careful selected use of 'unsafe' for targeted performance gains.
@@ -90,6 +90,27 @@ As an illustration, MyStructWithUnexportedFields would normally be
 encoded as an empty map because it has no exported fields, while UUID
 would be encoded as a string. However, with extension support, you can
 encode any of these however you like.
+
+## Custom Encoding and Decoding
+
+This package maintains symmetry in the encoding and decoding halfs.
+We determine how to encode or decode by walking this decision tree
+
+  - is type a codec.Selfer?
+  - is there an extension registered for the type?
+  - is format binary, and is type a encoding.BinaryMarshaler and BinaryUnmarshaler?
+  - is format specifically json, and is type a encoding/json.Marshaler and Unmarshaler?
+  - is format text-based, and type an encoding.TextMarshaler?
+  - else we use a pair of functions based on the "kind" of the type e.g. map, slice, int64, etc
+
+This symmetry is important to reduce chances of issues happening because the
+encoding and decoding sides are out of sync e.g. decoded via very specific
+encoding.TextUnmarshaler but encoded via kind-specific generalized mode.
+
+Consequently, if a type only defines one-half of the symmetry
+(e.g. it implements UnmarshalJSON() but not MarshalJSON() ),
+then that type doesn't satisfy the check and we will continue walking down the
+decision tree.
 
 ## RPC
 
@@ -164,3 +185,17 @@ You can run the tag 'safe' to run tests or build in safe mode. e.g.
 
 Please see http://github.com/ugorji/go-codec-bench .
 
+## Caveats
+
+Struct fields matching the following are ignored during encoding and decoding
+
+  - struct tag value set to -
+  - func, complex numbers, unsafe pointers
+  - unexported and not embedded
+  - unexported embedded non-struct
+  - unexported embedded pointers (from go1.10)
+
+Every other field in a struct will be encoded/decoded.
+
+Embedded fields are encoded as if they exist in the top-level struct,
+with some caveats. See Encode documentation.

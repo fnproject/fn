@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -38,10 +39,11 @@ import (
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/rafthttp"
-	"github.com/coreos/pkg/capnslog"
 
+	"github.com/coreos/pkg/capnslog"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 var plog = capnslog.NewPackageLogger("github.com/coreos/etcd", "embed")
@@ -62,15 +64,17 @@ const (
 
 // Etcd contains a running etcd server and its listeners.
 type Etcd struct {
-	Peers            []*peerListener
-	Clients          []net.Listener
+	Peers   []*peerListener
+	Clients []net.Listener
+	// a map of contexts for the servers that serves client requests.
+	sctxs            map[string]*serveCtx
 	metricsListeners []net.Listener
-	Server           *etcdserver.EtcdServer
+
+	Server *etcdserver.EtcdServer
 
 	cfg   Config
 	stopc chan struct{}
 	errc  chan error
-	sctxs map[string]*serveCtx
 
 	closeOnce sync.Once
 }
@@ -106,10 +110,10 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 	}()
 
 	if e.Peers, err = startPeerListeners(cfg); err != nil {
-		return
+		return e, err
 	}
 	if e.sctxs, err = startClientListeners(cfg); err != nil {
-		return
+		return e, err
 	}
 	for _, sctx := range e.sctxs {
 		e.Clients = append(e.Clients, sctx.l)
@@ -120,10 +124,30 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		token   string
 	)
 
+	memberInitialized := true
 	if !isMemberInitialized(cfg) {
+		memberInitialized = false
 		urlsmap, token, err = cfg.PeerURLsMapAndToken("etcd")
 		if err != nil {
 			return e, fmt.Errorf("error setting up initial cluster: %v", err)
+		}
+	}
+
+	var (
+		autoCompactionRetention time.Duration
+		h                       int
+	)
+	// AutoCompactionRetention defaults to "0" if not set.
+	if len(cfg.AutoCompactionRetention) == 0 {
+		cfg.AutoCompactionRetention = "0"
+	}
+	h, err = strconv.Atoi(cfg.AutoCompactionRetention)
+	if err == nil {
+		autoCompactionRetention = time.Duration(int64(h)) * time.Hour
+	} else {
+		autoCompactionRetention, err = time.ParseDuration(cfg.AutoCompactionRetention)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing AutoCompactionRetention: %v", err)
 		}
 	}
 
@@ -145,7 +169,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		PeerTLSInfo:             cfg.PeerTLSInfo,
 		TickMs:                  cfg.TickMs,
 		ElectionTicks:           cfg.ElectionTicks(),
-		AutoCompactionRetention: cfg.AutoCompactionRetention,
+		AutoCompactionRetention: autoCompactionRetention,
 		AutoCompactionMode:      cfg.AutoCompactionMode,
 		QuotaBackendBytes:       cfg.QuotaBackendBytes,
 		MaxTxnOps:               cfg.MaxTxnOps,
@@ -153,51 +177,41 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		StrictReconfigCheck:     cfg.StrictReconfigCheck,
 		ClientCertAuthEnabled:   cfg.ClientTLSInfo.ClientCertAuth,
 		AuthToken:               cfg.AuthToken,
+		InitialCorruptCheck:     cfg.ExperimentalInitialCorruptCheck,
 		CorruptCheckTime:        cfg.ExperimentalCorruptCheckTime,
 	}
 
 	if e.Server, err = etcdserver.NewServer(srvcfg); err != nil {
-		return
+		return e, err
 	}
 
 	// buffer channel so goroutines on closed connections won't wait forever
 	e.errc = make(chan error, len(e.Peers)+len(e.Clients)+2*len(e.sctxs))
 
+	// newly started member ("memberInitialized==false")
+	// does not need corruption check
+	if memberInitialized {
+		if err = e.Server.CheckInitialHashKV(); err != nil {
+			// set "EtcdServer" to nil, so that it does not block on "EtcdServer.Close()"
+			// (nothing to close since rafthttp transports have not been started)
+			e.Server = nil
+			return e, err
+		}
+	}
 	e.Server.Start()
 
-	// configure peer handlers after rafthttp.Transport started
-	ph := etcdhttp.NewPeerHandler(e.Server)
-	var peerTLScfg *tls.Config
-	if !cfg.PeerTLSInfo.Empty() {
-		if peerTLScfg, err = cfg.PeerTLSInfo.ServerConfig(); err != nil {
-			return
-		}
+	if err = e.servePeers(); err != nil {
+		return e, err
 	}
-	for _, p := range e.Peers {
-		gs := v3rpc.Server(e.Server, peerTLScfg)
-		m := cmux.New(p.Listener)
-		go gs.Serve(m.Match(cmux.HTTP2()))
-		srv := &http.Server{
-			Handler:     grpcHandlerFunc(gs, ph),
-			ReadTimeout: 5 * time.Minute,
-			ErrorLog:    defaultLog.New(ioutil.Discard, "", 0), // do not log user error
-		}
-		go srv.Serve(m.Match(cmux.Any()))
-		p.serve = func() error { return m.Serve() }
-		p.close = func(ctx context.Context) error {
-			// gracefully shutdown http.Server
-			// close open listeners, idle connections
-			// until context cancel or time-out
-			e.stopGRPCServer(gs)
-			return srv.Shutdown(ctx)
-		}
+	if err = e.serveClients(); err != nil {
+		return e, err
+	}
+	if err = e.serveMetrics(); err != nil {
+		return e, err
 	}
 
-	if err = e.serve(); err != nil {
-		return
-	}
 	serving = true
-	return
+	return e, nil
 }
 
 // Config returns the current configuration.
@@ -311,6 +325,44 @@ func startPeerListeners(cfg *Config) (peers []*peerListener, err error) {
 	return peers, nil
 }
 
+// configure peer handlers after rafthttp.Transport started
+func (e *Etcd) servePeers() (err error) {
+	ph := etcdhttp.NewPeerHandler(e.Server)
+	var peerTLScfg *tls.Config
+	if !e.cfg.PeerTLSInfo.Empty() {
+		if peerTLScfg, err = e.cfg.PeerTLSInfo.ServerConfig(); err != nil {
+			return err
+		}
+	}
+	for _, p := range e.Peers {
+		gs := v3rpc.Server(e.Server, peerTLScfg)
+		m := cmux.New(p.Listener)
+		go gs.Serve(m.Match(cmux.HTTP2()))
+		srv := &http.Server{
+			Handler:     grpcHandlerFunc(gs, ph),
+			ReadTimeout: 5 * time.Minute,
+			ErrorLog:    defaultLog.New(ioutil.Discard, "", 0), // do not log user error
+		}
+		go srv.Serve(m.Match(cmux.Any()))
+		p.serve = func() error { return m.Serve() }
+		p.close = func(ctx context.Context) error {
+			// gracefully shutdown http.Server
+			// close open listeners, idle connections
+			// until context cancel or time-out
+			e.stopGRPCServer(gs)
+			return srv.Shutdown(ctx)
+		}
+	}
+
+	// start peer servers in a goroutine
+	for _, pl := range e.Peers {
+		go func(l *peerListener) {
+			e.errHandler(l.serve())
+		}(pl)
+	}
+	return nil
+}
+
 func startClientListeners(cfg *Config) (sctxs map[string]*serveCtx, err error) {
 	if err = cfg.ClientSelfCert(); err != nil {
 		plog.Fatalf("could not get certs (%v)", err)
@@ -392,20 +444,13 @@ func startClientListeners(cfg *Config) (sctxs map[string]*serveCtx, err error) {
 	return sctxs, nil
 }
 
-func (e *Etcd) serve() (err error) {
+func (e *Etcd) serveClients() (err error) {
 	if !e.cfg.ClientTLSInfo.Empty() {
 		plog.Infof("ClientTLS: %s", e.cfg.ClientTLSInfo)
 	}
 
 	if e.cfg.CorsInfo.String() != "" {
 		plog.Infof("cors = %s", e.cfg.CorsInfo)
-	}
-
-	// Start the peer server in a goroutine
-	for _, pl := range e.Peers {
-		go func(l *peerListener) {
-			e.errHandler(l.serve())
-		}(pl)
 	}
 
 	// Start a client server goroutine for each listen address
@@ -424,12 +469,31 @@ func (e *Etcd) serve() (err error) {
 	}
 	h = http.Handler(&cors.CORSHandler{Handler: h, Info: e.cfg.CorsInfo})
 
-	for _, sctx := range e.sctxs {
-		go func(s *serveCtx) {
-			e.errHandler(s.serve(e.Server, &e.cfg.ClientTLSInfo, h, e.errHandler))
-		}(sctx)
+	gopts := []grpc.ServerOption{}
+	if e.cfg.GRPCKeepAliveMinTime > time.Duration(0) {
+		gopts = append(gopts, grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             e.cfg.GRPCKeepAliveMinTime,
+			PermitWithoutStream: false,
+		}))
+	}
+	if e.cfg.GRPCKeepAliveInterval > time.Duration(0) &&
+		e.cfg.GRPCKeepAliveTimeout > time.Duration(0) {
+		gopts = append(gopts, grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    e.cfg.GRPCKeepAliveInterval,
+			Timeout: e.cfg.GRPCKeepAliveTimeout,
+		}))
 	}
 
+	// start client servers in a goroutine
+	for _, sctx := range e.sctxs {
+		go func(s *serveCtx) {
+			e.errHandler(s.serve(e.Server, &e.cfg.ClientTLSInfo, h, e.errHandler, gopts...))
+		}(sctx)
+	}
+	return nil
+}
+
+func (e *Etcd) serveMetrics() (err error) {
 	if len(e.cfg.ListenMetricsUrls) > 0 {
 		metricsMux := http.NewServeMux()
 		etcdhttp.HandleMetricsHealth(metricsMux, e.Server)
@@ -450,7 +514,6 @@ func (e *Etcd) serve() (err error) {
 			}(murl, ml)
 		}
 	}
-
 	return nil
 }
 

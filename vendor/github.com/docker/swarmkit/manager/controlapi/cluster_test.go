@@ -75,7 +75,7 @@ func TestValidateClusterSpec(t *testing.T) {
 		{
 			spec: &api.ClusterSpec{
 				Annotations: api.Annotations{
-					Name: "name",
+					Name: store.DefaultClusterName,
 				},
 				CAConfig: api.CAConfig{
 					NodeCertExpiry: gogotypes.DurationProto(29 * time.Minute),
@@ -86,10 +86,26 @@ func TestValidateClusterSpec(t *testing.T) {
 		{
 			spec: &api.ClusterSpec{
 				Annotations: api.Annotations{
-					Name: "name",
+					Name: store.DefaultClusterName,
 				},
 				Dispatcher: api.DispatcherConfig{
 					HeartbeatPeriod: gogotypes.DurationProto(-29 * time.Minute),
+				},
+			},
+			c: codes.InvalidArgument,
+		},
+		{
+			spec: &api.ClusterSpec{
+				Annotations: api.Annotations{
+					Name: "",
+				},
+			},
+			c: codes.InvalidArgument,
+		},
+		{
+			spec: &api.ClusterSpec{
+				Annotations: api.Annotations{
+					Name: "blah",
 				},
 			},
 			c: codes.InvalidArgument,
@@ -101,11 +117,12 @@ func TestValidateClusterSpec(t *testing.T) {
 	}
 
 	for _, good := range []*api.ClusterSpec{
-		createClusterSpec("name"),
+		createClusterSpec(store.DefaultClusterName),
 	} {
 		err := validateClusterSpec(good)
 		assert.NoError(t, err)
 	}
+
 }
 
 func TestGetCluster(t *testing.T) {
@@ -159,7 +176,7 @@ func TestGetClusterWithSecret(t *testing.T) {
 func TestUpdateCluster(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Stop()
-	cluster := createCluster(t, ts, "name", "name", api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
+	cluster := createCluster(t, ts, "name", store.DefaultClusterName, api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
 
 	_, err := ts.Client.UpdateCluster(context.Background(), &api.UpdateClusterRequest{})
 	assert.Error(t, err)
@@ -179,7 +196,7 @@ func TestUpdateCluster(t *testing.T) {
 
 	r, err := ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 		Filters: &api.ListClustersRequest_Filters{
-			NamePrefixes: []string{"name"},
+			NamePrefixes: []string{store.DefaultClusterName},
 		},
 	})
 	assert.NoError(t, err)
@@ -197,7 +214,7 @@ func TestUpdateCluster(t *testing.T) {
 
 	r, err = ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 		Filters: &api.ListClustersRequest_Filters{
-			NamePrefixes: []string{"name"},
+			NamePrefixes: []string{store.DefaultClusterName},
 		},
 	})
 	assert.NoError(t, err)
@@ -239,11 +256,11 @@ func TestUpdateCluster(t *testing.T) {
 func TestUpdateClusterRotateToken(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Stop()
-	cluster := createCluster(t, ts, "name", "name", api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
+	cluster := createCluster(t, ts, "name", store.DefaultClusterName, api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
 
 	r, err := ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 		Filters: &api.ListClustersRequest_Filters{
-			NamePrefixes: []string{"name"},
+			NamePrefixes: []string{store.DefaultClusterName},
 		},
 	})
 
@@ -265,7 +282,7 @@ func TestUpdateClusterRotateToken(t *testing.T) {
 
 	r, err = ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 		Filters: &api.ListClustersRequest_Filters{
-			NamePrefixes: []string{"name"},
+			NamePrefixes: []string{store.DefaultClusterName},
 		},
 	})
 	assert.NoError(t, err)
@@ -287,7 +304,7 @@ func TestUpdateClusterRotateToken(t *testing.T) {
 
 	r, err = ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 		Filters: &api.ListClustersRequest_Filters{
-			NamePrefixes: []string{"name"},
+			NamePrefixes: []string{store.DefaultClusterName},
 		},
 	})
 	assert.NoError(t, err)
@@ -310,7 +327,7 @@ func TestUpdateClusterRotateToken(t *testing.T) {
 
 	r, err = ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 		Filters: &api.ListClustersRequest_Filters{
-			NamePrefixes: []string{"name"},
+			NamePrefixes: []string{store.DefaultClusterName},
 		},
 	})
 	assert.NoError(t, err)
@@ -323,7 +340,7 @@ func TestUpdateClusterRotateUnlockKey(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Stop()
 	// create a cluster with extra encryption keys, to make sure they exist
-	cluster := createClusterObj("id", "name", api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
+	cluster := createClusterObj("id", store.DefaultClusterName, api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
 	expected := make(map[string]*api.EncryptionKey)
 	for i := 1; i <= 2; i++ {
 		value := fmt.Sprintf("fake%d", i)
@@ -356,7 +373,7 @@ func TestUpdateClusterRotateUnlockKey(t *testing.T) {
 	validateListResult := func(expectedLocked bool) api.Version {
 		r, err := ts.Client.ListClusters(context.Background(), &api.ListClustersRequest{
 			Filters: &api.ListClustersRequest_Filters{
-				NamePrefixes: []string{"name"},
+				NamePrefixes: []string{store.DefaultClusterName},
 			},
 		})
 
@@ -446,7 +463,7 @@ func TestUpdateClusterRootRotation(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Stop()
 
-	cluster := createCluster(t, ts, "id", "name", api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
+	cluster := createCluster(t, ts, "id", store.DefaultClusterName, api.AcceptancePolicy{}, ts.Server.securityConfig.RootCA())
 	response, err := ts.Client.GetCluster(context.Background(), &api.GetClusterRequest{ClusterID: cluster.ID})
 	require.NoError(t, err)
 	require.NotNil(t, response.Cluster)

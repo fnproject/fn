@@ -104,7 +104,7 @@ func parseResource(flags *pflag.FlagSet, spec *api.ServiceSpec) error {
 		if err != nil {
 			return err
 		}
-		spec.Task.Resources.Reservations.Generic, err = genericresource.Parse(cmd)
+		spec.Task.Resources.Reservations.Generic, err = genericresource.ParseCmd(cmd)
 		if err != nil {
 			return err
 		}

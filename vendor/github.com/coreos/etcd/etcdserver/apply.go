@@ -20,6 +20,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/coreos/etcd/auth"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/lease"
 	"github.com/coreos/etcd/mvcc"
@@ -224,8 +225,9 @@ func (a *applierV3backend) DeleteRange(txn mvcc.TxnWrite, dr *pb.DeleteRangeRequ
 			return nil, err
 		}
 		if rr != nil {
+			resp.PrevKvs = make([]*mvccpb.KeyValue, len(rr.KVs))
 			for i := range rr.KVs {
-				resp.PrevKvs = append(resp.PrevKvs, &rr.KVs[i])
+				resp.PrevKvs[i] = &rr.KVs[i]
 			}
 		}
 	}
@@ -319,11 +321,12 @@ func (a *applierV3backend) Range(txn mvcc.TxnRead, r *pb.RangeRequest) (*pb.Rang
 
 	resp.Header.Revision = rr.Rev
 	resp.Count = int64(rr.Count)
+	resp.Kvs = make([]*mvccpb.KeyValue, len(rr.KVs))
 	for i := range rr.KVs {
 		if r.KeysOnly {
 			rr.KVs[i].Value = nil
 		}
-		resp.Kvs = append(resp.Kvs, &rr.KVs[i])
+		resp.Kvs[i] = &rr.KVs[i]
 	}
 	return resp, nil
 }
@@ -650,7 +653,7 @@ func (a *applierV3backend) AuthDisable() (*pb.AuthDisableResponse, error) {
 }
 
 func (a *applierV3backend) Authenticate(r *pb.InternalAuthenticateRequest) (*pb.AuthenticateResponse, error) {
-	ctx := context.WithValue(context.WithValue(a.s.ctx, "index", a.s.consistIndex.ConsistentIndex()), "simpleToken", r.SimpleToken)
+	ctx := context.WithValue(context.WithValue(a.s.ctx, auth.AuthenticateParamIndex{}, a.s.consistIndex.ConsistentIndex()), auth.AuthenticateParamSimpleTokenPrefix{}, r.SimpleToken)
 	resp, err := a.s.AuthStore().Authenticate(ctx, r.Name, r.Password)
 	if resp != nil {
 		resp.Header = newHeader(a.s)

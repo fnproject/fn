@@ -154,13 +154,13 @@ func TestReplicatedOrchestrator(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	observedDeletion1 := testutils.WatchTaskDelete(t, watch)
-	assert.Equal(t, observedDeletion1.Status.State, api.TaskStateNew)
-	assert.Equal(t, observedDeletion1.ServiceAnnotations.Name, "name2")
+	observedUpdateRemove1 := testutils.WatchTaskUpdate(t, watch)
+	assert.Equal(t, observedUpdateRemove1.DesiredState, api.TaskStateRemove)
+	assert.Equal(t, observedUpdateRemove1.ServiceAnnotations.Name, "name2")
 
-	observedDeletion2 := testutils.WatchTaskDelete(t, watch)
-	assert.Equal(t, observedDeletion2.Status.State, api.TaskStateNew)
-	assert.Equal(t, observedDeletion2.ServiceAnnotations.Name, "name2")
+	observedUpdateRemove2 := testutils.WatchTaskUpdate(t, watch)
+	assert.Equal(t, observedUpdateRemove2.DesiredState, api.TaskStateRemove)
+	assert.Equal(t, observedUpdateRemove2.ServiceAnnotations.Name, "name2")
 
 	// There should be one remaining task attached to service id2/name2.
 	var liveTasks []*api.Task
@@ -383,10 +383,11 @@ func TestReplicatedScaleDown(t *testing.T) {
 
 	// Replicas was set to 6, but we started with 7 tasks. task7 should
 	// be the one the orchestrator chose to shut down because it was not
-	// assigned yet.
+	// assigned yet. The desired state of task7 will be set to "REMOVE"
 
-	observedShutdown := testutils.WatchTaskDelete(t, watch)
-	assert.Equal(t, "task7", observedShutdown.ID)
+	observedUpdateRemove := testutils.WatchTaskUpdate(t, watch)
+	assert.Equal(t, api.TaskStateRemove, observedUpdateRemove.DesiredState)
+	assert.Equal(t, "task7", observedUpdateRemove.ID)
 
 	// Now scale down to 2 instances.
 	err = s.Update(func(tx store.Tx) error {
@@ -406,8 +407,9 @@ func TestReplicatedScaleDown(t *testing.T) {
 
 	shutdowns := make(map[string]int)
 	for i := 0; i != 4; i++ {
-		observedShutdown := testutils.WatchTaskDelete(t, watch)
-		shutdowns[observedShutdown.NodeID]++
+		observedUpdateDesiredRemove := testutils.WatchTaskUpdate(t, watch)
+		assert.Equal(t, api.TaskStateRemove, observedUpdateDesiredRemove.DesiredState)
+		shutdowns[observedUpdateDesiredRemove.NodeID]++
 	}
 
 	assert.Equal(t, 1, shutdowns["node1"])

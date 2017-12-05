@@ -351,6 +351,7 @@ func TestMap(t *testing.T) {
 		expected map[string]string
 	}{
 		{[]string{"PATH=/usr/bin:/bin", "PYTHONPATH=/usr/local"}, map[string]string{"PATH": "/usr/bin:/bin", "PYTHONPATH": "/usr/local"}},
+		{[]string{"ENABLE_LOGGING", "PYTHONPATH=/usr/local"}, map[string]string{"ENABLE_LOGGING": "", "PYTHONPATH": "/usr/local"}},
 		{nil, nil},
 	}
 	for _, tt := range tests {

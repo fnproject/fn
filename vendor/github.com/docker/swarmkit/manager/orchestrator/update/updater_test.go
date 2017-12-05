@@ -88,7 +88,7 @@ func TestUpdater(t *testing.T) {
 		// test cluster configuration propagation to task creation.
 		Spec: api.ClusterSpec{
 			Annotations: api.Annotations{
-				Name: "default",
+				Name: store.DefaultClusterName,
 			},
 		},
 	}
@@ -288,7 +288,7 @@ func TestUpdaterFailureAction(t *testing.T) {
 	cluster := &api.Cluster{
 		Spec: api.ClusterSpec{
 			Annotations: api.Annotations{
-				Name: "default",
+				Name: store.DefaultClusterName,
 			},
 		},
 	}

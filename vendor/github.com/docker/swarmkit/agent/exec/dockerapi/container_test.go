@@ -135,6 +135,26 @@ func TestExtraHosts(t *testing.T) {
 	}
 }
 
+func TestPidLimit(t *testing.T) {
+	c := containerConfig{
+		task: &api.Task{
+			Spec: api.TaskSpec{Runtime: &api.TaskSpec_Container{
+				Container: &api.ContainerSpec{
+					PidsLimit: 10,
+				},
+			}},
+		},
+	}
+
+	hostConfig := c.hostConfig()
+	expected := int64(10)
+	actual := hostConfig.PidsLimit
+
+	if expected != actual {
+		t.Fatalf("expected %d, got %d", expected, actual)
+	}
+}
+
 func TestStopSignal(t *testing.T) {
 	c := containerConfig{
 		task: &api.Task{
@@ -163,16 +183,36 @@ func TestInit(t *testing.T) {
 			}},
 		},
 	}
-	expected := (*bool)(nil)
+	var expected *bool
 	actual := c.hostConfig().Init
 	if actual != expected {
 		t.Fatalf("expected %v, got %v", expected, actual)
 	}
-	c.task.Spec.GetContainer().Init = &api.ContainerSpec_InitValue{
-		InitValue: true,
+	c.task.Spec.GetContainer().Init = &gogotypes.BoolValue{
+		Value: true,
 	}
 	actual = c.hostConfig().Init
 	if actual == nil || !*actual {
 		t.Fatalf("expected &true, got %v", actual)
+	}
+}
+
+func TestIsolation(t *testing.T) {
+	c := containerConfig{
+		task: &api.Task{
+			Spec: api.TaskSpec{
+				Runtime: &api.TaskSpec_Container{
+					Container: &api.ContainerSpec{
+						Isolation: api.ContainerIsolationHyperV,
+					},
+				},
+			},
+		},
+	}
+
+	expected := "hyperv"
+	actual := string(c.hostConfig().Isolation)
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
 	}
 }

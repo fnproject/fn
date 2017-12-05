@@ -731,3 +731,171 @@ func TestUpdateNodeDemote(t *testing.T) {
 	t.Parallel()
 	testUpdateNodeDemote(t)
 }
+
+// TestRemoveNodeAttachments tests the unexported removeNodeAttachments
+// function. This avoids us having to update the TestRemoveNodes function to
+// test all of this logic
+func TestRemoveNodeAttachments(t *testing.T) {
+	// first, set up a store and all that
+	ts := newTestServer(t)
+	defer ts.Stop()
+
+	ts.Store.Update(func(tx store.Tx) error {
+		store.CreateCluster(tx, &api.Cluster{
+			ID: identity.NewID(),
+			Spec: api.ClusterSpec{
+				Annotations: api.Annotations{
+					Name: store.DefaultClusterName,
+				},
+			},
+		})
+		return nil
+	})
+
+	// make sure before we start that our server is in a good (empty) state
+	r, err := ts.Client.ListNodes(context.Background(), &api.ListNodesRequest{})
+	assert.NoError(t, err)
+	assert.Empty(t, r.Nodes)
+
+	// create a manager
+	createNode(t, ts, "id1", api.NodeRoleManager, api.NodeMembershipAccepted, api.NodeStatus_READY)
+	r, err = ts.Client.ListNodes(context.Background(), &api.ListNodesRequest{})
+	assert.NoError(t, err)
+	assert.Len(t, r.Nodes, 1)
+
+	// create a worker. put it in the DOWN state, which is the state it will be
+	// in to remove it anyway
+	createNode(t, ts, "id2", api.NodeRoleWorker, api.NodeMembershipAccepted, api.NodeStatus_DOWN)
+	r, err = ts.Client.ListNodes(context.Background(), &api.ListNodesRequest{})
+	assert.NoError(t, err)
+	assert.Len(t, r.Nodes, 2)
+
+	// create a network we can "attach" to
+	err = ts.Store.Update(func(tx store.Tx) error {
+		n := &api.Network{
+			ID: "net1id",
+			Spec: api.NetworkSpec{
+				Annotations: api.Annotations{
+					Name: "net1name",
+				},
+				Attachable: true,
+			},
+		}
+		return store.CreateNetwork(tx, n)
+	})
+	require.NoError(t, err)
+
+	// create some tasks:
+	err = ts.Store.Update(func(tx store.Tx) error {
+		// 1.) A network attachment on the node we're gonna remove
+		task1 := &api.Task{
+			ID:           "task1",
+			NodeID:       "id2",
+			DesiredState: api.TaskStateRunning,
+			Status: api.TaskStatus{
+				State: api.TaskStateRunning,
+			},
+			Spec: api.TaskSpec{
+				Runtime: &api.TaskSpec_Attachment{
+					Attachment: &api.NetworkAttachmentSpec{
+						ContainerID: "container1",
+					},
+				},
+				Networks: []*api.NetworkAttachmentConfig{
+					{
+						Target:    "net1id",
+						Addresses: []string{}, // just leave this empty, we don't need it
+					},
+				},
+			},
+			// we probably don't care about the rest of the fields.
+		}
+		if err := store.CreateTask(tx, task1); err != nil {
+			return err
+		}
+
+		// 2.) A network attachment on the node we're not going to remove
+		task2 := &api.Task{
+			ID:           "task2",
+			NodeID:       "id1",
+			DesiredState: api.TaskStateRunning,
+			Status: api.TaskStatus{
+				State: api.TaskStateRunning,
+			},
+			Spec: api.TaskSpec{
+				Runtime: &api.TaskSpec_Attachment{
+					Attachment: &api.NetworkAttachmentSpec{
+						ContainerID: "container2",
+					},
+				},
+				Networks: []*api.NetworkAttachmentConfig{
+					{
+						Target:    "net1id",
+						Addresses: []string{}, // just leave this empty, we don't need it
+					},
+				},
+			},
+			// we probably don't care about the rest of the fields.
+		}
+		if err := store.CreateTask(tx, task2); err != nil {
+			return err
+		}
+
+		// 3.) A regular task on the node we're going to remove
+		task3 := &api.Task{
+			ID:           "task3",
+			NodeID:       "id2",
+			DesiredState: api.TaskStateRunning,
+			Status: api.TaskStatus{
+				State: api.TaskStateRunning,
+			},
+			Spec: api.TaskSpec{
+				Runtime: &api.TaskSpec_Container{
+					Container: &api.ContainerSpec{},
+				},
+			},
+		}
+		if err := store.CreateTask(tx, task3); err != nil {
+			return err
+		}
+
+		// 4.) A regular task on the node we're not going to remove
+		task4 := &api.Task{
+			ID:           "task4",
+			NodeID:       "id1",
+			DesiredState: api.TaskStateRunning,
+			Status: api.TaskStatus{
+				State: api.TaskStateRunning,
+			},
+			Spec: api.TaskSpec{
+				Runtime: &api.TaskSpec_Container{
+					Container: &api.ContainerSpec{},
+				},
+			},
+		}
+		return store.CreateTask(tx, task4)
+	})
+	require.NoError(t, err)
+
+	// Now, call the function with our nodeID. make sure it returns no error
+	err = ts.Store.Update(func(tx store.Tx) error {
+		return removeNodeAttachments(tx, "id2")
+	})
+	require.NoError(t, err)
+
+	// Now, make sure only task1, the network-attacahed task on id2, was
+	// removed
+	ts.Store.View(func(tx store.ReadTx) {
+		tasks, err := store.FindTasks(tx, store.All)
+		require.NoError(t, err)
+		// should only be 3 tasks left
+		require.Len(t, tasks, 4)
+		// and the list should not contain task1
+		for _, task := range tasks {
+			require.NotNil(t, task)
+			if task.ID == "task1" {
+				require.Equal(t, task.Status.State, api.TaskStateOrphaned)
+			}
+		}
+	})
+}

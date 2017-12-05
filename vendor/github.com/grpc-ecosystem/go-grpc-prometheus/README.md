@@ -3,6 +3,8 @@
 [![Travis Build](https://travis-ci.org/grpc-ecosystem/go-grpc-prometheus.svg)](https://travis-ci.org/grpc-ecosystem/go-grpc-prometheus)
 [![Go Report Card](https://goreportcard.com/badge/github.com/grpc-ecosystem/go-grpc-prometheus)](http://goreportcard.com/report/grpc-ecosystem/go-grpc-prometheus)
 [![GoDoc](http://img.shields.io/badge/GoDoc-Reference-blue.svg)](https://godoc.org/github.com/grpc-ecosystem/go-grpc-prometheus)
+[![SourceGraph](https://sourcegraph.com/github.com/grpc-ecosystem/go-grpc-prometheus/-/badge.svg)](https://sourcegraph.com/github.com/grpc-ecosystem/go-grpc-prometheus/?badge)
+[![codecov](https://codecov.io/gh/grpc-ecosystem/go-grpc-prometheus/branch/master/graph/badge.svg)](https://codecov.io/gh/grpc-ecosystem/go-grpc-prometheus)
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 [Prometheus](https://prometheus.io/) monitoring for your [gRPC Go](https://github.com/grpc/grpc-go) servers and clients.
@@ -36,7 +38,7 @@ import "github.com/grpc-ecosystem/go-grpc-prometheus"
     // After all your registrations, make sure all of the Prometheus metrics are initialized.
     grpc_prometheus.Register(myServer)
     // Register Prometheus metrics handler.    
-    http.Handle("/metrics", prometheus.Handler())
+    http.Handle("/metrics", promhttp.Handler())
 ...
 ```
 

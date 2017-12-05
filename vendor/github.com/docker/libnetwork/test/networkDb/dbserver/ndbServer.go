@@ -16,7 +16,7 @@ import (
 )
 
 var nDB *networkdb.NetworkDB
-var server diagnose.Server
+var server *diagnose.Server
 var ipAddr string
 
 var testerPaths2Func = map[string]diagnose.HTTPHandlerFunc{
@@ -49,10 +49,10 @@ func Server(args []string) {
 	ipAddr = ip
 	logrus.Infof("%s uses IP %s\n", localNodeName, ipAddr)
 
-	server = diagnose.Server{}
+	server = diagnose.New()
 	server.Init()
 	conf := networkdb.DefaultConfig()
-	conf.NodeName = localNodeName
+	conf.Hostname = localNodeName
 	conf.AdvertiseAddr = ipAddr
 	conf.BindAddr = ipAddr
 	nDB, err = networkdb.New(conf)

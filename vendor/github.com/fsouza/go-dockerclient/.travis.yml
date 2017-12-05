@@ -2,7 +2,7 @@ language: go
 sudo: required
 go:
   - 1.8.x
-  - 1.9
+  - 1.9.x
   - tip
 os:
   - linux
@@ -14,7 +14,6 @@ env:
     - GOARCH=amd64 DOCKER_PKG_VERSION=17.05.0~ce-0~ubuntu-trusty
     - GOARCH=386   DOCKER_PKG_VERSION=17.05.0~ce-0~ubuntu-trusty
   global:
-    - GO_TEST_FLAGS=-race
     - DOCKER_HOST=tcp://127.0.0.1:2375
 install:
   - make testdeps

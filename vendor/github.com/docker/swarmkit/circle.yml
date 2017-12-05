@@ -3,9 +3,9 @@ machine:
         OS: "linux"
         ARCH: "amd64"
 
-        PROTOC: "https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip"
+        PROTOC: "https://github.com/google/protobuf/releases/download/v3.5.0/protoc-3.5.0-linux-x86_64.zip"
 
-        GOVERSION: "1.8.3"
+        GOVERSION: "1.8.4"
         GOPATH: "$HOME/.go_workspace"
 
         WORKDIR:  "$GOPATH/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"

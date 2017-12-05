@@ -86,7 +86,7 @@ type Client struct {
 // Global constants.
 const (
 	libraryName    = "minio-go"
-	libraryVersion = "4.0.1"
+	libraryVersion = "4.0.4"
 )
 
 // User Agent should always following the below style.

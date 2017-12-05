@@ -47,7 +47,7 @@ var (
 // TestDialTLSExpired tests client with expired certs fails to dial.
 func TestDialTLSExpired(t *testing.T) {
 	defer testutil.AfterTest(t)
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1, PeerTLS: &testTLSInfo, ClientTLS: &testTLSInfo})
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1, PeerTLS: &testTLSInfo, ClientTLS: &testTLSInfo, SkipCreatingClient: true})
 	defer clus.Terminate(t)
 
 	tls, err := testTLSInfoExpired.ClientConfig()
@@ -69,7 +69,7 @@ func TestDialTLSExpired(t *testing.T) {
 // when TLS endpoints (https, unixs) are given but no tls config.
 func TestDialTLSNoConfig(t *testing.T) {
 	defer testutil.AfterTest(t)
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1, ClientTLS: &testTLSInfo})
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1, ClientTLS: &testTLSInfo, SkipCreatingClient: true})
 	defer clus.Terminate(t)
 	// expect "signed by unknown authority"
 	_, err := clientv3.New(clientv3.Config{
@@ -94,7 +94,7 @@ func TestDialSetEndpointsAfterFail(t *testing.T) {
 // testDialSetEndpoints ensures SetEndpoints can replace unavailable endpoints with available ones.
 func testDialSetEndpoints(t *testing.T, setBefore bool) {
 	defer testutil.AfterTest(t)
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3, SkipCreatingClient: true})
 	defer clus.Terminate(t)
 
 	// get endpoint list
@@ -139,7 +139,7 @@ func TestSwitchSetEndpoints(t *testing.T) {
 	eps := []string{clus.Members[1].GRPCAddr(), clus.Members[2].GRPCAddr()}
 
 	cli := clus.Client(0)
-	clus.Members[0].InjectPartition(t, clus.Members[1:])
+	clus.Members[0].InjectPartition(t, clus.Members[1:]...)
 
 	cli.SetEndpoints(eps...)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -152,7 +152,7 @@ func TestSwitchSetEndpoints(t *testing.T) {
 func TestRejectOldCluster(t *testing.T) {
 	defer testutil.AfterTest(t)
 	// 2 endpoints to test multi-endpoint Status
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 2})
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 2, SkipCreatingClient: true})
 	defer clus.Terminate(t)
 
 	cfg := clientv3.Config{

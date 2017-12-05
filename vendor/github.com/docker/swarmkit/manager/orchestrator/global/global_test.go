@@ -330,7 +330,7 @@ func TestDeleteService(t *testing.T) {
 
 	deleteService(t, store, service1)
 	// task should be deleted
-	observedTask := testutils.WatchTaskDelete(t, watch)
+	observedTask := testutils.WatchTaskUpdate(t, watch)
 	assert.Equal(t, observedTask.ServiceAnnotations.Name, "name1")
 	assert.Equal(t, observedTask.NodeID, "nodeid1")
 }

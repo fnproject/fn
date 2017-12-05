@@ -36,12 +36,12 @@ func (g *raftProxyGen) genProxyConstructor(s *descriptor.ServiceDescriptorProto)
 	g.gen.P(`redirectChecker := func(ctx context.Context)(context.Context, error) {
 		s, ok := transport.StreamFromContext(ctx)
 		if !ok {
-			return ctx, grpc.Errorf(codes.InvalidArgument, "remote addr is not found in context")
+			return ctx, status.Errorf(codes.InvalidArgument, "remote addr is not found in context")
 		}
 		addr := s.ServerTransport().RemoteAddr().String()
 		md, ok := metadata.FromContext(ctx)
 		if ok && len(md["redirect"]) != 0 {
-			return ctx, grpc.Errorf(codes.ResourceExhausted, "more than one redirect to leader from: %s", md["redirect"])
+			return ctx, status.Errorf(codes.ResourceExhausted, "more than one redirect to leader from: %s", md["redirect"])
 		}
 		if !ok {
 			md = metadata.New(map[string]string{})
@@ -376,6 +376,7 @@ func (g *raftProxyGen) GenerateImports(file *generator.FileDescriptor) {
 	}
 	g.gen.P("import raftselector \"github.com/docker/swarmkit/manager/raftselector\"")
 	g.gen.P("import codes \"google.golang.org/grpc/codes\"")
+	g.gen.P("import status \"google.golang.org/grpc/status\"")
 	g.gen.P("import metadata \"google.golang.org/grpc/metadata\"")
 	g.gen.P("import transport \"google.golang.org/grpc/transport\"")
 	// don't conflict with import added by ptypes

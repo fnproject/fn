@@ -51,7 +51,7 @@ type ServerConfig struct {
 	ElectionTicks    int
 	BootstrapTimeout time.Duration
 
-	AutoCompactionRetention int
+	AutoCompactionRetention time.Duration
 	AutoCompactionMode      string
 	QuotaBackendBytes       int64
 	MaxTxnOps               uint
@@ -66,7 +66,10 @@ type ServerConfig struct {
 
 	AuthToken string
 
-	CorruptCheckTime time.Duration
+	// InitialCorruptCheck is true to check data corruption on boot
+	// before serving any peer/client traffic.
+	InitialCorruptCheck bool
+	CorruptCheckTime    time.Duration
 }
 
 // VerifyBootstrap sanity-checks the initial config for bootstrap case
@@ -173,17 +176,16 @@ func (c *ServerConfig) ShouldDiscover() bool { return c.DiscoveryURL != "" }
 func (c *ServerConfig) ReqTimeout() time.Duration {
 	// 5s for queue waiting, computation and disk IO delay
 	// + 2 * election timeout for possible leader election
-	return 5*time.Second + 2*time.Duration(c.ElectionTicks)*time.Duration(c.TickMs)*time.Millisecond
+	return 5*time.Second + 2*time.Duration(c.ElectionTicks*int(c.TickMs))*time.Millisecond
 }
 
 func (c *ServerConfig) electionTimeout() time.Duration {
-	return time.Duration(c.ElectionTicks) * time.Duration(c.TickMs) * time.Millisecond
+	return time.Duration(c.ElectionTicks*int(c.TickMs)) * time.Millisecond
 }
 
 func (c *ServerConfig) peerDialTimeout() time.Duration {
-	// 1s for queue wait and system delay
-	// + one RTT, which is smaller than 1/5 election timeout
-	return time.Second + time.Duration(c.ElectionTicks)*time.Duration(c.TickMs)*time.Millisecond/5
+	// 1s for queue wait and election timeout
+	return time.Second + time.Duration(c.ElectionTicks*int(c.TickMs))*time.Millisecond
 }
 
 func (c *ServerConfig) PrintWithInitial() { c.print(true) }

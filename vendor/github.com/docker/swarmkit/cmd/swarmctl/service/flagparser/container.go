@@ -2,6 +2,7 @@ package flagparser
 
 import (
 	"github.com/docker/swarmkit/api"
+	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/spf13/pflag"
 )
 
@@ -62,6 +63,17 @@ func parseContainer(flags *pflag.FlagSet, spec *api.ServiceSpec) error {
 		}
 
 		spec.Task.GetContainer().OpenStdin = openStdin
+	}
+
+	if flags.Changed("init") {
+		init, err := flags.GetBool("init")
+		if err != nil {
+			return err
+		}
+
+		spec.Task.GetContainer().Init = &gogotypes.BoolValue{
+			Value: init,
+		}
 	}
 
 	return nil

@@ -1,5 +1,5 @@
-hash: f12c87d509e99534547e948533b8e8a88043c2261c0be08f155a26cd920b5fd4
-updated: 2017-09-11T14:52:48.727295105-07:00
+hash: 080dbed5470dced2e24e832b01c048cf89c4337bb544bf8d73aee6d4efcfff09
+updated: 2017-12-04T14:26:30.743859-08:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -8,7 +8,7 @@ imports:
 - name: github.com/bgentry/speakeasy
   version: 4aabc24848ce5fd31929f7d1e4ea74d3709c14cd
 - name: github.com/coreos/bbolt
-  version: e1c92081e510bb6b2bbfc93e7e6bd0b6dabd3e12
+  version: 32c383e75ce054674c53b5a07e55de85332aee14
 - name: github.com/coreos/go-semver
   version: 8ab6407b697782a06568d4b7f1db25550ec2e4c6
   subpackages:
@@ -25,13 +25,13 @@ imports:
   - capnslog
   - dlopen
 - name: github.com/cpuguy83/go-md2man
-  version: 1d903dcb749992f3741d744c0f8376b4bd7eb3e1
+  version: 23709d0847197db6021a51fdb193e66e9222d4e7
   subpackages:
   - md2man
 - name: github.com/dgrijalva/jwt-go
   version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
 - name: github.com/dustin/go-humanize
-  version: 8929fe90cee4b2cb9deb468b51fb34eba64d1bf0
+  version: bb3d318650d48840a39aa21a027c6630e198e626
 - name: github.com/ghodss/yaml
   version: 0ca9ea5df5451ffdf184b4428c902747c2c11cd7
 - name: github.com/gogo/protobuf
@@ -47,14 +47,19 @@ imports:
   subpackages:
   - jsonpb
   - proto
+  - ptypes
   - ptypes/any
+  - ptypes/duration
   - ptypes/struct
+  - ptypes/timestamp
 - name: github.com/google/btree
   version: 925471ac9e2131377a91e1595defec898166fe49
+- name: github.com/gorilla/websocket
+  version: 4201258b820c74ac8e6922fc9e6b52f71fe46f8d
 - name: github.com/grpc-ecosystem/go-grpc-prometheus
-  version: 6b7015e65d366bf3f19b2b2a000a831940f0f7e0
+  version: 0dafe0d496ea71181bf2dd039e7e3f44b6bd11a7
 - name: github.com/grpc-ecosystem/grpc-gateway
-  version: 589b126116b5fc961939b3e156c29e4d9d58222f
+  version: 8cc3a55af3bcf171a1c23a90c4df9cf591706104
   subpackages:
   - runtime
   - runtime/internal
@@ -76,33 +81,40 @@ imports:
 - name: github.com/olekukonko/tablewriter
   version: a0225b3f23b5ce0cbec6d7a66a968f8a59eca9c4
 - name: github.com/prometheus/client_golang
-  version: c5b7fccd204277076155f10851dad72b76a49317
+  version: 5cec1d0429b02e4323e042eb04dafdb079ddf568
   subpackages:
   - prometheus
+  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: 6f3806018612930941127f2a7c6c453ba2c527d2
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 49fee292b27bfff7f354ee0f64e1bc4850462edf
+  version: e3fb1a1acd7605367a2b378bc2e2f893c05174b7
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: a1dba9ce8baed984a2495b658c82687f8157b98f
+  version: a6e9df898b1336106c743392c48ee0b71f5c4efa
   subpackages:
   - xfs
 - name: github.com/russross/blackfriday
   version: 4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c
+- name: github.com/sirupsen/logrus
+  version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
 - name: github.com/soheilhy/cmux
   version: bb79a83465015a27a175925ebd155e660f55e9f1
 - name: github.com/spf13/cobra
   version: 1c44ec8d3f1552cac48999f9306da23c4d8a288b
 - name: github.com/spf13/pflag
   version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
+- name: github.com/tmc/grpc-websocket-proxy
+  version: 89b8d40f7ca833297db804fcb3be53a76d01c238
+  subpackages:
+  - wsproxy
 - name: github.com/ugorji/go
-  version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
+  version: bdcc60b419d136a85cdf2e7cbcac34b3f1cd6e57
   subpackages:
   - codec
 - name: github.com/urfave/cli
@@ -110,10 +122,11 @@ imports:
 - name: github.com/xiang90/probing
   version: 07dd2e8dfe18522e9c447ba95f2fe95262f63bb2
 - name: golang.org/x/crypto
-  version: 1351f936d976c60a0a48d728281922cf63eafb8d
+  version: 9419663f5a44be8b34ca85f08abc5fe1be11f8a3
   subpackages:
   - bcrypt
   - blowfish
+  - ssh/terminal
 - name: golang.org/x/net
   version: 66aacef3dd8a676686c7ae3716979581e8b03c47
   subpackages:
@@ -125,9 +138,10 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: e48874b42435b4347fc52bdee0424a52abc974d7
+  version: ebfc5b4631820b793c9010c87fd8fef0f39eb082
   subpackages:
   - unix
+  - windows
 - name: golang.org/x/text
   version: b19bf474d317b857955b12035d2c5acb57ce8b01
   subpackages:
@@ -144,11 +158,13 @@ imports:
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: b8669c35455183da6d5c474ea6e72fbf55183274
+  version: 9a2334748bab9638f1480ad4f0ac6ac0c6c3a486
   subpackages:
+  - balancer
   - codes
+  - connectivity
   - credentials
-  - grpclb/grpc_lb_v1
+  - grpclb/grpc_lb_v1/messages
   - grpclog
   - health
   - health/grpc_health_v1
@@ -157,6 +173,7 @@ imports:
   - metadata
   - naming
   - peer
+  - resolver
   - stats
   - status
   - tap
