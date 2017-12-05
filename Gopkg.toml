@@ -22,6 +22,10 @@
 ignored = ["github.com/fnproject/fn/cli"]
 
 [[constraint]]
+  name = "github.com/boltdb/bolt"
+  revision = "fa5367d20c994db73282594be0146ab221657943"
+
+[[constraint]]
   name = "github.com/coreos/go-semver"
   version = "^0.2.0"
 
