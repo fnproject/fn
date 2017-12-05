@@ -1,0 +1,6 @@
+name: fnproject/test-fdk-python
+version: 0.0.1
+runtime: python
+format: http
+timeout: 100
+path: /test-fdk-python

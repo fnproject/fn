@@ -1,4 +1,4 @@
-package tests
+package test
 
 import (
 	"context"
@@ -59,7 +59,7 @@ func CheckRouteResponseError(t *testing.T, e error) {
 	}
 }
 
-func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, routeType, routeFormat string) {
+func AssertRouteFields(t *testing.T, routeObject *models.Route, path, image, routeType, routeFormat string) {
 
 	rPath := routeObject.Path
 	rImage := routeObject.Image
@@ -89,7 +89,7 @@ func assertRouteFields(t *testing.T, routeObject *models.Route, path, image, rou
 
 }
 
-func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, routePath, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
+func CreateRouteNoAssert(ctx context.Context, fnclient *client.Fn, appName, image, routePath, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) (*routes.PostAppsAppRoutesOK, error) {
 	cfg := &routes.PostAppsAppRoutesParams{
 		App: appName,
 		Body: &models.RouteWrapper{
@@ -120,13 +120,13 @@ func createRoute(ctx context.Context, fnclient *client.Fn, appName, image, route
 }
 
 func CreateRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath, image, routeType, routeFormat string, routeConfig map[string]string, headers map[string][]string) {
-	routeResponse, err := createRoute(ctx, fnclient, appName, image, routePath, routeType, routeFormat, routeConfig, headers)
+	routeResponse, err := CreateRouteNoAssert(ctx, fnclient, appName, image, routePath, routeType, routeFormat, routeConfig, headers)
 	CheckRouteResponseError(t, err)
 
-	assertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType, routeFormat)
+	AssertRouteFields(t, routeResponse.Payload.Route, routePath, image, routeType, routeFormat)
 }
 
-func deleteRoute(ctx context.Context, fnclient *client.Fn, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
+func DeleteRouteNoAssert(ctx context.Context, fnclient *client.Fn, appName, routePath string) (*routes.DeleteAppsAppRoutesRouteOK, error) {
 	cfg := &routes.DeleteAppsAppRoutesRouteParams{
 		App:     appName,
 		Route:   routePath,
@@ -137,7 +137,7 @@ func deleteRoute(ctx context.Context, fnclient *client.Fn, appName, routePath st
 }
 
 func DeleteRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath string) {
-	_, err := deleteRoute(ctx, fnclient, appName, routePath)
+	_, err := DeleteRouteNoAssert(ctx, fnclient, appName, routePath)
 	CheckRouteResponseError(t, err)
 }
 
@@ -223,7 +223,7 @@ func UpdateRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName
 	return fnclient.Routes.PatchAppsAppRoutesRoute(cfg)
 }
 
-func assertContainsRoute(routeModels []*models.Route, expectedRoute string) bool {
+func AssertContainsRoute(routeModels []*models.Route, expectedRoute string) bool {
 	for _, r := range routeModels {
 		if r.Path == expectedRoute {
 			return true

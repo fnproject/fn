@@ -1,7 +1,6 @@
 .idea/
 *.sublime*
 *.swp
-functions
 iron.json
 dj.config.json
 dj.cluster.*.json
@@ -30,3 +29,4 @@ fnlb/fnlb
 /fn
 .DS_Store
 /fnserver
+fdk-test-kit.test

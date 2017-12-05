@@ -1,10 +1,11 @@
-package tests
+package fdk_test_kit
 
 import (
 	"fmt"
-	fnTest "github.com/fnproject/fn/test"
 	"os"
 	"testing"
+
+	fnTest "github.com/fnproject/fn/test"
 )
 
 func TestMain(m *testing.M) {

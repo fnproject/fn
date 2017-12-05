@@ -1,4 +1,4 @@
-package tests
+package test
 
 import (
 	"context"
@@ -14,11 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"bytes"
+	"encoding/json"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"testing"
 )
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -157,7 +160,7 @@ func Cleanup() {
 	defer approutesLock.Unlock()
 	for appName, rs := range appsandroutes {
 		for _, routePath := range rs {
-			deleteRoute(ctx, c, appName, routePath)
+			DeleteRouteNoAssert(ctx, c, appName, routePath)
 		}
 		DeleteAppNoT(ctx, c, appName)
 	}
@@ -177,7 +180,7 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) (http.Header, error) {
+func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) (*http.Response, error) {
 	if method == "" {
 		if content == nil {
 			method = "GET"
@@ -201,10 +204,10 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	if err != nil {
 		return nil, fmt.Errorf("error running route: %s", err)
 	}
-
+	fmt.Println("call response status code: ", resp.Status)
 	io.Copy(output, resp.Body)
 
-	return resp.Header, nil
+	return resp, nil
 }
 
 func init() {
@@ -223,4 +226,30 @@ func MyCaller() string {
 	}
 	f, l := fun.FileLine(fpcs[0] - 1)
 	return fmt.Sprintf("%s:%d", f, l)
+}
+
+func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
+	output := &bytes.Buffer{}
+	_, err := CallFN(u.String(), content, output, "POST", []string{})
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	expectedOutput := "call_id"
+	if !strings.Contains(output.String(), expectedOutput) {
+		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+	}
+
+	type CallID struct {
+		CallID string `json:"call_id"`
+	}
+
+	callID := &CallID{}
+	json.NewDecoder(output).Decode(callID)
+
+	if callID.CallID == "" {
+		t.Errorf("`call_id` not suppose to be empty string")
+	}
+	t.Logf("Async execution call ID: %v", callID.CallID)
+	return callID.CallID
 }

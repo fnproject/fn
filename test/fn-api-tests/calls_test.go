@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	fnTest "github.com/fnproject/fn/test"
 	"github.com/fnproject/fn_go/client/call"
 )
 
@@ -14,7 +15,7 @@ func TestCalls(t *testing.T) {
 
 	t.Run("list-calls-for-missing-app", func(t *testing.T) {
 		t.Parallel()
-		s := SetupDefaultSuite()
+		s := fnTest.SetupDefaultSuite()
 		cfg := &call.GetAppsAppCallsParams{
 			App:     s.AppName,
 			Path:    &s.RoutePath,
@@ -28,9 +29,9 @@ func TestCalls(t *testing.T) {
 
 	t.Run("get-dummy-call", func(t *testing.T) {
 		t.Parallel()
-		s := SetupDefaultSuite()
-		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
+		s := fnTest.SetupDefaultSuite()
+		fnTest.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		fnTest.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		cfg := &call.GetAppsAppCallsCallParams{
@@ -44,19 +45,19 @@ func TestCalls(t *testing.T) {
 			t.Error("Must fail because `dummy` call does not exist.")
 		}
 
-		DeleteApp(t, s.Context, s.Client, s.AppName)
+		fnTest.DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
 	t.Run("get-real-call", func(t *testing.T) {
 		t.Parallel()
-		s := SetupDefaultSuite()
-		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
+		s := fnTest.SetupDefaultSuite()
+		fnTest.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		fnTest.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
-			Host:   Host(),
+			Host:   fnTest.Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
@@ -72,23 +73,23 @@ func TestCalls(t *testing.T) {
 				t.Errorf("Unexpected error occurred: %v.", msg)
 			}
 		}
-		DeleteApp(t, s.Context, s.Client, s.AppName)
+		fnTest.DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
 	t.Run("list-calls", func(t *testing.T) {
 		t.Parallel()
-		s := SetupDefaultSuite()
-		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
+		s := fnTest.SetupDefaultSuite()
+		fnTest.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+		fnTest.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
 			s.Format, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
-			Host:   Host(),
+			Host:   fnTest.Host(),
 		}
 		u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-		CallAsync(t, u, &bytes.Buffer{})
+		fnTest.CallAsync(t, u, &bytes.Buffer{})
 		time.Sleep(time.Second * 8)
 
 		cfg := &call.GetAppsAppCallsParams{
@@ -109,7 +110,7 @@ func TestCalls(t *testing.T) {
 				t.Errorf("Call path mismatch.\n\tExpected: %v\n\tActual: %v", c.Path, s.RoutePath)
 			}
 		}
-		DeleteApp(t, s.Context, s.Client, s.AppName)
+		fnTest.DeleteApp(t, s.Context, s.Client, s.AppName)
 	})
 
 }
