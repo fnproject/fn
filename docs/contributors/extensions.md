@@ -20,16 +20,18 @@ to be called during setup:
 ```go
 func init() {
     server.RegisterExtension(&fnext.Extension{
-        Name:  "logspam",
+        Name:  "github.com/treeder/fn-ext-example/logspam", // Should be the import name
         Setup: setup, // Fn will call this during startup
     })
 }
 
 func setup(s *fnext.ExtServer) error {
-    // Add all the hooks you extension needs here
+    // Add all the hooks your extension needs here
     s.AddCallListener(&LogSpam{})
 }
 ```
+
+See https://github.com/treeder/fn-ext-example for full example.
 
 ## Listeners
 
