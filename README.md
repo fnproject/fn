@@ -124,7 +124,7 @@ you can update your code and run `fn deploy myapp` again.
 We also have an open source graphical user interface for Fn. It's very easy to use, simply run the command below:
 
 ```sh
-docker run --rm -it --link functions:api -p 4000:4000 -e "FN_API_URL=http://api:8080" fnproject/ui
+docker run --rm -it --link fnserver:api -p 4000:4000 -e "FN_API_URL=http://api:8080" fnproject/ui
 ```
 
 For more information, see: [https://github.com/fnproject/ui](https://github.com/fnproject/ui)
