@@ -150,15 +150,15 @@ var (
 	}
 	ErrRoutesInvalidTimeout = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("timeout value is too large or small. 0 < timeout < max. async max: %d sync max: %d", MaxAsyncTimeout, MaxSyncTimeout),
+		error: fmt.Errorf("timeout value is out of range. Sync should be between 0 and %d, async should be between 0 and %d", MaxSyncTimeout, MaxAsyncTimeout),
 	}
 	ErrRoutesInvalidIdleTimeout = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("idle_timeout value is too large or small. 0 < timeout < %d", MaxIdleTimeout),
+		error: fmt.Errorf("idle_timeout value is out of range. It should be between 0 and %d", MaxIdleTimeout),
 	}
 	ErrRoutesInvalidMemory = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", RouteMaxMemory),
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
