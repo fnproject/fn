@@ -54,6 +54,17 @@ type Driver interface {
 	//
 	// The returned cookie should respect the task's timeout when it is run.
 	Prepare(ctx context.Context, task ContainerTask) (Cookie, error)
+
+	// Info is a blocking call to fetch info & stats from the driver or return error if failed.
+	Info(ctx context.Context) (*DriverInfo, error)
+}
+
+// Basic Container Info
+type DriverInfo struct {
+	ContainersRunning int
+	ContainersPaused  int
+	ContainersStopped int
+	Images            int
 }
 
 // RunResult indicates only the final state of the task.

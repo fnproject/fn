@@ -13,10 +13,12 @@ import (
 type stats struct {
 	mu sync.Mutex
 	// statistics for all functions combined
-	queue    uint64
-	running  uint64
-	complete uint64
-	failed   uint64
+	queue      uint64
+	running    uint64
+	complete   uint64
+	failed     uint64
+	containers map[string]float64
+	images     map[string]float64
 	// statistics for individual functions, keyed by function path
 	functionStatsMap map[string]*functionStats
 }
@@ -31,10 +33,12 @@ type functionStats struct {
 
 type Stats struct {
 	// statistics for all functions combined
-	Queue    uint64
-	Running  uint64
-	Complete uint64
-	Failed   uint64
+	Queue      uint64
+	Running    uint64
+	Complete   uint64
+	Failed     uint64
+	Containers map[string]float64
+	Images     map[string]float64
 	// statistics for individual functions, keyed by function path
 	FunctionStatsMap map[string]*FunctionStats
 }
@@ -45,6 +49,16 @@ type FunctionStats struct {
 	Running  uint64
 	Complete uint64
 	Failed   uint64
+}
+
+type ImagePair struct {
+	state string
+	value float64
+}
+
+type ContainerPair struct {
+	state string
+	value float64
 }
 
 var (
@@ -76,6 +90,20 @@ var (
 		},
 		[](string){"app", "path"},
 	)
+	fnContainers = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "fn_containers",
+			Help: "Number of containers",
+		},
+		[](string){"state"},
+	)
+	fnImages = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "fn_images",
+			Help: "Number of images",
+		},
+		[](string){"state"},
+	)
 )
 
 func init() {
@@ -83,6 +111,15 @@ func init() {
 	prometheus.MustRegister(fnRunning)
 	prometheus.MustRegister(fnFailed)
 	prometheus.MustRegister(fnCompleted)
+	prometheus.MustRegister(fnContainers)
+	prometheus.MustRegister(fnImages)
+}
+
+func NewStats() *stats {
+	return &stats{
+		containers: make(map[string]float64),
+		images:     make(map[string]float64),
+	}
 }
 
 func (s *stats) getStatsForFunction(path string) *functionStats {
@@ -96,6 +133,30 @@ func (s *stats) getStatsForFunction(path string) *functionStats {
 	}
 
 	return thisFunctionStats
+}
+
+func (s *stats) Containers(containers []ContainerPair) {
+	if len(containers) == 0 {
+		return
+	}
+	s.mu.Lock()
+	for _, pair := range containers {
+		s.containers[pair.state] = pair.value
+		fnContainers.WithLabelValues(pair.state).Set(pair.value)
+	}
+	s.mu.Unlock()
+}
+
+func (s *stats) Images(images []ImagePair) {
+	if len(images) == 0 {
+		return
+	}
+	s.mu.Lock()
+	for _, pair := range images {
+		s.images[pair.state] = pair.value
+		fnImages.WithLabelValues(pair.state).Set(pair.value)
+	}
+	s.mu.Unlock()
 }
 
 func (s *stats) Enqueue(app string, path string) {
@@ -182,6 +243,17 @@ func (s *stats) Stats() Stats {
 	stats.Complete = s.complete
 	stats.Queue = s.queue
 	stats.Failed = s.failed
+
+	stats.Containers = make(map[string]float64)
+	for key, value := range s.containers {
+		stats.Containers[key] = value
+	}
+
+	stats.Images = make(map[string]float64)
+	for key, value := range s.images {
+		stats.Images[key] = value
+	}
+
 	stats.FunctionStatsMap = make(map[string]*FunctionStats)
 	for key, value := range s.functionStatsMap {
 		thisFunctionStats := &FunctionStats{Queue: value.queue, Running: value.running, Complete: value.complete, Failed: value.failed}

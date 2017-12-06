@@ -83,6 +83,20 @@ func registryFromEnv() map[string]docker.AuthConfiguration {
 	return auths.Configs
 }
 
+func (drv *DockerDriver) Info(ctx context.Context) (*drivers.DriverInfo, error) {
+	stats, err := drv.docker.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	drvStats := &drivers.DriverInfo{
+		ContainersRunning: stats.ContainersRunning,
+		ContainersPaused:  stats.ContainersPaused,
+		ContainersStopped: stats.ContainersStopped,
+		Images:            stats.Images,
+	}
+	return drvStats, nil
+}
+
 func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Prepare"})
 	var cmd []string
