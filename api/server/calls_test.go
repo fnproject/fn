@@ -49,7 +49,7 @@ func TestCallGet(t *testing.T) {
 		[]*models.Call{call},
 	)
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -124,7 +124,7 @@ func TestCallList(t *testing.T) {
 		[]*models.Call{call, &c2, &c3},
 	)
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
 
 	// add / sub 1 second b/c unix time will lop off millis and mess up our comparisons
 	rangeTest := fmt.Sprintf("from_time=%d&to_time=%d",

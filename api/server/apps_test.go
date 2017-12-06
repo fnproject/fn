@@ -56,7 +56,7 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, nodeTypeFull)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
@@ -103,7 +103,7 @@ func TestAppDelete(t *testing.T) {
 		), logs.NewMock(), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, nodeTypeFull)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
@@ -144,7 +144,7 @@ func TestAppList(t *testing.T) {
 		nil, // no calls
 	)
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
 
 	a1b := base64.RawURLEncoding.EncodeToString([]byte("myapp"))
 	a2b := base64.RawURLEncoding.EncodeToString([]byte("myapp2"))
@@ -209,7 +209,7 @@ func TestAppGet(t *testing.T) {
 	defer cancel()
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -271,7 +271,7 @@ func TestAppUpdate(t *testing.T) {
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, nodeTypeFull)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)
