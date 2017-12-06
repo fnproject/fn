@@ -63,4 +63,4 @@ services:
     links:
       - "fnserver"
     environment:
-      - API_URL=http://fnserver:8080
+      - FN_API_URL=http://fnserver:8080
