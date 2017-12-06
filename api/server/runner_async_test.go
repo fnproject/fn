@@ -21,6 +21,7 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 		Router:    gin.New(),
 		Datastore: ds,
 		MQ:        mq,
+		nodeType:  nodeTypeFull,
 	}
 
 	r := s.Router
