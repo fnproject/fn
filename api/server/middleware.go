@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/fnproject/fn/api/common"
@@ -37,12 +36,14 @@ func (c *middlewareController) FunctionCalled() bool {
 
 func (s *Server) apiMiddlewareWrapper() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// fmt.Println("api middleware")
 		s.runMiddleware(c, s.apiMiddlewares)
 	}
 }
 
 func (s *Server) rootMiddlewareWrapper() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// fmt.Println("ROOT MIDDLE")
 		s.runMiddleware(c, s.rootMiddlewares)
 	}
 }
@@ -50,7 +51,9 @@ func (s *Server) rootMiddlewareWrapper() gin.HandlerFunc {
 // This is basically a single gin middleware that runs a bunch of fn middleware.
 // The final handler will pass it back to gin for further processing.
 func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
+	// fmt.Println("runMiddleware")
 	if len(ms) == 0 {
+		// fmt.Println("ZERO MIDDLEWARE")
 		c.Next()
 		return
 	}
@@ -65,11 +68,11 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 
 	ctx := context.WithValue(c.Request.Context(), fnext.MiddlewareControllerKey, s.newMiddlewareController(c))
 	last := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("final function called")
+		// fmt.Println("final handler called")
 		// check for bypass
 		mctx := fnext.GetMiddlewareController(r.Context())
 		if mctx.FunctionCalled() {
-			fmt.Println("function already called, skipping")
+			// fmt.Println("func already called, skipping")
 			c.Abort()
 			return
 		}
@@ -77,6 +80,8 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 	})
 
 	chainAndServe(ms, c.Writer, c.Request.WithContext(ctx), last)
+
+	c.Abort() // we always abort here because the middleware decides to call next or not. If the `last` handler gets called, it will continue, otherwise we abort.
 }
 
 func (s *Server) newMiddlewareController(c *gin.Context) *middlewareController {
@@ -86,6 +91,14 @@ func (s *Server) newMiddlewareController(c *gin.Context) *middlewareController {
 	}
 }
 
+// TODO: I will remove this and other debug commented lines once I'm sure it's all right.
+func debugH(i int, m fnext.Middleware, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Println("handling", i, "m:", reflect.TypeOf(m), "h:", reflect.TypeOf(h))
+		h.ServeHTTP(w, r) // call original
+	})
+}
+
 // chainAndServe essentially makes a chain of middleware wrapped around each other, then calls ServerHTTP on the end result.
 // then each middleware also calls ServeHTTP within it
 func chainAndServe(ms []fnext.Middleware, w http.ResponseWriter, r *http.Request, last http.Handler) {
@@ -93,7 +106,7 @@ func chainAndServe(ms []fnext.Middleware, w http.ResponseWriter, r *http.Request
 	// These get chained in reverse order so they play out in the right order. Don't ask.
 	for i := len(ms) - 1; i >= 0; i-- {
 		m := ms[i]
-		h = m.Handle(h)
+		h = m.Handle(debugH(i, m, h))
 	}
 	h.ServeHTTP(w, r)
 }

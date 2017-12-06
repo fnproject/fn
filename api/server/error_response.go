@@ -43,6 +43,12 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 		statuscode = http.StatusInternalServerError
 		err = ErrInternalServerError
 	}
+	WriteError(ctx, w, statuscode, err)
+}
+
+// WriteError easy way to do standard error response, but can set statuscode and error message easier than HandleErrorResponse
+func WriteError(ctx context.Context, w http.ResponseWriter, statuscode int, err error) {
+	log := common.Logger(ctx)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statuscode)
 	err = json.NewEncoder(w).Encode(simpleError(err))
