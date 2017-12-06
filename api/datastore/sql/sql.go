@@ -607,6 +607,81 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 	return err
 }
 
+// This equivalence only makes sense in the context of the datastore, so it's
+// not in the model.
+func equivalentCalls(expected *models.Call, actual *models.Call) bool {
+	equivalentFields := expected.ID == actual.ID &&
+		time.Time(expected.CreatedAt).Unix() == time.Time(actual.CreatedAt).Unix() &&
+		time.Time(expected.StartedAt).Unix() == time.Time(actual.StartedAt).Unix() &&
+		time.Time(expected.CompletedAt).Unix() == time.Time(actual.CompletedAt).Unix() &&
+		expected.Status == actual.Status &&
+		expected.AppName == actual.AppName &&
+		expected.Path == actual.Path &&
+		expected.Error == actual.Error &&
+		len(expected.Stats) == len(actual.Stats)
+	// TODO: We don't do comparisons of individual Stats. We probably should.
+	return equivalentFields
+}
+
+func (ds *sqlStore) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
+	// Assert that from and to are supposed to be the same call
+	if from.ID != to.ID || from.AppName != to.AppName {
+		return errors.New("assertion error: 'from' and 'to' calls refer to different app/ID")
+	}
+
+	// Atomic update
+	err := ds.Tx(func(tx *sqlx.Tx) error {
+		var call models.Call
+		query := tx.Rebind(fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector))
+		row := tx.QueryRowxContext(ctx, query, from.ID, from.AppName)
+
+		err := row.StructScan(&call)
+		if err == sql.ErrNoRows {
+			return models.ErrCallNotFound
+		} else if err != nil {
+			return err
+		}
+
+		// Only do the update if the existing call is exactly what we expect.
+		// If something has modified it in the meantime, we must fail the
+		// transaction.
+		if !equivalentCalls(from, &call) {
+			return models.ErrDatastoreCannotUpdateCall
+		}
+
+		query = tx.Rebind(`UPDATE calls SET
+			id = :id,
+			created_at = :created_at,
+			started_at = :started_at,
+			completed_at = :completed_at,
+			status = :status,
+			app_name = :app_name,
+			path = :path,
+			stats = :stats,
+			error = :error
+		WHERE id=:id AND app_name=:app_name;`)
+
+		res, err := tx.NamedExecContext(ctx, query, to)
+		if err != nil {
+			return err
+		}
+
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			// inside of the transaction, we are querying for the row, so we know that it exists
+			return nil
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	query := fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)
 	query = ds.db.Rebind(query)

@@ -80,6 +80,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
+	ErrDatastoreCannotUpdateCall = err{
+		code:  http.StatusConflict,
+		error: errors.New("Call to be updated is different from expected"),
+	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid payload"),

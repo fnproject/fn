@@ -83,6 +83,12 @@ func (m *metricds) InsertCall(ctx context.Context, call *models.Call) error {
 	return m.ds.InsertCall(ctx, call)
 }
 
+func (m *metricds) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_update_call")
+	defer span.Finish()
+	return m.ds.UpdateCall(ctx, from, to)
+}
+
 func (m *metricds) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ds_get_call")
 	defer span.Finish()

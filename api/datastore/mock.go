@@ -182,6 +182,35 @@ func (m *mock) InsertCall(ctx context.Context, call *models.Call) error {
 	return nil
 }
 
+// This equivalence only makes sense in the context of the datastore, so it's
+// not in the model.
+func equivalentCalls(expected *models.Call, actual *models.Call) bool {
+	equivalentFields := expected.ID == actual.ID &&
+		time.Time(expected.CreatedAt).Unix() == time.Time(actual.CreatedAt).Unix() &&
+		time.Time(expected.StartedAt).Unix() == time.Time(actual.StartedAt).Unix() &&
+		time.Time(expected.CompletedAt).Unix() == time.Time(actual.CompletedAt).Unix() &&
+		expected.Status == actual.Status &&
+		expected.AppName == actual.AppName &&
+		expected.Path == actual.Path &&
+		expected.Error == actual.Error &&
+		len(expected.Stats) == len(actual.Stats)
+	// TODO: We don't do comparisons of individual Stats. We probably should.
+	return equivalentFields
+}
+
+func (m *mock) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
+	for _, t := range m.Calls {
+		if t.ID == from.ID && t.AppName == from.AppName {
+			if equivalentCalls(from, t) {
+				*t = *to
+				return nil
+			}
+			return models.ErrDatastoreCannotUpdateCall
+		}
+	}
+	return models.ErrCallNotFound
+}
+
 func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
 	for _, t := range m.Calls {
 		if t.ID == callID && t.AppName == appName {

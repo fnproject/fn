@@ -312,7 +312,7 @@ func (c *call) Start(ctx context.Context) error {
 		// running to avoid running the call twice and potentially mark it as
 		// errored (built in long running task detector, so to speak...)
 
-		err := c.da.Start(ctx, c.Call)
+		err := c.da.Start(ctx, c.Model())
 		if err != nil {
 			return err // let another thread try this
 		}
@@ -345,7 +345,7 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	// ensure stats histogram is reasonably bounded
 	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
 
-	if err := c.da.Finish(ctx, c.Call, c.stderr, c.Type == models.TypeAsync); err != nil {
+	if err := c.da.Finish(ctx, c.Model(), c.stderr, c.Type == models.TypeAsync); err != nil {
 		common.Logger(ctx).WithError(err).Error("error finalizing call on datastore/mq")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
