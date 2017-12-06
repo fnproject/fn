@@ -47,6 +47,9 @@ func (mock *mockDB) List() ([]string, error) {
 	}
 	return list, nil
 }
+func (mock *mockDB) Close() error {
+	return nil
+}
 
 func initializeRunner() (Grouper, error) {
 	db := &mockDB{

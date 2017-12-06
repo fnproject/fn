@@ -1,7 +1,6 @@
 package lb
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -33,8 +32,6 @@ func NewK8sStore(conf Config) (*k8sStore, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	ns := conf.Namespace
 	if ns == "" {
 		ns, err = namespace()
@@ -51,8 +48,7 @@ func NewK8sStore(conf Config) (*k8sStore, error) {
 	k := &k8sStore{
 		client: client,
 
-		ctx:    ctx,
-		cancel: cancel,
+		cancel: make(chan struct{}),
 
 		nodes: map[string]string{},
 	}
@@ -64,8 +60,7 @@ func NewK8sStore(conf Config) (*k8sStore, error) {
 type k8sStore struct {
 	client *kubernetes.Clientset
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	cancel chan struct{}
 
 	nodeLock sync.RWMutex
 	nodes    map[string]string
@@ -95,7 +90,7 @@ func (k *k8sStore) List() ([]string, error) {
 }
 
 func (k *k8sStore) Close() error {
-	k.cancel()
+	close(k.cancel)
 	return nil
 }
 
@@ -154,7 +149,7 @@ func (k *k8sStore) watch(ns string, ls string, port int) {
 	// This runs forever.
 	for {
 		select {
-		case <-k.ctx.Done():
+		case <-k.cancel:
 			logrus.Info("Stopped watching for pod changes")
 			pods.Stop()
 			return

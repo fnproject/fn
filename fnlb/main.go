@@ -71,6 +71,7 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal("error setting up database")
 	}
+	defer db.Close()
 
 	g, err := lb.NewAllGrouper(conf, db)
 	if err != nil {
