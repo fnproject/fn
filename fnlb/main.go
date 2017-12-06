@@ -21,11 +21,17 @@ const VERSION = "0.0.184"
 
 func main() {
 	// XXX (reed): normalize
+	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+	logrus.SetLevel(level)
+
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
 	minAPIVersion := flag.String("min-api-version", "0.0.151", "minimal node API to accept")
 
 	var conf lb.Config
-	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
+	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory; use k8s for kuberneted")
 	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
 	flag.StringVar(&conf.MgmtListen, "mgmt-listen", ":8081", "management port to run on")
 	flag.IntVar(&conf.ShutdownTimeout, "shutdown-timeout", 0, "graceful shutdown timeout")
@@ -35,6 +41,10 @@ func main() {
 	flag.IntVar(&conf.HealthcheckHealthy, "hc-healthy", 1, "threshold of success checks to declare node healthy")
 	flag.IntVar(&conf.HealthcheckTimeout, "hc-timeout", 5, "timeout of healthcheck endpoint, in seconds")
 	flag.StringVar(&conf.ZipkinURL, "zipkin", "", "zipkin endpoint to send traces")
+	flag.StringVar(&conf.Namespace, "namespace", "", "kubernetes namespace to monitor")
+	flag.StringVar(&conf.LabelSelector, "label-selector", "", "kubernetes label selector to monitor")
+	flag.IntVar(&conf.TargetPort, "target-port", 8080, "kubernetes port to target on selected pods")
+
 	flag.Parse()
 
 	conf.MinAPIVersion = semver.New(*minAPIVersion)
@@ -57,10 +67,11 @@ func main() {
 		},
 	}
 
-	db, err := lb.NewDB(conf)
+	db, err := lb.NewDB(conf) // Handles case where DBurl == "k8s"
 	if err != nil {
 		logrus.WithError(err).Fatal("error setting up database")
 	}
+	defer db.Close()
 
 	g, err := lb.NewAllGrouper(conf, db)
 	if err != nil {

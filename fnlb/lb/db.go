@@ -3,6 +3,7 @@ package lb
 import (
 	"database/sql"
 	"errors"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +17,9 @@ import (
 )
 
 func NewDB(conf Config) (DBStore, error) {
+	if conf.DBurl == "k8s" {
+		return NewK8sStore(conf)
+	}
 	db, err := db(conf.DBurl)
 	if err != nil {
 		return nil, err
@@ -26,6 +30,7 @@ func NewDB(conf Config) (DBStore, error) {
 
 // TODO put this somewhere better
 type DBStore interface {
+	io.Closer
 	Add(string) error
 	Delete(string) error
 	List() ([]string, error)
@@ -150,4 +155,8 @@ func (s *sqlStore) List() ([]string, error) {
 	}
 
 	return nodes, err
+}
+
+func (s *sqlStore) Close() error {
+	return s.db.Close()
 }

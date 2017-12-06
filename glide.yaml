@@ -35,7 +35,6 @@ import:
   - redis
 - package: github.com/gin-gonic/gin
 - package: github.com/rdallman/migrate
-  # TODO change to mattes/migrate w/ https://github.com/mattes/migrate/pull/299
   version: bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef
 - package: github.com/go-openapi/errors
 - package: github.com/go-openapi/loads
@@ -75,5 +74,25 @@ import:
 - package: github.com/prometheus/client_golang
 - package: github.com/gin-contrib/cors
   version: ~1.2.0
+- package: k8s.io/client-go
+  version: ^v4.0.0
+  subpackages:
+  - kubernetes
+- package: github.com/emicklei/go-restful-swagger12
+- package: github.com/juju/ratelimit
+- package: golang.org/x/sys
+  version: master
+  subpackages:
+  - unix
+- package: golang.org/x/net
+  version: master
+  subpackages:
+  - http2
+- package: golang.org/x/text
+  version: master
+- package: github.com/mailru/easyjson
+  version: master
+  subpackages:
+  - jwriter
 testImport:
 - package: github.com/patrickmn/go-cache
