@@ -16,6 +16,9 @@ import (
 )
 
 func NewDB(conf Config) (DBStore, error) {
+	if conf.DBurl == "k8s" {
+		return NewK8sStore(conf)
+	}
 	db, err := db(conf.DBurl)
 	if err != nil {
 		return nil, err

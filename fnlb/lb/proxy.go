@@ -30,7 +30,6 @@ import (
 // TODO TLS
 
 type Config struct {
-	Driver               string          `json:"driver"`
 	DBurl                string          `json:"db_url"`
 	Listen               string          `json:"port"`
 	MgmtListen           string          `json:"mgmt_port"`

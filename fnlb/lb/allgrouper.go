@@ -15,8 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const AllGrouperDriver = "rest"
-
 // NewAllGrouper returns a Grouper that will return the entire list of nodes
 // that are being maintained, regardless of key.  An 'AllGrouper' will health
 // check servers at a specified interval, taking them in and out as they

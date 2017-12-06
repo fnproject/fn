@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"flag"
 	"net"
 	"net/http"
@@ -32,8 +31,7 @@ func main() {
 	minAPIVersion := flag.String("min-api-version", "0.0.149", "minimal node API to accept")
 
 	var conf lb.Config
-	flag.StringVar(&conf.Driver, "driver", "rest", "node-watcher driver, rest (default) or kubernetes")
-	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory")
+	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory; use k8s for kuberneted")
 	flag.StringVar(&conf.Listen, "listen", ":8081", "port to run on")
 	flag.StringVar(&conf.MgmtListen, "mgmt-listen", ":8081", "management port to run on")
 	flag.IntVar(&conf.ShutdownTimeout, "shutdown-timeout", 0, "graceful shutdown timeout")
@@ -69,24 +67,12 @@ func main() {
 		},
 	}
 
-	var g lb.Grouper
-
-	switch conf.Driver {
-	case lb.AllGrouperDriver:
-		db, err := lb.NewDB(conf)
-		if err != nil {
-			logrus.WithError(err).Fatal("error setting up database")
-		}
-		g, err = lb.NewAllGrouper(conf, db)
-	case lb.K8sGrouperDriver:
-		k8s, err := lb.NewK8sClient(conf)
-		if err != nil {
-			logrus.WithError(err).Fatal("error setting up k8s client")
-		}
-		g, err = lb.NewK8sGrouper(conf, k8s)
-	default:
-		err = errors.New("Bad driver specification")
+	db, err := lb.NewDB(conf) // Handles case where DBurl == "k8s"
+	if err != nil {
+		logrus.WithError(err).Fatal("error setting up database")
 	}
+
+	g, err := lb.NewAllGrouper(conf, db)
 	if err != nil {
 		logrus.WithError(err).Fatal("error setting up grouper")
 	}

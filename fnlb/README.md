@@ -69,7 +69,7 @@ curl -sSL -X GET <fnlb_address>/1/lb/nodes
 
 ## Running under Kubernetes
 
-The fnlb supports a mode of operation which relies on Kubernetes to inform it as Fn pods come in and out of service. In order to run in this mode, some additional command-line flags are required. `-driver=kubernetes` will select Kubernetes operation; in this mode, the `nodes` flag is ignored. `-label-selector=...` is a standard Kubernetes selector expression.
+The fnlb supports a mode of operation which relies on Kubernetes to inform it as Fn pods come in and out of service. In order to run in this mode, some additional command-line flags are required. `-db=k8s` will select Kubernetes operation; in this mode, the `nodes` flag is ignored. `-label-selector=...` is a standard Kubernetes selector expression.
 
 A sample k8s configuration follows; this expects Fn pods to be labelled `app=fn,role=fn-service`. By default, the lb will look in its own namespace for Fn pods. This can be changed by explicitly passing the `-namespace=...` option.
 
@@ -115,7 +115,7 @@ spec:
         image: fnproject/fnlb
         imagePullPolicy: Always
         args:
-        - "-driver=kubernetes"
+        - "-db=k8s"
         - "-label-selector=app=fn,role=fn-service"
         - "-listen=:8080"
         - "-mgmt-listen=:8080"
@@ -127,4 +127,4 @@ spec:
 
 ```
 
-In this mode, the database is not required; each lb will listen to the Kubernetes master independently to derive the same information. The lb nodes continue to health-check Fn pods *in addition* to the health checks running directly as part of a Pod definition.
+In this mode, the shared database is not required; each lb will listen to the Kubernetes master independently to derive the same information. The lb nodes continue to health-check Fn pods *in addition* to the health checks running directly as part of a Pod definition.
