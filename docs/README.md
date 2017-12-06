@@ -48,7 +48,7 @@ If you are operating Fn, this section is for you.
 ### Advanced
 
 * [Extending Fn](operating/extending.md)
-* [Running Fn on Kubernetes](operating/kubernetes/README.md)
+* [Kubernetes Helm Chart for Fn](https://github.com/fnproject/fn-helm/)
 * [Setting up development environment with Docker compose](./operating/compose.md)
 * [OpenStack Triggers](operating/triggers.md)
 * [Docker Configuration](operating/docker.md)
