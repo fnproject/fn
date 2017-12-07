@@ -1,6 +1,6 @@
 # Running on SELinux systems
 
-Systems such as OEL 7.x where SELinux is enabled and the security policies are set to "Enforcing" will restrict Fn from
+Systems such as Oracle Linux 7 where SELinux is enabled and the security policies are set to "Enforcing" will restrict Fn from
 running containers and mounting volumes.
 
 For local development, you can relax SELinux constraints by running this command in a root shell:

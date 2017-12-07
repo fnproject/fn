@@ -64,7 +64,7 @@ fn start
 
 This will start Fn in single server mode, using an embedded database and message queue. You can find all the
 configuration options [here](docs/operating/options.md). If you are on Windows, check [here](docs/operating/windows.md).
-If you are on a Linux system where the SELinux security policy is set to "Enforcing", such as OEL7.x, check
+If you are on a Linux system where the SELinux security policy is set to "Enforcing", such as Oracle Linux 7, check
 [here](docs/operating/selinux.md).
 
 ### Your First Function
