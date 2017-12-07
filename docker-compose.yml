@@ -8,6 +8,8 @@ services:
     environment:
       - "MYSQL_DATABASE=funcs"
       - "MYSQL_ROOT_PASSWORD=root"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
   mq:
     image: "redis"
     restart: always
@@ -52,7 +54,7 @@ services:
     links:
       - fnserver
     volumes:
-      - ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
   fnserver-ui:
     depends_on:
       - fnserver
