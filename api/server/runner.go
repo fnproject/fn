@@ -107,7 +107,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	}
 
 	// Don't serve sync requests from API nodes
-	if s.nodeType != nodeTypeAPI {
+	if s.nodeType != ServerTypeAPI {
 		err = s.Agent.Submit(call)
 		if err != nil {
 			// NOTE if they cancel the request then it will stop the call (kind of cool),

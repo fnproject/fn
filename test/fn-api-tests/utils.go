@@ -71,7 +71,7 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 			dbURL = fmt.Sprintf("sqlite3://%s", tmpDb)
 		}
 
-		s = server.NewFromURLs(ctx, dbURL, mqURL, "")
+		s = server.NewFromURLs(ctx, dbURL, mqURL, "", server.ServerTypeFull)
 
 		go s.Start(ctx)
 		started := false
