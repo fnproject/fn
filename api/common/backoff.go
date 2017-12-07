@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"sync"
@@ -15,26 +16,23 @@ func (BoxTime) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
 type Backoff int
 
-func (b *Backoff) Sleep() { b.RandomSleep(nil, nil) }
-
-func (b *Backoff) RandomSleep(rng *rand.Rand, clock Clock) {
+func (b *Backoff) Sleep(ctx context.Context) {
 	const (
 		maxexp   = 7
 		interval = 25 * time.Millisecond
 	)
 
-	if rng == nil {
-		rng = defaultRNG
-	}
-	if clock == nil {
-		clock = defaultClock
-	}
+	rng := defaultRNG
+	clock := defaultClock
 
 	// 25-50ms, 50-100ms, 100-200ms, 200-400ms, 400-800ms, 800-1600ms, 1600-3200ms, 3200-6400ms
 	d := time.Duration(math.Pow(2, float64(*b))) * interval
 	d += (d * time.Duration(rng.Float64()))
 
-	clock.Sleep(d)
+	select {
+	case <-ctx.Done():
+	case <-clock.After(d):
+	}
 
 	if *b < maxexp {
 		(*b)++
