@@ -42,7 +42,7 @@ func TestRouteRunnerGet(t *testing.T) {
 	rnr, cancel := testRunner(t, ds)
 	defer cancel()
 	logDB := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -87,7 +87,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	defer cancel()
 
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -142,7 +142,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 	fnl := logs.NewMock()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path            string
@@ -212,7 +212,7 @@ func TestFailedEnqueue(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds, mq)
 	defer cancelrnr()
 
-	srv := testServer(ds, mq, fnl, rnr, nodeTypeFull)
+	srv := testServer(ds, mq, fnl, rnr, ServerTypeFull)
 	for i, test := range []struct {
 		path            string
 		body            string
@@ -253,7 +253,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	defer cancelrnr()
 
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path            string

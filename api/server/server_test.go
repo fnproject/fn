@@ -20,7 +20,7 @@ import (
 
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
-func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType serverNodeType) *Server {
+func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType ServerNodeType) *Server {
 	ctx := context.Background()
 
 	s := &Server{
@@ -103,7 +103,7 @@ func TestFullStack(t *testing.T) {
 	rnr, rnrcancel := testRunner(t, ds)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeFull)
 
 	for _, test := range []struct {
 		name              string
@@ -152,7 +152,7 @@ func TestRunnerNode(t *testing.T) {
 
 	// Add route with an API server using the same DB
 	{
-		apiServer := testServer(ds, &mqs.Mock{}, logDB, rnr, nodeTypeAPI)
+		apiServer := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeAPI)
 		_, rec := routerRequest(t, apiServer.Router, "POST", "/v1/apps/myapp/routes", bytes.NewBuffer([]byte(`{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`)))
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status code 200 when creating sync route, but got %d", rec.Code)
@@ -163,7 +163,7 @@ func TestRunnerNode(t *testing.T) {
 		}
 	}
 
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, nodeTypeRunner)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeRunner)
 
 	for _, test := range []struct {
 		name              string
@@ -206,7 +206,7 @@ func TestApiNode(t *testing.T) {
 	rnr, rnrcancel := testRunner(t, ds)
 	defer rnrcancel()
 
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, nodeTypeAPI)
+	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeAPI)
 
 	for _, test := range []struct {
 		name              string

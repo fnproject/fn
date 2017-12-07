@@ -26,7 +26,7 @@ type routeTestCase struct {
 
 func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	rnr, cancel := testRunner(t)
-	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, nodeTypeFull)
+	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 
 	body := bytes.NewBuffer([]byte(test.body))
 	_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
@@ -123,7 +123,7 @@ func TestRouteDelete(t *testing.T) {
 		{datastore.NewMockInit(apps, routes, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, nodeTypeFull)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
@@ -178,7 +178,7 @@ func TestRouteList(t *testing.T) {
 	r2b := base64.RawURLEncoding.EncodeToString([]byte("/myroute1"))
 	r3b := base64.RawURLEncoding.EncodeToString([]byte("/myroute2"))
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path string
@@ -242,7 +242,7 @@ func TestRouteGet(t *testing.T) {
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, nodeTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
