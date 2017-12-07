@@ -23,7 +23,7 @@ def clone(lang)
   Dir.chdir 'tmp'
   ldir = "fn_#{lang}"
   if !Dir.exist? ldir
-    cmd = "git clone https://github.com/fnproject/#{ldir}"
+    cmd = "git clone git@github.com:fnproject/#{ldir}"
     stream_exec(cmd)
   else
     Dir.chdir ldir
@@ -122,6 +122,7 @@ languages.each do |l|
   # Commit and push
   begin
     Dir.chdir(destdir)
+    stream_exec "git checkout -b v#{version}-release"
     stream_exec "git add ."
     stream_exec "git commit -am \"Updated to api version #{version}\""
     begin
@@ -129,7 +130,7 @@ languages.each do |l|
     rescue => ex
       puts "WARNING: Tag #{version} already exists."
     end
-    stream_exec "git push --follow-tags"
+    stream_exec "git push origin v#{version}-release --follow-tags"
     deploy.each do |d|
       stream_exec d
     end
