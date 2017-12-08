@@ -26,10 +26,11 @@ docker run -e VAR_NAME=VALUE ...
 | `FN_API_URL` | The primary Fn API URL to that this instance will talk to. In a production environment, this would be your load balancer URL. | N/A |
 | `FN_PORT `| Sets the port to run on | 8080 |
 | `FN_LOG_LEVEL` | Set to DEBUG to enable debugging | INFO |
-| `DOCKER_HOST` | Docker remote API URL | /var/run/docker.sock |
-| `DOCKER_API_VERSION` | Docker remote API version | 1.24 |
+| `FN_API_CORS` | A comma separated list of URLs to enable [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) for (or `*` for all domains). This corresponds to the allowed origins in the `Acccess-Control-Allow-Origin` header.  | None |
+| `DOCKER_HOST` | Docker remote API URL. | /var/run/docker.sock |
+| `DOCKER_API_VERSION` | Docker remote API version. | 1.24 |
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |
-| `DOCKER_CERT_PATH` | Set this option to specify where CA cert placeholder | ~/.docker/cert.pem |
+| `DOCKER_CERT_PATH` | Set this option to specify where CA cert placeholder. | ~/.docker/cert.pem |
 
 ## Starting without Docker in Docker
 
