@@ -80,6 +80,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
+	ErrDatastoreCannotUpdateCall = err{
+		code:  http.StatusConflict,
+		error: errors.New("Call to be updated is different from expected"),
+	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid payload"),
@@ -167,6 +171,10 @@ var (
 	ErrCallLogNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call log not found"),
+	}
+	ErrSyncCallNotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking routes of type sync is not supported on nodes configured as type API"),
 	}
 )
 

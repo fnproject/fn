@@ -85,7 +85,7 @@ func TestRootMiddleware(t *testing.T) {
 	defer cancelrnr()
 
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 	srv.AddRootMiddlewareFunc(func(next http.Handler) http.Handler {
 		// this one will override a call to the API based on a header
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

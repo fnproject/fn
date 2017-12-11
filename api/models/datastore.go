@@ -57,6 +57,11 @@ type Datastore interface {
 	// exists.
 	InsertCall(ctx context.Context, call *Call) error
 
+	// UpdateCall atomically updates a call into the datastore to the "to" value if it finds an existing call equivalent
+	// to "from", otherwise it will error. ErrCallNotFound is returned if the call was not found, and
+	// ErrDatastoreCannotUpdateCall is returned if a call with the right AppName/ID exists but is different from "from".
+	UpdateCall(ctx context.Context, from *Call, to *Call) error
+
 	// GetCall returns a call at a certain id and app name.
 	GetCall(ctx context.Context, appName, callID string) (*Call, error)
 

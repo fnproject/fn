@@ -23,7 +23,7 @@ func (a *agent) asyncDequeue() {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second) // TODO ???
-		model, err := a.mq.Reserve(ctx)
+		model, err := a.da.Dequeue(ctx)
 		cancel()
 		if err != nil || model == nil {
 			if err != nil {
