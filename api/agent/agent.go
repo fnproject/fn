@@ -134,7 +134,7 @@ type agent struct {
 	wg       sync.WaitGroup // TODO rename
 	shutdown chan struct{}
 
-	stats // TODO kill me
+	stats *stats
 
 	// Prometheus HTTP handler
 	promHandler http.Handler
@@ -152,12 +152,21 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue) Agent 
 		hot:         make(map[string]chan slot),
 		resources:   NewResourceTracker(),
 		shutdown:    make(chan struct{}),
+		stats:       NewStats(),
 		promHandler: promhttp.Handler(),
 	}
 
+	// TODO: move to config
+	statsPollInterval := time.Duration(1) * time.Second
+
 	go a.asyncDequeue() // safe shutdown can nanny this fine
+	go a.statsRunner(statsPollInterval)
 
 	return a
+}
+
+func (a *agent) Stats() Stats {
+	return a.stats.Stats()
 }
 
 func (a *agent) Close() error {
@@ -168,6 +177,38 @@ func (a *agent) Close() error {
 	}
 	a.wg.Wait()
 	return nil
+}
+
+func (a *agent) statsRunner(interval time.Duration) {
+	a.wg.Add(1)
+	defer a.wg.Done()
+
+	containers := make([]ContainerPair, 0, 3)
+	images := make([]ImagePair, 0, 1)
+
+	for {
+		info, err := a.driver.Info(context.Background())
+		if err != nil {
+			logrus.WithError(err).Warn("Unable to collect info from driver")
+		} else {
+			containers = append(containers, ContainerPair{"running", float64(info.ContainersRunning)})
+			containers = append(containers, ContainerPair{"paused", float64(info.ContainersPaused)})
+			containers = append(containers, ContainerPair{"stopped", float64(info.ContainersStopped)})
+			images = append(images, ImagePair{"installed", float64(info.Images)})
+
+			a.stats.Containers(containers)
+			a.stats.Images(images)
+		}
+
+		containers = containers[:0]
+		images = images[:0]
+
+		select {
+		case <-time.After(interval):
+		case <-a.shutdown: // server shutdown
+			return
+		}
+	}
 }
 
 func transformTimeout(e error, isRetriable bool) error {

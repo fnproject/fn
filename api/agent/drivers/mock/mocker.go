@@ -20,6 +20,11 @@ func (m *Mocker) Prepare(context.Context, drivers.ContainerTask) (drivers.Cookie
 	return &cookie{m}, nil
 }
 
+func (m *Mocker) Info(ctx context.Context) (*drivers.DriverInfo, error) {
+	drvStats := &drivers.DriverInfo{}
+	return drvStats, nil
+}
+
 type cookie struct {
 	m *Mocker
 }

@@ -38,6 +38,7 @@ type dockerClient interface {
 	InspectImage(ctx context.Context, name string) (*docker.Image, error)
 	InspectContainerWithContext(container string, ctx context.Context) (*docker.Container, error)
 	Stats(opts docker.StatsOptions) error
+	Info(ctx context.Context) (*docker.DockerInfo, error)
 }
 
 // TODO: switch to github.com/docker/engine-api
@@ -167,6 +168,12 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 		return nil
 	}
 	return err
+}
+
+func (d *dockerWrap) Info(ctx context.Context) (*docker.DockerInfo, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_info")
+	defer span.Finish()
+	return d.docker.Info()
 }
 
 func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
