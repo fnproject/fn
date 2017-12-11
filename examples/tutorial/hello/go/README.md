@@ -2,6 +2,8 @@
 
 This example will shows you how to test and deploy Go code to Fn. It will also demonstrate passing JSON data to your function through `stdin`.
 
+## Before you Begin
+
 This tutorial assumes you have installed Docker, Fn server, and Fn CLI.
 
 ## Start Fn Server
@@ -56,12 +58,22 @@ entrypoint: ./func
 
 The generated `func.yaml` file contains metadata about your function and declares a number of properties including:
 
-* the name of your function: taken from the containing directory name
-* the version: automatically starting at 0.0.1
-* the name of the runtime/language: which was set automatically based on the presence of func.go
-* the name of the function to invoke: in this case ./func which will be the name of the compiled Go file.
+* `name` of your function: Taken from the containing directory name.
+* `version`: Automatically starting at 0.0.1.
+* `runtime`: Set automatically based on the presence of `func.go`.
+* `entrypoint`: Name of the function to invoke. In this case `./func` which will be the name of the compiled Go file.
 
-There are other user specifiable properties but these will suffice for this example.
+These fields are set by default when you run `init` on a function. Other key options you can set include:
+
+* `type`: Set the type of the route. 
+    * `sync` (default) function response is sent back to the requester.
+    * `async` functions return a call ID and executes in the background.
+* `timeout` (default: 30) The maximum time in seconds a function is allowed to run.
+* Two additional options for hot functions
+    * `format`:  `http` make the request and response using HTTP. `json` converts a request in JSON and returns JSON as a response.  Details are covered in [Open Function Format](../../../../docs/function-format.md).
+    * `idle_timeout`: (default: 30) The time in seconds a container will remain alive without receiving any new requests.
+
+For more details on [function files go here](../../../../docs/function-file.md).
 
 ## Add Fn Registry Environment Variable
 
@@ -139,7 +151,10 @@ Both commands should return:
 {"message":"Hello Johnny!"}
 ```
 
-## Function Complete
-
 That's it! You have coded your first Go function.
 
+## Learn More
+
+* [Documentation](../../../../docs)
+* [Getting Started Series](../../../tutorial)
+* [Tutorials](https://github.com/fnproject/tutorials)
