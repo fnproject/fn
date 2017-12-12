@@ -16,18 +16,14 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/common/singleflight"
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/patrickmn/go-cache"
 )
 
 // client implements agent.DataAccess
 type client struct {
-	base         string
-	http         *http.Client
-	cache        *cache.Cache
-	singleflight singleflight.SingleFlight
+	base string
+	http *http.Client
 }
 
 func NewClient(u string) (agent.DataAccess, error) {
@@ -64,9 +60,8 @@ func NewClient(u string) (agent.DataAccess, error) {
 	}
 
 	return &client{
-		base:  host,
-		http:  httpClient,
-		cache: cache.New(5*time.Second, 1*time.Minute), // TODO configurable from env
+		base: host,
+		http: httpClient,
 	}, nil
 }
 
@@ -122,67 +117,27 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 	return err
 }
 
-func routeCacheKey(appname, path string) string {
-	return "r:" + appname + "\x00" + path
-}
-
-func appCacheKey(appname string) string {
-	return "a:" + appname
-}
-
 func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	key := appCacheKey(appName)
-	app, ok := cl.cache.Get(key)
-	if ok {
-		return app.(*models.App), nil
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app")
+	defer span.Finish()
+
+	var a struct {
+		A models.App `json:"app"`
 	}
-
-	resp, err := cl.singleflight.Do(key,
-		func() (interface{}, error) {
-			span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app")
-			defer span.Finish()
-
-			var a struct {
-				A models.App `json:"app"`
-			}
-			err := cl.do(ctx, nil, &a, "GET", "apps", appName)
-			return &a.A, err
-		})
-
-	if err != nil {
-		return nil, err
-	}
-	app = resp.(*models.App)
-	cl.cache.Set(key, app, cache.DefaultExpiration)
-	return app.(*models.App), nil
+	err := cl.do(ctx, nil, &a, "GET", "apps", appName)
+	return &a.A, err
 }
 
 func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	key := routeCacheKey(appName, route)
-	r, ok := cl.cache.Get(key)
-	if ok {
-		return r.(*models.Route), nil
+	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_route")
+	defer span.Finish()
+
+	// TODO trim prefix is pretty odd here eh?
+	var r struct {
+		R models.Route `json:"route"`
 	}
-
-	resp, err := cl.singleflight.Do(key,
-		func() (interface{}, error) {
-			span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_route")
-			defer span.Finish()
-
-			// TODO trim prefix is pretty odd here eh?
-			var rs struct {
-				R models.Route `json:"route"`
-			}
-			err := cl.do(ctx, nil, &rs, "GET", "apps", appName, "routes", strings.TrimPrefix(route, "/"))
-			return &rs.R, err
-		})
-
-	if err != nil {
-		return nil, err
-	}
-	r = resp.(*models.Route)
-	cl.cache.Set(key, r, cache.DefaultExpiration)
-	return r.(*models.Route), nil
+	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", strings.TrimPrefix(route, "/"))
+	return &r.R, err
 }
 
 type httpErr struct {

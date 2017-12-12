@@ -16,7 +16,6 @@ import (
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/datastore/cache"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -137,7 +136,7 @@ func WithRunnerURL(runnerURL string) ServerOption {
 		if err != nil {
 			logrus.WithError(err).Fatal("Error initializing runner API client.")
 		}
-		return WithAgent(agent.New(cl))
+		return WithAgent(agent.New(agent.NewCachedDataAccess(cl)))
 	}
 	return noop
 }
@@ -200,7 +199,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 		// TODO force caller to use WithAgent option ?
 		// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
-		s.Agent = agent.New(agent.NewDirectDataAccess(cache.Wrap(s.Datastore), s.LogDB, s.MQ))
+		s.Agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.Datastore, s.LogDB, s.MQ)))
 	}
 
 	setMachineID()
