@@ -86,7 +86,7 @@ services:
       - "logstore"
     environment:
       FN_LOG_LEVEL: "DEBUG"
-      FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
+      FN_DB_URL: "mysql://root:root@tcp(router:6446)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
     volumes:
@@ -106,7 +106,7 @@ services:
       - "logstore"
     environment:
       FN_LOG_LEVEL: "DEBUG"
-      FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
+      FN_DB_URL: "mysql://root:root@tcp(router:6446)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
     volumes:
@@ -126,7 +126,7 @@ services:
       - "logstore"
     environment:
       FN_LOG_LEVEL: "DEBUG"
-      FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
+      FN_DB_URL: "mysql://root:root@tcp(router:6446)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
     volumes:
