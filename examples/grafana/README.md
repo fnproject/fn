@@ -77,7 +77,7 @@ Open a terminal window and navigate to the directory containing this example.
 Start Grafana on port 3000:
 ```
 docker run --name=grafana -d -p 3000:3000 \
-  --link fnserver --link prometheus grafana/grafana
+  --link prometheus grafana/grafana
 ```
 
 Open a browser on Grafana at [http://localhost:3000](http://localhost:3000).
@@ -89,7 +89,7 @@ Create a datasource to obtain metrics from Promethesus:
 * Set **Name** to `PromDS` (or whatever name you choose)
 * Set **Type** to `Prometheus`
 * Set **URL** to `http://prometheus:9090` 
-* Set **Access** to `direct`
+* Set **Access** to `proxy`
 * Click **Add** and then **Save and test**
 
 Import the example dashboard that displays metrics from the Fn server:
