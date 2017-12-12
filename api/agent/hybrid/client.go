@@ -15,17 +15,17 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent"
-	"github.com/fnproject/fn/api/common/singleflight"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/common/singleflight"
 	"github.com/fnproject/fn/api/models"
-	"github.com/patrickmn/go-cache"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/patrickmn/go-cache"
 )
 
 // client implements agent.DataAccess
 type client struct {
-	base string
-	http *http.Client
+	base         string
+	http         *http.Client
 	cache        *cache.Cache
 	singleflight singleflight.SingleFlight
 }
@@ -121,7 +121,6 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 	err = cl.do(ctx, bod, nil, "POST", "runner", "finish")
 	return err
 }
-
 
 func routeCacheKey(appname, path string) string {
 	return "r:" + appname + "\x00" + path
