@@ -229,7 +229,11 @@ func (a *agent) Submit(callI Call) error {
 
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		if err == context.DeadlineExceeded {
+			a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+		} else {
+			a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		}
 		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
@@ -239,7 +243,11 @@ func (a *agent) Submit(callI Call) error {
 	// TODO Start is checking the timer now, we could do it here, too.
 	err = call.Start(ctx)
 	if err != nil {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		if err == context.DeadlineExceeded {
+			a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+		} else {
+			a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		}
 		return transformTimeout(err, true)
 	}
 
