@@ -208,7 +208,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		switch err := err.(type) {
 		case nil:
 			return err
-		case httpErr:
+		case *httpErr:
 			if err.code < 500 {
 				return err
 			}
