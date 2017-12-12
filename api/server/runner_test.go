@@ -27,7 +27,7 @@ func testRunner(t *testing.T, args ...interface{}) (agent.Agent, context.CancelF
 			mq = arg
 		}
 	}
-	r := agent.New(ds, ds, mq, agent.AgentTypeFull)
+	r := agent.New(agent.NewDirectDataAccess(ds, ds, mq))
 	return r, func() { r.Close() }
 }
 

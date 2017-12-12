@@ -24,7 +24,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO make sure some errors that user should see (like image doesn't exist) bubble up
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
 // TODO async calls need to add route.Headers as well
 // TODO need to shut off reads/writes in dispatch to the pipes when call times out so that
@@ -32,15 +31,8 @@ import (
 // TODO add spans back around container launching for hot (follows from?) + other more granular spans
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
-// TODO herd launch prevention part deux
 // TODO storing logs / call can push call over the timeout
-// TODO all Datastore methods need to take unit of tenancy (app or route) at least (e.g. not just call id)
 // TODO discuss concrete policy for hot launch or timeout / timeout vs time left
-// TODO it may be nice to have an interchange type for Dispatch that can have
-// all the info we need to build e.g. http req, grpc req, json, etc.  so that
-// we can easily do e.g. http->grpc, grpc->http, http->json. ofc grpc<->http is
-// weird for proto specifics like e.g. proto version, method, headers, et al.
-// discuss.
 // TODO if we don't cap the number of any one container we could get into a situation
 // where the machine is full but all the containers are idle up to the idle timeout. meh.
 // TODO async is still broken, but way less so. we need to modify mq semantics
@@ -49,9 +41,7 @@ import (
 // dies). need coordination w/ db.
 // TODO if a cold call times out but container is created but hasn't replied, could
 // end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
-// TODO the call api should fill in all the fields
 // TODO the log api should be plaintext (or at least offer it)
-// TODO we should probably differentiate ran-but-timeout vs timeout-before-run
 // TODO between calls, logs and stderr can contain output/ids from previous call. need elegant solution. grossness.
 // TODO if async would store requests (or interchange format) it would be slick, but
 // if we're going to store full calls in db maybe we should only queue pointers to ids?
@@ -113,20 +103,15 @@ type Agent interface {
 	// Return the http.Handler used to handle Prometheus metric requests
 	PromHandler() http.Handler
 	AddCallListener(fnext.CallListener)
+
+	// Enqueue is to use the agent's sweet sweet client bindings to remotely
+	// queue async tasks and should be removed from Agent interface ASAP.
+	Enqueue(context.Context, *models.Call) error
 }
-
-type AgentNodeType int32
-
-const (
-	AgentTypeFull AgentNodeType = iota
-	AgentTypeAPI
-	AgentTypeRunner
-)
 
 type agent struct {
 	da            DataAccess
 	callListeners []fnext.CallListener
-	tp            AgentNodeType
 
 	driver drivers.Driver
 
@@ -146,13 +131,12 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, tp AgentNodeType) Agent {
+func New(da DataAccess) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
 
 	a := &agent{
-		tp:          tp,
-		da:          NewDirectDataAccess(ds, ls, mq),
+		da:          da,
 		driver:      driver,
 		hot:         make(map[string]chan slot),
 		resources:   NewResourceTracker(),
@@ -160,14 +144,15 @@ func New(ds models.Datastore, ls models.LogStore, mq models.MessageQueue, tp Age
 		promHandler: promhttp.Handler(),
 	}
 
-	switch tp {
-	case AgentTypeAPI:
-		// Don't start dequeuing
-	default:
-		go a.asyncDequeue() // safe shutdown can nanny this fine
-	}
+	// TODO assert that agent doesn't get started for API nodes up above ?
+	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
+}
+
+// TODO shuffle this around somewhere else (maybe)
+func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
+	return a.da.Enqueue(ctx, call)
 }
 
 func (a *agent) Close() error {
@@ -191,10 +176,6 @@ func transformTimeout(e error, isRetriable bool) error {
 }
 
 func (a *agent) Submit(callI Call) error {
-	if a.tp == AgentTypeAPI {
-		return errors.New("API agent cannot execute calls")
-	}
-
 	a.wg.Add(1)
 	defer a.wg.Done()
 

@@ -14,30 +14,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
 )
 
-type Client interface {
-	Enqueue(context.Context, *models.Call) error
-	Dequeue(context.Context) ([]*models.Call, error)
-	Start(context.Context, *models.Call) error
-	Finish(context.Context, *models.Call, io.Reader) error
-
-	// TODO we could/should make GetAppAndRoute endpoint? saves a round trip...
-	GetApp(ctx context.Context, appName string) (*models.App, error)
-	GetRoute(ctx context.Context, appName, route string) (*models.Route, error)
-}
-
-var _ Client = new(client)
-
+// client implements agent.DataAccess
 type client struct {
 	base string
 	http *http.Client
 }
 
-func New(u string) (Client, error) {
+func NewClient(u string) (agent.DataAccess, error) {
 	uri, err := url.Parse(u)
 	if err != nil {
 		return nil, err
@@ -84,7 +73,7 @@ func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
 	return err
 }
 
-func (cl *client) Dequeue(ctx context.Context) ([]*models.Call, error) {
+func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_dequeue")
 	defer span.Finish()
 
@@ -92,7 +81,10 @@ func (cl *client) Dequeue(ctx context.Context) ([]*models.Call, error) {
 		C []*models.Call `json:"calls"`
 	}
 	err := cl.do(ctx, nil, &c, "GET", "runner", "async")
-	return c.C, err
+	if len(c.C) > 0 {
+		return c.C[0], nil
+	}
+	return nil, err
 }
 
 func (cl *client) Start(ctx context.Context, c *models.Call) error {
@@ -103,7 +95,7 @@ func (cl *client) Start(ctx context.Context, c *models.Call) error {
 	return err
 }
 
-func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader) error {
+func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_end")
 	defer span.Finish()
 
@@ -120,6 +112,7 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader) error
 		L: b.String(),
 	}
 
+	// TODO add async bit to query params or body
 	err = cl.do(ctx, bod, nil, "POST", "runner", "finish")
 	return err
 }
@@ -128,18 +121,23 @@ func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, erro
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app")
 	defer span.Finish()
 
-	var app models.App
-	err := cl.do(ctx, nil, &app, "GET", "apps", appName)
-	return &app, err
+	var a struct {
+		A models.App `json:"app"`
+	}
+	err := cl.do(ctx, nil, &a, "GET", "apps", appName)
+	return &a.A, err
 }
 
 func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_route")
 	defer span.Finish()
 
-	var r models.Route
-	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", route)
-	return &r, err
+	// TODO trim prefix is pretty odd here eh?
+	var r struct {
+		R models.Route `json:"route"`
+	}
+	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", strings.TrimPrefix(route, "/"))
+	return &r.R, err
 }
 
 type httpErr struct {
@@ -151,6 +149,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 	// TODO determine policy (should we count to infinity?)
 
 	var b common.Backoff
+	var err error
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
@@ -159,24 +158,26 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		}
 
 		// TODO this isn't re-using buffers very efficiently, but retries should be rare...
-		err := cl.once(ctx, request, result, method, url...)
+		err = cl.once(ctx, request, result, method, url...)
 		switch err := err.(type) {
 		case nil:
 			return err
-		case httpErr:
+		case *httpErr:
 			if err.code < 500 {
 				return err
 			}
-			common.Logger(ctx).WithError(err).Error("error from API server, retrying")
 			// retry 500s...
 		default:
 			// this error wasn't from us [most likely], probably a conn refused/timeout, just retry it out
 		}
 
+		common.Logger(ctx).WithError(err).Error("error from API server, retrying")
+
 		b.Sleep(ctx)
 	}
 
-	return context.DeadlineExceeded // basically, right?
+	// return last error
+	return err
 }
 
 func (cl *client) once(ctx context.Context, request, result interface{}, method string, url ...string) error {
@@ -226,7 +227,7 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 	}
 
 	if result != nil {
-		err := json.NewDecoder(resp.Body).Decode(result)
+		err := json.NewDecoder(resp.Body).Decode(&result)
 		if err != nil {
 			return err
 		}

@@ -24,23 +24,13 @@ import (
 var tmpDatastoreTests = "/tmp/func_test_datastore.db"
 
 func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, rnr agent.Agent, nodeType ServerNodeType) *Server {
-	ctx := context.Background()
-
-	s := &Server{
-		Agent:     rnr,
-		Router:    gin.New(),
-		Datastore: ds,
-		LogDB:     logDB,
-		MQ:        mq,
-		nodeType:  nodeType,
-	}
-
-	r := s.Router
-	r.Use(gin.Logger())
-
-	s.Router.Use(loggerWrap)
-	s.bindHandlers(ctx)
-	return s
+	return New(context.Background(),
+		WithDatastore(ds),
+		WithMQ(mq),
+		WithLogstore(logDB),
+		WithAgent(rnr),
+		WithType(nodeType),
+	)
 }
 
 func routerRequest(t *testing.T, router *gin.Engine, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
@@ -181,14 +171,14 @@ func TestRunnerNode(t *testing.T) {
 		{"execute async route succeeds", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusAccepted, 1},
 
 		// All other API functions should not be available on runner nodes
-		{"create app not found", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusNotFound, 0},
-		{"list apps not found", "GET", "/v1/apps", ``, http.StatusNotFound, 0},
-		{"get app not found", "GET", "/v1/apps/myapp", ``, http.StatusNotFound, 0},
+		{"create app not found", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusBadRequest, 0},
+		{"list apps not found", "GET", "/v1/apps", ``, http.StatusBadRequest, 0},
+		{"get app not found", "GET", "/v1/apps/myapp", ``, http.StatusBadRequest, 0},
 
-		{"add route not found", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusNotFound, 0},
-		{"get route not found", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusNotFound, 0},
-		{"get all routes not found", "GET", "/v1/apps/myapp/routes", ``, http.StatusNotFound, 0},
-		{"delete app not found", "DELETE", "/v1/apps/myapp", ``, http.StatusNotFound, 0},
+		{"add route not found", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusBadRequest, 0},
+		{"get route not found", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusBadRequest, 0},
+		{"get all routes not found", "GET", "/v1/apps/myapp/routes", ``, http.StatusBadRequest, 0},
+		{"delete app not found", "DELETE", "/v1/apps/myapp", ``, http.StatusBadRequest, 0},
 	} {
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, bytes.NewBuffer([]byte(test.body)))
 
@@ -231,12 +221,10 @@ func TestApiNode(t *testing.T) {
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
 
-		// Don't support calling sync
+		// Don't support calling sync or async
 		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusBadRequest, 1},
 		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusBadRequest, 2},
-
-		// Do support calling async
-		{"execute myasyncroute", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusAccepted, 1},
+		{"execute myasyncroute", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusBadRequest, 1},
 
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},

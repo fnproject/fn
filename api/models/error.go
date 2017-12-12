@@ -172,9 +172,17 @@ var (
 		code:  http.StatusNotFound,
 		error: errors.New("Call log not found"),
 	}
-	ErrSyncCallNotSupported = err{
+	ErrInvokeNotSupported = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invoking routes of type sync is not supported on nodes configured as type API"),
+		error: errors.New("Invoking routes /r/ is not supported on nodes configured as type API"),
+	}
+	ErrAPINotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking api /v1/ requests is not supported on nodes configured as type Runner"),
+	}
+	ErrPathNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Path not found"),
 	}
 )
 
