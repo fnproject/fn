@@ -216,7 +216,10 @@ func (a *resourceTracker) initializeMemory() {
 		}
 
 		// clamp the available memory by head room (for docker, ourselves, other processes)
-		headRoom := getMemoryHeadRoom(availMemory)
+		headRoom, err := getMemoryHeadRoom(availMemory)
+		if err != nil {
+			logrus.WithError(err).Fatal("Out of memory")
+		}
 		availMemory = availMemory - headRoom
 
 		logrus.WithFields(logrus.Fields{
@@ -255,7 +258,7 @@ func (a *resourceTracker) initializeMemory() {
 }
 
 // headroom estimation in order not to consume entire RAM if possible
-func getMemoryHeadRoom(usableMemory uint64) uint64 {
+func getMemoryHeadRoom(usableMemory uint64) (uint64, error) {
 
 	// get %10 of the RAM
 	headRoom := uint64(usableMemory / 10)
@@ -263,10 +266,13 @@ func getMemoryHeadRoom(usableMemory uint64) uint64 {
 	// clamp this with 256MB min -- 5GB max
 	maxHeadRoom := uint64(5 * 1024 * 1024 * 1024)
 	minHeadRoom := uint64(256 * 1024 * 1024)
-	minHeadRoom = minUint64(minHeadRoom, usableMemory)
+
+	if minHeadRoom >= usableMemory {
+		return 0, fmt.Errorf("Not enough memory: %v", usableMemory)
+	}
 
 	headRoom = clampUint64(headRoom, minHeadRoom, maxHeadRoom)
-	return headRoom
+	return headRoom, nil
 }
 
 func checkCgroup() (uint64, error) {
