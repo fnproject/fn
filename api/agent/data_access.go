@@ -38,7 +38,6 @@ type DataAccess interface {
 	Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error
 }
 
-
 // CachedDataAccess wraps a DataAccess and caches the results of GetApp and GetRoute.
 type CachedDataAccess struct {
 	DataAccess
@@ -48,7 +47,7 @@ type CachedDataAccess struct {
 }
 
 func NewCachedDataAccess(da DataAccess) DataAccess {
-	cda := &CachedDataAccess {
+	cda := &CachedDataAccess{
 		DataAccess: da,
 		cache:      cache.New(5*time.Second, 1*time.Minute),
 	}
@@ -102,7 +101,6 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routeP
 	da.cache.Set(key, r, cache.DefaultExpiration)
 	return r.(*models.Route), nil
 }
-
 
 type directDataAccess struct {
 	mq models.MessageQueue
