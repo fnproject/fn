@@ -50,7 +50,7 @@ type CachedDataAccess struct {
 func NewCachedDataAccess(da DataAccess) DataAccess {
 	cda := &CachedDataAccess {
 		DataAccess: da,
-		cache: cache.New(5*time.Second, 1*time.Minute),
+		cache:      cache.New(5*time.Second, 1*time.Minute),
 	}
 	return cda
 }
@@ -101,22 +101,6 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routeP
 	r = resp.(*models.Route)
 	da.cache.Set(key, r, cache.DefaultExpiration)
 	return r.(*models.Route), nil
-}
-
-func (da *CachedDataAccess) Enqueue(ctx context.Context, mCall *models.Call) error {
-	return da.DataAccess.Enqueue(ctx, mCall)
-}
-
-func (da *CachedDataAccess) Dequeue(ctx context.Context) (*models.Call, error) {
-	return da.DataAccess.Dequeue(ctx)
-}
-
-func (da *CachedDataAccess) Start(ctx context.Context, mCall *models.Call) error {
-	return da.DataAccess.Start(ctx, mCall)
-}
-
-func (da *CachedDataAccess) Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error {
-	return da.DataAccess.Finish(ctx, mCall, stderr, async)
 }
 
 
