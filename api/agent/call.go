@@ -38,13 +38,6 @@ type Call interface {
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
 	End(ctx context.Context, err error) error
-
-	// CheckUpdateDeadline returns the duration remaining in the Call lifecycle. An error
-	// will be returned if deadline is not set or if deadline is reached an error
-	// instance of context.DeadlineExceeded will be returned. As a side effect, env
-	// variables (cold) or http request (hot) FN_DEADLINE is updated based on the
-	// returned deadline.
-	CheckUpdateDeadline(ctx context.Context) (*time.Duration, error)
 }
 
 // TODO build w/o closures... lazy
@@ -287,35 +280,25 @@ type call struct {
 
 func (c *call) Model() *models.Call { return c.Call }
 
-func (c *call) CheckUpdateDeadline(ctx context.Context) (*time.Duration, error) {
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		return nil, errors.New("call without deadline provided")
-	}
-
-	now := time.Now()
-	if !deadline.After(now) {
-		return nil, context.DeadlineExceeded
-	}
-
-	secs := now.Sub(deadline) * time.Second
-
-	if c.req != nil {
-		c.req.Header.Set("FN_DEADLINE", strconv.FormatFloat(secs.Seconds(), 'f', 0, 64))
-	} else {
-		c.EnvVars["FN_DEADLINE"] = strconv.FormatFloat(secs.Seconds(), 'f', 0, 64)
-	}
-
-	return &secs, nil
-}
-
 func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
-	_, err := c.CheckUpdateDeadline(ctx)
+	remaining, err := common.GetRemainingTime(ctx)
 	if err != nil {
 		return err
+	}
+
+	// TODO discuss this policy. cold has not yet started the container,
+	// hot just has to dispatch
+	//
+	// make sure we have at least half our timeout to run, or timeout here
+	if *remaining < (time.Duration(c.Timeout)*time.Second)/2 {
+		return context.DeadlineExceeded
+	}
+
+	if c.req != nil {
+		c.req.Header.Set("FN_DEADLINE", strconv.FormatFloat(remaining.Seconds(), 'f', 0, 64))
 	}
 
 	now := time.Now()
