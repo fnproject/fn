@@ -582,33 +582,29 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 			done := make(chan struct{})
 			s := call.slots.queueSlot(&hotSlot{done, proto, errC, container, nil})
 
-			tryShut := false
-			tryTerm := false
-			tryIdle := false
-
 			select {
 			case <-s.trigger:
 			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
-				tryIdle = true
-			case <-ctx.Done(): // container shutdown
-				tryTerm = true
-			case <-a.shutdown: // server shutdown
-				tryShut = true
-			}
-
-			// if we fail to eject the slot, it means that a consumer
-			// just dequeued this and acquired the slot. In that case,
-			// we will wait for that slot to complete (<-done) and
-			// perform exit/return at the beginning of this loop.
-			if (tryShut || tryTerm || tryIdle) && call.slots.ejectSlot(s) {
-				if tryIdle {
+				if call.slots.ejectSlot(s) {
 					logger.Info("Canceling inactive hot function")
-				}
-				if tryShut || tryIdle {
 					shutdownContainer()
+					return
 				}
-				return
+			case <-ctx.Done(): // container shutdown
+				if call.slots.ejectSlot(s) {
+					return
+				}
+			case <-a.shutdown: // server shutdown
+				if call.slots.ejectSlot(s) {
+					shutdownContainer()
+					return
+				}
 			}
+			// IMPORTANT: if we fail to eject the slot, it means that a consumer
+			// just dequeued this and acquired the slot. In other words, we were
+			// late in ejectSlots(), so we have to execute this request in this
+			// iteration. Beginning of for-loop will re-check ctx/shutdown case
+			// and terminate after this request is done.
 
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
