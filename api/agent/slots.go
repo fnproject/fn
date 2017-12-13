@@ -48,6 +48,7 @@ type slotQueueStats struct {
 type slotToken struct {
 	slot    Slot
 	trigger chan struct{}
+	id      uint64
 	isBusy  uint32
 }
 
@@ -57,6 +58,7 @@ type slotQueue struct {
 	key       string
 	cond      *sync.Cond
 	slots     []*slotToken
+	nextId    uint64
 	output    chan *slotToken
 	isClosed  bool
 	statsLock sync.Mutex // protects stats below
@@ -78,15 +80,31 @@ func NewSlotQueue(key string) *slotQueue {
 		output: make(chan *slotToken),
 	}
 
+	// producer go routine to pick LIFO slots and
+	// push them into output channel
 	go func() {
 		for {
 			obj.cond.L.Lock()
 			for len(obj.slots) <= 0 && !obj.isClosed {
 				obj.cond.Wait()
 			}
+
+			// cleanup and exit
 			if obj.isClosed {
+
+				purge := obj.slots
+				obj.slots = obj.slots[:0]
 				obj.cond.L.Unlock()
-				break
+
+				close(obj.output)
+
+				for _, val := range purge {
+					if val.acquireSlot() {
+						val.slot.Close()
+					}
+				}
+
+				return
 			}
 
 			// pop
@@ -94,24 +112,15 @@ func NewSlotQueue(key string) *slotQueue {
 			obj.slots = obj.slots[:len(obj.slots)-1]
 			obj.cond.L.Unlock()
 
+			// block
 			obj.output <- item
 		}
-		close(obj.output)
-
-		for _, val := range obj.slots {
-			val.slot.Close()
-		}
-
-		obj.slots = obj.slots[:0]
 	}()
-
-	// TODO: runner go routine to track waiters/runners/starters
-	// and spin up new ones
 
 	return obj
 }
 
-func (a *slotToken) acquireSignal() bool {
+func (a *slotToken) acquireSlot() bool {
 	// let's get the lock
 	if !atomic.CompareAndSwapUint32(&a.isBusy, 0, 1) {
 		return false
@@ -119,6 +128,33 @@ func (a *slotToken) acquireSignal() bool {
 
 	// now we have the lock, push the trigger
 	close(a.trigger)
+	return true
+}
+
+func (a *slotQueue) ejectSlot(s *slotToken) bool {
+	// let's get the lock
+	if !atomic.CompareAndSwapUint32(&s.isBusy, 0, 1) {
+		return false
+	}
+
+	isFound := false
+
+	a.cond.L.Lock()
+	for idx, val := range a.slots {
+		if val.id == s.id {
+			a.slots[0], a.slots[idx] = a.slots[idx], a.slots[0]
+			isFound = true
+			break
+		}
+	}
+	if isFound {
+		a.slots = a.slots[1:]
+	}
+	a.cond.L.Unlock()
+
+	s.slot.Close()
+	// now we have the lock, push the trigger
+	close(s.trigger)
 	return true
 }
 
@@ -141,12 +177,14 @@ func (a *slotQueue) getDequeueChan() chan *slotToken {
 
 func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 
-	token := &slotToken{slot, make(chan struct{}), 0}
+	token := &slotToken{slot, make(chan struct{}), 0, 0}
 	isClosed := false
 
 	a.cond.L.Lock()
 	if !a.isClosed {
+		token.id = a.nextId
 		a.slots = append(a.slots, token)
+		a.nextId += 1
 	} else {
 		isClosed = true
 	}

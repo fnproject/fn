@@ -267,7 +267,7 @@ launchLoop:
 				if !ok {
 					return nil, errors.New("slot shut down while waiting for hot slot")
 				}
-				if s.acquireSignal() {
+				if s.acquireSlot() {
 					if s.slot.Error() != nil {
 						s.slot.Close()
 						return nil, s.slot.Error()
@@ -276,10 +276,8 @@ launchLoop:
 				}
 
 				// we failed to take ownership of the token (eg. container idle timeout)
-				// reset & close state and try launching again
-				s.slot.Close()
+				// try launching again
 				continue launchLoop
-
 			case <-ctx.Done():
 				tokenCancel()
 				return nil, ctx.Err()
@@ -293,7 +291,7 @@ launchLoop:
 			if !ok {
 				return nil, errors.New("slot shut down while waiting for hot slot")
 			}
-			if s.acquireSignal() {
+			if s.acquireSlot() {
 				if s.slot.Error() != nil {
 					s.slot.Close()
 					return nil, s.slot.Error()
@@ -302,8 +300,7 @@ launchLoop:
 			}
 
 			// we failed to take ownership of the token (eg. container idle timeout)
-			// reset & close state and try launching again
-			s.slot.Close()
+			// try launching again
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(time.Duration(200) * time.Millisecond):
@@ -332,8 +329,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 		if !ok {
 			return nil, errors.New("cold slot shut down while waiting for launch")
 		}
-		if !s.acquireSignal() {
-			s.slot.Close()
+		if !s.acquireSlot() {
 			return nil, errors.New("cannot acquire cold slot")
 		}
 		if s.slot.Error() != nil {
@@ -567,6 +563,14 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 
 	go func() {
 		for {
+			select {
+			case <-ctx.Done(): // container shutdown
+				return
+			case <-a.shutdown: // server shutdown
+				return
+			default:
+			}
+
 			done := make(chan struct{})
 			s := call.slots.queueSlot(&hotSlot{done, proto, errC, container, nil})
 
@@ -586,14 +590,15 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 					tryShut = true
 				}
 
-				// if we fail to perform the following, then we expect a s.trigger
-				// to get us out of this loop
-				if tryShut && s.acquireSignal() {
+				// if we fail to eject the slot, it means that a consumer
+				// just dequeued this and acquired the slot. That means, s.trigger
+				// will fire if we fail.
+				if tryShut && call.slots.ejectSlot(s) {
 					logger.Info("Canceling inactive hot function")
 					shutdownContainer()
 					return
 				}
-				if tryTerm && s.acquireSignal() {
+				if tryTerm && call.slots.ejectSlot(s) {
 					return
 				}
 			}
