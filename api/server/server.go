@@ -37,7 +37,7 @@ const (
 	EnvMQURL     = "FN_MQ_URL"
 	EnvDBURL     = "FN_DB_URL"
 	EnvLOGDBURL  = "FN_LOGSTORE_URL"
-	EnvRunnerURL = "FN_RUNNER_URL"
+	EnvRunnerURL = "FN_RUNNER_API_URL"
 	EnvNodeType  = "FN_NODE_TYPE"
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
@@ -189,7 +189,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		s.Agent = nil
 	case ServerTypeRunner:
 		if s.Agent == nil {
-			logrus.Fatal("No agent started for a runner node, add FN_RUNNER_URL to configuration.")
+			logrus.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
 		}
 	default:
 		s.nodeType = ServerTypeFull
