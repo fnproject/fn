@@ -241,6 +241,40 @@ func (a *agent) Submit(callI Call) error {
 	return transformTimeout(err, false)
 }
 
+// getSlot returns a Slot (or error) for the request to run. Depending on hot/cold
+// request type, this may launch a new container or wait for other containers to become idle
+// or it may wait for resources to become available to launch a new container.
+func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
+	defer span.Finish()
+
+	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
+	if isHot {
+		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
+		call.slots = a.slotMgr.getHotSlotQueue(call)
+		start := time.Now()
+
+		call.slots.enterState(SlotQueueWaiter)
+		s, err := a.launchHot(ctx, call)
+		call.slots.exitStateWithLatency(SlotQueueWaiter, uint64(time.Now().Sub(start).Seconds()*1000))
+
+		return s, err
+	}
+
+	// For cold requests, we launch one container and wait/grab that slot from an ephemeral slot queue.
+	// Slot queue is destroyed before we return the results. This is a bit overkill
+	// for the cold case, as slot queues include a go routine queue producer and a lot
+	// of LIFO related code/complexity. This logic below could instead use simple channel going
+	// forward.
+	call.slots = NewSlotQueue(ColdSlotQueueKey)
+	s, err := a.launchCold(ctx, call)
+	call.slots.destroySlotQueue()
+
+	return s, err
+}
+
+// launchHot checks with slot queue to see if a new container needs to be launched and waits
+// for available slots in the queue for hot request execution.
 func (a *agent) launchHot(ctx context.Context, call *call) (Slot, error) {
 
 	isAsync := call.Type == models.TypeAsync
@@ -309,6 +343,8 @@ launchLoop:
 	}
 }
 
+// launchCold waits for necessary resources to launch a new container, then
+// returns the slot for that new container to run the request on.
 func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	isAsync := call.Type == models.TypeAsync
@@ -323,7 +359,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 		return nil, ctx.Err()
 	}
 
-	// wait for launch err or a slot to open up (possibly from launch)
+	// wait for launch err or a slot to open up
 	select {
 	case s, ok := <-call.slots.getDequeueChan():
 		if !ok {
@@ -340,35 +376,6 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-}
-
-// getSlot returns a Slot (or error) for the request to run. This may
-// launch a new container or wait for other containers to become idle
-// or it may wait for resources to become available to launch a new
-// container.
-func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
-	defer span.Finish()
-
-	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
-	if isHot {
-		call.slots = a.slotMgr.getHotSlotQueue(call)
-
-		call.slots.enterState(SlotQueueWaiter)
-		start := time.Now()
-
-		s, err := a.launchHot(ctx, call)
-
-		call.slots.exitStateWithLatency(SlotQueueWaiter, uint64(time.Now().Sub(start).Seconds()*1000))
-		return s, err
-	}
-
-	call.slots = NewSlotQueue(ColdSlotQueueKey)
-
-	s, err := a.launchCold(ctx, call)
-
-	call.slots.destroySlotQueue()
-	return s, err
 }
 
 // implements Slot
@@ -563,12 +570,13 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 
 	go func() {
 		for {
-			select {
+			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
 				return
 			case <-a.shutdown: // server shutdown
+				shutdownContainer()
 				return
-			default:
+			default: // ok
 			}
 
 			done := make(chan struct{})
