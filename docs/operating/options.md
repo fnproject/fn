@@ -21,6 +21,8 @@ docker run -e VAR_NAME=VALUE ...
 
 | Env Variables | Description | Default values |
 | --------------|-------------|----------------|
+| `FN_NODE_TYPE` | Identifies Fn node type (see [Hybrid mode proposal](../developers/hybrid.md)), valid options: `runner`, `api` or blank | `""` |
+| `FN_RUNNER_API_URL` | Points Fn runner node to Fn API node (see [Hybrid mode proposal](../developers/hybrid.md)) | `""` |
 | `FN_DB_URL` | The database URL to use in URL format. See [Databases](databases/README.md) for more information. | sqlite3:///app/data/fn.db |
 | `FN_MQ_URL` | The message queue to use in URL format. See [Message Queues](mqs/README.md) for more information. | bolt:///app/data/worker_mq.db |
 | `FN_API_URL` | The primary Fn API URL to that this instance will talk to. In a production environment, this would be your load balancer URL. | N/A |
