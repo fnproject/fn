@@ -15,8 +15,6 @@ import (
 // a few basic stats in slotStats.
 //
 
-const ColdSlotQueueKey = "cold"
-
 type Slot interface {
 	exec(ctx context.Context, call *call) error
 	Close() error

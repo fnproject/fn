@@ -261,16 +261,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		return s, err
 	}
 
-	// For cold requests, we launch one container and wait/grab that slot from an ephemeral slot queue.
-	// Slot queue is destroyed before we return the results. This is a bit overkill
-	// for the cold case, as slot queues include a go routine queue producer and a lot
-	// of LIFO related code/complexity. This logic below could instead use simple channel going
-	// forward.
-	call.slots = NewSlotQueue(ColdSlotQueueKey)
-	s, err := a.launchCold(ctx, call)
-	call.slots.destroySlotQueue()
-
-	return s, err
+	return a.launchCold(ctx, call)
 }
 
 // launchHot checks with slot queue to see if a new container needs to be launched and waits
@@ -348,31 +339,26 @@ launchLoop:
 func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	isAsync := call.Type == models.TypeAsync
+	ch := make(chan Slot)
 
 	select {
 	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
 		if !isOpen {
 			return nil, models.ErrCallTimeoutServerBusy
 		}
-		go a.prepCold(ctx, call, tok)
+		go a.prepCold(ctx, call, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 
 	// wait for launch err or a slot to open up
 	select {
-	case s, ok := <-call.slots.getDequeueChan():
-		if !ok {
-			return nil, errors.New("cold slot shut down while waiting for launch")
+	case s := <-ch:
+		if s.Error() != nil {
+			s.Close()
+			return nil, s.Error()
 		}
-		if !s.acquireSlot() {
-			return nil, errors.New("cannot acquire cold slot")
-		}
-		if s.slot.Error() != nil {
-			s.slot.Close()
-			return nil, s.slot.Error()
-		}
-		return s.slot, nil
+		return s, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -476,7 +462,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// TODO we REALLY need to wait for dispatch to return before conceding our slot
 }
 
-func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken) {
+func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -492,7 +478,12 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken) {
 	// pull & create container before we return a slot, so as to be friendly
 	// about timing out if this takes a while...
 	cookie, err := a.driver.Prepare(ctx, container)
-	call.slots.queueSlot(&coldSlot{cookie, tok, err})
+	slot := &coldSlot{cookie, tok, err}
+	select {
+	case ch <- slot:
+	case <-ctx.Done():
+		slot.Close()
+	}
 }
 
 func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
