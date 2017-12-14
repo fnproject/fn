@@ -175,6 +175,16 @@ func transformTimeout(e error, isRetriable bool) error {
 	return e
 }
 
+// handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
+// cases. Only timeouts can be a simple dequeue while other cases are actual errors.
+func (a *agent) handleStatsDequeue(err error, callI Call) {
+	if err == context.DeadlineExceeded {
+		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+	} else {
+		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+	}
+}
+
 func (a *agent) Submit(callI Call) error {
 	a.wg.Add(1)
 	defer a.wg.Done()
@@ -210,7 +220,7 @@ func (a *agent) Submit(callI Call) error {
 
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		a.handleStatsDequeue(err, call)
 		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
@@ -220,7 +230,7 @@ func (a *agent) Submit(callI Call) error {
 	// TODO Start is checking the timer now, we could do it here, too.
 	err = call.Start(ctx)
 	if err != nil {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		a.handleStatsDequeue(err, call)
 		return transformTimeout(err, true)
 	}
 
