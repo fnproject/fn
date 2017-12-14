@@ -28,10 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	currDir string
-)
-
 const (
 	EnvLogLevel  = "FN_LOG_LEVEL"
 	EnvMQURL     = "FN_MQ_URL"
@@ -81,20 +77,29 @@ func nodeTypeFromString(value string) ServerNodeType {
 
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
+	curDir := pwd()
 	var defaultDB, defaultMQ string
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
 	if nodeType != ServerTypeRunner {
 		// only want to activate these for full and api nodes
-		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", currDir)
-		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", currDir)
+		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
+		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
-	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 	return New(ctx, opts...)
+}
+
+func pwd() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't get working directory, possibly unsupported platform?")
+	}
+	// Replace forward slashes in case this is windows, URL parser errors
+	return strings.Replace(cwd, "\\", "/", -1)
 }
 
 func WithDBURL(dbURL string) ServerOption {
@@ -209,54 +214,51 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	return s
 }
 
-// TODO this doesn't need to be an option necessarily since it's just setting
-// globals but it makes things uniform. change if you've a better idear
-func WithZipkin(zipkinURL string) ServerOption {
-	return func(s *Server) {
-		var (
-			debugMode          = false
-			serviceName        = "fnserver"
-			serviceHostPort    = "localhost:8080" // meh
-			zipkinHTTPEndpoint = zipkinURL
-			// ex: "http://zipkin:9411/api/v1/spans"
-		)
+// TODO need to fix this to handle the nil case better
+func setupTracer(zipkinURL string) {
+	var (
+		debugMode          = false
+		serviceName        = "fnserver"
+		serviceHostPort    = "localhost:8080" // meh
+		zipkinHTTPEndpoint = zipkinURL
+		// ex: "http://zipkin:9411/api/v1/spans"
+	)
 
-		var collector zipkintracer.Collector
+	var collector zipkintracer.Collector
 
-		// custom Zipkin collector to send tracing spans to Prometheus
-		promCollector, promErr := NewPrometheusCollector()
-		if promErr != nil {
-			logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
-		}
-
-		logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
-
-		if zipkinHTTPEndpoint != "" {
-			// Custom PrometheusCollector and Zipkin HTTPCollector
-			httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
-			if zipErr != nil {
-				logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
-			}
-			collector = zipkintracer.MultiCollector{httpCollector, promCollector}
-		} else {
-			// Custom PrometheusCollector only
-			collector = promCollector
-		}
-
-		ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
-			zipkintracer.ClientServerSameSpan(true),
-			zipkintracer.TraceID128Bit(true),
-		)
-		if err != nil {
-			logrus.WithError(err).Fatalln("couldn't start tracer")
-		}
-
-		// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
-		fntracer := NewFnTracer(ziptracer)
-
-		opentracing.SetGlobalTracer(fntracer)
-		logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
+	// custom Zipkin collector to send tracing spans to Prometheus
+	promCollector, promErr := NewPrometheusCollector()
+	if promErr != nil {
+		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
 	}
+
+	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
+
+	if zipkinHTTPEndpoint != "" {
+		// Custom PrometheusCollector and Zipkin HTTPCollector
+		httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+		if zipErr != nil {
+			logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
+		}
+		collector = zipkintracer.MultiCollector{httpCollector, promCollector}
+	} else {
+		// Custom PrometheusCollector only
+		collector = promCollector
+	}
+
+	ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+		zipkintracer.ClientServerSameSpan(true),
+		zipkintracer.TraceID128Bit(true),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start tracer")
+	}
+
+	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
+	fntracer := NewFnTracer(ziptracer)
+
+	opentracing.SetGlobalTracer(fntracer)
+	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
 func setMachineID() {
