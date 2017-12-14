@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -488,16 +487,6 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok R
 	ch := make(chan error, 1)
 
 	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-
-		deadline, err := common.GetRemainingTime(ctx)
-		if err != nil {
-			tok.Close()
-			ch <- err
-			return ch
-		}
-
-		call.EnvVars["FN_DEADLINE"] = strconv.FormatFloat(deadline.Seconds(), 'f', 0, 64)
-
 		// TODO no
 		go func() {
 			err := a.prepCold(ctx, slots, call, tok)
@@ -518,7 +507,6 @@ func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok R
 }
 
 func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok ResourceToken) error {
-
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -265,6 +264,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
+	deadline := strfmt.DateTime(time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)).String()
+	c.EnvVars["FN_DEADLINE"] = deadline
+	c.req.Header.Set("FN_DEADLINE", deadline)
+
 	return &c, nil
 }
 
@@ -284,29 +287,22 @@ func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
-	remaining, err := common.GetRemainingTime(ctx)
-	if err != nil {
-		return err
-	}
-
 	// TODO discuss this policy. cold has not yet started the container,
 	// hot just has to dispatch
 	//
 	// make sure we have at least half our timeout to run, or timeout here
-	if *remaining < (time.Duration(c.Timeout)*time.Second)/2 {
+	deadline, ok := ctx.Deadline()
+	need := time.Now().Add(time.Duration(c.Timeout) * time.Second) // > deadline, always
+	// need.Sub(deadline) = elapsed time
+	if ok && need.Sub(deadline) > (time.Duration(c.Timeout)*time.Second)/2 {
 		return context.DeadlineExceeded
 	}
 
-	if c.req != nil {
-		c.req.Header.Set("FN_DEADLINE", strconv.FormatFloat(remaining.Seconds(), 'f', 0, 64))
-	}
-
-	now := time.Now()
-	c.StartedAt = strfmt.DateTime(now)
+	c.StartedAt = strfmt.DateTime(time.Now())
 	c.Status = "running"
 
 	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-		rw.Header().Set("XXX-FXLB-WAIT", now.Sub(time.Time(c.CreatedAt)).String())
+		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
 	}
 
 	if c.Type == models.TypeAsync {
@@ -326,7 +322,7 @@ func (c *call) Start(ctx context.Context) error {
 		}
 	}
 
-	err = c.ct.fireBeforeCall(ctx, c.Model())
+	err := c.ct.fireBeforeCall(ctx, c.Model())
 	if err != nil {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}

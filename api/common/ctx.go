@@ -2,8 +2,6 @@ package common
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,21 +29,4 @@ func LoggerWithFields(ctx context.Context, fields logrus.Fields) (context.Contex
 	l = l.WithFields(fields)
 	ctx = WithLogger(ctx, l)
 	return ctx, l
-}
-
-// GetRemainingTime extracts the deadline from the context and returns the
-// remaining time left.
-func GetRemainingTime(ctx context.Context) (*time.Duration, error) {
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		return nil, errors.New("call without deadline provided")
-	}
-
-	now := time.Now()
-	secs := time.Duration(0)
-	if deadline.After(now) {
-		secs = deadline.Sub(now)
-	}
-
-	return &secs, nil
 }
