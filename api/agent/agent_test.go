@@ -217,6 +217,8 @@ func TestCallConfigurationModel(t *testing.T) {
 	payload := "payload"
 	typ := "sync"
 	format := "default"
+	contentType := "suberb_type"
+	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	env := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
@@ -226,6 +228,9 @@ func TestCallConfigurationModel(t *testing.T) {
 		"APP_VAR":     "FOO",
 		"ROUTE_VAR":   "BAR",
 		"DOUBLE_VAR":  "BIZ, BAZ",
+		// FromRequest would insert these from original HTTP request
+		"Fn_header_content_type":   contentType,
+		"Fn_header_content_length": contentLength,
 	}
 
 	cm := &models.Call{
@@ -264,6 +269,10 @@ func TestCallConfigurationModel(t *testing.T) {
 	for k, v := range env {
 		expectedHeaders.Add(k, v)
 	}
+
+	// These should be here based on payload length and/or fn_header_* original headers
+	expectedHeaders.Add("Content-Type", contentType)
+	expectedHeaders.Add("Content-Length", contentLength)
 
 	for k, vs := range req.Header {
 		for i, v := range expectedHeaders[k] {
