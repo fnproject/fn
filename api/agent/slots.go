@@ -59,6 +59,7 @@ type slotQueue struct {
 	nextId    uint64
 	output    chan *slotToken
 	isClosed  bool
+	closer    chan struct{}
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -76,6 +77,7 @@ func NewSlotQueue(key string) *slotQueue {
 		cond:   sync.NewCond(new(sync.Mutex)),
 		slots:  make([]*slotToken, 0),
 		output: make(chan *slotToken),
+		closer: make(chan struct{}),
 	}
 
 	// producer go routine to pick LIFO slots and
@@ -87,22 +89,9 @@ func NewSlotQueue(key string) *slotQueue {
 				obj.cond.Wait()
 			}
 
-			// cleanup and exit
 			if obj.isClosed {
-
-				purge := obj.slots
-				obj.slots = obj.slots[:0]
 				obj.cond.L.Unlock()
-
-				close(obj.output)
-
-				for _, val := range purge {
-					if val.acquireSlot() {
-						val.slot.Close()
-					}
-				}
-
-				return
+				break
 			}
 
 			// pop
@@ -110,8 +99,26 @@ func NewSlotQueue(key string) *slotQueue {
 			obj.slots = obj.slots[:len(obj.slots)-1]
 			obj.cond.L.Unlock()
 
-			// block
-			obj.output <- item
+			select {
+			case obj.output <- item: // good case (dequeued)
+			case <-item.trigger: // ejected (eject handles cleanup)
+			case <-obj.closer: // queue destroyed (isClosed true)
+				item.slot.Close()
+			}
+		}
+
+		// cleanup and exit
+		obj.cond.L.Lock()
+		purge := obj.slots
+		obj.slots = obj.slots[:0]
+		obj.cond.L.Unlock()
+
+		close(obj.output)
+
+		for _, val := range purge {
+			if val.acquireSlot() {
+				val.slot.Close()
+			}
 		}
 	}()
 
@@ -165,6 +172,7 @@ func (a *slotQueue) destroySlotQueue() {
 	}
 	a.cond.L.Unlock()
 	if doSignal {
+		close(a.closer)
 		a.cond.Signal()
 	}
 }
