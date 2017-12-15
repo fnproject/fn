@@ -243,8 +243,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/pull", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
-			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 2, IdleTimeout: 30},
+			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 4, IdleTimeout: 30},
 			{Path: "/waitmemory", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
 		}, nil,
 	)
@@ -262,10 +261,8 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		// first request with large timeout, we let the docker pull go through...
-		{"/r/myapp/pull", `{"sleep": 0}`, "POST", http.StatusOK, nil},
 		{"/r/myapp/sleeper", `{"sleep": 0}`, "POST", http.StatusOK, nil},
-		{"/r/myapp/sleeper", `{"sleep": 4}`, "POST", http.StatusGatewayTimeout, nil},
+		{"/r/myapp/sleeper", `{"sleep": 5}`, "POST", http.StatusGatewayTimeout, nil},
 		{"/r/myapp/waitmemory", `{"sleep": 0}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
 	} {
 		body := strings.NewReader(test.body)
