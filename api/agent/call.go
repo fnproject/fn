@@ -211,17 +211,24 @@ func FromModel(mCall *models.Call) CallOpt {
 			return err
 		}
 
-		// Hoist original request content type into async request
-		if req.Header.Get("Content-Type") == "" {
-			content_type, ok := c.EnvVars["Fn_header_content_type"]
-			if ok {
-				req.Header.Set("Content-Type", content_type)
+		// HACK: only applies to async below, for async we need to restore
+		// content-length and content-type of the original request, which are
+		// derived from Payload and original content-type which now is in
+		// Fn_header_content_type
+		if c.Type == models.TypeAsync {
+			// Hoist original request content type into async request
+			if req.Header.Get("Content-Type") == "" {
+				content_type, ok := c.EnvVars["Fn_header_content_type"]
+				if ok {
+					req.Header.Set("Content-Type", content_type)
+				}
 			}
-		}
 
-		// Ensure content-length in async requests for protocol/http DumpRequestTo()
-		if req.Header.Get("Content-Length") == "" {
-			req.Header.Set("Content-Length", strconv.FormatInt(int64(len(c.Payload)), 10))
+			// Ensure content-length in async requests for protocol/http DumpRequestTo()
+			if req.ContentLength == -1 || req.Header.Get("Content-Length") == "" {
+				req.ContentLength = int64(len(c.Payload))
+				req.Header.Set("Content-Length", strconv.FormatInt(int64(len(c.Payload)), 10))
+			}
 		}
 
 		for k, v := range c.EnvVars {
