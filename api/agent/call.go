@@ -264,6 +264,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
+	deadline := strfmt.DateTime(time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)).String()
+	c.EnvVars["FN_DEADLINE"] = deadline
+	c.req.Header.Set("FN_DEADLINE", deadline)
+
 	return &c, nil
 }
 
