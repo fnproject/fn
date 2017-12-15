@@ -201,15 +201,19 @@ func (a *agent) Submit(callI Call) error {
 	call := callI.(*call)
 	ctx := call.req.Context()
 
-	// start spans in the correct order so each span is given, and inherits, the correct baggage
-	span_global, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit_global")
+	// agent_submit_global has no parent span because we don't want it to inherit fn_appname or fn_path
+	span_global := opentracing.StartSpan("agent_submit_global")
 	defer span_global.Finish()
 
-	span_app, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit_app")
+	// agent_submit_global has no parent span because we don't want it to inherit fn_path
+	span_app := opentracing.StartSpan("agent_submit_app")
 	span_app.SetBaggageItem("fn_appname", callI.Model().AppName)
 	defer span_app.Finish()
 
+	// agent_submit has a parent span in the usual way
+	// it doesn't matter if it inherits fn_appname or fn_path (and we set them here in any case)
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
+	span.SetBaggageItem("fn_appname", callI.Model().AppName)
 	span.SetBaggageItem("fn_path", callI.Model().Path)
 	defer span.Finish()
 
