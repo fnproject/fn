@@ -266,12 +266,19 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
 	if isHot {
-		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
-		call.slots = a.slotMgr.getHotSlotQueue(call)
+
+		// For hot requests, we use a long lived (60 minutes) slot queue, which we use to manage hot containers
+		call.slots = a.slotMgr.getHotSlotQueue(call, func(sig chan bool, slots *slotQueue) {
+			a.wg.Add(1)
+			hotQueueTimeout := time.Duration(60) * time.Minute
+			a.launchHot(sig, ctx, call, slots, hotQueueTimeout)
+			a.slotMgr.destroySlotQueue(slots)
+			a.wg.Done()
+		})
 		start := time.Now()
 
 		call.slots.enterState(SlotQueueWaiter)
-		s, err := a.launchHot(ctx, call)
+		s, err := a.waitHot(ctx, call)
 		call.slots.exitStateWithLatency(SlotQueueWaiter, uint64(time.Now().Sub(start).Seconds()*1000))
 
 		return s, err
@@ -280,57 +287,77 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	return a.launchCold(ctx, call)
 }
 
-// launchHot checks with slot queue to see if a new container needs to be launched and waits
-// for available slots in the queue for hot request execution.
-func (a *agent) launchHot(ctx context.Context, call *call) (Slot, error) {
+// launchHot is spawned in a go routine for each slot queue to monitor and launch hot
+// containers if needed. slots.pingDequeuer() activates the signaller channel.
+func (a *agent) launchHot(signaller chan bool, origCtx context.Context, call *call, slots *slotQueue, timeout time.Duration) {
 
 	isAsync := call.Type == models.TypeAsync
+	timeoutFired := false
 
-launchLoop:
+loop:
 	for {
-		// Check/evaluate if we need to launch a new hot container
-		doLaunch, stats := call.slots.isNewContainerNeeded()
-		common.Logger(ctx).WithField("stats", stats).Debug("checking hot container launch ", doLaunch)
-
-		if doLaunch {
-			ctxToken, tokenCancel := context.WithCancel(context.Background())
-
-			// wait on token/slot/timeout whichever comes first
+		if !timeoutFired {
 			select {
-			case tok, isOpen := <-a.resources.GetResourceToken(ctxToken, call.Memory, isAsync):
-				tokenCancel()
-				if !isOpen {
-					return nil, models.ErrCallTimeoutServerBusy
-				}
-
-				a.wg.Add(1)
-				go a.runHot(ctx, call, tok)
-			case s, ok := <-call.slots.getDequeueChan():
-				tokenCancel()
+			case <-a.shutdown: // server shutdown
+				return
+			case <-time.After(timeout):
+				timeoutFired = true
+			case _, ok := <-signaller:
 				if !ok {
-					return nil, errors.New("slot shut down while waiting for hot slot")
+					return
 				}
-				if s.acquireSlot() {
-					if s.slot.Error() != nil {
-						s.slot.Close()
-						return nil, s.slot.Error()
-					}
-					return s.slot, nil
-				}
-
-				// we failed to take ownership of the token (eg. container idle timeout)
-				// try launching again
-				continue launchLoop
-			case <-ctx.Done():
-				tokenCancel()
-				return nil, ctx.Err()
 			}
 		}
 
-		// After launching (if it was necessary) a container, now wait for slot/timeout
-		// or periodically reevaluate the launchHot() logic from beginning.
+		// Check/evaluate if we need to launch a new hot container
+		isNeeded, stats := slots.isNewContainerNeeded()
+		logrus.WithField("stats", stats).Debug("checking hot container launch ", isNeeded)
+
+		// if inactivity timeout fired, then if there's no waiters/runners/starters, we can return
+		if timeoutFired {
+			timeoutFired = false
+
+			party := stats.states[SlotQueueWaiter] + stats.states[SlotQueueStarter] + stats.states[SlotQueueRunner]
+			if party == 0 {
+				logrus.WithField("stats", stats).Debug("hot container slotQueue timeout ")
+				return
+			}
+		}
+
+		if !isNeeded {
+			continue loop
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+
 		select {
-		case s, ok := <-call.slots.getDequeueChan():
+		case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+			cancel()
+			if isOpen {
+				go a.runHot(origCtx, call, tok)
+			} else {
+				slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
+			}
+		case <-time.After(timeout):
+			timeoutFired = true
+		case <-a.shutdown: // server shutdown
+		}
+
+		cancel()
+	}
+}
+
+// waitHot pings and waits for a hot container from the slot queue
+func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
+
+	ch, cancel := call.slots.startDequeuer(ctx)
+	defer cancel()
+
+	for {
+		call.slots.pingDequeuer()
+
+		select {
+		case s, ok := <-ch:
 			if !ok {
 				return nil, errors.New("slot shut down while waiting for hot slot")
 			}
@@ -342,12 +369,11 @@ launchLoop:
 				return s.slot, nil
 			}
 
-			// we failed to take ownership of the token (eg. container idle timeout)
-			// try launching again
+			// we failed to take ownership of the token (eg. container idle timeout) => try again
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(time.Duration(200) * time.Millisecond):
-			// reevaluate
+			// ping dequeuer again
 		}
 	}
 }

@@ -57,9 +57,9 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
-	output    chan *slotToken
 	isClosed  bool
 	closer    chan struct{}
+	signaller chan bool
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -73,54 +73,12 @@ func NewSlotQueueMgr() *slotQueueMgr {
 
 func NewSlotQueue(key string) *slotQueue {
 	obj := &slotQueue{
-		key:    key,
-		cond:   sync.NewCond(new(sync.Mutex)),
-		slots:  make([]*slotToken, 0),
-		output: make(chan *slotToken),
-		closer: make(chan struct{}),
+		key:       key,
+		cond:      sync.NewCond(new(sync.Mutex)),
+		slots:     make([]*slotToken, 0),
+		closer:    make(chan struct{}),
+		signaller: make(chan bool, 1),
 	}
-
-	// producer go routine to pick LIFO slots and
-	// push them into output channel
-	go func() {
-		for {
-			obj.cond.L.Lock()
-			for len(obj.slots) <= 0 && !obj.isClosed {
-				obj.cond.Wait()
-			}
-
-			if obj.isClosed {
-				obj.cond.L.Unlock()
-				break
-			}
-
-			// pop
-			item := obj.slots[len(obj.slots)-1]
-			obj.slots = obj.slots[:len(obj.slots)-1]
-			obj.cond.L.Unlock()
-
-			select {
-			case obj.output <- item: // good case (dequeued)
-			case <-item.trigger: // ejected (eject handles cleanup)
-			case <-obj.closer: // queue destroyed (isClosed true)
-				item.slot.Close()
-			}
-		}
-
-		// cleanup and exit
-		obj.cond.L.Lock()
-		purge := obj.slots
-		obj.slots = obj.slots[:0]
-		obj.cond.L.Unlock()
-
-		close(obj.output)
-
-		for _, val := range purge {
-			if val.acquireSlot() {
-				val.slot.Close()
-			}
-		}
-	}()
 
 	return obj
 }
@@ -142,18 +100,23 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 		return false
 	}
 
-	isFound := false
+	foundIdx := -1
 
 	a.cond.L.Lock()
 	for idx, val := range a.slots {
 		if val.id == s.id {
-			a.slots[0], a.slots[idx] = a.slots[idx], a.slots[0]
-			isFound = true
+			foundIdx = idx
 			break
 		}
 	}
-	if isFound {
-		a.slots = a.slots[1:]
+	if foundIdx != -1 {
+		newArr := make([]*slotToken, 0, len(a.slots))
+		for idx, val := range a.slots {
+			if idx != foundIdx {
+				newArr = append(newArr, val)
+			}
+		}
+		a.slots = newArr
 	}
 	a.cond.L.Unlock()
 
@@ -165,20 +128,97 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 
 func (a *slotQueue) destroySlotQueue() {
 	doSignal := false
+	purgePool := make([]*slotToken, 0)
+
 	a.cond.L.Lock()
 	if !a.isClosed {
+		purgePool = a.slots
+		a.slots = a.slots[:0]
 		a.isClosed = true
 		doSignal = true
 	}
 	a.cond.L.Unlock()
+
 	if doSignal {
 		close(a.closer)
-		a.cond.Signal()
+		a.cond.Broadcast()
+	}
+
+	for _, val := range purgePool {
+		if val.acquireSlot() {
+			val.slot.Close()
+		}
+	}
+
+}
+func (a *slotQueue) pingDequeuer() {
+	select {
+	case a.signaller <- true:
 	}
 }
 
-func (a *slotQueue) getDequeueChan() chan *slotToken {
-	return a.output
+func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context.CancelFunc) {
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	myCancel := func() {
+		cancel()
+		a.cond.Broadcast()
+	}
+
+	output := make(chan *slotToken)
+
+	go func() {
+	loop:
+		for {
+			a.cond.L.Lock()
+			for len(a.slots) <= 0 && !a.isClosed && (ctx.Err() == nil) {
+				a.cond.Wait()
+			}
+
+			if a.isClosed || ctx.Err() != nil {
+				a.cond.L.Unlock()
+				break loop
+			}
+
+			// pop
+			item := a.slots[len(a.slots)-1]
+			a.slots = a.slots[:len(a.slots)-1]
+			a.cond.L.Unlock()
+
+			select {
+			case output <- item: // good case (dequeued)
+			case <-item.trigger: // ejected (eject handles cleanup)
+			case <-ctx.Done(): // time out or cancel from caller, queue again
+				a.requeueToken(item)
+			case <-a.closer: // queue destroyed (isClosed true)
+				item.slot.Close()
+			}
+		}
+
+		close(output)
+	}()
+
+	return output, myCancel
+}
+
+func (a *slotQueue) requeueToken(token *slotToken) {
+
+	isClosed := false
+
+	a.cond.L.Lock()
+	if !a.isClosed {
+		a.slots = append(a.slots, token)
+	} else {
+		isClosed = true
+	}
+	a.cond.L.Unlock()
+
+	if !isClosed {
+		a.cond.Broadcast()
+	} else {
+		token.slot.Close()
+	}
 }
 
 func (a *slotQueue) queueSlot(slot Slot) *slotToken {
@@ -197,7 +237,7 @@ func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 	a.cond.L.Unlock()
 
 	if !isClosed {
-		a.cond.Signal()
+		a.cond.Broadcast()
 		return token
 	}
 
@@ -304,8 +344,9 @@ func (a *slotQueue) exitStateWithLatency(metricIdx SlotQueueMetricType, latency 
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
 // a container will be locked up forever waiting for slot to free.
-func (a *slotQueueMgr) getHotSlotQueue(call *call) *slotQueue {
+func (a *slotQueueMgr) getHotSlotQueue(call *call, myFunc func(chan bool, *slotQueue)) *slotQueue {
 
+	isNew := false
 	key := getSlotQueueKey(call)
 
 	a.hMu.RLock()
@@ -316,9 +357,14 @@ func (a *slotQueueMgr) getHotSlotQueue(call *call) *slotQueue {
 		slots, ok = a.hot[key]
 		if !ok {
 			slots = NewSlotQueue(key)
+			isNew = true
 			a.hot[key] = slots
 		}
 		a.hMu.Unlock()
+	}
+
+	if isNew {
+		go myFunc(slots.signaller, slots)
 	}
 	return slots
 }
