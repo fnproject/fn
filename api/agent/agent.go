@@ -268,13 +268,12 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	if isHot {
 
 		// For hot requests, we use a long lived (60 minutes) slot queue, which we use to manage hot containers
-		call.slots = a.slotMgr.getHotSlotQueue(call, func(sig chan bool, slots *slotQueue) {
+		var isNew bool
+		call.slots, isNew = a.slotMgr.getHotSlotQueue(call)
+		if isNew {
 			a.wg.Add(1)
-			hotQueueTimeout := time.Duration(60) * time.Minute
-			a.launchHot(sig, ctx, call, slots, hotQueueTimeout)
-			a.slotMgr.destroySlotQueue(slots)
-			a.wg.Done()
-		})
+			go a.launchHot(ctx, call)
+		}
 		start := time.Now()
 
 		call.slots.enterState(SlotQueueWaiter)
@@ -289,7 +288,21 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 // launchHot is spawned in a go routine for each slot queue to monitor and launch hot
 // containers if needed. slots.pingDequeuer() activates the signaller channel.
-func (a *agent) launchHot(signaller chan bool, origCtx context.Context, call *call, slots *slotQueue, timeout time.Duration) {
+func (a *agent) launchHot(ctx context.Context, call *call) {
+
+	defer a.slotMgr.destroySlotQueue(call.slots)
+	defer a.wg.Done()
+
+	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
+	// whichever is longer. If in this time, there's no activity in launchHot
+	// loop, then we destroy the hot queue.
+	timeout := time.Duration(60) * time.Minute
+	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
+	if timeout < idleTimeout {
+		timeout = idleTimeout
+	}
+
+	logrus.WithField("timeout", timeout).Debug("Starting a new hot queue with launcher")
 
 	isAsync := call.Type == models.TypeAsync
 	timeoutFired := false
@@ -302,7 +315,7 @@ loop:
 				return
 			case <-time.After(timeout):
 				timeoutFired = true
-			case _, ok := <-signaller:
+			case _, ok := <-call.slots.signaller:
 				if !ok {
 					return
 				}
@@ -310,7 +323,7 @@ loop:
 		}
 
 		// Check/evaluate if we need to launch a new hot container
-		isNeeded, stats := slots.isNewContainerNeeded()
+		isNeeded, stats := call.slots.isNewContainerNeeded()
 		logrus.WithField("stats", stats).Debug("checking hot container launch ", isNeeded)
 
 		// if inactivity timeout fired, then if there's no waiters/runners/starters, we can return
@@ -328,15 +341,15 @@ loop:
 			continue loop
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		resourceCtx, cancel := context.WithCancel(context.Background())
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, call.Memory, isAsync):
 			cancel()
 			if isOpen {
-				go a.runHot(origCtx, call, tok)
+				go a.runHot(ctx, call, tok)
 			} else {
-				slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
+				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
 			}
 		case <-time.After(timeout):
 			timeoutFired = true
@@ -354,7 +367,10 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	defer cancel()
 
 	for {
-		call.slots.pingDequeuer()
+		// send a notification to launcHot()
+		select {
+		case call.slots.signaller <- true:
+		}
 
 		select {
 		case s, ok := <-ch:

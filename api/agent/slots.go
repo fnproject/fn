@@ -151,11 +151,6 @@ func (a *slotQueue) destroySlotQueue() {
 	}
 
 }
-func (a *slotQueue) pingDequeuer() {
-	select {
-	case a.signaller <- true:
-	}
-}
 
 func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context.CancelFunc) {
 
@@ -344,7 +339,7 @@ func (a *slotQueue) exitStateWithLatency(metricIdx SlotQueueMetricType, latency 
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
 // a container will be locked up forever waiting for slot to free.
-func (a *slotQueueMgr) getHotSlotQueue(call *call, myFunc func(chan bool, *slotQueue)) *slotQueue {
+func (a *slotQueueMgr) getHotSlotQueue(call *call) (*slotQueue, bool) {
 
 	isNew := false
 	key := getSlotQueueKey(call)
@@ -363,10 +358,7 @@ func (a *slotQueueMgr) getHotSlotQueue(call *call, myFunc func(chan bool, *slotQ
 		a.hMu.Unlock()
 	}
 
-	if isNew {
-		go myFunc(slots.signaller, slots)
-	}
-	return slots
+	return slots, isNew
 }
 
 // currently unused. But at some point, we need to age/delete old
