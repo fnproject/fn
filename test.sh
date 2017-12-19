@@ -29,6 +29,9 @@ docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_
 docker rm -fv func-minio-test || echo No prev minio test container
 docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
+# build test image locally first
+(cd images/fn-test-utils && ./build.sh)
+
 # pull all images used in tests so that tests don't time out and fail spuriously
 docker pull fnproject/sleeper
 docker pull fnproject/error

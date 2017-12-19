@@ -1,5 +1,4 @@
 set -e
 
-docker build -t fnproject/fn-test-utils:latest .
-
+./build.sh
 docker push fnproject/fn-test-utils:latest
