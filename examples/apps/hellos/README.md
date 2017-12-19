@@ -2,4 +2,10 @@
 
 This shows you how to organize functions into a full application and deploy them easily with one command.
 
-See [apps documentation](/docs/developers/apps.md) for details on how to use this.
+```sh
+fn deploy --all
+```
+
+Then surf to http://localhost:8080/r/helloapp
+
+See [apps documentation](/docs/developers/apps.md) for more details on applications.

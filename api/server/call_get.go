@@ -12,7 +12,7 @@ func (s *Server) handleCallGet(c *gin.Context) {
 
 	appName := c.MustGet(api.AppName).(string)
 	callID := c.Param(api.Call)
-	callObj, err := s.Datastore.GetCall(ctx, appName, callID)
+	callObj, err := s.Datastore().GetCall(ctx, appName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

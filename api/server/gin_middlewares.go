@@ -10,6 +10,7 @@ import (
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -85,7 +86,16 @@ func loggerWrap(c *gin.Context) {
 	c.Next()
 }
 
-func appWrap(c *gin.Context) {
+func setAppNameInCtx(c *gin.Context) {
+	// add appName to context
+	appName := c.GetString(api.AppName)
+	if appName != "" {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), fnext.AppNameKey, appName))
+	}
+	c.Next()
+}
+
+func appNameCheck(c *gin.Context) {
 	appName := c.GetString(api.AppName)
 	if appName == "" {
 		handleErrorResponse(c, models.ErrAppsMissingName)

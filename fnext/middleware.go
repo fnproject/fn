@@ -5,12 +5,6 @@ import (
 	"net/http"
 )
 
-var (
-	// MiddlewareControllerKey is a context key. It can be used in handlers with context.WithValue to
-	// access the MiddlewareContext.
-	MiddlewareControllerKey = contextKey("middleware-controller")
-)
-
 // MiddlewareController allows a bit more flow control to the middleware, since we multiple paths a request can go down.
 // 1) Could be routed towards the API
 // 2) Could be routed towards a function
@@ -43,10 +37,3 @@ type MiddlewareFunc func(next http.Handler) http.Handler
 func (m MiddlewareFunc) Handle(next http.Handler) http.Handler {
 	return m(next)
 }
-
-// good reading on this: https://twitter.com/sajma/status/757217773852487680
-type contextKey string
-
-// func (c contextKey) String() string {
-// 	return "fnext context key " + string(c)
-// }

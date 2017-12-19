@@ -44,7 +44,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	// runner and enter into 'running' state before we can insert it in the db as
 	// 'queued' state. we can ignore any error inserting into db here and Start
 	// will ensure the call exists in the db in 'running' state there.
-	// s.Datastore.InsertCall(ctx, &call)
+	// s.Datastore().InsertCall(ctx, &call)
 
 	c.JSON(200, struct {
 		M string `json:"msg"`
@@ -112,7 +112,7 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	// TODO do this client side and validate it here?
 	//call.Status = "running"
 	//call.StartedAt = strfmt.DateTime(time.Now())
-	//err := s.Datastore.UpdateCall(c.Request.Context(), &call)
+	//err := s.Datastore().UpdateCall(c.Request.Context(), &call)
 	//if err != nil {
 	//if err == InvalidStatusChange {
 	//// TODO we could either let UpdateCall handle setting to error or do it
@@ -153,7 +153,7 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	// TODO this needs UpdateCall functionality to work for async and should only work if:
 	// running->error|timeout|success
 	// TODO all async will fail here :( all sync will work fine :) -- *feeling conflicted*
-	if err := s.Datastore.InsertCall(ctx, &call); err != nil {
+	if err := s.Datastore().InsertCall(ctx, &call); err != nil {
 		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
