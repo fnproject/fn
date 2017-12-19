@@ -239,6 +239,18 @@ func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 	return nil
 }
 
+// isIdle() returns true is there's no activity for this slot queue. This
+// means no one is waiting, running or starting.
+func (a *slotQueue) isIdle() bool {
+	var partySize uint64
+
+	a.statsLock.Lock()
+	partySize = a.stats.states[SlotQueueWaiter] + a.stats.states[SlotQueueStarter] + a.stats.states[SlotQueueRunner]
+	a.statsLock.Unlock()
+
+	return partySize == 0
+}
+
 func (a *slotQueue) getStats() slotQueueStats {
 	var out slotQueueStats
 	a.statsLock.Lock()

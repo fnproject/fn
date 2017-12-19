@@ -272,7 +272,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 		call.slots, isNew = a.slotMgr.getHotSlotQueue(call)
 		if isNew {
 			a.wg.Add(1)
-			go a.launchHot(ctx, call)
+			go a.hotLauncher(ctx, call)
 		}
 		start := time.Now()
 
@@ -286,62 +286,53 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	return a.launchCold(ctx, call)
 }
 
-// launchHot is spawned in a go routine for each slot queue to monitor and launch hot
-// containers if needed. slots.pingDequeuer() activates the signaller channel.
-func (a *agent) launchHot(ctx context.Context, call *call) {
-
-	defer a.slotMgr.destroySlotQueue(call.slots)
-	defer a.wg.Done()
+// hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
+// containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
+// it destroys the slot queue.
+func (a *agent) hotLauncher(ctx context.Context, call *call) {
 
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
-	// whichever is longer. If in this time, there's no activity in launchHot
-	// loop, then we destroy the hot queue.
+	// whichever is longer. If in this time, there's no activity, then
+	// we destroy the hot queue.
 	timeout := time.Duration(60) * time.Minute
 	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
 	}
 
-	logrus.WithField("timeout", timeout).Debug("Starting a new hot queue with launcher")
+	logger := logrus.WithFields(logrus.Fields{
+		"app":              call.AppName,
+		"route":            call.Path,
+		"image":            call.Image,
+		"memory":           call.Memory,
+		"format":           call.Format,
+		"idle_timeout":     call.IdleTimeout,
+		"launcher_timeout": timeout})
 
+	logger.Info("Hot function launcher starting")
 	isAsync := call.Type == models.TypeAsync
-	timeoutFired := false
 
 loop:
 	for {
-		if !timeoutFired {
-			select {
-			case <-a.shutdown: // server shutdown
-				return
-			case <-time.After(timeout):
-				timeoutFired = true
-			case _, ok := <-call.slots.signaller:
-				if !ok {
-					return
-				}
+		select {
+		case <-a.shutdown: // server shutdown
+			break loop
+		case <-time.After(timeout):
+			if call.slots.isIdle() {
+				logger.Info("Hot function launcher timed out")
+				break loop
 			}
+		case <-call.slots.signaller:
 		}
 
-		// Check/evaluate if we need to launch a new hot container
 		isNeeded, stats := call.slots.isNewContainerNeeded()
-		logrus.WithField("stats", stats).Debug("checking hot container launch ", isNeeded)
-
-		// if inactivity timeout fired, then if there's no waiters/runners/starters, we can return
-		if timeoutFired {
-			timeoutFired = false
-
-			party := stats.states[SlotQueueWaiter] + stats.states[SlotQueueStarter] + stats.states[SlotQueueRunner]
-			if party == 0 {
-				logrus.WithField("stats", stats).Debug("hot container slotQueue timeout ")
-				return
-			}
-		}
-
+		logger.WithField("stats", stats).Debug("Hot function launcher stats")
 		if !isNeeded {
 			continue loop
 		}
 
 		resourceCtx, cancel := context.WithCancel(context.Background())
+		logger.WithField("stats", stats).Info("Hot function launcher starting hot container")
 
 		select {
 		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, call.Memory, isAsync):
@@ -349,15 +340,24 @@ loop:
 			if isOpen {
 				go a.runHot(ctx, call, tok)
 			} else {
+				// this means the resource was impossible to reserve (eg. memory size we can never satisfy)
 				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
 			}
 		case <-time.After(timeout):
-			timeoutFired = true
+			cancel()
+			if call.slots.isIdle() {
+				logger.Info("Hot function launcher timed out")
+				break loop
+			}
 		case <-a.shutdown: // server shutdown
+			cancel()
+			break loop
 		}
-
-		cancel()
 	}
+
+	logger.Info("Hot function launcher terminating")
+	a.slotMgr.destroySlotQueue(call.slots)
+	a.wg.Done()
 }
 
 // waitHot pings and waits for a hot container from the slot queue
