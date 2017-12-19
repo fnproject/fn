@@ -29,6 +29,9 @@ docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_
 docker rm -fv func-minio-test || echo No prev minio test container
 docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
+# build test image locally first
+(cd images/fn-test-utils && ./build.sh)
+
 # pull all images used in tests so that tests don't time out and fail spuriously
 docker pull fnproject/sleeper
 docker pull fnproject/error
@@ -47,7 +50,7 @@ export POSTGRES_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/
 export MYSQL_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
 export MINIO_URL="s3://admin:password@${MINIO_HOST}:${MINIO_PORT}/us-east-1/fnlogs"
 
-go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests)
+go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests | grep -v images/fn-test-utils)
 go vet $(go list ./... | grep -v vendor)
 docker rm --force func-postgres-test
 docker rm --force func-mysql-test
