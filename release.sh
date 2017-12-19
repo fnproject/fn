@@ -45,6 +45,11 @@ docker tag $user/$image:latest $user/$image_deprecated:latest
 docker push $user/$image_deprecated:$version
 docker push $user/$image_deprecated:latest
 
+# release docker images for testing
+cd images
+./release.sh
+cd ..
+
 cd fnlb
 ./release.sh
 cd ..
