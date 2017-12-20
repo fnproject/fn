@@ -187,7 +187,9 @@ func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context
 			case <-ctx.Done(): // time out or cancel from caller, queue again
 				a.requeueToken(item)
 			case <-a.closer: // queue destroyed (isClosed true)
-				item.slot.Close()
+				if item.acquireSlot() {
+					item.slot.Close()
+				}
 			}
 		}
 
@@ -211,7 +213,7 @@ func (a *slotQueue) requeueToken(token *slotToken) {
 
 	if !isClosed {
 		a.cond.Broadcast()
-	} else {
+	} else if token.acquireSlot() {
 		token.slot.Close()
 	}
 }

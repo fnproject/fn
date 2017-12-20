@@ -264,11 +264,13 @@ func TestSlotQueueBasic3(t *testing.T) {
 		t.Fatalf("1 should be closed")
 	}
 
-	// we should not get anything. queue should be empty
+	// we could get ejected item, which we cannot acquire
 	select {
-	case <-outChan:
-		t.Fatalf("outChan should block")
-	default:
+	case z := <-outChan:
+		if z.acquireSlot() {
+			t.Fatalf("we shouldn't be able to acquire %#v", z)
+		}
+	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
 
 	// let's cancel after destroy this time
@@ -277,9 +279,9 @@ func TestSlotQueueBasic3(t *testing.T) {
 
 	// channel should be closed.
 	select {
-	case _, ok := <-outChan:
+	case z, ok := <-outChan:
 		if ok {
-			t.Fatalf("outChan should be closed")
+			t.Fatalf("outChan should be closed %#v", z)
 		}
 	case <-time.After(time.Duration(1) * time.Second):
 		t.Fatal("timeout in waiting slotToken")
