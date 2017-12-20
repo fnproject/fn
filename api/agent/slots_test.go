@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -264,18 +265,39 @@ func TestSlotQueueBasic3(t *testing.T) {
 		t.Fatalf("1 should be closed")
 	}
 
-	// we could get ejected item, which we cannot acquire
-	select {
-	case z := <-outChan:
-		if z.acquireSlot() {
-			t.Fatalf("we shouldn't be able to acquire %#v", z)
-		}
-	case <-time.After(time.Duration(500) * time.Millisecond):
+	// spin up bunch of go routines, where each should get a non-acquirable
+	// token or closed channel due the imminent obj.destroySlotQueue()
+	var wg sync.WaitGroup
+	goMax := 10
+	wg.Add(goMax)
+	for i := 0; i < goMax; i += 1 {
+		go func(id int) {
+			ch, cancl := obj.startDequeuer(context.Background())
+			defer cancl()
+			defer wg.Done()
+			for {
+				select {
+				case z, ok := <-ch:
+					if ok {
+						if z.acquireSlot() {
+							t.Fatalf("%v we shouldn't be able to acquire %#v", id, z)
+						}
+					} else {
+						return
+					}
+				case <-time.After(time.Duration(500) * time.Millisecond):
+					t.Fatalf("%v timeout in waiting slotToken", id)
+				}
+			}
+		}(i)
 	}
 
-	// let's cancel after destroy this time
 	obj.destroySlotQueue()
+
+	// let's cancel after destroy this time
 	cancel2()
+
+	wg.Wait()
 
 	// channel should be closed.
 	select {
