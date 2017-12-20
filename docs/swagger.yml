@@ -371,6 +371,7 @@ paths:
       tags:
         - Call
         - Log
+      produces: ['text/plain',]
       parameters:
         - name: app
           description: App Name
@@ -385,10 +386,8 @@ paths:
       responses:
         200:
           description: Log found
-          content:
-            text/plain:
-              schema:
-                type: string
+          schema:
+            type: string
         404:
           description: Log not found.
           schema:
