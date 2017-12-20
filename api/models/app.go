@@ -10,11 +10,15 @@ type App struct {
 	Name      string          `json:"name" db:"name"`
 	Config    Config          `json:"config,omitempty" db:"config"`
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 func (a *App) SetDefaults() {
 	if time.Time(a.CreatedAt).IsZero() {
 		a.CreatedAt = strfmt.DateTime(time.Now())
+	}
+	if time.Time(a.UpdatedAt).IsZero() {
+		a.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 	if a.Config == nil {
 		// keeps the json from being nil
@@ -52,6 +56,7 @@ func (a *App) Clone() *App {
 // UpdateConfig adds entries from patch to a.Config, and removes entries with empty values.
 func (a *App) UpdateConfig(src *App) {
 	if src.Config != nil {
+		a.UpdatedAt = strfmt.DateTime(time.Now())
 		if a.Config == nil {
 			a.Config = make(Config)
 		}

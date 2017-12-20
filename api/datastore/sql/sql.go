@@ -61,7 +61,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	`CREATE TABLE IF NOT EXISTS apps (
 	name varchar(256) NOT NULL PRIMARY KEY,
 	config text NOT NULL,
-	created_at varchar(256)
+	created_at varchar(256),
+	updated_at varchar(256)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS calls (
@@ -265,12 +266,14 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 	query := ds.db.Rebind(`INSERT INTO apps (
 		name,
 		config,
-		created_at
+		created_at,
+		updated_at
 	)
 	VALUES (
 		:name,
 		:config,
-		:created_at
+		:created_at,
+		:updated_at
 	);`)
 	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
@@ -299,7 +302,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, UpdateConfig logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
-		query := tx.Rebind(`SELECT name, config, created_at FROM apps WHERE name=?`)
+		query := tx.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
 		row := tx.QueryRowxContext(ctx, query, app.Name)
 
 		err := row.StructScan(app)
@@ -311,7 +314,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 
 		app.UpdateConfig(newapp)
 
-		query = tx.Rebind(`UPDATE apps SET config=:config WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
@@ -364,7 +367,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	query := ds.db.Rebind(`SELECT name, config, created_at FROM apps WHERE name=?`)
+	query := ds.db.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
 	row := ds.db.QueryRowxContext(ctx, query, name)
 
 	var res models.App
@@ -387,7 +390,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	if err != nil {
 		return nil, err
 	}
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, created_at FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, created_at, updated_at FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err

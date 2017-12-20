@@ -10,6 +10,8 @@
 // 4_add_route_updated_at.up.sql
 // 5_add_app_created_at.down.sql
 // 5_add_app_created_at.up.sql
+// 6_add_app_updated_at.down.sql
+// 6_add_app_updated_at.up.sql
 // DO NOT EDIT!
 
 package migrations
@@ -277,6 +279,46 @@ func _5_add_app_created_atUpSql() (*asset, error) {
 	return a, nil
 }
 
+var __6_add_app_updated_atDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x48\x2c\x28\x28\x56\x70\x09\xf2\x0f\x50\x70\xf6\xf7\x09\xf5\xf5\x53\x28\x2d\x48\x49\x2c\x49\x4d\x89\x4f\x2c\xb1\xe6\x02\x04\x00\x00\xff\xff\x31\x44\xd7\xcc\x29\x00\x00\x00")
+
+func _6_add_app_updated_atDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__6_add_app_updated_atDownSql,
+		"6_add_app_updated_at.down.sql",
+	)
+}
+
+func _6_add_app_updated_atDownSql() (*asset, error) {
+	bytes, err := _6_add_app_updated_atDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "6_add_app_updated_at.down.sql", size: 41, mode: os.FileMode(420), modTime: time.Unix(1513733616, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __6_add_app_updated_atUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x48\x2c\x28\x28\x56\x70\x74\x71\x51\x28\x2d\x48\x49\x2c\x49\x4d\x89\x4f\x2c\x51\x28\x4b\x2c\x4a\xce\x48\x2c\xd2\x30\x32\x35\xd3\xb4\xe6\x02\x04\x00\x00\xff\xff\x65\x01\x8b\x34\x2e\x00\x00\x00")
+
+func _6_add_app_updated_atUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__6_add_app_updated_atUpSql,
+		"6_add_app_updated_at.up.sql",
+	)
+}
+
+func _6_add_app_updated_atUpSql() (*asset, error) {
+	bytes, err := _6_add_app_updated_atUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "6_add_app_updated_at.up.sql", size: 46, mode: os.FileMode(420), modTime: time.Unix(1513733621, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -339,6 +381,8 @@ var _bindata = map[string]func() (*asset, error){
 	"4_add_route_updated_at.up.sql":   _4_add_route_updated_atUpSql,
 	"5_add_app_created_at.down.sql":   _5_add_app_created_atDownSql,
 	"5_add_app_created_at.up.sql":     _5_add_app_created_atUpSql,
+	"6_add_app_updated_at.down.sql":   _6_add_app_updated_atDownSql,
+	"6_add_app_updated_at.up.sql":     _6_add_app_updated_atUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -392,6 +436,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"4_add_route_updated_at.up.sql":   &bintree{_4_add_route_updated_atUpSql, map[string]*bintree{}},
 	"5_add_app_created_at.down.sql":   &bintree{_5_add_app_created_atDownSql, map[string]*bintree{}},
 	"5_add_app_created_at.up.sql":     &bintree{_5_add_app_created_atUpSql, map[string]*bintree{}},
+	"6_add_app_updated_at.down.sql":   &bintree{_6_add_app_updated_atDownSql, map[string]*bintree{}},
+	"6_add_app_updated_at.up.sql":     &bintree{_6_add_app_updated_atUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
