@@ -524,8 +524,3 @@ type callsResponse struct {
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
 }
-
-type callLogResponse struct {
-	Message string          `json:"message"`
-	Log     *models.CallLog `json:"log"`
-}

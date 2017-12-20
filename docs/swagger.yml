@@ -385,8 +385,10 @@ paths:
       responses:
         200:
           description: Log found
-          schema:
-            $ref:  '#/definitions/LogWrapper'
+          content:
+            text/plain:
+              schema:
+                type: string
         404:
           description: Log not found.
           schema:
@@ -635,25 +637,6 @@ definitions:
       call:
         $ref: '#/definitions/Call'
         description: "Call object."
-
-
-  LogWrapper:
-    type: object
-    required:
-      - log
-    properties:
-      log:
-        $ref: '#/definitions/Log'
-        description: "Call log entry."
-
-  Log:
-    type: object
-    properties:
-      call_id:
-        type: string
-        description: Call UUID ID
-      log:
-        type: string # maybe bytes, long logs wouldn't fit into string type
 
   Call:
     type: object
