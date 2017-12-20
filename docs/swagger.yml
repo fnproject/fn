@@ -516,6 +516,16 @@ definitions:
         default: 30
         format: int32
         description: Hot functions idle timeout before termination. Value in Seconds
+      created_at:
+        type: string
+        format: date-time
+        description: Time when route was created. Always in UTC.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that route was updated. Always in UTC.
+        readOnly: true
 
   App:
     type: object
@@ -529,6 +539,16 @@ definitions:
         description: Application configuration, applied to all routes.
         additionalProperties:
           type: string
+      created_at:
+        type: string
+        format: date-time
+        description: Time when app was created. Always in UTC.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that app was updated. Always in UTC.
+        readOnly: true
 
   Version:
     type: object
