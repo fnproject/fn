@@ -90,11 +90,11 @@ func TestAppCreate(t *testing.T) {
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(app.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected created_at to be set on app, it wasn't: %v", i, app.CreatedAt)
+				t.Errorf("Test %d: expected created_at to be set on app, it wasn't: %s", i, app.CreatedAt)
 			}
 			if !(time.Time(app.CreatedAt)).Equal(time.Time(app.UpdatedAt)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected updated_at to be set and same as created at, it wasn't: %v %v", i, app.CreatedAt, app.UpdatedAt)
+				t.Errorf("Test %d: expected updated_at to be set and same as created at, it wasn't: %s %s", i, app.CreatedAt, app.UpdatedAt)
 			}
 		}
 
@@ -325,7 +325,7 @@ func TestAppUpdate(t *testing.T) {
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(app.UpdatedAt).Before(time.Now().Add(-1 * time.Hour)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected updated_at to be set on app, it wasn't: %v", i, app.UpdatedAt)
+				t.Errorf("Test %d: expected updated_at to be set on app, it wasn't: %s", i, app.UpdatedAt)
 			}
 
 			// this isn't perfect, since a PATCH could succeed without updating any
@@ -334,7 +334,7 @@ func TestAppUpdate(t *testing.T) {
 			// this is a decent approximation that the timestamp gets changed
 			if (time.Time(app.UpdatedAt)).Equal(time.Time(app.CreatedAt)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected updated_at to not be the same as created at, it wasn't: %v %v", i, app.CreatedAt, app.UpdatedAt)
+				t.Errorf("Test %d: expected updated_at to not be the same as created at, it wasn't: %s %s", i, app.CreatedAt, app.UpdatedAt)
 			}
 		}
 

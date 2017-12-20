@@ -64,11 +64,11 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(route.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected created_at to be set on route, it wasn't: %v", i, route.CreatedAt)
+				t.Errorf("Test %d: expected created_at to be set on route, it wasn't: %s", i, route.CreatedAt)
 			}
 			if !(time.Time(route.CreatedAt)).Equal(time.Time(route.UpdatedAt)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected updated_at to be set and same as created at, it wasn't: %v %v", i, route.CreatedAt, route.UpdatedAt)
+				t.Errorf("Test %d: expected updated_at to be set and same as created at, it wasn't: %s %s", i, route.CreatedAt, route.UpdatedAt)
 			}
 		}
 
@@ -76,7 +76,7 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(route.UpdatedAt).Before(time.Now().Add(-1 * time.Hour)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected updated_at to be set on route, it wasn't: %v", i, route.UpdatedAt)
+				t.Errorf("Test %d: expected updated_at to be set on route, it wasn't: %s", i, route.UpdatedAt)
 			}
 
 			// this isn't perfect, since a PATCH could succeed without updating any
@@ -85,7 +85,7 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 			// this is a decent approximation that the timestamp gets changed
 			if (time.Time(route.UpdatedAt)).Equal(time.Time(route.CreatedAt)) {
 				t.Log(buf.String())
-				t.Error("Test %d: expected updated_at to not be the same as created at, it wasn't: %v %v", i, route.CreatedAt, route.UpdatedAt)
+				t.Errorf("Test %d: expected updated_at to not be the same as created at, it wasn't: %s %s", i, route.CreatedAt, route.UpdatedAt)
 			}
 		}
 	}
