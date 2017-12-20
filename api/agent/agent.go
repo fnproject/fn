@@ -370,6 +370,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		// send a notification to launcHot()
 		select {
 		case call.slots.signaller <- true:
+		default:
 		}
 
 		select {
