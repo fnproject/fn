@@ -152,38 +152,51 @@ func (r *Route) Clone() *Route {
 	return clone
 }
 
-func (r *Route) up() { r.UpdatedAt = strfmt.DateTime(time.Now()) }
+func (r1 *Route) Equals(r2 *Route) bool {
+	// start off equal, check equivalence of each field.
+	// the RHS of && won't eval if eq==false so config/headers checking is lazy
+
+	eq := true
+	eq = eq && r1.AppName == r2.AppName
+	eq = eq && r1.Path == r2.Path
+	eq = eq && r1.Image == r2.Image
+	eq = eq && r1.Memory == r2.Memory
+	eq = eq && r1.Headers.Equals(r2.Headers)
+	eq = eq && r1.Type == r2.Type
+	eq = eq && r1.Format == r2.Format
+	eq = eq && r1.Timeout == r2.Timeout
+	eq = eq && r1.IdleTimeout == r2.IdleTimeout
+	eq = eq && r1.Config.Equals(r2.Config)
+	eq = eq && r1.CreatedAt == r2.CreatedAt
+	eq = eq && r2.UpdatedAt == r2.UpdatedAt
+	return eq
+}
 
 // Update updates fields in r with non-zero field values from new, and sets
 // updated_at if any of the fields change. 0-length slice Header values, and
 // empty-string Config values trigger removal of map entry.
 func (r *Route) Update(new *Route) {
+	original := r.Clone()
+
 	if new.Image != "" {
-		r.up()
 		r.Image = new.Image
 	}
 	if new.Memory != 0 {
-		r.up()
 		r.Memory = new.Memory
 	}
 	if new.Type != "" {
-		r.up()
 		r.Type = new.Type
 	}
 	if new.Timeout != 0 {
-		r.up()
 		r.Timeout = new.Timeout
 	}
 	if new.IdleTimeout != 0 {
-		r.up()
 		r.IdleTimeout = new.IdleTimeout
 	}
 	if new.Format != "" {
-		r.up()
 		r.Format = new.Format
 	}
 	if new.Headers != nil {
-		r.up()
 		if r.Headers == nil {
 			r.Headers = Headers(make(http.Header))
 		}
@@ -196,7 +209,6 @@ func (r *Route) Update(new *Route) {
 		}
 	}
 	if new.Config != nil {
-		r.up()
 		if r.Config == nil {
 			r.Config = make(Config)
 		}
@@ -207,6 +219,10 @@ func (r *Route) Update(new *Route) {
 				r.Config[k] = v
 			}
 		}
+	}
+
+	if !r.Equals(original) {
+		r.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 }
 

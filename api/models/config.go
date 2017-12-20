@@ -14,6 +14,19 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func (c1 Config) Equals(c2 Config) bool {
+	if len(c1) != len(c2) {
+		return false
+	}
+	for k1, v1 := range r1.Config {
+		v2, _ := r2.Config[k1]
+		if v1 != v2 {
+			return false
+		}
+	}
+	return true
+}
+
 // implements sql.Valuer, returning a string
 func (c Config) Value() (driver.Value, error) {
 	if len(c) < 1 {
@@ -55,6 +68,24 @@ func (c *Config) Scan(value interface{}) error {
 
 // Headers is an http.Header that implements additional methods.
 type Headers http.Header
+
+func (h1 Headers) Equals(h2 Headers) bool {
+	if len(h1) != len(h2) {
+		return false
+	}
+	for k1, v1s := range r1.Headers {
+		v2s, ok := r2.Headers[k1]
+		if !ok || len(v2s) != len(v1s) {
+			return false
+		}
+		for i, v1 := range v1s {
+			if v2s[i] != v1 {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 // implements sql.Valuer, returning a string
 func (h Headers) Value() (driver.Value, error) {
