@@ -267,7 +267,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
 	if isHot {
 
-		// For hot requests, we use a long lived (60 minutes) slot queue, which we use to manage hot containers
+		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 		var isNew bool
 		call.slots, isNew = a.slotMgr.getHotSlotQueue(call)
 		if isNew {

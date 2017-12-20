@@ -19,7 +19,7 @@ func (a *testSlot) exec(ctx context.Context, call *call) error {
 
 func (a *testSlot) Close() error {
 	if a.isClosed {
-		return fmt.Errorf("id=%d already closed %v", a.id, a)
+		panic(fmt.Errorf("id=%d already closed %v", a.id, a))
 	}
 	a.isClosed = true
 	return nil
@@ -51,7 +51,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 	select {
 	case z := <-outChan:
 		t.Fatalf("Should not get anything from queue: %#v", z)
-	default:
+	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
 
 	// create slots
@@ -102,6 +102,13 @@ func TestSlotQueueBasic1(t *testing.T) {
 			t.Fatalf("Cannot acquire slotToken received: %#v", z)
 		}
 
+		// second acquire shoudl fail
+		if z.acquireSlot() {
+			t.Fatalf("Should not be able to acquire twice slotToken: %#v", z)
+		}
+
+		z.slot.Close()
+
 	case <-time.After(time.Duration(1) * time.Second):
 		t.Fatal("timeout in waiting slotToken")
 	}
@@ -139,7 +146,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 		if ok {
 			t.Fatalf("Should not get anything from queue: %#v", z)
 		}
-	default:
+	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
 
 	// attempt to queue again should fail
@@ -164,5 +171,125 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	if isNeeded {
 		t.Fatalf("Shouldn't need a container for destroy slotQueue")
+	}
+
+	// all slots should now be closed
+	for id := uint64(0); id < maxId; id += 1 {
+		inner := slots[id].(*testSlot)
+		if !inner.isClosed {
+			t.Fatalf("slot not closed: %#v", slots[id])
+		}
+	}
+
+}
+
+func TestSlotQueueBasic2(t *testing.T) {
+
+	obj := NewSlotQueue("test2")
+
+	if !obj.isIdle() {
+		t.Fatalf("Should be idle")
+	}
+	if ok, _ := obj.isNewContainerNeeded(); ok {
+		t.Fatalf("Should not need a new container")
+	}
+
+	// twice should be safe
+	obj.destroySlotQueue()
+	obj.destroySlotQueue()
+
+	outChan, cancel := obj.startDequeuer(context.Background())
+	select {
+	case _, ok := <-outChan:
+		if ok {
+			t.Fatalf("out chan should be closed/empty for destroyed queue")
+		}
+	case <-time.After(time.Duration(1) * time.Second):
+		t.Fatal("timeout in waiting slotToken")
+	}
+
+	cancel()
+}
+
+func TestSlotQueueBasic3(t *testing.T) {
+
+	slotName := "test3"
+
+	obj := NewSlotQueue(slotName)
+	_, cancel1 := obj.startDequeuer(context.Background())
+
+	slot1 := NewTestSlot(1)
+	slot2 := NewTestSlot(2)
+	token1 := obj.queueSlot(slot1)
+	obj.queueSlot(slot2)
+
+	// now our slot must be ready in outChan, but let's cancel it
+	// to cause a requeue. This should cause [1, 2] ordering to [2, 1]
+	cancel1()
+
+	outChan, cancel2 := obj.startDequeuer(context.Background())
+
+	// we should get '2' since cancel1() reordered the queue
+	select {
+	case item, ok := <-outChan:
+		if !ok {
+			t.Fatalf("outChan should be open")
+		}
+
+		inner := item.slot.(*testSlot)
+		outer := slot2.(*testSlot)
+
+		if inner.id != outer.id {
+			t.Fatalf("item should be 2")
+		}
+		if inner.isClosed {
+			t.Fatalf("2 should not yet be closed")
+		}
+
+		if !item.acquireSlot() {
+			t.Fatalf("2 acquire should not fail")
+		}
+
+		item.slot.Close()
+
+	case <-time.After(time.Duration(1) * time.Second):
+		t.Fatal("timeout in waiting slotToken")
+	}
+
+	// let's eject 1
+	if !obj.ejectSlot(token1) {
+		t.Fatalf("failed to eject 1")
+	}
+	if !slot1.(*testSlot).isClosed {
+		t.Fatalf("1 should be closed")
+	}
+
+	// we should not get anything. queue should be empty
+	select {
+	case <-outChan:
+		t.Fatalf("outChan should block")
+	default:
+	}
+
+	// let's cancel after destroy this time
+	obj.destroySlotQueue()
+	cancel2()
+
+	// channel should be closed.
+	select {
+	case _, ok := <-outChan:
+		if ok {
+			t.Fatalf("outChan should be closed")
+		}
+	case <-time.After(time.Duration(1) * time.Second):
+		t.Fatal("timeout in waiting slotToken")
+	}
+
+	// both should be closed
+	if !slot1.(*testSlot).isClosed {
+		t.Fatalf("item1 should be closed")
+	}
+	if !slot2.(*testSlot).isClosed {
+		t.Fatalf("item2 should be closed")
 	}
 }
