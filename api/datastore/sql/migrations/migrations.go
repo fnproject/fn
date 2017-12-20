@@ -8,6 +8,8 @@
 // 3_add_call_error.up.sql
 // 4_add_route_updated_at.down.sql
 // 4_add_route_updated_at.up.sql
+// 5_add_app_created_at.down.sql
+// 5_add_app_created_at.up.sql
 // DO NOT EDIT!
 
 package migrations
@@ -230,7 +232,47 @@ func _4_add_route_updated_atUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "4_add_route_updated_at.up.sql", size: 48, mode: os.FileMode(420), modTime: time.Unix(1513730260, 0)}
+	info := bindataFileInfo{name: "4_add_route_updated_at.up.sql", size: 48, mode: os.FileMode(420), modTime: time.Unix(1513730369, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __5_add_app_created_atDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x48\x2c\x28\x28\x56\x70\x09\xf2\x0f\x50\x70\xf6\xf7\x09\xf5\xf5\x53\x48\x2e\x4a\x4d\x2c\x49\x4d\x89\x4f\x2c\xb1\xe6\x02\x04\x00\x00\xff\xff\xd2\xde\x5c\x98\x29\x00\x00\x00")
+
+func _5_add_app_created_atDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__5_add_app_created_atDownSql,
+		"5_add_app_created_at.down.sql",
+	)
+}
+
+func _5_add_app_created_atDownSql() (*asset, error) {
+	bytes, err := _5_add_app_created_atDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "5_add_app_created_at.down.sql", size: 41, mode: os.FileMode(420), modTime: time.Unix(1513730497, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __5_add_app_created_atUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x48\x2c\x28\x28\x56\x70\x74\x71\x51\x48\x2e\x4a\x4d\x2c\x49\x4d\x89\x4f\x2c\x51\x28\x4b\x2c\x4a\xce\x48\x2c\xd2\x30\x32\x35\xd3\xb4\xe6\x02\x04\x00\x00\xff\xff\x76\x6c\x0f\x45\x2e\x00\x00\x00")
+
+func _5_add_app_created_atUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__5_add_app_created_atUpSql,
+		"5_add_app_created_at.up.sql",
+	)
+}
+
+func _5_add_app_created_atUpSql() (*asset, error) {
+	bytes, err := _5_add_app_created_atUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "5_add_app_created_at.up.sql", size: 46, mode: os.FileMode(420), modTime: time.Unix(1513730527, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -295,6 +337,8 @@ var _bindata = map[string]func() (*asset, error){
 	"3_add_call_error.up.sql":         _3_add_call_errorUpSql,
 	"4_add_route_updated_at.down.sql": _4_add_route_updated_atDownSql,
 	"4_add_route_updated_at.up.sql":   _4_add_route_updated_atUpSql,
+	"5_add_app_created_at.down.sql":   _5_add_app_created_atDownSql,
+	"5_add_app_created_at.up.sql":     _5_add_app_created_atUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -346,6 +390,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"3_add_call_error.up.sql":         &bintree{_3_add_call_errorUpSql, map[string]*bintree{}},
 	"4_add_route_updated_at.down.sql": &bintree{_4_add_route_updated_atDownSql, map[string]*bintree{}},
 	"4_add_route_updated_at.up.sql":   &bintree{_4_add_route_updated_atUpSql, map[string]*bintree{}},
+	"5_add_app_created_at.down.sql":   &bintree{_5_add_app_created_atDownSql, map[string]*bintree{}},
+	"5_add_app_created_at.up.sql":     &bintree{_5_add_app_created_atUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

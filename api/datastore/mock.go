@@ -75,7 +75,7 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 	if err != nil {
 		return nil, err
 	}
-	a.UpdateConfig(app.Config)
+	a.UpdateConfig(app)
 
 	return a.Clone(), nil
 }

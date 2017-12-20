@@ -60,7 +60,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 	`CREATE TABLE IF NOT EXISTS apps (
 	name varchar(256) NOT NULL PRIMARY KEY,
-	config text NOT NULL
+	config text NOT NULL,
+	created_at varchar(256)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS calls (
@@ -261,7 +262,16 @@ func (ds *sqlStore) clear() error {
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	query := ds.db.Rebind("INSERT INTO apps (name, config) VALUES (:name, :config);")
+	query := ds.db.Rebind(`INSERT INTO apps (
+		name,
+		config,
+		created_at
+	)
+	VALUES (
+		:name,
+		:config,
+		:created_at
+	);`)
 	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
 		switch err := err.(type) {
@@ -287,7 +297,9 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
 	app := &models.App{Name: newapp.Name}
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(`SELECT config FROM apps WHERE name=?`)
+		// NOTE: must query whole object since we're returning app, UpdateConfig logic
+		// must only modify modifiable fields (as seen here). need to fix brittle..
+		query := tx.Rebind(`SELECT name, config, created_at FROM apps WHERE name=?`)
 		row := tx.QueryRowxContext(ctx, query, app.Name)
 
 		err := row.StructScan(app)
@@ -297,7 +309,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
-		app.UpdateConfig(newapp.Config)
+		app.UpdateConfig(newapp)
 
 		query = tx.Rebind(`UPDATE apps SET config=:config WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
@@ -352,7 +364,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	query := ds.db.Rebind(`SELECT name, config FROM apps WHERE name=?`)
+	query := ds.db.Rebind(`SELECT name, config, created_at FROM apps WHERE name=?`)
 	row := ds.db.QueryRowxContext(ctx, query, name)
 
 	var res models.App
@@ -375,10 +387,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Printf("QUERY: %v\n", query)
-	// fmt.Printf("ARGS: %v\n", args)
-	// hmm, should this have DISTINCT in it? shouldn't be possible to have two apps with same name
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, created_at FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -487,7 +496,6 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			idle_timeout = :idle_timeout,
 			headers = :headers,
 			config = :config,
-			created_at = :created_at,
 			updated_at = :updated_at
 		WHERE app_name=:app_name AND path=:path;`)
 

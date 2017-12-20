@@ -1,8 +1,25 @@
 package models
 
+import (
+	"time"
+
+	"github.com/go-openapi/strfmt"
+)
+
 type App struct {
-	Name   string `json:"name" db:"name"`
-	Config Config `json:"config,omitempty" db:"config"`
+	Name      string          `json:"name" db:"name"`
+	Config    Config          `json:"config,omitempty" db:"config"`
+	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+}
+
+func (a *App) SetDefaults() {
+	if time.Time(a.CreatedAt).IsZero() {
+		a.CreatedAt = strfmt.DateTime(time.Now())
+	}
+	if a.Config == nil {
+		// keeps the json from being nil
+		a.Config = map[string]string{}
+	}
 }
 
 func (a *App) Validate() error {
@@ -33,12 +50,12 @@ func (a *App) Clone() *App {
 }
 
 // UpdateConfig adds entries from patch to a.Config, and removes entries with empty values.
-func (a *App) UpdateConfig(patch Config) {
-	if patch != nil {
+func (a *App) UpdateConfig(src *App) {
+	if src.Config != nil {
 		if a.Config == nil {
 			a.Config = make(Config)
 		}
-		for k, v := range patch {
+		for k, v := range src.Config {
 			if v == "" {
 				delete(a.Config, k)
 			} else {

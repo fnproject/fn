@@ -5,12 +5,10 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"github.com/go-openapi/strfmt"
 )
 
 /* handleRouteCreateOrUpdate is used to handle POST PUT and PATCH for routes.

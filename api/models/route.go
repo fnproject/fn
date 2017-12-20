@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-openapi/strfmt"
 )
@@ -57,6 +58,7 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Config == nil {
+		// keeps the json from being nil
 		r.Config = map[string]string{}
 	}
 
