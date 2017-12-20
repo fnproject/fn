@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -33,30 +34,52 @@ func testServer(ds models.Datastore, mq models.MessageQueue, logDB models.LogSto
 	)
 }
 
-func routerRequest(t *testing.T, router *gin.Engine, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
+func createRequest(t *testing.T, method, path string, body io.Reader) *http.Request {
+
+	bodyLen := int64(0)
+
+	// HACK: derive content-length since protocol/http does not add content-length
+	// if it's not present.
+	if body != nil {
+		buf := &bytes.Buffer{}
+		nRead, err := io.Copy(buf, body)
+		if err != nil {
+			t.Fatalf("Test: Could not copy %s request body to %s: %v", method, path, err)
+		}
+
+		bodyLen = nRead
+		body = buf
+	}
+
 	req, err := http.NewRequest(method, "http://127.0.0.1:8080"+path, body)
 	if err != nil {
 		t.Fatalf("Test: Could not create %s request to %s: %v", method, path, err)
 	}
+
+	if body != nil {
+		req.ContentLength = bodyLen
+		req.Header.Set("Content-Length", strconv.FormatInt(bodyLen, 10))
+	}
+
+	return req
+}
+
+func routerRequest(t *testing.T, router *gin.Engine, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
+	req := createRequest(t, method, path, body)
 	return routerRequest2(t, router, req)
 }
 
 func routerRequest2(t *testing.T, router *gin.Engine, req *http.Request) (*http.Request, *httptest.ResponseRecorder) {
-
 	rec := httptest.NewRecorder()
+	rec.Body = new(bytes.Buffer)
 	router.ServeHTTP(rec, req)
-
 	return req, rec
 }
 
 func newRouterRequest(t *testing.T, method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
-	req, err := http.NewRequest(method, "http://127.0.0.1:8080"+path, body)
-	if err != nil {
-		t.Fatalf("Test: Could not create %s request to %s: %v", method, path, err)
-	}
-
+	req := createRequest(t, method, path, body)
 	rec := httptest.NewRecorder()
-
+	rec.Body = new(bytes.Buffer)
 	return req, rec
 }
 

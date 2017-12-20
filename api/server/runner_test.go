@@ -243,8 +243,10 @@ func TestRouteRunnerTimeout(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/sleeper", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: 128, Timeout: 4, IdleTimeout: 30},
-			{Path: "/waitmemory", AppName: "myapp", Image: "fnproject/sleeper", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
+			{Path: "/cold", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 4, IdleTimeout: 30},
+			{Path: "/hot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 4, IdleTimeout: 30},
+			{Path: "/bigmem-cold", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
+			{Path: "/bigmem-hot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
 		}, nil,
 	)
 
@@ -261,17 +263,20 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		expectedCode    int
 		expectedHeaders map[string][]string
 	}{
-		{"/r/myapp/sleeper", `{"sleep": 0}`, "POST", http.StatusOK, nil},
-		{"/r/myapp/sleeper", `{"sleep": 5}`, "POST", http.StatusGatewayTimeout, nil},
-		{"/r/myapp/waitmemory", `{"sleep": 0}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
+		{"/r/myapp/cold", `{"sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/r/myapp/cold", `{"sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
+		{"/r/myapp/hot", `{"sleepTime": 5000, "isDebug": true}`, "POST", http.StatusGatewayTimeout, nil},
+		{"/r/myapp/hot", `{"sleepTime": 0, "isDebug": true}`, "POST", http.StatusOK, nil},
+		{"/r/myapp/bigmem-cold", `{"sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
+		{"/r/myapp/bigmem-hot", `{"sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
+			t.Errorf("Test %d: Expected status code to be %d but was %d body: %#v",
+				i, test.expectedCode, rec.Code, rec.Body.String())
 		}
 
 		if test.expectedHeaders == nil {
@@ -280,8 +285,8 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		for name, header := range test.expectedHeaders {
 			if header[0] != rec.Header().Get(name) {
 				t.Log(buf.String())
-				t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
-					i, name, header[0], rec.Header().Get(name))
+				t.Errorf("Test %d: Expected header `%s` to be %s but was %s body: %#v",
+					i, name, header[0], rec.Header().Get(name), rec.Body.String())
 			}
 		}
 	}
