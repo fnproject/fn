@@ -38,14 +38,15 @@ func createRequest(t *testing.T, method, path string, body io.Reader) *http.Requ
 
 	bodyLen := int64(0)
 
-	// derive content-length since protocol/http does not content-length if they
-	// are not present.
+	// HACK: derive content-length since protocol/http does not add content-length
+	// if it's not present.
 	if body != nil {
 		buf := &bytes.Buffer{}
 		nRead, err := io.Copy(buf, body)
 		if err != nil {
 			t.Fatalf("Test: Could not copy %s request body to %s: %v", method, path, err)
 		}
+
 		bodyLen = nRead
 		body = buf
 	}
