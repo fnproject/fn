@@ -137,13 +137,13 @@ func (r *Route) Clone() *Route {
 
 	// now deep copy the maps
 	if r.Config != nil {
-		clone.Config = make(Config)
+		clone.Config = make(Config, len(r.Config))
 		for k, v := range r.Config {
 			clone.Config[k] = v
 		}
 	}
 	if r.Headers != nil {
-		clone.Headers = Headers(make(http.Header))
+		clone.Headers = Headers(make(http.Header), len(r.Headers))
 		for k, v := range r.Headers {
 			// TODO technically, we need to deep copy this slice...
 			clone.Headers[k] = v

@@ -47,7 +47,7 @@ func (a *App) Clone() *App {
 
 	// now deep copy the map
 	if a.Config != nil {
-		clone.Config = make(Config)
+		clone.Config = make(Config, len(a.Config))
 		for k, v := range a.Config {
 			clone.Config[k] = v
 		}
