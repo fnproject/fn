@@ -204,6 +204,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 	switch s.nodeType {
 	case ServerTypeAPI:
+		if s.agent != nil {
+			logrus.Info("shutting down agent configured for api node")
+			s.agent.Close()
+		}
 		s.agent = nil
 	case ServerTypeRunner:
 		if s.agent == nil {
@@ -215,9 +219,11 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 			logrus.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 		}
 
-		// TODO force caller to use WithAgent option ?
-		// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
-		s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		// TODO force caller to use WithAgent option? at this point we need to use the ds/ls/mq configured after all opts are run.
+		if s.agent == nil {
+			// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
+			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		}
 	}
 
 	setMachineID()
