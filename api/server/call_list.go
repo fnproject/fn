@@ -27,11 +27,11 @@ func (s *Server) handleCallList(c *gin.Context) {
 		return
 	}
 
-	calls, err := s.Datastore().GetCalls(ctx, &filter)
+	calls, err := s.datastore.GetCalls(ctx, &filter)
 
 	if len(calls) == 0 {
 		// TODO this should be done in front of this handler to even get here...
-		_, err = s.Datastore().GetApp(c, appName)
+		_, err = s.datastore.GetApp(c, appName)
 	}
 
 	if err != nil {

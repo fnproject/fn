@@ -20,7 +20,7 @@ func (s *Server) apiAppHandlerWrapperFunc(apiHandler fnext.ApiAppHandler) gin.Ha
 	return func(c *gin.Context) {
 		// get the app
 		appName := c.Param(api.CApp)
-		app, err := s.Datastore().GetApp(c.Request.Context(), appName)
+		app, err := s.datastore.GetApp(c.Request.Context(), appName)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
@@ -41,7 +41,7 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gi
 		context := c.Request.Context()
 		// get the app
 		appName := c.Param(api.CApp)
-		app, err := s.Datastore().GetApp(context, appName)
+		app, err := s.datastore.GetApp(context, appName)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
@@ -54,7 +54,7 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gi
 		}
 		// get the route TODO
 		routePath := "/" + c.Param(api.CRoute)
-		route, err := s.Datastore().GetRoute(context, appName, routePath)
+		route, err := s.datastore.GetRoute(context, appName, routePath)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()

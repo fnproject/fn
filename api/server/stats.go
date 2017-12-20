@@ -7,5 +7,5 @@ import (
 )
 
 func (s *Server) handleStats(c *gin.Context) {
-	c.JSON(http.StatusOK, s.Agent.Stats())
+	c.JSON(http.StatusOK, s.agent.Stats())
 }

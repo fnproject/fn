@@ -64,11 +64,13 @@ func (s ServerNodeType) String() string {
 }
 
 type Server struct {
-	Router          *gin.Engine
-	Agent           agent.Agent
+	// TODO this one maybe we have `AddRoute` in extensions?
+	Router *gin.Engine
+
+	agent           agent.Agent
 	datastore       models.Datastore
-	MQ              models.MessageQueue
-	LogDB           models.LogStore
+	mq              models.MessageQueue
+	logstore        models.LogStore
 	nodeType        ServerNodeType
 	appListeners    []fnext.AppListener
 	rootMiddlewares []fnext.Middleware
@@ -168,15 +170,15 @@ func WithDatastore(ds models.Datastore) ServerOption {
 }
 
 func WithMQ(mq models.MessageQueue) ServerOption {
-	return func(s *Server) { s.MQ = mq }
+	return func(s *Server) { s.mq = mq }
 }
 
 func WithLogstore(ls models.LogStore) ServerOption {
-	return func(s *Server) { s.LogDB = ls }
+	return func(s *Server) { s.logstore = ls }
 }
 
 func WithAgent(agent agent.Agent) ServerOption {
-	return func(s *Server) { s.Agent = agent }
+	return func(s *Server) { s.agent = agent }
 }
 
 // New creates a new Functions server with the opts given. For convenience, users may
@@ -194,28 +196,28 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		opt(s)
 	}
 
-	if s.LogDB == nil { // TODO seems weird?
-		s.LogDB = s.Datastore()
+	if s.logstore == nil { // TODO seems weird?
+		s.logstore = s.datastore
 	}
 
 	// TODO we maybe should use the agent.DirectDataAccess in the /runner endpoints server side?
 
 	switch s.nodeType {
 	case ServerTypeAPI:
-		s.Agent = nil
+		s.agent = nil
 	case ServerTypeRunner:
-		if s.Agent == nil {
+		if s.agent == nil {
 			logrus.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
 		}
 	default:
 		s.nodeType = ServerTypeFull
-		if s.Datastore() == nil || s.LogDB == nil || s.MQ == nil {
+		if s.datastore == nil || s.logstore == nil || s.mq == nil {
 			logrus.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 		}
 
 		// TODO force caller to use WithAgent option ?
 		// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
-		s.Agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.Datastore(), s.LogDB, s.MQ)))
+		s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
 	}
 
 	setMachineID()
@@ -358,8 +360,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		logrus.WithError(err).Error("server shutdown error")
 	}
 
-	if s.Agent != nil {
-		s.Agent.Close() // after we stop taking requests, wait for all tasks to finish
+	if s.agent != nil {
+		s.agent.Close() // after we stop taking requests, wait for all tasks to finish
 	}
 }
 
@@ -434,6 +436,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	})
 }
 
+// implements fnext.ExtServer
 func (s *Server) Datastore() models.Datastore {
 	return s.datastore
 }
