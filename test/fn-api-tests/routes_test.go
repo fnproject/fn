@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/fnproject/fn/api/id"
+	api_models "github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn_go/models"
 )
 
@@ -201,7 +202,7 @@ func TestRoutes(t *testing.T) {
 		routeHeaders["B"] = []string{"b"}
 		DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, routeHeaders)
 		sameRoute := DeployRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType, s.Format, s.RouteConfig, routeHeaders)
-		if !models.Headers(sameRoute.Headers).Equals(models.Headers(routeHeaders)) {
+		if !api_models.Headers(sameRoute.Headers).Equals(api_models.Headers(routeHeaders)) {
 			t.Error("Route headers should remain the same after multiple deploys with exact the same parameters")
 		}
 		DeleteApp(t, s.Context, s.Client, s.AppName)
