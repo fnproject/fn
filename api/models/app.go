@@ -42,15 +42,17 @@ func (a *App) Validate() error {
 }
 
 func (a *App) Clone() *App {
-	var c App
-	c.Name = a.Name
+	clone := new(App)
+	*clone = *a // shallow copy
+
+	// now deep copy the map
 	if a.Config != nil {
-		c.Config = make(Config)
+		clone.Config = make(Config)
 		for k, v := range a.Config {
-			c.Config[k] = v
+			clone.Config[k] = v
 		}
 	}
-	return &c
+	return clone
 }
 
 // UpdateConfig adds entries from patch to a.Config, and removes entries with empty values.

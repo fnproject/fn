@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
@@ -75,6 +76,28 @@ func TestAppCreate(t *testing.T) {
 					i, test.expectedError.Error())
 			}
 		}
+
+		if test.expectedCode == http.StatusOK {
+			var awrap models.AppWrapper
+			err := json.NewDecoder(rec.Body).Decode(&awrap)
+			if err != nil {
+				t.Log(buf.String())
+				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
+			}
+
+			app := awrap.App
+
+			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+			if time.Time(app.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+				t.Log(buf.String())
+				t.Error("Test %d: expected created_at to be set on app, it wasn't: %v", i, app.CreatedAt)
+			}
+			if !(time.Time(app.CreatedAt)).Equal(time.Time(app.UpdatedAt)) {
+				t.Log(buf.String())
+				t.Error("Test %d: expected updated_at to be set and same as created at, it wasn't: %v %v", i, app.CreatedAt, app.UpdatedAt)
+			}
+		}
+
 		cancel()
 	}
 }
@@ -287,6 +310,31 @@ func TestAppUpdate(t *testing.T) {
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
+			}
+		}
+
+		if test.expectedCode == http.StatusOK {
+			var awrap models.AppWrapper
+			err := json.NewDecoder(rec.Body).Decode(&awrap)
+			if err != nil {
+				t.Log(buf.String())
+				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
+			}
+
+			app := awrap.App
+			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+			if time.Time(app.UpdatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+				t.Log(buf.String())
+				t.Error("Test %d: expected updated_at to be set on app, it wasn't: %v", i, app.UpdatedAt)
+			}
+
+			// this isn't perfect, since a PATCH could succeed without updating any
+			// fields (among other reasons), but just don't make a test for that or
+			// special case (the body or smth) to ignore it here!
+			// this is a decent approximation that the timestamp gets changed
+			if (time.Time(app.UpdatedAt)).Equal(time.Time(app.CreatedAt)) {
+				t.Log(buf.String())
+				t.Error("Test %d: expected updated_at to not be the same as created at, it wasn't: %v %v", i, app.CreatedAt, app.UpdatedAt)
 			}
 		}
 

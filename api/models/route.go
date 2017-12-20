@@ -132,11 +132,24 @@ func (r *Route) Validate() error {
 }
 
 func (r *Route) Clone() *Route {
-	var clone Route
-	clone.AppName = r.AppName
-	clone.Path = r.Path
-	clone.Update(r)
-	return &clone
+	clone := new(Route)
+	*clone = *r // shallow copy
+
+	// now deep copy the maps
+	if r.Config != nil {
+		clone.Config = make(Config)
+		for k, v := range r.Config {
+			clone.Config[k] = v
+		}
+	}
+	if r.Headers != nil {
+		clone.Headers = Headers(make(http.Header))
+		for k, v := range r.Headers {
+			// TODO technically, we need to deep copy this slice...
+			clone.Headers[k] = v
+		}
+	}
+	return clone
 }
 
 func (r *Route) up() { r.UpdatedAt = strfmt.DateTime(time.Now()) }
