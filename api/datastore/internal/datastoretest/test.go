@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"log"
-	"reflect"
 	"testing"
 	"time"
 
@@ -289,7 +288,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test InsertApp: error when storing new app: %s", err)
 		}
-		if !reflect.DeepEqual(*inserted, *testApp) {
+		if !inserted.Equals(testApp) {
 			t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", testApp, inserted)
 		}
 
@@ -300,13 +299,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		{
 			// Set a config var
-			updated, err := ds.UpdateApp(ctx,
-				&models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}})
+			updated, err := ds.UpdateApp(ctx, &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}})
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
 			expected := &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 
@@ -317,7 +315,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
 			expected = &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 
@@ -328,7 +326,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
 			expected = &models.App{Name: testApp.Name, Config: map[string]string{"OTHER": "TEST"}}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 		}
@@ -496,9 +494,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			if err != nil {
 				t.Fatalf("Test GetRoute: unexpected error %v", err)
 			}
-			var expected models.Route = *testRoute
-			if !reflect.DeepEqual(*route, expected) {
-				t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", expected, *route)
+			if !route.Equals(testRoute) {
+				t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", testRoute, *route)
 			}
 		}
 
@@ -545,7 +542,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 					"Third":  []string{"test", "test2"},
 				},
 			}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateRoute: expected updated `%v` but got `%v`", expected, updated)
 			}
 
@@ -586,7 +583,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 					"Third": []string{"test", "test2"},
 				},
 			}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateRoute: expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
 			}
 		}

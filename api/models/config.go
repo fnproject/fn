@@ -18,8 +18,8 @@ func (c1 Config) Equals(c2 Config) bool {
 	if len(c1) != len(c2) {
 		return false
 	}
-	for k1, v1 := range r1.Config {
-		v2, _ := r2.Config[k1]
+	for k1, v1 := range c1 {
+		v2, _ := c2[k1]
 		if v1 != v2 {
 			return false
 		}
@@ -73,9 +73,9 @@ func (h1 Headers) Equals(h2 Headers) bool {
 	if len(h1) != len(h2) {
 		return false
 	}
-	for k1, v1s := range r1.Headers {
-		v2s, ok := r2.Headers[k1]
-		if !ok || len(v2s) != len(v1s) {
+	for k1, v1s := range h1 {
+		v2s, _ := h2[k1]
+		if len(v2s) != len(v1s) {
 			return false
 		}
 		for i, v1 := range v1s {

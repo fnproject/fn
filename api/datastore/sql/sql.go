@@ -300,7 +300,7 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
 	app := &models.App{Name: newapp.Name}
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		// NOTE: must query whole object since we're returning app, UpdateConfig logic
+		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
 		query := tx.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
 		row := tx.QueryRowxContext(ctx, query, app.Name)
@@ -312,7 +312,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
-		app.UpdateConfig(newapp)
+		app.Update(newapp)
 
 		query = tx.Rebind(`UPDATE apps SET config=:config, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)

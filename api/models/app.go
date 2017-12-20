@@ -55,10 +55,25 @@ func (a *App) Clone() *App {
 	return clone
 }
 
-// UpdateConfig adds entries from patch to a.Config, and removes entries with empty values.
-func (a *App) UpdateConfig(src *App) {
+func (a1 *App) Equals(a2 *App) bool {
+	// start off equal, check equivalence of each field.
+	// the RHS of && won't eval if eq==false so config checking is lazy
+
+	eq := true
+	eq = eq && a1.Name == a2.Name
+	eq = eq && a1.Config.Equals(a2.Config)
+	// NOTE: datastore tests are not very fun to write with timestamp checks,
+	// and these are not values the user may set so we kind of don't care.
+	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
+	//eq = eq && time.Time(a1.UpdatedAt).Equal(time.Time(a2.UpdatedAt))
+	return eq
+}
+
+// Update adds entries from patch to a.Config, and removes entries with empty values.
+func (a *App) Update(src *App) {
+	original := a.Clone()
+
 	if src.Config != nil {
-		a.UpdatedAt = strfmt.DateTime(time.Now())
 		if a.Config == nil {
 			a.Config = make(Config)
 		}
@@ -69,6 +84,10 @@ func (a *App) UpdateConfig(src *App) {
 				a.Config[k] = v
 			}
 		}
+	}
+
+	if !a.Equals(original) {
+		a.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 }
 
