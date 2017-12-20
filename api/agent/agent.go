@@ -300,27 +300,24 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		timeout = idleTimeout
 	}
 
-	logger := logrus.WithFields(logrus.Fields{
-		"app":              call.AppName,
-		"route":            call.Path,
-		"image":            call.Image,
-		"memory":           call.Memory,
-		"format":           call.Format,
-		"idle_timeout":     call.IdleTimeout,
-		"launcher_timeout": timeout})
-
-	logger.Info("Hot function launcher starting")
+	logger := common.Logger(ctx)
+	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
 	isAsync := call.Type == models.TypeAsync
 
-loop:
+	defer func() {
+		logger.Info("Hot function launcher terminating")
+		a.slotMgr.destroySlotQueue(call.slots)
+		a.wg.Done()
+	}()
+
 	for {
 		select {
 		case <-a.shutdown: // server shutdown
-			break loop
+			return
 		case <-time.After(timeout):
 			if call.slots.isIdle() {
 				logger.Info("Hot function launcher timed out")
-				break loop
+				return
 			}
 		case <-call.slots.signaller:
 		}
@@ -328,7 +325,7 @@ loop:
 		isNeeded, stats := call.slots.isNewContainerNeeded()
 		logger.WithField("stats", stats).Debug("Hot function launcher stats")
 		if !isNeeded {
-			continue loop
+			continue
 		}
 
 		resourceCtx, cancel := context.WithCancel(context.Background())
@@ -347,17 +344,13 @@ loop:
 			cancel()
 			if call.slots.isIdle() {
 				logger.Info("Hot function launcher timed out")
-				break loop
+				return
 			}
 		case <-a.shutdown: // server shutdown
 			cancel()
-			break loop
+			return
 		}
 	}
-
-	logger.Info("Hot function launcher terminating")
-	a.slotMgr.destroySlotQueue(call.slots)
-	a.wg.Done()
 }
 
 // waitHot pings and waits for a hot container from the slot queue
