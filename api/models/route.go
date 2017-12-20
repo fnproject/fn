@@ -143,7 +143,7 @@ func (r *Route) Clone() *Route {
 		}
 	}
 	if r.Headers != nil {
-		clone.Headers = Headers(make(http.Header), len(r.Headers))
+		clone.Headers = make(Headers, len(r.Headers))
 		for k, v := range r.Headers {
 			// TODO technically, we need to deep copy this slice...
 			clone.Headers[k] = v
