@@ -168,7 +168,7 @@ func TestRunnerNode(t *testing.T) {
 
 	// Add route with an API server using the same DB
 	{
-		apiServer := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeAPI)
+		apiServer := testServer(ds, &mqs.Mock{}, logDB, nil, ServerTypeAPI)
 		_, rec := routerRequest(t, apiServer.Router, "POST", "/v1/apps/myapp/routes", bytes.NewBuffer([]byte(`{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`)))
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status code 200 when creating sync route, but got %d", rec.Code)
