@@ -5,5 +5,5 @@ import (
 )
 
 func (s *Server) handlePrometheusMetrics(c *gin.Context) {
-	s.Agent.PromHandler().ServeHTTP(c.Writer, c.Request)
+	s.agent.PromHandler().ServeHTTP(c.Writer, c.Request)
 }

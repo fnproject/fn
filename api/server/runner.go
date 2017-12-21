@@ -55,7 +55,7 @@ func parseParams(params gin.Params) agent.Params {
 func (s *Server) serve(c *gin.Context, appName, path string) {
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
-	call, err := s.Agent.GetCall(
+	call, err := s.agent.GetCall(
 		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
 		agent.FromRequest(appName, path, c.Request, parseParams(c.Params)),
 	)
@@ -85,7 +85,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		model.Payload = buf.String()
 
 		// TODO idk where to put this, but agent is all runner really has...
-		err = s.Agent.Enqueue(c.Request.Context(), model)
+		err = s.agent.Enqueue(c.Request.Context(), model)
 		if err != nil {
 			handleErrorResponse(c, err)
 			return
@@ -95,7 +95,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		return
 	}
 
-	err = s.Agent.Submit(call)
+	err = s.agent.Submit(call)
 	if err != nil {
 		// NOTE if they cancel the request then it will stop the call (kind of cool),
 		// we could filter that error out here too as right now it yells a little

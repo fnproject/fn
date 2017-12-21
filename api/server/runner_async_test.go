@@ -17,10 +17,10 @@ func testRouterAsync(ds models.Datastore, mq models.MessageQueue, rnr agent.Agen
 	ctx := context.Background()
 
 	s := &Server{
-		Agent:     rnr,
+		agent:     rnr,
 		Router:    gin.New(),
 		datastore: ds,
-		MQ:        mq,
+		mq:        mq,
 		nodeType:  ServerTypeFull,
 	}
 

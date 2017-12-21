@@ -20,7 +20,7 @@ func (s *Server) handleAppList(c *gin.Context) {
 		return
 	}
 
-	apps, err := s.Datastore().GetApps(ctx, filter)
+	apps, err := s.datastore.GetApps(ctx, filter)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

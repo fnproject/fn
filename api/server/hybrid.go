@@ -25,7 +25,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 
 	// TODO/NOTE: if this endpoint is called multiple times for the same call we
 	// need to figure out the behavior we want. as it stands, there will be N
-	// messages for 1 call which only clogs up the MQ with spurious messages
+	// messages for 1 call which only clogs up the mq with spurious messages
 	// (possibly useful if things get wedged, not the point), the task will still
 	// just run once by the first runner to set it to status=running. we may well
 	// want to push msg only if inserting the call fails, but then we have a call
@@ -33,7 +33,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	// endpoint be retry safe seems ideal and runners likely won't spam it, so current
 	// behavior is okay [but beware of implications].
 	call.Status = "queued"
-	_, err = s.MQ.Push(ctx, &call)
+	_, err = s.mq.Push(ctx, &call)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -44,7 +44,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	// runner and enter into 'running' state before we can insert it in the db as
 	// 'queued' state. we can ignore any error inserting into db here and Start
 	// will ensure the call exists in the db in 'running' state there.
-	// s.Datastore().InsertCall(ctx, &call)
+	// s.datastore.InsertCall(ctx, &call)
 
 	c.JSON(200, struct {
 		M string `json:"msg"`
@@ -64,7 +64,7 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 	// long poll until ctx expires / we find a message
 	var b common.Backoff
 	for {
-		call, err := s.MQ.Reserve(ctx)
+		call, err := s.mq.Reserve(ctx)
 		if err != nil {
 			handleErrorResponse(c, err)
 			return
@@ -112,7 +112,7 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	// TODO do this client side and validate it here?
 	//call.Status = "running"
 	//call.StartedAt = strfmt.DateTime(time.Now())
-	//err := s.Datastore().UpdateCall(c.Request.Context(), &call)
+	//err := s.datastore.UpdateCall(c.Request.Context(), &call)
 	//if err != nil {
 	//if err == InvalidStatusChange {
 	//// TODO we could either let UpdateCall handle setting to error or do it
@@ -120,7 +120,7 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 
 	// TODO change this to only delete message if the status change fails b/c it already ran
 	// after messaging semantics change
-	if err := s.MQ.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
+	if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
 		handleErrorResponse(c, err)
 		return
 	}
@@ -153,12 +153,12 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	// TODO this needs UpdateCall functionality to work for async and should only work if:
 	// running->error|timeout|success
 	// TODO all async will fail here :( all sync will work fine :) -- *feeling conflicted*
-	if err := s.Datastore().InsertCall(ctx, &call); err != nil {
+	if err := s.datastore.InsertCall(ctx, &call); err != nil {
 		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := s.LogDB.InsertLog(ctx, call.AppName, call.ID, strings.NewReader(body.Log)); err != nil {
+	if err := s.logstore.InsertLog(ctx, call.AppName, call.ID, strings.NewReader(body.Log)); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
@@ -167,7 +167,7 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	// TODO we don't know whether a call is async or sync. we likely need an additional
 	// arg in params for a message id and can detect based on this. for now, delete messages
 	// for sync and async even though sync doesn't have any (ignore error)
-	//if err := s.MQ.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
+	//if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
 	//common.Logger(ctx).WithError(err).Error("error deleting mq msg")
 	//// note: Not returning err here since the job could have already finished successfully.
 	//}
