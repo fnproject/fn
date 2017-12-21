@@ -23,6 +23,5 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	var b bytes.Buffer
 	b.ReadFrom(logReader)
 
-	c.Header("Content-Type", "text/plain")
-	c.JSON(http.StatusOK, b.String())
+	c.String(http.StatusOK, b.String())
 }
