@@ -1,7 +1,9 @@
 #!/bin/bash
 # Top level test script to start all other tests
 
-set -ex
+set -exuo pipefail
+
+CUR=`pwd`
 
 function host {
     case ${DOCKER_LOCATION:-localhost} in
@@ -23,19 +25,33 @@ function host {
 }
 
 docker rm -fv func-postgres-test || echo No prev test db container
-docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" -p 5432:5432 -d postgres
 docker rm -fv func-mysql-test || echo No prev mysql test db container
-docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
 docker rm -fv func-minio-test || echo No prev minio test container
-docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
 # build test image locally first
-(cd images/fn-test-utils && ./build.sh)
+(cd images/fn-test-utils && ./build.sh) &
+PID1=$!
 
 # pull all images used in tests so that tests don't time out and fail spuriously
-docker pull fnproject/sleeper
-docker pull fnproject/error
-docker pull fnproject/hello
+( docker pull fnproject/sleeper && docker pull fnproject/error && docker pull fnproject/hello) &
+PID2=$!
+
+# pull db images
+( docker pull postgres && docker pull mysql && docker pull minio/minio) &
+PID3=$!
+
+# pull swagger image
+(docker pull quay.io/goswagger/swagger ) &
+PID4=$!
+
+wait $PID1
+wait $PID2
+wait $PID3
+wait $PID4
+
+docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" -p 5432:5432 -d postgres
+docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
+docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
 MYSQL_HOST=`host func-mysql-test`
 MYSQL_PORT=3306
@@ -52,17 +68,17 @@ export MINIO_URL="s3://admin:password@${MINIO_HOST}:${MINIO_PORT}/us-east-1/fnlo
 
 go test $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests | grep -v images/fn-test-utils)
 go vet $(go list ./... | grep -v vendor)
-docker rm --force func-postgres-test
-docker rm --force func-mysql-test
-docker rm --force func-minio-test
 
-docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm  quay.io/goswagger/swagger validate /go/src/github.com/fnproject/fn/docs/swagger.yml
+docker rm --force func-postgres-test func-mysql-test func-minio-test
+
+docker run -v ${CUR}:/go/src/github.com/fnproject/fn --rm  quay.io/goswagger/swagger validate /go/src/github.com/fnproject/fn/docs/swagger.yml
 
 # test middlware, extensions, examples, etc
 # TODO: do more here, maybe as part of fn tests
 cd examples/middleware
 go build
-cd ../..
+cd ${CUR}
+
 cd examples/extensions
 go build
-cd ../..
+cd ${CUR}

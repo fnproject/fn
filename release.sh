@@ -46,8 +46,12 @@ docker push $user/$image_deprecated:$version
 docker push $user/$image_deprecated:latest
 
 # release test utils docker image
-(cd images/fn-test-utils && ./release.sh)
+(cd images/fn-test-utils && ./release.sh) &
+PID1=$!
 
-cd fnlb
-./release.sh
-cd ..
+# release fnlb
+(cd fnlb && ./release.sh ) &
+PID2=$!
+
+wait $PID1
+wait $PID2
