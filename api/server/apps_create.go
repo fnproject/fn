@@ -34,7 +34,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	app, err := s.Datastore.InsertApp(ctx, wapp.App)
+	app, err := s.Datastore().InsertApp(ctx, wapp.App)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

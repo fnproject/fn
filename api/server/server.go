@@ -66,7 +66,7 @@ func (s ServerNodeType) String() string {
 type Server struct {
 	Router          *gin.Engine
 	Agent           agent.Agent
-	Datastore       models.Datastore
+	datastore       models.Datastore
 	MQ              models.MessageQueue
 	LogDB           models.LogStore
 	nodeType        ServerNodeType
@@ -164,7 +164,7 @@ func WithType(t ServerNodeType) ServerOption {
 }
 
 func WithDatastore(ds models.Datastore) ServerOption {
-	return func(s *Server) { s.Datastore = ds }
+	return func(s *Server) { s.datastore = ds }
 }
 
 func WithMQ(mq models.MessageQueue) ServerOption {
@@ -195,7 +195,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	}
 
 	if s.LogDB == nil { // TODO seems weird?
-		s.LogDB = s.Datastore
+		s.LogDB = s.Datastore()
 	}
 
 	// TODO we maybe should use the agent.DirectDataAccess in the /runner endpoints server side?
@@ -209,13 +209,13 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		}
 	default:
 		s.nodeType = ServerTypeFull
-		if s.Datastore == nil || s.LogDB == nil || s.MQ == nil {
+		if s.Datastore() == nil || s.LogDB == nil || s.MQ == nil {
 			logrus.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 		}
 
 		// TODO force caller to use WithAgent option ?
 		// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
-		s.Agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.Datastore, s.LogDB, s.MQ)))
+		s.Agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.Datastore(), s.LogDB, s.MQ)))
 	}
 
 	setMachineID()
@@ -376,13 +376,14 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	if s.nodeType != ServerTypeRunner {
 		v1 := engine.Group("/v1")
+		v1.Use(setAppNameInCtx)
 		v1.Use(s.apiMiddlewareWrapper())
 		v1.GET("/apps", s.handleAppList)
 		v1.POST("/apps", s.handleAppCreate)
 
 		{
 			apps := v1.Group("/apps/:app")
-			apps.Use(appWrap)
+			apps.Use(appNameCheck)
 
 			apps.GET("", s.handleAppGet)
 			apps.PATCH("", s.handleAppUpdate)
@@ -413,7 +414,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	if s.nodeType != ServerTypeAPI {
 		runner := engine.Group("/r")
-		runner.Use(appWrap)
+		runner.Use(appNameCheck)
 		runner.Any("/:app", s.handleFunctionCall)
 		runner.Any("/:app/*route", s.handleFunctionCall)
 	}
@@ -431,6 +432,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 		handleErrorResponse(c, err)
 	})
+}
+
+func (s *Server) Datastore() models.Datastore {
+	return s.datastore
 }
 
 // returns the unescaped ?cursor and ?perPage values

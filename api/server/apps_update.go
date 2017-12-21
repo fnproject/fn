@@ -31,13 +31,13 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 
 	wapp.App.Name = c.MustGet(api.AppName).(string)
 
-	err = s.FireAfterAppUpdate(ctx, wapp.App)
+	err = s.FireBeforeAppUpdate(ctx, wapp.App)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	app, err := s.Datastore.UpdateApp(ctx, wapp.App)
+	app, err := s.Datastore().UpdateApp(ctx, wapp.App)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

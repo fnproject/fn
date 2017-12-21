@@ -37,4 +37,7 @@ type ExtServer interface {
 	AddRouteEndpoint(method, path string, handler ApiRouteHandler)
 	// AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
 	AddRouteEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route))
+
+	// Datastore returns the Datastore Fn is using
+	Datastore() models.Datastore
 }

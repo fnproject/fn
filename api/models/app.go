@@ -48,8 +48,11 @@ func (a *App) UpdateConfig(patch Config) {
 	}
 }
 
+// AppFilter is the filter used for querying apps
 type AppFilter struct {
-	Name    string // prefix query TODO implemented
+	Name string
+	// NameIn will filter by all names in the list (IN query)
+	NameIn  []string
 	PerPage int
 	Cursor  string
 }

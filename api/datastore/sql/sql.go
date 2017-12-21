@@ -362,7 +362,16 @@ func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error
 // GetApps retrieves an array of apps according to a specific filter.
 func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	res := []*models.App{}
-	query, args := buildFilterAppQuery(filter)
+	if filter.NameIn != nil && len(filter.NameIn) == 0 { // this basically makes sure it doesn't return ALL apps
+		return res, nil
+	}
+	query, args, err := buildFilterAppQuery(filter)
+	if err != nil {
+		return nil, err
+	}
+	// fmt.Printf("QUERY: %v\n", query)
+	// fmt.Printf("ARGS: %v\n", args)
+	// hmm, should this have DISTINCT in it? shouldn't be possible to have two apps with same name
 	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
@@ -787,33 +796,49 @@ func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
 	return b.String(), args
 }
 
-func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}) {
+func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error) {
+	var args []interface{}
 	if filter == nil {
-		return "", nil
+		return "", args, nil
 	}
 
 	var b bytes.Buffer
-	var args []interface{}
 
-	where := func(colOp, val string) {
-		if val != "" {
-			args = append(args, val)
-			if len(args) == 1 {
-				fmt.Fprintf(&b, `WHERE %s`, colOp)
-			} else {
-				fmt.Fprintf(&b, ` AND %s`, colOp)
+	// todo: this same thing is in several places in here, DRY it up across this file
+	where := func(colOp, val interface{}) {
+		if val == nil {
+			return
+		}
+		switch v := val.(type) {
+		case string:
+			if v == "" {
+				return
 			}
+		case []string:
+			if len(v) == 0 {
+				return
+			}
+		}
+		args = append(args, val)
+		if len(args) == 1 {
+			fmt.Fprintf(&b, `WHERE %s`, colOp)
+		} else {
+			fmt.Fprintf(&b, ` AND %s`, colOp)
 		}
 	}
 
 	// where("name LIKE ?%", filter.Name) // TODO needs escaping?
 	where("name>?", filter.Cursor)
+	where("name IN (?)", filter.NameIn)
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
-
-	return b.String(), args
+	if len(filter.NameIn) > 0 {
+		// fmt.Println("about to sqlx.in:", b.String(), args)
+		return sqlx.In(b.String(), args...)
+	}
+	return b.String(), args, nil
 }
 
 func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
