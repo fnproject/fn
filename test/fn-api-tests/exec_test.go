@@ -14,15 +14,6 @@ import (
 	"github.com/fnproject/fn_go/client/operations"
 )
 
-type ErrMsg struct {
-	Message string `json:"message"`
-}
-
-type TimeoutBody struct {
-	Error  ErrMsg `json:"error"`
-	CallID string `json:"request_id"`
-}
-
 func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
 	_, err := CallFN(u.String(), content, output, "POST", []string{})
@@ -57,7 +48,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -83,7 +74,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -113,7 +104,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -138,7 +129,7 @@ func TestRouteExecutions(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -198,7 +189,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, int32(2), s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -209,7 +200,7 @@ func TestRouteExecutions(t *testing.T) {
 		content := &bytes.Buffer{}
 		json.NewEncoder(content).Encode(struct {
 			Seconds int64 `json:"seconds"`
-		}{Seconds: 31})
+		}{Seconds: 5})
 		output := &bytes.Buffer{}
 
 		headers, _ := CallFN(u.String(), content, output, "POST", []string{})
@@ -245,7 +236,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -289,7 +280,7 @@ func TestRouteExecutions(t *testing.T) {
 		image := "denismakogon/os.environ"
 		routeType := "sync"
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -323,7 +314,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -364,7 +355,7 @@ func TestRouteExecutions(t *testing.T) {
 
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		size := 1 * 1024 * 1024 * 1024
 		u := url.URL{

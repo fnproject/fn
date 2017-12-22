@@ -104,6 +104,8 @@ type SuiteSetup struct {
 	RouteType    string
 	Format       string
 	Memory       uint64
+	Timeout      int32
+	IdleTimeout  int32
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
 	Cancel       context.CancelFunc
@@ -131,6 +133,8 @@ func SetupDefaultSuite() *SuiteSetup {
 		RouteHeaders: map[string][]string{},
 		Cancel:       cancel,
 		Memory:       uint64(256),
+		Timeout:      int32(30),
+		IdleTimeout:  int32(30),
 	}
 
 	if Host() != "localhost:8080" {

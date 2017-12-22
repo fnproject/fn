@@ -31,7 +31,7 @@ func TestCalls(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		cfg := &call.GetAppsAppCallsCallParams{
 			Call:    "dummy",
@@ -52,7 +52,7 @@ func TestCalls(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
@@ -80,7 +80,7 @@ func TestCalls(t *testing.T) {
 		s := SetupDefaultSuite()
 		CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 		CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
-			s.Format, s.RouteConfig, s.RouteHeaders)
+			s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 		u := url.URL{
 			Scheme: "http",
