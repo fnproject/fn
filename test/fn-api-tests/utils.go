@@ -231,7 +231,7 @@ func MyCaller() string {
 }
 
 func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback func() error) (err error) {
-	for i := 0; ; i++ {
+	for i := 0; i < attempts; i++ {
 		err := callback()
 		if err == nil {
 			t.Log("Exiting retry loop, API call was successful")
@@ -241,7 +241,7 @@ func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback 
 			break
 		}
 		time.Sleep(sleep)
-		t.Logf("Retryting API call after unsuccessful attemt with error: %v", err.Error())
+		t.Logf("[%v] - Retryting API call after unsuccessful attemt with error: %v", i, err.Error())
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }

@@ -212,7 +212,7 @@ func TestCanCauseTimeout(t *testing.T) {
 	}
 	cfg.WithTimeout(time.Second * 60)
 
-	retryErr := APICallWithRetry(t, 5, 2, func() (err error) {
+	retryErr := APICallWithRetry(t, 5, time.Second*2, func() (err error) {
 		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
 		return err
 	})
