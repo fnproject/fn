@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: fn
   description: The open source serverless platform.
-  version: "0.2.2"
+  version: "0.2.3"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
