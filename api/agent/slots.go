@@ -192,8 +192,6 @@ func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context
 				}
 			}
 		}
-
-		close(output)
 	}()
 
 	return output, myCancel

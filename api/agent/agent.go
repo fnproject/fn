@@ -266,7 +266,6 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
 	if isHot {
-
 		start := time.Now()
 
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
@@ -278,7 +277,6 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 		s, err := a.waitHot(ctx, call)
 		call.slots.exitStateWithLatency(SlotQueueWaiter, uint64(time.Now().Sub(start).Seconds()*1000))
-
 		return s, err
 	}
 
@@ -363,10 +361,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		}
 
 		select {
-		case s, ok := <-ch:
-			if !ok {
-				return nil, errors.New("slot shut down while waiting for hot slot")
-			}
+		case s := <-ch:
 			if s.acquireSlot() {
 				if s.slot.Error() != nil {
 					s.slot.Close()
@@ -374,7 +369,6 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 				}
 				return s.slot, nil
 			}
-
 			// we failed to take ownership of the token (eg. container idle timeout) => try again
 		case <-ctx.Done():
 			return nil, ctx.Err()
