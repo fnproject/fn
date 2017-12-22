@@ -118,6 +118,7 @@ type agent struct {
 
 	// used to track running calls / safe shutdown
 	wg       sync.WaitGroup // TODO rename
+	shutonce sync.Once
 	shutdown chan struct{}
 
 	stats // TODO kill me
@@ -140,6 +141,7 @@ func New(da DataAccess) Agent {
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
+	a.wg.Add(1)
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
@@ -151,11 +153,11 @@ func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
 }
 
 func (a *agent) Close() error {
-	select {
-	case <-a.shutdown:
-	default:
+
+	a.shutonce.Do(func() {
 		close(a.shutdown)
-	}
+	})
+
 	a.wg.Wait()
 	return nil
 }
@@ -300,6 +302,8 @@ launchLoop:
 				if !isOpen {
 					return nil, models.ErrCallTimeoutServerBusy
 				}
+
+				a.wg.Add(1)
 				go a.runHot(ctx, call, tok)
 			case s, ok := <-call.slots.getDequeueChan():
 				tokenCancel()
@@ -502,6 +506,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	// We must be careful to only use ctxArg for logs/spans
+	defer a.wg.Done()
 
 	// create a span from ctxArg but ignore the new Context
 	// instead we will create a new Context below and explicitly set its span

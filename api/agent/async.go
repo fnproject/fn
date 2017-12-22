@@ -9,7 +9,6 @@ import (
 )
 
 func (a *agent) asyncDequeue() {
-	a.wg.Add(1)
 	defer a.wg.Done() // we can treat this thread like one big task and get safe shutdown fo free
 
 	// this is just so we can hang up the dequeue request if we get shut down
