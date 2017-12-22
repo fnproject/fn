@@ -48,12 +48,12 @@ func TestSlotQueueBasic1(t *testing.T) {
 	obj := NewSlotQueue(slotName)
 
 	outChan, cancel := obj.startDequeuer(context.Background())
-
 	select {
 	case z := <-outChan:
 		t.Fatalf("Should not get anything from queue: %#v", z)
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
+	cancel()
 
 	// create slots
 	for id := uint64(0); id < maxId; id += 1 {
@@ -91,6 +91,8 @@ func TestSlotQueueBasic1(t *testing.T) {
 	if obj.ejectSlot(tokens[5]) {
 		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
 	}
+
+	outChan, cancel = obj.startDequeuer(context.Background())
 
 	// now we should get 8
 	select {

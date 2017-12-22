@@ -268,11 +268,10 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	if isHot {
 
 		start := time.Now()
-		call.slots.enterState(SlotQueueWaiter)
 
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 		var isNew bool
-		call.slots, isNew = a.slotMgr.getHotSlotQueue(call)
+		call.slots, isNew = a.slotMgr.getSlotQueue(call)
 		if isNew {
 			go a.hotLauncher(ctx, call)
 		}
@@ -304,17 +303,14 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
 	isAsync := call.Type == models.TypeAsync
 
-	defer func() {
-		logger.Info("Hot function launcher terminating")
-		a.slotMgr.destroySlotQueue(call.slots)
-	}()
+	defer call.slots.destroySlotQueue()
 
 	for {
 		select {
 		case <-a.shutdown: // server shutdown
 			return
 		case <-time.After(timeout):
-			if call.slots.isIdle() {
+			if a.slotMgr.deleteSlotQueue(call.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
@@ -334,6 +330,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, call.Memory, isAsync):
 			cancel()
 			if isOpen {
+				a.wg.Add(1)
 				go a.runHot(ctx, call, tok)
 			} else {
 				// this means the resource was impossible to reserve (eg. memory size we can never satisfy)
@@ -341,7 +338,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 			}
 		case <-time.After(timeout):
 			cancel()
-			if call.slots.isIdle() {
+			if a.slotMgr.deleteSlotQueue(call.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}

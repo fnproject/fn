@@ -23,7 +23,7 @@ type Slot interface {
 
 // slotQueueMgr manages hot container slotQueues
 type slotQueueMgr struct {
-	hMu sync.RWMutex // protects hot
+	hMu sync.Mutex // protects hot
 	hot map[string]*slotQueue
 }
 
@@ -353,35 +353,35 @@ func (a *slotQueue) exitStateWithLatency(metricIdx SlotQueueMetricType, latency 
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
 // a container will be locked up forever waiting for slot to free.
-func (a *slotQueueMgr) getHotSlotQueue(call *call) (*slotQueue, bool) {
+func (a *slotQueueMgr) getSlotQueue(call *call) (*slotQueue, bool) {
 
-	isNew := false
 	key := getSlotQueueKey(call)
 
-	a.hMu.RLock()
+	a.hMu.Lock()
 	slots, ok := a.hot[key]
-	a.hMu.RUnlock()
 	if !ok {
-		a.hMu.Lock()
-		slots, ok = a.hot[key]
-		if !ok {
-			slots = NewSlotQueue(key)
-			isNew = true
-			a.hot[key] = slots
-		}
-		a.hMu.Unlock()
+		slots = NewSlotQueue(key)
+		a.hot[key] = slots
 	}
+	slots.enterState(SlotQueueWaiter)
+	a.hMu.Unlock()
 
-	return slots, isNew
+	return slots, !ok
 }
 
 // currently unused. But at some point, we need to age/delete old
 // slotQueues.
-func (a *slotQueueMgr) destroySlotQueue(slots *slotQueue) {
-	slots.destroySlotQueue()
+func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
+	isDeleted := false
+
 	a.hMu.Lock()
-	delete(a.hot, slots.key)
+	if slots.isIdle() {
+		delete(a.hot, slots.key)
+		isDeleted = true
+	}
 	a.hMu.Unlock()
+
+	return isDeleted
 }
 
 func getSlotQueueKey(call *call) string {
