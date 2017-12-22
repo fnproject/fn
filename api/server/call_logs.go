@@ -30,16 +30,19 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	var b bytes.Buffer
 	b.ReadFrom(logReader)
 
-	switch c.Request.Header.Get("Accept") {
-	case "application/json":
-		callObj := models.CallLog{
-			CallID:  callID,
-			AppName: appName,
-			Log:     b.String(),
-		}
+	mimeTypes, _ := c.Request.Header["Accept"]
 
-		c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log", &callObj})
-	default:
-		c.String(http.StatusOK, b.String())
+	for _, mimeType := range mimeTypes {
+		switch mimeType {
+		case "text/plain":
+			c.String(http.StatusOK, b.String())
+		default:
+			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
+				&models.CallLog{
+					CallID:  callID,
+					AppName: appName,
+					Log:     b.String(),
+				}})
+		}
 	}
 }
