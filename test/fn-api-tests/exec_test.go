@@ -214,13 +214,7 @@ func TestCanCauseTimeout(t *testing.T) {
 
 	retryErr := APICallWithRetry(t, 5, 2, func() (err error) {
 		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
-		switch e := err.(type) {
-		case *call.GetAppsAppCallsCallNotFound:
-			t.Log(e.Payload.Error.Message)
-		default:
-			return err
-		}
-		return nil
+		return err
 	})
 
 	if retryErr != nil {
