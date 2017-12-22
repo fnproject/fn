@@ -205,13 +205,28 @@ func TestCanCauseTimeout(t *testing.T) {
 	if !strings.Contains(output.String(), "Timed out") {
 		t.Errorf("Must fail because of timeout, but got error message: %v", output.String())
 	}
-	time.Sleep(time.Second * 2)
 	cfg := &call.GetAppsAppCallsCallParams{
 		Call:    headers.Get("FN_CALL_ID"),
 		App:     s.AppName,
 		Context: s.Context,
 	}
 	cfg.WithTimeout(time.Second * 60)
+
+	retryErr := APICallWithRetry(t, 5, 2, func() (err error) {
+		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
+		switch e := err.(type) {
+		case *call.GetAppsAppCallsCallNotFound:
+			t.Log(e.Payload.Error.Message)
+		default:
+			return err
+		}
+		return nil
+	})
+
+	if retryErr != nil {
+		t.Fatal(retryErr.Error())
+	}
+
 	callObj, err := s.Client.Call.GetAppsAppCallsCall(cfg)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)

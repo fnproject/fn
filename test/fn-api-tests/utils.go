@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/fnproject/fn/api/common"
@@ -227,4 +228,20 @@ func MyCaller() string {
 	}
 	f, l := fun.FileLine(fpcs[0] - 1)
 	return fmt.Sprintf("%s:%d", f, l)
+}
+
+func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback func() error) (err error) {
+	for i := 0; ; i++ {
+		err := callback()
+		if err == nil {
+			return nil
+		}
+		if i >= (attempts - 1) {
+			break
+		}
+		time.Sleep(sleep)
+		t.Logf("Retryting API call after unsuccessful attemt with error: %v", err.Error())
+	}
+	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
+
 }
