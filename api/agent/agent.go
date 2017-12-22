@@ -267,16 +267,16 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
 	if isHot {
 
+		start := time.Now()
+		call.slots.enterState(SlotQueueWaiter)
+
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 		var isNew bool
 		call.slots, isNew = a.slotMgr.getHotSlotQueue(call)
 		if isNew {
-			a.wg.Add(1)
 			go a.hotLauncher(ctx, call)
 		}
-		start := time.Now()
 
-		call.slots.enterState(SlotQueueWaiter)
 		s, err := a.waitHot(ctx, call)
 		call.slots.exitStateWithLatency(SlotQueueWaiter, uint64(time.Now().Sub(start).Seconds()*1000))
 
@@ -307,7 +307,6 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	defer func() {
 		logger.Info("Hot function launcher terminating")
 		a.slotMgr.destroySlotQueue(call.slots)
-		a.wg.Done()
 	}()
 
 	for {
