@@ -1,5 +1,5 @@
 # Just builds
-.PHONY: all test dep build test-log-datastore
+.PHONY: all test dep build test-log-datastore checkfmt pull-images api-test fn-test-utils test-middleware test-extensions test-basic test-api
 
 dep:
 	glide install -v
@@ -13,8 +13,46 @@ build:
 install:
 	go build -o ${GOPATH}/bin/fnserver
 
-test:
+checkfmt:
+	./go-fmt.sh
+
+fn-test-utils: checkfmt
+	cd images/fn-test-utils && ./build.sh
+
+test-middleware: test-basic
+	cd examples/middleware && go build
+
+test-extensions: test-basic
+	cd examples/extensions && go build
+
+test-basic: checkfmt pull-images fn-test-utils
 	./test.sh
+
+test: checkfmt pull-images test-basic test-middleware test-extensions
+
+test-api: test-basic
+	./api_test.sh mysql 4
+	./api_test.sh postgres 4
+	./api_test.sh sqlite 4
+
+full-test: test test-api
+
+img-sleeper:
+	docker pull fnproject/sleeper
+img-error:
+	docker pull fnproject/error
+img-hello:
+	docker pull fnproject/hello
+img-swagger:
+	docker pull quay.io/goswagger/swagger
+img-mysql:
+	docker pull mysql
+img-postgres:
+	docker pull postgres
+img-minio:
+	docker pull minio/minio
+
+pull-images: img-sleeper img-error img-hello img-swagger img-mysql img-postgres img-minio
 
 test-datastore:
 	cd api/datastore && go test -v ./...

@@ -27,14 +27,11 @@ jobs:
           sudo service docker stop
           curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
-      - run: make docker-build
-      - run: make install
-      - run: make test
-      - run: ./go-fmt.sh
-      # TODO these should be inside test.sh file ?
-      - run: ./api_test.sh mysql 4
-      - run: ./api_test.sh postgres 4
-      - run: ./api_test.sh sqlite 4
+      # lets pull 8 images at a time
+      - run: make pull-images -j 8
+      - run: make full-test -j $(nproc)
+      - run: make docker-build -j $(nproc)
+      - run: make install -j $(nproc)
       - deploy:
           command: |
             if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
