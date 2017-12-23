@@ -45,7 +45,7 @@ func TestCallsDummy(t *testing.T) {
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
-func TestListCallsSuccess(t *testing.T) {
+func TestGetExactCall(t *testing.T) {
 	t.Parallel()
 	s := SetupDefaultSuite()
 	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
@@ -58,35 +58,22 @@ func TestListCallsSuccess(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	CallAsync(t, u, &bytes.Buffer{})
+	callID := CallAsync(t, u, &bytes.Buffer{})
 
-	cfg := &call.GetAppsAppCallsParams{
+	cfg := &call.GetAppsAppCallsCallParams{
+		Call:    callID,
 		App:     s.AppName,
-		Path:    &s.RoutePath,
 		Context: s.Context,
 	}
+	cfg.WithTimeout(time.Second * 60)
 
 	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
-		_, err = s.Client.Call.GetAppsAppCalls(cfg)
+		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
 		return err
 	})
 
 	if retryErr != nil {
 		t.Error(retryErr.Error())
-	} else {
-		calls, err := s.Client.Call.GetAppsAppCalls(cfg)
-		if err != nil {
-			t.Errorf("Unexpected error: %s", err)
-		}
-		if calls == nil || calls.Payload == nil || calls.Payload.Calls == nil || len(calls.Payload.Calls) == 0 {
-			t.Errorf("Must fail. There should be at least one call to `%v` route.", s.RoutePath)
-			return
-		}
-		for _, c := range calls.Payload.Calls {
-			if c.Path != s.RoutePath {
-				t.Errorf("Call path mismatch.\n\tExpected: %v\n\tActual: %v", c.Path, s.RoutePath)
-			}
-		}
 	}
 
 	DeleteApp(t, s.Context, s.Client, s.AppName)
