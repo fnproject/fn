@@ -1,4 +1,5 @@
-set -ex
+#!/bin/bash
+set -exuo pipefail
 
 function host {
     case ${DOCKER_LOCATION:-localhost} in
