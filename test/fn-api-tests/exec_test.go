@@ -218,18 +218,17 @@ func TestCanCauseTimeout(t *testing.T) {
 	})
 
 	if retryErr != nil {
-		t.Fatal(retryErr.Error())
+		t.Error(retryErr.Error())
+	} else {
+		callObj, err := s.Client.Call.GetAppsAppCallsCall(cfg)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if !strings.Contains("timeout", callObj.Payload.Call.Status) {
+			t.Errorf("Call status mismatch.\n\tExpected: %v\n\tActual: %v",
+				"output", "callObj.Payload.Call.Status")
+		}
 	}
-
-	callObj, err := s.Client.Call.GetAppsAppCallsCall(cfg)
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-	if !strings.Contains("timeout", callObj.Payload.Call.Status) {
-		t.Errorf("Call status mismatch.\n\tExpected: %v\n\tActual: %v",
-			"output", "callObj.Payload.Call.Status")
-	}
-
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
@@ -371,7 +370,6 @@ func TestOversizedLog(t *testing.T) {
 	}{Size: size}) //exceeding log by 1 symbol
 
 	callID := CallAsync(t, u, content)
-	time.Sleep(10 * time.Second)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
@@ -379,13 +377,22 @@ func TestOversizedLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-	if len(logObj.Payload.Log.Log) >= size {
-		t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
-			size/1024, len(logObj.Payload.Log.Log))
+	retryErr := APICallWithRetry(t, 5, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	} else {
+		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if len(logObj.Payload.Log.Log) >= size {
+			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
+				size/1024, len(logObj.Payload.Log.Log))
+		}
+
 	}
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
