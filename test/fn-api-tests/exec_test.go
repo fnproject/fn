@@ -346,10 +346,13 @@ func TestCanWriteLogs(t *testing.T) {
 		Context: s.Context,
 	}
 
-	_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
 
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
+	if retryErr != nil {
+		t.Error(retryErr.Error())
 	}
 
 	DeleteApp(t, s.Context, s.Client, s.AppName)
