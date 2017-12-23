@@ -58,7 +58,6 @@ func TestGetCallsSuccess(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	time.Sleep(time.Second * 5)
 	cfg := &call.GetAppsAppCallsParams{
 		App:  s.AppName,
 		Path: &s.RoutePath,

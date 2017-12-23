@@ -347,7 +347,6 @@ func TestCanWriteLogs(t *testing.T) {
 	}{Size: 20})
 
 	callID := CallAsync(t, u, content)
-	time.Sleep(15 * time.Second)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
