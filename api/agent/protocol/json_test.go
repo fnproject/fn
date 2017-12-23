@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"reflect"
 	"testing"
 
 	"github.com/fnproject/fn/api/models"
@@ -113,7 +112,7 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
 			"<empty-string>", incomingReq.Body)
 	}
-	if ok := reflect.DeepEqual(req.Header, incomingReq.Protocol.Headers); !ok {
+	if !models.Headers(req.Header).Equals(models.Headers(incomingReq.Protocol.Headers)) {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
 			req.Header, incomingReq.Protocol.Headers)
 	}

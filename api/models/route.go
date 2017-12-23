@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-openapi/strfmt"
 )
@@ -19,7 +20,7 @@ const (
 	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
-var RouteMaxMemory = uint64(8 * 1024) // 8GB TODO should probably be a var of machine max?
+var RouteMaxMemory = uint64(8 * 1024)
 
 type Routes []*Route
 
@@ -35,6 +36,7 @@ type Route struct {
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 // SetDefaults sets zeroed field to defaults.
@@ -56,6 +58,7 @@ func (r *Route) SetDefaults() {
 	}
 
 	if r.Config == nil {
+		// keeps the json from being nil
 		r.Config = map[string]string{}
 	}
 
@@ -65,6 +68,14 @@ func (r *Route) SetDefaults() {
 
 	if r.IdleTimeout == 0 {
 		r.IdleTimeout = DefaultIdleTimeout
+	}
+
+	if time.Time(r.CreatedAt).IsZero() {
+		r.CreatedAt = strfmt.DateTime(time.Now())
+	}
+
+	if time.Time(r.UpdatedAt).IsZero() {
+		r.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 }
 
@@ -121,16 +132,54 @@ func (r *Route) Validate() error {
 }
 
 func (r *Route) Clone() *Route {
-	var clone Route
-	clone.AppName = r.AppName
-	clone.Path = r.Path
-	clone.Update(r)
-	return &clone
+	clone := new(Route)
+	*clone = *r // shallow copy
+
+	// now deep copy the maps
+	if r.Config != nil {
+		clone.Config = make(Config, len(r.Config))
+		for k, v := range r.Config {
+			clone.Config[k] = v
+		}
+	}
+	if r.Headers != nil {
+		clone.Headers = make(Headers, len(r.Headers))
+		for k, v := range r.Headers {
+			// TODO technically, we need to deep copy this slice...
+			clone.Headers[k] = v
+		}
+	}
+	return clone
 }
 
-// Update updates fields in r with non-zero field values from new.
-// 0-length slice Header values, and empty-string Config values trigger removal of map entry.
+func (r1 *Route) Equals(r2 *Route) bool {
+	// start off equal, check equivalence of each field.
+	// the RHS of && won't eval if eq==false so config/headers checking is lazy
+
+	eq := true
+	eq = eq && r1.AppName == r2.AppName
+	eq = eq && r1.Path == r2.Path
+	eq = eq && r1.Image == r2.Image
+	eq = eq && r1.Memory == r2.Memory
+	eq = eq && r1.Headers.Equals(r2.Headers)
+	eq = eq && r1.Type == r2.Type
+	eq = eq && r1.Format == r2.Format
+	eq = eq && r1.Timeout == r2.Timeout
+	eq = eq && r1.IdleTimeout == r2.IdleTimeout
+	eq = eq && r1.Config.Equals(r2.Config)
+	// NOTE: datastore tests are not very fun to write with timestamp checks,
+	// and these are not values the user may set so we kind of don't care.
+	//eq = eq && time.Time(r1.CreatedAt).Equal(time.Time(r2.CreatedAt))
+	//eq = eq && time.Time(r2.UpdatedAt).Equal(time.Time(r2.UpdatedAt))
+	return eq
+}
+
+// Update updates fields in r with non-zero field values from new, and sets
+// updated_at if any of the fields change. 0-length slice Header values, and
+// empty-string Config values trigger removal of map entry.
 func (r *Route) Update(new *Route) {
+	original := r.Clone()
+
 	if new.Image != "" {
 		r.Image = new.Image
 	}
@@ -172,6 +221,10 @@ func (r *Route) Update(new *Route) {
 				r.Config[k] = v
 			}
 		}
+	}
+
+	if !r.Equals(original) {
+		r.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 }
 

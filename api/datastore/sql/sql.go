@@ -37,6 +37,11 @@ import (
 //
 // currently tested and working are postgres, mysql and sqlite3.
 
+// TODO routes.created_at should be varchar(256), mysql will store 'text'
+// fields not contiguous with other fields and this field is a fixed size,
+// we'll get better locality with varchar. it's not terribly easy to do this
+// with migrations (sadly, need complex transaction)
+
 var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
@@ -49,12 +54,15 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	headers text NOT NULL,
 	config text NOT NULL,
 	created_at text,
+	updated_at varchar(256),
 	PRIMARY KEY (app_name, path)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS apps (
 	name varchar(256) NOT NULL PRIMARY KEY,
-	config text NOT NULL
+	config text NOT NULL,
+	created_at varchar(256),
+	updated_at varchar(256)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS calls (
@@ -78,7 +86,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at FROM routes`
+	routeSelector = `SELECT app_name, path, image, format, memory, type, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, stats, error FROM calls`
 )
 
@@ -255,7 +263,18 @@ func (ds *sqlStore) clear() error {
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	query := ds.db.Rebind("INSERT INTO apps (name, config) VALUES (:name, :config);")
+	query := ds.db.Rebind(`INSERT INTO apps (
+		name,
+		config,
+		created_at,
+		updated_at
+	)
+	VALUES (
+		:name,
+		:config,
+		:created_at,
+		:updated_at
+	);`)
 	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
 		switch err := err.(type) {
@@ -281,7 +300,9 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
 	app := &models.App{Name: newapp.Name}
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(`SELECT config FROM apps WHERE name=?`)
+		// NOTE: must query whole object since we're returning app, Update logic
+		// must only modify modifiable fields (as seen here). need to fix brittle..
+		query := tx.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
 		row := tx.QueryRowxContext(ctx, query, app.Name)
 
 		err := row.StructScan(app)
@@ -291,9 +312,9 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
-		app.UpdateConfig(newapp.Config)
+		app.Update(newapp)
 
-		query = tx.Rebind(`UPDATE apps SET config=:config WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
@@ -346,7 +367,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	query := ds.db.Rebind(`SELECT name, config FROM apps WHERE name=?`)
+	query := ds.db.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
 	row := ds.db.QueryRowxContext(ctx, query, name)
 
 	var res models.App
@@ -369,10 +390,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Printf("QUERY: %v\n", query)
-	// fmt.Printf("ARGS: %v\n", args)
-	// hmm, should this have DISTINCT in it? shouldn't be possible to have two apps with same name
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, created_at, updated_at FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -427,7 +445,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			idle_timeout,
 			headers,
 			config,
-			created_at
+			created_at,
+			updated_at
 		)
 		VALUES (
 			:app_name,
@@ -440,7 +459,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			:idle_timeout,
 			:headers,
 			:config,
-			:created_at
+			:created_at,
+			:updated_at
 		);`)
 
 		_, err = tx.NamedExecContext(ctx, query, route)
@@ -479,7 +499,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			idle_timeout = :idle_timeout,
 			headers = :headers,
 			config = :config,
-			created_at = :created_at
+			updated_at = :updated_at
 		WHERE app_name=:app_name AND path=:path;`)
 
 		res, err := tx.NamedExecContext(ctx, query, &route)

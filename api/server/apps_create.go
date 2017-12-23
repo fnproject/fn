@@ -18,29 +18,31 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	if wapp.App == nil {
+	app := wapp.App
+	if app == nil {
 		handleErrorResponse(c, models.ErrAppsMissingNew)
 		return
 	}
 
-	if err = wapp.Validate(); err != nil {
+	app.SetDefaults()
+	if err = app.Validate(); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	err = s.FireBeforeAppCreate(ctx, wapp.App)
+	err = s.FireBeforeAppCreate(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	app, err := s.datastore.InsertApp(ctx, wapp.App)
+	app, err = s.datastore.InsertApp(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	err = s.FireAfterAppCreate(ctx, wapp.App)
+	err = s.FireAfterAppCreate(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
