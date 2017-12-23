@@ -12,6 +12,7 @@ import (
 
 	"github.com/fnproject/fn_go/client/call"
 	"github.com/fnproject/fn_go/client/operations"
+	"net/http"
 )
 
 func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
