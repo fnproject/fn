@@ -250,7 +250,6 @@ func TestMultiLog(t *testing.T) {
 	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 
 	callID := CallAsync(t, u, &bytes.Buffer{})
-	time.Sleep(15 * time.Second)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
@@ -258,20 +257,29 @@ func TestMultiLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-	if logObj.Payload.Log.Log == "" {
-		t.Errorf("Log entry must not be empty!")
-	}
-	if !strings.Contains(logObj.Payload.Log.Log, "First line") {
-		t.Errorf("Log entry must contain `First line` "+
-			"string, but got: %v", logObj.Payload.Log.Log)
-	}
-	if !strings.Contains(logObj.Payload.Log.Log, "Second line") {
-		t.Errorf("Log entry must contain `Second line` "+
-			"string, but got: %v", logObj.Payload.Log.Log)
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
+
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	} else {
+		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if logObj.Payload.Log.Log == "" {
+			t.Errorf("Log entry must not be empty!")
+		}
+		if !strings.Contains(logObj.Payload.Log.Log, "First line") {
+			t.Errorf("Log entry must contain `First line` "+
+				"string, but got: %v", logObj.Payload.Log.Log)
+		}
+		if !strings.Contains(logObj.Payload.Log.Log, "Second line") {
+			t.Errorf("Log entry must contain `Second line` "+
+				"string, but got: %v", logObj.Payload.Log.Log)
+		}
 	}
 
 	DeleteApp(t, s.Context, s.Client, s.AppName)
