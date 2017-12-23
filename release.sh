@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -exuo pipefail
 
 user="fnproject"
 image="fnserver"

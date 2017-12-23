@@ -1,7 +1,6 @@
 #!/bin/bash
 # Top level test script to start all other tests
-
-set -ex
+set -exuo pipefail
 
 function host {
     case ${DOCKER_LOCATION:-localhost} in
