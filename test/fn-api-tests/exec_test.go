@@ -186,7 +186,7 @@ func TestCanCauseTimeout(t *testing.T) {
 
 	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-		s.Format, int32(2), s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+		s.Format, int32(10), s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
 
 	u := url.URL{
 		Scheme: "http",
@@ -197,7 +197,7 @@ func TestCanCauseTimeout(t *testing.T) {
 	content := &bytes.Buffer{}
 	json.NewEncoder(content).Encode(struct {
 		Seconds int64 `json:"seconds"`
-	}{Seconds: 5})
+	}{Seconds: 11})
 	output := &bytes.Buffer{}
 
 	headers, _ := CallFN(u.String(), content, output, "POST", []string{})
