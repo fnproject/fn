@@ -59,17 +59,19 @@ func TestGetCallsSuccess(t *testing.T) {
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
 	time.Sleep(time.Second * 5)
-	_, err := s.Client.Call.GetAppsAppCalls(&call.GetAppsAppCallsParams{
+	cfg := &call.GetAppsAppCallsParams{
 		App:  s.AppName,
 		Path: &s.RoutePath,
-	})
-	if err != nil {
-		switch err.(type) {
-		case *call.GetAppsAppCallsCallNotFound:
-			msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
-		}
 	}
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Call.GetAppsAppCalls(cfg)
+		return err
+	})
+
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	}
+
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
