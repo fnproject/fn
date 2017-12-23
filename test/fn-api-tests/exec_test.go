@@ -212,7 +212,7 @@ func TestCanCauseTimeout(t *testing.T) {
 	}
 	cfg.WithTimeout(time.Second * 60)
 
-	retryErr := APICallWithRetry(t, 5, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
 		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
 		return err
 	})
@@ -377,7 +377,7 @@ func TestOversizedLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 5, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
 		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 		return err
 	})
