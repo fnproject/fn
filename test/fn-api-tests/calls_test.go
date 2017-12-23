@@ -89,25 +89,35 @@ func TestListCallsSuccess(t *testing.T) {
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
 	CallAsync(t, u, &bytes.Buffer{})
-	time.Sleep(time.Second * 8)
 
 	cfg := &call.GetAppsAppCallsParams{
 		App:     s.AppName,
 		Path:    &s.RoutePath,
 		Context: s.Context,
 	}
-	calls, err := s.Client.Call.GetAppsAppCalls(cfg)
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-	if calls == nil || calls.Payload == nil || calls.Payload.Calls == nil || len(calls.Payload.Calls) == 0 {
-		t.Errorf("Must fail. There should be at least one call to `%v` route.", s.RoutePath)
-		return
-	}
-	for _, c := range calls.Payload.Calls {
-		if c.Path != s.RoutePath {
-			t.Errorf("Call path mismatch.\n\tExpected: %v\n\tActual: %v", c.Path, s.RoutePath)
+
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Call.GetAppsAppCalls(cfg)
+		return err
+	})
+
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	} else {
+		calls, err := s.Client.Call.GetAppsAppCalls(cfg)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if calls == nil || calls.Payload == nil || calls.Payload.Calls == nil || len(calls.Payload.Calls) == 0 {
+			t.Errorf("Must fail. There should be at least one call to `%v` route.", s.RoutePath)
+			return
+		}
+		for _, c := range calls.Payload.Calls {
+			if c.Path != s.RoutePath {
+				t.Errorf("Call path mismatch.\n\tExpected: %v\n\tActual: %v", c.Path, s.RoutePath)
+			}
 		}
 	}
+
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
