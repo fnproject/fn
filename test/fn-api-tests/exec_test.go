@@ -144,34 +144,43 @@ func TestCanGetAsyncState(t *testing.T) {
 	CheckRouteResponseError(t, err)
 
 	callID := CallAsync(t, u, &bytes.Buffer{})
-	time.Sleep(time.Second * 10)
 	cfg := &call.GetAppsAppCallsCallParams{
 		Call:    callID,
 		App:     s.AppName,
 		Context: s.Context,
 	}
 	cfg.WithTimeout(time.Second * 60)
-	callResponse, err := s.Client.Call.GetAppsAppCallsCall(cfg)
-	if err != nil {
-		switch err.(type) {
-		case *call.GetAppsAppCallsCallNotFound:
-			msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
-			t.Errorf("Unexpected error occurred: %v.", msg)
-		}
-	}
-	callObject := callResponse.Payload.Call
 
-	if callObject.AppName != s.AppName {
-		t.Errorf("Call object app name mismatch.\n\tExpected: %v\n\tActual:%v", s.AppName, callObject.AppName)
-	}
-	if callObject.ID != callID {
-		t.Errorf("Call object ID mismatch.\n\tExpected: %v\n\tActual:%v", callID, callObject.ID)
-	}
-	if callObject.Path != s.RoutePath {
-		t.Errorf("Call object route path mismatch.\n\tExpected: %v\n\tActual:%v", s.RoutePath, callObject.Path)
-	}
-	if callObject.Status != "success" {
-		t.Errorf("Call object status mismatch.\n\tExpected: %v\n\tActual:%v", "success", callObject.Status)
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
+		return err
+	})
+
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	} else {
+		callResponse, err := s.Client.Call.GetAppsAppCallsCall(cfg)
+		if err != nil {
+			switch err.(type) {
+			case *call.GetAppsAppCallsCallNotFound:
+				msg := err.(*call.GetAppsAppCallsCallNotFound).Payload.Error.Message
+				t.Errorf("Unexpected error occurred: %v.", msg)
+			}
+		}
+		callObject := callResponse.Payload.Call
+
+		if callObject.AppName != s.AppName {
+			t.Errorf("Call object app name mismatch.\n\tExpected: %v\n\tActual:%v", s.AppName, callObject.AppName)
+		}
+		if callObject.ID != callID {
+			t.Errorf("Call object ID mismatch.\n\tExpected: %v\n\tActual:%v", callID, callObject.ID)
+		}
+		if callObject.Path != s.RoutePath {
+			t.Errorf("Call object route path mismatch.\n\tExpected: %v\n\tActual:%v", s.RoutePath, callObject.Path)
+		}
+		if callObject.Status != "success" {
+			t.Errorf("Call object status mismatch.\n\tExpected: %v\n\tActual:%v", "success", callObject.Status)
+		}
 	}
 
 	DeleteApp(t, s.Context, s.Client, s.AppName)
