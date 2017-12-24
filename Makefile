@@ -46,16 +46,14 @@ img-error:
 	docker pull fnproject/error
 img-hello:
 	docker pull fnproject/hello
-img-swagger:
-	docker pull quay.io/goswagger/swagger
 img-mysql:
 	docker pull mysql
 img-postgres:
-	docker pull postgres
+	docker pull postgres:9.3-alpine
 img-minio:
-	docker pull minio/minio
+	docker pull webcenter/alpine-minio
 
-pull-images: img-sleeper img-error img-hello img-swagger img-mysql img-postgres img-minio
+pull-images: img-sleeper img-error img-hello img-mysql img-postgres img-minio
 
 test-datastore:
 	cd api/datastore && go test -v ./...
