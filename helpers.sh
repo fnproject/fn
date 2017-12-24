@@ -27,7 +27,7 @@ function remove_containers {
 }
 
 function install_swagger_tool {
-    if [[ ! -f ${GOPATH}/bin/swagger ]]; then
+    if [[ ! -f ./swagger ]]; then
         case "$(uname)" in
           Linux)
             curl -L https://github.com/go-swagger/go-swagger/releases/download/0.13.0/swagger_linux_amd64 -o ./swagger

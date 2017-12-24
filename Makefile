@@ -51,7 +51,7 @@ img-mysql:
 img-postgres:
 	docker pull postgres:9.3-alpine
 img-minio:
-	docker pull webcenter/alpine-minio
+	docker pull minio/minio
 
 pull-images: img-sleeper img-error img-hello img-mysql img-postgres img-minio
 

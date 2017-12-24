@@ -9,7 +9,7 @@ remove_containers
 
 docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" -p 5432:5432 -d postgres:9.3-alpine
 docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
-docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_CONFIG_accesskey=admin" -e "MINIO_CONFIG_secretkey=password" webcenter/alpine-minio
+docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
 MYSQL_HOST=`host func-mysql-test`
 MYSQL_PORT=3306
@@ -30,4 +30,4 @@ go vet $(go list ./... | grep -v vendor)
 remove_containers
 install_swagger_tool
 
-swagger validate docs/swagger.yml
+./swagger validate docs/swagger.yml
