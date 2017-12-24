@@ -30,4 +30,4 @@ go vet $(go list ./... | grep -v vendor)
 remove_containers
 install_swagger_tool
 
-./swagger validate docs/swagger.yml
+swagger validate docs/swagger.yml
