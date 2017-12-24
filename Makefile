@@ -31,9 +31,9 @@ test-basic: checkfmt pull-images fn-test-utils
 test: checkfmt pull-images test-basic test-middleware test-extensions
 
 test-api: test-basic
-	./api_test.sh sqlite3 4 1
-	./api_test.sh mysql 4
-	./api_test.sh postgres 4
+	./api_test.sh sqlite3 4
+	./api_test.sh mysql 4 0
+	./api_test.sh postgres 4 0
 
 full-test: test test-api
 
