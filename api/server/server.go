@@ -98,9 +98,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
-	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
+	opts = append(opts, WithDBURL(ctx, getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
-	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
+	opts = append(opts, WithLogURL(ctx, getEnv(EnvLOGDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 	return New(ctx, opts...)
@@ -115,9 +115,9 @@ func pwd() string {
 	return strings.Replace(cwd, "\\", "/", -1)
 }
 
-func WithDBURL(dbURL string) ServerOption {
+func WithDBURL(ctx context.Context, dbURL string) ServerOption {
 	if dbURL != "" {
-		ds, err := datastore.New(dbURL)
+		ds, err := datastore.New(ctx, dbURL)
 		if err != nil {
 			logrus.WithError(err).Fatalln("Error initializing datastore.")
 		}
@@ -137,9 +137,9 @@ func WithMQURL(mqURL string) ServerOption {
 	return noop
 }
 
-func WithLogURL(logstoreURL string) ServerOption {
+func WithLogURL(ctx context.Context, logstoreURL string) ServerOption {
 	if ldb := logstoreURL; ldb != "" {
-		logDB, err := logs.New(logstoreURL)
+		logDB, err := logs.New(ctx, logstoreURL)
 		if err != nil {
 			logrus.WithError(err).Fatal("Error initializing logs store.")
 		}
