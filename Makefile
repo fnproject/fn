@@ -35,7 +35,10 @@ test-api: test-basic
 	./api_test.sh mysql 4 0
 	./api_test.sh postgres 4 0
 
-full-test: test test-api
+build-static:
+	go install
+
+full-test: build-static test test-api
 
 img-sleeper:
 	docker pull fnproject/sleeper
