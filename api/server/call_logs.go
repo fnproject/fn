@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 
 	"github.com/fnproject/fn/api"
@@ -27,16 +28,16 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 		return
 	}
 
-	var b bytes.Buffer
-	b.ReadFrom(logReader)
-
 	mimeTypes, _ := c.Request.Header["Accept"]
 
 	for _, mimeType := range mimeTypes {
 		switch mimeType {
 		case "text/plain":
-			c.String(http.StatusOK, b.String())
+			io.Copy(c.Writer, logReader)
+			c.Status(http.StatusOK)
 		default:
+			var b bytes.Buffer
+			b.ReadFrom(logReader)
 			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
 				&models.CallLog{
 					CallID:  callID,
