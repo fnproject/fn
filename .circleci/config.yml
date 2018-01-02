@@ -29,7 +29,6 @@ jobs:
       - run: docker version
       - run: nproc
       - run: make full-test -j $(nproc)
-      - run: make docker-build -j $(nproc)
       - deploy:
           command: |
             if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
