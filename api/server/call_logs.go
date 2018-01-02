@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"errors"
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
@@ -63,5 +64,6 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 		}
 	}
 	// if we've reached this point it means that Fn didn't recognize Accepted content type
-	c.Status(http.StatusNotAcceptable)
+	WriteError(c, c.Writer, http.StatusNotAcceptable,
+		errors.New("unable to respond within acceptable response content types"))
 }
