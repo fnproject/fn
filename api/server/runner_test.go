@@ -255,7 +255,6 @@ func TestRouteRunnerTimeout(t *testing.T) {
 
 	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
-	defer srv.agent.Close()
 
 	for i, test := range []struct {
 		path            string
