@@ -30,6 +30,6 @@ fnlb/fnlb
 /fn
 .DS_Store
 /fnserver
-.idea/
 *iml
 target/
+fn-api-tests.test

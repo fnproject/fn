@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/fnproject/fn/api/common"
@@ -104,6 +105,8 @@ type SuiteSetup struct {
 	RouteType    string
 	Format       string
 	Memory       uint64
+	Timeout      int32
+	IdleTimeout  int32
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
 	Cancel       context.CancelFunc
@@ -131,6 +134,8 @@ func SetupDefaultSuite() *SuiteSetup {
 		RouteHeaders: map[string][]string{},
 		Cancel:       cancel,
 		Memory:       uint64(256),
+		Timeout:      int32(30),
+		IdleTimeout:  int32(30),
 	}
 
 	if Host() != "localhost:8080" {
@@ -223,4 +228,17 @@ func MyCaller() string {
 	}
 	f, l := fun.FileLine(fpcs[0] - 1)
 	return fmt.Sprintf("%s:%d", f, l)
+}
+
+func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback func() error) (err error) {
+	for i := 0; i < attempts; i++ {
+		err = callback()
+		if err == nil {
+			t.Log("Exiting retry loop, API call was successful")
+			return nil
+		}
+		time.Sleep(sleep)
+		t.Logf("[%v] - Retryting API call after unsuccessful attemt with error: %v", i, err.Error())
+	}
+	return err
 }
