@@ -206,6 +206,7 @@ func WithAgent(agent agent.Agent) ServerOption {
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
+	log := common.Logger(ctx)
 	s := &Server{
 		Router: gin.New(),
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
@@ -217,7 +218,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		}
 		err := opt(ctx, s)
 		if err != nil {
-			common.Logger(ctx).WithError(err).Fatal("Error during server opt initialization.")
+			log.WithError(err).Fatal("Error during server opt initialization.")
 		}
 	}
 
@@ -230,18 +231,18 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	switch s.nodeType {
 	case ServerTypeAPI:
 		if s.agent != nil {
-			logrus.Info("shutting down agent configured for api node")
+			log.Info("shutting down agent configured for api node")
 			s.agent.Close()
 		}
 		s.agent = nil
 	case ServerTypeRunner:
 		if s.agent == nil {
-			logrus.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
+			log.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
 		}
 	default:
 		s.nodeType = ServerTypeFull
 		if s.datastore == nil || s.logstore == nil || s.mq == nil {
-			logrus.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+			log.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 		}
 
 		// TODO force caller to use WithAgent option? at this point we need to use the ds/ls/mq configured after all opts are run.
