@@ -41,7 +41,7 @@ languages = nil
 if only
   languages = [only]
 else
-  languages = ['go', 'ruby', 'php', 'python', 'elixir', 'javascript'] # JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
+  languages = ['go', 'ruby', 'php', 'python', 'elixir', 'javascript', 'java'] # JSON.parse(HTTP.get("https://generator.swagger.io/api/gen/clients", ssl_context: ctx).body)
 end
 languages.each do |l|
   puts "\nGenerating client for #{l}..."

@@ -11,10 +11,21 @@ import (
 func (s *Server) handleAppList(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var filter models.AppFilter
+	filter := &models.AppFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
 
-	apps, err := s.Datastore.GetApps(ctx, &filter)
+	err := s.FireBeforeAppsList(ctx, filter)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	apps, err := s.datastore.GetApps(ctx, filter)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	err = s.FireAfterAppsList(ctx, apps)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

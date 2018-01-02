@@ -2,8 +2,7 @@
 set -ex
 
 user="fnproject"
-service="fnlb"
-tag="latest"
+image="fnlb"
 
 # ensure working dir is clean
 git status
@@ -28,14 +27,14 @@ echo "Version: $version"
 
 make docker-build
 
-gtag=$service-$version
+gtag=$image-$version
 git add -u
-git commit -m "$service: $version release [skip ci]"
+git commit -m "$image: $version release [skip ci]"
 git tag -f -a "$gtag" -m "version $gtag"
 git push
 git push origin $gtag
 
 # Finally tag and push docker images
-docker tag $user/$service:$tag $user/$service:$version
-docker push $user/$service:$version
-docker push $user/$service:$tag
+docker tag $user/$image:latest $user/$image:$version
+docker push $user/$image:$version
+docker push $user/$image:latest

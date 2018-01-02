@@ -1,19 +1,22 @@
 # Client Libraries
 
-## Language Wrappers to help writing functions
+## Function Developer Kits - FDKs
 
-* [Java](https://github.com/fnproject/fdk-java)
+Language wrappers to help write functions:
+
 * [Go](https://github.com/fnproject/fdk-go)
+* [Java](https://github.com/fnproject/fdk-java)
 * [Python](https://github.com/fnproject/fdk-python)
+* [Ruby](https://github.com/fnproject/fdk-ruby)
 
-## Clients for the API
+## Client libraries for using the API
 
+* [Elixir](https://github.com/fnproject/fn_elixir)
 * [Go](https://github.com/fnproject/fn_go)
 * [Java](https://github.com/fnproject/fn_java)
-* [Ruby](https://github.com/fnproject/fn_ruby)
 * [JavaScript](https://github.com/fnproject/fn_js)
-* [Python](https://github.com/fnproject/fn_python)
+* [Ruby](https://github.com/fnproject/fn_ruby)
 * [PHP](https://github.com/fnproject/fn_php)
-* [Elixir](https://github.com/fnproject/fn_elixir)
+* [Python](https://github.com/fnproject/fn_python)
 
 If we're missing your language, please create an issue and we'll try to get it made.

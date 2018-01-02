@@ -36,6 +36,7 @@ type dockerClient interface {
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	InspectImage(ctx context.Context, name string) (*docker.Image, error)
+	InspectContainerWithContext(container string, ctx context.Context) (*docker.Container, error)
 	Stats(opts docker.StatsOptions) error
 }
 
@@ -112,7 +113,7 @@ func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
 		err := filter(ctx, f())
 		if common.IsTemporary(err) || isDocker50x(err) {
 			logger.WithError(err).Warn("docker temporary error, retrying")
-			b.Sleep()
+			b.Sleep(ctx)
 			span.LogFields(log.String("task", "tmperror.docker"))
 			continue
 		}
@@ -255,6 +256,18 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 		return err
 	})
 	return i, err
+}
+
+func (d *dockerWrap) InspectContainerWithContext(container string, ctx context.Context) (c *docker.Container, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_inspect_container")
+	defer span.Finish()
+	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
+	defer cancel()
+	err = d.retry(ctx, func() error {
+		c, err = d.docker.InspectContainerWithContext(container, ctx)
+		return err
+	})
+	return c, err
 }
 
 func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {

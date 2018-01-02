@@ -29,3 +29,7 @@ tmp/
 fnlb/fnlb
 /fn
 .DS_Store
+/fnserver
+.idea/
+*iml
+target/

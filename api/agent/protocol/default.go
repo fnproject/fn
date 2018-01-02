@@ -1,12 +1,14 @@
 package protocol
 
 import (
+	"context"
 	"io"
-	"net/http"
 )
 
 // DefaultProtocol is the protocol used by cold-containers
 type DefaultProtocol struct{}
 
-func (p *DefaultProtocol) IsStreamable() bool                            { return false }
-func (d *DefaultProtocol) Dispatch(w io.Writer, req *http.Request) error { return nil }
+func (p *DefaultProtocol) IsStreamable() bool { return false }
+func (d *DefaultProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+	return nil
+}

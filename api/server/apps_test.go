@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
@@ -29,6 +30,12 @@ func setLogBuffer() *bytes.Buffer {
 
 func TestAppCreate(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+
 	for i, test := range []struct {
 		mock          models.Datastore
 		logDB         models.LogStore
@@ -50,14 +57,13 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -66,17 +72,43 @@ func TestAppCreate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
 		}
+
+		if test.expectedCode == http.StatusOK {
+			var awrap models.AppWrapper
+			err := json.NewDecoder(rec.Body).Decode(&awrap)
+			if err != nil {
+				t.Log(buf.String())
+				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
+			}
+
+			app := awrap.App
+
+			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+			if time.Time(app.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected created_at to be set on app, it wasn't: %s", i, app.CreatedAt)
+			}
+			if !(time.Time(app.CreatedAt)).Equal(time.Time(app.UpdatedAt)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected updated_at to be set and same as created at, it wasn't: %s %s", i, app.CreatedAt, app.UpdatedAt)
+			}
+		}
+
 		cancel()
 	}
 }
 
 func TestAppDelete(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -94,12 +126,11 @@ func TestAppDelete(t *testing.T) {
 		), logs.NewMock(), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -108,7 +139,6 @@ func TestAppDelete(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -119,6 +149,11 @@ func TestAppDelete(t *testing.T) {
 
 func TestAppList(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -132,7 +167,7 @@ func TestAppList(t *testing.T) {
 		nil, // no calls
 	)
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	a1b := base64.RawURLEncoding.EncodeToString([]byte("myapp"))
 	a2b := base64.RawURLEncoding.EncodeToString([]byte("myapp2"))
@@ -156,7 +191,6 @@ func TestAppList(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -165,7 +199,6 @@ func TestAppList(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -189,12 +222,17 @@ func TestAppList(t *testing.T) {
 
 func TestAppGet(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string
@@ -207,7 +245,6 @@ func TestAppGet(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -216,7 +253,6 @@ func TestAppGet(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -226,6 +262,11 @@ func TestAppGet(t *testing.T) {
 
 func TestAppUpdate(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
 	for i, test := range []struct {
 		mock          models.Datastore
@@ -253,13 +294,12 @@ func TestAppUpdate(t *testing.T) {
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 
 		body := bytes.NewBuffer([]byte(test.body))
 		_, rec := routerRequest(t, srv.Router, "PATCH", test.path, body)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -268,9 +308,33 @@ func TestAppUpdate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
+			}
+		}
+
+		if test.expectedCode == http.StatusOK {
+			var awrap models.AppWrapper
+			err := json.NewDecoder(rec.Body).Decode(&awrap)
+			if err != nil {
+				t.Log(buf.String())
+				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
+			}
+
+			app := awrap.App
+			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+			if time.Time(app.UpdatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected updated_at to be set on app, it wasn't: %s", i, app.UpdatedAt)
+			}
+
+			// this isn't perfect, since a PATCH could succeed without updating any
+			// fields (among other reasons), but just don't make a test for that or
+			// special case (the body or smth) to ignore it here!
+			// this is a decent approximation that the timestamp gets changed
+			if (time.Time(app.UpdatedAt)).Equal(time.Time(app.CreatedAt)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected updated_at to not be the same as created at, it wasn't: %s %s", i, app.CreatedAt, app.UpdatedAt)
 			}
 		}
 

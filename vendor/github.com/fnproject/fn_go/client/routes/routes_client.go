@@ -57,7 +57,7 @@ func (a *Client) DeleteAppsAppRoutesRoute(params *DeleteAppsAppRoutesRouteParams
 /*
 GetAppsAppRoutes gets route list by app name
 
-This will list routes for a particular app.
+This will list routes for a particular app, returned in alphabetical order.
 */
 func (a *Client) GetAppsAppRoutes(params *GetAppsAppRoutesParams) (*GetAppsAppRoutesOK, error) {
 	// TODO: Validate the params before sending

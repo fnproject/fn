@@ -1,10 +1,10 @@
 
 # Databases
 
-We currently support the following databases and they are passed in via the `DB_URL` environment variable. For example:
+We currently support the following databases and they are passed in via the `FN_DB_URL` environment variable. For example:
 
 ```sh
-docker run -e "DB_URL=postgres://user:pass@localhost:6212/mydb" ...
+docker run -e "FN_DB_URL=postgres://user:pass@localhost:6212/mydb" ...
 ```
 
 ## sqlite3 (default)
@@ -12,7 +12,7 @@ docker run -e "DB_URL=postgres://user:pass@localhost:6212/mydb" ...
 URL: `sqlite3:///functions/data/functions.db`
 
 SQLite3 is an embedded database which stores to disk. If you want to use this, be sure you don't lose the data directory by mounting
-the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e DB_URL=sqlite3:///functions/data/fn.db ...`
+the directory on your host. eg: `docker run -v $PWD/data:/functions/data -e FN_DB_URL=sqlite3:///functions/data/fn.db ...`
 
 ## [PostgreSQL](http://www.postgresql.org/)
 

@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	ErrNoNodes = errors.New("no nodes available")
+	ErrNoNodes        = errors.New("no nodes available")
+	ErrUnknownCommand = errors.New("unknown command")
 )
 
 func sendValue(w http.ResponseWriter, v interface{}) {
@@ -44,4 +45,10 @@ func sendError(w http.ResponseWriter, code int, msg string) {
 	if err != nil {
 		logrus.WithError(err).Error("error writing response response")
 	}
+}
+
+func NullHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sendError(w, http.StatusNotFound, ErrUnknownCommand.Error())
+	})
 }

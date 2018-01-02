@@ -2,8 +2,10 @@ package: github.com/fnproject/fn
 excludeDirs:
 - cli
 import:
-- package: golang.org/x/crypto/pkcs12
+- package: golang.org/x/crypto
   version: master
+  subpackages:
+  - pkcs12
 - package: github.com/fnproject/fn_go
   version: ^0.2.0
   subpackages:
@@ -32,6 +34,8 @@ import:
   subpackages:
   - redis
 - package: github.com/gin-gonic/gin
+- package: github.com/rdallman/migrate
+  version: bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef
 - package: github.com/go-openapi/errors
 - package: github.com/go-openapi/loads
   subpackages:
@@ -51,12 +55,12 @@ import:
 - package: github.com/docker/docker
   version: cdf870bd0b5fa678b10ef2708cca7ad776b4913c
 - package: github.com/pkg/errors
-- package: github.com/spf13/viper
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
 - package: github.com/jmoiron/sqlx
 - package: github.com/mattn/go-sqlite3
+- package: github.com/minio/minio-go
 - package: github.com/opentracing/opentracing-go
 - package: github.com/openzipkin/zipkin-go-opentracing
 - package: github.com/opencontainers/go-digest
@@ -68,6 +72,27 @@ import:
 - package: github.com/prometheus/common
   version: 2f17f4a9d485bf34b4bfaccc273805040e4f86c8
 - package: github.com/prometheus/client_golang
+- package: github.com/gin-contrib/cors
+  version: ~1.2.0
+- package: k8s.io/client-go
+  version: ^v4.0.0
+  subpackages:
+  - kubernetes
+- package: github.com/emicklei/go-restful-swagger12
+- package: github.com/juju/ratelimit
+- package: golang.org/x/sys
+  version: master
+  subpackages:
+  - unix
+- package: golang.org/x/net
+  version: master
+  subpackages:
+  - http2
+- package: golang.org/x/text
+  version: master
+- package: github.com/mailru/easyjson
+  version: master
+  subpackages:
+  - jwriter
 testImport:
 - package: github.com/patrickmn/go-cache
-  branch: master

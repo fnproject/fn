@@ -2,13 +2,6 @@ package tests
 
 import (
 	"context"
-	"runtime"
-	"strings"
-	"sync"
-	"time"
-
-	"github.com/fnproject/fn/api/server"
-
 	"fmt"
 	"io"
 	"log"
@@ -16,17 +9,22 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/spf13/viper"
 )
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func Host() string {
-	apiURL := os.Getenv("API_URL")
+	apiURL := os.Getenv("FN_API_URL")
 	if apiURL == "" {
 		apiURL = "http://localhost:8080"
 	}
@@ -60,21 +58,20 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 	getServer.Do(func() {
 		ctx, cancel := context.WithCancel(context.Background())
 
-		viper.Set(server.EnvPort, "8080")
-		viper.Set(server.EnvAPIURL, "http://localhost:8080")
-		viper.Set(server.EnvLogLevel, "fatal")
+		apiURL := "http://localhost:8080"
+
+		common.SetLogLevel("fatal")
 		timeString := time.Now().Format("2006_01_02_15_04_05")
-		db_url := os.Getenv("DB_URL")
+		dbURL := os.Getenv(server.EnvDBURL)
 		tmpDir := os.TempDir()
 		tmpMq := fmt.Sprintf("%s/fn_integration_test_%s_worker_mq.db", tmpDir, timeString)
 		tmpDb := fmt.Sprintf("%s/fn_integration_test_%s_fn.db", tmpDir, timeString)
-		viper.Set(server.EnvMQURL, fmt.Sprintf("bolt://%s", tmpMq))
-		if db_url == "" {
-			db_url = fmt.Sprintf("sqlite3://%s", tmpDb)
+		mqURL := fmt.Sprintf("bolt://%s", tmpMq)
+		if dbURL == "" {
+			dbURL = fmt.Sprintf("sqlite3://%s", tmpDb)
 		}
-		viper.Set(server.EnvDBURL, db_url)
 
-		s = server.NewFromEnv(ctx)
+		s = server.New(ctx, server.WithDBURL(dbURL), server.WithMQURL(mqURL))
 
 		go s.Start(ctx)
 		started := false
@@ -83,10 +80,10 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 				panic("Failed to start server.")
 			}
 		})
-		log.Println(server.EnvAPIURL)
-		_, err := http.Get(viper.GetString(server.EnvAPIURL) + "/version")
+		log.Println("apiURL:", apiURL)
+		_, err := http.Get(apiURL + "/version")
 		for err != nil {
-			_, err = http.Get(viper.GetString(server.EnvAPIURL) + "/version")
+			_, err = http.Get(apiURL + "/version")
 		}
 		started = true
 		cancel2 = context.CancelFunc(func() {

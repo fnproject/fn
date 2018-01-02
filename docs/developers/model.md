@@ -19,7 +19,7 @@ This is an app with 2 routes:
 
 ## Routes
 
-An app consists of 1 or more routes. A route stores the mapping between URL paths and functions (ie: container iamges).
+An app consists of 1 or more routes. A route stores the mapping between URL paths and functions (ie: container images).
 
 ## Calls
 

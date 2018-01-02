@@ -22,5 +22,5 @@ func TestDatastore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create sqlite3 datastore: %v", err)
 	}
-	logTesting.Test(t, ds, ds)
+	logTesting.Test(t, ds)
 }

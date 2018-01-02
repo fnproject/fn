@@ -2,9 +2,9 @@ set -e
 
 ./build.sh
 
-docker run --rm -v "$PWD":/app treeder/bump patch
-version=`cat VERSION`
-echo "version $version"
+# Match version with Docker version
+version=$(docker run --rm -v "$PWD":/app treeder/bump  --extract --input "`docker -v`")
+echo "Version: $version"
 
 docker tag fnproject/dind:latest fnproject/dind:$version
 

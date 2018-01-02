@@ -6,14 +6,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type contextKey string
+
 // WithLogger stores the logger.
 func WithLogger(ctx context.Context, l logrus.FieldLogger) context.Context {
-	return context.WithValue(ctx, "logger", l)
+	return context.WithValue(ctx, contextKey("logger"), l)
 }
 
 // Logger returns the structured logger.
 func Logger(ctx context.Context) logrus.FieldLogger {
-	l, ok := ctx.Value("logger").(logrus.FieldLogger)
+	l, ok := ctx.Value(contextKey("logger")).(logrus.FieldLogger)
 	if !ok {
 		return logrus.StandardLogger()
 	}

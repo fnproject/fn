@@ -1,6 +1,6 @@
 # Tutorial 1: Go Function w/ Input (3 minutes)
 
-Example for putting required vars into the func.yaml file.
+Example for using required and optional environment variables defined in the func.yaml file.
 
 Try running the following:
 

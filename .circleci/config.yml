@@ -6,7 +6,7 @@ jobs:
     working_directory: ~/go/src/github.com/fnproject/fn
     environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
       - GOPATH=/home/circleci/go
-      - GOVERSION=1.8.3
+      - GOVERSION=1.9.1
       - OS=linux
       - ARCH=amd64
     steps:
@@ -27,14 +27,9 @@ jobs:
           sudo service docker stop
           curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
-      - run: make docker-build
-      - run: make install
-      - run: make test
-      - run: ./go-fmt.sh
-      # TODO these should be inside test.sh file ?
-      - run: ./api_test.sh mysql 4
-      - run: ./api_test.sh postgres 4
-      - run: ./api_test.sh sqlite 4
+      - run: nproc
+      - run: make full-test -j $(nproc)
+      - run: make docker-build -j $(nproc)
       - deploy:
           command: |
             if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then

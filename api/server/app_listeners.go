@@ -4,26 +4,11 @@ import (
 	"context"
 
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 )
 
-// AppListener is an interface used to inject custom code at key points in app lifecycle.
-type AppListener interface {
-	// BeforeAppCreate called right before creating App in the database
-	BeforeAppCreate(ctx context.Context, app *models.App) error
-	// AfterAppCreate called after creating App in the database
-	AfterAppCreate(ctx context.Context, app *models.App) error
-	// BeforeAppUpdate called right before updating App in the database
-	BeforeAppUpdate(ctx context.Context, app *models.App) error
-	// AfterAppUpdate called after updating App in the database
-	AfterAppUpdate(ctx context.Context, app *models.App) error
-	// BeforeAppDelete called right before deleting App in the database
-	BeforeAppDelete(ctx context.Context, app *models.App) error
-	// AfterAppDelete called after deleting App in the database
-	AfterAppDelete(ctx context.Context, app *models.App) error
-}
-
 // AddAppListener adds a listener that will be notified on App created.
-func (s *Server) AddAppListener(listener AppListener) {
+func (s *Server) AddAppListener(listener fnext.AppListener) {
 	s.appListeners = append(s.appListeners, listener)
 }
 
@@ -86,6 +71,53 @@ func (s *Server) FireBeforeAppDelete(ctx context.Context, app *models.App) error
 func (s *Server) FireAfterAppDelete(ctx context.Context, app *models.App) error {
 	for _, l := range s.appListeners {
 		err := l.AfterAppDelete(ctx, app)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FireBeforeAppGet runs AppListener's BeforeAppGet method.
+// todo: All of these listener methods could/should return the 2nd param rather than modifying in place. For instance,
+// if a listener were to change the appName here (maybe prefix it or something for the database), it wouldn't be reflected anywhere else.
+// If this returned appName, then keep passing along the returned appName, it would work.
+func (s *Server) FireBeforeAppGet(ctx context.Context, appName string) error {
+	for _, l := range s.appListeners {
+		err := l.BeforeAppGet(ctx, appName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FireAfterAppGet runs AppListener's AfterAppGet method.
+func (s *Server) FireAfterAppGet(ctx context.Context, app *models.App) error {
+	for _, l := range s.appListeners {
+		err := l.AfterAppGet(ctx, app)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FireBeforeAppsList runs AppListener's BeforeAppsList method.
+func (s *Server) FireBeforeAppsList(ctx context.Context, filter *models.AppFilter) error {
+	for _, l := range s.appListeners {
+		err := l.BeforeAppsList(ctx, filter)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FireAfterAppsList runs AppListener's AfterAppsList method.
+func (s *Server) FireAfterAppsList(ctx context.Context, apps []*models.App) error {
+	for _, l := range s.appListeners {
+		err := l.AfterAppsList(ctx, apps)
 		if err != nil {
 			return err
 		}

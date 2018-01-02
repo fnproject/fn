@@ -32,13 +32,21 @@ import (
 type Config struct {
 	DBurl                string          `json:"db_url"`
 	Listen               string          `json:"port"`
+	MgmtListen           string          `json:"mgmt_port"`
+	ShutdownTimeout      int             `json:"shutdown_timeout"`
 	ZipkinURL            string          `json:"zipkin_url"`
 	Nodes                []string        `json:"nodes"`
 	HealthcheckInterval  int             `json:"healthcheck_interval"`
 	HealthcheckEndpoint  string          `json:"healthcheck_endpoint"`
 	HealthcheckUnhealthy int             `json:"healthcheck_unhealthy"`
+	HealthcheckHealthy   int             `json:"healthcheck_healthy"`
 	HealthcheckTimeout   int             `json:"healthcheck_timeout"`
 	MinAPIVersion        *semver.Version `json:"min_api_version"`
+
+	// Kubernetes support
+	Namespace     string `json:"k8s_namespace"`
+	LabelSelector string `json:"k8s_label_selector"`
+	TargetPort    int    `json:"target_port"`
 
 	Transport *http.Transport
 }

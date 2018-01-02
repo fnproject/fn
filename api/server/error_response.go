@@ -32,12 +32,23 @@ func HandleErrorResponse(ctx context.Context, w http.ResponseWriter, err error) 
 		if e.Code() >= 500 {
 			log.WithFields(logrus.Fields{"code": e.Code()}).WithError(e).Error("api error")
 		}
+		if err == models.ErrCallTimeoutServerBusy {
+			// TODO: Determine a better delay value here (perhaps ask Agent). For now 15 secs with
+			// the hopes that fnlb will land this on a better server immediately.
+			w.Header().Set("Retry-After", "15")
+		}
 		statuscode = e.Code()
 	} else {
 		log.WithError(err).WithFields(logrus.Fields{"stack": string(debug.Stack())}).Error("internal server error")
 		statuscode = http.StatusInternalServerError
 		err = ErrInternalServerError
 	}
+	WriteError(ctx, w, statuscode, err)
+}
+
+// WriteError easy way to do standard error response, but can set statuscode and error message easier than HandleErrorResponse
+func WriteError(ctx context.Context, w http.ResponseWriter, statuscode int, err error) {
+	log := common.Logger(ctx)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statuscode)
 	err = json.NewEncoder(w).Encode(simpleError(err))

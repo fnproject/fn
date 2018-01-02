@@ -10,29 +10,29 @@ import (
 type Id [16]byte
 
 var (
-	machineId uint64
+	machineID uint64
 	counter   uint64
 )
 
 // SetMachineId may only be called by one thread before any id generation
 // is done. It must be set if multiple machines are generating ids in order
 // to avoid collisions. Only the least significant 48 bits are used.
-func SetMachineId(id uint64) {
-	machineId = id
+func SetMachineId(ID uint64) {
+	machineID = ID
 }
 
 // SetMachineIdHost is a convenience wrapper to hide bit twiddling of
 // calling SetMachineId, it has the same constraints as SetMachineId
 // with an addition that net.IP must be a ipv4 address.
 func SetMachineIdHost(addr net.IP, port uint16) {
-	var machineId uint64 // 48 bits
-	machineId |= uint64(addr[0]) << 40
-	machineId |= uint64(addr[1]) << 32
-	machineId |= uint64(addr[2]) << 24
-	machineId |= uint64(addr[3]) << 16
-	machineId |= uint64(port)
+	var machineID uint64 // 48 bits
+	machineID |= uint64(addr[0]) << 40
+	machineID |= uint64(addr[1]) << 32
+	machineID |= uint64(addr[2]) << 24
+	machineID |= uint64(addr[3]) << 16
+	machineID |= uint64(port)
 
-	SetMachineId(machineId)
+	SetMachineId(machineID)
 }
 
 // New will generate a new Id for use. New is safe to be called from
@@ -40,7 +40,7 @@ func SetMachineIdHost(addr net.IP, port uint16) {
 // New are made. 2^32 calls to New per millisecond will be unique, provided
 // machine id is seeded correctly across machines.
 //
-// binary format: [ [ 48 bits time ] [ 48 bits machineId ] [ 32 bits counter ] ]
+// binary format: [ [ 48 bits time ] [ 48 bits machineID ] [ 32 bits counter ] ]
 //
 // Ids are sortable within (not between, thanks to clocks) each machine, with
 // a modified base32 encoding exposed for convenience in API usage.
@@ -58,10 +58,10 @@ func New() Id {
 	id[4] = byte(ms >> 8)
 	id[5] = byte(ms)
 
-	id[6] = byte(machineId >> 12)
-	id[7] = byte(machineId >> 4)
+	id[6] = byte(machineID >> 12)
+	id[7] = byte(machineID >> 4)
 
-	id[8] = byte(machineId<<4) | byte((count<<4)>>60)
+	id[8] = byte(machineID<<4) | byte((count<<4)>>60)
 
 	id[8] = byte(count >> 48)
 	id[8] = byte(count >> 40)

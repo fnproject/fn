@@ -57,7 +57,7 @@ func (a *Client) DeleteAppsApp(params *DeleteAppsAppParams) (*DeleteAppsAppOK, e
 /*
 GetApps gets all app names
 
-Get a list of all the apps in the system.
+Get a list of all the apps in the system, returned in alphabetical order.
 */
 func (a *Client) GetApps(params *GetAppsParams) (*GetAppsOK, error) {
 	// TODO: Validate the params before sending

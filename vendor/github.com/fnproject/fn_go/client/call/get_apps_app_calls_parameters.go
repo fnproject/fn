@@ -14,6 +14,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/swag"
 
 	strfmt "github.com/go-openapi/strfmt"
 )
@@ -67,11 +68,31 @@ type GetAppsAppCallsParams struct {
 
 	*/
 	App string
-	/*Route
-	  App route.
+	/*Cursor
+	  Cursor from previous response.next_cursor to begin results after, if any.
 
 	*/
-	Route *string
+	Cursor *string
+	/*FromTime
+	  Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
+
+	*/
+	FromTime *int64
+	/*Path
+	  Route path to match, exact.
+
+	*/
+	Path *string
+	/*PerPage
+	  Number of results to return, defaults to 30. Max of 100.
+
+	*/
+	PerPage *int64
+	/*ToTime
+	  Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
+
+	*/
+	ToTime *int64
 
 	timeout    time.Duration
 	Context    context.Context
@@ -122,15 +143,59 @@ func (o *GetAppsAppCallsParams) SetApp(app string) {
 	o.App = app
 }
 
-// WithRoute adds the route to the get apps app calls params
-func (o *GetAppsAppCallsParams) WithRoute(route *string) *GetAppsAppCallsParams {
-	o.SetRoute(route)
+// WithCursor adds the cursor to the get apps app calls params
+func (o *GetAppsAppCallsParams) WithCursor(cursor *string) *GetAppsAppCallsParams {
+	o.SetCursor(cursor)
 	return o
 }
 
-// SetRoute adds the route to the get apps app calls params
-func (o *GetAppsAppCallsParams) SetRoute(route *string) {
-	o.Route = route
+// SetCursor adds the cursor to the get apps app calls params
+func (o *GetAppsAppCallsParams) SetCursor(cursor *string) {
+	o.Cursor = cursor
+}
+
+// WithFromTime adds the fromTime to the get apps app calls params
+func (o *GetAppsAppCallsParams) WithFromTime(fromTime *int64) *GetAppsAppCallsParams {
+	o.SetFromTime(fromTime)
+	return o
+}
+
+// SetFromTime adds the fromTime to the get apps app calls params
+func (o *GetAppsAppCallsParams) SetFromTime(fromTime *int64) {
+	o.FromTime = fromTime
+}
+
+// WithPath adds the path to the get apps app calls params
+func (o *GetAppsAppCallsParams) WithPath(path *string) *GetAppsAppCallsParams {
+	o.SetPath(path)
+	return o
+}
+
+// SetPath adds the path to the get apps app calls params
+func (o *GetAppsAppCallsParams) SetPath(path *string) {
+	o.Path = path
+}
+
+// WithPerPage adds the perPage to the get apps app calls params
+func (o *GetAppsAppCallsParams) WithPerPage(perPage *int64) *GetAppsAppCallsParams {
+	o.SetPerPage(perPage)
+	return o
+}
+
+// SetPerPage adds the perPage to the get apps app calls params
+func (o *GetAppsAppCallsParams) SetPerPage(perPage *int64) {
+	o.PerPage = perPage
+}
+
+// WithToTime adds the toTime to the get apps app calls params
+func (o *GetAppsAppCallsParams) WithToTime(toTime *int64) *GetAppsAppCallsParams {
+	o.SetToTime(toTime)
+	return o
+}
+
+// SetToTime adds the toTime to the get apps app calls params
+func (o *GetAppsAppCallsParams) SetToTime(toTime *int64) {
+	o.ToTime = toTime
 }
 
 // WriteToRequest writes these params to a swagger request
@@ -146,16 +211,80 @@ func (o *GetAppsAppCallsParams) WriteToRequest(r runtime.ClientRequest, reg strf
 		return err
 	}
 
-	if o.Route != nil {
+	if o.Cursor != nil {
 
-		// query param route
-		var qrRoute string
-		if o.Route != nil {
-			qrRoute = *o.Route
+		// query param cursor
+		var qrCursor string
+		if o.Cursor != nil {
+			qrCursor = *o.Cursor
 		}
-		qRoute := qrRoute
-		if qRoute != "" {
-			if err := r.SetQueryParam("route", qRoute); err != nil {
+		qCursor := qrCursor
+		if qCursor != "" {
+			if err := r.SetQueryParam("cursor", qCursor); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.FromTime != nil {
+
+		// query param from_time
+		var qrFromTime int64
+		if o.FromTime != nil {
+			qrFromTime = *o.FromTime
+		}
+		qFromTime := swag.FormatInt64(qrFromTime)
+		if qFromTime != "" {
+			if err := r.SetQueryParam("from_time", qFromTime); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.Path != nil {
+
+		// query param path
+		var qrPath string
+		if o.Path != nil {
+			qrPath = *o.Path
+		}
+		qPath := qrPath
+		if qPath != "" {
+			if err := r.SetQueryParam("path", qPath); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.PerPage != nil {
+
+		// query param per_page
+		var qrPerPage int64
+		if o.PerPage != nil {
+			qrPerPage = *o.PerPage
+		}
+		qPerPage := swag.FormatInt64(qrPerPage)
+		if qPerPage != "" {
+			if err := r.SetQueryParam("per_page", qPerPage); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.ToTime != nil {
+
+		// query param to_time
+		var qrToTime int64
+		if o.ToTime != nil {
+			qrToTime = *o.ToTime
+		}
+		qToTime := swag.FormatInt64(qrToTime)
+		if qToTime != "" {
+			if err := r.SetQueryParam("to_time", qToTime); err != nil {
 				return err
 			}
 		}

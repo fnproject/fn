@@ -31,10 +31,8 @@ func (m Reason) validateReasonEnum(path, location string, value Reason) error {
 			reasonEnum = append(reasonEnum, v)
 		}
 	}
-	if err := validate.Enum(path, location, value, reasonEnum); err != nil {
-		return err
-	}
-	return nil
+	err := validate.Enum(path, location, value, reasonEnum)
+	return err
 }
 
 // Validate validates this reason

@@ -2,12 +2,9 @@ package agent
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"sync"
 	"time"
 
@@ -17,12 +14,13 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
-// TODO make sure some errors that user should see (like image doesn't exist) bubble up
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
 // TODO async calls need to add route.Headers as well
 // TODO need to shut off reads/writes in dispatch to the pipes when call times out so that
@@ -30,15 +28,8 @@ import (
 // TODO add spans back around container launching for hot (follows from?) + other more granular spans
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
-// TODO herd launch prevention part deux
 // TODO storing logs / call can push call over the timeout
-// TODO all Datastore methods need to take unit of tenancy (app or route) at least (e.g. not just call id)
 // TODO discuss concrete policy for hot launch or timeout / timeout vs time left
-// TODO it may be nice to have an interchange type for Dispatch that can have
-// all the info we need to build e.g. http req, grpc req, json, etc.  so that
-// we can easily do e.g. http->grpc, grpc->http, http->json. ofc grpc<->http is
-// weird for proto specifics like e.g. proto version, method, headers, et al.
-// discuss.
 // TODO if we don't cap the number of any one container we could get into a situation
 // where the machine is full but all the containers are idle up to the idle timeout. meh.
 // TODO async is still broken, but way less so. we need to modify mq semantics
@@ -47,9 +38,7 @@ import (
 // dies). need coordination w/ db.
 // TODO if a cold call times out but container is created but hasn't replied, could
 // end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
-// TODO the call api should fill in all the fields
 // TODO the log api should be plaintext (or at least offer it)
-// TODO we should probably differentiate ran-but-timeout vs timeout-before-run
 // TODO between calls, logs and stderr can contain output/ids from previous call. need elegant solution. grossness.
 // TODO if async would store requests (or interchange format) it would be slick, but
 // if we're going to store full calls in db maybe we should only queue pointers to ids?
@@ -110,29 +99,26 @@ type Agent interface {
 
 	// Return the http.Handler used to handle Prometheus metric requests
 	PromHandler() http.Handler
+	AddCallListener(fnext.CallListener)
+
+	// Enqueue is to use the agent's sweet sweet client bindings to remotely
+	// queue async tasks and should be removed from Agent interface ASAP.
+	Enqueue(context.Context, *models.Call) error
 }
 
 type agent struct {
-	// TODO maybe these should be on GetCall? idk. was getting bloated.
-	mq models.MessageQueue
-	ds models.Datastore
+	da            DataAccess
+	callListeners []fnext.CallListener
 
 	driver drivers.Driver
 
-	hMu sync.RWMutex // protects hot
-	hot map[string]chan slot
-
-	// TODO we could make a separate struct for the memory stuff
-	// cond protects access to ramUsed
-	cond *sync.Cond
-	// ramTotal is the total accessible memory by this process
-	ramTotal uint64
-	// ramUsed is ram reserved for running containers. idle hot containers
-	// count against ramUsed.
-	ramUsed uint64
+	slotMgr *slotQueueMgr
+	// track usage
+	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
 	wg       sync.WaitGroup // TODO rename
+	shutonce sync.Once
 	shutdown chan struct{}
 
 	stats // TODO kill me
@@ -141,34 +127,59 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(ds models.Datastore, mq models.MessageQueue) Agent {
+func New(da DataAccess) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{})
 
 	a := &agent{
-		ds:          ds,
-		mq:          mq,
+		da:          da,
 		driver:      driver,
-		hot:         make(map[string]chan slot),
-		cond:        sync.NewCond(new(sync.Mutex)),
-		ramTotal:    getAvailableMemory(),
+		slotMgr:     NewSlotQueueMgr(),
+		resources:   NewResourceTracker(),
 		shutdown:    make(chan struct{}),
 		promHandler: promhttp.Handler(),
 	}
 
+	// TODO assert that agent doesn't get started for API nodes up above ?
+	a.wg.Add(1)
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
 }
 
+// TODO shuffle this around somewhere else (maybe)
+func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
+	return a.da.Enqueue(ctx, call)
+}
+
 func (a *agent) Close() error {
-	select {
-	case <-a.shutdown:
-	default:
+
+	a.shutonce.Do(func() {
 		close(a.shutdown)
-	}
+	})
+
 	a.wg.Wait()
 	return nil
+}
+
+func transformTimeout(e error, isRetriable bool) error {
+	if e == context.DeadlineExceeded {
+		if isRetriable {
+			return models.ErrCallTimeoutServerBusy
+		}
+		return models.ErrCallTimeout
+	}
+	return e
+}
+
+// handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
+// cases. Only timeouts can be a simple dequeue while other cases are actual errors.
+func (a *agent) handleStatsDequeue(err error, callI Call) {
+	if err == context.DeadlineExceeded {
+		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+	} else {
+		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+	}
 }
 
 func (a *agent) Submit(callI Call) error {
@@ -182,12 +193,25 @@ func (a *agent) Submit(callI Call) error {
 	}
 
 	// increment queued count
-	a.stats.Enqueue(callI.Model().Path)
+	a.stats.Enqueue(callI.Model().AppName, callI.Model().Path)
 
 	call := callI.(*call)
 	ctx := call.req.Context()
 
+	// agent_submit_global has no parent span because we don't want it to inherit fn_appname or fn_path
+	span_global := opentracing.StartSpan("agent_submit_global")
+	defer span_global.Finish()
+
+	// agent_submit_global has no parent span because we don't want it to inherit fn_path
+	span_app := opentracing.StartSpan("agent_submit_app")
+	span_app.SetBaggageItem("fn_appname", callI.Model().AppName)
+	defer span_app.Finish()
+
+	// agent_submit has a parent span in the usual way
+	// it doesn't matter if it inherits fn_appname or fn_path (and we set them here in any case)
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
+	span.SetBaggageItem("fn_appname", callI.Model().AppName)
+	span.SetBaggageItem("fn_path", callI.Model().Path)
 	defer span.Finish()
 
 	// start the timer STAT! TODO add some wiggle room
@@ -197,8 +221,8 @@ func (a *agent) Submit(callI Call) error {
 
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
-		a.stats.Dequeue(callI.Model().Path)
-		return err
+		a.handleStatsDequeue(err, call)
+		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
 	// to make this remove the container asynchronously?
@@ -207,12 +231,12 @@ func (a *agent) Submit(callI Call) error {
 	// TODO Start is checking the timer now, we could do it here, too.
 	err = call.Start(ctx)
 	if err != nil {
-		a.stats.Dequeue(callI.Model().Path)
-		return err
+		a.handleStatsDequeue(err, call)
+		return transformTimeout(err, true)
 	}
 
 	// decrement queued count, increment running count
-	a.stats.DequeueAndStart(callI.Model().Path)
+	a.stats.DequeueAndStart(callI.Model().AppName, callI.Model().Path)
 
 	err = slot.exec(ctx, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
@@ -220,227 +244,153 @@ func (a *agent) Submit(callI Call) error {
 
 	if err == nil {
 		// decrement running count, increment completed count
-		a.stats.Complete(callI.Model().Path)
+		a.stats.Complete(callI.Model().AppName, callI.Model().Path)
 	} else {
 		// decrement running count, increment failed count
-		a.stats.Failed(callI.Model().Path)
+		a.stats.Failed(callI.Model().AppName, callI.Model().Path)
 	}
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
-	call.End(ctx, err)
-
-	return err
+	err = call.End(ctx, err)
+	return transformTimeout(err, false)
 }
 
-// getSlot must ensure that if it receives a slot, it will be returned, otherwise
-// a container will be locked up forever waiting for slot to free.
-func (a *agent) getSlot(ctx context.Context, call *call) (slot, error) {
+// getSlot returns a Slot (or error) for the request to run. Depending on hot/cold
+// request type, this may launch a new container or wait for other containers to become idle
+// or it may wait for resources to become available to launch a new container.
+func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
-	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		return a.hotSlot(ctx, call)
+	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
+	if isHot {
+		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
+		call.slots = a.slotMgr.getHotSlotQueue(call)
+		start := time.Now()
+
+		call.slots.enterState(SlotQueueWaiter)
+		s, err := a.launchHot(ctx, call)
+		call.slots.exitStateWithLatency(SlotQueueWaiter, uint64(time.Now().Sub(start).Seconds()*1000))
+
+		return s, err
 	}
 
-	// make new channel and launch 1 for cold
-	ch := make(chan slot)
-	return a.launchOrSlot(ctx, ch, call)
+	return a.launchCold(ctx, call)
 }
 
-// launchOrSlot will launch a container that will send slots on the provided channel when it
-// is free if no slots are available on that channel first. the returned slot may or may not
-// be from the launched container. if there is an error launching a new container (if necessary),
-// then that will be returned rather than a slot, if no slot is free first.
-func (a *agent) launchOrSlot(ctx context.Context, slots chan slot, call *call) (slot, error) {
-	var errCh <-chan error
+// launchHot checks with slot queue to see if a new container needs to be launched and waits
+// for available slots in the queue for hot request execution.
+func (a *agent) launchHot(ctx context.Context, call *call) (Slot, error) {
 
-	// check if any slot immediately without trying to get a ram token
-	select {
-	case s := <-slots:
-		return s, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
+	isAsync := call.Type == models.TypeAsync
 
-	// add context cancel here to prevent ramToken/launch race, w/o this ramToken /
-	// launch won't know whether we are no longer receiving or not yet receiving.
-	ctx, launchCancel := context.WithCancel(ctx)
-	defer launchCancel()
+launchLoop:
+	for {
+		// Check/evaluate if we need to launch a new hot container
+		doLaunch, stats := call.slots.isNewContainerNeeded()
+		common.Logger(ctx).WithField("stats", stats).Debug("checking hot container launch ", doLaunch)
 
-	// if nothing free, wait for ram token or a slot
-	select {
-	case s := <-slots:
-		return s, nil
-	case tok := <-a.ramToken(ctx, call.Memory*1024*1024): // convert MB TODO mangle
-		errCh = a.launch(ctx, slots, call, tok) // TODO mangle
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+		if doLaunch {
+			ctxToken, tokenCancel := context.WithCancel(context.Background())
 
-	// wait for launch err or a slot to open up (possibly from launch)
-	select {
-	case err := <-errCh:
-		// if we get a launch err, try to return to user (e.g. image not found)
-		return nil, err
-	case slot := <-slots:
-		return slot, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func (a *agent) hotSlot(ctx context.Context, call *call) (slot, error) {
-	slots := a.slots(hotKey(call))
-
-	// TODO if we track avg run time we could know how long to wait or
-	// if we need to launch instead of waiting.
-
-	// if we can get a slot in a reasonable amount of time, use it
-	select {
-	case s := <-slots:
-		return s, nil
-	case <-time.After(100 * time.Millisecond): // XXX(reed): precise^
-		// TODO this means the first launched container if none are running eats
-		// this. yes it sucks but there are a lot of other fish to fry, opening a
-		// policy discussion...
-	}
-
-	// then wait for a slot or try to launch...
-	return a.launchOrSlot(ctx, slots, call)
-}
-
-// TODO this should be a LIFO stack of channels, perhaps. a queue (channel)
-// will always send the least recently used, not ideal.
-func (a *agent) slots(key string) chan slot {
-	a.hMu.RLock()
-	slots, ok := a.hot[key]
-	a.hMu.RUnlock()
-	if !ok {
-		a.hMu.Lock()
-		slots, ok = a.hot[key]
-		if !ok {
-			slots = make(chan slot) // should not be buffered
-			a.hot[key] = slots
-		}
-		a.hMu.Unlock()
-	}
-	return slots
-}
-
-func hotKey(call *call) string {
-	// return a sha1 hash of a (hopefully) unique string of all the config
-	// values, to make map lookups quicker [than the giant unique string]
-
-	hash := sha1.New()
-	fmt.Fprint(hash, call.AppName, "\x00")
-	fmt.Fprint(hash, call.Path, "\x00")
-	fmt.Fprint(hash, call.Image, "\x00")
-	fmt.Fprint(hash, call.Timeout, "\x00")
-	fmt.Fprint(hash, call.IdleTimeout, "\x00")
-	fmt.Fprint(hash, call.Memory, "\x00")
-	fmt.Fprint(hash, call.Format, "\x00")
-
-	// we have to sort these before printing, yay. TODO do better
-	keys := make([]string, 0, len(call.BaseEnv))
-	for k := range call.BaseEnv {
-		keys = append(keys, k)
-	}
-
-	sort.Strings(keys)
-	for _, k := range keys {
-		fmt.Fprint(hash, k, "\x00", call.BaseEnv[k], "\x00")
-	}
-
-	var buf [sha1.Size]byte
-	return string(hash.Sum(buf[:0]))
-}
-
-// TODO we could rename this more appropriately (ideas?)
-type Token interface {
-	// Close must be called by any thread that receives a token.
-	io.Closer
-}
-
-type token struct {
-	decrement func()
-}
-
-func (t *token) Close() error {
-	t.decrement()
-	return nil
-}
-
-// the received token should be passed directly to launch (unconditionally), launch
-// will close this token (i.e. the receiver should not call Close)
-func (a *agent) ramToken(ctx context.Context, memory uint64) <-chan Token {
-	c := a.cond
-	ch := make(chan Token)
-
-	go func() {
-		c.L.Lock()
-		for (a.ramUsed + memory) > a.ramTotal {
+			// wait on token/slot/timeout whichever comes first
 			select {
+			case tok, isOpen := <-a.resources.GetResourceToken(ctxToken, call.Memory, isAsync):
+				tokenCancel()
+				if !isOpen {
+					return nil, models.ErrCallTimeoutServerBusy
+				}
+
+				a.wg.Add(1)
+				go a.runHot(ctx, call, tok)
+			case s, ok := <-call.slots.getDequeueChan():
+				tokenCancel()
+				if !ok {
+					return nil, errors.New("slot shut down while waiting for hot slot")
+				}
+				if s.acquireSlot() {
+					if s.slot.Error() != nil {
+						s.slot.Close()
+						return nil, s.slot.Error()
+					}
+					return s.slot, nil
+				}
+
+				// we failed to take ownership of the token (eg. container idle timeout)
+				// try launching again
+				continue launchLoop
 			case <-ctx.Done():
-				c.L.Unlock()
-				return
-			default:
+				tokenCancel()
+				return nil, ctx.Err()
+			}
+		}
+
+		// After launching (if it was necessary) a container, now wait for slot/timeout
+		// or periodically reevaluate the launchHot() logic from beginning.
+		select {
+		case s, ok := <-call.slots.getDequeueChan():
+			if !ok {
+				return nil, errors.New("slot shut down while waiting for hot slot")
+			}
+			if s.acquireSlot() {
+				if s.slot.Error() != nil {
+					s.slot.Close()
+					return nil, s.slot.Error()
+				}
+				return s.slot, nil
 			}
 
-			c.Wait()
-		}
-
-		a.ramUsed += memory
-		c.L.Unlock()
-
-		t := &token{decrement: func() {
-			c.L.Lock()
-			a.ramUsed -= memory
-			c.L.Unlock()
-			c.Broadcast()
-		}}
-
-		select {
-		case ch <- t:
+			// we failed to take ownership of the token (eg. container idle timeout)
+			// try launching again
 		case <-ctx.Done():
-			// if we can't send b/c nobody is waiting anymore, need to decrement here
-			t.Close()
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(200) * time.Millisecond):
+			// reevaluate
 		}
-	}()
-
-	return ch
+	}
 }
 
-// asyncRam will send a signal on the returned channel when at least half of
-// the available RAM on this machine is free.
-func (a *agent) asyncRam() chan struct{} {
-	ch := make(chan struct{})
+// launchCold waits for necessary resources to launch a new container, then
+// returns the slot for that new container to run the request on.
+func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
-	c := a.cond
-	go func() {
-		c.L.Lock()
-		for (a.ramTotal/2)-a.ramUsed < 0 {
-			c.Wait()
+	isAsync := call.Type == models.TypeAsync
+	ch := make(chan Slot)
+
+	select {
+	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+		if !isOpen {
+			return nil, models.ErrCallTimeoutServerBusy
 		}
-		c.L.Unlock()
-		ch <- struct{}{}
-		// TODO this could leak forever (only in shutdown, blech)
-	}()
+		go a.prepCold(ctx, call, tok, ch)
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 
-	return ch
-}
-
-type slot interface {
-	exec(ctx context.Context, call *call) error
-	io.Closer
+	// wait for launch err or a slot to open up
+	select {
+	case s := <-ch:
+		if s.Error() != nil {
+			s.Close()
+			return nil, s.Error()
+		}
+		return s, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // implements Slot
 type coldSlot struct {
 	cookie drivers.Cookie
-	tok    Token
+	tok    ResourceToken
+	err    error
+}
+
+func (s *coldSlot) Error() error {
+	return s.err
 }
 
 func (s *coldSlot) exec(ctx context.Context, call *call) error {
@@ -470,7 +420,9 @@ func (s *coldSlot) Close() error {
 		// removal latency
 		s.cookie.Close(context.Background()) // ensure container removal, separate ctx
 	}
-	s.tok.Close()
+	if s.tok != nil {
+		s.tok.Close()
+	}
 	return nil
 }
 
@@ -480,9 +432,17 @@ type hotSlot struct {
 	proto     protocol.ContainerIO
 	errC      <-chan error // container error
 	container *container   // TODO mask this
+	err       error
 }
 
-func (s *hotSlot) Close() error { close(s.done); return nil }
+func (s *hotSlot) Close() error {
+	close(s.done)
+	return nil
+}
+
+func (s *hotSlot) Error() error {
+	return s.err
+}
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_exec")
@@ -491,20 +451,27 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
 
-	// swap in the new stderr logger
-	s.container.swap(call.stderr)
+	start := time.Now()
+	defer func() {
+		call.slots.recordLatency(SlotQueueRunner, uint64(time.Now().Sub(start).Seconds()*1000))
+	}()
+
+	// swap in the new stderr logger & stat accumulator
+	oldStderr := s.container.swap(call.stderr, &call.Stats)
+	defer s.container.swap(oldStderr, nil) // once we're done, swap out in this scope to prevent races
 
 	errApp := make(chan error, 1)
 	go func() {
 		// TODO make sure stdin / stdout not blocked if container dies or we leak goroutine
 		// we have to make sure this gets shut down or 2 threads will be reading/writing in/out
-		errApp <- s.proto.Dispatch(call.w, call.req)
+		ci := protocol.NewCallInfo(call.Model(), call.req)
+		errApp <- s.proto.Dispatch(ctx, ci, call.w)
 	}()
 
 	select {
 	case err := <-s.errC: // error from container
 		return err
-	case err := <-errApp:
+	case err := <-errApp: // from dispatch
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
@@ -513,33 +480,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// TODO we REALLY need to wait for dispatch to return before conceding our slot
 }
 
-// this will work for hot & cold (woo)
-// if launch encounters a non-nil error it will send it on the returned channel,
-// this can be useful if an image doesn't exist, e.g.
-func (a *agent) launch(ctx context.Context, slots chan<- slot, call *call, tok Token) <-chan error {
-	ch := make(chan error, 1)
-
-	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// TODO no
-		go func() {
-			err := a.prepCold(ctx, slots, call, tok)
-			if err != nil {
-				ch <- err
-			}
-		}()
-		return ch
-	}
-
-	go func() {
-		err := a.runHot(slots, call, tok)
-		if err != nil {
-			ch <- err
-		}
-	}()
-	return ch
-}
-
-func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok Token) error {
+func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -549,31 +490,28 @@ func (a *agent) prepCold(ctx context.Context, slots chan<- slot, call *call, tok
 		stdin:   call.req.Body,
 		stdout:  call.w,
 		stderr:  call.stderr,
+		stats:   &call.Stats,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
 	// about timing out if this takes a while...
 	cookie, err := a.driver.Prepare(ctx, container)
-	if err != nil {
-		tok.Close() // TODO make this less brittle
-		return err
-	}
-
-	slot := &coldSlot{cookie, tok}
+	slot := &coldSlot{cookie, tok, err}
 	select {
-	case slots <- slot:
+	case ch <- slot:
 	case <-ctx.Done():
-		slot.Close() // if we can't send this slot, need to take care of it ourselves
+		slot.Close()
 	}
-	return nil
 }
 
-// TODO add ctx back but be careful to only use for logs/spans
-func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
-	if tok == nil {
-		// TODO we should panic, probably ;)
-		return errors.New("no token provided, not giving you a slot")
-	}
+func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
+	// We must be careful to only use ctxArg for logs/spans
+	defer a.wg.Done()
+
+	// create a span from ctxArg but ignore the new Context
+	// instead we will create a new Context below and explicitly set its span
+	span, _ := opentracing.StartSpanFromContext(ctxArg, "docker_run_hot")
+	defer span.Finish()
 	defer tok.Close()
 
 	// TODO we have to make sure we flush these pipes or we will deadlock
@@ -589,6 +527,12 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 	// TODO this ctx needs to inherit logger, etc
 	ctx, shutdownContainer := context.WithCancel(context.Background())
 	defer shutdownContainer() // close this if our waiter returns
+
+	// add the span we created above to the new Context
+	ctx = opentracing.ContextWithSpan(ctx, span)
+
+	start := time.Now()
+	call.slots.enterState(SlotQueueStarter)
 
 	cid := id.New().String()
 
@@ -613,16 +557,23 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
-		return err
+		call.slots.exitStateWithLatency(SlotQueueStarter, uint64(time.Now().Sub(start).Seconds()*1000))
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		return
 	}
 	defer cookie.Close(context.Background()) // ensure container removal, separate ctx
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
-		return err
+		call.slots.exitStateWithLatency(SlotQueueStarter, uint64(time.Now().Sub(start).Seconds()*1000))
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		return
 	}
 
 	// container is running
+	call.slots.enterState(SlotQueueRunner)
+	call.slots.exitStateWithLatency(SlotQueueStarter, uint64(time.Now().Sub(start).Seconds()*1000))
+	defer call.slots.exitState(SlotQueueRunner)
 
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
@@ -639,25 +590,35 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 			}
 
 			done := make(chan struct{})
-			slot := &hotSlot{done, proto, errC, container}
+			s := call.slots.queueSlot(&hotSlot{done, proto, errC, container, nil})
 
 			select {
-			case slots <- slot:
+			case <-s.trigger:
 			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
-				logger.Info("Canceling inactive hot function")
-				shutdownContainer()
-				return
+				if call.slots.ejectSlot(s) {
+					logger.Info("Canceling inactive hot function")
+					shutdownContainer()
+					return
+				}
 			case <-ctx.Done(): // container shutdown
-				return
+				if call.slots.ejectSlot(s) {
+					return
+				}
 			case <-a.shutdown: // server shutdown
-				shutdownContainer()
-				return
+				if call.slots.ejectSlot(s) {
+					shutdownContainer()
+					return
+				}
 			}
+			// IMPORTANT: if we fail to eject the slot, it means that a consumer
+			// just dequeued this and acquired the slot. In other words, we were
+			// late in ejectSlots(), so we have to execute this request in this
+			// iteration. Beginning of for-loop will re-check ctx/shutdown case
+			// and terminate after this request is done.
 
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-done
-			container.swap(stderr) // log between tasks
 		}
 	}()
 
@@ -669,7 +630,6 @@ func (a *agent) runHot(slots chan<- slot, call *call, tok Token) error {
 	}
 
 	logger.WithError(err).Info("hot function terminated")
-	return err
 }
 
 // container implements drivers.ContainerTask container is the execution of a
@@ -686,14 +646,25 @@ type container struct {
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
+
+	// lock protects the swap and any fields that need to be swapped
+	sync.Mutex
+	stats *drivers.Stats
 }
 
-func (c *container) swap(stderr io.Writer) {
+func (c *container) swap(stderr io.Writer, cs *drivers.Stats) (old io.Writer) {
+	c.Lock()
+	defer c.Unlock()
+
 	// TODO meh, maybe shouldn't bury this
+	old = c.stderr
 	gw, ok := c.stderr.(*ghostWriter)
 	if ok {
-		gw.swap(stderr)
+		old = gw.swap(stderr)
 	}
+
+	c.stats = cs
+	return old
 }
 
 func (c *container) Id() string                     { return c.id }
@@ -703,11 +674,28 @@ func (c *container) Logger() (io.Writer, io.Writer) { return c.stdout, c.stderr 
 func (c *container) Volumes() [][2]string           { return nil }
 func (c *container) WorkDir() string                { return "" }
 func (c *container) Close()                         {}
-func (c *container) WriteStat(drivers.Stat)         {}
 func (c *container) Image() string                  { return c.image }
 func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
+
+// Log the specified stats to a tracing span.
+// Spans are not processed by the collector until the span ends, so to prevent any delay
+// in processing the stats when the function is long-lived we create a new span for every call
+func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_stats")
+	defer span.Finish()
+	for key, value := range stat.Metrics {
+		span.LogFields(log.Uint64("fn_"+key, value))
+	}
+
+	c.Lock()
+	defer c.Unlock()
+	if c.stats != nil {
+		*(c.stats) = append(*(c.stats), stat)
+	}
+}
+
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
 // Implementing the docker.AuthConfiguration interface.
 // TODO per call could implement this stored somewhere (vs. configured on host)
@@ -720,10 +708,12 @@ type ghostWriter struct {
 	inner io.Writer
 }
 
-func (g *ghostWriter) swap(w io.Writer) {
+func (g *ghostWriter) swap(w io.Writer) (old io.Writer) {
 	g.Lock()
+	old = g.inner
 	g.inner = w
 	g.Unlock()
+	return old
 }
 
 func (g *ghostWriter) Write(b []byte) (int, error) {

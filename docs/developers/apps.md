@@ -60,4 +60,4 @@ fn deploy hello
 
 ## Example app
 
-See https://github.com/fnproject/fn/tree/master/examples/apps/hellos for a simple example.
+See https://github.com/fnproject/fn/tree/master/examples/apps/hellos for a simple example. Just clone it and run `fn deploy --all` to see it in action.
