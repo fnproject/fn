@@ -63,7 +63,8 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 			return
 		}
 	}
+
 	// if we've reached this point it means that Fn didn't recognize Accepted content type
-	WriteError(c, c.Writer, http.StatusNotAcceptable,
-		errors.New("unable to respond within acceptable response content types"))
+	handleErrorResponse(c, models.NewAPIError(http.StatusNotAcceptable,
+		errors.New("unable to respond within acceptable response content types")))
 }
