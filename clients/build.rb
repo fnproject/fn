@@ -87,7 +87,7 @@ languages.each do |l|
   destdir = "tmp/fn_#{lshort}"
   if l == 'go'
     # This is using https://goswagger.io/ instead
-    stream_exec "docker run --rm -v ${PWD}/#{clone_dir}:/go/src/github.com/fnproject/fn_go -w /go/src/github.com/fnproject/fn_go quay.io/goswagger/swagger generate client -f #{swaggerUrl} -A fn "
+    stream_exec "docker run --rm -v ${PWD}/#{clone_dir}:/go/src/github.com/fnproject/fn_go -v ${GOPATH}/src/github.com/fnproject/fn/docs/swagger.yml:/go/src/github.com/fnproject/fn/swagger.yml -w /go/src/github.com/fnproject/fn_go quay.io/goswagger/swagger generate client -f /go/src/github.com/fnproject/fn/swagger.yml -A fn "
   else
     gen = JSON.parse(HTTP.post("https://generator.swagger.io/api/gen/clients/#{l}",
       json: {
