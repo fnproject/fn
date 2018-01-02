@@ -32,10 +32,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 
 	for _, mimeType := range mimeTypes {
 		switch mimeType {
-		case "text/plain":
-			io.Copy(c.Writer, logReader)
-			c.Status(http.StatusOK)
-		default:
+		case "application/json":
 			var b bytes.Buffer
 			b.ReadFrom(logReader)
 			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
@@ -44,6 +41,8 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 					AppName: appName,
 					Log:     b.String(),
 				}})
+		default:
+			io.Copy(c.Writer, logReader)
 		}
 	}
 }
