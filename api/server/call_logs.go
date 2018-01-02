@@ -17,6 +17,17 @@ type callLogResponse struct {
 	Log     *models.CallLog `json:"log"`
 }
 
+func writeJSON(c *gin.Context, callID, appName string, logReader io.Reader) {
+	var b bytes.Buffer
+	b.ReadFrom(logReader)
+	c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
+		&models.CallLog{
+			CallID:  callID,
+			AppName: appName,
+			Log:     b.String(),
+		}})
+}
+
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -31,16 +42,14 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 
 	mimeTypes, _ := c.Request.Header["Accept"]
 
+	if len(mimeTypes) == 0 {
+		writeJSON(c, callID, appName, logReader)
+		return
+	}
+
 	for _, mimeType := range mimeTypes {
 		if strings.Contains(mimeType, "application/json") {
-			var b bytes.Buffer
-			b.ReadFrom(logReader)
-			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
-				&models.CallLog{
-					CallID:  callID,
-					AppName: appName,
-					Log:     b.String(),
-				}})
+			writeJSON(c, callID, appName, logReader)
 			return
 		}
 		if strings.Contains(mimeType, "text/plain") {
@@ -49,14 +58,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 
 		}
 		if strings.Contains(mimeType, "*/*") {
-			var b bytes.Buffer
-			b.ReadFrom(logReader)
-			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
-				&models.CallLog{
-					CallID:  callID,
-					AppName: appName,
-					Log:     b.String(),
-				}})
+			writeJSON(c, callID, appName, logReader)
 			return
 		}
 	}
