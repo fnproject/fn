@@ -28,6 +28,5 @@ go test $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-ap
 go vet $(go list ./... | grep -v vendor)
 
 remove_containers
-install_swagger_tool
 
-./swagger validate docs/swagger.yml
+docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm denismakogon/swagger-tool:0.0.1
