@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/server/router"
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
