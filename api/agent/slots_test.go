@@ -203,12 +203,9 @@ func TestSlotQueueBasic2(t *testing.T) {
 
 	outChan, cancel := obj.startDequeuer(context.Background())
 	select {
-	case _, ok := <-outChan:
-		if ok {
-			t.Fatalf("out chan should be closed/empty for destroyed queue")
-		}
-	case <-time.After(time.Duration(1) * time.Second):
-		t.Fatal("timeout in waiting slotToken")
+	case z := <-outChan:
+		t.Fatalf("Should not get anything from queue: %#v", z)
+	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
 
 	cancel()
@@ -268,7 +265,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	}
 
 	// spin up bunch of go routines, where each should get a non-acquirable
-	// token or closed channel due the imminent obj.destroySlotQueue()
+	// token or timeout due the imminent obj.destroySlotQueue()
 	var wg sync.WaitGroup
 	goMax := 10
 	wg.Add(goMax)
@@ -277,19 +274,11 @@ func TestSlotQueueBasic3(t *testing.T) {
 			ch, cancl := obj.startDequeuer(context.Background())
 			defer cancl()
 			defer wg.Done()
-			for {
-				select {
-				case z, ok := <-ch:
-					if ok {
-						if z.acquireSlot() {
-							t.Fatalf("%v we shouldn't be able to acquire %#v", id, z)
-						}
-					} else {
-						return
-					}
-				case <-time.After(time.Duration(500) * time.Millisecond):
-					t.Fatalf("%v timeout in waiting slotToken", id)
-				}
+
+			select {
+			case z := <-ch:
+				t.Fatalf("%v we shouldn't get anything from queue %#v", id, z)
+			case <-time.After(time.Duration(500) * time.Millisecond):
 			}
 		}(i)
 	}
@@ -301,14 +290,10 @@ func TestSlotQueueBasic3(t *testing.T) {
 
 	wg.Wait()
 
-	// channel should be closed.
 	select {
-	case z, ok := <-outChan:
-		if ok {
-			t.Fatalf("outChan should be closed %#v", z)
-		}
-	case <-time.After(time.Duration(1) * time.Second):
-		t.Fatal("timeout in waiting slotToken")
+	case z := <-outChan:
+		t.Fatalf("Should not get anything from queue: %#v", z)
+	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
 
 	// both should be closed
