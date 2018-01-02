@@ -2,34 +2,12 @@
 # Top level test script to start all other tests
 set -exuo pipefail
 
-function host {
-    case ${DOCKER_LOCATION:-localhost} in
-    localhost)
-        echo "localhost"
-        ;;
-    docker_ip)
-        if [[ !  -z  ${DOCKER_HOST}  ]]
-        then
-            DOCKER_IP=`echo ${DOCKER_HOST} | awk -F/ '{print $3}'| awk -F: '{print $1}'`
-        fi
 
-        echo ${DOCKER_IP}
-        ;;
-    container_ip)
-        echo "$(docker inspect -f '{{.NetworkSettings.IPAddress}}' ${1})"
-        ;;
-    esac
-}
-
-function remove_containers {
-    docker rm -fv func-postgres-test 2>/dev/null || true
-    docker rm -fv func-mysql-test 2>/dev/null || true
-    docker rm -fv func-minio-test 2>/dev/null || true
-}
+source ./helpers.sh
 
 remove_containers
 
-docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" -p 5432:5432 -d postgres
+docker run --name func-postgres-test -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root" -p 5432:5432 -d postgres:9.3-alpine
 docker run --name func-mysql-test -p 3306:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
 docker run -d -p 9000:9000 --name func-minio-test -e "MINIO_ACCESS_KEY=admin" -e "MINIO_SECRET_KEY=password" minio/minio server /data
 
@@ -51,5 +29,4 @@ go vet $(go list ./... | grep -v vendor)
 
 remove_containers
 
-docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm  quay.io/goswagger/swagger validate /go/src/github.com/fnproject/fn/docs/swagger.yml
-
+docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
