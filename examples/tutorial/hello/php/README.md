@@ -22,15 +22,15 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-php
+curl http://localhost:8080/r/myapp/php
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/hello-php](http://localhost:8080/r/myapp/hello-php)
+Or call from a browser: [http://localhost:8080/r/myapp/php](http://localhost:8080/r/myapp/php)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-php
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/php
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Fn server. Try editing `func.php` 
