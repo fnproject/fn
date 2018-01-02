@@ -15,6 +15,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
@@ -98,9 +99,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
-	opts = append(opts, WithDBURL(ctx, getEnv(EnvDBURL, defaultDB)))
+	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
-	opts = append(opts, WithLogURL(ctx, getEnv(EnvLOGDBURL, "")))
+	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 	return New(ctx, opts...)
@@ -115,70 +116,91 @@ func pwd() string {
 	return strings.Replace(cwd, "\\", "/", -1)
 }
 
-func WithDBURL(ctx context.Context, dbURL string) ServerOption {
-	if dbURL != "" {
-		ds, err := datastore.New(ctx, dbURL)
-		if err != nil {
-			logrus.WithError(err).Fatalln("Error initializing datastore.")
+func WithDBURL(dbURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if dbURL != "" {
+			ds, err := datastore.New(ctx, dbURL)
+			if err != nil {
+				return err
+			}
+			s.datastore = ds
 		}
-		return WithDatastore(ds)
+		return nil
 	}
-	return noop
 }
 
 func WithMQURL(mqURL string) ServerOption {
-	if mqURL != "" {
-		mq, err := mqs.New(mqURL)
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing message queue.")
+	return func(ctx context.Context, s *Server) error {
+		if mqURL != "" {
+			mq, err := mqs.New(mqURL)
+			if err != nil {
+				return err
+			}
+			s.mq = mq
 		}
-		return WithMQ(mq)
+		return nil
 	}
-	return noop
 }
 
-func WithLogURL(ctx context.Context, logstoreURL string) ServerOption {
-	if ldb := logstoreURL; ldb != "" {
-		logDB, err := logs.New(ctx, logstoreURL)
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing logs store.")
+func WithLogURL(logstoreURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if ldb := logstoreURL; ldb != "" {
+			logDB, err := logs.New(ctx, logstoreURL)
+			if err != nil {
+				return err
+			}
+			s.logstore = logDB
 		}
-		return WithLogstore(logDB)
+		return nil
 	}
-	return noop
 }
 
 func WithRunnerURL(runnerURL string) ServerOption {
-	if runnerURL != "" {
-		cl, err := hybrid.NewClient(runnerURL)
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing runner API client.")
+	return func(ctx context.Context, s *Server) error {
+		if runnerURL != "" {
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(cl))
 		}
-		return WithAgent(agent.New(agent.NewCachedDataAccess(cl)))
+		return nil
 	}
-	return noop
 }
 
-func noop(s *Server) {}
-
 func WithType(t ServerNodeType) ServerOption {
-	return func(s *Server) { s.nodeType = t }
+	return func(ctx context.Context, s *Server) error {
+		s.nodeType = t
+		return nil
+	}
 }
 
 func WithDatastore(ds models.Datastore) ServerOption {
-	return func(s *Server) { s.datastore = ds }
+	return func(ctx context.Context, s *Server) error {
+		s.datastore = ds
+		return nil
+	}
 }
 
 func WithMQ(mq models.MessageQueue) ServerOption {
-	return func(s *Server) { s.mq = mq }
+	return func(ctx context.Context, s *Server) error {
+		s.mq = mq
+		return nil
+	}
 }
 
 func WithLogstore(ls models.LogStore) ServerOption {
-	return func(s *Server) { s.logstore = ls }
+	return func(ctx context.Context, s *Server) error {
+		s.logstore = ls
+		return nil
+	}
 }
 
 func WithAgent(agent agent.Agent) ServerOption {
-	return func(s *Server) { s.agent = agent }
+	return func(ctx context.Context, s *Server) error {
+		s.agent = agent
+		return nil
+	}
 }
 
 // New creates a new Functions server with the opts given. For convenience, users may
@@ -193,7 +215,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		if opt == nil {
 			continue
 		}
-		opt(s)
+		err := opt(ctx, s)
+		if err != nil {
+			common.Logger(ctx).WithError(err).Fatal("Error during server opt initialization.")
+		}
 	}
 
 	if s.logstore == nil { // TODO seems weird?
