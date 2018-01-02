@@ -100,7 +100,7 @@ func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) models.Error
 
 func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogStore, func()) {
 	os.Remove(tmpDatastoreTests)
-	ds, err := datastore.New("sqlite3://" + tmpDatastoreTests)
+	ds, err := datastore.New(ctx, "sqlite3://"+tmpDatastoreTests)
 	if err != nil {
 		t.Fatalf("Error when creating datastore: %s", err)
 	}

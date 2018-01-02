@@ -15,6 +15,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
@@ -116,74 +117,96 @@ func pwd() string {
 }
 
 func WithDBURL(dbURL string) ServerOption {
-	if dbURL != "" {
-		ds, err := datastore.New(dbURL)
-		if err != nil {
-			logrus.WithError(err).Fatalln("Error initializing datastore.")
+	return func(ctx context.Context, s *Server) error {
+		if dbURL != "" {
+			ds, err := datastore.New(ctx, dbURL)
+			if err != nil {
+				return err
+			}
+			s.datastore = ds
 		}
-		return WithDatastore(ds)
+		return nil
 	}
-	return noop
 }
 
 func WithMQURL(mqURL string) ServerOption {
-	if mqURL != "" {
-		mq, err := mqs.New(mqURL)
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing message queue.")
+	return func(ctx context.Context, s *Server) error {
+		if mqURL != "" {
+			mq, err := mqs.New(mqURL)
+			if err != nil {
+				return err
+			}
+			s.mq = mq
 		}
-		return WithMQ(mq)
+		return nil
 	}
-	return noop
 }
 
 func WithLogURL(logstoreURL string) ServerOption {
-	if ldb := logstoreURL; ldb != "" {
-		logDB, err := logs.New(logstoreURL)
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing logs store.")
+	return func(ctx context.Context, s *Server) error {
+		if ldb := logstoreURL; ldb != "" {
+			logDB, err := logs.New(ctx, logstoreURL)
+			if err != nil {
+				return err
+			}
+			s.logstore = logDB
 		}
-		return WithLogstore(logDB)
+		return nil
 	}
-	return noop
 }
 
 func WithRunnerURL(runnerURL string) ServerOption {
-	if runnerURL != "" {
-		cl, err := hybrid.NewClient(runnerURL)
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing runner API client.")
+	return func(ctx context.Context, s *Server) error {
+		if runnerURL != "" {
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(cl))
 		}
-		return WithAgent(agent.New(agent.NewCachedDataAccess(cl)))
+		return nil
 	}
-	return noop
 }
 
-func noop(s *Server) {}
-
 func WithType(t ServerNodeType) ServerOption {
-	return func(s *Server) { s.nodeType = t }
+	return func(ctx context.Context, s *Server) error {
+		s.nodeType = t
+		return nil
+	}
 }
 
 func WithDatastore(ds models.Datastore) ServerOption {
-	return func(s *Server) { s.datastore = ds }
+	return func(ctx context.Context, s *Server) error {
+		s.datastore = ds
+		return nil
+	}
 }
 
 func WithMQ(mq models.MessageQueue) ServerOption {
-	return func(s *Server) { s.mq = mq }
+	return func(ctx context.Context, s *Server) error {
+		s.mq = mq
+		return nil
+	}
 }
 
 func WithLogstore(ls models.LogStore) ServerOption {
-	return func(s *Server) { s.logstore = ls }
+	return func(ctx context.Context, s *Server) error {
+		s.logstore = ls
+		return nil
+	}
 }
 
 func WithAgent(agent agent.Agent) ServerOption {
-	return func(s *Server) { s.agent = agent }
+	return func(ctx context.Context, s *Server) error {
+		s.agent = agent
+		return nil
+	}
 }
 
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
+	log := common.Logger(ctx)
 	s := &Server{
 		Router: gin.New(),
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
@@ -193,7 +216,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		if opt == nil {
 			continue
 		}
-		opt(s)
+		err := opt(ctx, s)
+		if err != nil {
+			log.WithError(err).Fatal("Error during server opt initialization.")
+		}
 	}
 
 	if s.logstore == nil { // TODO seems weird?
@@ -205,18 +231,18 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	switch s.nodeType {
 	case ServerTypeAPI:
 		if s.agent != nil {
-			logrus.Info("shutting down agent configured for api node")
+			log.Info("shutting down agent configured for api node")
 			s.agent.Close()
 		}
 		s.agent = nil
 	case ServerTypeRunner:
 		if s.agent == nil {
-			logrus.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
+			log.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
 		}
 	default:
 		s.nodeType = ServerTypeFull
 		if s.datastore == nil || s.logstore == nil || s.mq == nil {
-			logrus.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+			log.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 		}
 
 		// TODO force caller to use WithAgent option? at this point we need to use the ds/ls/mq configured after all opts are run.

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
@@ -96,14 +97,15 @@ type sqlStore struct {
 
 // New will open the db specified by url, create any tables necessary
 // and return a models.Datastore safe for concurrent usage.
-func New(url *url.URL) (models.Datastore, error) {
-	return newDS(url)
+func New(ctx context.Context, url *url.URL) (models.Datastore, error) {
+	return newDS(ctx, url)
 }
 
 // for test methods, return concrete type, but don't expose
-func newDS(url *url.URL) (*sqlStore, error) {
+func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 	driver := url.Scheme
 
+	log := common.Logger(ctx)
 	// driver must be one of these for sqlx to work, double check:
 	switch driver {
 	case "postgres", "pgx", "mysql", "sqlite3":
@@ -128,25 +130,25 @@ func newDS(url *url.URL) (*sqlStore, error) {
 
 	sqldb, err := sql.Open(driver, uri)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't open db")
+		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't open db")
 		return nil, err
 	}
 
 	db := sqlx.NewDb(sqldb, driver)
 	// force a connection and test that it worked
-	err = db.Ping()
+	err = pingWithRetry(ctx, 10, time.Second*1, db)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't ping db")
+		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't ping db")
 		return nil, err
 	}
 
 	maxIdleConns := 256 // TODO we need to strip this out of the URL probably
 	db.SetMaxIdleConns(maxIdleConns)
-	logrus.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
+	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
 	err = runMigrations(url.String(), checkExistence(db)) // original url string
 	if err != nil {
-		logrus.WithError(err).Error("error running migrations")
+		log.WithError(err).Error("error running migrations")
 		return nil, err
 	}
 
@@ -155,13 +157,24 @@ func newDS(url *url.URL) (*sqlStore, error) {
 		db.SetMaxOpenConns(1)
 	}
 	for _, v := range tables {
-		_, err = db.Exec(v)
+		_, err = db.ExecContext(ctx, v)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &sqlStore{db: db}, nil
+}
+
+func pingWithRetry(ctx context.Context, attempts int, sleep time.Duration, db *sqlx.DB) (err error) {
+	for i := 0; i < attempts; i++ {
+		err = db.PingContext(ctx)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(sleep)
+	}
+	return err
 }
 
 // checkExistence checks if tables have been created yet, it is not concerned
