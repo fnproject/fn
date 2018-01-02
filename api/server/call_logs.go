@@ -8,6 +8,7 @@ import (
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"strings"
 )
 
 // note: for backward compatibility, will go away later
@@ -31,8 +32,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	mimeTypes, _ := c.Request.Header["Accept"]
 
 	for _, mimeType := range mimeTypes {
-		switch mimeType {
-		case "application/json":
+		if strings.Contains(mimeType, "application/json") {
 			var b bytes.Buffer
 			b.ReadFrom(logReader)
 			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
@@ -41,8 +41,25 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 					AppName: appName,
 					Log:     b.String(),
 				}})
-		default:
+			return
+		}
+		if strings.Contains(mimeType, "text/plain") {
 			io.Copy(c.Writer, logReader)
+			return
+
+		}
+		if strings.Contains(mimeType, "*/*") {
+			var b bytes.Buffer
+			b.ReadFrom(logReader)
+			c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
+				&models.CallLog{
+					CallID:  callID,
+					AppName: appName,
+					Log:     b.String(),
+				}})
+			return
 		}
 	}
+	// if we've reached this point it means that Fn didn't recognize Accepted content type
+	c.Status(http.StatusNotAcceptable)
 }
