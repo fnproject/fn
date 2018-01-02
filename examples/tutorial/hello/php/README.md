@@ -9,7 +9,7 @@ This example will show you how to test and deploy PHP code to Fn. It will also d
 fn init --name hello-php
 
 # Test your function. 
-# This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
+# This will run inside a container exactly how it will on the server. It will also install composer dependencies.
 fn run
 
 # Now try with an input
@@ -40,10 +40,10 @@ and then doing another `fn deploy`.
 
 In PHP, you can create a [composer](https://getcomposer.org/) file in your function directory, then run:
 
-This will rebuild your gems and vendor them. PHP doesn't pick them up automatically, so you'll have to add this to the top of your `func.php` file:
+This will redownload your composer dependencies. PHP doesn't pick them up automatically, so you'll have to add this to the top of your `func.php` file:
 
 ```php
-require 'vendor/autoload.php';
+require_once 'vendor/autoload.php';
 ```
 
 Open `func.php` to see it in action.
@@ -73,7 +73,7 @@ Open `func.php` to see it in action.
 
 5. We added PHP dependencies and enabled them using:
     ```php
-    require 'vendor/autoload.php';
+    require_once 'vendor/autoload.php';
     ```
 
 
