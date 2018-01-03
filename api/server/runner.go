@@ -55,8 +55,10 @@ func parseParams(params gin.Params) agent.Params {
 func (s *Server) serve(c *gin.Context, appName, path string) {
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
+	writer := &watchWriter{inner: c.Writer}
+
 	call, err := s.agent.GetCall(
-		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
+		agent.WithWriter(writer), // XXX (reed): order matters [for now]
 		agent.FromRequest(appName, path, c.Request, parseParams(c.Params)),
 	)
 	if err != nil {
@@ -104,9 +106,11 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 			// add this, since it means that start may not have been called [and it's relevant]
 			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
 		}
-		// NOTE: if the task wrote the headers already then this will fail to write
-		// a 5xx (and log about it to us) -- that's fine (nice, even!)
-		handleErrorResponse(c, err)
+
+		// make sure the writer wasn't used before writing our error out
+		if !writer.used() {
+			handleErrorResponse(c, err)
+		}
 		return
 	}
 
@@ -115,4 +119,19 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	// TODO we need to watch the response writer and if no bytes written
 	// then write a 200 at this point?
 	// c.Data(http.StatusOK)
+}
+
+// implements http.ResponseWriter, is thread-safe just in case
+// NOTE this isn't perfect unless the reference to the inner writer can't be
+// written to after used() is called.
+type watchWriter struct {
+	http.ResponseWriter
+	used uint32
+}
+
+func (w *watchWriter) used() bool { return atomic.LoadUint32(&w.used) == 1 }
+
+func (w *watchWriter) Write(b []byte) (n int, err error) {
+	atomic.CompareAndSwapUint32(w.used, 0, 1)
+	return w.inner.Write(b)
 }
