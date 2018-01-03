@@ -49,8 +49,8 @@ type FunctionStats struct {
 }
 
 var (
-	fnCalls = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	fnCalls = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "fn_api_calls",
 			Help: "Function calls by app and path",
 		},
