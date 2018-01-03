@@ -57,8 +57,6 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
-	isClosed  bool
-	closer    chan struct{}
 	signaller chan bool
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
@@ -76,7 +74,6 @@ func NewSlotQueue(key string) *slotQueue {
 		key:       key,
 		cond:      sync.NewCond(new(sync.Mutex)),
 		slots:     make([]*slotToken, 0),
-		closer:    make(chan struct{}),
 		signaller: make(chan bool, 1),
 	}
 
@@ -100,23 +97,12 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 		return false
 	}
 
-	foundIdx := -1
-
 	a.cond.L.Lock()
-	for idx, val := range a.slots {
-		if val.id == s.id {
-			foundIdx = idx
+	for i := 0; i < len(a.slots); i++ {
+		if a.slots[i].id == s.id {
+			a.slots = append(a.slots[:i], a.slots[i+1:]...)
 			break
 		}
-	}
-	if foundIdx != -1 {
-		newArr := make([]*slotToken, 0, len(a.slots))
-		for idx, val := range a.slots {
-			if idx != foundIdx {
-				newArr = append(newArr, val)
-			}
-		}
-		a.slots = newArr
 	}
 	a.cond.L.Unlock()
 
@@ -124,32 +110,6 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 	// now we have the lock, push the trigger
 	close(s.trigger)
 	return true
-}
-
-func (a *slotQueue) destroySlotQueue() {
-	doSignal := false
-	purgePool := make([]*slotToken, 0)
-
-	a.cond.L.Lock()
-	if !a.isClosed {
-		purgePool = a.slots
-		a.slots = a.slots[:0]
-		a.isClosed = true
-		doSignal = true
-	}
-	a.cond.L.Unlock()
-
-	if doSignal {
-		close(a.closer)
-		a.cond.Broadcast()
-	}
-
-	for _, val := range purgePool {
-		if val.acquireSlot() {
-			val.slot.Close()
-		}
-	}
-
 }
 
 func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context.CancelFunc) {
@@ -164,16 +124,15 @@ func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context
 	output := make(chan *slotToken)
 
 	go func() {
-	loop:
 		for {
 			a.cond.L.Lock()
-			for len(a.slots) <= 0 && !a.isClosed && (ctx.Err() == nil) {
+			for len(a.slots) <= 0 && (ctx.Err() == nil) {
 				a.cond.Wait()
 			}
 
-			if a.isClosed || ctx.Err() != nil {
+			if ctx.Err() != nil {
 				a.cond.L.Unlock()
-				break loop
+				return
 			}
 
 			// pop
@@ -184,9 +143,8 @@ func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context
 			select {
 			case output <- item: // good case (dequeued)
 			case <-item.trigger: // ejected (eject handles cleanup)
-			case <-ctx.Done(): // time out or cancel from caller, queue again
-				a.requeueToken(item)
-			case <-a.closer: // queue destroyed (isClosed true)
+			case <-ctx.Done(): // time out or cancel from caller
+				// consume slot, we let the hot container queue the slot again
 				if item.acquireSlot() {
 					item.slot.Close()
 				}
@@ -197,46 +155,18 @@ func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context
 	return output, myCancel
 }
 
-func (a *slotQueue) requeueToken(token *slotToken) {
-
-	isClosed := false
-
-	a.cond.L.Lock()
-	if !a.isClosed {
-		a.slots = append(a.slots, token)
-	} else {
-		isClosed = true
-	}
-	a.cond.L.Unlock()
-
-	if !isClosed {
-		a.cond.Broadcast()
-	} else if token.acquireSlot() {
-		token.slot.Close()
-	}
-}
-
 func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 
 	token := &slotToken{slot, make(chan struct{}), 0, 0}
-	isClosed := false
 
 	a.cond.L.Lock()
-	if !a.isClosed {
-		token.id = a.nextId
-		a.slots = append(a.slots, token)
-		a.nextId += 1
-	} else {
-		isClosed = true
-	}
+	token.id = a.nextId
+	a.slots = append(a.slots, token)
+	a.nextId += 1
 	a.cond.L.Unlock()
 
-	if !isClosed {
-		a.cond.Broadcast()
-		return token
-	}
-
-	return nil
+	a.cond.Broadcast()
+	return token
 }
 
 // isIdle() returns true is there's no activity for this slot queue. This

@@ -286,36 +286,34 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
 // containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
 // it destroys the slot queue.
-func (a *agent) hotLauncher(ctx context.Context, call *call) {
+func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
 	timeout := time.Duration(60) * time.Minute
-	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
+	idleTimeout := time.Duration(callObj.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
 	}
 
 	logger := common.Logger(ctx)
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
-	isAsync := call.Type == models.TypeAsync
-
-	defer call.slots.destroySlotQueue()
+	isAsync := callObj.Type == models.TypeAsync
 
 	for {
 		select {
 		case <-a.shutdown: // server shutdown
 			return
 		case <-time.After(timeout):
-			if a.slotMgr.deleteSlotQueue(call.slots) {
+			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
-		case <-call.slots.signaller:
+		case <-callObj.slots.signaller:
 		}
 
-		isNeeded, stats := call.slots.isNewContainerNeeded()
+		isNeeded, stats := callObj.slots.isNewContainerNeeded()
 		logger.WithField("stats", stats).Debug("Hot function launcher stats")
 		if !isNeeded {
 			continue
@@ -325,18 +323,21 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		logger.WithField("stats", stats).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, call.Memory, isAsync):
+		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, isAsync):
 			cancel()
 			if isOpen {
 				a.wg.Add(1)
-				go a.runHot(ctx, call, tok)
+				go func(ctx context.Context, call *call, tok ResourceToken) {
+					a.runHot(ctx, call, tok)
+					a.wg.Done()
+				}(ctx, callObj, tok)
 			} else {
 				// this means the resource was impossible to reserve (eg. memory size we can never satisfy)
-				call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
+				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
 			}
 		case <-time.After(timeout):
 			cancel()
-			if a.slotMgr.deleteSlotQueue(call.slots) {
+			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
@@ -374,6 +375,8 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			return nil, ctx.Err()
 		case <-time.After(time.Duration(200) * time.Millisecond):
 			// ping dequeuer again
+		case <-a.shutdown: // server shutdown
+			return nil, errors.New("agent shut down")
 		}
 	}
 }
@@ -532,7 +535,6 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	// We must be careful to only use ctxArg for logs/spans
-	defer a.wg.Done()
 
 	// create a span from ctxArg but ignore the new Context
 	// instead we will create a new Context below and explicitly set its span

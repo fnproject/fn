@@ -74,7 +74,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 		tokens = append(tokens, tok)
 	}
 
-	// Now according to LIFO semantics, we should get 9,8,7,5,4,3,2,1,0 if we dequeued right now.
+	// Now according to LIFO semantics, we should get 9,8,7,6,5,4,3,2,1,0 if we dequeued right now.
 	// but let's eject 9
 	if !obj.ejectSlot(tokens[9]) {
 		t.Fatalf("Cannot eject slotToken: %#v", tokens[9])
@@ -137,32 +137,20 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatal("timeout in waiting slotToken")
 	}
 
-	// now we've got: 4,3,2,1
-	// let's destroy this queue
-	obj.destroySlotQueue()
-
 	cancel()
 
-	// we should get nothing
+	// we should get nothing or 6
 	select {
 	case z, ok := <-outChan:
 		if ok {
-			t.Fatalf("Should not get anything from queue: %#v", z)
+			if z.id != 6 {
+				t.Fatalf("Should not get anything except for 6 from queue: %#v", z)
+			}
+			if !z.acquireSlot() {
+				t.Fatalf("cannot acquire token: %#v", z)
+			}
 		}
 	case <-time.After(time.Duration(500) * time.Millisecond):
-	}
-
-	// attempt to queue again should fail
-	tok := obj.queueSlot(slots[0])
-	if tok != nil {
-		t.Fatalf("Attempt to queue into closed slotQueue should fail")
-	}
-
-	// all of our slots should be busy (acquired now)
-	for _, v := range tokens {
-		if v.isBusy == uint32(0) {
-			t.Fatalf("Slot not busy after ejects and destroyed queue %#v", v)
-		}
 	}
 
 	stats1 := obj.getStats()
@@ -172,18 +160,10 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf("Faulty stats %#v != %#v", stats1, stats2)
 	}
 
+	// there are no waiters.
 	if isNeeded {
-		t.Fatalf("Shouldn't need a container for destroy slotQueue")
+		t.Fatalf("Shouldn't need a container")
 	}
-
-	// all slots should now be closed
-	for id := uint64(0); id < maxId; id += 1 {
-		inner := slots[id].(*testSlot)
-		if !inner.isClosed {
-			t.Fatalf("slot not closed: %#v", slots[id])
-		}
-	}
-
 }
 
 func TestSlotQueueBasic2(t *testing.T) {
@@ -196,10 +176,6 @@ func TestSlotQueueBasic2(t *testing.T) {
 	if ok, _ := obj.isNewContainerNeeded(); ok {
 		t.Fatalf("Should not need a new container")
 	}
-
-	// twice should be safe
-	obj.destroySlotQueue()
-	obj.destroySlotQueue()
 
 	outChan, cancel := obj.startDequeuer(context.Background())
 	select {
@@ -282,8 +258,6 @@ func TestSlotQueueBasic3(t *testing.T) {
 			}
 		}(i)
 	}
-
-	obj.destroySlotQueue()
 
 	// let's cancel after destroy this time
 	cancel2()
