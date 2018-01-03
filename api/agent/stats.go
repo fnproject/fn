@@ -1,8 +1,9 @@
 package agent
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // TODO this should expose:
@@ -48,24 +49,31 @@ type FunctionStats struct {
 }
 
 var (
+	fnCalls = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fn_api_calls",
+			Help: "Function calls by app and path",
+		},
+		[](string){"app", "path"},
+	)
 	fnQueued = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "fn_api_queued",
-			Help: "Queued requests by path",
+			Help: "Queued requests by app and path",
 		},
 		[](string){"app", "path"},
 	)
 	fnRunning = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "fn_api_running",
-			Help: "Running requests by path",
+			Help: "Running requests by app and path",
 		},
 		[](string){"app", "path"},
 	)
 	fnCompleted = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "fn_api_completed",
-			Help: "Completed requests by path",
+			Help: "Completed requests by app and path",
 		},
 		[](string){"app", "path"},
 	)
@@ -79,6 +87,7 @@ var (
 )
 
 func init() {
+	prometheus.MustRegister(fnCalls)
 	prometheus.MustRegister(fnQueued)
 	prometheus.MustRegister(fnRunning)
 	prometheus.MustRegister(fnFailed)
@@ -104,6 +113,7 @@ func (s *stats) Enqueue(app string, path string) {
 	s.queue++
 	s.getStatsForFunction(path).queue++
 	fnQueued.WithLabelValues(app, path).Inc()
+	fnCalls.WithLabelValues(app, path).Inc()
 
 	s.mu.Unlock()
 }
