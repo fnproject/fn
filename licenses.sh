@@ -24,9 +24,28 @@ license() {
     return
   fi
 
-  moz=$(grep -rs "This Source Code Form is subject to the terms of the Mozilla" vendor/$1)
+  moz=$(grep -rs "Mozilla Public License" vendor/$1)
   if [[ ! -z $moz ]]; then
     echo "$1 Mozilla Public License 2.0"
+    return
+  fi
+
+  isc=$(grep -rs "Permission to use, copy, modify, and distribute this software for any" vendor/$1)
+  if [[ ! -z $isc ]]; then
+    echo "$1 ISC License"
+    return
+  fi
+
+  unlicense=$(grep -rs "This is free and unencumbered software released into the public domain." vendor/$1)
+  if [[ ! -z $unlicense ]]; then
+    echo "$1 Unlicense"
+    return
+  fi
+
+  cc=$(grep -rs "creativecommons" vendor/$1)
+  if [[ ! -z $cc ]]; then
+    echo "$1 Creative Commons"
+    return
   fi
 
   # TODO others

@@ -76,7 +76,6 @@ import:
   subpackages:
   - kubernetes
 - package: github.com/emicklei/go-restful-swagger12
-- package: github.com/juju/ratelimit
 - package: golang.org/x/sys
   version: master
   subpackages:
