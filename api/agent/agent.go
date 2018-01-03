@@ -338,7 +338,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		}).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, isAsync):
+		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, call.CPUQuota, isAsync):
 			cancel()
 			if isOpen {
 				a.wg.Add(1)
@@ -404,7 +404,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	ch := make(chan Slot)
 
 	select {
-	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, call.CPUQuota, isAsync):
 		if !isOpen {
 			return nil, models.ErrCallTimeoutServerBusy
 		}
@@ -540,15 +540,16 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	}
 
 	container := &container{
-		id:      id.New().String(), // XXX we could just let docker generate ids...
-		image:   call.Image,
-		env:     map[string]string(call.Config),
-		memory:  call.Memory,
-		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
-		stdout:  call.w,
-		stderr:  call.stderr,
-		stats:   &call.Stats,
+		id:       id.New().String(), // XXX we could just let docker generate ids...
+		image:    call.Image,
+		env:      map[string]string(call.Config),
+		memory:   call.Memory,
+		cpuQuota: call.CPUQuota,
+		timeout:  time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
+		stdin:    call.req.Body,
+		stdout:   call.w,
+		stderr:   call.stderr,
+		stats:    &call.Stats,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -600,16 +601,17 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	})
 
 	container := &container{
-		id:     cid, // XXX we could just let docker generate ids...
-		image:  call.Image,
-		env:    map[string]string(call.Config),
-		memory: call.Memory,
-		stdin:  stdinRead,
-		stdout: stdoutWrite,
-		stderr: &ghostWriter{inner: stderr},
+		id:       cid, // XXX we could just let docker generate ids...
+		image:    call.Image,
+		env:      map[string]string(call.Config),
+		memory:   call.Memory,
+		cpuQuota: call.CPUQuota,
+		stdin:    stdinRead,
+		stdout:   stdoutWrite,
+		stderr:   &ghostWriter{inner: stderr},
 	}
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpu_quota": call.CPUQuota, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -694,11 +696,12 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id      string // contrived
-	image   string
-	env     map[string]string
-	memory  uint64
-	timeout time.Duration // cold only (superfluous, but in case)
+	id       string // contrived
+	image    string
+	env      map[string]string
+	memory   uint64
+	cpuQuota uint64
+	timeout  time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -735,6 +738,7 @@ func (c *container) Image() string                  { return c.image }
 func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
+func (c *container) CPUQuota() uint64               { return c.cpuQuota }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

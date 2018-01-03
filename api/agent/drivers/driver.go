@@ -104,6 +104,9 @@ type ContainerTask interface {
 	// 0 is unlimited.
 	Memory() uint64
 
+	// CPU Quota determines CPU allocation percentage where 100% is one CPU, 200% is 2 CPUs and 0% is unlimited
+	CPUQuota() uint64
+
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string

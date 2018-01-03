@@ -15,6 +15,8 @@ const (
 	DefaultIdleTimeout = 30  // seconds
 	DefaultMemory      = 128 // MB
 
+	DefaultCPUQuota = 0 // unlimited
+
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
 	MaxIdleTimeout  = MaxAsyncTimeout
@@ -29,6 +31,7 @@ type Route struct {
 	Path        string          `json:"path" db:"path"`
 	Image       string          `json:"image" db:"image"`
 	Memory      uint64          `json:"memory" db:"memory"`
+	CPUQuota    uint64          `json:"cpu_quota" db:"cpu_quota"`
 	Headers     Headers         `json:"headers,omitempty" db:"headers"`
 	Type        string          `json:"type" db:"type"`
 	Format      string          `json:"format" db:"format"`
@@ -43,6 +46,10 @@ type Route struct {
 func (r *Route) SetDefaults() {
 	if r.Memory == 0 {
 		r.Memory = DefaultMemory
+	}
+
+	if r.CPUQuota == 0 {
+		r.CPUQuota = DefaultCPUQuota
 	}
 
 	if r.Type == TypeNone {
@@ -161,6 +168,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 	eq = eq && r1.Path == r2.Path
 	eq = eq && r1.Image == r2.Image
 	eq = eq && r1.Memory == r2.Memory
+	eq = eq && r1.CPUQuota == r2.CPUQuota
 	eq = eq && r1.Headers.Equals(r2.Headers)
 	eq = eq && r1.Type == r2.Type
 	eq = eq && r1.Format == r2.Format
@@ -185,6 +193,9 @@ func (r *Route) Update(new *Route) {
 	}
 	if new.Memory != 0 {
 		r.Memory = new.Memory
+	}
+	if new.CPUQuota != 0 {
+		r.CPUQuota = new.CPUQuota
 	}
 	if new.Type != "" {
 		r.Type = new.Type

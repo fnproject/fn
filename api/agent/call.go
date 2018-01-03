@@ -103,6 +103,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
 			Memory:      route.Memory,
+			CPUQuota:    route.CPUQuota,
 			Config:      buildConfig(app, route),
 			Headers:     req.Header,
 			CreatedAt:   strfmt.DateTime(time.Now()),

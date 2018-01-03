@@ -529,6 +529,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				Format:      "http",
 				IdleTimeout: testRoute.IdleTimeout,
 				Memory:      testRoute.Memory,
+				CPUQuota:    testRoute.CPUQuota,
 				// updated
 				Timeout: 2,
 				Config: map[string]string{
@@ -572,6 +573,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				Format:      "http",
 				Timeout:     2,
 				Memory:      testRoute.Memory,
+				CPUQuota:    testRoute.CPUQuota,
 				IdleTimeout: testRoute.IdleTimeout,
 				// updated
 				Config: map[string]string{
@@ -726,4 +728,5 @@ var testRoute = &models.Route{
 	Timeout:     models.DefaultTimeout,
 	IdleTimeout: models.DefaultIdleTimeout,
 	Memory:      models.DefaultMemory,
+	CPUQuota:    models.DefaultCPUQuota,
 }

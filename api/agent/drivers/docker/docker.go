@@ -115,6 +115,11 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context:    ctx,
 	}
 
+	if task.CPUQuota() != 0 {
+		container.HostConfig.CPUQuota = int64(task.CPUQuota() * 100000 / 100)
+		container.HostConfig.CPUPeriod = 100000
+	}
+
 	volumes := task.Volumes()
 	for _, mapping := range volumes {
 		hostDir := mapping[0]
@@ -140,7 +145,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
 			log.WithFields(logrus.Fields{"call_id": task.Id(), "command": container.Config.Cmd, "memory": container.Config.Memory,
-				"cpu_shares": container.Config.CPUShares, "hostname": container.Config.Hostname, "name": container.Name,
+				"cpu_shares": container.Config.CPUShares, "cpu_quota": task.CPUQuota(), "hostname": container.Config.Hostname, "name": container.Name,
 				"image": container.Config.Image, "volumes": container.Config.Volumes, "binds": container.HostConfig.Binds, "container": container.Name,
 			}).WithError(err).Error("Could not create container")
 

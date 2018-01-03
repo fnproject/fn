@@ -31,6 +31,7 @@ func (f *taskDockerTest) Logger() (stdout, stderr io.Writer)      { return f.out
 func (f *taskDockerTest) WriteStat(context.Context, drivers.Stat) { /* TODO */ }
 func (f *taskDockerTest) Volumes() [][2]string                    { return [][2]string{} }
 func (f *taskDockerTest) Memory() uint64                          { return 256 * 1024 * 1024 }
+func (f *taskDockerTest) CPUQuota() uint64                        { return 0 }
 func (f *taskDockerTest) WorkDir() string                         { return "" }
 func (f *taskDockerTest) Close()                                  {}
 func (f *taskDockerTest) Input() io.Reader                        { return f.input }

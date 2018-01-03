@@ -51,6 +51,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
+	const cpuQuota = 0
 	typ := "sync"
 	format := "default"
 
@@ -72,6 +73,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 				Timeout:     timeout,
 				IdleTimeout: idleTimeout,
 				Memory:      memory,
+				CPUQuota:    cpuQuota,
 			},
 		}, nil,
 	)
@@ -144,13 +146,14 @@ func TestCallConfigurationRequest(t *testing.T) {
 	}
 
 	expectedConfig := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
+		"FN_FORMAT":    format,
+		"FN_APP_NAME":  appName,
+		"FN_PATH":      path,
+		"FN_MEMORY":    strconv.Itoa(memory),
+		"FN_CPU_QUOTA": strconv.Itoa(cpuQuota),
+		"FN_TYPE":      typ,
+		"APP_VAR":      "FOO",
+		"ROUTE_VAR":    "BAR",
 	}
 
 	for k, v := range expectedConfig {
@@ -185,19 +188,21 @@ func TestCallConfigurationModel(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
+	const cpuQuota = 100
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
 	typ := "sync"
 	format := "default"
 	cfg := models.Config{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
+		"FN_FORMAT":    format,
+		"FN_APP_NAME":  appName,
+		"FN_PATH":      path,
+		"FN_MEMORY":    strconv.Itoa(memory),
+		"FN_CPU_QUOTA": strconv.Itoa(cpuQuota),
+		"FN_TYPE":      typ,
+		"APP_VAR":      "FOO",
+		"ROUTE_VAR":    "BAR",
 	}
 
 	cm := &models.Call{
@@ -210,6 +215,7 @@ func TestCallConfigurationModel(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
+		CPUQuota:    cpuQuota,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
@@ -243,6 +249,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
+	const cpuQuota = 20
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
@@ -251,14 +258,15 @@ func TestAsyncCallHeaders(t *testing.T) {
 	contentType := "suberb_type"
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	config := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
-		"DOUBLE_VAR":  "BIZ, BAZ",
+		"FN_FORMAT":    format,
+		"FN_APP_NAME":  appName,
+		"FN_PATH":      path,
+		"FN_MEMORY":    strconv.Itoa(memory),
+		"FN_CPU_QUOTA": strconv.Itoa(cpuQuota),
+		"FN_TYPE":      typ,
+		"APP_VAR":      "FOO",
+		"ROUTE_VAR":    "BAR",
+		"DOUBLE_VAR":   "BIZ, BAZ",
 	}
 	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
@@ -277,6 +285,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
+		CPUQuota:    cpuQuota,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
@@ -343,20 +352,22 @@ func TestSubmitError(t *testing.T) {
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
+	const cpuQuota = 20
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
 	typ := "sync"
 	format := "default"
 	config := map[string]string{
-		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
-		"FN_PATH":     path,
-		"FN_MEMORY":   strconv.Itoa(memory),
-		"FN_TYPE":     typ,
-		"APP_VAR":     "FOO",
-		"ROUTE_VAR":   "BAR",
-		"DOUBLE_VAR":  "BIZ, BAZ",
+		"FN_FORMAT":    format,
+		"FN_APP_NAME":  appName,
+		"FN_PATH":      path,
+		"FN_MEMORY":    strconv.Itoa(memory),
+		"FN_CPU_QUOTA": strconv.Itoa(cpuQuota),
+		"FN_TYPE":      typ,
+		"APP_VAR":      "FOO",
+		"ROUTE_VAR":    "BAR",
+		"DOUBLE_VAR":   "BIZ, BAZ",
 	}
 
 	cm := &models.Call{
@@ -369,6 +380,7 @@ func TestSubmitError(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
+		CPUQuota:    cpuQuota,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
