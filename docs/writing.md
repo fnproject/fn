@@ -34,6 +34,7 @@ You will also have access to a set of environment variables.
 * `FN_PATH` - the matched route, eg: `/hello`
 * `FN_METHOD` - the HTTP method for the request, eg: `GET` or `POST`
 * `FN_CALL_ID` - a unique ID for each function execution.
+* `FN_DEADLINE` - RFC3339 time stamp of the expiration (deadline) date of function execution.
 * `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`.
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
 * `FN_TYPE` - the type for this call, currently 'sync' or 'async'
