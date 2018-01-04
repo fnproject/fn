@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: fn
   description: The open source serverless platform.
-  version: "0.2.3"
+  version: "0.2.4"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -371,7 +371,6 @@ paths:
       tags:
         - Call
         - Log
-      produces: ['text/plain',]
       parameters:
         - name: app
           description: App Name
@@ -387,7 +386,7 @@ paths:
         200:
           description: Log found
           schema:
-            type: string
+            $ref:  '#/definitions/LogWrapper'
         404:
           description: Log not found.
           schema:
@@ -636,6 +635,24 @@ definitions:
       call:
         $ref: '#/definitions/Call'
         description: "Call object."
+
+  LogWrapper:
+    type: object
+    required:
+      - log
+    properties:
+      log:
+        $ref: '#/definitions/Log'
+        description: "Call log entry."
+
+  Log:
+    type: object
+    properties:
+      call_id:
+        type: string
+        description: Call UUID ID
+      log:
+        type: string # maybe bytes, long logs wouldn't fit into string type
 
   Call:
     type: object
