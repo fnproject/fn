@@ -122,15 +122,13 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	go func() {
 		c.L.Lock()
 
-		for !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
-			select {
-			case <-ctx.Done():
-				c.L.Unlock()
-				return
-			default:
-			}
-
+		for !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) && ctx.Err() == nil {
 			c.Wait()
+		}
+
+		if ctx.Err() != nil {
+			c.L.Unlock()
+			return
 		}
 
 		var asyncMem, syncMem uint64
