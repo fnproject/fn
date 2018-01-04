@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -188,7 +187,7 @@ func (a *agent) Submit(callI Call) error {
 
 	select {
 	case <-a.shutdown:
-		return errors.New("agent shut down")
+		return models.ErrCallTimeoutServerBusy
 	default:
 	}
 
@@ -376,7 +375,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		case <-time.After(time.Duration(200) * time.Millisecond):
 			// ping dequeuer again
 		case <-a.shutdown: // server shutdown
-			return nil, errors.New("agent shut down")
+			return nil, models.ErrCallTimeoutServerBusy
 		}
 	}
 }
