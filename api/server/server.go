@@ -454,7 +454,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		fmt.Println("IN NO ROUTE")
 		var err error
 		switch {
 		case s.nodeType == ServerTypeAPI && strings.HasPrefix(c.Request.URL.Path, "/r/"):
@@ -462,18 +461,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		case s.nodeType == ServerTypeRunner && strings.HasPrefix(c.Request.URL.Path, "/v1/"):
 			err = models.ErrAPINotSupported
 		default:
-			// c.JSON(200, map[string]string{"yoooo": "dog"})
-			// c.Writer.WriteHeader(200)
-
 			err = s.handleFunctionCall2(c)
-			if err == nil {
-				fmt.Println("NIL ERR")
-				// var e models.APIError = models.ErrPathNotFound
-				// err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
-			}
 		}
 		if err != nil {
-			fmt.Println("err in no route is", err)
 			handleErrorResponse(c, err)
 		}
 	})
