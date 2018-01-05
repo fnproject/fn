@@ -30,6 +30,7 @@ type store struct {
 }
 
 // s3://access_key_id:secret_access_key@host/location/bucket_name?ssl=true
+// Note that access_key_id and secret_access_key must be URL encoded if they contain unsafe characters!
 func New(u *url.URL) (models.LogStore, error) {
 	endpoint := u.Host
 
@@ -54,7 +55,7 @@ func New(u *url.URL) (models.LogStore, error) {
 
 	logrus.WithFields(logrus.Fields{"bucketName": bucketName, "location": location, "endpoint": endpoint, "access_key_id": accessKeyID, "useSSL": useSSL}).Info("checking / creating s3 bucket")
 
-	client, err := minio.New(endpoint, accessKeyID, secretAccessKey, useSSL)
+	client, err := minio.NewWithRegion(endpoint, accessKeyID, secretAccessKey, useSSL, location)
 	if err != nil {
 		return nil, err
 	}
