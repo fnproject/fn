@@ -331,6 +331,9 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	return errIn // original error, important for use in sync call returns
 }
 
+// getCPUQuota converts CPUs to CPU quota by multiplying them by 100.
+// eg. 0.20 becomes 20, 2.0 becomes 200, which are easier to calculate
+// and manage as resources and translate to Linux CFS (cpu-quota and cpu-period)
 func getCPUQuota(CPUs string) (uint64, error) {
 	if CPUs == "" {
 		return 0, nil

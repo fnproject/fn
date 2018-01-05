@@ -138,10 +138,6 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 			// async uses async pool only
 			asyncMem = memory
 			asyncCPU = cpuQuota
-		} else if a.ramSyncTotal-a.ramSyncUsed >= memory && a.cpuSyncTotal-a.cpuSyncUsed >= cpuQuota {
-			// if sync fits in sync pool
-			syncMem = memory
-			syncCPU = cpuQuota
 		} else {
 			// if sync fits async + sync pool
 			syncMem = minUint64(a.ramSyncTotal-a.ramSyncUsed, memory)
@@ -224,36 +220,46 @@ func clampUint64(val, min, max uint64) uint64 {
 func (a *resourceTracker) initializeCPU() {
 
 	var maxSyncCPU, maxAsyncCPU, cpuAsyncHWMark uint64
-
-	cpuShares := uint64(runtime.NumCPU() * 100)
+	var totalCPU, availCPU uint64
 
 	if runtime.GOOS == "linux" {
 
-		availCPU := cpuShares
-
-		// for linux, let's check if we have a cgroups quota, if yes, then clamp cpuShares
-		// with it.
-		cgroupCPU := checkCgroupCPU()
-		if cgroupCPU > 0 {
-			availCPU = minUint64(cpuShares, cgroupCPU)
+		// Why do we prefer /proc/cpuinfo for Linux and not just use runtime.NumCPU?
+		// This is because NumCPU is sched_getaffinity based and we prefer to check
+		// cgroup which will more likely be same cgroup for container runtime
+		numCPU, err := checkProcCPU()
+		if err != nil {
+			logrus.WithError(err).Error("Error checking for CPU, falling back to runtime CPU count.")
+			numCPU = uint64(runtime.NumCPU())
 		}
 
-		// skip CPU headroom for ourselves for now
+		totalCPU = 100 * numCPU
+		availCPU = totalCPU
 
-		logrus.WithFields(logrus.Fields{
-			"totalCPU": cpuShares,
-			"availCPU": availCPU,
-		}).Info("available cpu")
+		// Clamp further if cgroups CFS quota/period limits are in place
+		cgroupCPU := checkCgroupCPU()
+		if cgroupCPU > 0 {
+			availCPU = minUint64(availCPU, cgroupCPU)
+		}
 
-		// %20 of cpu for sync only reserve
-		maxSyncCPU = uint64(availCPU * 2 / 10)
-		maxAsyncCPU = availCPU - maxSyncCPU
-		cpuAsyncHWMark = maxAsyncCPU * 8 / 10
+		// TODO: check cgroup cpuset to clamp this further. We might be restricted into
+		// a subset of CPUs. (eg. /sys/fs/cgroup/cpuset/cpuset.effective_cpus)
+
+		// TODO: skip CPU headroom for ourselves for now
 	} else {
-		maxSyncCPU = cpuShares / 4
-		maxAsyncCPU = cpuShares * 3 / 4
-		cpuAsyncHWMark = cpuShares / 2
+		totalCPU = uint64(runtime.NumCPU() * 100)
+		availCPU = totalCPU
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"totalCPU": totalCPU,
+		"availCPU": availCPU,
+	}).Info("available cpu")
+
+	// %20 of cpu for sync only reserve
+	maxSyncCPU = uint64(availCPU * 2 / 10)
+	maxAsyncCPU = availCPU - maxSyncCPU
+	cpuAsyncHWMark = maxAsyncCPU * 8 / 10
 
 	logrus.WithFields(logrus.Fields{
 		"cpuSync":        maxSyncCPU,
@@ -447,4 +453,31 @@ func checkProcMem() (uint64, error) {
 	}
 
 	return 0, errCantReadMemInfo
+}
+
+func checkProcCPU() (uint64, error) {
+	f, err := os.Open("/proc/cpuinfo")
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	total := uint64(0)
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		b := scanner.Text()
+
+		// processor       : 0
+		toks := strings.Fields(b)
+		if len(toks) == 3 && toks[0] == "processor" && toks[1] == ":" {
+			total += 1
+		}
+	}
+
+	if total == 0 {
+		return 0, errors.New("Could not parse cpuinfo")
+	}
+
+	return total, nil
 }

@@ -131,32 +131,48 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidMemory
 	}
 
-	if r.CPUs != "" {
-		cpu, err := strconv.ParseFloat(r.CPUs, 64)
-		if err != nil || cpu < 0 {
-			return ErrRoutesInvalidCPUs
-		}
-	}
-
-	return nil
+	_, err = sanitizeCPUs(r.CPUs)
+	return err
 }
 
 func (r *Route) Sanitize() error {
 
-	if r.CPUs != "" {
-		cpu, err := strconv.ParseFloat(r.CPUs, 64)
-		if err != nil || cpu < 0 {
-			return ErrRoutesInvalidCPUs
-		}
-
-		// NOTE: we ignore epsilon here. Precision as .2 should
-		// flag any abnormalities here. Any abnormally large floats
-		// would be flagged as unequal due to precision loss, which
-		// is OK since valid max CPUs (cores) should be very small (eg. 72)
-		r.CPUs = fmt.Sprintf("%4.2f", cpu)
+	sanitized, err := sanitizeCPUs(r.CPUs)
+	if err != nil {
+		return err
 	}
 
+	r.CPUs = sanitized
 	return nil
+}
+
+// sanitizeCPUs validates and cleans up CPUs string
+func sanitizeCPUs(CPUs string) (string, error) {
+
+	if CPUs == "" {
+		return "", nil
+	}
+
+	// first check if this is valid positive float64.
+	cpu, err := strconv.ParseFloat(CPUs, 64)
+	if err != nil || cpu < 0 {
+		return "", ErrRoutesInvalidCPUs
+	}
+
+	// IMPORTANT: This is varchar(16) in datastore sql
+	// Enforce .2 precision and max 4 width, which also
+	// cleans up padded zeros, preceding sign, etc.
+	sanitized := fmt.Sprintf("%4.2f", cpu)
+
+	// now check if by sanitizing we ended up losing precision
+	// if we lost precision, then an unsupported format (eg. 0.22020)
+	// was submitted.
+	tmp, err := strconv.ParseFloat(sanitized, 64)
+	if err != nil || cpu != tmp {
+		return "", ErrRoutesInvalidCPUs
+	}
+
+	return sanitized, nil
 }
 
 func (r *Route) Clone() *Route {

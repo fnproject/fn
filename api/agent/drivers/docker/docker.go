@@ -115,6 +115,10 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context:    ctx,
 	}
 
+	// Translate %100 cpu into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
+	// eg: task.CPUQuota() of 800 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
+	// which is approx 8 CPUS in CFS world.
+	// Also see docker run options --cpu-quota and --cpu-period
 	if task.CPUQuota() != 0 {
 		container.HostConfig.CPUQuota = int64(task.CPUQuota() * 100000 / 100)
 		container.HostConfig.CPUPeriod = 100000
