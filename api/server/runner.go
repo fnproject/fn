@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"net/http"
 	"path"
 	"time"
@@ -16,21 +15,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// handleFunctionCall executes the function, for router handlers
 func (s *Server) handleFunctionCall(c *gin.Context) {
-	fmt.Println("handleFunctionCall")
 	err := s.handleFunctionCall2(c)
 	if err != nil {
-		fmt.Println("ERROR", err)
 		handleErrorResponse(c, err)
 	}
 }
 
-// handleFunctionCall executes the function.
+// handleFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
 // * "app_name"
 // * "path"
 func (s *Server) handleFunctionCall2(c *gin.Context) error {
-	fmt.Println("handlefunc 2")
 	ctx := c.Request.Context()
 	var p string
 	r := ctx.Value(api.Path)
