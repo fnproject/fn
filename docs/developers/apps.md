@@ -60,5 +60,4 @@ fn deploy hello
 
 ## Example app
 
-MOVE TO EXTERNAL REPO
-See https://github.com/fnproject/fn/tree/master/examples/apps/hellos for a simple example. Just clone it and run `fn deploy --all` to see it in action.
+See https://github.com/treeder/fn-app-example for a simple example. Just clone it and run `fn deploy --all` to see it in action.
