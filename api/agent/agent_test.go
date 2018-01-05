@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,17 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/sirupsen/logrus"
 )
+
+func init() {
+	// TODO figure out some sane place to stick this
+	formatter := &logrus.TextFormatter{
+		FullTimestamp: true,
+	}
+	logrus.SetFormatter(formatter)
+	logrus.SetLevel(logrus.DebugLevel)
+}
+
+// TODO need to add at least one test for our cachy cache
 
 func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHeaders http.Header) {
 
@@ -79,7 +91,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
 	w := httptest.NewRecorder()
@@ -224,7 +236,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -294,7 +306,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -340,7 +352,7 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 		t.Fatal("logs did not match expectations, like being an adult", strGot, str)
 	}
 
-	logger.Close() // idk maybe this would panic might as well call this
+	logger.Close() // idk maybe this would panic might as well ca this
 
 	// TODO we could check for the toilet to flush here to logrus
 }
@@ -389,7 +401,7 @@ func TestSubmitError(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -415,11 +427,7 @@ func TestSubmitError(t *testing.T) {
 // a type of reader than NewRequest can identify to set the content length
 // (important, for some tests)
 type dummyReader struct {
-	inner io.Reader
-}
-
-func (d *dummyReader) Read(b []byte) (int, error) {
-	return d.inner.Read(b)
+	io.Reader
 }
 
 func TestHTTPWithoutContentLengthWorks(t *testing.T) {
@@ -457,7 +465,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	// get a req that uses the dummy reader, so that this can't determine
 	// the size of the body and set content length (user requests may also
 	// forget to do this, and we _should_ read it as chunked without issue).
-	req, err := http.NewRequest("GET", url, &dummyReader{strings.NewReader(bodOne)})
+	req, err := http.NewRequest("GET", url, &dummyReader{Reader: strings.NewReader(bodOne)})
 	if err != nil {
 		t.Fatal("unexpected error building request", err)
 	}
@@ -518,5 +526,321 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	_, err := a.GetCall(FromModel(call))
 	if err != models.ErrCallTimeoutServerBusy {
 		t.Fatal("did not get expected err, got: ", err)
+	}
+}
+
+// return a model with all fields filled in with fnproject/sleeper image, change as needed
+func testCall() *models.Call {
+	appName := "myapp"
+	path := "/sleeper"
+	image := "fnproject/fn-test-utils:latest"
+	const timeout = 10
+	const idleTimeout = 20
+	const memory = 256
+	CPUs := models.MilliCPUs(200)
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+	payload := "payload"
+	typ := "sync"
+	format := "http"
+	contentType := "suberb_type"
+	contentLength := strconv.FormatInt(int64(len(payload)), 10)
+	config := map[string]string{
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_CPUS":     CPUs.String(),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
+	}
+	headers := map[string][]string{
+		// FromRequest would insert these from original HTTP request
+		"Content-Type":   []string{contentType},
+		"Content-Length": []string{contentLength},
+	}
+
+	return &models.Call{
+		Config:      config,
+		Headers:     headers,
+		AppName:     appName,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+}
+
+func TestPipesAreClear(t *testing.T) {
+	// The basic idea here is to make a call start a hot container, and the
+	// first call has a reader that only reads after a delay, which is beyond
+	// the boundary of the first call's timeout. Then, run a second call
+	// with a different body that also has a slight delay. make sure the second
+	// call gets the correct body.  This ensures the input paths for calls do not
+	// overlap into the same container and they don't block past timeout.
+	// TODO make sure the second call does not get the first call's body if
+	// we write the first call's body in before the second's (it was tested
+	// but not put in stone here, the code is ~same).
+	//
+	// causal (seconds):
+	// T1=start task one, T1TO=task one times out, T2=start task two
+	// T1W=task one writes, T2W=task two writes
+	//
+	//
+	//  1s  2   3    4   5   6
+	// ---------------------------
+	//
+	// T1-------T1TO-T2-T1W--T2W--
+
+	ca := testCall()
+	ca.Type = "sync"
+	ca.Format = "http"
+	ca.IdleTimeout = 60 // keep this bad boy alive
+	ca.Timeout = 4      // short
+
+	// we need to load in app & route so that FromRequest works
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: ca.AppName},
+		},
+		[]*models.Route{
+			{
+				Path:        ca.Path,
+				AppName:     ca.AppName,
+				Image:       ca.Image,
+				Type:        ca.Type,
+				Format:      ca.Format,
+				Timeout:     ca.Timeout,
+				IdleTimeout: ca.IdleTimeout,
+				Memory:      ca.Memory,
+			},
+		}, nil,
+	)
+
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	defer a.Close()
+
+	// test read this body after 5s (after call times out) and make sure we don't get yodawg
+	// TODO could read after 10 seconds, to make sure the 2nd task's input stream isn't blocked
+	// TODO we need to test broken HTTP output from a task should return a useful error
+	bodOne := `{"echoContent":"yodawg"}`
+	delayBodyOne := &delayReader{Reader: strings.NewReader(bodOne), delay: 5 * time.Second}
+
+	req, err := http.NewRequest("GET", ca.URL, delayBodyOne)
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+	// NOTE: using chunked here seems to perplex the go http request reading code, so for
+	// the purposes of this test, set this. json also works.
+	req.ContentLength = int64(len(bodOne))
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
+
+	var outOne bytes.Buffer
+	callI, err := a.GetCall(FromRequest(ca.AppName, ca.Path, req), WithWriter(&outOne))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// this will time out after 4s, our reader reads after 5s
+	t.Log("before submit one:", time.Now())
+	err = a.Submit(callI)
+	t.Log("after submit one:", time.Now())
+	if err == nil {
+		t.Error("expected error but got none")
+	}
+	t.Log("first guy err:", err)
+
+	if len(outOne.String()) > 0 {
+		t.Fatal("input should not have been read, producing 0 output, got:", outOne.String())
+	}
+
+	// if we submit another call to the hot container, this can be finicky if the
+	// hot logic simply fails to re-use a container then this will 'just work'
+	// but at one point this failed.
+
+	// only delay this body 2 seconds, so that we read at 6s (first writes at 5s) before time out
+	bodTwo := `{"echoContent":"NODAWG"}`
+	delayBodyTwo := &delayReader{Reader: strings.NewReader(bodTwo), delay: 2 * time.Second}
+
+	req, err = http.NewRequest("GET", ca.URL, delayBodyTwo)
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+	req.ContentLength = int64(len(bodTwo))
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
+
+	var outTwo bytes.Buffer
+	callI, err = a.GetCall(FromRequest(ca.AppName, ca.Path, req), WithWriter(&outTwo))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("before submit two:", time.Now())
+	err = a.Submit(callI)
+	t.Log("after submit two:", time.Now())
+	if err != nil {
+		t.Error("got error from submit when task should succeed", err)
+	}
+
+	body := outTwo.String()
+
+	// we're using http format so this will have written a whole http request
+	res, err := http.ReadResponse(bufio.NewReader(&outTwo), nil)
+	if err != nil {
+		t.Fatalf("error reading body. err: %v body: %s", err, body)
+	}
+	defer res.Body.Close()
+
+	// {"request":{"echoContent":"yodawg"}}
+	var resp struct {
+		R struct {
+			Body string `json:"echoContent"`
+		} `json:"request"`
+	}
+
+	json.NewDecoder(res.Body).Decode(&resp)
+
+	if resp.R.Body != "NODAWG" {
+		t.Fatalf("body from second call was not what we wanted. boo. got wrong body: %v wanted: %v", resp.R.Body, "NODAWG")
+	}
+
+	// NOTE: we need to make sure that 2 containers didn't launch to process
+	// this. this isn't perfect but we really should be able to run 2 tasks
+	// sequentially even if the first times out in the same container, so this
+	// ends up testing hot container management more than anything. i do not like
+	// digging around in the concrete type of ca for state stats but this seems
+	// the best way to ensure 2 containers aren't launched. this does have the
+	// shortcoming that if the first container dies and another launches, we
+	// don't see it and this passes when it should not.  feel free to amend...
+	callConcrete := callI.(*call)
+	var count uint64
+	for _, up := range callConcrete.slots.getStats().containerStates {
+		up += count
+	}
+	if count > 1 {
+		t.Fatalf("multiple containers launched to service this test. this shouldn't be. %d", count)
+	}
+}
+
+type delayReader struct {
+	once  sync.Once
+	delay time.Duration
+
+	io.Reader
+}
+
+func (r *delayReader) Read(b []byte) (int, error) {
+	r.once.Do(func() { time.Sleep(r.delay) })
+	return r.Reader.Read(b)
+}
+
+func TestPipesDontMakeSpuriousCalls(t *testing.T) {
+	// if we swap out the pipes between tasks really fast, we need to ensure that
+	// there are no spurious reads on the container's input that give us a bad
+	// task output (i.e. 2nd task should succeed). if this test is fussing up,
+	// make sure input swapping out is not racing, it is very likely not the test
+	// that is finicky since this is a totally normal happy path (run 2 hot tasks
+	// in the same container in a row).
+
+	call := testCall()
+	call.Type = "sync"
+	call.Format = "http"
+	call.IdleTimeout = 60 // keep this bad boy alive
+	call.Timeout = 4      // short
+
+	// we need to load in app & route so that FromRequest works
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: call.AppName},
+		},
+		[]*models.Route{
+			{
+				Path:        call.Path,
+				AppName:     call.AppName,
+				Image:       call.Image,
+				Type:        call.Type,
+				Format:      call.Format,
+				Timeout:     call.Timeout,
+				IdleTimeout: call.IdleTimeout,
+				Memory:      call.Memory,
+			},
+		}, nil,
+	)
+
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	defer a.Close()
+
+	bodOne := `{"echoContent":"yodawg"}`
+	req, err := http.NewRequest("GET", call.URL, strings.NewReader(bodOne))
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+
+	var outOne bytes.Buffer
+	callI, err := a.GetCall(FromRequest(call.AppName, call.Path, req), WithWriter(&outOne))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// this will time out after 4s, our reader reads after 5s
+	t.Log("before submit one:", time.Now())
+	err = a.Submit(callI)
+	t.Log("after submit one:", time.Now())
+	if err != nil {
+		t.Error("got error from submit when task should succeed", err)
+	}
+
+	// if we submit the same ca to the hot container again,
+	// this can be finicky if the
+	// hot logic simply fails to re-use a container then this will
+	// 'just work' but at one point this failed.
+
+	bodTwo := `{"echoContent":"NODAWG"}`
+	req, err = http.NewRequest("GET", call.URL, strings.NewReader(bodTwo))
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+
+	var outTwo bytes.Buffer
+	callI, err = a.GetCall(FromRequest(call.AppName, call.Path, req), WithWriter(&outTwo))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("before submit two:", time.Now())
+	err = a.Submit(callI)
+	t.Log("after submit two:", time.Now())
+	if err != nil {
+		// don't do a Fatal so that we can read the body to see what really happened
+		t.Error("got error from submit when task should succeed", err)
+	}
+
+	// we're using http format so this will have written a whole http request
+	res, err := http.ReadResponse(bufio.NewReader(&outTwo), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	// {"request":{"echoContent":"yodawg"}}
+	var resp struct {
+		R struct {
+			Body string `json:"echoContent"`
+		} `json:"request"`
+	}
+
+	json.NewDecoder(res.Body).Decode(&resp)
+
+	if resp.R.Body != "NODAWG" {
+		t.Fatalf("body from second call was not what we wanted. boo. got wrong body: %v wanted: %v", resp.R.Body, "NODAWG")
 	}
 }

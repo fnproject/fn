@@ -18,8 +18,6 @@ type HTTPProtocol struct {
 
 func (p *HTTPProtocol) IsStreamable() bool { return true }
 
-// TODO handle req.Context better with io.Copy. io.Copy could push us
-// over the timeout.
 func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
 	req := ci.Request()
 
@@ -31,7 +29,7 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 		return err
 	}
 
-	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request()) // TODO timeout
+	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request())
 	if err != nil {
 		return err
 	}
@@ -40,7 +38,7 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
 		// async / [some] tests go through here. write a full http request to the writer
-		resp.Write(w) // TODO timeout
+		resp.Write(w)
 		return nil
 	}
 

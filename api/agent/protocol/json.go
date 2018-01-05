@@ -176,7 +176,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 				rw.WriteHeader(p.StatusCode)
 			}
 		}
-		_, err = io.WriteString(rw, jout.Body) // TODO timeout
+		_, err = io.WriteString(rw, jout.Body)
 		if err != nil {
 			return err
 		}
