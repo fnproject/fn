@@ -338,7 +338,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		}).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, call.CPUQuota, isAsync):
+		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, callObj.CPUQuota, isAsync):
 			cancel()
 			if isOpen {
 				a.wg.Add(1)

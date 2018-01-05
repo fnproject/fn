@@ -1,9 +1,11 @@
 package models
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,8 +16,6 @@ const (
 	DefaultTimeout     = 30  // seconds
 	DefaultIdleTimeout = 30  // seconds
 	DefaultMemory      = 128 // MB
-
-	DefaultCPUQuota = 0 // unlimited
 
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
@@ -31,7 +31,7 @@ type Route struct {
 	Path        string          `json:"path" db:"path"`
 	Image       string          `json:"image" db:"image"`
 	Memory      uint64          `json:"memory" db:"memory"`
-	CPUQuota    uint64          `json:"cpu_quota" db:"cpu_quota"`
+	CPUs        string          `json:"cpus" db:"cpus"`
 	Headers     Headers         `json:"headers,omitempty" db:"headers"`
 	Type        string          `json:"type" db:"type"`
 	Format      string          `json:"format" db:"format"`
@@ -46,10 +46,6 @@ type Route struct {
 func (r *Route) SetDefaults() {
 	if r.Memory == 0 {
 		r.Memory = DefaultMemory
-	}
-
-	if r.CPUQuota == 0 {
-		r.CPUQuota = DefaultCPUQuota
 	}
 
 	if r.Type == TypeNone {
@@ -135,6 +131,31 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidMemory
 	}
 
+	if r.CPUs != "" {
+		cpu, err := strconv.ParseFloat(r.CPUs, 64)
+		if err != nil || cpu < 0 {
+			return ErrRoutesInvalidCPUs
+		}
+	}
+
+	return nil
+}
+
+func (r *Route) Sanitize() error {
+
+	if r.CPUs != "" {
+		cpu, err := strconv.ParseFloat(r.CPUs, 64)
+		if err != nil || cpu < 0 {
+			return ErrRoutesInvalidCPUs
+		}
+
+		// NOTE: we ignore epsilon here. Precision as .2 should
+		// flag any abnormalities here. Any abnormally large floats
+		// would be flagged as unequal due to precision loss, which
+		// is OK since valid max CPUs (cores) should be very small (eg. 72)
+		r.CPUs = fmt.Sprintf("%4.2f", cpu)
+	}
+
 	return nil
 }
 
@@ -168,7 +189,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 	eq = eq && r1.Path == r2.Path
 	eq = eq && r1.Image == r2.Image
 	eq = eq && r1.Memory == r2.Memory
-	eq = eq && r1.CPUQuota == r2.CPUQuota
+	eq = eq && r1.CPUs == r2.CPUs
 	eq = eq && r1.Headers.Equals(r2.Headers)
 	eq = eq && r1.Type == r2.Type
 	eq = eq && r1.Format == r2.Format
@@ -194,8 +215,8 @@ func (r *Route) Update(new *Route) {
 	if new.Memory != 0 {
 		r.Memory = new.Memory
 	}
-	if new.CPUQuota != 0 {
-		r.CPUQuota = new.CPUQuota
+	if new.CPUs != "" {
+		r.CPUs = new.CPUs
 	}
 	if new.Type != "" {
 		r.Type = new.Type

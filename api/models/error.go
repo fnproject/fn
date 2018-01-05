@@ -164,6 +164,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
+	ErrRoutesInvalidCPUs = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Invalid route CPUs"),
+	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call not found"),

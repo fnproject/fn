@@ -64,6 +64,18 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			route.Format = models.FormatDefault
 		}
 
+		// this ensures that there is an image, path, timeouts, memory, etc are valid.
+		// NOTE: this means assign any changes above into route's fields
+		err = route.Validate()
+		if err != nil {
+			return err
+		}
+
+		err = route.Sanitize()
+		if err != nil {
+			return err
+		}
+
 		id := id.New().String()
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
@@ -83,13 +95,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		req.Header.Set("FN_REQUEST_URL", reqURL(req))
 		req.Header.Set("FN_CALL_ID", id)
 
-		// this ensures that there is an image, path, timeouts, memory, etc are valid.
-		// NOTE: this means assign any changes above into route's fields
-		err = route.Validate()
-		if err != nil {
-			return err
-		}
-
 		c.Call = &models.Call{
 			ID:      id,
 			AppName: appName,
@@ -103,7 +108,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
 			Memory:      route.Memory,
-			CPUQuota:    route.CPUQuota,
+			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
 			Headers:     req.Header,
 			CreatedAt:   strfmt.DateTime(time.Now()),
@@ -226,6 +231,12 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.Headers.Set("FN_DEADLINE", execDeadlineStr)
 	c.req.Header.Set("FN_DEADLINE", execDeadlineStr)
 
+	CPUs, err := getCPUQuota(c.Call.CPUs)
+	if err != nil {
+		return nil, err
+	}
+	c.CPUQuota = CPUs
+
 	return &c, nil
 }
 
@@ -240,6 +251,7 @@ type call struct {
 	slots        *slotQueue
 	slotDeadline time.Time
 	execDeadline time.Time
+	CPUQuota     uint64
 }
 
 func (c *call) Model() *models.Call { return c.Call }
@@ -317,4 +329,16 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	}
 
 	return errIn // original error, important for use in sync call returns
+}
+
+func getCPUQuota(CPUs string) (uint64, error) {
+	if CPUs == "" {
+		return 0, nil
+	}
+	cpu, err := strconv.ParseFloat(CPUs, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint64(cpu * 100.0), nil
 }

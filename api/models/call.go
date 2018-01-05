@@ -118,8 +118,8 @@ type Call struct {
 	// Memory is the amount of RAM this call is allocated.
 	Memory uint64 `json:"memory,omitempty" db:"-"`
 
-	// CPU quota percentage where 100% is one full CPU, 200% is 2 CPUs and 0% is unlimited
-	CPUQuota uint64 `json:"cpu_quota,omitempty" db:"-"`
+	// CPU quota where 2.00 is two CPUs and empty is unlimited
+	CPUs string `json:"cpus,omitempty" db:"-"`
 
 	// Config is the set of configuration variables for the call
 	Config Config `json:"config,omitempty" db:"-"`
