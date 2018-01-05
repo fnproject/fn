@@ -16,6 +16,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	Mem1MB = 1024 * 1024
+	Mem1GB = 1024 * 1024 * 1024
+)
+
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
 type ResourceTracker interface {
@@ -89,7 +94,7 @@ func (a *resourceTracker) isResourcePossible(memory uint64, isAsync bool) bool {
 // will close this token (i.e. the receiver should not call Close)
 func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, isAsync bool) <-chan ResourceToken {
 
-	memory = memory * 1024 * 1024
+	memory = memory * Mem1MB
 
 	c := a.cond
 	ch := make(chan ResourceToken)
@@ -162,7 +167,7 @@ func (a *resourceTracker) WaitAsyncResource() chan struct{} {
 	c := a.cond
 	go func() {
 		c.L.Lock()
-		for a.ramSyncUsed >= a.ramAsyncHWMark {
+		for a.ramAsyncUsed >= a.ramAsyncHWMark {
 			c.Wait()
 		}
 		c.L.Unlock()
@@ -236,9 +241,9 @@ func (a *resourceTracker) initializeMemory() {
 
 	} else {
 		// non-linux: assume 512MB sync only memory and 1.5GB async + sync memory
-		maxSyncMemory = 512 * 1024 * 1024
-		maxAsyncMemory = (1024 + 512) * 1024 * 1024
-		ramAsyncHWMark = 1024 * 1024 * 1024
+		maxSyncMemory = 512 * Mem1MB
+		maxAsyncMemory = (1024 + 512) * Mem1MB
+		ramAsyncHWMark = 1024 * Mem1MB
 	}
 
 	// For non-linux OS, we expect these (or their defaults) properly configured from command-line/env
@@ -250,6 +255,12 @@ func (a *resourceTracker) initializeMemory() {
 
 	if maxSyncMemory == 0 || maxAsyncMemory == 0 {
 		logrus.Fatal("Cannot get the proper memory pool information to size server")
+	}
+
+	if maxSyncMemory+maxAsyncMemory < 256*Mem1MB {
+		logrus.Warn("Severaly Limited memory: ramSync + ramAsync < 256MB")
+	} else if maxAsyncMemory < 256*Mem1MB {
+		logrus.Warn("Severaly Limited memory: ramAsync < 256MB")
 	}
 
 	a.ramAsyncHWMark = ramAsyncHWMark
@@ -264,8 +275,8 @@ func getMemoryHeadRoom(usableMemory uint64) (uint64, error) {
 	headRoom := uint64(usableMemory / 10)
 
 	// clamp this with 256MB min -- 5GB max
-	maxHeadRoom := uint64(5 * 1024 * 1024 * 1024)
-	minHeadRoom := uint64(256 * 1024 * 1024)
+	maxHeadRoom := uint64(5 * Mem1GB)
+	minHeadRoom := uint64(256 * Mem1MB)
 
 	if minHeadRoom >= usableMemory {
 		return 0, fmt.Errorf("Not enough memory: %v", usableMemory)
