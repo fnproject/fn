@@ -8,11 +8,17 @@ import (
 func setTrackerTestVals(tr *resourceTracker, vals *trackerVals) {
 	tr.cond.L.Lock()
 
-	tr.ramSyncTotal = vals.st
-	tr.ramSyncUsed = vals.su
-	tr.ramAsyncTotal = vals.at
-	tr.ramAsyncUsed = vals.au
-	tr.ramAsyncHWMark = vals.am
+	tr.ramSyncTotal = vals.mst
+	tr.ramSyncUsed = vals.msu
+	tr.ramAsyncTotal = vals.mat
+	tr.ramAsyncUsed = vals.mau
+	tr.ramAsyncHWMark = vals.mam
+
+	tr.cpuSyncTotal = vals.cst
+	tr.cpuSyncUsed = vals.csu
+	tr.cpuAsyncTotal = vals.cat
+	tr.cpuAsyncUsed = vals.cau
+	tr.cpuAsyncHWMark = vals.cam
 
 	tr.cond.L.Unlock()
 	tr.cond.Broadcast()
@@ -22,21 +28,33 @@ func getTrackerTestVals(tr *resourceTracker, vals *trackerVals) {
 
 	tr.cond.L.Lock()
 
-	vals.st = tr.ramSyncTotal
-	vals.su = tr.ramSyncUsed
-	vals.at = tr.ramAsyncTotal
-	vals.au = tr.ramAsyncUsed
-	vals.am = tr.ramAsyncHWMark
+	vals.mst = tr.ramSyncTotal
+	vals.msu = tr.ramSyncUsed
+	vals.mat = tr.ramAsyncTotal
+	vals.mau = tr.ramAsyncUsed
+	vals.mam = tr.ramAsyncHWMark
+
+	vals.cst = tr.cpuSyncTotal
+	vals.csu = tr.cpuSyncUsed
+	vals.cat = tr.cpuAsyncTotal
+	vals.cau = tr.cpuAsyncUsed
+	vals.cam = tr.cpuAsyncHWMark
 
 	tr.cond.L.Unlock()
 }
 
+// helper to debug print (fields correspond to resourceTracker CPU/MEM fields)
 type trackerVals struct {
-	st uint64
-	su uint64
-	at uint64
-	au uint64
-	am uint64
+	mst uint64
+	msu uint64
+	mat uint64
+	mau uint64
+	mam uint64
+	cst uint64
+	csu uint64
+	cat uint64
+	cau uint64
+	cam uint64
 }
 
 func TestResourceAsyncMem(t *testing.T) {
@@ -48,19 +66,19 @@ func TestResourceAsyncMem(t *testing.T) {
 	tr := trI.(*resourceTracker)
 
 	getTrackerTestVals(tr, &vals)
-	if vals.st <= 0 || vals.su != 0 || vals.at <= 0 || vals.au != 0 || vals.am <= 0 {
+	if vals.mst <= 0 || vals.msu != 0 || vals.mat <= 0 || vals.mau != 0 || vals.mam <= 0 {
 		t.Fatalf("faulty init %#v", vals)
 	}
 
 	// set set these to known vals
-	vals.st = 1 * 1024 * 1024
-	vals.su = 0
-	vals.at = 2 * 1024 * 1024
-	vals.au = 0
-	vals.am = 1 * 1024 * 1024
+	vals.mst = 1 * 1024 * 1024
+	vals.msu = 0
+	vals.mat = 2 * 1024 * 1024
+	vals.mau = 0
+	vals.mam = 1 * 1024 * 1024
 
 	// should block & wait
-	vals.au = vals.am
+	vals.mau = vals.mam
 	setTrackerTestVals(tr, &vals)
 	ch := tr.WaitAsyncResource()
 
@@ -71,7 +89,7 @@ func TestResourceAsyncMem(t *testing.T) {
 	}
 
 	// should not block & wait
-	vals.au = 0
+	vals.mau = 0
 	setTrackerTestVals(tr, &vals)
 
 	select {

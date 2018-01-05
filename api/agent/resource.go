@@ -186,7 +186,7 @@ func (a *resourceTracker) WaitAsyncResource() chan struct{} {
 	c := a.cond
 	go func() {
 		c.L.Lock()
-		for a.ramAsyncUsed >= a.ramAsyncHWMark && a.cpuAsyncUsed >= a.cpuAsyncHWMark {
+		for a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark {
 			c.Wait()
 		}
 		c.L.Unlock()
