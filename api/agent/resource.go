@@ -280,9 +280,9 @@ func (a *resourceTracker) initializeCPU() {
 	}
 
 	if maxSyncCPU+maxAsyncCPU < 100 {
-		logrus.Warn("Severaly Limited CPU: cpuSync + cpuAsync < 100% (1 CPU)")
+		logrus.Warn("Severaly Limited CPU: cpuSync + cpuAsync < 100%% (1 CPU)")
 	} else if maxAsyncCPU < 100 {
-		logrus.Warn("Severaly Limited CPU: ramAsync < 100% (1 CPU)")
+		logrus.Warn("Severaly Limited CPU: cpuAsync < 100%% (1 CPU)")
 	}
 
 	a.cpuAsyncHWMark = cpuAsyncHWMark

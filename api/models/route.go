@@ -17,8 +17,10 @@ const (
 	DefaultIdleTimeout = 30  // seconds
 	DefaultMemory      = 128 // MB
 
-	MaxSyncTimeout  = 120  // 2 minutes
-	MaxAsyncTimeout = 3600 // 1 hour
+	MinCPUs         = 0.0    // Skip CPU limit
+	MaxCPUs         = 1024.0 // 1024 cores
+	MaxSyncTimeout  = 120    // 2 minutes
+	MaxAsyncTimeout = 3600   // 1 hour
 	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
@@ -153,16 +155,18 @@ func sanitizeCPUs(CPUs string) (string, error) {
 		return "", nil
 	}
 
-	// first check if this is valid positive float64.
+	// first check if this is valid: MinCPU < val < MaxCPUs
 	cpu, err := strconv.ParseFloat(CPUs, 64)
-	if err != nil || cpu < 0 {
+	if err != nil || cpu < MinCPUs || cpu > MaxCPUs {
 		return "", ErrRoutesInvalidCPUs
+	}
+	if cpu == 0.0 {
+		return "", nil
 	}
 
 	// IMPORTANT: This is varchar(16) in datastore sql
-	// Enforce .2 precision and max 4 width, which also
-	// cleans up padded zeros, preceding sign, etc.
-	sanitized := fmt.Sprintf("%4.2f", cpu)
+	// Enforce .2 precision and clean up padded zeros, preceding sign, etc.
+	sanitized := fmt.Sprintf("%.2f", cpu)
 
 	// now check if by sanitizing we ended up losing precision
 	// if we lost precision, then an unsupported format (eg. 0.22020)
