@@ -133,6 +133,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 		var asyncMem, syncMem uint64
 		var asyncCPU, syncCPU uint64
+		isClosed := false
 
 		if isAsync {
 			// async uses async pool only
@@ -154,6 +155,13 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Unlock()
 
 		t := &resourceToken{decrement: func() {
+
+			// Guard against multiple close
+			if isClosed {
+				return
+			}
+			isClosed = true
+
 			c.L.Lock()
 			a.ramAsyncUsed -= asyncMem
 			a.ramSyncUsed -= syncMem
@@ -178,7 +186,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	return ch
 }
 
-// WaitAsyncResource will send a signal on the returned channel when RAM in-use
+// WaitAsyncResource will send a signal on the returned channel when RAM and CPU in-use
 // in the async area is less than high water mark
 func (a *resourceTracker) WaitAsyncResource() chan struct{} {
 	ch := make(chan struct{})
@@ -269,6 +277,12 @@ func (a *resourceTracker) initializeCPU() {
 
 	if maxSyncCPU == 0 || maxAsyncCPU == 0 {
 		logrus.Fatal("Cannot get the proper CPU information to size server")
+	}
+
+	if maxSyncCPU+maxAsyncCPU < 100 {
+		logrus.Warn("Severaly Limited CPU: cpuSync + cpuAsync < 100% (1 CPU)")
+	} else if maxAsyncCPU < 100 {
+		logrus.Warn("Severaly Limited CPU: ramAsync < 100% (1 CPU)")
 	}
 
 	a.cpuAsyncHWMark = cpuAsyncHWMark
