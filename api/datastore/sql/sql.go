@@ -381,11 +381,14 @@ func getAppTx(tx *sqlx.Tx, ctx context.Context, name string, app *models.App) er
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	var res models.App
+	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, name, &res)
+		return getAppTx(tx, ctx, name, &app)
 	})
-	return &res, err
+	if err != nil {
+		return nil, err
+	}
+	return &app, err
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
@@ -786,8 +789,8 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID string, logR 
 	}
 
 	return ds.Tx(func(tx *sqlx.Tx) error {
-		app := &models.App{}
-		err := getAppTx(tx, ctx, appName, app)
+		var app models.App
+		err := getAppTx(tx, ctx, appName, &app)
 		if err != nil {
 			return err
 		}

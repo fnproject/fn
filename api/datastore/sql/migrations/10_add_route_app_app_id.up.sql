@@ -1,1 +1,1 @@
-ALTER TABLE routes ADD app_id VARCHAR(256);;
+ALTER TABLE routes ADD app_id VARCHAR(256);

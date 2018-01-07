@@ -112,7 +112,7 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 	app, err := s.datastore.GetApp(ctx, wroute.Route.AppName)
 	if err != nil && err != models.ErrAppsNotFound {
 		return err
-	} else if app.ID == "" && app.Name == "" {
+	} else if app == nil {
 		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
 		_, err = s.datastore.InsertApp(ctx, newapp)
