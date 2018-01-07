@@ -1,0 +1,1 @@
+ALTER TABLE calls ADD app_id VARCHAR(256);;

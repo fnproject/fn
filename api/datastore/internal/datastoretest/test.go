@@ -432,7 +432,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test GetApp(removed): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 		}
 		if app != nil {
-			t.Fatal("Test RemoveApp: failed to remove the app")
+			t.Log(err.Error())
+			t.Fatal("Test RemoveApp: failed to remove the app, app should be gone already")
 		}
 
 		// Test update inexistent app

@@ -25,6 +25,7 @@ var RouteMaxMemory = uint64(8 * 1024)
 type Routes []*Route
 
 type Route struct {
+	AppID       string          `json:"app_id" db:"app_id"`
 	AppName     string          `json:"app_name" db:"app_name"`
 	Path        string          `json:"path" db:"path"`
 	Image       string          `json:"image" db:"image"`

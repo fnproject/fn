@@ -77,6 +77,7 @@ type Call struct {
 
 	// App this call belongs to.
 	AppName string `json:"app_name" db:"app_name"`
+	AppID   string `json:"app_id" db:"app_id"`
 
 	// Path of the route that is responsible for this call
 	Path string `json:"path" db:"path"`

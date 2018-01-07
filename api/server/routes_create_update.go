@@ -70,6 +70,12 @@ func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) e
 func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.RouteWrapper) (routeResponse, error) {
 	bad := new(routeResponse)
 
+	app, err := s.Datastore().GetApp(ctx, wroute.Route.AppName)
+	if err != nil {
+		return *bad, err
+	}
+	wroute.Route.AppID = app.ID
+
 	switch method {
 	case http.MethodPost:
 		err := s.submitRoute(ctx, wroute)
@@ -106,7 +112,7 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 	app, err := s.datastore.GetApp(ctx, wroute.Route.AppName)
 	if err != nil && err != models.ErrAppsNotFound {
 		return err
-	} else if app == nil {
+	} else if app.ID == "" && app.Name == "" {
 		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
 		_, err = s.datastore.InsertApp(ctx, newapp)

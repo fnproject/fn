@@ -4,15 +4,17 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/fnproject/fn/api/id"
 	"github.com/go-openapi/strfmt"
 )
 
 type App struct {
-	Name        string          `json:"name" db:"name"`
-	Config      Config          `json:"config,omitempty" db:"config"`
+	ID        string          `json:"id" db:"id"`
+	Name      string          `json:"name" db:"name"`
+	Config    Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 func (a *App) SetDefaults() {
@@ -26,6 +28,7 @@ func (a *App) SetDefaults() {
 		// keeps the json from being nil
 		a.Config = map[string]string{}
 	}
+	a.ID = id.New().String()
 }
 
 func (a *App) Validate() error {
