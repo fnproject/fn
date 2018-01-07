@@ -461,11 +461,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		case s.nodeType == ServerTypeRunner && strings.HasPrefix(c.Request.URL.Path, "/v1/"):
 			err = models.ErrAPINotSupported
 		default:
-			err = s.handleFunctionCall2(c)
+			var e models.APIError = models.ErrPathNotFound
+			err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
 		}
-		if err != nil {
-			handleErrorResponse(c, err)
-		}
+		handleErrorResponse(c, err)
 	})
 }
 

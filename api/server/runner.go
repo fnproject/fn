@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"path"
 	"time"
@@ -40,7 +39,7 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	var a string
 	ai := ctx.Value(api.AppName)
 	if ai == nil {
-		err := errors.New("app name not set")
+		err := models.ErrAppsMissingName
 		return err
 	}
 	a = ai.(string)
