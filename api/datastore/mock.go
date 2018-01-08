@@ -94,7 +94,7 @@ func (m *mock) RemoveApp(ctx context.Context, app *models.App) error {
 
 func (m *mock) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
 	for _, r := range m.Routes {
-		if (r.AppName == app.Name || r.AppID == app.ID) && r.Path == routePath {
+		if r.AppID == app.ID && r.Path == routePath {
 			return r, nil
 		}
 	}
@@ -116,7 +116,7 @@ func (m *mock) GetRoutesByApp(ctx context.Context, app *models.App, routeFilter 
 			break
 		}
 
-		if (r.AppName == app.Name || r.AppID == app.ID) &&
+		if r.AppID == app.ID &&
 			//strings.HasPrefix(r.Path, routeFilter.PathPrefix) && // TODO
 			(routeFilter.Image == "" || routeFilter.Image == r.Image) &&
 			strings.Compare(routeFilter.Cursor, r.Path) < 0 {
@@ -128,7 +128,7 @@ func (m *mock) GetRoutesByApp(ctx context.Context, app *models.App, routeFilter 
 }
 
 func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	a := &models.App{Name: route.AppName, ID: route.AppID}
+	a := &models.App{Name: route.AppID, ID: route.AppID}
 	if _, err := m.GetApp(ctx, a); err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 }
 
 func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	r, err := m.GetRoute(ctx, &models.App{Name: route.AppName, ID: route.AppID}, route.Path)
+	r, err := m.GetRoute(ctx, &models.App{Name: route.AppID, ID: route.AppID}, route.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Ro
 
 func (m *mock) RemoveRoute(ctx context.Context, app *models.App, routePath string) error {
 	for i, r := range m.Routes {
-		if (r.AppName == app.Name || r.AppID == app.ID) && r.Path == routePath {
+		if r.AppID == app.ID && r.Path == routePath {
 			m.Routes = append(m.Routes[:i], m.Routes[i+1:]...)
 			return nil
 		}
@@ -266,7 +266,7 @@ func (m *mock) batchDeleteCalls(ctx context.Context, app *models.App) error {
 func (m *mock) batchDeleteRoutes(ctx context.Context, app *models.App) error {
 	newRoutes := []*models.Route{}
 	for _, c := range m.Routes {
-		if c.AppName != app.Name || c.AppID != app.ID {
+		if c.AppID != app.ID {
 			newRoutes = append(newRoutes, c)
 		}
 	}

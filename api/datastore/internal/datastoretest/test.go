@@ -468,9 +468,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				t.Fatalf("Test InsertRoute(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
 			}
 
-			copyRoute := *testRoute
-			copyRoute.AppName = "notreal"
-			_, err = ds.InsertRoute(ctx, &copyRoute)
+			_, err = ds.InsertRoute(ctx, &models.Route{AppID: "notreal", Path: "/test"})
 			if err != models.ErrAppsNotFound {
 				t.Fatalf("Test InsertRoute: expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
@@ -512,7 +510,6 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			// Update some fields, and add 3 configs and 3 headers.
 			updated, err := ds.UpdateRoute(ctx, &models.Route{
 				AppID:   testApp.ID,
-				AppName: testRoute.AppName,
 				Path:    testRoute.Path,
 				Timeout: 2,
 				Config: map[string]string{
@@ -532,7 +529,6 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			expected := &models.Route{
 				// unchanged
 				AppID:       testApp.ID,
-				AppName:     testRoute.AppName,
 				Path:        testRoute.Path,
 				Image:       "fnproject/fn-test-utils",
 				Type:        "sync",
@@ -559,9 +555,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 			// Update a config var, remove another. Add one Header, remove another.
 			updated, err = ds.UpdateRoute(ctx, &models.Route{
-				AppID:   testRoute.AppID,
-				AppName: testRoute.AppName,
-				Path:    testRoute.Path,
+				AppID: testRoute.AppID,
+				Path:  testRoute.Path,
 				Config: map[string]string{
 					"FIRST":  "first",
 					"SECOND": "",
@@ -577,7 +572,6 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 			expected = &models.Route{
 				// unchanged
-				AppName:     testRoute.AppName,
 				AppID:       testRoute.AppID,
 				Path:        testRoute.Path,
 				Image:       "fnproject/fn-test-utils",
@@ -705,7 +699,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test RemoveRoute(empty route path): expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
 		}
 
-		err = ds.RemoveRoute(ctx, testRoute.AppName, testRoute.Path)
+		err = ds.RemoveRoute(ctx, testRoute.AppID, testRoute.Path)
 		if err != nil {
 			t.Fatalf("Test RemoveApp: unexpected error: %v", err)
 		}
@@ -719,10 +713,9 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 
 		_, err = ds.UpdateRoute(ctx, &models.Route{
-			AppID:   testApp.ID,
-			AppName: testRoute.AppName,
-			Path:    testRoute.Path,
-			Image:   "test",
+			AppID: testApp.ID,
+			Path:  testRoute.Path,
+			Image: "test",
 		})
 		if err != models.ErrRoutesNotFound {
 			t.Fatalf("Test UpdateRoute inexistent: expected error to be `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
@@ -735,7 +728,6 @@ var testApp = &models.App{
 }
 
 var testRoute = &models.Route{
-	AppName:     testApp.Name,
 	Path:        "/test",
 	Image:       "fnproject/fn-test-utils",
 	Type:        "sync",

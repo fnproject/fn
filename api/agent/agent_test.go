@@ -35,7 +35,7 @@ func init() {
 func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHeaders http.Header) {
 
 	checkMap := make([]string, 0, len(expectedHeaders))
-	for k, _ := range expectedHeaders {
+	for k := range expectedHeaders {
 		checkMap = append(checkMap, k)
 	}
 
@@ -46,7 +46,7 @@ func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHea
 			}
 		}
 
-		for i, _ := range checkMap {
+		for i := range checkMap {
 			if checkMap[i] == k {
 				checkMap = append(checkMap[:i], checkMap[i+1:]...)
 				break
@@ -81,7 +81,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 				AppID:       app.ID,
 				Config:      rCfg,
 				Path:        path,
-				AppName:     app.Name,
 				Image:       image,
 				Type:        typ,
 				Format:      format,

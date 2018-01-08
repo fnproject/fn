@@ -74,9 +74,9 @@ func TestRootMiddleware(t *testing.T) {
 	ds := datastore.NewMockInit(
 		[]*models.App{app1, app2},
 		[]*models.Route{
-			{Path: "/", AppID: app1.ID, AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppID: app1.ID, AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/app2func", AppID: app2.ID, AppName: "myapp2", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
+			{Path: "/", AppID: app1.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppID: app1.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/app2func", AppID: app2.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
 				Config: map[string]string{"NAME": "johnny"},
 			},
 		}, nil,

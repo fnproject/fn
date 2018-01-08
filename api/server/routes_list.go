@@ -20,7 +20,12 @@ func (s *Server) handleRouteList(c *gin.Context) {
 	filter.Cursor, filter.PerPage = pageParams(c, true)
 
 	initApp := &models.App{Name: appIDorName, ID: appIDorName}
-	routes, err := s.datastore.GetRoutesByApp(ctx, initApp, &filter)
+	app, err := s.datastore.GetApp(ctx, initApp)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	routes, err := s.datastore.GetRoutesByApp(ctx, app, &filter)
 
 	// if there are no routes for the app, check if the app exists to return
 	// 404 if it does not

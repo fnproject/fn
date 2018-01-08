@@ -66,11 +66,11 @@ func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) e
 	return nil
 }
 
-// ensureApp will only execute if it is on put
+// ensureApp will only execute if it is everything except PATCH
 func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.RouteWrapper) (routeResponse, error) {
 	bad := new(routeResponse)
 
-	initApp := &models.App{Name: wroute.Route.AppName, ID: wroute.Route.AppName}
+	initApp := &models.App{Name: wroute.Route.AppID, ID: wroute.Route.AppID}
 	app, err := s.Datastore().GetApp(ctx, initApp)
 	if err != nil {
 		return *bad, err
@@ -85,7 +85,7 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 		}
 		return routeResponse{"Route successfully created", wroute.Route}, nil
 	case http.MethodPut:
-		_, err := s.datastore.GetRoute(ctx, initApp, wroute.Route.Path)
+		_, err := s.datastore.GetRoute(ctx, app, wroute.Route.Path)
 		if err != nil && err == models.ErrRoutesNotFound {
 			err := s.submitRoute(ctx, wroute)
 			if err != nil {
@@ -110,7 +110,7 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
 func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, method string) error {
-	initApp := &models.App{Name: wroute.Route.AppName, ID: wroute.Route.AppName}
+	initApp := &models.App{Name: wroute.Route.AppID, ID: wroute.Route.AppID}
 	app, err := s.datastore.GetApp(ctx, initApp)
 	if err != nil && err != models.ErrAppsNotFound {
 		return err
@@ -138,10 +138,8 @@ func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error
 	if wroute.Route == nil {
 		return models.ErrRoutesMissingNew
 	}
-	appIDorName := c.MustGet(api.App).(string)
 
-	wroute.Route.AppName = appIDorName
-	wroute.Route.AppID = ""
+	wroute.Route.AppID = c.MustGet(api.App).(string)
 
 	if method == http.MethodPut || method == http.MethodPatch {
 		p := path.Clean(c.MustGet(api.Path).(string))

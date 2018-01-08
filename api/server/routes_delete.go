@@ -14,14 +14,19 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 
 	appIDorName := c.MustGet(api.App).(string)
 	initApp := &models.App{Name: appIDorName, ID: appIDorName}
+	app, err := s.datastore.GetApp(ctx, initApp)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
 	routePath := path.Clean(c.MustGet(api.Path).(string))
 
-	if _, err := s.datastore.GetRoute(ctx, initApp, routePath); err != nil {
+	if _, err := s.datastore.GetRoute(ctx, app, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	if err := s.datastore.RemoveRoute(ctx, initApp, routePath); err != nil {
+	if err := s.datastore.RemoveRoute(ctx, app, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}

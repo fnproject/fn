@@ -115,9 +115,8 @@ func TestRouteCreate(t *testing.T) {
 		{datastore.NewMockInit([]*models.App{a},
 			[]*models.Route{
 				{
-					AppName: a.Name,
-					AppID:   a.ID,
-					Path:    "/myroute",
+					AppID: a.ID,
+					Path:  "/myroute",
 				},
 			}, nil,
 		), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesAlreadyExists},
@@ -164,7 +163,7 @@ func TestRouteDelete(t *testing.T) {
 
 	a := &models.App{Name: "a"}
 	a.SetDefaults()
-	routes := []*models.Route{{AppName: a.Name, AppID: a.ID, Path: "/myroute"}}
+	routes := []*models.Route{{AppID: a.ID, Path: "/myroute"}}
 	commonDS := datastore.NewMockInit([]*models.App{a}, routes, nil)
 
 	for i, test := range []struct {
@@ -214,17 +213,14 @@ func TestRouteList(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Route{
 			{
-				AppName: app.Name,
-				Path:    "/myroute",
-				AppID:   app.ID,
+				Path:  "/myroute",
+				AppID: app.ID,
 			},
 			{
-				AppName: app.Name,
-				Path:    "/myroute1",
-				AppID:   app.ID,
+				Path:  "/myroute1",
+				AppID: app.ID,
 			},
 			{
-				AppName: app.Name,
 				Path:    "/myroute2",
 				Image:   "fnproject/fn-test-utils",
 				AppID:   app.ID,

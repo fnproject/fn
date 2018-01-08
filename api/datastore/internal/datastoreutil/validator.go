@@ -103,8 +103,8 @@ func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 	if newroute == nil {
 		return nil, models.ErrDatastoreEmptyRoute
 	}
-	if newroute.AppName == "" {
-		return nil, models.ErrAppsMissingName
+	if newroute.AppID == "" {
+		return nil, models.ErrRoutesMissingAppID
 	}
 	if newroute.Path == "" {
 		return nil, models.ErrRoutesMissingPath

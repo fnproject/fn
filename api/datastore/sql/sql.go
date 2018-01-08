@@ -40,7 +40,6 @@ import (
 
 var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_id varchar(256) NOT NULL,
-	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
@@ -54,7 +53,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	annotations text NOT NULL,
 	created_at text,
 	updated_at varchar(256),
-	PRIMARY KEY (app_name, path)
+	PRIMARY KEY (app_id, path)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS apps (
@@ -89,7 +88,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector = `SELECT app_id, app_name, path, image, format, memory, cpus, type, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
+	routeSelector = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, app_id, path, stats, error FROM calls`
 	appSelector   = `SELECT id, name, config, annotations, created_at, updated_at FROM apps WHERE name=?`
 )
@@ -336,7 +335,12 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
-		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=? OR ID=?`), app.Name, app.ID)
+		var a models.App
+		err := getAppTx(tx, ctx, app.Name, app.ID, &a)
+		if err != nil {
+			return err
+		}
+		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=? OR ID=?`), a.Name, a.ID)
 		if err != nil {
 			return err
 		}
@@ -351,7 +355,6 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 		deletes := []string{
 			`DELETE FROM logs WHERE app_name=? OR app_id=?`,
 			`DELETE FROM calls WHERE app_name=? OR app_id=?`,
-			`DELETE FROM routes WHERE app_name=? OR app_id=?`,
 		}
 
 		for _, stmt := range deletes {
@@ -360,6 +363,11 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 				return err
 			}
 		}
+		_, err = tx.ExecContext(ctx, tx.Rebind(`DELETE FROM routes WHERE app_id=?`), a.ID)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -422,15 +430,15 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 
 func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(`SELECT 1 FROM apps WHERE name=?`)
-		r := tx.QueryRowContext(ctx, query, route.AppName)
+		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
+		r := tx.QueryRowContext(ctx, query, route.AppID)
 		if err := r.Scan(new(int)); err != nil {
 			if err == sql.ErrNoRows {
 				return models.ErrAppsNotFound
 			}
 		}
-		query = tx.Rebind(`SELECT 1 FROM routes WHERE app_name=? AND path=?`)
-		same, err := tx.QueryContext(ctx, query, route.AppName, route.Path)
+		query = tx.Rebind(`SELECT 1 FROM routes WHERE app_id=? AND path=?`)
+		same, err := tx.QueryContext(ctx, query, route.AppID, route.Path)
 		if err != nil {
 			return err
 		}
@@ -441,7 +449,6 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 
 		query = tx.Rebind(`INSERT INTO routes (
 			app_id,
-			app_name,
 			path,
 			image,
 			format,
@@ -458,7 +465,6 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 		)
 		VALUES (
 			:app_id,
-			:app_name,
 			:path,
 			:image,
 			:format,
@@ -485,8 +491,8 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
 	var route models.Route
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(fmt.Sprintf("%s WHERE app_name=? AND path=?", routeSelector))
-		row := tx.QueryRowxContext(ctx, query, newroute.AppName, newroute.Path)
+		query := tx.Rebind(fmt.Sprintf("%s WHERE app_id=? AND path=?", routeSelector))
+		row := tx.QueryRowxContext(ctx, query, newroute.AppID, newroute.Path)
 
 		err := row.StructScan(&route)
 		if err == sql.ErrNoRows {
@@ -513,7 +519,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			config = :config,
 			annotations = :annotations,
 			updated_at = :updated_at
-		WHERE app_name=:app_name AND path=:path;`)
+		WHERE app_id=:app_id AND path=:path;`)
 
 		res, err := tx.NamedExecContext(ctx, query, &route)
 		if err != nil {
@@ -537,8 +543,8 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 }
 
 func (ds *sqlStore) RemoveRoute(ctx context.Context, app *models.App, routePath string) error {
-	query := ds.db.Rebind(`DELETE FROM routes WHERE path = ? AND app_name = ?`)
-	res, err := ds.db.ExecContext(ctx, query, routePath, app.Name)
+	query := ds.db.Rebind(`DELETE FROM routes WHERE path = ? AND app_id = ?`)
+	res, err := ds.db.ExecContext(ctx, query, routePath, app.ID)
 	if err != nil {
 		return err
 	}
@@ -556,9 +562,9 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, app *models.App, routePath 
 }
 
 func (ds *sqlStore) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
-	rSelectCondition := "%s WHERE app_name=? AND path=?"
+	rSelectCondition := "%s WHERE app_id=? AND path=?"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
-	row := ds.db.QueryRowxContext(ctx, query, app.Name, routePath)
+	row := ds.db.QueryRowxContext(ctx, query, app.ID, routePath)
 
 	var route models.Route
 	err := row.StructScan(&route)
@@ -577,7 +583,7 @@ func (ds *sqlStore) GetRoutesByApp(ctx context.Context, app *models.App, filter 
 		filter = new(models.RouteFilter)
 	}
 
-	filter.AppName = app.Name
+	filter.AppID = app.ID
 	filterQuery, args := buildFilterRouteQuery(filter)
 
 	query := fmt.Sprintf("%s %s", routeSelector, filterQuery)
@@ -828,7 +834,7 @@ func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
 		}
 	}
 
-	where("app_name=? ", filter.AppName)
+	where("app_id=? ", filter.AppID)
 	where("image=?", filter.Image)
 	where("path>?", filter.Cursor)
 	// where("path LIKE ?%", filter.PathPrefix) TODO needs escaping
