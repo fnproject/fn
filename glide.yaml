@@ -61,6 +61,17 @@ import:
 - package: github.com/jmoiron/sqlx
 - package: github.com/mattn/go-sqlite3
 - package: github.com/minio/minio-go
+- package: github.com/aws/aws-sdk-go
+  version: ~v1.12.56
+  subpackages:
+  - aws
+  - aws/awserr
+  - aws/credentials
+  - aws/session
+  - service/s3
+  - service/s3/s3manager
+- package: github.com/jmespath/go-jmespath
+- package: github.com/go-ini/ini
 - package: github.com/opentracing/opentracing-go
 - package: github.com/openzipkin/zipkin-go-opentracing
 - package: github.com/opencontainers/go-digest
