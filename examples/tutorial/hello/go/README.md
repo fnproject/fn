@@ -23,8 +23,8 @@ configuration options [here](../../../../docs/operating/options.md).
 1. Run the following command to create a boilerplate Go function: 
 
 >```sh
-fn init --runtime go hello
-```
+>fn init --runtime go hello
+>```
     
 >A directory named `hello` is created with several files in it.
 
