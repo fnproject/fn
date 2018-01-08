@@ -28,7 +28,9 @@ configuration options [here](../../../../docs/operating/options.md).
     
 >A directory named `hello` is created with several files in it.
 
-1. Open the generated `func.go` file and you will see the following source code.
+<ol start="3">
+  <li>Open the generated <code>func.go</code> file and you will see the following source code.</li>
+</ol>
 
 ```go
 package main
@@ -52,7 +54,7 @@ func main() {
 }
 ```
 <ol start="4">
-  <li>The command also generates a <code>yaml</code> metadata file. Open <code>func.yaml</code> file.</li>
+  <li>The command also generates a <code>yaml</code> metadata file. Open the <code>func.yaml</code> file.</li>
 </ol>
 
 ```yaml
