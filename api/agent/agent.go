@@ -213,12 +213,12 @@ func (a *agent) Submit(callI Call) error {
 	span.SetBaggageItem("fn_path", callI.Model().Path)
 	defer span.Finish()
 
-	// start the timer STAT! TODO add some wiggle room
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
-	call.req = call.req.WithContext(ctx)
-	defer cancel()
+	// Start the deadline context for Waiting for Slots
+	ctxSlotWait, cancelSlotWait := context.WithDeadline(ctx, call.slotDeadline)
+	call.req = call.req.WithContext(ctxSlotWait)
+	defer cancelSlotWait()
 
-	slot, err := a.getSlot(ctx, call) // find ram available / running
+	slot, err := a.getSlot(ctxSlotWait, call) // find ram available / running
 	if err != nil {
 		a.handleStatsDequeue(err, call)
 		return transformTimeout(err, true)
@@ -227,17 +227,22 @@ func (a *agent) Submit(callI Call) error {
 	// to make this remove the container asynchronously?
 	defer slot.Close() // notify our slot is free once we're done
 
-	// TODO Start is checking the timer now, we could do it here, too.
-	err = call.Start(ctx)
+	err = call.Start(ctxSlotWait)
 	if err != nil {
 		a.handleStatsDequeue(err, call)
 		return transformTimeout(err, true)
 	}
 
+	// Swap deadline contexts for Execution Phase
+	cancelSlotWait()
+	ctxExec, cancelExec := context.WithDeadline(ctx, call.execDeadline)
+	call.req = call.req.WithContext(ctxExec)
+	defer cancelExec()
+
 	// decrement queued count, increment running count
 	a.stats.DequeueAndStart(callI.Model().AppName, callI.Model().Path)
 
-	err = slot.exec(ctx, call)
+	err = slot.exec(ctxExec, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	// End may rewrite the error or elect to return it
 
