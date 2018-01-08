@@ -28,7 +28,7 @@ type Datastore interface {
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
 	// Returns ErrAppsNotFound if an App is not found.
-	RemoveApp(ctx context.Context, appName string) error
+	RemoveApp(ctx context.Context, name string) error
 
 	// GetRoute looks up a matching Route for appName and the literal request route routePath.
 	// Returns ErrDatastoreEmptyAppName when appName is empty, and ErrDatastoreEmptyRoutePath when

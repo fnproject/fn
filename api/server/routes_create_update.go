@@ -136,7 +136,10 @@ func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error
 	if wroute.Route == nil {
 		return models.ErrRoutesMissingNew
 	}
-	wroute.Route.AppName = c.MustGet(api.AppName).(string)
+	appIDorName := c.MustGet(api.App).(string)
+
+	wroute.Route.AppName = appIDorName
+	wroute.Route.AppID = ""
 
 	if method == http.MethodPut || method == http.MethodPatch {
 		p := path.Clean(c.MustGet(api.Path).(string))

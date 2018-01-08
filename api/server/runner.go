@@ -40,7 +40,7 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	}
 
 	var a string
-	ai := ctx.Value(api.AppName)
+	ai := ctx.Value(api.App)
 	if ai == nil {
 		err := models.ErrAppsMissingName
 		return err

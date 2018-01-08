@@ -10,7 +10,7 @@ import (
 func (s *Server) handleAppGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appName := c.MustGet(api.AppName).(string)
+	appName := c.MustGet(api.App).(string)
 
 	app, err := s.datastore.GetApp(ctx, appName)
 	if err != nil {

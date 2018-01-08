@@ -33,10 +33,10 @@ func writeJSON(c *gin.Context, callID, appName string, logReader io.Reader) {
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appName := c.MustGet(api.AppName).(string)
+	appIDorName := c.MustGet(api.App).(string)
 	callID := c.Param(api.Call)
 
-	logReader, err := s.logstore.GetLog(ctx, appName, callID)
+	logReader, err := s.logstore.GetLog(ctx, appIDorName, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -45,13 +45,13 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	mimeTypes, _ := c.Request.Header["Accept"]
 
 	if len(mimeTypes) == 0 {
-		writeJSON(c, callID, appName, logReader)
+		writeJSON(c, callID, appIDorName, logReader)
 		return
 	}
 
 	for _, mimeType := range mimeTypes {
 		if strings.Contains(mimeType, "application/json") {
-			writeJSON(c, callID, appName, logReader)
+			writeJSON(c, callID, appIDorName, logReader)
 			return
 		}
 		if strings.Contains(mimeType, "text/plain") {
@@ -60,7 +60,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 
 		}
 		if strings.Contains(mimeType, "*/*") {
-			writeJSON(c, callID, appName, logReader)
+			writeJSON(c, callID, appIDorName, logReader)
 			return
 		}
 	}

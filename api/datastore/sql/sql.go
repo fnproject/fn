@@ -339,9 +339,9 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	return app, nil
 }
 
-func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
+func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
-		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=?`), appName)
+		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE name=? OR ID=?`), app.Name, app.ID)
 		if err != nil {
 			return err
 		}
@@ -354,13 +354,13 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 		}
 
 		deletes := []string{
-			`DELETE FROM logs WHERE app_name=?`,
-			`DELETE FROM calls WHERE app_name=?`,
-			`DELETE FROM routes WHERE app_name=?`,
+			`DELETE FROM logs WHERE app_name=? OR app_id=?`,
+			`DELETE FROM calls WHERE app_name=? OR app_id=?`,
+			`DELETE FROM routes WHERE app_name=? OR app_id=?`,
 		}
 
 		for _, stmt := range deletes {
-			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), appName)
+			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), app.Name, app.ID)
 			if err != nil {
 				return err
 			}
