@@ -49,6 +49,20 @@ type Param struct {
 }
 type Params []Param
 
+func fixupRequestURL(req *http.Request) string {
+	if req.URL.Scheme == "" {
+		if req.TLS == nil {
+			req.URL.Scheme = "http"
+		} else {
+			req.URL.Scheme = "https"
+		}
+	}
+	if req.URL.Host == "" {
+		req.URL.Host = req.Host
+	}
+	return req.URL.String()
+}
+
 func FromRequest(appName, path string, req *http.Request, params Params) CallOpt {
 	return func(a *agent, c *call) error {
 		app, err := a.da.GetApp(req.Context(), appName)
@@ -62,9 +76,10 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 		}
 
 		if route.Format == "" {
-			route.Format = "default"
+			route.Format = models.FormatDefault
 		}
 
+		url := fixupRequestURL(req)
 		id := id.New().String()
 
 		// baseVars are the vars on the route & app, not on this specific request [for hot functions]
@@ -96,19 +111,7 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 
 		envVars["FN_CALL_ID"] = id
 		envVars["FN_METHOD"] = req.Method
-		envVars["FN_REQUEST_URL"] = func() string {
-			if req.URL.Scheme == "" {
-				if req.TLS == nil {
-					req.URL.Scheme = "http"
-				} else {
-					req.URL.Scheme = "https"
-				}
-			}
-			if req.URL.Host == "" {
-				req.URL.Host = req.Host
-			}
-			return req.URL.String()
-		}()
+		envVars["FN_REQUEST_URL"] = url
 
 		// params
 		for _, param := range params {
@@ -172,7 +175,7 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 			BaseEnv:     baseVars,
 			EnvVars:     envVars,
 			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         req.URL.String(), // TODO we should probably strip host/port
+			URL:         url,
 			Method:      req.Method,
 		}
 
