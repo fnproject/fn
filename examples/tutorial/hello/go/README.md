@@ -1,6 +1,6 @@
-# Java Function Hello World
+# Go Function Hello World
 
-This example will shows you how to test and deploy Java code to Fn. It will also demonstrate passing JSON data to your function through `stdin`. 
+This example will shows you how to test and deploy Go code to Fn. It will also demonstrate passing JSON data to your function through `stdin`. 
 
 ## Before you Begin
 
@@ -20,10 +20,10 @@ configuration options [here](../../../../docs/operating/options.md).
 ## Create your Function 
 
 1. Change into the directory where you want to create your function.
-1. Run the following command to create a boilerplate Java function: 
+1. Run the following command to create a boilerplate Go function: 
 
 >```sh
-fn init --runtime java hello
+fn init --runtime go hello
 ```
     
 >A directory named `hello` is created with several files in it.
