@@ -288,9 +288,16 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
-	deadline := strfmt.DateTime(time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)).String()
-	c.EnvVars["FN_DEADLINE"] = deadline
-	c.req.Header.Set("FN_DEADLINE", deadline)
+	now := time.Now()
+	slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
+	execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
+
+	c.slotDeadline = slotDeadline
+	c.execDeadline = execDeadline
+
+	execDeadlineStr := strfmt.DateTime(execDeadline).String()
+	c.EnvVars["FN_DEADLINE"] = execDeadlineStr
+	c.req.Header.Set("FN_DEADLINE", execDeadlineStr)
 
 	return &c, nil
 }
@@ -298,12 +305,14 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 type call struct {
 	*models.Call
 
-	da     DataAccess
-	w      io.Writer
-	req    *http.Request
-	stderr io.ReadWriteCloser
-	ct     callTrigger
-	slots  *slotQueue
+	da           DataAccess
+	w            io.Writer
+	req          *http.Request
+	stderr       io.ReadWriteCloser
+	ct           callTrigger
+	slots        *slotQueue
+	slotDeadline time.Time
+	execDeadline time.Time
 }
 
 func (c *call) Model() *models.Call { return c.Call }
@@ -312,15 +321,9 @@ func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
-	// TODO discuss this policy. cold has not yet started the container,
-	// hot just has to dispatch
-	//
-	// make sure we have at least half our timeout to run, or timeout here
-	deadline, ok := ctx.Deadline()
-	need := time.Now().Add(time.Duration(c.Timeout) * time.Second) // > deadline, always
-	// need.Sub(deadline) = elapsed time
-	if ok && need.Sub(deadline) > (time.Duration(c.Timeout)*time.Second)/2 {
-		return context.DeadlineExceeded
+	// Check context timeouts, errors
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	c.StartedAt = strfmt.DateTime(time.Now())
