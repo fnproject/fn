@@ -89,7 +89,7 @@ Test your function using the following command.
 
 Fn runs your function inside a container exactly how it executes on the server. When execution is complete, the function returns output to `stout`. In this case, `fn run` returns:
 
-```json
+```javascript
 {"message":"Hello World"}
 ```
 
@@ -107,7 +107,7 @@ Or with.
 
 The function reads the JSON data and returns:
 
-```json
+```javascript
 {"message":"Hello Johnny"}
 ```
 
@@ -152,7 +152,7 @@ Or try `curl`.
 
 All of these options should return:
 
-```json
+```javascript
 {"message":"Hello World!"}
 ```
     
@@ -172,7 +172,7 @@ Or specify a file.
 
 Both commands should return:
 
-```json
+```javascript
 {"message":"Hello Johnny!"}
 ```
 
