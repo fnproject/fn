@@ -58,8 +58,8 @@ func TestRouteRunnerGet(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
+			t.Errorf("Test %d: Expected status code for path %s to be %d but was %d",
+				i, test.path, test.expectedCode, rec.Code)
 		}
 
 		if test.expectedError != nil {
@@ -104,8 +104,8 @@ func TestRouteRunnerPost(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			t.Errorf("Test %d: Expected status code to be %d but was %d",
-				i, test.expectedCode, rec.Code)
+			t.Errorf("Test %d: Expected status code for path %s to be %d but was %d",
+				i, test.path, test.expectedCode, rec.Code)
 		}
 
 		if test.expectedError != nil {

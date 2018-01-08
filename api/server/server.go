@@ -24,8 +24,8 @@ import (
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
-	"github.com/opentracing/opentracing-go"
-	"github.com/openzipkin/zipkin-go-opentracing"
+	opentracing "github.com/opentracing/opentracing-go"
+	zipkintracer "github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/sirupsen/logrus"
 )
 

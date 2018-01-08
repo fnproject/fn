@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"path"
 	"time"
@@ -15,11 +14,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// handleFunctionCall executes the function.
+// handleFunctionCall executes the function, for router handlers
+func (s *Server) handleFunctionCall(c *gin.Context) {
+	err := s.handleFunctionCall2(c)
+	if err != nil {
+		handleErrorResponse(c, err)
+	}
+}
+
+// handleFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
 // * "app_name"
 // * "path"
-func (s *Server) handleFunctionCall(c *gin.Context) {
+func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
 	var p string
 	r := ctx.Value(api.Path)
@@ -32,12 +39,15 @@ func (s *Server) handleFunctionCall(c *gin.Context) {
 	var a string
 	ai := ctx.Value(api.AppName)
 	if ai == nil {
-		handleErrorResponse(c, errors.New("app name not set"))
-		return
+		err := models.ErrAppsMissingName
+		return err
 	}
 	a = ai.(string)
 
-	s.serve(c, a, path.Clean(p))
+	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
+	c.Status(200) // this doesn't write the header yet
+
+	return s.serve(c, a, path.Clean(p))
 }
 
 // convert gin.Params to agent.Params to avoid introducing gin
@@ -52,7 +62,7 @@ func parseParams(params gin.Params) agent.Params {
 
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
-func (s *Server) serve(c *gin.Context, appName, path string) {
+func (s *Server) serve(c *gin.Context, appName, path string) error {
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 	call, err := s.agent.GetCall(
@@ -60,8 +70,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		agent.FromRequest(appName, path, c.Request, parseParams(c.Params)),
 	)
 	if err != nil {
-		handleErrorResponse(c, err)
-		return
+		return err
 	}
 
 	model := call.Model()
@@ -79,20 +88,18 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		buf := bytes.NewBuffer(make([]byte, int(contentLength))[:0]) // TODO sync.Pool me
 		_, err := buf.ReadFrom(c.Request.Body)
 		if err != nil {
-			handleErrorResponse(c, models.ErrInvalidPayload)
-			return
+			return models.ErrInvalidPayload
 		}
 		model.Payload = buf.String()
 
 		// TODO idk where to put this, but agent is all runner really has...
 		err = s.agent.Enqueue(c.Request.Context(), model)
 		if err != nil {
-			handleErrorResponse(c, err)
-			return
+			return err
 		}
 
 		c.JSON(http.StatusAccepted, map[string]string{"call_id": model.ID})
-		return
+		return nil
 	}
 
 	err = s.agent.Submit(call)
@@ -106,8 +113,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 		}
 		// NOTE: if the task wrote the headers already then this will fail to write
 		// a 5xx (and log about it to us) -- that's fine (nice, even!)
-		handleErrorResponse(c, err)
-		return
+		return err
 	}
 
 	// TODO plumb FXLB-WAIT somehow (api?)
@@ -115,4 +121,6 @@ func (s *Server) serve(c *gin.Context, appName, path string) {
 	// TODO we need to watch the response writer and if no bytes written
 	// then write a 200 at this point?
 	// c.Data(http.StatusOK)
+
+	return nil
 }
