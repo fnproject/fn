@@ -8,17 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ServerOption func(*Server)
+type ServerOption func(context.Context, *Server) error
 
-func EnableShutdownEndpoint(halt context.CancelFunc) ServerOption {
-	return func(s *Server) {
+func EnableShutdownEndpoint(ctx context.Context, halt context.CancelFunc) ServerOption {
+	return func(ctx context.Context, s *Server) error {
 		s.Router.GET("/shutdown", s.handleShutdown(halt))
+		return nil
 	}
 }
 
 func LimitRequestBody(max int64) ServerOption {
-	return func(s *Server) {
+	return func(ctx context.Context, s *Server) error {
 		s.Router.Use(limitRequestBody(max))
+		return nil
 	}
 }
 

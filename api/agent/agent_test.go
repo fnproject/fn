@@ -17,6 +17,33 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHeaders http.Header) {
+
+	checkMap := make([]string, 0, len(expectedHeaders))
+	for k, _ := range expectedHeaders {
+		checkMap = append(checkMap, k)
+	}
+
+	for k, vs := range receivedHeaders {
+		for i, v := range expectedHeaders[k] {
+			if i >= len(vs) || vs[i] != v {
+				t.Fatal("header mismatch", k, vs)
+			}
+		}
+
+		for i, _ := range checkMap {
+			if checkMap[i] == k {
+				checkMap = append(checkMap[:i], checkMap[i+1:]...)
+				break
+			}
+		}
+	}
+
+	if len(checkMap) > 0 {
+		t.Fatalf("expected headers not found=%v", checkMap)
+	}
+}
+
 func TestCallConfigurationRequest(t *testing.T) {
 	appName := "myapp"
 	path := "/sleeper"
@@ -49,7 +76,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(ds, new(mqs.Mock))
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
 	defer a.Close()
 
 	w := httptest.NewRecorder()
@@ -68,9 +95,14 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("Content-Length", contentLength)
 	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
+	// let's assume we got there params from the URL
+	params := make(Params, 0, 2)
+	params = append(params, Param{Key: "YOGURT", Value: "garlic"})
+	params = append(params, Param{Key: "LEGUME", Value: "garbanzo"})
+
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(appName, path, req),
+		FromRequest(appName, path, req, params),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -146,6 +178,11 @@ func TestCallConfigurationRequest(t *testing.T) {
 	expectedEnv["FN_METHOD"] = method
 	expectedEnv["FN_REQUEST_URL"] = url
 
+	// add expected parameters from URL
+	for _, val := range params {
+		expectedEnv[fmt.Sprintf("FN_PARAM_%s", val.Key)] = val.Value
+	}
+
 	// do this before the "real" headers get sucked in cuz they are formatted differently
 	expectedHeaders := make(http.Header)
 	for k, v := range expectedEnv {
@@ -172,18 +209,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	expectedHeaders.Add("MYREALHEADER", "FOOPEASANT")
 	expectedHeaders.Add("Content-Length", contentLength)
 
-	for k, vs := range req.Header {
-		for i, v := range expectedHeaders[k] {
-			if i >= len(vs) || vs[i] != v {
-				t.Fatal("header mismatch", k, vs)
-			}
-		}
-		delete(expectedHeaders, k)
-	}
-
-	if len(expectedHeaders) > 0 {
-		t.Fatal("got extra headers, bad")
-	}
+	checkExpectedHeaders(t, expectedHeaders, req.Header)
 
 	if w.Header()["Fn_call_id"][0] != model.ID {
 		t.Fatal("response writer should have the call id, or else")
@@ -237,7 +263,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(ds, new(mqs.Mock))
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -255,18 +281,86 @@ func TestCallConfigurationModel(t *testing.T) {
 		expectedHeaders.Add(k, v)
 	}
 
-	for k, vs := range req.Header {
-		for i, v := range expectedHeaders[k] {
-			if i >= len(vs) || vs[i] != v {
-				t.Fatal("header mismatch", k, vs)
-			}
-		}
-		delete(expectedHeaders, k)
+	checkExpectedHeaders(t, expectedHeaders, req.Header)
+
+	var b bytes.Buffer
+	io.Copy(&b, req.Body)
+
+	if b.String() != payload {
+		t.Fatal("expected payload to match, but it was a lie")
+	}
+}
+
+func TestAsyncCallHeaders(t *testing.T) {
+	appName := "myapp"
+	path := "/sleeper"
+	image := "fnproject/sleeper"
+	const timeout = 1
+	const idleTimeout = 20
+	const memory = 256
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+	payload := "payload"
+	typ := "async"
+	format := "http"
+	contentType := "suberb_type"
+	contentLength := strconv.FormatInt(int64(len(payload)), 10)
+	env := map[string]string{
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
+		// FromRequest would insert these from original HTTP request
+		"Fn_header_content_type":   contentType,
+		"Fn_header_content_length": contentLength,
 	}
 
-	if len(expectedHeaders) > 0 {
-		t.Fatal("got extra headers, bad")
+	cm := &models.Call{
+		BaseEnv:     env,
+		EnvVars:     env,
+		AppName:     appName,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
 	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	defer a.Close()
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make sure headers seem reasonable
+	req := callI.(*call).req
+
+	// NOTE these are added as is atm, and if the env vars were comma joined
+	// they are not again here comma separated.
+	expectedHeaders := make(http.Header)
+	for k, v := range env {
+		expectedHeaders.Add(k, v)
+	}
+
+	// These should be here based on payload length and/or fn_header_* original headers
+	expectedHeaders.Set("Content-Type", contentType)
+	expectedHeaders.Set("Content-Length", strconv.FormatInt(int64(len(payload)), 10))
+
+	checkExpectedHeaders(t, expectedHeaders, req.Header)
 
 	var b bytes.Buffer
 	io.Copy(&b, req.Body)
@@ -299,4 +393,68 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 	logger.Close() // idk maybe this would panic might as well call this
 
 	// TODO we could check for the toilet to flush here to logrus
+}
+
+func TestSubmitError(t *testing.T) {
+	appName := "myapp"
+	path := "/error"
+	image := "fnproject/error"
+	const timeout = 10
+	const idleTimeout = 20
+	const memory = 256
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+	payload := "payload"
+	typ := "sync"
+	format := "default"
+	env := map[string]string{
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+		"DOUBLE_VAR":  "BIZ, BAZ",
+	}
+
+	cm := &models.Call{
+		BaseEnv:     env,
+		EnvVars:     env,
+		AppName:     appName,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	defer a.Close()
+
+	callI, err := a.GetCall(FromModel(cm))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err == nil {
+		t.Fatal("expected error but got none")
+	}
+
+	if cm.Status != "error" {
+		t.Fatal("expected status to be set to 'error' but was", cm.Status)
+	}
+
+	if cm.Error == "" {
+		t.Fatal("expected error string to be set on call")
+	}
 }

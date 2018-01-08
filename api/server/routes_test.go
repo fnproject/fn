@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/logs"
@@ -26,7 +27,7 @@ type routeTestCase struct {
 
 func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	rnr, cancel := testRunner(t)
-	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
+	srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 
 	body := bytes.NewBuffer([]byte(test.body))
 	_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
@@ -49,6 +50,46 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 				i, test.expectedError, resp.Error.Message)
 		}
 	}
+
+	if test.expectedCode == http.StatusOK {
+		var rwrap models.RouteWrapper
+		err := json.NewDecoder(rec.Body).Decode(&rwrap)
+		if err != nil {
+			t.Log(buf.String())
+			t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
+		}
+
+		route := rwrap.Route
+		if test.method == http.MethodPost {
+			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+			if time.Time(route.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected created_at to be set on route, it wasn't: %s", i, route.CreatedAt)
+			}
+			if !(time.Time(route.CreatedAt)).Equal(time.Time(route.UpdatedAt)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected updated_at to be set and same as created at, it wasn't: %s %s", i, route.CreatedAt, route.UpdatedAt)
+			}
+		}
+
+		if test.method == http.MethodPatch {
+			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
+			if time.Time(route.UpdatedAt).Before(time.Now().Add(-1 * time.Hour)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected updated_at to be set on route, it wasn't: %s", i, route.UpdatedAt)
+			}
+
+			// this isn't perfect, since a PATCH could succeed without updating any
+			// fields (among other reasons), but just don't make a test for that or
+			// special case (the body or smth) to ignore it here!
+			// this is a decent approximation that the timestamp gets changed
+			if (time.Time(route.UpdatedAt)).Equal(time.Time(route.CreatedAt)) {
+				t.Log(buf.String())
+				t.Errorf("Test %d: expected updated_at to not be the same as created at, it wasn't: %s %s", i, route.CreatedAt, route.UpdatedAt)
+			}
+		}
+	}
+
 	cancel()
 	buf.Reset()
 }
@@ -123,7 +164,7 @@ func TestRouteDelete(t *testing.T) {
 		{datastore.NewMockInit(apps, routes, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
-		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr)
+		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 		_, rec := routerRequest(t, srv.Router, "DELETE", test.path, nil)
 
 		if rec.Code != test.expectedCode {
@@ -178,7 +219,7 @@ func TestRouteList(t *testing.T) {
 	r2b := base64.RawURLEncoding.EncodeToString([]byte("/myroute1"))
 	r3b := base64.RawURLEncoding.EncodeToString([]byte("/myroute2"))
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path string
@@ -242,7 +283,7 @@ func TestRouteGet(t *testing.T) {
 	ds := datastore.NewMock()
 	fnl := logs.NewMock()
 
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr)
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
 		path          string

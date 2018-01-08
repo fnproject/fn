@@ -10,11 +10,13 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
@@ -365,10 +367,9 @@ func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan str
 				return
 			}
 			stats := cherryPick(ds)
-			if !stats.Timestamp.IsZero() {
+			if !time.Time(stats.Timestamp).IsZero() {
 				task.WriteStat(ctx, stats)
 			}
-
 		}
 	}
 }
@@ -404,7 +405,7 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 	}
 
 	return drivers.Stat{
-		Timestamp: ds.Read,
+		Timestamp: strfmt.DateTime(ds.Read),
 		Metrics: map[string]uint64{
 			// source: https://godoc.org/github.com/fsouza/go-dockerclient#Stats
 			// ex (for future expansion): {"read":"2016-08-03T18:08:05Z","pids_stats":{},"network":{},"networks":{"eth0":{"rx_bytes":508,"tx_packets":6,"rx_packets":6,"tx_bytes":508}},"memory_stats":{"stats":{"cache":16384,"pgpgout":281,"rss":8826880,"pgpgin":2440,"total_rss":8826880,"hierarchical_memory_limit":536870912,"total_pgfault":3809,"active_anon":8843264,"total_active_anon":8843264,"total_pgpgout":281,"total_cache":16384,"pgfault":3809,"total_pgpgin":2440},"max_usage":8953856,"usage":8953856,"limit":536870912},"blkio_stats":{"io_service_bytes_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}],"io_serviced_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}]},"cpu_stats":{"cpu_usage":{"percpu_usage":[47641874],"usage_in_usermode":30000000,"total_usage":47641874},"system_cpu_usage":8880800500000000,"throttling_data":{}},"precpu_stats":{"cpu_usage":{"percpu_usage":[44946186],"usage_in_usermode":30000000,"total_usage":44946186},"system_cpu_usage":8880799510000000,"throttling_data":{}}}
@@ -439,6 +440,35 @@ func (drv *DockerDriver) startTask(ctx context.Context, container string) error 
 		} else {
 			return err
 		}
+	}
+
+	// see if there's any healthcheck, and if so, wait for it to complete
+	return drv.awaitHealthcheck(ctx, container)
+}
+
+func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string) error {
+	// inspect the container and check if there is any health check presented,
+	// if there is, then wait for it to move to healthy before returning.
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		cont, err := drv.docker.InspectContainerWithContext(container, ctx)
+		if err != nil {
+			// TODO unknown fiddling to be had
+			return err
+		}
+
+		// if no health check for this image (""), or it's healthy, then stop waiting.
+		// state machine is "starting" -> "healthy" | "unhealthy"
+		if cont.State.Health.Status == "" || cont.State.Health.Status == "healthy" {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond) // avoid spin loop in case docker is actually fast
 	}
 	return nil
 }

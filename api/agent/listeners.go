@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 
-	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 )
 
 type callTrigger interface {
@@ -12,7 +12,7 @@ type callTrigger interface {
 	fireAfterCall(context.Context, *models.Call) error
 }
 
-func (a *agent) AddCallListener(listener extensions.CallListener) {
+func (a *agent) AddCallListener(listener fnext.CallListener) {
 	a.callListeners = append(a.callListeners, listener)
 }
 

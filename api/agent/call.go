@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -29,39 +31,55 @@ type Call interface {
 	// etc.
 	// TODO Start and End can likely be unexported as they are only used in the agent,
 	// and on a type which is constructed in a specific agent. meh.
-	Start(ctx context.Context, t callTrigger) error
+	Start(ctx context.Context) error
 
 	// End will be called immediately after attempting a call execution,
 	// regardless of whether the execution failed or not. An error will be passed
 	// to End, which if nil indicates a successful execution. Any error returned
 	// from End will be returned as the error from Submit.
-	End(ctx context.Context, err error, t callTrigger) error
+	End(ctx context.Context, err error) error
 }
 
 // TODO build w/o closures... lazy
 type CallOpt func(a *agent, c *call) error
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
+type Param struct {
+	Key   string
+	Value string
+}
+type Params []Param
+
+func fixupRequestURL(req *http.Request) string {
+	if req.URL.Scheme == "" {
+		if req.TLS == nil {
+			req.URL.Scheme = "http"
+		} else {
+			req.URL.Scheme = "https"
+		}
+	}
+	if req.URL.Host == "" {
+		req.URL.Host = req.Host
+	}
+	return req.URL.String()
+}
+
+func FromRequest(appName, path string, req *http.Request, params Params) CallOpt {
 	return func(a *agent, c *call) error {
-		app, err := a.ds.GetApp(req.Context(), appName)
+		app, err := a.da.GetApp(req.Context(), appName)
 		if err != nil {
 			return err
 		}
 
-		route, err := a.ds.GetRoute(req.Context(), appName, path)
+		route, err := a.da.GetRoute(req.Context(), appName, path)
 		if err != nil {
 			return err
-		}
-
-		params, match := matchRoute(route.Path, path)
-		if !match {
-			return errors.New("route does not match") // TODO wtf, can we ignore match?
 		}
 
 		if route.Format == "" {
-			route.Format = "default"
+			route.Format = models.FormatDefault
 		}
 
+		url := fixupRequestURL(req)
 		id := id.New().String()
 
 		// baseVars are the vars on the route & app, not on this specific request [for hot functions]
@@ -93,19 +111,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		envVars["FN_CALL_ID"] = id
 		envVars["FN_METHOD"] = req.Method
-		envVars["FN_REQUEST_URL"] = func() string {
-			if req.URL.Scheme == "" {
-				if req.TLS == nil {
-					req.URL.Scheme = "http"
-				} else {
-					req.URL.Scheme = "https"
-				}
-			}
-			if req.URL.Host == "" {
-				req.URL.Host = req.Host
-			}
-			return req.URL.String()
-		}()
+		envVars["FN_REQUEST_URL"] = url
 
 		// params
 		for _, param := range params {
@@ -169,7 +175,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			BaseEnv:     baseVars,
 			EnvVars:     envVars,
 			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         req.URL.String(), // TODO we should probably strip host/port
+			URL:         url,
 			Method:      req.Method,
 		}
 
@@ -203,11 +209,31 @@ func FromModel(mCall *models.Call) CallOpt {
 	return func(a *agent, c *call) error {
 		c.Call = mCall
 
-		// NOTE this adds content length based on payload length
 		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
 		if err != nil {
 			return err
 		}
+
+		// HACK: only applies to async below, for async we need to restore
+		// content-length and content-type of the original request, which are
+		// derived from Payload and original content-type which now is in
+		// Fn_header_content_type
+		if c.Type == models.TypeAsync {
+			// Hoist original request content type into async request
+			if req.Header.Get("Content-Type") == "" {
+				content_type, ok := c.EnvVars["Fn_header_content_type"]
+				if ok {
+					req.Header.Set("Content-Type", content_type)
+				}
+			}
+
+			// Ensure content-length in async requests for protocol/http DumpRequestTo()
+			if req.ContentLength == -1 || req.Header.Get("Content-Length") == "" {
+				req.ContentLength = int64(len(c.Payload))
+				req.Header.Set("Content-Length", strconv.FormatInt(int64(len(c.Payload)), 10))
+			}
+		}
+
 		for k, v := range c.EnvVars {
 			// TODO if we don't store env as []string headers are messed up
 			req.Header.Set(k, v)
@@ -246,9 +272,8 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	// TODO add log store interface (yagni?)
-	c.ds = a.ds
-	c.mq = a.mq
+	c.da = a.da
+	c.ct = a
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
 		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
@@ -263,22 +288,27 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
+	deadline := strfmt.DateTime(time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)).String()
+	c.EnvVars["FN_DEADLINE"] = deadline
+	c.req.Header.Set("FN_DEADLINE", deadline)
+
 	return &c, nil
 }
 
 type call struct {
 	*models.Call
 
-	ds     models.Datastore
-	mq     models.MessageQueue
+	da     DataAccess
 	w      io.Writer
 	req    *http.Request
 	stderr io.ReadWriteCloser
+	ct     callTrigger
+	slots  *slotQueue
 }
 
 func (c *call) Model() *models.Call { return c.Call }
 
-func (c *call) Start(ctx context.Context, t callTrigger) error {
+func (c *call) Start(ctx context.Context) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
 	defer span.Finish()
 
@@ -311,13 +341,13 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 		// running to avoid running the call twice and potentially mark it as
 		// errored (built in long running task detector, so to speak...)
 
-		err := c.mq.Delete(ctx, c.Call)
+		err := c.da.Start(ctx, c.Model())
 		if err != nil {
 			return err // let another thread try this
 		}
 	}
 
-	err := t.fireBeforeCall(ctx, c.Model())
+	err := c.ct.fireBeforeCall(ctx, c.Model())
 	if err != nil {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
@@ -325,7 +355,7 @@ func (c *call) Start(ctx context.Context, t callTrigger) error {
 	return nil
 }
 
-func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
+func (c *call) End(ctx context.Context, errIn error) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
 	defer span.Finish()
 
@@ -337,48 +367,26 @@ func (c *call) End(ctx context.Context, errIn error, t callTrigger) error {
 	case context.DeadlineExceeded:
 		c.Status = "timeout"
 	default:
-		// XXX (reed): should we append the error to logs? Error field? (TR) yes, think so, otherwise it's lost looks like?
 		c.Status = "error"
+		c.Error = errIn.Error()
 	}
 
-	if c.Type == models.TypeAsync {
-		// XXX (reed): delete MQ message, eventually
-	}
+	// ensure stats histogram is reasonably bounded
+	c.Call.Stats = drivers.Decimate(240, c.Call.Stats)
 
-	// this means that we could potentially store an error / timeout status for a
-	// call that ran successfully [by a user's perspective]
-	// TODO: this should be update, really
-	if err := c.ds.InsertCall(ctx, c.Call); err != nil {
-		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
-		// note: Not returning err here since the job could have already finished successfully.
-	}
-
-	if err := c.ds.InsertLog(ctx, c.AppName, c.ID, c.stderr); err != nil {
-		common.Logger(ctx).WithError(err).Error("error uploading log")
+	if err := c.da.Finish(ctx, c.Model(), c.stderr, c.Type == models.TypeAsync); err != nil {
+		common.Logger(ctx).WithError(err).Error("error finalizing call on datastore/mq")
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
 	// NOTE call this after InsertLog or the buffer will get reset
 	c.stderr.Close()
-	err := t.fireAfterCall(ctx, c.Model())
-	if err != nil {
+
+	if err := c.ct.fireAfterCall(ctx, c.Model()); err != nil {
 		return fmt.Errorf("AfterCall: %v", err)
 	}
-	return errIn
-}
 
-func fakeHandler(http.ResponseWriter, *http.Request, Params) {}
-
-// TODO what is this stuff anyway?
-func matchRoute(baseRoute, route string) (Params, bool) {
-	tree := &node{}
-	tree.addRoute(baseRoute, fakeHandler)
-	handler, p, _ := tree.getValue(route)
-	if handler == nil {
-		return nil, false
-	}
-
-	return p, true
+	return errIn // original error, important for use in sync call returns
 }
 
 func toEnvName(envtype, name string) string {

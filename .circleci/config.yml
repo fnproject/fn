@@ -11,7 +11,7 @@ jobs:
       - ARCH=amd64
     steps:
       - checkout
-      # update Go
+      # install Go
       - run: |
           go version
           go env GOROOT
@@ -21,20 +21,15 @@ jobs:
           wget https://storage.googleapis.com/golang/go$GOVERSION.$OS-$ARCH.tar.gz
           sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
       - run: go version
-      # update Docker
-      - run: |
-          docker version
-          sudo service docker stop
-          curl -fsSL https://get.docker.com/ | sudo sh
+      # install latest Docker
+      #- run: |
+          #sudo rm -rf /var/cache/apt/archives && sudo ln -s ~/.apt-cache /var/cache/apt/archives && mkdir -p ~/.apt-cache/partial
+          #sudo service docker stop
+          #curl -fsSL https://get.docker.com/ | sudo sh
+          #docker version
       - run: docker version
-      - run: make docker-build
-      - run: make install
-      - run: make test
-      - run: ./go-fmt.sh
-      # TODO these should be inside test.sh file ?
-      - run: ./api_test.sh mysql 4
-      - run: ./api_test.sh postgres 4
-      - run: ./api_test.sh sqlite 4
+      - run: nproc
+      - run: make full-test -j $(nproc)
       - deploy:
           command: |
             if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then

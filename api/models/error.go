@@ -20,6 +20,10 @@ var (
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
 	}
+	ErrCallTimeoutServerBusy = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("Timed out - server too busy"),
+	}
 	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),
@@ -75,6 +79,10 @@ var (
 	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
+	}
+	ErrDatastoreCannotUpdateCall = err{
+		code:  http.StatusConflict,
+		error: errors.New("Call to be updated is different from expected"),
 	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
@@ -146,15 +154,15 @@ var (
 	}
 	ErrRoutesInvalidTimeout = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("timeout value is too large or small. 0 < timeout < max. async max: %d sync max: %d", MaxAsyncTimeout, MaxSyncTimeout),
+		error: fmt.Errorf("timeout value is out of range. Sync should be between 0 and %d, async should be between 0 and %d", MaxSyncTimeout, MaxAsyncTimeout),
 	}
 	ErrRoutesInvalidIdleTimeout = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("idle_timeout value is too large or small. 0 < timeout < %d", MaxIdleTimeout),
+		error: fmt.Errorf("idle_timeout value is out of range. It should be between 0 and %d", MaxIdleTimeout),
 	}
 	ErrRoutesInvalidMemory = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("memory value is invalid. 0 < memory < %d", MaxMemory),
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
@@ -163,6 +171,18 @@ var (
 	ErrCallLogNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call log not found"),
+	}
+	ErrInvokeNotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking routes /r/ is not supported on nodes configured as type API"),
+	}
+	ErrAPINotSupported = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invoking api /v1/ requests is not supported on nodes configured as type Runner"),
+	}
+	ErrPathNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Path not found"),
 	}
 )
 

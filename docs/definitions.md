@@ -165,7 +165,7 @@ that can be used to track call status using following command:
  
 ```sh
  
- curl -v -X GET ${API_URL}/v1/calls/f5621e8b-725a-4ba9-8323-b8cdc02ce37
+ curl -v -X GET ${FN_API_URL}/v1/calls/f5621e8b-725a-4ba9-8323-b8cdc02ce37
  
 ```
 
@@ -213,7 +213,7 @@ Corresponding HTTP header is `Fn_call_id`.
 In order get list of per-route calls please use following command:
 
 ```sh
-curl -X GET ${API_URL}/v1/app/{app}/calls/{route}
+curl -X GET ${FN_API_URL}/v1/app/{app}/calls/{route}
 
 ```
 Server will replay with following JSON response:

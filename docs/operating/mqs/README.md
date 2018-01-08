@@ -2,10 +2,10 @@
 
 A message queue is used to coordinate asynchronous function calls that run through Fn.
 
-We currently support the following message queues and they are passed in via the `MQ_URL` environment variable. For example:
+We currently support the following message queues and they are passed in via the `FN_MQ_URL` environment variable. For example:
 
 ```sh
-docker run -e "MQ_URL=redis://localhost:6379/" ...
+docker run -e "FN_MQ_URL=redis://localhost:6379/" ...
 ```
 
 ## [Bolt](https://github.com/boltdb/bolt) (default)

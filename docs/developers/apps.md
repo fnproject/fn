@@ -48,7 +48,7 @@ http://abc.io/users -> function in users/ directory
 fn deploy --all
 ```
 
-If you're just testing locally, you can speed it up with the `--local` flag.
+If you're just testing locally, you can speed it up with the `--local` flag. Or if you want to deploy to a different app, use the `--app APPNAME` flag.
 
 ## Deploying a single function in the app
 
@@ -60,4 +60,4 @@ fn deploy hello
 
 ## Example app
 
-See https://github.com/fnproject/fn/tree/master/examples/apps/hellos for a simple example.
+See https://github.com/treeder/fn-app-example for a simple example. Just clone it and run `fn deploy --all` to see it in action.

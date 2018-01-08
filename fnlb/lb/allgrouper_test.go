@@ -47,6 +47,9 @@ func (mock *mockDB) List() ([]string, error) {
 	}
 	return list, nil
 }
+func (mock *mockDB) Close() error {
+	return nil
+}
 
 func initializeRunner() (Grouper, error) {
 	db := &mockDB{
@@ -118,7 +121,7 @@ func teardownServer(t *testing.T, server *http.Server) {
 // spin up backend servers
 func initializeAPIServer(t *testing.T, grouper Grouper) (*http.Server, string, error) {
 
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, "", err
 	}
@@ -145,7 +148,7 @@ func initializeTestServers(t *testing.T, numOfServers uint64) ([]*testServer, er
 
 	for i := uint64(0); i < numOfServers; i++ {
 
-		listener, err := net.Listen("tcp", ":0")
+		listener, err := net.Listen("tcp", "localhost:0")
 		if err != nil {
 			return list, err
 		}

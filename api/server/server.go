@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,142 +11,261 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 
-	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/agent"
+	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
-	"github.com/fnproject/fn/api/datastore/cache"
-	"github.com/fnproject/fn/api/extensions"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/fnproject/fn/api/version"
-	"github.com/gin-contrib/cors"
+	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/openzipkin/zipkin-go-opentracing"
+	opentracing "github.com/opentracing/opentracing-go"
+	zipkintracer "github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (
-	EnvLogLevel  = "log_level"
-	EnvMQURL     = "mq_url"
-	EnvDBURL     = "db_url"
-	EnvLOGDBURL  = "logstore_url"
-	EnvPort      = "port" // be careful, Gin expects this variable to be "port"
-	EnvAPIURL    = "api_url"
-	EnvAPICORS   = "api_cors"
-	EnvZipkinURL = "zipkin_url"
+	EnvLogLevel  = "FN_LOG_LEVEL"
+	EnvMQURL     = "FN_MQ_URL"
+	EnvDBURL     = "FN_DB_URL"
+	EnvLOGDBURL  = "FN_LOGSTORE_URL"
+	EnvRunnerURL = "FN_RUNNER_API_URL"
+	EnvNodeType  = "FN_NODE_TYPE"
+	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvAPICORS   = "FN_API_CORS"
+	EnvZipkinURL = "FN_ZIPKIN_URL"
+
+	// Defaults
+	DefaultLogLevel = "info"
+	DefaultPort     = 8080
 )
 
-type Server struct {
-	Router    *gin.Engine
-	Agent     agent.Agent
-	Datastore models.Datastore
-	MQ        models.MessageQueue
-	LogDB     models.LogStore
+type ServerNodeType int32
 
-	appListeners []extensions.AppListener
-	middlewares  []Middleware
+const (
+	ServerTypeFull ServerNodeType = iota
+	ServerTypeAPI
+	ServerTypeRunner
+)
+
+func (s ServerNodeType) String() string {
+	switch s {
+	default:
+		return "full"
+	case ServerTypeAPI:
+		return "api"
+	case ServerTypeRunner:
+		return "runner"
+	}
+}
+
+type Server struct {
+	// TODO this one maybe we have `AddRoute` in extensions?
+	Router *gin.Engine
+
+	agent           agent.Agent
+	datastore       models.Datastore
+	mq              models.MessageQueue
+	logstore        models.LogStore
+	nodeType        ServerNodeType
+	appListeners    []fnext.AppListener
+	rootMiddlewares []fnext.Middleware
+	apiMiddlewares  []fnext.Middleware
+}
+
+func nodeTypeFromString(value string) ServerNodeType {
+	switch value {
+	case "api":
+		return ServerTypeAPI
+	case "runner":
+		return ServerTypeRunner
+	default:
+		return ServerTypeFull
+	}
 }
 
 // NewFromEnv creates a new Functions server based on env vars.
 func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
-	ds, err := datastore.New(viper.GetString(EnvDBURL))
-	if err != nil {
-		logrus.WithError(err).Fatalln("Error initializing datastore.")
+	curDir := pwd()
+	var defaultDB, defaultMQ string
+	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
+	if nodeType != ServerTypeRunner {
+		// only want to activate these for full and api nodes
+		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
+		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
+	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
+	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
+	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
+	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
+	opts = append(opts, WithType(nodeType))
+	return New(ctx, opts...)
+}
 
-	mq, err := mqs.New(viper.GetString(EnvMQURL))
+func pwd() string {
+	cwd, err := os.Getwd()
 	if err != nil {
-		logrus.WithError(err).Fatal("Error initializing message queue.")
+		logrus.WithError(err).Fatalln("couldn't get working directory, possibly unsupported platform?")
 	}
+	// Replace forward slashes in case this is windows, URL parser errors
+	return strings.Replace(cwd, "\\", "/", -1)
+}
 
-	var logDB models.LogStore = ds
-	if ldb := viper.GetString(EnvLOGDBURL); ldb != "" && ldb != viper.GetString(EnvDBURL) {
-		logDB, err = logs.New(viper.GetString(EnvLOGDBURL))
-		if err != nil {
-			logrus.WithError(err).Fatal("Error initializing logs store.")
+func WithDBURL(dbURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if dbURL != "" {
+			ds, err := datastore.New(ctx, dbURL)
+			if err != nil {
+				return err
+			}
+			s.datastore = ds
 		}
-	}
-
-	return New(ctx, ds, mq, logDB, opts...)
-}
-
-func optionalCorsWrap(r *gin.Engine) {
-	// By default no CORS are allowed unless one
-	// or more Origins are defined by the API_CORS
-	// environment variable.
-	if len(viper.GetString(EnvAPICORS)) > 0 {
-		origins := strings.Split(strings.Replace(viper.GetString(EnvAPICORS), " ", "", -1), ",")
-
-		corsConfig := cors.DefaultConfig()
-		corsConfig.AllowOrigins = origins
-
-		logrus.Infof("CORS enabled for domains: %s", origins)
-
-		r.Use(cors.New(corsConfig))
+		return nil
 	}
 }
 
-// New creates a new Functions server with the passed in datastore, message queue and API URL
-func New(ctx context.Context, ds models.Datastore, mq models.MessageQueue, logDB models.LogStore, opts ...ServerOption) *Server {
+func WithMQURL(mqURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if mqURL != "" {
+			mq, err := mqs.New(mqURL)
+			if err != nil {
+				return err
+			}
+			s.mq = mq
+		}
+		return nil
+	}
+}
 
-	setTracer()
+func WithLogURL(logstoreURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if ldb := logstoreURL; ldb != "" {
+			logDB, err := logs.New(ctx, logstoreURL)
+			if err != nil {
+				return err
+			}
+			s.logstore = logDB
+		}
+		return nil
+	}
+}
 
+func WithRunnerURL(runnerURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if runnerURL != "" {
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+		}
+		return nil
+	}
+}
+
+func WithType(t ServerNodeType) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.nodeType = t
+		return nil
+	}
+}
+
+func WithDatastore(ds models.Datastore) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.datastore = ds
+		return nil
+	}
+}
+
+func WithMQ(mq models.MessageQueue) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.mq = mq
+		return nil
+	}
+}
+
+func WithLogstore(ls models.LogStore) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.logstore = ls
+		return nil
+	}
+}
+
+func WithAgent(agent agent.Agent) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.agent = agent
+		return nil
+	}
+}
+
+// New creates a new Functions server with the opts given. For convenience, users may
+// prefer to use NewFromEnv but New is more flexible if needed.
+func New(ctx context.Context, opts ...ServerOption) *Server {
+	log := common.Logger(ctx)
 	s := &Server{
-		Agent:     agent.New(cache.Wrap(ds), mq), // only add datastore caching to agent
-		Router:    gin.New(),
-		Datastore: ds,
-		MQ:        mq,
-		LogDB:     logDB,
+		Router: gin.New(),
+		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
-
-	setMachineID()
-	s.Router.Use(loggerWrap, traceWrap, panicWrap)
-	optionalCorsWrap(s.Router)
-
-	s.bindHandlers(ctx)
 
 	for _, opt := range opts {
 		if opt == nil {
 			continue
 		}
-		opt(s)
+		err := opt(ctx, s)
+		if err != nil {
+			log.WithError(err).Fatal("Error during server opt initialization.")
+		}
 	}
+
+	if s.logstore == nil { // TODO seems weird?
+		s.logstore = s.datastore
+	}
+
+	// TODO we maybe should use the agent.DirectDataAccess in the /runner endpoints server side?
+
+	switch s.nodeType {
+	case ServerTypeAPI:
+		if s.agent != nil {
+			log.Info("shutting down agent configured for api node")
+			s.agent.Close()
+		}
+		s.agent = nil
+	case ServerTypeRunner:
+		if s.agent == nil {
+			log.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
+		}
+	default:
+		s.nodeType = ServerTypeFull
+		if s.datastore == nil || s.logstore == nil || s.mq == nil {
+			log.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+		}
+
+		// TODO force caller to use WithAgent option? at this point we need to use the ds/ls/mq configured after all opts are run.
+		if s.agent == nil {
+			// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
+			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		}
+	}
+
+	setMachineID()
+	s.Router.Use(loggerWrap, traceWrap, panicWrap) // TODO should be opts
+	optionalCorsWrap(s.Router)                     // TODO should be an opt
+	s.bindHandlers(ctx)
 	return s
 }
 
-// we should use http grr
-func traceWrap(c *gin.Context) {
-	// try to grab a span from the request if made from another service, ignore err if not
-	wireContext, _ := opentracing.GlobalTracer().Extract(
-		opentracing.HTTPHeaders,
-		opentracing.HTTPHeadersCarrier(c.Request.Header))
-
-	// Create the span referring to the RPC client if available.
-	// If wireContext == nil, a root span will be created.
-	// TODO we should add more tags?
-	serverSpan := opentracing.StartSpan("serve_http", ext.RPCServerOption(wireContext), opentracing.Tag{Key: "path", Value: c.Request.URL.Path})
-	serverSpan.SetBaggageItem("fn_appname", c.Param(api.CApp))
-	serverSpan.SetBaggageItem("fn_path", c.Param(api.CRoute))
-	defer serverSpan.Finish()
-
-	ctx := opentracing.ContextWithSpan(c.Request.Context(), serverSpan)
-	c.Request = c.Request.WithContext(ctx)
-	c.Next()
-}
-
-func setTracer() {
+// TODO need to fix this to handle the nil case better
+func setupTracer(zipkinURL string) {
 	var (
 		debugMode          = false
-		serviceName        = "fn-server"
+		serviceName        = "fnserver"
 		serviceHostPort    = "localhost:8080" // meh
-		zipkinHTTPEndpoint = viper.GetString(EnvZipkinURL)
+		zipkinHTTPEndpoint = zipkinURL
 		// ex: "http://zipkin:9411/api/v1/spans"
 	)
 
@@ -189,7 +307,7 @@ func setTracer() {
 }
 
 func setMachineID() {
-	port := uint16(viper.GetInt(EnvPort))
+	port := uint16(getEnvInt(EnvPort, DefaultPort))
 	addr := whoAmI().To4()
 	if addr == nil {
 		addr = net.ParseIP("127.0.0.1").To4()
@@ -221,51 +339,6 @@ func whoAmI() net.IP {
 	return nil
 }
 
-func panicWrap(c *gin.Context) {
-	defer func(c *gin.Context) {
-		if rec := recover(); rec != nil {
-			err, ok := rec.(error)
-			if !ok {
-				err = fmt.Errorf("fn: %v", rec)
-			}
-			handleErrorResponse(c, err)
-			c.Abort()
-		}
-	}(c)
-	c.Next()
-}
-
-func loggerWrap(c *gin.Context) {
-	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
-
-	if appName := c.Param(api.CApp); appName != "" {
-		c.Set(api.AppName, appName)
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), api.AppName, appName))
-	}
-
-	if routePath := c.Param(api.CRoute); routePath != "" {
-		c.Set(api.Path, routePath)
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), api.Path, routePath))
-	}
-
-	c.Request = c.Request.WithContext(ctx)
-	c.Next()
-}
-
-func appWrap(c *gin.Context) {
-	appName := c.GetString(api.AppName)
-	if appName == "" {
-		handleErrorResponse(c, models.ErrAppsMissingName)
-		c.Abort()
-		return
-	}
-	c.Next()
-}
-
-func (s *Server) handleRunnerRequest(c *gin.Context) {
-	s.handleRequest(c)
-}
-
 func extractFields(c *gin.Context) logrus.Fields {
 	fields := logrus.Fields{"action": path.Base(c.HandlerName())}
 	for _, param := range c.Params {
@@ -275,14 +348,14 @@ func extractFields(c *gin.Context) logrus.Fields {
 }
 
 func (s *Server) Start(ctx context.Context) {
-	newctx, cancel := contextWithSignal(ctx, os.Interrupt)
+	newctx, cancel := contextWithSignal(ctx, os.Interrupt, syscall.SIGTERM)
 	s.startGears(newctx, cancel)
 }
 
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
-	// PORT environment variable was defined.
-	listen := fmt.Sprintf(":%d", viper.GetInt(EnvPort))
+	// FN_PORT environment variable was defined.
+	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
 
 	const runHeader = `
         ______
@@ -293,7 +366,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	fmt.Println(runHeader)
 	fmt.Printf("        v%s\n\n", version.Version)
 
-	logrus.Infof("Serving Functions API on address `%s`", listen)
+	logrus.WithField("type", s.nodeType).Infof("Fn serving on `%v`", listen)
 
 	server := http.Server{
 		Addr:    listen,
@@ -319,26 +392,32 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		logrus.WithError(err).Error("server shutdown error")
 	}
 
-	s.Agent.Close() // after we stop taking requests, wait for all tasks to finish
+	if s.agent != nil {
+		s.agent.Close() // after we stop taking requests, wait for all tasks to finish
+	}
 }
 
 func (s *Server) bindHandlers(ctx context.Context) {
 	engine := s.Router
+	// now for extendible middleware
+	engine.Use(s.rootMiddlewareWrapper())
 
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
+	// TODO: move the following under v1
 	engine.GET("/stats", s.handleStats)
 	engine.GET("/metrics", s.handlePrometheusMetrics)
 
-	{
+	if s.nodeType != ServerTypeRunner {
 		v1 := engine.Group("/v1")
-		v1.Use(s.middlewareWrapperFunc(ctx))
+		v1.Use(setAppNameInCtx)
+		v1.Use(s.apiMiddlewareWrapper())
 		v1.GET("/apps", s.handleAppList)
 		v1.POST("/apps", s.handleAppCreate)
 
 		{
 			apps := v1.Group("/apps/:app")
-			apps.Use(appWrap)
+			apps.Use(appNameCheck)
 
 			apps.GET("", s.handleAppGet)
 			apps.PATCH("", s.handleAppUpdate)
@@ -346,7 +425,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 			apps.GET("/routes", s.handleRouteList)
 			apps.POST("/routes", s.handleRoutesPostPutPatch)
-			apps.GET("/routes/*route", s.handleRouteGet)
+			apps.GET("/routes/:route", s.handleRouteGet)
 			apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
 			apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
 			apps.DELETE("/routes/*route", s.handleRouteDelete)
@@ -355,21 +434,43 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 			apps.GET("/calls/:call", s.handleCallGet)
 			apps.GET("/calls/:call/log", s.handleCallLogGet)
-			apps.DELETE("/calls/:call/log", s.handleCallLogDelete)
+		}
+
+		{
+			runner := v1.Group("/runner")
+			runner.PUT("/async", s.handleRunnerEnqueue)
+			runner.GET("/async", s.handleRunnerDequeue)
+
+			runner.POST("/start", s.handleRunnerStart)
+			runner.POST("/finish", s.handleRunnerFinish)
 		}
 	}
 
-	{
+	if s.nodeType != ServerTypeAPI {
 		runner := engine.Group("/r")
-		runner.Use(appWrap)
-		runner.Any("/:app", s.handleRunnerRequest)
-		runner.Any("/:app/*route", s.handleRunnerRequest)
+		runner.Use(appNameCheck)
+		runner.Any("/:app", s.handleFunctionCall)
+		runner.Any("/:app/*route", s.handleFunctionCall)
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
-		logrus.Debugln("not found", c.Request.URL.Path)
-		c.JSON(http.StatusNotFound, simpleError(errors.New("Path not found")))
+		var err error
+		switch {
+		case s.nodeType == ServerTypeAPI && strings.HasPrefix(c.Request.URL.Path, "/r/"):
+			err = models.ErrInvokeNotSupported
+		case s.nodeType == ServerTypeRunner && strings.HasPrefix(c.Request.URL.Path, "/v1/"):
+			err = models.ErrAPINotSupported
+		default:
+			var e models.APIError = models.ErrPathNotFound
+			err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
+		}
+		handleErrorResponse(c, err)
 	})
+}
+
+// implements fnext.ExtServer
+func (s *Server) Datastore() models.Datastore {
+	return s.datastore
 }
 
 // returns the unescaped ?cursor and ?perPage values
@@ -422,9 +523,4 @@ type callsResponse struct {
 	Message    string         `json:"message"`
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
-}
-
-type callLogResponse struct {
-	Message string          `json:"message"`
-	Log     *models.CallLog `json:"log"`
 }

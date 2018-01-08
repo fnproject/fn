@@ -6,13 +6,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 // PrometheusCollector is a custom Collector
 // which sends ZipKin traces to Prometheus
 type PrometheusCollector struct {
-
+	lock sync.Mutex
 	// Each span name is published as a separate Histogram metric
 	// Using metric names of the form fn_span_<span-name>_duration_seconds
 
@@ -27,12 +28,15 @@ type PrometheusCollector struct {
 
 // NewPrometheusCollector returns a new PrometheusCollector
 func NewPrometheusCollector() (zipkintracer.Collector, error) {
-	pc := &PrometheusCollector{make(map[string]*prometheus.HistogramVec), make(map[string][]string)}
+	pc := &PrometheusCollector{
+		histogramVecMap:        make(map[string]*prometheus.HistogramVec),
+		registeredLabelKeysMap: make(map[string][]string),
+	}
 	return pc, nil
 }
 
 // PrometheusCollector implements Collector.
-func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
+func (pc *PrometheusCollector) Collect(span *zipkincore.Span) error {
 
 	spanName := span.GetName()
 
@@ -61,11 +65,14 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 }
 
 // Return (and create, if necessary) a HistogramVec for the specified Prometheus metric
-func (pc PrometheusCollector) getHistogramVec(
+func (pc *PrometheusCollector) getHistogramVec(
 	metricName string, metricHelp string, labelKeysFromSpan []string, labelValuesFromSpan map[string]string) (
 	*prometheus.HistogramVec, map[string]string) {
 
 	var labelValuesToUse map[string]string
+
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
 
 	histogramVec, found := pc.histogramVecMap[metricName]
 	if !found {
@@ -143,4 +150,4 @@ func getLoggedMetrics(span *zipkincore.Span) map[string]uint64 {
 }
 
 // PrometheusCollector implements Collector.
-func (PrometheusCollector) Close() error { return nil }
+func (*PrometheusCollector) Close() error { return nil }

@@ -2,34 +2,16 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
-	"strings"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 func init() {
-	viper.AutomaticEnv() // picks up env vars automatically
-	cwd, err := os.Getwd()
-	if err != nil {
-		logrus.WithError(err).Fatalln("")
-	}
-	// Replace forward slashes in case this is windows, URL parser errors
-	cwd = strings.Replace(cwd, "\\", "/", -1)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetDefault(EnvLogLevel, "info")
-	viper.SetDefault(EnvMQURL, fmt.Sprintf("bolt://%s/data/worker_mq.db", cwd))
-	viper.SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/fn.db", cwd))
-	viper.SetDefault(EnvLOGDBURL, "") // default to just using DB url
-	viper.SetDefault(EnvPort, 8080)
-	viper.SetDefault(EnvZipkinURL, "") // off default
-	viper.SetDefault(EnvAPIURL, fmt.Sprintf("http://127.0.0.1:%d", viper.GetInt(EnvPort)))
-	viper.AutomaticEnv() // picks up env vars automatically
-	logLevel, err := logrus.ParseLevel(viper.GetString(EnvLogLevel))
+	logLevel, err := logrus.ParseLevel(getEnv(EnvLogLevel, DefaultLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")
 	}
@@ -39,6 +21,31 @@ func init() {
 	if logLevel == logrus.DebugLevel {
 		gin.SetMode(gin.DebugMode)
 	}
+
+	// do this in init so that it's only run once & before server.New() which may
+	// start things that use spans, which are global.
+	// TODO there's not a great reason that our fn spans don't work w/ noop spans, should fix this really.
+	setupTracer(getEnv(EnvZipkinURL, ""))
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		// linter liked this better than if/else
+		var err error
+		var i int
+		if i, err = strconv.Atoi(value); err != nil {
+			panic(err) // not sure how to handle this
+		}
+		return i
+	}
+	return fallback
 }
 
 func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Context, context.CancelFunc) {

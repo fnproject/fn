@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"log"
-	"reflect"
 	"testing"
 	"time"
 
@@ -37,7 +36,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	call := new(models.Call)
 	call.CreatedAt = strfmt.DateTime(time.Now())
-	call.Status = "success"
+	call.Status = "error"
+	call.Error = "ya dun goofed"
 	call.StartedAt = strfmt.DateTime(time.Now())
 	call.CompletedAt = strfmt.DateTime(time.Now())
 	call.AppName = testApp.Name
@@ -52,16 +52,120 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 	})
 
+	t.Run("call-atomic-update", func(t *testing.T) {
+		ds := dsf(t)
+		call.ID = id.New().String()
+		err := ds.InsertCall(ctx, call)
+		if err != nil {
+			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
+		}
+		newCall := new(models.Call)
+		*newCall = *call
+		newCall.Status = "success"
+		newCall.Error = ""
+		err = ds.UpdateCall(ctx, call, newCall)
+		if err != nil {
+			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
+		}
+		dbCall, err := ds.GetCall(ctx, call.AppName, call.ID)
+		if err != nil {
+			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
+		}
+		if dbCall.ID != newCall.ID {
+			t.Fatalf("Test GetCall: id mismatch `%v` `%v`", call.ID, newCall.ID)
+		}
+		if dbCall.Status != newCall.Status {
+			t.Fatalf("Test GetCall: status mismatch `%v` `%v`", call.Status, newCall.Status)
+		}
+		if dbCall.Error != newCall.Error {
+			t.Fatalf("Test GetCall: error mismatch `%v` `%v`", call.Error, newCall.Error)
+		}
+		if time.Time(dbCall.CreatedAt).Unix() != time.Time(newCall.CreatedAt).Unix() {
+			t.Fatalf("Test GetCall: created_at mismatch `%v` `%v`", call.CreatedAt, newCall.CreatedAt)
+		}
+		if time.Time(dbCall.StartedAt).Unix() != time.Time(newCall.StartedAt).Unix() {
+			t.Fatalf("Test GetCall: started_at mismatch `%v` `%v`", call.StartedAt, newCall.StartedAt)
+		}
+		if time.Time(dbCall.CompletedAt).Unix() != time.Time(newCall.CompletedAt).Unix() {
+			t.Fatalf("Test GetCall: completed_at mismatch `%v` `%v`", call.CompletedAt, newCall.CompletedAt)
+		}
+		if dbCall.AppName != newCall.AppName {
+			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppName, newCall.AppName)
+		}
+		if dbCall.Path != newCall.Path {
+			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
+		}
+	})
+
+	t.Run("call-atomic-update-no-existing-call", func(t *testing.T) {
+		ds := dsf(t)
+		call.ID = id.New().String()
+		// Do NOT insert the call
+		newCall := new(models.Call)
+		*newCall = *call
+		newCall.Status = "success"
+		newCall.Error = ""
+		err := ds.UpdateCall(ctx, call, newCall)
+		if err != models.ErrCallNotFound {
+			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
+		}
+	})
+
+	t.Run("call-atomic-update-unexpected-existing-call", func(t *testing.T) {
+		ds := dsf(t)
+		call.ID = id.New().String()
+		err := ds.InsertCall(ctx, call)
+		if err != nil {
+			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
+		}
+		// Now change the 'from' call so it becomes different from the db
+		badFrom := new(models.Call)
+		*badFrom = *call
+		badFrom.Status = "running"
+		newCall := new(models.Call)
+		*newCall = *call
+		newCall.Status = "success"
+		newCall.Error = ""
+		err = ds.UpdateCall(ctx, badFrom, newCall)
+		if err != models.ErrDatastoreCannotUpdateCall {
+			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
+		}
+	})
+
 	t.Run("call-get", func(t *testing.T) {
 		ds := dsf(t)
 		call.ID = id.New().String()
-		ds.InsertCall(ctx, call)
+		err := ds.InsertCall(ctx, call)
+		if err != nil {
+			t.Fatalf("Test GetCall: unexpected error `%v`", err)
+		}
 		newCall, err := ds.GetCall(ctx, call.AppName, call.ID)
 		if err != nil {
-			t.Fatalf("Test GetCall(ctx, call.ID): unexpected error `%v`", err)
+			t.Fatalf("Test GetCall: unexpected error `%v`", err)
 		}
 		if call.ID != newCall.ID {
-			t.Fatalf("Test GetCall(ctx, call.ID): unexpected error `%v`", err)
+			t.Fatalf("Test GetCall: id mismatch `%v` `%v`", call.ID, newCall.ID)
+		}
+		if call.Status != newCall.Status {
+			t.Fatalf("Test GetCall: status mismatch `%v` `%v`", call.Status, newCall.Status)
+		}
+		if call.Error != newCall.Error {
+			t.Fatalf("Test GetCall: error mismatch `%v` `%v`", call.Error, newCall.Error)
+		}
+		if time.Time(call.CreatedAt).Unix() != time.Time(newCall.CreatedAt).Unix() {
+			t.Fatalf("Test GetCall: created_at mismatch `%v` `%v`", call.CreatedAt, newCall.CreatedAt)
+		}
+		if time.Time(call.StartedAt).Unix() != time.Time(newCall.StartedAt).Unix() {
+			t.Fatalf("Test GetCall: started_at mismatch `%v` `%v`", call.StartedAt, newCall.StartedAt)
+		}
+		if time.Time(call.CompletedAt).Unix() != time.Time(newCall.CompletedAt).Unix() {
+			t.Fatalf("Test GetCall: completed_at mismatch `%v` `%v`", call.CompletedAt, newCall.CompletedAt)
+		}
+		if call.AppName != newCall.AppName {
+			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppName, newCall.AppName)
+		}
+		if call.Path != newCall.Path {
+			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
 		}
 	})
 
@@ -184,7 +288,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test InsertApp: error when storing new app: %s", err)
 		}
-		if !reflect.DeepEqual(*inserted, *testApp) {
+		if !inserted.Equals(testApp) {
 			t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", testApp, inserted)
 		}
 
@@ -195,13 +299,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		{
 			// Set a config var
-			updated, err := ds.UpdateApp(ctx,
-				&models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}})
+			updated, err := ds.UpdateApp(ctx, &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}})
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
 			expected := &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 
@@ -212,7 +315,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
 			expected = &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 
@@ -223,7 +326,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
 			expected = &models.App{Name: testApp.Name, Config: map[string]string{"OTHER": "TEST"}}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 		}
@@ -391,9 +494,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			if err != nil {
 				t.Fatalf("Test GetRoute: unexpected error %v", err)
 			}
-			var expected models.Route = *testRoute
-			if !reflect.DeepEqual(*route, expected) {
-				t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", expected, *route)
+			if !route.Equals(testRoute) {
+				t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", testRoute, *route)
 			}
 		}
 
@@ -440,7 +542,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 					"Third":  []string{"test", "test2"},
 				},
 			}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateRoute: expected updated `%v` but got `%v`", expected, updated)
 			}
 
@@ -481,7 +583,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 					"Third": []string{"test", "test2"},
 				},
 			}
-			if !reflect.DeepEqual(*updated, *expected) {
+			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateRoute: expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
 			}
 		}

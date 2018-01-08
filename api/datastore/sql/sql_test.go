@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"context"
 	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/models"
@@ -15,8 +16,8 @@ import (
 // * run all down migrations
 // * run all up migrations
 // [ then run tests against that db ]
-func newWithMigrations(url *url.URL) (*sqlStore, error) {
-	ds, err := newDS(url)
+func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
+	ds, err := newDS(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +33,7 @@ func newWithMigrations(url *url.URL) (*sqlStore, error) {
 	}
 
 	// go through New, to ensure our Up logic works in there...
-	ds, err = newDS(url)
+	ds, err = newDS(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +42,7 @@ func newWithMigrations(url *url.URL) (*sqlStore, error) {
 }
 
 func TestDatastore(t *testing.T) {
+	ctx := context.Background()
 	defer os.RemoveAll("sqlite_test_dir")
 	u, err := url.Parse("sqlite3://sqlite_test_dir")
 	if err != nil {
@@ -48,7 +50,7 @@ func TestDatastore(t *testing.T) {
 	}
 	f := func(t *testing.T) models.Datastore {
 		os.RemoveAll("sqlite_test_dir")
-		ds, err := newDS(u)
+		ds, err := newDS(ctx, u)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +69,7 @@ func TestDatastore(t *testing.T) {
 
 	both := func(u *url.URL) {
 		f := func(t *testing.T) models.Datastore {
-			ds, err := newDS(u)
+			ds, err := newDS(ctx, u)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -83,7 +85,7 @@ func TestDatastore(t *testing.T) {
 
 		f = func(t *testing.T) models.Datastore {
 			t.Log("with migrations now!")
-			ds, err := newWithMigrations(u)
+			ds, err := newWithMigrations(ctx, u)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -130,10 +130,6 @@ func (v *validator) GetCall(ctx context.Context, appName, callID string) (*model
 	return v.Datastore.GetCall(ctx, appName, callID)
 }
 
-func (v *validator) DeleteLog(ctx context.Context, appName, callID string) error {
-	return v.Datastore.DeleteLog(ctx, appName, callID)
-}
-
 // GetDatabase returns the underlying sqlx database implementation
 func (v *validator) GetDatabase() *sqlx.DB {
 	return v.Datastore.GetDatabase()

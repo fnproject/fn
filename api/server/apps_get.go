@@ -11,7 +11,19 @@ func (s *Server) handleAppGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	appName := c.MustGet(api.AppName).(string)
-	app, err := s.Datastore.GetApp(ctx, appName)
+
+	err := s.FireBeforeAppGet(ctx, appName)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	app, err := s.datastore.GetApp(ctx, appName)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	err = s.FireAfterAppGet(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

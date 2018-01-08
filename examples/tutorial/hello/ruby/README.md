@@ -22,15 +22,15 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-ruby
+curl http://localhost:8080/r/myapp/ruby
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/hello-ruby](http://localhost:8080/r/myapp/hello-ruby)
+Or call from a browser: [http://localhost:8080/r/myapp/ruby](http://localhost:8080/r/myapp/ruby)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-ruby
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/ruby
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Fn server. Try editing `func.rb` 

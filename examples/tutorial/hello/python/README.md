@@ -22,15 +22,15 @@ fn deploy --app myapp
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/hello-python
+curl http://localhost:8080/r/myapp/python
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/hello-python](http://localhost:8080/r/myapp/hello-python)
+Or call from a browser: [http://localhost:8080/r/myapp/python](http://localhost:8080/r/myapp/python)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/hello-python
+curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/python
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Fn server. Try editing `func.py` 
