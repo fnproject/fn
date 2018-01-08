@@ -31,7 +31,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 
 	if len(calls) == 0 {
 		// TODO this should be done in front of this handler to even get here...
-		_, err = s.datastore.GetApp(c, appIDorName)
+		_, err = s.datastore.GetApp(c, &models.App{Name: appIDorName, ID: appIDorName})
 	}
 
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
 

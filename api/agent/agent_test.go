@@ -72,15 +72,16 @@ func TestCallConfigurationRequest(t *testing.T) {
 	cfg := models.Config{"APP_VAR": "FOO"}
 	rCfg := models.Config{"ROUTE_VAR": "BAR"}
 
+	app := &models.App{Name: appName, Config: cfg}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: appName, Config: cfg},
-		},
+		[]*models.App{app},
 		[]*models.Route{
 			{
+				AppID:       app.ID,
 				Config:      rCfg,
 				Path:        path,
-				AppName:     appName,
+				AppName:     app.Name,
 				Image:       image,
 				Type:        typ,
 				Format:      format,
@@ -112,7 +113,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(appName, path, req),
+		FromRequest(app, path, req),
 	)
 	if err != nil {
 		t.Fatal(err)

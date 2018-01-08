@@ -70,9 +70,10 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
+	app := &models.App{Name: appName}
 	call, err := s.agent.GetCall(
-		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(appName, path, c.Request),
+		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
+		agent.FromRequest(app, path, c.Request),
 	)
 	if err != nil {
 		return err

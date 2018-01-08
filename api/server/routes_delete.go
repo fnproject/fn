@@ -5,6 +5,7 @@ import (
 	"path"
 
 	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,14 +13,15 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	appIDorName := c.MustGet(api.App).(string)
+	initApp := &models.App{Name: appIDorName, ID: appIDorName}
 	routePath := path.Clean(c.MustGet(api.Path).(string))
 
-	if _, err := s.datastore.GetRoute(ctx, appIDorName, routePath); err != nil {
+	if _, err := s.datastore.GetRoute(ctx, initApp, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	if err := s.datastore.RemoveRoute(ctx, appIDorName, routePath); err != nil {
+	if err := s.datastore.RemoveRoute(ctx, initApp, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}

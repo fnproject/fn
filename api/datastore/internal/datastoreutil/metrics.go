@@ -76,6 +76,7 @@ func (m *metricds) RemoveRoute(ctx context.Context, appName, routePath string) e
 	ctx, span := trace.StartSpan(ctx, "ds_remove_route")
 	defer span.End()
 	return m.ds.RemoveRoute(ctx, appName, routePath)
+
 }
 
 func (m *metricds) InsertCall(ctx context.Context, call *models.Call) error {

@@ -122,6 +122,7 @@ func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, erro
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
 	defer span.End()
 
+
 	var a struct {
 		A models.App `json:"app"`
 	}

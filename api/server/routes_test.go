@@ -34,6 +34,7 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 
 	if rec.Code != test.expectedCode {
 		t.Log(buf.String())
+		t.Log(rec.Body.String())
 		t.Errorf("Test %d: Expected status code to be %d but was %d",
 			i, test.expectedCode, rec.Code)
 	}
@@ -97,30 +98,34 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 func TestRouteCreate(t *testing.T) {
 	buf := setLogBuffer()
 
+	a := &models.App{Name: "a"}
+	a.SetDefaults()
+	commonDS := datastore.NewMockInit([]*models.App{a}, nil, nil)
 	for i, test := range []routeTestCase{
 		// errors
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "path": "/myroute", "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesMissingPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesInvalidPath},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync", "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
-		{datastore.NewMockInit(nil,
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "path": "/myroute", "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { } }`, http.StatusBadRequest, models.ErrRoutesMissingPath},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingImage},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingPath},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesInvalidPath},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync", "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
+		{datastore.NewMockInit([]*models.App{a},
 			[]*models.Route{
 				{
-					AppName: "a",
+					AppName: a.Name,
+					AppID:   a.ID,
 					Path:    "/myroute",
 				},
 			}, nil,
 		), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesAlreadyExists},
 
 		// success
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync", "cpus": "100m" } }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync", "cpus": "0.2" } }`, http.StatusOK, nil},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync", "cpus": "100m" } }`, http.StatusOK, nil},
+		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync", "cpus": "0.2" } }`, http.StatusOK, nil},
 	} {
 		test.run(t, i, buf)
 	}
@@ -129,21 +134,26 @@ func TestRouteCreate(t *testing.T) {
 func TestRoutePut(t *testing.T) {
 	buf := setLogBuffer()
 
+	a := &models.App{Name: "a"}
+	a.SetDefaults()
+	commonDS := datastore.NewMockInit([]*models.App{a}, nil, nil)
+
 	for i, test := range []routeTestCase{
 		// errors (NOTE: this route doesn't exist yet)
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "path": "/myroute", "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingImage},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "diffRoute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/$/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "invalid-type" } }`, http.StatusBadRequest, models.ErrRoutesInvalidType},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "format": "invalid-format", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesInvalidFormat},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "path": "/myroute", "type": "sync" }`, http.StatusBadRequest, models.ErrRoutesMissingNew},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingImage},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingImage},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "diffRoute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesPathImmutable},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/$/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "invalid-type" } }`, http.StatusBadRequest, models.ErrRoutesInvalidType},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "format": "invalid-format", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesInvalidFormat},
 
 		// success
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, nil},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
+		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, nil},
+
 	} {
 		test.run(t, i, buf)
 	}
@@ -152,8 +162,10 @@ func TestRoutePut(t *testing.T) {
 func TestRouteDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	routes := []*models.Route{{AppName: "a", Path: "/myroute"}}
-	apps := []*models.App{{Name: "a", Config: nil}}
+	a := &models.App{Name: "a"}
+	a.SetDefaults()
+	routes := []*models.Route{{AppName: a.Name, AppID: a.ID, Path: "/myroute"}}
+	commonDS := datastore.NewMockInit([]*models.App{a}, routes, nil)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -163,8 +175,8 @@ func TestRouteDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrRoutesNotFound},
-		{datastore.NewMockInit(apps, routes, nil), logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
+		{commonDS, logs.NewMock(), "/v1/apps/a/routes/missing", "", http.StatusNotFound, models.ErrRoutesNotFound},
+		{commonDS, logs.NewMock(), "/v1/apps/a/routes/myroute", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -172,6 +184,7 @@ func TestRouteDelete(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
+			t.Log(rec.Body.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -195,23 +208,26 @@ func TestRouteList(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp"},
-		},
+		[]*models.App{app},
 		[]*models.Route{
 			{
-				AppName: "myapp",
+				AppName: app.Name,
 				Path:    "/myroute",
+				AppID:   app.ID,
 			},
 			{
-				AppName: "myapp",
+				AppName: app.Name,
 				Path:    "/myroute1",
+				AppID:   app.ID,
 			},
 			{
-				AppName: "myapp",
+				AppName: app.Name,
 				Path:    "/myroute2",
 				Image:   "fnproject/fn-test-utils",
+				AppID:   app.ID,
 			},
 		},
 		nil, // no calls

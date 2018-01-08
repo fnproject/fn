@@ -49,14 +49,14 @@ type Param struct {
 }
 type Params []Param
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
+func FromRequest(app *models.App, path string, req *http.Request) CallOpt {
 	return func(a *agent, c *call) error {
-		app, err := a.da.GetApp(req.Context(), appName)
+		app, err := a.da.GetApp(req.Context(), app)
 		if err != nil {
 			return err
 		}
 
-		route, err := a.da.GetRoute(req.Context(), appName, path)
+		route, err := a.da.GetRoute(req.Context(), app, path)
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		c.Call = &models.Call{
 			ID:      id,
-			AppName: appName,
+			AppName: app.Name,
 			Path:    route.Path,
 			Image:   route.Image,
 			// Delay: 0,

@@ -125,14 +125,13 @@ func path(appName, callID string) string {
 	return appName + "/" + callID
 }
 
-func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
+func (s *store) InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error {
 	ctx, span := trace.StartSpan(ctx, "s3_insert_log")
 	defer span.End()
 
 	// wrap original reader in a decorator to keep track of read bytes without buffering
 	cr := &countingReader{r: callLog}
-
-	objectName := path(appName, callID)
+	objectName := path(appID, callID)
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),

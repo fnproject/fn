@@ -301,13 +301,8 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
-		query := tx.Rebind(appSelector)
-		row := tx.QueryRowxContext(ctx, query, app.Name)
-
-		err := row.StructScan(app)
-		if err == sql.ErrNoRows {
-			return models.ErrAppsNotFound
-		} else if err != nil {
+		err := getAppTx(tx, ctx, app.Name, app.ID, app)
+		if err != nil {
 			return err
 		}
 
@@ -317,7 +312,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
-		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, updated_at=:updated_at WHERE name=:name`)
+		query := tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
@@ -369,9 +364,9 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	})
 }
 
-func getAppTx(tx *sqlx.Tx, ctx context.Context, name string, app *models.App) error {
+func getAppTx(tx *sqlx.Tx, ctx context.Context, appName, appID string, app *models.App) error {
 	query := tx.Rebind(appSelector)
-	row := tx.QueryRowxContext(ctx, query, name)
+	row := tx.QueryRowxContext(ctx, query, appName, appID)
 
 	err := row.StructScan(app)
 	if err == sql.ErrNoRows {
@@ -380,15 +375,14 @@ func getAppTx(tx *sqlx.Tx, ctx context.Context, name string, app *models.App) er
 	return err
 }
 
-func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	var app models.App
+func (ds *sqlStore) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, name, &app)
+		return getAppTx(tx, ctx, app.Name, app.ID, app)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &app, err
+	return app, err
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
@@ -542,9 +536,9 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 	return &route, nil
 }
 
-func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) error {
+func (ds *sqlStore) RemoveRoute(ctx context.Context, app *models.App, routePath string) error {
 	query := ds.db.Rebind(`DELETE FROM routes WHERE path = ? AND app_name = ?`)
-	res, err := ds.db.ExecContext(ctx, query, routePath, appName)
+	res, err := ds.db.ExecContext(ctx, query, routePath, app.Name)
 	if err != nil {
 		return err
 	}
@@ -561,10 +555,10 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) 
 	return nil
 }
 
-func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
+func (ds *sqlStore) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
 	rSelectCondition := "%s WHERE app_name=? AND path=?"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
-	row := ds.db.QueryRowxContext(ctx, query, appName, routePath)
+	row := ds.db.QueryRowxContext(ctx, query, app.Name, routePath)
 
 	var route models.Route
 	err := row.StructScan(&route)
@@ -577,13 +571,13 @@ func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*m
 }
 
 // GetRoutesByApp retrieves a route with a specific app name.
-func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) ([]*models.Route, error) {
+func (ds *sqlStore) GetRoutesByApp(ctx context.Context, app *models.App, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	if filter == nil {
 		filter = new(models.RouteFilter)
 	}
 
-	filter.AppName = appName
+	filter.AppName = app.Name
 	filterQuery, args := buildFilterRouteQuery(filter)
 
 	query := fmt.Sprintf("%s %s", routeSelector, filterQuery)
@@ -775,7 +769,7 @@ func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 	return res, nil
 }
 
-func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID string, logR io.Reader) error {
+func (ds *sqlStore) InsertLog(ctx context.Context, appID, callID string, logR io.Reader) error {
 	// coerce this into a string for sql
 	var log string
 	if stringer, ok := logR.(fmt.Stringer); ok {
@@ -790,7 +784,7 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appName, callID string, logR 
 
 	return ds.Tx(func(tx *sqlx.Tx) error {
 		var app models.App
-		err := getAppTx(tx, ctx, appName, &app)
+		err := getAppTx(tx, ctx, appID, appID, &app)
 		if err != nil {
 			return err
 		}

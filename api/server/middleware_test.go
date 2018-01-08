@@ -67,15 +67,16 @@ func TestMiddlewareChaining(t *testing.T) {
 
 func TestRootMiddleware(t *testing.T) {
 
+	app1 := &models.App{Name: "myapp", Config: models.Config{}}
+	app1.SetDefaults()
+	app2 := &models.App{Name: "myapp2", Config: models.Config{}}
+	app2.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-			{Name: "myapp2", Config: models.Config{}},
-		},
+		[]*models.App{app1, app2},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/app2func", AppName: "myapp2", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
+			{Path: "/", AppID: app1.ID, AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppID: app1.ID, AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/app2func", AppID: app2.ID, AppName: "myapp2", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
 				Config: map[string]string{"NAME": "johnny"},
 			},
 		}, nil,
@@ -93,7 +94,7 @@ func TestRootMiddleware(t *testing.T) {
 				fmt.Fprintf(os.Stderr, "breaker breaker!\n")
 				ctx := r.Context()
 				// TODO: this is a little dicey, should have some functions to set these in case the context keys change or something.
-				ctx = context.WithValue(ctx, "app_name", "myapp2")
+				ctx = context.WithValue(ctx, "app", "myapp2")
 				ctx = context.WithValue(ctx, "path", "/app2func")
 				mctx := fnext.GetMiddlewareController(ctx)
 				mctx.CallFunction(w, r.WithContext(ctx))
@@ -105,7 +106,7 @@ func TestRootMiddleware(t *testing.T) {
 	})
 	srv.AddRootMiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// fmt.Fprintf(os.Stderr, "middle log\n")
+			fmt.Fprintf(os.Stderr, "middle log\n")
 			next.ServeHTTP(w, r)
 		})
 	})

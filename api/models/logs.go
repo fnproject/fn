@@ -8,7 +8,7 @@ import (
 type LogStore interface {
 	// InsertLog will insert the log at callID, overwriting if it previously
 	// existed.
-	InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error
+	InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error
 
 	// GetLog will return the log at callID, an error will be returned if the log
 	// cannot be found.

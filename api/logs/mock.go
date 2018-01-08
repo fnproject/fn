@@ -17,7 +17,7 @@ func NewMock() models.LogStore {
 	return &mock{make(map[string][]byte)}
 }
 
-func (m *mock) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
+func (m *mock) InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error {
 	bytes, err := ioutil.ReadAll(callLog)
 	m.Logs[callID] = bytes
 	return err

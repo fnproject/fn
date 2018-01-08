@@ -62,8 +62,8 @@ func appCacheKey(appname string) string {
 	return "a:" + appname
 }
 
-func (da *CachedDataAccess) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	key := appCacheKey(appName)
+func (da *CachedDataAccess) GetApp(ctx context.Context, a *models.App) (*models.App, error) {
+	key := appCacheKey(a.Name)
 	app, ok := da.cache.Get(key)
 	if ok {
 		return app.(*models.App), nil
@@ -71,7 +71,7 @@ func (da *CachedDataAccess) GetApp(ctx context.Context, appName string) (*models
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetApp(ctx, appName)
+			return da.DataAccess.GetApp(ctx, a)
 		})
 
 	if err != nil {
@@ -82,8 +82,8 @@ func (da *CachedDataAccess) GetApp(ctx context.Context, appName string) (*models
 	return app.(*models.App), nil
 }
 
-func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {
-	key := routeCacheKey(appName, routePath)
+func (da *CachedDataAccess) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
+	key := routeCacheKey(app.Name, routePath)
 	r, ok := da.cache.Get(key)
 	if ok {
 		return r.(*models.Route), nil
@@ -91,7 +91,7 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routeP
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetRoute(ctx, appName, routePath)
+			return da.DataAccess.GetRoute(ctx, app, routePath)
 		})
 
 	if err != nil {
@@ -117,12 +117,12 @@ func NewDirectDataAccess(ds models.Datastore, ls models.LogStore, mq models.Mess
 	return da
 }
 
-func (da *directDataAccess) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	return da.ds.GetApp(ctx, appName)
+func (da *directDataAccess) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
+	return da.ds.GetApp(ctx, app)
 }
 
-func (da *directDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {
-	return da.ds.GetRoute(ctx, appName, routePath)
+func (da *directDataAccess) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
+	return da.ds.GetRoute(ctx, app, routePath)
 }
 
 func (da *directDataAccess) Enqueue(ctx context.Context, mCall *models.Call) error {
@@ -155,7 +155,7 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := da.ls.InsertLog(ctx, mCall.AppName, mCall.ID, stderr); err != nil {
+	if err := da.ls.InsertLog(ctx, mCall.AppID, mCall.ID, stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

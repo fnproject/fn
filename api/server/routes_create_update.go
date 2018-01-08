@@ -70,7 +70,8 @@ func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) e
 func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.RouteWrapper) (routeResponse, error) {
 	bad := new(routeResponse)
 
-	app, err := s.Datastore().GetApp(ctx, wroute.Route.AppName)
+	initApp := &models.App{Name: wroute.Route.AppName, ID: wroute.Route.AppName}
+	app, err := s.Datastore().GetApp(ctx, initApp)
 	if err != nil {
 		return *bad, err
 	}
@@ -84,7 +85,7 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 		}
 		return routeResponse{"Route successfully created", wroute.Route}, nil
 	case http.MethodPut:
-		_, err := s.datastore.GetRoute(ctx, wroute.Route.AppName, wroute.Route.Path)
+		_, err := s.datastore.GetRoute(ctx, initApp, wroute.Route.Path)
 		if err != nil && err == models.ErrRoutesNotFound {
 			err := s.submitRoute(ctx, wroute)
 			if err != nil {
@@ -109,7 +110,8 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
 func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, method string) error {
-	app, err := s.datastore.GetApp(ctx, wroute.Route.AppName)
+	initApp := &models.App{Name: wroute.Route.AppName, ID: wroute.Route.AppName}
+	app, err := s.datastore.GetApp(ctx, initApp)
 	if err != nil && err != models.ErrAppsNotFound {
 		return err
 	} else if app == nil {
