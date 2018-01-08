@@ -58,7 +58,7 @@ Content-Length: 11
 hello world
 ```
 
-The header keys and values would be populated with information about the function call such as the request URL and query parameters.
+Request HTTP headers contain Default format environment variables listed in [Inputs](writing.md)
 
 `Content-Length` is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory both for input and output. It is used by Functions to know when stop writing to STDIN and reading from STDOUT.
 
@@ -115,6 +115,8 @@ BLANK LINE
 * call_id - the unique ID for the call.
 * content_type - format of the `body` parameter.
 * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
+
+Under `protocol`, `headers` contain Default format environment variables listed in [Inputs](writing.md)
 
 Each request will be separated by a blank line.
 
