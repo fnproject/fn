@@ -88,7 +88,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 const (
 	routeSelector = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, app_id, path, stats, error FROM calls`
-	appSelector   = `SELECT id, name, config, annotations, created_at, updated_at FROM apps WHERE name=? OR id=?`
+	appSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
 )
 
 type sqlStore struct {
@@ -298,7 +298,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
-		err := getAppTx(tx, ctx, app.Name, app.ID, app)
+		err := getAppTx(tx, ctx, app.Name, app)
 		if err != nil {
 			return err
 		}
@@ -334,7 +334,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
 		var a models.App
-		err := getAppTx(tx, ctx, app.Name, app.ID, &a)
+		err := getAppTx(tx, ctx, app.Name, &a)
 		if err != nil {
 			return err
 		}
@@ -366,9 +366,9 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	})
 }
 
-func getAppTx(tx *sqlx.Tx, ctx context.Context, appName, appID string, app *models.App) error {
+func getAppTx(tx *sqlx.Tx, ctx context.Context, appName string, app *models.App) error {
 	query := tx.Rebind(appSelector)
-	row := tx.QueryRowxContext(ctx, query, appName, appID)
+	row := tx.QueryRowxContext(ctx, query, appName)
 
 	err := row.StructScan(app)
 	if err == sql.ErrNoRows {
@@ -379,7 +379,7 @@ func getAppTx(tx *sqlx.Tx, ctx context.Context, appName, appID string, app *mode
 
 func (ds *sqlStore) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, app.Name, app.ID, app)
+		return getAppTx(tx, ctx, app.Name, app)
 	})
 	if err != nil {
 		return nil, err

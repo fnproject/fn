@@ -33,9 +33,7 @@ func writeJSON(c *gin.Context, callID, appID string, logReader io.Reader) {
 func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appIDorName := c.MustGet(api.App).(string)
-
-	app, err := s.datastore.GetApp(ctx, &models.App{Name: appIDorName, ID: appIDorName})
+	app, err := s.datastore.GetApp(ctx, &models.App{Name: c.MustGet(api.App).(string)})
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

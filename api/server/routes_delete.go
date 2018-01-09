@@ -12,8 +12,7 @@ import (
 func (s *Server) handleRouteDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appIDorName := c.MustGet(api.App).(string)
-	initApp := &models.App{Name: appIDorName, ID: appIDorName}
+	initApp := &models.App{Name: c.MustGet(api.App).(string)}
 	app, err := s.datastore.GetApp(ctx, initApp)
 	if err != nil {
 		handleErrorResponse(c, err)

@@ -16,7 +16,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 	var err error
 	appIDorName := c.MustGet(api.App).(string)
 
-	app, err := s.datastore.GetApp(ctx, &models.App{Name: appIDorName, ID: appIDorName})
+	app, err := s.datastore.GetApp(ctx, &models.App{Name: appIDorName})
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -33,16 +33,6 @@ func (s *Server) handleCallList(c *gin.Context) {
 	}
 
 	calls, err := s.datastore.GetCalls(ctx, &filter)
-
-	if len(calls) == 0 {
-		// TODO this should be done in front of this handler to even get here...
-		_, err = s.datastore.GetApp(c, &models.App{Name: appIDorName, ID: appIDorName})
-	}
-
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
 
 	var nextCursor string
 	if len(calls) > 0 && len(calls) == filter.PerPage {

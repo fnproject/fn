@@ -11,9 +11,8 @@ import (
 func (s *Server) handleCallGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appIDorName := c.MustGet(api.App).(string)
 	callID := c.Param(api.Call)
-	app, err := s.datastore.GetApp(ctx, &models.App{Name: appIDorName, ID: appIDorName})
+	app, err := s.datastore.GetApp(ctx, &models.App{Name: c.MustGet(api.App).(string)})
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
