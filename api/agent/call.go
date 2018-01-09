@@ -113,11 +113,6 @@ func FromRequest(appName, path string, req *http.Request, params Params) CallOpt
 		envVars["FN_METHOD"] = req.Method
 		envVars["FN_REQUEST_URL"] = url
 
-		// params
-		for _, param := range params {
-			envVars[toEnvName("FN_PARAM", param.Key)] = param.Value
-		}
-
 		headerVars := make(map[string]string, len(req.Header))
 
 		for k, v := range req.Header {
