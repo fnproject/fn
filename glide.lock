@@ -1,5 +1,5 @@
-hash: 3fa5b86f68121ba1422761f2937e6a9b7f5c330adc6f84e2f3b7b78b87a747d7
-updated: 2017-12-04T17:26:34.506649Z
+hash: eaf219b70625c8085a7fb3c4b11ffce0b7c9728dc910c0b347e45f6d49567460
+updated: 2018-01-09T15:59:34.506649Z
 imports:
 - name: github.com/amir/raidman
   version: 1ccc43bfb9c93cb401a4025e49c64ba71e5e668b
@@ -309,17 +309,38 @@ imports:
   - pbutil
 - name: github.com/Microsoft/go-winio
   version: 78439966b38d69bf38227fbf57ac8a6fee70f69a
-- name: github.com/minio/go-homedir
-  version: 21304a94172ae3a09dee2cd86a12fb6f842138c7
-- name: github.com/minio/minio-go
-  version: a62e2045a5d3a6630dbb7040260994583ac56b10
+- name: github.com/aws/aws-sdk-go
+  version: 5177d71d80f123f6d82aaf762387e39b88c5ba23
   subpackages:
-  - pkg/credentials
-  - pkg/encrypt
-  - pkg/policy
-  - pkg/s3signer
-  - pkg/s3utils
-  - pkg/set
+  - aws
+  - aws/awserr
+  - aws/awsutil
+  - aws/client
+  - aws/client/metadata
+  - aws/corehandlers
+  - aws/credentials
+  - aws/credentials/ec2rolecreds
+  - aws/credentials/endpointcreds
+  - aws/credentials/stscreds
+  - aws/defaults
+  - aws/ec2metadata
+  - aws/endpoints
+  - aws/request
+  - aws/session
+  - aws/signer/v4
+  - internal/shareddefaults
+  - private/protocol
+  - private/protocol/query
+  - private/protocol/query/queryutil
+  - private/protocol/rest
+  - private/protocol/restxml
+  - private/protocol/xml/xmlutil
+  - service/s3
+  - service/s3/s3iface
+  - service/s3/s3manager
+  - service/sts
+- name: github.com/jmespath/go-jmespath
+  version: 0b12d6b521d83fc7f755e7cfc1b1fbdd35a01a74
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/Nvveen/Gotty
