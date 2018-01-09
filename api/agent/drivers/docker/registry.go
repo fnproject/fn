@@ -90,7 +90,7 @@ func CheckRegistry(ctx context.Context, image string, config docker.AuthConfigur
 
 	tran = &retryWrap{cm, tran}
 
-	repo, err := registry.NewRepository(ctx, repoNamed, regURL, tran)
+	repo, err := registry.NewRepository(repoNamed, regURL, tran)
 	if err != nil {
 		return nil, err
 	}

@@ -2,10 +2,10 @@
 .PHONY: all test dep build test-log-datastore checkfmt pull-images api-test fn-test-utils test-middleware test-extensions test-basic test-api
 
 dep:
-	glide install -v
+	dep ensure --vendor-only
 
 dep-up:
-	glide up -v
+	dep ensure
 
 build:
 	go build -o fnserver
@@ -69,10 +69,6 @@ test-build-arm:
 
 run: build
 	GIN_MODE=debug ./fnserver
-
-docker-dep:
-# todo: need to create a dep tool image for this (or just ditch this)
-	docker run --rm -it -v ${CURDIR}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn treeder/glide install -v
 
 docker-build:
 	docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/fnserver:latest .
