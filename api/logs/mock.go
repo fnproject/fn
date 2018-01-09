@@ -23,7 +23,7 @@ func (m *mock) InsertLog(ctx context.Context, appID, callID string, callLog io.R
 	return err
 }
 
-func (m *mock) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
+func (m *mock) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
 	logEntry, ok := m.Logs[callID]
 	if !ok {
 		return nil, models.ErrCallLogNotFound

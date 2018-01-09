@@ -18,6 +18,7 @@ import (
 
 var testApp = &models.App{
 	Name: "Test",
+	ID:   id.New().String(),
 }
 
 var testRoute = &models.Route{
@@ -48,7 +49,7 @@ func SetupTestCall(t *testing.T, ctx context.Context, ds models.Datastore) *mode
 	call.Status = "success"
 	call.StartedAt = strfmt.DateTime(time.Now())
 	call.CompletedAt = strfmt.DateTime(time.Now())
-	call.AppName = testApp.Name
+	call.AppID = testApp.ID
 	call.Path = testRoute.Path
 	return &call
 }
@@ -81,11 +82,16 @@ func Test(t *testing.T, ds models.Datastore, fnl models.LogStore) {
 		call.ID = id.New().String()
 		logText := "test"
 		log := strings.NewReader(logText)
-		err := fnl.InsertLog(ctx, call.AppName, call.ID, log)
+		//TODO(xxx): use app_id
+		err := fnl.InsertLog(ctx, call.AppID, call.ID, log)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, call.AppName, call.ID)
+		//TODO(xxx): use app_id
+		logEntry, err := fnl.GetLog(ctx, testApp.ID, call.ID)
+		if err != nil {
+			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during log get `%v`", err)
+		}
 		var b bytes.Buffer
 		io.Copy(&b, logEntry)
 		if !strings.Contains(b.String(), logText) {
@@ -96,7 +102,7 @@ func Test(t *testing.T, ds models.Datastore, fnl models.LogStore) {
 
 	t.Run("call-log-not-found", func(t *testing.T) {
 		call.ID = id.New().String()
-		_, err := fnl.GetLog(ctx, call.AppName, call.ID)
+		_, err := fnl.GetLog(ctx, call.AppID, call.ID)
 		if err != models.ErrCallLogNotFound {
 			t.Fatal("GetLog should return not found, but got:", err)
 		}

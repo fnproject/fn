@@ -366,7 +366,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 			`DELETE FROM routes WHERE app_id=?`,
 		}
 		for _, stmt := range deletes {
-			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), app.Name, app.ID)
+			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), app.ID)
 			if err != nil {
 				return err
 			}
@@ -789,20 +789,15 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appID, callID string, logR io
 	}
 
 	return ds.Tx(func(tx *sqlx.Tx) error {
-		var app models.App
-		err := getAppTx(tx, ctx, appID, appID, &app)
-		if err != nil {
-			return err
-		}
 		query := tx.Rebind(`INSERT INTO logs (id, app_name, app_id, log) VALUES (?, ?, ?, ?);`)
-		_, err = tx.ExecContext(ctx, query, callID, app.Name, app.ID, log)
+		_, err := tx.ExecContext(ctx, query, callID, appID, appID, log)
 		return err
 	})
 }
 
-func (ds *sqlStore) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
-	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_name=?`)
-	row := ds.db.QueryRowContext(ctx, query, callID, appName)
+func (ds *sqlStore) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
+	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_id=?`)
+	row := ds.db.QueryRowContext(ctx, query, callID, appID)
 
 	var log string
 	err := row.Scan(&log)

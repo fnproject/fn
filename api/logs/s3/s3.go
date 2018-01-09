@@ -63,8 +63,7 @@ func createStore(bucketName, endpoint, region, accessKeyID, secretAccessKey stri
 		DisableSSL:       aws.Bool(!useSSL),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	session := session.Must(session.NewSession(config))
-	client := s3.New(session)
+	client := s3.New(session.Must(session.NewSession(config)))
 
 	return &store{
 		client:     client,
