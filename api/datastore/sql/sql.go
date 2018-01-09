@@ -81,7 +81,6 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	`CREATE TABLE IF NOT EXISTS logs (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	app_id varchar(256) NOT NULL,
-	app_name varchar(256) NOT NULL,
 	log text NOT NULL
 );`,
 }
@@ -352,16 +351,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 		}
 
 		deletes := []string{
-			`DELETE FROM logs WHERE app_name=? OR app_id=?`,
-		}
-
-		for _, stmt := range deletes {
-			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), app.Name, app.ID)
-			if err != nil {
-				return err
-			}
-		}
-		deletes = []string{
+			`DELETE FROM logs WHERE app_id=?`,
 			`DELETE FROM calls WHERE app_id=?`,
 			`DELETE FROM routes WHERE app_id=?`,
 		}
@@ -789,8 +779,8 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appID, callID string, logR io
 	}
 
 	return ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(`INSERT INTO logs (id, app_name, app_id, log) VALUES (?, ?, ?, ?);`)
-		_, err := tx.ExecContext(ctx, query, callID, appID, appID, log)
+		query := tx.Rebind(`INSERT INTO logs (id, app_id, log) VALUES (?, ?, ?);`)
+		_, err := tx.ExecContext(ctx, query, callID, appID, log)
 		return err
 	})
 }

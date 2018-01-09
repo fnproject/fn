@@ -19,14 +19,14 @@ type callLogResponse struct {
 	Log     *models.CallLog `json:"log"`
 }
 
-func writeJSON(c *gin.Context, callID, appName string, logReader io.Reader) {
+func writeJSON(c *gin.Context, callID, appID string, logReader io.Reader) {
 	var b bytes.Buffer
 	b.ReadFrom(logReader)
 	c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
 		&models.CallLog{
-			CallID:  callID,
-			AppName: appName,
-			Log:     b.String(),
+			CallID: callID,
+			AppID:  appID,
+			Log:    b.String(),
 		}})
 }
 

@@ -28,9 +28,9 @@ const (
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
 
 type CallLog struct {
-	CallID  string `json:"call_id" db:"id"`
-	Log     string `json:"log" db:"log"`
-	AppName string `json:"app_name" db:"app_name"`
+	CallID string `json:"call_id" db:"id"`
+	Log    string `json:"log" db:"log"`
+	AppID  string `json:"app_id" db:"app_id"`
 }
 
 // Call is a representation of a specific invocation of a route.
