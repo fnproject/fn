@@ -6,7 +6,7 @@ ADD . $D
 RUN cd $D && go build -o fn-alpine && cp fn-alpine /tmp/
 
 # final stage
-FROM fnproject/dind
+FROM fnproject/dind:17.12
 WORKDIR /app
-COPY --from=build-env /tmp/fn-alpine /app/functions
-CMD ["./functions"]
+COPY --from=build-env /tmp/fn-alpine /app/fnserver
+CMD ["./fnserver"]
