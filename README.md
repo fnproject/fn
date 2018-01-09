@@ -1,15 +1,11 @@
 ![Fn Project](http://fnproject.io/images/fn-300x125.png)
 
+**[Quickstart](https://github.com/fnproject/fn#quickstart)&nbsp; | &nbsp;[Tutorials](https://github.com/fnproject/tutorials)&nbsp; |  &nbsp;[Docs](https://github.com/fnproject/fn/blob/master/docs/README.md)&nbsp; | &nbsp;[API](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)&nbsp; | &nbsp;[Operating](https://github.com/fnproject/fn/blob/master/docs/README.md#for-operators)&nbsp; | &nbsp;[Flow](https://github.com/fnproject/flow)&nbsp; | &nbsp;[UI](https://github.com/fnproject/ui)**
+
 [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn) [![GoDoc](https://godoc.org/github.com/fnproject/fn?status.svg)](https://godoc.org/github.com/fnproject/fn)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/fn)](https://goreportcard.com/report/github.com/fnproject/fn)
 
-### Jump to: [Quickstart](https://github.com/fnproject/fn#quickstart) - [Intermediate Tutorials](https://github.com/fnproject/tutorials) - [Full Docs](https://github.com/fnproject/fn/blob/master/docs/README.md) - [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml) - [Operating Fn](https://github.com/fnproject/fn/blob/master/docs/README.md#for-operators)
-
-### Language Quickstarts: [go](https://github.com/fnproject/fn/tree/master/examples/tutorial/hello/go) - [java](https://github.com/fnproject/fn/blob/master/examples/tutorial/hello/java) - [node](https://github.com/fnproject/fn/blob/master/examples/tutorial/hello/node) - [python](https://github.com/fnproject/fn/blob/master/examples/tutorial/hello/python)  
-
-### Sub-Projects: [Fn Flow](https://github.com/fnproject/flow) - [FnLB](https://github.com/fnproject/fn/tree/master/fnlb) - [FnUI](https://github.com/fnproject/ui)
-
-## About
+## Welcome
 Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](docs/serverless.md) compute platform that you can run anywhere. Some of its key features:
 
 * Open Source
@@ -143,6 +139,7 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
+* Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/fn/tree/master/fnlb)
 
 ## Get Help
 
