@@ -46,6 +46,7 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
+	c.Header("Content-Type", "application/json")
 
 	return s.serve(c, a, path.Clean(p))
 }
