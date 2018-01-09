@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,7 +13,12 @@ func (s *Server) handleCallGet(c *gin.Context) {
 
 	appIDorName := c.MustGet(api.App).(string)
 	callID := c.Param(api.Call)
-	callObj, err := s.datastore.GetCall(ctx, appIDorName, callID)
+	app, err := s.datastore.GetApp(ctx, &models.App{Name: appIDorName, ID: appIDorName})
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	callObj, err := s.datastore.GetCall(ctx, app.ID, callID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

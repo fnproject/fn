@@ -71,7 +71,6 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	completed_at varchar(256) NOT NULL,
 	status varchar(256) NOT NULL,
 	id varchar(256) NOT NULL,
-	app_name varchar(256) NOT NULL,
 	app_id varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
 	stats text,
@@ -90,7 +89,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 const (
 	routeSelector = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, app_id, path, stats, error FROM calls`
-	appSelector   = `SELECT id, name, config, annotations, created_at, updated_at FROM apps WHERE name=?`
+	appSelector   = `SELECT id, name, config, annotations, created_at, updated_at FROM apps WHERE name=? OR id=?`
 )
 
 type sqlStore struct {
@@ -354,7 +353,6 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 
 		deletes := []string{
 			`DELETE FROM logs WHERE app_name=? OR app_id=?`,
-			`DELETE FROM calls WHERE app_name=? OR app_id=?`,
 		}
 
 		for _, stmt := range deletes {
@@ -363,9 +361,15 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 				return err
 			}
 		}
-		_, err = tx.ExecContext(ctx, tx.Rebind(`DELETE FROM routes WHERE app_id=?`), a.ID)
-		if err != nil {
-			return err
+		deletes = []string{
+			`DELETE FROM calls WHERE app_id=?`,
+			`DELETE FROM routes WHERE app_id=?`,
+		}
+		for _, stmt := range deletes {
+			_, err := tx.ExecContext(ctx, tx.Rebind(stmt), app.Name, app.ID)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -634,7 +638,6 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		started_at,
 		completed_at,
 		status,
-		app_name,
 		app_id,
 		path,
 		stats,
@@ -646,7 +649,6 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 		:started_at,
 		:completed_at,
 		:status,
-		:app_name,
 		:app_id,
 		:path,
 		:stats,
@@ -665,7 +667,6 @@ func equivalentCalls(expected *models.Call, actual *models.Call) bool {
 		time.Time(expected.StartedAt).Unix() == time.Time(actual.StartedAt).Unix() &&
 		time.Time(expected.CompletedAt).Unix() == time.Time(actual.CompletedAt).Unix() &&
 		expected.Status == actual.Status &&
-		expected.AppName == actual.AppName &&
 		expected.Path == actual.Path &&
 		expected.Error == actual.Error &&
 		len(expected.Stats) == len(actual.Stats) &&
@@ -676,15 +677,15 @@ func equivalentCalls(expected *models.Call, actual *models.Call) bool {
 
 func (ds *sqlStore) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
 	// Assert that from and to are supposed to be the same call
-	if from.ID != to.ID || from.AppName != to.AppName {
+	if from.ID != to.ID || from.AppID != to.AppID {
 		return errors.New("assertion error: 'from' and 'to' calls refer to different app/ID")
 	}
 
 	// Atomic update
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		var call models.Call
-		query := tx.Rebind(fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector))
-		row := tx.QueryRowxContext(ctx, query, from.ID, from.AppName)
+		query := tx.Rebind(fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector))
+		row := tx.QueryRowxContext(ctx, query, from.ID, from.AppID)
 
 		err := row.StructScan(&call)
 		if err == sql.ErrNoRows {
@@ -706,12 +707,11 @@ func (ds *sqlStore) UpdateCall(ctx context.Context, from *models.Call, to *model
 			started_at = :started_at,
 			completed_at = :completed_at,
 			status = :status,
-			app_name = :app_name,
 			app_id = :app_id,
 			path = :path,
 			stats = :stats,
 			error = :error
-		WHERE id=:id AND app_name=:app_name;`)
+		WHERE id=:id AND app_id=:app_id;`)
 
 		res, err := tx.NamedExecContext(ctx, query, to)
 		if err != nil {
@@ -734,10 +734,10 @@ func (ds *sqlStore) UpdateCall(ctx context.Context, from *models.Call, to *model
 	return nil
 }
 
-func (ds *sqlStore) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
-	query := fmt.Sprintf(`%s WHERE id=? AND app_name=?`, callSelector)
+func (ds *sqlStore) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
+	query := fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector)
 	query = ds.db.Rebind(query)
-	row := ds.db.QueryRowxContext(ctx, query, callID, appName)
+	row := ds.db.QueryRowxContext(ctx, query, callID, appID)
 
 	var call models.Call
 	err := row.StructScan(&call)
@@ -916,7 +916,7 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	if !time.Time(filter.FromTime).IsZero() {
 		where("created_at>", filter.FromTime.String())
 	}
-	where("app_name=", filter.AppName)
+	where("app_id=", filter.AppID)
 	where("path=", filter.Path)
 
 	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed

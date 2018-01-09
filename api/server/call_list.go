@@ -13,14 +13,19 @@ import (
 
 func (s *Server) handleCallList(c *gin.Context) {
 	ctx := c.Request.Context()
-
+	var err error
 	appIDorName := c.MustGet(api.App).(string)
 
+	app, err := s.datastore.GetApp(ctx, &models.App{Name: appIDorName, ID: appIDorName})
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
 	// TODO api.CRoute needs to be escaped probably, since it has '/' a lot
-	filter := models.CallFilter{AppName: appIDorName, Path: c.Query("path"), AppID: appIDorName}
+	filter := models.CallFilter{AppID: app.ID, Path: c.Query("path")}
 	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
 
-	var err error
 	filter.FromTime, filter.ToTime, err = timeParams(c)
 	if err != nil {
 		handleErrorResponse(c, err)

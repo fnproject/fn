@@ -645,7 +645,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	container, closer := NewHotContainer(call, &a.cfg)
 	defer closer()
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -836,10 +836,10 @@ func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
 		// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
 		// reading from the other one without risking head-of-line blocking.
 		stderr.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))
 		stdout.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))
 	}
 

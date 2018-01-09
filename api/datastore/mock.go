@@ -191,7 +191,7 @@ func equivalentCalls(expected *models.Call, actual *models.Call) bool {
 		time.Time(expected.StartedAt).Unix() == time.Time(actual.StartedAt).Unix() &&
 		time.Time(expected.CompletedAt).Unix() == time.Time(actual.CompletedAt).Unix() &&
 		expected.Status == actual.Status &&
-		expected.AppName == actual.AppName &&
+		expected.AppID == actual.AppID &&
 		expected.Path == actual.Path &&
 		expected.Error == actual.Error &&
 		len(expected.Stats) == len(actual.Stats)
@@ -201,7 +201,7 @@ func equivalentCalls(expected *models.Call, actual *models.Call) bool {
 
 func (m *mock) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
 	for _, t := range m.Calls {
-		if t.ID == from.ID && t.AppName == from.AppName {
+		if t.ID == from.ID && t.AppID == from.AppID {
 			if equivalentCalls(from, t) {
 				*t = *to
 				return nil
@@ -212,9 +212,9 @@ func (m *mock) UpdateCall(ctx context.Context, from *models.Call, to *models.Cal
 	return models.ErrCallNotFound
 }
 
-func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
+func (m *mock) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
 	for _, t := range m.Calls {
-		if t.ID == callID && t.AppName == appName {
+		if t.ID == callID && t.AppID == appID {
 			return t, nil
 		}
 	}
@@ -239,7 +239,7 @@ func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mode
 			break
 		}
 
-		if (filter.AppName == "" || c.AppName == filter.AppName) &&
+		if (filter.AppID == "" || c.AppID == filter.AppID) &&
 			(filter.Path == "" || filter.Path == c.Path) &&
 			(time.Time(filter.FromTime).IsZero() || time.Time(filter.FromTime).Before(time.Time(c.CreatedAt))) &&
 			(time.Time(filter.ToTime).IsZero() || time.Time(c.CreatedAt).Before(time.Time(filter.ToTime))) &&
@@ -255,7 +255,7 @@ func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mode
 func (m *mock) batchDeleteCalls(ctx context.Context, app *models.App) error {
 	newCalls := []*models.Call{}
 	for _, c := range m.Calls {
-		if c.AppName != app.Name || c.ID != app.ID {
+		if c.AppID != app.ID || c.ID != app.ID {
 			newCalls = append(newCalls, c)
 		}
 	}

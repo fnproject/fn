@@ -43,7 +43,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 	call.Error = "ya dun goofed"
 	call.StartedAt = strfmt.DateTime(time.Now())
 	call.CompletedAt = strfmt.DateTime(time.Now())
-	call.AppName = testApp.Name
+	call.AppID = testApp.ID
 	call.Path = testRoute.Path
 
 	t.Run("call-insert", func(t *testing.T) {
@@ -70,7 +70,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
 		}
-		dbCall, err := ds.GetCall(ctx, call.AppName, call.ID)
+		dbCall, err := ds.GetCall(ctx, call.AppID, call.ID)
 		if err != nil {
 			t.Fatalf("Test UpdateCall: unexpected error `%v`", err)
 		}
@@ -92,8 +92,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if time.Time(dbCall.CompletedAt).Unix() != time.Time(newCall.CompletedAt).Unix() {
 			t.Fatalf("Test GetCall: completed_at mismatch `%v` `%v`", call.CompletedAt, newCall.CompletedAt)
 		}
-		if dbCall.AppName != newCall.AppName {
-			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppName, newCall.AppName)
+		if dbCall.AppID != newCall.AppID {
+			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppID, newCall.AppID)
 		}
 		if dbCall.Path != newCall.Path {
 			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
@@ -142,7 +142,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test GetCall: unexpected error `%v`", err)
 		}
-		newCall, err := ds.GetCall(ctx, call.AppName, call.ID)
+		newCall, err := ds.GetCall(ctx, call.AppID, call.ID)
 		if err != nil {
 			t.Fatalf("Test GetCall: unexpected error `%v`", err)
 		}
@@ -164,8 +164,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if time.Time(call.CompletedAt).Unix() != time.Time(newCall.CompletedAt).Unix() {
 			t.Fatalf("Test GetCall: completed_at mismatch `%v` `%v`", call.CompletedAt, newCall.CompletedAt)
 		}
-		if call.AppName != newCall.AppName {
-			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppName, newCall.AppName)
+		if call.AppID != newCall.AppID {
+			t.Fatalf("Test GetCall: app_name mismatch `%v` `%v`", call.AppID, newCall.AppID)
 		}
 		if call.Path != newCall.Path {
 			t.Fatalf("Test GetCall: path mismatch `%v` `%v`", call.Path, newCall.Path)
@@ -174,7 +174,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	t.Run("calls-get", func(t *testing.T) {
 		ds := dsf(t)
-		filter := &models.CallFilter{AppName: call.AppName, Path: call.Path, PerPage: 100}
+		filter := &models.CallFilter{AppID: call.AppID, Path: call.Path, PerPage: 100}
 		call.ID = id.New().String()
 		call.CreatedAt = strfmt.DateTime(time.Now())
 		err := ds.InsertCall(ctx, call)
@@ -241,7 +241,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 
 		// test that filters actually applied
-		calls, err = ds.GetCalls(ctx, &models.CallFilter{AppName: "wrongappname", PerPage: 100})
+		calls, err = ds.GetCalls(ctx, &models.CallFilter{AppID: "wrongappname", PerPage: 100})
 		if err != nil {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
 		}

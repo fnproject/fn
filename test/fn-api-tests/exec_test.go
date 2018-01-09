@@ -183,9 +183,6 @@ func TestCanGetAsyncState(t *testing.T) {
 		}
 		callObject := callResponse.Payload.Call
 
-		if callObject.AppName != s.AppName {
-			t.Errorf("Call object app name mismatch.\n\tExpected: %v\n\tActual:%v", s.AppName, callObject.AppName)
-		}
 		if callObject.ID != callID {
 			t.Errorf("Call object ID mismatch.\n\tExpected: %v\n\tActual:%v", callID, callObject.ID)
 		}

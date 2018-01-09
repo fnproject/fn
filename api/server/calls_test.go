@@ -19,18 +19,30 @@ import (
 func TestCallGet(t *testing.T) {
 	buf := setLogBuffer()
 
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	call := &models.Call{
-		ID:      id.New().String(),
-		AppName: "myapp",
-		Path:    "/thisisatest",
+		ID:    id.New().String(),
+		AppID: app.ID,
+		Path:  "/thisisatest",
+		Image: "fnproject/hello",
+		// Delay: 0,
+		Type:   "sync",
+		Format: "default",
+		// Payload: TODO,
+		Priority:    new(int32), // TODO this is crucial, apparently
+		Timeout:     30,
+		IdleTimeout: 30,
+		Memory:      256,
+		CreatedAt:   strfmt.DateTime(time.Now()),
+		URL:         "http://localhost:8080/r/myapp/thisisatest",
+		Method:      "GET",
 	}
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: call.AppName},
-		},
+		[]*models.App{app},
 		nil,
 		[]*models.Call{call},
 	)
@@ -44,7 +56,7 @@ func TestCallGet(t *testing.T) {
 		expectedError error
 	}{
 		{"/v1/apps//calls/" + call.ID, "", http.StatusBadRequest, models.ErrAppsMissingName},
-		{"/v1/apps/nodawg/calls/" + call.ID, "", http.StatusNotFound, models.ErrCallNotFound}, // TODO a little weird
+		{"/v1/apps/nodawg/calls/" + call.ID, "", http.StatusNotFound, models.ErrAppsNotFound}, // TODO a little weird
 		{"/v1/apps/myapp/calls/" + call.ID[:3], "", http.StatusNotFound, models.ErrCallNotFound},
 		{"/v1/apps/myapp/calls/" + call.ID, "", http.StatusOK, nil},
 	} {
@@ -52,6 +64,7 @@ func TestCallGet(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
+			t.Log(rec.Body.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -61,6 +74,8 @@ func TestCallGet(t *testing.T) {
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
+				t.Log(resp.Error.Message)
+				t.Log(rec.Body.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -72,10 +87,25 @@ func TestCallGet(t *testing.T) {
 func TestCallList(t *testing.T) {
 	buf := setLogBuffer()
 
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
+
 	call := &models.Call{
-		ID:      id.New().String(),
-		AppName: "myapp",
-		Path:    "/thisisatest",
+		ID:    id.New().String(),
+		AppID: app.ID,
+		Path:  "/thisisatest",
+		Image: "fnproject/hello",
+		// Delay: 0,
+		Type:   "sync",
+		Format: "default",
+		// Payload: TODO,
+		Priority:    new(int32), // TODO this is crucial, apparently
+		Timeout:     30,
+		IdleTimeout: 30,
+		Memory:      256,
+		CreatedAt:   strfmt.DateTime(time.Now()),
+		URL:         "http://localhost:8080/r/myapp/thisisatest",
+		Method:      "GET",
 	}
 	c2 := *call
 	c3 := *call
@@ -89,9 +119,7 @@ func TestCallList(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: call.AppName},
-		},
+		[]*models.App{app},
 		nil,
 		[]*models.Call{call, &c2, &c3},
 	)

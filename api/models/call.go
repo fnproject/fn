@@ -76,8 +76,7 @@ type Call struct {
 	Status string `json:"status" db:"status"`
 
 	// App this call belongs to.
-	AppName string `json:"app_name" db:"app_name"`
-	AppID   string `json:"app_id" db:"app_id"`
+	AppID string `json:"app_id" db:"app_id"`
 
 	// Path of the route that is responsible for this call
 	Path string `json:"path" db:"path"`
@@ -152,7 +151,6 @@ type Call struct {
 
 type CallFilter struct {
 	Path     string // match
-	AppName  string // match
 	AppID    string // match
 	FromTime strfmt.DateTime
 	ToTime   strfmt.DateTime
