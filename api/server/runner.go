@@ -50,16 +50,6 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	return s.serve(c, a, path.Clean(p))
 }
 
-// convert gin.Params to agent.Params to avoid introducing gin
-// dependency to agent
-func parseParams(params gin.Params) agent.Params {
-	out := make(agent.Params, 0, len(params))
-	for _, val := range params {
-		out = append(out, agent.Param{Key: val.Key, Value: val.Value})
-	}
-	return out
-}
-
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
 func (s *Server) serve(c *gin.Context, appName, path string) error {
@@ -67,7 +57,7 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 	// strip params, etc.
 	call, err := s.agent.GetCall(
 		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(appName, path, c.Request, parseParams(c.Params)),
+		agent.FromRequest(appName, path, c.Request),
 	)
 	if err != nil {
 		return err
