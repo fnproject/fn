@@ -4,9 +4,15 @@
 
 With [Docker Compose file](../../docker-compose.yml) it's easy to bootstrap the full Fn development stack that includes the following components:
 
- - MySQL server for database
+ - MySQL InnoDB cluster initiator
+ - MySQL InnoDB cluster member
+ - MySQL InnoDB cluster member
+ - MySQL InnoDB cluster router
  - Redis server for message queue
- - Fn server with scale group (supported only for Docker Swarm)
+ - Fn server 1
+ - Fn server 2
+ - Fn server 3
+ - Fn loadbalancer
  - Fn UI
  - Grafana
  - Prometheus
