@@ -29,5 +29,5 @@ go vet $(go list ./... | grep -v vendor)
 
 remove_containers
 
-curl -X POST https://mermade.org.uk/api/v1/validate -H "Accept: application/json" -H "Content-Type: multipart/form-data" -F "source=`cat docs/openapi.yml`" | python -c "import json, sys; body = json.loads(sys.stdin.read()); st, msg = body.get('status'), body.get('message'); sys.exit(msg) if not st else sys.exit(0)"
+docker run --rm -i -v `pwd`:/go/src/github.com/fnproject/fn fnproject/openapiv3-validator:0.0.1 /go/src/github.com/fnproject/fn/docs/openapi.yml
 docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
