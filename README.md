@@ -58,7 +58,7 @@ Head over to our [releases](https://github.com/fnproject/cli/releases) and downl
 
 ### Run Fn Server
 
-Now fire up a Fn server:
+Now fire up an Fn server:
 
 ```sh
 fn start
