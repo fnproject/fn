@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,6 +19,12 @@ func SetLogLevel(ll string) {
 		logLevel = logrus.InfoLevel
 	}
 	logrus.SetLevel(logLevel)
+
+	// this effectively just adds more gin log goodies
+	gin.SetMode(gin.ReleaseMode)
+	if logLevel == logrus.DebugLevel {
+		gin.SetMode(gin.DebugMode)
+	}
 }
 
 func SetLogDest(to, prefix string) {

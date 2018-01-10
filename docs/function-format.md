@@ -58,9 +58,26 @@ Content-Length: 11
 hello world
 ```
 
-The header keys and values would be populated with information about the function call such as the request URL and query parameters.
+The header keys and values will be populated with information about the
+function call such as the request URL and query parameters, in addition to any
+headers sent in the request to invoke the function itself. The additional
+headers are:
 
-`Content-Length` is determined by the [Content-Length](https://tools.ietf.org/html/rfc7230#section-3.3.3) header, which is mandatory both for input and output. It is used by Functions to know when stop writing to STDIN and reading from STDOUT.
+* `Fn_deadline` - RFC3339 time stamp of the expiration (deadline) date of function execution.
+* `Fn_request_url` - the full URL for the request ([parsing example](https://github.com/fnproject/fn/tree/master/examples/tutorial/params))
+* `Fn_call_id` - a unique ID for each function execution.
+* `Fn_method` - the HTTP method used to invoke
+* `$X` - the HTTP headers that were set for this request, exactly as they were sent in the request.
+
+HTTP Headers will not be populated with app config, route config or any of the
+following, that may be found in the environment instead:
+
+* `FN_APP_NAME`
+* `FN_PATH`
+* `FN_METHOD`
+* `FN_FORMAT`
+* `FN_MEMORY`
+* `FN_TYPE`
 
 #### Pros/Cons
 
@@ -115,6 +132,8 @@ BLANK LINE
 * call_id - the unique ID for the call.
 * content_type - format of the `body` parameter.
 * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
+
+Under `protocol`, `headers` contain Default format environment variables listed in [Inputs](writing.md)
 
 Each request will be separated by a blank line.
 

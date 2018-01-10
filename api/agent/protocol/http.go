@@ -21,13 +21,14 @@ type HTTPProtocol struct {
 
 func (p *HTTPProtocol) IsStreamable() bool { return true }
 
-// this is just an http.Handler really
 // TODO handle req.Context better with io.Copy. io.Copy could push us
 // over the timeout.
-// TODO maybe we should take io.Writer, io.Reader but then we have to
-// dump the request to a buffer again :(
 func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	err := DumpRequestTo(h.in, ci.Request()) // TODO timeout
+	req := ci.Request()
+
+	req.RequestURI = ci.RequestURL() // force set to this, for DumpRequestTo to use
+
+	err := DumpRequestTo(h.in, req) // TODO timeout
 	if err != nil {
 		return err
 	}
