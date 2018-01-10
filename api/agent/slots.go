@@ -204,11 +204,23 @@ func (a *slotQueue) isNewContainerNeeded() (bool, slotQueueStats) {
 		return false, stats
 	}
 
-	// no executors? Start a container now.
+	// this is a bit aggresive and assumes that we only
+	// want to queue as much as num of containers.
 	executors := starters + stats.states[SlotQueueRunner]
-	if executors == 0 {
+	if executors < waiters {
 		return true, stats
 	}
+
+	// WARNING: Below is a few heuristics that are
+	// speculative, which may (and will) likely need
+	// adjustments.
+
+	// WARNING: latencies below are updated after a call
+	// switches to/from different states. Do not assume
+	// the metrics below are always up-to-date. For example,
+	// a sudden burst of incoming requests will increase
+	// waiter count but not necessarily wait latency until
+	// those requests switch from waiter state.
 
 	runLat := stats.latencies[SlotQueueRunner]
 	waitLat := stats.latencies[SlotQueueWaiter]
