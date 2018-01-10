@@ -22,7 +22,7 @@ func TestS3(t *testing.T) {
 
 	ls, err := New(uLog)
 	if err != nil {
-		t.Fatalf("failed to create sqlite3 datastore: %v", err)
+		t.Fatalf("failed to create s3 datastore: %v", err)
 	}
 	logTesting.Test(t, ls)
 }

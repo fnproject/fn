@@ -95,14 +95,9 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("Content-Length", contentLength)
 	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
-	// let's assume we got there params from the URL
-	params := make(Params, 0, 2)
-	params = append(params, Param{Key: "YOGURT", Value: "garlic"})
-	params = append(params, Param{Key: "LEGUME", Value: "garbanzo"})
-
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(appName, path, req, params),
+		FromRequest(appName, path, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +143,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		t.Fatal("GetCall FromRequest should not fill payload, got non-empty payload", model.Payload)
 	}
 
-	expectedBase := map[string]string{
+	expectedConfig := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
@@ -158,67 +153,29 @@ func TestCallConfigurationRequest(t *testing.T) {
 		"ROUTE_VAR":   "BAR",
 	}
 
-	expectedEnv := make(map[string]string)
-	for k, v := range expectedBase {
-		expectedEnv[k] = v
-	}
-
-	for k, v := range expectedBase {
-		if v2 := model.BaseEnv[k]; v2 != v {
-			t.Fatal("base var mismatch", k, v, v2, model.BaseEnv)
+	for k, v := range expectedConfig {
+		if v2 := model.Config[k]; v2 != v {
+			t.Fatal("config mismatch", k, v, v2, model.Config)
 		}
-		delete(expectedBase, k)
+		delete(expectedConfig, k)
 	}
 
-	if len(expectedBase) > 0 {
-		t.Fatal("got extra vars in base env set, add me to tests ;)", expectedBase)
+	if len(expectedConfig) > 0 {
+		t.Fatal("got extra vars in config set, add me to tests ;)", expectedConfig)
 	}
 
-	expectedEnv["FN_CALL_ID"] = model.ID
-	expectedEnv["FN_METHOD"] = method
-	expectedEnv["FN_REQUEST_URL"] = url
-
-	// add expected parameters from URL
-	for _, val := range params {
-		expectedEnv[fmt.Sprintf("FN_PARAM_%s", val.Key)] = val.Value
-	}
-
-	// do this before the "real" headers get sucked in cuz they are formatted differently
 	expectedHeaders := make(http.Header)
-	for k, v := range expectedEnv {
-		expectedHeaders.Add(k, v)
-	}
-
-	// from the request headers (look different in env than in req.Header, idk, up to user anger)
-	// req headers down cases things
-	expectedEnv["FN_HEADER_Myrealheader"] = "FOOLORD, FOOPEASANT"
-	expectedEnv["FN_HEADER_Content_Length"] = contentLength
-
-	for k, v := range expectedEnv {
-		if v2 := model.EnvVars[k]; v2 != v {
-			t.Fatal("env var mismatch", k, v, v2, model.EnvVars)
-		}
-		delete(expectedEnv, k)
-	}
-
-	if len(expectedEnv) > 0 {
-		t.Fatal("got extra vars in base env set, add me to tests ;)", expectedBase)
-	}
+	expectedHeaders.Add("FN_CALL_ID", model.ID)
+	expectedHeaders.Add("FN_METHOD", method)
+	expectedHeaders.Add("FN_REQUEST_URL", url)
 
 	expectedHeaders.Add("MYREALHEADER", "FOOLORD")
 	expectedHeaders.Add("MYREALHEADER", "FOOPEASANT")
 	expectedHeaders.Add("Content-Length", contentLength)
 
-	checkExpectedHeaders(t, expectedHeaders, req.Header)
-
-	if w.Header()["Fn_call_id"][0] != model.ID {
-		t.Fatal("response writer should have the call id, or else")
-	}
+	checkExpectedHeaders(t, expectedHeaders, model.Headers)
 
 	// TODO check response writer for route headers
-
-	// TODO idk what param even is or how to get them, but need to test those
-	// TODO we should double check the things we're rewriting defaults of, like type, format, timeout, idle_timeout
 }
 
 func TestCallConfigurationModel(t *testing.T) {
@@ -233,7 +190,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	payload := "payload"
 	typ := "sync"
 	format := "default"
-	env := map[string]string{
+	cfg := models.Config{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
@@ -241,12 +198,10 @@ func TestCallConfigurationModel(t *testing.T) {
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
 		"ROUTE_VAR":   "BAR",
-		"DOUBLE_VAR":  "BIZ, BAZ",
 	}
 
 	cm := &models.Call{
-		BaseEnv:     env,
-		EnvVars:     env,
+		Config:      cfg,
 		AppName:     appName,
 		Path:        path,
 		Image:       image,
@@ -271,17 +226,7 @@ func TestCallConfigurationModel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// make sure headers seem reasonable
 	req := callI.(*call).req
-
-	// NOTE these are added as is atm, and if the env vars were comma joined
-	// they are not again here comma separated.
-	expectedHeaders := make(http.Header)
-	for k, v := range env {
-		expectedHeaders.Add(k, v)
-	}
-
-	checkExpectedHeaders(t, expectedHeaders, req.Header)
 
 	var b bytes.Buffer
 	io.Copy(&b, req.Body)
@@ -305,7 +250,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	format := "http"
 	contentType := "suberb_type"
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
-	env := map[string]string{
+	config := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
@@ -314,14 +259,16 @@ func TestAsyncCallHeaders(t *testing.T) {
 		"APP_VAR":     "FOO",
 		"ROUTE_VAR":   "BAR",
 		"DOUBLE_VAR":  "BIZ, BAZ",
+	}
+	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
-		"Fn_header_content_type":   contentType,
-		"Fn_header_content_length": contentLength,
+		"Content-Type":   []string{contentType},
+		"Content-Length": []string{contentLength},
 	}
 
 	cm := &models.Call{
-		BaseEnv:     env,
-		EnvVars:     env,
+		Config:      config,
+		Headers:     headers,
 		AppName:     appName,
 		Path:        path,
 		Image:       image,
@@ -349,14 +296,8 @@ func TestAsyncCallHeaders(t *testing.T) {
 	// make sure headers seem reasonable
 	req := callI.(*call).req
 
-	// NOTE these are added as is atm, and if the env vars were comma joined
-	// they are not again here comma separated.
-	expectedHeaders := make(http.Header)
-	for k, v := range env {
-		expectedHeaders.Add(k, v)
-	}
-
 	// These should be here based on payload length and/or fn_header_* original headers
+	expectedHeaders := make(http.Header)
 	expectedHeaders.Set("Content-Type", contentType)
 	expectedHeaders.Set("Content-Length", strconv.FormatInt(int64(len(payload)), 10))
 
@@ -407,7 +348,7 @@ func TestSubmitError(t *testing.T) {
 	payload := "payload"
 	typ := "sync"
 	format := "default"
-	env := map[string]string{
+	config := map[string]string{
 		"FN_FORMAT":   format,
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
@@ -419,8 +360,7 @@ func TestSubmitError(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		BaseEnv:     env,
-		EnvVars:     env,
+		Config:      config,
 		AppName:     appName,
 		Path:        path,
 		Image:       image,

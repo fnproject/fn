@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -210,16 +211,17 @@ func (a *agent) Submit(callI Call) error {
 	span.SetBaggageItem("fn_path", callI.Model().Path)
 	defer span.Finish()
 
-	// start the timer STAT! TODO add some wiggle room
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
-	call.req = call.req.WithContext(ctx)
-	defer cancel()
+	// Start the deadline context for Waiting for Slots
+	ctxSlotWait, cancelSlotWait := context.WithDeadline(ctx, call.slotDeadline)
+	call.req = call.req.WithContext(ctxSlotWait)
+	defer cancelSlotWait()
 
 	// increment queued count
 	// this is done after setting "fn_appname" and "fn_path"
 	a.stats.Enqueue(ctx, callI.Model().AppName, callI.Model().Path)
 
-	slot, err := a.getSlot(ctx, call) // find ram available / running
+  slot, err := a.getSlot(ctxSlotWait, call) // find ram available / running
+
 	if err != nil {
 		a.handleStatsDequeue(ctx, err, call)
 		return transformTimeout(err, true)
@@ -228,17 +230,22 @@ func (a *agent) Submit(callI Call) error {
 	// to make this remove the container asynchronously?
 	defer slot.Close() // notify our slot is free once we're done
 
-	// TODO Start is checking the timer now, we could do it here, too.
-	err = call.Start(ctx)
+	err = call.Start(ctxSlotWait)
 	if err != nil {
 		a.handleStatsDequeue(ctx, err, call)
 		return transformTimeout(err, true)
 	}
 
+	// Swap deadline contexts for Execution Phase
+	cancelSlotWait()
+	ctxExec, cancelExec := context.WithDeadline(ctx, call.execDeadline)
+	call.req = call.req.WithContext(ctxExec)
+	defer cancelExec()
+
 	// decrement queued count, increment running count
 	a.stats.DequeueAndStart(ctx, callI.Model().AppName, callI.Model().Path)
 
-	err = slot.exec(ctx, call)
+	err = slot.exec(ctxExec, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	// End may rewrite the error or elect to return it
 
@@ -509,11 +516,25 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// TODO we REALLY need to wait for dispatch to return before conceding our slot
 }
 
+func specialHeader(k string) bool {
+	return k == "Fn_call_id" || k == "Fn_method" || k == "Fn_request_url"
+}
+
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
+	// add additional headers to the config to shove everything into env vars for cold
+	for k, v := range call.Headers {
+		if !specialHeader(k) {
+			k = "FN_HEADER_" + k
+		} else {
+			k = strings.ToUpper(k) // for compat, FN_CALL_ID, etc. in env for cold
+		}
+		call.Config[k] = strings.Join(v, ", ")
+	}
+
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
-		env:     call.EnvVars, // full env
+		env:     map[string]string(call.Config),
 		memory:  call.Memory,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
@@ -573,7 +594,7 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	container := &container{
 		id:     cid, // XXX we could just let docker generate ids...
 		image:  call.Image,
-		env:    call.BaseEnv, // only base env
+		env:    map[string]string(call.Config),
 		memory: call.Memory,
 		stdin:  stdinRead,
 		stdout: stdoutWrite,

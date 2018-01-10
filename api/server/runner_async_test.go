@@ -40,6 +40,8 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			{Name: "myapp", Config: map[string]string{"app": "true"}},
 		},
 		[]*models.Route{
+			{Type: "async", Path: "/hot-http", AppName: "myapp", Image: "fnproject/fn-test-utils", Format: "http", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 4, IdleTimeout: 30},
+			{Type: "async", Path: "/hot-json", AppName: "myapp", Image: "fnproject/fn-test-utils", Format: "json", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 4, IdleTimeout: 30},
 			{Type: "async", Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Type: "async", Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Type: "async", Path: "/myroute/:param", AppName: "myapp", Image: "fnproject/hello", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
@@ -55,6 +57,8 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 		expectedEnv  map[string]string
 	}{
 		{"/r/myapp/myroute", ``, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
+		{"/r/myapp/hot-http", `{"sleepTime": 0, "isDebug": true}`, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
+		{"/r/myapp/hot-json", `{"sleepTime": 0, "isDebug": true}`, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
 		// FIXME: this just hangs
 		//{"/r/myapp/myroute/1", ``, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},
 		{"/r/myapp/myerror", ``, map[string][]string{}, http.StatusAccepted, map[string]string{"TEST": "true", "APP": "true"}},

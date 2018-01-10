@@ -44,6 +44,7 @@ If you are operating Fn, this section is for you.
 * [Operating on Windows](operating/windows.md)
 * [Runtime Options](operating/options.md)
 * [User Interface](operating/ui.md)
+* [Private Registries](operating/private_registries.md)
 
 ### Advanced
 

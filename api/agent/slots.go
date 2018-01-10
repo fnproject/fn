@@ -326,14 +326,14 @@ func getSlotQueueKey(call *call) string {
 	fmt.Fprint(hash, call.Format, "\x00")
 
 	// we have to sort these before printing, yay. TODO do better
-	keys := make([]string, 0, len(call.BaseEnv))
-	for k := range call.BaseEnv {
+	keys := make([]string, 0, len(call.Config))
+	for k := range call.Config {
 		keys = append(keys, k)
 	}
 
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprint(hash, k, "\x00", call.BaseEnv[k], "\x00")
+		fmt.Fprint(hash, k, "\x00", call.Config[k], "\x00")
 	}
 
 	var buf [sha1.Size]byte

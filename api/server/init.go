@@ -6,26 +6,13 @@ import (
 	"os/signal"
 	"strconv"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 func init() {
-	logLevel, err := logrus.ParseLevel(getEnv(EnvLogLevel, DefaultLogLevel))
-	if err != nil {
-		logrus.WithError(err).Fatalln("Invalid log level.")
-	}
-	logrus.SetLevel(logLevel)
-
+	// gin is not nice by default, this can get set in logging initialization
 	gin.SetMode(gin.ReleaseMode)
-	if logLevel == logrus.DebugLevel {
-		gin.SetMode(gin.DebugMode)
-	}
-
-	// do this in init so that it's only run once & before server.New() which may
-	// start things that use spans, which are global.
-	// TODO there's not a great reason that our fn spans don't work w/ noop spans, should fix this really.
-	setupTracer(getEnv(EnvZipkinURL, ""))
 }
 
 func getEnv(key, fallback string) string {
@@ -56,11 +43,11 @@ func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Conte
 		for {
 			select {
 			case <-c:
-				logrus.Info("Halting...")
+				common.Logger(ctx).Info("Halting...")
 				halt()
 				return
 			case <-ctx.Done():
-				logrus.Info("Halting... Original server context canceled.")
+				common.Logger(ctx).Info("Halting... Original server context canceled.")
 				halt()
 				return
 			}

@@ -18,6 +18,7 @@ type jsonio struct {
 
 // CallRequestHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
 type CallRequestHTTP struct {
+	// TODO request method ?
 	Type       string      `json:"type"`
 	RequestURL string      `json:"request_url"`
 	Headers    http.Header `json:"headers"`
