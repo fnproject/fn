@@ -22,6 +22,14 @@ type PrometheusCollector struct {
 	histogramVecMap map[string]*prometheus.HistogramVec
 
 	// In this map, the key is the name of a tracing span,
+	// and the corresponding value is a CounterVec metric used to report the duration of spans with this name to Prometheus
+	counterVecMap map[string]*prometheus.CounterVec
+
+	// In this map, the key is the name of a tracing span,
+	// and the corresponding value is a GaugeVec metric used to report the duration of spans with this name to Prometheus
+	gaugeVecMap map[string]*prometheus.GaugeVec
+
+	// In this map, the key is the name of a tracing span,
 	// and the corresponding value is an array containing the label keys that were specified when the HistogramVec metric was created
 	registeredLabelKeysMap map[string][]string
 }
@@ -30,6 +38,8 @@ type PrometheusCollector struct {
 func NewPrometheusCollector() (zipkintracer.Collector, error) {
 	pc := &PrometheusCollector{
 		histogramVecMap:        make(map[string]*prometheus.HistogramVec),
+		counterVecMap:          make(map[string]*prometheus.CounterVec),
+		gaugeVecMap:            make(map[string]*prometheus.GaugeVec),
 		registeredLabelKeysMap: make(map[string][]string),
 	}
 	return pc, nil
@@ -43,22 +53,51 @@ func (pc *PrometheusCollector) Collect(span *zipkincore.Span) error {
 	// extract any label values from the span
 	labelKeysFromSpan, labelValuesFromSpan := getLabels(span)
 
-	// get the HistogramVec for this span name
-	histogramVec, labelValuesToUse := pc.getHistogramVec(
-		("fn_span_" + spanName + "_duration_seconds"), ("Span " + spanName + " duration, by span name"), labelKeysFromSpan, labelValuesFromSpan)
+	// report the duration of this span as a histogram
+	// (unless the span name ends with "_dummy" to denote it as being purely the carrier of a metric value and so of no interest in itself)
+	if !strings.HasSuffix(spanName, "_dummy") {
 
-	// now report the span duration value
-	histogramVec.With(labelValuesToUse).Observe((time.Duration(span.GetDuration()) * time.Microsecond).Seconds())
+		// get the HistogramVec for this span name
+		histogramVec, labelValuesToUse := pc.getHistogramVec(
+			("fn_span_" + spanName + "_duration_seconds"), ("Span " + spanName + " duration, by span name"), labelKeysFromSpan, labelValuesFromSpan)
 
-	// now extract any logged metric values from the span
-	for key, value := range getLoggedMetrics(span) {
+		// now report the span duration value
+		histogramVec.With(labelValuesToUse).Observe((time.Duration(span.GetDuration()) * time.Microsecond).Seconds())
+
+	}
+
+	// now extract any logged histogram metric values from the span
+	for key, value := range getLoggedHistogramMetrics(span) {
 
 		// get the HistogramVec for this metric
 		thisMetricHistogramVec, labelValuesToUse := pc.getHistogramVec(
-			("fn_" + spanName + "_" + key), (spanName + " metric " + key), labelKeysFromSpan, labelValuesFromSpan)
+			key, ("Metric " + key), labelKeysFromSpan, labelValuesFromSpan)
 
 		// now report the metric value
 		thisMetricHistogramVec.With(labelValuesToUse).Observe(float64(value))
+	}
+
+	// now extract any logged counter metric values from the span
+	for key, value := range getLoggedCounterMetrics(span) {
+
+		// get the CounterVec for this metric
+		thisMetricCounterVec, labelValuesToUse := pc.getCounterVec(
+			key, ("Metric " + key), labelKeysFromSpan, labelValuesFromSpan)
+
+		// now report the metric value
+		thisMetricCounterVec.With(labelValuesToUse).Add(value)
+	}
+
+	// now extract any logged gauge metric values from the span
+	for key, value := range getLoggedGaugeMetrics(span) {
+
+		// get the GaugeVec for this metric
+		thisMetricGaugeVec, labelValuesToUse := pc.getGaugeVec(
+			key, ("Metric " + key), labelKeysFromSpan, labelValuesFromSpan)
+
+		// now report the metric value
+		thisMetricGaugeVec.With(labelValuesToUse).Add(value)
+
 	}
 
 	return nil
@@ -106,6 +145,90 @@ func (pc *PrometheusCollector) getHistogramVec(
 	return histogramVec, labelValuesToUse
 }
 
+// Return (and create, if necessary) a CounterVec for the specified Prometheus metric
+func (pc *PrometheusCollector) getCounterVec(
+	metricName string, metricHelp string, labelKeysFromSpan []string, labelValuesFromSpan map[string]string) (
+	*prometheus.CounterVec, map[string]string) {
+
+	var labelValuesToUse map[string]string
+
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+
+	counterVec, found := pc.counterVecMap[metricName]
+	if !found {
+		// create a new CounterVec
+		counterVec = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: metricName,
+				Help: metricHelp,
+			},
+			labelKeysFromSpan,
+		)
+		pc.counterVecMap[metricName] = counterVec
+		pc.registeredLabelKeysMap[metricName] = labelKeysFromSpan
+		prometheus.MustRegister(counterVec)
+		labelValuesToUse = labelValuesFromSpan
+	} else {
+		// found an existing CounterVec
+		// need to be careful here, since we must supply the same label keys as when we first created the metric
+		// otherwise we will get a "inconsistent label cardinality" panic
+		// that's why we saved the original label keys in the registeredLabelKeysMap map
+		// so we can use that to construct a map of label key/value pairs to set on the metric
+		labelValuesToUse = make(map[string]string)
+		for _, thisRegisteredLabelKey := range pc.registeredLabelKeysMap[metricName] {
+			if value, found := labelValuesFromSpan[thisRegisteredLabelKey]; found {
+				labelValuesToUse[thisRegisteredLabelKey] = value
+			} else {
+				labelValuesToUse[thisRegisteredLabelKey] = ""
+			}
+		}
+	}
+	return counterVec, labelValuesToUse
+}
+
+// Return (and create, if necessary) a GaugeVec for the specified Prometheus metric
+func (pc *PrometheusCollector) getGaugeVec(
+	metricName string, metricHelp string, labelKeysFromSpan []string, labelValuesFromSpan map[string]string) (
+	*prometheus.GaugeVec, map[string]string) {
+
+	var labelValuesToUse map[string]string
+
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+
+	gaugeVec, found := pc.gaugeVecMap[metricName]
+	if !found {
+		// create a new GaugeVec
+		gaugeVec = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: metricName,
+				Help: metricHelp,
+			},
+			labelKeysFromSpan,
+		)
+		pc.gaugeVecMap[metricName] = gaugeVec
+		pc.registeredLabelKeysMap[metricName] = labelKeysFromSpan
+		prometheus.MustRegister(gaugeVec)
+		labelValuesToUse = labelValuesFromSpan
+	} else {
+		// found an existing GaugeVec
+		// need to be careful here, since we must supply the same label keys as when we first created the metric
+		// otherwise we will get a "inconsistent label cardinality" panic
+		// that's why we saved the original label keys in the registeredLabelKeysMap map
+		// so we can use that to construct a map of label key/value pairs to set on the metric
+		labelValuesToUse = make(map[string]string)
+		for _, thisRegisteredLabelKey := range pc.registeredLabelKeysMap[metricName] {
+			if value, found := labelValuesFromSpan[thisRegisteredLabelKey]; found {
+				labelValuesToUse[thisRegisteredLabelKey] = value
+			} else {
+				labelValuesToUse[thisRegisteredLabelKey] = ""
+			}
+		}
+	}
+	return gaugeVec, labelValuesToUse
+}
+
 // extract from the specified span the key/value pairs that we want to add as labels to the Prometheus metric for this span
 // returns an array of keys, and a map of key-value pairs
 func getLabels(span *zipkincore.Span) ([]string, map[string]string) {
@@ -127,20 +250,68 @@ func getLabels(span *zipkincore.Span) ([]string, map[string]string) {
 	return keys, labelMap
 }
 
-// extract from the span the logged metric values, which we assume as uint64 values
-func getLoggedMetrics(span *zipkincore.Span) map[string]uint64 {
+// extract from the span the logged histogram metric values, which we assume are uint64 values
+func getLoggedHistogramMetrics(span *zipkincore.Span) map[string]uint64 {
 
 	keyValueMap := make(map[string]uint64)
 
-	// extract any annotations whose Value starts with "fn_"
+	// extract any annotations whose Value starts with "fn_histogram"
 	annotations := span.GetAnnotations()
 	for _, thisAnnotation := range annotations {
-		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_") {
+		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_histogram_") {
 			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
 			if len(keyvalue) == 2 {
 				if value, err := strconv.ParseUint(keyvalue[1], 10, 64); err == nil {
 					key := strings.TrimSpace(keyvalue[0])
-					key = key[3:] // strip off leading fn_
+					key = "fn_" + key[13:] // strip off leading "fn_histogram_" and then prepend "fn_" to the front
+					keyValueMap[key] = value
+				}
+			}
+		}
+	}
+	return keyValueMap
+}
+
+// extract from the span the logged counter metric values.
+// These are the ones whose names start with "fn_counter_",
+// and whose values we assume are float64
+func getLoggedCounterMetrics(span *zipkincore.Span) map[string]float64 {
+
+	keyValueMap := make(map[string]float64)
+
+	// extract any annotations whose Value starts with "fn_counter"
+	annotations := span.GetAnnotations()
+	for _, thisAnnotation := range annotations {
+		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_counter_") {
+			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
+			if len(keyvalue) == 2 {
+				if value, err := strconv.ParseFloat(keyvalue[1], 64); err == nil {
+					key := strings.TrimSpace(keyvalue[0])
+					key = "fn_" + key[11:] // strip off leading "fn_counter_" and then prepend "fn_" to the front
+					keyValueMap[key] = value
+				}
+			}
+		}
+	}
+	return keyValueMap
+}
+
+// extract from the span the logged gauge metric values.
+// These are the ones whose names start with "fn_gauge_",
+// and whose values we assume are float64
+func getLoggedGaugeMetrics(span *zipkincore.Span) map[string]float64 {
+
+	keyValueMap := make(map[string]float64)
+
+	// extract any annotations whose Value starts with "fn_gauge"
+	annotations := span.GetAnnotations()
+	for _, thisAnnotation := range annotations {
+		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_gauge_") {
+			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
+			if len(keyvalue) == 2 {
+				if value, err := strconv.ParseFloat(keyvalue[1], 64); err == nil {
+					key := strings.TrimSpace(keyvalue[0])
+					key = "fn_" + key[9:] // strip off leading "fn_gauge_" and then prepend "fn_" to the front
 					keyValueMap[key] = value
 				}
 			}

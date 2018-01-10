@@ -1,9 +1,10 @@
 package agent
 
 import (
+	"context"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	"sync"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // TODO this should expose:
@@ -30,8 +31,9 @@ type functionStats struct {
 	failed   uint64
 }
 
+// Stats hold the statistics for all functions combined
+// and the statistics for each individual function
 type Stats struct {
-	// statistics for all functions combined
 	Queue    uint64
 	Running  uint64
 	Complete uint64
@@ -40,58 +42,12 @@ type Stats struct {
 	FunctionStatsMap map[string]*FunctionStats
 }
 
-// statistics for an individual function
+// FunctionStats holds the statistics for an individual function
 type FunctionStats struct {
 	Queue    uint64
 	Running  uint64
 	Complete uint64
 	Failed   uint64
-}
-
-var (
-	fnCalls = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "fn_api_calls",
-			Help: "Function calls by app and path",
-		},
-		[](string){"app", "path"},
-	)
-	fnQueued = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "fn_api_queued",
-			Help: "Queued requests by app and path",
-		},
-		[](string){"app", "path"},
-	)
-	fnRunning = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "fn_api_running",
-			Help: "Running requests by app and path",
-		},
-		[](string){"app", "path"},
-	)
-	fnCompleted = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "fn_api_completed",
-			Help: "Completed requests by app and path",
-		},
-		[](string){"app", "path"},
-	)
-	fnFailed = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "fn_api_failed",
-			Help: "Failed requests by path",
-		},
-		[](string){"app", "path"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(fnCalls)
-	prometheus.MustRegister(fnQueued)
-	prometheus.MustRegister(fnRunning)
-	prometheus.MustRegister(fnFailed)
-	prometheus.MustRegister(fnCompleted)
 }
 
 func (s *stats) getStatsForFunction(path string) *functionStats {
@@ -107,80 +63,81 @@ func (s *stats) getStatsForFunction(path string) *functionStats {
 	return thisFunctionStats
 }
 
-func (s *stats) Enqueue(app string, path string) {
+func (s *stats) Enqueue(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
 	s.queue++
 	s.getStatsForFunction(path).queue++
-	fnQueued.WithLabelValues(app, path).Inc()
-	fnCalls.WithLabelValues(app, path).Inc()
+	IncrementGauge(ctx, queuedSuffix)
+
+	IncrementCounter(ctx, callsSuffix)
 
 	s.mu.Unlock()
 }
 
 // Call when a function has been queued but cannot be started because of an error
-func (s *stats) Dequeue(app string, path string) {
+func (s *stats) Dequeue(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	fnQueued.WithLabelValues(app, path).Dec()
+	DecrementGauge(ctx, queuedSuffix)
 
 	s.mu.Unlock()
 }
 
-func (s *stats) DequeueAndStart(app string, path string) {
+func (s *stats) DequeueAndStart(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	fnQueued.WithLabelValues(app, path).Dec()
+	DecrementGauge(ctx, queuedSuffix)
 
 	s.running++
 	s.getStatsForFunction(path).running++
-	fnRunning.WithLabelValues(app, path).Inc()
+	IncrementGauge(ctx, runningSuffix)
 
 	s.mu.Unlock()
 }
 
-func (s *stats) Complete(app string, path string) {
+func (s *stats) Complete(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	fnRunning.WithLabelValues(app, path).Dec()
+	DecrementGauge(ctx, runningSuffix)
 
 	s.complete++
 	s.getStatsForFunction(path).complete++
-	fnCompleted.WithLabelValues(app, path).Inc()
+	IncrementCounter(ctx, completedSuffix)
 
 	s.mu.Unlock()
 }
 
-func (s *stats) Failed(app string, path string) {
+func (s *stats) Failed(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	fnRunning.WithLabelValues(app, path).Dec()
+	DecrementGauge(ctx, runningSuffix)
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
-	fnFailed.WithLabelValues(app, path).Inc()
+	IncrementCounter(ctx, failedSuffix)
 
 	s.mu.Unlock()
 }
 
-func (s *stats) DequeueAndFail(app string, path string) {
+func (s *stats) DequeueAndFail(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	fnQueued.WithLabelValues(app, path).Dec()
+	DecrementGauge(ctx, queuedSuffix)
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
-	fnFailed.WithLabelValues(app, path).Inc()
+	IncrementCounter(ctx, failedSuffix)
 
 	s.mu.Unlock()
 }
@@ -199,4 +156,62 @@ func (s *stats) Stats() Stats {
 	}
 	s.mu.Unlock()
 	return stats
+}
+
+// Constants used when constructing span names and field keys for these metrics
+var queuedSuffix = "queued"
+var callsSuffix = "calls"
+var runningSuffix = "running"
+var completedSuffix = "completed"
+var failedSuffix = "failed"
+
+// IncrementGauge increments the specified gauge metric
+// It does this by logging an appropriate field value to a tracing span.
+func IncrementGauge(ctx context.Context, metric string) {
+	// The field name we use is the specified metric name prepended with "fn_gauge_" to designate that it is a Prometheus gauge metric
+	// The collector will remove "gauge_" and use the result as the Prometheus metric name.
+	fieldname := "fn_gauge_" + metric
+
+	// Spans are not processed by the collector until the span ends, so to prevent any delay
+	// in processing the stats when the span is long-lived we create a new span for every call
+	// suffix the span name with "_dummy" to denote that it is used only to hold a metric and isn't itself of any interest
+	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+"_dummy")
+	defer span.Finish()
+
+	// gauge metrics are actually float64; here we log that it should be increased by +1
+	span.LogFields(log.Float64(fieldname, 1.))
+}
+
+// DecrementGauge decrements the specified gauge metric
+// It does this by logging an appropriate field value to a tracing span.
+func DecrementGauge(ctx context.Context, metric string) {
+	// The field name we use is the specified metric name prepended with "fn_gauge_" to designate that it is a Prometheus gauge metric
+	// The collector will remove "gauge_" and use the result as the Prometheus metric name.
+	fieldname := "fn_gauge_" + metric
+
+	// Spans are not processed by the collector until the span ends, so to prevent any delay
+	// in processing the stats when the span is long-lived we create a new span for every call
+	// suffix the span name with "_dummy" to denote that it is used only to hold a metric and isn't itself of any interest
+	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+"_dummy")
+	defer span.Finish()
+
+	// gauge metrics are actually float64; here we log that it should be increased by -1
+	span.LogFields(log.Float64(fieldname, -1.))
+}
+
+// IncrementCounter increments the specified counter metric
+// It does this by logging an appropriate field value to a tracing span.
+func IncrementCounter(ctx context.Context, metric string) {
+	// The field name we use is the specified metric name prepended with "fn_counter_" to designate that it is a Prometheus counter metric
+	// The collector will remove "fn_counter_" and use the result as the Prometheus metric name.
+	fieldname := "fn_counter_" + metric
+
+	// Spans are not processed by the collector until the span ends, so to prevent any delay
+	// in processing the stats when the span is long-lived we create a new span for every call
+	// suffix the span name with "_dummy" to denote that it is used only to hold a metric and isn't itself of any interest
+	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+"_dummy")
+	defer span.Finish()
+
+	// counter metrics are actually float64; here we log that it should be increased by +1
+	span.LogFields(log.Float64(fieldname, 1.))
 }

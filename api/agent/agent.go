@@ -173,11 +173,11 @@ func transformTimeout(e error, isRetriable bool) error {
 
 // handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
 // cases. Only timeouts can be a simple dequeue while other cases are actual errors.
-func (a *agent) handleStatsDequeue(err error, callI Call) {
+func (a *agent) handleStatsDequeue(ctx context.Context, err error, callI Call) {
 	if err == context.DeadlineExceeded {
-		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+		a.stats.Dequeue(ctx, callI.Model().AppName, callI.Model().Path)
 	} else {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		a.stats.DequeueAndFail(ctx, callI.Model().AppName, callI.Model().Path)
 	}
 }
 
@@ -190,9 +190,6 @@ func (a *agent) Submit(callI Call) error {
 		return models.ErrCallTimeoutServerBusy
 	default:
 	}
-
-	// increment queued count
-	a.stats.Enqueue(callI.Model().AppName, callI.Model().Path)
 
 	call := callI.(*call)
 	ctx := call.req.Context()
@@ -218,9 +215,13 @@ func (a *agent) Submit(callI Call) error {
 	call.req = call.req.WithContext(ctx)
 	defer cancel()
 
+	// increment queued count
+	// this is done after setting "fn_appname" and "fn_path"
+	a.stats.Enqueue(ctx, callI.Model().AppName, callI.Model().Path)
+
 	slot, err := a.getSlot(ctx, call) // find ram available / running
 	if err != nil {
-		a.handleStatsDequeue(err, call)
+		a.handleStatsDequeue(ctx, err, call)
 		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
@@ -230,12 +231,12 @@ func (a *agent) Submit(callI Call) error {
 	// TODO Start is checking the timer now, we could do it here, too.
 	err = call.Start(ctx)
 	if err != nil {
-		a.handleStatsDequeue(err, call)
+		a.handleStatsDequeue(ctx, err, call)
 		return transformTimeout(err, true)
 	}
 
 	// decrement queued count, increment running count
-	a.stats.DequeueAndStart(callI.Model().AppName, callI.Model().Path)
+	a.stats.DequeueAndStart(ctx, callI.Model().AppName, callI.Model().Path)
 
 	err = slot.exec(ctx, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
@@ -243,10 +244,10 @@ func (a *agent) Submit(callI Call) error {
 
 	if err == nil {
 		// decrement running count, increment completed count
-		a.stats.Complete(callI.Model().AppName, callI.Model().Path)
+		a.stats.Complete(ctx, callI.Model().AppName, callI.Model().Path)
 	} else {
 		// decrement running count, increment failed count
-		a.stats.Failed(callI.Model().AppName, callI.Model().Path)
+		a.stats.Failed(ctx, callI.Model().AppName, callI.Model().Path)
 	}
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
@@ -706,14 +707,24 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 
-// Log the specified stats to a tracing span.
-// Spans are not processed by the collector until the span ends, so to prevent any delay
-// in processing the stats when the function is long-lived we create a new span for every call
+// WriteStat logs each metric in the specified Stats structure
+// It does this by logging appropriate field values to a tracing span.
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
+
+	// Spans are not processed by the collector until the span ends, so to prevent any delay
+	// in processing the stats when the function is long-lived we create a new span for every call
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_stats")
 	defer span.Finish()
+
 	for key, value := range stat.Metrics {
-		span.LogFields(log.Uint64("fn_"+key, value))
+		// The field name we use is the metric name prepended with "fn_histogram_" to designate that it is a Prometheus histogram metric
+		// The collector will remove "histogram_" and use the result as the Prometheus metric name.
+		fieldname := "fn_histogram_" + "docker_stats_fn_" + key
+		// The extra "docker_stats_fn_" is to keep the Prometheus metric name consistent with what
+		//   it was before whilst allowing the collector to be simplified.
+
+		// histogram metrics are actually int64
+		span.LogFields(log.Uint64(fieldname, value))
 	}
 
 	c.Lock()
