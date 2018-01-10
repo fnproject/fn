@@ -48,20 +48,6 @@ type Param struct {
 }
 type Params []Param
 
-func fixupRequestURL(req *http.Request) string {
-	if req.URL.Scheme == "" {
-		if req.TLS == nil {
-			req.URL.Scheme = "http"
-		} else {
-			req.URL.Scheme = "https"
-		}
-	}
-	if req.URL.Host == "" {
-		req.URL.Host = req.Host
-	}
-	return req.URL.String()
-}
-
 func FromRequest(appName, path string, req *http.Request) CallOpt {
 	return func(a *agent, c *call) error {
 		app, err := a.da.GetApp(req.Context(), appName)
