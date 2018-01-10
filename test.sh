@@ -29,5 +29,5 @@ go vet $(go list ./... | grep -v vendor)
 
 remove_containers
 
-curl -H 'Accept: application/json' -X GET https://mermade.org.uk/api/v1/validate?url=https://gist.githubusercontent.com/denismakogon/f1c306d771480bbe39b363de070e432f/raw/ad8ef852e88c0cd8fcfbe52d7cfaa6d85ee62d1f/gistfile1.txt | go run test/openapi-validate.go
+curl -X POST https://mermade.org.uk/api/v1/validate -H "Accept: application/json" -H "Content-Type: multipart/form-data" -F "source=`cat docs/openapi.yml`" | go run test/openapi-validate.go
 docker run -v `pwd`:/go/src/github.com/fnproject/fn --rm fnproject/swagger:0.0.1 /go/src/github.com/fnproject/fn/docs/swagger.yml
