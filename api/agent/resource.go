@@ -72,11 +72,14 @@ type ResourceToken interface {
 }
 
 type resourceToken struct {
+	once      sync.Once
 	decrement func()
 }
 
 func (t *resourceToken) Close() error {
-	t.decrement()
+	t.once.Do(func() {
+		t.decrement()
+	})
 	return nil
 }
 
@@ -133,7 +136,6 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 		var asyncMem, syncMem uint64
 		var asyncCPU, syncCPU uint64
-		isClosed := false
 
 		if isAsync {
 			// async uses async pool only
@@ -155,12 +157,6 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Unlock()
 
 		t := &resourceToken{decrement: func() {
-
-			// Guard against multiple close
-			if isClosed {
-				return
-			}
-			isClosed = true
 
 			c.L.Lock()
 			a.ramAsyncUsed -= asyncMem
@@ -379,12 +375,7 @@ func getMemoryHeadRoom(usableMemory uint64) (uint64, error) {
 }
 
 func readString(fileName string) (string, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		return "", err
 	}
