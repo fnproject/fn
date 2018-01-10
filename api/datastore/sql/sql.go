@@ -49,7 +49,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
 	memory int NOT NULL,
-	cpus varchar(16) NOT NULL,
+	cpus varchar(16),
 	timeout int NOT NULL,
 	idle_timeout int NOT NULL,
 	type varchar(16) NOT NULL,
