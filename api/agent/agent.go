@@ -220,7 +220,7 @@ func (a *agent) Submit(callI Call) error {
 	// this is done after setting "fn_appname" and "fn_path"
 	a.stats.Enqueue(ctx, callI.Model().AppName, callI.Model().Path)
 
-  slot, err := a.getSlot(ctxSlotWait, call) // find ram available / running
+	slot, err := a.getSlot(ctxSlotWait, call) // find ram available / running
 
 	if err != nil {
 		a.handleStatsDequeue(ctx, err, call)
