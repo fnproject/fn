@@ -24,10 +24,13 @@ db.update(return_struct)
 
 ## Inputs
 
-Inputs are provided through standard input and environment variables. We'll just talk about the default input format here, but you can find others [here](function-format.md).
-To read in the function body, just read from STDIN.
+Inputs are provided through standard input and environment variables.  
 
-You will also have access to a set of environment variables, independent of
+The way that input data is supplied to functions depends on the input format (as specified in `func.yml`) that your function is using. 
+
+If you're using `default` format then you can simply read the function input from STDIN. For more information and to find out about other input formats see [Open Function Format](function-format.md).
+
+Your function also has access to a set of environment variables, independent of
 the function's format:
 
 * `FN_APP_NAME` - the name of the application that matched this route, eg: `myapp`
@@ -56,6 +59,8 @@ For `http` format these will be in http headers:
 * `Fn_call_id` - a unique ID for each function execution.
 * `Fn_method` - the HTTP method used to invoke
 * `$X` - the HTTP headers that were set for this request, exactly as they were sent in the request.
+
+If you're implementing your function using a fdk this will provide an API to obtain the http headers.
 
 For `json` format, these will be fields in the json object (see
 [format](functions-format.md)):
