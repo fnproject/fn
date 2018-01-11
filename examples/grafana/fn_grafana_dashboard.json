@@ -116,7 +116,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(fn_api_queued)",
+              "expr": "sum(fn_queued)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "",
@@ -193,7 +193,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(fn_api_running)",
+              "expr": "sum(fn_running)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "",
@@ -270,7 +270,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(fn_api_completed)",
+              "expr": "sum(fn_completed)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "",
@@ -347,7 +347,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(fn_api_failed)",
+              "expr": "sum(fn_failed)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "",
@@ -413,7 +413,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(fn_api_queued)",
+              "expr": "sum(fn_queued)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "Total queued",
@@ -490,7 +490,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(fn_api_running)",
+              "expr": "sum(fn_running)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "Total running",
@@ -567,7 +567,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(fn_api_completed)",
+              "expr": "sum(fn_completed)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "Total completed",
@@ -644,7 +644,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(fn_api_failed)",
+              "expr": "sum(fn_failed)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "Total failed",
@@ -655,7 +655,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Total queued",
+          "title": "Total failed",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -738,11 +738,11 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "fn_api_queued",
+              "expr": "fn_queued",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "{{app}} {{path}}",
+              "legendFormat": "{{fn_appname}} {{fn_path}}",
               "refId": "A",
               "step": 1
             }
@@ -822,10 +822,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "fn_api_running",
+              "expr": "fn_running",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{app}} {{path}}",
+              "legendFormat": "{{fn_appname}} {{fn_path}}",
               "refId": "A",
               "step": 2
             }
@@ -904,10 +904,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "fn_api_completed",
+              "expr": "fn_completed",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{app}} {{path}}",
+              "legendFormat": "{{fn_appname}} {{fn_path}}",
               "refId": "A",
               "step": 2
             }
@@ -986,10 +986,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "fn_api_failed",
+              "expr": "fn_failed",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{app}} {{path}}",
+              "legendFormat": "{{fn_appname}} {{fn_path}}",
               "refId": "A",
               "step": 2
             }

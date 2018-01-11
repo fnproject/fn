@@ -16,7 +16,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
@@ -174,11 +173,11 @@ func transformTimeout(e error, isRetriable bool) error {
 
 // handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
 // cases. Only timeouts can be a simple dequeue while other cases are actual errors.
-func (a *agent) handleStatsDequeue(err error, callI Call) {
+func (a *agent) handleStatsDequeue(ctx context.Context, err error, callI Call) {
 	if err == context.DeadlineExceeded {
-		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+		a.stats.Dequeue(ctx, callI.Model().AppName, callI.Model().Path)
 	} else {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		a.stats.DequeueAndFail(ctx, callI.Model().AppName, callI.Model().Path)
 	}
 }
 
@@ -191,9 +190,6 @@ func (a *agent) Submit(callI Call) error {
 		return models.ErrCallTimeoutServerBusy
 	default:
 	}
-
-	// increment queued count
-	a.stats.Enqueue(callI.Model().AppName, callI.Model().Path)
 
 	call := callI.(*call)
 	ctx := call.req.Context()
@@ -219,9 +215,14 @@ func (a *agent) Submit(callI Call) error {
 	call.req = call.req.WithContext(ctxSlotWait)
 	defer cancelSlotWait()
 
+	// increment queued count
+	// this is done after setting "fn_appname" and "fn_path"
+	a.stats.Enqueue(ctx, callI.Model().AppName, callI.Model().Path)
+
 	slot, err := a.getSlot(ctxSlotWait, call) // find ram available / running
+
 	if err != nil {
-		a.handleStatsDequeue(err, call)
+		a.handleStatsDequeue(ctx, err, call)
 		return transformTimeout(err, true)
 	}
 	// TODO if the call times out & container is created, we need
@@ -230,7 +231,7 @@ func (a *agent) Submit(callI Call) error {
 
 	err = call.Start(ctxSlotWait)
 	if err != nil {
-		a.handleStatsDequeue(err, call)
+		a.handleStatsDequeue(ctx, err, call)
 		return transformTimeout(err, true)
 	}
 
@@ -241,7 +242,7 @@ func (a *agent) Submit(callI Call) error {
 	defer cancelExec()
 
 	// decrement queued count, increment running count
-	a.stats.DequeueAndStart(callI.Model().AppName, callI.Model().Path)
+	a.stats.DequeueAndStart(ctx, callI.Model().AppName, callI.Model().Path)
 
 	err = slot.exec(ctxExec, call)
 	// pass this error (nil or otherwise) to end directly, to store status, etc
@@ -249,10 +250,10 @@ func (a *agent) Submit(callI Call) error {
 
 	if err == nil {
 		// decrement running count, increment completed count
-		a.stats.Complete(callI.Model().AppName, callI.Model().Path)
+		a.stats.Complete(ctx, callI.Model().AppName, callI.Model().Path)
 	} else {
 		// decrement running count, increment failed count
-		a.stats.Failed(callI.Model().AppName, callI.Model().Path)
+		a.stats.Failed(ctx, callI.Model().AppName, callI.Model().Path)
 	}
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
@@ -726,15 +727,18 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 
-// Log the specified stats to a tracing span.
-// Spans are not processed by the collector until the span ends, so to prevent any delay
-// in processing the stats when the function is long-lived we create a new span for every call
+// WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_stats")
-	defer span.Finish()
+
+	// Convert each metric value from uint64 to float64
+	// and, for backward compatibility reasons, prepend each metric name with "docker_stats_fn_"
+	// (if we don't care about compatibility then we can remove that)
+	var metrics = make(map[string]float64)
 	for key, value := range stat.Metrics {
-		span.LogFields(log.Uint64("fn_"+key, value))
+		metrics["docker_stats_fn_"+key] = float64(value)
 	}
+
+	common.PublishHistograms(ctx, metrics)
 
 	c.Lock()
 	defer c.Unlock()
