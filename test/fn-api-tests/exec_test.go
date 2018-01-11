@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/url"
 	"path"
@@ -62,6 +63,47 @@ func TestCanCallfunction(t *testing.T) {
 	expectedOutput := "Hello World!\n"
 	if !strings.Contains(expectedOutput, output.String()) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+	}
+	DeleteApp(t, s.Context, s.Client, s.AppName)
+}
+
+func TestCanCallALotOfHotFunctions(t *testing.T) {
+	s := SetupDefaultSuite()
+	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath,
+		"hhexo/hot", "sync", "http", s.Timeout, int32(5),
+		s.RouteConfig, s.RouteHeaders)
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   Host(),
+	}
+	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
+
+	errs := make(chan error)
+	numCalls := 50
+	for i := 0; i < numCalls; i++ {
+		go func() {
+			content := &bytes.Buffer{}
+			output := &bytes.Buffer{}
+			_, err := CallFN(u.String(), content, output, "POST", []string{})
+			if err != nil {
+				errs <- err
+				return
+			}
+			expectedOutput := "Hello World!\n"
+			if !strings.Contains(expectedOutput, output.String()) {
+				errs <- fmt.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+				return
+			}
+			errs <- nil
+		}()
+	}
+	for i := 0; i < numCalls; i++ {
+		err := <-errs
+		if err != nil {
+			t.Errorf("%v", err)
+		}
 	}
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
@@ -151,7 +193,7 @@ func TestCanGetAsyncState(t *testing.T) {
 	}
 	cfg.WithTimeout(time.Second * 60)
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 20, time.Second*2, func() (err error) {
 		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
 		return err
 	})
@@ -221,7 +263,7 @@ func TestCanCauseTimeout(t *testing.T) {
 	}
 	cfg.WithTimeout(time.Second * 60)
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 20, time.Second*2, func() (err error) {
 		_, err = s.Client.Call.GetAppsAppCallsCall(cfg)
 		return err
 	})
@@ -266,7 +308,7 @@ func TestMultiLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 20, time.Second*2, func() (err error) {
 		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 		return err
 	})
@@ -354,7 +396,7 @@ func TestCanWriteLogs(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 20, time.Second*2, func() (err error) {
 		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 		return err
 	})
@@ -396,7 +438,7 @@ func TestOversizedLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+	retryErr := APICallWithRetry(t, 20, time.Second*2, func() (err error) {
 		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
 		return err
 	})
