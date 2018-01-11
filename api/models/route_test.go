@@ -1,86 +1,42 @@
 package models
 
 import (
-	"fmt"
 	"testing"
 )
 
-func checkStr(input, expected string) error {
-	res, err := sanitizeCPUs(input)
+func TestRouteSimple(t *testing.T) {
+
+	route1 := &Route{
+		AppName:     "test",
+		Path:        "/some",
+		Image:       "foo",
+		Memory:      128,
+		CPUs:        100,
+		Type:        "sync",
+		Format:      "http",
+		Timeout:     10,
+		IdleTimeout: 10,
+	}
+
+	err := route1.Validate()
 	if err != nil {
-		return err
-	}
-	if expected != res {
-		return fmt.Errorf("mismatch %s != %s", res, expected)
-	}
-	return nil
-}
-
-func TestRouteCPUSanitize(t *testing.T) {
-
-	err := checkStr("1.00", "1.00")
-	if err != nil {
-		t.Fatal("failed: ", err)
+		t.Fatal("should not have failed, got: ", err)
 	}
 
-	err = checkStr("1", "1.00")
-	if err != nil {
-		t.Fatal("failed: ", err)
+	route2 := &Route{
+		AppName:     "test",
+		Path:        "/some",
+		Image:       "foo",
+		Memory:      128,
+		CPUs:        100,
+		Type:        "sync",
+		Format:      "nonsense",
+		Timeout:     10,
+		IdleTimeout: 10,
 	}
 
-	err = checkStr("", "")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	err = checkStr("0", "")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	err = checkStr("00000", "")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	err = checkStr("+00000", "")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	err = checkStr("-00000", "")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	err = checkStr("00000000000000000000", "")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	tmp, err := sanitizeCPUs("1000000000000000000000000")
+	err = route2.Validate()
 	if err == nil {
-		t.Fatal("failed, should get error, got: ", tmp)
-	}
-
-	// 0.234 is too high of a precision for CPUs
-	tmp, err = sanitizeCPUs("0.234")
-	if err == nil {
-		t.Fatal("failed, should get error got: ", tmp)
-	}
-
-	err = checkStr(".2", "0.20")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	err = checkStr("100.2000", "100.20")
-	if err != nil {
-		t.Fatal("failed: ", err)
-	}
-
-	tmp, err = sanitizeCPUs("-0.20")
-	if err == nil {
-		t.Fatal("failed, should get error got: ", tmp)
+		t.Fatalf("should have failed route: %#v", route2)
 	}
 }

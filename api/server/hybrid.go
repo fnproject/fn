@@ -17,7 +17,11 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	var call models.Call
 	err := c.BindJSON(&call)
 	if err != nil {
-		handleErrorResponse(c, models.ErrInvalidJSON)
+		if models.IsAPIError(err) {
+			handleErrorResponse(c, err)
+		} else {
+			handleErrorResponse(c, models.ErrInvalidJSON)
+		}
 		return
 	}
 
@@ -92,7 +96,11 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	var call models.Call
 	err := c.BindJSON(&call)
 	if err != nil {
-		handleErrorResponse(c, models.ErrInvalidJSON)
+		if models.IsAPIError(err) {
+			handleErrorResponse(c, err)
+		} else {
+			handleErrorResponse(c, models.ErrInvalidJSON)
+		}
 		return
 	}
 
@@ -143,7 +151,11 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	}
 	err := c.BindJSON(&body)
 	if err != nil {
-		handleErrorResponse(c, models.ErrInvalidJSON)
+		if models.IsAPIError(err) {
+			handleErrorResponse(c, err)
+		} else {
+			handleErrorResponse(c, models.ErrInvalidJSON)
+		}
 		return
 	}
 

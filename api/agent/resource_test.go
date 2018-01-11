@@ -68,11 +68,11 @@ func (vals *trackerVals) setDefaults() {
 	vals.mam = 1 * Mem1GB
 
 	// let's assume 10 CPUs (2 CPU sync, 8 CPU async)
-	vals.cst = 200
+	vals.cst = 2000
 	vals.csu = 0
-	vals.cat = 800
+	vals.cat = 8000
 	vals.cau = 0
-	vals.cam = 600
+	vals.cam = 6000
 }
 
 func fetchToken(ch <-chan ResourceToken) (ResourceToken, error) {
@@ -233,7 +233,7 @@ func TestResourceGetCombo(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// impossible request
-	ch := trI.GetResourceToken(ctx, 20*1024, 2000, false)
+	ch := trI.GetResourceToken(ctx, 20*1024, 20000, false)
 	if !isClosed(ch) {
 		t.Fatalf("impossible request should return closed channel")
 	}

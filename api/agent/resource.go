@@ -237,7 +237,7 @@ func (a *resourceTracker) initializeCPU() {
 			numCPU = uint64(runtime.NumCPU())
 		}
 
-		totalCPU = 100 * numCPU
+		totalCPU = 1000 * numCPU
 		availCPU = totalCPU
 
 		// Clamp further if cgroups CFS quota/period limits are in place
@@ -251,7 +251,7 @@ func (a *resourceTracker) initializeCPU() {
 
 		// TODO: skip CPU headroom for ourselves for now
 	} else {
-		totalCPU = uint64(runtime.NumCPU() * 100)
+		totalCPU = uint64(runtime.NumCPU() * 1000)
 		availCPU = totalCPU
 	}
 
@@ -275,10 +275,10 @@ func (a *resourceTracker) initializeCPU() {
 		logrus.Fatal("Cannot get the proper CPU information to size server")
 	}
 
-	if maxSyncCPU+maxAsyncCPU < 100 {
-		logrus.Warn("Severaly Limited CPU: cpuSync + cpuAsync < 100%% (1 CPU)")
-	} else if maxAsyncCPU < 100 {
-		logrus.Warn("Severaly Limited CPU: cpuAsync < 100%% (1 CPU)")
+	if maxSyncCPU+maxAsyncCPU < 1000 {
+		logrus.Warn("Severaly Limited CPU: cpuSync + cpuAsync < 1000m (1 CPU)")
+	} else if maxAsyncCPU < 1000 {
+		logrus.Warn("Severaly Limited CPU: cpuAsync < 1000m (1 CPU)")
 	}
 
 	a.cpuAsyncHWMark = cpuAsyncHWMark
@@ -404,11 +404,13 @@ func checkCgroupCPU() uint64 {
 
 	period, err := strconv.ParseUint(periodStr, 10, 64)
 	if err != nil {
+		logrus.Warn("Cannot parse CFS period", err)
 		return 0
 	}
 
 	quota, err := strconv.ParseInt(quotaStr, 10, 64)
 	if err != nil {
+		logrus.Warn("Cannot parse CFS quota", err)
 		return 0
 	}
 
@@ -416,7 +418,7 @@ func checkCgroupCPU() uint64 {
 		return 0
 	}
 
-	return uint64(quota) * 100 / period
+	return uint64(quota) * 1000 / period
 }
 
 var errCantReadMemInfo = errors.New("Didn't find MemAvailable in /proc/meminfo, kernel is probably < 3.14")

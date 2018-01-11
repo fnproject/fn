@@ -1,11 +1,9 @@
 package models
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,10 +15,8 @@ const (
 	DefaultIdleTimeout = 30  // seconds
 	DefaultMemory      = 128 // MB
 
-	MinCPUs         = 0.0    // Skip CPU limit
-	MaxCPUs         = 1024.0 // 1024 cores
-	MaxSyncTimeout  = 120    // 2 minutes
-	MaxAsyncTimeout = 3600   // 1 hour
+	MaxSyncTimeout  = 120  // 2 minutes
+	MaxAsyncTimeout = 3600 // 1 hour
 	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
@@ -33,7 +29,7 @@ type Route struct {
 	Path        string          `json:"path" db:"path"`
 	Image       string          `json:"image" db:"image"`
 	Memory      uint64          `json:"memory" db:"memory"`
-	CPUs        string          `json:"cpus" db:"cpus"`
+	CPUs        MilliCPUs       `json:"cpus" db:"cpus"`
 	Headers     Headers         `json:"headers,omitempty" db:"headers"`
 	Type        string          `json:"type" db:"type"`
 	Format      string          `json:"format" db:"format"`
@@ -133,50 +129,7 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidMemory
 	}
 
-	_, err = sanitizeCPUs(r.CPUs)
-	return err
-}
-
-func (r *Route) Sanitize() error {
-
-	sanitized, err := sanitizeCPUs(r.CPUs)
-	if err != nil {
-		return err
-	}
-
-	r.CPUs = sanitized
 	return nil
-}
-
-// sanitizeCPUs validates and cleans up CPUs string
-func sanitizeCPUs(CPUs string) (string, error) {
-
-	if CPUs == "" {
-		return "", nil
-	}
-
-	// first check if this is valid: MinCPU < val < MaxCPUs
-	cpu, err := strconv.ParseFloat(CPUs, 64)
-	if err != nil || cpu < MinCPUs || cpu > MaxCPUs {
-		return "", ErrRoutesInvalidCPUs
-	}
-	if cpu == 0.0 {
-		return "", nil
-	}
-
-	// IMPORTANT: This is varchar(16) in datastore sql
-	// Enforce .2 precision and clean up padded zeros, preceding sign, etc.
-	sanitized := fmt.Sprintf("%.2f", cpu)
-
-	// now check if by sanitizing we ended up losing precision
-	// if we lost precision, then an unsupported format (eg. 0.22020)
-	// was submitted.
-	tmp, err := strconv.ParseFloat(sanitized, 64)
-	if err != nil || cpu != tmp {
-		return "", ErrRoutesInvalidCPUs
-	}
-
-	return sanitized, nil
 }
 
 func (r *Route) Clone() *Route {
@@ -235,7 +188,7 @@ func (r *Route) Update(new *Route) {
 	if new.Memory != 0 {
 		r.Memory = new.Memory
 	}
-	if new.CPUs != "" {
+	if new.CPUs != 0 {
 		r.CPUs = new.CPUs
 	}
 	if new.Type != "" {

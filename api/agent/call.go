@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -72,11 +71,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			return err
 		}
 
-		err = route.Sanitize()
-		if err != nil {
-			return err
-		}
-
 		id := id.New().String()
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
@@ -137,6 +131,11 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
 	conf["FN_TYPE"] = route.Type
+
+	CPUs := route.CPUs.String()
+	if CPUs != "" {
+		conf["FN_CPUS"] = CPUs
+	}
 	return conf
 }
 
@@ -232,12 +231,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.Headers.Set("FN_DEADLINE", execDeadlineStr)
 	c.req.Header.Set("FN_DEADLINE", execDeadlineStr)
 
-	CPUs, err := getCPUQuota(c.Call.CPUs)
-	if err != nil {
-		return nil, err
-	}
-	c.CPUQuota = CPUs
-
 	return &c, nil
 }
 
@@ -252,7 +245,6 @@ type call struct {
 	slots        *slotQueue
 	slotDeadline time.Time
 	execDeadline time.Time
-	CPUQuota     uint64
 }
 
 func (c *call) Model() *models.Call { return c.Call }
@@ -330,19 +322,4 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	}
 
 	return errIn // original error, important for use in sync call returns
-}
-
-// getCPUQuota converts CPUs to CPU quota by multiplying them by 100.
-// eg. 0.20 becomes 20, 2.0 becomes 200, which are easier to calculate
-// and manage as resources and translate to Linux CFS (cpu-quota and cpu-period)
-func getCPUQuota(CPUs string) (uint64, error) {
-	if CPUs == "" {
-		return 0, nil
-	}
-	cpu, err := strconv.ParseFloat(CPUs, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return uint64(cpu * 100.0), nil
 }

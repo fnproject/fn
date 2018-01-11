@@ -1,1 +1,1 @@
-ALTER TABLE routes ADD cpus varchar(16);
+ALTER TABLE routes ADD cpus int;

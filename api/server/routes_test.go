@@ -107,6 +107,7 @@ func TestRouteCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesMissingPath},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "path": "myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrRoutesInvalidPath},
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/$/routes", `{ "route": { "image": "fnproject/hello", "path": "/myroute", "type": "sync" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "path": "/myroute", "type": "sync", "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
 		{datastore.NewMockInit(nil,
 			[]*models.Route{
 				{
@@ -118,6 +119,8 @@ func TestRouteCreate(t *testing.T) {
 
 		// success
 		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "path": "/myroute", "type": "sync", "cpus": "100m" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/hello", "path": "/myroute", "type": "sync", "cpus": "0.2" } }`, http.StatusOK, nil},
 	} {
 		test.run(t, i, buf)
 	}
@@ -332,6 +335,7 @@ func TestRouteUpdate(t *testing.T) {
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "type": "async", "timeout": 121, "idle_timeout": 240 } }`, http.StatusOK, nil}, // should work if async
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "idle_timeout": 3601 } }`, http.StatusBadRequest, models.ErrRoutesInvalidIdleTimeout},
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "memory": 100000000000000 } }`, http.StatusBadRequest, models.ErrRoutesInvalidMemory},
+		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/do", `{ "route": { "cpus": "foo" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
 		// TODO this should be correct, waiting for patch to come in
 		//{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/b/routes/myroute/dont", `{ "route": {} }`, http.StatusNotFound, models.ErrAppsNotFound},
 		{ds, logs.NewMock(), http.MethodPatch, "/v1/apps/a/routes/myroute/dont", `{ "route": {} }`, http.StatusNotFound, models.ErrRoutesNotFound},

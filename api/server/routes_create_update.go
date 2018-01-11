@@ -54,10 +54,6 @@ func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) e
 	if err != nil {
 		return err
 	}
-	err = wroute.Route.Sanitize()
-	if err != nil {
-		return err
-	}
 	r, err := s.datastore.InsertRoute(ctx, wroute.Route)
 	if err != nil {
 		return err
@@ -67,12 +63,6 @@ func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) e
 }
 
 func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) error {
-
-	err := wroute.Route.Sanitize()
-	if err != nil {
-		return err
-	}
-
 	r, err := s.datastore.UpdateRoute(ctx, wroute.Route)
 	if err != nil {
 		return err
@@ -151,6 +141,9 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error {
 	err := c.BindJSON(wroute)
 	if err != nil {
+		if models.IsAPIError(err) {
+			return err
+		}
 		return models.ErrInvalidJSON
 	}
 

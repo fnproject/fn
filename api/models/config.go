@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type Config map[string]string
@@ -124,4 +126,68 @@ func (h *Headers) Scan(value interface{}) error {
 
 	// otherwise, return an error
 	return fmt.Errorf("headers invalid db format: %T %T value, err: %v", value, bv, err)
+}
+
+// MilliCPU units
+type MilliCPUs uint64
+
+const (
+	MinMilliCPUs = 0       // 0 is unlimited
+	MaxMilliCPUs = 1024000 // 1024 CPUs
+)
+
+// implements fmt.Stringer
+func (c MilliCPUs) String() string {
+	if c == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%dm", c)
+}
+
+// implements json.Unmarshaler
+func (c *MilliCPUs) UnmarshalJSON(data []byte) error {
+
+	outer := strings.TrimSpace(string(data))
+	if !strings.HasSuffix(outer, "\"") || !strings.HasPrefix(outer, "\"") {
+		return ErrInvalidJSON
+	}
+
+	outer = strings.TrimSuffix(outer, "\"")
+	outer = strings.TrimPrefix(outer, "\"")
+
+	CPUs := strings.TrimSpace(outer)
+	if CPUs == "" {
+		*c = 0
+		return nil
+	}
+
+	if strings.HasSuffix(CPUs, "m") {
+		// Support milli cores as "100m"
+		CPUs = strings.TrimSuffix(CPUs, "m")
+		mCPU, err := strconv.ParseUint(CPUs, 10, 64)
+		if err != nil || mCPU > MaxMilliCPUs || mCPU < MinMilliCPUs {
+			return ErrInvalidCPUs
+		}
+		*c = MilliCPUs(mCPU)
+	} else {
+		// Support for floating point "0.1" style CPU units
+		fCPU, err := strconv.ParseFloat(CPUs, 64)
+		if err != nil || fCPU < MinMilliCPUs/1000 || fCPU > MaxMilliCPUs/1000 {
+			return ErrInvalidCPUs
+		}
+		*c = MilliCPUs(fCPU * 1000)
+	}
+
+	return nil
+}
+
+// implements json.Marshaler
+func (c *MilliCPUs) MarshalJSON() ([]byte, error) {
+
+	if *c < MinMilliCPUs || *c > MaxMilliCPUs {
+		return nil, ErrInvalidCPUs
+	}
+
+	// always use milli cpus "1000m" format
+	return []byte(fmt.Sprintf("\"%s\"", c.String())), nil
 }
