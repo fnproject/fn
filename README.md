@@ -1,10 +1,12 @@
 ![Fn Project](http://fnproject.io/images/fn-300x125.png)
 
+**[Quickstart](https://github.com/fnproject/fn#quickstart)&nbsp; | &nbsp;[Tutorials](https://github.com/fnproject/tutorials)&nbsp; |  &nbsp;[Docs](https://github.com/fnproject/fn/blob/master/docs/README.md)&nbsp; | &nbsp;[API](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)&nbsp; | &nbsp;[Operating](https://github.com/fnproject/fn/blob/master/docs/README.md#for-operators)&nbsp; | &nbsp;[Flow](https://github.com/fnproject/flow)&nbsp; | &nbsp;[UI](https://github.com/fnproject/ui)**
+
 [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn) [![GoDoc](https://godoc.org/github.com/fnproject/fn?status.svg)](https://godoc.org/github.com/fnproject/fn)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/fn)](https://goreportcard.com/report/github.com/fnproject/fn)
 
-Fn is an event-driven, open source, [functions-as-a-service](docs/serverless.md) compute
-platform that you can run anywhere. Some of its key features:
+## Welcome
+Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](docs/serverless.md) compute platform that you can run anywhere. Some of its key features:
 
 * Open Source
 * Native Docker: use any Docker container as your Function
@@ -17,7 +19,7 @@ platform that you can run anywhere. Some of its key features:
 * Written in Go
 * Simple yet powerful extensibility
 
-The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](docs/README.md), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml), or his us up in our [Slack Community](http://slack.fnproject.io)!
+The fastest way to experience Fn is to follow the quickstart below, or you can jump right to our [full documentation](docs/README.md), [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml), or hit us up in our [Slack Community](http://slack.fnproject.io)!
 
 
 ## Quickstart
@@ -116,8 +118,7 @@ fn call myapp /hello
 
 Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-That's it! You just deployed your first function and called it. To update your function
-you can update your code and run `fn deploy myapp` again.
+That's it! You just deployed your first function and called it. To update your function you can update your code and run `fn deploy myapp` again.
 
 ## User Interface
 
@@ -138,6 +139,7 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
+* Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/fn/tree/master/fnlb)
 
 ## Get Help
 
