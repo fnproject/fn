@@ -152,18 +152,6 @@ func TestSlotQueueBasic1(t *testing.T) {
 		}
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
-
-	stats1 := obj.getStats()
-	isNeeded, stats2 := obj.isNewContainerNeeded()
-
-	if stats1 != stats2 {
-		t.Fatalf("Faulty stats %#v != %#v", stats1, stats2)
-	}
-
-	// there are no waiters.
-	if isNeeded {
-		t.Fatalf("Shouldn't need a container")
-	}
 }
 
 func TestSlotQueueBasic2(t *testing.T) {
@@ -172,9 +160,6 @@ func TestSlotQueueBasic2(t *testing.T) {
 
 	if !obj.isIdle() {
 		t.Fatalf("Should be idle")
-	}
-	if ok, _ := obj.isNewContainerNeeded(); ok {
-		t.Fatalf("Should not need a new container")
 	}
 
 	outChan, cancel := obj.startDequeuer(context.Background())
@@ -185,6 +170,27 @@ func TestSlotQueueBasic2(t *testing.T) {
 	}
 
 	cancel()
+}
+
+func TestSlotNewContainerLogic1(t *testing.T) {
+
+	cur := slotQueueStats{}
+	cur.states[SlotQueueRunner] = 10
+	cur.states[SlotQueueWaiter] = 1
+
+	prev := cur
+
+	if !isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	prev.latencies[SlotQueueRunner] = 1
+	prev.latencies[SlotQueueWaiter] = 1
+	prev.latencies[SlotQueueStarter] = 1
+
+	if isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	}
 }
 
 func TestSlotQueueBasic3(t *testing.T) {

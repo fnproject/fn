@@ -306,6 +306,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 	logger := common.Logger(ctx)
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
 	isAsync := callObj.Type == models.TypeAsync
+	prevStats := callObj.slots.getStats()
 
 	for {
 		select {
@@ -319,14 +320,22 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		case <-callObj.slots.signaller:
 		}
 
-		isNeeded, stats := callObj.slots.isNewContainerNeeded()
-		logger.WithField("stats", stats).Debug("Hot function launcher stats")
+		curStats := callObj.slots.getStats()
+		isNeeded := isNewContainerNeeded(&curStats, &prevStats)
+		prevStats = curStats
+		logger.WithFields(logrus.Fields{
+			"currentStats":  curStats,
+			"previousStats": curStats,
+		}).Debug("Hot function launcher stats")
 		if !isNeeded {
 			continue
 		}
 
 		resourceCtx, cancel := context.WithCancel(context.Background())
-		logger.WithField("stats", stats).Info("Hot function launcher starting hot container")
+		logger.WithFields(logrus.Fields{
+			"currentStats":  curStats,
+			"previousStats": curStats,
+		}).Info("Hot function launcher starting hot container")
 
 		select {
 		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, isAsync):

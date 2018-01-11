@@ -189,60 +189,59 @@ func (a *slotQueue) getStats() slotQueueStats {
 	return out
 }
 
-func (a *slotQueue) isNewContainerNeeded() (bool, slotQueueStats) {
+func isNewContainerNeeded(cur, prev *slotQueueStats) bool {
 
-	stats := a.getStats()
-
-	waiters := stats.states[SlotQueueWaiter]
+	waiters := cur.states[SlotQueueWaiter]
 	if waiters == 0 {
-		return false, stats
+		return false
 	}
 
 	// while a container is starting, do not start more than waiters
-	starters := stats.states[SlotQueueStarter]
+	starters := cur.states[SlotQueueStarter]
 	if starters >= waiters {
-		return false, stats
+		return false
 	}
 
-	// this is a bit aggresive and assumes that we only
-	// want to queue as much as num of containers.
-	executors := starters + stats.states[SlotQueueRunner]
-	if executors < waiters {
-		return true, stats
+	// no executors? We need to spin up a container quickly
+	executors := starters + cur.states[SlotQueueRunner]
+	if executors == 0 {
+		return true
+	}
+
+	// This means we are not making any progress and stats are
+	// not being refreshed quick enough. We err on side
+	// of new container here.
+	isEqual := true
+	for idx, _ := range cur.latencies {
+		if prev.latencies[idx] != cur.latencies[idx] {
+			isEqual = false
+			break
+		}
+	}
+	if isEqual {
+		return true
 	}
 
 	// WARNING: Below is a few heuristics that are
 	// speculative, which may (and will) likely need
 	// adjustments.
 
-	// WARNING: latencies below are updated after a call
-	// switches to/from different states. Do not assume
-	// the metrics below are always up-to-date. For example,
-	// a sudden burst of incoming requests will increase
-	// waiter count but not necessarily wait latency until
-	// those requests switch from waiter state.
-
-	runLat := stats.latencies[SlotQueueRunner]
-	waitLat := stats.latencies[SlotQueueWaiter]
-	startLat := stats.latencies[SlotQueueStarter]
-
-	// no wait latency? No need to spin up new container
-	if waitLat == 0 {
-		return false, stats
-	}
+	runLat := cur.latencies[SlotQueueRunner]
+	waitLat := cur.latencies[SlotQueueWaiter]
+	startLat := cur.latencies[SlotQueueStarter]
 
 	// this determines the aggresiveness of the container launch.
-	if runLat/executors*2 < waitLat {
-		return true, stats
+	if executors > 0 && runLat/executors*2 < waitLat {
+		return true
 	}
 	if runLat < waitLat {
-		return true, stats
+		return true
 	}
 	if startLat < waitLat {
-		return true, stats
+		return true
 	}
 
-	return false, stats
+	return false
 }
 
 func (a *slotQueue) enterState(metricIdx SlotQueueMetricType) {
