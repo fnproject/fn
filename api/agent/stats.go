@@ -2,8 +2,7 @@ package agent
 
 import (
 	"context"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
+	"github.com/fnproject/fn/api/common"
 	"sync"
 )
 
@@ -68,9 +67,9 @@ func (s *stats) Enqueue(ctx context.Context, app string, path string) {
 
 	s.queue++
 	s.getStatsForFunction(path).queue++
-	IncrementGauge(ctx, queuedSuffix)
+	common.IncrementGauge(ctx, queuedMetricName)
 
-	IncrementCounter(ctx, callsSuffix)
+	common.IncrementCounter(ctx, callsMetricName)
 
 	s.mu.Unlock()
 }
@@ -81,7 +80,7 @@ func (s *stats) Dequeue(ctx context.Context, app string, path string) {
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	DecrementGauge(ctx, queuedSuffix)
+	common.DecrementGauge(ctx, queuedMetricName)
 
 	s.mu.Unlock()
 }
@@ -91,11 +90,11 @@ func (s *stats) DequeueAndStart(ctx context.Context, app string, path string) {
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	DecrementGauge(ctx, queuedSuffix)
+	common.DecrementGauge(ctx, queuedMetricName)
 
 	s.running++
 	s.getStatsForFunction(path).running++
-	IncrementGauge(ctx, runningSuffix)
+	common.IncrementGauge(ctx, runningSuffix)
 
 	s.mu.Unlock()
 }
@@ -105,11 +104,11 @@ func (s *stats) Complete(ctx context.Context, app string, path string) {
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	DecrementGauge(ctx, runningSuffix)
+	common.DecrementGauge(ctx, runningSuffix)
 
 	s.complete++
 	s.getStatsForFunction(path).complete++
-	IncrementCounter(ctx, completedSuffix)
+	common.IncrementCounter(ctx, completedMetricName)
 
 	s.mu.Unlock()
 }
@@ -119,11 +118,11 @@ func (s *stats) Failed(ctx context.Context, app string, path string) {
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	DecrementGauge(ctx, runningSuffix)
+	common.DecrementGauge(ctx, runningSuffix)
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
-	IncrementCounter(ctx, failedSuffix)
+	common.IncrementCounter(ctx, failedMetricName)
 
 	s.mu.Unlock()
 }
@@ -133,11 +132,11 @@ func (s *stats) DequeueAndFail(ctx context.Context, app string, path string) {
 
 	s.queue--
 	s.getStatsForFunction(path).queue--
-	DecrementGauge(ctx, queuedSuffix)
+	common.DecrementGauge(ctx, queuedMetricName)
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
-	IncrementCounter(ctx, failedSuffix)
+	common.IncrementCounter(ctx, failedMetricName)
 
 	s.mu.Unlock()
 }
@@ -158,60 +157,10 @@ func (s *stats) Stats() Stats {
 	return stats
 }
 
-// Constants used when constructing span names and field keys for these metrics
-var queuedSuffix = "queued"
-var callsSuffix = "calls"
-var runningSuffix = "running"
-var completedSuffix = "completed"
-var failedSuffix = "failed"
-
-// IncrementGauge increments the specified gauge metric
-// It does this by logging an appropriate field value to a tracing span.
-func IncrementGauge(ctx context.Context, metric string) {
-	// The field name we use is the specified metric name prepended with "fn_gauge_" to designate that it is a Prometheus gauge metric
-	// The collector will remove "gauge_" and use the result as the Prometheus metric name.
-	fieldname := "fn_gauge_" + metric
-
-	// Spans are not processed by the collector until the span ends, so to prevent any delay
-	// in processing the stats when the span is long-lived we create a new span for every call
-	// suffix the span name with "_dummy" to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+"_dummy")
-	defer span.Finish()
-
-	// gauge metrics are actually float64; here we log that it should be increased by +1
-	span.LogFields(log.Float64(fieldname, 1.))
-}
-
-// DecrementGauge decrements the specified gauge metric
-// It does this by logging an appropriate field value to a tracing span.
-func DecrementGauge(ctx context.Context, metric string) {
-	// The field name we use is the specified metric name prepended with "fn_gauge_" to designate that it is a Prometheus gauge metric
-	// The collector will remove "gauge_" and use the result as the Prometheus metric name.
-	fieldname := "fn_gauge_" + metric
-
-	// Spans are not processed by the collector until the span ends, so to prevent any delay
-	// in processing the stats when the span is long-lived we create a new span for every call
-	// suffix the span name with "_dummy" to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+"_dummy")
-	defer span.Finish()
-
-	// gauge metrics are actually float64; here we log that it should be increased by -1
-	span.LogFields(log.Float64(fieldname, -1.))
-}
-
-// IncrementCounter increments the specified counter metric
-// It does this by logging an appropriate field value to a tracing span.
-func IncrementCounter(ctx context.Context, metric string) {
-	// The field name we use is the specified metric name prepended with "fn_counter_" to designate that it is a Prometheus counter metric
-	// The collector will remove "fn_counter_" and use the result as the Prometheus metric name.
-	fieldname := "fn_counter_" + metric
-
-	// Spans are not processed by the collector until the span ends, so to prevent any delay
-	// in processing the stats when the span is long-lived we create a new span for every call
-	// suffix the span name with "_dummy" to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+"_dummy")
-	defer span.Finish()
-
-	// counter metrics are actually float64; here we log that it should be increased by +1
-	span.LogFields(log.Float64(fieldname, 1.))
-}
+const (
+	queuedMetricName    = "queued"
+	callsMetricName     = "calls"
+	runningSuffix       = "running"
+	completedMetricName = "completed"
+	failedMetricName    = "failed"
+)

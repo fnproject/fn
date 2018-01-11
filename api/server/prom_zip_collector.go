@@ -74,7 +74,7 @@ func (pc *PrometheusCollector) Collect(span *zipkincore.Span) error {
 			key, ("Metric " + key), labelKeysFromSpan, labelValuesFromSpan)
 
 		// now report the metric value
-		thisMetricHistogramVec.With(labelValuesToUse).Observe(float64(value))
+		thisMetricHistogramVec.With(labelValuesToUse).Observe(value)
 	}
 
 	// now extract any logged counter metric values from the span
@@ -250,10 +250,10 @@ func getLabels(span *zipkincore.Span) ([]string, map[string]string) {
 	return keys, labelMap
 }
 
-// extract from the span the logged histogram metric values, which we assume are uint64 values
-func getLoggedHistogramMetrics(span *zipkincore.Span) map[string]uint64 {
+// extract from the span the logged histogram metric values, which we assume are float64 values
+func getLoggedHistogramMetrics(span *zipkincore.Span) map[string]float64 {
 
-	keyValueMap := make(map[string]uint64)
+	keyValueMap := make(map[string]float64)
 
 	// extract any annotations whose Value starts with "fn_histogram"
 	annotations := span.GetAnnotations()
@@ -261,7 +261,7 @@ func getLoggedHistogramMetrics(span *zipkincore.Span) map[string]uint64 {
 		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_histogram_") {
 			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
 			if len(keyvalue) == 2 {
-				if value, err := strconv.ParseUint(keyvalue[1], 10, 64); err == nil {
+				if value, err := strconv.ParseFloat(keyvalue[1], 64); err == nil {
 					key := strings.TrimSpace(keyvalue[0])
 					key = "fn_" + key[13:] // strip off leading "fn_histogram_" and then prepend "fn_" to the front
 					keyValueMap[key] = value

@@ -16,7 +16,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
@@ -728,25 +727,18 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 
-// WriteStat logs each metric in the specified Stats structure
-// It does this by logging appropriate field values to a tracing span.
+// WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 
-	// Spans are not processed by the collector until the span ends, so to prevent any delay
-	// in processing the stats when the function is long-lived we create a new span for every call
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_stats")
-	defer span.Finish()
-
+	// Convert each metric value from uint64 to float64
+	// and, for backward compatibility reasons, prepend each metric name with "docker_stats_fn_"
+	// (if we don't care about compatibility then we can remove that)
+	var metrics = make(map[string]float64)
 	for key, value := range stat.Metrics {
-		// The field name we use is the metric name prepended with "fn_histogram_" to designate that it is a Prometheus histogram metric
-		// The collector will remove "histogram_" and use the result as the Prometheus metric name.
-		fieldname := "fn_histogram_" + "docker_stats_fn_" + key
-		// The extra "docker_stats_fn_" is to keep the Prometheus metric name consistent with what
-		//   it was before whilst allowing the collector to be simplified.
-
-		// histogram metrics are actually int64
-		span.LogFields(log.Uint64(fieldname, value))
+		metrics["docker_stats_fn_"+key] = float64(value)
 	}
+
+	common.PublishHistograms(ctx, metrics)
 
 	c.Lock()
 	defer c.Unlock()
