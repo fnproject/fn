@@ -64,13 +64,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			route.Format = models.FormatDefault
 		}
 
-		// this ensures that there is an image, path, timeouts, memory, etc are valid.
-		// NOTE: this means assign any changes above into route's fields
-		err = route.Validate()
-		if err != nil {
-			return err
-		}
-
 		id := id.New().String()
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
@@ -89,6 +82,13 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		req.Header.Set("FN_METHOD", req.Method)
 		req.Header.Set("FN_REQUEST_URL", reqURL(req))
 		req.Header.Set("FN_CALL_ID", id)
+
+		// this ensures that there is an image, path, timeouts, memory, etc are valid.
+		// NOTE: this means assign any changes above into route's fields
+		err = route.Validate()
+		if err != nil {
+			return err
+		}
 
 		c.Call = &models.Call{
 			ID:      id,
