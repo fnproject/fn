@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/fnproject/fn/api/common"
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go-opentracing/thrift/gen-go/zipkincore"
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,8 +55,8 @@ func (pc *PrometheusCollector) Collect(span *zipkincore.Span) error {
 	labelKeysFromSpan, labelValuesFromSpan := getLabels(span)
 
 	// report the duration of this span as a histogram
-	// (unless the span name ends with "_dummy" to denote it as being purely the carrier of a metric value and so of no interest in itself)
-	if !strings.HasSuffix(spanName, "_dummy") {
+	// (unless the span name ends with SpannameSuffixDummy to denote it as being purely the carrier of a metric value and so of no interest in itself)
+	if !strings.HasSuffix(spanName, common.SpannameSuffixDummy) {
 
 		// get the HistogramVec for this span name
 		histogramVec, labelValuesToUse := pc.getHistogramVec(
@@ -250,20 +251,22 @@ func getLabels(span *zipkincore.Span) ([]string, map[string]string) {
 	return keys, labelMap
 }
 
-// extract from the span the logged histogram metric values, which we assume are float64 values
+// extract from the span the logged histogram metric values.
+// These are the ones whose names start with FieldnamePrefixHistogram,
+// and whose values we assume are float64
 func getLoggedHistogramMetrics(span *zipkincore.Span) map[string]float64 {
 
 	keyValueMap := make(map[string]float64)
 
-	// extract any annotations whose Value starts with "fn_histogram"
+	// extract any annotations whose Value starts with FieldnamePrefixHistogram
 	annotations := span.GetAnnotations()
 	for _, thisAnnotation := range annotations {
-		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_histogram_") {
+		if strings.HasPrefix(thisAnnotation.GetValue(), common.FieldnamePrefixHistogram) {
 			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
 			if len(keyvalue) == 2 {
 				if value, err := strconv.ParseFloat(keyvalue[1], 64); err == nil {
 					key := strings.TrimSpace(keyvalue[0])
-					key = "fn_" + key[13:] // strip off leading "fn_histogram_" and then prepend "fn_" to the front
+					key = common.FnPrefix + key[len(common.FieldnamePrefixHistogram):] // strip off fieldname prefix and then prepend "fn_" to the front
 					keyValueMap[key] = value
 				}
 			}
@@ -273,21 +276,21 @@ func getLoggedHistogramMetrics(span *zipkincore.Span) map[string]float64 {
 }
 
 // extract from the span the logged counter metric values.
-// These are the ones whose names start with "fn_counter_",
+// These are the ones whose names start with FieldnamePrefixCounter,
 // and whose values we assume are float64
 func getLoggedCounterMetrics(span *zipkincore.Span) map[string]float64 {
 
 	keyValueMap := make(map[string]float64)
 
-	// extract any annotations whose Value starts with "fn_counter"
+	// extract any annotations whose Value starts with FieldnamePrefixCounter
 	annotations := span.GetAnnotations()
 	for _, thisAnnotation := range annotations {
-		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_counter_") {
+		if strings.HasPrefix(thisAnnotation.GetValue(), common.FieldnamePrefixCounter) {
 			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
 			if len(keyvalue) == 2 {
 				if value, err := strconv.ParseFloat(keyvalue[1], 64); err == nil {
 					key := strings.TrimSpace(keyvalue[0])
-					key = "fn_" + key[11:] // strip off leading "fn_counter_" and then prepend "fn_" to the front
+					key = common.FnPrefix + key[len(common.FieldnamePrefixCounter):] // strip off fieldname prefix and then prepend "fn_" to the front
 					keyValueMap[key] = value
 				}
 			}
@@ -297,21 +300,21 @@ func getLoggedCounterMetrics(span *zipkincore.Span) map[string]float64 {
 }
 
 // extract from the span the logged gauge metric values.
-// These are the ones whose names start with "fn_gauge_",
+// These are the ones whose names start with FieldnamePrefixGauge,
 // and whose values we assume are float64
 func getLoggedGaugeMetrics(span *zipkincore.Span) map[string]float64 {
 
 	keyValueMap := make(map[string]float64)
 
-	// extract any annotations whose Value starts with "fn_gauge"
+	// extract any annotations whose Value starts with FieldnamePrefixGauge
 	annotations := span.GetAnnotations()
 	for _, thisAnnotation := range annotations {
-		if strings.HasPrefix(thisAnnotation.GetValue(), "fn_gauge_") {
+		if strings.HasPrefix(thisAnnotation.GetValue(), common.FieldnamePrefixGauge) {
 			keyvalue := strings.Split(thisAnnotation.GetValue(), "=")
 			if len(keyvalue) == 2 {
 				if value, err := strconv.ParseFloat(keyvalue[1], 64); err == nil {
 					key := strings.TrimSpace(keyvalue[0])
-					key = "fn_" + key[9:] // strip off leading "fn_gauge_" and then prepend "fn_" to the front
+					key = common.FnPrefix + key[len(common.FieldnamePrefixGauge):] // strip off fieldname prefix and then prepend "fn_" to the front
 					keyValueMap[key] = value
 				}
 			}
