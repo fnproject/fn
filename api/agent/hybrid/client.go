@@ -118,14 +118,18 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 	return err
 }
 
-func (cl *client) GetApp(ctx context.Context, appID string) (*models.App, error) {
+func (cl *client) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (cl *client) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
 	defer span.End()
 
 	var a struct {
 		A models.App `json:"app"`
 	}
-	err := cl.do(ctx, nil, &a, "GET", "apps", appID)
+	err := cl.do(ctx, nil, &a, "GET", "apps", app.Name)
 	return &a.A, err
 }
 

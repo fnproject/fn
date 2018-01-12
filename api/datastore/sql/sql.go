@@ -89,7 +89,7 @@ const (
 	routeSelector   = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector    = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appNameSelector = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
-	appIDSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
+	appIDSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE id=?`
 )
 
 type sqlStore struct {
