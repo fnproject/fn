@@ -488,6 +488,9 @@ definitions:
         type: integer
         format: uint64
         description: Max usable memory for this route (MiB).
+      cpus:
+        type: string
+        description: Max usable CPU cores for this route. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
       type:
         enum:
           - sync

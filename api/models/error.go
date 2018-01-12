@@ -208,7 +208,7 @@ func (e err) Code() int { return e.code }
 func NewAPIError(code int, e error) APIError { return err{code, e} }
 
 func IsAPIError(e error) bool {
-	_, ok := e.(err)
+	_, ok := e.(APIError)
 	return ok
 }
 
