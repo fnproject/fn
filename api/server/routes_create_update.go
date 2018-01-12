@@ -141,6 +141,9 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error {
 	err := c.BindJSON(wroute)
 	if err != nil {
+		if models.IsAPIError(err) {
+			return err
+		}
 		return models.ErrInvalidJSON
 	}
 

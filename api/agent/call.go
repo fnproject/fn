@@ -103,6 +103,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
 			Memory:      route.Memory,
+			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
 			Headers:     req.Header,
 			CreatedAt:   strfmt.DateTime(time.Now()),
@@ -130,6 +131,11 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
 	conf["FN_TYPE"] = route.Type
+
+	CPUs := route.CPUs.String()
+	if CPUs != "" {
+		conf["FN_CPUS"] = CPUs
+	}
 	return conf
 }
 

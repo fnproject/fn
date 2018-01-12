@@ -338,7 +338,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		}).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, isAsync):
+		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, uint64(callObj.CPUs), isAsync):
 			cancel()
 			if isOpen {
 				a.wg.Add(1)
@@ -404,7 +404,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	ch := make(chan Slot)
 
 	select {
-	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
 		if !isOpen {
 			return nil, models.ErrCallTimeoutServerBusy
 		}
@@ -544,6 +544,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		image:   call.Image,
 		env:     map[string]string(call.Config),
 		memory:  call.Memory,
+		cpus:    uint64(call.CPUs),
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
 		stdout:  call.w,
@@ -604,12 +605,13 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 		image:  call.Image,
 		env:    map[string]string(call.Config),
 		memory: call.Memory,
+		cpus:   uint64(call.CPUs),
 		stdin:  stdinRead,
 		stdout: stdoutWrite,
 		stderr: &ghostWriter{inner: stderr},
 	}
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -698,6 +700,7 @@ type container struct {
 	image   string
 	env     map[string]string
 	memory  uint64
+	cpus    uint64
 	timeout time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
@@ -735,6 +738,7 @@ func (c *container) Image() string                  { return c.image }
 func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
+func (c *container) CPUs() uint64                   { return c.cpus }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

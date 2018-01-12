@@ -22,7 +22,7 @@ README:
 $ go generate
 ```
 
-NOTE: You may need to `go get github.com/jteeuwen/go-bindata` before running `go
+NOTE: You may need to `go get -u github.com/jteeuwen/go-bindata/...` before running `go
 generate` in order for it to work.
 
 After running `go generate`, the `migrations.go` file should be updated. Check

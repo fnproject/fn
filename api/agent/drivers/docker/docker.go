@@ -115,6 +115,15 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context:    ctx,
 	}
 
+	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
+	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
+	// which is approx 8 CPUS in CFS world.
+	// Also see docker run options --cpu-quota and --cpu-period
+	if task.CPUs() != 0 {
+		container.HostConfig.CPUQuota = int64(task.CPUs() * 100)
+		container.HostConfig.CPUPeriod = 100000
+	}
+
 	volumes := task.Volumes()
 	for _, mapping := range volumes {
 		hostDir := mapping[0]
@@ -140,7 +149,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
 			log.WithFields(logrus.Fields{"call_id": task.Id(), "command": container.Config.Cmd, "memory": container.Config.Memory,
-				"cpu_shares": container.Config.CPUShares, "hostname": container.Config.Hostname, "name": container.Name,
+				"cpu_shares": container.Config.CPUShares, "cpu_quota": task.CPUs(), "hostname": container.Config.Hostname, "name": container.Name,
 				"image": container.Config.Image, "volumes": container.Config.Volumes, "binds": container.HostConfig.Binds, "container": container.Name,
 			}).WithError(err).Error("Could not create container")
 
