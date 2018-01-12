@@ -144,8 +144,7 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 		return fmt.Errorf("failed to write log, %v", err)
 	}
 
-	metrics := map[string]float64{"s3_log_upload_size": float64(cr.count)}
-	common.PublishHistograms(ctx, metrics)
+	common.PublishHistogramToSpan(span, "s3_log_upload_size", float64(cr.count))
 	return nil
 }
 

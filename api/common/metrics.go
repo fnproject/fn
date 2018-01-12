@@ -61,6 +61,7 @@ func IncrementCounter(ctx context.Context, metric string) {
 
 // PublishHistograms publishes the specifed histogram metrics
 // It does this by logging appropriate field values to a tracing span
+// Use this when the current tracing span is long-lived and you want the metric to be visible before it ends
 func PublishHistograms(ctx context.Context, metrics map[string]float64) {
 
 	// Spans are not processed by the collector until the span ends, so to prevent any delay
@@ -75,6 +76,34 @@ func PublishHistograms(ctx context.Context, metrics map[string]float64) {
 		fieldname := FieldnamePrefixHistogram + key
 		span.LogFields(log.Float64(fieldname, value))
 	}
+}
+
+// PublishHistogram publishes the specifed histogram metric
+// It does this by logging an appropriate field value to a tracing span
+// Use this when the current tracing span is long-lived and you want the metric to be visible before it ends
+func PublishHistogram(ctx context.Context, key string, value float64) {
+
+	// Spans are not processed by the collector until the span ends, so to prevent any delay
+	// in processing the stats when the current span is long-lived we create a new span for every call.
+	// suffix the span name with SpannameSuffixDummy to denote that it is used only to hold a metric and isn't itself of any interest
+	span, ctx := opentracing.StartSpanFromContext(ctx, "histogram_metrics"+SpannameSuffixDummy)
+	defer span.Finish()
+
+	// The field name we use is the metric name prepended with FieldnamePrefixHistogram to designate that it is a Prometheus histogram metric
+	// The collector will replace that prefix with "fn_" and use the result as the Prometheus metric name.
+	fieldname := FieldnamePrefixHistogram + key
+	span.LogFields(log.Float64(fieldname, value))
+}
+
+// PublishHistogramToSpan publishes the specifed histogram metric
+// It does this by logging an appropriate field value to the specified tracing span
+// Use this when you don't need to create a new tracing span
+func PublishHistogramToSpan(span opentracing.Span, key string, value float64) {
+
+	// The field name we use is the metric name prepended with FieldnamePrefixHistogram to designate that it is a Prometheus histogram metric
+	// The collector will replace that prefix with "fn_" and use the result as the Prometheus metric name.
+	fieldname := FieldnamePrefixHistogram + key
+	span.LogFields(log.Float64(fieldname, value))
 }
 
 const (
