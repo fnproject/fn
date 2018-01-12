@@ -176,8 +176,10 @@ func transformTimeout(e error, isRetriable bool) error {
 func (a *agent) handleStatsDequeue(ctx context.Context, err error, callI Call) {
 	if err == context.DeadlineExceeded {
 		a.stats.Dequeue(ctx, callI.Model().AppName, callI.Model().Path)
+		// note that this is not timeout from the perspective of the caller, so don't increment the timeout count
 	} else {
 		a.stats.DequeueAndFail(ctx, callI.Model().AppName, callI.Model().Path)
+		a.stats.IncrementErrors(ctx)
 	}
 }
 
@@ -254,10 +256,11 @@ func (a *agent) Submit(callI Call) error {
 	} else {
 		// decrement running count, increment failed count
 		a.stats.Failed(ctx, callI.Model().AppName, callI.Model().Path)
-
+		// increment the timeout or errors count, as appropriate
 		if err == context.DeadlineExceeded {
-			//increment the timedout count (this is in addition to incrementing the failed count)
-			a.stats.Timedout(ctx)
+			a.stats.IncrementTimedout(ctx)
+		} else {
+			a.stats.IncrementErrors(ctx)
 		}
 	}
 
