@@ -38,6 +38,7 @@ the function's format:
 * `FN_METHOD` - the HTTP method for the request, eg: `GET` or `POST`
 * `FN_FORMAT` - a string representing one of the [function formats](function-format.md), currently either `default` or `http`. Default is `default`.
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
+* `FN_CPUS` - a string representing the amount of CPU available to the call, in MilliCPUs or floating-point number, eg. `100m` or `0.1`. Header is present only if `cpus` is set for the route.
 * `FN_TYPE` - the type for this call, currently 'sync' or 'async'
 
 Dependent upon the function's format, additional variables that change on a
