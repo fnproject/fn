@@ -486,17 +486,17 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		// Testing get
 		{
-			_, err = ds.GetRoute(ctx, "a", "")
+			_, err = ds.GetRoute(ctx, id.New().String(), "")
 			if err != models.ErrRoutesMissingPath {
 				t.Fatalf("Test GetRoute(empty route path): expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
 			}
 
 			_, err = ds.GetRoute(ctx, "", "a")
-			if err != models.ErrAppsMissingName {
-				t.Fatalf("Test GetRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrAppsMissingName, err)
+			if err != models.ErrDatastoreEmptyAppID {
+				t.Fatalf("Test GetRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
 			}
 
-			route, err := ds.GetRoute(ctx, testApp.Name, testRoute.Path)
+			route, err := ds.GetRoute(ctx, testApp.ID, testRoute.Path)
 			if err != nil {
 				t.Fatalf("Test GetRoute: unexpected error %v", err)
 			}
@@ -704,7 +704,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test RemoveApp: unexpected error: %v", err)
 		}
 
-		route, err := ds.GetRoute(ctx, testApp.Name, testRoute.Path)
+		route, err := ds.GetRoute(ctx, testApp.ID, testRoute.Path)
 		if err != nil && err != models.ErrRoutesNotFound {
 			t.Fatalf("Test GetRoute: expected error `%v`, but it was `%v`", models.ErrRoutesNotFound, err)
 		}

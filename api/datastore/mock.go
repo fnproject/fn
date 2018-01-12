@@ -39,6 +39,16 @@ func (m *mock) GetApp(ctx context.Context, app *models.App) (*models.App, error)
 	return nil, models.ErrAppsNotFound
 }
 
+func (m *mock) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	for _, a := range m.Apps {
+		if a.ID == appID {
+			return a, nil
+		}
+	}
+
+	return nil, models.ErrAppsNotFound
+}
+
 type sortA []*models.App
 
 func (s sortA) Len() int           { return len(s) }
@@ -92,9 +102,9 @@ func (m *mock) RemoveApp(ctx context.Context, app *models.App) error {
 	return models.ErrAppsNotFound
 }
 
-func (m *mock) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
+func (m *mock) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	for _, r := range m.Routes {
-		if r.AppID == app.ID && r.Path == routePath {
+		if r.AppID == appID && r.Path == routePath {
 			return r, nil
 		}
 	}
@@ -133,7 +143,7 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 		return nil, err
 	}
 
-	if r, _ := m.GetRoute(ctx, a, route.Path); r != nil {
+	if r, _ := m.GetRoute(ctx, a.ID, route.Path); r != nil {
 		return nil, models.ErrRoutesAlreadyExists
 	}
 	m.Routes = append(m.Routes, route)
@@ -141,7 +151,7 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 }
 
 func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	r, err := m.GetRoute(ctx, &models.App{Name: route.AppID, ID: route.AppID}, route.Path)
+	r, err := m.GetRoute(ctx, route.AppID, route.Path)
 	if err != nil {
 		return nil, err
 	}

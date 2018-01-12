@@ -19,7 +19,7 @@ func (s *Server) handleRouteGet(c *gin.Context) {
 		handleErrorResponse(c, err)
 		return
 	}
-	route, err := s.datastore.GetRoute(ctx, app, routePath)
+	route, err := s.datastore.GetRoute(ctx, app.ID, routePath)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

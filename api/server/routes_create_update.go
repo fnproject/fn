@@ -85,7 +85,7 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 		}
 		return routeResponse{"Route successfully created", wroute.Route}, nil
 	case http.MethodPut:
-		_, err := s.datastore.GetRoute(ctx, app, wroute.Route.Path)
+		_, err := s.datastore.GetRoute(ctx, app.ID, wroute.Route.Path)
 		if err != nil && err == models.ErrRoutesNotFound {
 			err := s.submitRoute(ctx, wroute)
 			if err != nil {

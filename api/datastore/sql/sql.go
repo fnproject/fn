@@ -86,9 +86,10 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
-	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, app_id, path, stats, error FROM calls`
-	appSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
+	routeSelector   = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
+	callSelector    = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
+	appNameSelector = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
+	appIDSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
 )
 
 type sqlStore struct {
@@ -298,7 +299,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
-		err := getAppTx(tx, ctx, app.Name, app)
+		err := getAppTx(tx, ctx, app.Name, false, app)
 		if err != nil {
 			return err
 		}
@@ -334,7 +335,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
 		var a models.App
-		err := getAppTx(tx, ctx, app.Name, &a)
+		err := getAppTx(tx, ctx, app.Name, false, &a)
 		if err != nil {
 			return err
 		}
@@ -366,11 +367,17 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, app *models.App) error {
 	})
 }
 
-func getAppTx(tx *sqlx.Tx, ctx context.Context, appName string, app *models.App) error {
-	query := tx.Rebind(appSelector)
-	row := tx.QueryRowxContext(ctx, query, appName)
+func getAppTx(tx *sqlx.Tx, ctx context.Context, app string, isAppID bool, a *models.App) error {
+	q := ""
+	if !isAppID {
+		q = appNameSelector
+	} else {
+		q = appIDSelector
+	}
+	query := tx.Rebind(q)
+	row := tx.QueryRowxContext(ctx, query, app)
 
-	err := row.StructScan(app)
+	err := row.StructScan(a)
 	if err == sql.ErrNoRows {
 		return models.ErrAppsNotFound
 	}
@@ -379,12 +386,23 @@ func getAppTx(tx *sqlx.Tx, ctx context.Context, appName string, app *models.App)
 
 func (ds *sqlStore) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, app.Name, app)
+		return getAppTx(tx, ctx, app.Name, false, app)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return app, err
+}
+
+func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	var app models.App
+	err := ds.Tx(func(tx *sqlx.Tx) error {
+		return getAppTx(tx, ctx, appID, true, &app)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &app, err
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
@@ -555,10 +573,10 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, app *models.App, routePath 
 	return nil
 }
 
-func (ds *sqlStore) GetRoute(ctx context.Context, app *models.App, routePath string) (*models.Route, error) {
+func (ds *sqlStore) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	rSelectCondition := "%s WHERE app_id=? AND path=?"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
-	row := ds.db.QueryRowxContext(ctx, query, app.ID, routePath)
+	row := ds.db.QueryRowxContext(ctx, query, appID, routePath)
 
 	var route models.Route
 	err := row.StructScan(&route)

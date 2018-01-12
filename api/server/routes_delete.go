@@ -20,7 +20,7 @@ func (s *Server) handleRouteDelete(c *gin.Context) {
 	}
 	routePath := path.Clean(c.MustGet(api.Path).(string))
 
-	if _, err := s.datastore.GetRoute(ctx, app, routePath); err != nil {
+	if _, err := s.datastore.GetRoute(ctx, app.ID, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}

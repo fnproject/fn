@@ -118,19 +118,18 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 	return err
 }
 
-func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, error) {
+func (cl *client) GetApp(ctx context.Context, appID string) (*models.App, error) {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
 	defer span.End()
-
 
 	var a struct {
 		A models.App `json:"app"`
 	}
-	err := cl.do(ctx, nil, &a, "GET", "apps", appName)
+	err := cl.do(ctx, nil, &a, "GET", "apps", appID)
 	return &a.A, err
 }
 
-func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
+func (cl *client) GetRoute(ctx context.Context, appID, route string) (*models.Route, error) {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_route")
 	defer span.End()
 
@@ -138,7 +137,7 @@ func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.
 	var r struct {
 		R models.Route `json:"route"`
 	}
-	err := cl.do(ctx, nil, &r, "GET", "apps", appName, "routes", strings.TrimPrefix(route, "/"))
+	err := cl.do(ctx, nil, &r, "GET", "apps", appID, "routes", strings.TrimPrefix(route, "/"))
 	return &r.R, err
 }
 

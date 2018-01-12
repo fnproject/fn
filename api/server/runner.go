@@ -71,6 +71,11 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 	app := &models.App{Name: appName}
+	app, err := s.datastore.GetApp(c.Request.Context(), app)
+	if err != nil {
+		return err
+	}
+
 	call, err := s.agent.GetCall(
 		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
 		agent.FromRequest(app, path, c.Request),

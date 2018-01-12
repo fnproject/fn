@@ -56,7 +56,7 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gi
 		}
 		// get the route TODO
 		routePath := "/" + c.Param(api.CRoute)
-		route, err := s.datastore.GetRoute(context, app, routePath)
+		route, err := s.datastore.GetRoute(context, app.ID, routePath)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()

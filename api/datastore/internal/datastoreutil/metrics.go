@@ -24,6 +24,12 @@ func (m *metricds) GetApp(ctx context.Context, appName string) (*models.App, err
 	return m.ds.GetApp(ctx, appName)
 }
 
+func (m *metricds) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_app_by_id")
+	defer span.End()
+	return m.ds.GetAppByID(ctx, appID)
+}
+
 func (m *metricds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_apps")
 	defer span.End()
@@ -48,10 +54,10 @@ func (m *metricds) RemoveApp(ctx context.Context, appName string) error {
 	return m.ds.RemoveApp(ctx, appName)
 }
 
-func (m *metricds) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
+func (m *metricds) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_route")
 	defer span.End()
-	return m.ds.GetRoute(ctx, appName, routePath)
+	return m.ds.GetRoute(ctx, appID, routePath)
 }
 
 func (m *metricds) GetRoutesByApp(ctx context.Context, appName string, filter *models.RouteFilter) (routes []*models.Route, err error) {
