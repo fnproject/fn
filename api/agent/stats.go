@@ -141,6 +141,14 @@ func (s *stats) DequeueAndFail(ctx context.Context, app string, path string) {
 	s.mu.Unlock()
 }
 
+func (s *stats) Timedout(ctx context.Context) {
+	s.mu.Lock()
+
+	common.IncrementCounter(ctx, timedoutMetricName)
+
+	s.mu.Unlock()
+}
+
 func (s *stats) Stats() Stats {
 	var stats Stats
 	s.mu.Lock()
@@ -163,4 +171,5 @@ const (
 	runningSuffix       = "running"
 	completedMetricName = "completed"
 	failedMetricName    = "failed"
+	timedoutMetricName  = "timedout"
 )

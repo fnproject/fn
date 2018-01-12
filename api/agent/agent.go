@@ -254,6 +254,11 @@ func (a *agent) Submit(callI Call) error {
 	} else {
 		// decrement running count, increment failed count
 		a.stats.Failed(ctx, callI.Model().AppName, callI.Model().Path)
+
+		if err == context.DeadlineExceeded {
+			//increment the timedout count (this is in addition to incrementing the failed count)
+			a.stats.Timedout(ctx)
+		}
 	}
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
