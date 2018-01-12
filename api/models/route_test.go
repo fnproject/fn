@@ -1,13 +1,14 @@
 package models
 
 import (
+	"github.com/fnproject/fn/api/id"
 	"testing"
 )
 
 func TestRouteSimple(t *testing.T) {
 
 	route1 := &Route{
-		AppName:     "test",
+		AppID:       id.New().String(),
 		Path:        "/some",
 		Image:       "foo",
 		Memory:      128,
@@ -24,7 +25,7 @@ func TestRouteSimple(t *testing.T) {
 	}
 
 	route2 := &Route{
-		AppName:     "test",
+		AppID:       id.New().String(),
 		Path:        "/some",
 		Image:       "foo",
 		Memory:      128,
