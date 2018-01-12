@@ -94,7 +94,7 @@ func (s *stats) DequeueAndStart(ctx context.Context, app string, path string) {
 
 	s.running++
 	s.getStatsForFunction(path).running++
-	common.IncrementGauge(ctx, runningSuffix)
+	common.IncrementGauge(ctx, runningMetricName)
 
 	s.mu.Unlock()
 }
@@ -104,7 +104,7 @@ func (s *stats) Complete(ctx context.Context, app string, path string) {
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	common.DecrementGauge(ctx, runningSuffix)
+	common.DecrementGauge(ctx, runningMetricName)
 
 	s.complete++
 	s.getStatsForFunction(path).complete++
@@ -168,7 +168,7 @@ func (s *stats) Stats() Stats {
 const (
 	queuedMetricName    = "queued"
 	callsMetricName     = "calls"
-	runningSuffix       = "running"
+	runningMetricName   = "running"
 	completedMetricName = "completed"
 	failedMetricName    = "failed"
 	timedoutMetricName  = "timedout"
