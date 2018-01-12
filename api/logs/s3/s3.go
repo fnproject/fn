@@ -169,6 +169,6 @@ func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, 
 		return nil, fmt.Errorf("failed to read log, %v", err)
 	}
 
-    common.PublishHistogramToSpan(span, "s3_log_download_size", float64(size))
+	common.PublishHistogramToSpan(span, "s3_log_download_size", float64(size))
 	return bytes.NewReader(target.Bytes()), nil
 }
