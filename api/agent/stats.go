@@ -118,7 +118,7 @@ func (s *stats) Failed(ctx context.Context, app string, path string) {
 
 	s.running--
 	s.getStatsForFunction(path).running--
-	common.DecrementGauge(ctx, runningSuffix)
+	common.DecrementGauge(ctx, runningMetricName)
 
 	s.failed++
 	s.getStatsForFunction(path).failed++
