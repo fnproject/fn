@@ -14,6 +14,7 @@ name: fnproject/hello
 version: 0.0.1
 type: sync
 memory: 128
+cpus: 100m
 config:
   key: value
   key2: value2
@@ -55,6 +56,11 @@ Default: `sync`.
 `memory` (optional) allows you to set a maximum memory threshold for this
 function. If this function exceeds this limit during execution, it is stopped
 and error message is logged. Default: `128`.
+
+`cpus` (optional) is the amount of available CPU cores for this function. For example, `100m` or `0.1`
+will allow the function to consume at most 1/10 of a CPU core on the running machine. It
+expects to be a string in MilliCPUs format ('100m') or floating-point number ('0.5').
+Default: unlimited.
 
 `timeout` (optional) is the maximum time a function will be allowed to run. Default is 30 seconds. 
 

@@ -83,6 +83,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
     "image": "fnproject/hello",
     "type": "sync",
     "memory": 128,
+    "cpus": "100m",
     "config": {
         "key": "value",
         "key2": "value2",
@@ -124,6 +125,10 @@ In `async` functions the request will be ended with a `call_id` and the function
 #### memory (number)
 
 `memory` defines the amount of memory (in megabytes) required to run this function.
+
+#### cpus (string)
+
+`cpus` defines the amount of CPU cores (in MilliCPUs or floating-point number) required to run this function. For example, `500m` for 1/2 CPU cores or `0.5` for 1/2 CPU cores.
 
 #### config (object of string values)
 
