@@ -12,6 +12,8 @@
 // 5_add_app_created_at.up.sql
 // 6_add_app_updated_at.down.sql
 // 6_add_app_updated_at.up.sql
+// 7_add_route_cpus.down.sql
+// 7_add_route_cpus.up.sql
 // DO NOT EDIT!
 
 package migrations
@@ -94,7 +96,7 @@ func _1_add_route_created_atDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1_add_route_created_at.down.sql", size: 43, mode: os.FileMode(420), modTime: time.Unix(1511259011, 0)}
+	info := bindataFileInfo{name: "1_add_route_created_at.down.sql", size: 43, mode: os.FileMode(420), modTime: time.Unix(1510963763, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -114,7 +116,7 @@ func _1_add_route_created_atUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "1_add_route_created_at.up.sql", size: 40, mode: os.FileMode(420), modTime: time.Unix(1511919777, 0)}
+	info := bindataFileInfo{name: "1_add_route_created_at.up.sql", size: 40, mode: os.FileMode(420), modTime: time.Unix(1510963763, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -134,7 +136,7 @@ func _2_add_call_statsDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2_add_call_stats.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1511259011, 0)}
+	info := bindataFileInfo{name: "2_add_call_stats.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1511917353, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -154,7 +156,7 @@ func _2_add_call_statsUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2_add_call_stats.up.sql", size: 34, mode: os.FileMode(420), modTime: time.Unix(1511259011, 0)}
+	info := bindataFileInfo{name: "2_add_call_stats.up.sql", size: 34, mode: os.FileMode(420), modTime: time.Unix(1511917353, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -174,7 +176,7 @@ func _3_add_call_errorDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "3_add_call_error.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1511301534, 0)}
+	info := bindataFileInfo{name: "3_add_call_error.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1511989827, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -194,7 +196,7 @@ func _3_add_call_errorUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "3_add_call_error.up.sql", size: 34, mode: os.FileMode(420), modTime: time.Unix(1511301534, 0)}
+	info := bindataFileInfo{name: "3_add_call_error.up.sql", size: 34, mode: os.FileMode(420), modTime: time.Unix(1511989827, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -214,7 +216,7 @@ func _4_add_route_updated_atDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "4_add_route_updated_at.down.sql", size: 43, mode: os.FileMode(420), modTime: time.Unix(1513728957, 0)}
+	info := bindataFileInfo{name: "4_add_route_updated_at.down.sql", size: 43, mode: os.FileMode(420), modTime: time.Unix(1514060619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -234,7 +236,7 @@ func _4_add_route_updated_atUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "4_add_route_updated_at.up.sql", size: 48, mode: os.FileMode(420), modTime: time.Unix(1513730369, 0)}
+	info := bindataFileInfo{name: "4_add_route_updated_at.up.sql", size: 48, mode: os.FileMode(420), modTime: time.Unix(1514060619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -254,7 +256,7 @@ func _5_add_app_created_atDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "5_add_app_created_at.down.sql", size: 41, mode: os.FileMode(420), modTime: time.Unix(1513730497, 0)}
+	info := bindataFileInfo{name: "5_add_app_created_at.down.sql", size: 41, mode: os.FileMode(420), modTime: time.Unix(1514060619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -274,7 +276,7 @@ func _5_add_app_created_atUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "5_add_app_created_at.up.sql", size: 46, mode: os.FileMode(420), modTime: time.Unix(1513730527, 0)}
+	info := bindataFileInfo{name: "5_add_app_created_at.up.sql", size: 46, mode: os.FileMode(420), modTime: time.Unix(1514060619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -294,7 +296,7 @@ func _6_add_app_updated_atDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "6_add_app_updated_at.down.sql", size: 41, mode: os.FileMode(420), modTime: time.Unix(1513733616, 0)}
+	info := bindataFileInfo{name: "6_add_app_updated_at.down.sql", size: 41, mode: os.FileMode(420), modTime: time.Unix(1514060619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -314,7 +316,47 @@ func _6_add_app_updated_atUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "6_add_app_updated_at.up.sql", size: 46, mode: os.FileMode(420), modTime: time.Unix(1513733621, 0)}
+	info := bindataFileInfo{name: "6_add_app_updated_at.up.sql", size: 46, mode: os.FileMode(420), modTime: time.Unix(1514060619, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __7_add_route_cpusDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x28\xca\x2f\x2d\x49\x2d\x56\x70\x09\xf2\x0f\x50\x70\xf6\xf7\x09\xf5\xf5\x53\x48\x2e\x28\x2d\xb6\xe6\x02\x04\x00\x00\xff\xff\xec\x60\x24\xd0\x25\x00\x00\x00")
+
+func _7_add_route_cpusDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__7_add_route_cpusDownSql,
+		"7_add_route_cpus.down.sql",
+	)
+}
+
+func _7_add_route_cpusDownSql() (*asset, error) {
+	bytes, err := _7_add_route_cpusDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "7_add_route_cpus.down.sql", size: 37, mode: os.FileMode(420), modTime: time.Unix(1515624756, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __7_add_route_cpusUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x28\xca\x2f\x2d\x49\x2d\x56\x70\x74\x71\x51\x48\x2e\x28\x2d\x56\xc8\xcc\x2b\xb1\xe6\x02\x04\x00\x00\xff\xff\xf1\x18\xf8\xa9\x21\x00\x00\x00")
+
+func _7_add_route_cpusUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__7_add_route_cpusUpSql,
+		"7_add_route_cpus.up.sql",
+	)
+}
+
+func _7_add_route_cpusUpSql() (*asset, error) {
+	bytes, err := _7_add_route_cpusUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "7_add_route_cpus.up.sql", size: 33, mode: os.FileMode(420), modTime: time.Unix(1515628068, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -383,6 +425,8 @@ var _bindata = map[string]func() (*asset, error){
 	"5_add_app_created_at.up.sql":     _5_add_app_created_atUpSql,
 	"6_add_app_updated_at.down.sql":   _6_add_app_updated_atDownSql,
 	"6_add_app_updated_at.up.sql":     _6_add_app_updated_atUpSql,
+	"7_add_route_cpus.down.sql":       _7_add_route_cpusDownSql,
+	"7_add_route_cpus.up.sql":         _7_add_route_cpusUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -438,6 +482,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"5_add_app_created_at.up.sql":     &bintree{_5_add_app_created_atUpSql, map[string]*bintree{}},
 	"6_add_app_updated_at.down.sql":   &bintree{_6_add_app_updated_atDownSql, map[string]*bintree{}},
 	"6_add_app_updated_at.up.sql":     &bintree{_6_add_app_updated_atUpSql, map[string]*bintree{}},
+	"7_add_route_cpus.down.sql":       &bintree{_7_add_route_cpusDownSql, map[string]*bintree{}},
+	"7_add_route_cpus.up.sql":         &bintree{_7_add_route_cpusUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

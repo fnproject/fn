@@ -152,18 +152,6 @@ func TestSlotQueueBasic1(t *testing.T) {
 		}
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
-
-	stats1 := obj.getStats()
-	isNeeded, stats2 := obj.isNewContainerNeeded()
-
-	if stats1 != stats2 {
-		t.Fatalf("Faulty stats %#v != %#v", stats1, stats2)
-	}
-
-	// there are no waiters.
-	if isNeeded {
-		t.Fatalf("Shouldn't need a container")
-	}
 }
 
 func TestSlotQueueBasic2(t *testing.T) {
@@ -172,9 +160,6 @@ func TestSlotQueueBasic2(t *testing.T) {
 
 	if !obj.isIdle() {
 		t.Fatalf("Should be idle")
-	}
-	if ok, _ := obj.isNewContainerNeeded(); ok {
-		t.Fatalf("Should not need a new container")
 	}
 
 	outChan, cancel := obj.startDequeuer(context.Background())
@@ -185,6 +170,77 @@ func TestSlotQueueBasic2(t *testing.T) {
 	}
 
 	cancel()
+}
+
+func statsHelperSet(runC, startC, waitC, runL, startL, waitL uint64) slotQueueStats {
+	return slotQueueStats{
+		states:    [SlotQueueLast]uint64{runC, startC, waitC},
+		latencies: [SlotQueueLast]uint64{runL, startL, waitL},
+	}
+}
+
+func TestSlotNewContainerLogic1(t *testing.T) {
+
+	var cur slotQueueStats
+	var prev slotQueueStats
+
+	cur = statsHelperSet(0, 0, 0, 0, 0, 0)
+	prev = statsHelperSet(0, 0, 0, 0, 0, 0)
+	// CASE I: There's no one waiting despite cur == prev
+	if isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CASE II: There are starters >= waiters
+	cur = statsHelperSet(0, 10, 1, 0, 0, 0)
+	prev = statsHelperSet(0, 10, 1, 0, 0, 0)
+	if isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CASE III: no executors
+	cur = statsHelperSet(0, 0, 1, 0, 0, 0)
+	prev = statsHelperSet(0, 0, 1, 0, 0, 0)
+	if !isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CASE IV: cur == prev same, progress has stalled, with waiters and
+	// small num of executors
+	cur = statsHelperSet(2, 0, 10, 0, 0, 0)
+	prev = statsHelperSet(2, 0, 10, 0, 0, 0)
+	if !isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CASE V: cur != prev, runLat/executors*2 < waitLat
+	// Let's make cur and prev unequal to prevent blocked progress detection
+	cur = statsHelperSet(2, 0, 10, 12, 100, 13)
+	prev = statsHelperSet(2, 0, 10, 12, 101, 13)
+	if !isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CASE VI: cur != prev, runLat < waitLat
+	cur = statsHelperSet(1, 0, 10, 12, 100, 14)
+	prev = statsHelperSet(1, 0, 10, 12, 101, 14)
+	if !isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CAST VII: cur != prev, startLat < waitLat
+	cur = statsHelperSet(1, 0, 10, 2, 10, 20)
+	prev = statsHelperSet(1, 0, 10, 1, 11, 20)
+	if !isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	}
+
+	// CAST VIII: cur != prev, fallback
+	cur = statsHelperSet(1, 0, 10, 2, 10, 2)
+	prev = statsHelperSet(1, 0, 10, 1, 11, 2)
+	if isNewContainerNeeded(&cur, &prev) {
+		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	}
 }
 
 func TestSlotQueueBasic3(t *testing.T) {

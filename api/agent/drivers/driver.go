@@ -104,6 +104,9 @@ type ContainerTask interface {
 	// 0 is unlimited.
 	Memory() uint64
 
+	// CPUs in milli CPU units
+	CPUs() uint64
+
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string

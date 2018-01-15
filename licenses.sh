@@ -53,7 +53,7 @@ license() {
   echo "$1 No License Found"
 }
 
-deps=$(cat glide.lock | grep -E '\- name:' | awk '{print $3}')
+deps=$(cat Gopkg.lock | grep -E 'name.*=.*"' | awk '{print $3}' | tr -d '"')
 
 for dep in $deps; do
   license $dep

@@ -17,9 +17,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/sirupsen/logrus"
 )
 
@@ -144,7 +144,7 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 		return fmt.Errorf("failed to write log, %v", err)
 	}
 
-	span.LogFields(log.Int("fn_s3_log_upload_size", cr.count))
+	common.PublishHistogramToSpan(span, "s3_log_upload_size", float64(cr.count))
 	return nil
 }
 
@@ -169,6 +169,6 @@ func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, 
 		return nil, fmt.Errorf("failed to read log, %v", err)
 	}
 
-	span.LogFields(log.Int64("fn_s3_log_download_size", size))
+	common.PublishHistogramToSpan(span, "s3_log_download_size", float64(size))
 	return bytes.NewReader(target.Bytes()), nil
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
@@ -29,7 +28,6 @@ import (
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
 // TODO storing logs / call can push call over the timeout
-// TODO discuss concrete policy for hot launch or timeout / timeout vs time left
 // TODO if we don't cap the number of any one container we could get into a situation
 // where the machine is full but all the containers are idle up to the idle timeout. meh.
 // TODO async is still broken, but way less so. we need to modify mq semantics
@@ -38,7 +36,6 @@ import (
 // dies). need coordination w/ db.
 // TODO if a cold call times out but container is created but hasn't replied, could
 // end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
-// TODO the log api should be plaintext (or at least offer it)
 // TODO between calls, logs and stderr can contain output/ids from previous call. need elegant solution. grossness.
 // TODO if async would store requests (or interchange format) it would be slick, but
 // if we're going to store full calls in db maybe we should only queue pointers to ids?
@@ -153,13 +150,66 @@ func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
 }
 
 func (a *agent) Close() error {
-
 	a.shutonce.Do(func() {
 		close(a.shutdown)
 	})
 
 	a.wg.Wait()
 	return nil
+}
+
+func (a *agent) Submit(callI Call) error {
+	a.wg.Add(1)
+	defer a.wg.Done()
+
+	select {
+	case <-a.shutdown:
+		return models.ErrCallTimeoutServerBusy
+	default:
+	}
+
+	call := callI.(*call)
+
+	ctx, cancel := context.WithDeadline(call.req.Context(), call.execDeadline)
+	call.req = call.req.WithContext(ctx)
+	defer cancel()
+
+	ctx, finish := statSpans(ctx, call)
+	defer finish()
+
+	err := a.submit(ctx, call)
+	return err
+}
+
+func (a *agent) submit(ctx context.Context, call *call) error {
+	a.stats.Enqueue(ctx, call.AppName, call.Path)
+
+	slot, err := a.getSlot(ctx, call)
+	if err != nil {
+		a.handleStatsDequeue(ctx, call, err)
+		return transformTimeout(err, true)
+	}
+
+	defer slot.Close() // notify our slot is free once we're done
+
+	err = call.Start(ctx)
+	if err != nil {
+		a.handleStatsDequeue(ctx, call, err)
+		return transformTimeout(err, true)
+	}
+
+	// decrement queued count, increment running count
+	a.stats.DequeueAndStart(ctx, call.AppName, call.Path)
+
+	// pass this error (nil or otherwise) to end directly, to store status, etc
+	err = slot.exec(ctx, call)
+	a.handleStatsEnd(ctx, call, err)
+
+	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
+	// but this could put us over the timeout if the call did not reply yet (need better policy).
+	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+	err = call.End(ctx, err)
+	return transformTimeout(err, false)
 }
 
 func transformTimeout(e error, isRetriable bool) error {
@@ -174,98 +224,62 @@ func transformTimeout(e error, isRetriable bool) error {
 
 // handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
 // cases. Only timeouts can be a simple dequeue while other cases are actual errors.
-func (a *agent) handleStatsDequeue(err error, callI Call) {
+func (a *agent) handleStatsDequeue(ctx context.Context, call *call, err error) {
 	if err == context.DeadlineExceeded {
-		a.stats.Dequeue(callI.Model().AppName, callI.Model().Path)
+		a.stats.Dequeue(ctx, call.AppName, call.Path)
+		// note that this is not a timeout from the perspective of the caller, so don't increment the timeout count
 	} else {
-		a.stats.DequeueAndFail(callI.Model().AppName, callI.Model().Path)
+		a.stats.DequeueAndFail(ctx, call.AppName, call.Path)
+		a.stats.IncrementErrors(ctx)
 	}
 }
 
-func (a *agent) Submit(callI Call) error {
-	a.wg.Add(1)
-	defer a.wg.Done()
-
-	select {
-	case <-a.shutdown:
-		return models.ErrCallTimeoutServerBusy
-	default:
+// handleStatsEnd handles stats for after a call is ran, depending on error.
+func (a *agent) handleStatsEnd(ctx context.Context, call *call, err error) {
+	if err == nil {
+		// decrement running count, increment completed count
+		a.stats.Complete(ctx, call.AppName, call.Path)
+	} else {
+		// decrement running count, increment failed count
+		a.stats.Failed(ctx, call.AppName, call.Path)
+		// increment the timeout or errors count, as appropriate
+		if err == context.DeadlineExceeded {
+			a.stats.IncrementTimedout(ctx)
+		} else {
+			a.stats.IncrementErrors(ctx)
+		}
 	}
+}
 
-	// increment queued count
-	a.stats.Enqueue(callI.Model().AppName, callI.Model().Path)
-
-	call := callI.(*call)
-	ctx := call.req.Context()
-
+func statSpans(ctx context.Context, call *call) (ctxr context.Context, finish func()) {
 	// agent_submit_global has no parent span because we don't want it to inherit fn_appname or fn_path
-	span_global := opentracing.StartSpan("agent_submit_global")
-	defer span_global.Finish()
+	spanGlobal := opentracing.StartSpan("agent_submit_global")
 
 	// agent_submit_global has no parent span because we don't want it to inherit fn_path
-	span_app := opentracing.StartSpan("agent_submit_app")
-	span_app.SetBaggageItem("fn_appname", callI.Model().AppName)
-	defer span_app.Finish()
+	spanApp := opentracing.StartSpan("agent_submit_app")
+	spanApp.SetBaggageItem("fn_appname", call.AppName)
 
 	// agent_submit has a parent span in the usual way
 	// it doesn't matter if it inherits fn_appname or fn_path (and we set them here in any case)
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
-	span.SetBaggageItem("fn_appname", callI.Model().AppName)
-	span.SetBaggageItem("fn_path", callI.Model().Path)
-	defer span.Finish()
+	span.SetBaggageItem("fn_appname", call.AppName)
+	span.SetBaggageItem("fn_path", call.Path)
 
-	// Start the deadline context for Waiting for Slots
-	ctxSlotWait, cancelSlotWait := context.WithDeadline(ctx, call.slotDeadline)
-	call.req = call.req.WithContext(ctxSlotWait)
-	defer cancelSlotWait()
-
-	slot, err := a.getSlot(ctxSlotWait, call) // find ram available / running
-	if err != nil {
-		a.handleStatsDequeue(err, call)
-		return transformTimeout(err, true)
+	return ctx, func() {
+		spanGlobal.Finish()
+		spanApp.Finish()
+		span.Finish()
 	}
-	// TODO if the call times out & container is created, we need
-	// to make this remove the container asynchronously?
-	defer slot.Close() // notify our slot is free once we're done
-
-	err = call.Start(ctxSlotWait)
-	if err != nil {
-		a.handleStatsDequeue(err, call)
-		return transformTimeout(err, true)
-	}
-
-	// Swap deadline contexts for Execution Phase
-	cancelSlotWait()
-	ctxExec, cancelExec := context.WithDeadline(ctx, call.execDeadline)
-	call.req = call.req.WithContext(ctxExec)
-	defer cancelExec()
-
-	// decrement queued count, increment running count
-	a.stats.DequeueAndStart(callI.Model().AppName, callI.Model().Path)
-
-	err = slot.exec(ctxExec, call)
-	// pass this error (nil or otherwise) to end directly, to store status, etc
-	// End may rewrite the error or elect to return it
-
-	if err == nil {
-		// decrement running count, increment completed count
-		a.stats.Complete(callI.Model().AppName, callI.Model().Path)
-	} else {
-		// decrement running count, increment failed count
-		a.stats.Failed(callI.Model().AppName, callI.Model().Path)
-	}
-
-	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
-	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = opentracing.ContextWithSpan(context.Background(), span)
-	err = call.End(ctx, err)
-	return transformTimeout(err, false)
 }
 
 // getSlot returns a Slot (or error) for the request to run. Depending on hot/cold
 // request type, this may launch a new container or wait for other containers to become idle
 // or it may wait for resources to become available to launch a new container.
 func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
+	// start the deadline context for waiting for slots
+	ctx, cancel := context.WithDeadline(ctx, call.slotDeadline)
+	defer cancel()
+
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
@@ -305,6 +319,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 	logger := common.Logger(ctx)
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
 	isAsync := callObj.Type == models.TypeAsync
+	prevStats := callObj.slots.getStats()
 
 	for {
 		select {
@@ -318,17 +333,25 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		case <-callObj.slots.signaller:
 		}
 
-		isNeeded, stats := callObj.slots.isNewContainerNeeded()
-		logger.WithField("stats", stats).Debug("Hot function launcher stats")
+		curStats := callObj.slots.getStats()
+		isNeeded := isNewContainerNeeded(&curStats, &prevStats)
+		prevStats = curStats
+		logger.WithFields(logrus.Fields{
+			"currentStats":  curStats,
+			"previousStats": curStats,
+		}).Debug("Hot function launcher stats")
 		if !isNeeded {
 			continue
 		}
 
 		resourceCtx, cancel := context.WithCancel(context.Background())
-		logger.WithField("stats", stats).Info("Hot function launcher starting hot container")
+		logger.WithFields(logrus.Fields{
+			"currentStats":  curStats,
+			"previousStats": curStats,
+		}).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, isAsync):
+		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, uint64(callObj.CPUs), isAsync):
 			cancel()
 			if isOpen {
 				a.wg.Add(1)
@@ -394,7 +417,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	ch := make(chan Slot)
 
 	select {
-	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, isAsync):
+	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
 		if !isOpen {
 			return nil, models.ErrCallTimeoutServerBusy
 		}
@@ -498,7 +521,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	go func() {
 		// TODO make sure stdin / stdout not blocked if container dies or we leak goroutine
 		// we have to make sure this gets shut down or 2 threads will be reading/writing in/out
-		ci := protocol.NewCallInfo(call.Model(), call.req)
+		ci := protocol.NewCallInfo(call.Call, call.req)
 		errApp <- s.proto.Dispatch(ctx, ci, call.w)
 	}()
 
@@ -534,6 +557,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		image:   call.Image,
 		env:     map[string]string(call.Config),
 		memory:  call.Memory,
+		cpus:    uint64(call.CPUs),
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
 		stdout:  call.w,
@@ -594,12 +618,13 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 		image:  call.Image,
 		env:    map[string]string(call.Config),
 		memory: call.Memory,
+		cpus:   uint64(call.CPUs),
 		stdin:  stdinRead,
 		stdout: stdoutWrite,
 		stderr: &ghostWriter{inner: stderr},
 	}
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -688,6 +713,7 @@ type container struct {
 	image   string
 	env     map[string]string
 	memory  uint64
+	cpus    uint64
 	timeout time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
@@ -725,16 +751,20 @@ func (c *container) Image() string                  { return c.image }
 func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
+func (c *container) CPUs() uint64                   { return c.cpus }
 
-// Log the specified stats to a tracing span.
-// Spans are not processed by the collector until the span ends, so to prevent any delay
-// in processing the stats when the function is long-lived we create a new span for every call
+// WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_stats")
-	defer span.Finish()
+
+	// Convert each metric value from uint64 to float64
+	// and, for backward compatibility reasons, prepend each metric name with "docker_stats_fn_"
+	// (if we don't care about compatibility then we can remove that)
+	var metrics = make(map[string]float64)
 	for key, value := range stat.Metrics {
-		span.LogFields(log.Uint64("fn_"+key, value))
+		metrics["docker_stats_fn_"+key] = float64(value)
 	}
+
+	common.PublishHistograms(ctx, metrics)
 
 	c.Lock()
 	defer c.Unlock()

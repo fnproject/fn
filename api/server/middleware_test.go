@@ -73,7 +73,7 @@ func TestRootMiddleware(t *testing.T) {
 			{Name: "myapp2", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/app2func", AppName: "myapp2", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
 				Config: map[string]string{"NAME": "johnny"},
