@@ -184,6 +184,11 @@ var (
 		code:  http.StatusNotFound,
 		error: errors.New("Path not found"),
 	}
+	ErrInvalidCPUs = err{
+		code: http.StatusBadRequest,
+		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
+			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
@@ -201,6 +206,11 @@ type err struct {
 func (e err) Code() int { return e.code }
 
 func NewAPIError(code int, e error) APIError { return err{code, e} }
+
+func IsAPIError(e error) bool {
+	_, ok := e.(APIError)
+	return ok
+}
 
 // Error uniform error output
 type Error struct {

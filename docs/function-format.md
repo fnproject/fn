@@ -77,6 +77,7 @@ following, that may be found in the environment instead:
 * `FN_METHOD`
 * `FN_FORMAT`
 * `FN_MEMORY`
+* `FN_CPUS` (present only if `cpus` is set for the route)
 * `FN_TYPE`
 
 #### Pros/Cons

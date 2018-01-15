@@ -15,7 +15,11 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 
 	err := c.BindJSON(&wapp)
 	if err != nil {
-		handleErrorResponse(c, models.ErrInvalidJSON)
+		if models.IsAPIError(err) {
+			handleErrorResponse(c, err)
+		} else {
+			handleErrorResponse(c, models.ErrInvalidJSON)
+		}
 		return
 	}
 

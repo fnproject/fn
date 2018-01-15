@@ -118,6 +118,11 @@ type Call struct {
 	// Memory is the amount of RAM this call is allocated.
 	Memory uint64 `json:"memory,omitempty" db:"-"`
 
+	// CPU as in MilliCPUs where each CPU core is split into 1000 units, specified either
+	// *) milliCPUs as "100m" which is 1/10 of a CPU or
+	// *) as floating point number "0.1" which is 1/10 of a CPU
+	CPUs MilliCPUs `json:"cpus,omitempty" db:"-"`
+
 	// Config is the set of configuration variables for the call
 	Config Config `json:"config,omitempty" db:"-"`
 

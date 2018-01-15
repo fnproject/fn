@@ -185,6 +185,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
+	CPUs := models.MilliCPUs(1000)
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
@@ -195,6 +196,7 @@ func TestCallConfigurationModel(t *testing.T) {
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_CPUS":     CPUs.String(),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
 		"ROUTE_VAR":   "BAR",
@@ -210,6 +212,7 @@ func TestCallConfigurationModel(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
+		CPUs:        CPUs,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
@@ -243,6 +246,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
+	CPUs := models.MilliCPUs(200)
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
@@ -255,6 +259,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_CPUS":     CPUs.String(),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
 		"ROUTE_VAR":   "BAR",
@@ -277,6 +282,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
+		CPUs:        CPUs,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,
@@ -343,6 +349,7 @@ func TestSubmitError(t *testing.T) {
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
+	CPUs := models.MilliCPUs(200)
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 	payload := "payload"
@@ -353,6 +360,7 @@ func TestSubmitError(t *testing.T) {
 		"FN_APP_NAME": appName,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_CPUS":     CPUs.String(),
 		"FN_TYPE":     typ,
 		"APP_VAR":     "FOO",
 		"ROUTE_VAR":   "BAR",
@@ -369,6 +377,7 @@ func TestSubmitError(t *testing.T) {
 		Timeout:     timeout,
 		IdleTimeout: idleTimeout,
 		Memory:      memory,
+		CPUs:        CPUs,
 		Payload:     payload,
 		URL:         url,
 		Method:      method,

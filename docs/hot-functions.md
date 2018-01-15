@@ -93,6 +93,7 @@ requests:
 		"path": "/hot",
 		"image": "USERNAME/hchttp",
 		"memory": 64,
+		"cpus": "100m",
 		"type": "sync",
 		"config": null,
 		"format": "http",

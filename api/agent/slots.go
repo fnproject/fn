@@ -334,6 +334,7 @@ func getSlotQueueKey(call *call) string {
 	fmt.Fprint(hash, call.Timeout, "\x00")
 	fmt.Fprint(hash, call.IdleTimeout, "\x00")
 	fmt.Fprint(hash, call.Memory, "\x00")
+	fmt.Fprint(hash, call.CPUs, "\x00")
 	fmt.Fprint(hash, call.Format, "\x00")
 
 	// we have to sort these before printing, yay. TODO do better
