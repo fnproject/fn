@@ -46,8 +46,6 @@ img-error:
 	docker pull fnproject/error
 img-hello:
 	docker pull fnproject/hello
-img-hot:
-	docker pull hhexo/hot
 img-mysql:
 	docker pull mysql
 img-postgres:
@@ -55,7 +53,7 @@ img-postgres:
 img-minio:
 	docker pull minio/minio
 
-pull-images: img-sleeper img-error img-hello img-hot img-mysql img-postgres img-minio
+pull-images: img-sleeper img-error img-hello img-mysql img-postgres img-minio
 
 test-datastore:
 	cd api/datastore && go test -v ./...
