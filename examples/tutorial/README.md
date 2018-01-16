@@ -28,7 +28,7 @@ Learn the basics about sending data into your function. Choose your language:
 ## Key Examples
 
 * Learn how to get parameters from a web request. [Click here](params)
-* Write your first HotFunction (stays alive to minimize latency between requests). [Click here](../../docs/hot-functions.md)
+* Write your first HotFunction (stays alive to minimize latency between requests). [Click here](../../docs/developers/hot-functions.md)
 
 ## Learn More
 

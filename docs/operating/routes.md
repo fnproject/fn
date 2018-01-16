@@ -1,6 +1,6 @@
 # Fn Routes
 
-Routes have a many-to-one mapping to an [app](apps.md).
+Routes have a many-to-one mapping to an [app](../developers/apps.md).
 
 A good practice to get the best performance on your Fn API is define
 the required memory as well as CPU limits for each function.

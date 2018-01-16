@@ -2,11 +2,6 @@
 
 Functions files are used to assist fn to help you when creating functions.
 
-The files can be named as:
-
-- func.yaml
-- func.json
-
 An example of a function file:
 
 ```yaml
@@ -14,7 +9,6 @@ name: fnproject/hello
 version: 0.0.1
 type: sync
 memory: 128
-cpus: 100m
 config:
   key: value
   key2: value2
@@ -58,9 +52,9 @@ function. If this function exceeds this limit during execution, it is stopped
 and error message is logged. Default: `128`.
 
 `cpus` (optional) is the amount of available CPU cores for this function. For example, `100m` or `0.1`
-will allow the function to consume at most 1/10 of a CPU core on the running machine. It
-expects to be a string in MilliCPUs format ('100m') or floating-point number ('0.5').
-Default: unlimited.
+ +will allow the function to consume at most 1/10 of a CPU core on the running machine. It
+ +expects to be a string in MilliCPUs format ('100m') or floating-point number ('0.5').
+ +Default: unlimited.
 
 `timeout` (optional) is the maximum time a function will be allowed to run. Default is 30 seconds. 
 
@@ -68,7 +62,7 @@ Default: unlimited.
 this function calls.
 
 `config` (optional) is a set of configuration variables to be passed onto the function as environment variables.
-These configuration options shall override application configuration during functions execution. See [Configuration](developers/configs.md)
+These configuration options shall override application configuration during functions execution. See [Configuration](configs.md)
 for more information.
 
 `expects` (optional) a list of config/env vars that are required to run this function. These vars will be used when running/testing locally,

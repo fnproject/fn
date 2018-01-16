@@ -7,29 +7,28 @@ If you are a developer using Fn through the API, this section is for you.
 ### Getting Started
 
 * [Quickstart](https://github.com/fnproject/fn#quickstart)
-* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
+* [Function file (func.yaml)](developers/function-file.md)
+* [FDKs](developers/fdks.md)
+* [Config Vars for Functions](developers/configs.md)
+* [Hot functions](developers/hot-functions.md)
+* [Testing functions](developers/testing.md)
+* [Applications - groups of functions](developers/apps.md)
+* [Async functions](developers/async.md)
 * [FAQ](faq.md)
-* [Object Model](developers/model.md)
-* [Configuration](developers/configs.md)
-* [FDKs](developers/clients.md)
-* [Function file (func.yaml)](function-file.md)
-* [Hot functions](hot-functions.md)
-* [Testing functions](testing.md)
-* [Writing functions](writing.md)
 
-### Advanced
-
-* [Open Function Format](function-format.md)
-* [Packaging functions](packaging.md)
-* [CLI Source](https://github.com/fnproject/cli/)
-* [Async functions](async.md)
-* [Organizing functions into an application](developers/apps.md)
-
-### Learn More
+### Examples and Tutorials
 
 * [Examples](../examples)
 * [Getting Started Series](../examples/tutorial)
 * [Tutorials](https://github.com/fnproject/tutorials)
+
+### Advanced
+
+* [API Reference](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
+* [API Clients](developers/clients.md)
+* [Open Function Format](developers/function-format.md)
+* [Packaging functions](developers/packaging.md)
+* [CLI Source](https://github.com/fnproject/cli/)
 
 ## For Operators
 
@@ -50,8 +49,7 @@ If you are operating Fn, this section is for you.
 
 * [Extending Fn](operating/extending.md)
 * [Kubernetes Helm Chart for Fn](https://github.com/fnproject/fn-helm/)
-* [Setting up development environment with Docker compose](./operating/compose.md)
-* [OpenStack Triggers](operating/triggers.md)
+* [Setting up development environment with Docker compose](operating/compose.md)
 * [Docker Configuration](operating/docker.md)
 
 ## For Contributors
