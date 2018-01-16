@@ -125,4 +125,4 @@ If you watch the logs, you will see the function actually runs in the background
 
 ![async log](/docs/assets/async-log.png)
 
-Read more on [logging](/docs/logging.md).
+Read more on [logging](../operating/logging.md).

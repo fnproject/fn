@@ -197,7 +197,7 @@ Cons:
 
 Standard out is where you should write response data for synchronous functions. Standard error
 is where you should write for logging, as [it was intended](http://www.jstorimer.com/blogs/workingwithcode/7766119-when-to-use-stderr-instead-of-stdout).
-And if you use a log collector like logspout, you can collect those logs in a central location. See [logging](logging.md).
+And if you use a log collector like logspout, you can collect those logs in a central location. See [logging](../operating/logging.md).
 
 So to write output to logs, simply log to STDERR. Here are some examples in a few languages.
 
