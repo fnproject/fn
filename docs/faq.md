@@ -89,7 +89,7 @@ Yes, as Fn packages and deploys all functions as Docker containers it’s possib
 
 ### What is the lifecycle of a function?
 
-Functions are packaged as Docker images and by default individual containers are created to handle a function request and are then destroyed.  However, [Hot Functions](hot-functions.md) are not disposed of after handling a single request.
+Functions are packaged as Docker images and by default individual containers are created to handle a function request and are then destroyed.  However, [Hot Functions](developers/hot-functions.md) are not disposed of after handling a single request.
 
 Hot functions are started once and kept alive while there is an incoming workload. A hot function hangs around based on an idle timeout. By default this parameter is set to 30 seconds. The timer starts after the last request is processed by the hot function.
 
@@ -154,7 +154,7 @@ We currently don't yet offer Fn as a managed service which would manage network 
 
 We support 'hot functions' (see the end of [this tutorial](https://github.com/fnproject/tutorials/blob/master/JavaFDKIntroduction/README.md) for an example).  Hot functions will continue to live if they are used but, if not, will eventually be cleaned up.
 
-Function timeout is configurable. Please see <https://github.com/fnproject/fn/blob/master/docs/function-file.md>. Note though configurable, timeouts do have limits. For example, sync functions have a maximum upper limit of 120 seconds.
+Function timeout is configurable. Please see <https://github.com/fnproject/fn/blob/master/docs/developers/function-file.md>. Note though configurable, timeouts do have limits. For example, sync functions have a maximum upper limit of 120 seconds.
 
 ### How does the service trace the liveliness of the function? If my function dies/crashes will the service provision it again?
 

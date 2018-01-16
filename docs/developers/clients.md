@@ -1,15 +1,4 @@
-# Client Libraries
-
-## Function Developer Kits - FDKs
-
-Language wrappers to help write functions:
-
-* [Go](https://github.com/fnproject/fdk-go)
-* [Java](https://github.com/fnproject/fdk-java)
-* [Python](https://github.com/fnproject/fdk-python)
-* [Ruby](https://github.com/fnproject/fdk-ruby)
-
-## Client libraries for using the API
+# Client Libraries for the API
 
 * [Elixir](https://github.com/fnproject/fn_elixir)
 * [Go](https://github.com/fnproject/fn_go)

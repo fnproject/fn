@@ -18,7 +18,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps
 ```
 
-[More on apps](docs/apps.md).
+[More on apps](apps.md).
 
 Now that we have an app, we can route endpoints to functions.
 
@@ -26,8 +26,7 @@ Now that we have an app, we can route endpoints to functions.
 
 A route is a way to define a path in your application that maps to a function. In this example, we'll map
 `/hello` to a simple `Hello World!` function called `fnproject/hello` which is a function we already made that you
-can use -- yes, you can share functions! The source code for this function is in the [examples directory](examples/hello/go).
-You can read more about [writing your own functions here](docs/writing.md).
+can use -- yes, you can share functions! The source code for this function is in the [examples directory](/examples/hello/go).
 
 ```sh
 fn routes create myapp /hello -i fnproject/hello
@@ -44,7 +43,7 @@ curl -H "Content-Type: application/json" -X POST -d '{
 }' http://localhost:8080/v1/apps/myapp/routes
 ```
 
-[More on routes](docs/routes.md).
+[More on routes](../operating/routes.md).
 
 ### Calling your Function
 
@@ -124,6 +123,6 @@ You will get a `call_id` in the response:
 
 If you watch the logs, you will see the function actually runs in the background:
 
-![async log](docs/assets/async-log.png)
+![async log](/docs/assets/async-log.png)
 
-Read more on [logging](docs/logging.md).
+Read more on [logging](/docs/logging.md).
