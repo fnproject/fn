@@ -500,6 +500,13 @@ func (s *hotSlot) Close() error {
 	return nil
 }
 
+func (s *hotSlot) sendError(err error) {
+	select {
+	case s.done <- err:
+	default:
+	}
+}
+
 func (s *hotSlot) Error() error {
 	return s.err
 }
@@ -528,7 +535,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 			containerError <- err
 		case <-ctx.Done(): // timeout or cancel from ctx
 			containerError <- ctx.Err()
-			s.done <- ctx.Err()
+			s.sendError(ctx.Err())
 		}
 	}()
 
@@ -541,6 +548,14 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	default:
 	}
 
+	// protocol I/O errors are non-recoverable, terminate the container
+	// TODO: exclude client side errors from this since this punishes
+	// container if client side writes fail. But if client side I/O
+	// fails, then we must leave container side in good-shape (eg.
+	// consume data in/out container pipes)
+	if dispatchError != nil {
+		s.sendError(dispatchError)
+	}
 	return dispatchError
 }
 
