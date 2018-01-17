@@ -118,7 +118,9 @@ func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context
 
 	myCancel := func() {
 		cancel()
+		a.cond.L.Lock()
 		a.cond.Broadcast()
+		a.cond.L.Unlock()
 	}
 
 	output := make(chan *slotToken)

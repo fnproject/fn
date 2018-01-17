@@ -192,7 +192,9 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) (chan struct{},
 
 	myCancel := func() {
 		cancel()
+		c.L.Lock()
 		c.Broadcast()
+		c.L.Unlock()
 	}
 
 	go func() {
