@@ -361,7 +361,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 				}(ctx, callObj, tok)
 			} else {
 				// this means the resource was impossible to reserve (eg. memory size we can never satisfy)
-				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
+				callObj.slots.queueSlot(&hotSlot{done: make(chan error, 1), err: models.ErrCallTimeoutServerBusy})
 			}
 		case <-time.After(timeout):
 			cancel()
@@ -485,7 +485,7 @@ func (s *coldSlot) Close() error {
 
 // implements Slot
 type hotSlot struct {
-	done      chan<- struct{} // signal we are done with slot
+	done      chan error // signal we are done with slot
 	proto     protocol.ContainerIO
 	errC      <-chan error // container error
 	container *container   // TODO mask this
@@ -493,7 +493,10 @@ type hotSlot struct {
 }
 
 func (s *hotSlot) Close() error {
-	close(s.done)
+	select {
+	case s.done <- nil:
+	default:
+	}
 	return nil
 }
 
@@ -517,24 +520,28 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	oldStderr := s.container.swap(call.stderr, &call.Stats)
 	defer s.container.swap(oldStderr, nil) // once we're done, swap out in this scope to prevent races
 
-	errApp := make(chan error, 1)
+	containerError := make(chan error, 1)
+
 	go func() {
-		// TODO make sure stdin / stdout not blocked if container dies or we leak goroutine
-		// we have to make sure this gets shut down or 2 threads will be reading/writing in/out
-		ci := protocol.NewCallInfo(call.Call, call.req)
-		errApp <- s.proto.Dispatch(ctx, ci, call.w)
+		select {
+		case err := <-s.errC: // error from container
+			containerError <- err
+		case <-ctx.Done(): // timeout or cancel from ctx
+			containerError <- ctx.Err()
+			s.done <- ctx.Err()
+		}
 	}()
 
+	ci := protocol.NewCallInfo(call.Call, call.req)
+	dispatchError := s.proto.Dispatch(ci, call.ioWriter)
+
 	select {
-	case err := <-s.errC: // error from container
+	case err := <-containerError:
 		return err
-	case err := <-errApp: // from dispatch
-		return err
-	case <-ctx.Done(): // call timeout
-		return ctx.Err()
+	default:
 	}
 
-	// TODO we REALLY need to wait for dispatch to return before conceding our slot
+	return dispatchError
 }
 
 func specialHeader(k string) bool {
@@ -560,7 +567,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
-		stdout:  call.w,
+		stdout:  call.ioWriter,
 		stderr:  call.stderr,
 		stats:   &call.Stats,
 	}
@@ -590,6 +597,9 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	stdoutRead, stdoutWrite := io.Pipe()
 
 	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
+
+	defer stdinRead.Close()
+	defer stdoutWrite.Close()
 
 	// we don't want to timeout in here. this is inside of a goroutine and the
 	// caller can timeout this Call appropriately. e.g. w/ hot if it takes 20
@@ -630,7 +640,7 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
 		call.slots.exitStateWithLatency(SlotQueueStarter, uint64(time.Now().Sub(start).Seconds()*1000))
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		call.slots.queueSlot(&hotSlot{done: make(chan error, 1), err: err})
 		return
 	}
 	defer cookie.Close(context.Background()) // ensure container removal, separate ctx
@@ -638,7 +648,7 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
 		call.slots.exitStateWithLatency(SlotQueueStarter, uint64(time.Now().Sub(start).Seconds()*1000))
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		call.slots.queueSlot(&hotSlot{done: make(chan error, 1), err: err})
 		return
 	}
 
@@ -661,7 +671,7 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 			default: // ok
 			}
 
-			done := make(chan struct{})
+			done := make(chan error, 1)
 			s := call.slots.queueSlot(&hotSlot{done, proto, errC, container, nil})
 
 			select {
@@ -690,7 +700,11 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
-			<-done
+			err := <-done
+			if err != nil {
+				shutdownContainer()
+				return
+			}
 		}
 	}()
 

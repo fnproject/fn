@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +22,7 @@ func (p *HTTPProtocol) IsStreamable() bool { return true }
 
 // TODO handle req.Context better with io.Copy. io.Copy could push us
 // over the timeout.
-func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *HTTPProtocol) Dispatch(ci CallInfo, w io.Writer) error {
 	req := ci.Request()
 
 	req.RequestURI = ci.RequestURL() // force set to this, for DumpRequestTo to use

@@ -68,7 +68,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
 		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
+		if rw, ok := c.ioWriter.(http.ResponseWriter); ok {
 			rw.Header().Add("FN_CALL_ID", id)
 			for k, vs := range route.Headers {
 				for _, v := range vs {
@@ -175,7 +175,7 @@ func FromModel(mCall *models.Call) CallOpt {
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
 	return func(a *agent, c *call) error {
-		c.w = w
+		c.ioWriter = w
 		return nil
 	}
 }
@@ -208,10 +208,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	// setup stderr logger separate (don't inherit ctx vars)
 	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": c.AppName, "path": c.Path, "image": c.Image, "call_id": c.ID})
 	c.stderr = setupLogger(logger)
-	if c.w == nil {
+	if c.ioWriter == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
-		c.w = c.stderr
+		c.ioWriter = c.stderr
 	}
 
 	now := time.Now()
@@ -238,7 +238,7 @@ type call struct {
 	*models.Call
 
 	da           DataAccess
-	w            io.Writer
+	ioWriter     io.Writer
 	req          *http.Request
 	stderr       io.ReadWriteCloser
 	ct           callTrigger
@@ -261,7 +261,7 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = strfmt.DateTime(time.Now())
 	c.Status = "running"
 
-	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
+	if rw, ok := c.ioWriter.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
 		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
 	}
 

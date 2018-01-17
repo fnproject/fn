@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"context"
 	"io"
 )
 
@@ -9,6 +8,6 @@ import (
 type DefaultProtocol struct{}
 
 func (p *DefaultProtocol) IsStreamable() bool { return false }
-func (d *DefaultProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (d *DefaultProtocol) Dispatch(ci CallInfo, w io.Writer) error {
 	return nil
 }
