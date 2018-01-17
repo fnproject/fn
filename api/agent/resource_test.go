@@ -116,7 +116,7 @@ func TestResourceAsyncWait(t *testing.T) {
 	// should block & wait
 	vals.mau = vals.mam
 	setTrackerTestVals(tr, &vals)
-	ch1, cancel1 := tr.WaitAsyncResource(context.Background())
+	ch1, cancel1 := tr.WaitAsyncResource()
 	defer cancel1()
 
 	select {
@@ -136,7 +136,7 @@ func TestResourceAsyncWait(t *testing.T) {
 	}
 
 	// get a new channel to prevent previous test interference
-	ch2, cancel2 := tr.WaitAsyncResource(context.Background())
+	ch2, cancel2 := tr.WaitAsyncResource()
 	defer cancel2()
 
 	// should block & wait

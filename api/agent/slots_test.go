@@ -47,7 +47,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	obj := NewSlotQueue(slotName)
 
-	outChan, cancel := obj.startDequeuer(context.Background())
+	outChan, cancel := obj.startDequeuer()
 	select {
 	case z := <-outChan:
 		t.Fatalf("Should not get anything from queue: %#v", z)
@@ -92,7 +92,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
 	}
 
-	outChan, cancel = obj.startDequeuer(context.Background())
+	outChan, cancel = obj.startDequeuer()
 
 	// now we should get 8
 	select {
@@ -162,7 +162,7 @@ func TestSlotQueueBasic2(t *testing.T) {
 		t.Fatalf("Should be idle")
 	}
 
-	outChan, cancel := obj.startDequeuer(context.Background())
+	outChan, cancel := obj.startDequeuer()
 	select {
 	case z := <-outChan:
 		t.Fatalf("Should not get anything from queue: %#v", z)
@@ -248,7 +248,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	slotName := "test3"
 
 	obj := NewSlotQueue(slotName)
-	_, cancel1 := obj.startDequeuer(context.Background())
+	_, cancel1 := obj.startDequeuer()
 
 	slot1 := NewTestSlot(1)
 	slot2 := NewTestSlot(2)
@@ -259,7 +259,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	// to cause a requeue. This should cause [1, 2] ordering to [2, 1]
 	cancel1()
 
-	outChan, cancel2 := obj.startDequeuer(context.Background())
+	outChan, cancel2 := obj.startDequeuer()
 
 	// we should get '2' since cancel1() reordered the queue
 	select {
@@ -303,7 +303,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	wg.Add(goMax)
 	for i := 0; i < goMax; i += 1 {
 		go func(id int) {
-			ch, cancl := obj.startDequeuer(context.Background())
+			ch, cancl := obj.startDequeuer()
 			defer cancl()
 			defer wg.Done()
 

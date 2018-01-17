@@ -24,7 +24,7 @@ const (
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
 type ResourceTracker interface {
-	WaitAsyncResource(ctx context.Context) (chan struct{}, context.CancelFunc)
+	WaitAsyncResource() (chan struct{}, context.CancelFunc)
 	// returns a closed channel if the resource can never me met.
 	GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken
 }
@@ -184,10 +184,10 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 // WaitAsyncResource will send a signal on the returned channel when RAM and CPU in-use
 // in the async area is less than high water mark
-func (a *resourceTracker) WaitAsyncResource(ctx context.Context) (chan struct{}, context.CancelFunc) {
+func (a *resourceTracker) WaitAsyncResource() (chan struct{}, context.CancelFunc) {
 	ch := make(chan struct{}, 1)
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	c := a.cond
 
 	myCancel := func() {

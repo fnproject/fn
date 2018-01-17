@@ -16,7 +16,7 @@ func (a *agent) asyncDequeue() {
 	defer cancel()
 
 	for {
-		ch, cancelWait := a.resources.WaitAsyncResource(ctx)
+		ch, cancelWait := a.resources.WaitAsyncResource()
 		select {
 		case <-a.shutdown:
 			cancelWait()
