@@ -24,7 +24,7 @@ const (
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
 type ResourceTracker interface {
-	WaitAsyncResource() chan struct{}
+	WaitAsyncResource(ctx context.Context) (chan struct{}, context.CancelFunc)
 	// returns a closed channel if the resource can never me met.
 	GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken
 }
@@ -184,21 +184,30 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 // WaitAsyncResource will send a signal on the returned channel when RAM and CPU in-use
 // in the async area is less than high water mark
-func (a *resourceTracker) WaitAsyncResource() chan struct{} {
-	ch := make(chan struct{})
+func (a *resourceTracker) WaitAsyncResource(ctx context.Context) (chan struct{}, context.CancelFunc) {
+	ch := make(chan struct{}, 1)
 
+	ctx, cancel := context.WithCancel(ctx)
 	c := a.cond
+
+	myCancel := func() {
+		cancel()
+		c.Broadcast()
+	}
+
 	go func() {
 		c.L.Lock()
-		for a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark {
+		for (a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
 			c.Wait()
 		}
 		c.L.Unlock()
-		ch <- struct{}{}
-		// TODO this could leak forever (only in shutdown, blech)
+
+		if ctx.Err() == nil {
+			ch <- struct{}{}
+		}
 	}()
 
-	return ch
+	return ch, myCancel
 }
 
 func minUint64(a, b uint64) uint64 {
