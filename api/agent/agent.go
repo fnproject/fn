@@ -379,7 +379,7 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 
-	ch, cancel := call.slots.startDequeuer(ctx)
+	ch, cancel := call.slots.startDequeuer()
 	defer cancel()
 
 	for {

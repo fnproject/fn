@@ -116,10 +116,11 @@ func TestResourceAsyncWait(t *testing.T) {
 	// should block & wait
 	vals.mau = vals.mam
 	setTrackerTestVals(tr, &vals)
-	ch := tr.WaitAsyncResource()
+	ch1, cancel1 := tr.WaitAsyncResource()
+	defer cancel1()
 
 	select {
-	case <-ch:
+	case <-ch1:
 		t.Fatal("high water mark MEM over, should not trigger")
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
@@ -129,20 +130,21 @@ func TestResourceAsyncWait(t *testing.T) {
 	setTrackerTestVals(tr, &vals)
 
 	select {
-	case <-ch:
+	case <-ch1:
 	case <-time.After(time.Duration(500) * time.Millisecond):
 		t.Fatal("high water mark MEM not over, should trigger")
 	}
 
 	// get a new channel to prevent previous test interference
-	ch = tr.WaitAsyncResource()
+	ch2, cancel2 := tr.WaitAsyncResource()
+	defer cancel2()
 
 	// should block & wait
 	vals.cau = vals.cam
 	setTrackerTestVals(tr, &vals)
 
 	select {
-	case <-ch:
+	case <-ch2:
 		t.Fatal("high water mark CPU over, should not trigger")
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
@@ -152,11 +154,10 @@ func TestResourceAsyncWait(t *testing.T) {
 	setTrackerTestVals(tr, &vals)
 
 	select {
-	case <-ch:
+	case <-ch2:
 	case <-time.After(time.Duration(500) * time.Millisecond):
 		t.Fatal("high water mark CPU not over, should trigger")
 	}
-
 }
 
 func TestResourceGetSimple(t *testing.T) {

@@ -112,13 +112,15 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 	return true
 }
 
-func (a *slotQueue) startDequeuer(ctx context.Context) (chan *slotToken, context.CancelFunc) {
+func (a *slotQueue) startDequeuer() (chan *slotToken, context.CancelFunc) {
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	myCancel := func() {
 		cancel()
+		a.cond.L.Lock()
 		a.cond.Broadcast()
+		a.cond.L.Unlock()
 	}
 
 	output := make(chan *slotToken)
