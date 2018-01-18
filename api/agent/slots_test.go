@@ -47,7 +47,8 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	obj := NewSlotQueue(slotName)
 
-	outChan, cancel := obj.startDequeuer()
+	ctx, cancel := context.WithCancel(context.Background())
+	outChan := obj.startDequeuer(ctx)
 	select {
 	case z := <-outChan:
 		t.Fatalf("Should not get anything from queue: %#v", z)
@@ -92,7 +93,8 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
 	}
 
-	outChan, cancel = obj.startDequeuer()
+	ctx, cancel = context.WithCancel(context.Background())
+	outChan = obj.startDequeuer(ctx)
 
 	// now we should get 8
 	select {
@@ -162,14 +164,14 @@ func TestSlotQueueBasic2(t *testing.T) {
 		t.Fatalf("Should be idle")
 	}
 
-	outChan, cancel := obj.startDequeuer()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	select {
-	case z := <-outChan:
+	case z := <-obj.startDequeuer(ctx):
 		t.Fatalf("Should not get anything from queue: %#v", z)
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
-
-	cancel()
 }
 
 func statsHelperSet(runC, startC, waitC, runL, startL, waitL uint64) slotQueueStats {
@@ -248,7 +250,8 @@ func TestSlotQueueBasic3(t *testing.T) {
 	slotName := "test3"
 
 	obj := NewSlotQueue(slotName)
-	_, cancel1 := obj.startDequeuer()
+	ctx, cancel := context.WithCancel(context.Background())
+	obj.startDequeuer(ctx)
 
 	slot1 := NewTestSlot(1)
 	slot2 := NewTestSlot(2)
@@ -257,9 +260,10 @@ func TestSlotQueueBasic3(t *testing.T) {
 
 	// now our slot must be ready in outChan, but let's cancel it
 	// to cause a requeue. This should cause [1, 2] ordering to [2, 1]
-	cancel1()
+	cancel()
 
-	outChan, cancel2 := obj.startDequeuer()
+	ctx, cancel = context.WithCancel(context.Background())
+	outChan := obj.startDequeuer(ctx)
 
 	// we should get '2' since cancel1() reordered the queue
 	select {
@@ -303,12 +307,13 @@ func TestSlotQueueBasic3(t *testing.T) {
 	wg.Add(goMax)
 	for i := 0; i < goMax; i += 1 {
 		go func(id int) {
-			ch, cancl := obj.startDequeuer()
-			defer cancl()
 			defer wg.Done()
 
+			ctx, cancel = context.WithCancel(context.Background())
+			defer cancel()
+
 			select {
-			case z := <-ch:
+			case z := <-obj.startDequeuer(ctx):
 				t.Fatalf("%v we shouldn't get anything from queue %#v", id, z)
 			case <-time.After(time.Duration(500) * time.Millisecond):
 			}
@@ -316,7 +321,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	}
 
 	// let's cancel after destroy this time
-	cancel2()
+	cancel()
 
 	wg.Wait()
 
