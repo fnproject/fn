@@ -33,6 +33,8 @@ the function's format:
 * `FN_MEMORY` - a number representing the amount of memory available to the call, in MB
 * `FN_CPUS` - a string representing the amount of CPU available to the call, in MilliCPUs or floating-point number, eg. `100m` or `0.1`. Header is present only if `cpus` is set for the route.
 
+In addition to these, all config variables set on `app.config` or `route.config` will be populated into the environment exactly as configured, for example if `app.config = { "HAMMER": "TIME" }` your environment will be populated with `HAMMER=TIME`.
+
 ### Default I/O Format
 
 The default format is simply the request body itself plus some environment variables. For instance, if someone were to post a JSON body, the unmodified body would be sent in via STDIN. The result comes via STDOUT. When task is done, pipes are closed and the container running the function is terminated.
@@ -46,7 +48,7 @@ For `default` format, the following environment variables will be available:
 * `FN_CALL_ID` - a unique ID for each function execution.
 * `FN_METHOD` - http method used to invoke this function
 * `FN_HEADER_$X` - the HTTP headers that were set for this request. Replace $X with the upper cased name of the header and replace dashes in the header with underscores.
-* `$X` - $X is the header that came in the http request that invoked this function.
+  * `$X` - $X is the header that came in the http request that invoked this function.
 
 #### Pros/Cons
 
@@ -101,8 +103,6 @@ BLANK LINE
 * call_id - the unique ID for the call.
 * content_type - format of the `body` parameter.
 * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
-
-TODO: Add config map
 
 Under `protocol`, `headers` contains all of the HTTP headers exactly as defined in the incoming request.
 
