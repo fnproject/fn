@@ -379,7 +379,9 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 
-	ch := call.slots.startDequeuer(ctx)
+	ctxDequeuer, cancelDequeuer := context.WithCancel(ctx)
+	defer cancelDequeuer()
+	ch := call.slots.startDequeuer(ctxDequeuer)
 
 	// 1) if we can get a slot immediately, grab it.
 	// 2) if we don't, send a signaller every 200ms until we do.
@@ -420,9 +422,11 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
+	ctxResource, cancelResource := context.WithCancel(ctx)
+	defer cancelResource()
 
 	select {
-	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok, isOpen := <-a.resources.GetResourceToken(ctxResource, call.Memory, uint64(call.CPUs), isAsync):
 		if !isOpen {
 			return nil, models.ErrCallTimeoutServerBusy
 		}
@@ -430,6 +434,8 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+
+	cancelResource()
 
 	// wait for launch err or a slot to open up
 	select {
