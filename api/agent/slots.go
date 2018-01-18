@@ -112,25 +112,29 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 	return true
 }
 
-func (a *slotQueue) startDequeuer() (chan *slotToken, context.CancelFunc) {
+func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	myCancel := func() {
-		cancel()
-		a.cond.L.Lock()
-		a.cond.Broadcast()
-		a.cond.L.Unlock()
-	}
-
+	isWaiting := false
 	output := make(chan *slotToken)
+
+	go func() {
+		<-ctx.Done()
+		a.cond.L.Lock()
+		if isWaiting {
+			a.cond.Broadcast()
+		}
+		a.cond.L.Unlock()
+	}()
 
 	go func() {
 		for {
 			a.cond.L.Lock()
+
+			isWaiting = true
 			for len(a.slots) <= 0 && (ctx.Err() == nil) {
 				a.cond.Wait()
 			}
+			isWaiting = false
 
 			if ctx.Err() != nil {
 				a.cond.L.Unlock()
@@ -154,7 +158,7 @@ func (a *slotQueue) startDequeuer() (chan *slotToken, context.CancelFunc) {
 		}
 	}()
 
-	return output, myCancel
+	return output
 }
 
 func (a *slotQueue) queueSlot(slot Slot) *slotToken {

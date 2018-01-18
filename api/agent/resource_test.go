@@ -116,7 +116,9 @@ func TestResourceAsyncWait(t *testing.T) {
 	// should block & wait
 	vals.mau = vals.mam
 	setTrackerTestVals(tr, &vals)
-	ch1, cancel1 := tr.WaitAsyncResource()
+
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	ch1 := tr.WaitAsyncResource(ctx1)
 	defer cancel1()
 
 	select {
@@ -136,7 +138,8 @@ func TestResourceAsyncWait(t *testing.T) {
 	}
 
 	// get a new channel to prevent previous test interference
-	ch2, cancel2 := tr.WaitAsyncResource()
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	ch2 := tr.WaitAsyncResource(ctx2)
 	defer cancel2()
 
 	// should block & wait
@@ -174,11 +177,10 @@ func TestResourceGetSimple(t *testing.T) {
 
 	setTrackerTestVals(tr, &vals)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// ask for 4GB and 10 CPU
+	ctx, cancel := context.WithCancel(context.Background())
 	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	defer cancel()
 
 	_, err := fetchToken(ch)
 	if err == nil {
@@ -195,7 +197,9 @@ func TestResourceGetSimple(t *testing.T) {
 	}
 
 	// ask for another 4GB and 10 CPU
+	ctx, cancel = context.WithCancel(context.Background())
 	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	defer cancel()
 
 	_, err = fetchToken(ch)
 	if err == nil {
@@ -231,9 +235,8 @@ func TestResourceGetCombo(t *testing.T) {
 	vals.setDefaults()
 	setTrackerTestVals(tr, &vals)
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	// impossible request
+	ctx, cancel := context.WithCancel(context.Background())
 	ch := trI.GetResourceToken(ctx, 20*1024, 20000, false)
 	if !isClosed(ch) {
 		t.Fatalf("impossible request should return closed channel")
@@ -281,6 +284,7 @@ func TestResourceGetCombo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("empty sync system should hand out token3")
 	}
+
 	cancel()
 	ctx, cancel = context.WithCancel(context.Background())
 
@@ -292,6 +296,7 @@ func TestResourceGetCombo(t *testing.T) {
 	if err == nil {
 		t.Fatalf("full system should not hand out a token")
 	}
+
 	cancel()
 	ctx, cancel = context.WithCancel(context.Background())
 
@@ -307,6 +312,7 @@ func TestResourceGetCombo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("async system should hand out token4")
 	}
+
 	cancel()
 	ctx, cancel = context.WithCancel(context.Background())
 
@@ -324,6 +330,7 @@ func TestResourceGetCombo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("async+sync system should hand out token5")
 	}
+
 	cancel()
 
 	// NOW ASYNC AND SYNC POOLS ARE FULL

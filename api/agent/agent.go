@@ -344,15 +344,15 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 			continue
 		}
 
-		resourceCtx, cancel := context.WithCancel(context.Background())
+		ctxResource, cancelResource := context.WithCancel(context.Background())
 		logger.WithFields(logrus.Fields{
 			"currentStats":  curStats,
 			"previousStats": curStats,
 		}).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, uint64(callObj.CPUs), isAsync):
-			cancel()
+		case tok, isOpen := <-a.resources.GetResourceToken(ctxResource, callObj.Memory, uint64(callObj.CPUs), isAsync):
+			cancelResource()
 			if isOpen {
 				a.wg.Add(1)
 				go func(ctx context.Context, call *call, tok ResourceToken) {
@@ -364,13 +364,13 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
 			}
 		case <-time.After(timeout):
-			cancel()
+			cancelResource()
 			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
 		case <-a.shutdown: // server shutdown
-			cancel()
+			cancelResource()
 			return
 		}
 	}
@@ -378,8 +378,8 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
-	ch, cancel := call.slots.startDequeuer()
-	defer cancel()
+
+	ch := call.slots.startDequeuer(ctx)
 
 	// 1) if we can get a slot immediately, grab it.
 	// 2) if we don't, send a signaller every 200ms until we do.
