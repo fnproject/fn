@@ -55,7 +55,7 @@ The generated `func.yaml` file contains metadata about your function and declare
 * `runtime`: Set to `node` from the command line.
 * `entrypoint`: The command that runs the function.
 
-These fields are set by default when you run `init` on a function. For more details on [function files go here](../../../../docs/function-file.md).
+These fields are set by default when you run `init` on a function. For more details on [function files go here](https://github.com/fnproject/fn/blob/master/docs/developers/function-file.md).
 
 ## Add Fn Registry Environment Variable
 
