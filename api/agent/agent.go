@@ -378,17 +378,14 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
-
 	ch, cancel := call.slots.startDequeuer()
 	defer cancel()
 
-	for {
-		// send a notification to launcHot()
-		select {
-		case call.slots.signaller <- true:
-		default:
-		}
+	// 1) if we can get a slot immediately, grab it.
+	// 2) if we don't, send a signaller every 200ms until we do.
 
+	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
+	for {
 		select {
 		case s := <-ch:
 			if s.acquireSlot() {
@@ -401,10 +398,18 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			// we failed to take ownership of the token (eg. container idle timeout) => try again
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(time.Duration(200) * time.Millisecond):
-			// ping dequeuer again
 		case <-a.shutdown: // server shutdown
 			return nil, models.ErrCallTimeoutServerBusy
+		case <-time.After(sleep):
+			// ping dequeuer again
+		}
+
+		// set sleep to 200ms after first iteration
+		sleep = 200 * time.Millisecond
+		// send a notification to launchHot()
+		select {
+		case call.slots.signaller <- true:
+		default:
 		}
 	}
 }
