@@ -67,7 +67,7 @@ The generated `func.yaml` file contains metadata about your function and declare
 * `runtime`: Set to `java` from the command line.
 * `cmd`: Name of the method to invoke. In this case `handleRequest` of the `com.example.fn.HelloFunction` class.
 
-These fields are set by default when you run `init` on a function. For more details on [function files go here](../../../../docs/function-file.md).
+These fields are set by default when you run `init` on a function. For more details on [function files go here](../../../../docs/developers/function-file.md).
 
 ## Add Fn Registry Environment Variable
 
