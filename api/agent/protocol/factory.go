@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -15,8 +14,8 @@ type errorProto struct {
 	error
 }
 
-func (e errorProto) IsStreamable() bool                                           { return false }
-func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error { return e }
+func (e errorProto) IsStreamable() bool                      { return false }
+func (e errorProto) Dispatch(ci CallInfo, w io.Writer) error { return e }
 
 // ContainerIO defines the interface used to talk to a hot function.
 // Internally, a protocol must know when to alternate between stdin and stdout.
@@ -25,9 +24,8 @@ type ContainerIO interface {
 	IsStreamable() bool
 
 	// Dispatch will handle sending stdin and stdout to a container. Implementers
-	// of Dispatch may format the input and output differently. Dispatch must respect
-	// the req.Context() timeout / cancellation.
-	Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error
+	// of Dispatch may format the input and output differently.
+	Dispatch(ci CallInfo, w io.Writer) error
 }
 
 // CallInfo is passed into dispatch with only the required data the protocols require

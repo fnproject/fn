@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -147,7 +146,7 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	return err
 }
 
-func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *JSONProtocol) Dispatch(ci CallInfo, w io.Writer) error {
 	// write input into container
 	err := h.writeJSONToContainer(ci)
 	if err != nil {
