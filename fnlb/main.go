@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const VERSION = "0.0.262"
+const VERSION = "0.0.263"
 
 func main() {
 	// XXX (reed): normalize
@@ -28,7 +28,7 @@ func main() {
 	logrus.SetLevel(level)
 
 	fnodes := flag.String("nodes", "", "comma separated list of functions nodes")
-	minAPIVersion := flag.String("min-api-version", "0.0.229", "minimal node API to accept")
+	minAPIVersion := flag.String("min-api-version", "0.0.230", "minimal node API to accept")
 
 	var conf lb.Config
 	flag.StringVar(&conf.DBurl, "db", "sqlite3://:memory:", "backend to store nodes, default to in memory; use k8s for kuberneted")
