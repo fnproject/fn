@@ -47,7 +47,3 @@ docker push $user/$image_deprecated:latest
 
 # release test utils docker image
 (cd images/fn-test-utils && ./release.sh)
-
-cd fnlb
-./release.sh
-cd ..

@@ -139,7 +139,7 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
-* Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/fn/tree/master/fnlb)
+* Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/fn/lb)
 
 ## Get Help
 
