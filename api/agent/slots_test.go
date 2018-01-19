@@ -174,74 +174,50 @@ func TestSlotQueueBasic2(t *testing.T) {
 	}
 }
 
-func statsHelperSet(runC, startC, waitC, runL, startL, waitL uint64) slotQueueStats {
+func statsHelperSet(runC, startC, waitC, idleC uint64) slotQueueStats {
 	return slotQueueStats{
-		states:    [SlotQueueLast]uint64{runC, startC, waitC},
-		latencies: [SlotQueueLast]uint64{runL, startL, waitL},
+		states: [SlotQueueLast]uint64{runC, startC, waitC, idleC},
 	}
 }
 
 func TestSlotNewContainerLogic1(t *testing.T) {
 
 	var cur slotQueueStats
-	var prev slotQueueStats
 
-	cur = statsHelperSet(0, 0, 0, 0, 0, 0)
-	prev = statsHelperSet(0, 0, 0, 0, 0, 0)
-	// CASE I: There's no one waiting despite cur == prev
-	if isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	cur = statsHelperSet(0, 0, 0, 0)
+	// CASE: There's no one waiting
+	if isNewContainerNeeded(&cur) {
+		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE II: There are starters >= waiters
-	cur = statsHelperSet(0, 10, 1, 0, 0, 0)
-	prev = statsHelperSet(0, 10, 1, 0, 0, 0)
-	if isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: There are starters >= waiters
+	cur = statsHelperSet(1, 10, 10, 0)
+	if isNewContainerNeeded(&cur) {
+		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE III: no executors
-	cur = statsHelperSet(0, 0, 1, 0, 0, 0)
-	prev = statsHelperSet(0, 0, 1, 0, 0, 0)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: There are starters < waiters
+	cur = statsHelperSet(1, 5, 10, 0)
+	if !isNewContainerNeeded(&cur) {
+		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 
-	// CASE IV: cur == prev same, progress has stalled, with waiters and
-	// small num of executors
-	cur = statsHelperSet(2, 0, 10, 0, 0, 0)
-	prev = statsHelperSet(2, 0, 10, 0, 0, 0)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: effective waiters 0 (idle = waiter = 10)
+	cur = statsHelperSet(11, 0, 10, 10)
+	if isNewContainerNeeded(&cur) {
+		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE V: cur != prev, runLat/executors*2 < waitLat
-	// Let's make cur and prev unequal to prevent blocked progress detection
-	cur = statsHelperSet(2, 0, 10, 12, 100, 13)
-	prev = statsHelperSet(2, 0, 10, 12, 101, 13)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: effective waiters > 0 (idle = 5 waiter = 10)
+	cur = statsHelperSet(11, 0, 10, 5)
+	if !isNewContainerNeeded(&cur) {
+		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 
-	// CASE VI: cur != prev, runLat < waitLat
-	cur = statsHelperSet(1, 0, 10, 12, 100, 14)
-	prev = statsHelperSet(1, 0, 10, 12, 101, 14)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
-	}
-
-	// CAST VII: cur != prev, startLat < waitLat
-	cur = statsHelperSet(1, 0, 10, 2, 10, 20)
-	prev = statsHelperSet(1, 0, 10, 1, 11, 20)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
-	}
-
-	// CAST VIII: cur != prev, fallback
-	cur = statsHelperSet(1, 0, 10, 2, 10, 2)
-	prev = statsHelperSet(1, 0, 10, 1, 11, 2)
-	if isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: no executors, but 1 waiter
+	cur = statsHelperSet(0, 0, 1, 0)
+	if !isNewContainerNeeded(&cur) {
+		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 }
 

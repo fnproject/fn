@@ -30,17 +30,17 @@ type slotQueueMgr struct {
 type SlotQueueMetricType int
 
 const (
-	SlotQueueRunner SlotQueueMetricType = iota
-	SlotQueueStarter
-	SlotQueueWaiter
+	SlotQueueRunner  SlotQueueMetricType = iota // container is running
+	SlotQueueStarter                            // container is launching
+	SlotQueueWaiter                             // requests are waiting
+	SlotQueueIdle                               // hot container is running, but idle (free tokens)
 	SlotQueueLast
 )
 
 // counters per state and moving avg of time spent in each state
 type slotQueueStats struct {
-	states       [SlotQueueLast]uint64
-	latencyCount [SlotQueueLast]uint64
-	latencies    [SlotQueueLast]uint64
+	states    [SlotQueueLast]uint64
+	latencies [SlotQueueLast]uint64
 }
 
 type slotToken struct {
@@ -195,59 +195,29 @@ func (a *slotQueue) getStats() slotQueueStats {
 	return out
 }
 
-func isNewContainerNeeded(cur, prev *slotQueueStats) bool {
+func isNewContainerNeeded(cur *slotQueueStats) bool {
 
-	waiters := cur.states[SlotQueueWaiter]
-	if waiters == 0 {
-		return false
-	}
-
-	// while a container is starting, do not start more than waiters
+	idlers := cur.states[SlotQueueIdle]
 	starters := cur.states[SlotQueueStarter]
-	if starters >= waiters {
+	waiters := cur.states[SlotQueueWaiter]
+
+	// we expect idle containers to immediately pick up
+	// any waiters. We assume non-idle containers busy.
+	effectiveWaiters := uint64(0)
+	if idlers < waiters {
+		effectiveWaiters = waiters - idlers
+	}
+
+	if effectiveWaiters == 0 {
 		return false
 	}
 
-	// no executors? We need to spin up a container quickly
-	executors := starters + cur.states[SlotQueueRunner]
-	if executors == 0 {
-		return true
+	// if containers are starting, do not start more than effective waiters
+	if starters > 0 && starters >= effectiveWaiters {
+		return false
 	}
 
-	// This means we are not making any progress and stats are
-	// not being refreshed quick enough. We err on side
-	// of new container here.
-	isEqual := true
-	for idx, _ := range cur.latencies {
-		if prev.latencies[idx] != cur.latencies[idx] {
-			isEqual = false
-			break
-		}
-	}
-	if isEqual {
-		return true
-	}
-
-	// WARNING: Below is a few heuristics that are
-	// speculative, which may (and will) likely need
-	// adjustments.
-
-	runLat := cur.latencies[SlotQueueRunner]
-	waitLat := cur.latencies[SlotQueueWaiter]
-	startLat := cur.latencies[SlotQueueStarter]
-
-	// this determines the aggresiveness of the container launch.
-	if executors > 0 && runLat/executors*2 < waitLat {
-		return true
-	}
-	if runLat < waitLat {
-		return true
-	}
-	if startLat < waitLat {
-		return true
-	}
-
-	return false
+	return true
 }
 
 func (a *slotQueue) enterState(metricIdx SlotQueueMetricType) {
@@ -270,14 +240,7 @@ func (a *slotQueue) recordLatencyLocked(metricIdx SlotQueueMetricType, latency u
 	// 0.5 is a high value to age older observations fast while filtering
 	// some noise. For our purposes, newer observations are much more important
 	// than older, but we still would like to low pass some noise.
-	// first samples are ignored.
-	if a.stats.latencyCount[metricIdx] != 0 {
-		a.stats.latencies[metricIdx] = (a.stats.latencies[metricIdx]*5 + latency*5) / 10
-	}
-	a.stats.latencyCount[metricIdx] += 1
-	if a.stats.latencyCount[metricIdx] == 0 {
-		a.stats.latencyCount[metricIdx] += 1
-	}
+	a.stats.latencies[metricIdx] = (a.stats.latencies[metricIdx]*5 + latency*5) / 10
 }
 
 func (a *slotQueue) recordLatency(metricIdx SlotQueueMetricType, latency uint64) {

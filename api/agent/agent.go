@@ -319,7 +319,6 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 	logger := common.Logger(ctx)
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
 	isAsync := callObj.Type == models.TypeAsync
-	prevStats := callObj.slots.getStats()
 
 	for {
 		select {
@@ -334,11 +333,10 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		}
 
 		curStats := callObj.slots.getStats()
-		isNeeded := isNewContainerNeeded(&curStats, &prevStats)
-		prevStats = curStats
+		isNeeded := isNewContainerNeeded(&curStats)
 		logger.WithFields(logrus.Fields{
-			"currentStats":  curStats,
-			"previousStats": curStats,
+			"currentStats": curStats,
+			"isNeeded":     isNeeded,
 		}).Debug("Hot function launcher stats")
 		if !isNeeded {
 			continue
@@ -346,8 +344,8 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 
 		ctxResource, cancelResource := context.WithCancel(context.Background())
 		logger.WithFields(logrus.Fields{
-			"currentStats":  curStats,
-			"previousStats": curStats,
+			"currentStats": curStats,
+			"isNeeded":     isNeeded,
 		}).Info("Hot function launcher starting hot container")
 
 		select {
@@ -673,22 +671,28 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 			}
 
 			done := make(chan struct{})
+			start := time.Now()
+			call.slots.enterState(SlotQueueIdle)
 			s := call.slots.queueSlot(&hotSlot{done, proto, errC, container, nil})
 
 			select {
 			case <-s.trigger:
+				call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
 				if call.slots.ejectSlot(s) {
+					call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 					logger.Info("Canceling inactive hot function")
 					shutdownContainer()
 					return
 				}
 			case <-ctx.Done(): // container shutdown
 				if call.slots.ejectSlot(s) {
+					call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 					return
 				}
 			case <-a.shutdown: // server shutdown
 				if call.slots.ejectSlot(s) {
+					call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 					shutdownContainer()
 					return
 				}
