@@ -16,6 +16,14 @@ install:
 checkfmt:
 	./go-fmt.sh
 
+clear-images:
+	-docker images -q -f dangling=true | xargs docker rmi -f
+	for i in fnproject/fn-test-utils fnproject/hello fnproject/error fnproject/sleeper fnproject/error \
+	         fnproject/dind fnproject/fnserver fnproject/fnlb; do \
+	    docker images "$$i" --format '{{ .ID }}\t{{ .Repository }}\t{{ .Tag}}' | while read id repo tag; do \
+	        if [ "$$tag" = "<none>" ]; then docker rmi "$$id"; else docker rmi "$$repo:$$tag"; fi; done; done
+
+	         
 fn-test-utils: checkfmt
 	cd images/fn-test-utils && ./build.sh
 

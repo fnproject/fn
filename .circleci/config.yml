@@ -29,6 +29,7 @@ jobs:
           #docker version
       - run: docker version
       - run: nproc
+      - run: make clear-images
       - run: make full-test -j $(nproc)
       - deploy:
           command: |
