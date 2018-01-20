@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -405,5 +407,91 @@ func TestSubmitError(t *testing.T) {
 
 	if cm.Error == "" {
 		t.Fatal("expected error string to be set on call")
+	}
+}
+
+// this implements io.Reader, but importantly, is not a strings.Reader or
+// a type of reader than NewRequest can identify to set the content length
+// (important, for some tests)
+type dummyReader struct {
+	inner io.Reader
+}
+
+func (d *dummyReader) Read(b []byte) (int, error) {
+	return d.inner.Read(b)
+}
+
+func TestHTTPWithoutContentLengthWorks(t *testing.T) {
+	// TODO it may be a good idea to mock out the http server and use a real
+	// response writer with sync, and also test that this works with async + log
+
+	appName := "myapp"
+	path := "/hello"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+
+	// we need to load in app & route so that FromRequest works
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: appName},
+		},
+		[]*models.Route{
+			{
+				Path:        path,
+				AppName:     appName,
+				Image:       "fnproject/fn-test-utils",
+				Type:        "sync",
+				Format:      "http", // this _is_ the test
+				Timeout:     5,
+				IdleTimeout: 10,
+				Memory:      128,
+			},
+		}, nil,
+	)
+
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	defer a.Close()
+
+	bodOne := `{"echoContent":"yodawg"}`
+
+	// get a req that uses the dummy reader, so that this can't determine
+	// the size of the body and set content length (user requests may also
+	// forget to do this, and we _should_ read it as chunked without issue).
+	req, err := http.NewRequest("GET", url, &dummyReader{strings.NewReader(bodOne)})
+	if err != nil {
+		t.Fatal("unexpected error building request", err)
+	}
+
+	// grab a buffer so we can read what gets written to this guy
+	var out bytes.Buffer
+	callI, err := a.GetCall(FromRequest(appName, path, req), WithWriter(&out))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Submit(callI)
+	if err != nil {
+		t.Error("submit should not error:", err)
+	}
+
+	// we're using http format so this will have written a whole http request
+	res, err := http.ReadResponse(bufio.NewReader(&out), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	// {"request":{"echoContent":"yodawg"}}
+	var resp struct {
+		R struct {
+			Body string `json:"echoContent"`
+		} `json:"request"`
+	}
+
+	json.NewDecoder(res.Body).Decode(&resp)
+
+	if resp.R.Body != "yodawg" {
+		t.Fatal(`didn't get a yodawg in the body, http protocol may be fudged up
+			(to debug, recommend ensuring inside the function gets 'Transfer-Encoding: chunked' if
+			no Content-Length is set. also make sure the body makes it (and the image hasn't changed)); GLHF, got:`, resp.R.Body)
 	}
 }
