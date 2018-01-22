@@ -171,6 +171,6 @@ const (
 	runningMetricName   = "running"
 	completedMetricName = "completed"
 	failedMetricName    = "failed"
-	timedoutMetricName  = "timedout"
+	timedoutMetricName  = "timeouts"
 	errorsMetricName    = "errors"
 )
