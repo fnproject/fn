@@ -21,10 +21,12 @@ import (
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/devicemapper"
+	"github.com/docker/docker/pkg/dmesg"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/loopback"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
+	"github.com/docker/docker/pkg/parsers/kernel"
 	units "github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
@@ -266,7 +268,7 @@ func (devices *DeviceSet) ensureImage(name string, size int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := idtools.MkdirAllAs(dirname, 0700, uid, gid); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAndChown(dirname, 0700, idtools.IDPair{UID: uid, GID: gid}); err != nil && !os.IsExist(err) {
 		return "", err
 	}
 
@@ -533,11 +535,11 @@ func (devices *DeviceSet) activateDeviceIfNeeded(info *devInfo, ignoreDeleted bo
 	return devicemapper.ActivateDevice(devices.getPoolDevName(), info.Name(), info.DeviceID, info.Size)
 }
 
-// Return true only if kernel supports xfs and mkfs.xfs is available
-func xfsSupported() bool {
+// xfsSupported checks if xfs is supported, returns nil if it is, otherwise an error
+func xfsSupported() error {
 	// Make sure mkfs.xfs is available
 	if _, err := exec.LookPath("mkfs.xfs"); err != nil {
-		return false
+		return err // error text is descriptive enough
 	}
 
 	// Check if kernel supports xfs filesystem or not.
@@ -545,40 +547,47 @@ func xfsSupported() bool {
 
 	f, err := os.Open("/proc/filesystems")
 	if err != nil {
-		logrus.Warnf("devmapper: Could not check if xfs is supported: %v", err)
-		return false
+		return errors.Wrapf(err, "error checking for xfs support")
 	}
 	defer f.Close()
 
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		if strings.HasSuffix(s.Text(), "\txfs") {
-			return true
+			return nil
 		}
 	}
 
 	if err := s.Err(); err != nil {
-		logrus.Warnf("devmapper: Could not check if xfs is supported: %v", err)
+		return errors.Wrapf(err, "error checking for xfs support")
 	}
-	return false
+
+	return errors.New(`kernel does not support xfs, or "modprobe xfs" failed`)
 }
 
 func determineDefaultFS() string {
-	if xfsSupported() {
+	err := xfsSupported()
+	if err == nil {
 		return "xfs"
 	}
 
-	logrus.Warn("devmapper: XFS is not supported in your system. Either the kernel doesn't support it or mkfs.xfs is not in your PATH. Defaulting to ext4 filesystem")
+	logrus.Warnf("devmapper: XFS is not supported in your system (%v). Defaulting to ext4 filesystem", err)
 	return "ext4"
+}
+
+// mkfsOptions tries to figure out whether some additional mkfs options are required
+func mkfsOptions(fs string) []string {
+	if fs == "xfs" && !kernel.CheckKernelVersion(3, 16, 0) {
+		// For kernels earlier than 3.16 (and newer xfsutils),
+		// some xfs features need to be explicitly disabled.
+		return []string{"-m", "crc=0,finobt=0"}
+	}
+
+	return []string{}
 }
 
 func (devices *DeviceSet) createFilesystem(info *devInfo) (err error) {
 	devname := info.DevName()
-
-	args := []string{}
-	args = append(args, devices.mkfsArgs...)
-
-	args = append(args, devname)
 
 	if devices.filesystem == "" {
 		devices.filesystem = determineDefaultFS()
@@ -587,7 +596,11 @@ func (devices *DeviceSet) createFilesystem(info *devInfo) (err error) {
 		return err
 	}
 
-	logrus.Infof("devmapper: Creating filesystem %s on device %s", devices.filesystem, info.Name())
+	args := mkfsOptions(devices.filesystem)
+	args = append(args, devices.mkfsArgs...)
+	args = append(args, devname)
+
+	logrus.Infof("devmapper: Creating filesystem %s on device %s, mkfs args: %v", devices.filesystem, info.Name(), args)
 	defer func() {
 		if err != nil {
 			logrus.Infof("devmapper: Error while creating filesystem %s on device %s: %v", devices.filesystem, info.Name(), err)
@@ -1188,7 +1201,7 @@ func (devices *DeviceSet) growFS(info *devInfo) error {
 	options = joinMountOptions(options, devices.mountOptions)
 
 	if err := mount.Mount(info.DevName(), fsMountPoint, devices.BaseDeviceFilesystem, options); err != nil {
-		return fmt.Errorf("Error mounting '%s' on '%s': %s", info.DevName(), fsMountPoint, err)
+		return fmt.Errorf("Error mounting '%s' on '%s': %s\n%v", info.DevName(), fsMountPoint, err, string(dmesg.Dmesg(256)))
 	}
 
 	defer unix.Unmount(fsMountPoint, unix.MNT_DETACH)
@@ -1254,14 +1267,13 @@ func (devices *DeviceSet) setupBaseImage() error {
 }
 
 func setCloseOnExec(name string) {
-	if fileInfos, _ := ioutil.ReadDir("/proc/self/fd"); fileInfos != nil {
-		for _, i := range fileInfos {
-			link, _ := os.Readlink(filepath.Join("/proc/self/fd", i.Name()))
-			if link == name {
-				fd, err := strconv.Atoi(i.Name())
-				if err == nil {
-					unix.CloseOnExec(fd)
-				}
+	fileInfos, _ := ioutil.ReadDir("/proc/self/fd")
+	for _, i := range fileInfos {
+		link, _ := os.Readlink(filepath.Join("/proc/self/fd", i.Name()))
+		if link == name {
+			fd, err := strconv.Atoi(i.Name())
+			if err == nil {
+				unix.CloseOnExec(fd)
 			}
 		}
 	}
@@ -1685,7 +1697,7 @@ func (devices *DeviceSet) initDevmapper(doInit bool) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAs(devices.root, 0700, uid, gid); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAndChown(devices.root, 0700, idtools.IDPair{UID: uid, GID: gid}); err != nil && !os.IsExist(err) {
 		return err
 	}
 	if err := os.MkdirAll(devices.metadataDir(), 0700); err != nil && !os.IsExist(err) {
@@ -2380,7 +2392,7 @@ func (devices *DeviceSet) MountDevice(hash, path, mountLabel string) error {
 	options = joinMountOptions(options, label.FormatMountLabel("", mountLabel))
 
 	if err := mount.Mount(info.DevName(), path, fstype, options); err != nil {
-		return fmt.Errorf("devmapper: Error mounting '%s' on '%s': %s", info.DevName(), path, err)
+		return fmt.Errorf("devmapper: Error mounting '%s' on '%s': %s\n%v", info.DevName(), path, err, string(dmesg.Dmesg(256)))
 	}
 
 	if fstype == "xfs" && devices.xfsNospaceRetries != "" {
@@ -2415,6 +2427,18 @@ func (devices *DeviceSet) UnmountDevice(hash, mountPath string) error {
 		return err
 	}
 	logrus.Debug("devmapper: Unmount done")
+
+	// Remove the mountpoint here. Removing the mountpoint (in newer kernels)
+	// will cause all other instances of this mount in other mount namespaces
+	// to be killed (this is an anti-DoS measure that is necessary for things
+	// like devicemapper). This is necessary to avoid cases where a libdm mount
+	// that is present in another namespace will cause subsequent RemoveDevice
+	// operations to fail. We ignore any errors here because this may fail on
+	// older kernels which don't have
+	// torvalds/linux@8ed936b5671bfb33d89bc60bdcc7cf0470ba52fe applied.
+	if err := os.Remove(mountPath); err != nil {
+		logrus.Debugf("devmapper: error doing a remove on unmounted device %s: %v", mountPath, err)
+	}
 
 	return devices.deactivateDevice(info)
 }

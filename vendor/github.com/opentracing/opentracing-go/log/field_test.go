@@ -30,22 +30,10 @@ func TestFieldString(t *testing.T) {
 			field:    Error(nil),
 			expected: "error:<nil>",
 		},
-		{
-			field:    Noop(),
-			expected: ":<nil>",
-		},
 	}
 	for i, tc := range testCases {
 		if str := tc.field.String(); str != tc.expected {
 			t.Errorf("%d: expected '%s', got '%s'", i, tc.expected, str)
 		}
 	}
-}
-
-func TestNoopDoesNotMarshal(t *testing.T) {
-	mockEncoder := struct {
-		Encoder
-	}{}
-	f := Noop()
-	f.Marshal(mockEncoder) // panics if any Encoder method is invoked
 }

@@ -168,7 +168,7 @@ Fn runs more instances of the function based on requests.  It is automatic. For 
 
 When running in the cloud workloads are spread across available hosts.
 
-Functions currently do not relocate. Please see our [FnLB project inside Fn Project](https://github.com/fnproject/fn/tree/master/fnlb) for how to route requests to available hosts. Using the FnLB will relocate/scale functions if hosts are overloaded.
+Functions currently do not relocate. Please see our [FnLB project](https://github.com/fnproject/lb) for how to route requests to available hosts. Using the FnLB will relocate/scale functions if hosts are overloaded.
 
 <a id="Persistence"></a>
 ## Persistence

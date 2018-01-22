@@ -9,30 +9,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/opencontainers/runc/libcontainer"
+	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runc/libcontainer/utils"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
 )
 
 var execCommand = cli.Command{
 	Name:  "exec",
 	Usage: "execute new process inside the container",
-	ArgsUsage: `<container-id> <command> [command options]  || -p process.json <container-id>
+	ArgsUsage: `<container-id> <container command>
 
 Where "<container-id>" is the name for the instance of the container and
-"<command>" is the command to be executed in the container.
-"<command>" can't be empty unless a "-p" flag provided.
+"<container command>" is the command to be executed in the container.
 
-EXAMPLE:
 For example, if the container is configured to run the linux ps command the
 following will output a list of processes running in the container:
-
+	 
        # runc exec <container-id> ps`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name:  "console-socket",
-			Usage: "path to an AF_UNIX socket which will receive a file descriptor referencing the master end of the console's pseudoterminal",
+			Name:  "console",
+			Usage: "specify the pty slave path for use with the container",
 		},
 		cli.StringFlag{
 			Name:  "cwd",
@@ -81,42 +78,26 @@ following will output a list of processes running in the container:
 			Usage: "add a capability to the bounding set for the process",
 		},
 		cli.BoolFlag{
-			Name:   "no-subreaper",
-			Usage:  "disable the use of the subreaper used to reap reparented processes",
-			Hidden: true,
+			Name:  "no-subreaper",
+			Usage: "disable the use of the subreaper used to reap reparented processes",
 		},
 	},
-	Action: func(context *cli.Context) error {
-		if err := checkArgs(context, 1, minArgs); err != nil {
-			return err
-		}
-		if err := revisePidFile(context); err != nil {
-			return err
+	Action: func(context *cli.Context) {
+		if os.Geteuid() != 0 {
+			fatalf("runc should be run as root")
 		}
 		status, err := execProcess(context)
-		if err == nil {
-			os.Exit(status)
+		if err != nil {
+			fatalf("exec failed: %v", err)
 		}
-		return fmt.Errorf("exec failed: %v", err)
+		os.Exit(status)
 	},
-	SkipArgReorder: true,
 }
 
 func execProcess(context *cli.Context) (int, error) {
 	container, err := getContainer(context)
 	if err != nil {
 		return -1, err
-	}
-	status, err := container.Status()
-	if err != nil {
-		return -1, err
-	}
-	if status == libcontainer.Stopped {
-		return -1, fmt.Errorf("cannot exec a container that has stopped")
-	}
-	path := context.String("process")
-	if path == "" && len(context.Args()) == 1 {
-		return -1, fmt.Errorf("process args cannot be empty")
 	}
 	detach := context.Bool("detach")
 	state, err := container.State()
@@ -129,13 +110,12 @@ func execProcess(context *cli.Context) (int, error) {
 		return -1, err
 	}
 	r := &runner{
-		enableSubreaper: false,
+		enableSubreaper: !context.Bool("no-subreaper"),
 		shouldDestroy:   false,
 		container:       container,
-		consoleSocket:   context.String("console-socket"),
+		console:         context.String("console"),
 		detach:          detach,
 		pidFile:         context.String("pid-file"),
-		action:          CT_ACT_RUN,
 	}
 	return r.run(p)
 }
@@ -174,17 +154,12 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		p.SelinuxLabel = l
 	}
 	if caps := context.StringSlice("cap"); len(caps) > 0 {
-		for _, c := range caps {
-			p.Capabilities.Bounding = append(p.Capabilities.Bounding, c)
-			p.Capabilities.Inheritable = append(p.Capabilities.Inheritable, c)
-			p.Capabilities.Effective = append(p.Capabilities.Effective, c)
-			p.Capabilities.Permitted = append(p.Capabilities.Permitted, c)
-			p.Capabilities.Ambient = append(p.Capabilities.Ambient, c)
-		}
+		p.Capabilities = caps
 	}
 	// append the passed env variables
-	p.Env = append(p.Env, context.StringSlice("env")...)
-
+	for _, e := range context.StringSlice("env") {
+		p.Env = append(p.Env, e)
+	}
 	// set the tty
 	if context.IsSet("tty") {
 		p.Terminal = context.Bool("tty")
@@ -208,5 +183,5 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		}
 		p.User.UID = uint32(uid)
 	}
-	return p, nil
+	return &p, nil
 }

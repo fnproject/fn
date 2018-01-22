@@ -111,19 +111,19 @@ func (ps *Store) Remove(p *v2.Plugin) {
 
 // Get returns an enabled plugin matching the given name and capability.
 func (ps *Store) Get(name, capability string, mode int) (plugingetter.CompatPlugin, error) {
-	var (
-		p   *v2.Plugin
-		err error
-	)
-
 	// Lookup using new model.
 	if ps != nil {
-		p, err = ps.GetV2Plugin(name)
+		p, err := ps.GetV2Plugin(name)
 		if err == nil {
-			p.AddRefCount(mode)
 			if p.IsEnabled() {
-				return p.FilterByCap(capability)
+				fp, err := p.FilterByCap(capability)
+				if err != nil {
+					return nil, err
+				}
+				p.AddRefCount(mode)
+				return fp, nil
 			}
+
 			// Plugin was found but it is disabled, so we should not fall back to legacy plugins
 			// but we should error out right away
 			return nil, errDisabled(name)
@@ -133,19 +133,18 @@ func (ps *Store) Get(name, capability string, mode int) (plugingetter.CompatPlug
 		}
 	}
 
-	// Lookup using legacy model.
-	if allowV1PluginsFallback {
-		p, err := plugins.Get(name, capability)
-		if err != nil {
-			if errors.Cause(err) == plugins.ErrNotFound {
-				return nil, errNotFound(name)
-			}
-			return nil, errors.Wrap(systemError{err}, "legacy plugin")
-		}
-		return p, nil
+	if !allowV1PluginsFallback {
+		return nil, errNotFound(name)
 	}
 
-	return nil, err
+	p, err := plugins.Get(name, capability)
+	if err == nil {
+		return p, nil
+	}
+	if errors.Cause(err) == plugins.ErrNotFound {
+		return nil, errNotFound(name)
+	}
+	return nil, errors.Wrap(systemError{err}, "legacy plugin")
 }
 
 // GetAllManagedPluginsByCap returns a list of managed plugins matching the given capability.

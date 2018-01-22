@@ -24,9 +24,8 @@ func main() {
     func(name string) ([]byte, error) {
       return migrations.Asset(name)
     })
-    
-  d, err := bindata.WithInstance(s)
-  m, err := migrate.NewWithSourceInstance("go-bindata", d, "database://foobar")
+
+  m, err := migrate.NewWithSourceInstance("go-bindata", s, "database://foobar")
   m.Up() // run your migrations and handle the errors above of course
 }
 ```

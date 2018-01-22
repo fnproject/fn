@@ -9,32 +9,34 @@ import (
 	"net/http"
 )
 
-type Delims struct {
-	Left  string
-	Right string
-}
+type (
+	Delims struct {
+		Left  string
+		Right string
+	}
 
-type HTMLRender interface {
-	Instance(string, interface{}) Render
-}
+	HTMLRender interface {
+		Instance(string, interface{}) Render
+	}
 
-type HTMLProduction struct {
-	Template *template.Template
-	Delims   Delims
-}
+	HTMLProduction struct {
+		Template *template.Template
+		Delims   Delims
+	}
 
-type HTMLDebug struct {
-	Files   []string
-	Glob    string
-	Delims  Delims
-	FuncMap template.FuncMap
-}
+	HTMLDebug struct {
+		Files   []string
+		Glob    string
+		Delims  Delims
+		FuncMap template.FuncMap
+	}
 
-type HTML struct {
-	Template *template.Template
-	Name     string
-	Data     interface{}
-}
+	HTML struct {
+		Template *template.Template
+		Name     string
+		Data     interface{}
+	}
+)
 
 var htmlContentType = []string{"text/html; charset=utf-8"}
 

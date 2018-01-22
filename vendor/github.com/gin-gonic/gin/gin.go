@@ -14,11 +14,8 @@ import (
 	"github.com/gin-gonic/gin/render"
 )
 
-// Version is Framework's version.
-const (
-	Version                = "v1.2"
-	defaultMultipartMemory = 32 << 20 // 32 MB
-)
+// Version is Framework's version
+const Version = "v1.2"
 
 var default404Body = []byte("404 page not found")
 var default405Body = []byte("405 method not allowed")
@@ -29,77 +26,74 @@ type HandlersChain []HandlerFunc
 
 // Last returns the last handler in the chain. ie. the last handler is the main own.
 func (c HandlersChain) Last() HandlerFunc {
-	if length := len(c); length > 0 {
+	length := len(c)
+	if length > 0 {
 		return c[length-1]
 	}
 	return nil
 }
 
-type RouteInfo struct {
-	Method  string
-	Path    string
-	Handler string
-}
+type (
+	RoutesInfo []RouteInfo
+	RouteInfo  struct {
+		Method  string
+		Path    string
+		Handler string
+	}
 
-type RoutesInfo []RouteInfo
+	// Engine is the framework's instance, it contains the muxer, middleware and configuration settings.
+	// Create an instance of Engine, by using New() or Default()
+	Engine struct {
+		RouterGroup
+		delims      render.Delims
+		HTMLRender  render.HTMLRender
+		FuncMap     template.FuncMap
+		allNoRoute  HandlersChain
+		allNoMethod HandlersChain
+		noRoute     HandlersChain
+		noMethod    HandlersChain
+		pool        sync.Pool
+		trees       methodTrees
 
-// Engine is the framework's instance, it contains the muxer, middleware and configuration settings.
-// Create an instance of Engine, by using New() or Default()
-type Engine struct {
-	RouterGroup
-	delims           render.Delims
-	secureJsonPrefix string
-	HTMLRender       render.HTMLRender
-	FuncMap          template.FuncMap
-	allNoRoute       HandlersChain
-	allNoMethod      HandlersChain
-	noRoute          HandlersChain
-	noMethod         HandlersChain
-	pool             sync.Pool
-	trees            methodTrees
+		// Enables automatic redirection if the current route can't be matched but a
+		// handler for the path with (without) the trailing slash exists.
+		// For example if /foo/ is requested but a route only exists for /foo, the
+		// client is redirected to /foo with http status code 301 for GET requests
+		// and 307 for all other request methods.
+		RedirectTrailingSlash bool
 
-	// Enables automatic redirection if the current route can't be matched but a
-	// handler for the path with (without) the trailing slash exists.
-	// For example if /foo/ is requested but a route only exists for /foo, the
-	// client is redirected to /foo with http status code 301 for GET requests
-	// and 307 for all other request methods.
-	RedirectTrailingSlash bool
+		// If enabled, the router tries to fix the current request path, if no
+		// handle is registered for it.
+		// First superfluous path elements like ../ or // are removed.
+		// Afterwards the router does a case-insensitive lookup of the cleaned path.
+		// If a handle can be found for this route, the router makes a redirection
+		// to the corrected path with status code 301 for GET requests and 307 for
+		// all other request methods.
+		// For example /FOO and /..//Foo could be redirected to /foo.
+		// RedirectTrailingSlash is independent of this option.
+		RedirectFixedPath bool
 
-	// If enabled, the router tries to fix the current request path, if no
-	// handle is registered for it.
-	// First superfluous path elements like ../ or // are removed.
-	// Afterwards the router does a case-insensitive lookup of the cleaned path.
-	// If a handle can be found for this route, the router makes a redirection
-	// to the corrected path with status code 301 for GET requests and 307 for
-	// all other request methods.
-	// For example /FOO and /..//Foo could be redirected to /foo.
-	// RedirectTrailingSlash is independent of this option.
-	RedirectFixedPath bool
+		// If enabled, the router checks if another method is allowed for the
+		// current route, if the current request can not be routed.
+		// If this is the case, the request is answered with 'Method Not Allowed'
+		// and HTTP status code 405.
+		// If no other Method is allowed, the request is delegated to the NotFound
+		// handler.
+		HandleMethodNotAllowed bool
+		ForwardedByClientIP    bool
 
-	// If enabled, the router checks if another method is allowed for the
-	// current route, if the current request can not be routed.
-	// If this is the case, the request is answered with 'Method Not Allowed'
-	// and HTTP status code 405.
-	// If no other Method is allowed, the request is delegated to the NotFound
-	// handler.
-	HandleMethodNotAllowed bool
-	ForwardedByClientIP    bool
+		// #726 #755 If enabled, it will thrust some headers starting with
+		// 'X-AppEngine...' for better integration with that PaaS.
+		AppEngine bool
 
-	// #726 #755 If enabled, it will thrust some headers starting with
-	// 'X-AppEngine...' for better integration with that PaaS.
-	AppEngine bool
-
-	// If enabled, the url.RawPath will be used to find parameters.
-	UseRawPath bool
-	// If true, the path value will be unescaped.
-	// If UseRawPath is false (by default), the UnescapePathValues effectively is true,
-	// as url.Path gonna be used, which is already unescaped.
-	UnescapePathValues bool
-
-	// Value of 'maxMemory' param that is given to http.Request's ParseMultipartForm
-	// method call.
-	MaxMultipartMemory int64
-}
+		// If enabled, the url.RawPath will be used to find parameters.
+		UseRawPath bool
+		// If true, the path value will be unescaped.
+		// If UseRawPath is false (by default), the UnescapePathValues effectively is true,
+		// as url.Path gonna be used, which is already unescaped.
+		UnescapePathValues bool
+	}
+)
 
 var _ IRouter = &Engine{}
 
@@ -127,10 +121,8 @@ func New() *Engine {
 		AppEngine:              defaultAppEngine,
 		UseRawPath:             false,
 		UnescapePathValues:     true,
-		MaxMultipartMemory:     defaultMultipartMemory,
 		trees:                  make(methodTrees, 0, 9),
-		delims:                 render.Delims{Left: "{{", Right: "}}"},
-		secureJsonPrefix:       "while(1);",
+		delims:                 render.Delims{"{{", "}}"},
 	}
 	engine.RouterGroup.engine = engine
 	engine.pool.New = func() interface{} {
@@ -151,12 +143,7 @@ func (engine *Engine) allocateContext() *Context {
 }
 
 func (engine *Engine) Delims(left, right string) *Engine {
-	engine.delims = render.Delims{Left: left, Right: right}
-	return engine
-}
-
-func (engine *Engine) SecureJsonPrefix(prefix string) *Engine {
-	engine.secureJsonPrefix = prefix
+	engine.delims = render.Delims{left, right}
 	return engine
 }
 
@@ -164,21 +151,19 @@ func (engine *Engine) LoadHTMLGlob(pattern string) {
 	if IsDebugging() {
 		debugPrintLoadTemplate(template.Must(template.New("").Delims(engine.delims.Left, engine.delims.Right).Funcs(engine.FuncMap).ParseGlob(pattern)))
 		engine.HTMLRender = render.HTMLDebug{Glob: pattern, FuncMap: engine.FuncMap, Delims: engine.delims}
-		return
+	} else {
+		templ := template.Must(template.New("").Delims(engine.delims.Left, engine.delims.Right).Funcs(engine.FuncMap).ParseGlob(pattern))
+		engine.SetHTMLTemplate(templ)
 	}
-
-	templ := template.Must(template.New("").Delims(engine.delims.Left, engine.delims.Right).Funcs(engine.FuncMap).ParseGlob(pattern))
-	engine.SetHTMLTemplate(templ)
 }
 
 func (engine *Engine) LoadHTMLFiles(files ...string) {
 	if IsDebugging() {
 		engine.HTMLRender = render.HTMLDebug{Files: files, FuncMap: engine.FuncMap, Delims: engine.delims}
-		return
+	} else {
+		templ := template.Must(template.New("").Delims(engine.delims.Left, engine.delims.Right).Funcs(engine.FuncMap).ParseFiles(files...))
+		engine.SetHTMLTemplate(templ)
 	}
-
-	templ := template.Must(template.New("").Delims(engine.delims.Left, engine.delims.Right).Funcs(engine.FuncMap).ParseFiles(files...))
-	engine.SetHTMLTemplate(templ)
 }
 
 func (engine *Engine) SetHTMLTemplate(templ *template.Template) {
@@ -199,7 +184,7 @@ func (engine *Engine) NoRoute(handlers ...HandlerFunc) {
 	engine.rebuild404Handlers()
 }
 
-// NoMethod sets the handlers called when... TODO.
+// NoMethod sets the handlers called when... TODO
 func (engine *Engine) NoMethod(handlers ...HandlerFunc) {
 	engine.noMethod = handlers
 	engine.rebuild405Handlers()
@@ -276,7 +261,7 @@ func (engine *Engine) Run(addr ...string) (err error) {
 // RunTLS attaches the router to a http.Server and starts listening and serving HTTPS (secure) requests.
 // It is a shortcut for http.ListenAndServeTLS(addr, certFile, keyFile, router)
 // Note: this method will block the calling goroutine indefinitely unless an error happens.
-func (engine *Engine) RunTLS(addr, certFile, keyFile string) (err error) {
+func (engine *Engine) RunTLS(addr string, certFile string, keyFile string) (err error) {
 	debugPrint("Listening and serving HTTPS on %s\n", addr)
 	defer func() { debugPrintError(err) }()
 
@@ -301,7 +286,7 @@ func (engine *Engine) RunUnix(file string) (err error) {
 	return
 }
 
-// ServeHTTP conforms to the http.Handler interface.
+// Conforms to the http.Handler interface.
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := engine.pool.Get().(*Context)
 	c.writermem.reset(w)
@@ -313,7 +298,7 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	engine.pool.Put(c)
 }
 
-// HandleContext re-enter a context that has been rewritten.
+// Re-enter a context that has been rewritten.
 // This can be done by setting c.Request.Path to your new target.
 // Disclaimer: You can loop yourself to death with this, use wisely.
 func (engine *Engine) HandleContext(c *Context) {
@@ -324,11 +309,14 @@ func (engine *Engine) HandleContext(c *Context) {
 
 func (engine *Engine) handleHTTPRequest(context *Context) {
 	httpMethod := context.Request.Method
-	path := context.Request.URL.Path
-	unescape := false
+	var path string
+	var unescape bool
 	if engine.UseRawPath && len(context.Request.URL.RawPath) > 0 {
 		path = context.Request.URL.RawPath
 		unescape = engine.UnescapePathValues
+	} else {
+		path = context.Request.URL.Path
+		unescape = false
 	}
 
 	// Find root of the tree for the given HTTP method
@@ -358,6 +346,7 @@ func (engine *Engine) handleHTTPRequest(context *Context) {
 		}
 	}
 
+	// TODO: unit test
 	if engine.HandleMethodNotAllowed {
 		for _, tree := range engine.trees {
 			if tree.method != httpMethod {

@@ -46,7 +46,7 @@ var Thrift = {
      * @const {string} Version
      * @memberof Thrift
      */
-    Version: '1.0.0-dev',
+    Version: '0.11.0',
 
     /**
      * Thrift IDL type string to Id mapping.
@@ -575,6 +575,15 @@ Thrift.TWebSocketTransport.prototype = {
             clientCallback();
           };
         }()));
+        if(callback) {
+          this.callbacks.push((function() {
+            var clientCallback = callback;
+            return function(msg) {
+              self.setRecvBuffer(msg);
+              clientCallback();
+            };
+          }()));
+        }
       } else {
         //Queue the send to go out __onOpen
         this.send_pending.push({

@@ -44,5 +44,5 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server Shutdown:", err)
 	}
-	log.Println("Server exiting")
+	log.Println("Server exist")
 }

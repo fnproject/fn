@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadAllowNondistributableArtifacts(t *testing.T) {
@@ -90,7 +92,7 @@ func TestLoadAllowNondistributableArtifacts(t *testing.T) {
 		},
 	}
 	for _, testCase := range testCases {
-		config := newServiceConfig(ServiceOptions{})
+		config := emptyServiceConfig
 		err := config.LoadAllowNondistributableArtifacts(testCase.registries)
 		if testCase.err == "" {
 			if err != nil {
@@ -233,7 +235,7 @@ func TestLoadInsecureRegistries(t *testing.T) {
 		},
 	}
 	for _, testCase := range testCases {
-		config := newServiceConfig(ServiceOptions{})
+		config := emptyServiceConfig
 		err := config.LoadInsecureRegistries(testCase.registries)
 		if testCase.err == "" {
 			if err != nil {
@@ -256,5 +258,123 @@ func TestLoadInsecureRegistries(t *testing.T) {
 				t.Fatalf("expect error '%s', got '%s'", testCase.err, err)
 			}
 		}
+	}
+}
+
+func TestNewServiceConfig(t *testing.T) {
+	testCases := []struct {
+		opts   ServiceOptions
+		errStr string
+	}{
+		{
+			ServiceOptions{},
+			"",
+		},
+		{
+			ServiceOptions{
+				Mirrors: []string{"example.com:5000"},
+			},
+			`invalid mirror: unsupported scheme "example.com" in "example.com:5000"`,
+		},
+		{
+			ServiceOptions{
+				Mirrors: []string{"http://example.com:5000"},
+			},
+			"",
+		},
+		{
+			ServiceOptions{
+				InsecureRegistries: []string{"[fe80::]/64"},
+			},
+			`insecure registry [fe80::]/64 is not valid: invalid host "[fe80::]/64"`,
+		},
+		{
+			ServiceOptions{
+				InsecureRegistries: []string{"102.10.8.1/24"},
+			},
+			"",
+		},
+		{
+			ServiceOptions{
+				AllowNondistributableArtifacts: []string{"[fe80::]/64"},
+			},
+			`allow-nondistributable-artifacts registry [fe80::]/64 is not valid: invalid host "[fe80::]/64"`,
+		},
+		{
+			ServiceOptions{
+				AllowNondistributableArtifacts: []string{"102.10.8.1/24"},
+			},
+			"",
+		},
+	}
+
+	for _, testCase := range testCases {
+		_, err := newServiceConfig(testCase.opts)
+		if testCase.errStr != "" {
+			assert.EqualError(t, err, testCase.errStr)
+		} else {
+			assert.Nil(t, err)
+		}
+	}
+}
+
+func TestValidateIndexName(t *testing.T) {
+	valid := []struct {
+		index  string
+		expect string
+	}{
+		{
+			index:  "index.docker.io",
+			expect: "docker.io",
+		},
+		{
+			index:  "example.com",
+			expect: "example.com",
+		},
+		{
+			index:  "127.0.0.1:8080",
+			expect: "127.0.0.1:8080",
+		},
+		{
+			index:  "mytest-1.com",
+			expect: "mytest-1.com",
+		},
+		{
+			index:  "mirror-1.com/v1/?q=foo",
+			expect: "mirror-1.com/v1/?q=foo",
+		},
+	}
+
+	for _, testCase := range valid {
+		result, err := ValidateIndexName(testCase.index)
+		if assert.NoError(t, err) {
+			assert.Equal(t, testCase.expect, result)
+		}
+
+	}
+
+}
+
+func TestValidateIndexNameWithError(t *testing.T) {
+	invalid := []struct {
+		index string
+		err   string
+	}{
+		{
+			index: "docker.io-",
+			err:   "invalid index name (docker.io-). Cannot begin or end with a hyphen",
+		},
+		{
+			index: "-example.com",
+			err:   "invalid index name (-example.com). Cannot begin or end with a hyphen",
+		},
+		{
+			index: "mirror-1.com/v1/?q=foo-",
+			err:   "invalid index name (mirror-1.com/v1/?q=foo-). Cannot begin or end with a hyphen",
+		},
+	}
+	for _, testCase := range invalid {
+		_, err := ValidateIndexName(testCase.index)
+		assert.EqualError(t, err, testCase.err)
 	}
 }

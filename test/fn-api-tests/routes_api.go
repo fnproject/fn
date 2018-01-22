@@ -157,7 +157,7 @@ func ListRoutes(t *testing.T, ctx context.Context, fnclient *client.Fn, appName 
 func GetRoute(t *testing.T, ctx context.Context, fnclient *client.Fn, appName, routePath string) *models.Route {
 	cfg := &routes.GetAppsAppRoutesRouteParams{
 		App:     appName,
-		Route:   routePath,
+		Route:   routePath[1:],
 		Context: ctx,
 	}
 

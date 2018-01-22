@@ -125,7 +125,7 @@ func (err fallbackError) Error() string {
 func loginV2(authConfig *types.AuthConfig, endpoint APIEndpoint, userAgent string) (string, string, error) {
 	logrus.Debugf("attempting v2 login to registry endpoint %s", strings.TrimRight(endpoint.URL.String(), "/")+"/v2/")
 
-	modifiers := DockerHeaders(userAgent, nil)
+	modifiers := Headers(userAgent, nil)
 	authTransport := transport.NewTransport(NewTransport(endpoint.TLSConfig), modifiers...)
 
 	credentialAuthConfig := *authConfig
@@ -247,6 +247,7 @@ func (err PingResponseError) Error() string {
 // challenge manager for the supported authentication types and
 // whether v2 was confirmed by the response. If a response is received but
 // cannot be interpreted a PingResponseError will be returned.
+// nolint: interfacer
 func PingV2Registry(endpoint *url.URL, transport http.RoundTripper) (challenge.Manager, bool, error) {
 	var (
 		foundV2   = false

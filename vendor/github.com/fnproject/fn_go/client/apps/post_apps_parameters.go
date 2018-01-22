@@ -17,7 +17,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/fnproject/fn_go/models"
+	models "github.com/fnproject/fn_go/models"
 )
 
 // NewPostAppsParams creates a new PostAppsParams object

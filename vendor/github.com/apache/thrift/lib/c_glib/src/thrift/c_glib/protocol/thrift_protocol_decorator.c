@@ -52,7 +52,7 @@ thrift_protocol_decorator_write_message_begin (ThriftProtocol *protocol,
   ThriftProtocolDecorator *self = THRIFT_PROTOCOL_DECORATOR (protocol);
   ThriftProtocolClass *proto = THRIFT_PROTOCOL_GET_CLASS (self->concrete_protocol);
 
-  g_debug("Concrete protocol %p | %p", self->concrete_protocol, proto);
+  g_debug("Concrete protocol %p | %p", (void *)self->concrete_protocol, (void *)proto);
 
   return proto->write_message_begin (self->concrete_protocol, name,
                                     message_type, seqid,
@@ -486,13 +486,11 @@ thrift_protocol_decorator_set_property (GObject      *object,
     GParamSpec   *pspec)
 {
   ThriftProtocolDecorator *self = THRIFT_PROTOCOL_DECORATOR (object);
-  g_debug("Is protocol decorator %i", THRIFT_IS_PROTOCOL_DECORATOR(object));
 
   switch (property_id)
   {
   case PROP_THRIFT_TYPE_PROTOCOL_DECORATOR_CONCRETE_PROTOCOL:
     self->concrete_protocol = g_value_dup_object (value);
-    g_debug("Setting concrete protocol %p to %p in %s", self, self->concrete_protocol, g_type_name(G_TYPE_FROM_INSTANCE(object)));
     break;
 
   default:
@@ -509,7 +507,6 @@ thrift_protocol_decorator_get_property (GObject    *object,
     GParamSpec *pspec)
 {
   ThriftProtocolDecorator *self = THRIFT_PROTOCOL_DECORATOR (object);
-  g_debug("Is protocol decorator %i", THRIFT_IS_PROTOCOL_DECORATOR(object));
 
   switch (property_id)
   {
@@ -534,7 +531,7 @@ thrift_protocol_decorator_get_concrete_protocol(ThriftProtocolDecorator *protoco
     return NULL;
   }
   ThriftProtocolDecorator *self = THRIFT_PROTOCOL_DECORATOR(protocol);
-  g_debug("Getting concrete protocol from %X -> %X", self, self->concrete_protocol);
+  g_debug("Getting concrete protocol from %p -> %p", (void *)self, (void *)self->concrete_protocol);
 
   return retval;
 }

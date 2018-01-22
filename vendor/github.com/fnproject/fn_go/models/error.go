@@ -14,14 +14,11 @@ import (
 
 // Error error
 // swagger:model Error
-
 type Error struct {
 
 	// error
 	Error *ErrorBody `json:"error,omitempty"`
 }
-
-/* polymorph Error error false */
 
 // Validate validates this error
 func (m *Error) Validate(formats strfmt.Registry) error {

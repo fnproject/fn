@@ -16,7 +16,6 @@ import (
 
 // RoutesWrapperRoutes routes wrapper routes
 // swagger:model routesWrapperRoutes
-
 type RoutesWrapperRoutes []*Route
 
 // Validate validates this routes wrapper routes

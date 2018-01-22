@@ -1,7 +1,3 @@
-# libcontainer
-
-[![GoDoc](https://godoc.org/github.com/opencontainers/runc/libcontainer?status.svg)](https://godoc.org/github.com/opencontainers/runc/libcontainer)
-
 Libcontainer provides a native Go implementation for creating containers
 with namespaces, cgroups, capabilities, and filesystem access controls.
 It allows you to manage the lifecycle of the container performing additional operations
@@ -20,14 +16,7 @@ the current binary (/proc/self/exe) to be executed as the init process, and use
 arg "init", we call the first step process "bootstrap", so you always need a "init"
 function as the entry of "bootstrap".
 
-In addition to the go init function the early stage bootstrap is handled by importing
-[nsenter](https://github.com/opencontainers/runc/blob/master/libcontainer/nsenter/README.md).
-
 ```go
-import (
-	_ "github.com/opencontainers/runc/libcontainer/nsenter"
-)
-
 func init() {
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		runtime.GOMAXPROCS(1)
@@ -56,91 +45,25 @@ Once you have an instance of the factory created we can create a configuration
 struct describing how the container is to be created. A sample would look similar to this:
 
 ```go
-defaultMountFlags := unix.MS_NOEXEC | unix.MS_NOSUID | unix.MS_NODEV
+defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 config := &configs.Config{
 	Rootfs: "/your/path/to/rootfs",
-	Capabilities: &configs.Capabilities{
-                Bounding: []string{
-                        "CAP_CHOWN",
-                        "CAP_DAC_OVERRIDE",
-                        "CAP_FSETID",
-                        "CAP_FOWNER",
-                        "CAP_MKNOD",
-                        "CAP_NET_RAW",
-                        "CAP_SETGID",
-                        "CAP_SETUID",
-                        "CAP_SETFCAP",
-                        "CAP_SETPCAP",
-                        "CAP_NET_BIND_SERVICE",
-                        "CAP_SYS_CHROOT",
-                        "CAP_KILL",
-                        "CAP_AUDIT_WRITE",
-                },
-                Effective: []string{
-                        "CAP_CHOWN",
-                        "CAP_DAC_OVERRIDE",
-                        "CAP_FSETID",
-                        "CAP_FOWNER",
-                        "CAP_MKNOD",
-                        "CAP_NET_RAW",
-                        "CAP_SETGID",
-                        "CAP_SETUID",
-                        "CAP_SETFCAP",
-                        "CAP_SETPCAP",
-                        "CAP_NET_BIND_SERVICE",
-                        "CAP_SYS_CHROOT",
-                        "CAP_KILL",
-                        "CAP_AUDIT_WRITE",
-                },
-                Inheritable: []string{
-                        "CAP_CHOWN",
-                        "CAP_DAC_OVERRIDE",
-                        "CAP_FSETID",
-                        "CAP_FOWNER",
-                        "CAP_MKNOD",
-                        "CAP_NET_RAW",
-                        "CAP_SETGID",
-                        "CAP_SETUID",
-                        "CAP_SETFCAP",
-                        "CAP_SETPCAP",
-                        "CAP_NET_BIND_SERVICE",
-                        "CAP_SYS_CHROOT",
-                        "CAP_KILL",
-                        "CAP_AUDIT_WRITE",
-                },
-                Permitted: []string{
-                        "CAP_CHOWN",
-                        "CAP_DAC_OVERRIDE",
-                        "CAP_FSETID",
-                        "CAP_FOWNER",
-                        "CAP_MKNOD",
-                        "CAP_NET_RAW",
-                        "CAP_SETGID",
-                        "CAP_SETUID",
-                        "CAP_SETFCAP",
-                        "CAP_SETPCAP",
-                        "CAP_NET_BIND_SERVICE",
-                        "CAP_SYS_CHROOT",
-                        "CAP_KILL",
-                        "CAP_AUDIT_WRITE",
-                },
-                Ambient: []string{
-                        "CAP_CHOWN",
-                        "CAP_DAC_OVERRIDE",
-                        "CAP_FSETID",
-                        "CAP_FOWNER",
-                        "CAP_MKNOD",
-                        "CAP_NET_RAW",
-                        "CAP_SETGID",
-                        "CAP_SETUID",
-                        "CAP_SETFCAP",
-                        "CAP_SETPCAP",
-                        "CAP_NET_BIND_SERVICE",
-                        "CAP_SYS_CHROOT",
-                        "CAP_KILL",
-                        "CAP_AUDIT_WRITE",
-                },
-        },
+	Capabilities: []string{
+		"CAP_CHOWN",
+		"CAP_DAC_OVERRIDE",
+		"CAP_FSETID",
+		"CAP_FOWNER",
+		"CAP_MKNOD",
+		"CAP_NET_RAW",
+		"CAP_SETGID",
+		"CAP_SETUID",
+		"CAP_SETFCAP",
+		"CAP_SETPCAP",
+		"CAP_NET_BIND_SERVICE",
+		"CAP_SYS_CHROOT",
+		"CAP_KILL",
+		"CAP_AUDIT_WRITE",
+	},
 	Namespaces: configs.Namespaces([]configs.Namespace{
 		{Type: configs.NEWNS},
 		{Type: configs.NEWUTS},
@@ -154,13 +77,12 @@ config := &configs.Config{
 		Parent: "system",
 		Resources: &configs.Resources{
 			MemorySwappiness: nil,
-			AllowAllDevices:  nil,
+			AllowAllDevices:  false,
 			AllowedDevices:   configs.DefaultAllowedDevices,
 		},
 	},
 	MaskPaths: []string{
 		"/proc/kcore",
-		"/sys/firmware",
 	},
 	ReadonlyPaths: []string{
 		"/proc/sys", "/proc/sysrq-trigger", "/proc/irq", "/proc/bus",
@@ -178,14 +100,14 @@ config := &configs.Config{
 			Source:      "tmpfs",
 			Destination: "/dev",
 			Device:      "tmpfs",
-			Flags:       unix.MS_NOSUID | unix.MS_STRICTATIME,
+			Flags:       syscall.MS_NOSUID | syscall.MS_STRICTATIME,
 			Data:        "mode=755",
 		},
 		{
 			Source:      "devpts",
 			Destination: "/dev/pts",
 			Device:      "devpts",
-			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC,
+			Flags:       syscall.MS_NOSUID | syscall.MS_NOEXEC,
 			Data:        "newinstance,ptmxmode=0666,mode=0620,gid=5",
 		},
 		{
@@ -205,7 +127,7 @@ config := &configs.Config{
 			Source:      "sysfs",
 			Destination: "/sys",
 			Device:      "sysfs",
-			Flags:       defaultMountFlags | unix.MS_RDONLY,
+			Flags:       defaultMountFlags | syscall.MS_RDONLY,
 		},
 	},
 	UidMappings: []configs.IDMap{
@@ -231,7 +153,7 @@ config := &configs.Config{
 	},
 	Rlimits: []configs.Rlimit{
 		{
-			Type: unix.RLIMIT_NOFILE,
+			Type: syscall.RLIMIT_NOFILE,
 			Hard: uint64(1025),
 			Soft: uint64(1025),
 		},
@@ -262,10 +184,10 @@ process := &libcontainer.Process{
 	Stderr: os.Stderr,
 }
 
-err := container.Run(process)
+err := container.Start(process)
 if err != nil {
-	container.Destroy()
 	logrus.Fatal(err)
+	container.Destroy()
 	return
 }
 
@@ -297,15 +219,6 @@ container.Resume()
 
 // send signal to container's init process.
 container.Signal(signal)
-
-// update container resource constraints.
-container.Set(config)
-
-// get current status of the container.
-status, err := container.Status()
-
-// get current container's state information.
-state, err := container.State()
 ```
 
 

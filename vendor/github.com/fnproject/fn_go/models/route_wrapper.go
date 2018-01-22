@@ -15,7 +15,6 @@ import (
 
 // RouteWrapper route wrapper
 // swagger:model RouteWrapper
-
 type RouteWrapper struct {
 
 	// error
@@ -28,12 +27,6 @@ type RouteWrapper struct {
 	// Required: true
 	Route *Route `json:"route"`
 }
-
-/* polymorph RouteWrapper error false */
-
-/* polymorph RouteWrapper message false */
-
-/* polymorph RouteWrapper route false */
 
 // Validate validates this route wrapper
 func (m *RouteWrapper) Validate(formats strfmt.Registry) error {

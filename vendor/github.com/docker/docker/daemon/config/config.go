@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -101,9 +102,9 @@ type CommonConfig struct {
 	RawLogs              bool                      `json:"raw-logs,omitempty"`
 	RootDeprecated       string                    `json:"graph,omitempty"`
 	Root                 string                    `json:"data-root,omitempty"`
+	ExecRoot             string                    `json:"exec-root,omitempty"`
 	SocketGroup          string                    `json:"group,omitempty"`
 	CorsHeaders          string                    `json:"api-cors-header,omitempty"`
-	EnableCors           bool                      `json:"api-enable-cors,omitempty"`
 
 	// TrustKeyPath is used to generate the daemon ID and for signing schema 1 manifests
 	// when pushing to a registry which does not support schema 2. This field is marked as
@@ -170,9 +171,14 @@ type CommonConfig struct {
 	Experimental bool `json:"experimental"` // Experimental indicates whether experimental features should be exposed or not
 
 	// Exposed node Generic Resources
-	NodeGenericResources string `json:"node-generic-resources,omitempty"`
+	// e.g: ["orange=red", "orange=green", "orange=blue", "apple=3"]
+	NodeGenericResources []string `json:"node-generic-resources,omitempty"`
 	// NetworkControlPlaneMTU allows to specify the control plane MTU, this will allow to optimize the network use in some components
 	NetworkControlPlaneMTU int `json:"network-control-plane-mtu,omitempty"`
+
+	// ContainerAddr is the address used to connect to containerd if we're
+	// not starting it ourselves
+	ContainerdAddr string `json:"containerd,omitempty"`
 }
 
 // IsValueSet returns true if a configuration value
@@ -199,9 +205,6 @@ func New() *Config {
 
 // ParseClusterAdvertiseSettings parses the specified advertise settings
 func ParseClusterAdvertiseSettings(clusterStore, clusterAdvertise string) (string, error) {
-	if runtime.GOOS == "solaris" && (clusterAdvertise != "" || clusterStore != "") {
-		return "", errors.New("Cluster Advertise Settings not supported on Solaris")
-	}
 	if clusterAdvertise == "" {
 		return "", daemondiscovery.ErrDiscoveryDisabled
 	}
@@ -245,29 +248,22 @@ func Reload(configFile string, flags *pflag.FlagSet, reload func(*Config)) error
 	logrus.Infof("Got signal to reload configuration, reloading from: %s", configFile)
 	newConfig, err := getConflictFreeConfiguration(configFile, flags)
 	if err != nil {
-		return err
+		if flags.Changed("config-file") || !os.IsNotExist(err) {
+			return fmt.Errorf("unable to configure the Docker daemon with file %s: %v", configFile, err)
+		}
+		newConfig = New()
 	}
 
 	if err := Validate(newConfig); err != nil {
 		return fmt.Errorf("file configuration validation failed (%v)", err)
 	}
 
-	// Labels of the docker engine used to allow multiple values associated with the same key.
-	// This is deprecated in 1.13, and, be removed after 3 release cycles.
-	// The following will check the conflict of labels, and report a warning for deprecation.
-	//
-	// TODO: After 3 release cycles (17.12) an error will be returned, and labels will be
-	// sanitized to consolidate duplicate key-value pairs (config.Labels = newLabels):
-	//
-	// newLabels, err := GetConflictFreeLabels(newConfig.Labels)
-	// if err != nil {
-	//      return err
-	// }
-	// newConfig.Labels = newLabels
-	//
-	if _, err := GetConflictFreeLabels(newConfig.Labels); err != nil {
-		logrus.Warnf("Engine labels with duplicate keys and conflicting values have been deprecated: %s", err)
+	// Check if duplicate label-keys with different values are found
+	newLabels, err := GetConflictFreeLabels(newConfig.Labels)
+	if err != nil {
+		return err
 	}
+	newConfig.Labels = newLabels
 
 	reload(newConfig)
 	return nil
@@ -502,7 +498,7 @@ func Validate(config *Config) error {
 		}
 	}
 
-	if _, err := opts.ParseGenericResources(config.NodeGenericResources); err != nil {
+	if _, err := ParseGenericResources(config.NodeGenericResources); err != nil {
 		return err
 	}
 

@@ -111,32 +111,47 @@ func initDatabase(t *testing.T, db *sql.DB, rowCount int64) {
 }
 
 func TestShortTimeout(t *testing.T) {
-	db, err := sql.Open("sqlite3", "file::memory:?mode=memory&cache=shared")
+	srcTempFilename := TempFilename(t)
+	defer os.Remove(srcTempFilename)
+
+	db, err := sql.Open("sqlite3", srcTempFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	initDatabase(t, db, 10000)
+	initDatabase(t, db, 100)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Microsecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
 	defer cancel()
 	query := `SELECT key1, key_id, key2, key3, key4, key5, key6, data
 		FROM test_table
 		ORDER BY key2 ASC`
-	rows, err := db.QueryContext(ctx, query)
+	_, err = db.QueryContext(ctx, query)
+	if err != nil && err != context.DeadlineExceeded {
+		t.Fatal(err)
+	}
+	if ctx.Err() != nil && ctx.Err() != context.DeadlineExceeded {
+		t.Fatal(ctx.Err())
+	}
+}
+
+func TestExecCancel(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var key1, keyid, key2, key3, key4, key5, key6 string
-		var data []byte
-		err = rows.Scan(&key1, &keyid, &key2, &key3, &key4, &key5, &key6, &data)
-		if err != nil {
-			break
-		}
+	defer db.Close()
+
+	if _, err = db.Exec("create table foo (id integer primary key)"); err != nil {
+		t.Fatal(err)
 	}
-	if context.DeadlineExceeded != ctx.Err() {
-		t.Fatal(ctx.Err())
+
+	for n := 0; n < 100; n++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		_, err = db.ExecContext(ctx, "insert into foo (id) values (?)", n)
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }

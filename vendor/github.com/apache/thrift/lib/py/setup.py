@@ -22,7 +22,7 @@
 import sys
 try:
     from setuptools import setup, Extension
-except:
+except Exception:
     from distutils.core import setup, Extension
 
 from distutils.command.build_ext import build_ext
@@ -87,7 +87,7 @@ def run_setup(with_binary):
     twisted_deps = ['twisted']
 
     setup(name='thrift',
-          version='1.0.0-dev',
+          version='0.11.0',
           description='Python bindings for the Apache Thrift RPC system',
           author='Thrift Developers',
           author_email='dev@thrift.apache.org',
@@ -120,6 +120,7 @@ def run_setup(with_binary):
           zip_safe=False,
           **extensions
           )
+
 
 try:
     with_binary = True

@@ -14,7 +14,6 @@ import (
 
 // App app
 // swagger:model App
-
 type App struct {
 
 	// Application configuration, applied to all routes.
@@ -24,10 +23,6 @@ type App struct {
 	// Read Only: true
 	Name string `json:"name,omitempty"`
 }
-
-/* polymorph App config false */
-
-/* polymorph App name false */
 
 // Validate validates this app
 func (m *App) Validate(formats strfmt.Registry) error {

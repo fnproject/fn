@@ -422,3 +422,32 @@ func TestEchoWithMessaging(t *testing.T) {
 	<-listenerDone
 	<-clientDone
 }
+
+func TestConnectRace(t *testing.T) {
+	l, err := ListenPipe(testPipeName, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	go func() {
+		for {
+			s, err := l.Accept()
+			if err == ErrPipeListenerClosed {
+				return
+			}
+
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.Close()
+		}
+	}()
+
+	for i := 0; i < 1000; i++ {
+		c, err := DialPipe(testPipeName, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Close()
+	}
+}

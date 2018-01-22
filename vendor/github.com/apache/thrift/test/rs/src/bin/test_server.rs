@@ -390,12 +390,8 @@ impl ThriftTestSyncHandler for ThriftTestSyncHandlerImpl {
 
 struct SecondServiceSyncHandlerImpl;
 impl SecondServiceSyncHandler for SecondServiceSyncHandlerImpl {
-    fn handle_blah_blah(&self) -> thrift::Result<()> {
-        Err(thrift::new_application_error(thrift::ApplicationErrorKind::Unknown, "blahBlah"),)
-    }
-
     fn handle_secondtest_string(&self, thing: String) -> thrift::Result<String> {
-        info!("testString({})", &thing);
+        info!("(second)testString({})", &thing);
         let ret = format!("testString(\"{}\")", &thing);
         Ok(ret)
     }

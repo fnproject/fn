@@ -48,12 +48,12 @@ type containerConfig struct {
 
 // newContainerConfig returns a validated container config. No methods should
 // return an error if this function returns without error.
-func newContainerConfig(t *api.Task) (*containerConfig, error) {
+func newContainerConfig(t *api.Task, node *api.NodeDescription) (*containerConfig, error) {
 	var c containerConfig
-	return &c, c.setTask(t)
+	return &c, c.setTask(t, node)
 }
 
-func (c *containerConfig) setTask(t *api.Task) error {
+func (c *containerConfig) setTask(t *api.Task, node *api.NodeDescription) error {
 	if t.Spec.GetContainer() == nil && t.Spec.GetAttachment() == nil {
 		return exec.ErrRuntimeUnsupported
 	}
@@ -78,7 +78,7 @@ func (c *containerConfig) setTask(t *api.Task) error {
 	c.task = t
 
 	if t.Spec.GetContainer() != nil {
-		preparedSpec, err := template.ExpandContainerSpec(nil, t)
+		preparedSpec, err := template.ExpandContainerSpec(node, t)
 		if err != nil {
 			return err
 		}
@@ -166,6 +166,10 @@ func (c *containerConfig) portBindings() nat.PortMap {
 	}
 
 	return portBindings
+}
+
+func (c *containerConfig) isolation() enginecontainer.Isolation {
+	return convert.IsolationFromGRPC(c.spec().Isolation)
 }
 
 func (c *containerConfig) exposedPorts() map[nat.Port]struct{} {
@@ -350,6 +354,7 @@ func (c *containerConfig) hostConfig() *enginecontainer.HostConfig {
 		PortBindings:   c.portBindings(),
 		Mounts:         c.mounts(),
 		ReadonlyRootfs: c.spec().ReadOnly,
+		Isolation:      c.isolation(),
 	}
 
 	if c.spec().DNSConfig != nil {
