@@ -9,15 +9,15 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gin-gonic/gin"
+	. "github.com/gin-gonic/gin"
 )
 
 var once sync.Once
-var internalEngine *gin.Engine
+var internalEngine *Engine
 
-func engine() *gin.Engine {
+func engine() *Engine {
 	once.Do(func() {
-		internalEngine = gin.Default()
+		internalEngine = Default()
 	})
 	return internalEngine
 }
@@ -35,65 +35,65 @@ func SetHTMLTemplate(templ *template.Template) {
 }
 
 // NoRoute adds handlers for NoRoute. It return a 404 code by default.
-func NoRoute(handlers ...gin.HandlerFunc) {
+func NoRoute(handlers ...HandlerFunc) {
 	engine().NoRoute(handlers...)
 }
 
 // NoMethod sets the handlers called when... TODO
-func NoMethod(handlers ...gin.HandlerFunc) {
+func NoMethod(handlers ...HandlerFunc) {
 	engine().NoMethod(handlers...)
 }
 
 // Group creates a new router group. You should add all the routes that have common middlwares or the same path prefix.
 // For example, all the routes that use a common middlware for authorization could be grouped.
-func Group(relativePath string, handlers ...gin.HandlerFunc) *gin.RouterGroup {
+func Group(relativePath string, handlers ...HandlerFunc) *RouterGroup {
 	return engine().Group(relativePath, handlers...)
 }
 
-func Handle(httpMethod, relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func Handle(httpMethod, relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().Handle(httpMethod, relativePath, handlers...)
 }
 
 // POST is a shortcut for router.Handle("POST", path, handle)
-func POST(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func POST(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().POST(relativePath, handlers...)
 }
 
 // GET is a shortcut for router.Handle("GET", path, handle)
-func GET(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func GET(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().GET(relativePath, handlers...)
 }
 
 // DELETE is a shortcut for router.Handle("DELETE", path, handle)
-func DELETE(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func DELETE(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().DELETE(relativePath, handlers...)
 }
 
 // PATCH is a shortcut for router.Handle("PATCH", path, handle)
-func PATCH(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func PATCH(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().PATCH(relativePath, handlers...)
 }
 
 // PUT is a shortcut for router.Handle("PUT", path, handle)
-func PUT(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func PUT(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().PUT(relativePath, handlers...)
 }
 
 // OPTIONS is a shortcut for router.Handle("OPTIONS", path, handle)
-func OPTIONS(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func OPTIONS(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().OPTIONS(relativePath, handlers...)
 }
 
 // HEAD is a shortcut for router.Handle("HEAD", path, handle)
-func HEAD(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func HEAD(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().HEAD(relativePath, handlers...)
 }
 
-func Any(relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes {
+func Any(relativePath string, handlers ...HandlerFunc) IRoutes {
 	return engine().Any(relativePath, handlers...)
 }
 
-func StaticFile(relativePath, filepath string) gin.IRoutes {
+func StaticFile(relativePath, filepath string) IRoutes {
 	return engine().StaticFile(relativePath, filepath)
 }
 
@@ -103,18 +103,18 @@ func StaticFile(relativePath, filepath string) gin.IRoutes {
 // To use the operating system's file system implementation,
 // use :
 //     router.Static("/static", "/var/www")
-func Static(relativePath, root string) gin.IRoutes {
+func Static(relativePath, root string) IRoutes {
 	return engine().Static(relativePath, root)
 }
 
-func StaticFS(relativePath string, fs http.FileSystem) gin.IRoutes {
+func StaticFS(relativePath string, fs http.FileSystem) IRoutes {
 	return engine().StaticFS(relativePath, fs)
 }
 
 // Use attachs a global middleware to the router. ie. the middlewares attached though Use() will be
 // included in the handlers chain for every single request. Even 404, 405, static files...
 // For example, this is the right place for a logger or error management middleware.
-func Use(middlewares ...gin.HandlerFunc) gin.IRoutes {
+func Use(middlewares ...HandlerFunc) IRoutes {
 	return engine().Use(middlewares...)
 }
 

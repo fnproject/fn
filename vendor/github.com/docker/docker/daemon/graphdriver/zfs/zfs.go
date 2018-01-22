@@ -1,4 +1,4 @@
-// +build linux freebsd solaris
+// +build linux freebsd
 
 package zfs
 
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/daemon/graphdriver"
+	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
@@ -103,7 +104,7 @@ func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdri
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get root uid/guid: %v", err)
 	}
-	if err := idtools.MkdirAllAs(base, 0700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAllAndChown(base, 0700, idtools.IDPair{rootUID, rootGID}); err != nil {
 		return nil, fmt.Errorf("Failed to create '%s': %v", base, err)
 	}
 
@@ -356,10 +357,10 @@ func (d *Driver) Remove(id string) error {
 }
 
 // Get returns the mountpoint for the given id after creating the target directories if necessary.
-func (d *Driver) Get(id, mountLabel string) (string, error) {
+func (d *Driver) Get(id, mountLabel string) (containerfs.ContainerFS, error) {
 	mountpoint := d.mountPath(id)
 	if count := d.ctr.Increment(mountpoint); count > 1 {
-		return mountpoint, nil
+		return containerfs.NewLocalContainerFS(mountpoint), nil
 	}
 
 	filesystem := d.zfsPath(id)
@@ -369,17 +370,17 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
 	if err != nil {
 		d.ctr.Decrement(mountpoint)
-		return "", err
+		return nil, err
 	}
 	// Create the target directories if they don't exist
-	if err := idtools.MkdirAllAs(mountpoint, 0755, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAllAndChown(mountpoint, 0755, idtools.IDPair{rootUID, rootGID}); err != nil {
 		d.ctr.Decrement(mountpoint)
-		return "", err
+		return nil, err
 	}
 
 	if err := mount.Mount(filesystem, mountpoint, "zfs", options); err != nil {
 		d.ctr.Decrement(mountpoint)
-		return "", fmt.Errorf("error creating zfs mount of %s to %s: %v", filesystem, mountpoint, err)
+		return nil, fmt.Errorf("error creating zfs mount of %s to %s: %v", filesystem, mountpoint, err)
 	}
 
 	// this could be our first mount after creation of the filesystem, and the root dir may still have root
@@ -387,10 +388,10 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 	if err := os.Chown(mountpoint, rootUID, rootGID); err != nil {
 		mount.Unmount(mountpoint)
 		d.ctr.Decrement(mountpoint)
-		return "", fmt.Errorf("error modifying zfs mountpoint (%s) directory ownership: %v", mountpoint, err)
+		return nil, fmt.Errorf("error modifying zfs mountpoint (%s) directory ownership: %v", mountpoint, err)
 	}
 
-	return mountpoint, nil
+	return containerfs.NewLocalContainerFS(mountpoint), nil
 }
 
 // Put removes the existing mountpoint for the given id if it exists.
@@ -416,5 +417,5 @@ func (d *Driver) Put(id string) error {
 func (d *Driver) Exists(id string) bool {
 	d.Lock()
 	defer d.Unlock()
-	return d.filesystemsCache[d.zfsPath(id)] == true
+	return d.filesystemsCache[d.zfsPath(id)]
 }

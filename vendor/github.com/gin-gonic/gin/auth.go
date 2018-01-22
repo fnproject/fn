@@ -10,18 +10,16 @@ import (
 	"strconv"
 )
 
-// AuthUserKey is the cookie name for user credential in basic auth.
 const AuthUserKey = "user"
 
-// Accounts defines a key/value for user/pass list of authorized logins.
-type Accounts map[string]string
-
-type authPair struct {
-	Value string
-	User  string
-}
-
-type authPairs []authPair
+type (
+	Accounts map[string]string
+	authPair struct {
+		Value string
+		User  string
+	}
+	authPairs []authPair
+)
 
 func (a authPairs) searchCredential(authValue string) (string, bool) {
 	if len(authValue) == 0 {
@@ -47,17 +45,16 @@ func BasicAuthForRealm(accounts Accounts, realm string) HandlerFunc {
 	pairs := processAccounts(accounts)
 	return func(c *Context) {
 		// Search user in the slice of allowed credentials
-		user, found := pairs.searchCredential(c.requestHeader("Authorization"))
+		user, found := pairs.searchCredential(c.Request.Header.Get("Authorization"))
 		if !found {
 			// Credentials doesn't match, we return 401 and abort handlers chain.
 			c.Header("WWW-Authenticate", realm)
 			c.AbortWithStatus(401)
-			return
+		} else {
+			// The user credentials was found, set user's id to key AuthUserKey in this context, the userId can be read later using
+			// c.MustGet(gin.AuthUserKey)
+			c.Set(AuthUserKey, user)
 		}
-
-		// The user credentials was found, set user's id to key AuthUserKey in this context, the user's id can be read later using
-		// c.MustGet(gin.AuthUserKey).
-		c.Set(AuthUserKey, user)
 	}
 }
 
@@ -90,6 +87,6 @@ func secureCompare(given, actual string) bool {
 	if subtle.ConstantTimeEq(int32(len(given)), int32(len(actual))) == 1 {
 		return subtle.ConstantTimeCompare([]byte(given), []byte(actual)) == 1
 	}
-	// Securely compare actual to itself to keep constant time, but always return false.
+	/* Securely compare actual to itself to keep constant time, but always return false */
 	return subtle.ConstantTimeCompare([]byte(actual), []byte(actual)) == 1 && false
 }

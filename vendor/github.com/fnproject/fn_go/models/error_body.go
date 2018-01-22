@@ -14,7 +14,6 @@ import (
 
 // ErrorBody error body
 // swagger:model ErrorBody
-
 type ErrorBody struct {
 
 	// fields
@@ -25,10 +24,6 @@ type ErrorBody struct {
 	// Read Only: true
 	Message string `json:"message,omitempty"`
 }
-
-/* polymorph ErrorBody fields false */
-
-/* polymorph ErrorBody message false */
 
 // Validate validates this error body
 func (m *ErrorBody) Validate(formats strfmt.Registry) error {

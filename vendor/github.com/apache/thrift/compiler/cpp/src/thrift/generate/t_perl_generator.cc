@@ -356,6 +356,7 @@ string t_perl_generator::render_const_value(t_type* type, t_const_value* value) 
   } else if (type->is_struct() || type->is_xception()) {
     out << "new " << perl_namespace(type->get_program()) << type->get_name() << "({" << endl;
     indent_up();
+
     const vector<t_field*>& fields = ((t_struct*)type)->get_members();
     vector<t_field*>::const_iterator f_iter;
     const map<t_const_value*, t_const_value*>& val = value->get_map();
@@ -370,29 +371,30 @@ string t_perl_generator::render_const_value(t_type* type, t_const_value* value) 
       if (field_type == NULL) {
         throw "type error: " + type->get_name() + " has no field " + v_iter->first->get_string();
       }
-      out << render_const_value(g_type_string, v_iter->first);
+      indent(out) << render_const_value(g_type_string, v_iter->first);
       out << " => ";
       out << render_const_value(field_type, v_iter->second);
       out << ",";
       out << endl;
     }
-
-    out << "})";
+    indent_down();
+    indent(out) << "})";
   } else if (type->is_map()) {
     t_type* ktype = ((t_map*)type)->get_key_type();
     t_type* vtype = ((t_map*)type)->get_val_type();
     out << "{" << endl;
+    indent_up();
 
     const map<t_const_value*, t_const_value*>& val = value->get_map();
     map<t_const_value*, t_const_value*>::const_iterator v_iter;
     for (v_iter = val.begin(); v_iter != val.end(); ++v_iter) {
-      out << render_const_value(ktype, v_iter->first);
+      indent(out) << render_const_value(ktype, v_iter->first);
       out << " => ";
       out << render_const_value(vtype, v_iter->second);
       out << "," << endl;
     }
-
-    out << "}";
+    indent_down();
+    indent(out) << "}";
   } else if (type->is_list() || type->is_set()) {
     t_type* etype;
     if (type->is_list()) {
@@ -401,17 +403,20 @@ string t_perl_generator::render_const_value(t_type* type, t_const_value* value) 
       etype = ((t_set*)type)->get_elem_type();
     }
     out << "[" << endl;
+    indent_up();
+
     const vector<t_const_value*>& val = value->get_list();
     vector<t_const_value*>::const_iterator v_iter;
     for (v_iter = val.begin(); v_iter != val.end(); ++v_iter) {
 
-      out << render_const_value(etype, *v_iter);
+      indent(out) << render_const_value(etype, *v_iter);
       if (type->is_set()) {
         out << " => 1";
       }
       out << "," << endl;
     }
-    out << "]";
+    indent_down();
+    indent(out) << "]";
   }
   return out.str();
 }
@@ -1254,8 +1259,8 @@ void t_perl_generator::generate_deserialize_field(ofstream& out,
 void t_perl_generator::generate_deserialize_struct(ofstream& out,
                                                    t_struct* tstruct,
                                                    string prefix) {
-  out << indent() << "$" << prefix << " = new " << perl_namespace(tstruct->get_program())
-      << tstruct->get_name() << "();" << endl << indent() << "$xfer += $" << prefix
+  out << indent() << "$" << prefix << " = " << perl_namespace(tstruct->get_program())
+      << tstruct->get_name() << "->new();" << endl << indent() << "$xfer += $" << prefix
       << "->read($input);" << endl;
 }
 

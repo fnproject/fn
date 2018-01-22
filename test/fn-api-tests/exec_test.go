@@ -278,16 +278,16 @@ func TestMultiLog(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
 		}
-		if logObj.Payload.Log.Log == "" {
+		if logObj.Payload == "" {
 			t.Errorf("Log entry must not be empty!")
 		}
-		if !strings.Contains(logObj.Payload.Log.Log, "First line") {
+		if !strings.Contains(logObj.Payload, "First line") {
 			t.Errorf("Log entry must contain `First line` "+
-				"string, but got: %v", logObj.Payload.Log.Log)
+				"string, but got: %v", logObj.Payload)
 		}
-		if !strings.Contains(logObj.Payload.Log.Log, "Second line") {
+		if !strings.Contains(logObj.Payload, "Second line") {
 			t.Errorf("Log entry must contain `Second line` "+
-				"string, but got: %v", logObj.Payload.Log.Log)
+				"string, but got: %v", logObj.Payload)
 		}
 	}
 
@@ -407,9 +407,9 @@ func TestOversizedLog(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
 		}
-		if len(logObj.Payload.Log.Log) >= size {
+		if len(logObj.Payload) >= size {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
-				size/1024, len(logObj.Payload.Log.Log))
+				size/1024, len(logObj.Payload))
 		}
 
 	}

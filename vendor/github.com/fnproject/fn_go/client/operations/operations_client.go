@@ -25,36 +25,6 @@ type Client struct {
 }
 
 /*
-DeleteAppsAppCallsCallLog deletes call log entry
-
-Delete call log entry
-*/
-func (a *Client) DeleteAppsAppCallsCallLog(params *DeleteAppsAppCallsCallLogParams) (*DeleteAppsAppCallsCallLogAccepted, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewDeleteAppsAppCallsCallLogParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "DeleteAppsAppCallsCallLog",
-		Method:             "DELETE",
-		PathPattern:        "/apps/{app}/calls/{call}/log",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http", "https"},
-		Params:             params,
-		Reader:             &DeleteAppsAppCallsCallLogReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*DeleteAppsAppCallsCallLogAccepted), nil
-
-}
-
-/*
 GetAppsAppCallsCallLog gets call logs
 
 Get call logs
@@ -69,7 +39,7 @@ func (a *Client) GetAppsAppCallsCallLog(params *GetAppsAppCallsCallLogParams) (*
 		ID:                 "GetAppsAppCallsCallLog",
 		Method:             "GET",
 		PathPattern:        "/apps/{app}/calls/{call}/log",
-		ProducesMediaTypes: []string{"application/json"},
+		ProducesMediaTypes: []string{"text/plain"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http", "https"},
 		Params:             params,

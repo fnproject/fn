@@ -22,8 +22,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httputil"
-	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +30,8 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 
 	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/runtime/logger"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 )
 
@@ -47,15 +47,18 @@ type TLSClientOptions struct {
 
 // TLSClientAuth creates a tls.Config for mutual auth
 func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
-	// load client cert
-	cert, err := tls.LoadX509KeyPair(opts.Certificate, opts.Key)
-	if err != nil {
-		return nil, fmt.Errorf("tls client cert: %v", err)
-	}
-
 	// create client tls config
 	cfg := &tls.Config{}
-	cfg.Certificates = []tls.Certificate{cert}
+
+	// load client cert if specified
+	if opts.Certificate != "" {
+		cert, err := tls.LoadX509KeyPair(opts.Certificate, opts.Key)
+		if err != nil {
+			return nil, fmt.Errorf("tls client cert: %v", err)
+		}
+		cfg.Certificates = []tls.Certificate{cert}
+	}
+
 	cfg.InsecureSkipVerify = opts.InsecureSkipVerify
 
 	// When no CA certificate is provided, default to the system cert pool
@@ -119,8 +122,10 @@ type Runtime struct {
 	Host     string
 	BasePath string
 	Formats  strfmt.Registry
-	Debug    bool
 	Context  context.Context
+
+	Debug  bool
+	logger logger.Logger
 
 	clientOnce *sync.Once
 	client     *http.Client
@@ -155,7 +160,10 @@ func New(host, basePath string, schemes []string) *Runtime {
 	if !strings.HasPrefix(rt.BasePath, "/") {
 		rt.BasePath = "/" + rt.BasePath
 	}
-	rt.Debug = len(os.Getenv("DEBUG")) > 0
+
+	rt.Debug = logger.DebugEnabled()
+	rt.logger = logger.StandardLogger{}
+
 	if len(schemes) > 0 {
 		rt.schemes = schemes
 	}
@@ -214,19 +222,19 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 	}
 
 	var accept []string
-	for _, mimeType := range operation.ProducesMediaTypes {
-		accept = append(accept, mimeType)
+	accept = append(accept, operation.ProducesMediaTypes...)
+	if err = request.SetHeaderParam(runtime.HeaderAccept, accept...); err != nil {
+		return nil, err
 	}
-	request.SetHeaderParam(runtime.HeaderAccept, accept...)
 
 	if auth == nil && r.DefaultAuthentication != nil {
 		auth = r.DefaultAuthentication
 	}
-	if auth != nil {
-		if err := auth.AuthenticateRequest(request, r.Formats); err != nil {
-			return nil, err
-		}
-	}
+	//if auth != nil {
+	//	if err := auth.AuthenticateRequest(request, r.Formats); err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	// TODO: pick appropriate media type
 	cmt := r.DefaultMediaType
@@ -238,20 +246,12 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 		}
 	}
 
-	req, err := request.BuildHTTP(cmt, r.Producers, r.Formats)
+	req, err := request.buildHTTP(cmt, r.BasePath, r.Producers, r.Formats, auth)
 	if err != nil {
 		return nil, err
 	}
 	req.URL.Scheme = r.pickScheme(operation.Schemes)
 	req.URL.Host = r.Host
-	var reinstateSlash bool
-	if req.URL.Path != "" && req.URL.Path != "/" && req.URL.Path[len(req.URL.Path)-1] == '/' {
-		reinstateSlash = true
-	}
-	req.URL.Path = path.Join(r.BasePath, req.URL.Path)
-	if reinstateSlash {
-		req.URL.Path = req.URL.Path + "/"
-	}
 
 	r.clientOnce.Do(func() {
 		r.client = &http.Client{
@@ -265,7 +265,7 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 		if err2 != nil {
 			return nil, err2
 		}
-		fmt.Fprintln(os.Stderr, string(b))
+		r.logger.Debugf("%s\n", string(b))
 	}
 
 	var hasTimeout bool
@@ -305,7 +305,7 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 		if err2 != nil {
 			return nil, err2
 		}
-		fmt.Fprintln(os.Stderr, string(b))
+		r.logger.Debugf("%s\n", string(b))
 	}
 
 	ct := res.Header.Get(runtime.HeaderContentType)
@@ -324,4 +324,18 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 		return nil, fmt.Errorf("no consumer: %q", ct)
 	}
 	return readResponse.ReadResponse(response{res}, cons)
+}
+
+// SetDebug changes the debug flag.
+// It ensures that client and middlewares have the set debug level.
+func (r *Runtime) SetDebug(debug bool) {
+	r.Debug = debug
+	middleware.Debug = debug
+}
+
+// SetLogger changes the logger stream.
+// It ensures that client and middlewares use the same logger.
+func (r *Runtime) SetLogger(logger logger.Logger) {
+	r.logger = logger
+	middleware.Logger = logger
 }

@@ -4,26 +4,22 @@ package libcontainer
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
-	"syscall" //only for Exec
+	"syscall"
 
 	"github.com/opencontainers/runc/libcontainer/apparmor"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/keys"
+	"github.com/opencontainers/runc/libcontainer/label"
 	"github.com/opencontainers/runc/libcontainer/seccomp"
 	"github.com/opencontainers/runc/libcontainer/system"
-	"github.com/opencontainers/selinux/go-selinux/label"
-
-	"golang.org/x/sys/unix"
 )
 
 type linuxStandardInit struct {
-	pipe          *os.File
-	consoleSocket *os.File
-	parentPid     int
-	stateDirFD    int
-	config        *initConfig
+	pipe      io.ReadWriter
+	parentPid int
+	config    *initConfig
 }
 
 func (l *linuxStandardInit) getSessionRingParams() (string, uint32, uint32) {
@@ -42,21 +38,35 @@ func (l *linuxStandardInit) getSessionRingParams() (string, uint32, uint32) {
 	return fmt.Sprintf("_ses.%s", l.config.ContainerId), 0xffffffff, newperms
 }
 
-func (l *linuxStandardInit) Init() error {
-	if !l.config.Config.NoNewKeyring {
-		ringname, keepperms, newperms := l.getSessionRingParams()
+// PR_SET_NO_NEW_PRIVS isn't exposed in Golang so we define it ourselves copying the value
+// the kernel
+const PR_SET_NO_NEW_PRIVS = 0x26
 
-		// do not inherit the parent's session keyring
-		sessKeyId, err := keys.JoinSessionKeyring(ringname)
-		if err != nil {
-			return err
-		}
-		// make session keyring searcheable
-		if err := keys.ModKeyringPerm(sessKeyId, keepperms, newperms); err != nil {
+func (l *linuxStandardInit) Init() error {
+	ringname, keepperms, newperms := l.getSessionRingParams()
+
+	// do not inherit the parent's session keyring
+	sessKeyId, err := keyctl.JoinSessionKeyring(ringname)
+	if err != nil {
+		return err
+	}
+	// make session keyring searcheable
+	if err := keyctl.ModKeyringPerm(sessKeyId, keepperms, newperms); err != nil {
+		return err
+	}
+
+	var console *linuxConsole
+	if l.config.Console != "" {
+		console = newConsoleFromPath(l.config.Console)
+		if err := console.dupStdio(); err != nil {
 			return err
 		}
 	}
-
+	if console != nil {
+		if err := system.Setctty(); err != nil {
+			return err
+		}
+	}
 	if err := setupNetwork(l.config); err != nil {
 		return err
 	}
@@ -65,35 +75,14 @@ func (l *linuxStandardInit) Init() error {
 	}
 
 	label.Init()
-
-	// prepareRootfs() can be executed only for a new mount namespace.
+	// InitializeMountNamespace() can be executed only for a new mount namespace
 	if l.config.Config.Namespaces.Contains(configs.NEWNS) {
-		if err := prepareRootfs(l.pipe, l.config.Config); err != nil {
+		if err := setupRootfs(l.config.Config, console, l.pipe); err != nil {
 			return err
 		}
 	}
-
-	// Set up the console. This has to be done *before* we finalize the rootfs,
-	// but *after* we've given the user the chance to set up all of the mounts
-	// they wanted.
-	if l.config.CreateConsole {
-		if err := setupConsole(l.consoleSocket, l.config, true); err != nil {
-			return err
-		}
-		if err := system.Setctty(); err != nil {
-			return err
-		}
-	}
-
-	// Finish the rootfs setup.
-	if l.config.Config.Namespaces.Contains(configs.NEWNS) {
-		if err := finalizeRootfs(l.config.Config); err != nil {
-			return err
-		}
-	}
-
 	if hostname := l.config.Config.Hostname; hostname != "" {
-		if err := unix.Sethostname([]byte(hostname)); err != nil {
+		if err := syscall.Sethostname([]byte(hostname)); err != nil {
 			return err
 		}
 	}
@@ -110,12 +99,12 @@ func (l *linuxStandardInit) Init() error {
 		}
 	}
 	for _, path := range l.config.Config.ReadonlyPaths {
-		if err := readonlyPath(path); err != nil {
+		if err := remountReadonly(path); err != nil {
 			return err
 		}
 	}
 	for _, path := range l.config.Config.MaskPaths {
-		if err := maskPath(path); err != nil {
+		if err := maskFile(path); err != nil {
 			return err
 		}
 	}
@@ -124,7 +113,7 @@ func (l *linuxStandardInit) Init() error {
 		return err
 	}
 	if l.config.NoNewPrivileges {
-		if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+		if err := system.Prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 			return err
 		}
 	}
@@ -134,10 +123,7 @@ func (l *linuxStandardInit) Init() error {
 	if err := syncParentReady(l.pipe); err != nil {
 		return err
 	}
-	// Without NoNewPrivileges seccomp is a privileged operation, so we need to
-	// do this before dropping capabilities; otherwise do it as late as possible
-	// just before execve so as few syscalls take place after it as possible.
-	if l.config.Config.Seccomp != nil && !l.config.NoNewPrivileges {
+	if l.config.Config.Seccomp != nil {
 		if err := seccomp.InitSeccomp(l.config.Config.Seccomp); err != nil {
 			return err
 		}
@@ -150,39 +136,12 @@ func (l *linuxStandardInit) Init() error {
 	if err := pdeath.Restore(); err != nil {
 		return err
 	}
-	// compare the parent from the initial start of the init process and make sure that it did not change.
-	// if the parent changes that means it died and we were reparented to something else so we should
+	// compare the parent from the inital start of the init process and make sure that it did not change.
+	// if the parent changes that means it died and we were reparened to something else so we should
 	// just kill ourself and not cause problems for someone else.
-	if unix.Getppid() != l.parentPid {
-		return unix.Kill(unix.Getpid(), unix.SIGKILL)
+	if syscall.Getppid() != l.parentPid {
+		return syscall.Kill(syscall.Getpid(), syscall.SIGKILL)
 	}
-	// check for the arg before waiting to make sure it exists and it is returned
-	// as a create time error.
-	name, err := exec.LookPath(l.config.Args[0])
-	if err != nil {
-		return err
-	}
-	// close the pipe to signal that we have completed our init.
-	l.pipe.Close()
-	// wait for the fifo to be opened on the other side before
-	// exec'ing the users process.
-	fd, err := unix.Openat(l.stateDirFD, execFifoFilename, os.O_WRONLY|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return newSystemErrorWithCause(err, "openat exec fifo")
-	}
-	if _, err := unix.Write(fd, []byte("0")); err != nil {
-		return newSystemErrorWithCause(err, "write 0 exec fifo")
-	}
-	if l.config.Config.Seccomp != nil && l.config.NoNewPrivileges {
-		if err := seccomp.InitSeccomp(l.config.Config.Seccomp); err != nil {
-			return newSystemErrorWithCause(err, "init seccomp")
-		}
-	}
-	// close the statedir fd before exec because the kernel resets dumpable in the wrong order
-	// https://github.com/torvalds/linux/blob/v4.9/fs/exec.c#L1290-L1318
-	unix.Close(l.stateDirFD)
-	if err := syscall.Exec(name, l.config.Args[0:], os.Environ()); err != nil {
-		return newSystemErrorWithCause(err, "exec user process")
-	}
-	return nil
+
+	return system.Execv(l.config.Args[0], l.config.Args[0:], os.Environ())
 }

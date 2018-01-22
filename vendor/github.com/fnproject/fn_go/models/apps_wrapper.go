@@ -15,7 +15,6 @@ import (
 
 // AppsWrapper apps wrapper
 // swagger:model AppsWrapper
-
 type AppsWrapper struct {
 
 	// apps
@@ -29,12 +28,6 @@ type AppsWrapper struct {
 	// Read Only: true
 	NextCursor string `json:"next_cursor,omitempty"`
 }
-
-/* polymorph AppsWrapper apps false */
-
-/* polymorph AppsWrapper error false */
-
-/* polymorph AppsWrapper next_cursor false */
 
 // Validate validates this apps wrapper
 func (m *AppsWrapper) Validate(formats strfmt.Registry) error {
@@ -59,6 +52,13 @@ func (m *AppsWrapper) Validate(formats strfmt.Registry) error {
 func (m *AppsWrapper) validateApps(formats strfmt.Registry) error {
 
 	if err := validate.Required("apps", "body", m.Apps); err != nil {
+		return err
+	}
+
+	if err := m.Apps.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("apps")
+		}
 		return err
 	}
 

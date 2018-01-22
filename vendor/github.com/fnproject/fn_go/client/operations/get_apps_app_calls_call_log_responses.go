@@ -13,7 +13,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/fnproject/fn_go/models"
+	models "github.com/fnproject/fn_go/models"
 )
 
 // GetAppsAppCallsCallLogReader is a Reader for the GetAppsAppCallsCallLog structure.
@@ -54,7 +54,7 @@ func NewGetAppsAppCallsCallLogOK() *GetAppsAppCallsCallLogOK {
 Log found
 */
 type GetAppsAppCallsCallLogOK struct {
-	Payload *models.LogWrapper
+	Payload string
 }
 
 func (o *GetAppsAppCallsCallLogOK) Error() string {
@@ -63,10 +63,8 @@ func (o *GetAppsAppCallsCallLogOK) Error() string {
 
 func (o *GetAppsAppCallsCallLogOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.LogWrapper)
-
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 

@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	dockertypes "github.com/docker/docker/api/types"
 )
 
 type IsReadyFunc func(Instance) bool
@@ -17,7 +15,6 @@ type TestFunc func(*testing.T, Instance)
 type Version struct {
 	Image string
 	ENV   []string
-	Cmd   []string
 }
 
 func ParallelTest(t *testing.T, versions []Version, readyFn IsReadyFunc, testFn TestFunc) {
@@ -39,7 +36,7 @@ func ParallelTest(t *testing.T, versions []Version, readyFn IsReadyFunc, testFn 
 				t.Parallel()
 
 				// create new container
-				container, err := NewDockerContainer(t, version.Image, version.ENV, version.Cmd)
+				container, err := NewDockerContainer(t, version.Image, version.ENV)
 				if err != nil {
 					t.Fatalf("%v\n%s", err, containerLogs(t, container))
 				}
@@ -49,8 +46,8 @@ func ParallelTest(t *testing.T, versions []Version, readyFn IsReadyFunc, testFn 
 
 				// wait until database is ready
 				tick := time.Tick(1000 * time.Millisecond)
-				timeout := time.After(time.Duration(delay + 60) * time.Second)
-				outer:
+				timeout := time.After(time.Duration(delay+60) * time.Second)
+			outer:
 				for {
 					select {
 					case <-tick:
@@ -90,7 +87,5 @@ func containerLogs(t *testing.T, c *DockerContainer) []byte {
 type Instance interface {
 	Host() string
 	Port() uint
-	PortFor(int) uint
-	NetworkSettings() dockertypes.NetworkSettings
 	KeepForDebugging()
 }

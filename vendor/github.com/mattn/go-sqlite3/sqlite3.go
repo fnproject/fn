@@ -100,14 +100,43 @@ int _sqlite3_create_function(
 }
 
 void callbackTrampoline(sqlite3_context*, int, sqlite3_value**);
+void stepTrampoline(sqlite3_context*, int, sqlite3_value**);
+void doneTrampoline(sqlite3_context*);
 
 int compareTrampoline(void*, int, char*, int, char*);
 int commitHookTrampoline(void*);
 void rollbackHookTrampoline(void*);
 void updateHookTrampoline(void*, int, char*, char*, sqlite3_int64);
+
+#ifdef SQLITE_LIMIT_WORKER_THREADS
+# define _SQLITE_HAS_LIMIT
+# define SQLITE_LIMIT_LENGTH                    0
+# define SQLITE_LIMIT_SQL_LENGTH                1
+# define SQLITE_LIMIT_COLUMN                    2
+# define SQLITE_LIMIT_EXPR_DEPTH                3
+# define SQLITE_LIMIT_COMPOUND_SELECT           4
+# define SQLITE_LIMIT_VDBE_OP                   5
+# define SQLITE_LIMIT_FUNCTION_ARG              6
+# define SQLITE_LIMIT_ATTACHED                  7
+# define SQLITE_LIMIT_LIKE_PATTERN_LENGTH       8
+# define SQLITE_LIMIT_VARIABLE_NUMBER           9
+# define SQLITE_LIMIT_TRIGGER_DEPTH            10
+# define SQLITE_LIMIT_WORKER_THREADS           11
+# else
+# define SQLITE_LIMIT_WORKER_THREADS           11
+#endif
+
+static int _sqlite3_limit(sqlite3* db, int limitId, int newLimit) {
+#ifndef _SQLITE_HAS_LIMIT
+  return -1;
+#else
+  return sqlite3_limit(db, limitId, newLimit);
+#endif
+}
 */
 import "C"
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -121,8 +150,6 @@ import (
 	"sync"
 	"time"
 	"unsafe"
-
-	"golang.org/x/net/context"
 )
 
 // SQLiteTimestampFormats is timestamp formats understood by both this module
@@ -477,6 +504,131 @@ func sqlite3CreateFunction(db *C.sqlite3, zFunctionName *C.char, nArg C.int, eTe
 	return C._sqlite3_create_function(db, zFunctionName, nArg, eTextRep, C.uintptr_t(pApp), (*[0]byte)(unsafe.Pointer(xFunc)), (*[0]byte)(unsafe.Pointer(xStep)), (*[0]byte)(unsafe.Pointer(xFinal)))
 }
 
+// RegisterAggregator makes a Go type available as a SQLite aggregation function.
+//
+// Because aggregation is incremental, it's implemented in Go with a
+// type that has 2 methods: func Step(values) accumulates one row of
+// data into the accumulator, and func Done() ret finalizes and
+// returns the aggregate value. "values" and "ret" may be any type
+// supported by RegisterFunc.
+//
+// RegisterAggregator takes as implementation a constructor function
+// that constructs an instance of the aggregator type each time an
+// aggregation begins. The constructor must return a pointer to a
+// type, or an interface that implements Step() and Done().
+//
+// The constructor function and the Step/Done methods may optionally
+// return an error in addition to their other return values.
+//
+// See _example/go_custom_funcs for a detailed example.
+func (c *SQLiteConn) RegisterAggregator(name string, impl interface{}, pure bool) error {
+	var ai aggInfo
+	ai.constructor = reflect.ValueOf(impl)
+	t := ai.constructor.Type()
+	if t.Kind() != reflect.Func {
+		return errors.New("non-function passed to RegisterAggregator")
+	}
+	if t.NumOut() != 1 && t.NumOut() != 2 {
+		return errors.New("SQLite aggregator constructors must return 1 or 2 values")
+	}
+	if t.NumOut() == 2 && !t.Out(1).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		return errors.New("Second return value of SQLite function must be error")
+	}
+	if t.NumIn() != 0 {
+		return errors.New("SQLite aggregator constructors must not have arguments")
+	}
+
+	agg := t.Out(0)
+	switch agg.Kind() {
+	case reflect.Ptr, reflect.Interface:
+	default:
+		return errors.New("SQlite aggregator constructor must return a pointer object")
+	}
+	stepFn, found := agg.MethodByName("Step")
+	if !found {
+		return errors.New("SQlite aggregator doesn't have a Step() function")
+	}
+	step := stepFn.Type
+	if step.NumOut() != 0 && step.NumOut() != 1 {
+		return errors.New("SQlite aggregator Step() function must return 0 or 1 values")
+	}
+	if step.NumOut() == 1 && !step.Out(0).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		return errors.New("type of SQlite aggregator Step() return value must be error")
+	}
+
+	stepNArgs := step.NumIn()
+	start := 0
+	if agg.Kind() == reflect.Ptr {
+		// Skip over the method receiver
+		stepNArgs--
+		start++
+	}
+	if step.IsVariadic() {
+		stepNArgs--
+	}
+	for i := start; i < start+stepNArgs; i++ {
+		conv, err := callbackArg(step.In(i))
+		if err != nil {
+			return err
+		}
+		ai.stepArgConverters = append(ai.stepArgConverters, conv)
+	}
+	if step.IsVariadic() {
+		conv, err := callbackArg(t.In(start + stepNArgs).Elem())
+		if err != nil {
+			return err
+		}
+		ai.stepVariadicConverter = conv
+		// Pass -1 to sqlite so that it allows any number of
+		// arguments. The call helper verifies that the minimum number
+		// of arguments is present for variadic functions.
+		stepNArgs = -1
+	}
+
+	doneFn, found := agg.MethodByName("Done")
+	if !found {
+		return errors.New("SQlite aggregator doesn't have a Done() function")
+	}
+	done := doneFn.Type
+	doneNArgs := done.NumIn()
+	if agg.Kind() == reflect.Ptr {
+		// Skip over the method receiver
+		doneNArgs--
+	}
+	if doneNArgs != 0 {
+		return errors.New("SQlite aggregator Done() function must have no arguments")
+	}
+	if done.NumOut() != 1 && done.NumOut() != 2 {
+		return errors.New("SQLite aggregator Done() function must return 1 or 2 values")
+	}
+	if done.NumOut() == 2 && !done.Out(1).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		return errors.New("second return value of SQLite aggregator Done() function must be error")
+	}
+
+	conv, err := callbackRet(done.Out(0))
+	if err != nil {
+		return err
+	}
+	ai.doneRetConverter = conv
+	ai.active = make(map[int64]reflect.Value)
+	ai.next = 1
+
+	// ai must outlast the database connection, or we'll have dangling pointers.
+	c.aggregators = append(c.aggregators, &ai)
+
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	opts := C.SQLITE_UTF8
+	if pure {
+		opts |= C.SQLITE_DETERMINISTIC
+	}
+	rv := sqlite3CreateFunction(c.db, cname, C.int(stepNArgs), C.int(opts), newHandle(c, &ai), nil, C.stepTrampoline, C.doneTrampoline)
+	if rv != C.SQLITE_OK {
+		return c.lastError()
+	}
+	return nil
+}
+
 // AutoCommit return which currently auto commit or not.
 func (c *SQLiteConn) AutoCommit() bool {
 	return int(C.sqlite3_get_autocommit(c.db)) != 0
@@ -827,6 +979,36 @@ func (c *SQLiteConn) prepare(ctx context.Context, query string) (driver.Stmt, er
 	return ss, nil
 }
 
+// Run-Time Limit Categories.
+// See: http://www.sqlite.org/c3ref/c_limit_attached.html
+const (
+	SQLITE_LIMIT_LENGTH              = C.SQLITE_LIMIT_LENGTH
+	SQLITE_LIMIT_SQL_LENGTH          = C.SQLITE_LIMIT_SQL_LENGTH
+	SQLITE_LIMIT_COLUMN              = C.SQLITE_LIMIT_COLUMN
+	SQLITE_LIMIT_EXPR_DEPTH          = C.SQLITE_LIMIT_EXPR_DEPTH
+	SQLITE_LIMIT_COMPOUND_SELECT     = C.SQLITE_LIMIT_COMPOUND_SELECT
+	SQLITE_LIMIT_VDBE_OP             = C.SQLITE_LIMIT_VDBE_OP
+	SQLITE_LIMIT_FUNCTION_ARG        = C.SQLITE_LIMIT_FUNCTION_ARG
+	SQLITE_LIMIT_ATTACHED            = C.SQLITE_LIMIT_ATTACHED
+	SQLITE_LIMIT_LIKE_PATTERN_LENGTH = C.SQLITE_LIMIT_LIKE_PATTERN_LENGTH
+	SQLITE_LIMIT_VARIABLE_NUMBER     = C.SQLITE_LIMIT_VARIABLE_NUMBER
+	SQLITE_LIMIT_TRIGGER_DEPTH       = C.SQLITE_LIMIT_TRIGGER_DEPTH
+	SQLITE_LIMIT_WORKER_THREADS      = C.SQLITE_LIMIT_WORKER_THREADS
+)
+
+// GetLimit returns the current value of a run-time limit.
+// See: sqlite3_limit, http://www.sqlite.org/c3ref/limit.html
+func (c *SQLiteConn) GetLimit(id int) int {
+	return int(C._sqlite3_limit(c.db, C.int(id), -1))
+}
+
+// SetLimit changes the value of a run-time limits.
+// Then this method returns the prior value of the limit.
+// See: sqlite3_limit, http://www.sqlite.org/c3ref/limit.html
+func (c *SQLiteConn) SetLimit(id int, newVal int) int {
+	return int(C._sqlite3_limit(c.db, C.int(id), C.int(newVal)))
+}
+
 // Close the statement.
 func (s *SQLiteStmt) Close() error {
 	s.mu.Lock()
@@ -988,9 +1170,13 @@ func (s *SQLiteStmt) exec(ctx context.Context, args []namedValue) (driver.Result
 	defer close(done)
 	go func(db *C.sqlite3) {
 		select {
-		case <-ctx.Done():
-			C.sqlite3_interrupt(db)
 		case <-done:
+		case <-ctx.Done():
+			select {
+			case <-done:
+			default:
+				C.sqlite3_interrupt(db)
+			}
 		}
 	}(s.c.db)
 

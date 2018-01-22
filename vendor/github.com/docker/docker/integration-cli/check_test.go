@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 	"testing"
@@ -20,6 +22,7 @@ import (
 	"github.com/docker/docker/integration-cli/environment"
 	"github.com/docker/docker/integration-cli/fixtures/plugin"
 	"github.com/docker/docker/integration-cli/registry"
+	ienv "github.com/docker/docker/internal/test/environment"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/go-check/check"
 	"golang.org/x/net/context"
@@ -57,20 +60,20 @@ func init() {
 
 func TestMain(m *testing.M) {
 	dockerBinary = testEnv.DockerBinary()
-
-	if testEnv.LocalDaemon() {
-		fmt.Println("INFO: Testing against a local daemon")
-	} else {
-		fmt.Println("INFO: Testing against a remote daemon")
+	err := ienv.EnsureFrozenImagesLinux(&testEnv.Execution)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	exitCode := m.Run()
-	os.Exit(exitCode)
+
+	testEnv.Print()
+	os.Exit(m.Run())
 }
 
 func Test(t *testing.T) {
-	cli.EnsureTestEnvIsLoaded(t)
-	fakestorage.EnsureTestEnvIsLoaded(t)
-	environment.ProtectImages(t, testEnv)
+	cli.SetTestEnvironment(testEnv)
+	fakestorage.SetTestEnvironment(&testEnv.Execution)
+	ienv.ProtectAll(t, &testEnv.Execution)
 	check.TestingT(t)
 }
 
@@ -82,13 +85,28 @@ type DockerSuite struct {
 }
 
 func (s *DockerSuite) OnTimeout(c *check.C) {
-	if testEnv.DaemonPID() > 0 && testEnv.LocalDaemon() {
-		daemon.SignalDaemonDump(testEnv.DaemonPID())
+	if !testEnv.IsLocalDaemon() {
+		return
+	}
+	path := filepath.Join(os.Getenv("DEST"), "docker.pid")
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		c.Fatalf("Failed to get daemon PID from %s\n", path)
+	}
+
+	rawPid, err := strconv.ParseInt(string(b), 10, 32)
+	if err != nil {
+		c.Fatalf("Failed to parse pid from %s: %s\n", path, err)
+	}
+
+	daemonPid := int(rawPid)
+	if daemonPid > 0 {
+		daemon.SignalDaemonDump(daemonPid)
 	}
 }
 
 func (s *DockerSuite) TearDownTest(c *check.C) {
-	testEnv.Clean(c, dockerBinary)
+	testEnv.Clean(c)
 }
 
 func init() {
@@ -108,7 +126,7 @@ func (s *DockerRegistrySuite) OnTimeout(c *check.C) {
 }
 
 func (s *DockerRegistrySuite) SetUpTest(c *check.C) {
-	testRequires(c, DaemonIsLinux, registry.Hosting)
+	testRequires(c, DaemonIsLinux, registry.Hosting, SameHostDaemon)
 	s.reg = setupRegistry(c, false, "", "")
 	s.d = daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
 		Experimental: testEnv.ExperimentalDaemon(),
@@ -142,7 +160,7 @@ func (s *DockerSchema1RegistrySuite) OnTimeout(c *check.C) {
 }
 
 func (s *DockerSchema1RegistrySuite) SetUpTest(c *check.C) {
-	testRequires(c, DaemonIsLinux, registry.Hosting, NotArm64)
+	testRequires(c, DaemonIsLinux, registry.Hosting, NotArm64, SameHostDaemon)
 	s.reg = setupRegistry(c, true, "", "")
 	s.d = daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
 		Experimental: testEnv.ExperimentalDaemon(),
@@ -176,7 +194,7 @@ func (s *DockerRegistryAuthHtpasswdSuite) OnTimeout(c *check.C) {
 }
 
 func (s *DockerRegistryAuthHtpasswdSuite) SetUpTest(c *check.C) {
-	testRequires(c, DaemonIsLinux, registry.Hosting)
+	testRequires(c, DaemonIsLinux, registry.Hosting, SameHostDaemon)
 	s.reg = setupRegistry(c, false, "htpasswd", "")
 	s.d = daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
 		Experimental: testEnv.ExperimentalDaemon(),
@@ -212,7 +230,7 @@ func (s *DockerRegistryAuthTokenSuite) OnTimeout(c *check.C) {
 }
 
 func (s *DockerRegistryAuthTokenSuite) SetUpTest(c *check.C) {
-	testRequires(c, DaemonIsLinux, registry.Hosting)
+	testRequires(c, DaemonIsLinux, registry.Hosting, SameHostDaemon)
 	s.d = daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
 		Experimental: testEnv.ExperimentalDaemon(),
 	})
@@ -307,7 +325,7 @@ func (s *DockerSwarmSuite) OnTimeout(c *check.C) {
 }
 
 func (s *DockerSwarmSuite) SetUpTest(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 }
 
 func (s *DockerSwarmSuite) AddDaemon(c *check.C, joinSwarm, manager bool) *daemon.Swarm {
@@ -321,7 +339,7 @@ func (s *DockerSwarmSuite) AddDaemon(c *check.C, joinSwarm, manager bool) *daemo
 	args := []string{"--iptables=false", "--swarm-default-advertise-addr=lo"} // avoid networking conflicts
 	d.StartWithBusybox(c, args...)
 
-	if joinSwarm == true {
+	if joinSwarm {
 		if len(s.daemons) > 0 {
 			tokens := s.daemons[0].JoinTokens(c)
 			token := tokens.Worker
@@ -459,7 +477,7 @@ func (ps *DockerPluginSuite) getPluginRepoWithTag() string {
 }
 
 func (ps *DockerPluginSuite) SetUpSuite(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, registry.Hosting)
 	ps.registry = setupRegistry(c, false, "", "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

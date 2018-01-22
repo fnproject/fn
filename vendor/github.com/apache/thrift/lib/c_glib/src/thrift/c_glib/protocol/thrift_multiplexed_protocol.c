@@ -50,7 +50,6 @@ thrift_multiplexed_protocol_write_message_begin (ThriftMultiplexedProtocol *prot
 
   ThriftMultiplexedProtocol *self = THRIFT_MULTIPLEXED_PROTOCOL (protocol);
   ThriftMultiplexedProtocolClass *multiplexClass = THRIFT_MULTIPLEXED_PROTOCOL_GET_CLASS(self);
-  ThriftProtocolClass *cls = THRIFT_PROTOCOL_CLASS (multiplexClass);
 
   if( (message_type == T_CALL || message_type == T_ONEWAY) && self->service_name != NULL) {
     service_name = g_strdup_printf("%s%s%s", self->service_name, THRIFT_MULTIPLEXED_PROTOCOL_DEFAULT_SEPARATOR, name);
@@ -58,7 +57,7 @@ thrift_multiplexed_protocol_write_message_begin (ThriftMultiplexedProtocol *prot
     service_name = g_strdup(name);
   }
 
-  // relay to the protocol_decorator
+  /* relay to the protocol_decorator */
   ret = thrift_protocol_decorator_write_message_begin(protocol, service_name, message_type, seqid, error);
 
   g_free(service_name);

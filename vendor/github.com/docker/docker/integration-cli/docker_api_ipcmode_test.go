@@ -44,11 +44,7 @@ func testIpcCheckDevExists(mm string) (bool, error) {
 		}
 	}
 
-	if err := s.Err(); err != nil {
-		return false, err
-	}
-
-	return false, nil
+	return false, s.Err()
 }
 
 // testIpcNonePrivateShareable is a helper function to test "none",
@@ -104,7 +100,7 @@ func (s *DockerSuite) TestAPIIpcModeNone(c *check.C) {
  * such pair on the host.
  */
 func (s *DockerSuite) TestAPIIpcModePrivate(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	testIpcNonePrivateShareable(c, "private", true, false)
 }
 
@@ -114,7 +110,7 @@ func (s *DockerSuite) TestAPIIpcModePrivate(c *check.C) {
  * also exists on the host.
  */
 func (s *DockerSuite) TestAPIIpcModeShareable(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
 	testIpcNonePrivateShareable(c, "shareable", true, true)
 }
 
@@ -188,7 +184,7 @@ func (s *DockerSuite) TestAPIIpcModePrivateAndContainer(c *check.C) {
  * can use IPC of the host system.
  */
 func (s *DockerSuite) TestAPIIpcModeHost(c *check.C) {
-	testRequires(c, DaemonIsLinux)
+	testRequires(c, DaemonIsLinux, SameHostDaemon, NotUserNamespace)
 
 	cfg := container.Config{
 		Image: "busybox",

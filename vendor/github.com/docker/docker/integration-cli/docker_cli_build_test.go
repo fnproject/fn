@@ -23,10 +23,10 @@ import (
 	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
 	"github.com/docker/docker/integration-cli/cli/build/fakegit"
 	"github.com/docker/docker/integration-cli/cli/build/fakestorage"
+	"github.com/docker/docker/internal/testutil"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/stringutils"
-	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
+	"github.com/gotestyourself/gotestyourself/icmd"
 	digest "github.com/opencontainers/go-digest"
 )
 
@@ -1173,12 +1173,13 @@ func (s *DockerSuite) TestBuildForceRm(c *check.C) {
 	containerCountBefore := getContainerCount(c)
 	name := "testbuildforcerm"
 
-	buildImage(name, cli.WithFlags("--force-rm"), build.WithBuildContext(c,
-		build.WithFile("Dockerfile", `FROM `+minimalBaseImage()+`
+	r := buildImage(name, cli.WithFlags("--force-rm"), build.WithBuildContext(c,
+		build.WithFile("Dockerfile", `FROM busybox
 	RUN true
-	RUN thiswillfail`))).Assert(c, icmd.Expected{
-		ExitCode: 1,
-	})
+	RUN thiswillfail`)))
+	if r.ExitCode != 1 && r.ExitCode != 127 { // different on Linux / Windows
+		c.Fatalf("Wrong exit code")
+	}
 
 	containerCountAfter := getContainerCount(c)
 	if containerCountBefore != containerCountAfter {
@@ -3184,7 +3185,7 @@ func (s *DockerSuite) TestBuildOnBuildOutput(c *check.C) {
 
 // FIXME(vdemeester) should be a unit test
 func (s *DockerSuite) TestBuildInvalidTag(c *check.C) {
-	name := "abcd:" + stringutils.GenerateRandomAlphaOnlyString(200)
+	name := "abcd:" + testutil.GenerateRandomAlphaOnlyString(200)
 	buildImage(name, build.WithDockerfile("FROM "+minimalBaseImage()+"\nMAINTAINER quux\n")).Assert(c, icmd.Expected{
 		ExitCode: 125,
 		Err:      "invalid reference format",
@@ -3866,7 +3867,7 @@ func (s *DockerSuite) TestBuildDockerfileOutsideContext(c *check.C) {
 		filepath.Join(ctx, "dockerfile2"),
 	} {
 		result := dockerCmdWithResult("build", "-t", name, "--no-cache", "-f", dockerfilePath, ".")
-		c.Assert(result, icmd.Matches, icmd.Expected{
+		result.Assert(c, icmd.Expected{
 			Err:      "must be within the build context",
 			ExitCode: 1,
 		})
@@ -4542,7 +4543,6 @@ func (s *DockerSuite) TestBuildBuildTimeArgOverrideEnvDefinedBeforeArg(c *check.
 }
 
 func (s *DockerSuite) TestBuildBuildTimeArgExpansion(c *check.C) {
-	testRequires(c, DaemonIsLinux) // Windows does not support ARG
 	imgName := "bldvarstest"
 
 	wdVar := "WDIR"
@@ -4559,6 +4559,10 @@ func (s *DockerSuite) TestBuildBuildTimeArgExpansion(c *check.C) {
 	userVal := "testUser"
 	volVar := "VOL"
 	volVal := "/testVol/"
+	if DaemonIsWindows() {
+		volVal = "C:\\testVol"
+		wdVal = "C:\\tmp"
+	}
 
 	buildImageSuccessfully(c, imgName,
 		cli.WithFlags(
@@ -4594,7 +4598,7 @@ func (s *DockerSuite) TestBuildBuildTimeArgExpansion(c *check.C) {
 	)
 
 	res := inspectField(c, imgName, "Config.WorkingDir")
-	c.Check(res, check.Equals, filepath.ToSlash(wdVal))
+	c.Check(filepath.ToSlash(res), check.Equals, filepath.ToSlash(wdVal))
 
 	var resArr []string
 	inspectFieldAndUnmarshall(c, imgName, "Config.Env", &resArr)

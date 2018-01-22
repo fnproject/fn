@@ -3,13 +3,13 @@ package config
 import (
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/docker/docker/daemon/discovery"
+	"github.com/docker/docker/internal/testutil"
 	"github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/testutil"
+	"github.com/gotestyourself/gotestyourself/fs"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,9 +38,6 @@ func TestDaemonBrokenConfiguration(t *testing.T) {
 }
 
 func TestParseClusterAdvertiseSettings(t *testing.T) {
-	if runtime.GOOS == "solaris" {
-		t.Skip("ClusterSettings not supported on Solaris\n")
-	}
 	_, err := ParseClusterAdvertiseSettings("something", "")
 	if err != discovery.ErrDiscoveryDisabled {
 		t.Fatalf("expected discovery disabled error, got %v\n", err)
@@ -263,6 +260,20 @@ func TestValidateConfigurationErrors(t *testing.T) {
 				},
 			},
 		},
+		{
+			config: &Config{
+				CommonConfig: CommonConfig{
+					NodeGenericResources: []string{"foo"},
+				},
+			},
+		},
+		{
+			config: &Config{
+				CommonConfig: CommonConfig{
+					NodeGenericResources: []string{"foo=bar", "foo=1"},
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		err := Validate(tc.config)
@@ -317,6 +328,20 @@ func TestValidateConfiguration(t *testing.T) {
 					ValuesSet: map[string]interface{}{
 						"max-concurrent-uploads": -1,
 					},
+				},
+			},
+		},
+		{
+			config: &Config{
+				CommonConfig: CommonConfig{
+					NodeGenericResources: []string{"foo=bar", "foo=baz"},
+				},
+			},
+		},
+		{
+			config: &Config{
+				CommonConfig: CommonConfig{
+					NodeGenericResources: []string{"foo=1"},
 				},
 			},
 		},
@@ -388,4 +413,76 @@ func discoveryConfig(backendAddr, advertiseAddr string, opts map[string]string) 
 			ClusterOpts:      opts,
 		},
 	}
+}
+
+// TestReloadSetConfigFileNotExist tests that when `--config-file` is set
+// and it doesn't exist the `Reload` function returns an error.
+func TestReloadSetConfigFileNotExist(t *testing.T) {
+	configFile := "/tmp/blabla/not/exists/config.json"
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.String("config-file", "", "")
+	flags.Set("config-file", configFile)
+
+	err := Reload(configFile, flags, func(c *Config) {})
+	assert.Error(t, err)
+	testutil.ErrorContains(t, err, "unable to configure the Docker daemon with file")
+}
+
+// TestReloadDefaultConfigNotExist tests that if the default configuration file
+// doesn't exist the daemon still will be reloaded.
+func TestReloadDefaultConfigNotExist(t *testing.T) {
+	reloaded := false
+	configFile := "/etc/docker/daemon.json"
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.String("config-file", configFile, "")
+	err := Reload(configFile, flags, func(c *Config) {
+		reloaded = true
+	})
+	assert.Nil(t, err)
+	assert.True(t, reloaded)
+}
+
+// TestReloadBadDefaultConfig tests that when `--config-file` is not set
+// and the default configuration file exists and is bad return an error
+func TestReloadBadDefaultConfig(t *testing.T) {
+	f, err := ioutil.TempFile("", "docker-config-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	configFile := f.Name()
+	f.Write([]byte(`{wrong: "configuration"}`))
+	f.Close()
+
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.String("config-file", configFile, "")
+	err = Reload(configFile, flags, func(c *Config) {})
+	assert.Error(t, err)
+	testutil.ErrorContains(t, err, "unable to configure the Docker daemon with file")
+}
+
+func TestReloadWithConflictingLabels(t *testing.T) {
+	tempFile := fs.NewFile(t, "config", fs.WithContent(`{"labels":["foo=bar","foo=baz"]}`))
+	defer tempFile.Remove()
+	configFile := tempFile.Path()
+
+	var lbls []string
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.String("config-file", configFile, "")
+	flags.StringSlice("labels", lbls, "")
+	err := Reload(configFile, flags, func(c *Config) {})
+	testutil.ErrorContains(t, err, "conflict labels for foo=baz and foo=bar")
+}
+
+func TestReloadWithDuplicateLabels(t *testing.T) {
+	tempFile := fs.NewFile(t, "config", fs.WithContent(`{"labels":["foo=the-same","foo=the-same"]}`))
+	defer tempFile.Remove()
+	configFile := tempFile.Path()
+
+	var lbls []string
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.String("config-file", configFile, "")
+	flags.StringSlice("labels", lbls, "")
+	err := Reload(configFile, flags, func(c *Config) {})
+	assert.NoError(t, err)
 }

@@ -15,7 +15,6 @@ import (
 
 // CallsWrapper calls wrapper
 // swagger:model CallsWrapper
-
 type CallsWrapper struct {
 
 	// calls
@@ -29,12 +28,6 @@ type CallsWrapper struct {
 	// Read Only: true
 	NextCursor string `json:"next_cursor,omitempty"`
 }
-
-/* polymorph CallsWrapper calls false */
-
-/* polymorph CallsWrapper error false */
-
-/* polymorph CallsWrapper next_cursor false */
 
 // Validate validates this calls wrapper
 func (m *CallsWrapper) Validate(formats strfmt.Registry) error {
@@ -59,6 +52,13 @@ func (m *CallsWrapper) Validate(formats strfmt.Registry) error {
 func (m *CallsWrapper) validateCalls(formats strfmt.Registry) error {
 
 	if err := validate.Required("calls", "body", m.Calls); err != nil {
+		return err
+	}
+
+	if err := m.Calls.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("calls")
+		}
 		return err
 	}
 

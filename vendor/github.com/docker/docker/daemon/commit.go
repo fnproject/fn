@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"runtime"
 	"strings"
@@ -128,9 +129,19 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 		return "", err
 	}
 
-	// It is not possible to commit a running container on Windows and on Solaris.
-	if (runtime.GOOS == "windows" || runtime.GOOS == "solaris") && container.IsRunning() {
+	// It is not possible to commit a running container on Windows
+	if (runtime.GOOS == "windows") && container.IsRunning() {
 		return "", errors.Errorf("%+v does not support commit of a running container", runtime.GOOS)
+	}
+
+	if container.IsDead() {
+		err := fmt.Errorf("You cannot commit container %s which is Dead", container.ID)
+		return "", stateConflictError{err}
+	}
+
+	if container.IsRemovalInProgress() {
+		err := fmt.Errorf("You cannot commit container %s which is being removed", container.ID)
+		return "", stateConflictError{err}
 	}
 
 	if c.Pause && !container.IsPaused() {
@@ -164,17 +175,17 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 		parent = new(image.Image)
 		parent.RootFS = image.NewRootFS()
 	} else {
-		parent, err = daemon.stores[container.Platform].imageStore.Get(container.ImageID)
+		parent, err = daemon.stores[container.OS].imageStore.Get(container.ImageID)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	l, err := daemon.stores[container.Platform].layerStore.Register(rwTar, parent.RootFS.ChainID(), layer.Platform(container.Platform))
+	l, err := daemon.stores[container.OS].layerStore.Register(rwTar, parent.RootFS.ChainID(), layer.OS(container.OS))
 	if err != nil {
 		return "", err
 	}
-	defer layer.ReleaseAndLog(daemon.stores[container.Platform].layerStore, l)
+	defer layer.ReleaseAndLog(daemon.stores[container.OS].layerStore, l)
 
 	containerConfig := c.ContainerConfig
 	if containerConfig == nil {
@@ -188,18 +199,18 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 		Config:          newConfig,
 		DiffID:          l.DiffID(),
 	}
-	config, err := json.Marshal(image.NewChildImage(parent, cc, container.Platform))
+	config, err := json.Marshal(image.NewChildImage(parent, cc, container.OS))
 	if err != nil {
 		return "", err
 	}
 
-	id, err := daemon.stores[container.Platform].imageStore.Create(config)
+	id, err := daemon.stores[container.OS].imageStore.Create(config)
 	if err != nil {
 		return "", err
 	}
 
 	if container.ImageID != "" {
-		if err := daemon.stores[container.Platform].imageStore.SetParent(id, container.ImageID); err != nil {
+		if err := daemon.stores[container.OS].imageStore.SetParent(id, container.ImageID); err != nil {
 			return "", err
 		}
 	}
@@ -218,7 +229,7 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 				return "", err
 			}
 		}
-		if err := daemon.TagImageWithReference(id, container.Platform, newTag); err != nil {
+		if err := daemon.TagImageWithReference(id, container.OS, newTag); err != nil {
 			return "", err
 		}
 		imageRef = reference.FamiliarString(newTag)
@@ -234,19 +245,36 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 	return id.String(), nil
 }
 
-func (daemon *Daemon) exportContainerRw(container *container.Container) (io.ReadCloser, error) {
-	if err := daemon.Mount(container); err != nil {
+func (daemon *Daemon) exportContainerRw(container *container.Container) (arch io.ReadCloser, err error) {
+	rwlayer, err := daemon.stores[container.OS].layerStore.GetRWLayer(container.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			daemon.stores[container.OS].layerStore.ReleaseRWLayer(rwlayer)
+		}
+	}()
+
+	// TODO: this mount call is not necessary as we assume that TarStream() should
+	// mount the layer if needed. But the Diff() function for windows requests that
+	// the layer should be mounted when calling it. So we reserve this mount call
+	// until windows driver can implement Diff() interface correctly.
+	_, err = rwlayer.Mount(container.GetMountLabel())
+	if err != nil {
 		return nil, err
 	}
 
-	archive, err := container.RWLayer.TarStream()
+	archive, err := rwlayer.TarStream()
 	if err != nil {
-		daemon.Unmount(container) // logging is already handled in the `Unmount` function
+		rwlayer.Unmount()
 		return nil, err
 	}
 	return ioutils.NewReadCloserWrapper(archive, func() error {
 			archive.Close()
-			return container.RWLayer.Unmount()
+			err = rwlayer.Unmount()
+			daemon.stores[container.OS].layerStore.ReleaseRWLayer(rwlayer)
+			return err
 		}),
 		nil
 }

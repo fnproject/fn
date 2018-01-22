@@ -28,7 +28,7 @@ func (s *containerRouter) getContainersJSON(ctx context.Context, w http.Response
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
-	filter, err := filters.FromParam(r.Form.Get("filters"))
+	filter, err := filters.FromJSON(r.Form.Get("filters"))
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (s *containerRouter) getContainersStats(ctx context.Context, w http.Respons
 	config := &backend.ContainerStatsConfig{
 		Stream:    stream,
 		OutStream: w,
-		Version:   string(httputils.VersionFromContext(ctx)),
+		Version:   httputils.VersionFromContext(ctx),
 	}
 
 	return s.backend.ContainerStats(ctx, vars["name"], config)
@@ -96,6 +96,7 @@ func (s *containerRouter) getContainersLogs(ctx context.Context, w http.Response
 		Follow:     httputils.BoolValue(r, "follow"),
 		Timestamps: httputils.BoolValue(r, "timestamps"),
 		Since:      r.Form.Get("since"),
+		Until:      r.Form.Get("until"),
 		Tail:       r.Form.Get("tail"),
 		ShowStdout: stdout,
 		ShowStderr: stderr,
@@ -280,11 +281,12 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 	// Behavior changed in version 1.30 to handle wait condition and to
 	// return headers immediately.
 	version := httputils.VersionFromContext(ctx)
-	legacyBehavior := versions.LessThan(version, "1.30")
+	legacyBehaviorPre130 := versions.LessThan(version, "1.30")
+	legacyRemovalWaitPre134 := false
 
 	// The wait condition defaults to "not-running".
 	waitCondition := containerpkg.WaitConditionNotRunning
-	if !legacyBehavior {
+	if !legacyBehaviorPre130 {
 		if err := httputils.ParseForm(r); err != nil {
 			return err
 		}
@@ -293,6 +295,7 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 			waitCondition = containerpkg.WaitConditionNextExit
 		case container.WaitConditionRemoved:
 			waitCondition = containerpkg.WaitConditionRemoved
+			legacyRemovalWaitPre134 = versions.LessThan(version, "1.34")
 		}
 	}
 
@@ -306,7 +309,7 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if !legacyBehavior {
+	if !legacyBehaviorPre130 {
 		// Write response header immediately.
 		w.WriteHeader(http.StatusOK)
 		if flusher, ok := w.(http.Flusher); ok {
@@ -317,8 +320,22 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 	// Block on the result of the wait operation.
 	status := <-waitC
 
+	// With API < 1.34, wait on WaitConditionRemoved did not return
+	// in case container removal failed. The only way to report an
+	// error back to the client is to not write anything (i.e. send
+	// an empty response which will be treated as an error).
+	if legacyRemovalWaitPre134 && status.Err() != nil {
+		return nil
+	}
+
+	var waitError *container.ContainerWaitOKBodyError
+	if status.Err() != nil {
+		waitError = &container.ContainerWaitOKBodyError{Message: status.Err().Error()}
+	}
+
 	return json.NewEncoder(w).Encode(&container.ContainerWaitOKBody{
 		StatusCode: int64(status.ExitCode()),
+		Error:      waitError,
 	})
 }
 
@@ -588,7 +605,7 @@ func (s *containerRouter) postContainersPrune(ctx context.Context, w http.Respon
 		return err
 	}
 
-	pruneFilters, err := filters.FromParam(r.Form.Get("filters"))
+	pruneFilters, err := filters.FromJSON(r.Form.Get("filters"))
 	if err != nil {
 		return validationError{err}
 	}

@@ -3,7 +3,6 @@ package daemon
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -31,18 +30,27 @@ func (daemon *Daemon) NetworkControllerEnabled() bool {
 
 // FindNetwork function finds a network for a given string that can represent network name or id
 func (daemon *Daemon) FindNetwork(idName string) (libnetwork.Network, error) {
-	// Find by Name
-	n, err := daemon.GetNetworkByName(idName)
-	if err != nil && !isNoSuchNetworkError(err) {
-		return nil, err
+	// 1. match by full ID.
+	n, err := daemon.GetNetworkByID(idName)
+	if err == nil || !isNoSuchNetworkError(err) {
+		return n, err
 	}
 
-	if n != nil {
-		return n, nil
+	// 2. match by full name
+	n, err = daemon.GetNetworkByName(idName)
+	if err == nil || !isNoSuchNetworkError(err) {
+		return n, err
 	}
 
-	// Find by id
-	return daemon.GetNetworkByID(idName)
+	// 3. match by ID prefix
+	list := daemon.GetNetworksByIDPrefix(idName)
+	if len(list) == 0 {
+		return nil, errors.WithStack(networkNotFound(idName))
+	}
+	if len(list) > 1 {
+		return nil, errors.WithStack(invalidIdentifier(idName))
+	}
+	return list[0], nil
 }
 
 func isNoSuchNetworkError(err error) bool {
@@ -50,18 +58,14 @@ func isNoSuchNetworkError(err error) bool {
 	return ok
 }
 
-// GetNetworkByID function returns a network whose ID begins with the given prefix.
-// It fails with an error if no matching, or more than one matching, networks are found.
-func (daemon *Daemon) GetNetworkByID(partialID string) (libnetwork.Network, error) {
-	list := daemon.GetNetworksByID(partialID)
-
-	if len(list) == 0 {
-		return nil, errors.WithStack(networkNotFound(partialID))
+// GetNetworkByID function returns a network whose ID matches the given ID.
+// It fails with an error if no matching network is found.
+func (daemon *Daemon) GetNetworkByID(id string) (libnetwork.Network, error) {
+	c := daemon.netController
+	if c == nil {
+		return nil, libnetwork.ErrNoSuchNetwork(id)
 	}
-	if len(list) > 1 {
-		return nil, errors.WithStack(invalidIdentifier(partialID))
-	}
-	return list[0], nil
+	return c.NetworkByID(id)
 }
 
 // GetNetworkByName function returns a network for a given network name.
@@ -77,8 +81,8 @@ func (daemon *Daemon) GetNetworkByName(name string) (libnetwork.Network, error) 
 	return c.NetworkByName(name)
 }
 
-// GetNetworksByID returns a list of networks whose ID partially matches zero or more networks
-func (daemon *Daemon) GetNetworksByID(partialID string) []libnetwork.Network {
+// GetNetworksByIDPrefix returns a list of networks whose ID partially matches zero or more networks
+func (daemon *Daemon) GetNetworksByIDPrefix(partialID string) []libnetwork.Network {
 	c := daemon.netController
 	if c == nil {
 		return nil
@@ -115,6 +119,7 @@ var (
 func (daemon *Daemon) startIngressWorker() {
 	ingressJobsChannel = make(chan *ingressJob, 100)
 	go func() {
+		// nolint: gosimple
 		for {
 			select {
 			case r := <-ingressJobsChannel:
@@ -181,27 +186,8 @@ func (daemon *Daemon) setupIngress(create *clustertypes.NetworkCreateRequest, ip
 		logrus.Errorf("Failed getting ingress network by id after creating: %v", err)
 	}
 
-	sb, err := controller.NewSandbox("ingress-sbox", libnetwork.OptionIngress())
-	if err != nil {
-		if _, ok := err.(networktypes.ForbiddenError); !ok {
-			logrus.Errorf("Failed creating ingress sandbox: %v", err)
-		}
-		return
-	}
-
-	ep, err := n.CreateEndpoint("ingress-endpoint", libnetwork.CreateOptionIpam(ip, nil, nil, nil))
-	if err != nil {
-		logrus.Errorf("Failed creating ingress endpoint: %v", err)
-		return
-	}
-
-	if err := ep.Join(sb, nil); err != nil {
-		logrus.Errorf("Failed joining ingress sandbox to ingress endpoint: %v", err)
-		return
-	}
-
-	if err := sb.EnableService(); err != nil {
-		logrus.Errorf("Failed enabling service for ingress sandbox")
+	if err = daemon.createLoadBalancerSandbox("ingress", create.ID, ip, n, libnetwork.OptionIngress()); err != nil {
+		logrus.Errorf("Failed creating load balancer sandbox for ingress network: %v", err)
 	}
 }
 
@@ -232,7 +218,6 @@ func (daemon *Daemon) releaseIngress(id string) {
 		logrus.Errorf("Failed to delete ingress network %s: %v", n.ID(), err)
 		return
 	}
-	return
 }
 
 // SetNetworkBootstrapKeys sets the bootstrap keys.
@@ -281,6 +266,34 @@ func (daemon *Daemon) CreateNetwork(create types.NetworkCreateRequest) (*types.N
 		return nil, err
 	}
 	return resp, err
+}
+
+func (daemon *Daemon) createLoadBalancerSandbox(prefix, id string, ip net.IP, n libnetwork.Network, options ...libnetwork.SandboxOption) error {
+	c := daemon.netController
+	sandboxName := prefix + "-sbox"
+	sb, err := c.NewSandbox(sandboxName, options...)
+	if err != nil {
+		if _, ok := err.(networktypes.ForbiddenError); !ok {
+			return errors.Wrapf(err, "Failed creating %s sandbox", sandboxName)
+		}
+		return nil
+	}
+
+	endpointName := prefix + "-endpoint"
+	ep, err := n.CreateEndpoint(endpointName, libnetwork.CreateOptionIpam(ip, nil, nil, nil), libnetwork.CreateOptionLoadBalancer())
+	if err != nil {
+		return errors.Wrapf(err, "Failed creating %s in sandbox %s", endpointName, sandboxName)
+	}
+
+	if err := ep.Join(sb, nil); err != nil {
+		return errors.Wrapf(err, "Failed joining %s to sandbox %s", endpointName, sandboxName)
+	}
+
+	if err := sb.EnableService(); err != nil {
+		return errors.Wrapf(err, "Failed enabling service in %s sandbox", sandboxName)
+	}
+
+	return nil
 }
 
 func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string, agent bool) (*types.NetworkCreateResponse, error) {
@@ -360,6 +373,18 @@ func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string
 	}
 	daemon.LogNetworkEvent(n, "create")
 
+	if agent && !n.Info().Ingress() && n.Type() == "overlay" {
+		nodeIP, exists := daemon.GetAttachmentStore().GetIPForNetwork(id)
+		if !exists {
+			return nil, fmt.Errorf("Failed to find a load balancer IP to use for network: %v", id)
+		}
+
+		if err := daemon.createLoadBalancerSandbox(create.Name, id, nodeIP, n); err != nil {
+			return nil, err
+		}
+
+	}
+
 	return &types.NetworkCreateResponse{
 		ID:      n.ID(),
 		Warning: warning,
@@ -426,9 +451,6 @@ func (daemon *Daemon) UpdateContainerServiceConfig(containerName string, service
 // network. If either cannot be found, an err is returned. If the
 // network cannot be set up, an err is returned.
 func (daemon *Daemon) ConnectContainerToNetwork(containerName, networkName string, endpointConfig *network.EndpointSettings) error {
-	if runtime.GOOS == "solaris" {
-		return errors.New("docker network connect is unsupported on Solaris platform")
-	}
 	container, err := daemon.GetContainer(containerName)
 	if err != nil {
 		return err
@@ -439,9 +461,6 @@ func (daemon *Daemon) ConnectContainerToNetwork(containerName, networkName strin
 // DisconnectContainerFromNetwork disconnects the given container from
 // the given network. If either cannot be found, an err is returned.
 func (daemon *Daemon) DisconnectContainerFromNetwork(containerName string, networkName string, force bool) error {
-	if runtime.GOOS == "solaris" {
-		return errors.New("docker network disconnect is unsupported on Solaris platform")
-	}
 	container, err := daemon.GetContainer(containerName)
 	if err != nil {
 		if force {
@@ -496,6 +515,37 @@ func (daemon *Daemon) DeleteNetwork(networkID string) error {
 	return daemon.deleteNetwork(networkID, false)
 }
 
+func (daemon *Daemon) deleteLoadBalancerSandbox(n libnetwork.Network) {
+	controller := daemon.netController
+
+	//The only endpoint left should be the LB endpoint (nw.Name() + "-endpoint")
+	endpoints := n.Endpoints()
+	if len(endpoints) == 1 {
+		sandboxName := n.Name() + "-sbox"
+
+		info := endpoints[0].Info()
+		if info != nil {
+			sb := info.Sandbox()
+			if sb != nil {
+				if err := sb.DisableService(); err != nil {
+					logrus.Warnf("Failed to disable service on sandbox %s: %v", sandboxName, err)
+					//Ignore error and attempt to delete the load balancer endpoint
+				}
+			}
+		}
+
+		if err := endpoints[0].Delete(true); err != nil {
+			logrus.Warnf("Failed to delete endpoint %s (%s) in %s: %v", endpoints[0].Name(), endpoints[0].ID(), sandboxName, err)
+			//Ignore error and attempt to delete the sandbox.
+		}
+
+		if err := controller.SandboxDestroy(sandboxName); err != nil {
+			logrus.Warnf("Failed to delete %s sandbox: %v", sandboxName, err)
+			//Ignore error and attempt to delete the network.
+		}
+	}
+}
+
 func (daemon *Daemon) deleteNetwork(networkID string, dynamic bool) error {
 	nw, err := daemon.FindNetwork(networkID)
 	if err != nil {
@@ -515,6 +565,10 @@ func (daemon *Daemon) deleteNetwork(networkID string, dynamic bool) error {
 		}
 		err := fmt.Errorf("%s is not a dynamic network", nw.Name())
 		return notAllowedError{err}
+	}
+
+	if !nw.Info().Ingress() && nw.Type() == "overlay" {
+		daemon.deleteLoadBalancerSandbox(nw)
 	}
 
 	if err := nw.Delete(); err != nil {

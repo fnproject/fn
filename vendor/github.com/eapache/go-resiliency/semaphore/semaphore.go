@@ -8,7 +8,7 @@ import (
 
 // ErrNoTickets is the error returned by Acquire when it could not acquire
 // a ticket from the semaphore within the configured timeout.
-var ErrNoTickets = errors.New("could not acquire semaphore ticket")
+var ErrNoTickets = errors.New("could not aquire semaphore ticket")
 
 // Semaphore implements the semaphore resiliency pattern
 type Semaphore struct {

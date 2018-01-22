@@ -1,11 +1,10 @@
-// +build !solaris
-
 package daemon
 
 import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	containertypes "github.com/docker/docker/api/types/container"
@@ -18,6 +17,7 @@ import (
 	"github.com/docker/docker/volume/local"
 	"github.com/docker/docker/volume/store"
 	"github.com/docker/go-connections/nat"
+	"github.com/stretchr/testify/assert"
 )
 
 //
@@ -303,4 +303,11 @@ func TestMerge(t *testing.T) {
 			t.Fatalf("Expected %q or %q or %q or %q, found %s", 0, 1111, 2222, 3333, portSpecs)
 		}
 	}
+}
+
+func TestValidateContainerIsolation(t *testing.T) {
+	d := Daemon{}
+
+	_, err := d.verifyContainerSettings(runtime.GOOS, &containertypes.HostConfig{Isolation: containertypes.Isolation("invalid")}, nil, false)
+	assert.EqualError(t, err, "invalid isolation 'invalid' on "+runtime.GOOS)
 }

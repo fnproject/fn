@@ -104,3 +104,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
   version = "~1.12.59"
+
+[[constraint]]
+  name = "github.com/fsouza/go-dockerclient"
+  revision = "98edf3edfae6a6500fecc69d2bcccf1302544004"

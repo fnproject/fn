@@ -21,20 +21,23 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
+	"github.com/docker/docker/internal/testutil"
 	"github.com/docker/docker/pkg/mount"
+	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/stringutils"
-	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/libnetwork/resolvconf"
 	"github.com/docker/libnetwork/types"
 	"github.com/go-check/check"
+	"github.com/gotestyourself/gotestyourself/icmd"
 	libcontainerUser "github.com/opencontainers/runc/libcontainer/user"
+	"golang.org/x/net/context"
 )
 
 // "test123" should be printed by docker run
@@ -824,7 +827,7 @@ func (s *DockerSuite) TestRunEnvironment(c *check.C) {
 	})
 	result.Assert(c, icmd.Success)
 
-	actualEnv := strings.Split(strings.TrimSpace(result.Combined()), "\n")
+	actualEnv := strings.Split(strings.TrimSuffix(result.Stdout(), "\n"), "\n")
 	sort.Strings(actualEnv)
 
 	goodEnv := []string{
@@ -1798,7 +1801,7 @@ func (s *DockerSuite) TestRunInteractiveWithRestartPolicy(c *check.C) {
 	}()
 
 	result = icmd.WaitOnCmd(60*time.Second, result)
-	c.Assert(result, icmd.Matches, icmd.Expected{ExitCode: 11})
+	result.Assert(c, icmd.Expected{ExitCode: 11})
 }
 
 // Test for #2267
@@ -1825,7 +1828,7 @@ func testRunWriteSpecialFilesAndNotCommit(c *check.C, name, path string) {
 }
 
 func eqToBaseDiff(out string, c *check.C) bool {
-	name := "eqToBaseDiff" + stringutils.GenerateRandomAlphaOnlyString(32)
+	name := "eqToBaseDiff" + testutil.GenerateRandomAlphaOnlyString(32)
 	dockerCmd(c, "run", "--name", name, "busybox", "echo", "hello")
 	cID := getIDByName(c, name)
 	baseDiff, _ := dockerCmd(c, "diff", cID)
@@ -2215,7 +2218,7 @@ func (s *DockerSuite) TestRunVolumesCleanPaths(c *check.C) {
 
 	out, err = inspectMountSourceField("dark_helmet", prefix+slash+`foo`)
 	c.Assert(err, check.IsNil)
-	if !strings.Contains(strings.ToLower(out), strings.ToLower(testEnv.VolumesConfigPath())) {
+	if !strings.Contains(strings.ToLower(out), strings.ToLower(testEnv.PlatformDefaults.VolumesConfigPath)) {
 		c.Fatalf("Volume was not defined for %s/foo\n%q", prefix, out)
 	}
 
@@ -2226,7 +2229,7 @@ func (s *DockerSuite) TestRunVolumesCleanPaths(c *check.C) {
 
 	out, err = inspectMountSourceField("dark_helmet", prefix+slash+"bar")
 	c.Assert(err, check.IsNil)
-	if !strings.Contains(strings.ToLower(out), strings.ToLower(testEnv.VolumesConfigPath())) {
+	if !strings.Contains(strings.ToLower(out), strings.ToLower(testEnv.PlatformDefaults.VolumesConfigPath)) {
 		c.Fatalf("Volume was not defined for %s/bar\n%q", prefix, out)
 	}
 }
@@ -2246,6 +2249,7 @@ func (s *DockerSuite) TestRunSlowStdoutConsumer(c *check.C) {
 	if err := cont.Start(); err != nil {
 		c.Fatal(err)
 	}
+	defer func() { go cont.Wait() }()
 	n, err := ConsumeWithSpeed(stdout, 10000, 5*time.Millisecond, nil)
 	if err != nil {
 		c.Fatal(err)
@@ -2725,7 +2729,7 @@ func (s *DockerSuite) TestRunContainerWithReadonlyRootfs(c *check.C) {
 	if root := os.Getenv("DOCKER_REMAP_ROOT"); root != "" {
 		testPriv = false
 	}
-	testReadOnlyFile(c, testPriv, "/file", "/etc/hosts", "/etc/resolv.conf", "/etc/hostname", "/sys/kernel", "/dev/.dont.touch.me")
+	testReadOnlyFile(c, testPriv, "/file", "/etc/hosts", "/etc/resolv.conf", "/etc/hostname", "/sys/kernel")
 }
 
 func (s *DockerSuite) TestPermissionsPtsReadonlyRootfs(c *check.C) {
@@ -2813,23 +2817,27 @@ func (s *DockerSuite) TestRunVolumesFromRestartAfterRemoved(c *check.C) {
 
 // run container with --rm should remove container if exit code != 0
 func (s *DockerSuite) TestRunContainerWithRmFlagExitCodeNotEqualToZero(c *check.C) {
+	existingContainers := ExistingContainerIDs(c)
 	name := "flowers"
 	cli.Docker(cli.Args("run", "--name", name, "--rm", "busybox", "ls", "/notexists")).Assert(c, icmd.Expected{
 		ExitCode: 1,
 	})
 
 	out := cli.DockerCmd(c, "ps", "-q", "-a").Combined()
+	out = RemoveOutputForExistingElements(out, existingContainers)
 	if out != "" {
 		c.Fatal("Expected not to have containers", out)
 	}
 }
 
 func (s *DockerSuite) TestRunContainerWithRmFlagCannotStartContainer(c *check.C) {
+	existingContainers := ExistingContainerIDs(c)
 	name := "sparkles"
 	cli.Docker(cli.Args("run", "--name", name, "--rm", "busybox", "commandNotFound")).Assert(c, icmd.Expected{
 		ExitCode: 127,
 	})
 	out := cli.DockerCmd(c, "ps", "-q", "-a").Combined()
+	out = RemoveOutputForExistingElements(out, existingContainers)
 	if out != "" {
 		c.Fatal("Expected not to have containers", out)
 	}
@@ -3107,6 +3115,11 @@ func (s *DockerSuite) TestRunNetworkFilesBindMount(c *check.C) {
 	filename := createTmpFile(c, expected)
 	defer os.Remove(filename)
 
+	// for user namespaced test runs, the temp file must be accessible to unprivileged root
+	if err := os.Chmod(filename, 0646); err != nil {
+		c.Fatalf("error modifying permissions of %s: %v", filename, err)
+	}
+
 	nwfiles := []string{"/etc/resolv.conf", "/etc/hosts", "/etc/hostname"}
 
 	for i := range nwfiles {
@@ -3124,6 +3137,11 @@ func (s *DockerSuite) TestRunNetworkFilesBindMountRO(c *check.C) {
 	filename := createTmpFile(c, "test123")
 	defer os.Remove(filename)
 
+	// for user namespaced test runs, the temp file must be accessible to unprivileged root
+	if err := os.Chmod(filename, 0646); err != nil {
+		c.Fatalf("error modifying permissions of %s: %v", filename, err)
+	}
+
 	nwfiles := []string{"/etc/resolv.conf", "/etc/hosts", "/etc/hostname"}
 
 	for i := range nwfiles {
@@ -3140,6 +3158,11 @@ func (s *DockerSuite) TestRunNetworkFilesBindMountROFilesystem(c *check.C) {
 
 	filename := createTmpFile(c, "test123")
 	defer os.Remove(filename)
+
+	// for user namespaced test runs, the temp file must be accessible to unprivileged root
+	if err := os.Chmod(filename, 0646); err != nil {
+		c.Fatalf("error modifying permissions of %s: %v", filename, err)
+	}
 
 	nwfiles := []string{"/etc/resolv.conf", "/etc/hosts", "/etc/hostname"}
 
@@ -3963,21 +3986,35 @@ func (s *DockerSuite) TestRunNamedVolumeNotRemoved(c *check.C) {
 	dockerCmd(c, "run", "--rm", "-v", "test:"+prefix+"/foo", "-v", prefix+"/bar", "busybox", "true")
 	dockerCmd(c, "volume", "inspect", "test")
 	out, _ := dockerCmd(c, "volume", "ls", "-q")
-	c.Assert(strings.TrimSpace(out), checker.Equals, "test")
+	c.Assert(strings.TrimSpace(out), checker.Contains, "test")
 
 	dockerCmd(c, "run", "--name=test", "-v", "test:"+prefix+"/foo", "-v", prefix+"/bar", "busybox", "true")
 	dockerCmd(c, "rm", "-fv", "test")
 	dockerCmd(c, "volume", "inspect", "test")
 	out, _ = dockerCmd(c, "volume", "ls", "-q")
-	c.Assert(strings.TrimSpace(out), checker.Equals, "test")
+	c.Assert(strings.TrimSpace(out), checker.Contains, "test")
 }
 
 func (s *DockerSuite) TestRunNamedVolumesFromNotRemoved(c *check.C) {
 	prefix, _ := getPrefixAndSlashFromDaemonPlatform()
 
 	dockerCmd(c, "volume", "create", "test")
-	dockerCmd(c, "run", "--name=parent", "-v", "test:"+prefix+"/foo", "-v", prefix+"/bar", "busybox", "true")
+	cid, _ := dockerCmd(c, "run", "-d", "--name=parent", "-v", "test:"+prefix+"/foo", "-v", prefix+"/bar", "busybox", "true")
 	dockerCmd(c, "run", "--name=child", "--volumes-from=parent", "busybox", "true")
+
+	cli, err := client.NewEnvClient()
+	c.Assert(err, checker.IsNil)
+	defer cli.Close()
+
+	container, err := cli.ContainerInspect(context.Background(), strings.TrimSpace(cid))
+	c.Assert(err, checker.IsNil)
+	var vname string
+	for _, v := range container.Mounts {
+		if v.Name != "test" {
+			vname = v.Name
+		}
+	}
+	c.Assert(vname, checker.Not(checker.Equals), "")
 
 	// Remove the parent so there are not other references to the volumes
 	dockerCmd(c, "rm", "-f", "parent")
@@ -3985,10 +4022,25 @@ func (s *DockerSuite) TestRunNamedVolumesFromNotRemoved(c *check.C) {
 	dockerCmd(c, "rm", "-fv", "child")
 	dockerCmd(c, "volume", "inspect", "test")
 	out, _ := dockerCmd(c, "volume", "ls", "-q")
-	c.Assert(strings.TrimSpace(out), checker.Equals, "test")
+	c.Assert(strings.TrimSpace(out), checker.Contains, "test")
+	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), vname)
 }
 
 func (s *DockerSuite) TestRunAttachFailedNoLeak(c *check.C) {
+	// TODO @msabansal - https://github.com/moby/moby/issues/35023. Duplicate
+	// port mappings are not errored out on RS3 builds. Temporarily disabling
+	// this test pending further investigation. Note we parse kernel.GetKernelVersion
+	// rather than system.GetOSVersion as test binaries aren't manifested, so would
+	// otherwise report build 9200.
+	if runtime.GOOS == "windows" {
+		v, err := kernel.GetKernelVersion()
+		c.Assert(err, checker.IsNil)
+		build, _ := strconv.Atoi(strings.Split(strings.SplitN(v.String(), " ", 3)[2][1:], ".")[0])
+		if build >= 16292 { // @jhowardmsft TODO - replace with final RS3 build and ==
+			c.Skip("Temporarily disabled on RS3 builds")
+		}
+	}
+
 	nroutines, err := getGoroutineNumber()
 	c.Assert(err, checker.IsNil)
 
@@ -4123,7 +4175,7 @@ func (s *DockerSuite) TestRunRm(c *check.C) {
 // Test that auto-remove is performed by the client on API versions that do not support daemon-side api-remove (API < 1.25)
 func (s *DockerSuite) TestRunRmPre125Api(c *check.C) {
 	name := "miss-me-when-im-gone"
-	envs := appendBaseEnv(false, "DOCKER_API_VERSION=1.24")
+	envs := appendBaseEnv(os.Getenv("DOCKER_TLS_VERIFY") != "", "DOCKER_API_VERSION=1.24")
 	cli.Docker(cli.Args("run", "--name="+name, "--rm", "busybox"), cli.WithEnvironmentVariables(envs...)).Assert(c, icmd.Success)
 
 	cli.Docker(cli.Inspect(name), cli.Format(".name")).Assert(c, icmd.Expected{

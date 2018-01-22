@@ -13,10 +13,10 @@ func init() {
 
 	// Define your handlers
 	r.GET("/", func(c *gin.Context) {
-		c.String(http.StatusOK, "Hello World!")
+		c.String(200, "Hello World!")
 	})
 	r.GET("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
+		c.String(200, "pong")
 	})
 
 	// Handle all requests using net/http

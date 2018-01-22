@@ -15,15 +15,12 @@ import (
 
 // LogWrapper log wrapper
 // swagger:model LogWrapper
-
 type LogWrapper struct {
 
 	// Call log entry.
 	// Required: true
 	Log *Log `json:"log"`
 }
-
-/* polymorph LogWrapper log false */
 
 // Validate validates this log wrapper
 func (m *LogWrapper) Validate(formats strfmt.Registry) error {

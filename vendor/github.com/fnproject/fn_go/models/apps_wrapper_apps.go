@@ -16,7 +16,6 @@ import (
 
 // AppsWrapperApps apps wrapper apps
 // swagger:model appsWrapperApps
-
 type AppsWrapperApps []*App
 
 // Validate validates this apps wrapper apps
