@@ -57,8 +57,10 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 
 		route, err := a.da.GetRoute(req.Context(), appName, path)
 		if err != nil {
+			fmt.Println("Error getting route")
 			return err
 		}
+		fmt.Println("Got route:", route.Path)
 
 		if route.Format == "" {
 			route.Format = models.FormatDefault

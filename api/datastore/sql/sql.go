@@ -560,7 +560,8 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, appName, routePath string) 
 }
 
 func (ds *sqlStore) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
-	rSelectCondition := "%s WHERE app_name=? AND path=?"
+	fmt.Println("in GetRoute")
+	rSelectCondition := "%s WHERE app_name=? AND (path=? OR path='/*')"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
 	row := ds.db.QueryRowxContext(ctx, query, appName, routePath)
 
