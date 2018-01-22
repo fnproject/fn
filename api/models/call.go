@@ -12,7 +12,7 @@ const (
 	TypeNone = ""
 	// TypeSync synchronous function
 	TypeSync = "sync"
-	// TypeAsync asynchronouse function
+	// TypeAsync asynchronous function
 	TypeAsync = "async"
 	// TypeApp for long running app
 	TypeApp = "app"

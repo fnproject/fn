@@ -274,6 +274,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		{"/r/myapp/bigmem-hot", `{"sleepTime": 0, "isDebug": true}`, "POST", http.StatusServiceUnavailable, map[string][]string{"Retry-After": {"15"}}},
 	} {
 		body := strings.NewReader(test.body)
+		t.Log("Running:", test.path)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 
 		if rec.Code != test.expectedCode {
