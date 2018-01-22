@@ -2,8 +2,11 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -283,7 +286,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
-	isHot := protocol.IsStreamable(protocol.Protocol(call.Format))
+	isHot := protocol.IsStreamable(protocol.ProtocolS(call.Format))
 	if isHot {
 		start := time.Now()
 
@@ -306,6 +309,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 // containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
 // it destroys the slot queue.
 func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
+	fmt.Println("HOT LAUNCHER")
 
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
@@ -417,7 +421,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 // launchCold waits for necessary resources to launch a new container, then
 // returns the slot for that new container to run the request on.
 func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
-
+	fmt.Println("COLD LAUNCHER")
 	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
 	ctxResource, cancelResource := context.WithCancel(ctx)
@@ -531,7 +535,9 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 		// TODO make sure stdin / stdout not blocked if container dies or we leak goroutine
 		// we have to make sure this gets shut down or 2 threads will be reading/writing in/out
 		ci := protocol.NewCallInfo(call.Call, call.req)
+		// if app type, we're going to bypass this (todo maybe: we could implement this as a protocol too, stuff this reverse proxy in there so we don't make it on every request)
 		errApp <- s.proto.Dispatch(ctx, ci, call.w)
+
 	}()
 
 	select {
@@ -594,12 +600,6 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 	defer span.Finish()
 	defer tok.Close()
 
-	// TODO we have to make sure we flush these pipes or we will deadlock
-	stdinRead, stdinWrite := io.Pipe()
-	stdoutRead, stdoutWrite := io.Pipe()
-
-	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
-
 	// we don't want to timeout in here. this is inside of a goroutine and the
 	// caller can timeout this Call appropriately. e.g. w/ hot if it takes 20
 	// minutes to pull, then timing out calls for 20 minutes and eventually
@@ -622,6 +622,9 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 		logrus.WithFields(logrus.Fields{"between_log": true, "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": cid}),
 	})
 
+	// TODO we have to make sure we flush these pipes or we will deadlock
+	stdinRead, stdinWrite := io.Pipe()
+	stdoutRead, stdoutWrite := io.Pipe()
 	container := &container{
 		id:     cid, // XXX we could just let docker generate ids...
 		image:  call.Image,
@@ -632,9 +635,24 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 		stdout: stdoutWrite,
 		stderr: &ghostWriter{inner: stderr},
 	}
-
+	if call.Type == models.TypeApp {
+		// then we'll open a port
+		max := 60000
+		min := 55000
+		cport := rand.Intn(max-min) + min // port for container
+		container.port = strconv.Itoa(cport)
+		call.Format = models.FormatPortHTTP
+	}
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
+
+	proto, err := protocol.New(protocol.ProtocolS(call.Format), stdinWrite, stdoutRead, container)
+	if err != nil {
+		logger.WithError(err).Info("hot function failed, couldn't init protocol")
+		call.slots.exitStateWithLatency(SlotQueueStarter, uint64(time.Now().Sub(start).Seconds()*1000))
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		return
+	}
 
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
@@ -730,6 +748,7 @@ type container struct {
 	memory  uint64
 	cpus    uint64
 	timeout time.Duration // cold only (superfluous, but in case)
+	port    string        // will open port into container (q: why is this a slice? a: future proofing)
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -767,6 +786,7 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
+func (c *container) Port() string                   { return c.port }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

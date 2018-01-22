@@ -8,12 +8,14 @@ import (
 )
 
 const (
-	// TypeNone ...
+	// TypeNone defaults to sync
 	TypeNone = ""
-	// TypeSync ...
+	// TypeSync synchronous function
 	TypeSync = "sync"
-	// TypeAsync ...
+	// TypeAsync asynchronouse function
 	TypeAsync = "async"
+	// TypeApp for long running app
+	TypeApp = "app"
 )
 
 const (
@@ -23,6 +25,8 @@ const (
 	FormatHTTP = "http"
 	// FormatJSON ...
 	FormatJSON = "json"
+	// FormatPortHTTP ...
+	FormatPortHTTP = "port-http"
 )
 
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}

@@ -3,9 +3,11 @@ package protocol
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -21,6 +23,7 @@ func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) erro
 // ContainerIO defines the interface used to talk to a hot function.
 // Internally, a protocol must know when to alternate between stdin and stdout.
 // It returns any protocol error, if present.
+// todo: rename this to Protocol
 type ContainerIO interface {
 	IsStreamable() bool
 
@@ -88,18 +91,19 @@ func NewCallInfo(call *models.Call, req *http.Request) CallInfo {
 }
 
 // Protocol defines all protocols that operates a ContainerIO.
-type Protocol string
+type ProtocolS string
 
 // hot function protocols
 const (
-	Default Protocol = models.FormatDefault
-	HTTP    Protocol = models.FormatHTTP
-	JSON    Protocol = models.FormatJSON
-	Empty   Protocol = ""
+	Default       ProtocolS = models.FormatDefault
+	HTTP          ProtocolS = models.FormatHTTP
+	JSON          ProtocolS = models.FormatJSON
+	ProtoPortHTTP ProtocolS = models.FormatPortHTTP // forwards requests to a port on the container, rather than stdin/out
+	Empty         ProtocolS = ""
 )
 
-func (p *Protocol) UnmarshalJSON(b []byte) error {
-	switch Protocol(b) {
+func (p *ProtocolS) UnmarshalJSON(b []byte) error {
+	switch ProtocolS(b) {
 	case Empty, Default:
 		*p = Default
 	case HTTP:
@@ -112,7 +116,7 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (p Protocol) MarshalJSON() ([]byte, error) {
+func (p ProtocolS) MarshalJSON() ([]byte, error) {
 	switch p {
 	case Empty, Default:
 		return []byte(Default), nil
@@ -126,18 +130,30 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 
 // New creates a valid protocol handler from a I/O pipe representing containers
 // stdin/stdout.
-func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
+func New(p ProtocolS, in io.Writer, out io.Reader, c drivers.ContainerTask) (ContainerIO, error) {
+	fmt.Println("new proto", p)
 	switch p {
 	case HTTP:
-		return &HTTPProtocol{in, out}
+		return &HTTPProtocol{in, out}, nil
 	case JSON:
-		return &JSONProtocol{in, out}
+		return &JSONProtocol{in, out}, nil
+	case ProtoPortHTTP:
+		fmt.Println("port http")
+		return NewPortHTTP(in, out, c)
 	case Default, Empty:
-		return &DefaultProtocol{}
+		return &DefaultProtocol{}, nil
 	}
-	return &errorProto{errInvalidProtocol}
+	return &errorProto{errInvalidProtocol}, errInvalidProtocol
 }
 
 // IsStreamable says whether the given protocol can be used for streaming into
 // hot functions.
-func IsStreamable(p Protocol) bool { return New(p, nil, nil).IsStreamable() }
+func IsStreamable(p ProtocolS) bool {
+	// don't want to instantiate the protocol here
+	switch p {
+	case Default, Empty:
+		return false
+	default:
+		return true
+	}
+}

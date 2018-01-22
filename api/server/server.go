@@ -473,6 +473,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	}
 
 	if s.nodeType != ServerTypeAPI {
+		// todo: set some context var here that says we're in local dev mode
 		runner := engine.Group("/r")
 		runner.Use(appNameCheck)
 		runner.Any("/:app", s.handleFunctionCall)

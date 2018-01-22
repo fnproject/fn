@@ -107,11 +107,11 @@ func (r *Route) Validate() error {
 		return ErrRoutesMissingImage
 	}
 
-	if r.Type != TypeAsync && r.Type != TypeSync {
+	if r.Type != TypeAsync && r.Type != TypeSync && r.Type != TypeApp {
 		return ErrRoutesInvalidType
 	}
 
-	if r.Format != FormatDefault && r.Format != FormatHTTP && r.Format != FormatJSON {
+	if r.Format != FormatDefault && r.Format != FormatHTTP && r.Format != FormatJSON && (r.Type == TypeApp && r.Format != FormatPortHTTP) {
 		return ErrRoutesInvalidFormat
 	}
 
