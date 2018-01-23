@@ -328,16 +328,20 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 	defer span.Finish()
 
 	for {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 		select {
 		case <-a.shutdown: // server shutdown
+			cancel()
 			return
-		case <-time.After(timeout):
+		case <-ctx.Done():
+			cancel()
 			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
 		case <-callObj.slots.signaller:
 		}
+		cancel()
 
 		curStats := callObj.slots.getStats()
 		isNeeded := isNewContainerNeeded(&curStats)
@@ -348,11 +352,10 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		logger.WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
 		// if we get a timeout, we must call off get resource token
-		ctx, cancel := context.WithCancel(ctx)
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 
 		select {
 		case tok, isOpen := <-a.resources.GetResourceToken(ctx, callObj.Memory, uint64(callObj.CPUs), isAsync):
-			cancel()
 			if isOpen {
 				a.wg.Add(1)
 				go func(ctx context.Context, call *call, tok ResourceToken) {
@@ -360,12 +363,14 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 					a.wg.Done()
 				}(ctx, callObj, tok)
 			} else {
+				cancel()
 				// this means the resource was impossible to reserve (eg. memory size we can never satisfy),
 				// return here so we don't infinite loop
 				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
 				return
 			}
-		case <-time.After(timeout):
+			cancel()
+		case <-ctx.Done():
 			cancel()
 			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
