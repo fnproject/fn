@@ -124,6 +124,10 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		return ch
 	}
 
+	// if we find a resource token, shut down the thread waiting on ctx finish.
+	// alternatively, if the ctx is done, wake up the cond loop.
+	ctx, cancel := context.WithCancel(ctx)
+
 	go func() {
 		<-ctx.Done()
 		c.L.Lock()
@@ -136,6 +140,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_resource_token")
 	go func() {
 		defer span.Finish()
+		defer cancel()
 		c.L.Lock()
 
 		isWaiting = true
@@ -205,6 +210,10 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 	isWaiting := false
 	c := a.cond
 
+	// if we find a resource token, shut down the thread waiting on ctx finish.
+	// alternatively, if the ctx is done, wake up the cond loop.
+	ctx, cancel := context.WithCancel(ctx)
+
 	go func() {
 		<-ctx.Done()
 		c.L.Lock()
@@ -217,6 +226,7 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_wait_async_resource")
 	go func() {
 		defer span.Finish()
+		defer cancel()
 		c.L.Lock()
 		isWaiting = true
 		for (a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
