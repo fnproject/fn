@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -132,7 +133,9 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Unlock()
 	}()
 
+	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_resource_token")
 	go func() {
+		defer span.Finish()
 		c.L.Lock()
 
 		isWaiting = true
@@ -211,7 +214,9 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 		c.L.Unlock()
 	}()
 
+	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_wait_async_resource")
 	go func() {
+		defer span.Finish()
 		c.L.Lock()
 		isWaiting = true
 		for (a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
