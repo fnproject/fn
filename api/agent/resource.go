@@ -33,10 +33,12 @@ type ResourceTracker interface {
 	// the channel will never receive anything. If it is not possible to fulfill this resource, the channel
 	// will never receive anything (use IsResourcePossible). If a resource token is available for the provided
 	// resource parameters, it will otherwise be sent once on the returned channel. The channel is never closed.
+	// Memory is expected to be provided in MB units.
 	GetResourceToken(ctx context.Context, memory, cpuQuota uint64, isAsync bool) <-chan ResourceToken
 
 	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this
 	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
+	// Memory is expected to be provided in MB units.
 	IsResourcePossible(memory, cpuQuota uint64, isAsync bool) bool
 }
 
@@ -112,6 +114,8 @@ func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota uint
 
 // is this request possible to meet? If no, fail quick
 func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota uint64, isAsync bool) bool {
+	memory = memory * Mem1MB
+
 	if isAsync {
 		return memory <= a.ramAsyncTotal && cpuQuota <= a.cpuAsyncTotal
 	} else {
@@ -122,17 +126,16 @@ func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota uint64, isA
 // the received token should be passed directly to launch (unconditionally), launch
 // will close this token (i.e. the receiver should not call Close)
 func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken {
-
-	memory = memory * Mem1MB
+	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
+		// return the channel, but never send anything.
+		return ch
+	}
 
 	c := a.cond
 	isWaiting := false
 	ch := make(chan ResourceToken)
 
-	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
-		// return the channel, but never send anything.
-		return ch
-	}
+	memory = memory * Mem1MB
 
 	// if we find a resource token, shut down the thread waiting on ctx finish.
 	// alternatively, if the ctx is done, wake up the cond loop.
