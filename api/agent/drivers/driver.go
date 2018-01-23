@@ -95,6 +95,9 @@ type ContainerTask interface {
 	// WriteStat writes a single Stat, implementation need not be thread safe.
 	WriteStat(context.Context, Stat)
 
+	// Ports specifies any port bindings
+	Port() string
+
 	// Volumes returns an array of 2-element tuples indicating storage volume mounts.
 	// The first element is the path on the host, and the second element is the
 	// path in the container.

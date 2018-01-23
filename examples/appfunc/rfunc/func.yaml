@@ -1,0 +1,6 @@
+version: 0.0.13
+runtime: ruby
+entrypoint: ruby func.rb
+type: app
+format: port-http
+path: /*

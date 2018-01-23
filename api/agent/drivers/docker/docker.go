@@ -114,6 +114,17 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		HostConfig: &docker.HostConfig{},
 		Context:    ctx,
 	}
+	if task.Port() != "" {
+		// pbs := []docker.PortBinding{}
+		fmt.Println("binding port", task.Port())
+		container.Config.Env = append(container.Config.Env, "PORT=8080")
+		portBindings := map[docker.Port][]docker.PortBinding{}
+		portBindings["8080/tcp"] = []docker.PortBinding{{HostIP: "0.0.0.0", HostPort: task.Port()}}
+		//portBindings[docker.Port(fmt.Sprintf("%v/tcp", task.Port()))] = []docker.PortBinding{{HostIP: "0.0.0.0", HostPort: "8080"}}
+		container.HostConfig.PortBindings = portBindings
+		exposedPorts := map[docker.Port]struct{}{"8080/tcp": {}}
+		container.Config.ExposedPorts = exposedPorts
+	}
 
 	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
 	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,

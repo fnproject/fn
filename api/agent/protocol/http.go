@@ -12,8 +12,8 @@ import (
 // containers stdout. It also mandates valid HTTP headers back and forth, thus
 // returning errors in case of parsing problems.
 type HTTPProtocol struct {
-	in  io.Writer
-	out io.Reader
+	in  io.Writer // this is the writer to write into the container/function, not back to the client
+	out io.Reader // this is the reader to read from the container/function, not from the client
 }
 
 func (p *HTTPProtocol) IsStreamable() bool { return true }
