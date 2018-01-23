@@ -14,15 +14,12 @@ import (
 
 // Version version
 // swagger:model Version
-
 type Version struct {
 
 	// version
 	// Read Only: true
 	Version string `json:"version,omitempty"`
 }
-
-/* polymorph Version version false */
 
 // Validate validates this version
 func (m *Version) Validate(formats strfmt.Registry) error {

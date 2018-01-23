@@ -42,7 +42,7 @@ func TestDebugPrint(t *testing.T) {
 
 	SetMode(DebugMode)
 	debugPrint("these are %d %s\n", 2, "error messages")
-	assert.Equal(t, "[GIN-debug] these are 2 error messages\n", w.String())
+	assert.Equal(t, w.String(), "[GIN-debug] these are 2 error messages\n")
 }
 
 func TestDebugPrintError(t *testing.T) {
@@ -55,7 +55,7 @@ func TestDebugPrintError(t *testing.T) {
 	assert.Empty(t, w.String())
 
 	debugPrintError(errors.New("this is an error"))
-	assert.Equal(t, "[GIN-debug] [ERROR] this is an error\n", w.String())
+	assert.Equal(t, w.String(), "[GIN-debug] [ERROR] this is an error\n")
 }
 
 func TestDebugPrintRoutes(t *testing.T) {
@@ -74,7 +74,7 @@ func TestDebugPrintLoadTemplate(t *testing.T) {
 
 	templ := template.Must(template.New("").Delims("{[{", "}]}").ParseGlob("./fixtures/basic/hello.tmpl"))
 	debugPrintLoadTemplate(templ)
-	assert.Regexp(t, `^\[GIN-debug\] Loaded HTML Templates \(2\): \n(\t- \n|\t- hello\.tmpl\n){2}\n`, w.String())
+	assert.Equal(t, w.String(), "[GIN-debug] Loaded HTML Templates (2): \n\t- \n\t- hello.tmpl\n\n")
 }
 
 func TestDebugPrintWARNINGSetHTMLTemplate(t *testing.T) {
@@ -83,7 +83,7 @@ func TestDebugPrintWARNINGSetHTMLTemplate(t *testing.T) {
 	defer teardown()
 
 	debugPrintWARNINGSetHTMLTemplate()
-	assert.Equal(t, "[GIN-debug] [WARNING] Since SetHTMLTemplate() is NOT thread-safe. It should only be called\nat initialization. ie. before any route is registered or the router is listening in a socket:\n\n\trouter := gin.Default()\n\trouter.SetHTMLTemplate(template) // << good place\n\n", w.String())
+	assert.Equal(t, w.String(), "[GIN-debug] [WARNING] Since SetHTMLTemplate() is NOT thread-safe. It should only be called\nat initialization. ie. before any route is registered or the router is listening in a socket:\n\n\trouter := gin.Default()\n\trouter.SetHTMLTemplate(template) // << good place\n\n")
 }
 
 func setup(w io.Writer) {

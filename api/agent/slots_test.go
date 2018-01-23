@@ -47,7 +47,8 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	obj := NewSlotQueue(slotName)
 
-	outChan, cancel := obj.startDequeuer(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	outChan := obj.startDequeuer(ctx)
 	select {
 	case z := <-outChan:
 		t.Fatalf("Should not get anything from queue: %#v", z)
@@ -92,7 +93,8 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
 	}
 
-	outChan, cancel = obj.startDequeuer(context.Background())
+	ctx, cancel = context.WithCancel(context.Background())
+	outChan = obj.startDequeuer(ctx)
 
 	// now we should get 8
 	select {
@@ -162,84 +164,60 @@ func TestSlotQueueBasic2(t *testing.T) {
 		t.Fatalf("Should be idle")
 	}
 
-	outChan, cancel := obj.startDequeuer(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	select {
-	case z := <-outChan:
+	case z := <-obj.startDequeuer(ctx):
 		t.Fatalf("Should not get anything from queue: %#v", z)
 	case <-time.After(time.Duration(500) * time.Millisecond):
 	}
-
-	cancel()
 }
 
-func statsHelperSet(runC, startC, waitC, runL, startL, waitL uint64) slotQueueStats {
+func statsHelperSet(runC, startC, waitC, idleC uint64) slotQueueStats {
 	return slotQueueStats{
-		states:    [SlotQueueLast]uint64{runC, startC, waitC},
-		latencies: [SlotQueueLast]uint64{runL, startL, waitL},
+		states: [SlotQueueLast]uint64{runC, startC, waitC, idleC},
 	}
 }
 
 func TestSlotNewContainerLogic1(t *testing.T) {
 
 	var cur slotQueueStats
-	var prev slotQueueStats
 
-	cur = statsHelperSet(0, 0, 0, 0, 0, 0)
-	prev = statsHelperSet(0, 0, 0, 0, 0, 0)
-	// CASE I: There's no one waiting despite cur == prev
-	if isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	cur = statsHelperSet(0, 0, 0, 0)
+	// CASE: There's no one waiting
+	if isNewContainerNeeded(&cur) {
+		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE II: There are starters >= waiters
-	cur = statsHelperSet(0, 10, 1, 0, 0, 0)
-	prev = statsHelperSet(0, 10, 1, 0, 0, 0)
-	if isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: There are starters >= waiters
+	cur = statsHelperSet(1, 10, 10, 0)
+	if isNewContainerNeeded(&cur) {
+		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE III: no executors
-	cur = statsHelperSet(0, 0, 1, 0, 0, 0)
-	prev = statsHelperSet(0, 0, 1, 0, 0, 0)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: There are starters < waiters
+	cur = statsHelperSet(1, 5, 10, 0)
+	if !isNewContainerNeeded(&cur) {
+		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 
-	// CASE IV: cur == prev same, progress has stalled, with waiters and
-	// small num of executors
-	cur = statsHelperSet(2, 0, 10, 0, 0, 0)
-	prev = statsHelperSet(2, 0, 10, 0, 0, 0)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: effective waiters 0 (idle = waiter = 10)
+	cur = statsHelperSet(11, 0, 10, 10)
+	if isNewContainerNeeded(&cur) {
+		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE V: cur != prev, runLat/executors*2 < waitLat
-	// Let's make cur and prev unequal to prevent blocked progress detection
-	cur = statsHelperSet(2, 0, 10, 12, 100, 13)
-	prev = statsHelperSet(2, 0, 10, 12, 101, 13)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: effective waiters > 0 (idle = 5 waiter = 10)
+	cur = statsHelperSet(11, 0, 10, 5)
+	if !isNewContainerNeeded(&cur) {
+		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 
-	// CASE VI: cur != prev, runLat < waitLat
-	cur = statsHelperSet(1, 0, 10, 12, 100, 14)
-	prev = statsHelperSet(1, 0, 10, 12, 101, 14)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
-	}
-
-	// CAST VII: cur != prev, startLat < waitLat
-	cur = statsHelperSet(1, 0, 10, 2, 10, 20)
-	prev = statsHelperSet(1, 0, 10, 1, 11, 20)
-	if !isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should need a new container cur: %#v prev: %#v", cur, prev)
-	}
-
-	// CAST VIII: cur != prev, fallback
-	cur = statsHelperSet(1, 0, 10, 2, 10, 2)
-	prev = statsHelperSet(1, 0, 10, 1, 11, 2)
-	if isNewContainerNeeded(&cur, &prev) {
-		t.Fatalf("Should not need a new container cur: %#v prev: %#v", cur, prev)
+	// CASE: no executors, but 1 waiter
+	cur = statsHelperSet(0, 0, 1, 0)
+	if !isNewContainerNeeded(&cur) {
+		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 }
 
@@ -248,7 +226,8 @@ func TestSlotQueueBasic3(t *testing.T) {
 	slotName := "test3"
 
 	obj := NewSlotQueue(slotName)
-	_, cancel1 := obj.startDequeuer(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	obj.startDequeuer(ctx)
 
 	slot1 := NewTestSlot(1)
 	slot2 := NewTestSlot(2)
@@ -257,9 +236,10 @@ func TestSlotQueueBasic3(t *testing.T) {
 
 	// now our slot must be ready in outChan, but let's cancel it
 	// to cause a requeue. This should cause [1, 2] ordering to [2, 1]
-	cancel1()
+	cancel()
 
-	outChan, cancel2 := obj.startDequeuer(context.Background())
+	ctx, cancel = context.WithCancel(context.Background())
+	outChan := obj.startDequeuer(ctx)
 
 	// we should get '2' since cancel1() reordered the queue
 	select {
@@ -303,12 +283,13 @@ func TestSlotQueueBasic3(t *testing.T) {
 	wg.Add(goMax)
 	for i := 0; i < goMax; i += 1 {
 		go func(id int) {
-			ch, cancl := obj.startDequeuer(context.Background())
-			defer cancl()
 			defer wg.Done()
 
+			ctx, cancel = context.WithCancel(context.Background())
+			defer cancel()
+
 			select {
-			case z := <-ch:
+			case z := <-obj.startDequeuer(ctx):
 				t.Fatalf("%v we shouldn't get anything from queue %#v", id, z)
 			case <-time.After(time.Duration(500) * time.Millisecond):
 			}
@@ -316,7 +297,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 	}
 
 	// let's cancel after destroy this time
-	cancel2()
+	cancel()
 
 	wg.Wait()
 

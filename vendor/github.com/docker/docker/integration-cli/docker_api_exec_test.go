@@ -8,11 +8,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/request"
 	"github.com/go-check/check"
+	"golang.org/x/net/context"
 )
 
 // Regression test for #9414
@@ -20,12 +25,15 @@ func (s *DockerSuite) TestExecAPICreateNoCmd(c *check.C) {
 	name := "exec_test"
 	dockerCmd(c, "run", "-d", "-t", "--name", name, "busybox", "/bin/sh")
 
-	status, body, err := request.SockRequest("POST", fmt.Sprintf("/containers/%s/exec", name), map[string]interface{}{"Cmd": nil}, daemonHost())
+	res, body, err := request.Post(fmt.Sprintf("/containers/%s/exec", name), request.JSONBody(map[string]interface{}{"Cmd": nil}))
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusBadRequest)
+	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
+
+	b, err := request.ReadBody(body)
+	c.Assert(err, checker.IsNil)
 
 	comment := check.Commentf("Expected message when creating exec command with no Cmd specified")
-	c.Assert(getErrorMessage(c, body), checker.Contains, "No exec command specified", comment)
+	c.Assert(getErrorMessage(c, b), checker.Contains, "No exec command specified", comment)
 }
 
 func (s *DockerSuite) TestExecAPICreateNoValidContentType(c *check.C) {
@@ -55,12 +63,18 @@ func (s *DockerSuite) TestExecAPICreateContainerPaused(c *check.C) {
 	dockerCmd(c, "run", "-d", "-t", "--name", name, "busybox", "/bin/sh")
 
 	dockerCmd(c, "pause", name)
-	status, body, err := request.SockRequest("POST", fmt.Sprintf("/containers/%s/exec", name), map[string]interface{}{"Cmd": []string{"true"}}, daemonHost())
+
+	cli, err := client.NewEnvClient()
 	c.Assert(err, checker.IsNil)
-	c.Assert(status, checker.Equals, http.StatusConflict)
+	defer cli.Close()
+
+	config := types.ExecConfig{
+		Cmd: []string{"true"},
+	}
+	_, err = cli.ContainerExecCreate(context.Background(), name, config)
 
 	comment := check.Commentf("Expected message when creating exec command with Container %s is paused", name)
-	c.Assert(getErrorMessage(c, body), checker.Contains, "Container "+name+" is paused, unpause the container before exec", comment)
+	c.Assert(err.Error(), checker.Contains, "Container "+name+" is paused, unpause the container before exec", comment)
 }
 
 func (s *DockerSuite) TestExecAPIStart(c *check.C) {
@@ -128,22 +142,23 @@ func (s *DockerSuite) TestExecAPIStartMultipleTimesError(c *check.C) {
 func (s *DockerSuite) TestExecAPIStartWithDetach(c *check.C) {
 	name := "foo"
 	runSleepingContainer(c, "-d", "-t", "--name", name)
-	data := map[string]interface{}{
-		"cmd":         []string{"true"},
-		"AttachStdin": true,
-	}
-	_, b, err := request.SockRequest("POST", fmt.Sprintf("/containers/%s/exec", name), data, daemonHost())
-	c.Assert(err, checker.IsNil, check.Commentf(string(b)))
 
-	createResp := struct {
-		ID string `json:"Id"`
-	}{}
-	c.Assert(json.Unmarshal(b, &createResp), checker.IsNil, check.Commentf(string(b)))
+	config := types.ExecConfig{
+		Cmd:          []string{"true"},
+		AttachStderr: true,
+	}
+
+	cli, err := client.NewEnvClient()
+	c.Assert(err, checker.IsNil)
+	defer cli.Close()
+
+	createResp, err := cli.ContainerExecCreate(context.Background(), name, config)
+	c.Assert(err, checker.IsNil)
 
 	_, body, err := request.Post(fmt.Sprintf("/exec/%s/start", createResp.ID), request.RawString(`{"Detach": true}`), request.JSON)
 	c.Assert(err, checker.IsNil)
 
-	b, err = request.ReadBody(body)
+	b, err := request.ReadBody(body)
 	comment := check.Commentf("response body: %s", b)
 	c.Assert(err, checker.IsNil, comment)
 
@@ -183,6 +198,45 @@ func (s *DockerSuite) TestExecAPIStartInvalidCommand(c *check.C) {
 	inspectContainer(c, name, &inspectJSON)
 
 	c.Assert(inspectJSON.ExecIDs, checker.IsNil)
+}
+
+func (s *DockerSuite) TestExecStateCleanup(c *check.C) {
+	testRequires(c, DaemonIsLinux, SameHostDaemon)
+
+	// This test checks accidental regressions. Not part of stable API.
+
+	name := "exec_cleanup"
+	cid, _ := dockerCmd(c, "run", "-d", "-t", "--name", name, "busybox", "/bin/sh")
+	cid = strings.TrimSpace(cid)
+
+	stateDir := "/var/run/docker/containerd/" + cid
+
+	checkReadDir := func(c *check.C) (interface{}, check.CommentInterface) {
+		fi, err := ioutil.ReadDir(stateDir)
+		c.Assert(err, checker.IsNil)
+		return len(fi), nil
+	}
+
+	fi, err := ioutil.ReadDir(stateDir)
+	c.Assert(err, checker.IsNil)
+	c.Assert(len(fi), checker.GreaterThan, 1)
+
+	id := createExecCmd(c, name, "ls")
+	startExec(c, id, http.StatusOK)
+	waitForExec(c, id)
+
+	waitAndAssert(c, 5*time.Second, checkReadDir, checker.Equals, len(fi))
+
+	id = createExecCmd(c, name, "invalid")
+	startExec(c, id, http.StatusBadRequest)
+	waitForExec(c, id)
+
+	waitAndAssert(c, 5*time.Second, checkReadDir, checker.Equals, len(fi))
+
+	dockerCmd(c, "stop", name)
+	_, err = os.Stat(stateDir)
+	c.Assert(err, checker.NotNil)
+	c.Assert(os.IsNotExist(err), checker.True)
 }
 
 func createExec(c *check.C, name string) string {

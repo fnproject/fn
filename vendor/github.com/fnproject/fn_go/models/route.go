@@ -17,7 +17,6 @@ import (
 
 // Route route
 // swagger:model Route
-
 type Route struct {
 
 	// Route configuration - overrides application configuration
@@ -48,24 +47,6 @@ type Route struct {
 	// Route type
 	Type string `json:"type,omitempty"`
 }
-
-/* polymorph Route config false */
-
-/* polymorph Route format false */
-
-/* polymorph Route headers false */
-
-/* polymorph Route idle_timeout false */
-
-/* polymorph Route image false */
-
-/* polymorph Route memory false */
-
-/* polymorph Route path false */
-
-/* polymorph Route timeout false */
-
-/* polymorph Route type false */
 
 // Validate validates this route
 func (m *Route) Validate(formats strfmt.Registry) error {

@@ -15,15 +15,12 @@ import (
 
 // CallWrapper call wrapper
 // swagger:model CallWrapper
-
 type CallWrapper struct {
 
 	// Call object.
 	// Required: true
 	Call *Call `json:"call"`
 }
-
-/* polymorph CallWrapper call false */
 
 // Validate validates this call wrapper
 func (m *CallWrapper) Validate(formats strfmt.Registry) error {

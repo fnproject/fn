@@ -26,9 +26,13 @@ func (c *Cluster) Init(req types.InitRequest) (string, error) {
 	defer c.controlMutex.Unlock()
 	if c.nr != nil {
 		if req.ForceNewCluster {
+
 			// Take c.mu temporarily to wait for presently running
 			// API handlers to finish before shutting down the node.
 			c.mu.Lock()
+			if !c.nr.nodeState.IsManager() {
+				return "", errSwarmNotManager
+			}
 			c.mu.Unlock()
 
 			if err := c.nr.Stop(); err != nil {
@@ -194,9 +198,9 @@ func (c *Cluster) Join(req types.JoinRequest) error {
 
 // Inspect retrieves the configuration properties of a managed swarm cluster.
 func (c *Cluster) Inspect() (types.Swarm, error) {
-	var swarm *swarmapi.Cluster
+	var swarm types.Swarm
 	if err := c.lockedManagerAction(func(ctx context.Context, state nodeState) error {
-		s, err := getSwarm(ctx, state.controlClient)
+		s, err := c.inspect(ctx, state)
 		if err != nil {
 			return err
 		}
@@ -205,7 +209,15 @@ func (c *Cluster) Inspect() (types.Swarm, error) {
 	}); err != nil {
 		return types.Swarm{}, err
 	}
-	return convert.SwarmFromGRPC(*swarm), nil
+	return swarm, nil
+}
+
+func (c *Cluster) inspect(ctx context.Context, state nodeState) (types.Swarm, error) {
+	s, err := getSwarm(ctx, state.controlClient)
+	if err != nil {
+		return types.Swarm{}, err
+	}
+	return convert.SwarmFromGRPC(*s), nil
 }
 
 // Update updates configuration of a managed swarm cluster.
@@ -409,7 +421,7 @@ func (c *Cluster) Info() types.Info {
 
 	if state.IsActiveManager() {
 		info.ControlAvailable = true
-		swarm, err := c.Inspect()
+		swarm, err := c.inspect(ctx, state)
 		if err != nil {
 			info.Error = err.Error()
 		}

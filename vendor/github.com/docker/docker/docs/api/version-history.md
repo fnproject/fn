@@ -4,14 +4,43 @@ description: "Documentation of changes that have been made to Engine API."
 keywords: "API, Docker, rcli, REST, documentation"
 ---
 
-<!-- This file is maintained within the docker/docker Github
-     repository at https://github.com/docker/docker/. Make all
+<!-- This file is maintained within the moby/moby GitHub
+     repository at https://github.com/moby/moby/. Make all
      pull requests against that repo. If you see this file in
      another repository, consider it read-only there, as it will
      periodically be overwritten by the definitive file. Pull
      requests which include edits to this file in other repositories
      will be rejected.
 -->
+
+## v1.35 API changes
+
+[Docker Engine API v1.35](https://docs.docker.com/engine/api/v1.35/) documentation
+
+* `POST /services/create` and `POST /services/(id)/update` now accepts an
+  `Isolation` field on container spec to set the Isolation technology of the
+  containers running the service (`default`, `process`, or `hyperv`). This
+  configuration is only used for Windows containers.
+* `GET /containers/(name)/logs` now supports an additional query parameter: `until`,
+  which returns log lines that occurred before the specified timestamp.
+
+## v1.34 API changes
+
+[Docker Engine API v1.34](https://docs.docker.com/engine/api/v1.34/) documentation
+
+* `POST /containers/(name)/wait?condition=removed` now also also returns
+  in case of container removal failure. A pointer to a structure named
+  `Error` added to the response JSON in order to indicate a failure.
+  If `Error` is `null`, container removal has succeeded, otherwise
+  the test of an error message indicating why container removal has failed
+  is available from `Error.Message` field.
+
+## v1.33 API changes
+
+[Docker Engine API v1.33](https://docs.docker.com/engine/api/v1.33/) documentation
+
+* `GET /events` now supports filtering 4 more kinds of events: `config`, `node`,
+`secret` and `service`.
 
 ## v1.32 API changes
 
@@ -20,6 +49,11 @@ keywords: "API, Docker, rcli, REST, documentation"
 * `POST /containers/create` now accepts additional values for the
   `HostConfig.IpcMode` property. New values are `private`, `shareable`,
   and `none`.
+* `DELETE /networks/{id or name}` fixed issue where a `name` equal to another
+  network's name was able to mask that `id`. If both a network with the given
+  _name_ exists, and a network with the given _id_, the network with the given
+  _id_ is now deleted. This change is not versioned, and affects all API versions
+  if the daemon has this patch.
 
 ## v1.31 API changes
 
@@ -70,7 +104,7 @@ keywords: "API, Docker, rcli, REST, documentation"
 * `POST /containers/(name)/wait` now accepts a `condition` query parameter to indicate which state change condition to wait for. Also, response headers are now returned immediately to acknowledge that the server has registered a wait callback for the client.
 * `POST /swarm/init` now accepts a `DataPathAddr` property to set the IP-address or network interface to use for data traffic
 * `POST /swarm/join` now accepts a `DataPathAddr` property to set the IP-address or network interface to use for data traffic
-* `GET /events` now supports service, node and secret events which are emitted when users create, update and remove service, node and secret 
+* `GET /events` now supports service, node and secret events which are emitted when users create, update and remove service, node and secret
 * `GET /events` now supports network remove event which is emitted when users remove a swarm scoped network
 * `GET /events` now supports a filter type `scope` in which supported value could be swarm and local
 

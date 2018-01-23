@@ -24,16 +24,15 @@ Database drivers run migrations. [Add a new database?](database/driver.go)
   * [PostgreSQL](database/postgres)
   * [Redshift](database/redshift)
   * [Ql](database/ql)
-  * [Cassandra](database/cassandra)
-  * [SQLite](database/sqlite3)
+  * [Cassandra](database/cassandra) ([todo #164](https://github.com/mattes/migrate/issues/164))
+  * [SQLite](database/sqlite) ([todo #165](https://github.com/mattes/migrate/issues/165))
   * [MySQL/ MariaDB](database/mysql)
   * [Neo4j](database/neo4j) ([todo #167](https://github.com/mattes/migrate/issues/167))
   * [MongoDB](database/mongodb) ([todo #169](https://github.com/mattes/migrate/issues/169))
   * [CrateDB](database/crate) ([todo #170](https://github.com/mattes/migrate/issues/170))
   * [Shell](database/shell) ([todo #171](https://github.com/mattes/migrate/issues/171))
-  * [Google Cloud Spanner](database/spanner)
-  * [CockroachDB](database/cockroachdb)
-  * [ClickHouse](database/clickhouse)
+  * [Google Cloud Spanner](database/spanner) ([todo #172](https://github.com/mattes/migrate/issues/172))
+
 
 
 ## Migration Sources
@@ -137,4 +136,8 @@ Also have a look at the [FAQ](FAQ.md).
 
 ---
 
-Looking for alternatives? [https://awesome-go.com/#database](https://awesome-go.com/#database).
+__Alternatives__
+
+https://bitbucket.org/liamstask/goose, https://github.com/tanel/dbmigrate,  
+https://github.com/BurntSushi/migration, https://github.com/DavidHuie/gomigrate,  
+https://github.com/rubenv/sql-migrate

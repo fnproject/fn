@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/opencontainers/runc/libcontainer/utils"
 )
 
 func TestUserParseLine(t *testing.T) {
@@ -384,12 +382,6 @@ this is just some garbage data
 }
 
 func TestGetAdditionalGroups(t *testing.T) {
-	type foo struct {
-		groups   []string
-		expected []int
-		hasError bool
-	}
-
 	const groupContent = `
 root:x:0:root
 adm:x:43:
@@ -397,7 +389,11 @@ grp:x:1234:root,adm
 adm:x:4343:root,adm-duplicate
 this is just some garbage data
 `
-	tests := []foo{
+	tests := []struct {
+		groups   []string
+		expected []int
+		hasError bool
+	}{
 		{
 			// empty group
 			groups:   []string{},
@@ -440,15 +436,12 @@ this is just some garbage data
 			expected: nil,
 			hasError: true,
 		},
-	}
-
-	if utils.GetIntSize() > 4 {
-		tests = append(tests, foo{
+		{
 			// groups with too large id
 			groups:   []string{strconv.Itoa(1 << 31)},
 			expected: nil,
 			hasError: true,
-		})
+		},
 	}
 
 	for _, test := range tests {

@@ -84,7 +84,7 @@ func (daemon *Daemon) getPidContainer(container *container.Container) (*containe
 	containerID := container.HostConfig.PidMode.Container()
 	container, err := daemon.GetContainer(containerID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot join PID of a non running container: %s", container.ID)
+		return nil, errors.Wrapf(err, "cannot join PID of a non running container: %s", containerID)
 	}
 	return container, daemon.checkContainer(container, containerIsRunning, containerIsNotRestarting)
 }
@@ -307,6 +307,8 @@ func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
 		if err := os.Chown(fPath, rootIDs.UID+uid, rootIDs.GID+gid); err != nil {
 			return errors.Wrap(err, "error setting ownership for config")
 		}
+
+		label.Relabel(fPath, c.MountLabel, false)
 	}
 
 	return nil

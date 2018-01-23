@@ -14,7 +14,8 @@ config:
   key2: value2
   keyN: valueN
 headers:
-  Content-Type: text/plain
+  Content-Type:
+  - text/html
 build_image: x/y
 run_image: x/y
 build:

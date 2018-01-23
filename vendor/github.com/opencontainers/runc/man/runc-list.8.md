@@ -2,18 +2,13 @@
    runc list - lists containers started by runc with the given root
 
 # SYNOPSIS
-   runc list [command options]
+   runc list [command options] [arguments...]
 
-# EXAMPLE
-Where the given root is specified via the global option "--root"
-(default: "/run/runc").
+# DESCRIPTION
+   The default format is table.  The following will output the list of containers
+in json format:
 
-To list containers created via the default "--root":
-       # runc list
-
-To list containers created using a non-default value for "--root":
-       # runc --root value list
+    # runc list -f json
 
 # OPTIONS
-   --format value, -f value     select one of: table or json (default: "table")
-   --quiet, -q                  display only container IDs
+   --format, -f         select one of: table or json.

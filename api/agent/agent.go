@@ -319,7 +319,6 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 	logger := common.Logger(ctx)
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
 	isAsync := callObj.Type == models.TypeAsync
-	prevStats := callObj.slots.getStats()
 
 	for {
 		select {
@@ -334,25 +333,24 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		}
 
 		curStats := callObj.slots.getStats()
-		isNeeded := isNewContainerNeeded(&curStats, &prevStats)
-		prevStats = curStats
+		isNeeded := isNewContainerNeeded(&curStats)
 		logger.WithFields(logrus.Fields{
-			"currentStats":  curStats,
-			"previousStats": curStats,
+			"currentStats": curStats,
+			"isNeeded":     isNeeded,
 		}).Debug("Hot function launcher stats")
 		if !isNeeded {
 			continue
 		}
 
-		resourceCtx, cancel := context.WithCancel(context.Background())
+		ctxResource, cancelResource := context.WithCancel(context.Background())
 		logger.WithFields(logrus.Fields{
-			"currentStats":  curStats,
-			"previousStats": curStats,
+			"currentStats": curStats,
+			"isNeeded":     isNeeded,
 		}).Info("Hot function launcher starting hot container")
 
 		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(resourceCtx, callObj.Memory, uint64(callObj.CPUs), isAsync):
-			cancel()
+		case tok, isOpen := <-a.resources.GetResourceToken(ctxResource, callObj.Memory, uint64(callObj.CPUs), isAsync):
+			cancelResource()
 			if isOpen {
 				a.wg.Add(1)
 				go func(ctx context.Context, call *call, tok ResourceToken) {
@@ -364,13 +362,13 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
 			}
 		case <-time.After(timeout):
-			cancel()
+			cancelResource()
 			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
 		case <-a.shutdown: // server shutdown
-			cancel()
+			cancelResource()
 			return
 		}
 	}
@@ -379,16 +377,15 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 
-	ch, cancel := call.slots.startDequeuer(ctx)
-	defer cancel()
+	ctxDequeuer, cancelDequeuer := context.WithCancel(ctx)
+	defer cancelDequeuer()
+	ch := call.slots.startDequeuer(ctxDequeuer)
 
+	// 1) if we can get a slot immediately, grab it.
+	// 2) if we don't, send a signaller every 200ms until we do.
+
+	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
 	for {
-		// send a notification to launcHot()
-		select {
-		case call.slots.signaller <- true:
-		default:
-		}
-
 		select {
 		case s := <-ch:
 			if s.acquireSlot() {
@@ -401,10 +398,18 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			// we failed to take ownership of the token (eg. container idle timeout) => try again
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(time.Duration(200) * time.Millisecond):
-			// ping dequeuer again
 		case <-a.shutdown: // server shutdown
 			return nil, models.ErrCallTimeoutServerBusy
+		case <-time.After(sleep):
+			// ping dequeuer again
+		}
+
+		// set sleep to 200ms after first iteration
+		sleep = 200 * time.Millisecond
+		// send a notification to launchHot()
+		select {
+		case call.slots.signaller <- true:
+		default:
 		}
 	}
 }
@@ -415,9 +420,11 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
+	ctxResource, cancelResource := context.WithCancel(ctx)
+	defer cancelResource()
 
 	select {
-	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok, isOpen := <-a.resources.GetResourceToken(ctxResource, call.Memory, uint64(call.CPUs), isAsync):
 		if !isOpen {
 			return nil, models.ErrCallTimeoutServerBusy
 		}
@@ -425,6 +432,8 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+
+	cancelResource()
 
 	// wait for launch err or a slot to open up
 	select {
@@ -662,22 +671,28 @@ func (a *agent) runHot(ctxArg context.Context, call *call, tok ResourceToken) {
 			}
 
 			done := make(chan struct{})
+			start := time.Now()
+			call.slots.enterState(SlotQueueIdle)
 			s := call.slots.queueSlot(&hotSlot{done, proto, errC, container, nil})
 
 			select {
 			case <-s.trigger:
+				call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
 				if call.slots.ejectSlot(s) {
+					call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 					logger.Info("Canceling inactive hot function")
 					shutdownContainer()
 					return
 				}
 			case <-ctx.Done(): // container shutdown
 				if call.slots.ejectSlot(s) {
+					call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 					return
 				}
 			case <-a.shutdown: // server shutdown
 				if call.slots.ejectSlot(s) {
+					call.slots.exitStateWithLatency(SlotQueueIdle, uint64(time.Now().Sub(start).Seconds()*1000))
 					shutdownContainer()
 					return
 				}

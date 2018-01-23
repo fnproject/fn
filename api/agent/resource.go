@@ -24,7 +24,7 @@ const (
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
 type ResourceTracker interface {
-	WaitAsyncResource() chan struct{}
+	WaitAsyncResource(ctx context.Context) chan struct{}
 	// returns a closed channel if the resource can never me met.
 	GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken
 }
@@ -115,6 +115,7 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	memory = memory * Mem1MB
 
 	c := a.cond
+	isWaiting := false
 	ch := make(chan ResourceToken)
 
 	if !a.isResourcePossible(memory, cpuQuota, isAsync) {
@@ -123,11 +124,22 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 	}
 
 	go func() {
+		<-ctx.Done()
+		c.L.Lock()
+		if isWaiting {
+			c.Broadcast()
+		}
+		c.L.Unlock()
+	}()
+
+	go func() {
 		c.L.Lock()
 
+		isWaiting = true
 		for !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) && ctx.Err() == nil {
 			c.Wait()
 		}
+		isWaiting = false
 
 		if ctx.Err() != nil {
 			c.L.Unlock()
@@ -184,18 +196,33 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 // WaitAsyncResource will send a signal on the returned channel when RAM and CPU in-use
 // in the async area is less than high water mark
-func (a *resourceTracker) WaitAsyncResource() chan struct{} {
-	ch := make(chan struct{})
+func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
+	ch := make(chan struct{}, 1)
 
+	isWaiting := false
 	c := a.cond
+
 	go func() {
+		<-ctx.Done()
 		c.L.Lock()
-		for a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark {
-			c.Wait()
+		if isWaiting {
+			c.Broadcast()
 		}
 		c.L.Unlock()
-		ch <- struct{}{}
-		// TODO this could leak forever (only in shutdown, blech)
+	}()
+
+	go func() {
+		c.L.Lock()
+		isWaiting = true
+		for (a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {
+			c.Wait()
+		}
+		isWaiting = false
+		c.L.Unlock()
+
+		if ctx.Err() == nil {
+			ch <- struct{}{}
+		}
 	}()
 
 	return ch

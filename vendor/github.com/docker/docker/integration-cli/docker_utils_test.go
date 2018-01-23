@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,13 +14,15 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/docker/docker/integration-cli/registry"
 	"github.com/docker/docker/integration-cli/request"
-	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
+	"github.com/gotestyourself/gotestyourself/icmd"
+	"golang.org/x/net/context"
 )
 
 // Deprecated
@@ -232,7 +233,7 @@ func readFile(src string, c *check.C) (content string) {
 }
 
 func containerStorageFile(containerID, basename string) string {
-	return filepath.Join(testEnv.ContainerStoragePath(), containerID, basename)
+	return filepath.Join(testEnv.PlatformDefaults.ContainerStoragePath, containerID, basename)
 }
 
 // docker commands that use this function must be run with the '-d' switch.
@@ -264,20 +265,15 @@ func readContainerFileWithExec(c *check.C, containerID, filename string) []byte 
 
 // daemonTime provides the current time on the daemon host
 func daemonTime(c *check.C) time.Time {
-	if testEnv.LocalDaemon() {
+	if testEnv.IsLocalDaemon() {
 		return time.Now()
 	}
-
-	status, body, err := request.SockRequest("GET", "/info", nil, daemonHost())
+	cli, err := client.NewEnvClient()
 	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Equals, http.StatusOK)
+	defer cli.Close()
 
-	type infoJSON struct {
-		SystemTime string
-	}
-	var info infoJSON
-	err = json.Unmarshal(body, &info)
-	c.Assert(err, check.IsNil, check.Commentf("unable to unmarshal GET /info response"))
+	info, err := cli.Info(context.Background())
+	c.Assert(err, check.IsNil)
 
 	dt, err := time.Parse(time.RFC3339Nano, info.SystemTime)
 	c.Assert(err, check.IsNil, check.Commentf("invalid time format in GET /info response"))
@@ -376,10 +372,11 @@ func waitInspectWithArgs(name, expr, expected string, timeout time.Duration, arg
 }
 
 func getInspectBody(c *check.C, version, id string) []byte {
-	endpoint := fmt.Sprintf("/%s/containers/%s/json", version, id)
-	status, body, err := request.SockRequest("GET", endpoint, nil, daemonHost())
+	cli, err := request.NewEnvClientWithVersion(version)
 	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Equals, http.StatusOK)
+	defer cli.Close()
+	_, body, err := cli.ContainerInspectWithRaw(context.Background(), id, false)
+	c.Assert(err, check.IsNil)
 	return body
 }
 
@@ -406,20 +403,17 @@ func minimalBaseImage() string {
 }
 
 func getGoroutineNumber() (int, error) {
-	i := struct {
-		NGoroutines int
-	}{}
-	status, b, err := request.SockRequest("GET", "/info", nil, daemonHost())
+	cli, err := client.NewEnvClient()
 	if err != nil {
 		return 0, err
 	}
-	if status != http.StatusOK {
-		return 0, fmt.Errorf("http status code: %d", status)
-	}
-	if err := json.Unmarshal(b, &i); err != nil {
+	defer cli.Close()
+
+	info, err := cli.Info(context.Background())
+	if err != nil {
 		return 0, err
 	}
-	return i.NGoroutines, nil
+	return info.NGoroutines, nil
 }
 
 func waitForGoroutines(expected int) error {

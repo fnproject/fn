@@ -15,6 +15,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	fpath "path"
 	"regexp"
@@ -92,6 +93,7 @@ type RoutableAPI interface {
 	ConsumersFor([]string) map[string]runtime.Consumer
 	ProducersFor([]string) map[string]runtime.Producer
 	AuthenticatorsFor(map[string]spec.SecurityScheme) map[string]runtime.Authenticator
+	Authorizer() runtime.Authorizer
 	Formats() strfmt.Registry
 	DefaultProduces() string
 	DefaultConsumes() string
@@ -112,7 +114,6 @@ type defaultRouteBuilder struct {
 
 type defaultRouter struct {
 	spec    *loads.Document
-	api     RoutableAPI
 	routers map[string]*denco.Router
 }
 
@@ -153,6 +154,7 @@ type routeEntry struct {
 	Formats        strfmt.Registry
 	Binder         *untypedRequestBinder
 	Authenticators map[string]runtime.Authenticator
+	Authorizer     runtime.Authorizer
 	Scopes         map[string][]string
 }
 
@@ -186,7 +188,20 @@ func (d *defaultRouter) Lookup(method, path string) (*MatchedRoute, bool) {
 						debugLog("failed to escape %q: %v", p.Value, err)
 						v = p.Value
 					}
-					params = append(params, RouteParam{Name: p.Name, Value: v})
+					// a workaround to handle fragment/composig parameters until they are supported in denco router
+					// check if this parameter is a fragment within a path segment
+					if xpos := strings.Index(entry.PathPattern, fmt.Sprintf("{%s}", p.Name)) + len(p.Name) + 2;
+						xpos < len(entry.PathPattern) && entry.PathPattern[xpos] != '/' {
+						// extract fragment parameters
+						ep := strings.Split(entry.PathPattern[xpos:], "/")[0]
+						pnames, pvalues := decodeCompositParams(p.Name, v, ep, nil, nil)
+						for i, pname := range pnames {
+							params = append(params, RouteParam{Name: pname, Value: pvalues[i]})
+						}
+					} else {
+						// use the parameter directly
+						params = append(params, RouteParam{Name: p.Name, Value: v})
+					}
 				}
 				return &MatchedRoute{routeEntry: *entry, Params: params}, true
 			}
@@ -213,7 +228,32 @@ func (d *defaultRouter) OtherMethods(method, path string) []string {
 	return methods
 }
 
-var pathConverter = regexp.MustCompile(`{(.+?)}`)
+// convert swagger parameters per path segment into a denco parameter as multiple parameters per segment are not supported in denco
+var pathConverter = regexp.MustCompile(`{(.+?)}([^/]*)`)
+
+func decodeCompositParams(name string, value string, pattern string, names []string, values []string) ([]string, []string){
+	pleft := strings.Index(pattern, "{")
+	names = append(names, name)
+	if pleft < 0 {
+		if strings.HasSuffix(value, pattern) {
+			values = append(values, value[:len(value)-len(pattern)])
+		} else {
+			values = append(values, "")
+		}
+	} else {
+		toskip := pattern[:pleft]
+		pright := strings.Index(pattern, "}")
+		vright := strings.Index(value, toskip)
+		if vright >= 0 {
+			values = append(values, value[:vright])
+		} else {
+			values = append(values, "")
+			value = ""
+		}
+		return decodeCompositParams(pattern[pleft+1:pright], value[vright+len(toskip):], pattern[pright+1:], names, values)
+	}
+	return names, values
+}
 
 func (d *defaultRouteBuilder) AddRoute(method, path string, operation *spec.Operation) {
 	mn := strings.ToUpper(method)
@@ -235,6 +275,7 @@ func (d *defaultRouteBuilder) AddRoute(method, path string, operation *spec.Oper
 			scopes[v.Name] = v.Scopes
 		}
 
+
 		record := denco.NewRecord(pathConverter.ReplaceAllString(path, ":$1"), &routeEntry{
 			BasePath:       bp,
 			PathPattern:    path,
@@ -248,6 +289,7 @@ func (d *defaultRouteBuilder) AddRoute(method, path string, operation *spec.Oper
 			Formats:        d.api.Formats(),
 			Binder:         newUntypedRequestBinder(parameters, d.spec.Spec(), d.api.Formats()),
 			Authenticators: d.api.AuthenticatorsFor(definitions),
+			Authorizer:     d.api.Authorizer(),
 			Scopes:         scopes,
 		})
 		d.records[mn] = append(d.records[mn], record)
@@ -258,7 +300,7 @@ func (d *defaultRouteBuilder) Build() *defaultRouter {
 	routers := make(map[string]*denco.Router)
 	for method, records := range d.records {
 		router := denco.New()
-		router.Build(records)
+		_ = router.Build(records)
 		routers[method] = router
 	}
 	return &defaultRouter{

@@ -16,7 +16,6 @@ import (
 
 // CallsWrapperCalls calls wrapper calls
 // swagger:model callsWrapperCalls
-
 type CallsWrapperCalls []*Call
 
 // Validate validates this calls wrapper calls

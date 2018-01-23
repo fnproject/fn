@@ -20,7 +20,7 @@
 AC_PREREQ(2.65)
 AC_CONFIG_MACRO_DIR([./aclocal])
 
-AC_INIT([thrift], [1.0.0-dev])
+AC_INIT([thrift], [0.11.0])
 
 AC_CONFIG_AUX_DIR([.])
 
@@ -106,7 +106,6 @@ AX_CXX_COMPILE_STDCXX_11([noext], [optional])
 if test "$ac_success" = "no"; then
   CXXFLAGS="$CXXFLAGS -Wno-variadic-macros -Wno-long-long -Wno-c++11-long-long"
 fi
-CXXFLAGS="$CXXFLAGS -Wno-deprecated-register"
 
 AM_EXTRA_RECURSIVE_TARGETS([style])
 AC_SUBST(CPPSTYLE_CMD, 'find . -type f \( -iname "*.h" -or -iname "*.cpp" -or -iname "*.cc" -or -iname "*.tcc" \) -printf "Reformatting: %h/%f\n" -exec clang-format -i {} \;')
@@ -470,7 +469,7 @@ AX_THRIFT_LIB(dotnetcore, [.NET Core], yes)
 if test "$with_dotnetcore" = "yes";  then
   AC_PATH_PROG([DOTNETCORE], [dotnet])
   if [[ -x "$DOTNETCORE" ]] ; then
-    AX_PROG_DOTNETCORE_VERSION( [1.0.0], have_dotnetcore="yes", have_dotnetcore="no")
+    AX_PROG_DOTNETCORE_VERSION( [2.0.0], have_dotnetcore="yes", have_dotnetcore="no")
   fi
 fi
 AM_CONDITIONAL(WITH_DOTNETCORE, [test "$have_dotnetcore" = "yes"])
@@ -897,6 +896,8 @@ if test "$have_lua" = "yes" ; then MAYBE_LUA="lua" ; else MAYBE_LUA="" ; fi
 AC_SUBST([MAYBE_LUA])
 if test "$have_rs" = "yes" ; then MAYBE_RS="rs" ; else MAYBE_RS="" ; fi
 AC_SUBST([MAYBE_RS])
+if test "$have_dotnetcore" = "yes" ; then MAYBE_DOTNETCORE="netcore" ; else MAYBE_DOTNETCORE="" ; fi
+AC_SUBST([MAYBE_DOTNETCORE])
 
 AC_OUTPUT
 

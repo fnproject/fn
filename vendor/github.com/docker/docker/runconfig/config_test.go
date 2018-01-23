@@ -12,6 +12,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type f struct {
@@ -25,11 +27,6 @@ func TestDecodeContainerConfig(t *testing.T) {
 		fixtures []f
 		image    string
 	)
-
-	//TODO: Should run for Solaris
-	if runtime.GOOS == "solaris" {
-		t.Skip()
-	}
 
 	if runtime.GOOS != "windows" {
 		image = "ubuntu"
@@ -136,4 +133,58 @@ func callDecodeContainerConfigIsolation(isolation string) (*container.Config, *c
 		return nil, nil, nil, fmt.Errorf("Error on marshal %s", err.Error())
 	}
 	return decodeContainerConfig(bytes.NewReader(b))
+}
+
+type decodeConfigTestcase struct {
+	doc                string
+	wrapper            ContainerConfigWrapper
+	expectedErr        string
+	expectedConfig     *container.Config
+	expectedHostConfig *container.HostConfig
+	goos               string
+}
+
+func runDecodeContainerConfigTestCase(testcase decodeConfigTestcase) func(t *testing.T) {
+	return func(t *testing.T) {
+		raw := marshal(t, testcase.wrapper, testcase.doc)
+		config, hostConfig, _, err := decodeContainerConfig(bytes.NewReader(raw))
+		if testcase.expectedErr != "" {
+			if !assert.Error(t, err) {
+				return
+			}
+			assert.Contains(t, err.Error(), testcase.expectedErr)
+			return
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, testcase.expectedConfig, config)
+		assert.Equal(t, testcase.expectedHostConfig, hostConfig)
+	}
+}
+
+func marshal(t *testing.T, w ContainerConfigWrapper, doc string) []byte {
+	b, err := json.Marshal(w)
+	require.NoError(t, err, "%s: failed to encode config wrapper", doc)
+	return b
+}
+
+func containerWrapperWithVolume(volume string) ContainerConfigWrapper {
+	return ContainerConfigWrapper{
+		Config: &container.Config{
+			Volumes: map[string]struct{}{
+				volume: {},
+			},
+		},
+		HostConfig: &container.HostConfig{},
+	}
+}
+
+func containerWrapperWithBind(bind string) ContainerConfigWrapper {
+	return ContainerConfigWrapper{
+		Config: &container.Config{
+			Volumes: map[string]struct{}{},
+		},
+		HostConfig: &container.HostConfig{
+			Binds: []string{bind},
+		},
+	}
 }

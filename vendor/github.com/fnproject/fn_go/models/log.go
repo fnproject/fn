@@ -14,7 +14,6 @@ import (
 
 // Log log
 // swagger:model Log
-
 type Log struct {
 
 	// Call UUID ID
@@ -23,10 +22,6 @@ type Log struct {
 	// log
 	Log string `json:"log,omitempty"`
 }
-
-/* polymorph Log call_id false */
-
-/* polymorph Log log false */
 
 // Validate validates this log
 func (m *Log) Validate(formats strfmt.Registry) error {

@@ -72,18 +72,12 @@ func TestContextFormFile(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Equal(t, "test", f.Filename)
 	}
-
-	assert.NoError(t, c.SaveUploadedFile(f, "test"))
 }
 
 func TestContextMultipartForm(t *testing.T) {
 	buf := new(bytes.Buffer)
 	mw := multipart.NewWriter(buf)
 	mw.WriteField("foo", "bar")
-	w, err := mw.CreateFormFile("file", "test")
-	if assert.NoError(t, err) {
-		w.Write([]byte("test"))
-	}
 	mw.Close()
 	c, _ := CreateTestContext(httptest.NewRecorder())
 	c.Request, _ = http.NewRequest("POST", "/", buf)
@@ -92,42 +86,6 @@ func TestContextMultipartForm(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.NotNil(t, f)
 	}
-
-	assert.NoError(t, c.SaveUploadedFile(f.File["file"][0], "test"))
-}
-
-func TestSaveUploadedOpenFailed(t *testing.T) {
-	buf := new(bytes.Buffer)
-	mw := multipart.NewWriter(buf)
-	mw.Close()
-
-	c, _ := CreateTestContext(httptest.NewRecorder())
-	c.Request, _ = http.NewRequest("POST", "/", buf)
-	c.Request.Header.Set("Content-Type", mw.FormDataContentType())
-
-	f := &multipart.FileHeader{
-		Filename: "file",
-	}
-	assert.Error(t, c.SaveUploadedFile(f, "test"))
-}
-
-func TestSaveUploadedCreateFailed(t *testing.T) {
-	buf := new(bytes.Buffer)
-	mw := multipart.NewWriter(buf)
-	w, err := mw.CreateFormFile("file", "test")
-	if assert.NoError(t, err) {
-		w.Write([]byte("test"))
-	}
-	mw.Close()
-	c, _ := CreateTestContext(httptest.NewRecorder())
-	c.Request, _ = http.NewRequest("POST", "/", buf)
-	c.Request.Header.Set("Content-Type", mw.FormDataContentType())
-	f, err := c.FormFile("file")
-	if assert.NoError(t, err) {
-		assert.Equal(t, "test", f.Filename)
-	}
-
-	assert.Error(t, c.SaveUploadedFile(f, "/"))
 }
 
 func TestContextReset(t *testing.T) {
@@ -624,8 +582,8 @@ func TestContextRenderIndentedJSON(t *testing.T) {
 	c.IndentedJSON(201, H{"foo": "bar", "bar": "foo", "nested": H{"foo": "bar"}})
 
 	assert.Equal(t, w.Code, 201)
-	assert.Equal(t, "{\n    \"bar\": \"foo\",\n    \"foo\": \"bar\",\n    \"nested\": {\n        \"foo\": \"bar\"\n    }\n}", w.Body.String())
-	assert.Equal(t, "application/json; charset=utf-8", w.HeaderMap.Get("Content-Type"))
+	assert.Equal(t, w.Body.String(), "{\n    \"bar\": \"foo\",\n    \"foo\": \"bar\",\n    \"nested\": {\n        \"foo\": \"bar\"\n    }\n}")
+	assert.Equal(t, w.HeaderMap.Get("Content-Type"), "application/json; charset=utf-8")
 }
 
 // Tests that no Custom JSON is rendered if code is 204
@@ -634,32 +592,6 @@ func TestContextRenderNoContentIndentedJSON(t *testing.T) {
 	c, _ := CreateTestContext(w)
 
 	c.IndentedJSON(204, H{"foo": "bar", "bar": "foo", "nested": H{"foo": "bar"}})
-
-	assert.Equal(t, 204, w.Code)
-	assert.Equal(t, "", w.Body.String())
-	assert.Equal(t, "application/json; charset=utf-8", w.HeaderMap.Get("Content-Type"))
-}
-
-// Tests that the response is serialized as Secure JSON
-// and Content-Type is set to application/json
-func TestContextRenderSecureJSON(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, router := CreateTestContext(w)
-
-	router.SecureJsonPrefix("&&&START&&&")
-	c.SecureJSON(201, []string{"foo", "bar"})
-
-	assert.Equal(t, w.Code, 201)
-	assert.Equal(t, w.Body.String(), "&&&START&&&[\"foo\",\"bar\"]")
-	assert.Equal(t, w.HeaderMap.Get("Content-Type"), "application/json; charset=utf-8")
-}
-
-// Tests that no Custom JSON is rendered if code is 204
-func TestContextRenderNoContentSecureJSON(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := CreateTestContext(w)
-
-	c.SecureJSON(204, []string{"foo", "bar"})
 
 	assert.Equal(t, 204, w.Code)
 	assert.Equal(t, "", w.Body.String())
@@ -1082,13 +1014,6 @@ func TestContextError(t *testing.T) {
 	assert.Equal(t, c.Errors[1].Type, ErrorTypePublic)
 
 	assert.Equal(t, c.Errors.Last(), c.Errors[1])
-
-	defer func() {
-		if recover() == nil {
-			t.Error("didn't panic")
-		}
-	}()
-	c.Error(nil)
 }
 
 func TestContextTypedError(t *testing.T) {
@@ -1184,22 +1109,6 @@ func TestContextBindWithJSON(t *testing.T) {
 	assert.Equal(t, obj.Bar, "foo")
 	assert.Equal(t, obj.Foo, "bar")
 	assert.Equal(t, w.Body.Len(), 0)
-}
-
-func TestContextBindWithQuery(t *testing.T) {
-	w := httptest.NewRecorder()
-	c, _ := CreateTestContext(w)
-
-	c.Request, _ = http.NewRequest("POST", "/?foo=bar&bar=foo", bytes.NewBufferString("foo=unused"))
-
-	var obj struct {
-		Foo string `form:"foo"`
-		Bar string `form:"bar"`
-	}
-	assert.NoError(t, c.BindQuery(&obj))
-	assert.Equal(t, "foo", obj.Bar)
-	assert.Equal(t, "bar", obj.Foo)
-	assert.Equal(t, 0, w.Body.Len())
 }
 
 func TestContextBadAutoBind(t *testing.T) {

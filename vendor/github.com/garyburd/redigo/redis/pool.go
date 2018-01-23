@@ -28,6 +28,11 @@ import (
 	"github.com/garyburd/redigo/internal"
 )
 
+var (
+	_ ConnWithTimeout = (*pooledConnection)(nil)
+	_ ConnWithTimeout = (*errorConnection)(nil)
+)
+
 var nowFunc = time.Now // for testing
 
 // ErrPoolExhausted is returned from a pool connection method (Do, Send,
@@ -96,7 +101,7 @@ var (
 //        return nil, err
 //      }
 //      return c, nil
-//    }
+//    },
 //  }
 //
 // Use the TestOnBorrow function to check the health of an idle connection
@@ -115,7 +120,6 @@ var (
 //  }
 //
 type Pool struct {
-
 	// Dial is an application supplied function for creating and configuring a
 	// connection.
 	//
@@ -179,6 +183,26 @@ func (p *Pool) Get() Conn {
 		return errorConnection{err}
 	}
 	return &pooledConnection{p: p, c: c}
+}
+
+// PoolStats contains pool statistics.
+type PoolStats struct {
+	// ActiveCount is the number of connections in the pool. The count includes idle connections and connections in use.
+	ActiveCount int
+	// IdleCount is the number of idle connections in the pool.
+	IdleCount int
+}
+
+// Stats returns pool's statistics.
+func (p *Pool) Stats() PoolStats {
+	p.mu.Lock()
+	stats := PoolStats{
+		ActiveCount: p.active,
+		IdleCount:   p.idle.Len(),
+	}
+	p.mu.Unlock()
+
+	return stats
 }
 
 // ActiveCount returns the number of connections in the pool. The count includes idle connections and connections in use.
@@ -249,7 +273,6 @@ func (p *Pool) get() (Conn, error) {
 	}
 
 	for {
-
 		// Get idle connection.
 
 		for i, n := 0, p.idle.Len(); i < n; i++ {
@@ -400,6 +423,16 @@ func (pc *pooledConnection) Do(commandName string, args ...interface{}) (reply i
 	return pc.c.Do(commandName, args...)
 }
 
+func (pc *pooledConnection) DoWithTimeout(timeout time.Duration, commandName string, args ...interface{}) (reply interface{}, err error) {
+	cwt, ok := pc.c.(ConnWithTimeout)
+	if !ok {
+		return nil, errTimeoutNotSupported
+	}
+	ci := internal.LookupCommandInfo(commandName)
+	pc.state = (pc.state | ci.Set) &^ ci.Clear
+	return cwt.DoWithTimeout(timeout, commandName, args...)
+}
+
 func (pc *pooledConnection) Send(commandName string, args ...interface{}) error {
 	ci := internal.LookupCommandInfo(commandName)
 	pc.state = (pc.state | ci.Set) &^ ci.Clear
@@ -414,11 +447,23 @@ func (pc *pooledConnection) Receive() (reply interface{}, err error) {
 	return pc.c.Receive()
 }
 
+func (pc *pooledConnection) ReceiveWithTimeout(timeout time.Duration) (reply interface{}, err error) {
+	cwt, ok := pc.c.(ConnWithTimeout)
+	if !ok {
+		return nil, errTimeoutNotSupported
+	}
+	return cwt.ReceiveWithTimeout(timeout)
+}
+
 type errorConnection struct{ err error }
 
 func (ec errorConnection) Do(string, ...interface{}) (interface{}, error) { return nil, ec.err }
-func (ec errorConnection) Send(string, ...interface{}) error              { return ec.err }
-func (ec errorConnection) Err() error                                     { return ec.err }
-func (ec errorConnection) Close() error                                   { return ec.err }
-func (ec errorConnection) Flush() error                                   { return ec.err }
-func (ec errorConnection) Receive() (interface{}, error)                  { return nil, ec.err }
+func (ec errorConnection) DoWithTimeout(time.Duration, string, ...interface{}) (interface{}, error) {
+	return nil, ec.err
+}
+func (ec errorConnection) Send(string, ...interface{}) error                     { return ec.err }
+func (ec errorConnection) Err() error                                            { return ec.err }
+func (ec errorConnection) Close() error                                          { return nil }
+func (ec errorConnection) Flush() error                                          { return ec.err }
+func (ec errorConnection) Receive() (interface{}, error)                         { return nil, ec.err }
+func (ec errorConnection) ReceiveWithTimeout(time.Duration) (interface{}, error) { return nil, ec.err }

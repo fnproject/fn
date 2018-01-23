@@ -15,7 +15,6 @@ import (
 
 // AppWrapper app wrapper
 // swagger:model AppWrapper
-
 type AppWrapper struct {
 
 	// app
@@ -25,10 +24,6 @@ type AppWrapper struct {
 	// error
 	Error *ErrorBody `json:"error,omitempty"`
 }
-
-/* polymorph AppWrapper app false */
-
-/* polymorph AppWrapper error false */
 
 // Validate validates this app wrapper
 func (m *AppWrapper) Validate(formats strfmt.Registry) error {

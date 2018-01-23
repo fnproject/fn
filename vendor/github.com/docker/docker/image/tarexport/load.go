@@ -23,7 +23,7 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/symlink"
 	"github.com/docker/docker/pkg/system"
-	"github.com/opencontainers/go-digest"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
 )
 
@@ -82,8 +82,7 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool)
 		if err := checkCompatibleOS(img.OS); err != nil {
 			return err
 		}
-		var rootFS image.RootFS
-		rootFS = *img.RootFS
+		rootFS := *img.RootFS
 		rootFS.DiffIDs = nil
 
 		if expected, actual := len(m.Layers), len(img.RootFS.DiffIDs); expected != actual {
@@ -91,13 +90,13 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool)
 		}
 
 		// On Windows, validate the platform, defaulting to windows if not present.
-		platform := layer.Platform(img.OS)
+		os := layer.OS(img.OS)
 		if runtime.GOOS == "windows" {
-			if platform == "" {
-				platform = "windows"
+			if os == "" {
+				os = "windows"
 			}
-			if (platform != "windows") && (platform != "linux") {
-				return fmt.Errorf("configuration for this image has an unsupported platform: %s", platform)
+			if (os != "windows") && (os != "linux") {
+				return fmt.Errorf("configuration for this image has an unsupported operating system: %s", os)
 			}
 		}
 
@@ -110,7 +109,7 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool)
 			r.Append(diffID)
 			newLayer, err := l.ls.Get(r.ChainID())
 			if err != nil {
-				newLayer, err = l.loadLayer(layerPath, rootFS, diffID.String(), platform, m.LayerSources[diffID], progressOutput)
+				newLayer, err = l.loadLayer(layerPath, rootFS, diffID.String(), os, m.LayerSources[diffID], progressOutput)
 				if err != nil {
 					return err
 				}
@@ -177,7 +176,7 @@ func (l *tarexporter) setParentID(id, parentID image.ID) error {
 	return l.is.SetParent(id, parentID)
 }
 
-func (l *tarexporter) loadLayer(filename string, rootFS image.RootFS, id string, platform layer.Platform, foreignSrc distribution.Descriptor, progressOutput progress.Output) (layer.Layer, error) {
+func (l *tarexporter) loadLayer(filename string, rootFS image.RootFS, id string, os layer.OS, foreignSrc distribution.Descriptor, progressOutput progress.Output) (layer.Layer, error) {
 	// We use system.OpenSequential to use sequential file access on Windows, avoiding
 	// depleting the standby list. On Linux, this equates to a regular os.Open.
 	rawTar, err := system.OpenSequential(filename)
@@ -207,20 +206,17 @@ func (l *tarexporter) loadLayer(filename string, rootFS image.RootFS, id string,
 	defer inflatedLayerData.Close()
 
 	if ds, ok := l.ls.(layer.DescribableStore); ok {
-		return ds.RegisterWithDescriptor(inflatedLayerData, rootFS.ChainID(), platform, foreignSrc)
+		return ds.RegisterWithDescriptor(inflatedLayerData, rootFS.ChainID(), os, foreignSrc)
 	}
-	return l.ls.Register(inflatedLayerData, rootFS.ChainID(), platform)
+	return l.ls.Register(inflatedLayerData, rootFS.ChainID(), os)
 }
 
-func (l *tarexporter) setLoadedTag(ref reference.NamedTagged, imgID digest.Digest, outStream io.Writer) error {
+func (l *tarexporter) setLoadedTag(ref reference.Named, imgID digest.Digest, outStream io.Writer) error {
 	if prevID, err := l.rs.Get(ref); err == nil && prevID != imgID {
 		fmt.Fprintf(outStream, "The image %s already exists, renaming the old one with ID %s to empty string\n", reference.FamiliarString(ref), string(prevID)) // todo: this message is wrong in case of multiple tags
 	}
 
-	if err := l.rs.AddTag(ref, imgID, true); err != nil {
-		return err
-	}
-	return nil
+	return l.rs.AddTag(ref, imgID, true)
 }
 
 func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer, progressOutput progress.Output) error {

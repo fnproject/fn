@@ -15,7 +15,6 @@ import (
 
 // RoutesWrapper routes wrapper
 // swagger:model RoutesWrapper
-
 type RoutesWrapper struct {
 
 	// error
@@ -29,12 +28,6 @@ type RoutesWrapper struct {
 	// Required: true
 	Routes RoutesWrapperRoutes `json:"routes"`
 }
-
-/* polymorph RoutesWrapper error false */
-
-/* polymorph RoutesWrapper next_cursor false */
-
-/* polymorph RoutesWrapper routes false */
 
 // Validate validates this routes wrapper
 func (m *RoutesWrapper) Validate(formats strfmt.Registry) error {
@@ -78,6 +71,13 @@ func (m *RoutesWrapper) validateError(formats strfmt.Registry) error {
 func (m *RoutesWrapper) validateRoutes(formats strfmt.Registry) error {
 
 	if err := validate.Required("routes", "body", m.Routes); err != nil {
+		return err
+	}
+
+	if err := m.Routes.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("routes")
+		}
 		return err
 	}
 

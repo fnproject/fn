@@ -16,10 +16,13 @@ func (a *agent) asyncDequeue() {
 	defer cancel()
 
 	for {
+		ctxResource, cancelResource := context.WithCancel(context.Background())
 		select {
 		case <-a.shutdown:
+			cancelResource()
 			return
-		case <-a.resources.WaitAsyncResource():
+		case <-a.resources.WaitAsyncResource(ctxResource):
+			cancelResource()
 			// TODO we _could_ return a token here to reserve the ram so that there's
 			// not a race between here and Submit but we're single threaded
 			// dequeueing and retries handled gracefully inside of Submit if we run

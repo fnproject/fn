@@ -19,10 +19,10 @@ produces:
 consumes:
   - "application/json"
   - "text/plain"
-basePath: "/v1.32"
+basePath: "/v1.35"
 info:
   title: "Docker Engine API"
-  version: "1.32"
+  version: "1.35"
   x-logo:
     url: "https://docs.docker.com/images/logo-docker-main.png"
   description: |
@@ -42,34 +42,26 @@ info:
 
     # Versioning
 
-    The API is usually changed in each release of Docker, so API calls are versioned to ensure that clients don't break.
+    The API is usually changed in each release, so API calls are versioned to
+    ensure that clients don't break. To lock to a specific version of the API,
+    you prefix the URL with its version, for example, call `/v1.30/info` to use
+    the v1.30 version of the `/info` endpoint. If the API version specified in
+    the URL is not supported by the daemon, a HTTP `400 Bad Request` error message
+    is returned.
 
-    For Docker Engine 17.07, the API version is 1.31. To lock to this version, you prefix the URL with `/v1.31`. For example, calling `/info` is the same as calling `/v1.31/info`.
+    If you omit the version-prefix, the current version of the API (v1.35) is used.
+    For example, calling `/info` is the same as calling `/v1.35/info`. Using the
+    API without a version-prefix is deprecated and will be removed in a future release.
 
-    Engine releases in the near future should support this version of the API, so your client will continue to work even if it is talking to a newer Engine.
+    Engine releases in the near future should support this version of the API,
+    so your client will continue to work even if it is talking to a newer Engine.
 
-    In previous versions of Docker, it was possible to access the API without providing a version. This behaviour is now deprecated will be removed in a future version of Docker.
+    The API uses an open schema model, which means server may add extra properties
+    to responses. Likewise, the server will ignore any extra query parameters and
+    request body properties. When you write clients, you need to ignore additional
+    properties in responses to ensure they do not break when talking to newer
+    daemons.
 
-    The API uses an open schema model, which means server may add extra properties to responses. Likewise, the server will ignore any extra query parameters and request body properties. When you write clients, you need to ignore additional properties in responses to ensure they do not break when talking to newer Docker daemons.
-
-    This documentation is for version 1.32 of the API. Use this table to find documentation for previous versions of the API:
-
-    Docker version  | API version | Changes
-    ----------------|-------------|---------
-    17.07.x | [1.31](https://docs.docker.com/engine/api/v1.31/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-31-api-changes)
-    17.06.x | [1.30](https://docs.docker.com/engine/api/v1.30/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-30-api-changes)
-    17.05.x | [1.29](https://docs.docker.com/engine/api/v1.29/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-29-api-changes)
-    17.04.x | [1.28](https://docs.docker.com/engine/api/v1.28/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-28-api-changes)
-    17.03.1 | [1.27](https://docs.docker.com/engine/api/v1.27/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-27-api-changes)
-    1.13.1 & 17.03.0 | [1.26](https://docs.docker.com/engine/api/v1.26/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-26-api-changes)
-    1.13.0 | [1.25](https://docs.docker.com/engine/api/v1.25/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-25-api-changes)
-    1.12.x | [1.24](https://docs.docker.com/engine/api/v1.24/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-24-api-changes)
-    1.11.x | [1.23](https://docs.docker.com/engine/api/v1.23/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-23-api-changes)
-    1.10.x | [1.22](https://docs.docker.com/engine/api/v1.22/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-22-api-changes)
-    1.9.x | [1.21](https://docs.docker.com/engine/api/v1.21/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-21-api-changes)
-    1.8.x | [1.20](https://docs.docker.com/engine/api/v1.20/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-20-api-changes)
-    1.7.x | [1.19](https://docs.docker.com/engine/api/v1.19/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-19-api-changes)
-    1.6.x | [1.18](https://docs.docker.com/engine/api/v1.18/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-18-api-changes)
 
     # Authentication
 
@@ -144,6 +136,10 @@ tags:
     x-displayName: "Secrets"
     description: |
       Secrets are sensitive data that can be used by services. Swarm mode must be enabled for these endpoints to work.
+  - name: "Config"
+    x-displayName: "Configs"
+    description: |
+      Configs are application configurations that can be used by services. Swarm mode must be enabled for these endpoints to work.
   # System things
   - name: "Plugin"
     x-displayName: "Plugins"
@@ -714,7 +710,15 @@ definitions:
             description: "Gives the container full access to the host."
           PublishAllPorts:
             type: "boolean"
-            description: "Allocates a random host port for all of a container's exposed ports."
+            description: |
+              Allocates an ephemeral host port for all of a container's
+              exposed ports.
+
+              Ports are de-allocated when the container stops and allocated when the container starts.
+              The allocated port might be changed when restarting the container.
+
+              The port is selected from the ephemeral port range that depends on the kernel.
+              For example, on Linux the range is defined by `/proc/sys/net/ipv4/ip_local_port_range`.
           ReadonlyRootfs:
             type: "boolean"
             description: "Mount the container's root filesystem as read only."
@@ -2672,7 +2676,13 @@ definitions:
                     ConfigName is the name of the config that this references, but this is just provided for
                     lookup/display purposes. The config in the reference will be identified by its ID.
                   type: "string"
-
+          Isolation:
+            type: "string"
+            description: "Isolation technology of the containers running the service. (Windows only)"
+            enum:
+              - "default"
+              - "process"
+              - "hyperv"
       Resources:
         description: "Resource requirements which apply to each individual container created as part of the service."
         type: "object"
@@ -3036,6 +3046,24 @@ definitions:
       PublishedPort:
         description: "The port on the swarm hosts."
         type: "integer"
+      PublishMode:
+        description: |
+          The mode in which port is published.
+
+          <p><br /></p>
+
+          - "ingress" makes the target port accessible on on every node,
+            regardless of whether there is a task for the service running on
+            that node or not.
+          - "host" bypasses the routing mesh and publish the port directly on
+            the swarm node where that service is running.
+
+        type: "string"
+        enum:
+          - "ingress"
+          - "host"
+        default: "ingress"
+        example: "ingress"
 
   EndpointSpec:
     description: "Properties that can be configured to access and load balance a service."
@@ -4929,6 +4957,11 @@ paths:
           description: "Only return logs since this time, as a UNIX timestamp"
           type: "integer"
           default: 0
+        - name: "until"
+          in: "query"
+          description: "Only return logs before this time, as a UNIX timestamp"
+          type: "integer"
+          default: 0
         - name: "timestamps"
           in: "query"
           description: "Add timestamps to every log line"
@@ -5697,6 +5730,13 @@ paths:
                 description: "Exit code of the container"
                 type: "integer"
                 x-nullable: false
+              Error:
+                description: "container waiting error, if any"
+                type: "object"
+                properties:
+                  Message:
+                    description: "Details of an error"
+                    type: "string"
         404:
           description: "no such container"
           schema:
@@ -6157,6 +6197,11 @@ paths:
 
             Only the registry domain name (and port if not the default 443) are required. However, for legacy reasons, the Docker Hub registry must be specified with both a `https://` prefix and a `/v1/` suffix even though Docker will prefer to use the v2 registry API.
           type: "string"
+        - name: "platform"
+          in: "query"
+          description: "Platform in the format os[/arch[/variant]]"
+          type: "string"
+          default: ""
       responses:
         200:
           description: "no error"
@@ -6238,6 +6283,11 @@ paths:
           in: "header"
           description: "A base64-encoded auth configuration. [See the authentication section for details.](#section/Authentication)"
           type: "string"
+        - name: "platform"
+          in: "query"
+          description: "Platform in the format os[/arch[/variant]]"
+          type: "string"
+          default: ""
       tags: ["Image"]
   /images/{name}/json:
     get:
@@ -6936,16 +6986,20 @@ paths:
           description: |
             A JSON encoded value of filters (a `map[string][]string`) to process on the event list. Available filters:
 
+            - `config=<string>` config name or ID
             - `container=<string>` container name or ID
             - `daemon=<string>` daemon name or ID
             - `event=<string>` event type
             - `image=<string>` image name or ID
             - `label=<string>` image or container label
             - `network=<string>` network name or ID
+            - `node=<string>` node ID
             - `plugin`=<string> plugin name or ID
-            - `scope`＝<string> local or swarm
-            - `type=<string>` object to filter by, one of `container`, `image`, `volume`, `network`, `daemon`, `plugin`, `node`, `service` or `secret`
-            - `volume=<string>` volume name or ID
+            - `scope`=<string> local or swarm
+            - `secret=<string>` secret name or ID
+            - `service=<string>` service name or ID
+            - `type=<string>` object to filter by, one of `container`, `image`, `volume`, `network`, `daemon`, `plugin`, `node`, `service`, `secret` or `config`
+            - `volume=<string>` volume name
           type: "string"
       tags: ["System"]
   /system/df:
@@ -7837,7 +7891,7 @@ paths:
       summary: "Connect a container to a network"
       operationId: "NetworkConnect"
       consumes:
-        - "application/octet-stream"
+        - "application/json"
       responses:
         200:
           description: "No error"

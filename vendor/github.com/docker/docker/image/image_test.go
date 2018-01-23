@@ -2,6 +2,7 @@ package image
 
 import (
 	"encoding/json"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -52,6 +53,39 @@ func TestMarshalKeyOrder(t *testing.T) {
 	if !sort.IntsAreSorted(indexes) {
 		t.Fatal("invalid key order in JSON: ", string(b))
 	}
+}
+
+func TestImage(t *testing.T) {
+	cid := "50a16564e727"
+	config := &container.Config{
+		Hostname:   "hostname",
+		Domainname: "domain",
+		User:       "root",
+	}
+	os := runtime.GOOS
+
+	img := &Image{
+		V1Image: V1Image{
+			Config: config,
+		},
+		computedID: ID(cid),
+	}
+
+	assert.Equal(t, cid, img.ImageID())
+	assert.Equal(t, cid, img.ID().String())
+	assert.Equal(t, os, img.OperatingSystem())
+	assert.Equal(t, config, img.RunConfig())
+}
+
+func TestImageOSNotEmpty(t *testing.T) {
+	os := "os"
+	img := &Image{
+		V1Image: V1Image{
+			OS: os,
+		},
+		OSVersion: "osversion",
+	}
+	assert.Equal(t, os, img.OperatingSystem())
 }
 
 func TestNewChildImageFromImageWithRootFS(t *testing.T) {

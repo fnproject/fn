@@ -5,15 +5,9 @@
 #### With Go toolchain
 
 ```
-$ go get -u -d github.com/mattes/migrate/cli github.com/lib/pq
+$ go get -u -d github.com/mattes/migrate/cli
 $ go build -tags 'postgres' -o /usr/local/bin/migrate github.com/mattes/migrate/cli
 ```
-
-Note: This example builds the cli which will only work with postgres.  In order
-to build the cli for use with other databases, replace the `postgres` build tag
-with the appropriate database tag(s) for the databases desired.  The tags
-correspond to the names of the sub-packages underneath the
-[`database`](../database) package.
 
 #### MacOS
 
@@ -51,7 +45,7 @@ Usage: migrate OPTIONS COMMAND [arg...]
 
 Options:
   -source          Location of the migrations (driver://url)
-  -path            Shorthand for -source=file://path
+  -path            Shorthand for -source=file://path 
   -database        Run migrations against this database (driver://url)
   -prefetch N      Number of migrations to load in advance before executing (default 10)
   -lock-timeout N  Allow N seconds to acquire database lock (default 15)
@@ -60,8 +54,6 @@ Options:
   -help            Print usage
 
 Commands:
-  create [-ext E] [-dir D] NAME
-               Create a set of timestamped up/down migrations titled NAME, in directory D with extension E
   goto V       Migrate to version V
   up [N]       Apply all or N up migrations
   down [N]     Apply all or N down migrations

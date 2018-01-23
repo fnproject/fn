@@ -39,46 +39,33 @@ func DefaultSpec() specs.Spec {
 func DefaultOSSpec(osName string) specs.Spec {
 	if osName == "windows" {
 		return DefaultWindowsSpec()
-	} else if osName == "solaris" {
-		return DefaultSolarisSpec()
-	} else {
-		return DefaultLinuxSpec()
 	}
+	return DefaultLinuxSpec()
 }
 
 // DefaultWindowsSpec create a default spec for running Windows containers
 func DefaultWindowsSpec() specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
-		Platform: specs.Platform{
-			OS:   runtime.GOOS,
-			Arch: runtime.GOARCH,
-		},
 		Windows: &specs.Windows{},
+		Process: &specs.Process{},
+		Root:    &specs.Root{},
 	}
-}
-
-// DefaultSolarisSpec create a default spec for running Solaris containers
-func DefaultSolarisSpec() specs.Spec {
-	s := specs.Spec{
-		Version: "0.6.0",
-		Platform: specs.Platform{
-			OS:   "SunOS",
-			Arch: runtime.GOARCH,
-		},
-	}
-	s.Solaris = &specs.Solaris{}
-	return s
 }
 
 // DefaultLinuxSpec create a default spec for running Linux containers
 func DefaultLinuxSpec() specs.Spec {
 	s := specs.Spec{
 		Version: specs.Version,
-		Platform: specs.Platform{
-			OS:   "linux",
-			Arch: runtime.GOARCH,
+		Process: &specs.Process{
+			Capabilities: &specs.LinuxCapabilities{
+				Bounding:    defaultCapabilities(),
+				Permitted:   defaultCapabilities(),
+				Inheritable: defaultCapabilities(),
+				Effective:   defaultCapabilities(),
+			},
 		},
+		Root: &specs.Root{},
 	}
 	s.Mounts = []specs.Mount{
 		{
@@ -124,12 +111,6 @@ func DefaultLinuxSpec() specs.Spec {
 			Options:     []string{"nosuid", "noexec", "nodev", "mode=1777"},
 		},
 	}
-	s.Process.Capabilities = &specs.LinuxCapabilities{
-		Bounding:    defaultCapabilities(),
-		Permitted:   defaultCapabilities(),
-		Inheritable: defaultCapabilities(),
-		Effective:   defaultCapabilities(),
-	}
 
 	s.Linux = &specs.Linux{
 		MaskedPaths: []string{
@@ -138,6 +119,8 @@ func DefaultLinuxSpec() specs.Spec {
 			"/proc/timer_list",
 			"/proc/timer_stats",
 			"/proc/sched_debug",
+			"/proc/scsi",
+			"/sys/firmware",
 		},
 		ReadonlyPaths: []string{
 			"/proc/asound",
@@ -218,9 +201,9 @@ func DefaultLinuxSpec() specs.Spec {
 		},
 	}
 
-	// For LCOW support, don't mask /sys/firmware
-	if runtime.GOOS != "windows" {
-		s.Linux.MaskedPaths = append(s.Linux.MaskedPaths, "/sys/firmware")
+	// For LCOW support, populate a blank Windows spec
+	if runtime.GOOS == "windows" {
+		s.Windows = &specs.Windows{}
 	}
 
 	return s

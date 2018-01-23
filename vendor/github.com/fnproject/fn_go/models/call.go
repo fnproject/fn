@@ -14,7 +14,6 @@ import (
 
 // Call call
 // swagger:model Call
-
 type Call struct {
 
 	// App name that is assigned to a route that is being executed.
@@ -29,6 +28,10 @@ type Call struct {
 	// Read Only: true
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
 
+	// Call execution error, if status is 'error'.
+	// Read Only: true
+	Error string `json:"error,omitempty"`
+
 	// Call UUID ID.
 	// Read Only: true
 	ID string `json:"id,omitempty"`
@@ -41,24 +44,13 @@ type Call struct {
 	// Read Only: true
 	StartedAt strfmt.DateTime `json:"started_at,omitempty"`
 
+	// stats
+	Stats CallStats `json:"stats"`
+
 	// Call execution status.
 	// Read Only: true
 	Status string `json:"status,omitempty"`
 }
-
-/* polymorph Call app_name false */
-
-/* polymorph Call completed_at false */
-
-/* polymorph Call created_at false */
-
-/* polymorph Call id false */
-
-/* polymorph Call path false */
-
-/* polymorph Call started_at false */
-
-/* polymorph Call status false */
 
 // Validate validates this call
 func (m *Call) Validate(formats strfmt.Registry) error {

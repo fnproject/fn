@@ -29,7 +29,7 @@ type State struct {
 	Dead              bool
 	Pid               int
 	ExitCodeValue     int    `json:"ExitCode"`
-	ErrorMsg          string `json:"Error"` // contains last known error when starting the container
+	ErrorMsg          string `json:"Error"` // contains last known error during container start or remove
 	StartedAt         time.Time
 	FinishedAt        time.Time
 	Health            *Health
@@ -276,6 +276,7 @@ func (s *State) SetExitCode(ec int) {
 // SetRunning sets the state of the container to "running".
 func (s *State) SetRunning(pid int, initial bool) {
 	s.ErrorMsg = ""
+	s.Paused = false
 	s.Running = true
 	s.Restarting = false
 	if initial {
@@ -294,9 +295,14 @@ func (s *State) SetStopped(exitStatus *ExitStatus) {
 	s.Paused = false
 	s.Restarting = false
 	s.Pid = 0
-	s.FinishedAt = time.Now().UTC()
-	s.setFromExitStatus(exitStatus)
-	close(s.waitStop) // Fire waiters for stop
+	if exitStatus.ExitedAt.IsZero() {
+		s.FinishedAt = time.Now().UTC()
+	} else {
+		s.FinishedAt = exitStatus.ExitedAt
+	}
+	s.ExitCodeValue = exitStatus.ExitCode
+	s.OOMKilled = exitStatus.OOMKilled
+	close(s.waitStop) // fire waiters for stop
 	s.waitStop = make(chan struct{})
 }
 
@@ -310,8 +316,9 @@ func (s *State) SetRestarting(exitStatus *ExitStatus) {
 	s.Paused = false
 	s.Pid = 0
 	s.FinishedAt = time.Now().UTC()
-	s.setFromExitStatus(exitStatus)
-	close(s.waitStop) // Fire waiters for stop
+	s.ExitCodeValue = exitStatus.ExitCode
+	s.OOMKilled = exitStatus.OOMKilled
+	close(s.waitStop) // fire waiters for stop
 	s.waitStop = make(chan struct{})
 }
 
@@ -319,7 +326,10 @@ func (s *State) SetRestarting(exitStatus *ExitStatus) {
 // know the error that occurred when container transits to another state
 // when inspecting it
 func (s *State) SetError(err error) {
-	s.ErrorMsg = err.Error()
+	s.ErrorMsg = ""
+	if err != nil {
+		s.ErrorMsg = err.Error()
+	}
 }
 
 // IsPaused returns whether the container is paused or not.
@@ -357,6 +367,15 @@ func (s *State) ResetRemovalInProgress() {
 	s.Unlock()
 }
 
+// IsRemovalInProgress returns whether the RemovalInProgress flag is set.
+// Used by Container to check whether a container is being removed.
+func (s *State) IsRemovalInProgress() bool {
+	s.Lock()
+	res := s.RemovalInProgress
+	s.Unlock()
+	return res
+}
+
 // SetDead sets the container state to "dead"
 func (s *State) SetDead() {
 	s.Lock()
@@ -364,12 +383,30 @@ func (s *State) SetDead() {
 	s.Unlock()
 }
 
+// IsDead returns whether the Dead flag is set. Used by Container to check whether a container is dead.
+func (s *State) IsDead() bool {
+	s.Lock()
+	res := s.Dead
+	s.Unlock()
+	return res
+}
+
 // SetRemoved assumes this container is already in the "dead" state and
 // closes the internal waitRemove channel to unblock callers waiting for a
 // container to be removed.
 func (s *State) SetRemoved() {
+	s.SetRemovalError(nil)
+}
+
+// SetRemovalError is to be called in case a container remove failed.
+// It sets an error and closes the internal waitRemove channel to unblock
+// callers waiting for the container to be removed.
+func (s *State) SetRemovalError(err error) {
+	s.SetError(err)
 	s.Lock()
 	close(s.waitRemove) // Unblock those waiting on remove.
+	// Recreate the channel so next ContainerWait will work
+	s.waitRemove = make(chan struct{})
 	s.Unlock()
 }
 
