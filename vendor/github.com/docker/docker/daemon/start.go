@@ -8,6 +8,8 @@ import (
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
+	"github.com/docker/docker/errdefs"
+	"github.com/docker/docker/pkg/mount"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +17,7 @@ import (
 // ContainerStart starts a container.
 func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.HostConfig, checkpoint string, checkpointDir string) error {
 	if checkpoint != "" && !daemon.HasExperimental() {
-		return validationError{errors.New("checkpoint is only supported in experimental mode")}
+		return errdefs.InvalidParameter(errors.New("checkpoint is only supported in experimental mode"))
 	}
 
 	container, err := daemon.GetContainer(name)
@@ -28,7 +30,7 @@ func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.Hos
 		defer container.Unlock()
 
 		if container.Paused {
-			return stateConflictError{errors.New("cannot start a paused container, try unpause instead")}
+			return errdefs.Conflict(errors.New("cannot start a paused container, try unpause instead"))
 		}
 
 		if container.Running {
@@ -36,7 +38,7 @@ func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.Hos
 		}
 
 		if container.RemovalInProgress || container.Dead {
-			return stateConflictError{errors.New("container is marked for removal and cannot be started")}
+			return errdefs.Conflict(errors.New("container is marked for removal and cannot be started"))
 		}
 		return nil
 	}
@@ -53,13 +55,13 @@ func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.Hos
 			logrus.Warn("DEPRECATED: Setting host configuration options when the container starts is deprecated and has been removed in Docker 1.12")
 			oldNetworkMode := container.HostConfig.NetworkMode
 			if err := daemon.setSecurityOptions(container, hostConfig); err != nil {
-				return validationError{err}
+				return errdefs.InvalidParameter(err)
 			}
 			if err := daemon.mergeAndVerifyLogConfig(&hostConfig.LogConfig); err != nil {
-				return validationError{err}
+				return errdefs.InvalidParameter(err)
 			}
 			if err := daemon.setHostConfig(container, hostConfig); err != nil {
-				return validationError{err}
+				return errdefs.InvalidParameter(err)
 			}
 			newNetworkMode := container.HostConfig.NetworkMode
 			if string(oldNetworkMode) != string(newNetworkMode) {
@@ -67,34 +69,30 @@ func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.Hos
 				// old networks. It is a deprecated feature and has been removed in Docker 1.12
 				container.NetworkSettings.Networks = nil
 				if err := container.CheckpointTo(daemon.containersReplica); err != nil {
-					return systemError{err}
+					return errdefs.System(err)
 				}
 			}
 			container.InitDNSHostConfig()
 		}
 	} else {
 		if hostConfig != nil {
-			return validationError{errors.New("Supplying a hostconfig on start is not supported. It should be supplied on create")}
+			return errdefs.InvalidParameter(errors.New("Supplying a hostconfig on start is not supported. It should be supplied on create"))
 		}
 	}
 
 	// check if hostConfig is in line with the current system settings.
 	// It may happen cgroups are umounted or the like.
 	if _, err = daemon.verifyContainerSettings(container.OS, container.HostConfig, nil, false); err != nil {
-		return validationError{err}
+		return errdefs.InvalidParameter(err)
 	}
 	// Adapt for old containers in case we have updates in this function and
 	// old containers never have chance to call the new function in create stage.
 	if hostConfig != nil {
 		if err := daemon.adaptContainerSettings(container.HostConfig, false); err != nil {
-			return validationError{err}
+			return errdefs.InvalidParameter(err)
 		}
 	}
-
-	if err := daemon.containerStart(container, checkpoint, checkpointDir, true); err != nil {
-		return err
-	}
-	return nil
+	return daemon.containerStart(container, checkpoint, checkpointDir, true)
 }
 
 // containerStart prepares the container to run by setting up everything the
@@ -111,12 +109,12 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 	}
 
 	if container.RemovalInProgress || container.Dead {
-		return stateConflictError{errors.New("container is marked for removal and cannot be started")}
+		return errdefs.Conflict(errors.New("container is marked for removal and cannot be started"))
 	}
 
 	if checkpointDir != "" {
 		// TODO(mlaventure): how would we support that?
-		return notAllowedError{errors.New("custom checkpointdir is not supported")}
+		return errdefs.Forbidden(errors.New("custom checkpointdir is not supported"))
 	}
 
 	// if we encounter an error during start we need to ensure that any other
@@ -155,7 +153,7 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 
 	spec, err := daemon.createSpec(container)
 	if err != nil {
-		return systemError{err}
+		return errdefs.System(err)
 	}
 
 	if resetRestartManager {
@@ -225,13 +223,17 @@ func (daemon *Daemon) Cleanup(container *container.Container) {
 	if err := daemon.conditionalUnmountOnCleanup(container); err != nil {
 		// FIXME: remove once reference counting for graphdrivers has been refactored
 		// Ensure that all the mounts are gone
-		if mountid, err := daemon.stores[container.OS].layerStore.GetMountID(container.ID); err == nil {
+		if mountid, err := daemon.layerStores[container.OS].GetMountID(container.ID); err == nil {
 			daemon.cleanupMountsByID(mountid)
 		}
 	}
 
 	if err := container.UnmountSecrets(); err != nil {
 		logrus.Warnf("%s cleanup: failed to unmount secrets: %s", container.ID, err)
+	}
+
+	if err := mount.RecursiveUnmount(container.Root); err != nil {
+		logrus.WithError(err).WithField("container", container.ID).Warn("Error while cleaning up container resource mounts.")
 	}
 
 	for _, eConfig := range container.ExecCommands.Commands() {

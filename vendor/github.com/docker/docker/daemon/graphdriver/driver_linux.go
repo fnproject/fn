@@ -1,10 +1,6 @@
-// +build linux
-
 package graphdriver
 
 import (
-	"path/filepath"
-
 	"github.com/docker/docker/pkg/mount"
 	"golang.org/x/sys/unix"
 )
@@ -82,7 +78,7 @@ var (
 // GetFSMagic returns the filesystem id given the path.
 func GetFSMagic(rootpath string) (FsMagic, error) {
 	var buf unix.Statfs_t
-	if err := unix.Statfs(filepath.Dir(rootpath), &buf); err != nil {
+	if err := unix.Statfs(rootpath, &buf); err != nil {
 		return 0, err
 	}
 	return FsMagic(buf.Type), nil

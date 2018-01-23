@@ -151,7 +151,7 @@ func (s *DockerSuite) TestLogsAPIUntilFutureFollow(c *check.C) {
 
 func (s *DockerSuite) TestLogsAPIUntil(c *check.C) {
 	name := "logsuntil"
-	dockerCmd(c, "run", "--name", name, "busybox", "/bin/sh", "-c", "for i in $(seq 1 3); do echo log$i; sleep 0.5; done")
+	dockerCmd(c, "run", "--name", name, "busybox", "/bin/sh", "-c", "for i in $(seq 1 3); do echo log$i; sleep 1; done")
 
 	client, err := request.NewClient()
 	if err != nil {
@@ -172,6 +172,8 @@ func (s *DockerSuite) TestLogsAPIUntil(c *check.C) {
 
 	// Get timestamp of second log line
 	allLogs := extractBody(c, types.ContainerLogsOptions{Timestamps: true, ShowStdout: true})
+	c.Assert(len(allLogs), checker.GreaterOrEqualThan, 3)
+
 	t, err := time.Parse(time.RFC3339Nano, strings.Split(allLogs[1], " ")[0])
 	c.Assert(err, checker.IsNil)
 	until := t.Format(time.RFC3339Nano)

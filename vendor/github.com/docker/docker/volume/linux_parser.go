@@ -29,7 +29,7 @@ func linuxSplitRawSpec(raw string) ([]string, error) {
 func linuxValidateNotRoot(p string) error {
 	p = path.Clean(strings.Replace(p, `\`, `/`, -1))
 	if p == "/" {
-		return fmt.Errorf("invalid specification: destination can't be '/'")
+		return ErrVolumeTargetIsRoot
 	}
 	return nil
 }
@@ -40,7 +40,7 @@ func linuxValidateAbsolute(p string) error {
 	}
 	return fmt.Errorf("invalid mount path: '%s' mount path must be absolute", p)
 }
-func (p *linuxParser) validateMountConfig(mnt *mount.Mount) error {
+func (p *linuxParser) ValidateMountConfig(mnt *mount.Mount) error {
 	// there was something looking like a bug in existing codebase:
 	// - validateMountConfig on linux was called with options skipping bind source existence when calling ParseMountRaw
 	// - but not when calling ParseMountSpec directly... nor when the unit test called it directly

@@ -85,26 +85,27 @@ type CommonTLSOptions struct {
 // It includes json tags to deserialize configuration from a file
 // using the same names that the flags in the command line use.
 type CommonConfig struct {
-	AuthzMiddleware      *authorization.Middleware `json:"-"`
-	AuthorizationPlugins []string                  `json:"authorization-plugins,omitempty"` // AuthorizationPlugins holds list of authorization plugins
-	AutoRestart          bool                      `json:"-"`
-	Context              map[string][]string       `json:"-"`
-	DisableBridge        bool                      `json:"-"`
-	DNS                  []string                  `json:"dns,omitempty"`
-	DNSOptions           []string                  `json:"dns-opts,omitempty"`
-	DNSSearch            []string                  `json:"dns-search,omitempty"`
-	ExecOptions          []string                  `json:"exec-opts,omitempty"`
-	GraphDriver          string                    `json:"storage-driver,omitempty"`
-	GraphOptions         []string                  `json:"storage-opts,omitempty"`
-	Labels               []string                  `json:"labels,omitempty"`
-	Mtu                  int                       `json:"mtu,omitempty"`
-	Pidfile              string                    `json:"pidfile,omitempty"`
-	RawLogs              bool                      `json:"raw-logs,omitempty"`
-	RootDeprecated       string                    `json:"graph,omitempty"`
-	Root                 string                    `json:"data-root,omitempty"`
-	ExecRoot             string                    `json:"exec-root,omitempty"`
-	SocketGroup          string                    `json:"group,omitempty"`
-	CorsHeaders          string                    `json:"api-cors-header,omitempty"`
+	AuthzMiddleware       *authorization.Middleware `json:"-"`
+	AuthorizationPlugins  []string                  `json:"authorization-plugins,omitempty"` // AuthorizationPlugins holds list of authorization plugins
+	AutoRestart           bool                      `json:"-"`
+	Context               map[string][]string       `json:"-"`
+	DisableBridge         bool                      `json:"-"`
+	DNS                   []string                  `json:"dns,omitempty"`
+	DNSOptions            []string                  `json:"dns-opts,omitempty"`
+	DNSSearch             []string                  `json:"dns-search,omitempty"`
+	ExecOptions           []string                  `json:"exec-opts,omitempty"`
+	GraphDriver           string                    `json:"storage-driver,omitempty"`
+	GraphOptions          []string                  `json:"storage-opts,omitempty"`
+	Labels                []string                  `json:"labels,omitempty"`
+	Mtu                   int                       `json:"mtu,omitempty"`
+	NetworkDiagnosticPort int                       `json:"network-diagnostic-port,omitempty"`
+	Pidfile               string                    `json:"pidfile,omitempty"`
+	RawLogs               bool                      `json:"raw-logs,omitempty"`
+	RootDeprecated        string                    `json:"graph,omitempty"`
+	Root                  string                    `json:"data-root,omitempty"`
+	ExecRoot              string                    `json:"exec-root,omitempty"`
+	SocketGroup           string                    `json:"group,omitempty"`
+	CorsHeaders           string                    `json:"api-cors-header,omitempty"`
 
 	// TrustKeyPath is used to generate the daemon ID and for signing schema 1 manifests
 	// when pushing to a registry which does not support schema 2. This field is marked as
@@ -166,7 +167,7 @@ type CommonConfig struct {
 	sync.Mutex
 	// FIXME(vdemeester) This part is not that clear and is mainly dependent on cli flags
 	// It should probably be handled outside this package.
-	ValuesSet map[string]interface{}
+	ValuesSet map[string]interface{} `json:"-"`
 
 	Experimental bool `json:"experimental"` // Experimental indicates whether experimental features should be exposed or not
 
@@ -510,11 +511,7 @@ func Validate(config *Config) error {
 	}
 
 	// validate platform-specific settings
-	if err := config.ValidatePlatformConfig(); err != nil {
-		return err
-	}
-
-	return nil
+	return config.ValidatePlatformConfig()
 }
 
 // ModifiedDiscoverySettings returns whether the discovery configuration has been modified or not.

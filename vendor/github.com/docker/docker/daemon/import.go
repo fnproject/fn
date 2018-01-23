@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/builder/dockerfile"
 	"github.com/docker/docker/builder/remotecontext"
 	"github.com/docker/docker/dockerversion"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/archive"
@@ -42,21 +43,21 @@ func (daemon *Daemon) ImportImage(src string, repository, os string, tag string,
 		var err error
 		newRef, err = reference.ParseNormalizedNamed(repository)
 		if err != nil {
-			return validationError{err}
+			return errdefs.InvalidParameter(err)
 		}
 		if _, isCanonical := newRef.(reference.Canonical); isCanonical {
-			return validationError{errors.New("cannot import digest reference")}
+			return errdefs.InvalidParameter(errors.New("cannot import digest reference"))
 		}
 
 		if tag != "" {
 			newRef, err = reference.WithTag(newRef, tag)
 			if err != nil {
-				return validationError{err}
+				return errdefs.InvalidParameter(err)
 			}
 		}
 	}
 
-	config, err := dockerfile.BuildFromConfig(&container.Config{}, changes)
+	config, err := dockerfile.BuildFromConfig(&container.Config{}, changes, os)
 	if err != nil {
 		return err
 	}
@@ -69,7 +70,7 @@ func (daemon *Daemon) ImportImage(src string, repository, os string, tag string,
 		}
 		u, err := url.Parse(src)
 		if err != nil {
-			return validationError{err}
+			return errdefs.InvalidParameter(err)
 		}
 
 		resp, err = remotecontext.GetWithStatusError(u.String())
@@ -90,11 +91,11 @@ func (daemon *Daemon) ImportImage(src string, repository, os string, tag string,
 	if err != nil {
 		return err
 	}
-	l, err := daemon.stores[os].layerStore.Register(inflatedLayerData, "", layer.OS(os))
+	l, err := daemon.layerStores[os].Register(inflatedLayerData, "")
 	if err != nil {
 		return err
 	}
-	defer layer.ReleaseAndLog(daemon.stores[os].layerStore, l)
+	defer layer.ReleaseAndLog(daemon.layerStores[os], l)
 
 	created := time.Now().UTC()
 	imgConfig, err := json.Marshal(&image.Image{
@@ -119,14 +120,14 @@ func (daemon *Daemon) ImportImage(src string, repository, os string, tag string,
 		return err
 	}
 
-	id, err := daemon.stores[os].imageStore.Create(imgConfig)
+	id, err := daemon.imageStore.Create(imgConfig)
 	if err != nil {
 		return err
 	}
 
 	// FIXME: connect with commit code and call refstore directly
 	if newRef != nil {
-		if err := daemon.TagImageWithReference(id, os, newRef); err != nil {
+		if err := daemon.TagImageWithReference(id, newRef); err != nil {
 			return err
 		}
 	}

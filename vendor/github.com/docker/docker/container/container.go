@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/cio"
 	containertypes "github.com/docker/docker/api/types/container"
 	mounttypes "github.com/docker/docker/api/types/mount"
 	networktypes "github.com/docker/docker/api/types/network"
@@ -27,7 +27,6 @@ import (
 	"github.com/docker/docker/daemon/network"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
-	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
@@ -1004,7 +1003,7 @@ func (container *Container) CloseStreams() error {
 }
 
 // InitializeStdio is called by libcontainerd to connect the stdio.
-func (container *Container) InitializeStdio(iop *libcontainerd.IOPipe) (containerd.IO, error) {
+func (container *Container) InitializeStdio(iop *cio.DirectIO) (cio.IO, error) {
 	if err := container.startLogging(); err != nil {
 		container.Reset(false)
 		return nil, err
@@ -1020,17 +1019,26 @@ func (container *Container) InitializeStdio(iop *libcontainerd.IOPipe) (containe
 		}
 	}
 
-	return &cio{IO: iop, sc: container.StreamConfig}, nil
+	return &rio{IO: iop, sc: container.StreamConfig}, nil
+}
+
+// MountsResourcePath returns the path where mounts are stored for the given mount
+func (container *Container) MountsResourcePath(mount string) (string, error) {
+	return container.GetRootResourcePath(filepath.Join("mounts", mount))
 }
 
 // SecretMountPath returns the path of the secret mount for the container
-func (container *Container) SecretMountPath() string {
-	return filepath.Join(container.Root, "secrets")
+func (container *Container) SecretMountPath() (string, error) {
+	return container.MountsResourcePath("secrets")
 }
 
 // SecretFilePath returns the path to the location of a secret on the host.
-func (container *Container) SecretFilePath(secretRef swarmtypes.SecretReference) string {
-	return filepath.Join(container.SecretMountPath(), secretRef.SecretID)
+func (container *Container) SecretFilePath(secretRef swarmtypes.SecretReference) (string, error) {
+	secrets, err := container.SecretMountPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(secrets, secretRef.SecretID), nil
 }
 
 func getSecretTargetPath(r *swarmtypes.SecretReference) string {
@@ -1043,13 +1051,17 @@ func getSecretTargetPath(r *swarmtypes.SecretReference) string {
 
 // ConfigsDirPath returns the path to the directory where configs are stored on
 // disk.
-func (container *Container) ConfigsDirPath() string {
-	return filepath.Join(container.Root, "configs")
+func (container *Container) ConfigsDirPath() (string, error) {
+	return container.GetRootResourcePath("configs")
 }
 
 // ConfigFilePath returns the path to the on-disk location of a config.
-func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference) string {
-	return filepath.Join(container.ConfigsDirPath(), configRef.ConfigID)
+func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference) (string, error) {
+	configs, err := container.ConfigsDirPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configs, configRef.ConfigID), nil
 }
 
 // CreateDaemonEnvironment creates a new environment variable slice for this container.
@@ -1078,19 +1090,19 @@ func (container *Container) CreateDaemonEnvironment(tty bool, linkedEnv []string
 	return env
 }
 
-type cio struct {
-	containerd.IO
+type rio struct {
+	cio.IO
 
 	sc *stream.Config
 }
 
-func (i *cio) Close() error {
+func (i *rio) Close() error {
 	i.IO.Close()
 
 	return i.sc.CloseStreams()
 }
 
-func (i *cio) Wait() {
+func (i *rio) Wait() {
 	i.sc.Wait()
 
 	i.IO.Wait()

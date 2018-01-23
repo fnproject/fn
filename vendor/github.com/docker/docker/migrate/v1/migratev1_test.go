@@ -87,14 +87,15 @@ func TestMigrateContainers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ls := &mockMounter{}
-
 	ifs, err := image.NewFSStoreBackend(filepath.Join(tmpdir, "imagedb"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	is, err := image.NewImageStore(ifs, runtime.GOOS, ls)
+	ls := &mockMounter{}
+	mmMap := make(map[string]image.LayerGetReleaser)
+	mmMap[runtime.GOOS] = ls
+	is, err := image.NewImageStore(ifs, mmMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,19 +166,20 @@ func TestMigrateImages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ls := &mockRegistrar{}
-
 	ifs, err := image.NewFSStoreBackend(filepath.Join(tmpdir, "imagedb"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	is, err := image.NewImageStore(ifs, runtime.GOOS, ls)
+	ls := &mockRegistrar{}
+	mrMap := make(map[string]image.LayerGetReleaser)
+	mrMap[runtime.GOOS] = ls
+	is, err := image.NewImageStore(ifs, mrMap)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ms, err := metadata.NewFSMetadataStore(filepath.Join(tmpdir, "distribution"), runtime.GOOS)
+	ms, err := metadata.NewFSMetadataStore(filepath.Join(tmpdir, "distribution"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,10 +325,7 @@ func addContainer(dest, jsonConfig string) error {
 	if err := os.MkdirAll(contDir, 0700); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(contDir, "config.json"), []byte(jsonConfig), 0600); err != nil {
-		return err
-	}
-	return nil
+	return ioutil.WriteFile(filepath.Join(contDir, "config.json"), []byte(jsonConfig), 0600)
 }
 
 type mockTagAdder struct {
@@ -431,10 +430,6 @@ func (l *mockLayer) Size() (int64, error) {
 
 func (l *mockLayer) DiffSize() (int64, error) {
 	return 0, nil
-}
-
-func (l *mockLayer) OS() layer.OS {
-	return ""
 }
 
 func (l *mockLayer) Metadata() (map[string]string, error) {

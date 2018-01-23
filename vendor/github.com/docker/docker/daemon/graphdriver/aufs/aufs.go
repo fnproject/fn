@@ -89,7 +89,16 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, graphdriver.ErrNotSupported
 	}
 
-	fsMagic, err := graphdriver.GetFSMagic(root)
+	// Perform feature detection on /var/lib/docker/aufs if it's an existing directory.
+	// This covers situations where /var/lib/docker/aufs is a mount, and on a different
+	// filesystem than /var/lib/docker.
+	// If the path does not exist, fall back to using /var/lib/docker for feature detection.
+	testdir := root
+	if _, err := os.Stat(testdir); os.IsNotExist(err) {
+		testdir = filepath.Dir(testdir)
+	}
+
+	fsMagic, err := graphdriver.GetFSMagic(testdir)
 	if err != nil {
 		return nil, err
 	}
@@ -122,13 +131,8 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		return nil, err
 	}
-	// Create the root aufs driver dir and return
-	// if it already exists
-	// If not populate the dir structure
+	// Create the root aufs driver dir
 	if err := idtools.MkdirAllAndChown(root, 0700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil {
-		if os.IsExist(err) {
-			return a, nil
-		}
 		return nil, err
 	}
 
@@ -575,10 +579,7 @@ func (a *Driver) unmount(mountPath string) error {
 	if mounted, err := a.mounted(mountPath); err != nil || !mounted {
 		return err
 	}
-	if err := Unmount(mountPath); err != nil {
-		return err
-	}
-	return nil
+	return Unmount(mountPath)
 }
 
 func (a *Driver) mounted(mountpoint string) (bool, error) {

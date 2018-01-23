@@ -4,9 +4,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/cio"
 	"github.com/docker/docker/container/stream"
-	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/sirupsen/logrus"
 )
@@ -31,6 +30,7 @@ type Config struct {
 	Tty          bool
 	Privileged   bool
 	User         string
+	WorkingDir   string
 	Env          []string
 	Pid          int
 }
@@ -43,26 +43,26 @@ func NewConfig() *Config {
 	}
 }
 
-type cio struct {
-	containerd.IO
+type rio struct {
+	cio.IO
 
 	sc *stream.Config
 }
 
-func (i *cio) Close() error {
+func (i *rio) Close() error {
 	i.IO.Close()
 
 	return i.sc.CloseStreams()
 }
 
-func (i *cio) Wait() {
+func (i *rio) Wait() {
 	i.sc.Wait()
 
 	i.IO.Wait()
 }
 
 // InitializeStdio is called by libcontainerd to connect the stdio.
-func (c *Config) InitializeStdio(iop *libcontainerd.IOPipe) (containerd.IO, error) {
+func (c *Config) InitializeStdio(iop *cio.DirectIO) (cio.IO, error) {
 	c.StreamConfig.CopyToPipe(iop)
 
 	if c.StreamConfig.Stdin() == nil && !c.Tty && runtime.GOOS == "windows" {
@@ -73,7 +73,7 @@ func (c *Config) InitializeStdio(iop *libcontainerd.IOPipe) (containerd.IO, erro
 		}
 	}
 
-	return &cio{IO: iop, sc: c.StreamConfig}, nil
+	return &rio{IO: iop, sc: c.StreamConfig}, nil
 }
 
 // CloseStreams closes the stdio streams for the exec
@@ -88,16 +88,14 @@ func (c *Config) SetExitCode(code int) {
 
 // Store keeps track of the exec configurations.
 type Store struct {
-	byID  map[string]*Config
-	byPid map[int]*Config
+	byID map[string]*Config
 	sync.RWMutex
 }
 
 // NewStore initializes a new exec store.
 func NewStore() *Store {
 	return &Store{
-		byID:  make(map[string]*Config),
-		byPid: make(map[int]*Config),
+		byID: make(map[string]*Config),
 	}
 }
 
@@ -119,14 +117,6 @@ func (e *Store) Add(id string, Config *Config) {
 	e.Unlock()
 }
 
-// SetPidUnlocked adds an association between a Pid and a config, it does not
-// synchronized with other operations.
-func (e *Store) SetPidUnlocked(id string, pid int) {
-	if config, ok := e.byID[id]; ok {
-		e.byPid[pid] = config
-	}
-}
-
 // Get returns an exec configuration by its id.
 func (e *Store) Get(id string) *Config {
 	e.RLock()
@@ -135,18 +125,9 @@ func (e *Store) Get(id string) *Config {
 	return res
 }
 
-// ByPid returns an exec configuration by its pid.
-func (e *Store) ByPid(pid int) *Config {
-	e.RLock()
-	res := e.byPid[pid]
-	e.RUnlock()
-	return res
-}
-
 // Delete removes an exec configuration from the store.
 func (e *Store) Delete(id string, pid int) {
 	e.Lock()
-	delete(e.byPid, pid)
 	delete(e.byID, id)
 	e.Unlock()
 }

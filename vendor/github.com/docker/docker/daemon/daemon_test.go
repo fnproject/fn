@@ -9,6 +9,7 @@ import (
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
+	"github.com/docker/docker/errdefs"
 	_ "github.com/docker/docker/pkg/discovery/memory"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/truncindex"
@@ -17,6 +18,8 @@ import (
 	"github.com/docker/docker/volume/local"
 	"github.com/docker/docker/volume/store"
 	"github.com/docker/go-connections/nat"
+	"github.com/docker/libnetwork"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -310,4 +313,13 @@ func TestValidateContainerIsolation(t *testing.T) {
 
 	_, err := d.verifyContainerSettings(runtime.GOOS, &containertypes.HostConfig{Isolation: containertypes.Isolation("invalid")}, nil, false)
 	assert.EqualError(t, err, "invalid isolation 'invalid' on "+runtime.GOOS)
+}
+
+func TestFindNetworkErrorType(t *testing.T) {
+	d := Daemon{}
+	_, err := d.FindNetwork("fakeNet")
+	_, ok := errors.Cause(err).(libnetwork.ErrNoSuchNetwork)
+	if !errdefs.IsNotFound(err) || !ok {
+		assert.Fail(t, "The FindNetwork method MUST always return an error that implements the NotFound interface and is ErrNoSuchNetwork")
+	}
 }

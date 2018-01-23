@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/linux/runcopts"
-	"github.com/docker/docker/api/errdefs"
+	"github.com/containerd/containerd/cio"
+	"github.com/containerd/containerd/linux/runctypes"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/libcontainerd"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -16,7 +16,7 @@ import (
 )
 
 // PluginNamespace is the name used for the plugins namespace
-var PluginNamespace = "moby-plugins"
+var PluginNamespace = "plugins.moby"
 
 // ExitHandler represents an object that is called when the exit event is received from containerd
 type ExitHandler interface {
@@ -46,7 +46,7 @@ type Executor struct {
 
 // Create creates a new container
 func (e *Executor) Create(id string, spec specs.Spec, stdout, stderr io.WriteCloser) error {
-	opts := runcopts.RuncOptions{
+	opts := runctypes.RuncOptions{
 		RuntimeRoot: filepath.Join(e.rootDir, "runtime-root"),
 	}
 	ctx := context.Background()
@@ -110,37 +110,37 @@ func (e *Executor) ProcessEvent(id string, et libcontainerd.EventType, ei libcon
 	return nil
 }
 
-type cio struct {
-	containerd.IO
+type rio struct {
+	cio.IO
 
 	wg sync.WaitGroup
 }
 
-func (c *cio) Wait() {
+func (c *rio) Wait() {
 	c.wg.Wait()
 	c.IO.Wait()
 }
 
 func attachStreamsFunc(stdout, stderr io.WriteCloser) libcontainerd.StdioCallback {
-	return func(iop *libcontainerd.IOPipe) (containerd.IO, error) {
+	return func(iop *cio.DirectIO) (cio.IO, error) {
 		if iop.Stdin != nil {
 			iop.Stdin.Close()
 			// closing stdin shouldn't be needed here, it should never be open
 			panic("plugin stdin shouldn't have been created!")
 		}
 
-		cio := &cio{IO: iop}
-		cio.wg.Add(2)
+		rio := &rio{IO: iop}
+		rio.wg.Add(2)
 		go func() {
 			io.Copy(stdout, iop.Stdout)
 			stdout.Close()
-			cio.wg.Done()
+			rio.wg.Done()
 		}()
 		go func() {
 			io.Copy(stderr, iop.Stderr)
 			stderr.Close()
-			cio.wg.Done()
+			rio.wg.Done()
 		}()
-		return cio, nil
+		return rio, nil
 	}
 }
