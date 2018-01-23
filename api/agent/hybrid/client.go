@@ -122,14 +122,14 @@ func (cl *client) GetAppByID(ctx context.Context, appID string) (*models.App, er
 	return nil, errors.New("not implemented")
 }
 
-func (cl *client) GetAppByName(ctx context.Context, app *models.App) (*models.App, error) {
+func (cl *client) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
 	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
 	defer span.End()
 
 	var a struct {
 		A models.App `json:"app"`
 	}
-	err := cl.do(ctx, nil, &a, "GET", "apps", app.Name)
+	err := cl.do(ctx, nil, &a, "GET", "apps", appName)
 	return &a.A, err
 }
 
@@ -166,7 +166,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 		err = cl.once(ctx, request, result, method, url...)
 		switch err := err.(type) {
 		case nil:
-			return err
+			return nil
 		case *httpErr:
 			if err.code < 500 {
 				return err

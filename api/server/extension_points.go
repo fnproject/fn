@@ -19,9 +19,8 @@ func (s *Server) apiHandlerWrapperFunc(apiHandler fnext.ApiHandler) gin.HandlerF
 func (s *Server) apiAppHandlerWrapperFunc(apiHandler fnext.ApiAppHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get the app
-		appIDorName := c.Param(api.CApp)
-		app, err := s.datastore.GetApp(c.Request.Context(),
-			&models.App{Name: appIDorName, ID: appIDorName})
+		appName := c.Param(api.CApp)
+		app, err := s.datastore.GetAppByName(c.Request.Context(), appName)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
@@ -41,9 +40,8 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gi
 	return func(c *gin.Context) {
 		context := c.Request.Context()
 		// get the app
-		appIDorName := c.Param(api.CApp)
-		app := &models.App{Name: appIDorName, ID: appIDorName}
-		app, err := s.datastore.GetApp(context, app)
+		appName := c.Param(api.CApp)
+		app, err := s.datastore.GetAppByName(context, appName)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()

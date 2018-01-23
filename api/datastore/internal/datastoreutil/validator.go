@@ -17,12 +17,20 @@ type validator struct {
 	models.Datastore
 }
 
+func (v *validator) EnsureApp(ctx context.Context, appName string) (string, error) {
+	if appName == "" {
+		return "", models.ErrAppsMissingName
+	}
+	return v.Datastore.EnsureApp(ctx, appName)
+}
+
 // name will never be empty.
-func (v *validator) GetApp(ctx context.Context, name string) (app *models.App, err error) {
-	if name == "" {
+func (v *validator) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
+	if appName == "" {
 		return nil, models.ErrAppsMissingName
 	}
-	return v.Datastore.GetApp(ctx, name)
+
+	return v.Datastore.GetAppByName(ctx, appName)
 }
 
 func (v *validator) GetAppByID(ctx context.Context, appID string) (*models.App, error) {

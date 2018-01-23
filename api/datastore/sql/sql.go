@@ -86,10 +86,11 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector   = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
-	callSelector    = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
-	appNameSelector = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
-	appIDSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE id=?`
+	routeSelector     = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
+	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
+	appNameSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
+	appIDSelector     = `SELECT id, name, config, created_at, updated_at FROM apps WHERE id=?`
+	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 )
 
 type sqlStore struct {
@@ -255,6 +256,17 @@ func (ds *sqlStore) clear() error {
 	})
 }
 
+func (ds *sqlStore) EnsureApp(ctx context.Context, appName string) (string, error) {
+	var app models.App
+	err := ds.Tx(func(tx *sqlx.Tx) error {
+		return getAppTx(tx, ctx, appName, ensureAppSelector, &app)
+	})
+	if err == nil {
+		return app.ID, nil
+	}
+	return "", err
+}
+
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	query := ds.db.Rebind(`INSERT INTO apps (
 		id,
@@ -373,14 +385,15 @@ func getAppTx(tx *sqlx.Tx, ctx context.Context, app, appGetQuery string, a *mode
 	return err
 }
 
-func (ds *sqlStore) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
+func (ds *sqlStore) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
+	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, app.Name, appNameSelector, app)
+		return getAppTx(tx, ctx, appName, appNameSelector, &app)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return app, err
+	return &app, err
 }
 
 func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {

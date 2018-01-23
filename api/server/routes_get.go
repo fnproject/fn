@@ -5,21 +5,16 @@ import (
 	"path"
 
 	"github.com/fnproject/fn/api"
-	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) handleRouteGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	initApp := &models.App{Name: c.MustGet(api.App).(string)}
 	routePath := path.Clean("/" + c.MustGet(api.Path).(string))
-	app, err := s.datastore.GetApp(ctx, initApp)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-	route, err := s.datastore.GetRoute(ctx, app.ID, routePath)
+	appID := c.MustGet(api.AppID).(string)
+
+	route, err := s.datastore.GetRoute(ctx, appID, routePath)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

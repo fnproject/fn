@@ -52,7 +52,7 @@ type Params []Param
 func FromRequest(appName, path string, req *http.Request) CallOpt {
 	return func(a *agent, c *call) error {
 		// unfortunately to keep API consistent we have to query route with app name
-		app, err := a.da.GetAppByName(req.Context(), &models.App{Name: appName})
+		app, err := a.da.GetAppByName(req.Context(), appName)
 		if err != nil {
 			return err
 		}

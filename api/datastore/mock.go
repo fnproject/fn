@@ -29,9 +29,19 @@ func NewMockInit(apps []*models.App, routes []*models.Route, calls []*models.Cal
 	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte), logs.NewMock()})
 }
 
-func (m *mock) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
+func (m *mock) EnsureApp(ctx context.Context, appName string) (string, error) {
 	for _, a := range m.Apps {
-		if a.Name == app.Name || a.ID == app.ID {
+		if a.Name == appName {
+			return a.ID, nil
+		}
+	}
+
+	return "", models.ErrAppsNotFound
+}
+
+func (m *mock) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
+	for _, a := range m.Apps {
+		if a.Name == appName {
 			return a, nil
 		}
 	}
@@ -73,7 +83,7 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 }
 
 func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	if a, _ := m.GetApp(ctx, app); a != nil {
+	if a, _ := m.GetAppByName(ctx, app.Name); a != nil {
 		return nil, models.ErrAppsAlreadyExists
 	}
 	m.Apps = append(m.Apps, app)
@@ -81,7 +91,7 @@ func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
-	a, err := m.GetApp(ctx, app)
+	a, err := m.GetAppByName(ctx, app.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -138,12 +148,11 @@ func (m *mock) GetRoutesByApp(ctx context.Context, appID string, routeFilter *mo
 }
 
 func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	a := &models.App{Name: route.AppID, ID: route.AppID}
-	if _, err := m.GetApp(ctx, a); err != nil {
+	if _, err := m.GetAppByID(ctx, route.AppID); err != nil {
 		return nil, err
 	}
 
-	if r, _ := m.GetRoute(ctx, a.ID, route.Path); r != nil {
+	if r, _ := m.GetRoute(ctx, route.AppID, route.Path); r != nil {
 		return nil, models.ErrRoutesAlreadyExists
 	}
 	m.Routes = append(m.Routes, route)

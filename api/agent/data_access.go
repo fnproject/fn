@@ -17,7 +17,7 @@ import (
 // mediation through an API node).
 type DataAccess interface {
 	// GetApp abstracts querying the datastore for an app.
-	GetAppByName(ctx context.Context, app *models.App) (*models.App, error)
+	GetAppByName(ctx context.Context, appName string) (*models.App, error)
 
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 
@@ -89,15 +89,15 @@ func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	return app.(*models.App), nil
 }
 
-func (da *CachedDataAccess) GetAppByName(ctx context.Context, app *models.App) (*models.App, error) {
-	key := appNameCacheKey(app.Name)
+func (da *CachedDataAccess) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
+	key := appNameCacheKey(appName)
 	cachedApp, ok := da.cache.Get(key)
 	if ok {
 		return cachedApp.(*models.App), nil
 	}
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetAppByName(ctx, app)
+			return da.DataAccess.GetAppByName(ctx, appName)
 		})
 
 	if err != nil {
@@ -147,14 +147,14 @@ func (da *directDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	return da.ds.GetAppByID(ctx, appID)
 }
 
-func (da *directDataAccess) GetAppByName(ctx context.Context, app *models.App) (*models.App, error) {
-	return da.ds.GetApp(ctx, app.Name)
+func (da *directDataAccess) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
+	return da.ds.GetAppByName(ctx, appName)
 }
 
 // to make it work for both hybrid and full mode "app" parameter would be app name,
 // for direct access we need app ID hence we need to get app object by app name
 func (da *directDataAccess) GetRoute(ctx context.Context, app string, routePath string) (*models.Route, error) {
-	a, err := da.ds.GetApp(ctx, app)
+	a, err := da.ds.GetAppByName(ctx, app)
 	if err != nil {
 		return nil, err
 	}

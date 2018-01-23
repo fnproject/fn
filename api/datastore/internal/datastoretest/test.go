@@ -335,12 +335,14 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 
 		// Testing get app
-		_, err = ds.GetApp(ctx, "")
+		_, err = ds.GetAppByName(ctx, "")
 		if err != models.ErrAppsMissingName {
 			t.Fatalf("Test GetApp: expected error to be %v, but it was %s", models.ErrAppsMissingName, err)
 		}
 
-		app, err := ds.GetApp(ctx, testApp.Name)
+		ga := &models.App{Name: testApp.Name}
+		ga.SetDefaults()
+		app, err := ds.GetAppByName(ctx, testApp.Name)
 		if err != nil {
 			t.Fatalf("Test GetApp: error: %s", err)
 		}
@@ -432,7 +434,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if err != nil {
 			t.Fatalf("Test RemoveApp: error: %s", err)
 		}
-		app, err = ds.GetApp(ctx, testApp.Name)
+		app, err = ds.GetAppByName(ctx, testApp.Name)
 		if err != models.ErrAppsNotFound {
 			t.Fatalf("Test GetApp(removed): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 		}

@@ -12,7 +12,7 @@ func (s *Server) handleAppGet(c *gin.Context) {
 
 	appName := c.MustGet(api.App).(string)
 
-	app, err := s.datastore.GetApp(ctx, appName)
+	app, err := s.datastore.GetAppByName(ctx, appName)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
