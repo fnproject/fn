@@ -517,6 +517,6 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 
 	_, err := a.GetCall(FromModel(call))
 	if err != models.ErrCallTimeoutServerBusy {
-		t.Fatalf("did not get expected err, got: ", err)
+		t.Fatal("did not get expected err, got: ", err)
 	}
 }
