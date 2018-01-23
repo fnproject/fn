@@ -304,82 +304,65 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
 // containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
 // it destroys the slot queue.
-func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
-
+func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
 	timeout := time.Duration(60) * time.Minute
-	idleTimeout := time.Duration(callObj.IdleTimeout) * time.Second * 2
+	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
 	}
 
 	logger := common.Logger(ctx)
 	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
-	isAsync := callObj.Type == models.TypeAsync
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // shut down GetResourceToken if timeout/shutdown
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(common.WithLogger(ctx, logger), opentracing.SpanFromContext(ctx))
+	ctx = opentracing.ContextWithSpan(common.WithLogger(context.Background(), logger), opentracing.SpanFromContext(ctx))
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_launcher")
 	defer span.Finish()
 
 	for {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		a.checkLaunch(ctx, call)
+
 		select {
 		case <-a.shutdown: // server shutdown
 			cancel()
 			return
-		case <-ctx.Done():
+		case <-ctx.Done(): // timed out
 			cancel()
-			if a.slotMgr.deleteSlotQueue(callObj.slots) {
+			if a.slotMgr.deleteSlotQueue(call.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
-		case <-callObj.slots.signaller:
-		}
-		cancel()
-
-		curStats := callObj.slots.getStats()
-		isNeeded := isNewContainerNeeded(&curStats)
-		logger.WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Debug("Hot function launcher stats")
-		if !isNeeded {
-			continue
-		}
-		logger.WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
-
-		// if we get a timeout, we must call off get resource token
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-
-		select {
-		case tok, isOpen := <-a.resources.GetResourceToken(ctx, callObj.Memory, uint64(callObj.CPUs), isAsync):
-			if isOpen {
-				a.wg.Add(1)
-				go func(ctx context.Context, call *call, tok ResourceToken) {
-					a.runHot(ctx, call, tok)
-					a.wg.Done()
-				}(ctx, callObj, tok)
-			} else {
-				cancel()
-				// this means the resource was impossible to reserve (eg. memory size we can never satisfy),
-				// return here so we don't infinite loop
-				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
-				return
-			}
+		case <-call.slots.signaller:
 			cancel()
-		case <-ctx.Done():
-			cancel()
-			if a.slotMgr.deleteSlotQueue(callObj.slots) {
-				logger.Info("Hot function launcher timed out")
-				return
-			}
-		case <-a.shutdown: // server shutdown
-			cancel()
-			return
 		}
+	}
+}
+
+func (a *agent) checkLaunch(ctx context.Context, call *call) {
+	curStats := call.slots.getStats()
+	isAsync := call.Type == models.TypeAsync
+	isNeeded := isNewContainerNeeded(&curStats)
+	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Debug("Hot function launcher stats")
+	if !isNeeded {
+		return
+	}
+	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
+
+	select {
+	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+		a.wg.Add(1) // add waiter in this thread
+		go func() {
+			// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
+			a.runHot(ctx, call, tok)
+			a.wg.Done()
+		}()
+	case <-ctx.Done(): // timeout
+	case <-a.shutdown: // server shutdown
 	}
 }
 
@@ -436,10 +419,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	defer span.Finish()
 
 	select {
-	case tok, isOpen := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
-		if !isOpen {
-			return nil, models.ErrCallTimeoutServerBusy
-		}
+	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
 		go a.prepCold(ctx, call, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()

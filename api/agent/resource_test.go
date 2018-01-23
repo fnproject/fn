@@ -238,8 +238,9 @@ func TestResourceGetCombo(t *testing.T) {
 	// impossible request
 	ctx, cancel := context.WithCancel(context.Background())
 	ch := trI.GetResourceToken(ctx, 20*1024, 20000, false)
-	if !isClosed(ch) {
-		t.Fatalf("impossible request should return closed channel")
+	_, err := fetchToken(ch)
+	if err == nil {
+		t.Fatalf("impossible request should never return (error here)")
 	}
 
 	cancel()

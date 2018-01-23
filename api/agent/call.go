@@ -205,6 +205,11 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
+	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+		// if we're not going to be able to run this call on this machine, bail here.
+		return nil, models.ErrCallTimeoutServerBusy
+	}
+
 	c.da = a.da
 	c.ct = a
 
