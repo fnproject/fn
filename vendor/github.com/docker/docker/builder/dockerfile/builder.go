@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/builder/dockerfile/parser"
 	"github.com/docker/docker/builder/fscache"
 	"github.com/docker/docker/builder/remotecontext"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/streamformatter"
 	"github.com/docker/docker/pkg/stringid"
@@ -122,7 +123,7 @@ func (bm *BuildManager) Build(ctx context.Context, config backend.BuildConfig) (
 		PathCache:      bm.pathCache,
 		IDMappings:     bm.idMappings,
 	}
-	return newBuilder(ctx, builderOptions, os).build(source, dockerfile)
+	return newBuilder(ctx, builderOptions).build(source, dockerfile)
 }
 
 func (bm *BuildManager) initializeClientSession(ctx context.Context, cancel func(), options *types.ImageBuildOptions) (builder.Source, error) {
@@ -189,7 +190,7 @@ type Builder struct {
 }
 
 // newBuilder creates a new Dockerfile builder from an optional dockerfile and a Options.
-func newBuilder(clientCtx context.Context, options builderOptions, os string) *Builder {
+func newBuilder(clientCtx context.Context, options builderOptions) *Builder {
 	config := options.Options
 	if config == nil {
 		config = new(types.ImageBuildOptions)
@@ -206,7 +207,7 @@ func newBuilder(clientCtx context.Context, options builderOptions, os string) *B
 		idMappings:       options.IDMappings,
 		imageSources:     newImageSources(clientCtx, options),
 		pathCache:        options.PathCache,
-		imageProber:      newImageProber(options.Backend, config.CacheFrom, os, config.NoCache),
+		imageProber:      newImageProber(options.Backend, config.CacheFrom, config.NoCache),
 		containerManager: newContainerManager(options.Backend),
 	}
 
@@ -225,7 +226,7 @@ func (b *Builder) build(source builder.Source, dockerfile *parser.Result) (*buil
 		if instructions.IsUnknownInstruction(err) {
 			buildsFailed.WithValues(metricsUnknownInstructionError).Inc()
 		}
-		return nil, validationError{err}
+		return nil, errdefs.InvalidParameter(err)
 	}
 	if b.options.Target != "" {
 		targetIx, found := instructions.HasStage(stages, b.options.Target)
@@ -356,29 +357,27 @@ func addNodesForLabelOption(dockerfile *parser.Node, labels map[string]string) {
 // coming from the query parameter of the same name.
 //
 // TODO: Remove?
-func BuildFromConfig(config *container.Config, changes []string) (*container.Config, error) {
+func BuildFromConfig(config *container.Config, changes []string, os string) (*container.Config, error) {
+	if !system.IsOSSupported(os) {
+		return nil, errdefs.InvalidParameter(system.ErrNotSupportedOperatingSystem)
+	}
 	if len(changes) == 0 {
 		return config, nil
 	}
 
 	dockerfile, err := parser.Parse(bytes.NewBufferString(strings.Join(changes, "\n")))
 	if err != nil {
-		return nil, validationError{err}
-	}
-
-	os := runtime.GOOS
-	if dockerfile.OS != "" {
-		os = dockerfile.OS
+		return nil, errdefs.InvalidParameter(err)
 	}
 
 	b := newBuilder(context.Background(), builderOptions{
 		Options: &types.ImageBuildOptions{NoCache: true},
-	}, os)
+	})
 
 	// ensure that the commands are valid
 	for _, n := range dockerfile.AST.Children {
 		if !validCommitCommands[n.Value] {
-			return nil, validationError{errors.Errorf("%s is not a valid change command", n.Value)}
+			return nil, errdefs.InvalidParameter(errors.Errorf("%s is not a valid change command", n.Value))
 		}
 	}
 
@@ -390,18 +389,20 @@ func BuildFromConfig(config *container.Config, changes []string) (*container.Con
 	for _, n := range dockerfile.AST.Children {
 		cmd, err := instructions.ParseCommand(n)
 		if err != nil {
-			return nil, validationError{err}
+			return nil, errdefs.InvalidParameter(err)
 		}
 		commands = append(commands, cmd)
 	}
 
 	dispatchRequest := newDispatchRequest(b, dockerfile.EscapeToken, nil, newBuildArgs(b.options.BuildArgs), newStagesBuildResults())
-	dispatchRequest.state.runConfig = config
+	// We make mutations to the configuration, ensure we have a copy
+	dispatchRequest.state.runConfig = copyRunConfig(config)
 	dispatchRequest.state.imageID = config.Image
+	dispatchRequest.state.operatingSystem = os
 	for _, cmd := range commands {
 		err := dispatch(dispatchRequest, cmd)
 		if err != nil {
-			return nil, validationError{err}
+			return nil, errdefs.InvalidParameter(err)
 		}
 		dispatchRequest.state.updateRunConfig()
 	}

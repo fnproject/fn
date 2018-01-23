@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -27,7 +26,6 @@ import (
 	winlibnetwork "github.com/docker/libnetwork/drivers/windows"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
-	blkiodev "github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
@@ -46,10 +44,6 @@ const (
 // Windows has no concept of an execution state directory. So use config.Root here.
 func getPluginExecRoot(root string) string {
 	return filepath.Join(root, "plugins")
-}
-
-func getBlkioWeightDevices(config *containertypes.HostConfig) ([]blkiodev.WeightDevice, error) {
-	return nil, nil
 }
 
 func (daemon *Daemon) parseSecurityOpt(container *container.Container, hostConfig *containertypes.HostConfig) error {
@@ -213,12 +207,6 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 	return warnings, err
 }
 
-// reloadPlatform updates configuration with platform specific options
-// and updates the passed attributes
-func (daemon *Daemon) reloadPlatform(config *config.Config, attributes map[string]string) error {
-	return nil
-}
-
 // verifyDaemonSettings performs validation of daemon config struct
 func verifyDaemonSettings(config *config.Config) error {
 	return nil
@@ -268,7 +256,7 @@ func ensureServicesInstalled(services []string) error {
 }
 
 // configureKernelSecuritySupport configures and validate security support for the kernel
-func configureKernelSecuritySupport(config *config.Config, driverNames []string) error {
+func configureKernelSecuritySupport(config *config.Config, driverName string) error {
 	return nil
 }
 
@@ -350,6 +338,9 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 		}
 
 		controller.WalkNetworks(s)
+
+		drvOptions := make(map[string]string)
+
 		if n != nil {
 			// global networks should not be deleted by local HNS
 			if n.Info().Scope() == datastore.GlobalScope {
@@ -358,12 +349,21 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 			v.Name = n.Name()
 			// This will not cause network delete from HNS as the network
 			// is not yet populated in the libnetwork windows driver
+
+			// restore option if it existed before
+			drvOptions = n.Info().DriverOptions()
 			n.Delete()
 		}
-
 		netOption := map[string]string{
 			winlibnetwork.NetworkName: v.Name,
 			winlibnetwork.HNSID:       v.Id,
+		}
+
+		// add persisted driver options
+		for k, v := range drvOptions {
+			if k != winlibnetwork.NetworkName && k != winlibnetwork.HNSID {
+				netOption[k] = v
+			}
 		}
 
 		v4Conf := []*libnetwork.IpamConf{}
@@ -473,7 +473,7 @@ func setupRemappedRoot(config *config.Config) (*idtools.IDMappings, error) {
 func setupDaemonRoot(config *config.Config, rootDir string, rootIDs idtools.IDPair) error {
 	config.Root = rootDir
 	// Create the root directory if it doesn't exists
-	if err := system.MkdirAllWithACL(config.Root, 0, system.SddlAdministratorsLocalSystem); err != nil && !os.IsExist(err) {
+	if err := system.MkdirAllWithACL(config.Root, 0, system.SddlAdministratorsLocalSystem); err != nil {
 		return err
 	}
 	return nil

@@ -27,11 +27,14 @@ func (daemon *Daemon) Reload(conf *config.Config) (err error) {
 	attributes := map[string]string{}
 
 	defer func() {
+		jsonString, _ := json.Marshal(daemon.configStore)
+
 		// we're unlocking here, because
 		// LogDaemonEventWithAttributes() -> SystemInfo() -> GetAllRuntimes()
 		// holds that lock too.
 		daemon.configStore.Unlock()
 		if err == nil {
+			logrus.Infof("Reloaded configuration: %s", jsonString)
 			daemon.LogDaemonEventWithAttributes("reload", attributes)
 		}
 	}()
@@ -61,7 +64,7 @@ func (daemon *Daemon) Reload(conf *config.Config) (err error) {
 	if err := daemon.reloadLiveRestore(conf, attributes); err != nil {
 		return err
 	}
-	return nil
+	return daemon.reloadNetworkDiagnosticPort(conf, attributes)
 }
 
 // reloadDebug updates configuration with Debug option
@@ -306,5 +309,20 @@ func (daemon *Daemon) reloadLiveRestore(conf *config.Config, attributes map[stri
 
 	// prepare reload event attributes with updatable configurations
 	attributes["live-restore"] = fmt.Sprintf("%t", daemon.configStore.LiveRestoreEnabled)
+	return nil
+}
+
+// reloadNetworkDiagnosticPort updates the network controller starting the diagnose mode if the config is valid
+func (daemon *Daemon) reloadNetworkDiagnosticPort(conf *config.Config, attributes map[string]string) error {
+	if conf == nil || daemon.netController == nil {
+		return nil
+	}
+	// Enable the network diagnose if the flag is set with a valid port withing the range
+	if conf.IsValueSet("network-diagnostic-port") && conf.NetworkDiagnosticPort > 0 && conf.NetworkDiagnosticPort < 65536 {
+		logrus.Warnf("Calling the diagnostic start with %d", conf.NetworkDiagnosticPort)
+		daemon.netController.StartDiagnose(conf.NetworkDiagnosticPort)
+	} else {
+		daemon.netController.StopDiagnose()
+	}
 	return nil
 }

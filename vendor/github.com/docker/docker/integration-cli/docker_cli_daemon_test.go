@@ -467,9 +467,8 @@ func (s *DockerDaemonSuite) TestDaemonIPv6HostMode(c *check.C) {
 	c.Assert(err, checker.IsNil, check.Commentf("Could not run container: %s, %v", out, err))
 
 	out, err = s.d.Cmd("exec", "hostcnt", "ip", "-6", "addr", "show", "docker0")
-	out = strings.Trim(out, " \r\n'")
-
-	c.Assert(out, checker.Contains, "2001:db8:2::1")
+	c.Assert(err, checker.IsNil)
+	c.Assert(strings.Trim(out, " \r\n'"), checker.Contains, "2001:db8:2::1")
 }
 
 func (s *DockerDaemonSuite) TestDaemonLogLevelWrong(c *check.C) {
@@ -1434,24 +1433,30 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithSocketAsVolume(c *check.C) {
 // A subsequent daemon restart should clean up said mounts.
 func (s *DockerDaemonSuite) TestCleanupMountsAfterDaemonAndContainerKill(c *check.C) {
 	d := daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
-		Experimental: testEnv.ExperimentalDaemon(),
+		Experimental: testEnv.DaemonInfo.ExperimentalBuild,
 	})
 	d.StartWithBusybox(c)
 
 	out, err := d.Cmd("run", "-d", "busybox", "top")
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", out))
 	id := strings.TrimSpace(out)
-	c.Assert(d.Signal(os.Kill), check.IsNil)
+
+	// If there are no mounts with container id visible from the host
+	// (as those are in container's own mount ns), there is nothing
+	// to check here and the test should be skipped.
 	mountOut, err := ioutil.ReadFile("/proc/self/mountinfo")
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", mountOut))
+	if !strings.Contains(string(mountOut), id) {
+		d.Stop(c)
+		c.Skip("no container mounts visible in host ns")
+	}
 
-	// container mounts should exist even after daemon has crashed.
-	comment := check.Commentf("%s should stay mounted from older daemon start:\nDaemon root repository %s\n%s", id, d.Root, mountOut)
-	c.Assert(strings.Contains(string(mountOut), id), check.Equals, true, comment)
+	// kill the daemon
+	c.Assert(d.Kill(), check.IsNil)
 
 	// kill the container
 	icmd.RunCommand(ctrBinary, "--address", "/var/run/docker/containerd/docker-containerd.sock",
-		"--namespace", moby_daemon.MainNamespace, "tasks", "kill", id).Assert(c, icmd.Success)
+		"--namespace", moby_daemon.ContainersNamespace, "tasks", "kill", id).Assert(c, icmd.Success)
 
 	// restart daemon.
 	d.Restart(c)
@@ -1459,7 +1464,7 @@ func (s *DockerDaemonSuite) TestCleanupMountsAfterDaemonAndContainerKill(c *chec
 	// Now, container mounts should be gone.
 	mountOut, err = ioutil.ReadFile("/proc/self/mountinfo")
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", mountOut))
-	comment = check.Commentf("%s is still mounted from older daemon start:\nDaemon root repository %s\n%s", id, d.Root, mountOut)
+	comment := check.Commentf("%s is still mounted from older daemon start:\nDaemon root repository %s\n%s", id, d.Root, mountOut)
 	c.Assert(strings.Contains(string(mountOut), id), check.Equals, false, comment)
 
 	d.Stop(c)
@@ -1468,7 +1473,7 @@ func (s *DockerDaemonSuite) TestCleanupMountsAfterDaemonAndContainerKill(c *chec
 // os.Interrupt should perform a graceful daemon shutdown and hence cleanup mounts.
 func (s *DockerDaemonSuite) TestCleanupMountsAfterGracefulShutdown(c *check.C) {
 	d := daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
-		Experimental: testEnv.ExperimentalDaemon(),
+		Experimental: testEnv.DaemonInfo.ExperimentalBuild,
 	})
 	d.StartWithBusybox(c)
 
@@ -1689,7 +1694,7 @@ func (s *DockerDaemonSuite) TestDaemonRestartLocalVolumes(c *check.C) {
 // FIXME(vdemeester) should be a unit test
 func (s *DockerDaemonSuite) TestDaemonCorruptedLogDriverAddress(c *check.C) {
 	d := daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
-		Experimental: testEnv.ExperimentalDaemon(),
+		Experimental: testEnv.DaemonInfo.ExperimentalBuild,
 	})
 	c.Assert(d.StartWithError("--log-driver=syslog", "--log-opt", "syslog-address=corrupted:42"), check.NotNil)
 	expected := "Failed to set log opts: syslog-address should be in form proto://address"
@@ -1699,7 +1704,7 @@ func (s *DockerDaemonSuite) TestDaemonCorruptedLogDriverAddress(c *check.C) {
 // FIXME(vdemeester) should be a unit test
 func (s *DockerDaemonSuite) TestDaemonCorruptedFluentdAddress(c *check.C) {
 	d := daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
-		Experimental: testEnv.ExperimentalDaemon(),
+		Experimental: testEnv.DaemonInfo.ExperimentalBuild,
 	})
 	c.Assert(d.StartWithError("--log-driver=fluentd", "--log-opt", "fluentd-address=corrupted:c"), check.NotNil)
 	expected := "Failed to set log opts: invalid fluentd-address corrupted:c: "
@@ -2011,7 +2016,7 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithKilledRunningContainer(t *check
 
 	// kill the container
 	icmd.RunCommand(ctrBinary, "--address", "/var/run/docker/containerd/docker-containerd.sock",
-		"--namespace", moby_daemon.MainNamespace, "tasks", "kill", cid).Assert(t, icmd.Success)
+		"--namespace", moby_daemon.ContainersNamespace, "tasks", "kill", cid).Assert(t, icmd.Success)
 
 	// Give time to containerd to process the command if we don't
 	// the exit event might be received after we do the inspect
@@ -2047,13 +2052,18 @@ func (s *DockerDaemonSuite) TestCleanupMountsAfterDaemonCrash(c *check.C) {
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", out))
 	id := strings.TrimSpace(out)
 
-	c.Assert(s.d.Signal(os.Kill), check.IsNil)
+	// kill the daemon
+	c.Assert(s.d.Kill(), check.IsNil)
+
+	// Check if there are mounts with container id visible from the host.
+	// If not, those mounts exist in container's own mount ns, and so
+	// the following check for mounts being cleared is pointless.
+	skipMountCheck := false
 	mountOut, err := ioutil.ReadFile("/proc/self/mountinfo")
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", mountOut))
-
-	// container mounts should exist even after daemon has crashed.
-	comment := check.Commentf("%s should stay mounted from older daemon start:\nDaemon root repository %s\n%s", id, s.d.Root, mountOut)
-	c.Assert(strings.Contains(string(mountOut), id), check.Equals, true, comment)
+	if !strings.Contains(string(mountOut), id) {
+		skipMountCheck = true
+	}
 
 	// restart daemon.
 	s.d.Start(c, "--live-restore")
@@ -2070,10 +2080,13 @@ func (s *DockerDaemonSuite) TestCleanupMountsAfterDaemonCrash(c *check.C) {
 	out, err = s.d.Cmd("stop", id)
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", out))
 
+	if skipMountCheck {
+		return
+	}
 	// Now, container mounts should be gone.
 	mountOut, err = ioutil.ReadFile("/proc/self/mountinfo")
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", mountOut))
-	comment = check.Commentf("%s is still mounted from older daemon start:\nDaemon root repository %s\n%s", id, s.d.Root, mountOut)
+	comment := check.Commentf("%s is still mounted from older daemon start:\nDaemon root repository %s\n%s", id, s.d.Root, mountOut)
 	c.Assert(strings.Contains(string(mountOut), id), check.Equals, false, comment)
 }
 
@@ -2106,7 +2119,7 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithUnpausedRunningContainer(t *che
 	result := icmd.RunCommand(
 		ctrBinary,
 		"--address", "/var/run/docker/containerd/docker-containerd.sock",
-		"--namespace", moby_daemon.MainNamespace,
+		"--namespace", moby_daemon.ContainersNamespace,
 		"tasks", "resume", cid)
 	result.Assert(t, icmd.Success)
 
@@ -3068,7 +3081,7 @@ func (s *DockerDaemonSuite) TestDaemonIpcModeShareableFromConfig(c *check.C) {
 
 func testDaemonStartIpcMode(c *check.C, from, mode string, valid bool) {
 	d := daemon.New(c, dockerBinary, dockerdBinary, daemon.Config{
-		Experimental: testEnv.ExperimentalDaemon(),
+		Experimental: testEnv.DaemonInfo.ExperimentalBuild,
 	})
 	c.Logf("Checking IpcMode %s set from %s\n", mode, from)
 	var serr error

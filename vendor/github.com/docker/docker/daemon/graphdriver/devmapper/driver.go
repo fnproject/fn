@@ -146,12 +146,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	if opts != nil {
 		storageOpt = opts.StorageOpt
 	}
-
-	if err := d.DeviceSet.AddDevice(id, parent, storageOpt); err != nil {
-		return err
-	}
-
-	return nil
+	return d.DeviceSet.AddDevice(id, parent, storageOpt)
 }
 
 // Remove removes a device with a given id, unmounts the filesystem.
@@ -189,7 +184,7 @@ func (d *Driver) Get(id, mountLabel string) (containerfs.ContainerFS, error) {
 	}
 
 	// Create the target directories if they don't exist
-	if err := idtools.MkdirAllAndChown(path.Join(d.home, "mnt"), 0755, idtools.IDPair{UID: uid, GID: gid}); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAndChown(path.Join(d.home, "mnt"), 0755, idtools.IDPair{UID: uid, GID: gid}); err != nil {
 		d.ctr.Decrement(mp)
 		return nil, err
 	}
@@ -204,7 +199,7 @@ func (d *Driver) Get(id, mountLabel string) (containerfs.ContainerFS, error) {
 		return nil, err
 	}
 
-	if err := idtools.MkdirAllAndChown(rootFs, 0755, idtools.IDPair{UID: uid, GID: gid}); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAndChown(rootFs, 0755, idtools.IDPair{UID: uid, GID: gid}); err != nil {
 		d.ctr.Decrement(mp)
 		d.DeviceSet.UnmountDevice(id, mp)
 		return nil, err

@@ -14,6 +14,7 @@ import (
 	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/network"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/runconfig"
@@ -251,8 +252,8 @@ func (daemon *Daemon) updateNetworkSettings(container *container.Container, n li
 		return runconfig.ErrConflictHostNetwork
 	}
 
-	for s := range container.NetworkSettings.Networks {
-		sn, err := daemon.FindNetwork(s)
+	for s, v := range container.NetworkSettings.Networks {
+		sn, err := daemon.FindNetwork(getNetworkID(s, v.EndpointSettings))
 		if err != nil {
 			continue
 		}
@@ -308,8 +309,8 @@ func (daemon *Daemon) updateNetwork(container *container.Container) error {
 
 	// Find if container is connected to the default bridge network
 	var n libnetwork.Network
-	for name := range container.NetworkSettings.Networks {
-		sn, err := daemon.FindNetwork(name)
+	for name, v := range container.NetworkSettings.Networks {
+		sn, err := daemon.FindNetwork(getNetworkID(name, v.EndpointSettings))
 		if err != nil {
 			continue
 		}
@@ -339,7 +340,7 @@ func (daemon *Daemon) updateNetwork(container *container.Container) error {
 }
 
 func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrName string, epConfig *networktypes.EndpointSettings) (libnetwork.Network, *networktypes.NetworkingConfig, error) {
-	n, err := daemon.FindNetwork(idOrName)
+	n, err := daemon.FindNetwork(getNetworkID(idOrName, epConfig))
 	if err != nil {
 		// We should always be able to find the network for a
 		// managed container.
@@ -377,16 +378,16 @@ func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrN
 		// trigger attachment in the swarm cluster manager.
 		if daemon.clusterProvider != nil {
 			var err error
-			config, err = daemon.clusterProvider.AttachNetwork(idOrName, container.ID, addresses)
+			config, err = daemon.clusterProvider.AttachNetwork(getNetworkID(idOrName, epConfig), container.ID, addresses)
 			if err != nil {
 				return nil, nil, err
 			}
 		}
 
-		n, err = daemon.FindNetwork(idOrName)
+		n, err = daemon.FindNetwork(getNetworkID(idOrName, epConfig))
 		if err != nil {
 			if daemon.clusterProvider != nil {
-				if err := daemon.clusterProvider.DetachNetwork(idOrName, container.ID); err != nil {
+				if err := daemon.clusterProvider.DetachNetwork(getNetworkID(idOrName, epConfig), container.ID); err != nil {
 					logrus.Warnf("Could not rollback attachment for container %s to network %s: %v", container.ID, idOrName, err)
 				}
 			}
@@ -922,7 +923,7 @@ func (daemon *Daemon) getNetworkedContainer(containerID, connectedContainerID st
 	}
 	if !nc.IsRunning() {
 		err := fmt.Errorf("cannot join network of a non running container: %s", connectedContainerID)
-		return nil, stateConflictError{err}
+		return nil, errdefs.Conflict(err)
 	}
 	if nc.IsRestarting() {
 		return nil, errContainerIsRestarting(connectedContainerID)
@@ -949,7 +950,7 @@ func (daemon *Daemon) releaseNetwork(container *container.Container) {
 
 	var networks []libnetwork.Network
 	for n, epSettings := range settings {
-		if nw, err := daemon.FindNetwork(n); err == nil {
+		if nw, err := daemon.FindNetwork(getNetworkID(n, epSettings.EndpointSettings)); err == nil {
 			networks = append(networks, nw)
 		}
 
@@ -964,6 +965,9 @@ func (daemon *Daemon) releaseNetwork(container *container.Container) {
 	if err != nil {
 		logrus.Warnf("error locating sandbox id %s: %v", sid, err)
 		return
+	}
+	if err := sb.DisableService(); err != nil {
+		logrus.WithFields(logrus.Fields{"container": container.ID, "sandbox": sid}).WithError(err).Error("Error removing service from sandbox")
 	}
 
 	if err := sb.Delete(); err != nil {
@@ -1086,4 +1090,13 @@ func (daemon *Daemon) DeactivateContainerServiceBinding(containerName string) er
 		return nil
 	}
 	return sb.DisableService()
+}
+
+func getNetworkID(name string, endpointSettings *networktypes.EndpointSettings) string {
+	// We only want to prefer NetworkID for user defined networks.
+	// For systems like bridge, none, etc. the name is preferred (otherwise restart may cause issues)
+	if containertypes.NetworkMode(name).IsUserDefined() && endpointSettings != nil && endpointSettings.NetworkID != "" {
+		return endpointSettings.NetworkID
+	}
+	return name
 }

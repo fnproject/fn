@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/container/stream"
 	"github.com/docker/docker/daemon/exec"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/pools"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/docker/pkg/term"
@@ -29,14 +30,6 @@ func (d *Daemon) registerExecCommand(container *container.Container, config *exe
 	container.ExecCommands.Add(config.ID, config)
 	// Storing execs in daemon for easy access via Engine API.
 	d.execCommands.Add(config.ID, config)
-}
-
-func (d *Daemon) registerExecPidUnlocked(container *container.Container, config *exec.Config) {
-	logrus.Debugf("registering pid %v for exec %v", config.Pid, config.ID)
-	// Storing execs in container in order to kill them gracefully whenever the container is stopped or removed.
-	container.ExecCommands.SetPidUnlocked(config.ID, config.Pid)
-	// Storing execs in daemon for easy access via Engine API.
-	d.execCommands.SetPidUnlocked(config.ID, config.Pid)
 }
 
 // ExecExists looks up the exec instance and returns a bool if it exists or not.
@@ -130,6 +123,7 @@ func (d *Daemon) ContainerExecCreate(name string, config *types.ExecConfig) (str
 	execConfig.Tty = config.Tty
 	execConfig.Privileged = config.Privileged
 	execConfig.User = config.User
+	execConfig.WorkingDir = config.WorkingDir
 
 	linkedEnv, err := d.setupLinkedContainers(cntr)
 	if err != nil {
@@ -139,10 +133,16 @@ func (d *Daemon) ContainerExecCreate(name string, config *types.ExecConfig) (str
 	if len(execConfig.User) == 0 {
 		execConfig.User = cntr.Config.User
 	}
+	if len(execConfig.WorkingDir) == 0 {
+		execConfig.WorkingDir = cntr.Config.WorkingDir
+	}
 
 	d.registerExecCommand(cntr, execConfig)
 
-	d.LogContainerEvent(cntr, "exec_create: "+execConfig.Entrypoint+" "+strings.Join(execConfig.Args, " "))
+	attributes := map[string]string{
+		"execID": execConfig.ID,
+	}
+	d.LogContainerEventWithAttributes(cntr, "exec_create: "+execConfig.Entrypoint+" "+strings.Join(execConfig.Args, " "), attributes)
 
 	return execConfig.ID, nil
 }
@@ -165,19 +165,22 @@ func (d *Daemon) ContainerExecStart(ctx context.Context, name string, stdin io.R
 	if ec.ExitCode != nil {
 		ec.Unlock()
 		err := fmt.Errorf("Error: Exec command %s has already run", ec.ID)
-		return stateConflictError{err}
+		return errdefs.Conflict(err)
 	}
 
 	if ec.Running {
 		ec.Unlock()
-		return stateConflictError{fmt.Errorf("Error: Exec command %s is already running", ec.ID)}
+		return errdefs.Conflict(fmt.Errorf("Error: Exec command %s is already running", ec.ID))
 	}
 	ec.Running = true
 	ec.Unlock()
 
 	c := d.containers.Get(ec.ContainerID)
 	logrus.Debugf("starting exec command %s in container %s", ec.ID, c.ID)
-	d.LogContainerEvent(c, "exec_start: "+ec.Entrypoint+" "+strings.Join(ec.Args, " "))
+	attributes := map[string]string{
+		"execID": ec.ID,
+	}
+	d.LogContainerEventWithAttributes(c, "exec_start: "+ec.Entrypoint+" "+strings.Join(ec.Args, " "), attributes)
 
 	defer func() {
 		if err != nil {
@@ -219,7 +222,7 @@ func (d *Daemon) ContainerExecStart(ctx context.Context, name string, stdin io.R
 		Args:     append([]string{ec.Entrypoint}, ec.Args...),
 		Env:      ec.Env,
 		Terminal: ec.Tty,
-		Cwd:      c.Config.WorkingDir,
+		Cwd:      ec.WorkingDir,
 	}
 	if p.Cwd == "" {
 		p.Cwd = "/"
@@ -253,7 +256,6 @@ func (d *Daemon) ContainerExecStart(ctx context.Context, name string, stdin io.R
 		return translateContainerdStartErr(ec.Entrypoint, ec.SetExitCode, err)
 	}
 	ec.Pid = systemPid
-	d.registerExecPidUnlocked(c, ec)
 	c.ExecCommands.Unlock()
 	ec.Unlock()
 
@@ -272,9 +274,12 @@ func (d *Daemon) ContainerExecStart(ctx context.Context, name string, stdin io.R
 	case err := <-attachErr:
 		if err != nil {
 			if _, ok := err.(term.EscapeError); !ok {
-				return errors.Wrap(systemError{err}, "exec attach failed")
+				return errdefs.System(errors.Wrap(err, "exec attach failed"))
 			}
-			d.LogContainerEvent(c, "exec_detach")
+			attributes := map[string]string{
+				"execID": ec.ID,
+			}
+			d.LogContainerEventWithAttributes(c, "exec_detach", attributes)
 		}
 	}
 	return nil

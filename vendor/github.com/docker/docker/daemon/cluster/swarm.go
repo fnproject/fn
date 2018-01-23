@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	types "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/daemon/cluster/convert"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/signal"
 	swarmapi "github.com/docker/swarmkit/api"
@@ -44,7 +45,7 @@ func (c *Cluster) Init(req types.InitRequest) (string, error) {
 	}
 
 	if err := validateAndSanitizeInitRequest(&req); err != nil {
-		return "", validationError{err}
+		return "", errdefs.InvalidParameter(err)
 	}
 
 	listenHost, listenPort, err := resolveListenAddr(req.ListenAddr)
@@ -140,7 +141,7 @@ func (c *Cluster) Join(req types.JoinRequest) error {
 	c.mu.Unlock()
 
 	if err := validateAndSanitizeJoinRequest(&req); err != nil {
-		return validationError{err}
+		return errdefs.InvalidParameter(err)
 	}
 
 	listenHost, listenPort, err := resolveListenAddr(req.ListenAddr)
@@ -228,12 +229,19 @@ func (c *Cluster) Update(version uint64, spec types.Spec, flags types.UpdateFlag
 			return err
 		}
 
+		// Validate spec name.
+		if spec.Annotations.Name == "" {
+			spec.Annotations.Name = "default"
+		} else if spec.Annotations.Name != "default" {
+			return errdefs.InvalidParameter(errors.New(`swarm spec must be named "default"`))
+		}
+
 		// In update, client should provide the complete spec of the swarm, including
 		// Name and Labels. If a field is specified with 0 or nil, then the default value
 		// will be used to swarmkit.
 		clusterSpec, err := convert.SwarmSpecToGRPC(spec)
 		if err != nil {
-			return convertError{err}
+			return errdefs.InvalidParameter(err)
 		}
 
 		_, err = state.controlClient.UpdateCluster(
@@ -304,7 +312,7 @@ func (c *Cluster) UnlockSwarm(req types.UnlockRequest) error {
 
 	key, err := encryption.ParseHumanReadableKey(req.UnlockKey)
 	if err != nil {
-		return validationError{err}
+		return errdefs.InvalidParameter(err)
 	}
 
 	config := nr.config
