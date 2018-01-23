@@ -356,8 +356,10 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 					a.wg.Done()
 				}(ctx, callObj, tok)
 			} else {
-				// this means the resource was impossible to reserve (eg. memory size we can never satisfy)
+				// this means the resource was impossible to reserve (eg. memory size we can never satisfy),
+				// return here so we don't infinite loop
 				callObj.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: models.ErrCallTimeoutServerBusy})
+				return
 			}
 		case <-time.After(timeout):
 			if a.slotMgr.deleteSlotQueue(callObj.slots) {
