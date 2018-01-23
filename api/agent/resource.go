@@ -126,6 +126,7 @@ func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota uint64, isA
 // the received token should be passed directly to launch (unconditionally), launch
 // will close this token (i.e. the receiver should not call Close)
 func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken {
+	ch := make(chan ResourceToken)
 	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
 		// return the channel, but never send anything.
 		return ch
@@ -133,7 +134,6 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 
 	c := a.cond
 	isWaiting := false
-	ch := make(chan ResourceToken)
 
 	memory = memory * Mem1MB
 
