@@ -347,8 +347,12 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 		}
 		logger.WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
+		// if we get a timeout, we must call off get resource token
+		ctx, cancel := context.WithCancel(ctx)
+
 		select {
 		case tok, isOpen := <-a.resources.GetResourceToken(ctx, callObj.Memory, uint64(callObj.CPUs), isAsync):
+			cancel()
 			if isOpen {
 				a.wg.Add(1)
 				go func(ctx context.Context, call *call, tok ResourceToken) {
@@ -362,11 +366,13 @@ func (a *agent) hotLauncher(ctx context.Context, callObj *call) {
 				return
 			}
 		case <-time.After(timeout):
+			cancel()
 			if a.slotMgr.deleteSlotQueue(callObj.slots) {
 				logger.Info("Hot function launcher timed out")
 				return
 			}
 		case <-a.shutdown: // server shutdown
+			cancel()
 			return
 		}
 	}
