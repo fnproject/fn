@@ -88,10 +88,8 @@ cd hello
 Feel free to check out the files it created or just keep going and look at it later.
 
 ```sh
-MAKE IT USE SOME DEFAULT USERNAME (OR NONE?) WHEN DEPLOYING LOCALLY, BUT PRINT A GOOD MESSAGE I --LOCAL FLAG ISN'T USED
 # Set your Docker Hub username
 export FN_REGISTRY=<DOCKERHUB_USERNAME>
-
 
 # Run your function locally
 fn run
