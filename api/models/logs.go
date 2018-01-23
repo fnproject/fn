@@ -12,7 +12,7 @@ type LogStore interface {
 
 	// GetLog will return the log at callID, an error will be returned if the log
 	// cannot be found.
-	GetLog(ctx context.Context, appName, callID string) (io.Reader, error)
+	GetLog(ctx context.Context, appID, callID string) (io.Reader, error)
 
 	// TODO we should probably allow deletion of a range of logs (also calls)?
 	// common cases for deletion will be:

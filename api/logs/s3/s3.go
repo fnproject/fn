@@ -148,11 +148,11 @@ func (s *store) InsertLog(ctx context.Context, appID, callID string, callLog io.
 	return nil
 }
 
-func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
+func (s *store) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
 	ctx, span := trace.StartSpan(ctx, "s3_get_log")
 	defer span.End()
 
-	objectName := path(appName, callID)
+	objectName := path(appID, callID)
 	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading log")
 
 	// stream the logs to an in-memory buffer

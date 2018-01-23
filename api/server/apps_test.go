@@ -112,6 +112,13 @@ func TestAppDelete(t *testing.T) {
 		}
 	}()
 
+	app := &models.App{
+		Name: "myapp",
+	}
+	app.SetDefaults()
+	ds := datastore.NewMockInit(
+		[]*models.App{app}, nil, nil,
+	)
 	for i, test := range []struct {
 		ds            models.Datastore
 		logDB         models.LogStore
@@ -121,11 +128,7 @@ func TestAppDelete(t *testing.T) {
 		expectedError error
 	}{
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps/myapp", "", http.StatusNotFound, nil},
-		{datastore.NewMockInit(
-			[]*models.App{{
-				Name: "myapp",
-			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", "", http.StatusOK, nil},
+		{ds, logs.NewMock(), "/v1/apps/myapp", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -270,6 +273,14 @@ func TestAppUpdate(t *testing.T) {
 		}
 	}()
 
+	app := &models.App{
+		Name: "myapp",
+	}
+	app.SetDefaults()
+	ds := datastore.NewMockInit(
+		[]*models.App{app}, nil, nil,
+	)
+
 	for i, test := range []struct {
 		mock          models.Datastore
 		logDB         models.LogStore
@@ -279,7 +290,7 @@ func TestAppUpdate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps/myapp", ``, http.StatusNotFound, models.ErrInvalidJSON},
 
 		// Addresses #380
 		{datastore.NewMockInit(
@@ -296,18 +307,10 @@ func TestAppUpdate(t *testing.T) {
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "annotations": {"k-0" : "val"} } }`, http.StatusOK, nil},
 
 		// success
-		{datastore.NewMockInit(
-			[]*models.App{{
-				Name: "myapp",
-			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
 		// success
-		{datastore.NewMockInit(
-			[]*models.App{{
-				Name: "myapp",
-			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)

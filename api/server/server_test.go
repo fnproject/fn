@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -84,19 +83,13 @@ func newRouterRequest(t *testing.T, method, path string, body io.Reader) (*http.
 	return req, rec
 }
 
-func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) models.Error {
-	respBody, err := ioutil.ReadAll(rec.Body)
-	if err != nil {
+func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.Error {
+	var err models.Error
+	decodeErr := json.NewDecoder(rec.Body).Decode(&err)
+	if decodeErr != nil {
 		t.Error("Test: Expected not empty response body")
 	}
-
-	var errResp models.Error
-	err = json.Unmarshal(respBody, &errResp)
-	if err != nil {
-		t.Error("Test: Expected response body to be a valid models.Error object")
-	}
-
-	return errResp
+	return &err
 }
 
 func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogStore, func()) {

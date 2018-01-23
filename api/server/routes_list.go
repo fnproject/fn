@@ -17,13 +17,11 @@ func (s *Server) handleRouteList(c *gin.Context) {
 	// filter.PathPrefix = c.Query("path_prefix") TODO not hooked up
 	filter.Cursor, filter.PerPage = pageParams(c, true)
 
-	initApp := &models.App{Name: c.MustGet(api.App).(string)}
-	app, err := s.datastore.GetApp(ctx, initApp)
+	routes, err := s.datastore.GetRoutesByApp(ctx, c.MustGet(api.AppID).(string), &filter)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
-	routes, err := s.datastore.GetRoutesByApp(ctx, app, &filter)
 
 	var nextCursor string
 	if len(routes) > 0 && len(routes) == filter.PerPage {

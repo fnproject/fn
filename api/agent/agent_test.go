@@ -112,7 +112,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(app, path, req),
+		FromRequest(app.Name, path, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +270,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	config := map[string]string{
 		"FN_FORMAT":   format,
-		"FN_APP_NAME": app.ID,
+		"FN_APP_NAME": app.Name,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
@@ -476,7 +476,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	app.SetDefaults()
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
-		[]*models.App{app,},
+		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        path,
@@ -506,7 +506,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, path, req), WithWriter(&out))
+	callI, err := a.GetCall(FromRequest(app.Name, path, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,7 +681,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(app.Name, ca.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -715,7 +715,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(app.Name, ca.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -822,7 +822,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(app.Name, call.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -847,7 +847,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(app.Name, call.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,7 +17,7 @@ import (
 // mediation through an API node).
 type DataAccess interface {
 	// GetApp abstracts querying the datastore for an app.
-	GetApp(ctx context.Context, app *models.App) (*models.App, error)
+	GetAppByName(ctx context.Context, app *models.App) (*models.App, error)
 
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 
@@ -60,8 +60,12 @@ func routeCacheKey(app, path string) string {
 	return "r:" + app + "\x00" + path
 }
 
-func appIDCacheKey(app string) string {
-	return "a:" + app
+func appIDCacheKey(appID string) string {
+	return "a:" + appID
+}
+
+func appNameCacheKey(appName string) string {
+	return "n:" + appName
 }
 
 
@@ -85,8 +89,23 @@ func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	return app.(*models.App), nil
 }
 
-func (da *CachedDataAccess) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
-	return da.DataAccess.GetApp(ctx, app)
+func (da *CachedDataAccess) GetAppByName(ctx context.Context, app *models.App) (*models.App, error) {
+	key := appNameCacheKey(app.Name)
+	cachedApp, ok := da.cache.Get(key)
+	if ok {
+		return cachedApp.(*models.App), nil
+	}
+	resp, err := da.singleflight.Do(key,
+		func() (interface{}, error) {
+			return da.DataAccess.GetAppByName(ctx, app)
+		})
+
+	if err != nil {
+		return nil, err
+	}
+	cachedApp = resp.(*models.App)
+	da.cache.Set(key, cachedApp, cache.DefaultExpiration)
+	return cachedApp.(*models.App), nil
 }
 
 func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {
@@ -128,7 +147,7 @@ func (da *directDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	return da.ds.GetAppByID(ctx, appID)
 }
 
-func (da *directDataAccess) GetApp(ctx context.Context, app *models.App) (*models.App, error) {
+func (da *directDataAccess) GetAppByName(ctx context.Context, app *models.App) (*models.App, error) {
 	return da.ds.GetApp(ctx, app.Name)
 }
 

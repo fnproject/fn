@@ -142,7 +142,7 @@ func TestRootMiddleware(t *testing.T) {
 		}
 
 		rbody := string(result)
-		t.Log("rbody:", rbody)
+		t.Logf("Test %v: response body: %v", i, rbody)
 		if !strings.Contains(rbody, test.expectedInBody) {
 			t.Fatal(i, "middleware didn't work correctly", string(result))
 		}

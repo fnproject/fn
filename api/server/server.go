@@ -806,7 +806,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 func (s *Server) bindHandlers(ctx context.Context) {
 	engine := s.Router
-	// now for extendible middleware
+	// now for extensible middleware
 	engine.Use(s.rootMiddlewareWrapper())
 
 	engine.GET("/", handlePing)
@@ -832,21 +832,24 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				apps := v1.Group("/apps/:app")
 				apps.Use(appNameCheck)
 
-				apps.GET("", s.handleAppGet)
-				apps.PATCH("", s.handleAppUpdate)
-				apps.DELETE("", s.handleAppDelete)
+				{
+					withAppCheck := apps.Group("")
+					withAppCheck.Use(s.checkAppPresence())
 
-				apps.GET("/routes", s.handleRouteList)
+					withAppCheck.GET("", s.handleAppGet)
+					withAppCheck.PATCH("", s.handleAppUpdate)
+					withAppCheck.DELETE("", s.handleAppDelete)
+					withAppCheck.GET("/routes", s.handleRouteList)
+					withAppCheck.GET("/routes/:route", s.handleRouteGet)
+					withAppCheck.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
+					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
+					withAppCheck.GET("/calls/:call", s.handleCallGet)
+					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
+				}
+
 				apps.POST("/routes", s.handleRoutesPostPutPatch)
-				apps.GET("/routes/:route", s.handleRouteGet)
-				apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
 				apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
-				apps.DELETE("/routes/*route", s.handleRouteDelete)
-
 				apps.GET("/calls", s.handleCallList)
-
-				apps.GET("/calls/:call", s.handleCallGet)
-				apps.GET("/calls/:call/log", s.handleCallLogGet)
 			}
 
 			{
