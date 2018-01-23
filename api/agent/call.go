@@ -180,6 +180,13 @@ func WithWriter(w io.Writer) CallOpt {
 	}
 }
 
+func WithContext(ctx context.Context) CallOpt {
+	return func(a *agent, c *call) error {
+		c.req = c.req.WithContext(ctx)
+		return nil
+	}
+}
+
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
 // TODO where to put this? async and sync both call this
