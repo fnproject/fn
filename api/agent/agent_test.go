@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/sirupsen/logrus"
@@ -541,7 +542,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
-		AppID:       "yo",
+		AppID:       id.New().String(),
 		Path:        "/yoyo",
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
