@@ -63,13 +63,11 @@ And the second should return:
 
 ## Run Tests
 
-This is simply running:
+In your function directory, run:
 
 ```sh
 fn test
 ```
-
-in your function directory. 
 
 You can also test against a remote `fn` server by using the `--remote` flag. eg:
 
@@ -77,3 +75,8 @@ You can also test against a remote `fn` server by using the `--remote` flag. eg:
 fn test --remote myapp
 ```
 
+To test your entire Fn application:
+
+```sh
+fn test --all
+```

@@ -16,6 +16,8 @@ config:
 headers:
   Content-Type:
   - text/html
+build_image: x/y
+run_image: x/y
 build:
 - make
 - make test
@@ -40,8 +42,6 @@ appended to the image as a tag.
 `runtime` represents programming language runtime, for example,
 'go', 'python', 'java', etc.  The runtime 'docker' will use the existing Dockerfile if one exists.
 
-`build` (optional) is an array of local shell calls which are used to help
-building the function. TODO: Deprecate this?
 
 `type` (optional) allows you to set the type of the route. `sync`, for functions
 whose response are sent back to the requester; or `async`, for functions that
@@ -68,6 +68,13 @@ for more information.
 
 `expects` (optional) a list of config/env vars that are required to run this function. These vars will be used when running/testing locally,
 if found in your local environment. If these vars are not found, local testing will fail.
+
+`build` (optional) is an array of local shell calls which are used to help
+building the function. TODO: Deprecate this?
+
+`build_image` (optional) base Docker image to use for building your function. Default images used are the `dev` tagged images from the [dockers repo](https://github.com/fnproject/dockers).
+
+`run_image` (optional) base Docker image to use for running your function, part of a multi-stage build. Function will be built with `build_image` and run with `run_image`. Default images used from the [dockers repo](https://github.com/fnproject/dockers).
 
 ## Hot functions
 

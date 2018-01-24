@@ -42,7 +42,7 @@ If you're on a Mac and use [Homebrew](https://brew.sh/), this one is for you:
 brew install fn
 ```
 
-#### 2. Shell script
+#### 2. Shell script - Linux and MacOS
 
 This one works on Linux and MacOS (partially on Windows):
 
@@ -52,7 +52,7 @@ curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
 
 This will download a shell script and execute it. If the script asks for a password, that is because it invokes sudo.
 
-#### 3. Download the bin
+#### 3. Download the bin - Linux, MacOS and Windows
 
 Head over to our [releases](https://github.com/fnproject/cli/releases) and download it.
 
@@ -71,41 +71,31 @@ If you are on a Linux system where the SELinux security policy is set to "Enforc
 
 ### Your First Function
 
-Functions are small but powerful blocks of code that generally do one simple thing. Forget about monoliths when using functions, just focus on the task that you want the function to perform.
+Functions are small but powerful blocks of code that generally do one simple thing. Forget about monoliths when using functions, just focus on the task that you want the function to perform. Our CLI tool will help you get started super quickly.
 
-First, create an empty directory called `hello` and cd into it.
-
-The following is a simple Go program that outputs a string to STDOUT. Copy and paste the code below into a file called `func.go`.
-
-```go
-package main
-
-import (
-  "fmt"
-)
-
-func main() {
-  fmt.Println("Hello from Fn!")
-}
-```
-
-Now run the following CLI commands:
+Create hello world function:
 
 ```sh
-# Initialize your function
-# This detects your runtime from the code above and creates a func.yaml
-fn init
+fn init --runtime go hello
+```
 
+This will create a simple function in the directory `hello`, so let's cd into it:
+
+```sh
+cd hello
+```
+
+Feel free to check out the files it created or just keep going and look at it later.
+
+```sh
 # Set your Docker Hub username
 export FN_REGISTRY=<DOCKERHUB_USERNAME>
 
-# Test your function
-# This will run inside a container exactly how it will on the server
+# Run your function locally
 fn run
 
-# Deploy your functions to the Fn server (default localhost:8080)
-# This will create a route to your function as well
-fn deploy --app myapp
+# Deploy your functions to your local Fn server
+fn deploy --app myapp --local
 ```
 
 Now you can call your function:
@@ -118,23 +108,13 @@ fn call myapp /hello
 
 Or in a browser: [http://localhost:8080/r/myapp/hello](http://localhost:8080/r/myapp/hello)
 
-That's it! You just deployed your first function and called it. To update your function you can update your code and run `fn deploy myapp` again.
-
-## User Interface
-
-We also have an open source graphical user interface for Fn. It's very easy to use, simply run the command below:
-
-```sh
-docker run --rm -it --link fnserver:api -p 4000:4000 -e "FN_API_URL=http://api:8080" fnproject/ui
-```
-
-For more information, see: [https://github.com/fnproject/ui](https://github.com/fnproject/ui)
-
+That's it! You just deployed your first function and called it. Try updating the function code in `func.go` then deploy it again to see the change.
 
 ## Learn More
 
 * With our [Fn Getting Started Series](examples/tutorial/), quickly create Fn Hello World applications in multiple languages. This is a great Fn place to start!
-* Visit [Fn tutorials](https://github.com/fnproject/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced. 
+* Visit [Fn tutorials](https://github.com/fnproject/tutorials) for step by step guides to creating apps with Fn . These tutorials range from introductory to more advanced.
+* [User interface](https://github.com/fnproject/ui)
 * See our [full documentation](docs/README.md)
 * View all of our [examples](/examples)
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
@@ -150,7 +130,7 @@ For more information, see: [https://github.com/fnproject/ui](https://github.com/
 
 * Join our [Slack Community](http://slack.fnproject.io)
 * Learn how to [contribute](CONTRIBUTING.md)
-* See [milestones](https://github.com/fnproject/fn/milestones) for detailed issues
+* See [issues](https://github.com/fnproject/fn/issues) for issues you can help with
 
 ## Stay Informed
 
