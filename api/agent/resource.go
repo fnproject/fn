@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,9 +25,21 @@ const (
 // A simple resource (memory, cpu, disk, etc.) tracker for scheduling.
 // TODO: add cpu, disk, network IO for future
 type ResourceTracker interface {
+	// WaitAsyncResource returns a channel that will send once when there seem to be sufficient
+	// resource levels to run an async task, it is up to the implementer to create policy here.
 	WaitAsyncResource(ctx context.Context) chan struct{}
-	// returns a closed channel if the resource can never me met.
-	GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken
+
+	// GetResourceToken returns a channel to wait for a resource token on. If the provided context is canceled,
+	// the channel will never receive anything. If it is not possible to fulfill this resource, the channel
+	// will never receive anything (use IsResourcePossible). If a resource token is available for the provided
+	// resource parameters, it will otherwise be sent once on the returned channel. The channel is never closed.
+	// Memory is expected to be provided in MB units.
+	GetResourceToken(ctx context.Context, memory, cpuQuota uint64, isAsync bool) <-chan ResourceToken
+
+	// IsResourcePossible returns whether it's possible to fulfill the requested resources on this
+	// machine. It must be called before GetResourceToken or GetResourceToken may hang.
+	// Memory is expected to be provided in MB units.
+	IsResourcePossible(memory, cpuQuota uint64, isAsync bool) bool
 }
 
 type resourceTracker struct {
@@ -100,7 +113,9 @@ func (a *resourceTracker) isResourceAvailableLocked(memory uint64, cpuQuota uint
 }
 
 // is this request possible to meet? If no, fail quick
-func (a *resourceTracker) isResourcePossible(memory uint64, cpuQuota uint64, isAsync bool) bool {
+func (a *resourceTracker) IsResourcePossible(memory uint64, cpuQuota uint64, isAsync bool) bool {
+	memory = memory * Mem1MB
+
 	if isAsync {
 		return memory <= a.ramAsyncTotal && cpuQuota <= a.cpuAsyncTotal
 	} else {
@@ -111,17 +126,20 @@ func (a *resourceTracker) isResourcePossible(memory uint64, cpuQuota uint64, isA
 // the received token should be passed directly to launch (unconditionally), launch
 // will close this token (i.e. the receiver should not call Close)
 func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken {
-
-	memory = memory * Mem1MB
+	ch := make(chan ResourceToken)
+	if !a.IsResourcePossible(memory, cpuQuota, isAsync) {
+		// return the channel, but never send anything.
+		return ch
+	}
 
 	c := a.cond
 	isWaiting := false
-	ch := make(chan ResourceToken)
 
-	if !a.isResourcePossible(memory, cpuQuota, isAsync) {
-		close(ch)
-		return ch
-	}
+	memory = memory * Mem1MB
+
+	// if we find a resource token, shut down the thread waiting on ctx finish.
+	// alternatively, if the ctx is done, wake up the cond loop.
+	ctx, cancel := context.WithCancel(ctx)
 
 	go func() {
 		<-ctx.Done()
@@ -132,7 +150,10 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Unlock()
 	}()
 
+	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_resource_token")
 	go func() {
+		defer span.Finish()
+		defer cancel()
 		c.L.Lock()
 
 		isWaiting = true
@@ -202,6 +223,10 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 	isWaiting := false
 	c := a.cond
 
+	// if we find a resource token, shut down the thread waiting on ctx finish.
+	// alternatively, if the ctx is done, wake up the cond loop.
+	ctx, cancel := context.WithCancel(ctx)
+
 	go func() {
 		<-ctx.Done()
 		c.L.Lock()
@@ -211,7 +236,10 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 		c.L.Unlock()
 	}()
 
+	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_wait_async_resource")
 	go func() {
+		defer span.Finish()
+		defer cancel()
 		c.L.Lock()
 		isWaiting = true
 		for (a.ramAsyncUsed >= a.ramAsyncHWMark || a.cpuAsyncUsed >= a.cpuAsyncHWMark) && ctx.Err() == nil {

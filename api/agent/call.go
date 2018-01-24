@@ -180,6 +180,13 @@ func WithWriter(w io.Writer) CallOpt {
 	}
 }
 
+func WithContext(ctx context.Context) CallOpt {
+	return func(a *agent, c *call) error {
+		c.req = c.req.WithContext(ctx)
+		return nil
+	}
+}
+
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
 // TODO where to put this? async and sync both call this
@@ -196,6 +203,11 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	// TODO typed errors to test
 	if c.req == nil || c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
+	}
+
+	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+		// if we're not going to be able to run this call on this machine, bail here.
+		return nil, models.ErrCallTimeoutServerBusy
 	}
 
 	c.da = a.da

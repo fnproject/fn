@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -493,5 +494,29 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 		t.Fatal(`didn't get a yodawg in the body, http protocol may be fudged up
 			(to debug, recommend ensuring inside the function gets 'Transfer-Encoding: chunked' if
 			no Content-Length is set. also make sure the body makes it (and the image hasn't changed)); GLHF, got:`, resp.R.Body)
+	}
+}
+
+func TestGetCallReturnsResourceImpossibility(t *testing.T) {
+	call := &models.Call{
+		AppName:     "yo",
+		Path:        "/yoyo",
+		Image:       "fnproject/fn-test-utils",
+		Type:        "sync",
+		Format:      "http",
+		Timeout:     1,
+		IdleTimeout: 2,
+		Memory:      math.MaxUint64,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	defer a.Close()
+
+	_, err := a.GetCall(FromModel(call))
+	if err != models.ErrCallTimeoutServerBusy {
+		t.Fatal("did not get expected err, got: ", err)
 	}
 }
