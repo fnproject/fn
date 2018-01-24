@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "4.6.2"
+      "version": "4.6.3"
     },
     {
       "type": "panel",
@@ -309,7 +309,7 @@
             "thresholdLabels": false,
             "thresholdMarkers": true
           },
-          "id": 13,
+          "id": 14,
           "interval": null,
           "links": [],
           "mappingType": 1,
@@ -328,7 +328,7 @@
           "nullText": null,
           "postfix": "",
           "postfixFontSize": "50%",
-          "prefix": "Failed:",
+          "prefix": "Incomplete:",
           "prefixFontSize": "50%",
           "rangeMaps": [
             {
@@ -347,7 +347,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(fn_failed)",
+              "expr": "sum(fn_failed) + sum(fn_timeouts) + sum(fn_server_busy)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "",
@@ -650,12 +650,26 @@
               "legendFormat": "Total failed",
               "refId": "A",
               "step": 2
+            },
+            {
+              "expr": "sum(fn_timeouts)",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "Total timeouts",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(fn_server_busy)",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "Total server too busy",
+              "refId": "C"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Total failed",
+          "title": "Total incomplete",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -989,15 +1003,29 @@
               "expr": "fn_failed",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "{{fn_appname}} {{fn_path}}",
+              "legendFormat": "{{fn_appname}} {{fn_path}} failed",
               "refId": "A",
               "step": 2
+            },
+            {
+              "expr": "fn_timeouts",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{fn_appname}} {{fn_path}} timeouts",
+              "refId": "B"
+            },
+            {
+              "expr": "fn_server_busy",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "{{fn_appname}} {{fn_path}} server busy",
+              "refId": "C"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Failed",
+          "title": "Incomplete",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1076,5 +1104,5 @@
   },
   "timezone": "",
   "title": "Fn usage",
-  "version": 5
+  "version": 1
 }
