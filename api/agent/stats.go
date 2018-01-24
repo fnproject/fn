@@ -149,6 +149,10 @@ func (s *stats) IncrementErrors(ctx context.Context) {
 	common.IncrementCounter(ctx, errorsMetricName)
 }
 
+func (s *stats) IncrementTooBusy(ctx context.Context) {
+	common.IncrementCounter(ctx, serverBusyMetricName)
+}
+
 func (s *stats) Stats() Stats {
 	var stats Stats
 	s.mu.Lock()
@@ -166,11 +170,12 @@ func (s *stats) Stats() Stats {
 }
 
 const (
-	queuedMetricName    = "queued"
-	callsMetricName     = "calls"
-	runningMetricName   = "running"
-	completedMetricName = "completed"
-	failedMetricName    = "failed"
-	timedoutMetricName  = "timeouts"
-	errorsMetricName    = "errors"
+	queuedMetricName     = "queued"
+	callsMetricName      = "calls"
+	runningMetricName    = "running"
+	completedMetricName  = "completed"
+	failedMetricName     = "failed"
+	timedoutMetricName   = "timeouts"
+	errorsMetricName     = "errors"
+	serverBusyMetricName = "server_busy"
 )

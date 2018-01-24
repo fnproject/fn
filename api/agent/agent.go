@@ -227,7 +227,7 @@ func transformTimeout(e error, isRetriable bool) error {
 func (a *agent) handleStatsDequeue(ctx context.Context, call *call, err error) {
 	if err == context.DeadlineExceeded {
 		a.stats.Dequeue(ctx, call.AppName, call.Path)
-		// note that this is not a timeout from the perspective of the caller, so don't increment the timeout count
+		a.stats.IncrementTooBusy(ctx)
 	} else {
 		a.stats.DequeueAndFail(ctx, call.AppName, call.Path)
 		a.stats.IncrementErrors(ctx)
