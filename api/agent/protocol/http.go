@@ -3,8 +3,12 @@ package protocol
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
@@ -37,6 +41,10 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request())
 	if err != nil {
+		// From here (boo stdlib): https://github.com/golang/go/blob/d3c1df712658398f29bc8bebd6767e7b3cac2d12/src/net/http/response.go#L174
+		if strings.Contains(err.Error(), "malformed HTTP") {
+			return models.NewAPIError(http.StatusInternalServerError, fmt.Errorf("invalid http response from function err:", err))
+		}
 		return err
 	}
 	defer resp.Body.Close()
