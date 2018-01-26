@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+	"time"
+
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 )
@@ -104,6 +106,14 @@ func PublishHistogramToSpan(span opentracing.Span, key string, value float64) {
 	// The collector will replace that prefix with "fn_" and use the result as the Prometheus metric name.
 	fieldname := FieldnamePrefixHistogram + key
 	span.LogFields(log.Float64(fieldname, value))
+}
+
+// PublishElapsedTimeToSpan publishes the specifed histogram elapsed time since start
+// It does this by logging an appropriate field value to a tracing span
+// Use this when the current tracing span is long-lived and you want the metric to be visible before it ends
+func PublishElapsedTimeHistogram(ctx context.Context, key string, start, end time.Time) {
+	elapsed := float64(end.Sub(start).Seconds())
+	PublishHistogram(ctx, key, elapsed)
 }
 
 const (

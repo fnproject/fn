@@ -174,9 +174,10 @@ func TestSlotQueueBasic2(t *testing.T) {
 	}
 }
 
-func statsHelperSet(runC, startC, waitC, idleC uint64) slotQueueStats {
+func statsHelperSet(reqW, reqE, conW, conS, conI, conB uint64) slotQueueStats {
 	return slotQueueStats{
-		states: [SlotQueueLast]uint64{runC, startC, waitC, idleC},
+		requestStates:   [RequestStateMax]uint64{0, reqW, reqE, 0},
+		containerStates: [ContainerStateMax]uint64{0, conW, conS, conI, conB, 0},
 	}
 }
 
@@ -184,38 +185,38 @@ func TestSlotNewContainerLogic1(t *testing.T) {
 
 	var cur slotQueueStats
 
-	cur = statsHelperSet(0, 0, 0, 0)
-	// CASE: There's no one waiting
+	cur = statsHelperSet(0, 0, 0, 0, 0, 0)
+	// CASE: There's no queued requests
 	if isNewContainerNeeded(&cur) {
 		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE: There are starters >= waiters
-	cur = statsHelperSet(1, 10, 10, 0)
+	// CASE: There are starters >= queued requests
+	cur = statsHelperSet(1, 0, 0, 10, 0, 0)
 	if isNewContainerNeeded(&cur) {
 		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE: There are starters < waiters
-	cur = statsHelperSet(1, 5, 10, 0)
+	// CASE: There are starters < queued requests
+	cur = statsHelperSet(10, 0, 0, 1, 0, 0)
 	if !isNewContainerNeeded(&cur) {
 		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 
-	// CASE: effective waiters 0 (idle = waiter = 10)
-	cur = statsHelperSet(11, 0, 10, 10)
+	// CASE: effective queued requests (idle > requests)
+	cur = statsHelperSet(10, 0, 0, 0, 11, 0)
 	if isNewContainerNeeded(&cur) {
 		t.Fatalf("Should not need a new container cur: %#v", cur)
 	}
 
-	// CASE: effective waiters > 0 (idle = 5 waiter = 10)
-	cur = statsHelperSet(11, 0, 10, 5)
+	// CASE: effective queued requests (idle < requests)
+	cur = statsHelperSet(10, 0, 0, 0, 5, 0)
 	if !isNewContainerNeeded(&cur) {
 		t.Fatalf("Should need a new container cur: %#v", cur)
 	}
 
-	// CASE: no executors, but 1 waiter
-	cur = statsHelperSet(0, 0, 1, 0)
+	// CASE: no executors, but 1 queued request
+	cur = statsHelperSet(1, 0, 0, 0, 0, 0)
 	if !isNewContainerNeeded(&cur) {
 		t.Fatalf("Should need a new container cur: %#v", cur)
 	}

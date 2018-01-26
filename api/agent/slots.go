@@ -27,20 +27,10 @@ type slotQueueMgr struct {
 	hot map[string]*slotQueue
 }
 
-type SlotQueueMetricType int
-
-const (
-	SlotQueueRunner  SlotQueueMetricType = iota // container is running
-	SlotQueueStarter                            // container is launching
-	SlotQueueWaiter                             // requests are waiting
-	SlotQueueIdle                               // hot container is running, but idle (free tokens)
-	SlotQueueLast
-)
-
-// counters per state and moving avg of time spent in each state
+// request and container states
 type slotQueueStats struct {
-	states    [SlotQueueLast]uint64
-	latencies [SlotQueueLast]uint64
+	requestStates   [RequestStateMax]uint64
+	containerStates [ContainerStateMax]uint64
 }
 
 type slotToken struct {
@@ -178,13 +168,20 @@ func (a *slotQueue) queueSlot(slot Slot) *slotToken {
 // isIdle() returns true is there's no activity for this slot queue. This
 // means no one is waiting, running or starting.
 func (a *slotQueue) isIdle() bool {
-	var partySize uint64
+	var isIdle bool
 
 	a.statsLock.Lock()
-	partySize = a.stats.states[SlotQueueWaiter] + a.stats.states[SlotQueueStarter] + a.stats.states[SlotQueueRunner]
+
+	isIdle = a.stats.requestStates[RequestStateWait] == 0 &&
+		a.stats.requestStates[RequestStateExec] == 0 &&
+		a.stats.containerStates[ContainerStateWait] == 0 &&
+		a.stats.containerStates[ContainerStateStart] == 0 &&
+		a.stats.containerStates[ContainerStateIdle] == 0 &&
+		a.stats.containerStates[ContainerStateBusy] == 0
+
 	a.statsLock.Unlock()
 
-	return partySize == 0
+	return isIdle
 }
 
 func (a *slotQueue) getStats() slotQueueStats {
@@ -197,66 +194,65 @@ func (a *slotQueue) getStats() slotQueueStats {
 
 func isNewContainerNeeded(cur *slotQueueStats) bool {
 
-	idlers := cur.states[SlotQueueIdle]
-	starters := cur.states[SlotQueueStarter]
-	waiters := cur.states[SlotQueueWaiter]
+	idleWorkers := cur.containerStates[ContainerStateIdle]
+	starters := cur.containerStates[ContainerStateStart]
+	startWaiters := cur.containerStates[ContainerStateWait]
+
+	queuedRequests := cur.requestStates[RequestStateWait]
 
 	// we expect idle containers to immediately pick up
 	// any waiters. We assume non-idle containers busy.
 	effectiveWaiters := uint64(0)
-	if idlers < waiters {
-		effectiveWaiters = waiters - idlers
+	if idleWorkers < queuedRequests {
+		effectiveWaiters = queuedRequests - idleWorkers
 	}
 
 	if effectiveWaiters == 0 {
 		return false
 	}
 
+	// we expect resource waiters to eventually transition
+	// into starters.
+	effectiveStarters := starters + startWaiters
+
 	// if containers are starting, do not start more than effective waiters
-	if starters > 0 && starters >= effectiveWaiters {
+	if effectiveStarters > 0 && effectiveStarters >= effectiveWaiters {
 		return false
 	}
 
 	return true
 }
 
-func (a *slotQueue) enterState(metricIdx SlotQueueMetricType) {
-	a.statsLock.Lock()
-	a.stats.states[metricIdx] += 1
-	a.statsLock.Unlock()
-}
-
-func (a *slotQueue) exitState(metricIdx SlotQueueMetricType) {
-	a.statsLock.Lock()
-	if a.stats.states[metricIdx] == 0 {
-		panic(fmt.Sprintf("BUG: metric tracking fault idx=%v", metricIdx))
+func (a *slotQueue) enterRequestState(reqType RequestStateType) {
+	if reqType > RequestStateNone && reqType < RequestStateMax {
+		a.statsLock.Lock()
+		a.stats.requestStates[reqType] += 1
+		a.statsLock.Unlock()
 	}
-	a.stats.states[metricIdx] -= 1
-	a.statsLock.Unlock()
 }
 
-func (a *slotQueue) recordLatencyLocked(metricIdx SlotQueueMetricType, latency uint64) {
-	// exponentially weighted moving average with smoothing factor of 0.5
-	// 0.5 is a high value to age older observations fast while filtering
-	// some noise. For our purposes, newer observations are much more important
-	// than older, but we still would like to low pass some noise.
-	a.stats.latencies[metricIdx] = (a.stats.latencies[metricIdx]*5 + latency*5) / 10
-}
-
-func (a *slotQueue) recordLatency(metricIdx SlotQueueMetricType, latency uint64) {
-	a.statsLock.Lock()
-	a.recordLatencyLocked(metricIdx, latency)
-	a.statsLock.Unlock()
-}
-
-func (a *slotQueue) exitStateWithLatency(metricIdx SlotQueueMetricType, latency uint64) {
-	a.statsLock.Lock()
-	if a.stats.states[metricIdx] == 0 {
-		panic(fmt.Sprintf("BUG: metric tracking fault idx=%v", metricIdx))
+func (a *slotQueue) exitRequestState(reqType RequestStateType) {
+	if reqType > RequestStateNone && reqType < RequestStateMax {
+		a.statsLock.Lock()
+		a.stats.requestStates[reqType] -= 1
+		a.statsLock.Unlock()
 	}
-	a.stats.states[metricIdx] -= 1
-	a.recordLatencyLocked(metricIdx, latency)
-	a.statsLock.Unlock()
+}
+
+func (a *slotQueue) enterContainerState(conType ContainerStateType) {
+	if conType > ContainerStateNone && conType < ContainerStateMax {
+		a.statsLock.Lock()
+		a.stats.containerStates[conType] += 1
+		a.statsLock.Unlock()
+	}
+}
+
+func (a *slotQueue) exitContainerState(conType ContainerStateType) {
+	if conType > ContainerStateNone && conType < ContainerStateMax {
+		a.statsLock.Lock()
+		a.stats.containerStates[conType] -= 1
+		a.statsLock.Unlock()
+	}
 }
 
 // getSlot must ensure that if it receives a slot, it will be returned, otherwise
@@ -271,7 +267,6 @@ func (a *slotQueueMgr) getSlotQueue(call *call) (*slotQueue, bool) {
 		slots = NewSlotQueue(key)
 		a.hot[key] = slots
 	}
-	slots.enterState(SlotQueueWaiter)
 	a.hMu.Unlock()
 
 	return slots, !ok

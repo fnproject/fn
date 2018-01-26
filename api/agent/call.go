@@ -249,14 +249,16 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 type call struct {
 	*models.Call
 
-	da           DataAccess
-	w            io.Writer
-	req          *http.Request
-	stderr       io.ReadWriteCloser
-	ct           callTrigger
-	slots        *slotQueue
-	slotDeadline time.Time
-	execDeadline time.Time
+	da             DataAccess
+	w              io.Writer
+	req            *http.Request
+	stderr         io.ReadWriteCloser
+	ct             callTrigger
+	slots          *slotQueue
+	slotDeadline   time.Time
+	execDeadline   time.Time
+	requestState   RequestState
+	containerState ContainerState
 }
 
 func (c *call) Model() *models.Call { return c.Call }

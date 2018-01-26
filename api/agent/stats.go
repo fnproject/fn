@@ -65,91 +65,98 @@ func (s *stats) getStatsForFunction(path string) *functionStats {
 func (s *stats) Enqueue(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
+	fstats := s.getStatsForFunction(path)
 	s.queue++
-	s.getStatsForFunction(path).queue++
-	common.IncrementGauge(ctx, queuedMetricName)
-
-	common.IncrementCounter(ctx, callsMetricName)
+	fstats.queue++
 
 	s.mu.Unlock()
+
+	common.IncrementGauge(ctx, queuedMetricName)
+	common.IncrementCounter(ctx, callsMetricName)
 }
 
 // Call when a function has been queued but cannot be started because of an error
 func (s *stats) Dequeue(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
+	fstats := s.getStatsForFunction(path)
 	s.queue--
-	s.getStatsForFunction(path).queue--
-	common.DecrementGauge(ctx, queuedMetricName)
+	fstats.queue--
 
 	s.mu.Unlock()
+
+	common.DecrementGauge(ctx, queuedMetricName)
 }
 
 func (s *stats) DequeueAndStart(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
+	fstats := s.getStatsForFunction(path)
 	s.queue--
-	s.getStatsForFunction(path).queue--
-	common.DecrementGauge(ctx, queuedMetricName)
-
 	s.running++
-	s.getStatsForFunction(path).running++
-	common.IncrementGauge(ctx, runningMetricName)
+	fstats.queue--
+	fstats.running++
 
 	s.mu.Unlock()
+
+	common.DecrementGauge(ctx, queuedMetricName)
+	common.IncrementGauge(ctx, runningMetricName)
 }
 
 func (s *stats) Complete(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
+	fstats := s.getStatsForFunction(path)
 	s.running--
-	s.getStatsForFunction(path).running--
-	common.DecrementGauge(ctx, runningMetricName)
-
 	s.complete++
-	s.getStatsForFunction(path).complete++
-	common.IncrementCounter(ctx, completedMetricName)
+	fstats.running--
+	fstats.complete++
 
 	s.mu.Unlock()
+
+	common.DecrementGauge(ctx, runningMetricName)
+	common.IncrementCounter(ctx, completedMetricName)
 }
 
 func (s *stats) Failed(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
+	fstats := s.getStatsForFunction(path)
 	s.running--
-	s.getStatsForFunction(path).running--
-	common.DecrementGauge(ctx, runningMetricName)
-
 	s.failed++
-	s.getStatsForFunction(path).failed++
-	common.IncrementCounter(ctx, failedMetricName)
+	fstats.running--
+	fstats.failed++
 
 	s.mu.Unlock()
+
+	common.DecrementGauge(ctx, runningMetricName)
+	common.IncrementCounter(ctx, failedMetricName)
 }
 
 func (s *stats) DequeueAndFail(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
+	fstats := s.getStatsForFunction(path)
 	s.queue--
-	s.getStatsForFunction(path).queue--
-	common.DecrementGauge(ctx, queuedMetricName)
-
 	s.failed++
-	s.getStatsForFunction(path).failed++
-	common.IncrementCounter(ctx, failedMetricName)
+	fstats.queue--
+	fstats.failed++
 
 	s.mu.Unlock()
+
+	common.DecrementGauge(ctx, queuedMetricName)
+	common.IncrementCounter(ctx, failedMetricName)
 }
 
-func (s *stats) IncrementTimedout(ctx context.Context) {
+func IncrementTimedout(ctx context.Context) {
 	common.IncrementCounter(ctx, timedoutMetricName)
 }
 
-func (s *stats) IncrementErrors(ctx context.Context) {
+func IncrementErrors(ctx context.Context) {
 	common.IncrementCounter(ctx, errorsMetricName)
 }
 
-func (s *stats) IncrementTooBusy(ctx context.Context) {
+func IncrementTooBusy(ctx context.Context) {
 	common.IncrementCounter(ctx, serverBusyMetricName)
 }
 
