@@ -182,20 +182,12 @@ func (a *agent) Submit(callI Call) error {
 
 func (a *agent) startStateTrackers(ctx context.Context, call *call) {
 
-	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
-		var isNew bool
-		call.slots, isNew = a.slotMgr.getSlotQueue(call)
-		if isNew {
-			go a.hotLauncher(ctx, call)
-		}
-	} else {
+	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For cold containers, we track the container state in call
 		call.containerState = NewContainerState()
 	}
 
 	call.requestState = NewRequestState()
-	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
 }
 
 func (a *agent) endStateTrackers(ctx context.Context, call *call) {
@@ -314,10 +306,18 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	defer span.Finish()
 
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
+		var isNew bool
+		call.slots, isNew = a.slotMgr.getSlotQueue(call)
+		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
+		if isNew {
+			go a.hotLauncher(ctx, call)
+		}
 		s, err := a.waitHot(ctx, call)
 		return s, err
 	}
 
+	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
 	return a.launchCold(ctx, call)
 }
 
@@ -469,7 +469,6 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 // implements Slot
 type coldSlot struct {
 	cookie drivers.Cookie
-	waiter drivers.WaitResult
 	tok    ResourceToken
 	err    error
 }
@@ -485,7 +484,12 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
 	call.containerState.UpdateState(ctx, ContainerStateBusy, call.slots)
 
-	res, err := s.waiter.Wait(ctx)
+	waiter, err := s.cookie.Run(ctx)
+	if err != nil {
+		return err
+	}
+
+	res, err := waiter.Wait(ctx)
 	if err != nil {
 		return err
 	} else if res.Error() != nil {
@@ -503,7 +507,6 @@ func (s *coldSlot) Close() error {
 		// removal latency
 		s.cookie.Close(context.Background()) // ensure container removal, separate ctx
 	}
-
 	if s.tok != nil {
 		s.tok.Close()
 	}
@@ -596,20 +599,11 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 	// pull & create container before we return a slot, so as to be friendly
 	// about timing out if this takes a while...
-	var err error
-	var cookie drivers.Cookie
-	var waiter drivers.WaitResult
+	cookie, err := a.driver.Prepare(ctx, container)
 
-	cookie, err = a.driver.Prepare(ctx, container)
-	if err == nil {
-		waiter, err = cookie.Run(ctx)
-	}
+	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
-	if waiter != nil {
-		call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
-	}
-
-	slot := &coldSlot{cookie, waiter, tok, err}
+	slot := &coldSlot{cookie, tok, err}
 	select {
 	case ch <- slot:
 	case <-ctx.Done():
