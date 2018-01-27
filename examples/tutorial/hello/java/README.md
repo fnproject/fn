@@ -71,7 +71,7 @@ These fields are set by default when you run `init` on a function. For more deta
 
 ## Add Fn Registry Environment Variable
 
-Before we start developing we need to set the `FN_REGISTRY` environment variable. Normally, set the value to your Docker Hub username. However, you can work with Fn locally.  Set the `FN_REGISTRY` variable to an invented value: `noreg`.
+Before we start developing we need to set the `FN_REGISTRY` environment variable. It is preferable to set the value to your Docker Hub username so your docker images are stored on Docker Hub. However, for this example let's work with Fn locally. To do that, set the `FN_REGISTRY` variable to an invented value: `noreg`.
 
 >```sh
 >export FN_REGISTRY=noreg
@@ -98,7 +98,7 @@ Hello World!
 To pass data to our function, pass input to `stdin`. You could pass text data to your function like this:
 
 >```sh
->echo "Johnny" | fn run
+>echo -n "Johnny" | fn run
 >```
 
 Or with.
@@ -110,8 +110,7 @@ Or with.
 The function reads the text data and returns:
 
 ```txt
-Hello Johnny
-!
+Hello Johnny!
 ```
 
 ## Deploy your Function to Fn Server
