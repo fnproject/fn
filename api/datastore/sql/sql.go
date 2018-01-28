@@ -256,7 +256,7 @@ func (ds *sqlStore) clear() error {
 	})
 }
 
-func (ds *sqlStore) EnsureApp(ctx context.Context, appName string) (string, error) {
+func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error) {
 	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		return getAppTx(tx, ctx, appName, ensureAppSelector, &app)

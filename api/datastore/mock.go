@@ -29,7 +29,7 @@ func NewMockInit(apps []*models.App, routes []*models.Route, calls []*models.Cal
 	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte), logs.NewMock()})
 }
 
-func (m *mock) EnsureApp(ctx context.Context, appName string) (string, error) {
+func (m *mock) GetAppID(ctx context.Context, appName string) (string, error) {
 	for _, a := range m.Apps {
 		if a.Name == appName {
 			return a.ID, nil

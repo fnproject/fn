@@ -15,17 +15,21 @@ import (
 
 // note: for backward compatibility, will go away later
 type callLogResponse struct {
-	Message string          `json:"message"`
-	Log     *models.CallLog `json:"log"`
+	Message string   `json:"message"`
+	Log     *CallLog `json:"log"`
 }
 
-func writeJSON(c *gin.Context, callID, appID string, logReader io.Reader) {
+type CallLog struct {
+	CallID string `json:"call_id" db:"id"`
+	Log    string `json:"log" db:"log"`
+}
+
+func writeJSON(c *gin.Context, callID string, logReader io.Reader) {
 	var b bytes.Buffer
 	b.ReadFrom(logReader)
 	c.JSON(http.StatusOK, callLogResponse{"Successfully loaded log",
-		&models.CallLog{
+		&CallLog{
 			CallID: callID,
-			AppID:  appID,
 			Log:    b.String(),
 		}})
 }
@@ -34,7 +38,6 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	appID := c.MustGet(api.AppID).(string)
-	appName := c.MustGet(api.App).(string)
 	callID := c.Param(api.Call)
 
 	logReader, err := s.logstore.GetLog(ctx, appID, callID)
@@ -46,13 +49,13 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 	mimeTypes, _ := c.Request.Header["Accept"]
 
 	if len(mimeTypes) == 0 {
-		writeJSON(c, callID, appName, logReader)
+		writeJSON(c, callID, logReader)
 		return
 	}
 
 	for _, mimeType := range mimeTypes {
 		if strings.Contains(mimeType, "application/json") {
-			writeJSON(c, callID, appName, logReader)
+			writeJSON(c, callID, logReader)
 			return
 		}
 		if strings.Contains(mimeType, "text/plain") {
@@ -61,7 +64,7 @@ func (s *Server) handleCallLogGet(c *gin.Context) {
 
 		}
 		if strings.Contains(mimeType, "*/*") {
-			writeJSON(c, callID, appName, logReader)
+			writeJSON(c, callID, logReader)
 			return
 		}
 	}

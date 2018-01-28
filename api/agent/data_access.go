@@ -90,22 +90,7 @@ func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 }
 
 func (da *CachedDataAccess) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
-	key := appNameCacheKey(appName)
-	cachedApp, ok := da.cache.Get(key)
-	if ok {
-		return cachedApp.(*models.App), nil
-	}
-	resp, err := da.singleflight.Do(key,
-		func() (interface{}, error) {
-			return da.DataAccess.GetAppByName(ctx, appName)
-		})
-
-	if err != nil {
-		return nil, err
-	}
-	cachedApp = resp.(*models.App)
-	da.cache.Set(key, cachedApp, cache.DefaultExpiration)
-	return cachedApp.(*models.App), nil
+	return da.DataAccess.GetAppByName(ctx, appName)
 }
 
 func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {

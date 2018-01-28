@@ -7,12 +7,17 @@ import (
 )
 
 type Datastore interface {
-	// GetApp gets an App by name.
+	// GetAppByName gets an App by name.
 	// Returns ErrDatastoreEmptyAppName for empty appName.
 	// Returns ErrAppsNotFound if no app is found.
 	GetAppByName(ctx context.Context, appName string) (*App, error)
+
+	// GetAppByID gets an App by name.
+	// Returns ErrDatastoreEmptyAppID for empty appName.
+	// Returns ErrAppsNotFound if no app is found.
 	GetAppByID(ctx context.Context, appID string) (*App, error)
-	EnsureApp(ctx context.Context, appName string) (string, error)
+
+	GetAppID(ctx context.Context, appName string) (string, error)
 	// GetApps gets a slice of Apps, optionally filtered by name.
 	// Missing filter or empty name will match all Apps.
 	GetApps(ctx context.Context, filter *AppFilter) ([]*App, error)

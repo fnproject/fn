@@ -17,11 +17,11 @@ type validator struct {
 	models.Datastore
 }
 
-func (v *validator) EnsureApp(ctx context.Context, appName string) (string, error) {
+func (v *validator) GetAppID(ctx context.Context, appName string) (string, error) {
 	if appName == "" {
 		return "", models.ErrAppsMissingName
 	}
-	return v.Datastore.EnsureApp(ctx, appName)
+	return v.Datastore.GetAppID(ctx, appName)
 }
 
 // name will never be empty.

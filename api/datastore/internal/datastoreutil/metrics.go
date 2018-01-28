@@ -18,10 +18,10 @@ type metricds struct {
 	ds models.Datastore
 }
 
-func (m *metricds) EnsureApp(ctx context.Context, appName string) (string, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_app")
+func (m *metricds) GetAppID(ctx context.Context, appName string) (string, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_app_id")
 	defer span.End()
-	return m.ds.EnsureApp(ctx, appName)
+	return m.ds.GetAppID(ctx, appName)
 }
 
 func (m *metricds) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
