@@ -262,7 +262,7 @@ func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error
 		query := tx.Rebind(appNameSelector)
 		row := tx.QueryRowxContext(ctx, query, appName)
 
-		err := row.StructScan(app)
+		err := row.StructScan(&app)
 		if err == sql.ErrNoRows {
 			return models.ErrAppsNotFound
 		}
@@ -314,7 +314,7 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 }
 
 func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
-	var app *models.App
+	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
@@ -322,7 +322,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		query := tx.Rebind(appIDSelector)
 		row := tx.QueryRowxContext(ctx, query, newapp.ID)
 
-		err := row.StructScan(app)
+		err := row.StructScan(&app)
 		if err == sql.ErrNoRows {
 			return models.ErrAppsNotFound
 		}
@@ -355,7 +355,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		return nil, err
 	}
 
-	return app, nil
+	return &app, nil
 }
 
 func (ds *sqlStore) RemoveApp(ctx context.Context, appID string) error {
@@ -394,7 +394,7 @@ func (ds *sqlStore) GetAppByName(ctx context.Context, appName string) (*models.A
 		query := tx.Rebind(appNameSelector)
 		row := tx.QueryRowxContext(ctx, query, appName)
 
-		err := row.StructScan(app)
+		err := row.StructScan(&app)
 		if err == sql.ErrNoRows {
 			return models.ErrAppsNotFound
 		}
@@ -412,7 +412,7 @@ func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 		query := tx.Rebind(appIDSelector)
 		row := tx.QueryRowxContext(ctx, query, appID)
 
-		err := row.StructScan(app)
+		err := row.StructScan(&app)
 		if err == sql.ErrNoRows {
 			return models.ErrAppsNotFound
 		}

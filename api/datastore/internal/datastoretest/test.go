@@ -302,7 +302,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		{
 			// Set a config var
-			a := &models.App{ID: testApp.ID, Config: map[string]string{"TEST": "1"}}
+			a := testApp.Clone()
+			a.Config = map[string]string{"TEST": "1"}
 			updated, err := ds.UpdateApp(ctx, a)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
@@ -313,7 +314,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 
 			// Set a different var (without clearing the existing)
-			another := &models.App{ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}}
+			another := testApp.Clone()
+			another.Config = map[string]string{"OTHER": "TEST"}
 			updated, err = ds.UpdateApp(ctx, another)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
@@ -324,7 +326,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 
 			// Delete a var
-			dVar := &models.App{ID: testApp.ID, Config: map[string]string{"TEST": ""}}
+			dVar := testApp.Clone()
+			dVar.Config = map[string]string{"TEST": ""}
 			updated, err = ds.UpdateApp(ctx, dVar)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)

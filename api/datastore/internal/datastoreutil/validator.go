@@ -64,8 +64,8 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
-	if app.Name == "" {
-		return nil, models.ErrAppsMissingName
+	if app.ID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
 	}
 
 	return v.Datastore.UpdateApp(ctx, app)
