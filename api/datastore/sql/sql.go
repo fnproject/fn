@@ -259,7 +259,14 @@ func (ds *sqlStore) clear() error {
 func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error) {
 	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, appName, ensureAppSelector, &app)
+		query := tx.Rebind(appNameSelector)
+		row := tx.QueryRowxContext(ctx, query, appName)
+
+		err := row.StructScan(app)
+		if err == sql.ErrNoRows {
+			return models.ErrAppsNotFound
+		}
+		return err
 	})
 	if err == nil {
 		return app.ID, nil
@@ -307,11 +314,18 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 }
 
 func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
-	app := &models.App{Name: newapp.Name}
+	var app *models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
-		err := getAppTx(tx, ctx, app.Name, appNameSelector, app)
+
+		query := tx.Rebind(appIDSelector)
+		row := tx.QueryRowxContext(ctx, query, newapp.ID)
+
+		err := row.StructScan(app)
+		if err == sql.ErrNoRows {
+			return models.ErrAppsNotFound
+		}
 		if err != nil {
 			return err
 		}
@@ -322,7 +336,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
-		query := tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, updated_at=:updated_at WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
@@ -374,21 +388,17 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appID string) error {
 	})
 }
 
-func getAppTx(tx *sqlx.Tx, ctx context.Context, app, appGetQuery string, a *models.App) error {
-	query := tx.Rebind(appGetQuery)
-	row := tx.QueryRowxContext(ctx, query, app)
-
-	err := row.StructScan(a)
-	if err == sql.ErrNoRows {
-		return models.ErrAppsNotFound
-	}
-	return err
-}
-
 func (ds *sqlStore) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
 	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, appName, appNameSelector, &app)
+		query := tx.Rebind(appNameSelector)
+		row := tx.QueryRowxContext(ctx, query, appName)
+
+		err := row.StructScan(app)
+		if err == sql.ErrNoRows {
+			return models.ErrAppsNotFound
+		}
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -399,7 +409,14 @@ func (ds *sqlStore) GetAppByName(ctx context.Context, appName string) (*models.A
 func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		return getAppTx(tx, ctx, appID, appIDSelector, &app)
+		query := tx.Rebind(appIDSelector)
+		row := tx.QueryRowxContext(ctx, query, appID)
+
+		err := row.StructScan(app)
+		if err == sql.ErrNoRows {
+			return models.ErrAppsNotFound
+		}
+		return err
 	})
 	if err != nil {
 		return nil, err

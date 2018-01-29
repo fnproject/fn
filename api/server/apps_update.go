@@ -33,7 +33,7 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	wapp.App.Name = c.MustGet(api.App).(string)
+	wapp.App.ID = c.MustGet(api.AppID).(string)
 
 	app, err := s.datastore.UpdateApp(ctx, wapp.App)
 	if err != nil {

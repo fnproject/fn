@@ -302,33 +302,34 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		{
 			// Set a config var
-			updated, err := ds.UpdateApp(ctx, &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}})
+			a := &models.App{ID: testApp.ID, Config: map[string]string{"TEST": "1"}}
+			updated, err := ds.UpdateApp(ctx, a)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
-			expected := &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
+			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1"}}
 			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 
 			// Set a different var (without clearing the existing)
-			updated, err = ds.UpdateApp(ctx,
-				&models.App{Name: testApp.Name, Config: map[string]string{"OTHER": "TEST"}})
+			another := &models.App{ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}}
+			updated, err = ds.UpdateApp(ctx, another)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
-			expected = &models.App{Name: testApp.Name, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
+			expected = &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1", "OTHER": "TEST"}}
 			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
 
 			// Delete a var
-			updated, err = ds.UpdateApp(ctx,
-				&models.App{Name: testApp.Name, Config: map[string]string{"TEST": ""}})
+			dVar := &models.App{ID: testApp.ID, Config: map[string]string{"TEST": ""}}
+			updated, err = ds.UpdateApp(ctx, dVar)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
-			expected = &models.App{Name: testApp.Name, Config: map[string]string{"OTHER": "TEST"}}
+			expected = &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"OTHER": "TEST"}}
 			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
@@ -444,12 +445,14 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 
 		// Test update inexistent app
-		_, err = ds.UpdateApp(ctx, &models.App{
+		missingApp := &models.App{
 			Name: testApp.Name,
 			Config: map[string]string{
 				"TEST": "1",
 			},
-		})
+		}
+		missingApp.SetDefaults()
+		_, err = ds.UpdateApp(ctx, missingApp)
 		if err != models.ErrAppsNotFound {
 			t.Fatalf("Test UpdateApp(inexistent): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 		}
