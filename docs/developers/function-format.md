@@ -84,9 +84,12 @@ Internally functions receive data in the example format below:
 {
   "call_id": "123",
   "content_type": "application/json",
+  "type":"sync",
+  "deadline":"2018-01-30T16:52:39.786Z",
   "body": "{\"some\":\"input\"}",
   "protocol": {
     "type": "http",
+    "method": "POST",
     "request_url": "http://localhost:8080/r/myapp/myfunc?q=hi",
     "headers": {
       "Content-Type": ["application/json"],
@@ -95,13 +98,15 @@ Internally functions receive data in the example format below:
   }
 }
 BLANK LINE
-{ 
+{
   NEXT INPUT OBJECT
 }
 ```
 
 * call_id - the unique ID for the call.
 * content_type - format of the `body` parameter.
+* type - whether the call was sync or async.
+* deadline - a time limit for the call, based on function timeout.
 * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
 
 Under `protocol`, `headers` contains all of the HTTP headers exactly as defined in the incoming request.
