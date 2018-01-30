@@ -78,11 +78,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			}
 		}
 
-		// add our per call headers in here
-		req.Header.Set("FN_METHOD", req.Method)
-		req.Header.Set("FN_REQUEST_URL", reqURL(req))
-		req.Header.Set("FN_CALL_ID", id)
-
 		// this ensures that there is an image, path, timeouts, memory, etc are valid.
 		// NOTE: this means assign any changes above into route's fields
 		err = route.Validate()
