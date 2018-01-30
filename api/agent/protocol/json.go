@@ -100,6 +100,17 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 		return err
 	}
 
+	// deadline
+	err = writeString(err, h.in, ",")
+	err = writeString(err, h.in, `"deadline":`)
+	if err != nil {
+		return err
+	}
+	err = stdin.Encode(ci.Deadline().String())
+	if err != nil {
+		return err
+	}
+
 	// body
 	err = writeString(err, h.in, ",")
 	err = writeString(err, h.in, `"body":`)

@@ -233,16 +233,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.slotDeadline = slotDeadline
 	c.execDeadline = execDeadline
 
-	execDeadlineStr := strfmt.DateTime(execDeadline).String()
-
-	// these 2 headers buckets are the same but for posterity!
-	if c.Headers == nil {
-		c.Headers = make(http.Header)
-		c.req.Header = c.Headers
-	}
-	c.Headers.Set("FN_DEADLINE", execDeadlineStr)
-	c.req.Header.Set("FN_DEADLINE", execDeadlineStr)
-
 	return &c, nil
 }
 

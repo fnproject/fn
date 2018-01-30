@@ -25,6 +25,9 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	req.RequestURI = ci.RequestURL() // force set to this, for req.Write to use (TODO? still?)
 
+	// Add execution deadline as a header for this protocol
+	req.Header.Set("FN_DEADLINE", ci.Deadline().String())
+
 	// req.Write handles if the user does not specify content length
 	err := req.Write(h.in)
 	if err != nil {

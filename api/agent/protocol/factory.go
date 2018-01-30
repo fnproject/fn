@@ -5,8 +5,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
+	"github.com/go-openapi/strfmt"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
@@ -35,6 +37,7 @@ type CallInfo interface {
 	CallID() string
 	ContentType() string
 	Input() io.Reader
+	Deadline() strfmt.DateTime
 
 	// ProtocolType let's function/fdk's know what type original request is. Only 'http' for now.
 	// This could be abstracted into separate Protocol objects for each type and all the following information could go in there.
@@ -61,6 +64,17 @@ func (ci callInfoImpl) ContentType() string {
 // Input returns the call's input/body
 func (ci callInfoImpl) Input() io.Reader {
 	return ci.req.Body
+}
+
+func (ci callInfoImpl) Deadline() strfmt.DateTime {
+	deadline, ok := ci.req.Context().Deadline()
+	if !ok {
+		// In theory deadline must have been set here, but if it wasn't then
+		// at this point it is already too late to raise an error. Set it to
+		// something meaningful.
+		deadline = time.Now().Add(time.Duration(ci.call.Timeout) * time.Second)
+	}
+	return strfmt.DateTime(deadline)
 }
 
 func (ci callInfoImpl) ProtocolType() string {
