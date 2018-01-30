@@ -20,6 +20,7 @@ type jsonio struct {
 type CallRequestHTTP struct {
 	// TODO request method ?
 	Type       string      `json:"type"`
+	Method     string      `json:"method"`
 	RequestURL string      `json:"request_url"`
 	Headers    http.Header `json:"headers"`
 }

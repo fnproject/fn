@@ -124,7 +124,15 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	}
 	if incomingReq.Protocol.Type != ci.ProtocolType() {
 		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
-			ci.call.Type, incomingReq.Protocol.Type)
+			ci.ProtocolType(), incomingReq.Protocol.Type)
+	}
+	if incomingReq.Protocol.Method != ci.Method() {
+		t.Errorf("Call protocol method assertion mismatch: expected: %s, got %s",
+			ci.Method(), incomingReq.Protocol.Method)
+	}
+	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
+		t.Errorf("Call protocol request URL assertion mismatch: expected: %s, got %s",
+			ci.RequestURL(), incomingReq.Protocol.RequestURL)
 	}
 }
 
@@ -157,6 +165,18 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	if !models.Headers(ci.req.Header).Equals(models.Headers(incomingReq.Protocol.Headers)) {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
 			ci.req.Header, incomingReq.Protocol.Headers)
+	}
+	if incomingReq.Protocol.Type != ci.ProtocolType() {
+		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
+			ci.ProtocolType(), incomingReq.Protocol.Type)
+	}
+	if incomingReq.Protocol.Method != ci.Method() {
+		t.Errorf("Call protocol method assertion mismatch: expected: %s, got %s",
+			ci.Method(), incomingReq.Protocol.Method)
+	}
+	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
+		t.Errorf("Call protocol request URL assertion mismatch: expected: %s, got %s",
+			ci.RequestURL(), incomingReq.Protocol.RequestURL)
 	}
 }
 
