@@ -669,6 +669,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 	ctx, shutdownContainer := context.WithCancel(ctx)
 	defer shutdownContainer() // close this if our waiter returns, to call off slots
+
+	freezer := NewFreezer(ctx, a.driver, container)
+
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
@@ -700,6 +703,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				if call.slots.ejectSlot(s) {
 					return
 				}
+			}
+
+			// tell freezer that we are going to get busy
+			err := freezer.Unfreeze(ctx)
+			if err != nil {
+				logger.WithError(err).Info("hot function unfreeze error")
+				return
 			}
 
 			state.UpdateState(ctx, ContainerStateBusy, call.slots)

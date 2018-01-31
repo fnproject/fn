@@ -54,6 +54,12 @@ type Driver interface {
 	//
 	// The returned cookie should respect the task's timeout when it is run.
 	Prepare(ctx context.Context, task ContainerTask) (Cookie, error)
+
+	// Freeze the container to pause running processes
+	Freeze(ctx context.Context, task ContainerTask) error
+
+	// Unfreeze a frozen container to unpause frozen processes
+	Unfreeze(ctx context.Context, task ContainerTask) error
 }
 
 // RunResult indicates only the final state of the task.
