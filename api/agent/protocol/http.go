@@ -43,7 +43,7 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if err != nil {
 		// From here (boo stdlib): https://github.com/golang/go/blob/d3c1df712658398f29bc8bebd6767e7b3cac2d12/src/net/http/response.go#L174
 		if strings.Contains(err.Error(), "malformed HTTP") {
-			return models.NewAPIError(http.StatusInternalServerError, fmt.Errorf("invalid http response from function err:", err))
+			return models.NewAPIError(http.StatusInternalServerError, fmt.Errorf("invalid http response from function err: %v", err))
 		}
 		return err
 	}
