@@ -78,11 +78,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			}
 		}
 
-		// add our per call headers in here
-		req.Header.Set("FN_METHOD", req.Method)
-		req.Header.Set("FN_REQUEST_URL", reqURL(req))
-		req.Header.Set("FN_CALL_ID", id)
-
 		// this ensures that there is an image, path, timeouts, memory, etc are valid.
 		// NOTE: this means assign any changes above into route's fields
 		err = route.Validate()
@@ -232,16 +227,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.slotDeadline = slotDeadline
 	c.execDeadline = execDeadline
-
-	execDeadlineStr := strfmt.DateTime(execDeadline).String()
-
-	// these 2 headers buckets are the same but for posterity!
-	if c.Headers == nil {
-		c.Headers = make(http.Header)
-		c.req.Header = c.Headers
-	}
-	c.Headers.Set("FN_DEADLINE", execDeadlineStr)
-	c.req.Header.Set("FN_DEADLINE", execDeadlineStr)
 
 	return &c, nil
 }

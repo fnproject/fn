@@ -15,6 +15,7 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
+	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
@@ -564,23 +565,21 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// TODO we REALLY need to wait for dispatch to return before conceding our slot
 }
 
-func specialHeader(k string) bool {
-	return k == "Fn_call_id" || k == "Fn_method" || k == "Fn_request_url"
-}
-
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
 	defer span.Finish()
 
 	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
 
-	// add additional headers to the config to shove everything into env vars for cold
+	// add Fn-specific information to the config to shove everything into env vars for cold
+	call.Config["FN_DEADLINE"] = strfmt.DateTime(call.execDeadline).String()
+	call.Config["FN_METHOD"] = call.Model().Method
+	call.Config["FN_REQUEST_URL"] = call.Model().URL
+	call.Config["FN_CALL_ID"] = call.Model().ID
+
+	// User headers are prefixed with FN_HEADER and shoved in the env vars too
 	for k, v := range call.Headers {
-		if !specialHeader(k) {
-			k = "FN_HEADER_" + k
-		} else {
-			k = strings.ToUpper(k) // for compat, FN_CALL_ID, etc. in env for cold
-		}
+		k = "FN_HEADER_" + k
 		call.Config[k] = strings.Join(v, ", ")
 	}
 

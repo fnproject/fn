@@ -41,13 +41,53 @@ func setupRequest(data interface{}) *callInfoImpl {
 	}
 	req.Body = ioutil.NopCloser(&buf)
 
-	call := &models.Call{Type: "json"}
+	call := &models.Call{Type: "sync"}
 
 	// fixup URL in models.Call
 	call.URL = req.URL.String()
 
 	ci := &callInfoImpl{call, req}
 	return ci
+}
+
+func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
+	ci := setupRequest(nil)
+	r, w := io.Pipe()
+	proto := JSONProtocol{w, r}
+	go func() {
+		err := proto.writeJSONToContainer(ci)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		w.Close()
+	}()
+	incomingReq := &jsonIn{}
+	bb := new(bytes.Buffer)
+
+	_, err := bb.ReadFrom(r)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = json.Unmarshal(bb.Bytes(), incomingReq)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if incomingReq.CallID != ci.CallID() {
+		t.Errorf("Request CallID assertion mismatch: expected: %s, got %s",
+			ci.CallID(), incomingReq.CallID)
+	}
+	if incomingReq.ContentType != ci.ContentType() {
+		t.Errorf("Request ContentType assertion mismatch: expected: %s, got %s",
+			ci.ContentType(), incomingReq.ContentType)
+	}
+	if incomingReq.Type != ci.CallType() {
+		t.Errorf("Request CallType assertion mismatch: expected: %s, got %s",
+			ci.CallType(), incomingReq.Type)
+	}
+	if incomingReq.Deadline != ci.Deadline().String() {
+		t.Errorf("Request Deadline assertion mismatch: expected: %s, got %s",
+			ci.Deadline(), incomingReq.Deadline)
+	}
 }
 
 func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
@@ -82,9 +122,17 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 		t.Errorf("Request data assertion mismatch: expected: %s, got %s",
 			rDataBefore.A, rDataAfter.A)
 	}
-	if incomingReq.Protocol.Type != ci.call.Type {
+	if incomingReq.Protocol.Type != ci.ProtocolType() {
 		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
-			ci.call.Type, incomingReq.Protocol.Type)
+			ci.ProtocolType(), incomingReq.Protocol.Type)
+	}
+	if incomingReq.Protocol.Method != ci.Method() {
+		t.Errorf("Call protocol method assertion mismatch: expected: %s, got %s",
+			ci.Method(), incomingReq.Protocol.Method)
+	}
+	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
+		t.Errorf("Call protocol request URL assertion mismatch: expected: %s, got %s",
+			ci.RequestURL(), incomingReq.Protocol.RequestURL)
 	}
 }
 
@@ -117,6 +165,18 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	if !models.Headers(ci.req.Header).Equals(models.Headers(incomingReq.Protocol.Headers)) {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
 			ci.req.Header, incomingReq.Protocol.Headers)
+	}
+	if incomingReq.Protocol.Type != ci.ProtocolType() {
+		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",
+			ci.ProtocolType(), incomingReq.Protocol.Type)
+	}
+	if incomingReq.Protocol.Method != ci.Method() {
+		t.Errorf("Call protocol method assertion mismatch: expected: %s, got %s",
+			ci.Method(), incomingReq.Protocol.Method)
+	}
+	if incomingReq.Protocol.RequestURL != ci.RequestURL() {
+		t.Errorf("Call protocol request URL assertion mismatch: expected: %s, got %s",
+			ci.RequestURL(), incomingReq.Protocol.RequestURL)
 	}
 }
 

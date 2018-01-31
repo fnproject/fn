@@ -168,9 +168,6 @@ func TestCallConfigurationRequest(t *testing.T) {
 	}
 
 	expectedHeaders := make(http.Header)
-	expectedHeaders.Add("FN_CALL_ID", model.ID)
-	expectedHeaders.Add("FN_METHOD", method)
-	expectedHeaders.Add("FN_REQUEST_URL", url)
 
 	expectedHeaders.Add("MYREALHEADER", "FOOLORD")
 	expectedHeaders.Add("MYREALHEADER", "FOOPEASANT")

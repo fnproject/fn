@@ -20,6 +20,7 @@ type jsonio struct {
 type CallRequestHTTP struct {
 	// TODO request method ?
 	Type       string      `json:"type"`
+	Method     string      `json:"method"`
 	RequestURL string      `json:"request_url"`
 	Headers    http.Header `json:"headers"`
 }
@@ -33,8 +34,12 @@ type CallResponseHTTP struct {
 // jsonIn We're not using this since we're writing JSON directly right now, but trying to keep it current anyways, much easier to read/follow
 type jsonIn struct {
 	jsonio
-	CallID   string           `json:"call_id"`
-	Protocol *CallRequestHTTP `json:"protocol"`
+	CallID      string           `json:"call_id"`
+	ContentType string           `json:"content_type"`
+	Type        string           `json:"type"`
+	Deadline    string           `json:"deadline"`
+	Body        string           `json:"body"`
+	Protocol    *CallRequestHTTP `json:"protocol"`
 }
 
 // jsonOut the expected response from the function container
@@ -100,6 +105,28 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 		return err
 	}
 
+	// Call type (sync or async)
+	err = writeString(err, h.in, ",")
+	err = writeString(err, h.in, `"type":`)
+	if err != nil {
+		return err
+	}
+	err = stdin.Encode(ci.CallType())
+	if err != nil {
+		return err
+	}
+
+	// deadline
+	err = writeString(err, h.in, ",")
+	err = writeString(err, h.in, `"deadline":`)
+	if err != nil {
+		return err
+	}
+	err = stdin.Encode(ci.Deadline().String())
+	if err != nil {
+		return err
+	}
+
 	// body
 	err = writeString(err, h.in, ",")
 	err = writeString(err, h.in, `"body":`)
@@ -115,11 +142,23 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	err = writeString(err, h.in, ",")
 	err = writeString(err, h.in, `"protocol":{`) // OK name? This is what OpenEvents is calling it in initial proposal
 	{
+		// Protocol type used to initiate the call.
 		err = writeString(err, h.in, `"type":`)
 		if err != nil {
 			return err
 		}
 		err = stdin.Encode(ci.ProtocolType())
+
+		// request method
+		err = writeString(err, h.in, ",")
+		err = writeString(err, h.in, `"method":`)
+		if err != nil {
+			return err
+		}
+		err = stdin.Encode(ci.Method())
+		if err != nil {
+			return err
+		}
 
 		// request URL
 		err = writeString(err, h.in, ",")

@@ -25,6 +25,12 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	req.RequestURI = ci.RequestURL() // force set to this, for req.Write to use (TODO? still?)
 
+	// Add Fn-specific headers for this protocol
+	req.Header.Set("FN_DEADLINE", ci.Deadline().String())
+	req.Header.Set("FN_METHOD", ci.Method())
+	req.Header.Set("FN_REQUEST_URL", ci.RequestURL())
+	req.Header.Set("FN_CALL_ID", ci.CallID())
+
 	// req.Write handles if the user does not specify content length
 	err := req.Write(h.in)
 	if err != nil {
