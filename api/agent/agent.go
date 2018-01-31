@@ -741,15 +741,12 @@ type container struct {
 	stdout io.Writer
 	stderr io.Writer
 
-	// lock protects the swap and any fields that need to be swapped
-	sync.Mutex
-	stats *drivers.Stats
+	// lock protects the stats swapping
+	statsMu sync.Mutex
+	stats   *drivers.Stats
 }
 
 func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.Stats) func() {
-	c.Lock()
-	defer c.Unlock()
-
 	ostdin := c.stdin.(*ghostReader).inner
 	ostdout := c.stdout.(*ghostWriter).inner
 	ostderr := c.stderr.(*ghostWriter).inner
@@ -758,12 +755,19 @@ func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.
 	c.stdin.(*ghostReader).swap(stdin)
 	c.stdout.(*ghostWriter).swap(stdout)
 	c.stderr.(*ghostWriter).swap(stderr)
+
+	c.statsMu.Lock()
+	ocs := c.stats
 	c.stats = cs
+	c.statsMu.Unlock()
 
 	return func() {
 		c.stdin.(*ghostReader).swap(ostdin)
 		c.stdout.(*ghostWriter).swap(ostdout)
 		c.stderr.(*ghostWriter).swap(ostderr)
+		c.statsMu.Lock()
+		c.stats = ocs
+		c.statsMu.Unlock()
 	}
 }
 
@@ -793,11 +797,11 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 
 	common.PublishHistograms(ctx, metrics)
 
-	c.Lock()
-	defer c.Unlock()
+	c.statsMu.Lock()
 	if c.stats != nil {
 		*(c.stats) = append(*(c.stats), stat)
 	}
+	c.statsMu.Unlock()
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
