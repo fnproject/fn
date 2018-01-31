@@ -120,13 +120,23 @@ func registryFromEnv() map[string]docker.AuthConfiguration {
 func (drv *DockerDriver) Freeze(ctx context.Context, task drivers.ContainerTask) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Freeze"})
 	log.WithFields(logrus.Fields{"call_id": task.Id()}).Debug("docker pause")
-	return nil
+
+	err := drv.docker.PauseContainer(task.Id(), ctx)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": task.Id()}).Error("error pausing container")
+	}
+	return err
 }
 
 func (drv *DockerDriver) Unfreeze(ctx context.Context, task drivers.ContainerTask) error {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Unfreeze"})
 	log.WithFields(logrus.Fields{"call_id": task.Id()}).Debug("docker unpause")
-	return nil
+
+	err := drv.docker.UnpauseContainer(task.Id(), ctx)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": task.Id()}).Error("error unpausing container")
+	}
+	return err
 }
 
 func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {

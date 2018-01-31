@@ -19,6 +19,7 @@ import (
 
 const (
 	retryTimeout = 10 * time.Minute
+	pauseTimeout = 5 * time.Second
 )
 
 // wrap docker client calls so we can retry 500s, kind of sucks but fsouza doesn't
@@ -34,6 +35,8 @@ type dockerClient interface {
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
 	CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error)
 	RemoveContainer(opts docker.RemoveContainerOptions) error
+	PauseContainer(id string, ctx context.Context) error
+	UnpauseContainer(id string, ctx context.Context) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	InspectImage(ctx context.Context, name string) (*docker.Image, error)
 	InspectContainerWithContext(container string, ctx context.Context) (*docker.Container, error)
@@ -255,6 +258,30 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 	defer cancel()
 	err = d.retry(ctx, func() error {
 		err = d.docker.RemoveContainer(opts)
+		return err
+	})
+	return filterNoSuchContainer(ctx, err)
+}
+
+func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "docker_pause_container")
+	defer span.Finish()
+	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
+	defer cancel()
+	err = d.retry(ctx, func() error {
+		err = d.docker.PauseContainer(id)
+		return err
+	})
+	return filterNoSuchContainer(ctx, err)
+}
+
+func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "docker_unpause_container")
+	defer span.Finish()
+	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
+	defer cancel()
+	err = d.retry(ctx, func() error {
+		err = d.docker.UnpauseContainer(id)
 		return err
 	})
 	return filterNoSuchContainer(ctx, err)
