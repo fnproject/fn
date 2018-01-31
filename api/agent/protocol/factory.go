@@ -76,7 +76,10 @@ func (ci callInfoImpl) Deadline() strfmt.DateTime {
 		// something meaningful.
 		// This assumes StartedAt was set to something other than the default.
 		// If that isn't set either, then how many things have gone wrong?
-		// TODO: assert or panic in that case
+		if ci.call.StartedAt == strfmt.NewDateTime() {
+			// We just panic if StartedAt is the default (i.e. not set)
+			panic("No context deadline and zero-value StartedAt - this should never happen")
+		}
 		deadline = ((time.Time)(ci.call.StartedAt)).Add(time.Duration(ci.call.Timeout) * time.Second)
 	}
 	return strfmt.DateTime(deadline)
