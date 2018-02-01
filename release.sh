@@ -15,6 +15,7 @@ else
   exit 1
 fi
 
+version_file="api/version/version.go"
 version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
 echo "Version: $version"
 
