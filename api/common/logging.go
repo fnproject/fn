@@ -12,6 +12,12 @@ func SetLogLevel(ll string) {
 	if ll == "" {
 		ll = "info"
 	}
+	// show full timestamps
+	formatter := &logrus.TextFormatter{
+		FullTimestamp: true,
+	}
+	logrus.SetFormatter(formatter)
+
 	logrus.WithFields(logrus.Fields{"level": ll}).Info("Setting log level to")
 	logLevel, err := logrus.ParseLevel(ll)
 	if err != nil {
