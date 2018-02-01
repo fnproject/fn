@@ -672,9 +672,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		idleTime := time.Duration(call.IdleTimeout) * time.Second
-		freezeTime := time.Duration(50) * time.Millisecond
-		ejectTime := time.Duration(1) * time.Second
+		freezeTicker := time.Duration(50) * time.Millisecond
+		ejectTicker := time.Duration(1) * time.Second
+		idleTimeout := time.Duration(call.IdleTimeout) * time.Second
 
 		for {
 			select { // make sure everything is up before trying to send slot
@@ -690,51 +690,42 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
 
 			isFrozen := false
-			totalTime := time.Duration(0)
-			timer := freezeTime
+			elapsed := time.Duration(0)
+			ticker := freezeTicker
 
 			for {
 				select {
-				case <-s.trigger:
-				case <-time.After(timer):
-					totalTime += timer
-
-					// initial ticker (50 msec), check if we can freeze
-					if timer == freezeTime {
-						timer = ejectTime
-
-						err := a.driver.Freeze(ctx, container)
-						if err != nil {
-							logger.WithError(err).Error("freeze error")
-							return
-						}
-
-						// container now frozen
-						isFrozen = true
-						continue
-					}
-
-					waiters := a.resources.GetResourceTokenWaiterCount()
-					if totalTime < idleTime && waiters == 0 {
-						continue
-					}
-
-					if call.slots.ejectSlot(s) {
-						logger.WithFields(logrus.Fields{"waiters": waiters}).Info("Canceling inactive hot function")
-						return
-					}
-
+				case <-s.trigger: // slot already consumed
 				case <-ctx.Done(): // container shutdown
-					if call.slots.ejectSlot(s) {
-						return
-					}
 				case <-a.shutdown: // server shutdown
-					if call.slots.ejectSlot(s) {
-						return
+				case <-time.After(ticker):
+					elapsed += ticker
+
+					if ticker == freezeTicker {
+						if !isFrozen {
+							err := a.driver.Freeze(ctx, container)
+							if err != nil {
+								logger.WithError(err).Error("freeze error")
+								return
+							}
+							isFrozen = true
+						}
+						ticker = ejectTicker
+						continue
+					}
+
+					if elapsed < idleTimeout && a.resources.GetResourceTokenWaiterCount() == 0 {
+						continue
 					}
 				}
-
 				break
+			}
+
+			// if we can eject token, that means we are here due to
+			// abort/shutdown/timeout, attempt to eject and terminate,
+			// otherwise continue processing the request
+			if call.slots.ejectSlot(s) {
+				return
 			}
 
 			if isFrozen {
@@ -743,6 +734,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 					logger.WithError(err).Error("unfreeze error")
 					return
 				}
+				isFrozen = false
 			}
 
 			state.UpdateState(ctx, ContainerStateBusy, call.slots)
