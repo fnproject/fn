@@ -38,6 +38,11 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 		return nil, models.ErrDatastoreEmptyAppName
 	}
 
+	app.SetDefaults()
+	if err := app.Validate(); err != nil {
+		return nil, err
+	}
+
 	return v.Datastore.InsertApp(ctx, app)
 }
 
@@ -91,6 +96,11 @@ func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*mode
 	}
 	if route.Path == "" {
 		return nil, models.ErrDatastoreEmptyRoutePath
+	}
+
+	route.SetDefaults()
+	if err := route.Validate(); err != nil {
+		return nil, err
 	}
 
 	return v.Datastore.InsertRoute(ctx, route)

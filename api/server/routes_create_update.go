@@ -49,11 +49,6 @@ func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
 }
 
 func (s *Server) submitRoute(ctx context.Context, wroute *models.RouteWrapper) error {
-	wroute.Route.SetDefaults()
-	err := wroute.Route.Validate()
-	if err != nil {
-		return err
-	}
 	r, err := s.datastore.InsertRoute(ctx, wroute.Route)
 	if err != nil {
 		return err
@@ -114,9 +109,6 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 	} else if app == nil {
 		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
-		if err = newapp.Validate(); err != nil {
-			return err
-		}
 
 		err = s.FireBeforeAppCreate(ctx, newapp)
 		if err != nil {

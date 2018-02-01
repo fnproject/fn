@@ -28,12 +28,6 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	app.SetDefaults()
-	if err = app.Validate(); err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
 	err = s.FireBeforeAppCreate(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
