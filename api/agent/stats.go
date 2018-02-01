@@ -10,12 +10,12 @@ import (
 // * hot containers active
 // * memory used / available
 
-// stats holds statistics of all apps
-// an instance of this struc is used to maintain an in-memory record of the current stats
+// stats is the top-level struct containing composite and individial statistics all routes in all apps
+// an instance of this struc is maintained in memory to keep a record of the current stats since the server was started
 // access must be synchronized using the Mutex
 type stats struct {
 	mu sync.Mutex
-	// statistics for all functions combined
+	// composite statistics for all routes in all apps
 	queue    uint64
 	running  uint64
 	complete uint64
@@ -24,25 +24,25 @@ type stats struct {
 	apps map[string]appStats
 }
 
-// appStats holds statistics for an individual app, keyed by function path
+// appStats holds statistics for the routes in an individual app, keyed by the path of the route
 // instances of this struc are used to maintain an in-memory record of the current stats
 // access must be synchronized using the Mutex on the parent stats
 type appStats struct {
-	functions map[string]*functionStats
+	routes map[string]*routeStats
 }
 
-// functionStats holds statistics for an individual function
+// routeStats holds statistics for an individual route
 // instances of this struc are used to maintain an in-memory record of the current stats
 // access must be synchronized using the Mutex on the parent stats
-type functionStats struct {
+type routeStats struct {
 	queue    uint64
 	running  uint64
 	complete uint64
 	failed   uint64
 }
 
-// Stats holds statistics of all apps
-// an instance of this struc is used when converting the current stats to JSON
+// Stats is the top-level struct containing composite and individial statistics all routes in all apps
+// an instance of this struc is created when converting the current stats to JSON
 type Stats struct {
 	Queue    uint64
 	Running  uint64
@@ -52,43 +52,43 @@ type Stats struct {
 	Apps map[string]AppStats
 }
 
-// AppStats holds statistics for an individual app, keyed by function path
+// AppStats holds statistics for the routes in an individual app, keyed by the path of the route
 // instances of this struc are used when converting the current stats to JSON
 type AppStats struct {
-	Functions map[string]*FunctionStats
+	Routes map[string]*RouteStats
 }
 
-// FunctionStats holds statistics for an individual function
+// RouteStats holds statistics for an individual route
 // instances of this struc are used when converting the current stats to JSON
-type FunctionStats struct {
+type RouteStats struct {
 	Queue    uint64
 	Running  uint64
 	Complete uint64
 	Failed   uint64
 }
 
-// return the stats corresponding to the specified app and path, creating a new stats if one does not already exist
-func (s *stats) getStatsForFunction(app string, path string) *functionStats {
+// return the stats corresponding to the specified app name and route path, creating a new stats if one does not already exist
+func (s *stats) getStatsForRoute(app string, path string) *routeStats {
 	if s.apps == nil {
 		s.apps = make(map[string]appStats)
 	}
-	thisAppStats, appFound := s.apps[path]
+	thisAppStats, appFound := s.apps[app]
 	if !appFound {
-		thisAppStats = appStats{functions: make(map[string]*functionStats)}
-		s.apps[path] = thisAppStats
+		thisAppStats = appStats{routes: make(map[string]*routeStats)}
+		s.apps[app] = thisAppStats
 	}
-	thisFunctionStats, pathFound := thisAppStats.functions[path]
+	thisRouteStats, pathFound := thisAppStats.routes[path]
 	if !pathFound {
-		thisFunctionStats = &functionStats{}
-		thisAppStats.functions[path] = thisFunctionStats
+		thisRouteStats = &routeStats{}
+		thisAppStats.routes[path] = thisRouteStats
 	}
-	return thisFunctionStats
+	return thisRouteStats
 }
 
 func (s *stats) Enqueue(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
-	fstats := s.getStatsForFunction(app, path)
+	fstats := s.getStatsForRoute(app, path)
 	s.queue++
 	fstats.queue++
 
@@ -102,7 +102,7 @@ func (s *stats) Enqueue(ctx context.Context, app string, path string) {
 func (s *stats) Dequeue(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
-	fstats := s.getStatsForFunction(app, path)
+	fstats := s.getStatsForRoute(app, path)
 	s.queue--
 	fstats.queue--
 
@@ -114,7 +114,7 @@ func (s *stats) Dequeue(ctx context.Context, app string, path string) {
 func (s *stats) DequeueAndStart(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
-	fstats := s.getStatsForFunction(app, path)
+	fstats := s.getStatsForRoute(app, path)
 	s.queue--
 	s.running++
 	fstats.queue--
@@ -129,7 +129,7 @@ func (s *stats) DequeueAndStart(ctx context.Context, app string, path string) {
 func (s *stats) Complete(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
-	fstats := s.getStatsForFunction(app, path)
+	fstats := s.getStatsForRoute(app, path)
 	s.running--
 	s.complete++
 	fstats.running--
@@ -144,7 +144,7 @@ func (s *stats) Complete(ctx context.Context, app string, path string) {
 func (s *stats) Failed(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
-	fstats := s.getStatsForFunction(app, path)
+	fstats := s.getStatsForRoute(app, path)
 	s.running--
 	s.failed++
 	fstats.running--
@@ -159,7 +159,7 @@ func (s *stats) Failed(ctx context.Context, app string, path string) {
 func (s *stats) DequeueAndFail(ctx context.Context, app string, path string) {
 	s.mu.Lock()
 
-	fstats := s.getStatsForFunction(app, path)
+	fstats := s.getStatsForRoute(app, path)
 	s.queue--
 	s.failed++
 	fstats.queue--
@@ -195,10 +195,10 @@ func (s *stats) Stats() Stats {
 	stats.Failed = s.failed
 	stats.Apps = make(map[string]AppStats)
 	for appname, thisAppStats := range s.apps {
-		newAppStats := AppStats{Functions: make(map[string]*FunctionStats)}
+		newAppStats := AppStats{Routes: make(map[string]*RouteStats)}
 		stats.Apps[appname] = newAppStats
-		for path, thisFunctionStats := range thisAppStats.functions {
-			newAppStats.Functions[path] = &FunctionStats{Queue: thisFunctionStats.queue, Running: thisFunctionStats.running, Complete: thisFunctionStats.complete, Failed: thisFunctionStats.failed}
+		for path, thisRouteStats := range thisAppStats.routes {
+			newAppStats.Routes[path] = &RouteStats{Queue: thisRouteStats.queue, Running: thisRouteStats.running, Complete: thisRouteStats.complete, Failed: thisRouteStats.failed}
 		}
 	}
 	s.mu.Unlock()
