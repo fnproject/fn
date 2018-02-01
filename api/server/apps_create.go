@@ -28,19 +28,7 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	err = s.FireBeforeAppCreate(ctx, app)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
 	app, err = s.datastore.InsertApp(ctx, app)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	err = s.FireAfterAppCreate(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
