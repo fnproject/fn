@@ -2,6 +2,7 @@ package models
 
 import (
 	"time"
+	"unicode"
 
 	"github.com/go-openapi/strfmt"
 )
@@ -34,7 +35,7 @@ func (a *App) Validate() error {
 		return ErrAppsTooLongName
 	}
 	for _, c := range a.Name {
-		if (c < '0' || '9' < c) && (c < 'A' || 'Z' > c) && (c < 'a' || 'z' < c) && c != '_' && c != '-' {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
 			return ErrAppsInvalidName
 		}
 	}

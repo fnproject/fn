@@ -56,14 +56,6 @@ var (
 		code:  http.StatusConflict,
 		error: errors.New("Cannot remove apps with routes"),
 	}
-	ErrDatastoreEmptyAppName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing app name"),
-	}
-	ErrDatastoreEmptyRoutePath = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route name"),
-	}
 	ErrDatastoreEmptyApp = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app"),
