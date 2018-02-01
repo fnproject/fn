@@ -30,7 +30,27 @@ jobs:
       - run: docker version
       - run: nproc
       - run: make clear-images
-      - run: make full-test -j $(nproc)
+
+      # Work out what needs rebuilding and what has changed
+      - run: |
+          ( ./changed-since-last.sh
+            echo "export DIND_NEEDED DIND_TAG DIND_PREV"
+            echo "export FN_NEEDED FN_TAG FN_PREV"
+          ) >> $BASH_ENV
+
+      # Rebuild the build tools if necessary
+      # This leaves local docker images around
+      - run: |
+          if [[ -n "$DIND_NEEDED" ]]; then
+            make build-dind
+          fi
+
+      # Rebuild fnserver if necessary
+      - run: |
+          if [[ -n "$FN_NEEDED" ]]; then
+            make full-test -j $(nproc)
+          fi
+
       - deploy:
           command: |
             if [[ "${CIRCLE_BRANCH}" == "master" && -z "${CIRCLE_PR_REPONAME}" ]]; then
@@ -38,5 +58,10 @@ jobs:
               git config --global user.email "ci@fnproject.com"
               git config --global user.name "CI"
               git branch --set-upstream-to=origin/${CIRCLE_BRANCH} ${CIRCLE_BRANCH}
-              ./release.sh
+              if [[ -n "$DIND_NEEDED" ]]; then
+                make release-dind
+              fi
+              if [[ -n "$FN_NEEDED" ]]; then
+                make release-fnserver
+              fi
             fi
