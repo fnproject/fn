@@ -669,11 +669,12 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 	ctx, shutdownContainer := context.WithCancel(ctx)
 	defer shutdownContainer() // close this if our waiter returns, to call off slots
-
-	freezer := NewFreezer(ctx, a.driver, container)
-
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
+
+		idleTime := time.Duration(call.IdleTimeout) * time.Second
+		freezeTime := time.Duration(50) * time.Millisecond
+		ejectTime := time.Duration(1) * time.Second
 
 		for {
 			select { // make sure everything is up before trying to send slot
@@ -688,33 +689,60 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
 
-			err := freezer.SetFreezable(ctx, true)
-			if err != nil {
-				logger.WithError(err).Error("freezer error")
-				return
+			isFrozen := false
+			totalTime := time.Duration(0)
+			timer := freezeTime
+
+			for {
+				select {
+				case <-s.trigger:
+				case <-time.After(timer):
+					totalTime += timer
+
+					// initial ticker (50 msec), check if we can freeze
+					if timer == freezeTime {
+						timer = ejectTime
+
+						err := a.driver.Freeze(ctx, container)
+						if err != nil {
+							logger.WithError(err).Error("freeze error")
+							return
+						}
+
+						// container now frozen
+						isFrozen = true
+						continue
+					}
+
+					waiters := a.resources.GetResourceTokenWaiterCount()
+					if totalTime < idleTime && waiters == 0 {
+						continue
+					}
+
+					if call.slots.ejectSlot(s) {
+						logger.WithFields(logrus.Fields{"waiters": waiters}).Info("Canceling inactive hot function")
+						return
+					}
+
+				case <-ctx.Done(): // container shutdown
+					if call.slots.ejectSlot(s) {
+						return
+					}
+				case <-a.shutdown: // server shutdown
+					if call.slots.ejectSlot(s) {
+						return
+					}
+				}
+
+				break
 			}
 
-			select {
-			case <-s.trigger:
-			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
-				if call.slots.ejectSlot(s) {
-					logger.Info("Canceling inactive hot function")
+			if isFrozen {
+				err := a.driver.Unfreeze(ctx, container)
+				if err != nil {
+					logger.WithError(err).Error("unfreeze error")
 					return
 				}
-			case <-ctx.Done(): // container shutdown
-				if call.slots.ejectSlot(s) {
-					return
-				}
-			case <-a.shutdown: // server shutdown
-				if call.slots.ejectSlot(s) {
-					return
-				}
-			}
-
-			err = freezer.SetFreezable(ctx, false)
-			if err != nil {
-				logger.WithError(err).Error("freezer error")
-				return
 			}
 
 			state.UpdateState(ctx, ContainerStateBusy, call.slots)
