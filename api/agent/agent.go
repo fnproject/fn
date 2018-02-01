@@ -683,21 +683,34 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
 
-			select {
-			case <-s.trigger:
-			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
-				if call.slots.ejectSlot(s) {
-					logger.Info("Canceling inactive hot function")
-					return
+			for {
+				select {
+				case <-s.trigger:
+				case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
+					if call.slots.ejectSlot(s) {
+						logger.Info("Canceling inactive hot function")
+						return
+					}
+				case <-time.After(time.Duration(1) * time.Second):
+					if a.resources.GetResourceTokenWaiterCount() == 0 {
+						continue
+					}
+
+					if call.slots.ejectSlot(s) {
+						logger.Info("Ejecting inactive hot function")
+						return
+					}
+				case <-ctx.Done(): // container shutdown
+					if call.slots.ejectSlot(s) {
+						return
+					}
+				case <-a.shutdown: // server shutdown
+					if call.slots.ejectSlot(s) {
+						return
+					}
 				}
-			case <-ctx.Done(): // container shutdown
-				if call.slots.ejectSlot(s) {
-					return
-				}
-			case <-a.shutdown: // server shutdown
-				if call.slots.ejectSlot(s) {
-					return
-				}
+
+				break
 			}
 
 			state.UpdateState(ctx, ContainerStateBusy, call.slots)
