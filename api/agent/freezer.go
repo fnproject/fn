@@ -2,34 +2,52 @@ package agent
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 )
+
+// Linux Only cGroups freezer/pause helper. If no notifications are received for
+// a period, when freezer state is freezable, we freeze the container. Similarly,
+// if the container is frozen and notifications are received to unfreeze it, we
+// unfreeze that container.
 
 const (
 	FreezerIdleTimeout = time.Duration(50) * time.Millisecond
 )
 
 type freezer struct {
+	enabled       bool
 	notifications chan bool
 	errors        chan error
 }
 
 type Freezer interface {
+	// Set container freezable state. If an error is returned, the
+	// caller must cleanup and terminate. Errors are not recoverable.
 	SetFreezable(ctx context.Context, isFreezable bool) error
 }
 
 func NewFreezer(ctx context.Context, driver drivers.Driver, container drivers.ContainerTask) Freezer {
 
 	freezeObj := &freezer{
+		enabled:       runtime.GOOS == "linux",
 		notifications: make(chan bool),
 		errors:        make(chan error, 1),
+	}
+
+	if !freezeObj.enabled {
+		return freezeObj
 	}
 
 	go func() {
 		isFrozen := false
 		isFreezable := true
+
+		defer func() {
+			close(freezeObj.errors)
+		}()
 
 		for {
 			if isFrozen {
@@ -67,19 +85,21 @@ func NewFreezer(ctx context.Context, driver drivers.Driver, container drivers.Co
 				return
 			}
 		}
-
-		close(freezeObj.errors)
 	}()
 
 	return freezeObj
 }
 
 func (a *freezer) SetFreezable(ctx context.Context, isFreezable bool) error {
-	select {
-	case a.notifications <- isFreezable:
-	case err := <-a.errors:
-		return err
-	case <-ctx.Done():
+	var err error
+
+	if a.enabled {
+		select {
+		case a.notifications <- isFreezable:
+		case err = <-a.errors:
+		case <-ctx.Done():
+		}
 	}
-	return nil
+
+	return err
 }
