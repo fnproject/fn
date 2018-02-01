@@ -688,6 +688,12 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
 
+			err := freezer.SetFreezable(ctx, true)
+			if err != nil {
+				logger.WithError(err).Error("freezer error")
+				return
+			}
+
 			select {
 			case <-s.trigger:
 			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
@@ -705,10 +711,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				}
 			}
 
-			// tell freezer that we are going to get busy
-			err := freezer.Unfreeze(ctx)
+			err = freezer.SetFreezable(ctx, false)
 			if err != nil {
-				logger.WithError(err).Info("hot function unfreeze error")
+				logger.WithError(err).Error("freezer error")
 				return
 			}
 
