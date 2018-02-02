@@ -61,8 +61,8 @@ func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHea
 
 func TestCallConfigurationRequest(t *testing.T) {
 	appName := "myapp"
-	path := "/sleeper"
-	image := "fnproject/sleeper"
+	path := "/"
+	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
@@ -192,8 +192,8 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 func TestCallConfigurationModel(t *testing.T) {
 	appName := "myapp"
-	path := "/sleeper"
-	image := "fnproject/sleeper"
+	path := "/"
+	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
@@ -253,8 +253,8 @@ func TestCallConfigurationModel(t *testing.T) {
 
 func TestAsyncCallHeaders(t *testing.T) {
 	appName := "myapp"
-	path := "/sleeper"
-	image := "fnproject/sleeper"
+	path := "/"
+	image := "fnproject/fn-test-utils"
 	const timeout = 1
 	const idleTimeout = 20
 	const memory = 256
@@ -526,10 +526,10 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	}
 }
 
-// return a model with all fields filled in with fnproject/sleeper image, change as needed
+// return a model with all fields filled in with fnproject/fn-test-utils:latest image, change as needed
 func testCall() *models.Call {
 	appName := "myapp"
-	path := "/sleeper"
+	path := "/"
 	image := "fnproject/fn-test-utils:latest"
 	const timeout = 10
 	const idleTimeout = 20
