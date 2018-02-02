@@ -26,8 +26,6 @@ import (
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
 // TODO storing logs / call can push call over the timeout
-// TODO if we don't cap the number of any one container we could get into a situation
-// where the machine is full but all the containers are idle up to the idle timeout. meh.
 // TODO async is still broken, but way less so. we need to modify mq semantics
 // to be much more robust. now we're at least running it if we delete the msg,
 // but we may never store info about that execution so still broked (if fn
@@ -675,7 +673,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		freezeTicker := time.Duration(50) * time.Millisecond
 		ejectTicker := time.Duration(1) * time.Second
 		idleTimeout := time.Duration(call.IdleTimeout) * time.Second
-		waiterThreshold := 1 // TODO: determine a better value for this.
 
 		for {
 			select { // make sure everything is up before trying to send slot
@@ -716,14 +713,15 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 							continue
 						}
 
-						// if someone is waiting for our slot queue, we must not terminate,
-						// otherwise, see if other slot queues have waiters.
+						// if someone is waiting for resource in our slot queue, we must not terminate,
+						// otherwise, see if other slot queues have resource waiters.
 						stats := call.slots.getStats()
-						if stats.requestStates[RequestStateWait] > 0 ||
-							stats.containerStates[ContainerStateWait] > 0 ||
-							a.resources.GetResourceTokenWaiterCount() <= waiterThreshold {
+						if stats.containerStates[ContainerStateWait] > 0 ||
+							a.resources.GetResourceTokenWaiterCount() <= 0 {
 							continue
 						}
+
+						logger.Debug("attempting hot function eject")
 					}
 				}
 				break
