@@ -134,12 +134,12 @@ func TestFullStack(t *testing.T) {
 		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
 		// NOTE: cache is lazy, loads when a request comes in for the route, not when added
 		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusOK, 0},
-		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/error", "type": "sync"  } }`, http.StatusOK, 0},
+		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/fn-test-utils", "type": "sync"  } }`, http.StatusOK, 0},
 		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
 		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK, 1},
-		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusBadGateway, 2},
+		{"execute myroute2", "POST", "/r/myapp/myroute2", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, http.StatusBadGateway, 2},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},
 		{"delete myroute2", "DELETE", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
@@ -238,7 +238,7 @@ func TestApiNode(t *testing.T) {
 		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
 
 		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusOK, 0},
-		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/error", "type": "sync"  } }`, http.StatusOK, 0},
+		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/fn-test-utils", "type": "sync"  } }`, http.StatusOK, 0},
 		{"add myasyncroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myasyncroute", "path": "/myasyncroute", "image": "fnproject/hello", "type": "async" } }`, http.StatusOK, 0},
 		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},

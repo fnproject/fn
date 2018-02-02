@@ -132,7 +132,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		[]*models.Route{
 			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myerror", AppName: "myapp", Image: "fnproject/error", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myerror", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
 		}, nil,
@@ -154,14 +154,14 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}{
 		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", ``, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil},
 		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil},
 
 		// Added same tests again to check if time is reduced by the auth cache
 		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
 		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", ``, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
+		{"/r/myapp/myerror", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
