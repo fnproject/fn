@@ -675,6 +675,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		freezeTicker := time.Duration(50) * time.Millisecond
 		ejectTicker := time.Duration(1) * time.Second
 		idleTimeout := time.Duration(call.IdleTimeout) * time.Second
+		waiterThreshold := 1 // TODO: determine a better value for this.
 
 		for {
 			select { // make sure everything is up before trying to send slot
@@ -700,22 +701,29 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				case <-a.shutdown: // server shutdown
 				case <-time.After(ticker):
 					elapsed += ticker
+					if elapsed < idleTimeout {
 
-					if ticker == freezeTicker {
-						if !isFrozen {
-							err := a.driver.Freeze(ctx, container)
-							if err != nil {
-								logger.WithError(err).Error("freeze error")
-								return
+						if ticker == freezeTicker {
+							if !isFrozen {
+								err := a.driver.Freeze(ctx, container)
+								if err != nil {
+									logger.WithError(err).Error("freeze error")
+									return
+								}
+								isFrozen = true
 							}
-							isFrozen = true
+							ticker = ejectTicker
+							continue
 						}
-						ticker = ejectTicker
-						continue
-					}
 
-					if elapsed < idleTimeout && a.resources.GetResourceTokenWaiterCount() == 0 {
-						continue
+						// if someone is waiting for our slot queue, we must not terminate,
+						// otherwise, see if other slot queues have waiters.
+						stats := call.slots.getStats()
+						if stats.requestStates[RequestStateWait] > 0 ||
+							stats.containerStates[ContainerStateWait] > 0 ||
+							a.resources.GetResourceTokenWaiterCount() <= waiterThreshold {
+							continue
+						}
 					}
 				}
 				break
