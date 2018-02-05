@@ -356,15 +356,15 @@ func TestLoggerIsStringerAndWorks(t *testing.T) {
 
 func TestSubmitError(t *testing.T) {
 	appName := "myapp"
-	path := "/error"
-	image := "fnproject/error"
+	path := "/"
+	image := "fnproject/fn-test-utils"
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
 	CPUs := models.MilliCPUs(200)
 	method := "GET"
 	url := "http://127.0.0.1:8080/r/" + appName + path
-	payload := "payload"
+	payload := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`
 	typ := "sync"
 	format := "default"
 	config := map[string]string{
