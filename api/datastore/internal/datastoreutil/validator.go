@@ -20,7 +20,7 @@ type validator struct {
 // name will never be empty.
 func (v *validator) GetApp(ctx context.Context, name string) (app *models.App, err error) {
 	if name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
+		return nil, models.ErrAppsMissingName
 	}
 	return v.Datastore.GetApp(ctx, name)
 }
@@ -34,8 +34,10 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 	if app == nil {
 		return nil, models.ErrDatastoreEmptyApp
 	}
-	if app.Name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
+
+	app.SetDefaults()
+	if err := app.Validate(); err != nil {
+		return nil, err
 	}
 
 	return v.Datastore.InsertApp(ctx, app)
@@ -47,7 +49,7 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 		return nil, models.ErrDatastoreEmptyApp
 	}
 	if app.Name == "" {
-		return nil, models.ErrDatastoreEmptyAppName
+		return nil, models.ErrAppsMissingName
 	}
 	return v.Datastore.UpdateApp(ctx, app)
 }
@@ -55,7 +57,7 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 // name will never be empty.
 func (v *validator) RemoveApp(ctx context.Context, name string) error {
 	if name == "" {
-		return models.ErrDatastoreEmptyAppName
+		return models.ErrAppsMissingName
 	}
 
 	return v.Datastore.RemoveApp(ctx, name)
@@ -64,10 +66,10 @@ func (v *validator) RemoveApp(ctx context.Context, name string) error {
 // appName and routePath will never be empty.
 func (v *validator) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
 	if appName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
+		return nil, models.ErrAppsMissingName
 	}
 	if routePath == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
+		return nil, models.ErrRoutesMissingPath
 	}
 
 	return v.Datastore.GetRoute(ctx, appName, routePath)
@@ -76,7 +78,7 @@ func (v *validator) GetRoute(ctx context.Context, appName, routePath string) (*m
 // appName will never be empty
 func (v *validator) GetRoutesByApp(ctx context.Context, appName string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if appName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
+		return nil, models.ErrAppsMissingName
 	}
 	return v.Datastore.GetRoutesByApp(ctx, appName, routeFilter)
 }
@@ -86,11 +88,10 @@ func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*mode
 	if route == nil {
 		return nil, models.ErrDatastoreEmptyRoute
 	}
-	if route.AppName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
-	}
-	if route.Path == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
+
+	route.SetDefaults()
+	if err := route.Validate(); err != nil {
+		return nil, err
 	}
 
 	return v.Datastore.InsertRoute(ctx, route)
@@ -102,10 +103,10 @@ func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 		return nil, models.ErrDatastoreEmptyRoute
 	}
 	if newroute.AppName == "" {
-		return nil, models.ErrDatastoreEmptyAppName
+		return nil, models.ErrAppsMissingName
 	}
 	if newroute.Path == "" {
-		return nil, models.ErrDatastoreEmptyRoutePath
+		return nil, models.ErrRoutesMissingPath
 	}
 	return v.Datastore.UpdateRoute(ctx, newroute)
 }
@@ -113,10 +114,10 @@ func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 // appName and routePath will never be empty.
 func (v *validator) RemoveRoute(ctx context.Context, appName, routePath string) error {
 	if appName == "" {
-		return models.ErrDatastoreEmptyAppName
+		return models.ErrAppsMissingName
 	}
 	if routePath == "" {
-		return models.ErrDatastoreEmptyRoutePath
+		return models.ErrRoutesMissingPath
 	}
 
 	return v.Datastore.RemoveRoute(ctx, appName, routePath)
