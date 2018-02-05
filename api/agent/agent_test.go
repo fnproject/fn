@@ -648,7 +648,7 @@ func TestPipesAreClear(t *testing.T) {
 	app.ID = ca.AppID
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
-		[]*models.App{app,},
+		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        ca.Path,
@@ -798,7 +798,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	app.ID = call.AppID
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
-		[]*models.App{app,},
+		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        call.Path,
