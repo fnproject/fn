@@ -70,7 +70,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	// the RHS of && won't eval if eq==false so config checking is lazy
 
 	eq := true
-	eq = eq && a1.Name == a2.Name
+	eq = eq && a1.ID == a2.ID
 	eq = eq && a1.Config.Equals(a2.Config)
 	eq = eq && a1.Annotations.Equals(a2.Annotations)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,

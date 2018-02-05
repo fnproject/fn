@@ -22,7 +22,7 @@ type DataAccess interface {
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 
 	// GetRoute abstracts querying the datastore for a route within an app.
-	GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error)
+	GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error)
 
 	// Enqueue will add a Call to the queue (ultimately forwards to mq.Push).
 	Enqueue(ctx context.Context, mCall *models.Call) error
@@ -63,11 +63,6 @@ func routeCacheKey(app, path string) string {
 func appIDCacheKey(appID string) string {
 	return "a:" + appID
 }
-
-func appNameCacheKey(appName string) string {
-	return "n:" + appName
-}
-
 
 func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	key := appIDCacheKey(appID)

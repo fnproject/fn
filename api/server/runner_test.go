@@ -657,7 +657,7 @@ func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 	app := &models.App{Name: "myapp", Config: models.Config{}}
 	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{app,},
+		[]*models.App{app},
 		[]*models.Route{
 			{Path: "/hot", AppID: app.ID, Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 5},
 		}, nil,

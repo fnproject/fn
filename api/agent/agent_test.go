@@ -643,16 +643,14 @@ func TestPipesAreClear(t *testing.T) {
 	ca.Format = "http"
 	ca.IdleTimeout = 60 // keep this bad boy alive
 	ca.Timeout = 4      // short
-	app := &models.App{Name: "myapp"}
-	app.SetDefaults()
-	app.ID = ca.AppID
+	app := &models.App{Name: "myapp", ID: ca.AppID}
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        ca.Path,
-				AppID:       ca.ID,
+				AppID:       ca.AppID,
 				Image:       ca.Image,
 				Type:        ca.Type,
 				Format:      ca.Format,

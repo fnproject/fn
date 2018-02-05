@@ -302,13 +302,13 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		{
 			// Set a config var
-			a := testApp.Clone()
-			a.Config = map[string]string{"TEST": "1"}
-			updated, err := ds.UpdateApp(ctx, a)
+			testApp, err := ds.GetAppByName(ctx, testApp.Name)
+			testApp.Config = map[string]string{"TEST": "1"}
+			updated, err := ds.UpdateApp(ctx, testApp)
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
-			expected := &models.App{Name: testApp.Name, ID: testApp.ID, Config: map[string]string{"TEST": "1"}}
+			expected := &models.App{ID: testApp.ID, Config: map[string]string{"TEST": "1"}}
 			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
@@ -434,6 +434,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test RemoveApp: expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyAppID, err)
 		}
 
+		testApp, _ := ds.GetAppByName(ctx, testApp.Name)
 		err = ds.RemoveApp(ctx, testApp.ID)
 		if err != nil {
 			t.Fatalf("Test RemoveApp: error: %s", err)
@@ -464,7 +465,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 	t.Run("routes", func(t *testing.T) {
 		ds := dsf(t)
 		// Insert app again to test routes
-		_, err := ds.InsertApp(ctx, testApp)
+		testApp, err := ds.InsertApp(ctx, testApp)
 		if err != nil && err != models.ErrAppsAlreadyExists {
 			t.Fatal("Test InsertRoute Prep: failed to insert app: ", err)
 		}
@@ -476,12 +477,15 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				t.Fatalf("Test InsertRoute(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyRoute, err)
 			}
 
-			_, err = ds.InsertRoute(ctx, &models.Route{AppID: "notreal", Path: "/test"})
+			newTestRoute := testRoute.Clone()
+			newTestRoute.AppID = "notreal"
+			_, err = ds.InsertRoute(ctx, newTestRoute)
 			if err != models.ErrAppsNotFound {
 				t.Fatalf("Test InsertRoute: expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
 
-			_, err = ds.InsertRoute(ctx, testRoute)
+			testRoute.AppID = testApp.ID
+			testRoute, err = ds.InsertRoute(ctx, testRoute)
 			if err != nil {
 				t.Fatalf("Test InsertRoute: error when storing new route: %s", err)
 			}
