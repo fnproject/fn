@@ -58,7 +58,9 @@ scrape_configs:
 Note the last line. This specifies the host and port of the Fn server from which metrics will be obtained. 
 If you are running a cluster of Fn servers then you can specify them all here.
 
-Now start Prometheus, specifying this config file:
+Now start Prometheus, specifying this config file.
+
+In the following command, `${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml` is the path of the above Prometheus configuration file. You may need to modify this to use the actual path on your local machine.
 ```
   docker run --name=prometheus -d -p 9090:9090 \
     -v ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml \
