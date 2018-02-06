@@ -3,7 +3,10 @@ package agent
 import (
 	"context"
 	"io"
+	"math"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -113,6 +116,8 @@ type agent struct {
 	shutonce sync.Once
 	shutdown chan struct{}
 
+	freezerWaitMsecs time.Duration
+
 	stats // TODO kill me
 
 	// Prometheus HTTP handler
@@ -125,13 +130,19 @@ func New(da DataAccess) Agent {
 		ServerVersion: "17.06.0",
 	})
 
+	freezerWaitMsecs, err := getFreezerWaitMsecs()
+	if err != nil {
+		logrus.WithError(err).Fatal("error initializing freezer")
+	}
+
 	a := &agent{
-		da:          da,
-		driver:      driver,
-		slotMgr:     NewSlotQueueMgr(),
-		resources:   NewResourceTracker(),
-		shutdown:    make(chan struct{}),
-		promHandler: promhttp.Handler(),
+		da:               da,
+		driver:           driver,
+		slotMgr:          NewSlotQueueMgr(),
+		resources:        NewResourceTracker(),
+		shutdown:         make(chan struct{}),
+		freezerWaitMsecs: freezerWaitMsecs,
+		promHandler:      promhttp.Handler(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -139,6 +150,27 @@ func New(da DataAccess) Agent {
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
+}
+
+func getFreezerWaitMsecs() (time.Duration, error) {
+
+	// default 50 msecs
+	freezerWait := time.Duration(50) * time.Millisecond
+
+	if dur := os.Getenv("FN_FREEZER_WAIT_MSECS"); dur != "" {
+		durUint, err := strconv.ParseUint(dur, 10, 64)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		freezerWait = time.Duration(durUint) * time.Millisecond
+	}
+
+	// if disabled, wait forever.
+	if os.Getenv("FN_FREEZER_DISABLE") != "" {
+		freezerWait = math.MaxInt64
+	}
+
+	return freezerWait, nil
 }
 
 // TODO shuffle this around somewhere else (maybe)
@@ -670,7 +702,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		freezeTicker := time.Duration(50) * time.Millisecond
 		ejectTicker := time.Duration(1) * time.Second
 		idleTimeout := time.Duration(call.IdleTimeout) * time.Second
 
@@ -683,44 +714,47 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
+			isFrozen := false
+			elapsed := time.Duration(0)
+			freezerTicker := a.freezerWaitMsecs
+
 			done := make(chan struct{})
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
-
-			isFrozen := false
-			elapsed := time.Duration(0)
-			ticker := freezeTicker
 
 			for {
 				select {
 				case <-s.trigger: // slot already consumed
 				case <-ctx.Done(): // container shutdown
 				case <-a.shutdown: // server shutdown
-				case <-time.After(ticker):
-					elapsed += ticker
-					if elapsed < idleTimeout {
+				case <-time.After(idleTimeout): // in case idleTimeout < freezerTicker or idleTimeout < ejectTicker
+				case <-time.After(freezerTicker):
+					elapsed += a.freezerWaitMsecs
 
-						if ticker == freezeTicker {
-							if !isFrozen {
-								err := cookie.Freeze(ctx)
-								if err != nil {
-									logger.WithError(err).Error("freeze error")
-									return
-								}
-								isFrozen = true
+					freezerTicker = math.MaxInt64 // do not fire again
+
+					if elapsed < idleTimeout { // in case idleTimeout <= freezerWaitMsecs
+						if !isFrozen {
+							err := cookie.Freeze(ctx)
+							if err != nil {
+								logger.WithError(err).Error("freeze error")
+								return
 							}
-							ticker = ejectTicker
-							continue
+							isFrozen = true
 						}
+						continue
+					}
+				case <-time.After(ejectTicker):
+					elapsed += ejectTicker
 
+					if elapsed < idleTimeout {
 						// if someone is waiting for resource in our slot queue, we must not terminate,
-						// otherwise, see if other slot queues have resource waiters.
+						// otherwise, see if other slot queues have resource waiters that are blocked.
 						stats := call.slots.getStats()
 						if stats.containerStates[ContainerStateWait] > 0 ||
 							a.resources.GetResourceTokenWaiterCount() <= 0 {
 							continue
 						}
-
 						logger.Debug("attempting hot function eject")
 					}
 				}
