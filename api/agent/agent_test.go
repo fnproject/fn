@@ -113,7 +113,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(app.Name, path, req),
+		FromRequest(app, path, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -217,20 +217,21 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		Config:      cfg,
-		AppID:       app.ID,
-		Path:        path,
-		Image:       image,
-		Type:        typ,
-		Format:      format,
-		Timeout:     timeout,
-		IdleTimeout: idleTimeout,
-		Memory:      memory,
-		CPUs:        CPUs,
-		Payload:     payload,
-		URL:         url,
-		Method:      method,
-	}
+		AppID: app.ID,
+		CallBase: models.CallBase{
+			Config:      cfg,
+			Path:        path,
+			Image:       image,
+			Type:        typ,
+			Format:      format,
+			Timeout:     timeout,
+			IdleTimeout: idleTimeout,
+			Memory:      memory,
+			CPUs:        CPUs,
+			Payload:     payload,
+			URL:         url,
+			Method:      method,
+		}}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -287,21 +288,22 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		Config:      config,
-		Headers:     headers,
-		AppID:       app.ID,
-		Path:        path,
-		Image:       image,
-		Type:        typ,
-		Format:      format,
-		Timeout:     timeout,
-		IdleTimeout: idleTimeout,
-		Memory:      memory,
-		CPUs:        CPUs,
-		Payload:     payload,
-		URL:         url,
-		Method:      method,
-	}
+		AppID: app.ID,
+		CallBase: models.CallBase{
+			Config:      config,
+			Headers:     headers,
+			Path:        path,
+			Image:       image,
+			Type:        typ,
+			Format:      format,
+			Timeout:     timeout,
+			IdleTimeout: idleTimeout,
+			Memory:      memory,
+			CPUs:        CPUs,
+			Payload:     payload,
+			URL:         url,
+			Method:      method,
+		}}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -418,20 +420,21 @@ func TestSubmitError(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		Config:      config,
-		AppID:       app.ID,
-		Path:        path,
-		Image:       image,
-		Type:        typ,
-		Format:      format,
-		Timeout:     timeout,
-		IdleTimeout: idleTimeout,
-		Memory:      memory,
-		CPUs:        CPUs,
-		Payload:     payload,
-		URL:         url,
-		Method:      method,
-	}
+		AppID: app.ID,
+		CallBase: models.CallBase{
+			Config:      config,
+			Path:        path,
+			Image:       image,
+			Type:        typ,
+			Format:      format,
+			Timeout:     timeout,
+			IdleTimeout: idleTimeout,
+			Memory:      memory,
+			CPUs:        CPUs,
+			Payload:     payload,
+			URL:         url,
+			Method:      method,
+		}}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -507,7 +510,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app.Name, path, req), WithWriter(&out))
+	callI, err := a.GetCall(FromRequest(app, path, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,15 +545,16 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
-		AppID:       id.New().String(),
-		Path:        "/yoyo",
-		Image:       "fnproject/fn-test-utils",
-		Type:        "sync",
-		Format:      "http",
-		Timeout:     1,
-		IdleTimeout: 2,
-		Memory:      math.MaxUint64,
-	}
+		AppID: id.New().String(),
+		CallBase: models.CallBase{
+			Path:        "/yoyo",
+			Image:       "fnproject/fn-test-utils",
+			Type:        "sync",
+			Format:      "http",
+			Timeout:     1,
+			IdleTimeout: 2,
+			Memory:      math.MaxUint64,
+		}}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -600,21 +604,22 @@ func testCall() *models.Call {
 	}
 
 	return &models.Call{
-		Config:      config,
-		Headers:     headers,
-		AppID:       app.ID,
-		Path:        path,
-		Image:       image,
-		Type:        typ,
-		Format:      format,
-		Timeout:     timeout,
-		IdleTimeout: idleTimeout,
-		Memory:      memory,
-		CPUs:        CPUs,
-		Payload:     payload,
-		URL:         url,
-		Method:      method,
-	}
+		AppID: app.ID,
+		CallBase: models.CallBase{
+			Config:      config,
+			Headers:     headers,
+			Path:        path,
+			Image:       image,
+			Type:        typ,
+			Format:      format,
+			Timeout:     timeout,
+			IdleTimeout: idleTimeout,
+			Memory:      memory,
+			CPUs:        CPUs,
+			Payload:     payload,
+			URL:         url,
+			Method:      method,
+		}}
 }
 
 func TestPipesAreClear(t *testing.T) {
@@ -680,7 +685,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app.Name, ca.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +719,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app.Name, ca.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -821,7 +826,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app.Name, call.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -846,7 +851,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app.Name, call.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}

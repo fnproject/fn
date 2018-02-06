@@ -831,11 +831,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		{
 			apps := v1.Group("/apps/:app")
 			apps.Use(appNameCheck)
-			apps.GET("", s.handleAppGet)
+			apps.GET("", s.handleAppGetByName)
 
 			{
 				withAppCheck := apps.Group("")
-				withAppCheck.Use(s.checkAppPresence())
+				withAppCheck.Use(s.checkAppPresenceByName())
 
 				withAppCheck.PATCH("", s.handleAppUpdate)
 				withAppCheck.DELETE("", s.handleAppDelete)
@@ -862,13 +862,22 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			}
 		}
 
+		{
+			// at this point :app means app ID
+			v2 := engine.Group("/v2/apps/:app")
+			v2.Use(setAppNameInCtx)
+			v2.Use(s.checkAppPresenceByID())
+			v2.GET("", s.handleAppGetByID)
+			v2.GET("/routes/:route", s.handleRouteGet)
+		}
+
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
 			runner.Use(appNameCheck)
+			runner.Use(s.checkAppPresenceByName())
 			runner.Any("/:app", s.handleFunctionCall)
 			runner.Any("/:app/*route", s.handleFunctionCall)
 		}
-	}
 
 	engine.NoRoute(func(c *gin.Context) {
 		var err error
@@ -883,6 +892,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 		handleErrorResponse(c, err)
 	})
+
+	}
 }
 
 // implements fnext.ExtServer
@@ -932,8 +943,8 @@ type routesResponse struct {
 }
 
 type callResponse struct {
-	Message string       `json:"message"`
-	Call    *models.Call `json:"call"`
+	Message string           `json:"message"`
+	Call    *models.CallBase `json:"call"`
 }
 
 type callsResponse struct {

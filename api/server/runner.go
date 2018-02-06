@@ -39,18 +39,16 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 		p = r.(string)
 	}
 
-	var a string
-	ai := ctx.Value(api.App)
-	if ai == nil {
-		err := models.ErrAppsMissingName
+	appID := c.MustGet(api.AppID).(string)
+	app, err := s.datastore.GetAppByID(c.Request.Context(), appID)
+	if err != nil {
 		return err
 	}
-	a = ai.(string)
 
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
 
-	return s.serve(c, a, path.Clean(p))
+	return s.serve(c, app, path.Clean(p))
 }
 
 var (
@@ -59,7 +57,7 @@ var (
 
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
-func (s *Server) serve(c *gin.Context, appName, path string) error {
+func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	writer := syncResponseWriter{
@@ -70,14 +68,14 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
-	app := &models.App{Name: appName}
 	// this should happen ASAP to turn app name to app ID
 
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
+
 	call, err := s.agent.GetCall(
 		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(appName, path, c.Request),
+		agent.FromRequest(app, path, c.Request),
 	)
 	if err != nil {
 		return err

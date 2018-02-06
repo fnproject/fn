@@ -16,9 +16,7 @@ import (
 // but actually operate on the data in different ways (by direct access or by
 // mediation through an API node).
 type DataAccess interface {
-	// GetApp abstracts querying the datastore for an app.
-	GetAppByName(ctx context.Context, appName string) (*models.App, error)
-
+	// GetAppByID abstracts querying the datastore for an app.
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 
 	// GetRoute abstracts querying the datastore for a route within an app.
@@ -84,12 +82,8 @@ func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	return app.(*models.App), nil
 }
 
-func (da *CachedDataAccess) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
-	return da.DataAccess.GetAppByName(ctx, appName)
-}
-
-func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {
-	key := routeCacheKey(appName, routePath)
+func (da *CachedDataAccess) GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error) {
+	key := routeCacheKey(appID, routePath)
 	r, ok := da.cache.Get(key)
 	if ok {
 		return r.(*models.Route), nil
@@ -97,7 +91,7 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routeP
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetRoute(ctx, appName, routePath)
+			return da.DataAccess.GetRoute(ctx, appID, routePath)
 		})
 
 	if err != nil {
@@ -127,18 +121,8 @@ func (da *directDataAccess) GetAppByID(ctx context.Context, appID string) (*mode
 	return da.ds.GetAppByID(ctx, appID)
 }
 
-func (da *directDataAccess) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
-	return da.ds.GetAppByName(ctx, appName)
-}
-
-// to make it work for both hybrid and full mode "app" parameter would be app name,
-// for direct access we need app ID hence we need to get app object by app name
-func (da *directDataAccess) GetRoute(ctx context.Context, app string, routePath string) (*models.Route, error) {
-	a, err := da.ds.GetAppByName(ctx, app)
-	if err != nil {
-		return nil, err
-	}
-	return da.ds.GetRoute(ctx, a.ID, routePath)
+func (da *directDataAccess) GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error) {
+	return da.ds.GetRoute(ctx, appID, routePath)
 }
 
 func (da *directDataAccess) Enqueue(ctx context.Context, mCall *models.Call) error {

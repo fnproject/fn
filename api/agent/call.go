@@ -49,14 +49,9 @@ type Param struct {
 }
 type Params []Param
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
+func FromRequest(app *models.App, path string, req *http.Request) CallOpt {
 	return func(a *agent, c *call) error {
-		// unfortunately to keep API consistent we have to query route with app name
-		app, err := a.da.GetAppByName(req.Context(), appName)
-		if err != nil {
-			return err
-		}
-		route, err := a.da.GetRoute(req.Context(), app.Name, path)
+		route, err := a.da.GetRoute(req.Context(), app.ID, path)
 		if err != nil {
 			return err
 		}
