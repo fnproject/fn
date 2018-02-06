@@ -123,17 +123,14 @@ type Protocol string
 
 // hot function protocols
 const (
-	Default Protocol = models.FormatDefault
-	HTTP    Protocol = models.FormatHTTP
-	JSON    Protocol = models.FormatJSON
-	Empty   Protocol = ""
+	HTTP  Protocol = models.FormatHTTP
+	JSON  Protocol = models.FormatJSON
+	Empty Protocol = ""
 )
 
 func (p *Protocol) UnmarshalJSON(b []byte) error {
 	switch Protocol(b) {
-	case Empty, Default:
-		*p = Default
-	case HTTP:
+	case Empty, HTTP:
 		*p = HTTP
 	case JSON:
 		*p = JSON
@@ -145,9 +142,7 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 
 func (p Protocol) MarshalJSON() ([]byte, error) {
 	switch p {
-	case Empty, Default:
-		return []byte(Default), nil
-	case HTTP:
+	case Empty, HTTP:
 		return []byte(HTTP), nil
 	case JSON:
 		return []byte(JSON), nil
@@ -159,16 +154,10 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 // stdin/stdout.
 func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	switch p {
-	case HTTP:
+	case HTTP, Empty:
 		return &HTTPProtocol{in, out}
 	case JSON:
 		return &JSONProtocol{in, out}
-	case Default, Empty:
-		return &DefaultProtocol{}
 	}
 	return &errorProto{errInvalidProtocol}
 }
-
-// IsStreamable says whether the given protocol can be used for streaming into
-// hot functions.
-func IsStreamable(p Protocol) bool { return New(p, nil, nil).IsStreamable() }
