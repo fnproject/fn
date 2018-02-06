@@ -702,7 +702,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 						if ticker == freezeTicker {
 							if !isFrozen {
-								err := a.driver.Freeze(ctx, container)
+								err := cookie.Freeze(ctx)
 								if err != nil {
 									logger.WithError(err).Error("freeze error")
 									return
@@ -735,7 +735,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			}
 
 			if isFrozen {
-				err := a.driver.Unfreeze(ctx, container)
+				err := cookie.Unfreeze(ctx)
 				if err != nil {
 					logger.WithError(err).Error("unfreeze error")
 					return

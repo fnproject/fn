@@ -20,16 +20,16 @@ func (m *Mocker) Prepare(context.Context, drivers.ContainerTask) (drivers.Cookie
 	return &cookie{m}, nil
 }
 
-func (m *Mocker) Freeze(context.Context, drivers.ContainerTask) error {
-	return nil
-}
-
-func (m *Mocker) Unfreeze(context.Context, drivers.ContainerTask) error {
-	return nil
-}
-
 type cookie struct {
 	m *Mocker
+}
+
+func (c *cookie) Freeze(context.Context) error {
+	return nil
+}
+
+func (c *cookie) Unfreeze(context.Context) error {
+	return nil
 }
 
 func (c *cookie) Close(context.Context) error { return nil }
