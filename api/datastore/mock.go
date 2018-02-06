@@ -39,16 +39,6 @@ func (m *mock) GetAppID(ctx context.Context, appName string) (string, error) {
 	return "", models.ErrAppsNotFound
 }
 
-func (m *mock) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
-	for _, a := range m.Apps {
-		if a.Name == appName {
-			return a, nil
-		}
-	}
-
-	return nil, models.ErrAppsNotFound
-}
-
 func (m *mock) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	for _, a := range m.Apps {
 		if a.ID == appID {
@@ -83,7 +73,7 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 }
 
 func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	if a, _ := m.GetAppByName(ctx, app.Name); a != nil {
+	if a, _ := m.GetAppByID(ctx, app.ID); a != nil {
 		return nil, models.ErrAppsAlreadyExists
 	}
 	m.Apps = append(m.Apps, app)
@@ -91,7 +81,7 @@ func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
-	a, err := m.GetAppByName(ctx, app.Name)
+	a, err := m.GetAppByID(ctx, app.ID)
 	if err != nil {
 		return nil, err
 	}

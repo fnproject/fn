@@ -831,25 +831,24 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		{
 			apps := v1.Group("/apps/:app")
 			apps.Use(appNameCheck)
-			apps.GET("", s.handleAppGetByName)
 
 			{
 				withAppCheck := apps.Group("")
 				withAppCheck.Use(s.checkAppPresenceByName())
-
+				withAppCheck.GET("", s.handleAppGetByName)
 				withAppCheck.PATCH("", s.handleAppUpdate)
 				withAppCheck.DELETE("", s.handleAppDelete)
 				withAppCheck.GET("/routes", s.handleRouteList)
 				withAppCheck.GET("/routes/:route", s.handleRouteGet)
-				withAppCheck.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
+				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
 				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
 				withAppCheck.GET("/calls/:call", s.handleCallGet)
 				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 				withAppCheck.GET("/calls", s.handleCallList)
 			}
 
-			apps.POST("/routes", s.handleRoutesPostPutPatch)
-			apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
+			apps.POST("/routes", s.handleRoutesPostPut)
+			apps.PUT("/routes/*route", s.handleRoutesPostPut)
 		}
 
 			{

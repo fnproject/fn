@@ -24,12 +24,6 @@ func (m *metricds) GetAppID(ctx context.Context, appName string) (string, error)
 	return m.ds.GetAppID(ctx, appName)
 }
 
-func (m *metricds) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_app_by_name")
-	defer span.End()
-	return m.ds.GetAppByName(ctx, appName)
-}
-
 func (m *metricds) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_app_by_id")
 	defer span.End()

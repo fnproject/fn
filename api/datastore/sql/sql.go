@@ -88,7 +88,6 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 const (
 	routeSelector     = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
-	appNameSelector   = `SELECT id, name, config, created_at, updated_at FROM apps WHERE name=?`
 	appIDSelector     = `SELECT id, name, config, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 )
@@ -259,7 +258,7 @@ func (ds *sqlStore) clear() error {
 func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error) {
 	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(appNameSelector)
+		query := tx.Rebind(ensureAppSelector)
 		row := tx.QueryRowxContext(ctx, query, appName)
 
 		err := row.StructScan(&app)
@@ -386,24 +385,6 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appID string) error {
 
 		return nil
 	})
-}
-
-func (ds *sqlStore) GetAppByName(ctx context.Context, appName string) (*models.App, error) {
-	var app models.App
-	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(appNameSelector)
-		row := tx.QueryRowxContext(ctx, query, appName)
-
-		err := row.StructScan(&app)
-		if err == sql.ErrNoRows {
-			return models.ErrAppsNotFound
-		}
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &app, err
 }
 
 func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {

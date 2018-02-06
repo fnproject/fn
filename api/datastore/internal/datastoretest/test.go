@@ -294,15 +294,14 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		if !inserted.Equals(testApp) {
 			t.Fatalf("Test InsertApp: expected to insert:\n%v\nbut got:\n%v", testApp, inserted)
 		}
-
-		_, err = ds.InsertApp(ctx, testApp)
-		if err != models.ErrAppsAlreadyExists {
-			t.Fatalf("Test InsertApp duplicated: expected error `%v`, but it was `%v`", models.ErrAppsAlreadyExists, err)
-		}
+		testApp.ID = inserted.ID
 
 		{
 			// Set a config var
-			testApp, err := ds.GetAppByName(ctx, testApp.Name)
+			testApp, err := ds.GetAppByID(ctx, testApp.ID)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
 			testApp.Config = map[string]string{"TEST": "1"}
 			updated, err := ds.UpdateApp(ctx, testApp)
 			if err != nil {
@@ -339,14 +338,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 
 		// Testing get app
-		_, err = ds.GetAppByName(ctx, "")
-		if err != models.ErrAppsMissingName {
-			t.Fatalf("Test GetApp: expected error to be %v, but it was %s", models.ErrAppsMissingName, err)
+		_, err = ds.GetAppByID(ctx, "")
+		if err != models.ErrDatastoreEmptyAppID {
+			t.Fatalf("Test GetApp: expected error to be %v, but it was %s", models.ErrDatastoreEmptyAppID, err)
 		}
 
-		ga := &models.App{Name: testApp.Name}
-		ga.SetDefaults()
-		app, err := ds.GetAppByName(ctx, testApp.Name)
+		app, err := ds.GetAppByID(ctx, testApp.ID)
 		if err != nil {
 			t.Fatalf("Test GetApp: error: %s", err)
 		}
@@ -404,7 +401,6 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		a4 := *testApp
 		a4.Name = "Abcdefg" // < /test lexicographically, but not in length
-		a4.SetDefaults()
 		if _, err = ds.InsertApp(ctx, &a4); err != nil {
 			t.Fatal(err)
 		}
@@ -434,12 +430,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test RemoveApp: expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyAppID, err)
 		}
 
-		testApp, _ := ds.GetAppByName(ctx, testApp.Name)
+		testApp, _ := ds.GetAppByID(ctx, testApp.ID)
 		err = ds.RemoveApp(ctx, testApp.ID)
 		if err != nil {
 			t.Fatalf("Test RemoveApp: error: %s", err)
 		}
-		app, err = ds.GetAppByName(ctx, testApp.Name)
+		app, err = ds.GetAppByID(ctx, testApp.ID)
 		if err != models.ErrAppsNotFound {
 			t.Fatalf("Test GetApp(removed): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 		}
