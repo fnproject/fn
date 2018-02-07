@@ -21,6 +21,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type noLimits struct {}
+func (nl noLimits) MaxMemory() uint64 { return 0 }
+func (nl noLimits) MaxCPUs() uint64 { return 0 }
+func (nl noLimits) MaxFilesystemSize() uint64 { return 0 }
+
 func init() {
 	// TODO figure out some sane place to stick this
 	formatter := &logrus.TextFormatter{
@@ -91,7 +96,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	w := httptest.NewRecorder()
@@ -233,7 +238,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -303,7 +308,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -398,7 +403,7 @@ func TestSubmitError(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -454,7 +459,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	bodOne := `{"echoContent":"yodawg"}`
@@ -517,7 +522,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))), noLimits{})
 	defer a.Close()
 
 	_, err := a.GetCall(FromModel(call))
@@ -623,7 +628,7 @@ func TestPipesAreClear(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	// test read this body after 5s (after call times out) and make sure we don't get yodawg
@@ -773,7 +778,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	bodOne := `{"echoContent":"yodawg"}`

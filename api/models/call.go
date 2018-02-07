@@ -123,6 +123,9 @@ type Call struct {
 	// *) as floating point number "0.1" which is 1/10 of a CPU
 	CPUs MilliCPUs `json:"cpus,omitempty" db:"-"`
 
+	// FilesystemSize is a limit to the size of the filesystem this call is allowed to have, in MB.
+	FilesystemSize uint64 `json:"filesystem_size,omitempty" db:"-"`
+
 	// Config is the set of configuration variables for the call
 	Config Config `json:"config,omitempty" db:"-"`
 

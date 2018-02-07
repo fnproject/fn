@@ -42,6 +42,9 @@ const (
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
 	EnvZipkinURL = "FN_ZIPKIN_URL"
+	EnvMaxMemory = "FN_MAX_FUNC_MEMORY"
+	EnvMaxCPUs   = "FN_MAX_FUNC_CPUS"
+	EnvMaxFS     = "FN_MAX_FUNC_FILESYSTEM_SIZE"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -68,10 +71,21 @@ func (s ServerNodeType) String() string {
 	}
 }
 
+// functionLimits implements agent.FunctionLimits
+type functionLimits struct {
+	maxMemory         uint64
+	maxCPUs           uint64
+	maxFilesystemSize uint64
+}
+func (fl functionLimits) MaxMemory() uint64 { return fl.maxMemory }
+func (fl functionLimits) MaxCPUs() uint64 { return fl.maxCPUs }
+func (fl functionLimits) MaxFilesystemSize() uint64 { return fl.maxFilesystemSize }
+
 type Server struct {
 	// TODO this one maybe we have `AddRoute` in extensions?
 	Router *gin.Engine
 
+	limits          functionLimits
 	agent           agent.Agent
 	datastore       models.Datastore
 	mq              models.MessageQueue
@@ -109,6 +123,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
+	opts = append(opts, WithMaxMemory(getEnv(EnvMaxMemory, "")))
+	opts = append(opts, WithMaxCPUs(getEnv(EnvMaxCPUs, "")))
+	opts = append(opts, WithMaxFS(getEnv(EnvMaxFS, "")))
 	opts = append(opts, WithType(nodeType))
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
@@ -188,6 +205,36 @@ func WithType(t ServerNodeType) ServerOption {
 	}
 }
 
+func WithMaxMemory(mm string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		i, err := strconv.ParseUint(mm, 10, 64)
+		if err != nil {
+			s.limits.maxMemory = i
+		}
+		return nil
+	}
+}
+
+func WithMaxCPUs(mc string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		i, err := strconv.ParseUint(mc, 10, 64)
+		if err != nil {
+			s.limits.maxCPUs = i
+		}
+		return nil
+	}
+}
+
+func WithMaxFS(mfs string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		i, err := strconv.ParseUint(mfs, 10, 64)
+		if err != nil {
+			s.limits.maxFilesystemSize = i
+		}
+		return nil
+	}
+}
+
 func WithDatastore(ds models.Datastore) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.datastore = ds
@@ -232,7 +279,7 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+			s.agent = agent.New(agent.NewCachedDataAccess(cl), s.limits)
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?
@@ -241,7 +288,7 @@ func WithAgentFromEnv() ServerOption {
 			if s.datastore == nil || s.logstore == nil || s.mq == nil {
 				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 			}
-			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)), s.limits)
 		}
 		return nil
 	}

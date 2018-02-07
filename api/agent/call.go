@@ -94,16 +94,17 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Type:   route.Type,
 			Format: route.Format,
 			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
-			Timeout:     route.Timeout,
-			IdleTimeout: route.IdleTimeout,
-			Memory:      route.Memory,
-			CPUs:        route.CPUs,
-			Config:      buildConfig(app, route),
-			Headers:     req.Header,
-			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         reqURL(req),
-			Method:      req.Method,
+			Priority:       new(int32), // TODO this is crucial, apparently
+			Timeout:        route.Timeout,
+			IdleTimeout:    route.IdleTimeout,
+			Memory:         route.Memory,
+			CPUs:           route.CPUs,
+			FilesystemSize: 0, // TODO make it configurable per route as well
+			Config:         buildConfig(app, route),
+			Headers:        req.Header,
+			CreatedAt:      strfmt.DateTime(time.Now()),
+			URL:            reqURL(req),
+			Method:         req.Method,
 		}
 
 		c.req = req

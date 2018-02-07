@@ -100,10 +100,25 @@ type Agent interface {
 	Enqueue(context.Context, *models.Call) error
 }
 
+// FunctionLimits records the resource limitations imposed by the Fn node on any
+// function running in it.
+type FunctionLimits interface {
+	// MaxMemory represents the imposed limit on memory, in megabytes.
+	MaxMemory() uint64
+
+	// MaxCPUs represents the imposed limit on CPU usage, in milliCPUs.
+	MaxCPUs() uint64
+
+	// MaxFilesystemSize represents the imposed limit on filesystem size, in
+	// megabytes.
+	MaxFilesystemSize() uint64
+}
+
 type agent struct {
 	da            DataAccess
 	callListeners []fnext.CallListener
 
+	limits FunctionLimits
 	driver drivers.Driver
 
 	slotMgr *slotQueueMgr
@@ -121,7 +136,7 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(da DataAccess) Agent {
+func New(da DataAccess, fl FunctionLimits) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
 		ServerVersion: "17.06.0",
@@ -129,6 +144,7 @@ func New(da DataAccess) Agent {
 
 	a := &agent{
 		da:          da,
+		limits:      fl,
 		driver:      driver,
 		slotMgr:     NewSlotQueueMgr(),
 		resources:   NewResourceTracker(),
@@ -566,6 +582,14 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 }
 
+// Golang doesn't have an integer min...
+func min(a uint64, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
 	defer span.Finish()
@@ -584,17 +608,30 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		call.Config[k] = strings.Join(v, ", ")
 	}
 
+	memory := call.Memory
+	if a.limits.MaxMemory() != 0 {
+		memory = min(memory, a.limits.MaxMemory())
+	}
+	cpus := uint64(call.CPUs)
+	if a.limits.MaxMemory() != 0 {
+		memory = min(memory, a.limits.MaxMemory())
+	}
+	filesystem := uint64(call.FilesystemSize)
+	if a.limits.MaxFilesystemSize() != 0 {
+		filesystem = min(filesystem, a.limits.MaxFilesystemSize())
+	}
 	container := &container{
-		id:      id.New().String(), // XXX we could just let docker generate ids...
-		image:   call.Image,
-		env:     map[string]string(call.Config),
-		memory:  call.Memory,
-		cpus:    uint64(call.CPUs),
-		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
-		stdout:  call.w,
-		stderr:  call.stderr,
-		stats:   &call.Stats,
+		id:         id.New().String(), // XXX we could just let docker generate ids...
+		image:      call.Image,
+		env:        map[string]string(call.Config),
+		memory:     memory,
+		cpus:       cpus,
+		filesystem: filesystem,
+		timeout:    time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
+		stdin:      call.req.Body,
+		stdout:     call.w,
+		stderr:     call.stderr,
+		stats:      &call.Stats,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -634,15 +671,28 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	stdin := &ghostReader{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitReader)}
 	defer stdin.Close()
 
+	memory := call.Memory
+	if a.limits.MaxMemory() != 0 {
+		memory = min(memory, a.limits.MaxMemory())
+	}
+	cpus := uint64(call.CPUs)
+	if a.limits.MaxMemory() != 0 {
+		memory = min(memory, a.limits.MaxMemory())
+	}
+	filesystem := uint64(call.FilesystemSize)
+	if a.limits.MaxFilesystemSize() != 0 {
+		filesystem = min(filesystem, a.limits.MaxFilesystemSize())
+	}
 	container := &container{
-		id:     cid, // XXX we could just let docker generate ids...
-		image:  call.Image,
-		env:    map[string]string(call.Config),
-		memory: call.Memory,
-		cpus:   uint64(call.CPUs),
-		stdin:  stdin,
-		stdout: &ghostWriter{inner: stderr},
-		stderr: &ghostWriter{inner: stderr},
+		id:         cid, // XXX we could just let docker generate ids...
+		image:      call.Image,
+		env:        map[string]string(call.Config),
+		memory:     memory,
+		cpus:       cpus,
+		filesystem: filesystem,
+		stdin:      stdin,
+		stdout:     &ghostWriter{inner: stderr},
+		stderr:     &ghostWriter{inner: stderr},
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -731,12 +781,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id      string // contrived
-	image   string
-	env     map[string]string
-	memory  uint64
-	cpus    uint64
-	timeout time.Duration // cold only (superfluous, but in case)
+	id         string // contrived
+	image      string
+	env        map[string]string
+	memory     uint64
+	cpus       uint64
+	filesystem uint64
+	timeout    time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -784,6 +835,7 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
+func (c *container) FilesystemSize() uint64         { return c.filesystem }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

@@ -158,6 +158,13 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		container.HostConfig.CPUPeriod = 100000
 	}
 
+	// Impose limits on filesystem size if specified. Translate megabytes to an appropriate option string.
+	if task.FilesystemSize() != 0 {
+		container.HostConfig.StorageOpt = make(map[string]string)
+		sizeOption := fmt.Sprintf("%vM", task.FilesystemSize())
+		container.HostConfig.StorageOpt["size"] = sizeOption
+	}
+
 	volumes := task.Volumes()
 	for _, mapping := range volumes {
 		hostDir := mapping[0]
