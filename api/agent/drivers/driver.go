@@ -178,15 +178,8 @@ const (
 type Config struct {
 	Docker string `json:"docker"`
 	// TODO CPUShares should likely be on a per container basis
-	CPUShares int64 `json:"cpu_shares"`
-}
-
-// for tests
-func DefaultConfig() Config {
-	return Config{
-		Docker:    "unix:///var/run/docker.sock",
-		CPUShares: 0,
-	}
+	CPUShares     int64  `json:"cpu_shares"`
+	ServerVersion string `json:"server_version"`
 }
 
 func average(samples []Stat) (Stat, bool) {

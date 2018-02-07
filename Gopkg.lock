@@ -104,6 +104,15 @@
   revision = "b2b946a77f5973f420514090d6f6dd58b08303f0"
 
 [[projects]]
+  name = "github.com/coreos/go-semver"
+  packages = [
+    ".",
+    "semver"
+  ]
+  revision = "8ab6407b697782a06568d4b7f1db25550ec2e4c6"
+  version = "v0.2.0"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -669,6 +678,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "556d3a6039ee958f59418b978bbb50d2733c1069bdcb67c931ffa0ab09195097"
+  inputs-digest = "f5c10f8c63262754a0ceb541105cfac5448693af7997269bb1edce828eb3a551"
   solver-name = "gps-cdcl"
   solver-version = 1

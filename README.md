@@ -26,7 +26,7 @@ The fastest way to experience Fn is to follow the quickstart below, or you can j
 
 ### Pre-requisites
 
-* Docker 17.05 or later installed and running
+* Docker 17.06 or later installed and running
 * A Docker Hub account ([Docker Hub](https://hub.docker.com/)) (or other Docker-compliant registry)
 * Log Docker into your Docker Hub account: `docker login`
 

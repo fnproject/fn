@@ -22,11 +22,11 @@ jobs:
           sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
       - run: go version
       # install latest Docker
-      #- run: |
-          #sudo rm -rf /var/cache/apt/archives && sudo ln -s ~/.apt-cache /var/cache/apt/archives && mkdir -p ~/.apt-cache/partial
-          #sudo service docker stop
-          #curl -fsSL https://get.docker.com/ | sudo sh
-          #docker version
+      - run: |
+          sudo rm -rf /var/cache/apt/archives && sudo ln -s ~/.apt-cache /var/cache/apt/archives && mkdir -p ~/.apt-cache/partial
+          sudo service docker stop
+          curl -fsSL https://get.docker.com/ | sudo sh
+          docker version
       - run: docker version
       - run: nproc
       - run: make clear-images

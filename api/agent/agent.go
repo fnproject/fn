@@ -123,7 +123,9 @@ type agent struct {
 
 func New(da DataAccess) Agent {
 	// TODO: Create drivers.New(runnerConfig)
-	driver := docker.NewDocker(drivers.Config{})
+	driver := docker.NewDocker(drivers.Config{
+		ServerVersion: "17.06.0",
+	})
 
 	a := &agent{
 		da:          da,

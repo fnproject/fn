@@ -63,6 +63,26 @@ func TestRunnerDocker(t *testing.T) {
 	}
 }
 
+func TestRunnerDockerVersion(t *testing.T) {
+
+	dkr := NewDocker(drivers.Config{
+		ServerVersion: "0.0.0",
+	})
+	if dkr == nil {
+		t.Fatal("should not be nil")
+	}
+
+	err := checkDockerVersion(dkr, "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = checkDockerVersion(dkr, "9999.0.0")
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+}
+
 func TestRunnerDockerStdin(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
 	ctx := context.Background()

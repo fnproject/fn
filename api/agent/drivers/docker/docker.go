@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
@@ -58,12 +59,45 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		logrus.WithError(err).Fatal("couldn't resolve hostname")
 	}
 
-	return &DockerDriver{
+	driver := &DockerDriver{
 		conf:     conf,
 		docker:   newClient(),
 		hostname: hostname,
 		auths:    registryFromEnv(),
 	}
+
+	if conf.ServerVersion != "" {
+		err = checkDockerVersion(driver, conf.ServerVersion)
+		if err != nil {
+			logrus.WithError(err).Fatal("docker version error")
+		}
+	}
+
+	return driver
+}
+
+func checkDockerVersion(driver *DockerDriver, expected string) error {
+
+	info, err := driver.docker.Info(context.Background())
+	if err != nil {
+		return err
+	}
+
+	actual, err := semver.NewVersion(info.ServerVersion)
+	if err != nil {
+		return err
+	}
+
+	wanted, err := semver.NewVersion(expected)
+	if err != nil {
+		return err
+	}
+
+	if actual.Compare(*wanted) < 0 {
+		return fmt.Errorf("docker version is too old. Required: %s Found: %s", expected, info.ServerVersion)
+	}
+
+	return nil
 }
 
 func registryFromEnv() map[string]docker.AuthConfiguration {
