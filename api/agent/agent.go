@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
-	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
@@ -182,11 +180,7 @@ func (a *agent) Submit(callI Call) error {
 
 func (a *agent) startStateTrackers(ctx context.Context, call *call) {
 
-	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// For cold containers, we track the container state in call
-		call.containerState = NewContainerState()
-	}
-
+	call.containerState = NewContainerState()
 	call.requestState = NewRequestState()
 }
 
@@ -305,20 +299,15 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
-	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
-		var isNew bool
-		call.slots, isNew = a.slotMgr.getSlotQueue(call)
-		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
-		if isNew {
-			go a.hotLauncher(ctx, call)
-		}
-		s, err := a.waitHot(ctx, call)
-		return s, err
-	}
-
+	// For hot requests, we use a long lived slot queue, which we use to manage hot containers
+	var isNew bool
+	call.slots, isNew = a.slotMgr.getSlotQueue(call)
 	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
-	return a.launchCold(ctx, call)
+	if isNew {
+		go a.hotLauncher(ctx, call)
+	}
+	s, err := a.waitHot(ctx, call)
+	return s, err
 }
 
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
@@ -435,84 +424,6 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	}
 }
 
-// launchCold waits for necessary resources to launch a new container, then
-// returns the slot for that new container to run the request on.
-func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
-	isAsync := call.Type == models.TypeAsync
-	ch := make(chan Slot)
-
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_launch_cold")
-	defer span.Finish()
-
-	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
-
-	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
-		go a.prepCold(ctx, call, tok, ch)
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-
-	// wait for launch err or a slot to open up
-	select {
-	case s := <-ch:
-		if s.Error() != nil {
-			s.Close()
-			return nil, s.Error()
-		}
-		return s, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-// implements Slot
-type coldSlot struct {
-	cookie drivers.Cookie
-	tok    ResourceToken
-	err    error
-}
-
-func (s *coldSlot) Error() error {
-	return s.err
-}
-
-func (s *coldSlot) exec(ctx context.Context, call *call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
-	defer span.Finish()
-
-	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
-	call.containerState.UpdateState(ctx, ContainerStateBusy, call.slots)
-
-	waiter, err := s.cookie.Run(ctx)
-	if err != nil {
-		return err
-	}
-
-	res, err := waiter.Wait(ctx)
-	if err != nil {
-		return err
-	} else if res.Error() != nil {
-		// check for call error (oom/exit) and beam it up
-		return res.Error()
-	}
-
-	// nil or timed out
-	return ctx.Err()
-}
-
-func (s *coldSlot) Close() error {
-	if s.cookie != nil {
-		// call this from here so that in exec we don't have to eat container
-		// removal latency
-		s.cookie.Close(context.Background()) // ensure container removal, separate ctx
-	}
-	if s.tok != nil {
-		s.tok.Close()
-	}
-	return nil
-}
-
 // implements Slot
 type hotSlot struct {
 	done      chan<- struct{} // signal we are done with slot
@@ -563,51 +474,6 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
-	}
-}
-
-func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
-	defer span.Finish()
-
-	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
-
-	// add Fn-specific information to the config to shove everything into env vars for cold
-	call.Config["FN_DEADLINE"] = strfmt.DateTime(call.execDeadline).String()
-	call.Config["FN_METHOD"] = call.Model().Method
-	call.Config["FN_REQUEST_URL"] = call.Model().URL
-	call.Config["FN_CALL_ID"] = call.Model().ID
-
-	// User headers are prefixed with FN_HEADER and shoved in the env vars too
-	for k, v := range call.Headers {
-		k = "FN_HEADER_" + k
-		call.Config[k] = strings.Join(v, ", ")
-	}
-
-	container := &container{
-		id:      id.New().String(), // XXX we could just let docker generate ids...
-		image:   call.Image,
-		env:     map[string]string(call.Config),
-		memory:  call.Memory,
-		cpus:    uint64(call.CPUs),
-		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
-		stdout:  call.w,
-		stderr:  call.stderr,
-		stats:   &call.Stats,
-	}
-
-	// pull & create container before we return a slot, so as to be friendly
-	// about timing out if this takes a while...
-	cookie, err := a.driver.Prepare(ctx, container)
-
-	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
-
-	slot := &coldSlot{cookie, tok, err}
-	select {
-	case ch <- slot:
-	case <-ctx.Done():
-		slot.Close()
 	}
 }
 
