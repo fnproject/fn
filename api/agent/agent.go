@@ -116,7 +116,8 @@ type agent struct {
 	shutonce sync.Once
 	shutdown chan struct{}
 
-	freezerWaitMsecs time.Duration
+	freezeIdleMsecs time.Duration
+	ejectIdleMsecs  time.Duration
 
 	stats // TODO kill me
 
@@ -130,19 +131,25 @@ func New(da DataAccess) Agent {
 		ServerVersion: "17.06.0",
 	})
 
-	freezerWaitMsecs, err := getFreezerWaitMsecs()
+	freezeIdleMsecs, err := getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
 	if err != nil {
-		logrus.WithError(err).Fatal("error initializing freezer")
+		logrus.WithError(err).Fatal("error initializing freeze idle delay")
+	}
+
+	ejectIdleMsecs, err := getEnvMsecs("FN_EJECT_IDLE_MSECS", 1000*time.Millisecond)
+	if err != nil {
+		logrus.WithError(err).Fatal("error initializing eject idle delay")
 	}
 
 	a := &agent{
-		da:               da,
-		driver:           driver,
-		slotMgr:          NewSlotQueueMgr(),
-		resources:        NewResourceTracker(),
-		shutdown:         make(chan struct{}),
-		freezerWaitMsecs: freezerWaitMsecs,
-		promHandler:      promhttp.Handler(),
+		da:              da,
+		driver:          driver,
+		slotMgr:         NewSlotQueueMgr(),
+		resources:       NewResourceTracker(),
+		shutdown:        make(chan struct{}),
+		freezeIdleMsecs: freezeIdleMsecs,
+		ejectIdleMsecs:  ejectIdleMsecs,
+		promHandler:     promhttp.Handler(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -152,25 +159,24 @@ func New(da DataAccess) Agent {
 	return a
 }
 
-func getFreezerWaitMsecs() (time.Duration, error) {
+func getEnvMsecs(name string, defaultVal time.Duration) (time.Duration, error) {
 
-	// default 50 msecs
-	freezerWait := time.Duration(50) * time.Millisecond
+	delay := defaultVal
 
-	if dur := os.Getenv("FN_FREEZER_WAIT_MSECS"); dur != "" {
-		durUint, err := strconv.ParseUint(dur, 10, 64)
+	if dur := os.Getenv(name); dur != "" {
+		durInt, err := strconv.ParseInt(dur, 10, 64)
 		if err != nil {
-			return time.Duration(0), err
+			return defaultVal, err
 		}
-		freezerWait = time.Duration(durUint) * time.Millisecond
+		// disable if negative or set to msecs specified.
+		if durInt < 0 || time.Duration(durInt) >= math.MaxInt64/time.Millisecond {
+			delay = math.MaxInt64
+		} else {
+			delay = time.Duration(durInt) * time.Millisecond
+		}
 	}
 
-	// if disabled, wait forever.
-	if os.Getenv("FN_FREEZER_DISABLE") != "" {
-		freezerWait = math.MaxInt64
-	}
-
-	return freezerWait, nil
+	return delay, nil
 }
 
 // TODO shuffle this around somewhere else (maybe)
@@ -702,9 +708,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		ejectTicker := time.Duration(1) * time.Second
-		idleTimeout := time.Duration(call.IdleTimeout) * time.Second
-
 		for {
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
@@ -716,7 +719,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 			isFrozen := false
 			elapsed := time.Duration(0)
-			freezerTicker := a.freezerWaitMsecs
+			freezerTicker := a.freezeIdleMsecs
+			idleTimeout := time.Duration(call.IdleTimeout) * time.Second
 
 			done := make(chan struct{})
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
@@ -727,13 +731,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 				case <-s.trigger: // slot already consumed
 				case <-ctx.Done(): // container shutdown
 				case <-a.shutdown: // server shutdown
-				case <-time.After(idleTimeout): // in case idleTimeout < freezerTicker or idleTimeout < ejectTicker
+				case <-time.After(idleTimeout): // in case idleTimeout < a.freezeIdleMsecs or idleTimeout < a.ejectIdleMsecs
 				case <-time.After(freezerTicker):
-					elapsed += a.freezerWaitMsecs
+					elapsed += a.freezeIdleMsecs
 
 					freezerTicker = math.MaxInt64 // do not fire again
 
-					if elapsed < idleTimeout { // in case idleTimeout <= freezerWaitMsecs
+					if elapsed < idleTimeout { // in case idleTimeout <= a.freezeIdleMsecs
 						if !isFrozen {
 							err := cookie.Freeze(ctx)
 							if err != nil {
@@ -744,8 +748,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 						}
 						continue
 					}
-				case <-time.After(ejectTicker):
-					elapsed += ejectTicker
+				case <-time.After(a.ejectIdleMsecs):
+					elapsed += a.ejectIdleMsecs
 
 					if elapsed < idleTimeout {
 						// if someone is waiting for resource in our slot queue, we must not terminate,
