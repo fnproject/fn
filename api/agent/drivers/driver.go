@@ -34,6 +34,12 @@ type Cookie interface {
 	// Run() MUST monitor the context. task cancellation is indicated by
 	// cancelling the context.
 	Run(ctx context.Context) (WaitResult, error)
+
+	// Freeze the container to pause running processes
+	Freeze(ctx context.Context) error
+
+	// Unfreeze a frozen container to unpause frozen processes
+	Unfreeze(ctx context.Context) error
 }
 
 type WaitResult interface {

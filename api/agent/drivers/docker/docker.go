@@ -134,16 +134,18 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 	container := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
-			Env:         envvars,
-			Cmd:         cmd,
-			Memory:      int64(task.Memory()),
-			CPUShares:   drv.conf.CPUShares,
-			Hostname:    drv.hostname,
-			Image:       task.Image(),
-			Volumes:     map[string]struct{}{},
-			OpenStdin:   true,
-			AttachStdin: true,
-			StdinOnce:   true,
+			Env:          envvars,
+			Cmd:          cmd,
+			Memory:       int64(task.Memory()),
+			MemorySwap:   int64(task.Memory()), // disables swap
+			KernelMemory: int64(task.Memory()),
+			CPUShares:    drv.conf.CPUShares,
+			Hostname:     drv.hostname,
+			Image:        task.Image(),
+			Volumes:      map[string]struct{}{},
+			OpenStdin:    true,
+			AttachStdin:  true,
+			StdinOnce:    true,
 		},
 		HostConfig: &docker.HostConfig{},
 		Context:    ctx,
@@ -215,6 +217,28 @@ func (c *cookie) Close(ctx context.Context) error {
 
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	return c.drv.run(ctx, c.id, c.task)
+}
+
+func (c *cookie) Freeze(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Freeze"})
+	log.WithFields(logrus.Fields{"call_id": c.id}).Debug("docker pause")
+
+	err := c.drv.docker.PauseContainer(c.id, ctx)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.id}).Error("error pausing container")
+	}
+	return err
+}
+
+func (c *cookie) Unfreeze(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Unfreeze"})
+	log.WithFields(logrus.Fields{"call_id": c.id}).Debug("docker unpause")
+
+	err := c.drv.docker.UnpauseContainer(c.id, ctx)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.id}).Error("error unpausing container")
+	}
+	return err
 }
 
 func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
