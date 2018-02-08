@@ -649,8 +649,8 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		memory = min(memory, a.limits.MaxMemory())
 	}
 	cpus := uint64(call.CPUs)
-	if a.limits.MaxMemory() != 0 {
-		memory = min(memory, a.limits.MaxMemory())
+	if a.limits.MaxCPUs() != 0 {
+		cpus = min(cpus, a.limits.MaxCPUs())
 	}
 	filesystem := uint64(call.FilesystemSize)
 	if a.limits.MaxFilesystemSize() != 0 {
@@ -712,8 +712,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		memory = min(memory, a.limits.MaxMemory())
 	}
 	cpus := uint64(call.CPUs)
-	if a.limits.MaxMemory() != 0 {
-		memory = min(memory, a.limits.MaxMemory())
+	if a.limits.MaxCPUs() != 0 {
+		cpus = min(cpus, a.limits.MaxCPUs())
 	}
 	filesystem := uint64(call.FilesystemSize)
 	if a.limits.MaxFilesystemSize() != 0 {
