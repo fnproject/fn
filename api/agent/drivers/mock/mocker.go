@@ -24,6 +24,14 @@ type cookie struct {
 	m *Mocker
 }
 
+func (c *cookie) Freeze(context.Context) error {
+	return nil
+}
+
+func (c *cookie) Unfreeze(context.Context) error {
+	return nil
+}
+
 func (c *cookie) Close(context.Context) error { return nil }
 
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {

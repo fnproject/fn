@@ -3,7 +3,10 @@ package agent
 import (
 	"context"
 	"io"
+	"math"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,8 +29,6 @@ import (
 // TODO handle timeouts / no response in sync & async (sync is json+503 atm, not 504, async is empty log+status)
 // see also: server/runner.go wrapping the response writer there, but need to handle async too (push down?)
 // TODO storing logs / call can push call over the timeout
-// TODO if we don't cap the number of any one container we could get into a situation
-// where the machine is full but all the containers are idle up to the idle timeout. meh.
 // TODO async is still broken, but way less so. we need to modify mq semantics
 // to be much more robust. now we're at least running it if we delete the msg,
 // but we may never store info about that execution so still broked (if fn
@@ -115,6 +116,9 @@ type agent struct {
 	shutonce sync.Once
 	shutdown chan struct{}
 
+	freezeIdleMsecs time.Duration
+	ejectIdleMsecs  time.Duration
+
 	stats // TODO kill me
 
 	// Prometheus HTTP handler
@@ -127,13 +131,25 @@ func New(da DataAccess) Agent {
 		ServerVersion: "17.06.0",
 	})
 
+	freezeIdleMsecs, err := getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
+	if err != nil {
+		logrus.WithError(err).Fatal("error initializing freeze idle delay")
+	}
+
+	ejectIdleMsecs, err := getEnvMsecs("FN_EJECT_IDLE_MSECS", 1000*time.Millisecond)
+	if err != nil {
+		logrus.WithError(err).Fatal("error initializing eject idle delay")
+	}
+
 	a := &agent{
-		da:          da,
-		driver:      driver,
-		slotMgr:     NewSlotQueueMgr(),
-		resources:   NewResourceTracker(),
-		shutdown:    make(chan struct{}),
-		promHandler: promhttp.Handler(),
+		da:              da,
+		driver:          driver,
+		slotMgr:         NewSlotQueueMgr(),
+		resources:       NewResourceTracker(),
+		shutdown:        make(chan struct{}),
+		freezeIdleMsecs: freezeIdleMsecs,
+		ejectIdleMsecs:  ejectIdleMsecs,
+		promHandler:     promhttp.Handler(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -141,6 +157,26 @@ func New(da DataAccess) Agent {
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 
 	return a
+}
+
+func getEnvMsecs(name string, defaultVal time.Duration) (time.Duration, error) {
+
+	delay := defaultVal
+
+	if dur := os.Getenv(name); dur != "" {
+		durInt, err := strconv.ParseInt(dur, 10, 64)
+		if err != nil {
+			return defaultVal, err
+		}
+		// disable if negative or set to msecs specified.
+		if durInt < 0 || time.Duration(durInt) >= math.MaxInt64/time.Millisecond {
+			delay = math.MaxInt64
+		} else {
+			delay = time.Duration(durInt) * time.Millisecond
+		}
+	}
+
+	return delay, nil
 }
 
 // TODO shuffle this around somewhere else (maybe)
@@ -681,25 +717,68 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
+			isFrozen := false
+			elapsed := time.Duration(0)
+			freezerTicker := a.freezeIdleMsecs
+			idleTimeout := time.Duration(call.IdleTimeout) * time.Second
+
 			done := make(chan struct{})
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
 
-			select {
-			case <-s.trigger:
-			case <-time.After(time.Duration(call.IdleTimeout) * time.Second):
-				if call.slots.ejectSlot(s) {
-					logger.Info("Canceling inactive hot function")
+			for {
+				select {
+				case <-s.trigger: // slot already consumed
+				case <-ctx.Done(): // container shutdown
+				case <-a.shutdown: // server shutdown
+				case <-time.After(idleTimeout): // in case idleTimeout < a.freezeIdleMsecs or idleTimeout < a.ejectIdleMsecs
+				case <-time.After(freezerTicker):
+					elapsed += a.freezeIdleMsecs
+
+					freezerTicker = math.MaxInt64 // do not fire again
+
+					if elapsed < idleTimeout { // in case idleTimeout <= a.freezeIdleMsecs
+						if !isFrozen {
+							err := cookie.Freeze(ctx)
+							if err != nil {
+								logger.WithError(err).Error("freeze error")
+								return
+							}
+							isFrozen = true
+						}
+						continue
+					}
+				case <-time.After(a.ejectIdleMsecs):
+					elapsed += a.ejectIdleMsecs
+
+					if elapsed < idleTimeout {
+						// if someone is waiting for resource in our slot queue, we must not terminate,
+						// otherwise, see if other slot queues have resource waiters that are blocked.
+						stats := call.slots.getStats()
+						if stats.containerStates[ContainerStateWait] > 0 ||
+							a.resources.GetResourceTokenWaiterCount() <= 0 {
+							continue
+						}
+						logger.Debug("attempting hot function eject")
+					}
+				}
+				break
+			}
+
+			// if we can eject token, that means we are here due to
+			// abort/shutdown/timeout, attempt to eject and terminate,
+			// otherwise continue processing the request
+			if call.slots.ejectSlot(s) {
+				return
+			}
+
+			if isFrozen {
+				err := cookie.Unfreeze(ctx)
+				if err != nil {
+					logger.WithError(err).Error("unfreeze error")
 					return
 				}
-			case <-ctx.Done(): // container shutdown
-				if call.slots.ejectSlot(s) {
-					return
-				}
-			case <-a.shutdown: // server shutdown
-				if call.slots.ejectSlot(s) {
-					return
-				}
+				isFrozen = false
 			}
 
 			state.UpdateState(ctx, ContainerStateBusy, call.slots)

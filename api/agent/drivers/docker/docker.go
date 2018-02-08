@@ -212,6 +212,28 @@ func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	return c.drv.run(ctx, c.id, c.task)
 }
 
+func (c *cookie) Freeze(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Freeze"})
+	log.WithFields(logrus.Fields{"call_id": c.id}).Debug("docker pause")
+
+	err := c.drv.docker.PauseContainer(c.id, ctx)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.id}).Error("error pausing container")
+	}
+	return err
+}
+
+func (c *cookie) Unfreeze(ctx context.Context) error {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Unfreeze"})
+	log.WithFields(logrus.Fields{"call_id": c.id}).Debug("docker unpause")
+
+	err := c.drv.docker.UnpauseContainer(c.id, ctx)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{"call_id": c.id}).Error("error unpausing container")
+	}
+	return err
+}
+
 func (drv *DockerDriver) removeContainer(ctx context.Context, container string) error {
 	err := drv.docker.RemoveContainer(docker.RemoveContainerOptions{
 		ID: container, Force: true, RemoveVolumes: true, Context: ctx})
