@@ -21,9 +21,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type noLimits struct {}
-func (nl noLimits) MaxMemory() uint64 { return 0 }
-func (nl noLimits) MaxCPUs() uint64 { return 0 }
+type noLimits struct{}
+
+func (nl noLimits) MaxMemory() uint64         { return 0 }
+func (nl noLimits) MaxCPUs() uint64           { return 0 }
 func (nl noLimits) MaxFilesystemSize() uint64 { return 0 }
 
 func init() {

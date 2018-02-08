@@ -77,8 +77,9 @@ type functionLimits struct {
 	maxCPUs           uint64
 	maxFilesystemSize uint64
 }
-func (fl functionLimits) MaxMemory() uint64 { return fl.maxMemory }
-func (fl functionLimits) MaxCPUs() uint64 { return fl.maxCPUs }
+
+func (fl functionLimits) MaxMemory() uint64         { return fl.maxMemory }
+func (fl functionLimits) MaxCPUs() uint64           { return fl.maxCPUs }
 func (fl functionLimits) MaxFilesystemSize() uint64 { return fl.maxFilesystemSize }
 
 type Server struct {
