@@ -789,17 +789,17 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		break
 	}
 
-	// request processing may take a long time, clean up timers now
-	ejectTicker.Stop()
-	freezeTimer.Stop()
-	idleTimer.Stop()
-
 	// if we can eject token, that means we are here due to
 	// abort/shutdown/timeout, attempt to eject and terminate,
 	// otherwise continue processing the request
 	if call.slots.ejectSlot(ctx, s) {
 		return false
 	}
+
+	// request processing may take a long time, clean up timers now
+	ejectTicker.Stop()
+	freezeTimer.Stop()
+	idleTimer.Stop()
 
 	if isFrozen {
 		err := cookie.Unfreeze(ctx)
