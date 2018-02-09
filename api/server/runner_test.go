@@ -137,6 +137,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/myerror", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
+			{Path: "/mydneregistry", AppName: "myapp", Image: "localhost:5000/fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Path: "/myoom", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30},
 		}, nil,
 	)
@@ -177,6 +178,9 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2"},
 		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
 		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
+		// hit a registry that doesn't exist, make sure the real error body gets plumbed out
+		{"/r/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused"},
+
 		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory"},
 	} {
 		body := strings.NewReader(test.body)
