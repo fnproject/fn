@@ -762,7 +762,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	for {
 		select {
-		case <-s.trigger: // slot already consumed
+		case <-s.trigger: // slot already consumed, unfreeze ASAP
+			if isFrozen {
+				err := cookie.Unfreeze(ctx)
+				if err != nil {
+					logger.WithError(err).Error("unfreeze error")
+					return false
+				}
+				isFrozen = false
+			}
 		case <-ctx.Done(): // container shutdown
 		case <-a.shutdown: // server shutdown
 		case <-idleTimer.C:
@@ -796,11 +804,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		return false
 	}
 
-	// request processing may take a long time, clean up timers now
-	ejectTicker.Stop()
-	freezeTimer.Stop()
-	idleTimer.Stop()
-
+	// In case, timer/ejectSlot failure landed us here, make
+	// sure to unfreeze.
 	if isFrozen {
 		err := cookie.Unfreeze(ctx)
 		if err != nil {
@@ -811,11 +816,11 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	}
 
 	state.UpdateState(ctx, ContainerStateBusy, call.slots)
-	// IMPORTANT: if we fail to eject the slot, it means that a consumer
-	// just dequeued this and acquired the slot. In other words, we were
-	// late in ejectSlots(), so we have to execute this request in this
-	// iteration. Beginning of for-loop will re-check ctx/shutdown case
-	// and terminate after this request is done.
+
+	// request processing may take a long time, clean up timers now
+	ejectTicker.Stop()
+	freezeTimer.Stop()
+	idleTimer.Stop()
 
 	// wait for this call to finish
 	// NOTE do NOT select with shutdown / other channels. slot handles this.
