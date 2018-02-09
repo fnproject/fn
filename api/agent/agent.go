@@ -655,10 +655,7 @@ func stopTimer(timer *time.Timer) {
 	if timer.Stop() {
 		return
 	}
-	select {
-	case <-timer.C:
-	default:
-	}
+	<-timer.C
 }
 
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
