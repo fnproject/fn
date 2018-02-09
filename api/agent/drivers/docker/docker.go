@@ -93,7 +93,7 @@ func checkDockerVersion(driver *DockerDriver, expected string) error {
 		return err
 	}
 
-	if actual.Compare(*wanted) < 0 {
+	if actual.Compare(*wanted) <= 0 {
 		return fmt.Errorf("docker version is too old. Required: %s Found: %s", expected, info.ServerVersion)
 	}
 
