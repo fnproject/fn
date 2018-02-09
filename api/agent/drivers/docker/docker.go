@@ -147,8 +147,16 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			AttachStdin:  true,
 			StdinOnce:    true,
 		},
-		HostConfig: &docker.HostConfig{},
-		Context:    ctx,
+		// turn off logs since we're collecting them from attach
+		HostConfig: &docker.HostConfig{
+			LogConfig: docker.LogConfig{
+				Type: "json-file", // o/w attach does not work
+				Config: map[string]string{
+					"max-size": "1m",
+				},
+			},
+		},
+		Context: ctx,
 	}
 
 	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
