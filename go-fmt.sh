@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Find all .go files except those under vendor/ or .git, run gofmt -l on them
-OUT=$(find ! \( -path ./vendor -prune \) ! \( -path ./.git -prune \) -name '*.go' -exec gofmt -l {} +)
+OUT=$(find . ! \( -path ./vendor -prune \) ! \( -path ./.git -prune \) -name '*.go' -exec gofmt -l {} +)
 
 if [ -n "$OUT" ]; then
   echo "$OUT"
