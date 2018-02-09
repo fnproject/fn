@@ -655,7 +655,17 @@ func stopTimer(timer *time.Timer) {
 	if timer.Stop() {
 		return
 	}
-	<-timer.C
+	select {
+	case <-timer.C:
+	default:
+	}
+}
+
+func reloadTimer(timer *time.Timer, dur time.Duration) {
+	if !timer.Stop() {
+		<-timer.C
+	}
+	timer.Reset(dur)
 }
 
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
@@ -719,9 +729,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		ejectTimer := time.NewTimer(a.ejectIdleMsecs)
-		freezeTimer := time.NewTimer(a.freezeIdleMsecs)
-		idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
+		ejectTimer := time.NewTimer(time.Duration(0))
+		freezeTimer := time.NewTimer(time.Duration(0))
+		idleTimer := time.NewTimer(time.Duration(0))
 
 		defer func() {
 			stopTimer(ejectTimer)
@@ -744,13 +754,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
 
-			stopTimer(freezeTimer)
-			stopTimer(idleTimer)
-			stopTimer(ejectTimer)
-
-			freezeTimer.Reset(a.freezeIdleMsecs)
-			idleTimer.Reset(time.Duration(call.IdleTimeout) * time.Second)
-			ejectTimer.Reset(a.ejectIdleMsecs)
+			reloadTimer(freezeTimer, a.freezeIdleMsecs)
+			reloadTimer(idleTimer, time.Duration(call.IdleTimeout)*time.Second)
+			reloadTimer(ejectTimer, a.ejectIdleMsecs)
 
 			for {
 				select {
@@ -776,9 +782,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 						a.resources.GetResourceTokenWaiterCount() <= 0 {
 
 						// reload our ticker
-						stopTimer(ejectTimer)
-						ejectTimer.Reset(a.ejectIdleMsecs)
-
+						reloadTimer(ejectTimer, a.ejectIdleMsecs)
 						continue
 					}
 					logger.Debug("attempting hot function eject")
