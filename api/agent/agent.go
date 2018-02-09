@@ -141,6 +141,8 @@ func New(da DataAccess) Agent {
 		logrus.WithError(err).Fatal("error initializing eject idle delay")
 	}
 
+	logrus.WithFields(logrus.Fields{"eject_msec": ejectIdleMsecs, "free_msec": freezeIdleMsecs}).Info("agent starting")
+
 	a := &agent{
 		da:              da,
 		driver:          driver,
@@ -649,6 +651,16 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	}
 }
 
+func stopTimer(timer *time.Timer) {
+	if timer.Stop() {
+		return
+	}
+	select {
+	case <-timer.C:
+	default:
+	}
+}
+
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
@@ -710,6 +722,16 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
+		ejectTimer := time.NewTimer(a.ejectIdleMsecs)
+		freezeTimer := time.NewTimer(a.freezeIdleMsecs)
+		idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
+
+		defer func() {
+			stopTimer(ejectTimer)
+			stopTimer(freezeTimer)
+			stopTimer(idleTimer)
+		}()
+
 		for {
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
@@ -720,49 +742,49 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			}
 
 			isFrozen := false
-			elapsed := time.Duration(0)
-			freezerTicker := a.freezeIdleMsecs
-			idleTimeout := time.Duration(call.IdleTimeout) * time.Second
 
 			done := make(chan struct{})
 			state.UpdateState(ctx, ContainerStateIdle, call.slots)
 			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
+
+			stopTimer(freezeTimer)
+			stopTimer(idleTimer)
+			stopTimer(ejectTimer)
+
+			freezeTimer.Reset(a.freezeIdleMsecs)
+			idleTimer.Reset(time.Duration(call.IdleTimeout) * time.Second)
+			ejectTimer.Reset(a.ejectIdleMsecs)
 
 			for {
 				select {
 				case <-s.trigger: // slot already consumed
 				case <-ctx.Done(): // container shutdown
 				case <-a.shutdown: // server shutdown
-				case <-time.After(idleTimeout): // in case idleTimeout < a.freezeIdleMsecs or idleTimeout < a.ejectIdleMsecs
-				case <-time.After(freezerTicker):
-					elapsed += a.freezeIdleMsecs
-
-					freezerTicker = math.MaxInt64 // do not fire again
-
-					if elapsed < idleTimeout { // in case idleTimeout <= a.freezeIdleMsecs
-						if !isFrozen {
-							err := cookie.Freeze(ctx)
-							if err != nil {
-								logger.WithError(err).Error("freeze error")
-								return
-							}
-							isFrozen = true
+				case <-idleTimer.C:
+				case <-freezeTimer.C:
+					if !isFrozen {
+						err := cookie.Freeze(ctx)
+						if err != nil {
+							logger.WithError(err).Error("freeze error")
+							return
 						}
+						isFrozen = true
+					}
+					continue
+				case <-ejectTimer.C:
+					// if someone is waiting for resource in our slot queue, we must not terminate,
+					// otherwise, see if other slot queues have resource waiters that are blocked.
+					stats := call.slots.getStats()
+					if stats.containerStates[ContainerStateWait] > 0 ||
+						a.resources.GetResourceTokenWaiterCount() <= 0 {
+
+						// reload our ticker
+						stopTimer(ejectTimer)
+						ejectTimer.Reset(a.ejectIdleMsecs)
+
 						continue
 					}
-				case <-time.After(a.ejectIdleMsecs):
-					elapsed += a.ejectIdleMsecs
-
-					if elapsed < idleTimeout {
-						// if someone is waiting for resource in our slot queue, we must not terminate,
-						// otherwise, see if other slot queues have resource waiters that are blocked.
-						stats := call.slots.getStats()
-						if stats.containerStates[ContainerStateWait] > 0 ||
-							a.resources.GetResourceTokenWaiterCount() <= 0 {
-							continue
-						}
-						logger.Debug("attempting hot function eject")
-					}
+					logger.Debug("attempting hot function eject")
 				}
 				break
 			}
