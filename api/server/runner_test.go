@@ -164,8 +164,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}{
 		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, ""},
 
-		// TODO: this should return 502 and description about container misbehaving
-		{"/r/myapp/myhot", badHttp, "GET", http.StatusInternalServerError, expHeaders, "internal server error"},
+		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
 		// hot container now back to normal, we should get OK
 		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, ""},
 
