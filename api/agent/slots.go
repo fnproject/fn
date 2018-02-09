@@ -17,7 +17,7 @@ import (
 
 type Slot interface {
 	exec(ctx context.Context, call *call) error
-	Close() error
+	Close(ctx context.Context) error
 	Error() error
 }
 
@@ -81,7 +81,7 @@ func (a *slotToken) acquireSlot() bool {
 	return true
 }
 
-func (a *slotQueue) ejectSlot(s *slotToken) bool {
+func (a *slotQueue) ejectSlot(ctx context.Context, s *slotToken) bool {
 	// let's get the lock
 	if !atomic.CompareAndSwapUint32(&s.isBusy, 0, 1) {
 		return false
@@ -96,7 +96,7 @@ func (a *slotQueue) ejectSlot(s *slotToken) bool {
 	}
 	a.cond.L.Unlock()
 
-	s.slot.Close()
+	s.slot.Close(ctx)
 	// now we have the lock, push the trigger
 	close(s.trigger)
 	return true
@@ -142,7 +142,7 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 			case <-ctx.Done(): // time out or cancel from caller
 				// consume slot, we let the hot container queue the slot again
 				if item.acquireSlot() {
-					item.slot.Close()
+					item.slot.Close(ctx)
 				}
 			}
 		}

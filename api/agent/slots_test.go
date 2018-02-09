@@ -18,7 +18,7 @@ func (a *testSlot) exec(ctx context.Context, call *call) error {
 	return nil
 }
 
-func (a *testSlot) Close() error {
+func (a *testSlot) Close(ctx context.Context) error {
 	if a.isClosed {
 		panic(fmt.Errorf("id=%d already closed %v", a.id, a))
 	}
@@ -77,19 +77,19 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	// Now according to LIFO semantics, we should get 9,8,7,6,5,4,3,2,1,0 if we dequeued right now.
 	// but let's eject 9
-	if !obj.ejectSlot(tokens[9]) {
+	if !obj.ejectSlot(ctx, tokens[9]) {
 		t.Fatalf("Cannot eject slotToken: %#v", tokens[9])
 	}
 	// let eject 0
-	if !obj.ejectSlot(tokens[0]) {
+	if !obj.ejectSlot(ctx, tokens[0]) {
 		t.Fatalf("Cannot eject slotToken: %#v", tokens[0])
 	}
 	// let eject 5
-	if !obj.ejectSlot(tokens[5]) {
+	if !obj.ejectSlot(ctx, tokens[5]) {
 		t.Fatalf("Cannot eject slotToken: %#v", tokens[5])
 	}
 	// try ejecting 5 again, it should fail
-	if obj.ejectSlot(tokens[5]) {
+	if obj.ejectSlot(ctx, tokens[5]) {
 		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
 	}
 
@@ -112,7 +112,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 			t.Fatalf("Should not be able to acquire twice slotToken: %#v", z)
 		}
 
-		z.slot.Close()
+		z.slot.Close(ctx)
 
 	case <-time.After(time.Duration(1) * time.Second):
 		t.Fatal("timeout in waiting slotToken")
@@ -126,7 +126,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 		}
 
 		// eject it before we can consume
-		if !obj.ejectSlot(tokens[7]) {
+		if !obj.ejectSlot(ctx, tokens[7]) {
 			t.Fatalf("Cannot eject slotToken: %#v", tokens[2])
 		}
 
@@ -263,14 +263,14 @@ func TestSlotQueueBasic3(t *testing.T) {
 			t.Fatalf("2 acquire should not fail")
 		}
 
-		item.slot.Close()
+		item.slot.Close(ctx)
 
 	case <-time.After(time.Duration(1) * time.Second):
 		t.Fatal("timeout in waiting slotToken")
 	}
 
 	// let's eject 1
-	if !obj.ejectSlot(token1) {
+	if !obj.ejectSlot(ctx, token1) {
 		t.Fatalf("failed to eject 1")
 	}
 	if !slot1.(*testSlot).isClosed {
