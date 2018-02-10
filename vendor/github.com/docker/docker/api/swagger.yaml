@@ -443,6 +443,10 @@ definitions:
       OomKillDisable:
         description: "Disable OOM Killer for the container."
         type: "boolean"
+      Init:
+        description: "Run an init inside the container that forwards signals and reaps processes. This field is omitted if empty, and the default (as configured on the daemon) is used."
+        type: "boolean"
+        x-nullable: true
       PidsLimit:
         description: "Tune a container's pids limit. Set -1 for unlimited."
         type: "integer"
@@ -838,12 +842,11 @@ definitions:
       Volumes:
         description: "An object mapping mount point paths inside the container to empty objects."
         type: "object"
-        properties:
-          additionalProperties:
-            type: "object"
-            enum:
-              - {}
-            default: {}
+        additionalProperties:
+          type: "object"
+          enum:
+            - {}
+          default: {}
       WorkingDir:
         description: "The working directory for commands to run in."
         type: "string"
@@ -2801,6 +2804,8 @@ definitions:
       - "shutdown"
       - "failed"
       - "rejected"
+      - "remove"
+      - "orphaned"
 
   Task:
     type: "object"
@@ -5351,6 +5356,13 @@ paths:
           examples:
             application/json:
               message: "No such container: c2ada9df5af8"
+        409:
+          description: "container is not running"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+          examples:
+            application/json:
+              message: "Container d37cde0fe4ad63c3a7252023b2f9800282894247d145cb5933ddf6e52cc03a28 is not running"
         500:
           description: "server error"
           schema:
@@ -6161,8 +6173,19 @@ paths:
           type: "integer"
         - name: "buildargs"
           in: "query"
-          description: "JSON map of string pairs for build-time variables. Users pass these values at build-time. Docker uses the buildargs as the environment context for commands run via the `Dockerfile` RUN instruction, or for variable expansion in other `Dockerfile` instructions. This is not meant for passing secret values. [Read more about the buildargs instruction.](https://docs.docker.com/engine/reference/builder/#arg)"
-          type: "integer"
+          description: >
+            JSON map of string pairs for build-time variables. Users pass these values at build-time. Docker
+            uses the buildargs as the environment context for commands run via the `Dockerfile` RUN
+            instruction, or for variable expansion in other `Dockerfile` instructions. This is not meant for
+            passing secret values.
+
+
+            For example, the build arg `FOO=bar` would become `{"FOO":"bar"}` in JSON. This would result in the
+            the query parameter `buildargs={"FOO":"bar"}`. Note that `{"FOO":"bar"}` should be URI component encoded.
+
+
+            [Read more about the buildargs instruction.](https://docs.docker.com/engine/reference/builder/#arg)
+          type: "string"
         - name: "shmsize"
           in: "query"
           description: "Size of `/dev/shm` in bytes. The size must be greater than 0. If omitted the system uses 64MB."

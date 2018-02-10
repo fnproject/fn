@@ -31,7 +31,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 
 [[constraint]]
   name = "github.com/gin-contrib/cors"
-  version = "master"
+  branch = "master"
 
 [[constraint]]
   branch = "master"

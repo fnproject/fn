@@ -1,6 +1,6 @@
 // Package splunk provides the log driver for forwarding server logs to
 // Splunk HTTP Event Collector endpoint.
-package splunk
+package splunk // import "github.com/docker/docker/daemon/logger/splunk"
 
 import (
 	"bytes"
@@ -218,6 +218,7 @@ func New(info logger.Info) (logger.Logger, error) {
 
 	transport := &http.Transport{
 		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
 	}
 	client := &http.Client{
 		Transport: transport,

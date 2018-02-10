@@ -2,14 +2,23 @@
 #
 # Usage:
 #
-# # Assemble the full dev environment. This is slow the first time.
-# docker build -t docker .
+# # Use make to build a development environment image and run it in a container.
+# # This is slow the first time.
+# make BIND_DIR=. shell
 #
-# # Mount your source in an interactive container for quick testing:
-# docker run -v `pwd`:/go/src/github.com/docker/docker --privileged -i -t docker bash
+# The following commands are executed inside the running container.
+
+# # Make a dockerd binary.
+# # hack/make.sh binary
 #
-# # Run the test suite:
-# docker run -e DOCKER_GITCOMMIT=foo --privileged docker hack/make.sh test-unit test-integration test-docker-py
+# # Install dockerd to /usr/local/bin
+# # make install
+#
+# # Run unit tests
+# # hack/test/unit
+#
+# # Run tests e.g. integration, py
+# # hack/make.sh binary test-integration test-docker-py
 #
 # # Publish a release:
 # docker run --privileged \
@@ -88,7 +97,7 @@ RUN apt-get update && apt-get install -y \
 #            will need updating, to avoid errors. Ping #docker-maintainers on IRC
 #            with a heads-up.
 # IMPORTANT: When updating this please note that stdlib archive/tar pkg is vendored
-ENV GO_VERSION 1.9.2
+ENV GO_VERSION 1.9.4
 RUN curl -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
 	| tar -xzC /usr/local
 
@@ -114,10 +123,10 @@ RUN set -x \
 	&& git clone https://github.com/docker/distribution.git "$GOPATH/src/github.com/docker/distribution" \
 	&& (cd "$GOPATH/src/github.com/docker/distribution" && git checkout -q "$REGISTRY_COMMIT") \
 	&& GOPATH="$GOPATH/src/github.com/docker/distribution/Godeps/_workspace:$GOPATH" \
-		go build -o /usr/local/bin/registry-v2 github.com/docker/distribution/cmd/registry \
+		go build -buildmode=pie -o /usr/local/bin/registry-v2 github.com/docker/distribution/cmd/registry \
 	&& (cd "$GOPATH/src/github.com/docker/distribution" && git checkout -q "$REGISTRY_COMMIT_SCHEMA1") \
 	&& GOPATH="$GOPATH/src/github.com/docker/distribution/Godeps/_workspace:$GOPATH" \
-		go build -o /usr/local/bin/registry-v2-schema1 github.com/docker/distribution/cmd/registry \
+		go build -buildmode=pie -o /usr/local/bin/registry-v2-schema1 github.com/docker/distribution/cmd/registry \
 	&& rm -rf "$GOPATH"
 
 # Install notary and notary-server
@@ -127,9 +136,9 @@ RUN set -x \
 	&& git clone https://github.com/docker/notary.git "$GOPATH/src/github.com/docker/notary" \
 	&& (cd "$GOPATH/src/github.com/docker/notary" && git checkout -q "$NOTARY_VERSION") \
 	&& GOPATH="$GOPATH/src/github.com/docker/notary/vendor:$GOPATH" \
-		go build -o /usr/local/bin/notary-server github.com/docker/notary/cmd/notary-server \
+		go build -buildmode=pie -o /usr/local/bin/notary-server github.com/docker/notary/cmd/notary-server \
 	&& GOPATH="$GOPATH/src/github.com/docker/notary/vendor:$GOPATH" \
-		go build -o /usr/local/bin/notary github.com/docker/notary/cmd/notary \
+		go build -buildmode=pie -o /usr/local/bin/notary github.com/docker/notary/cmd/notary \
 	&& rm -rf "$GOPATH"
 
 # Get the "docker-py" source so we can run their integration tests
@@ -146,9 +155,12 @@ RUN pip install yamllint==1.5.0
 
 # Install go-swagger for validating swagger.yaml
 ENV GO_SWAGGER_COMMIT c28258affb0b6251755d92489ef685af8d4ff3eb
-RUN git clone https://github.com/go-swagger/go-swagger.git /go/src/github.com/go-swagger/go-swagger \
-	&& (cd /go/src/github.com/go-swagger/go-swagger && git checkout -q $GO_SWAGGER_COMMIT) \
-	&& go install -v github.com/go-swagger/go-swagger/cmd/swagger
+RUN set -x \
+	&& export GOPATH="$(mktemp -d)" \
+	&& git clone https://github.com/go-swagger/go-swagger.git "$GOPATH/src/github.com/go-swagger/go-swagger" \
+	&& (cd "$GOPATH/src/github.com/go-swagger/go-swagger" && git checkout -q "$GO_SWAGGER_COMMIT") \
+	&& go build -o /usr/local/bin/swagger github.com/go-swagger/go-swagger/cmd/swagger \
+	&& rm -rf "$GOPATH"
 
 # Set user.email so crosbymichael's in-container merge commits go smoothly
 RUN git config --global user.email 'docker-dummy@example.com'

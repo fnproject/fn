@@ -162,7 +162,21 @@ struct sockaddr_hci {
         sa_family_t     hci_family;
         unsigned short  hci_dev;
         unsigned short  hci_channel;
-};;
+};
+
+// copied from /usr/include/bluetooth/bluetooth.h
+#define BDADDR_BREDR           0x00
+#define BDADDR_LE_PUBLIC       0x01
+#define BDADDR_LE_RANDOM       0x02
+
+// copied from /usr/include/bluetooth/l2cap.h
+struct sockaddr_l2 {
+	sa_family_t	l2_family;
+	unsigned short	l2_psm;
+	uint8_t		l2_bdaddr[6];
+	unsigned short	l2_cid;
+	uint8_t		l2_bdaddr_type;
+};
 
 // copied from /usr/include/linux/un.h
 struct my_sockaddr_un {
@@ -310,6 +324,8 @@ type RawSockaddrNetlink C.struct_sockaddr_nl
 
 type RawSockaddrHCI C.struct_sockaddr_hci
 
+type RawSockaddrL2 C.struct_sockaddr_l2
+
 type RawSockaddrCAN C.struct_sockaddr_can
 
 type RawSockaddrALG C.struct_sockaddr_alg
@@ -358,6 +374,7 @@ const (
 	SizeofSockaddrLinklayer = C.sizeof_struct_sockaddr_ll
 	SizeofSockaddrNetlink   = C.sizeof_struct_sockaddr_nl
 	SizeofSockaddrHCI       = C.sizeof_struct_sockaddr_hci
+	SizeofSockaddrL2        = C.sizeof_struct_sockaddr_l2
 	SizeofSockaddrCAN       = C.sizeof_struct_sockaddr_can
 	SizeofSockaddrALG       = C.sizeof_struct_sockaddr_alg
 	SizeofSockaddrVM        = C.sizeof_struct_sockaddr_vm
@@ -642,4 +659,12 @@ type cpuMask C.__cpu_mask
 const (
 	_CPU_SETSIZE = C.__CPU_SETSIZE
 	_NCPUBITS    = C.__NCPUBITS
+)
+
+// Bluetooth
+
+const (
+	BDADDR_BREDR     = C.BDADDR_BREDR
+	BDADDR_LE_PUBLIC = C.BDADDR_LE_PUBLIC
+	BDADDR_LE_RANDOM = C.BDADDR_LE_RANDOM
 )

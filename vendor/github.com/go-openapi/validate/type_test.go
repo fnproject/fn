@@ -15,6 +15,7 @@
 package validate
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestType_schemaInfoForType(t *testing.T) {
 		expectedJSONType{
 			value:                 strfmt.NewDateTime(),
 			expectedJSONType:      "string",
-			expectedSwaggerFormat: "datetime",
+			expectedSwaggerFormat: "date-time",
 		},
 		expectedJSONType{
 			// TODO: this exception is really prone to errors: should alias runtime.File in strfmt
@@ -66,6 +67,11 @@ func TestType_schemaInfoForType(t *testing.T) {
 			value:                 strfmt.Hostname("www.github.com"),
 			expectedJSONType:      "string",
 			expectedSwaggerFormat: "hostname",
+		},
+		expectedJSONType{
+			value:                 strfmt.Password("secret"),
+			expectedJSONType:      "string",
+			expectedSwaggerFormat: "password",
 		},
 		expectedJSONType{
 			value:                 strfmt.IPv4("192.168.224.1"),
@@ -159,8 +165,9 @@ func TestType_schemaInfoForType(t *testing.T) {
 			expectedSwaggerFormat: "int32",
 		},
 		expectedJSONType{
-			value:                 uint16(12),
-			expectedJSONType:      "integer",
+			value:            uint16(12),
+			expectedJSONType: "integer",
+			// TODO: should be uint32
 			expectedSwaggerFormat: "int32",
 		},
 		expectedJSONType{
@@ -169,8 +176,9 @@ func TestType_schemaInfoForType(t *testing.T) {
 			expectedSwaggerFormat: "int32",
 		},
 		expectedJSONType{
-			value:                 uint32(12),
-			expectedJSONType:      "integer",
+			value:            uint32(12),
+			expectedJSONType: "integer",
+			// TODO: should be uint32
 			expectedSwaggerFormat: "int32",
 		},
 		expectedJSONType{
@@ -179,8 +187,9 @@ func TestType_schemaInfoForType(t *testing.T) {
 			expectedSwaggerFormat: "int64",
 		},
 		expectedJSONType{
-			value:                 uint(12),
-			expectedJSONType:      "integer",
+			value:            uint(12),
+			expectedJSONType: "integer",
+			// TODO: should be uint64
 			expectedSwaggerFormat: "int64",
 		},
 		expectedJSONType{
@@ -189,8 +198,9 @@ func TestType_schemaInfoForType(t *testing.T) {
 			expectedSwaggerFormat: "int64",
 		},
 		expectedJSONType{
-			value:                 uint64(12),
-			expectedJSONType:      "integer",
+			value:            uint64(12),
+			expectedJSONType: "integer",
+			// TODO: should be uint64
 			expectedSwaggerFormat: "int64",
 		},
 		expectedJSONType{
@@ -226,15 +236,28 @@ func TestType_schemaInfoForType(t *testing.T) {
 			expectedSwaggerFormat: "",
 		},
 		expectedJSONType{
+			// NOTE: Go array returns no JSON type
 			value:                 [4]int{1, 2, 4, 4},
 			expectedJSONType:      "",
 			expectedSwaggerFormat: "",
 		},
+		expectedJSONType{
+			value:                 strfmt.Base64("ZWxpemFiZXRocG9zZXk="),
+			expectedJSONType:      "string",
+			expectedSwaggerFormat: "byte",
+		},
+		expectedJSONType{
+			value:                 strfmt.Duration(0),
+			expectedJSONType:      "string",
+			expectedSwaggerFormat: "duration",
+		},
+		expectedJSONType{
+			value:                 strfmt.ObjectId("507f1f77bcf86cd799439011"),
+			expectedJSONType:      "string",
+			expectedSwaggerFormat: "bsonobjectid",
+		},
 		/*
-					TODO
-					B64:        Base64("ZWxpemFiZXRocG9zZXk="),
-					Pw:         Password("super secret stuff here"),
-			case reflect.Interface:
+			Test case for : case reflect.Interface:
 				// What to do here?
 				panic("dunno what to do here")
 		*/
@@ -250,4 +273,12 @@ func TestType_schemaInfoForType(t *testing.T) {
 		assert.Equal(t, x.expectedJSONType, jsonType)
 		assert.Equal(t, x.expectedSwaggerFormat, swaggerFormat)
 	}
+
+	// Check file declarations as io.ReadCloser are properly detected
+	myFile := runtime.File{}
+	var myReader io.ReadCloser
+	myReader = &myFile
+	jsonType, swaggerFormat := v.schemaInfoForType(myReader)
+	assert.Equal(t, "file", jsonType)
+	assert.Equal(t, "", swaggerFormat)
 }

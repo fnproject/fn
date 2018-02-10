@@ -1,6 +1,6 @@
 // +build linux freebsd
 
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"bufio"
@@ -28,6 +28,7 @@ import (
 	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/ioutils"
+	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
@@ -100,6 +101,10 @@ func getMemoryResources(config containertypes.Resources) *specs.LinuxMemory {
 	if config.MemorySwappiness != nil {
 		swappiness := uint64(*config.MemorySwappiness)
 		memory.Swappiness = &swappiness
+	}
+
+	if config.OomKillDisable != nil {
+		memory.DisableOOMKiller = config.OomKillDisable
 	}
 
 	if config.KernelMemory != 0 {
@@ -1167,6 +1172,12 @@ func setupDaemonRoot(config *config.Config, rootDir string, rootIDs idtools.IDPa
 			if !idtools.CanAccess(dirPath, rootIDs) {
 				return fmt.Errorf("a subdirectory in your graphroot path (%s) restricts access to the remapped root uid/gid; please fix by allowing 'o+x' permissions on existing directories", config.Root)
 			}
+		}
+	}
+
+	if err := ensureSharedOrSlave(config.Root); err != nil {
+		if err := mount.MakeShared(config.Root); err != nil {
+			logrus.WithError(err).WithField("dir", config.Root).Warn("Could not set daemon root propagation to shared, this is not generally critical but may cause some functionality to not work or fallback to less desirable behavior")
 		}
 	}
 	return nil

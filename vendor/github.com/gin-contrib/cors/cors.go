@@ -14,7 +14,7 @@ type Config struct {
 
 	// AllowedOrigins is a list of origins a cross-domain request can be executed from.
 	// If the special "*" value is present in the list, all origins will be allowed.
-	// Default value is ["*"]
+	// Default value is []
 	AllowOrigins []string
 
 	// AllowOriginFunc is a custom function to validate the origin. It take the origin
@@ -28,8 +28,6 @@ type Config struct {
 
 	// AllowedHeaders is list of non simple headers the client is allowed to use with
 	// cross-domain requests.
-	// If the special "*" value is present in the list, all headers will be allowed.
-	// Default value is [] but "Origin" is always appended to the list.
 	AllowHeaders []string
 
 	// AllowCredentials indicates whether the request can include user credentials like
@@ -69,8 +67,8 @@ func (c Config) Validate() error {
 		return errors.New("conflict settings: all origins disabled")
 	}
 	for _, origin := range c.AllowOrigins {
-		if !strings.HasPrefix(origin, "http://") && !strings.HasPrefix(origin, "https://") {
-			return errors.New("bad origin: origins must include http:// or https://")
+		if origin != "*" && !strings.HasPrefix(origin, "http://") && !strings.HasPrefix(origin, "https://") {
+			return errors.New("bad origin: origins must either be '*' or include http:// or https://")
 		}
 	}
 	return nil

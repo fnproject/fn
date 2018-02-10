@@ -1,4 +1,4 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"fmt"
@@ -165,7 +165,7 @@ func enableIPOnPredefinedNetwork() bool {
 }
 
 func (daemon *Daemon) isNetworkHotPluggable() bool {
-	return false
+	return true
 }
 
 func setupPathsAndSandboxOptions(container *container.Container, sboxOptions *[]libnetwork.SandboxOption) error {
