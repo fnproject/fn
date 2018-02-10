@@ -204,10 +204,16 @@
   version = "v1.5.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/gin-contrib/cors"
   packages = ["."]
-  revision = "51f0ef8b07e973afb8b6c192bf90d5c3e575c01a"
+  revision = "cf4846e6a636a76237a28d9286f163c132e841bc"
+  version = "v1.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gin-contrib/sse"
+  packages = ["."]
+  revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
 
 [[projects]]
   name = "github.com/gin-gonic/gin"
@@ -216,8 +222,8 @@
     "binding",
     "render"
   ]
-  revision = "e2fa89777e344782ef5d31929f095f4589c35dcc"
-  version = "v0.6"
+  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
+  version = "v1.2"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -344,12 +350,6 @@
   revision = "05cef0741ade10ca668982355b3f3f0bcf0ff0a8"
 
 [[projects]]
-  name = "github.com/julienschmidt/httprouter"
-  packages = ["."]
-  revision = "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
-  version = "v1.1"
-
-[[projects]]
   branch = "master"
   name = "github.com/lib/pq"
   packages = [
@@ -377,12 +377,6 @@
   ]
   revision = "035c07716cd373d88456ec4d701402df52584cb4"
   version = "v3.0.1"
-
-[[projects]]
-  name = "github.com/mattn/go-colorable"
-  packages = ["."]
-  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
-  version = "v0.0.9"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -517,6 +511,12 @@
   revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
 
 [[projects]]
+  name = "github.com/ugorji/go"
+  packages = ["codec"]
+  revision = "9831f2c3ac1068a78f50999a30db84270f647af6"
+  version = "v1.1"
+
+[[projects]]
   name = "go.opencensus.io"
   packages = [
     "exporter/prometheus",
@@ -583,16 +583,19 @@
   revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
 
 [[projects]]
-  branch = "v2"
-  name = "gopkg.in/mgo.v2"
-  packages = ["bson"]
-  revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
+  name = "gopkg.in/go-playground/validator.v8"
+  packages = ["."]
+  revision = "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
+  version = "v8.18.2"
 
 [[projects]]
-  branch = "v2-unstable"
-  name = "gopkg.in/mgo.v2-unstable"
-  packages = ["internal/json"]
-  revision = "5466044681b5ad0b2b62a63c7113638bd63004bb"
+  branch = "v2"
+  name = "gopkg.in/mgo.v2"
+  packages = [
+    "bson",
+    "internal/json"
+  ]
+  revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
 
 [[projects]]
   branch = "v2"
@@ -603,6 +606,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2ad28970d27ba5d48784c3b155b1576e187f85a2cb24ef77c7d4215c009a986c"
+  inputs-digest = "434ad6c879d708111a6f99029f82149888053e1fa9ddc116f96adeb72b1bdc9f"
   solver-name = "gps-cdcl"
   solver-version = 1
