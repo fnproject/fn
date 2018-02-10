@@ -79,10 +79,12 @@ func (a *slotQueue) acquireSlot(s *slotToken) bool {
 	}
 
 	a.cond.L.Lock()
-	for i := 0; i < len(a.slots); i++ {
-		if a.slots[i].id == s.id {
-			a.slots = append(a.slots[:i], a.slots[i+1:]...)
-			break
+	if len(a.slots) > 0 {
+		for i := len(a.slots) - 1; i >= 0; i-- {
+			if a.slots[i].id == s.id {
+				a.slots = append(a.slots[:i], a.slots[i+1:]...)
+				break
+			}
 		}
 	}
 	a.cond.L.Unlock()
