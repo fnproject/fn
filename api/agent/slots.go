@@ -70,14 +70,23 @@ func NewSlotQueue(key string) *slotQueue {
 	return obj
 }
 
-func (a *slotToken) acquireSlot() bool {
+func (a *slotQueue) acquireSlot(s *slotToken) bool {
 	// let's get the lock
-	if !atomic.CompareAndSwapUint32(&a.isBusy, 0, 1) {
+	if !atomic.CompareAndSwapUint32(&s.isBusy, 0, 1) {
 		return false
 	}
 
+	a.cond.L.Lock()
+	for i := 0; i < len(a.slots); i++ {
+		if a.slots[i].id == s.id {
+			a.slots = append(a.slots[:i], a.slots[i+1:]...)
+			break
+		}
+	}
+	a.cond.L.Unlock()
+
 	// now we have the lock, push the trigger
-	close(a.trigger)
+	close(s.trigger)
 	return true
 }
 
@@ -131,19 +140,13 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 				return
 			}
 
-			// pop
 			item := a.slots[len(a.slots)-1]
-			a.slots = a.slots[:len(a.slots)-1]
 			a.cond.L.Unlock()
 
 			select {
 			case output <- item: // good case (dequeued)
 			case <-item.trigger: // ejected (eject handles cleanup)
 			case <-ctx.Done(): // time out or cancel from caller
-				// consume slot, we let the hot container queue the slot again
-				if item.acquireSlot() {
-					item.slot.Close(ctx)
-				}
 			}
 		}
 	}()

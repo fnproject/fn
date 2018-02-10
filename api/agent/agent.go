@@ -450,7 +450,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	for {
 		select {
 		case s := <-ch:
-			if s.acquireSlot() {
+			if call.slots.acquireSlot(s) {
 				if s.slot.Error() != nil {
 					s.slot.Close(ctx)
 					return nil, s.slot.Error()
@@ -747,6 +747,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 // calls should be made to this function.
 func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot) bool {
 
+	var err error
 	isFrozen := false
 
 	freezeTimer := time.NewTimer(a.freezeIdleMsecs)
@@ -757,28 +758,42 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	defer idleTimer.Stop()
 	defer ejectTicker.Stop()
 
+	// log if any error is encountered
+	defer func() {
+		if err != nil {
+			logger.WithError(err).Error("hot function failure")
+		}
+	}()
+
+	// if an immediate freeze is requested, freeze first before enqueuing at all.
+	if a.freezeIdleMsecs == time.Duration(0) && !isFrozen {
+		err = cookie.Freeze(ctx)
+		if err != nil {
+			return false
+		}
+		isFrozen = true
+	}
+
 	state.UpdateState(ctx, ContainerStateIdle, call.slots)
 	s := call.slots.queueSlot(slot)
 
 	for {
 		select {
 		case <-s.trigger: // slot already consumed, unfreeze ASAP
-			if isFrozen {
-				err := cookie.Unfreeze(ctx)
+			if !isFrozen {
+				err = cookie.Freeze(ctx)
 				if err != nil {
-					logger.WithError(err).Error("unfreeze error")
 					return false
 				}
-				isFrozen = false
+				isFrozen = true
 			}
 		case <-ctx.Done(): // container shutdown
 		case <-a.shutdown: // server shutdown
 		case <-idleTimer.C:
 		case <-freezeTimer.C:
 			if !isFrozen {
-				err := cookie.Freeze(ctx)
+				err = cookie.Freeze(ctx)
 				if err != nil {
-					logger.WithError(err).Error("freeze error")
 					return false
 				}
 				isFrozen = true
@@ -807,9 +822,8 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	// In case, timer/ejectSlot failure landed us here, make
 	// sure to unfreeze.
 	if isFrozen {
-		err := cookie.Unfreeze(ctx)
+		err = cookie.Unfreeze(ctx)
 		if err != nil {
-			logger.WithError(err).Error("unfreeze error")
 			return false
 		}
 		isFrozen = false

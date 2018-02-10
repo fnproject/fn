@@ -103,12 +103,12 @@ func TestSlotQueueBasic1(t *testing.T) {
 			t.Fatalf("Bad slotToken received: %#v", z)
 		}
 
-		if !z.acquireSlot() {
+		if !obj.acquireSlot(z) {
 			t.Fatalf("Cannot acquire slotToken received: %#v", z)
 		}
 
 		// second acquire shoudl fail
-		if z.acquireSlot() {
+		if obj.acquireSlot(z) {
 			t.Fatalf("Should not be able to acquire twice slotToken: %#v", z)
 		}
 
@@ -131,7 +131,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 		}
 
 		// we shouldn't be able to consume an ejected slotToken
-		if z.acquireSlot() {
+		if obj.acquireSlot(z) {
 			t.Fatalf("We should not be able to acquire slotToken received: %#v", z)
 		}
 
@@ -148,7 +148,7 @@ func TestSlotQueueBasic1(t *testing.T) {
 			if z.id != 6 {
 				t.Fatalf("Should not get anything except for 6 from queue: %#v", z)
 			}
-			if !z.acquireSlot() {
+			if !obj.acquireSlot(z) {
 				t.Fatalf("cannot acquire token: %#v", z)
 			}
 		}
@@ -259,7 +259,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 			t.Fatalf("2 should not yet be closed")
 		}
 
-		if !item.acquireSlot() {
+		if !obj.acquireSlot(item) {
 			t.Fatalf("2 acquire should not fail")
 		}
 
