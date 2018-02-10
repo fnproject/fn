@@ -3,10 +3,12 @@ package agent
 import (
 	"context"
 	"crypto/sha1"
-	"fmt"
+	"encoding/binary"
+	"hash"
 	"sort"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 )
 
 //
@@ -270,31 +272,70 @@ func (a *slotQueueMgr) deleteSlotQueue(slots *slotQueue) bool {
 	return isDeleted
 }
 
+var shapool = &sync.Pool{New: func() interface{} { return sha1.New() }}
+
+// TODO do better; once we have app+route versions this function
+// can be simply app+route names & version
 func getSlotQueueKey(call *call) string {
 	// return a sha1 hash of a (hopefully) unique string of all the config
 	// values, to make map lookups quicker [than the giant unique string]
 
-	hash := sha1.New()
-	fmt.Fprint(hash, call.AppName, "\x00")
-	fmt.Fprint(hash, call.Path, "\x00")
-	fmt.Fprint(hash, call.Image, "\x00")
-	fmt.Fprint(hash, call.Timeout, "\x00")
-	fmt.Fprint(hash, call.IdleTimeout, "\x00")
-	fmt.Fprint(hash, call.Memory, "\x00")
-	fmt.Fprint(hash, call.CPUs, "\x00")
-	fmt.Fprint(hash, call.Format, "\x00")
+	hash := shapool.Get().(hash.Hash)
+	hash.Reset()
+	defer shapool.Put(hash)
 
-	// we have to sort these before printing, yay. TODO do better
+	hash.Write(unsafeBytes(call.AppName))
+	hash.Write(unsafeBytes("\x00"))
+	hash.Write(unsafeBytes(call.Path))
+	hash.Write(unsafeBytes("\x00"))
+	hash.Write(unsafeBytes(call.Image))
+	hash.Write(unsafeBytes("\x00"))
+	hash.Write(unsafeBytes(call.Format))
+	hash.Write(unsafeBytes("\x00"))
+
+	// these are all static in size we only need to delimit the whole block of them
+	var byt [8]byte
+	binary.LittleEndian.PutUint32(byt[:4], uint32(call.Timeout))
+	hash.Write(byt[:4])
+
+	binary.LittleEndian.PutUint32(byt[:4], uint32(call.IdleTimeout))
+	hash.Write(byt[:4])
+
+	binary.LittleEndian.PutUint64(byt[:], call.Memory)
+	hash.Write(byt[:])
+
+	binary.LittleEndian.PutUint64(byt[:], uint64(call.CPUs))
+	hash.Write(byt[:])
+	hash.Write(unsafeBytes("\x00"))
+
+	// we have to sort these before printing, yay.
+	// TODO if we had a max size for config const we could avoid this!
 	keys := make([]string, 0, len(call.Config))
 	for k := range call.Config {
-		keys = append(keys, k)
+		i := sort.SearchStrings(keys, k)
+		keys = append(keys, "")
+		copy(keys[i+1:], keys[i:])
+		keys[i] = k
 	}
 
-	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprint(hash, k, "\x00", call.Config[k], "\x00")
+		hash.Write(unsafeBytes(k))
+		hash.Write(unsafeBytes("\x00"))
+		hash.Write(unsafeBytes(call.Config[k]))
+		hash.Write(unsafeBytes("\x00"))
 	}
 
 	var buf [sha1.Size]byte
-	return string(hash.Sum(buf[:0]))
+	byts := hash.Sum(buf[:0])
+	return unsafeString(byts)
+}
+
+// WARN: this is read only
+func unsafeBytes(a string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&a))
+}
+
+// WARN: this is read only
+func unsafeString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
