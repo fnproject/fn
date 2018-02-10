@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/opentracing/opentracing-go"
 	"strings"
+
+	"github.com/opentracing/opentracing-go"
 )
 
 // FnTracer is a custom Tracer which wraps another another tracer

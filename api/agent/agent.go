@@ -230,7 +230,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+	ctx = tracing.WithSpan(context.Background(), tracing.FromContext(ctx))
 	err = call.End(ctx, err)
 	return transformTimeout(err, false)
 }
@@ -284,7 +284,7 @@ func statSpans(ctx context.Context, call *call) (_ context.Context, finish func(
 
 	// agent_submit has a parent span in the usual way
 	// it doesn't matter if it inherits fn_appname or fn_path (and we set them here in any case)
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
+	span, ctx := tracing.StartSpan(ctx, "agent_submit")
 	span.SetBaggageItem("fn_appname", call.AppName)
 	span.SetBaggageItem("fn_path", call.Path)
 
@@ -303,7 +303,7 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	ctx, cancel := context.WithDeadline(ctx, call.slotDeadline)
 	defer cancel()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
+	span, ctx := tracing.StartSpan(ctx, "agent_get_slot")
 	defer span.Finish()
 
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
@@ -340,8 +340,8 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(common.WithLogger(context.Background(), logger), opentracing.SpanFromContext(ctx))
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_launcher")
+	ctx = tracing.WithSpan(common.WithLogger(context.Background(), logger), tracing.FromContext(ctx))
+	span, ctx := tracing.StartSpan(ctx, "agent_hot_launcher")
 	defer span.Finish()
 
 	for {
@@ -395,7 +395,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_wait_hot")
+	span, ctx := tracing.StartSpan(ctx, "agent_wait_hot")
 	defer span.Finish()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -442,7 +442,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_launch_cold")
+	span, ctx := tracing.StartSpan(ctx, "agent_launch_cold")
 	defer span.Finish()
 
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
@@ -479,7 +479,7 @@ func (s *coldSlot) Error() error {
 }
 
 func (s *coldSlot) exec(ctx context.Context, call *call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
+	span, ctx := tracing.StartSpan(ctx, "agent_cold_exec")
 	defer span.Finish()
 
 	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
@@ -507,7 +507,7 @@ func (s *coldSlot) Close(ctx context.Context) error {
 		// call this from here so that in exec we don't have to eat container
 		// removal latency
 		// NOTE ensure container removal, no ctx timeout
-		ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+		ctx = tracing.WithSpan(context.Background(), tracing.FromContext(ctx))
 		s.cookie.Close(ctx)
 	}
 	if s.tok != nil {
@@ -534,7 +534,7 @@ func (s *hotSlot) Error() error {
 }
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_exec")
+	span, ctx := tracing.StartSpan(ctx, "agent_hot_exec")
 	defer span.Finish()
 
 	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
@@ -570,7 +570,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 }
 
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
+	span, ctx := tracing.StartSpan(ctx, "agent_prep_cold")
 	defer span.Finish()
 
 	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
@@ -617,8 +617,8 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_run_hot")
+	ctx = tracing.WithSpan(context.Background(), tracing.FromContext(ctx))
+	span, ctx := tracing.StartSpan(ctx, "agent_run_hot")
 	defer span.Finish()
 	defer tok.Close() // IMPORTANT: this MUST get called
 

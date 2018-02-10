@@ -1,14 +1,15 @@
 package server
 
 import (
-	"github.com/fnproject/fn/api/common"
-	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/openzipkin/zipkin-go-opentracing/thrift/gen-go/zipkincore"
-	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fnproject/fn/api/common"
+	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/openzipkin/zipkin-go-opentracing/thrift/gen-go/zipkincore"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // PrometheusCollector is a custom Collector

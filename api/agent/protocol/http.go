@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
@@ -23,7 +22,7 @@ type HTTPProtocol struct {
 func (p *HTTPProtocol) IsStreamable() bool { return true }
 
 func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "dispatch_http")
+	span, ctx := tracing.StartSpan(ctx, "dispatch_http")
 	defer span.Finish()
 
 	req := ci.Request()
@@ -36,7 +35,7 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	req.Header.Set("FN_REQUEST_URL", ci.RequestURL())
 	req.Header.Set("FN_CALL_ID", ci.CallID())
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_http_write_request")
+	span, _ = tracing.StartSpan(ctx, "dispatch_http_write_request")
 	// req.Write handles if the user does not specify content length
 	err := req.Write(h.in)
 	span.Finish()
@@ -44,14 +43,14 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 		return err
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_http_read_response")
+	span, _ = tracing.StartSpan(ctx, "dispatch_http_read_response")
 	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request())
 	span.Finish()
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid http response from function err: %v", err))
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_http_write_response")
+	span, _ = tracing.StartSpan(ctx, "dispatch_http_write_response")
 	defer span.Finish()
 
 	rw, ok := w.(http.ResponseWriter)

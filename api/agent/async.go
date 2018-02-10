@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +16,7 @@ func (a *agent) asyncDequeue() {
 	defer cancel()
 
 	// parent span here so that we can see how many async calls are running
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_async_dequeue")
+	span, ctx := tracing.StartSpan(ctx, "agent_async_dequeue")
 	defer span.Finish()
 
 	for {
@@ -73,10 +72,10 @@ func (a *agent) asyncChew(ctx context.Context) <-chan *models.Call {
 func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	// IMPORTANT: get a context that has a child span but NO timeout (Submit imposes timeout)
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+	ctx = tracing.WithSpan(context.Background(), tracing.FromContext(ctx))
 
 	// additional enclosing context here since this isn't spawned from an http request
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_async_run")
+	span, ctx := tracing.StartSpan(ctx, "agent_async_run")
 	defer span.Finish()
 
 	call, err := a.GetCall(

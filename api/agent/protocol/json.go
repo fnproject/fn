@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var (
@@ -87,17 +86,17 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 }
 
 func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "dispatch_json")
+	span, ctx := tracing.StartSpan(ctx, "dispatch_json")
 	defer span.Finish()
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_write_request")
+	span, _ = tracing.StartSpan(ctx, "dispatch_json_write_request")
 	err := h.writeJSONToContainer(ci)
 	span.Finish()
 	if err != nil {
 		return err
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
+	span, _ = tracing.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
 	err = json.NewDecoder(h.out).Decode(&jout)
 	span.Finish()
@@ -105,7 +104,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_write_response")
+	span, _ = tracing.StartSpan(ctx, "dispatch_json_write_response")
 	defer span.Finish()
 
 	rw, ok := w.(http.ResponseWriter)

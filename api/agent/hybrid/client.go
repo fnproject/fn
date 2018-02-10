@@ -66,7 +66,7 @@ func NewClient(u string) (agent.DataAccess, error) {
 }
 
 func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_enqueue")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_enqueue")
 	defer span.Finish()
 
 	err := cl.do(ctx, c, nil, "PUT", "runner", "async")
@@ -74,7 +74,7 @@ func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
 }
 
 func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_dequeue")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_dequeue")
 	defer span.Finish()
 
 	var c struct {
@@ -88,7 +88,7 @@ func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
 }
 
 func (cl *client) Start(ctx context.Context, c *models.Call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_start")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_start")
 	defer span.Finish()
 
 	err := cl.do(ctx, c, nil, "POST", "runner", "start")
@@ -96,7 +96,7 @@ func (cl *client) Start(ctx context.Context, c *models.Call) error {
 }
 
 func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_end")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_end")
 	defer span.Finish()
 
 	var b bytes.Buffer // TODO pool / we should multipart this?
@@ -118,7 +118,7 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 }
 
 func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_get_app")
 	defer span.Finish()
 
 	var a struct {
@@ -129,7 +129,7 @@ func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, erro
 }
 
 func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_route")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_get_route")
 	defer span.Finish()
 
 	// TODO trim prefix is pretty odd here eh?
@@ -181,7 +181,7 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 }
 
 func (cl *client) once(ctx context.Context, request, result interface{}, method string, url ...string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_http_do")
+	span, ctx := tracing.StartSpan(ctx, "hybrid_client_http_do")
 	defer span.Finish()
 
 	var b bytes.Buffer // TODO pool

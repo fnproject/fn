@@ -18,7 +18,7 @@ func IncrementGauge(ctx context.Context, metric string) {
 	// Spans are not processed by the collector until the span ends, so to prevent any delay
 	// in processing the stats when the current span is long-lived we create a new span for every call
 	// suffix the span name with SpannameSuffixDummy to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+SpannameSuffixDummy)
+	span, ctx := tracing.StartSpan(ctx, fieldname+SpannameSuffixDummy)
 	defer span.Finish()
 
 	// gauge metrics are actually float64; here we log that it should be increased by +1
@@ -35,7 +35,7 @@ func DecrementGauge(ctx context.Context, metric string) {
 	// Spans are not processed by the collector until the span ends, so to prevent any delay
 	// in processing the stats when the current span is long-lived we create a new span for every call.
 	// suffix the span name with SpannameSuffixDummy to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+SpannameSuffixDummy)
+	span, ctx := tracing.StartSpan(ctx, fieldname+SpannameSuffixDummy)
 	defer span.Finish()
 
 	// gauge metrics are actually float64; here we log that it should be increased by -1
@@ -52,7 +52,7 @@ func IncrementCounter(ctx context.Context, metric string) {
 	// Spans are not processed by the collector until the span ends, so to prevent any delay
 	// in processing the stats when the current span is long-lived we create a new span for every call.
 	// suffix the span name with SpannameSuffixDummy to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, fieldname+SpannameSuffixDummy)
+	span, ctx := tracing.StartSpan(ctx, fieldname+SpannameSuffixDummy)
 	defer span.Finish()
 
 	// counter metrics are actually float64; here we log that it should be increased by +1
@@ -69,7 +69,7 @@ func PublishHistograms(ctx context.Context, metrics map[string]float64) {
 	// Spans are not processed by the collector until the span ends, so to prevent any delay
 	// in processing the stats when the current span is long-lived we create a new span for every call.
 	// suffix the span name with SpannameSuffixDummy to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, "histogram_metrics"+SpannameSuffixDummy)
+	span, ctx := tracing.StartSpan(ctx, "histogram_metrics"+SpannameSuffixDummy)
 	defer span.Finish()
 
 	for key, value := range metrics {
@@ -88,7 +88,7 @@ func PublishHistogram(ctx context.Context, key string, value float64) {
 	// Spans are not processed by the collector until the span ends, so to prevent any delay
 	// in processing the stats when the current span is long-lived we create a new span for every call.
 	// suffix the span name with SpannameSuffixDummy to denote that it is used only to hold a metric and isn't itself of any interest
-	span, ctx := opentracing.StartSpanFromContext(ctx, "histogram_metrics"+SpannameSuffixDummy)
+	span, ctx := tracing.StartSpan(ctx, "histogram_metrics"+SpannameSuffixDummy)
 	defer span.Finish()
 
 	// The field name we use is the metric name prepended with FieldnamePrefixHistogram to designate that it is a Prometheus histogram metric

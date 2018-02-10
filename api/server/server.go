@@ -226,7 +226,7 @@ func WithAgent(agent agent.Agent) ServerOption {
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "server_init")
+	span, ctx := tracing.StartSpan(ctx, "server_init")
 	defer span.Finish()
 
 	log := common.Logger(ctx)

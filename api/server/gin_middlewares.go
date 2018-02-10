@@ -50,7 +50,7 @@ func traceWrap(c *gin.Context) {
 	serverSpan.SetBaggageItem("fn_path", c.Param(api.CRoute))
 	defer serverSpan.Finish()
 
-	ctx := opentracing.ContextWithSpan(c.Request.Context(), serverSpan)
+	ctx := tracing.WithSpan(c.Request.Context(), serverSpan)
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
 }

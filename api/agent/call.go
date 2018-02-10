@@ -14,7 +14,6 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -249,7 +248,7 @@ type call struct {
 func (c *call) Model() *models.Call { return c.Call }
 
 func (c *call) Start(ctx context.Context) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
+	span, ctx := tracing.StartSpan(ctx, "agent_call_start")
 	defer span.Finish()
 
 	// Check context timeouts, errors
@@ -290,7 +289,7 @@ func (c *call) Start(ctx context.Context) error {
 }
 
 func (c *call) End(ctx context.Context, errIn error) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
+	span, ctx := tracing.StartSpan(ctx, "agent_call_end")
 	defer span.Finish()
 
 	c.CompletedAt = strfmt.DateTime(time.Now())

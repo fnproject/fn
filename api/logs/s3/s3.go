@@ -19,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -124,7 +123,7 @@ func path(appName, callID string) string {
 }
 
 func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "s3_insert_log")
+	span, ctx := tracing.StartSpan(ctx, "s3_insert_log")
 	defer span.Finish()
 
 	// wrap original reader in a decorator to keep track of read bytes without buffering
@@ -149,7 +148,7 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 }
 
 func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "s3_get_log")
+	span, ctx := tracing.StartSpan(ctx, "s3_get_log")
 	defer span.Finish()
 
 	objectName := path(appName, callID)

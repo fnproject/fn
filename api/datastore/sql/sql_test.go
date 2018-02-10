@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"context"
+
 	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/models"
