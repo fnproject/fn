@@ -37,6 +37,33 @@ func NewTestSlot(id uint64) Slot {
 	return mySlot
 }
 
+func checkGetTokenId(t *testing.T, a *slotQueue, dur time.Duration, id uint64) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), dur)
+	defer cancel()
+
+	outChan := a.startDequeuer(ctx)
+
+	for {
+		select {
+		case z := <-outChan:
+			if !a.acquireSlot(z) {
+				continue
+			}
+
+			z.slot.Close(ctx)
+
+			if z.id != id {
+				return fmt.Errorf("Bad slotToken received: %#v expected: %d", z, id)
+			}
+			return nil
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func TestSlotQueueBasic1(t *testing.T) {
 
 	maxId := uint64(10)
@@ -47,14 +74,14 @@ func TestSlotQueueBasic1(t *testing.T) {
 
 	obj := NewSlotQueue(slotName)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	outChan := obj.startDequeuer(ctx)
-	select {
-	case z := <-outChan:
-		t.Fatalf("Should not get anything from queue: %#v", z)
-	case <-time.After(time.Duration(500) * time.Millisecond):
+	timeout := time.Duration(500) * time.Millisecond
+	err := checkGetTokenId(t, obj, timeout, 6)
+	if err == nil {
+		t.Fatalf("Should not get anything from queue")
 	}
-	cancel()
+	if err != context.DeadlineExceeded {
+		t.Fatalf(err.Error())
+	}
 
 	// create slots
 	for id := uint64(0); id < maxId; id += 1 {
@@ -75,6 +102,9 @@ func TestSlotQueueBasic1(t *testing.T) {
 		tokens = append(tokens, tok)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	// Now according to LIFO semantics, we should get 9,8,7,6,5,4,3,2,1,0 if we dequeued right now.
 	// but let's eject 9
 	if !obj.ejectSlot(ctx, tokens[9]) {
@@ -93,66 +123,19 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
 	}
 
-	ctx, cancel = context.WithCancel(context.Background())
-	outChan = obj.startDequeuer(ctx)
-
-	// now we should get 8
-	select {
-	case z := <-outChan:
-		if z.id != 8 {
-			t.Fatalf("Bad slotToken received: %#v", z)
-		}
-
-		if !obj.acquireSlot(z) {
-			t.Fatalf("Cannot acquire slotToken received: %#v", z)
-		}
-
-		// second acquire shoudl fail
-		if obj.acquireSlot(z) {
-			t.Fatalf("Should not be able to acquire twice slotToken: %#v", z)
-		}
-
-		z.slot.Close(ctx)
-
-	case <-time.After(time.Duration(1) * time.Second):
-		t.Fatal("timeout in waiting slotToken")
+	err = checkGetTokenId(t, obj, timeout, 8)
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 
-	// now we should get 7
-	select {
-	case z := <-outChan:
-		if z.id != 7 {
-			t.Fatalf("Bad slotToken received: %#v", z)
-		}
-
-		// eject it before we can consume
-		if !obj.ejectSlot(ctx, tokens[7]) {
-			t.Fatalf("Cannot eject slotToken: %#v", tokens[2])
-		}
-
-		// we shouldn't be able to consume an ejected slotToken
-		if obj.acquireSlot(z) {
-			t.Fatalf("We should not be able to acquire slotToken received: %#v", z)
-		}
-
-	case <-time.After(time.Duration(1) * time.Second):
-		t.Fatal("timeout in waiting slotToken")
+	// eject 7 before we can consume
+	if !obj.ejectSlot(ctx, tokens[7]) {
+		t.Fatalf("Cannot eject slotToken: %#v", tokens[2])
 	}
 
-	cancel()
-
-	// we should get nothing or 6
-	select {
-	case z, ok := <-outChan:
-		if ok {
-			if z.id != 6 {
-				t.Fatalf("Should not get anything except for 6 from queue: %#v", z)
-			}
-			if !obj.acquireSlot(z) {
-				t.Fatalf("cannot acquire token: %#v", z)
-			}
-		}
-	case <-time.After(time.Duration(500) * time.Millisecond):
+	err = checkGetTokenId(t, obj, timeout, 6)
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 }
 
@@ -164,13 +147,13 @@ func TestSlotQueueBasic2(t *testing.T) {
 		t.Fatalf("Should be idle")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	select {
-	case z := <-obj.startDequeuer(ctx):
-		t.Fatalf("Should not get anything from queue: %#v", z)
-	case <-time.After(time.Duration(500) * time.Millisecond):
+	timeout := time.Duration(500) * time.Millisecond
+	err := checkGetTokenId(t, obj, timeout, 6)
+	if err == nil {
+		t.Fatalf("Should not get anything from queue")
+	}
+	if err != context.DeadlineExceeded {
+		t.Fatalf(err.Error())
 	}
 }
 
@@ -227,85 +210,63 @@ func TestSlotQueueBasic3(t *testing.T) {
 	slotName := "test3"
 
 	obj := NewSlotQueue(slotName)
-	ctx, cancel := context.WithCancel(context.Background())
-	obj.startDequeuer(ctx)
 
 	slot1 := NewTestSlot(1)
 	slot2 := NewTestSlot(2)
 	token1 := obj.queueSlot(slot1)
 	obj.queueSlot(slot2)
 
-	// now our slot must be ready in outChan, but let's cancel it
-	// to cause a requeue. This should cause [1, 2] ordering to [2, 1]
-	cancel()
-
-	ctx, cancel = context.WithCancel(context.Background())
-	outChan := obj.startDequeuer(ctx)
-
-	// we should get '2' since cancel1() reordered the queue
-	select {
-	case item, ok := <-outChan:
-		if !ok {
-			t.Fatalf("outChan should be open")
-		}
-
-		inner := item.slot.(*testSlot)
-		outer := slot2.(*testSlot)
-
-		if inner.id != outer.id {
-			t.Fatalf("item should be 2")
-		}
-		if inner.isClosed {
-			t.Fatalf("2 should not yet be closed")
-		}
-
-		if !obj.acquireSlot(item) {
-			t.Fatalf("2 acquire should not fail")
-		}
-
-		item.slot.Close(ctx)
-
-	case <-time.After(time.Duration(1) * time.Second):
-		t.Fatal("timeout in waiting slotToken")
+	timeout := time.Duration(500) * time.Millisecond
+	err := checkGetTokenId(t, obj, timeout, 1)
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	// let's eject 1
 	if !obj.ejectSlot(ctx, token1) {
-		t.Fatalf("failed to eject 1")
+		t.Fatalf("should fail to eject %#v", token1)
 	}
 	if !slot1.(*testSlot).isClosed {
-		t.Fatalf("1 should be closed")
+		t.Fatalf("%#v should be closed", token1)
 	}
 
-	// spin up bunch of go routines, where each should get a non-acquirable
-	// token or timeout due the imminent obj.destroySlotQueue()
-	var wg sync.WaitGroup
 	goMax := 10
+	out := make(chan error, goMax)
+	var wg sync.WaitGroup
+
 	wg.Add(goMax)
 	for i := 0; i < goMax; i += 1 {
 		go func(id int) {
 			defer wg.Done()
-
-			ctx, cancel = context.WithCancel(context.Background())
-			defer cancel()
-
-			select {
-			case z := <-obj.startDequeuer(ctx):
-				t.Fatalf("%v we shouldn't get anything from queue %#v", id, z)
-			case <-time.After(time.Duration(500) * time.Millisecond):
-			}
+			err := checkGetTokenId(t, obj, timeout, 1)
+			out <- err
 		}(i)
 	}
 
-	// let's cancel after destroy this time
-	cancel()
-
 	wg.Wait()
 
-	select {
-	case z := <-outChan:
-		t.Fatalf("Should not get anything from queue: %#v", z)
-	case <-time.After(time.Duration(500) * time.Millisecond):
+	deadlineErrors := 0
+	for i := 0; i < goMax; i += 1 {
+		err := <-out
+		if err == context.DeadlineExceeded {
+			deadlineErrors++
+		} else if err == nil {
+			t.Fatalf("Unexpected success")
+		} else {
+			t.Fatalf("Unexpected error: %s", err.Error())
+		}
+	}
+
+	if deadlineErrors != goMax {
+		t.Fatalf("Expected %d got %d deadline exceeded errors", goMax, deadlineErrors)
+	}
+
+	err = checkGetTokenId(t, obj, timeout, 2)
+	if err != context.DeadlineExceeded {
+		t.Fatalf(err.Error())
 	}
 
 	// both should be closed

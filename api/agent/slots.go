@@ -48,6 +48,7 @@ type slotQueue struct {
 	slots     []*slotToken
 	nextId    uint64
 	signaller chan bool
+	output    chan *slotToken
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -65,6 +66,7 @@ func NewSlotQueue(key string) *slotQueue {
 		cond:      sync.NewCond(new(sync.Mutex)),
 		slots:     make([]*slotToken, 0),
 		signaller: make(chan bool, 1),
+		output:    make(chan *slotToken),
 	}
 
 	return obj
@@ -114,7 +116,6 @@ func (a *slotQueue) ejectSlot(ctx context.Context, s *slotToken) bool {
 func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 
 	isWaiting := false
-	output := make(chan *slotToken)
 
 	go func() {
 		<-ctx.Done()
@@ -144,14 +145,14 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 			a.cond.L.Unlock()
 
 			select {
-			case output <- item: // good case (dequeued)
+			case a.output <- item: // good case (dequeued)
 			case <-item.trigger: // ejected (eject handles cleanup)
 			case <-ctx.Done(): // time out or cancel from caller
 			}
 		}
 	}()
 
-	return output
+	return a.output
 }
 
 func (a *slotQueue) queueSlot(slot Slot) *slotToken {
