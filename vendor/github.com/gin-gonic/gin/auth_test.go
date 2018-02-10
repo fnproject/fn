@@ -9,138 +9,77 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestBasicAuth(t *testing.T) {
-	pairs := processAccounts(Accounts{
-		"admin": "password",
-		"foo":   "bar",
-		"bar":   "foo",
-	})
-
-	assert.Len(t, pairs, 3)
-	assert.Contains(t, pairs, authPair{
-		User:  "bar",
-		Value: "Basic YmFyOmZvbw==",
-	})
-	assert.Contains(t, pairs, authPair{
-		User:  "foo",
-		Value: "Basic Zm9vOmJhcg==",
-	})
-	assert.Contains(t, pairs, authPair{
-		User:  "admin",
-		Value: "Basic YWRtaW46cGFzc3dvcmQ=",
-	})
-}
-
-func TestBasicAuthFails(t *testing.T) {
-	assert.Panics(t, func() { processAccounts(nil) })
-	assert.Panics(t, func() {
-		processAccounts(Accounts{
-			"":    "password",
-			"foo": "bar",
-		})
-	})
-}
-
-func TestBasicAuthSearchCredential(t *testing.T) {
-	pairs := processAccounts(Accounts{
-		"admin": "password",
-		"foo":   "bar",
-		"bar":   "foo",
-	})
-
-	user, found := pairs.searchCredential(authorizationHeader("admin", "password"))
-	assert.Equal(t, user, "admin")
-	assert.True(t, found)
-
-	user, found = pairs.searchCredential(authorizationHeader("foo", "bar"))
-	assert.Equal(t, user, "foo")
-	assert.True(t, found)
-
-	user, found = pairs.searchCredential(authorizationHeader("bar", "foo"))
-	assert.Equal(t, user, "bar")
-	assert.True(t, found)
-
-	user, found = pairs.searchCredential(authorizationHeader("admins", "password"))
-	assert.Empty(t, user)
-	assert.False(t, found)
-
-	user, found = pairs.searchCredential(authorizationHeader("foo", "bar "))
-	assert.Empty(t, user)
-	assert.False(t, found)
-
-	user, found = pairs.searchCredential("")
-	assert.Empty(t, user)
-	assert.False(t, found)
-}
-
-func TestBasicAuthAuthorizationHeader(t *testing.T) {
-	assert.Equal(t, authorizationHeader("admin", "password"), "Basic YWRtaW46cGFzc3dvcmQ=")
-}
-
-func TestBasicAuthSecureCompare(t *testing.T) {
-	assert.True(t, secureCompare("1234567890", "1234567890"))
-	assert.False(t, secureCompare("123456789", "1234567890"))
-	assert.False(t, secureCompare("12345678900", "1234567890"))
-	assert.False(t, secureCompare("1234567891", "1234567890"))
-}
-
 func TestBasicAuthSucceed(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/login", nil)
+	w := httptest.NewRecorder()
+
+	r := New()
 	accounts := Accounts{"admin": "password"}
-	router := New()
-	router.Use(BasicAuth(accounts))
-	router.GET("/login", func(c *Context) {
-		c.String(200, c.MustGet(AuthUserKey).(string))
+	r.Use(BasicAuth(accounts))
+
+	r.GET("/login", func(c *Context) {
+		c.String(200, "autorized")
 	})
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	req.Header.Set("Authorization", authorizationHeader("admin", "password"))
-	router.ServeHTTP(w, req)
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:password")))
+	r.ServeHTTP(w, req)
 
-	assert.Equal(t, w.Code, 200)
-	assert.Equal(t, w.Body.String(), "admin")
+	if w.Code != 200 {
+		t.Errorf("Response code should be Ok, was: %s", w.Code)
+	}
+	bodyAsString := w.Body.String()
+
+	if bodyAsString != "autorized" {
+		t.Errorf("Response body should be `autorized`, was  %s", bodyAsString)
+	}
 }
 
 func TestBasicAuth401(t *testing.T) {
-	called := false
+	req, _ := http.NewRequest("GET", "/login", nil)
+	w := httptest.NewRecorder()
+
+	r := New()
 	accounts := Accounts{"foo": "bar"}
-	router := New()
-	router.Use(BasicAuth(accounts))
-	router.GET("/login", func(c *Context) {
-		called = true
-		c.String(200, c.MustGet(AuthUserKey).(string))
+	r.Use(BasicAuth(accounts))
+
+	r.GET("/login", func(c *Context) {
+		c.String(200, "autorized")
 	})
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:password")))
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
-	assert.False(t, called)
-	assert.Equal(t, w.Code, 401)
-	assert.Equal(t, w.HeaderMap.Get("WWW-Authenticate"), "Basic realm=\"Authorization Required\"")
+	if w.Code != 401 {
+		t.Errorf("Response code should be Not autorized, was: %s", w.Code)
+	}
+
+	if w.HeaderMap.Get("WWW-Authenticate") != "Basic realm=\"Authorization Required\"" {
+		t.Errorf("WWW-Authenticate header is incorrect: %s", w.HeaderMap.Get("Content-Type"))
+	}
 }
 
 func TestBasicAuth401WithCustomRealm(t *testing.T) {
-	called := false
+	req, _ := http.NewRequest("GET", "/login", nil)
+	w := httptest.NewRecorder()
+
+	r := New()
 	accounts := Accounts{"foo": "bar"}
-	router := New()
-	router.Use(BasicAuthForRealm(accounts, "My Custom \"Realm\""))
-	router.GET("/login", func(c *Context) {
-		called = true
-		c.String(200, c.MustGet(AuthUserKey).(string))
+	r.Use(BasicAuthForRealm(accounts, "My Custom Realm"))
+
+	r.GET("/login", func(c *Context) {
+		c.String(200, "autorized")
 	})
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:password")))
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
-	assert.False(t, called)
-	assert.Equal(t, w.Code, 401)
-	assert.Equal(t, w.HeaderMap.Get("WWW-Authenticate"), "Basic realm=\"My Custom \\\"Realm\\\"\"")
+	if w.Code != 401 {
+		t.Errorf("Response code should be Not autorized, was: %s", w.Code)
+	}
+
+	if w.HeaderMap.Get("WWW-Authenticate") != "Basic realm=\"My Custom Realm\"" {
+		t.Errorf("WWW-Authenticate header is incorrect: %s", w.HeaderMap.Get("Content-Type"))
+	}
 }

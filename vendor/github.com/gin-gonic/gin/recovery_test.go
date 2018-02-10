@@ -6,38 +6,51 @@ package gin
 
 import (
 	"bytes"
+	"log"
+	"os"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 // TestPanicInHandler assert that panic has been recovered.
 func TestPanicInHandler(t *testing.T) {
-	buffer := new(bytes.Buffer)
-	router := New()
-	router.Use(RecoveryWithWriter(buffer))
-	router.GET("/recovery", func(_ *Context) {
+	// SETUP
+	log.SetOutput(bytes.NewBuffer(nil)) // Disable panic logs for testing
+	r := New()
+	r.Use(Recovery())
+	r.GET("/recovery", func(_ *Context) {
 		panic("Oupps, Houston, we have a problem")
 	})
+
 	// RUN
-	w := performRequest(router, "GET", "/recovery")
-	// TEST
-	assert.Equal(t, w.Code, 500)
-	assert.Contains(t, buffer.String(), "GET /recovery")
-	assert.Contains(t, buffer.String(), "Oupps, Houston, we have a problem")
-	assert.Contains(t, buffer.String(), "TestPanicInHandler")
+	w := PerformRequest(r, "GET", "/recovery")
+
+	// restore logging
+	log.SetOutput(os.Stderr)
+
+	if w.Code != 500 {
+		t.Errorf("Response code should be Internal Server Error, was: %s", w.Code)
+	}
 }
 
 // TestPanicWithAbort assert that panic has been recovered even if context.Abort was used.
 func TestPanicWithAbort(t *testing.T) {
-	router := New()
-	router.Use(RecoveryWithWriter(nil))
-	router.GET("/recovery", func(c *Context) {
+	// SETUP
+	log.SetOutput(bytes.NewBuffer(nil))
+	r := New()
+	r.Use(Recovery())
+	r.GET("/recovery", func(c *Context) {
 		c.AbortWithStatus(400)
 		panic("Oupps, Houston, we have a problem")
 	})
+
 	// RUN
-	w := performRequest(router, "GET", "/recovery")
+	w := PerformRequest(r, "GET", "/recovery")
+
+	// restore logging
+	log.SetOutput(os.Stderr)
+
 	// TEST
-	assert.Equal(t, w.Code, 400)
+	if w.Code != 500 {
+		t.Errorf("Response code should be Bad request, was: %s", w.Code)
+	}
 }

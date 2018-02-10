@@ -80,3 +80,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 [[constraint]]
   name = "github.com/coreos/go-semver"
   version = "0.2.0"
+
+[[constraint]]
+  name = "go.opencensus.io"
+  version = "0.3.0"

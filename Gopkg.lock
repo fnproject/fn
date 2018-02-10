@@ -105,10 +105,7 @@
 
 [[projects]]
   name = "github.com/coreos/go-semver"
-  packages = [
-    ".",
-    "semver"
-  ]
+  packages = ["semver"]
   revision = "8ab6407b697782a06568d4b7f1db25550ec2e4c6"
   version = "v0.2.0"
 
@@ -209,8 +206,11 @@
 [[projects]]
   branch = "master"
   name = "github.com/fnproject/fdk-go"
-  packages = ["."]
-  revision = "46839d559f713a68137f3e4fc4117e7440231c57"
+  packages = [
+    ".",
+    "utils"
+  ]
+  revision = "5d768b2006f11737b6a69a758ddd6d2fac04923e"
 
 [[projects]]
   name = "github.com/fnproject/fn_go"
@@ -246,20 +246,14 @@
   version = "v1.2"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/gin-contrib/sse"
-  packages = ["."]
-  revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
-
-[[projects]]
   name = "github.com/gin-gonic/gin"
   packages = [
     ".",
     "binding",
     "render"
   ]
-  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
-  version = "v1.2"
+  revision = "e2fa89777e344782ef5d31929f095f4589c35dcc"
+  version = "v0.6"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -398,6 +392,12 @@
   revision = "de8647470aafe4854c976707c431dbe1eb2822c6"
 
 [[projects]]
+  name = "github.com/julienschmidt/httprouter"
+  packages = ["."]
+  revision = "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
+  version = "v1.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/kr/logfmt"
   packages = ["."]
@@ -431,6 +431,12 @@
   ]
   revision = "035c07716cd373d88456ec4d701402df52584cb4"
   version = "v3.0.1"
+
+[[projects]]
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -602,10 +608,10 @@
   revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
 
 [[projects]]
-  name = "github.com/ugorji/go"
-  packages = ["codec"]
-  revision = "9831f2c3ac1068a78f50999a30db84270f647af6"
-  version = "v1.1"
+  name = "go.opencensus.io"
+  packages = ["."]
+  revision = "c9774183e3e14211cf87f61752279f6b8eb55682"
+  version = "v0.3.0"
 
 [[projects]]
   branch = "master"
@@ -655,19 +661,16 @@
   revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
 
 [[projects]]
-  name = "gopkg.in/go-playground/validator.v8"
-  packages = ["."]
-  revision = "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
-  version = "v8.18.2"
-
-[[projects]]
   branch = "v2"
   name = "gopkg.in/mgo.v2"
-  packages = [
-    "bson",
-    "internal/json"
-  ]
+  packages = ["bson"]
   revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
+
+[[projects]]
+  branch = "v2-unstable"
+  name = "gopkg.in/mgo.v2-unstable"
+  packages = ["internal/json"]
+  revision = "5466044681b5ad0b2b62a63c7113638bd63004bb"
 
 [[projects]]
   branch = "v2"
@@ -678,6 +681,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f5c10f8c63262754a0ceb541105cfac5448693af7997269bb1edce828eb3a551"
+  inputs-digest = "f2854d02b5498af49f0be85b97fda2c46d1e0dcc223cecdd526234e621727d43"
   solver-name = "gps-cdcl"
   solver-version = 1
