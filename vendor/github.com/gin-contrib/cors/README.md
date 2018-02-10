@@ -15,13 +15,13 @@ Gin middleware/handler to enable CORS support.
 Download and install it:
 
 ```sh
-$ go get github.com/gin-contrib/cors
+$ go get gopkg.in/gin-contrib/cors.v1
 ```
 
 Import it in your code:
 
 ```go
-import "github.com/gin-contrib/cors"
+import "gopkg.in/gin-contrib/cors.v1"
 ```
 
 ### Canonical example:
@@ -32,7 +32,7 @@ package main
 import (
 	"time"
 
-	"github.com/gin-contrib/cors"
+	"gopkg.in/gin-contrib/cors.v1"
 	"github.com/gin-gonic/gin"
 )
 
