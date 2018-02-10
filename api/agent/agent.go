@@ -19,6 +19,9 @@ import (
 	"github.com/fnproject/fn/fnext"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -821,22 +824,54 @@ func (c *container) CPUs() uint64                   { return c.cpus }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
-
-	// Convert each metric value from uint64 to float64
-	// and, for backward compatibility reasons, prepend each metric name with "docker_stats_fn_"
-	// (if we don't care about compatibility then we can remove that)
-	var metrics = make(map[string]float64)
 	for key, value := range stat.Metrics {
-		metrics["docker_stats_fn_"+key] = float64(value)
+		stats.Record(ctx, stats.FindMeasure("docker_stats_"+key).(*stats.Int64Measure).M(int64(value)))
 	}
-
-	common.PublishHistograms(ctx, metrics)
 
 	c.statsMu.Lock()
 	if c.stats != nil {
 		*(c.stats) = append(*(c.stats), stat)
 	}
 	c.statsMu.Unlock()
+}
+
+func init() {
+	// TODO this is nasty figure out how to use opencensus to not have to declare these
+	keys := []string{"net_rx", "net_tx", "mem_limit", "mem_usage", "disk_read", "disk_write", "cpu_user", "cpu_total", "cpu_kernel"}
+
+	// TODO necessary?
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	for _, key := range keys {
+		units := "bytes"
+		if strings.Contains(key, "cpu") {
+			units = "cpu"
+		}
+		dockerStatsDist, err := stats.Int64("docker_stats_"+key, "docker container stats for "+key, units)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"docker_stats_"+key,
+			"docker container stats for "+key,
+			[]tag.Key{appKey, pathKey},
+			dockerStatsDist,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := view.Register(v); err != nil {
+			logrus.Fatal(err)
+		}
+	}
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
