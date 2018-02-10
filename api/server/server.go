@@ -305,7 +305,9 @@ func WithTracer(zipkinURL string) ServerOption {
 
 		if zipkinHTTPEndpoint != "" {
 			// Custom PrometheusCollector and Zipkin HTTPCollector
-			httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+			httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint,
+				zipkintracer.HTTPLogger(logger), zipkintracer.HTTPMaxBacklog(1000),
+			)
 			if zipErr != nil {
 				logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
 			}
@@ -433,6 +435,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	// TODO: move the following under v1
 	engine.GET("/stats", s.handleStats)
 	engine.GET("/metrics", s.handlePrometheusMetrics)
+
+	profilerSetup(engine, "/debug")
 
 	if s.nodeType != ServerTypeRunner {
 		v1 := engine.Group("/v1")
