@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -24,9 +25,12 @@ import (
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
-	opentracing "github.com/opentracing/opentracing-go"
-	zipkintracer "github.com/openzipkin/zipkin-go-opentracing"
+	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/exporter/zipkin"
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/trace"
 )
 
 const (
@@ -226,8 +230,8 @@ func WithAgent(agent agent.Agent) ServerOption {
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
-	span, ctx := tracing.StartSpan(ctx, "server_init")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "server_init")
+	defer span.End()
 
 	log := common.Logger(ctx)
 	s := &Server{
@@ -290,50 +294,24 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 func WithTracer(zipkinURL string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		var (
-			debugMode          = false
-			serviceName        = "fnserver"
-			serviceHostPort    = "localhost:8080" // meh
+			// TODO add server identifier to this crap
+			//debugMode          = false
+			//serviceName        = "fnserver"
+			//serviceHostPort    = "localhost:8080" // meh
 			zipkinHTTPEndpoint = zipkinURL
-			// ex: "http://zipkin:9411/api/v1/spans"
+			// ex: "http://zipkin:9411/api/v2/spans"
 		)
-
-		var collector zipkintracer.Collector
-
-		// custom Zipkin collector to send tracing spans to Prometheus
-		promCollector, promErr := NewPrometheusCollector()
-		if promErr != nil {
-			logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
-		}
-
-		logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
 
 		if zipkinHTTPEndpoint != "" {
-			// Custom PrometheusCollector and Zipkin HTTPCollector
-			httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint,
-				zipkintracer.HTTPLogger(logger), zipkintracer.HTTPMaxBacklog(1000),
-			)
-			if zipErr != nil {
-				logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
-			}
-			collector = zipkintracer.MultiCollector{httpCollector, promCollector}
-		} else {
-			// Custom PrometheusCollector only
-			collector = promCollector
+			reporter := zipkinhttp.NewReporter(zipkinURL, zipkinhttp.MaxBacklog(10000))
+			exporter := zipkin.NewExporter(reporter, nil)
+			trace.RegisterExporter(anExporter)
+			logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("exporting spans to zipkin")
+
+			// TODO don't do this. testing parity.
+			trace.SetDefaultSampler(trace.AlwaysSample())
 		}
 
-		ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
-			zipkintracer.ClientServerSameSpan(true),
-			zipkintracer.TraceID128Bit(true),
-		)
-		if err != nil {
-			logrus.WithError(err).Fatalln("couldn't start tracer")
-		}
-
-		// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
-		fntracer := NewFnTracer(ziptracer)
-
-		opentracing.SetGlobalTracer(fntracer)
-		logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 		return nil
 	}
 }
@@ -404,7 +382,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	server := http.Server{
 		Addr:    listen,
-		Handler: s.Router,
+		Handler: ochttp.Handler{Handler: s.Router},
+
 		// TODO we should set read/write timeouts
 	}
 
@@ -439,7 +418,13 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 	// TODO: move the following under v1
-	engine.GET("/metrics", s.handlePrometheusMetrics)
+	exporter, err := prometheus.NewExporter(prometheus.Options{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	stats.RegisterExporter(exporter)
+
+	engine.GET("/metrics", gin.WrapH(exporter))
 
 	profilerSetup(engine, "/debug")
 

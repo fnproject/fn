@@ -2,48 +2,53 @@ package agent
 
 import (
 	"context"
+
 	"github.com/fnproject/fn/api/common"
 )
 
-func StatsEnqueue(ctx context.Context) {
+// TODO add some suga:
+// * hot containers active
+// * memory used / available
+
+func statsEnqueue(ctx context.Context) {
 	common.IncrementGauge(ctx, queuedMetricName)
 	common.IncrementCounter(ctx, callsMetricName)
 }
 
 // Call when a function has been queued but cannot be started because of an error
-func StatsDequeue(ctx context.Context) {
+func statsDequeue(ctx context.Context) {
 	common.DecrementGauge(ctx, queuedMetricName)
 }
 
-func StatsDequeueAndStart(ctx context.Context) {
+func statsDequeueAndStart(ctx context.Context) {
 	common.DecrementGauge(ctx, queuedMetricName)
 	common.IncrementGauge(ctx, runningMetricName)
 }
 
-func StatsComplete(ctx context.Context) {
+func statsComplete(ctx context.Context) {
 	common.DecrementGauge(ctx, runningMetricName)
 	common.IncrementCounter(ctx, completedMetricName)
 }
 
-func StatsFailed(ctx context.Context) {
+func statsFailed(ctx context.Context) {
 	common.DecrementGauge(ctx, runningMetricName)
 	common.IncrementCounter(ctx, failedMetricName)
 }
 
-func StatsDequeueAndFail(ctx context.Context) {
+func statsDequeueAndFail(ctx context.Context) {
 	common.DecrementGauge(ctx, queuedMetricName)
 	common.IncrementCounter(ctx, failedMetricName)
 }
 
-func StatsIncrementTimedout(ctx context.Context) {
+func statsTimedout(ctx context.Context) {
 	common.IncrementCounter(ctx, timedoutMetricName)
 }
 
-func StatsIncrementErrors(ctx context.Context) {
+func statsErrors(ctx context.Context) {
 	common.IncrementCounter(ctx, errorsMetricName)
 }
 
-func StatsIncrementTooBusy(ctx context.Context) {
+func statsTooBusy(ctx context.Context) {
 	common.IncrementCounter(ctx, serverBusyMetricName)
 }
 

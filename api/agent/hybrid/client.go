@@ -17,7 +17,8 @@ import (
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
+	"go.opencensus.io/plugin/ochttp/propagation/b3"
+	"go.opencensus.io/trace"
 )
 
 // client implements agent.DataAccess
@@ -66,16 +67,16 @@ func NewClient(u string) (agent.DataAccess, error) {
 }
 
 func (cl *client) Enqueue(ctx context.Context, c *models.Call) error {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_enqueue")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_enqueue")
+	defer span.End()
 
 	err := cl.do(ctx, c, nil, "PUT", "runner", "async")
 	return err
 }
 
 func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_dequeue")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_dequeue")
+	defer span.End()
 
 	var c struct {
 		C []*models.Call `json:"calls"`
@@ -88,16 +89,16 @@ func (cl *client) Dequeue(ctx context.Context) (*models.Call, error) {
 }
 
 func (cl *client) Start(ctx context.Context, c *models.Call) error {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_start")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_start")
+	defer span.End()
 
 	err := cl.do(ctx, c, nil, "POST", "runner", "start")
 	return err
 }
 
 func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_end")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_end")
+	defer span.End()
 
 	var b bytes.Buffer // TODO pool / we should multipart this?
 	_, err := io.Copy(&b, r)
@@ -118,8 +119,8 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 }
 
 func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_get_app")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
+	defer span.End()
 
 	var a struct {
 		A models.App `json:"app"`
@@ -129,8 +130,8 @@ func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, erro
 }
 
 func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_get_route")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_route")
+	defer span.End()
 
 	// TODO trim prefix is pretty odd here eh?
 	var r struct {
@@ -181,8 +182,8 @@ func (cl *client) do(ctx context.Context, request, result interface{}, method st
 }
 
 func (cl *client) once(ctx context.Context, request, result interface{}, method string, url ...string) error {
-	span, ctx := tracing.StartSpan(ctx, "hybrid_client_http_do")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_http_do")
+	defer span.End()
 
 	var b bytes.Buffer // TODO pool
 	if request != nil {
@@ -196,12 +197,8 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 	if err != nil {
 		return err
 	}
-	req = req.WithContext(ctx)
 	// shove the span headers in so that the server will continue this span
-	opentracing.GlobalTracer().Inject(
-		span.Context(),
-		opentracing.HTTPHeaders,
-		opentracing.HTTPHeadersCarrier(req.Header))
+	b3.HTTPFormat.SpanContextToRequest(span.SpanContext(), req)
 
 	resp, err := cl.http.Do(req)
 	if err != nil {

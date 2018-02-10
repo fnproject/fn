@@ -31,7 +31,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 
 [[constraint]]
   name = "github.com/gin-contrib/cors"
-  version = "~1.2.0"
+  version = "master"
 
 [[constraint]]
   branch = "master"
@@ -42,16 +42,8 @@ ignored = ["github.com/fnproject/fn/cli"]
   name = "github.com/google/btree"
 
 [[constraint]]
-  name = "github.com/openzipkin/zipkin-go-opentracing"
-  version = "0.3.1"
-
-[[constraint]]
   name = "github.com/patrickmn/go-cache"
   version = "2.1.0"
-
-[[constraint]]
-  name = "github.com/prometheus/client_golang"
-  version = "0.8.0"
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
@@ -66,6 +58,7 @@ ignored = ["github.com/fnproject/fn/cli"]
   revision = "bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef"
 
 [[constraint]]
+  # NOTE: locked for a reason - https://github.com/go-sql-driver/mysql/issues/657
   name = "github.com/go-sql-driver/mysql"
   revision = "21d7e97c9f760ca685a01ecea202e1c84276daa1"
 

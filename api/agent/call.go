@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/trace"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -248,8 +250,8 @@ type call struct {
 func (c *call) Model() *models.Call { return c.Call }
 
 func (c *call) Start(ctx context.Context) error {
-	span, ctx := tracing.StartSpan(ctx, "agent_call_start")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_call_start")
+	defer span.End()
 
 	// Check context timeouts, errors
 	if ctx.Err() != nil {
@@ -289,8 +291,8 @@ func (c *call) Start(ctx context.Context) error {
 }
 
 func (c *call) End(ctx context.Context, errIn error) error {
-	span, ctx := tracing.StartSpan(ctx, "agent_call_end")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_call_end")
+	defer span.End()
 
 	c.CompletedAt = strfmt.DateTime(time.Now())
 

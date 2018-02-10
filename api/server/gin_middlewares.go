@@ -13,9 +13,9 @@ import (
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 func optionalCorsWrap(r *gin.Engine) {
@@ -37,20 +37,25 @@ func optionalCorsWrap(r *gin.Engine) {
 
 // we should use http grr
 func traceWrap(c *gin.Context) {
-	// try to grab a span from the request if made from another service, ignore err if not
-	wireContext, _ := opentracing.GlobalTracer().Extract(
-		opentracing.HTTPHeaders,
-		opentracing.HTTPHeadersCarrier(c.Request.Header))
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	ctx, err = tag.New(c.Request.Context(),
+		tag.Insert(appKey, c.Param(api.CApp)),
+		tag.Insert(pathKey, c.Param(api.CRoute)),
+	)
 
-	// Create the span referring to the RPC client if available.
-	// If wireContext == nil, a root span will be created.
-	// TODO we should add more tags?
-	serverSpan := opentracing.StartSpan("serve_http", ext.RPCServerOption(wireContext), opentracing.Tag{Key: "path", Value: c.Request.URL.Path})
-	serverSpan.SetBaggageItem("fn_appname", c.Param(api.CApp))
-	serverSpan.SetBaggageItem("fn_path", c.Param(api.CRoute))
+	// TODO inspect opencensus more and see if we need to define a header ourselves
+	// to trigger per-request spans (we will want this), we can set sampler here per request.
+
+	ctx, serverSpan := trace.StartSpan(ctx, "serve_http")
 	defer serverSpan.Finish()
 
-	ctx := tracing.WithSpan(c.Request.Context(), serverSpan)
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
 }
