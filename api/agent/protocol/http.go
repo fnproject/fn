@@ -2,13 +2,21 @@ package protocol
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"strconv"
+	"sync"
 
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
+)
+
+var (
+	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
@@ -50,10 +58,19 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid http response from function err: %v", err))
 	}
-	defer resp.Body.Close()
 
 	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_http_write_response")
 	defer span.Finish()
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	// copy the response body into a buffer so that we read the whole thing. then set the content length.
+	io.Copy(buf, resp.Body)
+	resp.Body.Close()
+	resp.Body = ioutil.NopCloser(buf)
+	resp.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
