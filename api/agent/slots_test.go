@@ -102,25 +102,22 @@ func TestSlotQueueBasic1(t *testing.T) {
 		tokens = append(tokens, tok)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
 	// Now according to LIFO semantics, we should get 9,8,7,6,5,4,3,2,1,0 if we dequeued right now.
-	// but let's eject 9
-	if !obj.ejectSlot(ctx, tokens[9]) {
-		t.Fatalf("Cannot eject slotToken: %#v", tokens[9])
+	// but let's acquire 9
+	if !obj.acquireSlot(tokens[9]) {
+		t.Fatalf("Cannot acquire slotToken: %#v", tokens[9])
 	}
-	// let eject 0
-	if !obj.ejectSlot(ctx, tokens[0]) {
-		t.Fatalf("Cannot eject slotToken: %#v", tokens[0])
+	// let acquire 0
+	if !obj.acquireSlot(tokens[0]) {
+		t.Fatalf("Cannot acquire slotToken: %#v", tokens[0])
 	}
-	// let eject 5
-	if !obj.ejectSlot(ctx, tokens[5]) {
-		t.Fatalf("Cannot eject slotToken: %#v", tokens[5])
+	// let acquire 5
+	if !obj.acquireSlot(tokens[5]) {
+		t.Fatalf("Cannot acquire slotToken: %#v", tokens[5])
 	}
-	// try ejecting 5 again, it should fail
-	if obj.ejectSlot(ctx, tokens[5]) {
-		t.Fatalf("Shouldn't be able to eject slotToken: %#v", tokens[5])
+	// try acquire 5 again, it should fail
+	if obj.acquireSlot(tokens[5]) {
+		t.Fatalf("Shouldn't be able to acquire slotToken: %#v", tokens[5])
 	}
 
 	err = checkGetTokenId(t, obj, timeout, 8)
@@ -128,9 +125,9 @@ func TestSlotQueueBasic1(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	// eject 7 before we can consume
-	if !obj.ejectSlot(ctx, tokens[7]) {
-		t.Fatalf("Cannot eject slotToken: %#v", tokens[2])
+	// acquire 7 before we can consume
+	if !obj.acquireSlot(tokens[7]) {
+		t.Fatalf("Cannot acquire slotToken: %#v", tokens[2])
 	}
 
 	err = checkGetTokenId(t, obj, timeout, 6)
@@ -222,15 +219,9 @@ func TestSlotQueueBasic3(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	// let's eject 1
-	if !obj.ejectSlot(ctx, token1) {
-		t.Fatalf("should fail to eject %#v", token1)
-	}
-	if !slot1.(*testSlot).isClosed {
-		t.Fatalf("%#v should be closed", token1)
+	// let's acquire 1
+	if !obj.acquireSlot(token1) {
+		t.Fatalf("should fail to acquire %#v", token1)
 	}
 
 	goMax := 10
@@ -267,13 +258,5 @@ func TestSlotQueueBasic3(t *testing.T) {
 	err = checkGetTokenId(t, obj, timeout, 2)
 	if err != context.DeadlineExceeded {
 		t.Fatalf(err.Error())
-	}
-
-	// both should be closed
-	if !slot1.(*testSlot).isClosed {
-		t.Fatalf("item1 should be closed")
-	}
-	if !slot2.(*testSlot).isClosed {
-		t.Fatalf("item2 should be closed")
 	}
 }

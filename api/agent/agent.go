@@ -812,14 +812,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		break
 	}
 
-	// if we can eject token, that means we are here due to
-	// abort/shutdown/timeout, attempt to eject and terminate,
+	// if we can acquire token, that means we are here due to
+	// abort/shutdown/timeout, attempt to acquire and terminate,
 	// otherwise continue processing the request
-	if call.slots.ejectSlot(ctx, s) {
+	if call.slots.acquireSlot(s) {
+		slot.Close(ctx)
 		return false
 	}
 
-	// In case, timer/ejectSlot failure landed us here, make
+	// In case, timer/acquireSlot failure landed us here, make
 	// sure to unfreeze.
 	if isFrozen {
 		err = cookie.Unfreeze(ctx)

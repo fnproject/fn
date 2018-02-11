@@ -48,7 +48,6 @@ type slotQueue struct {
 	slots     []*slotToken
 	nextId    uint64
 	signaller chan bool
-	output    chan *slotToken
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -66,7 +65,6 @@ func NewSlotQueue(key string) *slotQueue {
 		cond:      sync.NewCond(new(sync.Mutex)),
 		slots:     make([]*slotToken, 0),
 		signaller: make(chan bool, 1),
-		output:    make(chan *slotToken),
 	}
 
 	return obj
@@ -80,6 +78,7 @@ func (a *slotQueue) acquireSlot(s *slotToken) bool {
 
 	a.cond.L.Lock()
 	if len(a.slots) > 0 {
+		// common case: acquired slots are usually at the end
 		for i := len(a.slots) - 1; i >= 0; i-- {
 			if a.slots[i].id == s.id {
 				a.slots = append(a.slots[:i], a.slots[i+1:]...)
@@ -94,30 +93,10 @@ func (a *slotQueue) acquireSlot(s *slotToken) bool {
 	return true
 }
 
-func (a *slotQueue) ejectSlot(ctx context.Context, s *slotToken) bool {
-	// let's get the lock
-	if !atomic.CompareAndSwapUint32(&s.isBusy, 0, 1) {
-		return false
-	}
-
-	a.cond.L.Lock()
-	for i := 0; i < len(a.slots); i++ {
-		if a.slots[i].id == s.id {
-			a.slots = append(a.slots[:i], a.slots[i+1:]...)
-			break
-		}
-	}
-	a.cond.L.Unlock()
-
-	s.slot.Close(ctx)
-	// now we have the lock, push the trigger
-	close(s.trigger)
-	return true
-}
-
 func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 
 	isWaiting := false
+	output := make(chan *slotToken)
 
 	go func() {
 		<-ctx.Done()
@@ -147,14 +126,14 @@ func (a *slotQueue) startDequeuer(ctx context.Context) chan *slotToken {
 			a.cond.L.Unlock()
 
 			select {
-			case a.output <- item: // good case (dequeued)
+			case output <- item: // good case (dequeued)
 			case <-item.trigger: // ejected (eject handles cleanup)
 			case <-ctx.Done(): // time out or cancel from caller
 			}
 		}
 	}()
 
-	return a.output
+	return output
 }
 
 func (a *slotQueue) queueSlot(slot Slot) *slotToken {
