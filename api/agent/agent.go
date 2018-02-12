@@ -264,7 +264,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 		return transformTimeout(err, true)
 	}
 
-	defer slot.Close() // notify our slot is free once we're done
+	defer slot.Close(ctx) // notify our slot is free once we're done
 
 	err = call.Start(ctx)
 	if err != nil {
@@ -463,7 +463,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		case s := <-ch:
 			if s.acquireSlot() {
 				if s.slot.Error() != nil {
-					s.slot.Close()
+					s.slot.Close(ctx)
 					return nil, s.slot.Error()
 				}
 				return s.slot, nil
@@ -509,7 +509,7 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	select {
 	case s := <-ch:
 		if s.Error() != nil {
-			s.Close()
+			s.Close(ctx)
 			return nil, s.Error()
 		}
 		return s, nil
@@ -553,11 +553,13 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	return ctx.Err()
 }
 
-func (s *coldSlot) Close() error {
+func (s *coldSlot) Close(ctx context.Context) error {
 	if s.cookie != nil {
 		// call this from here so that in exec we don't have to eat container
 		// removal latency
-		s.cookie.Close(context.Background()) // ensure container removal, separate ctx
+		// NOTE ensure container removal, no ctx timeout
+		ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+		s.cookie.Close(ctx)
 	}
 	if s.tok != nil {
 		s.tok.Close()
@@ -573,7 +575,7 @@ type hotSlot struct {
 	err       error
 }
 
-func (s *hotSlot) Close() error {
+func (s *hotSlot) Close(ctx context.Context) error {
 	close(s.done)
 	return nil
 }
@@ -680,7 +682,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	select {
 	case ch <- slot:
 	case <-ctx.Done():
-		slot.Close()
+		slot.Close(ctx)
 	}
 }
 
@@ -739,7 +741,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
 		return
 	}
-	defer cookie.Close(context.Background()) // ensure container removal, separate ctx
+	defer cookie.Close(ctx) // NOTE ensure this ctx doesn't time out
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
@@ -818,7 +820,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			// if we can eject token, that means we are here due to
 			// abort/shutdown/timeout, attempt to eject and terminate,
 			// otherwise continue processing the request
-			if call.slots.ejectSlot(s) {
+			if call.slots.ejectSlot(ctx, s) {
 				return
 			}
 
