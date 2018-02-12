@@ -627,12 +627,16 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 }
 
-// Golang doesn't have an integer min...
-func min(a uint64, b uint64) uint64 {
-	if a < b {
-		return a
+// nonZeroMin returns zero only if both parameters are zero, otherwise it
+// returns the minimum non-zero number of the two.
+func nonZeroMin(a uint64, b uint64) uint64 {
+	if a != 0 && b != 0 {
+		if a < b {
+			return a
+		}
+		return b
 	}
-	return b
+	return a ^ b // We know one of them is zero, bitwise xor will return the other one
 }
 
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
@@ -653,18 +657,9 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		call.Config[k] = strings.Join(v, ", ")
 	}
 
-	memory := call.Memory
-	if a.limits.MaxMemory() != 0 {
-		memory = min(memory, a.limits.MaxMemory())
-	}
-	cpus := uint64(call.CPUs)
-	if a.limits.MaxCPUs() != 0 {
-		cpus = min(cpus, a.limits.MaxCPUs())
-	}
-	filesystem := uint64(call.FilesystemSize)
-	if a.limits.MaxFilesystemSize() != 0 {
-		filesystem = min(filesystem, a.limits.MaxFilesystemSize())
-	}
+	memory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
+	cpus := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
+	filesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
 	container := &container{
 		id:         id.New().String(), // XXX we could just let docker generate ids...
 		image:      call.Image,
@@ -716,18 +711,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	stdin := &ghostReader{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitReader)}
 	defer stdin.Close()
 
-	memory := call.Memory
-	if a.limits.MaxMemory() != 0 {
-		memory = min(memory, a.limits.MaxMemory())
-	}
-	cpus := uint64(call.CPUs)
-	if a.limits.MaxCPUs() != 0 {
-		cpus = min(cpus, a.limits.MaxCPUs())
-	}
-	filesystem := uint64(call.FilesystemSize)
-	if a.limits.MaxFilesystemSize() != 0 {
-		filesystem = min(filesystem, a.limits.MaxFilesystemSize())
-	}
+	memory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
+	cpus := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
+	filesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
 	container := &container{
 		id:         cid, // XXX we could just let docker generate ids...
 		image:      call.Image,
