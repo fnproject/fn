@@ -51,6 +51,7 @@ type WaitResult interface {
 }
 
 type Limit int
+
 const (
 	LimitMemory     Limit = iota
 	LimitCPU        Limit = iota
