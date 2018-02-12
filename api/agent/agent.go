@@ -146,6 +146,13 @@ func New(da DataAccess, fl FunctionLimits) Agent {
 		ServerVersion: "17.06.0",
 	})
 
+	if fl.MaxFilesystemSize() != 0 {
+		supported := driver.SupportsLimit(nil, drivers.LimitFilesystem)
+		if !supported {
+			logrus.Fatal("Can't set FN_MAX_FUNC_FILESYSTEM_SIZE, storage driver does not support quotas")
+		}
+	}
+
 	freezeIdleMsecs, err := getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
 	if err != nil {
 		logrus.WithError(err).Fatal("error initializing freeze idle delay")

@@ -213,6 +213,25 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 	return &cookie{id: task.Id(), task: task, drv: drv}, nil
 }
 
+func (drv *DockerDriver) SupportsLimit(ctx context.Context, l drivers.Limit) bool {
+	if l == drivers.LimitFilesystem {
+		// We need to check whether the docker filesystem used supports it
+		info, err := drv.docker.Info(ctx)
+		if err != nil {
+			return false // We can't know
+		}
+		if info.Driver == "overlay2" ||
+		   info.Driver == "devicemapper" ||
+		   info.Driver == "zfs" ||
+		   info.Driver == "btrfs" {
+			return true
+		}
+		return false
+	}
+	// All backends support cpu and memory limits
+	return true
+}
+
 type cookie struct {
 	id   string
 	task drivers.ContainerTask

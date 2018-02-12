@@ -20,6 +20,10 @@ func (m *Mocker) Prepare(context.Context, drivers.ContainerTask) (drivers.Cookie
 	return &cookie{m}, nil
 }
 
+func (m *Mocker) SupportsLimit(context.Context, drivers.Limit) bool {
+	return false
+}
+
 type cookie struct {
 	m *Mocker
 }

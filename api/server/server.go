@@ -208,30 +208,45 @@ func WithType(t ServerNodeType) ServerOption {
 
 func WithMaxMemory(mm string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		i, err := strconv.ParseUint(mm, 10, 64)
-		if err != nil {
-			s.limits.maxMemory = i
+		if mm != "" {
+			i, err := strconv.ParseUint(mm, 10, 64)
+			if err != nil {
+				s.limits.maxMemory = i
+				return nil
+			}
+			return err
 		}
+		s.limits.maxMemory = 0
 		return nil
 	}
 }
 
 func WithMaxCPUs(mc string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		i, err := strconv.ParseUint(mc, 10, 64)
-		if err != nil {
-			s.limits.maxCPUs = i
+		if mc != "" {
+			i, err := strconv.ParseUint(mc, 10, 64)
+			if err != nil {
+				s.limits.maxCPUs = i
+				return nil
+			}
+			return err
 		}
+		s.limits.maxCPUs = 0
 		return nil
 	}
 }
 
 func WithMaxFS(mfs string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		i, err := strconv.ParseUint(mfs, 10, 64)
-		if err != nil {
-			s.limits.maxFilesystemSize = i
+		if mfs != "" {
+			i, err := strconv.ParseUint(mfs, 10, 64)
+			if err != nil {
+				s.limits.maxFilesystemSize = i
+				return nil
+			}
+			return err
 		}
+		s.limits.maxFilesystemSize = 0
 		return nil
 	}
 }

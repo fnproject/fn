@@ -50,6 +50,13 @@ type WaitResult interface {
 	Wait(context.Context) (RunResult, error)
 }
 
+type Limit int
+const (
+	LimitMemory     Limit = iota
+	LimitCPU        Limit = iota
+	LimitFilesystem Limit = iota
+)
+
 type Driver interface {
 	// Prepare can be used in order to do any preparation that a specific driver
 	// may need to do before running the task, and can be useful to put
@@ -60,6 +67,10 @@ type Driver interface {
 	//
 	// The returned cookie should respect the task's timeout when it is run.
 	Prepare(ctx context.Context, task ContainerTask) (Cookie, error)
+
+	// SupportsLimit can be used to check if this driver supports limitations of
+	// a particular type (memory, cpu, etc) when executing tasks.
+	SupportsLimit(ctx context.Context, l Limit) bool
 }
 
 // RunResult indicates only the final state of the task.
