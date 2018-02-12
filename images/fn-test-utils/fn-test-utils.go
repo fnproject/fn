@@ -1,16 +1,25 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	fdk "github.com/fnproject/fdk-go"
+	fdkutils "github.com/fnproject/fdk-go/utils"
+)
+
+const (
+	InvalidResponseStr = "Olive oil is a liquid fat obtained from olives...\n"
 )
 
 type AppRequest struct {
@@ -38,6 +47,10 @@ type AppRequest struct {
 	AllocateMemory int `json:"allocateMemory,om itempty"`
 	// leak RAM forever
 	LeakMemory int `json:"leakMemory,omitempty"`
+	// respond with partial output
+	ResponseSize int `json:"responseSize,omitempty"`
+	// corrupt http or json
+	InvalidResponse bool `json:"invalidResponse,omitempty"`
 	// TODO: simulate slow read/slow write
 	// TODO: simulate partial IO write/read
 	// TODO: simulate high cpu usage (async and sync)
@@ -71,6 +84,29 @@ func getTotalLeaks() int {
 }
 
 func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
+	req, resp := processRequest(ctx, in)
+	finalizeRequest(out, req, resp)
+}
+
+func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
+	// custom response code
+	if req.ResponseCode != 0 {
+		fdk.WriteStatus(out, req.ResponseCode)
+	} else {
+		fdk.WriteStatus(out, 200)
+	}
+
+	// custom content type
+	if req.ResponseContentType != "" {
+		fdk.SetHeader(out, "Content-Type", req.ResponseContentType)
+	} else {
+		fdk.SetHeader(out, "Content-Type", "application/json")
+	}
+
+	json.NewEncoder(out).Encode(resp)
+}
+
+func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppResponse) {
 
 	fnctx := fdk.Context(ctx)
 
@@ -78,7 +114,9 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	json.NewDecoder(in).Decode(&request)
 
 	if request.IsDebug {
-		log.Printf("Received request %v", request)
+		format, _ := os.LookupEnv("FN_FORMAT")
+		log.Printf("Received format %v", format)
+		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header)
 		log.Printf("Received config %v", fnctx.Config)
 	}
@@ -89,20 +127,6 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 			log.Printf("Sleeping %d", request.SleepTime)
 		}
 		time.Sleep(time.Duration(request.SleepTime) * time.Millisecond)
-	}
-
-	// custom response code
-	if request.ResponseCode != 0 {
-		fdk.WriteStatus(out, request.ResponseCode)
-	} else {
-		fdk.WriteStatus(out, 200)
-	}
-
-	// custom content type
-	if request.ResponseContentType != "" {
-		fdk.SetHeader(out, "Content-Type", request.ResponseContentType)
-	} else {
-		fdk.SetHeader(out, "Content-Type", "application/json")
 	}
 
 	data := make(map[string]string)
@@ -158,11 +182,197 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 		Config:  fnctx.Config,
 	}
 
-	json.NewEncoder(out).Encode(&resp)
+	return &request, &resp
 }
 
 func main() {
-	fdk.Handle(fdk.HandlerFunc(AppHandler))
+	format, _ := os.LookupEnv("FN_FORMAT")
+	testDo(format, os.Stdin, os.Stdout)
+}
+
+func testDo(format string, in io.Reader, out io.Writer) {
+	ctx := fdkutils.BuildCtx()
+	switch format {
+	case "http":
+		testDoHTTP(ctx, in, out)
+	case "json":
+		testDoJSON(ctx, in, out)
+	case "default":
+		fdkutils.DoDefault(fdk.HandlerFunc(AppHandler), ctx, in, out)
+	default:
+		panic("unknown format (fdk-go): " + format)
+	}
+}
+
+// doHTTP runs a loop, reading http requests from in and writing
+// http responses to out
+func testDoHTTP(ctx context.Context, in io.Reader, out io.Writer) {
+	var buf bytes.Buffer
+	// maps don't get down-sized, so we can reuse this as it's likely that the
+	// user sends in the same amount of headers over and over (but still clear
+	// b/w runs) -- buf uses same principle
+	hdr := make(http.Header)
+
+	for {
+		err := testDoHTTPOnce(ctx, in, out, &buf, hdr)
+		if err != nil {
+			break
+		}
+	}
+}
+
+func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
+	var buf bytes.Buffer
+	hdr := make(http.Header)
+
+	for {
+		err := testDoJSONOnce(ctx, in, out, &buf, hdr)
+		if err != nil {
+			break
+		}
+	}
+}
+
+func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
+
+	buf.Reset()
+	fdkutils.ResetHeaders(hdr)
+
+	var jsonResponse fdkutils.JsonOut
+	var jsonRequest fdkutils.JsonIn
+	responseSize := 0
+
+	resp := fdkutils.Response{
+		Writer: buf,
+		Status: 200,
+		Header: hdr,
+	}
+
+	err := json.NewDecoder(in).Decode(&jsonRequest)
+	if err != nil {
+		// stdin now closed
+		if err == io.EOF {
+			return err
+		}
+		jsonResponse.Protocol.StatusCode = 500
+		jsonResponse.Body = fmt.Sprintf(`{"error": %v}`, err.Error())
+	} else {
+		fdkutils.SetHeaders(ctx, jsonRequest.Protocol.Headers)
+		ctx, cancel := fdkutils.CtxWithDeadline(ctx, jsonRequest.Deadline)
+		defer cancel()
+
+		appReq, appResp := processRequest(ctx, strings.NewReader(jsonRequest.Body))
+		finalizeRequest(&resp, appReq, appResp)
+
+		jsonResponse.Protocol.StatusCode = resp.Status
+		jsonResponse.Body = buf.String()
+		jsonResponse.Protocol.Headers = resp.Header
+
+		if appReq.InvalidResponse {
+			io.Copy(out, strings.NewReader(InvalidResponseStr))
+		}
+
+		responseSize = appReq.ResponseSize
+	}
+
+	if responseSize > 0 {
+		b, err := json.Marshal(jsonResponse)
+		if err != nil {
+			return err
+		}
+		if len(b) > responseSize {
+			responseSize = len(b)
+		}
+		b = b[:responseSize]
+		out.Write(b)
+	} else {
+		json.NewEncoder(out).Encode(jsonResponse)
+	}
+
+	return nil
+}
+
+func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
+	buf.Reset()
+	fdkutils.ResetHeaders(hdr)
+	resp := fdkutils.Response{
+		Writer: buf,
+		Status: 200,
+		Header: hdr,
+	}
+
+	var hResp http.Response
+	responseSize := 0
+
+	req, err := http.ReadRequest(bufio.NewReader(in))
+	if err != nil {
+		// stdin now closed
+		if err == io.EOF {
+			return err
+		}
+		// TODO it would be nice if we could let the user format this response to their preferred style..
+		resp.Status = http.StatusInternalServerError
+		io.WriteString(resp, err.Error())
+		hResp = http.Response{
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			StatusCode:    resp.Status,
+			Request:       req,
+			Body:          ioutil.NopCloser(buf),
+			ContentLength: int64(buf.Len()),
+			Header:        resp.Header,
+		}
+	} else {
+		fnDeadline := fdkutils.Context(ctx).Header.Get("FN_DEADLINE")
+		ctx, cancel := fdkutils.CtxWithDeadline(ctx, fnDeadline)
+		defer cancel()
+		fdkutils.SetHeaders(ctx, req.Header)
+
+		appReq, appResp := processRequest(ctx, req.Body)
+		finalizeRequest(&resp, appReq, appResp)
+
+		hResp = http.Response{
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			StatusCode:    resp.Status,
+			Request:       req,
+			Body:          ioutil.NopCloser(buf),
+			ContentLength: int64(buf.Len()),
+			Header:        resp.Header,
+		}
+
+		if appReq.InvalidResponse {
+			io.Copy(out, strings.NewReader(InvalidResponseStr))
+		}
+
+		responseSize = appReq.ResponseSize
+	}
+
+	if responseSize > 0 {
+
+		var buf bytes.Buffer
+		bufWriter := bufio.NewWriter(&buf)
+
+		err := hResp.Write(bufWriter)
+		if err != nil {
+			return err
+		}
+
+		bufReader := bufio.NewReader(&buf)
+
+		if buf.Len() > responseSize {
+			responseSize = buf.Len()
+		}
+
+		_, err = io.CopyN(out, bufReader, int64(responseSize))
+		if err != nil {
+			return err
+		}
+	} else {
+		hResp.Write(out)
+	}
+
+	return nil
 }
 
 func getChunk(size int) []byte {
