@@ -728,6 +728,9 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
+			// wait for this call to finish
+			// NOTE do NOT select with shutdown / other channels. slot handles this.
+			<-slot.done
 		}
 	}()
 
@@ -779,14 +782,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 
 	for {
 		select {
-		case <-s.trigger: // slot already consumed, unfreeze ASAP
-			if !isFrozen {
-				err = cookie.Freeze(ctx)
-				if err != nil {
-					return false
-				}
-				isFrozen = true
-			}
+		case <-s.trigger: // slot already consumed
 		case <-ctx.Done(): // container shutdown
 		case <-a.shutdown: // server shutdown
 		case <-idleTimer.C:
@@ -831,15 +827,6 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	}
 
 	state.UpdateState(ctx, ContainerStateBusy, call.slots)
-
-	// request processing may take a long time, clean up timers now
-	ejectTicker.Stop()
-	freezeTimer.Stop()
-	idleTimer.Stop()
-
-	// wait for this call to finish
-	// NOTE do NOT select with shutdown / other channels. slot handles this.
-	<-slot.done
 	return true
 }
 
