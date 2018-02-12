@@ -221,9 +221,9 @@ func (drv *DockerDriver) SupportsLimit(ctx context.Context, l drivers.Limit) boo
 			return false // We can't know
 		}
 		if info.Driver == "overlay2" ||
-		   info.Driver == "devicemapper" ||
-		   info.Driver == "zfs" ||
-		   info.Driver == "btrfs" {
+			info.Driver == "devicemapper" ||
+			info.Driver == "zfs" ||
+			info.Driver == "btrfs" {
 			return true
 		}
 		return false
