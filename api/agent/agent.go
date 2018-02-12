@@ -128,7 +128,7 @@ type agent struct {
 func New(da DataAccess) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
-		ServerVersion: "17.06.0",
+		ServerVersion: "17.06.0-ce",
 	})
 
 	freezeIdleMsecs, err := getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
