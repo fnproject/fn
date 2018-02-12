@@ -30,7 +30,7 @@ docker run -e VAR_NAME=VALUE ...
 | `FN_LOG_PREFIX` | If supplying a syslog url in `FN_LOG_DEST`, a prefix to add to each log line
 | `FN_API_CORS` | A comma separated list of URLs to enable [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) for (or `*` for all domains). This corresponds to the allowed origins in the `Acccess-Control-Allow-Origin` header.  | None |
 | `FN_FREEZE_IDLE_MSECS` | Set this option to specify the amount of time to wait in milliseconds before pausing/freezing an idle hot container. Set to 0 to freeze idle containers without any delay. Set to negative integer to disable freeze/pause of idle hot containers. | 50 |
- `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time to wait in milliseconds before attempting to terminate an idle hot container when the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
+ `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time in milliseconds to periodically check to terminate an idle hot container if the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
 | `DOCKER_HOST` | Docker remote API URL. | /var/run/docker.sock |
 | `DOCKER_API_VERSION` | Docker remote API version. | 1.24 |
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |
