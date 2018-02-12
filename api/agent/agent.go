@@ -140,6 +140,11 @@ func New(da DataAccess) Agent {
 	if err != nil {
 		logrus.WithError(err).Fatal("error initializing eject idle delay")
 	}
+	if ejectIdleMsecs == time.Duration(0) {
+		logrus.Fatal("eject idle delay cannot be zero")
+	}
+
+	logrus.WithFields(logrus.Fields{"eject_msec": ejectIdleMsecs, "free_msec": freezeIdleMsecs}).Info("agent starting")
 
 	a := &agent{
 		da:              da,
@@ -445,7 +450,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	for {
 		select {
 		case s := <-ch:
-			if s.acquireSlot() {
+			if call.slots.acquireSlot(s) {
 				if s.slot.Error() != nil {
 					s.slot.Close(ctx)
 					return nil, s.slot.Error()
@@ -553,9 +558,9 @@ func (s *coldSlot) Close(ctx context.Context) error {
 
 // implements Slot
 type hotSlot struct {
-	done      chan<- struct{} // signal we are done with slot
-	errC      <-chan error    // container error
-	container *container      // TODO mask this
+	done      chan struct{} // signal we are done with slot
+	errC      <-chan error  // container error
+	container *container    // TODO mask this
 	err       error
 }
 
@@ -719,80 +724,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			isFrozen := false
-			elapsed := time.Duration(0)
-			freezerTicker := a.freezeIdleMsecs
-			idleTimeout := time.Duration(call.IdleTimeout) * time.Second
-
-			done := make(chan struct{})
-			state.UpdateState(ctx, ContainerStateIdle, call.slots)
-			s := call.slots.queueSlot(&hotSlot{done, errC, container, nil})
-
-			for {
-				select {
-				case <-s.trigger: // slot already consumed
-				case <-ctx.Done(): // container shutdown
-				case <-a.shutdown: // server shutdown
-				case <-time.After(idleTimeout): // in case idleTimeout < a.freezeIdleMsecs or idleTimeout < a.ejectIdleMsecs
-				case <-time.After(freezerTicker):
-					elapsed += a.freezeIdleMsecs
-
-					freezerTicker = math.MaxInt64 // do not fire again
-
-					if elapsed < idleTimeout { // in case idleTimeout <= a.freezeIdleMsecs
-						if !isFrozen {
-							err := cookie.Freeze(ctx)
-							if err != nil {
-								logger.WithError(err).Error("freeze error")
-								return
-							}
-							isFrozen = true
-						}
-						continue
-					}
-				case <-time.After(a.ejectIdleMsecs):
-					elapsed += a.ejectIdleMsecs
-
-					if elapsed < idleTimeout {
-						// if someone is waiting for resource in our slot queue, we must not terminate,
-						// otherwise, see if other slot queues have resource waiters that are blocked.
-						stats := call.slots.getStats()
-						if stats.containerStates[ContainerStateWait] > 0 ||
-							a.resources.GetResourceTokenWaiterCount() <= 0 {
-							continue
-						}
-						logger.Debug("attempting hot function eject")
-					}
-				}
-				break
-			}
-
-			// if we can eject token, that means we are here due to
-			// abort/shutdown/timeout, attempt to eject and terminate,
-			// otherwise continue processing the request
-			if call.slots.ejectSlot(ctx, s) {
+			slot := &hotSlot{make(chan struct{}), errC, container, nil}
+			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
-
-			if isFrozen {
-				err := cookie.Unfreeze(ctx)
-				if err != nil {
-					logger.WithError(err).Error("unfreeze error")
-					return
-				}
-				isFrozen = false
-			}
-
-			state.UpdateState(ctx, ContainerStateBusy, call.slots)
-			// IMPORTANT: if we fail to eject the slot, it means that a consumer
-			// just dequeued this and acquired the slot. In other words, we were
-			// late in ejectSlots(), so we have to execute this request in this
-			// iteration. Beginning of for-loop will re-check ctx/shutdown case
-			// and terminate after this request is done.
-
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
-			<-done
+			<-slot.done
 		}
 	}()
 
@@ -805,6 +743,91 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	}
 
 	logger.WithError(err).Info("hot function terminated")
+}
+
+// runHotReq enqueues a free slot to slot queue manager and watches various timers and the consumer until
+// the slot is consumed. A return value of false means, the container should shutdown and no subsequent
+// calls should be made to this function.
+func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState, logger logrus.FieldLogger, cookie drivers.Cookie, slot *hotSlot) bool {
+
+	var err error
+	isFrozen := false
+
+	freezeTimer := time.NewTimer(a.freezeIdleMsecs)
+	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
+	ejectTicker := time.NewTicker(a.ejectIdleMsecs)
+
+	defer freezeTimer.Stop()
+	defer idleTimer.Stop()
+	defer ejectTicker.Stop()
+
+	// log if any error is encountered
+	defer func() {
+		if err != nil {
+			logger.WithError(err).Error("hot function failure")
+		}
+	}()
+
+	// if an immediate freeze is requested, freeze first before enqueuing at all.
+	if a.freezeIdleMsecs == time.Duration(0) && !isFrozen {
+		err = cookie.Freeze(ctx)
+		if err != nil {
+			return false
+		}
+		isFrozen = true
+	}
+
+	state.UpdateState(ctx, ContainerStateIdle, call.slots)
+	s := call.slots.queueSlot(slot)
+
+	for {
+		select {
+		case <-s.trigger: // slot already consumed
+		case <-ctx.Done(): // container shutdown
+		case <-a.shutdown: // server shutdown
+		case <-idleTimer.C:
+		case <-freezeTimer.C:
+			if !isFrozen {
+				err = cookie.Freeze(ctx)
+				if err != nil {
+					return false
+				}
+				isFrozen = true
+			}
+			continue
+		case <-ejectTicker.C:
+			// if someone is waiting for resource in our slot queue, we must not terminate,
+			// otherwise, see if other slot queues have resource waiters that are blocked.
+			stats := call.slots.getStats()
+			if stats.containerStates[ContainerStateWait] > 0 ||
+				a.resources.GetResourceTokenWaiterCount() <= 0 {
+				continue
+			}
+			logger.Debug("attempting hot function eject")
+		}
+		break
+	}
+
+	// if we can acquire token, that means we are here due to
+	// abort/shutdown/timeout, attempt to acquire and terminate,
+	// otherwise continue processing the request
+	if call.slots.acquireSlot(s) {
+		slot.Close(ctx)
+		return false
+	}
+
+	// In case, timer/acquireSlot failure landed us here, make
+	// sure to unfreeze.
+	if isFrozen {
+		err = cookie.Unfreeze(ctx)
+		if err != nil {
+			return false
+		}
+		isFrozen = false
+	}
+
+	state.UpdateState(ctx, ContainerStateBusy, call.slots)
+	return true
 }
 
 // container implements drivers.ContainerTask container is the execution of a
