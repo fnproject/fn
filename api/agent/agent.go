@@ -436,8 +436,10 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 
 	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
+	clampedMemory := nonZeroMin(call.Memory, a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok := <-a.resources.GetResourceToken(ctx, clampedMemory, clampedCPUs, isAsync):
 		a.wg.Add(1) // add waiter in this thread
 		go func() {
 			// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
@@ -505,8 +507,10 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
 
+	clampedMemory := nonZeroMin(call.Memory, a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok := <-a.resources.GetResourceToken(ctx, clampedMemory, clampedCPUs, isAsync):
 		go a.prepCold(ctx, call, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -657,16 +661,16 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		call.Config[k] = strings.Join(v, ", ")
 	}
 
-	memory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
-	cpus := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
-	filesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
+	clampedMemory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
+	clampedFilesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
 	container := &container{
 		id:         id.New().String(), // XXX we could just let docker generate ids...
 		image:      call.Image,
 		env:        map[string]string(call.Config),
-		memory:     memory,
-		cpus:       cpus,
-		filesystem: filesystem,
+		memory:     clampedMemory,
+		cpus:       clampedCPUs,
+		filesystem: clampedFilesystem,
 		timeout:    time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:      call.req.Body,
 		stdout:     call.w,
@@ -711,16 +715,16 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	stdin := &ghostReader{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitReader)}
 	defer stdin.Close()
 
-	memory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
-	cpus := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
-	filesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
+	clampedMemory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
+	clampedFilesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
 	container := &container{
 		id:         cid, // XXX we could just let docker generate ids...
 		image:      call.Image,
 		env:        map[string]string(call.Config),
-		memory:     memory,
-		cpus:       cpus,
-		filesystem: filesystem,
+		memory:     clampedMemory,
+		cpus:       clampedCPUs,
+		filesystem: clampedFilesystem,
 		stdin:      stdin,
 		stdout:     &ghostWriter{inner: stderr},
 		stderr:     &ghostWriter{inner: stderr},
