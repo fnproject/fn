@@ -100,12 +100,14 @@ type dockerWrap struct {
 
 func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
 	var i int
+	var err error
 	span := opentracing.SpanFromContext(ctx)
 	defer func() { span.LogFields(log.Int("docker_call_retries", i)) }()
 
 	logger := common.Logger(ctx)
 	var b common.Backoff
-	for ; ; i++ {
+	// 10 retries w/o change to backoff is ~13s if ops take ~0 time
+	for ; i < 10; i++ {
 		select {
 		case <-ctx.Done():
 			span.LogFields(log.String("task", "fail.docker"))
@@ -114,7 +116,7 @@ func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
 		default:
 		}
 
-		err := filter(ctx, f())
+		err = filter(ctx, f())
 		if common.IsTemporary(err) || isDocker50x(err) {
 			logger.WithError(err).Warn("docker temporary error, retrying")
 			b.Sleep(ctx)
@@ -126,6 +128,7 @@ func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
 		}
 		return err
 	}
+	return err // TODO could return context.DeadlineExceeded which ~makes sense
 }
 
 func isDocker50x(err error) bool {
