@@ -20,7 +20,7 @@ var testApp = &models.App{
 var testRoute = &models.Route{
 	AppName: testApp.Name,
 	Path:    "/test",
-	Image:   "fnproject/hello",
+	Image:   "fnproject/fn-test-utils",
 	Type:    "sync",
 	Format:  "http",
 }
