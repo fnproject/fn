@@ -3,8 +3,11 @@ package protocol
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 // HTTPProtocol converts stdin/stdout streams into HTTP/1.1 compliant
@@ -37,7 +40,7 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request())
 	if err != nil {
-		return err
+		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid http response from function err: %v", err))
 	}
 	defer resp.Body.Close()
 

@@ -132,6 +132,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		[]*models.Route{
 			{Path: "/", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myhot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myhotjason", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myroute", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
@@ -152,6 +153,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	crasher := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`          // crash container
 	oomer := `{"sleepTime": 0, "isDebug": true, "allocateMemory": 12000000}` // ask for 12MB
 	badHttp := `{"sleepTime": 0, "isDebug": true, "responseCode": -1}`       // http status of -1 (invalid http)
+	badHot := `{"invalidResponse": true, "isDebug": true}`                   // write a not json/http as output
 	ok := `{"sleepTime": 0, "isDebug": true}`                                // good response / ok
 
 	for i, test := range []struct {
@@ -164,21 +166,17 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}{
 		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, ""},
 
-		// TODO: this should return 502 and description about container misbehaving
-		{"/r/myapp/myhot", badHttp, "GET", http.StatusInternalServerError, expHeaders, "internal server error"},
+		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
 		// hot container now back to normal, we should get OK
 		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, ""},
+
+		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
+		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response"},
 
 		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, ""},
 		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2"},
 		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
 		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
-
-		// Added same tests again to check if time is reduced by the auth cache
-		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, ""},
-		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, ""},
-		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2"},
-		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2"},
 		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory"},
 	} {
 		body := strings.NewReader(test.body)

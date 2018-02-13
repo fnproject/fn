@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 // This is sent into the function
@@ -197,7 +199,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	jout := new(jsonOut)
 	dec := json.NewDecoder(h.out)
 	if err := dec.Decode(jout); err != nil {
-		return fmt.Errorf("error decoding JSON from user function: %v", err)
+		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		// this has to be done for pulling out:
