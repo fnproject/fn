@@ -12,7 +12,7 @@
 
 ### What is the Fn Project?
 
-The Fn Project is a container native serverless platform that you can run anywhere -- any cloud or on-premise. It’s easy to use, supports every programming language, and is extensible and performant.
+The Fn Project is a container native serverless platform that you can run anywhere -- any cloud or on-premises. It’s easy to use, supports every programming language, and is extensible and performant.
 
 ### Why build another serverless framework?
 
