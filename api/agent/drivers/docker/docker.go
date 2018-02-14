@@ -150,10 +150,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		// turn off logs since we're collecting them from attach
 		HostConfig: &docker.HostConfig{
 			LogConfig: docker.LogConfig{
-				Type: "json-file", // o/w attach does not work
-				Config: map[string]string{
-					"max-size": "1m",
-				},
+				Type: "none",
 			},
 		},
 		Context: ctx,
@@ -351,7 +348,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
 		Container: container, OutputStream: mwOut, ErrorStream: mwErr,
-		Stream: true, Logs: true, Stdout: true, Stderr: true,
+		Stream: true, Stdout: true, Stderr: true,
 		Stdin: true, InputStream: task.Input()})
 	if err != nil && ctx.Err() == nil {
 		// ignore if ctx has errored, rewrite status lay below
