@@ -4,10 +4,13 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
+	"syscall"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -54,4 +57,35 @@ func contextWithSignal(ctx context.Context, signals ...os.Signal) (context.Conte
 		}
 	}()
 	return newCTX, halt
+}
+
+// Installs a child process reaper if init process
+func installChildReaper() {
+	// assume responsibilities of init process if running as init process for Linux
+	if runtime.GOOS != "linux" || os.Getpid() != 1 {
+		return
+	}
+
+	var sigs = make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGCHLD)
+
+	// we run this forever and leak a go routine. As init, we must
+	// reap our children until the very end, so this is OK.
+	go func() {
+		for {
+			<-sigs
+			for {
+				var status syscall.WaitStatus
+				var rusage syscall.Rusage
+
+				pid, err := syscall.Wait4(-1, &status, syscall.WNOHANG, &rusage)
+				// no children
+				if pid <= 0 {
+					break
+				}
+
+				logrus.Infof("Child terminated pid=%d err=%v status=%v usage=%v", pid, err, status, rusage)
+			}
+		}
+	}()
 }

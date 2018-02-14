@@ -394,6 +394,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	logrus.WithField("type", s.nodeType).Infof("Fn serving on `%v`", listen)
 
+	installChildReaper()
+
 	server := http.Server{
 		Addr:    listen,
 		Handler: s.Router,
