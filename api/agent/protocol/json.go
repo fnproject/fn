@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/fnproject/fn/api/models"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 // This is sent into the function
@@ -189,44 +190,48 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 }
 
 func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	// write input into container
+	span, ctx := opentracing.StartSpanFromContext(ctx, "dispatch_json")
+	defer span.Finish()
+
+	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_write_request")
 	err := h.writeJSONToContainer(ci)
+	span.Finish()
 	if err != nil {
 		return err
 	}
 
-	// now read the container output
-	jout := new(jsonOut)
-	dec := json.NewDecoder(h.out)
-	if err := dec.Decode(jout); err != nil {
+	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
+	var jout jsonOut
+	err = json.NewDecoder(h.out).Decode(&jout)
+	span.Finish()
+	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
-	if rw, ok := w.(http.ResponseWriter); ok {
-		// this has to be done for pulling out:
-		// - status code
-		// - body
-		// - headers
-		if jout.Protocol != nil {
-			p := jout.Protocol
-			for k, v := range p.Headers {
-				for _, vv := range v {
-					rw.Header().Add(k, vv) // on top of any specified on the route
-				}
-			}
-			if p.StatusCode != 0 {
-				rw.WriteHeader(p.StatusCode)
-			}
-		}
-		_, err = io.WriteString(rw, jout.Body)
-		if err != nil {
-			return err
-		}
-	} else {
+
+	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_write_response")
+	defer span.Finish()
+
+	rw, ok := w.(http.ResponseWriter)
+	if !ok {
 		// logs can just copy the full thing in there, headers and all.
-		err = json.NewEncoder(w).Encode(jout)
-		if err != nil {
-			return err
+		return json.NewEncoder(w).Encode(jout)
+	}
+
+	// this has to be done for pulling out:
+	// - status code
+	// - body
+	// - headers
+	if jout.Protocol != nil {
+		p := jout.Protocol
+		for k, v := range p.Headers {
+			for _, vv := range v {
+				rw.Header().Add(k, vv) // on top of any specified on the route
+			}
+		}
+		if p.StatusCode != 0 {
+			rw.WriteHeader(p.StatusCode)
 		}
 	}
-	return nil
+	_, err = io.WriteString(rw, jout.Body)
+	return err
 }
