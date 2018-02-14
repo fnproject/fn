@@ -234,28 +234,25 @@ func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
 }
 
 func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
-
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-
-	var jsonResponse fdkutils.JsonOut
-	var jsonRequest fdkutils.JsonIn
-	responseSize := 0
-
 	resp := fdkutils.Response{
 		Writer: buf,
 		Status: 200,
 		Header: hdr,
 	}
 
+	responseSize := 0
+
+	var jsonRequest fdkutils.JsonIn
 	err := json.NewDecoder(in).Decode(&jsonRequest)
 	if err != nil {
 		// stdin now closed
 		if err == io.EOF {
 			return err
 		}
-		jsonResponse.Protocol.StatusCode = 500
-		jsonResponse.Body = fmt.Sprintf(`{"error": %v}`, err.Error())
+		resp.Status = http.StatusInternalServerError
+		io.WriteString(resp, fmt.Sprintf(`{"error": %v}`, err.Error()))
 	} else {
 		fdkutils.SetHeaders(ctx, jsonRequest.Protocol.Headers)
 		ctx, cancel := fdkutils.CtxWithDeadline(ctx, jsonRequest.Deadline)
@@ -264,16 +261,14 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		appReq, appResp := processRequest(ctx, strings.NewReader(jsonRequest.Body))
 		finalizeRequest(&resp, appReq, appResp)
 
-		jsonResponse.Protocol.StatusCode = resp.Status
-		jsonResponse.Body = buf.String()
-		jsonResponse.Protocol.Headers = resp.Header
-
 		if appReq.InvalidResponse {
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
 		responseSize = appReq.ResponseSize
 	}
+
+	jsonResponse := fdkutils.GetJSONResp(buf, &resp, &jsonRequest)
 
 	if responseSize > 0 {
 		b, err := json.Marshal(jsonResponse)
@@ -301,7 +296,6 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		Header: hdr,
 	}
 
-	var hResp http.Response
 	responseSize := 0
 
 	req, err := http.ReadRequest(bufio.NewReader(in))
@@ -313,15 +307,6 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		// TODO it would be nice if we could let the user format this response to their preferred style..
 		resp.Status = http.StatusInternalServerError
 		io.WriteString(resp, err.Error())
-		hResp = http.Response{
-			ProtoMajor:    1,
-			ProtoMinor:    1,
-			StatusCode:    resp.Status,
-			Request:       req,
-			Body:          ioutil.NopCloser(buf),
-			ContentLength: int64(buf.Len()),
-			Header:        resp.Header,
-		}
 	} else {
 		fnDeadline := fdkutils.Context(ctx).Header.Get("FN_DEADLINE")
 		ctx, cancel := fdkutils.CtxWithDeadline(ctx, fnDeadline)
@@ -331,22 +316,14 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		appReq, appResp := processRequest(ctx, req.Body)
 		finalizeRequest(&resp, appReq, appResp)
 
-		hResp = http.Response{
-			ProtoMajor:    1,
-			ProtoMinor:    1,
-			StatusCode:    resp.Status,
-			Request:       req,
-			Body:          ioutil.NopCloser(buf),
-			ContentLength: int64(buf.Len()),
-			Header:        resp.Header,
-		}
-
 		if appReq.InvalidResponse {
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
 		responseSize = appReq.ResponseSize
 	}
+
+	hResp := fdkutils.GetHTTPResp(buf, &resp, req)
 
 	if responseSize > 0 {
 
