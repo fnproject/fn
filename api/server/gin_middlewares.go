@@ -103,9 +103,9 @@ func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
 			appID, err := s.agent.GetAppID(ctx, appName)
 			if err != nil {
 				handleErrorResponse(c, err)
+				c.Abort()
 				return
 			}
-			fmt.Println(appID)
 			c.Set(api.AppID, appID)
 		}
 
@@ -123,6 +123,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 			appID, err := s.datastore.GetAppID(ctx, appName)
 			if err != nil {
 				handleErrorResponse(c, err)
+				c.Abort()
 				return
 			}
 			c.Set(api.AppID, appID)
