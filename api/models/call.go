@@ -139,7 +139,7 @@ type Call struct {
 	// status is equal to "error".
 	Error string `json:"error,omitempty" db:"error"`
 	// App this call belongs to.
-	AppID string `json:"-" db:"app_id"`
+	AppID string `json:"app_id" db:"app_id"`
 }
 
 type CallFilter struct {
