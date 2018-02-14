@@ -8,12 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleRouteGet(c *gin.Context) {
+func routeGet(s *Server, appID string, c *gin.Context) {
 	ctx := c.Request.Context()
 
 	routePath := path.Clean("/" + c.MustGet(api.Path).(string))
-	appID := c.MustGet(api.AppID).(string)
-
 	route, err := s.datastore.GetRoute(ctx, appID, routePath)
 	if err != nil {
 		handleErrorResponse(c, err)
@@ -21,4 +19,12 @@ func (s *Server) handleRouteGet(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, routeResponse{"Successfully loaded route", route})
+}
+
+func (s *Server) handleRouteGetAPI(c *gin.Context) {
+	routeGet(s, c.MustGet(api.AppID).(string), c)
+}
+
+func (s *Server) handleRouteGetRunner(c *gin.Context) {
+	routeGet(s, c.Param(api.CApp), c)
 }

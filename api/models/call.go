@@ -27,7 +27,8 @@ const (
 
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
 
-type CallBase struct {
+// Call is a representation of a specific invocation of a route.
+type Call struct {
 	// Unique identifier representing a specific call.
 	ID string `json:"id" db:"id"`
 
@@ -137,13 +138,8 @@ type CallBase struct {
 	// Error is the reason why the call failed, it is only non-empty if
 	// status is equal to "error".
 	Error string `json:"error,omitempty" db:"error"`
-}
-
-// Call is a representation of a specific invocation of a route.
-type Call struct {
-	CallBase
 	// App this call belongs to.
-	AppID string `json:"app_id" db:"app_id"`
+	AppID string `json:"-" db:"app_id"`
 }
 
 type CallFilter struct {

@@ -92,6 +92,12 @@ type Agent interface {
 	// Enqueue is to use the agent's sweet sweet client bindings to remotely
 	// queue async tasks and should be removed from Agent interface ASAP.
 	Enqueue(context.Context, *models.Call) error
+
+	// GetAppID is to get the match of an app name to its ID
+	GetAppID(ctx context.Context, appName string) (string, error)
+
+	// GetAppByID is to get the app by ID
+	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 }
 
 type agent struct {
@@ -154,6 +160,10 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 
 func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	return a.da.GetAppByID(ctx, appID)
+}
+
+func (a *agent) GetAppID(ctx context.Context, appName string) (string, error) {
+	return a.da.GetAppID(ctx, appName)
 }
 
 // TODO shuffle this around somewhere else (maybe)

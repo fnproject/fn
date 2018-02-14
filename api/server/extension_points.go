@@ -39,9 +39,7 @@ func (s *Server) apiAppHandlerWrapperFunc(apiHandler fnext.ApiAppHandler) gin.Ha
 func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		context := c.Request.Context()
-		// get the app
 		appID := c.MustGet(api.AppID).(string)
-		// get the route TODO
 		routePath := "/" + c.Param(api.CRoute)
 		route, err := s.datastore.GetRoute(context, appID, routePath)
 		if err != nil {
@@ -58,6 +56,11 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gi
 		app, err := s.datastore.GetAppByID(context, appID)
 		if err != nil {
 			handleErrorResponse(c, err)
+			c.Abort()
+			return
+		}
+		if app == nil {
+			handleErrorResponse(c, models.ErrAppsNotFound)
 			c.Abort()
 			return
 		}

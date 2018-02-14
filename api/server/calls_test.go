@@ -23,22 +23,21 @@ func TestCallGet(t *testing.T) {
 	app.SetDefaults()
 	call := &models.Call{
 		AppID: app.ID,
-		CallBase: models.CallBase{
-			ID:    id.New().String(),
-			Path:  "/thisisatest",
-			Image: "fnproject/hello",
-			// Delay: 0,
-			Type:   "sync",
-			Format: "default",
-			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
-			Timeout:     30,
-			IdleTimeout: 30,
-			Memory:      256,
-			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         "http://localhost:8080/r/myapp/thisisatest",
-			Method:      "GET",
-		}}
+		ID:    id.New().String(),
+		Path:  "/thisisatest",
+		Image: "fnproject/hello",
+		// Delay: 0,
+		Type:   "sync",
+		Format: "default",
+		// Payload: TODO,
+		Priority:    new(int32), // TODO this is crucial, apparently
+		Timeout:     30,
+		IdleTimeout: 30,
+		Memory:      256,
+		CreatedAt:   strfmt.DateTime(time.Now()),
+		URL:         "http://localhost:8080/r/myapp/thisisatest",
+		Method:      "GET",
+	}
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
@@ -93,22 +92,21 @@ func TestCallList(t *testing.T) {
 
 	call := &models.Call{
 		AppID: app.ID,
-		CallBase: models.CallBase{
-			ID:    id.New().String(),
-			Path:  "/thisisatest",
-			Image: "fnproject/hello",
-			// Delay: 0,
-			Type:   "sync",
-			Format: "default",
-			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
-			Timeout:     30,
-			IdleTimeout: 30,
-			Memory:      256,
-			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         "http://localhost:8080/r/myapp/thisisatest",
-			Method:      "GET",
-		}}
+		ID:    id.New().String(),
+		Path:  "/thisisatest",
+		Image: "fnproject/hello",
+		// Delay: 0,
+		Type:   "sync",
+		Format: "default",
+		// Payload: TODO,
+		Priority:    new(int32), // TODO this is crucial, apparently
+		Timeout:     30,
+		IdleTimeout: 30,
+		Memory:      256,
+		CreatedAt:   strfmt.DateTime(time.Now()),
+		URL:         "http://localhost:8080/r/myapp/thisisatest",
+		Method:      "GET",
+	}
 	c2 := *call
 	c3 := *call
 	c2.ID = id.New().String()

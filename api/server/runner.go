@@ -40,7 +40,7 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	}
 
 	appID := c.MustGet(api.AppID).(string)
-	app, err := s.datastore.GetAppByID(c.Request.Context(), appID)
+	app, err := s.agent.GetAppByID(c.Request.Context(), appID)
 	if err != nil {
 		return err
 	}

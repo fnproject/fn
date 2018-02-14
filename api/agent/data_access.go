@@ -16,6 +16,8 @@ import (
 // but actually operate on the data in different ways (by direct access or by
 // mediation through an API node).
 type DataAccess interface {
+	GetAppID(ctx context.Context, appName string) (string, error)
+
 	// GetAppByID abstracts querying the datastore for an app.
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 
@@ -60,6 +62,10 @@ func routeCacheKey(app, path string) string {
 
 func appIDCacheKey(appID string) string {
 	return "a:" + appID
+}
+
+func (da *CachedDataAccess) GetAppID(ctx context.Context, appName string) (string, error) {
+	return da.DataAccess.GetAppID(ctx, appName)
 }
 
 func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
@@ -115,6 +121,10 @@ func NewDirectDataAccess(ds models.Datastore, ls models.LogStore, mq models.Mess
 		ls: ls,
 	}
 	return da
+}
+
+func (da *directDataAccess) GetAppID(ctx context.Context, appName string) (string, error) {
+	return da.ds.GetAppID(ctx, appName)
 }
 
 func (da *directDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {

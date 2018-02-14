@@ -94,18 +94,19 @@ func loggerWrap(c *gin.Context) {
 	c.Next()
 }
 
-func (s *Server) checkAppPresenceByID() gin.HandlerFunc {
+func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
-		appID := c.Param(api.CApp)
-		if appID != "" {
-			app, err := s.datastore.GetAppByID(ctx, appID)
+		appName := c.Param(api.CApp)
+		if appName != "" {
+			appID, err := s.agent.GetAppID(ctx, appName)
 			if err != nil {
 				handleErrorResponse(c, err)
 				return
 			}
-			c.Set(api.AppID, app.ID)
+			fmt.Println(appID)
+			c.Set(api.AppID, appID)
 		}
 
 		c.Request = c.Request.WithContext(ctx)

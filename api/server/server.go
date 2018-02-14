@@ -829,31 +829,31 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v1.GET("/apps", s.handleAppList)
 			v1.POST("/apps", s.handleAppCreate)
 
-		{
-			apps := v1.Group("/apps/:app")
-			apps.Use(appNameCheck)
-
 			{
-				withAppCheck := apps.Group("")
-				withAppCheck.Use(s.checkAppPresenceByName())
-				withAppCheck.GET("", s.handleAppGetByName)
-				withAppCheck.PATCH("", s.handleAppUpdate)
-				withAppCheck.DELETE("", s.handleAppDelete)
-				withAppCheck.GET("/routes", s.handleRouteList)
-				withAppCheck.GET("/routes/:route", s.handleRouteGet)
-				withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
-				withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
-				withAppCheck.GET("/calls/:call", s.handleCallGet)
-				withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
-				withAppCheck.GET("/calls", s.handleCallList)
+				apps := v1.Group("/apps/:app")
+				apps.Use(appNameCheck)
+
+				{
+					withAppCheck := apps.Group("")
+					withAppCheck.Use(s.checkAppPresenceByName())
+					withAppCheck.GET("", s.handleAppGetByName)
+					withAppCheck.PATCH("", s.handleAppUpdate)
+					withAppCheck.DELETE("", s.handleAppDelete)
+					withAppCheck.GET("/routes", s.handleRouteList)
+					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
+					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
+					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
+					withAppCheck.GET("/calls/:call", s.handleCallGet)
+					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
+					withAppCheck.GET("/calls", s.handleCallList)
+				}
+
+				apps.POST("/routes", s.handleRoutesPostPut)
+				apps.PUT("/routes/*route", s.handleRoutesPostPut)
 			}
 
-			apps.POST("/routes", s.handleRoutesPostPut)
-			apps.PUT("/routes/*route", s.handleRoutesPostPut)
-		}
-
 			{
-				runner := v1.Group("/runner")
+				runner := clean.Group("/runner")
 				runner.PUT("/async", s.handleRunnerEnqueue)
 				runner.GET("/async", s.handleRunnerDequeue)
 
@@ -862,22 +862,35 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 				appsAPIV2 := runner.Group("/apps/:app")
 				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.Use(s.checkAppPresenceByID())
 				appsAPIV2.GET("", s.handleAppGetByID)
-				appsAPIV2.GET("/routes/:route", s.handleRouteGet)
+				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
-		}
+			{
+				runner := clean.Group("/runner")
+				runner.PUT("/async", s.handleRunnerEnqueue)
+				runner.GET("/async", s.handleRunnerDequeue)
+
+				runner.POST("/start", s.handleRunnerStart)
+				runner.POST("/finish", s.handleRunnerFinish)
+
+				appsAPIV2 := runner.Group("/apps/:app")
+				appsAPIV2.Use(setAppNameInCtx)
+				appsAPIV2.GET("", s.handleAppGetByID)
+				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
+			}
 
 		}
 
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
-			runner.Use(appNameCheck)
-			runner.Use(s.checkAppPresenceByName())
+			runner.Use(s.checkAppPresenceByNameAtRunner())
+			//runner.Use(appNameCheck)
 			runner.Any("/:app", s.handleFunctionCall)
 			runner.Any("/:app/*route", s.handleFunctionCall)
 		}
+
+	}
 
 	engine.NoRoute(func(c *gin.Context) {
 		var err error
@@ -942,8 +955,8 @@ type routesResponse struct {
 }
 
 type callResponse struct {
-	Message string           `json:"message"`
-	Call    *models.CallBase `json:"call"`
+	Message string       `json:"message"`
+	Call    *models.Call `json:"call"`
 }
 
 type callsResponse struct {

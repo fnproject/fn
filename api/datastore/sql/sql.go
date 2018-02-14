@@ -257,20 +257,18 @@ func (ds *sqlStore) clear() error {
 
 func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error) {
 	var app models.App
-	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(ensureAppSelector)
-		row := tx.QueryRowxContext(ctx, query, appName)
+	query := ds.db.Rebind(ensureAppSelector)
+	row := ds.db.QueryRowxContext(ctx, query, appName)
 
-		err := row.StructScan(&app)
-		if err == sql.ErrNoRows {
-			return models.ErrAppsNotFound
-		}
-		return err
-	})
-	if err == nil {
-		return app.ID, nil
+	err := row.StructScan(&app)
+	if err == sql.ErrNoRows {
+		return "", models.ErrAppsNotFound
 	}
-	return "", err
+	if err != nil {
+		return "", err
+	}
+
+	return app.ID, nil
 }
 
 func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
@@ -389,16 +387,13 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appID string) error {
 
 func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	var app models.App
-	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(appIDSelector)
-		row := tx.QueryRowxContext(ctx, query, appID)
+	query := ds.db.Rebind(appIDSelector)
+	row := ds.db.QueryRowxContext(ctx, query, appID)
 
-		err := row.StructScan(&app)
-		if err == sql.ErrNoRows {
-			return models.ErrAppsNotFound
-		}
-		return err
-	})
+	err := row.StructScan(&app)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrAppsNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -796,11 +791,10 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appID, callID string, logR io
 		log = b.String()
 	}
 
-	return ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(`INSERT INTO logs (id, app_id, log) VALUES (?, ?, ?);`)
-		_, err := tx.ExecContext(ctx, query, callID, appID, log)
-		return err
-	})
+	query := ds.db.Rebind(`INSERT INTO logs (id, app_id, log) VALUES (?, ?, ?);`)
+	_, err := ds.db.ExecContext(ctx, query, callID, appID, log)
+
+	return err
 }
 
 func (ds *sqlStore) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {

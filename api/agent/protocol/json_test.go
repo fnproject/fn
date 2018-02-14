@@ -41,7 +41,7 @@ func setupRequest(data interface{}) *callInfoImpl {
 	}
 	req.Body = ioutil.NopCloser(&buf)
 
-	call := &models.Call{CallBase: models.CallBase{Type: "sync"}}
+	call := &models.Call{Type: "sync"}
 
 	// fixup URL in models.Call
 	call.URL = req.URL.String()

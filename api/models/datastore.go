@@ -7,8 +7,8 @@ import (
 )
 
 type Datastore interface {
-	// GetAppByID gets an App by name.
-	// Returns ErrDatastoreEmptyAppID for empty appName.
+	// GetAppByID gets an App by ID.
+	// Returns ErrDatastoreEmptyAppID for empty appID.
 	// Returns ErrAppsNotFound if no app is found.
 	GetAppByID(ctx context.Context, appID string) (*App, error)
 

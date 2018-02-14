@@ -35,13 +35,13 @@ func (s *Server) handleRoutesPostPut(c *gin.Context) {
 	}
 	appName := c.MustGet(api.App).(string)
 
-	appID, err := s.ensureApp(ctx, appName, &wroute, method)
+	appID, err := s.ensureApp(ctx, appName, method)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	resp, err := s.ensureRoute(ctx, appID, method, &wroute)
+	resp, err := s.ensureRoute(ctx, appID, &wroute, method)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -62,7 +62,7 @@ func (s *Server) handleRoutesPatch(c *gin.Context) {
 	}
 	appID := c.MustGet(api.AppID).(string)
 
-	resp, err := s.ensureRoute(ctx, appID, method, &wroute)
+	resp, err := s.ensureRoute(ctx, appID, &wroute, method)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -89,15 +89,10 @@ func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) e
 	return nil
 }
 
-// ensureApp will only execute if it is everything except PATCH
-func (s *Server) ensureRoute(ctx context.Context, appID, method string, wroute *models.RouteWrapper) (routeResponse, error) {
+func (s *Server) ensureRoute(ctx context.Context, appID string, wroute *models.RouteWrapper, method string) (routeResponse, error) {
 	bad := new(routeResponse)
 
-	app, err := s.Datastore().GetAppByID(ctx, appID)
-	if err != nil {
-		return *bad, err
-	}
-	wroute.Route.AppID = app.ID
+	wroute.Route.AppID = appID
 
 	switch method {
 	case http.MethodPost:
@@ -107,7 +102,7 @@ func (s *Server) ensureRoute(ctx context.Context, appID, method string, wroute *
 		}
 		return routeResponse{"Route successfully created", wroute.Route}, nil
 	case http.MethodPut:
-		_, err := s.datastore.GetRoute(ctx, app.ID, wroute.Route.Path)
+		_, err := s.datastore.GetRoute(ctx, appID, wroute.Route.Path)
 		if err != nil && err == models.ErrRoutesNotFound {
 			err := s.submitRoute(ctx, wroute)
 			if err != nil {
@@ -131,7 +126,7 @@ func (s *Server) ensureRoute(ctx context.Context, appID, method string, wroute *
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
-func (s *Server) ensureApp(ctx context.Context, appName string, wroute *models.RouteWrapper, method string) (string, error) {
+func (s *Server) ensureApp(ctx context.Context, appName string, method string) (string, error) {
 	appID, err := s.datastore.GetAppID(ctx, appName)
 	if err != nil && err != models.ErrAppsNotFound {
 		return "", err

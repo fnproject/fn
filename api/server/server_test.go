@@ -276,11 +276,10 @@ func TestHybridEndpoints(t *testing.T) {
 	newCallBody := func() string {
 		call := &models.Call{
 			AppID: app.ID,
-			CallBase: models.CallBase{
-				ID:   id.New().String(),
-				Path: "yodawg",
-				// TODO ?
-			}}
+			ID:    id.New().String(),
+			Path:  "yodawg",
+			// TODO ?
+		}
 		var b bytes.Buffer
 		json.NewEncoder(&b).Encode(&call)
 		return b.String()

@@ -217,21 +217,20 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		AppID: app.ID,
-		CallBase: models.CallBase{
-			Config:      cfg,
-			Path:        path,
-			Image:       image,
-			Type:        typ,
-			Format:      format,
-			Timeout:     timeout,
-			IdleTimeout: idleTimeout,
-			Memory:      memory,
-			CPUs:        CPUs,
-			Payload:     payload,
-			URL:         url,
-			Method:      method,
-		}}
+		AppID:       app.ID,
+		Config:      cfg,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -288,22 +287,21 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		AppID: app.ID,
-		CallBase: models.CallBase{
-			Config:      config,
-			Headers:     headers,
-			Path:        path,
-			Image:       image,
-			Type:        typ,
-			Format:      format,
-			Timeout:     timeout,
-			IdleTimeout: idleTimeout,
-			Memory:      memory,
-			CPUs:        CPUs,
-			Payload:     payload,
-			URL:         url,
-			Method:      method,
-		}}
+		AppID:       app.ID,
+		Config:      config,
+		Headers:     headers,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -420,21 +418,20 @@ func TestSubmitError(t *testing.T) {
 	}
 
 	cm := &models.Call{
-		AppID: app.ID,
-		CallBase: models.CallBase{
-			Config:      config,
-			Path:        path,
-			Image:       image,
-			Type:        typ,
-			Format:      format,
-			Timeout:     timeout,
-			IdleTimeout: idleTimeout,
-			Memory:      memory,
-			CPUs:        CPUs,
-			Payload:     payload,
-			URL:         url,
-			Method:      method,
-		}}
+		AppID:       app.ID,
+		Config:      config,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -545,16 +542,15 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
-		AppID: id.New().String(),
-		CallBase: models.CallBase{
-			Path:        "/yoyo",
-			Image:       "fnproject/fn-test-utils",
-			Type:        "sync",
-			Format:      "http",
-			Timeout:     1,
-			IdleTimeout: 2,
-			Memory:      math.MaxUint64,
-		}}
+		AppID:       id.New().String(),
+		Path:        "/yoyo",
+		Image:       "fnproject/fn-test-utils",
+		Type:        "sync",
+		Format:      "http",
+		Timeout:     1,
+		IdleTimeout: 2,
+		Memory:      math.MaxUint64,
+	}
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
@@ -604,22 +600,21 @@ func testCall() *models.Call {
 	}
 
 	return &models.Call{
-		AppID: app.ID,
-		CallBase: models.CallBase{
-			Config:      config,
-			Headers:     headers,
-			Path:        path,
-			Image:       image,
-			Type:        typ,
-			Format:      format,
-			Timeout:     timeout,
-			IdleTimeout: idleTimeout,
-			Memory:      memory,
-			CPUs:        CPUs,
-			Payload:     payload,
-			URL:         url,
-			Method:      method,
-		}}
+		AppID:       app.ID,
+		Config:      config,
+		Headers:     headers,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
 }
 
 func TestPipesAreClear(t *testing.T) {
