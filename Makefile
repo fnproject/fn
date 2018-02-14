@@ -18,8 +18,7 @@ checkfmt:
 
 clear-images:
 	-docker images -q -f dangling=true | xargs docker rmi -f
-	for i in fnproject/fn-test-utils fnproject/hello \
-	         fnproject/dind fnproject/fnserver fnproject/fnlb; do \
+	for i in fnproject/fn-test-utils fnproject/hello fnproject/dind fnproject/fnserver ; do \
 	    docker images "$$i" --format '{{ .ID }}\t{{ .Repository }}\t{{ .Tag}}' | while read id repo tag; do \
 	        if [ "$$tag" = "<none>" ]; then docker rmi "$$id"; else docker rmi "$$repo:$$tag"; fi; done; done
 
