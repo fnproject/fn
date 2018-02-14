@@ -307,7 +307,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			if err != nil {
 				t.Fatalf("Test UpdateApp: error when updating app: %v", err)
 			}
-			expected := &models.App{ID: testApp.ID, Config: map[string]string{"TEST": "1"}}
+			expected := &models.App{ID: testApp.ID, Name: testApp.Name, Config: map[string]string{"TEST": "1"}}
 			if !updated.Equals(expected) {
 				t.Fatalf("Test UpdateApp: expected updated `%v` but got `%v`", expected, updated)
 			}
@@ -364,16 +364,14 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 
 		// test pagination stuff (ordering / limits / cursoring)
-		a2 := *testApp
-		a3 := *testApp
-		a2.Name = "Testa"
+		a2 := &models.App{Name: "Testa"}
 		a2.SetDefaults()
-		a3.Name = "Testb"
+		a3 := &models.App{Name: "Testb"}
 		a3.SetDefaults()
-		if _, err = ds.InsertApp(ctx, &a2); err != nil {
+		if _, err = ds.InsertApp(ctx, a2); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = ds.InsertApp(ctx, &a3); err != nil {
+		if _, err = ds.InsertApp(ctx, a3); err != nil {
 			t.Fatal(err)
 		}
 
@@ -399,9 +397,9 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test GetApps: expected `app.Name` to be `%s` but it was `%s`", a3.Name, apps[1].Name)
 		}
 
-		a4 := *testApp
-		a4.Name = "Abcdefg" // < /test lexicographically, but not in length
-		if _, err = ds.InsertApp(ctx, &a4); err != nil {
+		a4 := &models.App{Name: "Abcdefg"}
+		a4.SetDefaults()
+		if _, err = ds.InsertApp(ctx, a4); err != nil {
 			t.Fatal(err)
 		}
 
