@@ -16,10 +16,13 @@ fi
 # after any related tests have passed.
 
 # Match version with Docker version
-version=$(docker run --rm -v "$PWD":/app treeder/bump  --extract --input "`docker -v`")
+docker_info=$(docker run --rm fnproject/dind:latest docker -v 2>/dev/null | grep "^Docker version")
+version=$(echo $docker_info | cut -d ' ' -f 3 | tr -d ,)
+
 echo "Version: $version"
-M=$(docker run --rm treeder/bump --format M --input "$version")
-Mm=$(docker run --rm treeder/bump --format M.m --input "$version")
+
+M=$(echo $version | cut -d '.' -f 1)
+Mm=$(echo $version | cut -d '.' -f 1,2)
 
 # Calculate new release version
 DIND_NEW=$(echo "$DIND_PREV" | perl -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e')

@@ -59,14 +59,14 @@ Note the last line. This specifies the host and port of the Fn server from which
 If you are running a cluster of Fn servers then you can specify them all here.
 
 Now start Prometheus, specifying this config file.
-
-In the following command, `${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml` is the path of the above Prometheus configuration file. You may need to modify this to use the actual path on your local machine.
 ```
-  docker run --name=prometheus -d -p 9090:9090 \
-    -v ${GOPATH}/src/github.com/fnproject/fn/examples/grafana/prometheus.yml:/etc/prometheus/prometheus.yml \
-    --link fnserver prom/prometheus
+docker run --rm --name=prometheus -d -p 9090:9090 \
+  -v `pwd`/prometheus.yml:/etc/prometheus/prometheus.yml \
+  --add-host="fnserver:`docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`" \
+  prom/prometheus
 ```
-Note: The parameter `--link fnserver` means that Prometheus can use `fnserver` to refer to the running Fn server. This requires the Fn server to be running in docker.
+Note: This command uses the parameter `--add-host` to define a hostname `fnserver` in the docker container
+and configure it to use the IP address on which the Fn server is listening.
 
 Open a browser on Prometheus's graph tool at [http://localhost:9090/graph](http://localhost:9090/graph). If you wish you can use this to view metrics and display metrics from the Fn server: see the [Prometheus](https://prometheus.io/) documentation for instructions. Alternatively continue with the next step to view a ready-made set of graphs in Grafana.
 
@@ -79,7 +79,8 @@ Open a terminal window and navigate to the directory containing this example.
 Start Grafana on port 3000:
 ```
 docker run --name=grafana -d -p 3000:3000 \
-  --link prometheus grafana/grafana
+  --add-host="prometheus:`docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`" \
+  grafana/grafana
 ```
 
 Open a browser on Grafana at [http://localhost:3000](http://localhost:3000).

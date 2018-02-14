@@ -1,12 +1,16 @@
-set -ex
+#!/bin/bash
+set -exo pipefail
 
 docker build --build-arg HTTPS_PROXY --build-arg HTTP_PROXY -t fnproject/dind:latest .
 
 # Match version with Docker version
-version=$(docker run --rm -v "$PWD":/app treeder/bump  --extract --input "`docker -v`")
+docker_info=$(docker run --rm fnproject/dind:latest docker -v 2>/dev/null | grep "^Docker version")
+version=$(echo $docker_info | cut -d ' ' -f 3 | tr -d ,)
+
 echo "Version: $version"
-M=$(docker run --rm treeder/bump --format M --input "$version")
-Mm=$(docker run --rm treeder/bump --format M.m --input "$version")
+
+M=$(echo $version | cut -d '.' -f 1)
+Mm=$(echo $version | cut -d '.' -f 1,2)
 
 # Tag these up so that they're available for the local build process,
 # if necessary

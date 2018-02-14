@@ -194,6 +194,8 @@ const (
 	StatusTimeout   = "timeout"
 	StatusKilled    = "killed"
 	StatusCancelled = "cancelled"
+
+	defaultDomain = "docker.io"
 )
 
 type Config struct {
@@ -289,23 +291,22 @@ func parseRepositoryTag(repoTag string) (repository string, tag string) {
 }
 
 func ParseImage(image string) (registry, repo, tag string) {
+	// registry = defaultDomain // TODO uneasy about this, but it seems wise
 	repo, tag = parseRepositoryTag(image)
-	// Officially sanctioned at https://github.com/moby/moby/blob/master/registry/session.go#L319 to deal with "Official Repositories".
+	// Officially sanctioned at https://github.com/moby/moby/blob/4f0d95fa6ee7f865597c03b9e63702cdcb0f7067/registry/service.go#L155 to deal with "Official Repositories".
 	// Without this, token auth fails.
 	// Registries must exist at root (https://github.com/moby/moby/issues/7067#issuecomment-54302847)
 	// This cannot support the `library/` shortcut for private registries.
-	parts := strings.Split(repo, "/")
+	parts := strings.SplitN(repo, "/", 2)
 	switch len(parts) {
 	case 1:
 		repo = "library/" + repo
-	case 2:
-		if strings.Contains(repo, ".") {
+	default:
+		// detect if repo has a hostname, otherwise leave it
+		if strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":") || parts[0] == "localhost" {
 			registry = parts[0]
 			repo = parts[1]
 		}
-	case 3:
-		registry = parts[0]
-		repo = parts[1] + "/" + parts[2]
 	}
 
 	if tag == "" {

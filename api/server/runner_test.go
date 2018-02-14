@@ -136,11 +136,15 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myhot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myhotjason", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/myerror", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
 			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
+			{Path: "/mydneregistry", AppName: "myapp", Image: "localhost:5000/fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
+			{Path: "/myoom", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30},
 		}, nil,
 	)
 
@@ -151,42 +155,65 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
-	for i, test := range []struct {
-		path            string
-		body            string
-		method          string
-		expectedCode    int
-		expectedHeaders map[string][]string
-	}{
-		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil},
-		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil},
+	expHeaders := map[string][]string{"X-Function": {"Test"}}
 
-		// Added same tests again to check if time is reduced by the auth cache
-		{"/r/myapp/", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myroute", ``, "GET", http.StatusOK, map[string][]string{"X-Function": {"Test"}}},
-		{"/r/myapp/myerror", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, "GET", http.StatusBadGateway, map[string][]string{"X-Function": {"Test"}}},
+	crasher := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`          // crash container
+	oomer := `{"sleepTime": 0, "isDebug": true, "allocateMemory": 12000000}` // ask for 12MB
+	badHttp := `{"sleepTime": 0, "isDebug": true, "responseCode": -1}`       // http status of -1 (invalid http)
+	badHot := `{"invalidResponse": true, "isDebug": true}`                   // write a not json/http as output
+	ok := `{"sleepTime": 0, "isDebug": true}`                                // good response / ok
+
+	for i, test := range []struct {
+		path              string
+		body              string
+		method            string
+		expectedCode      int
+		expectedHeaders   map[string][]string
+		expectedErrSubStr string
+	}{
+		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, ""},
+
+		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
+		// hot container now back to normal, we should get OK
+		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, ""},
+
+		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
+		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response"},
+
+		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, ""},
+		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2"},
+		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
+		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
+		// hit a registry that doesn't exist, make sure the real error body gets plumbed out
+		{"/r/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused"},
+
+		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory"},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+		respBytes, _ := ioutil.ReadAll(rec.Body)
+		respBody := string(respBytes)
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
-			bod, _ := ioutil.ReadAll(rec.Body)
 			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
-				i, test.expectedCode, rec.Code, string(bod))
+				i, test.expectedCode, rec.Code, respBody)
 		}
 
-		if test.expectedHeaders == nil {
-			continue
+		if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
+			t.Log(buf.String())
+			t.Errorf("Test %d: Expected response to include %s but got body: %s",
+				i, test.expectedErrSubStr, respBody)
+
 		}
-		for name, header := range test.expectedHeaders {
-			if header[0] != rec.Header().Get(name) {
-				t.Log(buf.String())
-				t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
-					i, name, header[0], rec.Header().Get(name))
+
+		if test.expectedHeaders != nil {
+			for name, header := range test.expectedHeaders {
+				if header[0] != rec.Header().Get(name) {
+					t.Log(buf.String())
+					t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
+						i, name, header[0], rec.Header().Get(name))
+				}
 			}
 		}
 	}

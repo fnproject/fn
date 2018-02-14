@@ -374,7 +374,9 @@ func WithTracer(zipkinURL string) ServerOption {
 
 		if zipkinHTTPEndpoint != "" {
 			// Custom PrometheusCollector and Zipkin HTTPCollector
-			httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+			httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint,
+				zipkintracer.HTTPLogger(logger), zipkintracer.HTTPMaxBacklog(1000),
+			)
 			if zipErr != nil {
 				logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
 			}
@@ -463,6 +465,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	logrus.WithField("type", s.nodeType).Infof("Fn serving on `%v`", listen)
 
+	installChildReaper()
+
 	server := http.Server{
 		Addr:    listen,
 		Handler: s.Router,
@@ -502,6 +506,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	// TODO: move the following under v1
 	engine.GET("/stats", s.handleStats)
 	engine.GET("/metrics", s.handlePrometheusMetrics)
+
+	profilerSetup(engine, "/debug")
 
 	if s.nodeType != ServerTypeRunner {
 		v1 := engine.Group("/v1")

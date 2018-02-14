@@ -33,7 +33,7 @@ docker run -e VAR_NAME=VALUE ...
 | `FN_MAX_FUNC_CPUS `| Impose an absolute cap (in milli-CPUs) to the CPU quota of any function container running on the node. This is in addition to function-configured limits. | 0 (no limit) |
 | `FN_MAX_FUNC_FILESYSTEM_SIZE `| Impose an absolute cap (in megabytes) to the disk space usage of any function container running on the node. | 0 (no limit) |
 | `FN_FREEZE_IDLE_MSECS` | Set this option to specify the amount of time to wait in milliseconds before pausing/freezing an idle hot container. Set to 0 to freeze idle containers without any delay. Set to negative integer to disable freeze/pause of idle hot containers. | 50 |
- `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time to wait in milliseconds before attempting to terminate an idle hot container when the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
+ `FN_EJECT_IDLE_MSECS` | Set this option to specify the amount of time in milliseconds to periodically check to terminate an idle hot container if the system is starved for CPU and Memory resources. Set to negative integer to disable this feature. | 1000 |
 | `DOCKER_HOST` | Docker remote API URL. | /var/run/docker.sock |
 | `DOCKER_API_VERSION` | Docker remote API version. | 1.24 |
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |
