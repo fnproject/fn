@@ -1,20 +1,66 @@
 syntax = "proto3";
 
-message TryInvocation {
+// Request to allocate a slot for a call
+message TryCall {
     string models_call_json = 1;
 }
 
-message InvocationAck {
+// Call has been accepted and a slot allocated, but it's not running yet
+message CallAccepted {
     bool committed = 1;
     string details = 2;
 }
 
+// Data sent C2S and S2C - as soon as the runner sees the first of these it
+// will start running. If empty content, there must be one of these with eof.
+// The runner will send these for the body of the response, AFTER it has sent
+// a CallEnding message.
 message DataFrame {
     bytes data = 1;
     bool eof = 2;
 }
 
-message InvocationEnded {
+message HttpHeader {
+    string key = 1;
+    string value = 2;
+}
+
+message HttpRespMeta {
+    int32 status_code = 1;
+    repeated HttpHeader headers = 2;
+}
+
+// Call has started to finish - data might not be here yet and it will be sent
+// as DataFrames.
+message CallResultStart {
+    oneof meta {
+        HttpRespMeta http = 100;
+    }
+}
+
+// Call has really finished, it might have completed or crashed
+message CallFinished {
     bool success = 1;
     string details = 2;
+}
+
+
+message ClientMsg {
+    oneof body {
+        TryCall try = 1;
+        DataFrame data = 2;
+    }
+}
+
+message RunnerMsg {
+    oneof body {
+        CallAccepted accepted = 1;
+        CallResultStart result_start = 2;
+        DataFrame data = 3;
+        CallFinished finished = 4;
+    }
+}
+
+service RunnerProtocol {
+    rpc Engage (stream ClientMsg) returns (stream RunnerMsg);
 }

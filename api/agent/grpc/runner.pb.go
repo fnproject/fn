@@ -8,16 +8,24 @@
 		runner.proto
 
 	It has these top-level messages:
-		TryInvocation
-		InvocationAck
+		TryCall
+		CallAccepted
 		DataFrame
-		InvocationEnded
+		HttpHeader
+		HttpRespMeta
+		CallResultStart
+		CallFinished
+		ClientMsg
+		RunnerMsg
 */
 package runner
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
+
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
@@ -32,46 +40,52 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type TryInvocation struct {
+// Request to allocate a slot for a call
+type TryCall struct {
 	ModelsCallJson string `protobuf:"bytes,1,opt,name=models_call_json,json=modelsCallJson,proto3" json:"models_call_json,omitempty"`
 }
 
-func (m *TryInvocation) Reset()                    { *m = TryInvocation{} }
-func (m *TryInvocation) String() string            { return proto.CompactTextString(m) }
-func (*TryInvocation) ProtoMessage()               {}
-func (*TryInvocation) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{0} }
+func (m *TryCall) Reset()                    { *m = TryCall{} }
+func (m *TryCall) String() string            { return proto.CompactTextString(m) }
+func (*TryCall) ProtoMessage()               {}
+func (*TryCall) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{0} }
 
-func (m *TryInvocation) GetModelsCallJson() string {
+func (m *TryCall) GetModelsCallJson() string {
 	if m != nil {
 		return m.ModelsCallJson
 	}
 	return ""
 }
 
-type InvocationAck struct {
+// Call has been accepted and a slot allocated, but it's not running yet
+type CallAccepted struct {
 	Committed bool   `protobuf:"varint,1,opt,name=committed,proto3" json:"committed,omitempty"`
 	Details   string `protobuf:"bytes,2,opt,name=details,proto3" json:"details,omitempty"`
 }
 
-func (m *InvocationAck) Reset()                    { *m = InvocationAck{} }
-func (m *InvocationAck) String() string            { return proto.CompactTextString(m) }
-func (*InvocationAck) ProtoMessage()               {}
-func (*InvocationAck) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{1} }
+func (m *CallAccepted) Reset()                    { *m = CallAccepted{} }
+func (m *CallAccepted) String() string            { return proto.CompactTextString(m) }
+func (*CallAccepted) ProtoMessage()               {}
+func (*CallAccepted) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{1} }
 
-func (m *InvocationAck) GetCommitted() bool {
+func (m *CallAccepted) GetCommitted() bool {
 	if m != nil {
 		return m.Committed
 	}
 	return false
 }
 
-func (m *InvocationAck) GetDetails() string {
+func (m *CallAccepted) GetDetails() string {
 	if m != nil {
 		return m.Details
 	}
 	return ""
 }
 
+// Data sent C2S and S2C - as soon as the runner sees the first of these it
+// will start running. If empty content, there must be one of these with eof.
+// The runner will send these for the body of the response, AFTER it has sent
+// a CallEnding message.
 type DataFrame struct {
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	Eof  bool   `protobuf:"varint,2,opt,name=eof,proto3" json:"eof,omitempty"`
@@ -96,37 +110,598 @@ func (m *DataFrame) GetEof() bool {
 	return false
 }
 
-type InvocationEnded struct {
+type HttpHeader struct {
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (m *HttpHeader) Reset()                    { *m = HttpHeader{} }
+func (m *HttpHeader) String() string            { return proto.CompactTextString(m) }
+func (*HttpHeader) ProtoMessage()               {}
+func (*HttpHeader) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{3} }
+
+func (m *HttpHeader) GetKey() string {
+	if m != nil {
+		return m.Key
+	}
+	return ""
+}
+
+func (m *HttpHeader) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+type HttpRespMeta struct {
+	StatusCode int32         `protobuf:"varint,1,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"`
+	Headers    []*HttpHeader `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
+}
+
+func (m *HttpRespMeta) Reset()                    { *m = HttpRespMeta{} }
+func (m *HttpRespMeta) String() string            { return proto.CompactTextString(m) }
+func (*HttpRespMeta) ProtoMessage()               {}
+func (*HttpRespMeta) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{4} }
+
+func (m *HttpRespMeta) GetStatusCode() int32 {
+	if m != nil {
+		return m.StatusCode
+	}
+	return 0
+}
+
+func (m *HttpRespMeta) GetHeaders() []*HttpHeader {
+	if m != nil {
+		return m.Headers
+	}
+	return nil
+}
+
+// Call has started to finish - data might not be here yet and it will be sent
+// as DataFrames.
+type CallResultStart struct {
+	// Types that are valid to be assigned to Meta:
+	//	*CallResultStart_Http
+	Meta isCallResultStart_Meta `protobuf_oneof:"meta"`
+}
+
+func (m *CallResultStart) Reset()                    { *m = CallResultStart{} }
+func (m *CallResultStart) String() string            { return proto.CompactTextString(m) }
+func (*CallResultStart) ProtoMessage()               {}
+func (*CallResultStart) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{5} }
+
+type isCallResultStart_Meta interface {
+	isCallResultStart_Meta()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type CallResultStart_Http struct {
+	Http *HttpRespMeta `protobuf:"bytes,100,opt,name=http,oneof"`
+}
+
+func (*CallResultStart_Http) isCallResultStart_Meta() {}
+
+func (m *CallResultStart) GetMeta() isCallResultStart_Meta {
+	if m != nil {
+		return m.Meta
+	}
+	return nil
+}
+
+func (m *CallResultStart) GetHttp() *HttpRespMeta {
+	if x, ok := m.GetMeta().(*CallResultStart_Http); ok {
+		return x.Http
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CallResultStart) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CallResultStart_OneofMarshaler, _CallResultStart_OneofUnmarshaler, _CallResultStart_OneofSizer, []interface{}{
+		(*CallResultStart_Http)(nil),
+	}
+}
+
+func _CallResultStart_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CallResultStart)
+	// meta
+	switch x := m.Meta.(type) {
+	case *CallResultStart_Http:
+		_ = b.EncodeVarint(100<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Http); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("CallResultStart.Meta has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CallResultStart_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CallResultStart)
+	switch tag {
+	case 100: // meta.http
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(HttpRespMeta)
+		err := b.DecodeMessage(msg)
+		m.Meta = &CallResultStart_Http{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _CallResultStart_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CallResultStart)
+	// meta
+	switch x := m.Meta.(type) {
+	case *CallResultStart_Http:
+		s := proto.Size(x.Http)
+		n += proto.SizeVarint(100<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// Call has really finished, it might have completed or crashed
+type CallFinished struct {
 	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	Details string `protobuf:"bytes,2,opt,name=details,proto3" json:"details,omitempty"`
 }
 
-func (m *InvocationEnded) Reset()                    { *m = InvocationEnded{} }
-func (m *InvocationEnded) String() string            { return proto.CompactTextString(m) }
-func (*InvocationEnded) ProtoMessage()               {}
-func (*InvocationEnded) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{3} }
+func (m *CallFinished) Reset()                    { *m = CallFinished{} }
+func (m *CallFinished) String() string            { return proto.CompactTextString(m) }
+func (*CallFinished) ProtoMessage()               {}
+func (*CallFinished) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{6} }
 
-func (m *InvocationEnded) GetSuccess() bool {
+func (m *CallFinished) GetSuccess() bool {
 	if m != nil {
 		return m.Success
 	}
 	return false
 }
 
-func (m *InvocationEnded) GetDetails() string {
+func (m *CallFinished) GetDetails() string {
 	if m != nil {
 		return m.Details
 	}
 	return ""
 }
 
-func init() {
-	proto.RegisterType((*TryInvocation)(nil), "TryInvocation")
-	proto.RegisterType((*InvocationAck)(nil), "InvocationAck")
-	proto.RegisterType((*DataFrame)(nil), "DataFrame")
-	proto.RegisterType((*InvocationEnded)(nil), "InvocationEnded")
+type ClientMsg struct {
+	// Types that are valid to be assigned to Body:
+	//	*ClientMsg_Try
+	//	*ClientMsg_Data
+	Body isClientMsg_Body `protobuf_oneof:"body"`
 }
-func (m *TryInvocation) Marshal() (dAtA []byte, err error) {
+
+func (m *ClientMsg) Reset()                    { *m = ClientMsg{} }
+func (m *ClientMsg) String() string            { return proto.CompactTextString(m) }
+func (*ClientMsg) ProtoMessage()               {}
+func (*ClientMsg) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{7} }
+
+type isClientMsg_Body interface {
+	isClientMsg_Body()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type ClientMsg_Try struct {
+	Try *TryCall `protobuf:"bytes,1,opt,name=try,oneof"`
+}
+type ClientMsg_Data struct {
+	Data *DataFrame `protobuf:"bytes,2,opt,name=data,oneof"`
+}
+
+func (*ClientMsg_Try) isClientMsg_Body()  {}
+func (*ClientMsg_Data) isClientMsg_Body() {}
+
+func (m *ClientMsg) GetBody() isClientMsg_Body {
+	if m != nil {
+		return m.Body
+	}
+	return nil
+}
+
+func (m *ClientMsg) GetTry() *TryCall {
+	if x, ok := m.GetBody().(*ClientMsg_Try); ok {
+		return x.Try
+	}
+	return nil
+}
+
+func (m *ClientMsg) GetData() *DataFrame {
+	if x, ok := m.GetBody().(*ClientMsg_Data); ok {
+		return x.Data
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*ClientMsg) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _ClientMsg_OneofMarshaler, _ClientMsg_OneofUnmarshaler, _ClientMsg_OneofSizer, []interface{}{
+		(*ClientMsg_Try)(nil),
+		(*ClientMsg_Data)(nil),
+	}
+}
+
+func _ClientMsg_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*ClientMsg)
+	// body
+	switch x := m.Body.(type) {
+	case *ClientMsg_Try:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Try); err != nil {
+			return err
+		}
+	case *ClientMsg_Data:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Data); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("ClientMsg.Body has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _ClientMsg_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*ClientMsg)
+	switch tag {
+	case 1: // body.try
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(TryCall)
+		err := b.DecodeMessage(msg)
+		m.Body = &ClientMsg_Try{msg}
+		return true, err
+	case 2: // body.data
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(DataFrame)
+		err := b.DecodeMessage(msg)
+		m.Body = &ClientMsg_Data{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _ClientMsg_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*ClientMsg)
+	// body
+	switch x := m.Body.(type) {
+	case *ClientMsg_Try:
+		s := proto.Size(x.Try)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *ClientMsg_Data:
+		s := proto.Size(x.Data)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type RunnerMsg struct {
+	// Types that are valid to be assigned to Body:
+	//	*RunnerMsg_Accepted
+	//	*RunnerMsg_ResultStart
+	//	*RunnerMsg_Data
+	//	*RunnerMsg_Finished
+	Body isRunnerMsg_Body `protobuf_oneof:"body"`
+}
+
+func (m *RunnerMsg) Reset()                    { *m = RunnerMsg{} }
+func (m *RunnerMsg) String() string            { return proto.CompactTextString(m) }
+func (*RunnerMsg) ProtoMessage()               {}
+func (*RunnerMsg) Descriptor() ([]byte, []int) { return fileDescriptorRunner, []int{8} }
+
+type isRunnerMsg_Body interface {
+	isRunnerMsg_Body()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type RunnerMsg_Accepted struct {
+	Accepted *CallAccepted `protobuf:"bytes,1,opt,name=accepted,oneof"`
+}
+type RunnerMsg_ResultStart struct {
+	ResultStart *CallResultStart `protobuf:"bytes,2,opt,name=result_start,json=resultStart,oneof"`
+}
+type RunnerMsg_Data struct {
+	Data *DataFrame `protobuf:"bytes,3,opt,name=data,oneof"`
+}
+type RunnerMsg_Finished struct {
+	Finished *CallFinished `protobuf:"bytes,4,opt,name=finished,oneof"`
+}
+
+func (*RunnerMsg_Accepted) isRunnerMsg_Body()    {}
+func (*RunnerMsg_ResultStart) isRunnerMsg_Body() {}
+func (*RunnerMsg_Data) isRunnerMsg_Body()        {}
+func (*RunnerMsg_Finished) isRunnerMsg_Body()    {}
+
+func (m *RunnerMsg) GetBody() isRunnerMsg_Body {
+	if m != nil {
+		return m.Body
+	}
+	return nil
+}
+
+func (m *RunnerMsg) GetAccepted() *CallAccepted {
+	if x, ok := m.GetBody().(*RunnerMsg_Accepted); ok {
+		return x.Accepted
+	}
+	return nil
+}
+
+func (m *RunnerMsg) GetResultStart() *CallResultStart {
+	if x, ok := m.GetBody().(*RunnerMsg_ResultStart); ok {
+		return x.ResultStart
+	}
+	return nil
+}
+
+func (m *RunnerMsg) GetData() *DataFrame {
+	if x, ok := m.GetBody().(*RunnerMsg_Data); ok {
+		return x.Data
+	}
+	return nil
+}
+
+func (m *RunnerMsg) GetFinished() *CallFinished {
+	if x, ok := m.GetBody().(*RunnerMsg_Finished); ok {
+		return x.Finished
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*RunnerMsg) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _RunnerMsg_OneofMarshaler, _RunnerMsg_OneofUnmarshaler, _RunnerMsg_OneofSizer, []interface{}{
+		(*RunnerMsg_Accepted)(nil),
+		(*RunnerMsg_ResultStart)(nil),
+		(*RunnerMsg_Data)(nil),
+		(*RunnerMsg_Finished)(nil),
+	}
+}
+
+func _RunnerMsg_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*RunnerMsg)
+	// body
+	switch x := m.Body.(type) {
+	case *RunnerMsg_Accepted:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Accepted); err != nil {
+			return err
+		}
+	case *RunnerMsg_ResultStart:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ResultStart); err != nil {
+			return err
+		}
+	case *RunnerMsg_Data:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Data); err != nil {
+			return err
+		}
+	case *RunnerMsg_Finished:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Finished); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("RunnerMsg.Body has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _RunnerMsg_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*RunnerMsg)
+	switch tag {
+	case 1: // body.accepted
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CallAccepted)
+		err := b.DecodeMessage(msg)
+		m.Body = &RunnerMsg_Accepted{msg}
+		return true, err
+	case 2: // body.result_start
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CallResultStart)
+		err := b.DecodeMessage(msg)
+		m.Body = &RunnerMsg_ResultStart{msg}
+		return true, err
+	case 3: // body.data
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(DataFrame)
+		err := b.DecodeMessage(msg)
+		m.Body = &RunnerMsg_Data{msg}
+		return true, err
+	case 4: // body.finished
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CallFinished)
+		err := b.DecodeMessage(msg)
+		m.Body = &RunnerMsg_Finished{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _RunnerMsg_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*RunnerMsg)
+	// body
+	switch x := m.Body.(type) {
+	case *RunnerMsg_Accepted:
+		s := proto.Size(x.Accepted)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RunnerMsg_ResultStart:
+		s := proto.Size(x.ResultStart)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RunnerMsg_Data:
+		s := proto.Size(x.Data)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RunnerMsg_Finished:
+		s := proto.Size(x.Finished)
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+func init() {
+	proto.RegisterType((*TryCall)(nil), "TryCall")
+	proto.RegisterType((*CallAccepted)(nil), "CallAccepted")
+	proto.RegisterType((*DataFrame)(nil), "DataFrame")
+	proto.RegisterType((*HttpHeader)(nil), "HttpHeader")
+	proto.RegisterType((*HttpRespMeta)(nil), "HttpRespMeta")
+	proto.RegisterType((*CallResultStart)(nil), "CallResultStart")
+	proto.RegisterType((*CallFinished)(nil), "CallFinished")
+	proto.RegisterType((*ClientMsg)(nil), "ClientMsg")
+	proto.RegisterType((*RunnerMsg)(nil), "RunnerMsg")
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for RunnerProtocol service
+
+type RunnerProtocolClient interface {
+	Engage(ctx context.Context, opts ...grpc.CallOption) (RunnerProtocol_EngageClient, error)
+}
+
+type runnerProtocolClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewRunnerProtocolClient(cc *grpc.ClientConn) RunnerProtocolClient {
+	return &runnerProtocolClient{cc}
+}
+
+func (c *runnerProtocolClient) Engage(ctx context.Context, opts ...grpc.CallOption) (RunnerProtocol_EngageClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_RunnerProtocol_serviceDesc.Streams[0], c.cc, "/RunnerProtocol/Engage", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &runnerProtocolEngageClient{stream}
+	return x, nil
+}
+
+type RunnerProtocol_EngageClient interface {
+	Send(*ClientMsg) error
+	Recv() (*RunnerMsg, error)
+	grpc.ClientStream
+}
+
+type runnerProtocolEngageClient struct {
+	grpc.ClientStream
+}
+
+func (x *runnerProtocolEngageClient) Send(m *ClientMsg) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *runnerProtocolEngageClient) Recv() (*RunnerMsg, error) {
+	m := new(RunnerMsg)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Server API for RunnerProtocol service
+
+type RunnerProtocolServer interface {
+	Engage(RunnerProtocol_EngageServer) error
+}
+
+func RegisterRunnerProtocolServer(s *grpc.Server, srv RunnerProtocolServer) {
+	s.RegisterService(&_RunnerProtocol_serviceDesc, srv)
+}
+
+func _RunnerProtocol_Engage_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RunnerProtocolServer).Engage(&runnerProtocolEngageServer{stream})
+}
+
+type RunnerProtocol_EngageServer interface {
+	Send(*RunnerMsg) error
+	Recv() (*ClientMsg, error)
+	grpc.ServerStream
+}
+
+type runnerProtocolEngageServer struct {
+	grpc.ServerStream
+}
+
+func (x *runnerProtocolEngageServer) Send(m *RunnerMsg) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *runnerProtocolEngageServer) Recv() (*ClientMsg, error) {
+	m := new(ClientMsg)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+var _RunnerProtocol_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "RunnerProtocol",
+	HandlerType: (*RunnerProtocolServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Engage",
+			Handler:       _RunnerProtocol_Engage_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "runner.proto",
+}
+
+func (m *TryCall) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -136,7 +711,7 @@ func (m *TryInvocation) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *TryInvocation) MarshalTo(dAtA []byte) (int, error) {
+func (m *TryCall) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -150,7 +725,7 @@ func (m *TryInvocation) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *InvocationAck) Marshal() (dAtA []byte, err error) {
+func (m *CallAccepted) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -160,7 +735,7 @@ func (m *InvocationAck) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *InvocationAck) MarshalTo(dAtA []byte) (int, error) {
+func (m *CallAccepted) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -218,7 +793,7 @@ func (m *DataFrame) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *InvocationEnded) Marshal() (dAtA []byte, err error) {
+func (m *HttpHeader) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -228,7 +803,113 @@ func (m *InvocationEnded) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *InvocationEnded) MarshalTo(dAtA []byte) (int, error) {
+func (m *HttpHeader) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Key) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(len(m.Key)))
+		i += copy(dAtA[i:], m.Key)
+	}
+	if len(m.Value) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(len(m.Value)))
+		i += copy(dAtA[i:], m.Value)
+	}
+	return i, nil
+}
+
+func (m *HttpRespMeta) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HttpRespMeta) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.StatusCode != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.StatusCode))
+	}
+	if len(m.Headers) > 0 {
+		for _, msg := range m.Headers {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintRunner(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *CallResultStart) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CallResultStart) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Meta != nil {
+		nn1, err := m.Meta.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn1
+	}
+	return i, nil
+}
+
+func (m *CallResultStart_Http) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Http != nil {
+		dAtA[i] = 0xa2
+		i++
+		dAtA[i] = 0x6
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.Http.Size()))
+		n2, err := m.Http.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
+func (m *CallFinished) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CallFinished) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -252,6 +933,140 @@ func (m *InvocationEnded) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ClientMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ClientMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Body != nil {
+		nn3, err := m.Body.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn3
+	}
+	return i, nil
+}
+
+func (m *ClientMsg_Try) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Try != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.Try.Size()))
+		n4, err := m.Try.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+func (m *ClientMsg_Data) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Data != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.Data.Size()))
+		n5, err := m.Data.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+func (m *RunnerMsg) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RunnerMsg) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Body != nil {
+		nn6, err := m.Body.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn6
+	}
+	return i, nil
+}
+
+func (m *RunnerMsg_Accepted) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Accepted != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.Accepted.Size()))
+		n7, err := m.Accepted.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	return i, nil
+}
+func (m *RunnerMsg_ResultStart) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ResultStart != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.ResultStart.Size()))
+		n8, err := m.ResultStart.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	return i, nil
+}
+func (m *RunnerMsg_Data) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Data != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.Data.Size()))
+		n9, err := m.Data.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
+	}
+	return i, nil
+}
+func (m *RunnerMsg_Finished) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Finished != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintRunner(dAtA, i, uint64(m.Finished.Size()))
+		n10, err := m.Finished.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n10
+	}
+	return i, nil
+}
 func encodeVarintRunner(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -261,7 +1076,7 @@ func encodeVarintRunner(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *TryInvocation) Size() (n int) {
+func (m *TryCall) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.ModelsCallJson)
@@ -271,7 +1086,7 @@ func (m *TryInvocation) Size() (n int) {
 	return n
 }
 
-func (m *InvocationAck) Size() (n int) {
+func (m *CallAccepted) Size() (n int) {
 	var l int
 	_ = l
 	if m.Committed {
@@ -297,7 +1112,54 @@ func (m *DataFrame) Size() (n int) {
 	return n
 }
 
-func (m *InvocationEnded) Size() (n int) {
+func (m *HttpHeader) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Key)
+	if l > 0 {
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	l = len(m.Value)
+	if l > 0 {
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+
+func (m *HttpRespMeta) Size() (n int) {
+	var l int
+	_ = l
+	if m.StatusCode != 0 {
+		n += 1 + sovRunner(uint64(m.StatusCode))
+	}
+	if len(m.Headers) > 0 {
+		for _, e := range m.Headers {
+			l = e.Size()
+			n += 1 + l + sovRunner(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *CallResultStart) Size() (n int) {
+	var l int
+	_ = l
+	if m.Meta != nil {
+		n += m.Meta.Size()
+	}
+	return n
+}
+
+func (m *CallResultStart_Http) Size() (n int) {
+	var l int
+	_ = l
+	if m.Http != nil {
+		l = m.Http.Size()
+		n += 2 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+func (m *CallFinished) Size() (n int) {
 	var l int
 	_ = l
 	if m.Success {
@@ -305,6 +1167,79 @@ func (m *InvocationEnded) Size() (n int) {
 	}
 	l = len(m.Details)
 	if l > 0 {
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+
+func (m *ClientMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Body != nil {
+		n += m.Body.Size()
+	}
+	return n
+}
+
+func (m *ClientMsg_Try) Size() (n int) {
+	var l int
+	_ = l
+	if m.Try != nil {
+		l = m.Try.Size()
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+func (m *ClientMsg_Data) Size() (n int) {
+	var l int
+	_ = l
+	if m.Data != nil {
+		l = m.Data.Size()
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+func (m *RunnerMsg) Size() (n int) {
+	var l int
+	_ = l
+	if m.Body != nil {
+		n += m.Body.Size()
+	}
+	return n
+}
+
+func (m *RunnerMsg_Accepted) Size() (n int) {
+	var l int
+	_ = l
+	if m.Accepted != nil {
+		l = m.Accepted.Size()
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+func (m *RunnerMsg_ResultStart) Size() (n int) {
+	var l int
+	_ = l
+	if m.ResultStart != nil {
+		l = m.ResultStart.Size()
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+func (m *RunnerMsg_Data) Size() (n int) {
+	var l int
+	_ = l
+	if m.Data != nil {
+		l = m.Data.Size()
+		n += 1 + l + sovRunner(uint64(l))
+	}
+	return n
+}
+func (m *RunnerMsg_Finished) Size() (n int) {
+	var l int
+	_ = l
+	if m.Finished != nil {
+		l = m.Finished.Size()
 		n += 1 + l + sovRunner(uint64(l))
 	}
 	return n
@@ -323,7 +1258,7 @@ func sovRunner(x uint64) (n int) {
 func sozRunner(x uint64) (n int) {
 	return sovRunner(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *TryInvocation) Unmarshal(dAtA []byte) error {
+func (m *TryCall) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -346,10 +1281,10 @@ func (m *TryInvocation) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: TryInvocation: wiretype end group for non-group")
+			return fmt.Errorf("proto: TryCall: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TryInvocation: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: TryCall: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -402,7 +1337,7 @@ func (m *TryInvocation) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *InvocationAck) Unmarshal(dAtA []byte) error {
+func (m *CallAccepted) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -425,10 +1360,10 @@ func (m *InvocationAck) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: InvocationAck: wiretype end group for non-group")
+			return fmt.Errorf("proto: CallAccepted: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: InvocationAck: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CallAccepted: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -602,7 +1537,7 @@ func (m *DataFrame) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *InvocationEnded) Unmarshal(dAtA []byte) error {
+func (m *HttpHeader) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -625,10 +1560,300 @@ func (m *InvocationEnded) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: InvocationEnded: wiretype end group for non-group")
+			return fmt.Errorf("proto: HttpHeader: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: InvocationEnded: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: HttpHeader: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Key = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Value = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRunner(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRunner
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HttpRespMeta) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRunner
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HttpRespMeta: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HttpRespMeta: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StatusCode", wireType)
+			}
+			m.StatusCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.StatusCode |= (int32(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Headers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Headers = append(m.Headers, &HttpHeader{})
+			if err := m.Headers[len(m.Headers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRunner(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRunner
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CallResultStart) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRunner
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CallResultStart: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CallResultStart: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 100:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Http", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &HttpRespMeta{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Meta = &CallResultStart_Http{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRunner(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRunner
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CallFinished) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRunner
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CallFinished: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CallFinished: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -679,6 +1904,298 @@ func (m *InvocationEnded) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Details = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRunner(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRunner
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ClientMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRunner
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ClientMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ClientMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Try", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &TryCall{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Body = &ClientMsg_Try{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &DataFrame{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Body = &ClientMsg_Data{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRunner(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRunner
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RunnerMsg) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRunner
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RunnerMsg: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RunnerMsg: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Accepted", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &CallAccepted{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Body = &RunnerMsg_Accepted{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ResultStart", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &CallResultStart{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Body = &RunnerMsg_ResultStart{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &DataFrame{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Body = &RunnerMsg_Data{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Finished", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRunner
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRunner
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &CallFinished{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Body = &RunnerMsg_Finished{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -809,20 +2326,36 @@ var (
 func init() { proto.RegisterFile("runner.proto", fileDescriptorRunner) }
 
 var fileDescriptorRunner = []byte{
-	// 226 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x29, 0x2a, 0xcd, 0xcb,
-	0x4b, 0x2d, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x57, 0xb2, 0xe4, 0xe2, 0x0d, 0x29, 0xaa, 0xf4,
-	0xcc, 0x2b, 0xcb, 0x4f, 0x4e, 0x2c, 0xc9, 0xcc, 0xcf, 0x13, 0xd2, 0xe0, 0x12, 0xc8, 0xcd, 0x4f,
-	0x49, 0xcd, 0x29, 0x8e, 0x4f, 0x4e, 0xcc, 0xc9, 0x89, 0xcf, 0x2a, 0xce, 0xcf, 0x93, 0x60, 0x54,
-	0x60, 0xd4, 0xe0, 0x0c, 0xe2, 0x83, 0x88, 0x3b, 0x27, 0xe6, 0xe4, 0x78, 0x15, 0xe7, 0xe7, 0x29,
-	0xb9, 0x73, 0xf1, 0x22, 0xf4, 0x39, 0x26, 0x67, 0x0b, 0xc9, 0x70, 0x71, 0x26, 0xe7, 0xe7, 0xe6,
-	0x66, 0x96, 0x94, 0xa4, 0xa6, 0x80, 0xf5, 0x70, 0x04, 0x21, 0x04, 0x84, 0x24, 0xb8, 0xd8, 0x53,
-	0x52, 0x4b, 0x12, 0x33, 0x73, 0x8a, 0x25, 0x98, 0xc0, 0xe6, 0xc1, 0xb8, 0x4a, 0x86, 0x5c, 0x9c,
-	0x2e, 0x89, 0x25, 0x89, 0x6e, 0x45, 0x89, 0xb9, 0xa9, 0x42, 0x42, 0x5c, 0x2c, 0x29, 0x89, 0x25,
-	0x89, 0x60, 0xfd, 0x3c, 0x41, 0x60, 0xb6, 0x90, 0x00, 0x17, 0x73, 0x6a, 0x7e, 0x1a, 0x58, 0x1b,
-	0x47, 0x10, 0x88, 0xa9, 0xe4, 0xca, 0xc5, 0x8f, 0xb0, 0xdb, 0x35, 0x2f, 0x05, 0x62, 0x7e, 0x71,
-	0x69, 0x72, 0x72, 0x6a, 0x71, 0x31, 0xd4, 0x6e, 0x18, 0x17, 0xb7, 0xcd, 0x4e, 0x02, 0x27, 0x1e,
-	0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x8c, 0xc7, 0x72, 0x0c, 0x49,
-	0x6c, 0xe0, 0x60, 0x31, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xcb, 0x48, 0x3f, 0xfd, 0x26, 0x01,
-	0x00, 0x00,
+	// 492 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x93, 0xdd, 0x8a, 0xd3, 0x40,
+	0x14, 0xc7, 0x9b, 0x6d, 0xb7, 0x1f, 0x27, 0xdd, 0xb5, 0x0c, 0x5e, 0x14, 0x59, 0x6a, 0x89, 0x0a,
+	0x05, 0x21, 0x68, 0x57, 0xbd, 0x14, 0x6c, 0xb5, 0x04, 0x61, 0x41, 0x66, 0xc5, 0xdb, 0x32, 0x9b,
+	0x39, 0xdb, 0x56, 0xa7, 0x99, 0x30, 0x73, 0x22, 0xf4, 0x4d, 0x7c, 0x22, 0xf1, 0xd2, 0x47, 0x90,
+	0xfa, 0x22, 0x32, 0x93, 0xa4, 0x5b, 0x04, 0xbd, 0x3b, 0x73, 0x3e, 0xff, 0xe7, 0x97, 0x13, 0xe8,
+	0x9b, 0x22, 0xcb, 0xd0, 0xc4, 0xb9, 0xd1, 0xa4, 0xa3, 0x4b, 0xe8, 0x7c, 0x34, 0xbb, 0xb9, 0x50,
+	0x8a, 0x4d, 0x60, 0xb0, 0xd5, 0x12, 0x95, 0x5d, 0xa6, 0x42, 0xa9, 0xe5, 0x67, 0xab, 0xb3, 0x61,
+	0x30, 0x0e, 0x26, 0x3d, 0x7e, 0x5e, 0xfa, 0x5d, 0xd6, 0x7b, 0xab, 0xb3, 0x68, 0x01, 0x7d, 0x67,
+	0xbf, 0x49, 0x53, 0xcc, 0x09, 0x25, 0xbb, 0x80, 0x5e, 0xaa, 0xb7, 0xdb, 0x0d, 0x11, 0x4a, 0x5f,
+	0xd2, 0xe5, 0x77, 0x0e, 0x36, 0x84, 0x8e, 0x44, 0x12, 0x1b, 0x65, 0x87, 0x27, 0xbe, 0x5d, 0xfd,
+	0x8c, 0x9e, 0x43, 0xef, 0xad, 0x20, 0xb1, 0x30, 0x62, 0x8b, 0x8c, 0x41, 0x4b, 0x0a, 0x12, 0xbe,
+	0xbe, 0xcf, 0xbd, 0xcd, 0x06, 0xd0, 0x44, 0x7d, 0xeb, 0xcb, 0xba, 0xdc, 0x99, 0xd1, 0x0b, 0x80,
+	0x84, 0x28, 0x4f, 0x50, 0x48, 0x34, 0x2e, 0xfe, 0x05, 0x77, 0x95, 0x4a, 0x67, 0xb2, 0xfb, 0x70,
+	0xfa, 0x55, 0xa8, 0x02, 0xab, 0x51, 0xe5, 0x23, 0xfa, 0x04, 0x7d, 0x57, 0xc5, 0xd1, 0xe6, 0x57,
+	0x48, 0x82, 0x3d, 0x84, 0xd0, 0x92, 0xa0, 0xc2, 0x2e, 0x53, 0x2d, 0xd1, 0xd7, 0x9f, 0x72, 0x28,
+	0x5d, 0x73, 0x2d, 0x91, 0x3d, 0x81, 0xce, 0xda, 0x8f, 0x70, 0x9a, 0x9b, 0x93, 0x70, 0x1a, 0xc6,
+	0x77, 0x63, 0x79, 0x1d, 0x8b, 0x5e, 0xc3, 0x3d, 0x07, 0x82, 0xa3, 0x2d, 0x14, 0x5d, 0x93, 0x30,
+	0xc4, 0x1e, 0x41, 0x6b, 0x4d, 0x94, 0x0f, 0xe5, 0x38, 0x98, 0x84, 0xd3, 0xb3, 0xf8, 0x78, 0x6e,
+	0xd2, 0xe0, 0x3e, 0x38, 0x6b, 0x43, 0x6b, 0x8b, 0x24, 0xa2, 0x59, 0x09, 0x72, 0xb1, 0xc9, 0x36,
+	0x76, 0x5d, 0xa2, 0xb2, 0x45, 0x9a, 0xa2, 0xb5, 0x15, 0xc6, 0xfa, 0xf9, 0x1f, 0x88, 0xd7, 0xd0,
+	0x9b, 0xab, 0x0d, 0x66, 0x74, 0x65, 0x57, 0xec, 0x02, 0x9a, 0x64, 0x4a, 0x20, 0xe1, 0xb4, 0x1b,
+	0x57, 0x9f, 0x36, 0x69, 0x70, 0xe7, 0x66, 0xe3, 0x0a, 0xf1, 0x89, 0x0f, 0x43, 0x7c, 0x80, 0xef,
+	0x84, 0xb9, 0x88, 0x13, 0x76, 0xa3, 0xe5, 0x2e, 0xfa, 0x1e, 0x40, 0x8f, 0xfb, 0x3b, 0x71, 0x5d,
+	0x9f, 0x42, 0x57, 0x54, 0xdf, 0xba, 0x6a, 0x7d, 0x16, 0x1f, 0x1f, 0x40, 0xd2, 0xe0, 0x87, 0x04,
+	0xf6, 0x12, 0xfa, 0xc6, 0xf3, 0x58, 0x5a, 0x07, 0xa4, 0x1a, 0x36, 0x88, 0xff, 0x02, 0x95, 0x34,
+	0x78, 0x68, 0x8e, 0xb8, 0xd5, 0xda, 0x9a, 0xff, 0xd2, 0xe6, 0x54, 0xdc, 0x56, 0xa0, 0x86, 0xad,
+	0x23, 0x15, 0x35, 0x3d, 0xa7, 0xa2, 0x4e, 0xa8, 0x17, 0x99, 0xbe, 0x82, 0xf3, 0x72, 0x8f, 0x0f,
+	0xee, 0xdc, 0x53, 0xad, 0xd8, 0x63, 0x68, 0xbf, 0xcb, 0x56, 0x62, 0x85, 0x0c, 0xe2, 0x03, 0xb8,
+	0x07, 0x10, 0x1f, 0xd6, 0x9d, 0x04, 0xcf, 0x82, 0xd9, 0xe0, 0xc7, 0x7e, 0x14, 0xfc, 0xdc, 0x8f,
+	0x82, 0x5f, 0xfb, 0x51, 0xf0, 0xed, 0xf7, 0xa8, 0x71, 0xd3, 0xf6, 0x3f, 0xcc, 0xe5, 0x9f, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x50, 0x7d, 0x7a, 0x9c, 0x40, 0x03, 0x00, 0x00,
 }
