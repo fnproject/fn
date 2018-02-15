@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+message TryInvocation {
+    string models_call_json = 1;
+}
+
+message InvocationAck {
+    bool committed = 1;
+    string details = 2;
+}
+
+message DataFrame {
+    bytes data = 1;
+    bool eof = 2;
+}
+
+message InvocationEnded {
+    bool success = 1;
+    string details = 2;
+}
