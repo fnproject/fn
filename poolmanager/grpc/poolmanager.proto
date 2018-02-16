@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+message Runner {
+    string address = 1;
+    bytes client_key = 2;
+    bool active = 3;
+}
+
+message LoadBalancerGroup {
+    string id = 1;
+}
+
+message GroupPopulation {
+    LoadBalancerGroup group = 1;
+    google.protobuf.Timestamp generation = 2;
+    repeated Runner runners = 3;
+}
+
+message GroupPopulationSnapshot {
+    google.protobuf.Timestamp ts = 1;
+    repeated GroupPopulation populations = 2;
+}
+
+message CapacitySnapshot {
+    google.protobuf.Timestamp generation = 1;
+    LoadBalancerGroup group = 2;
+    int32 in_use = 3;
+    int32 total_required = 4;
+}
+
+message CapacitySnapshotList {
+    google.protobuf.Timestamp ts = 1;
+    string lb_id = 2;   
+    repeated CapacitySnapshot snapshots = 3;
+}
+
+service NodePoolManager {
+  rpc AdvertiseCapacity (stream CapacitySnapshotList) returns (google.protobuf.Empty) {}
+  rpc LoadBalancerGroupFeed(google.protobuf.Empty) returns (stream GroupPopulationSnapshot) {}
+}

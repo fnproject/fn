@@ -105,10 +105,7 @@
 
 [[projects]]
   name = "github.com/coreos/go-semver"
-  packages = [
-    ".",
-    "semver"
-  ]
+  packages = ["semver"]
   revision = "8ab6407b697782a06568d4b7f1db25550ec2e4c6"
   version = "v0.2.0"
 
@@ -209,8 +206,11 @@
 [[projects]]
   branch = "master"
   name = "github.com/fnproject/fdk-go"
-  packages = ["."]
-  revision = "46839d559f713a68137f3e4fc4117e7440231c57"
+  packages = [
+    ".",
+    "utils"
+  ]
+  revision = "5d768b2006f11737b6a69a758ddd6d2fac04923e"
 
 [[projects]]
   name = "github.com/fnproject/fn_go"
@@ -356,7 +356,14 @@
 [[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
-  packages = ["proto"]
+  packages = [
+    "proto",
+    "ptypes",
+    "ptypes/any",
+    "ptypes/duration",
+    "ptypes/empty",
+    "ptypes/timestamp"
+  ]
   revision = "c65a0412e71e8b9b3bfd22925720d23c0f054237"
 
 [[projects]]
@@ -619,7 +626,12 @@
   packages = [
     "context",
     "context/ctxhttp",
-    "idna"
+    "http2",
+    "http2/hpack",
+    "idna",
+    "internal/timeseries",
+    "lex/httplex",
+    "trace"
   ]
   revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
 
@@ -655,6 +667,42 @@
   revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
 
 [[projects]]
+  branch = "master"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
+
+[[projects]]
+  name = "google.golang.org/grpc"
+  packages = [
+    ".",
+    "balancer",
+    "balancer/base",
+    "balancer/roundrobin",
+    "codes",
+    "connectivity",
+    "credentials",
+    "encoding",
+    "encoding/proto",
+    "grpclb/grpc_lb_v1/messages",
+    "grpclog",
+    "internal",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "resolver",
+    "resolver/dns",
+    "resolver/passthrough",
+    "stats",
+    "status",
+    "tap",
+    "transport"
+  ]
+  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
+  version = "v1.10.0"
+
+[[projects]]
   name = "gopkg.in/go-playground/validator.v8"
   packages = ["."]
   revision = "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
@@ -678,6 +726,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f5c10f8c63262754a0ceb541105cfac5448693af7997269bb1edce828eb3a551"
+  inputs-digest = "8ec5b81a0e654c27357133c005be598f725219988d3e196382e81f7928f5c994"
   solver-name = "gps-cdcl"
   solver-version = 1
