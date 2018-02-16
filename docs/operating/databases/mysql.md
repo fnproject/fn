@@ -16,5 +16,5 @@ For more configuration options, see [docker mysql docs](https://hub.docker.com/_
 ```
 docker run --rm --privileged --link "func-mysql:mysql" \
     -e "FN_DB_URL=mysql://func:funcpass@tcp(mysql:3306)/funcs" \
-    -it -p 8080:8080 fnproject/fn
+    -it -p 8080:8080 fnproject/fnserver:latest
 ```
