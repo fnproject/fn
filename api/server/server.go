@@ -419,7 +419,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 
-	exporter, err := prometheus.NewExporter(prometheus.Options{})
+	exporter, err := prometheus.NewExporter(prometheus.Options{
+		Namespace: "fn",
+		// OnError:   func(err error) { panic(err) },
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

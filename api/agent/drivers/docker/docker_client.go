@@ -15,7 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -107,14 +106,15 @@ func init() {
 
 	// TODO do we have to do this? the measurements will be tagged on the context, will they be propagated
 	// or we have to white list them in the view for them to show up? test...
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	var err error
+	//appKey, err := tag.NewKey("fn_appname")
+	//if err != nil {
+	//logrus.Fatal(err)
+	//}
+	//pathKey, err := tag.NewKey("fn_path")
+	//if err != nil {
+	//logrus.Fatal(err)
+	//}
 
 	{
 		dockerRetriesMeasure, err = stats.Int64("docker_api_retries", "docker api retries", "")
@@ -122,16 +122,16 @@ func init() {
 			logrus.Fatal(err)
 		}
 		v, err := view.New(
-			"docker_api_retries_sum",
+			"docker_api_retries",
 			"number of times we've retried docker API upon failure",
-			[]tag.Key{appKey, pathKey},
+			nil, //[]tag.Key{appKey, pathKey},
 			dockerRetriesMeasure,
 			view.SumAggregation{},
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
 		}
-		if err := view.Register(v); err != nil {
+		if err := v.Subscribe(); err != nil {
 			logrus.Fatal(err)
 		}
 	}
@@ -144,14 +144,14 @@ func init() {
 		v, err := view.New(
 			"docker_api_timeout_count",
 			"number of times we've timed out calling docker API",
-			[]tag.Key{appKey, pathKey},
+			nil, // []tag.Key{appKey, pathKey},
 			dockerTimeoutMeasure,
 			view.CountAggregation{},
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
 		}
-		if err := view.Register(v); err != nil {
+		if err := v.Subscribe(); err != nil {
 			logrus.Fatal(err)
 		}
 	}
@@ -164,14 +164,14 @@ func init() {
 		v, err := view.New(
 			"docker_api_error_count",
 			"number of unrecoverable errors from docker API",
-			[]tag.Key{appKey, pathKey},
+			nil, // []tag.Key{appKey, pathKey},
 			dockerErrorMeasure,
 			view.CountAggregation{},
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
 		}
-		if err := view.Register(v); err != nil {
+		if err := v.Subscribe(); err != nil {
 			logrus.Fatal(err)
 		}
 	}
@@ -184,14 +184,14 @@ func init() {
 		v, err := view.New(
 			"docker_oom_count",
 			"number of docker container oom",
-			[]tag.Key{appKey, pathKey},
+			nil, // []tag.Key{appKey, pathKey},
 			dockerErrorMeasure,
 			view.CountAggregation{},
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
 		}
-		if err := view.Register(v); err != nil {
+		if err := v.Subscribe(); err != nil {
 			logrus.Fatal(err)
 		}
 	}
