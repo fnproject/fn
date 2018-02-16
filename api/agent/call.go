@@ -167,6 +167,22 @@ func FromModel(mCall *models.Call) CallOpt {
 	}
 }
 
+func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
+	return func(a *agent, c *call) error {
+		c.Call = mCall
+
+		req, err := http.NewRequest(c.Method, c.URL, in)
+		if err != nil {
+			return err
+		}
+		req.Header = c.Headers
+
+		c.req = req
+		// TODO anything else really?
+		return nil
+	}
+}
+
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
 	return func(a *agent, c *call) error {
@@ -178,6 +194,24 @@ func WithWriter(w io.Writer) CallOpt {
 func WithContext(ctx context.Context) CallOpt {
 	return func(a *agent, c *call) error {
 		c.req = c.req.WithContext(ctx)
+		return nil
+	}
+}
+
+// This MUST run last
+func WithReservedSlot(ctx context.Context) CallOpt {
+	return func(a *agent, c *call) error {
+		a.stats.Enqueue(ctx, c.AppName, c.Path)
+
+		a.startStateTrackers(ctx, c)
+		defer a.endStateTrackers(ctx, c)
+		slot, err := a.getSlot(ctx, c)
+		if err != nil {
+			a.handleStatsDequeue(ctx, c, err)
+			a.endStateTrackers(ctx, c)
+			return transformTimeout(err, true)
+		}
+		c.reservedSlot = slot
 		return nil
 	}
 }
@@ -239,6 +273,7 @@ type call struct {
 	req            *http.Request
 	stderr         io.ReadWriteCloser
 	ct             callTrigger
+	reservedSlot   Slot
 	slots          *slotQueue
 	slotDeadline   time.Time
 	execDeadline   time.Time

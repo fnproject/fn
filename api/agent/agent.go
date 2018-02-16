@@ -242,17 +242,23 @@ func (a *agent) endStateTrackers(ctx context.Context, call *call) {
 }
 
 func (a *agent) submit(ctx context.Context, call *call) error {
-	a.stats.Enqueue(ctx, call.AppName, call.Path)
+	var slot Slot
+	var err error
+	if call.reservedSlot == nil {
+		a.stats.Enqueue(ctx, call.AppName, call.Path)
 
-	a.startStateTrackers(ctx, call)
-	defer a.endStateTrackers(ctx, call)
+		a.startStateTrackers(ctx, call)
+		defer a.endStateTrackers(ctx, call)
 
-	slot, err := a.getSlot(ctx, call)
-	if err != nil {
-		a.handleStatsDequeue(ctx, call, err)
-		return transformTimeout(err, true)
+		slot, err = a.getSlot(ctx, call)
+		if err != nil {
+			a.handleStatsDequeue(ctx, call, err)
+			return transformTimeout(err, true)
+		}
+	} else {
+		slot = call.reservedSlot
+		defer a.endStateTrackers(ctx, call)
 	}
-
 	defer slot.Close(ctx) // notify our slot is free once we're done
 
 	err = call.Start(ctx)
