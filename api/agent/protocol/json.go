@@ -59,9 +59,9 @@ func (p *JSONProtocol) IsStreamable() bool {
 }
 
 func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
-	buf := bufPool.Get().(*bytes.Buffer)
+	buf := BufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	defer bufPool.Put(buf)
+	defer BufPool.Put(buf)
 
 	_, err := io.Copy(buf, ci.Input())
 	if err != nil {
@@ -99,7 +99,8 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
 	var jout jsonOut
-	err = json.NewDecoder(h.out).Decode(&jout)
+	clamper := ClampReader{R: h.out, N: BufPoolChunkSize}
+	err = json.NewDecoder(&clamper).Decode(&jout)
 	span.Finish()
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))

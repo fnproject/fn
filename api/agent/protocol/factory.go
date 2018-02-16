@@ -172,3 +172,51 @@ func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 // IsStreamable says whether the given protocol can be used for streaming into
 // hot functions.
 func IsStreamable(p Protocol) bool { return New(p, nil, nil).IsStreamable() }
+
+type ClampWriter struct {
+	W io.Writer
+	N int64
+	E error
+}
+
+func (g *ClampWriter) Write(p []byte) (int, error) {
+	if g.N <= 0 {
+		if g.E == nil {
+			g.E = errors.New("IO size exceeded")
+		}
+		return 0, g.E
+	}
+	if int64(len(p)) > g.N {
+		if g.E == nil {
+			g.E = errors.New("IO size exceeded")
+		}
+		p = p[0:g.N]
+	}
+
+	n, err := g.W.Write(p)
+	g.N -= int64(n)
+	if err != nil {
+		if g.E == nil {
+			g.E = err
+		}
+	}
+	return n, g.E
+}
+
+type ClampReader struct {
+	R io.Reader
+	N int64
+}
+
+func (g *ClampReader) Read(p []byte) (int, error) {
+	if g.N <= 0 {
+		return 0, errors.New("IO size exceeded")
+	}
+	if int64(len(p)) > g.N {
+		p = p[0:g.N]
+	}
+
+	n, err := g.R.Read(p)
+	g.N -= int64(n)
+	return n, err
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -139,20 +140,29 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
 	rImgBs2 := "localhost:5000/fnproject/imagethatdoesnotexist"
 
+	err := os.Setenv("FN_RESPONSE_SIZE", "2048")
+	if err != nil {
+		t.Errorf("Cannot set response size %v", err)
+	}
+	defer os.Setenv("FN_RESPONSE_SIZE", "")
+
 	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: rImg, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myhot", AppName: "myapp", Image: rImg, Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myhotjason", AppName: "myapp", Image: rImg, Type: "sync", Format: "json", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myroute", AppName: "myapp", Image: rImg, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myerror", AppName: "myapp", Image: rImg, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mydne", AppName: "myapp", Image: rImgBs1, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mydnehot", AppName: "myapp", Image: rImgBs1, Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mydneregistry", AppName: "myapp", Image: rImgBs2, Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myhot", AppName: "myapp", Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myhotjason", AppName: "myapp", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myroute", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myerror", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydne", AppName: "myapp", Image: rImgBs1, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydnehot", AppName: "myapp", Image: rImgBs1, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydneregistry", AppName: "myapp", Image: rImgBs2, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
 			{Path: "/myoom", AppName: "myapp", Image: rImg, Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mybigoutputcold", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 15, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/mybigoutputhttp", AppName: "myapp", Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 15, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/mybigoutputjson", AppName: "myapp", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 15, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
 		}, nil,
 	)
 
@@ -174,6 +184,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	multiLog := `{"sleepTime": 1, "isDebug": true}`
 	multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
+	bigoutput := `{"sleepTime": 0, "isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 
 	for i, test := range []struct {
 		path               string
@@ -208,6 +219,9 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
 		{"/r/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
 		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
+		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "IO size exceeded", nil},
+		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "IO size exceeded", nil},
+		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "IO size exceeded", nil},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
