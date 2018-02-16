@@ -198,7 +198,8 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 		return err
 	}
 	// shove the span headers in so that the server will continue this span
-	b3.HTTPFormat.SpanContextToRequest(span.SpanContext(), req)
+	var xxx b3.HTTPFormat
+	xxx.ToRequest(span.SpanContext(), req)
 
 	resp, err := cl.http.Do(req)
 	if err != nil {

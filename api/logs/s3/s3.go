@@ -11,17 +11,18 @@ import (
 	"net/url"
 	"strings"
 
-	"go.opencensus.io/trace"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 // TODO we should encrypt these, user will have to supply a key though (or all
@@ -145,7 +146,7 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 		return fmt.Errorf("failed to write log, %v", err)
 	}
 
-	common.PublishHistogramToSpan(span, "s3_log_upload_size", float64(cr.count))
+	stats.Record(ctx, downloadSizeMeasure.M(int64(cr.count)))
 	return nil
 }
 
@@ -170,6 +171,64 @@ func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, 
 		return nil, fmt.Errorf("failed to read log, %v", err)
 	}
 
-	common.PublishHistogramToSpan(span, "s3_log_download_size", float64(size))
+	stats.Record(ctx, downloadSizeMeasure.M(size))
 	return bytes.NewReader(target.Bytes()), nil
+}
+
+var (
+	uploadSizeMeasure   *stats.Int64Measure
+	downloadSizeMeasure *stats.Int64Measure
+)
+
+func init() {
+	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
+	// or we have to white list them in the view for them to show up? test...
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	{
+		uploadSizeMeasure, err = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"s3_log_upload_size",
+			"uploaded log size",
+			[]tag.Key{appKey, pathKey},
+			uploadSizeMeasure,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := view.Register(v); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	{
+		downloadSizeMeasure, err = stats.Int64("s3_log_download_size", "downloaded log size", "byte")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"s3_log_download_size",
+			"downloaded log size",
+			[]tag.Key{appKey, pathKey},
+			uploadSizeMeasure,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := view.Register(v); err != nil {
+			logrus.Fatal(err)
+		}
+	}
 }

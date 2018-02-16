@@ -30,6 +30,7 @@ import (
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 )
 
@@ -305,7 +306,7 @@ func WithTracer(zipkinURL string) ServerOption {
 		if zipkinHTTPEndpoint != "" {
 			reporter := zipkinhttp.NewReporter(zipkinURL, zipkinhttp.MaxBacklog(10000))
 			exporter := zipkin.NewExporter(reporter, nil)
-			trace.RegisterExporter(anExporter)
+			trace.RegisterExporter(exporter)
 			logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("exporting spans to zipkin")
 
 			// TODO don't do this. testing parity.
@@ -382,7 +383,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	server := http.Server{
 		Addr:    listen,
-		Handler: ochttp.Handler{Handler: s.Router},
+		Handler: &ochttp.Handler{Handler: s.Router},
 
 		// TODO we should set read/write timeouts
 	}
@@ -417,13 +418,14 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
-	// TODO: move the following under v1
+
 	exporter, err := prometheus.NewExporter(prometheus.Options{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	stats.RegisterExporter(exporter)
+	view.RegisterExporter(exporter)
 
+	// TODO: move under v1 ?
 	engine.GET("/metrics", gin.WrapH(exporter))
 
 	profilerSetup(engine, "/debug")

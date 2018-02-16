@@ -5,7 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fnproject/fn/api/common"
+	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 type RequestStateType int
@@ -137,16 +140,76 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 	// update old state stats
 	gaugeKey := containerGaugeKeys[oldState]
 	if gaugeKey != "" {
-		common.DecrementGauge(ctx, gaugeKey)
+		stats.Record(ctx, stats.FindMeasure(gaugeKey).(*stats.Int64Measure).M(-1))
 	}
+
 	timeKey := containerTimeKeys[oldState]
 	if timeKey != "" {
-		common.PublishElapsedTimeHistogram(ctx, timeKey, before, now)
+		stats.Record(ctx, stats.FindMeasure(timeKey).(*stats.Int64Measure).M(int64(now.Sub(before).Round(time.Millisecond))))
 	}
 
 	// update new state stats
 	gaugeKey = containerGaugeKeys[newState]
 	if gaugeKey != "" {
-		common.IncrementGauge(ctx, gaugeKey)
+		stats.Record(ctx, stats.FindMeasure(gaugeKey).(*stats.Int64Measure).M(1))
+	}
+}
+
+func init() {
+	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
+	// or we have to white list them in the view for them to show up? test...
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	for _, key := range containerGaugeKeys {
+		if key == "" { // leave nil intentionally, let it panic
+			continue
+		}
+		measure, err := stats.Int64(key, "containers in state "+key, "")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			key,
+			"containers in state "+key,
+			[]tag.Key{appKey, pathKey},
+			measure,
+			view.CountAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := view.Register(v); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	for _, key := range containerTimeKeys {
+		if key == "" {
+			continue
+		}
+		measure, err := stats.Int64(key, "time spent in container state "+key, "ms")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			key,
+			"time spent in container state "+key,
+			[]tag.Key{appKey, pathKey},
+			measure,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := view.Register(v); err != nil {
+			logrus.Fatal(err)
+		}
 	}
 }

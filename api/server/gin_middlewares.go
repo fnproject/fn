@@ -45,7 +45,7 @@ func traceWrap(c *gin.Context) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	ctx, err = tag.New(c.Request.Context(),
+	ctx, err := tag.New(c.Request.Context(),
 		tag.Insert(appKey, c.Param(api.CApp)),
 		tag.Insert(pathKey, c.Param(api.CRoute)),
 	)
@@ -54,7 +54,7 @@ func traceWrap(c *gin.Context) {
 	// to trigger per-request spans (we will want this), we can set sampler here per request.
 
 	ctx, serverSpan := trace.StartSpan(ctx, "serve_http")
-	defer serverSpan.Finish()
+	defer serverSpan.End()
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
