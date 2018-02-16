@@ -5,8 +5,8 @@ message TryCall {
     string models_call_json = 1;
 }
 
-// Call has been accepted and a slot allocated, but it's not running yet
-message CallAccepted {
+// Call has been accepted and a slot allocated, or it's been rejected
+message CallAcknowledged {
     bool committed = 1;
     string details = 2;
 }
@@ -54,7 +54,7 @@ message ClientMsg {
 
 message RunnerMsg {
     oneof body {
-        CallAccepted accepted = 1;
+        CallAcknowledged acknowledged = 1;
         CallResultStart result_start = 2;
         DataFrame data = 3;
         CallFinished finished = 4;
