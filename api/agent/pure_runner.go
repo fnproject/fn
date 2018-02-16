@@ -1,10 +1,10 @@
 package agent
 
 import (
-    "context"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
-    "encoding/json"
+	"encoding/json"
 	"errors"
 	"fmt"
 	runner "github.com/fnproject/fn/api/agent/grpc"
@@ -36,156 +36,155 @@ type runnerClient struct {
 }
 
 type writerFacade struct {
-    engagement runner.RunnerProtocol_EngageServer
-    outHeaders    http.Header
-    outStatus     int
-    headerWritten bool
+	engagement    runner.RunnerProtocol_EngageServer
+	outHeaders    http.Header
+	outStatus     int
+	headerWritten bool
 }
 
 func (w *writerFacade) Header() http.Header {
-    return w.outHeaders
+	return w.outHeaders
 }
 
 func (w *writerFacade) WriteHeader(status int) {
-    w.outStatus = status
-    w.commitHeaders()
+	w.outStatus = status
+	w.commitHeaders()
 }
 
 func (w *writerFacade) commitHeaders() {
-    if w.headerWritten {
-        return
-    }
-    w.headerWritten = true
-    log.Println("committing call with headers  %v : %d", w.outHeaders, w.outStatus)
+	if w.headerWritten {
+		return
+	}
+	w.headerWritten = true
+	log.Println("committing call with headers  %v : %d", w.outHeaders, w.outStatus)
 
-    var outHeaders []*runner.HttpHeader
+	var outHeaders []*runner.HttpHeader
 
-    for h, vals := range w.outHeaders {
-        for _, v := range vals {
-            outHeaders = append(outHeaders, &runner.HttpHeader{
-                Key:   h,
-                Value: v,
-            })
-        }
-    }
+	for h, vals := range w.outHeaders {
+		for _, v := range vals {
+			outHeaders = append(outHeaders, &runner.HttpHeader{
+				Key:   h,
+				Value: v,
+			})
+		}
+	}
 
-    log.Println("sending response value")
+	log.Println("sending response value")
 
-    err := w.engagement.Send(&runner.RunnerMsg{
-        Body: &runner.RunnerMsg_ResultStart{
-            ResultStart: &runner.CallResultStart{
-                Meta: &runner.CallResultStart_Http{
-                    Http: &runner.HttpRespMeta{
-                        Headers:    outHeaders,
-                        StatusCode: int32(w.outStatus),
-                    },
-                },
-            },
-        },
-    })
+	err := w.engagement.Send(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_ResultStart{
+			ResultStart: &runner.CallResultStart{
+				Meta: &runner.CallResultStart_Http{
+					Http: &runner.HttpRespMeta{
+						Headers:    outHeaders,
+						StatusCode: int32(w.outStatus),
+					},
+				},
+			},
+		},
+	})
 
-    if err != nil {
-        log.Println("error sending call", err)
-        panic(err)
-    }
-    log.Println("Sent call response ")
+	if err != nil {
+		log.Println("error sending call", err)
+		panic(err)
+	}
+	log.Println("Sent call response ")
 }
 
 func (w *writerFacade) Write(data []byte) (int, error) {
-    log.Printf("Got response data %s", string(data))
-    w.commitHeaders()
-    err := w.engagement.Send(&runner.RunnerMsg{
-        Body: &runner.RunnerMsg_Data{
-            Data: &runner.DataFrame{
-                Data: data,
-                Eof:  false,
-            },
-        },
-    })
+	log.Printf("Got response data %s", string(data))
+	w.commitHeaders()
+	err := w.engagement.Send(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_Data{
+			Data: &runner.DataFrame{
+				Data: data,
+				Eof:  false,
+			},
+		},
+	})
 
-    if err != nil {
-        return 0, errors.New("error sending data")
-    }
-    return len(data), nil
+	if err != nil {
+		return 0, errors.New("error sending data")
+	}
+	return len(data), nil
 }
 
 func (w *writerFacade) Close() error {
-    w.commitHeaders()
-    err := w.engagement.Send(&runner.RunnerMsg{
-        Body: &runner.RunnerMsg_Data{
-            Data: &runner.DataFrame{
-                Eof:    true,
-            },
-        },
-    })
+	w.commitHeaders()
+	err := w.engagement.Send(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_Data{
+			Data: &runner.DataFrame{
+				Eof: true,
+			},
+		},
+	})
 
-    if err != nil {
-        return errors.New("error sending close frame")
-    }
-    return nil
+	if err != nil {
+		return errors.New("error sending close frame")
+	}
+	return nil
 }
 
-
 type callState struct {
-    c       *call // the agent's version of call
-    w       *writerFacade
-    input   io.WriteCloser
-    started bool
-    errch   chan error
+	c       *call // the agent's version of call
+	w       *writerFacade
+	input   io.WriteCloser
+	started bool
+	errch   chan error
 }
 
 func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, state *callState) error {
-    if !state.started {
-        state.started = true
-        go func() {
-            err := pr.a.Submit(state.c)
-            if err != nil {
-                state.w.engagement.Send(&runner.RunnerMsg{
-                    Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
-                        Success: false,
-                        Details: fmt.Sprintf("%v", err),
-                    }}})
-            } else {
-                state.w.engagement.Send(&runner.RunnerMsg{
-                    Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
-                        Success: true,
-                        Details: state.c.Model().ID,
-                    }}})
-            }
-        }()
-    }
+	if !state.started {
+		state.started = true
+		go func() {
+			err := pr.a.Submit(state.c)
+			if err != nil {
+				state.w.engagement.Send(&runner.RunnerMsg{
+					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+						Success: false,
+						Details: fmt.Sprintf("%v", err),
+					}}})
+			} else {
+				state.w.engagement.Send(&runner.RunnerMsg{
+					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+						Success: true,
+						Details: state.c.Model().ID,
+					}}})
+			}
+		}()
+	}
 
-    if len(data.Data) > 0 {
-        _, err := state.input.Write(data.Data)
-        if err != nil {
-            return err
-        }
-    }
-    if data.Eof {
-        state.input.Close()
-    }
-    return nil
+	if len(data.Data) > 0 {
+		_, err := state.input.Write(data.Data)
+		if err != nil {
+			return err
+		}
+	}
+	if data.Eof {
+		state.input.Close()
+	}
+	return nil
 }
 
 func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, state *callState) error {
-    var c models.Call
-    err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
-    if err != nil {
-        return err
-    }
-    // TODO Validation of the call
+	var c models.Call
+	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
+	if err != nil {
+		return err
+	}
+	// TODO Validation of the call
 
-    var w http.ResponseWriter
-    w = state.w
-    inR, inW := io.Pipe()
-    agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w), WithReservedSlot(ctx))
-    if err != nil {
-        return err
-    }
-    state.c = agent_call.(*call)
-    state.input = inW
+	var w http.ResponseWriter
+	w = state.w
+	inR, inW := io.Pipe()
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w), WithReservedSlot(ctx))
+	if err != nil {
+		return err
+	}
+	state.c = agent_call.(*call)
+	state.input = inW
 
-    return nil
+	return nil
 }
 
 // Handles a client engagement
@@ -202,27 +201,27 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		log.Println("got md ", md)
 	}
 
-    var state = callState{
-        c: nil,
-        w: &writerFacade{
-            engagement: engagement,
-            outStatus: 200,
-            headerWritten: false,
-        },
-        started: false,
-        errch: make(chan error),
-    }
+	var state = callState{
+		c: nil,
+		w: &writerFacade{
+			engagement:    engagement,
+			outStatus:     200,
+			headerWritten: false,
+		},
+		started: false,
+		errch:   make(chan error),
+	}
 
 	grpc.EnableTracing = false
 	log.Printf("entering runner loop")
 	for {
 		msg, err := engagement.Recv()
 		if err != nil {
-            // Caller may have died, release any slot we've reserved and stop
-            // the call.
-            if state.c != nil && state.c.reservedSlot != nil {
-                state.c.reservedSlot.Close(engagement.Context())
-            }
+			// Caller may have died, release any slot we've reserved and stop
+			// the call.
+			if state.c != nil && state.c.reservedSlot != nil {
+				state.c.reservedSlot.Close(engagement.Context())
+			}
 			log.Fatal("io error from server", err)
 		}
 
@@ -237,19 +236,19 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 						Details:   fmt.Sprintf("%v", err),
 					}}})
 			} else {
-                engagement.Send(&runner.RunnerMsg{
-                    Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
-                        Committed: true,
-                        Details:   state.c.Model().ID,
-                    }}})
-            }
+				engagement.Send(&runner.RunnerMsg{
+					Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
+						Committed: true,
+						Details:   state.c.Model().ID,
+					}}})
+			}
 
 		case *runner.ClientMsg_Data:
 			// TODO If it's the first one, actually start the call. Then stream into current call.
-            err := pr.handleData(engagement.Context(), body.Data, &state)
-            if err != nil {
-                log.Fatal("What do we do here?!?")
-            }
+			err := pr.handleData(engagement.Context(), body.Data, &state)
+			if err != nil {
+				log.Fatal("What do we do here?!?")
+			}
 		default:
 			log.Fatal("Unrecognized or unhandled message")
 		}
@@ -258,16 +257,16 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 }
 
 func (pr *pureRunner) Start() error {
-    log.Println("Listening on ", pr.listen)
-    lis, err := net.Listen("tcp", pr.listen)
-    if err != nil {
-        return fmt.Errorf("could not listen on %s: %s", pr.listen, err)
-    }
+	log.Println("Listening on ", pr.listen)
+	lis, err := net.Listen("tcp", pr.listen)
+	if err != nil {
+		return fmt.Errorf("could not listen on %s: %s", pr.listen, err)
+	}
 
-    if err := pr.gRPCServer.Serve(lis); err != nil {
-        return fmt.Errorf("grpc serve error: %s", err)
-    }
-    return nil
+	if err := pr.gRPCServer.Serve(lis); err != nil {
+		return fmt.Errorf("grpc serve error: %s", err)
+	}
+	return nil
 }
 
 func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) (*pureRunner, error) {
@@ -306,4 +305,3 @@ func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) 
 
 	return pr, nil
 }
-

@@ -7,28 +7,27 @@ import (
 
 type CapacityManager interface {
 	Merge(*model.CapacitySnapshotList)
-	Purge(time.Time, func(LBGroupId, LBId))   // Remove requirements that are too old to consider current
+	Purge(time.Time, func(LBGroupId, LBId)) // Remove requirements that are too old to consider current
 }
 
 type LBGroupId string
 type LBId string
 
 type lbgRequirement struct {
-	ts time.Time   // Time of last update
-	in_use int64
+	ts           time.Time // Time of last update
+	in_use       int64
 	total_wanted int64
 }
 
 type lbgCapacityRequirements struct {
-	in_use  int64
+	in_use       int64
 	total_wanted int64
-	requirements map[LBId]*lbgRequirement  // NuLB id -> (ts, total_wanted)
+	requirements map[LBId]*lbgRequirement // NuLB id -> (ts, total_wanted)
 }
 
 type capacityManager struct {
-	requirements map[LBGroupId]*lbgCapacityRequirements  // LBGroup -> (totals, {lbid -> partials})
+	requirements map[LBGroupId]*lbgCapacityRequirements // LBGroup -> (totals, {lbid -> partials})
 }
-
 
 func NewCapacityManager() CapacityManager {
 	return &capacityManager{}
