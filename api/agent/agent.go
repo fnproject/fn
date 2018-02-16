@@ -505,10 +505,17 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: %v", s.clamper.E))
 	}
 
-	// yes, we leak this and retain the buf until client times out.
-	buf := s.clamper.W.(*bytes.Buffer)
 	errApp := make(chan error, 1)
+
+	// take ownership of this buffer to avoid cold token.Close() to touch it.
+	buf := s.clamper.W.(*bytes.Buffer)
+	s.clamper = nil
+	// yes, we leak this and retain the buf until client times out. But this timeout is
+	// closely bounded by our own ctx timeout below. Once we return err, we expect gin
+	// to close/finalize client request/connection.
 	go func() {
+		// IMPORTANT: keep the buffer until client is done.
+		defer protocol.BufPool.Put(buf)
 		_, err := io.Copy(call.w, ioutil.NopCloser(buf))
 		errApp <- err
 	}()
