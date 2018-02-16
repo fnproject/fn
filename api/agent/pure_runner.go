@@ -18,7 +18,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	//"net"
+	"net"
 	"net/http"
 	"sync"
 )
@@ -26,7 +26,7 @@ import (
 type pureRunner struct {
 	gRPCServer *grpc.Server
 	listen     string
-	a          *agent
+	a          Agent
 }
 
 type runnerClient struct {
@@ -257,7 +257,20 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	return nil
 }
 
-func CreatePureRunner(addr string, a *agent, cert string, key string, ca string) (*pureRunner, error) {
+func (pr *pureRunner) Start() error {
+    log.Println("Listening on ", pr.listen)
+    lis, err := net.Listen("tcp", pr.listen)
+    if err != nil {
+        return fmt.Errorf("could not listen on %s: %s", pr.listen, err)
+    }
+
+    if err := pr.gRPCServer.Serve(lis); err != nil {
+        return fmt.Errorf("grpc serve error: %s", err)
+    }
+    return nil
+}
+
+func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) (*pureRunner, error) {
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -293,3 +306,4 @@ func CreatePureRunner(addr string, a *agent, cert string, key string, ca string)
 
 	return pr, nil
 }
+

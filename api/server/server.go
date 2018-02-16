@@ -55,6 +55,7 @@ const (
 	ServerTypeFull ServerNodeType = iota
 	ServerTypeAPI
 	ServerTypeRunner
+	ServerTypePureRunner
 )
 
 func (s ServerNodeType) String() string {
@@ -65,6 +66,8 @@ func (s ServerNodeType) String() string {
 		return "api"
 	case ServerTypeRunner:
 		return "runner"
+	case ServerTypePureRunner:
+		return "pure-runner"
 	}
 }
 
@@ -88,6 +91,8 @@ func nodeTypeFromString(value string) ServerNodeType {
 		return ServerTypeAPI
 	case "runner":
 		return ServerTypeRunner
+	case "pure-runner":
+		return ServerTypePureRunner
 	default:
 		return ServerTypeFull
 	}
@@ -233,6 +238,12 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+		case ServerTypePureRunner:
+			ds, err := hybrid.NewNopDataStore()
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(ds))
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?
@@ -404,6 +415,18 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	installChildReaper()
 
+	if s.nodeType == ServerTypePureRunner {
+		// Run grpc too
+		// TODO: CERTS!!!
+		pr, err := agent.CreatePureRunner("localhost:9190", s.agent, "server.crt", "server.key", "ca.crt")
+		if err != nil {
+			logrus.WithError(err).Fatal("grpc server creation error")
+		}
+		go func() {
+			pr.Start()
+		}()
+	}
+
 	server := http.Server{
 		Addr:    listen,
 		Handler: s.Router,
@@ -446,49 +469,52 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	profilerSetup(engine, "/debug")
 
-	if s.nodeType != ServerTypeRunner {
-		v1 := engine.Group("/v1")
-		v1.Use(setAppNameInCtx)
-		v1.Use(s.apiMiddlewareWrapper())
-		v1.GET("/apps", s.handleAppList)
-		v1.POST("/apps", s.handleAppCreate)
+	// Pure runners don't have any route, they have grpc
+	if s.nodeType != ServerTypePureRunner {
+		if s.nodeType != ServerTypeRunner {
+			v1 := engine.Group("/v1")
+			v1.Use(setAppNameInCtx)
+			v1.Use(s.apiMiddlewareWrapper())
+			v1.GET("/apps", s.handleAppList)
+			v1.POST("/apps", s.handleAppCreate)
 
-		{
-			apps := v1.Group("/apps/:app")
-			apps.Use(appNameCheck)
+			{
+				apps := v1.Group("/apps/:app")
+				apps.Use(appNameCheck)
 
-			apps.GET("", s.handleAppGet)
-			apps.PATCH("", s.handleAppUpdate)
-			apps.DELETE("", s.handleAppDelete)
+				apps.GET("", s.handleAppGet)
+				apps.PATCH("", s.handleAppUpdate)
+				apps.DELETE("", s.handleAppDelete)
 
-			apps.GET("/routes", s.handleRouteList)
-			apps.POST("/routes", s.handleRoutesPostPutPatch)
-			apps.GET("/routes/:route", s.handleRouteGet)
-			apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
-			apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
-			apps.DELETE("/routes/*route", s.handleRouteDelete)
+				apps.GET("/routes", s.handleRouteList)
+				apps.POST("/routes", s.handleRoutesPostPutPatch)
+				apps.GET("/routes/:route", s.handleRouteGet)
+				apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
+				apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
+				apps.DELETE("/routes/*route", s.handleRouteDelete)
 
-			apps.GET("/calls", s.handleCallList)
+				apps.GET("/calls", s.handleCallList)
 
-			apps.GET("/calls/:call", s.handleCallGet)
-			apps.GET("/calls/:call/log", s.handleCallLogGet)
+				apps.GET("/calls/:call", s.handleCallGet)
+				apps.GET("/calls/:call/log", s.handleCallLogGet)
+			}
+
+			{
+				runner := v1.Group("/runner")
+				runner.PUT("/async", s.handleRunnerEnqueue)
+				runner.GET("/async", s.handleRunnerDequeue)
+
+				runner.POST("/start", s.handleRunnerStart)
+				runner.POST("/finish", s.handleRunnerFinish)
+			}
 		}
 
-		{
-			runner := v1.Group("/runner")
-			runner.PUT("/async", s.handleRunnerEnqueue)
-			runner.GET("/async", s.handleRunnerDequeue)
-
-			runner.POST("/start", s.handleRunnerStart)
-			runner.POST("/finish", s.handleRunnerFinish)
+		if s.nodeType != ServerTypeAPI {
+			runner := engine.Group("/r")
+			runner.Use(appNameCheck)
+			runner.Any("/:app", s.handleFunctionCall)
+			runner.Any("/:app/*route", s.handleFunctionCall)
 		}
-	}
-
-	if s.nodeType != ServerTypeAPI {
-		runner := engine.Group("/r")
-		runner.Use(appNameCheck)
-		runner.Any("/:app", s.handleFunctionCall)
-		runner.Any("/:app/*route", s.handleFunctionCall)
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
