@@ -40,6 +40,22 @@ func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	return callID.CallID
 }
 
+func CallSync(t *testing.T, u url.URL, content io.Reader) string {
+	output := &bytes.Buffer{}
+	hdrs, err := CallFN(u.String(), content, output, "POST", []string{})
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	callId := hdrs.Get("FN_CALL_ID")
+	if callId == "" {
+		t.Errorf("Assertion error.\n\tExpected call id header in response, got: %v", hdrs)
+	}
+
+	t.Logf("Sync execution call ID: %v", callId)
+	return callId
+}
+
 func TestCanCallfunction(t *testing.T) {
 	t.Parallel()
 	s := SetupDefaultSuite()
@@ -246,7 +262,7 @@ func TestMultiLog(t *testing.T) {
 	s := SetupDefaultSuite()
 	routePath := "/multi-log"
 	image := "funcy/multi-log:0.0.1"
-	routeType := "async"
+	routeType := "sync"
 
 	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
@@ -258,7 +274,7 @@ func TestMultiLog(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
 
-	callID := CallAsync(t, u, &bytes.Buffer{})
+	callID := CallSync(t, u, &bytes.Buffer{})
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
@@ -266,18 +282,10 @@ func TestMultiLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
-		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-		return err
-	})
-
-	if retryErr != nil {
-		t.Error(retryErr.Error())
+	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+	if err != nil {
+		t.Error(err.Error())
 	} else {
-		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-		if err != nil {
-			t.Errorf("Unexpected error: %s", err)
-		}
 		if logObj.Payload == "" {
 			t.Errorf("Log entry must not be empty!")
 		}
@@ -330,7 +338,7 @@ func TestCanWriteLogs(t *testing.T) {
 	s := SetupDefaultSuite()
 	routePath := "/log"
 	image := "funcy/log:0.0.1"
-	routeType := "async"
+	routeType := "sync"
 
 	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
@@ -346,7 +354,7 @@ func TestCanWriteLogs(t *testing.T) {
 		Size int
 	}{Size: 20})
 
-	callID := CallAsync(t, u, content)
+	callID := CallSync(t, u, content)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
@@ -354,13 +362,10 @@ func TestCanWriteLogs(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
-		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-		return err
-	})
-
-	if retryErr != nil {
-		t.Error(retryErr.Error())
+	// TODO this test is redundant we have 3 tests for this?
+	_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+	if err != nil {
+		t.Error(err.Error())
 	}
 
 	DeleteApp(t, s.Context, s.Client, s.AppName)
@@ -371,7 +376,7 @@ func TestOversizedLog(t *testing.T) {
 	s := SetupDefaultSuite()
 	routePath := "/log"
 	image := "funcy/log:0.0.1"
-	routeType := "async"
+	routeType := "sync"
 
 	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
@@ -388,7 +393,7 @@ func TestOversizedLog(t *testing.T) {
 		Size int
 	}{Size: size}) //exceeding log by 1 symbol
 
-	callID := CallAsync(t, u, content)
+	callID := CallSync(t, u, content)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
@@ -396,22 +401,14 @@ func TestOversizedLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
-		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-		return err
-	})
-	if retryErr != nil {
-		t.Error(retryErr.Error())
+	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+	if err != nil {
+		t.Error(err.Error())
 	} else {
-		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-		if err != nil {
-			t.Errorf("Unexpected error: %s", err)
-		}
 		if len(logObj.Payload) >= size {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
 				size/1024, len(logObj.Payload))
 		}
-
 	}
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
