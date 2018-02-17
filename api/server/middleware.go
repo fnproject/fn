@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
@@ -24,9 +25,24 @@ type middlewareController struct {
 func (c *middlewareController) CallFunction(w http.ResponseWriter, r *http.Request) {
 	c.functionCalled = true
 	ctx := r.Context()
+
 	ctx = context.WithValue(ctx, fnext.MiddlewareControllerKey, c)
 	r = r.WithContext(ctx)
 	c.ginContext.Request = r
+
+	// since we added middleware that checks the app ID
+	// we need to ensure that we set it as soon as possible
+	appName := ctx.Value(api.CApp).(string)
+	if appName != "" {
+		appID, err := c.server.datastore.GetAppID(ctx, appName)
+		if err != nil {
+			handleErrorResponse(c.ginContext, err)
+			c.ginContext.Abort()
+			return
+		}
+		c.ginContext.Set(api.AppID, appID)
+	}
+
 	c.server.handleFunctionCall(c.ginContext)
 	c.ginContext.Abort()
 }
