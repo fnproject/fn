@@ -290,7 +290,7 @@ func TestAppUpdate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{ds, logs.NewMock(), "/v1/apps/myapp", ``, http.StatusNotFound, models.ErrAppsNotFound},
+		{ds, logs.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// Addresses #380
 		{datastore.NewMockInit(

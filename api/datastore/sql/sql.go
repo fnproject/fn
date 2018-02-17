@@ -882,7 +882,6 @@ func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
 	if len(filter.NameIn) > 0 {
-		// fmt.Println("about to sqlx.in:", b.String(), args)
 		return sqlx.In(b.String(), args...)
 	}
 	return b.String(), args, nil
