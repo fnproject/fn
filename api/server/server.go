@@ -885,7 +885,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
 			runner.Use(s.checkAppPresenceByNameAtRunner())
-			//runner.Use(appNameCheck)
 			runner.Any("/:app", s.handleFunctionCall)
 			runner.Any("/:app/*route", s.handleFunctionCall)
 		}
