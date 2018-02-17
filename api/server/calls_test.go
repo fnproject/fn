@@ -56,7 +56,8 @@ func TestCallGet(t *testing.T) {
 		expectedError error
 	}{
 		{"/v1/apps//calls/" + call.ID, "", http.StatusBadRequest, models.ErrAppsMissingName},
-		{"/v1/apps/nodawg/calls/" + call.ID, "", http.StatusNotFound, models.ErrAppsNotFound}, // TODO a little weird
+		{"/v1/apps/nodawg/calls/" + call.ID, "", http.StatusNotFound, models.ErrAppsNotFound},
+		{"/v1/apps/myapp/calls/" + id.New().String(), "", http.StatusNotFound, models.ErrCallNotFound},
 		{"/v1/apps/myapp/calls/" + call.ID[:3], "", http.StatusNotFound, models.ErrCallNotFound},
 		{"/v1/apps/myapp/calls/" + call.ID, "", http.StatusOK, nil},
 	} {
