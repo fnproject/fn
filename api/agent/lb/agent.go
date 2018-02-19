@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -83,7 +84,14 @@ func (a *lbAgent) Submit(call agent.Call) error {
 		logrus.WithError(err).Error("Unable to create client to runner node")
 		return err
 	}
-	err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: ""}}})
+
+	modelJSON, err := json.Marshal(call.Model())
+	if err != nil {
+		logrus.WithError(err).Error("Failed to encode model as JSON")
+		return err
+	}
+
+	err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
 	msg, err := protocolClient.Recv()
 
 	if err != nil {
