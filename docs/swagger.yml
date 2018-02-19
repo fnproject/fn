@@ -553,13 +553,6 @@ definitions:
         description: Most recent time that app was updated. Always in UTC.
         readOnly: true
 
-  Version:
-    type: object
-    properties:
-      version:
-        type: string
-        readOnly: true
-
   RoutesWrapper:
     type: object
     required:
