@@ -6,7 +6,6 @@ import "google/protobuf/empty.proto";
 message Runner {
     string address = 1;
     bytes client_key = 2;
-    bool active = 3;
 }
 
 message LBGroupId {

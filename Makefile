@@ -82,7 +82,7 @@ protos: api/agent/grpc/runner.pb.go poolmanager/grpc/poolmanager.pb.go
 
 %.pb.go: %.proto
 	protoc  --proto_path=$(@D) --proto_path=./vendor \
-          --gofast_out=plugins=grpc:$(@D)    $<
+    --go_out=plugins=grpc:$(@D) $<
 
 run: build
 	GIN_MODE=debug ./fnserver
