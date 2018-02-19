@@ -201,6 +201,14 @@ func WithContext(ctx context.Context) CallOpt {
 // This MUST run last
 func WithReservedSlot(ctx context.Context) CallOpt {
 	return func(a *agent, c *call) error {
+		// We need deadlines otherwise our slot will have expired in 1970... :)
+		now := time.Now()
+		slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
+		execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
+
+		c.slotDeadline = slotDeadline
+		c.execDeadline = execDeadline
+
 		a.stats.Enqueue(ctx, c.AppName, c.Path)
 
 		a.startStateTrackers(ctx, c)
@@ -234,9 +242,12 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-		// if we're not going to be able to run this call on this machine, bail here.
-		return nil, models.ErrCallTimeoutServerBusy
+	// Only perform this check if we haven't already reserved a slot
+	if c.reservedSlot == nil {
+		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+			// if we're not going to be able to run this call on this machine, bail here.
+			return nil, models.ErrCallTimeoutServerBusy
+		}
 	}
 
 	c.da = a.da
@@ -255,12 +266,15 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
-	now := time.Now()
-	slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
-	execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
+	// Only set deadlines if we haven't already reserved a slot (in that case we already have them)
+	if c.reservedSlot == nil {
+		now := time.Now()
+		slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
+		execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
 
-	c.slotDeadline = slotDeadline
-	c.execDeadline = execDeadline
+		c.slotDeadline = slotDeadline
+		c.execDeadline = execDeadline
+	}
 
 	return &c, nil
 }
