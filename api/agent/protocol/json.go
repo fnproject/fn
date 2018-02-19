@@ -98,10 +98,14 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	}
 
 	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
+
+	reader := ClampReader{R: h.out, N: BufPoolChunkSize}
 	var jout jsonOut
-	clamper := ClampReader{R: h.out, N: BufPoolChunkSize}
-	err = json.NewDecoder(&clamper).Decode(&jout)
+	err = json.NewDecoder(&reader).Decode(&jout)
 	span.Finish()
+	if reader.E {
+		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: body too large"))
+	}
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}

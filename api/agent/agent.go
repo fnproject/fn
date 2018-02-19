@@ -501,8 +501,8 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 		return res.Error()
 	}
 
-	if s.clamper.E != nil {
-		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: %v", s.clamper.E))
+	if s.clamper.E {
+		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: body too large"))
 	}
 
 	errApp := make(chan error, 1)
@@ -581,7 +581,6 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	defer stdoutWrite.Close()
 
 	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
-
 	swapBack := s.container.swap(stdinRead, stdoutWrite, call.stderr, &call.Stats)
 	defer swapBack() // NOTE: it's important this runs before the pipes are closed.
 
@@ -622,7 +621,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	buf := protocol.BufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 
-	clamper := protocol.ClampWriter{W: buf, N: protocol.BufPoolChunkSize, E: nil}
+	clamper := protocol.ClampWriter{W: buf, N: protocol.BufPoolChunkSize}
 
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...

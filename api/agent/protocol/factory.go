@@ -176,47 +176,39 @@ func IsStreamable(p Protocol) bool { return New(p, nil, nil).IsStreamable() }
 type ClampWriter struct {
 	W io.Writer
 	N int64
-	E error
+	E bool
 }
 
 func (g *ClampWriter) Write(p []byte) (int, error) {
 	if g.N <= 0 {
-		if g.E == nil {
-			g.E = errors.New("IO size exceeded")
-		}
-		return 0, g.E
+		g.E = true
+		return 0, io.EOF
 	}
 	if int64(len(p)) > g.N {
-		if g.E == nil {
-			g.E = errors.New("IO size exceeded")
-		}
+		g.E = true
 		p = p[0:g.N]
 	}
 
 	n, err := g.W.Write(p)
 	g.N -= int64(n)
-	if err != nil {
-		if g.E == nil {
-			g.E = err
-		}
-	}
-	return n, g.E
+	return n, err
 }
 
 type ClampReader struct {
-	R io.Reader
-	N int64
+	R io.Reader // underlying reader
+	N int64     // max bytes remaining
+	E bool
 }
 
-func (g *ClampReader) Read(p []byte) (int, error) {
-	if g.N <= 0 {
-		return 0, errors.New("IO size exceeded")
+func (l *ClampReader) Read(p []byte) (int, error) {
+	if l.N <= 0 {
+		l.E = true
+		return 0, io.EOF
 	}
-	if int64(len(p)) > g.N {
-		p = p[0:g.N]
+	if int64(len(p)) > l.N {
+		p = p[0:l.N]
 	}
-
-	n, err := g.R.Read(p)
-	g.N -= int64(n)
+	n, err := l.R.Read(p)
+	l.N -= int64(n)
 	return n, err
 }
