@@ -1,8 +1,9 @@
 package poolmanager
 
 import (
-	model "github.com/fnproject/fn/poolmanager/grpc"
 	"time"
+
+	model "github.com/fnproject/fn/poolmanager/grpc"
 )
 
 type CapacityManager interface {
@@ -36,7 +37,7 @@ func NewCapacityManager() CapacityManager {
 func (m *capacityManager) Merge(list *model.CapacitySnapshotList) {
 	lbid := LBId(list.GetLbId())
 	for _, new_req := range list.Snapshots {
-		lbg := LBGroupId(new_req.GetGroup().GetId())
+		lbg := LBGroupId(new_req.GetGroupId().GetId())
 		currentReqs, ok := m.requirements[lbg]
 		if !ok {
 			// We have a new LBGroup we don't know about, insert and update
@@ -57,13 +58,13 @@ func (m *capacityManager) Merge(list *model.CapacitySnapshotList) {
 		currentReqs.total_wanted -= old_req.total_wanted
 
 		// Update totals: add this LB's new assertions and record them
-		currentReqs.in_use += int64(new_req.GetInUse())
-		currentReqs.total_wanted += int64(new_req.GetTotalRequired())
+		currentReqs.in_use += int64(new_req.GetMemMbCommitted())
+		currentReqs.total_wanted += int64(new_req.GetMemMbTotal())
 
 		// Keep a copy of this requirement
 		old_req.ts = time.Now()
-		old_req.in_use = int64(new_req.GetInUse())
-		old_req.total_wanted = int64(new_req.GetTotalRequired())
+		old_req.in_use = int64(new_req.GetMemMbCommitted())
+		old_req.total_wanted = int64(new_req.GetMemMbTotal())
 
 		// TODO: new_req also has a generation for the runner information that LB held. If that's out of date, signal that we need to readvertise
 	}

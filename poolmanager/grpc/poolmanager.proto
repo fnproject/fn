@@ -9,26 +9,19 @@ message Runner {
     bool active = 3;
 }
 
-message LoadBalancerGroup {
+message LBGroupId {
     string id = 1;
 }
 
-message GroupPopulation {
-    LoadBalancerGroup group = 1;
-    google.protobuf.Timestamp generation = 2;
-    repeated Runner runners = 3;
-}
-
-message GroupPopulationSnapshot {
-    google.protobuf.Timestamp ts = 1;
-    repeated GroupPopulation populations = 2;
+message LBGroupMembership {
+    LBGroupId group_id = 1;
+    repeated Runner runners = 2;
 }
 
 message CapacitySnapshot {
-    google.protobuf.Timestamp generation = 1;
-    LoadBalancerGroup group = 2;
-    int32 in_use = 3;
-    int32 total_required = 4;
+    LBGroupId group_id = 1;
+    int32 mem_mb_committed = 2;
+    int32 mem_mb_total = 3;
 }
 
 message CapacitySnapshotList {
@@ -37,7 +30,10 @@ message CapacitySnapshotList {
     repeated CapacitySnapshot snapshots = 3;
 }
 
-service NodePoolManager {
-  rpc AdvertiseCapacity (stream CapacitySnapshotList) returns (google.protobuf.Empty) {}
-  rpc LoadBalancerGroupFeed(google.protobuf.Empty) returns (stream GroupPopulationSnapshot) {}
+service NodePoolScaler {
+  rpc AdvertiseCapacity (CapacitySnapshotList) returns (google.protobuf.Empty) {}
+}
+
+service RunnerManager {
+  rpc GetLBGroup(LBGroupId) returns (LBGroupMembership) {}
 }
