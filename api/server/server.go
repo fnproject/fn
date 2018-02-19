@@ -16,6 +16,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	lbagent "github.com/fnproject/fn/api/agent/lb"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -38,6 +39,7 @@ const (
 	EnvDBURL     = "FN_DB_URL"
 	EnvLOGDBURL  = "FN_LOGSTORE_URL"
 	EnvRunnerURL = "FN_RUNNER_API_URL"
+	EnvLbURL     = "FN_LB_URL"
 	EnvNodeType  = "FN_NODE_TYPE"
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
@@ -54,6 +56,7 @@ type ServerNodeType int32
 const (
 	ServerTypeFull ServerNodeType = iota
 	ServerTypeAPI
+	ServerTypeLB
 	ServerTypeRunner
 	ServerTypePureRunner
 )
@@ -64,6 +67,8 @@ func (s ServerNodeType) String() string {
 		return "full"
 	case ServerTypeAPI:
 		return "api"
+	case ServerTypeLB:
+		return "lb"
 	case ServerTypeRunner:
 		return "runner"
 	case ServerTypePureRunner:
@@ -89,6 +94,8 @@ func nodeTypeFromString(value string) ServerNodeType {
 	switch value {
 	case "api":
 		return ServerTypeAPI
+	case "lb":
+		return ServerTypeLB
 	case "runner":
 		return ServerTypeRunner
 	case "pure-runner":
@@ -114,6 +121,8 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
+	opts = append(opts, WithLbURL(getEnv(EnvLbURL, "")))
+	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
@@ -186,6 +195,33 @@ func WithLogURL(logstoreURL string) ServerOption {
 	}
 }
 
+// When running as a runner, it creates a client that is a runner client
+// Instead - when some environment variable is present to say that this is an lb node
+// just instantiate an LB agent
+// THIS ALSO HAPPENS IN WithAgentFromEnv!
+func WithRunnerURL(runnerURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if runnerURL != "" {
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+		}
+		return nil
+	}
+}
+
+func WithLbURL(lbURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if lbURL != "" {
+			delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			s.agent = lbagent.New(lbURL, delegatedAgent)
+		}
+		return nil
+	}
+}
+
 func WithType(t ServerNodeType) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.nodeType = t
@@ -244,6 +280,19 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			s.agent = agent.New(agent.NewCachedDataAccess(ds))
+		case ServerTypeLB:
+			lbURL := getEnv(EnvLbURL, "")
+			s.nodeType = ServerTypeLB
+			if s.logstore == nil { // TODO seems weird?
+				s.logstore = s.datastore
+			}
+			if s.datastore == nil || s.logstore == nil || s.mq == nil {
+				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+			}
+			if lbURL != "" {
+				delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+				s.agent = lbagent.New(lbURL, delegatedAgent)
+			}
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?
@@ -403,7 +452,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
 
 	const runHeader = `
-        ______
+	______
        / ____/___
       / /_  / __ \
      / __/ / / / /
@@ -588,3 +637,10 @@ type callsResponse struct {
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
 }
+
+// A third server mode which is lb
+
+// How is the hybrid agent chosen?
+// It can behave like an agent initially, but then make a request to a runner with the model call
+// The agent's knowledge of the world just needs to be a bit more sophisticated - and it needs to
+// request runner capacity - at the moment it *is* the runner node, so doesn't know about other ones
