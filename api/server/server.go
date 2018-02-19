@@ -45,9 +45,9 @@ const (
 	EnvAPICORS   = "FN_API_CORS"
 	EnvZipkinURL = "FN_ZIPKIN_URL"
 	// Certificates to communicate with other FN nodes
-	EnvCert      = "FN_NODE_CERT"
-	EnvCertKey   = "FN_NODE_CERT_KEY"
-	EnvCertAuth  = "FN_NODE_CERT_AUTHORITY"
+	EnvCert     = "FN_NODE_CERT"
+	EnvCertKey  = "FN_NODE_CERT_KEY"
+	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -497,7 +497,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
 
 	const runHeader = `
-	______
+        ______
        / ____/___
       / /_  / __ \
      / __/ / / / /
@@ -513,7 +513,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		// Run grpc too
 		pr, err := agent.CreatePureRunner("localhost:9190", s.agent, s.cert, s.certKey, s.certAuthority)
 		if err != nil {
-			logrus.WithError(err).Fatal("grpc server creation error")
+			logrus.WithError(err).Fatal("Pure runner server creation error")
 		}
 		go func() {
 			pr.Start()

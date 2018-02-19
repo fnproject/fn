@@ -20,19 +20,13 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"sync"
 )
 
 type pureRunner struct {
-	gRPCServer *grpc.Server
-	listen     string
-	a          Agent
-}
-
-type runnerClient struct {
-	client    runner.RunnerProtocol_EngageServer
-	callState sync.Map
-	id        string
+	gRPCServer  *grpc.Server
+	listen      string
+	a           Agent
+	streamError error // Last communication error on the stream
 }
 
 type writerFacade struct {
@@ -139,17 +133,27 @@ func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, st
 		go func() {
 			err := pr.a.Submit(state.c)
 			if err != nil {
-				state.w.engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
-						Success: false,
-						Details: fmt.Sprintf("%v", err),
-					}}})
+				if pr.streamError == nil { // If we can still write back...
+					err2 := state.w.engagement.Send(&runner.RunnerMsg{
+						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+							Success: false,
+							Details: fmt.Sprintf("%v", err),
+						}}})
+					if err2 != nil {
+						pr.streamError = err2
+					}
+				}
 			} else {
-				state.w.engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
-						Success: true,
-						Details: state.c.Model().ID,
-					}}})
+				if pr.streamError == nil { // If we can still write back...
+					err2 := state.w.engagement.Send(&runner.RunnerMsg{
+						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+							Success: true,
+							Details: state.c.Model().ID,
+						}}})
+					if err2 != nil {
+						pr.streamError = err2
+					}
+				}
 			}
 		}()
 	}
@@ -217,12 +221,13 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	for {
 		msg, err := engagement.Recv()
 		if err != nil {
-			// Caller may have died, release any slot we've reserved and stop
-			// the call.
+			pr.streamError = err
+			// Caller may have died, push an eof on the input, stop the call and
+			// release any slot we've reserved.
 			if state.c != nil && state.c.reservedSlot != nil {
-				state.c.reservedSlot.Close(engagement.Context())
+				state.c.reservedSlot.Close(engagement.Context()) // I have NO IDEA if this is enough
 			}
-			log.Fatal("io error from server", err)
+			return err
 		}
 
 		switch body := msg.Body.(type) {
@@ -230,27 +235,40 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		case *runner.ClientMsg_Try:
 			err := pr.handleTryCall(engagement.Context(), body.Try, &state)
 			if err != nil {
-				engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
-						Committed: false,
-						Details:   fmt.Sprintf("%v", err),
-					}}})
+				if pr.streamError == nil { // If we can still write back...
+					err2 := engagement.Send(&runner.RunnerMsg{
+						Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
+							Committed: false,
+							Details:   fmt.Sprintf("%v", err),
+						}}})
+					if err2 != nil {
+						pr.streamError = err2
+						return err2
+					}
+				}
 			} else {
-				engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
-						Committed: true,
-						Details:   state.c.Model().ID,
-					}}})
+				if pr.streamError == nil { // If we can still write back...
+					err2 := engagement.Send(&runner.RunnerMsg{
+						Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
+							Committed: true,
+							Details:   state.c.Model().ID,
+						}}})
+					if err2 != nil {
+						pr.streamError = err2
+						return err2
+					}
+				}
 			}
 
 		case *runner.ClientMsg_Data:
 			// TODO If it's the first one, actually start the call. Then stream into current call.
 			err := pr.handleData(engagement.Context(), body.Data, &state)
 			if err != nil {
-				log.Fatal("What do we do here?!?")
+				// What do we do here?!?
+				return err
 			}
 		default:
-			log.Fatal("Unrecognized or unhandled message")
+			return fmt.Errorf("Unrecognized or unhandled message in receive loop")
 		}
 	}
 	return nil
