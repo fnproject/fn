@@ -20,8 +20,8 @@ import (
 
 type PoolManagerClient interface {
 	AdvertiseCapacity(snapshots *model.CapacitySnapshotList) error
-	// we can imagine LB Groups will be integrated into the domain model at some point
-	GetModel(req *http.Request) (*model.LBGroupId, *models.Call, error)
+	GetCall(req *http.Request) (*models.Call, error)
+	GetGroupId(req *http.Request) (*model.LBGroupId, error)
 	GetLBGroupMembership(id *model.LBGroupId) (*model.LBGroupMembership, error)
 	Shutdown() error
 }
@@ -63,29 +63,15 @@ func (c *grpcPoolManagerClient) AdvertiseCapacity(snapshots *model.CapacitySnaps
 	return nil
 }
 
-func (c *grpcPoolManagerClient) GetModel(req *http.Request) (*model.LBGroupId, *models.Call, error) {
-	// TODO we need to make this multitenant to globally resolve app and route from host domain
-	// assuming single-tenant for now (hostname/r/app/route)
-	call, err := c.getCall(req)
-	if err != nil {
-		log.Println("Failed to get call metadata")
-		return nil, nil, err
-	}
-
-	gid, err := c.getGroupId(req)
-	if err != nil {
-		log.Println("Failed to get lb group ID")
-		return nil, nil, err
-	}
-	return gid, call, nil
-}
-
-func (c *grpcPoolManagerClient) getGroupId(req *http.Request) (*model.LBGroupId, error) {
+func (c *grpcPoolManagerClient) GetGroupId(req *http.Request) (*model.LBGroupId, error) {
 	// TODO we need to make LBGroups part of data model
 	return &model.LBGroupId{Id: "foobar"}, nil
 }
 
-func (c *grpcPoolManagerClient) getCall(req *http.Request) (*models.Call, error) {
+func (c *grpcPoolManagerClient) GetCall(req *http.Request) (*models.Call, error) {
+	// TODO we need to make this multitenant to globally resolve app and route from host domain
+	// assuming single-tenant for now (hostname/r/app/route)
+
 	tokens := strings.SplitN(req.URL.Path, "/", 4)
 	app, err := c.agent.GetApp(context.Background(), tokens[2])
 	if err != nil {
