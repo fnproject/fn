@@ -328,13 +328,15 @@ func WithAgentFromEnv() ServerOption {
 			s.agent = agent.New(agent.NewCachedDataAccess(ds))
 		case ServerTypeLB:
 			s.nodeType = ServerTypeLB
-			if s.logstore == nil { // TODO seems weird?
-				s.logstore = s.datastore
+			runnerURL := getEnv(EnvRunnerURL, "")
+			if runnerURL == "" {
+				return errors.New("No FN_RUNNER_API_URL provided for an Fn Runner node.")
 			}
-			if s.datastore == nil || s.logstore == nil || s.mq == nil {
-				return errors.New("LB nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
 			}
-			delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 			s.agent = lbagent.New("localhost:9190", delegatedAgent, s.cert, s.certKey, s.certAuthority)
 		default:
 			s.nodeType = ServerTypeFull
