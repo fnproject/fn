@@ -28,8 +28,7 @@ func (npm *npmService) AdvertiseCapacity(ctx context.Context, snapshots *model.C
 	defer npm.lbgMtx.Unlock()
 
 	for _, snapshot := range snapshots.GetSnapshots() {
-		// look up and map
-		if runners, ok := npm.lbGroups[snapshot.GetGroupId().GetId()]; !ok {
+		if _, ok := npm.lbGroups[snapshot.GetGroupId().GetId()]; !ok {
 			if snapshot.GetMemMbTotal() > 0 {
 				npm.lbGroups[snapshot.GetGroupId().GetId()] = []string{createInstance()}
 			}
