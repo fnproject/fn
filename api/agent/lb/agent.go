@@ -103,6 +103,6 @@ func (a *lbAgent) AddCallListener(fnext.CallListener) {
 }
 
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
-	log.Fatal("Enqueue not implemented. Panicking.")
+	logrus.Fatal("Enqueue not implemented. Panicking.")
 	return nil
 }
