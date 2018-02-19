@@ -265,7 +265,6 @@ func WithAgentFromEnv() ServerOption {
 			}
 			s.agent = agent.New(agent.NewCachedDataAccess(ds))
 		case ServerTypeLB:
-			lbURL := getEnv(EnvLbURL, "")
 			s.nodeType = ServerTypeLB
 			if s.logstore == nil { // TODO seems weird?
 				s.logstore = s.datastore
