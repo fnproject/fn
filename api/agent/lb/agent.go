@@ -4,7 +4,6 @@ package lb
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -21,8 +20,7 @@ type lbAgent struct {
 	delegatedAgent agent.Agent
 }
 
-func New(runnerAddress string, agent agent.Agent) agent.Agent {
-	log.Print("LB Agent starting")
+func New(runnerAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
 	return &lbAgent{
 		runnerAddress:  runnerAddress,
 		delegatedAgent: agent,
@@ -48,6 +46,7 @@ func (a *lbAgent) Submit(call agent.Call) error {
 
 	// Runner URL won't be a config option here, but will be obtained from
 	// the node pool manager
+
 	conn, err := grpc.Dial(a.runnerAddress, grpc.WithInsecure())
 	if err != nil {
 		logrus.WithError(err).Error("Unable to connect to runner node")

@@ -39,7 +39,6 @@ const (
 	EnvDBURL     = "FN_DB_URL"
 	EnvLOGDBURL  = "FN_LOGSTORE_URL"
 	EnvRunnerURL = "FN_RUNNER_API_URL"
-	EnvLbURL     = "FN_LB_URL"
 	EnvNodeType  = "FN_NODE_TYPE"
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
@@ -121,7 +120,6 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
-	opts = append(opts, WithLbURL(getEnv(EnvLbURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
 
@@ -195,10 +193,6 @@ func WithLogURL(logstoreURL string) ServerOption {
 	}
 }
 
-// When running as a runner, it creates a client that is a runner client
-// Instead - when some environment variable is present to say that this is an lb node
-// just instantiate an LB agent
-// THIS ALSO HAPPENS IN WithAgentFromEnv!
 func WithRunnerURL(runnerURL string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		if runnerURL != "" {
@@ -207,16 +201,6 @@ func WithRunnerURL(runnerURL string) ServerOption {
 				return err
 			}
 			s.agent = agent.New(agent.NewCachedDataAccess(cl))
-		}
-		return nil
-	}
-}
-
-func WithLbURL(lbURL string) ServerOption {
-	return func(ctx context.Context, s *Server) error {
-		if lbURL != "" {
-			delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
-			s.agent = lbagent.New(lbURL, delegatedAgent)
 		}
 		return nil
 	}
@@ -289,10 +273,8 @@ func WithAgentFromEnv() ServerOption {
 			if s.datastore == nil || s.logstore == nil || s.mq == nil {
 				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 			}
-			if lbURL != "" {
-				delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
-				s.agent = lbagent.New(lbURL, delegatedAgent)
-			}
+			delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			s.agent = lbagent.New("localhost:9190", delegatedAgent, "server.crt", "server.key", "ca.crt")
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?
