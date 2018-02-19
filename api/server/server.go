@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -43,6 +44,10 @@ const (
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
 	EnvZipkinURL = "FN_ZIPKIN_URL"
+	// Certificates to communicate with other FN nodes
+	EnvCert      = "FN_NODE_CERT"
+	EnvCertKey   = "FN_NODE_CERT_KEY"
+	EnvCertAuth  = "FN_NODE_CERT_AUTHORITY"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -84,6 +89,9 @@ type Server struct {
 	mq              models.MessageQueue
 	logstore        models.LogStore
 	nodeType        ServerNodeType
+	cert            string
+	certKey         string
+	certAuthority   string
 	appListeners    []fnext.AppListener
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
@@ -122,6 +130,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
+	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
+	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
+	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
 	// Also we only need to create an agent if this is not an API node.
@@ -213,6 +224,57 @@ func WithType(t ServerNodeType) ServerOption {
 	}
 }
 
+func WithNodeCert(cert string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if cert != "" {
+			abscert, err := filepath.Abs(cert)
+			if err != nil {
+				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert file", cert)
+			}
+			_, err = os.Stat(abscert)
+			if err != nil {
+				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert file", abscert)
+			}
+			s.cert = abscert
+		}
+		return nil
+	}
+}
+
+func WithNodeCertKey(key string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if key != "" {
+			abskey, err := filepath.Abs(key)
+			if err != nil {
+				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert key file", key)
+			}
+			_, err = os.Stat(abskey)
+			if err != nil {
+				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert key file", abskey)
+			}
+			s.certKey = abskey
+		}
+		return nil
+	}
+}
+
+func WithNodeCertAuthority(ca string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if ca != "" {
+			absca, err := filepath.Abs(ca)
+			if err != nil {
+				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert authority file", ca)
+			}
+			_, err = os.Stat(absca)
+			if err != nil {
+				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert authority file", absca)
+			}
+			s.certAuthority = absca
+		}
+		return nil
+	}
+}
+
 func WithDatastore(ds models.Datastore) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.datastore = ds
@@ -270,10 +332,10 @@ func WithAgentFromEnv() ServerOption {
 				s.logstore = s.datastore
 			}
 			if s.datastore == nil || s.logstore == nil || s.mq == nil {
-				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+				return errors.New("LB nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
-			s.agent = lbagent.New("localhost:9190", delegatedAgent, "server.crt", "server.key", "ca.crt")
+			s.agent = lbagent.New("localhost:9190", delegatedAgent, s.cert, s.certKey, s.certAuthority)
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?
@@ -447,8 +509,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	if s.nodeType == ServerTypePureRunner {
 		// Run grpc too
-		// TODO: CERTS!!!
-		pr, err := agent.CreatePureRunner("localhost:9190", s.agent, "server.crt", "server.key", "ca.crt")
+		pr, err := agent.CreatePureRunner("localhost:9190", s.agent, s.cert, s.certKey, s.certAuthority)
 		if err != nil {
 			logrus.WithError(err).Fatal("grpc server creation error")
 		}
