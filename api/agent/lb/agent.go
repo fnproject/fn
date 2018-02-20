@@ -24,22 +24,70 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
+const (
+	runnerReconnectInterval = 5 * time.Second
+)
+
 type lbAgent struct {
-	runnerAddress  string
-	delegatedAgent agent.Agent
-	cert           string
-	key            string
-	ca             string
+	delegatedAgent  agent.Agent
+	cert            string
+	key             string
+	ca              string
+	runnerAddresses []string
+	connections     map[string](pb.RunnerProtocol_EngageClient)
 }
 
 func New(runnerAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
-	return &lbAgent{
-		runnerAddress:  runnerAddress,
-		delegatedAgent: agent,
-		cert:           cert,
-		key:            key,
-		ca:             ca,
+
+	var addresses []string
+	addresses = append(addresses, runnerAddress)
+
+	a := &lbAgent{
+		runnerAddresses: addresses,
+		delegatedAgent:  agent,
+		cert:            cert,
+		key:             key,
+		ca:              ca,
+		connections:     make(map[string](pb.RunnerProtocol_EngageClient)),
 	}
+
+	go func() {
+		for {
+			// Given the list of runner addresses, see if there is a connection in the connection map
+			for _, address := range a.runnerAddresses {
+				if _, connected := a.connections[address]; !connected {
+					// Not connected, so create a connection with the TLS credentials
+					logrus.Infof("Connecting to runner %v", address)
+					ctx := context.Background()
+					creds, err := createCredentials(cert, key, ca)
+					if err != nil {
+						logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+						continue
+					}
+					conn, err := blockingDial(ctx, runnerAddress, creds)
+					if err != nil {
+						logrus.WithError(err).Error("Unable to connect to runner node")
+
+						continue
+					}
+
+					defer conn.Close()
+
+					c := pb.NewRunnerProtocolClient(conn)
+					protocolClient, err := c.Engage(context.Background())
+					if err != nil {
+						logrus.WithError(err).Error("Unable to create client to runner node")
+						continue
+					}
+
+					a.connections[address] = protocolClient
+				}
+			}
+			time.Sleep(runnerReconnectInterval)
+		}
+	}()
+
+	return a
 }
 
 // GetCall delegates to the wrapped agent
@@ -53,65 +101,49 @@ func (a *lbAgent) Close() error {
 
 func (a *lbAgent) Submit(call agent.Call) error {
 
-	// Get app and route information
-	// Construct model.Call with CONFIG in it already
-	// Is there a runner available for the lbgroup?
-	// If not, then ask for capacity
-	// If there is, call the runner over gRPC with the Call object
-
-	// Runner URL won't be a config option here, but will be obtained from
-	// the node pool manager
-
-	// Create a connection with the TLS credentials
-	ctx := context.Background()
-	creds, err := createCredentials(a.cert, a.key, a.ca)
-	if err != nil {
-		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
-		return err
-	}
-	conn, err := blockingDial(ctx, a.runnerAddress, creds)
-	if err != nil {
-		logrus.WithError(err).Error("Unable to connect to runner node")
-		return fmt.Errorf("could not dial %s: %s", a.runnerAddress, err)
+	if len(a.connections) <= 0 {
+		logrus.Error("No runner nodes available")
+		return fmt.Errorf("Unable to invoke function, no runner nodes are available")
 	}
 
-	defer conn.Close()
-
-	c := pb.NewRunnerProtocolClient(conn)
-
-	protocolClient, err := c.Engage(context.Background())
-	if err != nil {
-		logrus.WithError(err).Error("Unable to create client to runner node")
-		return err
-	}
-
-	modelJSON, err := json.Marshal(call.Model())
-	if err != nil {
-		logrus.WithError(err).Error("Failed to encode model as JSON")
-		return err
-	}
-
-	err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
-	msg, err := protocolClient.Recv()
-
-	if err != nil {
-		logrus.WithError(err).Error("Failed to send message to runner node")
-		return err
-	}
-
-	switch body := msg.Body.(type) {
-	case *pb.RunnerMsg_Acknowledged:
-		if !body.Acknowledged.Committed {
-			logrus.Errorf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
-		} else {
-			logrus.Info("Runner committed invocation request, sending data frames")
-
+	// Work through the connected runner nodes, submitting the request to each
+	for address, protocolClient := range a.connections {
+		// Get app and route information
+		// Construct model.Call with CONFIG in it already
+		modelJSON, err := json.Marshal(call.Model())
+		if err != nil {
+			logrus.WithError(err).Error("Failed to encode model as JSON")
+			return err
 		}
-	default:
-		logrus.Info("Unhandled message type received from runner: %v\n", msg)
+
+		err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
+		msg, err := protocolClient.Recv()
+
+		if err != nil {
+			logrus.WithError(err).Error("Failed to send message to runner node")
+			// Should probably remove the runner node from the list of connections
+			delete(a.connections, address)
+			return err
+		}
+
+		switch body := msg.Body.(type) {
+		case *pb.RunnerMsg_Acknowledged:
+			if !body.Acknowledged.Committed {
+				logrus.Errorf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
+				// Try the next runner
+			} else {
+				logrus.Info("Runner committed invocation request, sending data frames")
+				return nil
+
+			}
+		default:
+			logrus.Info("Unhandled message type received from runner: %v\n", msg)
+		}
 	}
 
-	return nil
+	// Ask for some capacity!
+
+	return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
 }
 
 func (a *lbAgent) Stats() agent.Stats {
