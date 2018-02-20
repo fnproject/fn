@@ -51,43 +51,45 @@ func New(runnerAddress string, agent agent.Agent, cert string, key string, ca st
 		connections:     make(map[string](pb.RunnerProtocol_EngageClient)),
 	}
 
-	go func() {
-		for {
-			// Given the list of runner addresses, see if there is a connection in the connection map
-			for _, address := range a.runnerAddresses {
-				if _, connected := a.connections[address]; !connected {
-					// Not connected, so create a connection with the TLS credentials
-					logrus.Infof("Connecting to runner %v", address)
-					ctx := context.Background()
-					creds, err := createCredentials(cert, key, ca)
-					if err != nil {
-						logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
-						continue
-					}
-					conn, err := blockingDial(ctx, runnerAddress, creds)
-					if err != nil {
-						logrus.WithError(err).Error("Unable to connect to runner node")
-
-						continue
-					}
-
-					defer conn.Close()
-
-					c := pb.NewRunnerProtocolClient(conn)
-					protocolClient, err := c.Engage(context.Background())
-					if err != nil {
-						logrus.WithError(err).Error("Unable to create client to runner node")
-						continue
-					}
-
-					a.connections[address] = protocolClient
-				}
-			}
-			time.Sleep(runnerReconnectInterval)
-		}
-	}()
+	go maintainConnectionToRunners(a)
 
 	return a
+}
+
+func maintainConnectionToRunners(a *lbAgent) {
+	for {
+		// Given the list of runner addresses, see if there is a connection in the connection map
+		for _, address := range a.runnerAddresses {
+			if _, connected := a.connections[address]; !connected {
+				// Not connected, so create a connection with the TLS credentials
+				logrus.Infof("Connecting to runner %v", address)
+				ctx := context.Background()
+				creds, err := createCredentials(a.cert, a.key, a.ca)
+				if err != nil {
+					logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+					continue
+				}
+				conn, err := blockingDial(ctx, address, creds)
+				if err != nil {
+					logrus.WithError(err).Error("Unable to connect to runner node")
+
+					continue
+				}
+
+				defer conn.Close()
+
+				c := pb.NewRunnerProtocolClient(conn)
+				protocolClient, err := c.Engage(context.Background())
+				if err != nil {
+					logrus.WithError(err).Error("Unable to create client to runner node")
+					continue
+				}
+
+				a.connections[address] = protocolClient
+			}
+		}
+		time.Sleep(runnerReconnectInterval)
+	}
 }
 
 // GetCall delegates to the wrapped agent
