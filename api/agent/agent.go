@@ -614,18 +614,17 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 
 	// we are here because dispatch IO comm failed. Wait again up to
-	// 1 second to drain the I/O pipe to reduce subsequent errors
-	// in hot container. This 1 sec window drain does not necessarily
+	// 500 msecs to drain the I/O pipe to reduce subsequent errors
+	// in hot container. This 500 msec window drain does not necessarily
 	// guarantee that we clean these pipes (as the producer can spit out
 	// more data after) but this does clear naive (most common) cases out
-	// container spitting out too much (or faulty) data at once. Runaway
-	// data that is small enough to drain in 1 second. If we fail to
-	// clear this pipe (stdoutRead), then docker IO demultiplex stdCopy
-	// will notice that we have not read all the data from it and will
+	// such as container spitting out too much (or faulty) data at once.
+	// If we fail to clear this pipe (stdoutRead), then docker IO demultiplex
+	// stdCopy will notice that we have not read all the data from it and will
 	// shutdown the container.
 	select {
 	case finalError = <-s.errC: // give precedence to error from container
-	case <-time.After(time.Duration(1) * time.Second):
+	case <-time.After(time.Duration(500) * time.Millisecond):
 	case <-ctx.Done(): // call timeout
 	}
 
