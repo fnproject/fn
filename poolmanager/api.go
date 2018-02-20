@@ -20,8 +20,8 @@ type Client interface {
 
 //CapacityAggregator exposes the method to manage capacity calculation
 type CapacityAggregator interface {
-	AddCapacity(entry *CapacityEntry, id *model.LBGroupId)
-	RemoveCapacity(entry *CapacityEntry, id *model.LBGroupId)
+	AddCapacity(entry *CapacityEntry, lbgID string)
+	RemoveCapacity(entry *CapacityEntry, lbgID string)
 }
 
 type CapacityEntry struct {
@@ -29,7 +29,7 @@ type CapacityEntry struct {
 }
 
 type inMemoryAggregator struct {
-	capacity map[*model.LBGroupId]*CapacityEntry
+	capacity map[string]*CapacityEntry
 	capMtx   *sync.RWMutex
 }
 type grpcPoolManagerClient struct {
@@ -63,28 +63,28 @@ func NewClient(serverAddr string) (Client, error) {
 //NewCapacityAggregator return a CapacityAggregator
 func NewCapacityAggregator() CapacityAggregator {
 	return &inMemoryAggregator{
-		capacity: make(map[*model.LBGroupId]*CapacityEntry),
+		capacity: make(map[string]*CapacityEntry),
 		capMtx:   &sync.RWMutex{},
 	}
 }
 
-func (a *inMemoryAggregator) AddCapacity(entry *CapacityEntry, id *model.LBGroupId) {
+func (a *inMemoryAggregator) AddCapacity(entry *CapacityEntry, lbgID string) {
 	//TODO is it possible to use prometheus gauge? definitely to Inc and Dec but how to read
 	a.capMtx.Lock()
 	defer a.capMtx.Unlock()
 
-	if v, ok := a.capacity[id]; ok {
+	if v, ok := a.capacity[lbgID]; ok {
 		v.TotalMemoryMb += entry.TotalMemoryMb
 	} else {
-		a.capacity[id] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
+		a.capacity[lbgID] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
 	}
 }
 
-func (a *inMemoryAggregator) RemoveCapacity(entry *CapacityEntry, id *model.LBGroupId) {
+func (a *inMemoryAggregator) RemoveCapacity(entry *CapacityEntry, lbgID string) {
 	a.capMtx.Lock()
 	defer a.capMtx.Unlock()
 
-	if v, ok := a.capacity[id]; ok {
+	if v, ok := a.capacity[lbgID]; ok {
 		v.TotalMemoryMb -= entry.TotalMemoryMb
 	}
 }

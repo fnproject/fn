@@ -71,11 +71,14 @@ func (a *lbAgent) Submit(call agent.Call) error {
 	// Runner URL won't be a config option here, but will be obtained from
 	// the node pool manager
 
-	// get metrics from metadata
-	mem := call.Model().Memory
+	memMb := call.Model().Memory
+	lbGroupID := GetGroupID(call.Model())
 
-	// get GroupID from api
-	// store total capacity in an aggergate way locally
+	capacityRequest := &poolmanager.CapacityEntry{TotalMemoryMb: memMb}
+	a.capacityAggregator.AddCapacity(capacityRequest, lbGroupID)
+	// TODO verify that when we leave this method the call is in a completed or failed state
+	// so it is safe to remove capacity
+	defer a.capacityAggregator.RemoveCapacity(capacityRequest, lbGroupID)
 
 	// Create a connection with the TLS credentials
 	ctx := context.Background()
