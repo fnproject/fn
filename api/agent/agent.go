@@ -549,8 +549,11 @@ func (s *coldSlot) Close(ctx context.Context) error {
 		s.tok.Close()
 	}
 	if s.stdout != nil {
-		buf := s.stdout.(*protocol.ClampWriter).W.(*bytes.Buffer)
-		protocol.BufPool.Put(buf)
+		clamper, ok := s.stdout.(*protocol.ClampWriter)
+		if ok {
+			buf := clamper.W.(*bytes.Buffer)
+			protocol.BufPool.Put(buf)
+		}
 	}
 	return nil
 }
