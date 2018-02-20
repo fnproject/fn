@@ -58,12 +58,10 @@ func (m *capacityManager) Merge(list *model.CapacitySnapshotList) {
 		currentReqs.total_wanted -= old_req.total_wanted
 
 		// Update totals: add this LB's new assertions and record them
-		currentReqs.in_use += int64(new_req.GetMemMbCommitted())
 		currentReqs.total_wanted += int64(new_req.GetMemMbTotal())
 
 		// Keep a copy of this requirement
 		old_req.ts = time.Now()
-		old_req.in_use = int64(new_req.GetMemMbCommitted())
 		old_req.total_wanted = int64(new_req.GetMemMbTotal())
 
 		// TODO: new_req also has a generation for the runner information that LB held. If that's out of date, signal that we need to readvertise
