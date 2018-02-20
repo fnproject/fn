@@ -237,8 +237,8 @@ func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback 
 			t.Log("Exiting retry loop, API call was successful")
 			return nil
 		}
+		t.Logf("[%v] - Retrying API call after unsuccessful attempt with error: %v", i, err.Error())
 		time.Sleep(sleep)
-		t.Logf("[%v] - Retryting API call after unsuccessful attemt with error: %v", i, err.Error())
 	}
 	return err
 }
