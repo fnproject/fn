@@ -605,7 +605,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp: // from dispatch
-		if err == nil || models.GetAPIErrorCode(finalError) != http.StatusBadGateway {
+		if err == nil || models.GetAPIErrorCode(err) != http.StatusBadGateway {
 			return err
 		}
 		finalError = err
