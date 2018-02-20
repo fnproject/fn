@@ -212,7 +212,7 @@ func WithReservedSlot(ctx context.Context) CallOpt {
 		a.stats.Enqueue(ctx, c.AppName, c.Path)
 
 		a.startStateTrackers(ctx, c)
-		defer a.endStateTrackers(ctx, c)
+		// The call to a.endStateTrackers() will then be done by Submit
 		slot, err := a.getSlot(ctx, c)
 		if err != nil {
 			a.handleStatsDequeue(ctx, c, err)
