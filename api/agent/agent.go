@@ -126,7 +126,7 @@ func New(da DataAccess) Agent {
 
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
-		ServerVersion: "17.06.0-ce",
+		ServerVersion: cfg.MinDockerVersion,
 	})
 
 	a := &agent{
@@ -138,6 +138,8 @@ func New(da DataAccess) Agent {
 		shutdown:    make(chan struct{}),
 		promHandler: promhttp.Handler(),
 	}
+
+	protocol.BufPoolChunkSize = int64(cfg.MaxResponseSize)
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
 	a.wg.Add(1)

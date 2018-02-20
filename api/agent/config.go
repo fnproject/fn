@@ -12,6 +12,7 @@ type AgentConfig struct {
 	MinDockerVersion string        `json:"min_docker_version"`
 	FreezeIdleMsecs  time.Duration `json:"freeze_idle_msecs"`
 	EjectIdleMsecs   time.Duration `json:"eject_idle_msecs"`
+	MaxResponseSize  uint64        `json:"max_response_size"`
 }
 
 func NewAgentConfig() (*AgentConfig, error) {
@@ -34,6 +35,16 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	if cfg.EjectIdleMsecs == time.Duration(0) {
 		return cfg, errors.New("error eject idle delay cannot be zero")
+	}
+
+	if size := os.Getenv("FN_RESPONSE_SIZE"); size != "" {
+		cfg.MaxResponseSize, err = strconv.ParseUint(size, 10, 64)
+		if err != nil {
+			return cfg, errors.New("error initializing response buffer size")
+		}
+		if cfg.MaxResponseSize <= 0 {
+			return cfg, errors.New("error invalid response buffer size")
+		}
 	}
 
 	return cfg, nil
