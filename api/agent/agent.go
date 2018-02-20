@@ -503,11 +503,11 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 		return res.Error()
 	}
 
-	if s.stdout == nil {
+	// This means default IO with no limits (no clamper)
+	clamper, ok := s.stdout.(*protocol.ClampWriter)
+	if !ok {
 		return ctx.Err()
 	}
-
-	clamper := s.stdout.(*protocol.ClampWriter)
 	if clamper.E {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: body too large"))
 	}
@@ -659,13 +659,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	buf := protocol.BufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 
-	var stdout io.Writer
-	if protocol.BufPoolChunkSize == 0 {
-		stdout = buf
-	} else {
-		stdout = &protocol.ClampWriter{W: buf, N: protocol.BufPoolChunkSize}
-	}
-
+	stdout := protocol.NewClampWriter(buf)
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,

@@ -179,6 +179,13 @@ type ClampWriter struct {
 	E bool
 }
 
+func NewClampWriter(buf io.Writer) io.Writer {
+	if BufPoolChunkSize != 0 {
+		return &ClampWriter{W: buf, N: BufPoolChunkSize}
+	}
+	return buf
+}
+
 func (g *ClampWriter) Write(p []byte) (int, error) {
 	if g.N <= 0 {
 		g.E = true
@@ -198,6 +205,13 @@ type ClampReader struct {
 	R io.Reader // underlying reader
 	N int64     // max bytes remaining
 	E bool
+}
+
+func NewClampReader(buf io.Reader) io.Reader {
+	if BufPoolChunkSize != 0 {
+		return &ClampReader{R: buf, N: BufPoolChunkSize}
+	}
+	return buf
 }
 
 func (l *ClampReader) Read(p []byte) (int, error) {
