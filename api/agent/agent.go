@@ -473,10 +473,10 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 // implements Slot
 type coldSlot struct {
-	cookie  drivers.Cookie
-	tok     ResourceToken
-	err     error
-	clamper *protocol.ClampWriter
+	cookie drivers.Cookie
+	tok    ResourceToken
+	err    error
+	stdout io.Writer
 }
 
 func (s *coldSlot) Error() error {
@@ -503,15 +503,20 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 		return res.Error()
 	}
 
-	if s.clamper.E {
+	if s.stdout == nil {
+		return ctx.Err()
+	}
+
+	clamper := s.stdout.(*protocol.ClampWriter)
+	if clamper.E {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: body too large"))
 	}
 
 	errApp := make(chan error, 1)
 
 	// take ownership of this buffer to avoid cold token.Close() to touch it.
-	buf := s.clamper.W.(*bytes.Buffer)
-	s.clamper = nil
+	buf := clamper.W.(*bytes.Buffer)
+	s.stdout = nil
 	// yes, we leak this and retain the buf until client times out. But this timeout is
 	// closely bounded by our own ctx timeout below. Once we return err, we expect gin
 	// to close/finalize client request/connection.
@@ -543,8 +548,8 @@ func (s *coldSlot) Close(ctx context.Context) error {
 	if s.tok != nil {
 		s.tok.Close()
 	}
-	if s.clamper != nil {
-		buf := s.clamper.W.(*bytes.Buffer)
+	if s.stdout != nil {
+		buf := s.stdout.(*protocol.ClampWriter).W.(*bytes.Buffer)
 		protocol.BufPool.Put(buf)
 	}
 	return nil
@@ -654,7 +659,12 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	buf := protocol.BufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 
-	clamper := protocol.ClampWriter{W: buf, N: protocol.BufPoolChunkSize}
+	var stdout io.Writer
+	if protocol.BufPoolChunkSize == 0 {
+		stdout = buf
+	} else {
+		stdout = &protocol.ClampWriter{W: buf, N: protocol.BufPoolChunkSize}
+	}
 
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
@@ -664,7 +674,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
-		stdout:  &clamper,
+		stdout:  stdout,
 		stderr:  call.stderr,
 		stats:   &call.Stats,
 	}
@@ -675,7 +685,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
-	slot := &coldSlot{cookie, tok, err, &clamper}
+	slot := &coldSlot{cookie, tok, err, stdout}
 	select {
 	case ch <- slot:
 	case <-ctx.Done():
