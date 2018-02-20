@@ -84,7 +84,6 @@ Internally functions receive data in the example format below:
 {
   "call_id": "123",
   "content_type": "application/json",
-  "type":"sync",
   "deadline":"2018-01-30T16:52:39.786Z",
   "body": "{\"some\":\"input\"}",
   "protocol": {
@@ -103,9 +102,9 @@ BLANK LINE
 }
 ```
 
+* body - the main contents. If HTTP is the protocol, this would be the request body.
 * call_id - the unique ID for the call.
 * content_type - format of the `body` parameter.
-* type - whether the call was sync or async.
 * deadline - a time limit for the call, based on function timeout.
 * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
 
