@@ -80,10 +80,6 @@ func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
 		t.Errorf("Request ContentType assertion mismatch: expected: %s, got %s",
 			ci.ContentType(), incomingReq.ContentType)
 	}
-	if incomingReq.Type != ci.CallType() {
-		t.Errorf("Request CallType assertion mismatch: expected: %s, got %s",
-			ci.CallType(), incomingReq.Type)
-	}
 	if incomingReq.Deadline != ci.Deadline().String() {
 		t.Errorf("Request Deadline assertion mismatch: expected: %s, got %s",
 			ci.Deadline(), incomingReq.Deadline)
