@@ -186,6 +186,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	multiLog := `{"sleepTime": 1, "isDebug": true}`
 	multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
 	bigoutput := `{"sleepTime": 0, "isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
+	smalloutput := `{"sleepTime": 0, "isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1}`  // 1 trailer < 2K
 
 	for i, test := range []struct {
 		path               string
@@ -220,9 +221,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
 		{"/r/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
 		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
-		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "IO size exceeded", nil},
-		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "IO size exceeded", nil},
-		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "IO size exceeded", nil},
+		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "body too large", nil},
+		{"/r/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusOK, nil, "body too large", nil},
+		{"/r/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
+		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "body too large", nil},
+		{"/r/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)

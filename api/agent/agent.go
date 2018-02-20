@@ -587,17 +587,49 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	errApp := make(chan error, 1)
 	go func() {
 		ci := protocol.NewCallInfo(call.Call, call.req)
-		errApp <- proto.Dispatch(ctx, ci, call.w)
+		err := proto.Dispatch(ctx, ci, call.w)
+
+		// drain the container stdout if bad gw (aka container communication failed)
+		if err != nil && models.GetAPIErrorCode(err) == http.StatusBadGateway {
+			go func() {
+				// stdoutWrite.Close() will unblock this with EOF incoming from stdoutRead
+				io.Copy(ioutil.Discard, stdoutRead)
+			}()
+		}
+		errApp <- err
 	}()
+
+	var finalError error
 
 	select {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp: // from dispatch
-		return err
+		if err == nil || models.GetAPIErrorCode(finalError) != http.StatusBadGateway {
+			return err
+		}
+		finalError = err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
 	}
+
+	// we are here because dispatch IO comm failed. Wait again up to
+	// 1 second to drain the I/O pipe to reduce subsequent errors
+	// in hot container. This 1 sec window drain does not necessarily
+	// guarantee that we clean these pipes (as the producer can spit out
+	// more data after) but this does clear naive (most common) cases out
+	// container spitting out too much (or faulty) data at once. Runaway
+	// data that is small enough to drain in 1 second. If we fail to
+	// clear this pipe (stdoutRead), then docker IO demultiplex stdCopy
+	// will notice that we have not read all the data from it and will
+	// shutdown the container.
+	select {
+	case finalError = <-s.errC: // give precedence to error from container
+	case <-time.After(time.Duration(1) * time.Second):
+	case <-ctx.Done(): // call timeout
+	}
+
+	return finalError
 }
 
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
