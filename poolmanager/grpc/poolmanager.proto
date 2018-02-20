@@ -19,8 +19,7 @@ message LBGroupMembership {
 
 message CapacitySnapshot {
     LBGroupId group_id = 1;
-    int32 mem_mb_committed = 2;
-    int32 mem_mb_total = 3;
+    int32 mem_mb_total = 2;
 }
 
 message CapacitySnapshotList {
