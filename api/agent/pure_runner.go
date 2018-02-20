@@ -11,13 +11,13 @@ import (
 	//"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	//"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 )
@@ -50,7 +50,7 @@ func (w *writerFacade) commitHeaders() {
 		return
 	}
 	w.headerWritten = true
-	log.Println("committing call with headers  %v : %d", w.outHeaders, w.outStatus)
+	logrus.Info("committing call result with headers  %v : %d", w.outHeaders, w.outStatus)
 
 	var outHeaders []*runner.HttpHeader
 
@@ -63,7 +63,7 @@ func (w *writerFacade) commitHeaders() {
 		}
 	}
 
-	log.Println("sending response value")
+	logrus.Info("sending response value")
 
 	err := w.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_ResultStart{
@@ -79,14 +79,14 @@ func (w *writerFacade) commitHeaders() {
 	})
 
 	if err != nil {
-		log.Println("error sending call", err)
+		logrus.Info("error sending call result", err)
 		panic(err)
 	}
-	log.Println("Sent call response ")
+	logrus.Info("Sent call result response")
 }
 
 func (w *writerFacade) Write(data []byte) (int, error) {
-	log.Printf("Got response data %s", string(data))
+	logrus.Debug("Got response data %d bytes long", len(data))
 	w.commitHeaders()
 	err := w.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
@@ -196,13 +196,13 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	pv, ok := peer.FromContext(engagement.Context())
 	authInfo := pv.AuthInfo.(credentials.TLSInfo)
 	clientCn := authInfo.State.PeerCertificates[0].Subject.CommonName
-	log.Println("Got connection from", clientCn)
+	logrus.Info("Got connection from", clientCn)
 	if ok {
-		log.Println("got peer ", pv)
+		logrus.Info("got peer ", pv)
 	}
 	md, ok := metadata.FromIncomingContext(engagement.Context())
 	if ok {
-		log.Println("got md ", md)
+		logrus.Info("got md ", md)
 	}
 
 	var state = callState{
@@ -217,15 +217,18 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	}
 
 	grpc.EnableTracing = false
-	log.Printf("entering runner loop")
+	logrus.Info("entering runner loop")
 	for {
 		msg, err := engagement.Recv()
 		if err != nil {
 			pr.streamError = err
-			// Caller may have died, push an eof on the input, stop the call and
-			// release any slot we've reserved.
+			// Caller may have died. Entirely kill the container by pushing an
+			// eof on the input, even for hot. This ensures that the hot
+			// container is not stuck in a state where it is still expecting
+			// half the input of the previous call. The error this will likely
+			// cause will then release the slot.
 			if state.c != nil && state.c.reservedSlot != nil {
-				state.c.reservedSlot.Close(engagement.Context()) // I have NO IDEA if this is enough
+				state.input.Close()
 			}
 			return err
 		}
@@ -275,7 +278,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 }
 
 func (pr *pureRunner) Start() error {
-	log.Println("Listening on ", pr.listen)
+	logrus.Info("Listening on ", pr.listen)
 	lis, err := net.Listen("tcp", pr.listen)
 	if err != nil {
 		return fmt.Errorf("could not listen on %s: %s", pr.listen, err)
