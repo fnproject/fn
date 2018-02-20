@@ -56,6 +56,7 @@ func New(runnerAddress string, agent agent.Agent, cert string, key string, ca st
 
 	go maintainConnectionToRunners(a)
 
+	poolmanager.CapacityUpdatesSchedule("localhost:8888", capacityAggregator, 1*time.Second)
 	return a
 }
 

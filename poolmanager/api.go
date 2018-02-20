@@ -4,12 +4,10 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 
 	model "github.com/fnproject/fn/poolmanager/grpc"
 	"google.golang.org/grpc"
-
-	"github.com/fnproject/fn/api/agent"
-	"github.com/fnproject/fn/api/agent/hybrid"
 )
 
 type Client interface {
@@ -22,6 +20,7 @@ type Client interface {
 type CapacityAggregator interface {
 	AddCapacity(entry *CapacityEntry, lbgID string)
 	RemoveCapacity(entry *CapacityEntry, lbgID string)
+	Iterate(func(string, *CapacityEntry))
 }
 
 type CapacityEntry struct {
@@ -35,8 +34,28 @@ type inMemoryAggregator struct {
 type grpcPoolManagerClient struct {
 	scaler  model.NodePoolScalerClient
 	manager model.RunnerManagerClient
-	agent   agent.DataAccess
 	conn    *grpc.ClientConn
+}
+
+func CapacityUpdatesSchedule(serverAddr string, agg CapacityAggregator, period time.Duration) {
+	// TODO support reconnects
+	c, e := NewClient(serverAddr)
+	if e != nil {
+		return
+	}
+
+	ticker := time.NewTicker(period)
+	go func() {
+		for _ = range ticker.C {
+			var snapshots []*model.CapacitySnapshot
+			agg.Iterate(func(lbgID string, e *CapacityEntry) {
+				snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
+				snapshots = append(snapshots, snapshot)
+			})
+			// TODO missing ts, etc
+			c.AdvertiseCapacity(&model.CapacitySnapshotList{Snapshots: snapshots})
+		}
+	}()
 }
 
 func NewClient(serverAddr string) (Client, error) {
@@ -47,13 +66,7 @@ func NewClient(serverAddr string) (Client, error) {
 		return nil, err
 	}
 
-	agent, err := hybrid.NewClient("localhost:8888")
-	if err != nil {
-		return nil, err
-	}
-
 	return &grpcPoolManagerClient{
-		agent:   agent,
 		scaler:  model.NewNodePoolScalerClient(conn),
 		manager: model.NewRunnerManagerClient(conn),
 		conn:    conn,
@@ -86,6 +99,15 @@ func (a *inMemoryAggregator) RemoveCapacity(entry *CapacityEntry, lbgID string) 
 
 	if v, ok := a.capacity[lbgID]; ok {
 		v.TotalMemoryMb -= entry.TotalMemoryMb
+	}
+}
+
+func (a *inMemoryAggregator) Iterate(fn func(string, *CapacityEntry)) {
+	a.capMtx.Lock()
+	defer a.capMtx.Unlock()
+
+	for k, v := range a.capacity {
+		fn(k, v)
 	}
 }
 
