@@ -20,20 +20,20 @@ type remoteNodePoolManager struct {
 	client     remoteClient
 }
 
-func NewNodePoolManager(npmAddr string) NodePoolManager {
+func NewNodePoolManager(serverAddr string, cert string, key string, ca string) NodePoolManager {
 	// TODO support reconnects
-	c, e := newRemoteClient(npmAddr)
+	c, e := newRemoteClient(serverAddr, cert, key, ca)
 	if e != nil {
 		logrus.Error("Failed to connect to the node pool manager for sending capacity update")
 	}
-	return &remoteNodePoolManager{serverAddr: npmAddr, client: c}
+	return &remoteNodePoolManager{serverAddr: serverAddr, client: c}
 }
 
 func (npm *remoteNodePoolManager) ScheduleUpdates(lbID string, agg CapacityAggregator, period time.Duration) {
 	ticker := time.NewTicker(period)
 	go func() {
 		for _ = range ticker.C {
-			var snapshots []*model.CapacitySnapshot
+			snapshots := []*model.CapacitySnapshot{}
 			agg.Iterate(func(lbgID string, e *CapacityEntry) {
 				snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
 				snapshots = append(snapshots, snapshot)

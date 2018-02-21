@@ -33,17 +33,18 @@ import (
 )
 
 const (
-	EnvLogLevel  = "FN_LOG_LEVEL"
-	EnvLogDest   = "FN_LOG_DEST"
-	EnvLogPrefix = "FN_LOG_PREFIX"
-	EnvMQURL     = "FN_MQ_URL"
-	EnvDBURL     = "FN_DB_URL"
-	EnvLOGDBURL  = "FN_LOGSTORE_URL"
-	EnvRunnerURL = "FN_RUNNER_API_URL"
-	EnvNodeType  = "FN_NODE_TYPE"
-	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
-	EnvAPICORS   = "FN_API_CORS"
-	EnvZipkinURL = "FN_ZIPKIN_URL"
+	EnvLogLevel   = "FN_LOG_LEVEL"
+	EnvLogDest    = "FN_LOG_DEST"
+	EnvLogPrefix  = "FN_LOG_PREFIX"
+	EnvMQURL      = "FN_MQ_URL"
+	EnvDBURL      = "FN_DB_URL"
+	EnvLOGDBURL   = "FN_LOGSTORE_URL"
+	EnvRunnerURL  = "FN_RUNNER_API_URL"
+	EnvNPMAddress = "FN_NPM_ADDRESS"
+	EnvNodeType   = "FN_NODE_TYPE"
+	EnvPort       = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvAPICORS    = "FN_API_CORS"
+	EnvZipkinURL  = "FN_ZIPKIN_URL"
 	// Certificates to communicate with other FN nodes
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
@@ -337,7 +338,11 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			s.agent = lbagent.New("localhost:9190", delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			npmAddress := getEnv(EnvNPMAddress, "")
+			if npmAddress == "" {
+				return errors.New("No FN_NPM_ADDRESS provided for an Node Pool Manager node.")
+			}
+			s.agent = lbagent.New(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority)
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?

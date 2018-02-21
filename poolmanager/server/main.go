@@ -11,15 +11,16 @@ import (
 	model "github.com/fnproject/fn/poolmanager/grpc"
 	"github.com/fnproject/fn/poolmanager/server/cp"
 
-	"github.com/sirupsen/logrus"
-	"fmt"
-	"path/filepath"
-	"os"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
-	"errors"
+	"os"
+	"path/filepath"
+
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -35,10 +36,10 @@ func newNPMService(ctx context.Context, cp cp.ControlPlane) *npmService {
 }
 
 func (npm *npmService) AdvertiseCapacity(ctx context.Context, snapshots *model.CapacitySnapshotList) (*google_protobuf1.Empty, error) {
-	logrus.Info("Received advertise capacity request %+v\n", snapshots)
+	logrus.Infof("Received advertise capacity request %+v\n", snapshots)
 
 	npm.capMan.Merge(snapshots)
-	return nil, nil
+	return &google_protobuf1.Empty{}, nil
 }
 
 func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*model.LBGroupMembership, error) {
@@ -55,10 +56,10 @@ func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*m
 
 const (
 	// Certificates to communicate with other FN nodes
-	EnvCert     = "FN_NODE_CERT"
-	EnvCertKey  = "FN_NODE_CERT_KEY"
-	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
-	EnvPort     = "FN_PORT"
+	EnvCert         = "FN_NODE_CERT"
+	EnvCertKey      = "FN_NODE_CERT_KEY"
+	EnvCertAuth     = "FN_NODE_CERT_AUTHORITY"
+	EnvPort         = "FN_PORT"
 	EnvSingleRunner = "FN_RUNNER_ADDRESS"
 )
 
@@ -137,18 +138,18 @@ func main() {
 	port := getEnv(EnvPort)
 	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", port))
 	if err != nil {
-		logrus.Fatal("could not listen on port %s: %s", port, err)
+		logrus.Fatalf("could not listen on port %s: %s", port, err)
 	}
 
 	if err := gRPCServer.Serve(l); err != nil {
-		logrus.Fatal("grpc serve error: %s", err)
+		logrus.Fatalf("grpc serve error: %s", err)
 	}
 }
 
 func getEnv(key string) string {
-	if value, ok := os.LookupEnv(key); !ok {
+	value, ok := os.LookupEnv(key)
+	if !ok {
 		log.Panicf("Missing config key: %v", key)
-	} else {
-		return value
 	}
+	return value
 }

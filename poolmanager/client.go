@@ -20,10 +20,15 @@ type grpcPoolManagerClient struct {
 	conn    *grpc.ClientConn
 }
 
-func newRemoteClient(serverAddr string) (remoteClient, error) {
-	opts := []grpc.DialOption{
-		grpc.WithInsecure()}
-	conn, err := grpc.Dial(serverAddr, opts...)
+func newRemoteClient(serverAddr string, cert string, key string, ca string) (remoteClient, error) {
+	logrus.WithField("npm_address", serverAddr).Info("Connecting to node pool manager")
+	ctx := context.Background()
+	creds, err := createCredentials(cert, key, ca)
+	if err != nil {
+		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+		return nil, err
+	}
+	conn, err := blockingDial(ctx, serverAddr, creds)
 	if err != nil {
 		return nil, err
 	}

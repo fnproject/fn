@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -28,72 +29,105 @@ import (
 
 const (
 	runnerReconnectInterval = 5 * time.Second
+	// sleep time to attempt placement across all runners before retrying
+	retryWaitInterval = 10 * time.Millisecond
+	// sleep time when scaling from 0 to 1 runners
+	noCapacityWaitInterval = 1 * time.Second
+	// amount of time to wait to place a request on a runner
+	placementTimeout = 5 * time.Second
 )
 
 type lbAgent struct {
 	delegatedAgent     agent.Agent
 	capacityAggregator poolmanager.CapacityAggregator
+	npm                poolmanager.NodePoolManager
 	cert               string
 	key                string
 	ca                 string
-	runnerAddresses    []string
-	connections        map[string](pb.RunnerProtocol_EngageClient)
+	runnerAddresses    map[string][]string
+	runnersMtx         *sync.RWMutex
+	connections        map[string]map[string](pb.RunnerProtocol_EngageClient)
+	connsMtx           *sync.RWMutex
 }
 
-func New(runnerAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
-
-	var addresses []string
-	addresses = append(addresses, runnerAddress)
+func New(npmAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
 
 	a := &lbAgent{
-		runnerAddresses:    addresses,
+		runnerAddresses:    make(map[string][]string),
+		runnersMtx:         &sync.RWMutex{},
 		delegatedAgent:     agent,
 		capacityAggregator: poolmanager.NewCapacityAggregator(),
+		npm:                poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
 		cert:               cert,
 		key:                key,
 		ca:                 ca,
-		connections:        make(map[string](pb.RunnerProtocol_EngageClient)),
+		connections:        make(map[string]map[string](pb.RunnerProtocol_EngageClient)),
+		connsMtx:           &sync.RWMutex{},
 	}
 
-	go maintainConnectionToRunners(a)
+	go a.maintainConnectionToRunners()
 	// TODO do we need to persistent this ID in order to survive restart?
 	lbID := id.New().String()
-	poolmanager.CapacityUpdatesSchedule("localhost:8888", lbID, a.capacityAggregator, 1*time.Second)
+	a.npm.ScheduleUpdates(lbID, a.capacityAggregator, 1*time.Second)
 	return a
 }
 
-func maintainConnectionToRunners(a *lbAgent) {
-	for {
-		// Given the list of runner addresses, see if there is a connection in the connection map
-		for _, address := range a.runnerAddresses {
-			if _, connected := a.connections[address]; !connected {
-				// Not connected, so create a connection with the TLS credentials
-				logrus.Infof("Connecting to runner %v", address)
-				ctx := context.Background()
-				creds, err := createCredentials(a.cert, a.key, a.ca)
-				if err != nil {
-					logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
-					continue
-				}
-				conn, err := blockingDial(ctx, address, creds)
-				if err != nil {
-					logrus.WithError(err).Error("Unable to connect to runner node")
+func (a *lbAgent) connectToRunner(lbGroupID string, address string) {
+	// Not connected, so create a connection with the TLS credentials
+	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connecting to runner")
+	ctx := context.Background()
+	creds, err := createCredentials(a.cert, a.key, a.ca)
+	if err != nil {
+		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+		return
+	}
+	conn, err := blockingDial(ctx, address, creds)
+	if err != nil {
+		logrus.WithError(err).Error("Unable to connect to runner node")
+		return
+	}
 
-					continue
-				}
+	// We don't explicitly close connections to runners. Instead, we won't reconnect to them
+	// if they are shutdown and not active
+	// defer conn.Close()
 
-				defer conn.Close()
+	c := pb.NewRunnerProtocolClient(conn)
+	protocolClient, err := c.Engage(context.Background())
+	if err != nil {
+		logrus.WithError(err).Error("Unable to create client to runner node")
+		return
+	}
 
-				c := pb.NewRunnerProtocolClient(conn)
-				protocolClient, err := c.Engage(context.Background())
-				if err != nil {
-					logrus.WithError(err).Error("Unable to create client to runner node")
-					continue
-				}
+	a.connections[lbGroupID][address] = protocolClient
+}
 
-				a.connections[address] = protocolClient
+func (a *lbAgent) refreshRunnerConnections() {
+	a.runnersMtx.RLock()
+	a.connsMtx.Lock()
+	// Given the list of runner addresses, see if there is a connection in the connection map
+	for lbGroupId, runnerAddrs := range a.runnerAddresses {
+		for _, address := range runnerAddrs {
+			conns := a.connections[lbGroupId]
+
+			if conns == nil {
+				a.connsMtx.Lock()
+				conns = make(map[string](pb.RunnerProtocol_EngageClient))
+				a.connections[lbGroupId] = conns
+				a.connsMtx.Unlock()
+			}
+			// create conn
+			if _, connected := conns[address]; !connected {
+				a.connectToRunner(address, lbGroupId)
 			}
 		}
+	}
+	a.connsMtx.Unlock()
+	a.runnersMtx.RUnlock()
+}
+
+func (a *lbAgent) maintainConnectionToRunners() {
+	for {
+		a.refreshRunnerConnections()
 		time.Sleep(runnerReconnectInterval)
 	}
 }
@@ -123,50 +157,71 @@ func (a *lbAgent) Submit(call agent.Call) error {
 	// so it is safe to remove capacity
 	defer a.capacityAggregator.ReleaseCapacity(capacityRequest, lbGroupID)
 
-	// TODO we need to sleep and refresh list of runners to give new capacity a chance to show
-	if len(a.connections) <= 0 {
-		logrus.Error("No runner nodes available")
-		return fmt.Errorf("Unable to invoke function, no runner nodes are available")
-	}
+	deadline := time.Now().Add(placementTimeout)
 
-	// Work through the connected runner nodes, submitting the request to each
-	for address, protocolClient := range a.connections {
-		// Get app and route information
-		// Construct model.Call with CONFIG in it already
-		modelJSON, err := json.Marshal(call.Model())
-		if err != nil {
-			logrus.WithError(err).Error("Failed to encode model as JSON")
-			return err
+	for {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
 		}
 
-		err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
-		msg, err := protocolClient.Recv()
-
+		runnerList, err := a.npm.GetLBGroup(lbGroupID)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to send message to runner node")
-			// Should probably remove the runner node from the list of connections
-			delete(a.connections, address)
-			return err
+			logrus.WithError(err).Info("Failed to get runners from node pool manager")
+		} else if len(runnerList) > 0 {
+			a.runnersMtx.Lock()
+			a.runnerAddresses[lbGroupID] = runnerList
+			a.runnersMtx.Unlock()
+
+			a.refreshRunnerConnections()
 		}
 
-		switch body := msg.Body.(type) {
-		case *pb.RunnerMsg_Acknowledged:
-			if !body.Acknowledged.Committed {
-				logrus.Errorf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
-				// Try the next runner
-			} else {
-				logrus.Info("Runner committed invocation request, sending data frames")
-				return nil
+		a.connsMtx.RLock()
+		runnerMap := a.connections[lbGroupID]
+		a.connsMtx.RUnlock()
 
+		if len(runnerMap) <= 0 {
+			logrus.WithField("lbg_id", lbGroupID).Debug("No runner nodes available")
+			time.Sleep(noCapacityWaitInterval)
+			continue
+		}
+
+		// Work through the connected runner nodes, submitting the request to each
+		for address, protocolClient := range runnerMap {
+			// Get app and route information
+			// Construct model.Call with CONFIG in it already
+			modelJSON, err := json.Marshal(call.Model())
+			if err != nil {
+				logrus.WithError(err).Error("Failed to encode model as JSON")
+				return err
 			}
-		default:
-			logrus.Info("Unhandled message type received from runner: %v\n", msg)
+
+			err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
+			msg, err := protocolClient.Recv()
+
+			if err != nil {
+				logrus.WithError(err).Error("Failed to send message to runner node")
+				// Should probably remove the runner node from the list of connections
+				delete(a.connections, address)
+				return err
+			}
+
+			switch body := msg.Body.(type) {
+			case *pb.RunnerMsg_Acknowledged:
+				if !body.Acknowledged.Committed {
+					logrus.Errorf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
+					// Try the next runner
+				} else {
+					logrus.Info("Runner committed invocation request, sending data frames")
+					return nil
+
+				}
+			default:
+				logrus.Info("Unhandled message type received from runner: %v\n", msg)
+			}
 		}
+
+		time.Sleep(retryWaitInterval)
 	}
-
-	// Ask for some capacity!
-
-	return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
 }
 
 func (a *lbAgent) Stats() agent.Stats {
