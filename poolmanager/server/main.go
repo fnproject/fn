@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
 
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
@@ -27,7 +26,7 @@ func newNPMService(ctx context.Context, cp cp.ControlPlane) *npmService {
 }
 
 func (npm *npmService) AdvertiseCapacity(ctx context.Context, snapshots *model.CapacitySnapshotList) (*google_protobuf1.Empty, error) {
-	log.Printf("Received advertise capacity request %+v\n", snapshots)
+	logrus.Info("Received advertise capacity request %+v\n", snapshots)
 
 	npm.capMan.Merge(snapshots)
 	return nil, nil
@@ -50,6 +49,7 @@ const (
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
+	EnvPort     = "FN_PORT"
 )
 
 func getAndCheckFile(envVar string) (string, error) {
@@ -117,16 +117,19 @@ func main() {
 
 	gRPCServer := grpc.NewServer(grpcCreds)
 
-	log.Println("Starting Node Pool Manager gRPC service")
+	logrus.Info("Starting Node Pool Manager gRPC service")
 
 	svc := newNPMService(context.Background(), cp.NewControlPlane())
 	model.RegisterNodePoolScalerServer(gRPCServer, svc)
 	model.RegisterRunnerManagerServer(gRPCServer, svc)
 
-	l, err := net.Listen("tcp", "0.0.0.0:8090")
+	port := getEnv(EnvPort)
+	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", port))
 	if err != nil {
-		log.Panic("Failed to start server", err)
+		logrus.Fatal("could not listen on port %s: %s", port, err)
 	}
 
-	gRPCServer.Serve(l)
+	if err := gRPCServer.Serve(l); err != nil {
+		logrus.Fatal("grpc serve error: %s", err)
+	}
 }
