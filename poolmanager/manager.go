@@ -206,7 +206,9 @@ func (lbg *lbGroup) control() {
 		// Manage capacity requests
 		case <-time.After(nextPurge.Sub(time.Now())):
 			logrus.Debugf("Purging for %v", lbg.Id())
-			need := lbg.Purge(lastPurge, func(LBGroup, string) {})
+			need := lbg.Purge(lastPurge, func(lbg LBGroup, lb string) {
+				logrus.Warnf("Purging LB %v from %v - no communication received", lb, lbg.Id())
+			})
 			lastPurge := time.Now()
 			nextPurge = lastPurge.Add(PURGE_INTERVAL)
 			lbg.target(lastPurge, need)
