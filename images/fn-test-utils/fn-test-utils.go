@@ -29,6 +29,9 @@ type AppRequest struct {
 	ResponseCode int `json:"responseCode,omitempty"`
 	// if specified, this is our response content-type
 	ResponseContentType string `json:"responseContentType,omitempty"`
+	// if specified, this is our response content-type.
+	// jason doesn't sit with the other kids at school.
+	JasonContentType string `json:"jasonContentType,omitempty"`
 	// if specified, this is echoed back to client
 	EchoContent string `json:"echoContent,omitempty"`
 	// verbose mode
@@ -85,22 +88,29 @@ func getTotalLeaks() int {
 
 func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	req, resp := processRequest(ctx, in)
-	finalizeRequest(out, req, resp)
+	var outto fdkresponse
+	outto.Writer = out
+	finalizeRequest(&outto, req, resp)
 }
 
-func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
+func finalizeRequest(out *fdkresponse, req *AppRequest, resp *AppResponse) {
 	// custom response code
 	if req.ResponseCode != 0 {
-		fdk.WriteStatus(out, req.ResponseCode)
+		out.Status = req.ResponseCode
 	} else {
-		fdk.WriteStatus(out, 200)
+		out.Status = 200
 	}
 
 	// custom content type
 	if req.ResponseContentType != "" {
-		fdk.SetHeader(out, "Content-Type", req.ResponseContentType)
-	} else {
-		fdk.SetHeader(out, "Content-Type", "application/json")
+		out.Header.Set("Content-Type", req.ResponseContentType)
+	}
+	// NOTE: don't add 'application/json' explicitly here as an else,
+	// we will test that go's auto-detection logic does not fade since
+	// some people are relying on it now
+
+	if req.JasonContentType != "" {
+		out.JasonContentType = req.JasonContentType
 	}
 
 	json.NewEncoder(out).Encode(resp)
@@ -236,11 +246,10 @@ func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
 func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-	resp := fdkutils.Response{
-		Writer: buf,
-		Status: 200,
-		Header: hdr,
-	}
+	var resp fdkresponse
+	resp.Writer = buf
+	resp.Status = 200
+	resp.Header = hdr
 
 	responseSize := 0
 
@@ -268,7 +277,7 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		responseSize = appReq.ResponseSize
 	}
 
-	jsonResponse := fdkutils.GetJSONResp(buf, &resp, &jsonRequest)
+	jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
 
 	if responseSize > 0 {
 		b, err := json.Marshal(jsonResponse)
@@ -287,14 +296,33 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 	return nil
 }
 
+// since we need to test little jason's content type since he's special. but we
+// don't want to add redundant and confusing fields to the fdk...
+type fdkresponse struct {
+	fdkutils.Response
+
+	JasonContentType string // dumb
+}
+
+// copy of fdk.GetJSONResp but with sugar for stupid jason's little fields
+func getJSONResp(buf *bytes.Buffer, fnResp *fdkresponse, req *fdkutils.JsonIn) *fdkutils.JsonOut {
+	return &fdkutils.JsonOut{
+		Body:        buf.String(),
+		ContentType: fnResp.JasonContentType,
+		Protocol: fdkutils.CallResponseHTTP{
+			StatusCode: fnResp.Status,
+			Headers:    fnResp.Header,
+		},
+	}
+}
+
 func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-	resp := fdkutils.Response{
-		Writer: buf,
-		Status: 200,
-		Header: hdr,
-	}
+	var resp fdkresponse
+	resp.Writer = buf
+	resp.Status = 200
+	resp.Header = hdr
 
 	responseSize := 0
 
@@ -323,7 +351,7 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		responseSize = appReq.ResponseSize
 	}
 
-	hResp := fdkutils.GetHTTPResp(buf, &resp, req)
+	hResp := fdkutils.GetHTTPResp(buf, &resp.Response, req)
 
 	if responseSize > 0 {
 

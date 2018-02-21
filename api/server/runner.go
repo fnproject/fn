@@ -2,8 +2,11 @@ package server
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"path"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fnproject/fn/api"
@@ -46,18 +49,29 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 
 	// gin sets this to 404 on NoRoute, so we'll just ensure it's 200 by default.
 	c.Status(200) // this doesn't write the header yet
-	c.Header("Content-Type", "application/json")
 
 	return s.serve(c, a, path.Clean(p))
 }
 
+var (
+	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+)
+
 // TODO it would be nice if we could make this have nothing to do with the gin.Context but meh
 // TODO make async store an *http.Request? would be sexy until we have different api format...
 func (s *Server) serve(c *gin.Context, appName, path string) error {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	writer := syncResponseWriter{
+		Buffer:  buf,
+		headers: c.Writer.Header(), // copy ref
+	}
+	defer bufPool.Put(buf) // TODO need to ensure this is safe with Dispatch?
+
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 	call, err := s.agent.GetCall(
-		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
+		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
 		agent.FromRequest(appName, path, c.Request),
 	)
 	if err != nil {
@@ -72,11 +86,9 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 
 	if model.Type == "async" {
 		// TODO we should push this into GetCall somehow (CallOpt maybe) or maybe agent.Queue(Call) ?
-		contentLength := c.Request.ContentLength
-		if contentLength < 128 { // contentLength could be -1 or really small, sanitize
-			contentLength = 128
+		if c.Request.ContentLength > 0 {
+			buf.Grow(int(c.Request.ContentLength))
 		}
-		buf := bytes.NewBuffer(make([]byte, int(contentLength))[:0]) // TODO sync.Pool me
 		_, err := buf.ReadFrom(c.Request.Body)
 		if err != nil {
 			return models.ErrInvalidPayload
@@ -102,16 +114,46 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 			// add this, since it means that start may not have been called [and it's relevant]
 			c.Writer.Header().Add("XXX-FXLB-WAIT", time.Now().Sub(time.Time(model.CreatedAt)).String())
 		}
-		// NOTE: if the task wrote the headers already then this will fail to write
-		// a 5xx (and log about it to us) -- that's fine (nice, even!)
 		return err
 	}
 
-	// TODO plumb FXLB-WAIT somehow (api?)
+	// if they don't set a content-type - detect it
+	if writer.Header().Get("Content-Type") == "" {
+		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
+		var contentType string
+		if bytes.HasPrefix(buf.Bytes(), jsonPrefix) {
+			// try to detect json, since DetectContentType isn't a hipster.
+			contentType = "application/json; charset=utf-8"
+		} else {
+			contentType = http.DetectContentType(buf.Bytes())
+		}
+		writer.Header().Set("Content-Type", contentType)
+	}
 
-	// TODO we need to watch the response writer and if no bytes written
-	// then write a 200 at this point?
-	// c.Data(http.StatusOK)
+	writer.Header().Set("Content-Length", strconv.Itoa(int(buf.Len())))
+
+	if writer.status > 0 {
+		c.Writer.WriteHeader(writer.status)
+	}
+	io.Copy(c.Writer, &writer)
 
 	return nil
 }
+
+var jsonPrefix = []byte("{")
+
+var _ http.ResponseWriter = new(syncResponseWriter)
+
+// implements http.ResponseWriter
+// this little guy buffers responses from user containers and lets them still
+// set headers and such without us risking writing partial output [as much, the
+// server could still die while we're copying the buffer]. this lets us set
+// content length and content type nicely, as a bonus. it is sad, yes.
+type syncResponseWriter struct {
+	headers http.Header
+	status  int
+	*bytes.Buffer
+}
+
+func (s *syncResponseWriter) Header() http.Header  { return s.headers }
+func (s *syncResponseWriter) WriteHeader(code int) { s.status = code }
