@@ -45,12 +45,13 @@ func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*m
 	lbg := npm.capMan.LBGroup(gid.GetId())
 
 	membership := &model.LBGroupMembership{GroupId: gid}
-	runners := lbg.GetMembers()
-	members := make([]*model.Runner, len(runners))
-	for i, r := range runners {
-		members[i] = &model.Runner{Address: r}
+	members := lbg.GetMembers()
+	runners := make([]*model.Runner, len(members))
+	for i, r := range members {
+		runners[i] = &model.Runner{Address: r}
 	}
-	logrus.Infof("LBGroup membership for %v is %+v", gid.GetId(), members)
+	membership.Runners = runners
+	logrus.Infof("LBGroup membership for %v is %+v", gid.GetId(), runners)
 	return membership, nil
 }
 

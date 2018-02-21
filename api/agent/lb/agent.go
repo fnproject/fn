@@ -168,6 +168,7 @@ func (a *lbAgent) Submit(call agent.Call) error {
 		if err != nil {
 			logrus.WithError(err).Info("Failed to get runners from node pool manager")
 		} else if len(runnerList) > 0 {
+			logrus.WithField("runners", len(runnerList)).Info("Updating runner list")
 			a.runnersMtx.Lock()
 			a.runnerAddresses[lbGroupID] = runnerList
 			a.runnersMtx.Unlock()

@@ -54,6 +54,7 @@ func (npm *remoteNodePoolManager) GetLBGroup(lbgID string) ([]string, error) {
 		return nil, err
 	}
 
+	logrus.WithField("runners", m.GetRunners()).Debug("Received runner list")
 	runnerList := make([]string, len(m.GetRunners()))
 	for i, r := range m.GetRunners() {
 		runnerList[i] = r.Address
