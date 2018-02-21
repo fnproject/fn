@@ -36,9 +36,10 @@ func newNPMService(ctx context.Context, cp cp.ControlPlane) *npmService {
 }
 
 func (npm *npmService) AdvertiseCapacity(ctx context.Context, snapshots *model.CapacitySnapshotList) (*google_protobuf1.Empty, error) {
-	logrus.Infof("Received advertise capacity request %+v\n", snapshots)
+	logrus.Infof("Received capacity request %+v\n", snapshots)
 
 	npm.capMan.Merge(snapshots)
+	logrus.Infof("Merged %+v\n", snapshots)
 	return &google_protobuf1.Empty{}, nil
 }
 
@@ -107,6 +108,12 @@ func createGrpcCreds(cert string, key string, ca string) (grpc.ServerOption, err
 }
 
 func main() {
+	level, err := logrus.ParseLevel(getEnv("FN_LOG_LEVEL"))
+	if err != nil {
+		logrus.Panic("Set a valid FN_LOG_LEVEL")
+	}
+	logrus.SetLevel(level)
+
 	// Obtain certificate paths
 	cert, err := getAndCheckFile(EnvCert)
 	if err != nil {

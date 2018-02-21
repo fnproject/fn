@@ -3,12 +3,14 @@ package poolmanager
 import (
 	"time"
 
-	model "github.com/fnproject/fn/poolmanager/grpc"
-	"sync"
-	"github.com/fnproject/fn/poolmanager/server/cp"
 	"context"
 	"log"
 	"math"
+	"sync"
+
+	model "github.com/fnproject/fn/poolmanager/grpc"
+	"github.com/fnproject/fn/poolmanager/server/cp"
+	"github.com/sirupsen/logrus"
 )
 
 type CapacityManager interface {
@@ -20,25 +22,27 @@ type LBGroup interface {
 	Id() string
 	UpdateRequirements(lb string, total int64)
 	Purge(time.Time, func(LBGroup, string)) int64 // Remove outdated requirements, return updated value
-	GetMembers() []string  // Return *ACTIVE* members
+	GetMembers() []string                         // Return *ACTIVE* members
 }
 
 type capacityManager struct {
 	ctx context.Context
-	mx sync.RWMutex
-	cp cp.ControlPlane
+	mx  sync.RWMutex
+	cp  cp.ControlPlane
 	lbg map[string]LBGroup
 }
 
 func NewCapacityManager(ctx context.Context, cp cp.ControlPlane) CapacityManager {
 	return &capacityManager{
 		ctx: ctx,
-		cp: cp,
+		cp:  cp,
 		lbg: make(map[string]LBGroup),
 	}
 }
 
 func (m *capacityManager) LBGroup(lbgid string) LBGroup {
+	logrus.Infof("Looking for LBG %v", lbgid)
+	defer logrus.Infof("Exiting lookup of LBG %v", lbgid)
 	m.mx.RLock()
 	// Optimistic path
 	if lbg, ok := m.lbg[lbgid]; ok {
@@ -48,32 +52,32 @@ func (m *capacityManager) LBGroup(lbgid string) LBGroup {
 
 	// We don't have one: upgrade the lock and allocate
 	m.mx.RUnlock()
-	defer m.mx.Lock()
+	m.mx.Lock()
+	defer m.mx.Unlock()
 	// Need to check again
 	if lbg, ok := m.lbg[lbgid]; ok {
 		return lbg
 	}
+	logrus.Debugf("Making new LBG to handle %v", lbgid)
 	lbg := newLBGroup(lbgid, m.ctx, m.cp)
 	m.lbg[lbgid] = lbg
 	return lbg
 }
-
 
 func (m *capacityManager) Merge(list *model.CapacitySnapshotList) {
 	lbid := list.GetLbId()
 	for _, new_req := range list.Snapshots {
 		lbg := new_req.GetGroupId().GetId()
 
+		logrus.Debugf("Merging snapshot %+v for %v from %v", new_req, lbg, lbid)
 		m.LBGroup(lbg).UpdateRequirements(lbid, int64(new_req.GetMemMbTotal()))
 	}
 }
-
 
 type lbGroup struct {
 	ctx context.Context
 
 	id string
-
 
 	// Attributes for managing incoming capacity requirements
 	cap_mx sync.RWMutex
@@ -83,17 +87,16 @@ type lbGroup struct {
 
 	controlStream chan requirement
 
-
 	// Attributes for managing runner pool membership
 	run_mx sync.RWMutex
-	cp cp.ControlPlane
+	cp     cp.ControlPlane
 
-	current_capacity int64  // Of all active runners
-	target_capacity int64   // All active runners plus any we've already asked for
-	runners map[string]*runner  // A map of everything we know about
-	active_runners []*runner  // Everything currently in use
-	draining_runners []*runner  // We keep tabs on these separately
-	dead_runners []*runner  // Waiting for control plane to remove
+	current_capacity int64              // Of all active runners
+	target_capacity  int64              // All active runners plus any we've already asked for
+	runners          map[string]*runner // A map of everything we know about
+	active_runners   []*runner          // Everything currently in use
+	draining_runners []*runner          // We keep tabs on these separately
+	dead_runners     []*runner          // Waiting for control plane to remove
 }
 
 type requirement struct {
@@ -102,15 +105,15 @@ type requirement struct {
 }
 
 const (
-	RUNNER_ACTIVE = iota
+	RUNNER_ACTIVE   = iota
 	RUNNER_DRAINING = iota
-	RUNNER_DEAD = iota
+	RUNNER_DEAD     = iota
 )
 
 type runner struct {
-	id string  // The same address may get recycled; we'll need to disambiguate somehow.
-	address string
-	status int
+	id       string // The same address may get recycled; we'll need to disambiguate somehow.
+	address  string
+	status   int
 	capacity int64
 
 	// XXX: If we're draining, this is handy to simulate runner readiness for shutdown
@@ -119,9 +122,9 @@ type runner struct {
 
 func newLBGroup(lbgid string, ctx context.Context, cp cp.ControlPlane) LBGroup {
 	lbg := &lbGroup{
-		ctx: ctx,
-		id: lbgid,
-		cp: cp,
+		ctx:          ctx,
+		id:           lbgid,
+		cp:           cp,
 		requirements: make(map[string]*requirement),
 	}
 	go lbg.control()
@@ -133,8 +136,9 @@ func (lbg *lbGroup) Id() string {
 }
 
 func (lbg *lbGroup) UpdateRequirements(lb string, total int64) {
+	logrus.Debugf("Updating capacity requirements for %v, lb=%v", lbg.Id(), lb)
+	defer logrus.Debugf("Updated %v, lb=%v", lbg.Id(), lb)
 	lbg.cap_mx.Lock()
-	defer lbg.cap_mx.Unlock()
 
 	last, ok := lbg.requirements[lb]
 
@@ -159,10 +163,11 @@ func (lbg *lbGroup) UpdateRequirements(lb string, total int64) {
 	// TODO: new_req also has a generation for the runner information that LB held. If that's out of date, signal that we need to readvertise
 
 	// Send a new signal to the capacity control loop
+	lbg.cap_mx.Unlock()
+
+	logrus.Debugf("Sending new capacity requirement of %v", lbg.total_wanted)
 	lbg.controlStream <- requirement{ts: now, total_wanted: lbg.total_wanted}
 }
-
-
 
 func (lbg *lbGroup) Purge(oldest time.Time, cb func(LBGroup, string)) int64 {
 	lbg.cap_mx.Lock()
@@ -197,21 +202,28 @@ func (lbg *lbGroup) control() {
 	nextPoll := lastPurge.Add(POLL_INTERVAL)
 
 	for {
+		logrus.Debugf("In capacity management loop for %v", lbg.Id())
 		select {
 		// Manage capacity requests
-		case <- time.After(nextPurge.Sub(time.Now())):
-			need := lbg.Purge(lastPurge, func(LBGroup, string){})
+		case <-time.After(nextPurge.Sub(time.Now())):
+			logrus.Debugf("Purging for %v", lbg.Id())
+			need := lbg.Purge(lastPurge, func(LBGroup, string) {})
 			lastPurge := time.Now()
 			nextPurge = lastPurge.Add(PURGE_INTERVAL)
 			lbg.target(lastPurge, need)
+			logrus.Debugf("Purged for %v", lbg.Id())
 
-		case req := <- lbg.controlStream:
+		case req := <-lbg.controlStream:
+			logrus.Debugf("New requirement received by control loop for %v", req.total_wanted)
 			lbg.target(req.ts, req.total_wanted)
+			logrus.Debugf("New requirement handled", lbg.Id())
 
 		// Poll CP for runners (this will change, it's a stub)
-		case <- time.After(nextPoll.Sub(time.Now())):
+		case <-time.After(nextPoll.Sub(time.Now())):
+			logrus.Debugf("Polling for runners for %v", lbg.Id())
 			lbg.pollForRunners()
 			nextPoll = time.Now().Add(POLL_INTERVAL)
+			logrus.Debugf("Polled for %v", lbg.Id())
 		}
 	}
 }
@@ -240,8 +252,8 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 		// Begin by reactivating any runners we're currently draining down.
 		for target > lbg.target_capacity && len(lbg.draining_runners) > 0 {
 			// Begin with the one we started draining last.
-			runner := lbg.draining_runners[len(lbg.draining_runners) - 1]
-			lbg.draining_runners = lbg.draining_runners[:len(lbg.draining_runners) - 1]
+			runner := lbg.draining_runners[len(lbg.draining_runners)-1]
+			lbg.draining_runners = lbg.draining_runners[:len(lbg.draining_runners)-1]
 			runner.status = RUNNER_ACTIVE
 			lbg.active_runners = append(lbg.active_runners, runner)
 			lbg.current_capacity += runner.capacity
@@ -260,13 +272,13 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 			lbg.target_capacity += int64(asked_for) * cp.CAPACITY_PER_RUNNER
 		}
 
-	} else if target < lbg.current_capacity - cp.CAPACITY_PER_RUNNER {
+	} else if target < lbg.current_capacity-cp.CAPACITY_PER_RUNNER {
 		// Scale down.
 		// We pick a node to turn off and move it to the draining pool.
-		for target < lbg.current_capacity - cp.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
+		for target < lbg.current_capacity-cp.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
 			// Begin with the one we added last.
-			runner := lbg.active_runners[len(lbg.active_runners) - 1]
-			lbg.active_runners = lbg.active_runners[:len(lbg.active_runners) - 1]
+			runner := lbg.active_runners[len(lbg.active_runners)-1]
+			lbg.active_runners = lbg.active_runners[:len(lbg.active_runners)-1]
 			runner.status = RUNNER_DRAINING
 			runner.kill_after = time.Now().Add(MAX_DRAINDOWN_LIFETIME)
 			lbg.draining_runners = append(lbg.draining_runners, runner)
@@ -275,7 +287,6 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 		}
 	}
 }
-
 
 // Pool membership management
 func (lbg *lbGroup) GetMembers() []string {
@@ -327,13 +338,13 @@ func (lbg *lbGroup) pollForRunners() {
 		} else {
 			// This is a new runner. Bring it into the active pool
 			runner := &runner{
-				id: host.Id,
-				address: host.Address,
-				status: RUNNER_ACTIVE,
+				id:       host.Id,
+				address:  host.Address,
+				status:   RUNNER_ACTIVE,
 				capacity: host.Capacity,
 			}
 			lbg.active_runners = append(lbg.active_runners, runner)
-			lbg.current_capacity += runner.capacity  // The total capacity is already computed, since we asked for this
+			lbg.current_capacity += runner.capacity // The total capacity is already computed, since we asked for this
 		}
 	}
 
@@ -347,4 +358,3 @@ func (lbg *lbGroup) pollForRunners() {
 	}
 	lbg.dead_runners = dead
 }
-
