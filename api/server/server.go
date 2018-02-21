@@ -325,7 +325,7 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			s.agent = agent.New(agent.NewCachedDataAccess(ds))
+			s.agent = agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 		case ServerTypeLB:
 			s.nodeType = ServerTypeLB
 			runnerURL := getEnv(EnvRunnerURL, "")
