@@ -110,14 +110,12 @@ func (a *lbAgent) refreshRunnerConnections() {
 			conns := a.connections[lbGroupId]
 
 			if conns == nil {
-				a.connsMtx.Lock()
 				conns = make(map[string](pb.RunnerProtocol_EngageClient))
 				a.connections[lbGroupId] = conns
-				a.connsMtx.Unlock()
 			}
 			// create conn
 			if _, connected := conns[address]; !connected {
-				a.connectToRunner(address, lbGroupId)
+				a.connectToRunner(lbGroupId, address)
 			}
 		}
 	}
