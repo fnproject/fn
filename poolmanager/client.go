@@ -38,7 +38,7 @@ func newRemoteClient(serverAddr string) (remoteClient, error) {
 func (c *grpcPoolManagerClient) AdvertiseCapacity(snapshots *model.CapacitySnapshotList) error {
 	_, err := c.scaler.AdvertiseCapacity(context.Background(), snapshots)
 	if err != nil {
-		logrus.Fatalf("Failed to push snapshots %v", err)
+		logrus.WithError(err).Error("Failed to push snapshots")
 		return err
 	}
 	return nil
