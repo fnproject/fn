@@ -43,3 +43,16 @@ FN_DB_URL=sqlite3:///tmp/runnerdata/fn.db FN_MQ_URL=bolt:///tmp/runnerdata/fn.mq
 mkdir /tmp/lbdata
 FN_DB_URL=sqlite3:///tmp/lbdata/fn.db FN_MQ_URL=bolt:///tmp/lbdata/fn.mq FN_NODE_TYPE=lb FN_PORT=8081 FN_RUNNER_API_URL=http://localhost:8080 FN_NODE_CERT=cert.pem FN_NODE_CERT_AUTHORITY=cert.pem FN_NODE_CERT_KEY=key.pem ./fnserver
 ```
+
+### NPM
+
+Currently the NPM uses a fixed, single-node instance of the Runner to simulate its "pool". The runner answers on port 8082 in this example.
+
+```bash
+FN_NODE_CERT=cert.pem  \
+FN_NODE_CERT_KEY=key.pem  \
+FN_NODE_CERT_AUTHORITY=cert.pem  \
+FN_PORT=8082  \
+FN_RUNNER_ADDRESS=localhost:8081 \
+./fnnpm
+```

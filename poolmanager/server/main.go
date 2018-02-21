@@ -12,6 +12,15 @@ import (
 	"github.com/fnproject/fn/poolmanager/server/cp"
 
 	"github.com/sirupsen/logrus"
+	"fmt"
+	"path/filepath"
+	"os"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
+	"log"
+	"errors"
+	"google.golang.org/grpc/credentials"
 )
 
 type npmService struct {
@@ -50,20 +59,21 @@ const (
 	EnvCertKey  = "FN_NODE_CERT_KEY"
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
 	EnvPort     = "FN_PORT"
+	EnvSingleRunner = "FN_RUNNER_ADDRESS"
 )
 
 func getAndCheckFile(envVar string) (string, error) {
-	filename := getEnv(envVar, "")
+	filename := getEnv(envVar)
 	if filename == "" {
-		return fmt.Errorf("Please provide a valid file path in the %v variable", envVar)
+		return "", fmt.Errorf("Please provide a valid file path in the %v variable", envVar)
 	}
 	abs, err := filepath.Abs(filename)
 	if err != nil {
-		return fmt.Errorf("Unable to resolve %v: please specify a valid and readable file", filename)
+		return "", fmt.Errorf("Unable to resolve %v: please specify a valid and readable file", filename)
 	}
 	_, err = os.Stat(abs)
 	if err != nil {
-		return fmt.Errorf("Cannot stat %v: please specify a valid and readable file", abs)
+		return "", fmt.Errorf("Cannot stat %v: please specify a valid and readable file", abs)
 	}
 	return abs, nil
 }
@@ -115,11 +125,12 @@ func main() {
 		logrus.Fatal(err)
 	}
 
-	gRPCServer := grpc.NewServer(grpcCreds)
+	gRPCServer := grpc.NewServer(gRPCCreds)
 
 	logrus.Info("Starting Node Pool Manager gRPC service")
 
-	svc := newNPMService(context.Background(), cp.NewControlPlane())
+	fakeRunner := getEnv(EnvSingleRunner)
+	svc := newNPMService(context.Background(), cp.NewControlPlane(fakeRunner))
 	model.RegisterNodePoolScalerServer(gRPCServer, svc)
 	model.RegisterRunnerManagerServer(gRPCServer, svc)
 
@@ -131,5 +142,13 @@ func main() {
 
 	if err := gRPCServer.Serve(l); err != nil {
 		logrus.Fatal("grpc serve error: %s", err)
+	}
+}
+
+func getEnv(key string) string {
+	if value, ok := os.LookupEnv(key); !ok {
+		log.Panicf("Missing config key: %v", key)
+	} else {
+		return value
 	}
 }

@@ -33,14 +33,18 @@ type controlPlane struct {
 	mx      sync.RWMutex
 
 	runners map[string][]*Runner
+
+	_fakeRunner string
 }
 
 const REQUEST_DURATION = 5 * time.Second
 
 
-func NewControlPlane() ControlPlane {
+func NewControlPlane(fakeRunner string) ControlPlane {
 	cp := &controlPlane{
 		runners: make(map[string][]*Runner),
+
+		_fakeRunner: fakeRunner,
 	}
 	return cp
 }
@@ -73,7 +77,7 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 			runners = make([]*Runner, n)
 		}
 		for i := 0; i < n; i++ {
-			runners = append(runners, makeRunner(lbgId))
+			runners = append(runners, cp.makeRunner(lbgId))
 		}
 		cp.runners[lbgId] = runners
 	}()
@@ -83,7 +87,7 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 
 
 // Make a runner
-func makeRunner(lbg string) *Runner {
+func (cp *controlPlane) makeRunner(lbg string) *Runner {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -94,7 +98,7 @@ func makeRunner(lbg string) *Runner {
 
 	return &Runner{
 		Id: uuid,
-		Address: "localhost:8888",
+		Address: cp._fakeRunner,
 		Capacity: CAPACITY_PER_RUNNER,
 	}
 }
