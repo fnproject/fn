@@ -23,12 +23,9 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rdallman/migrate"
 	_ "github.com/rdallman/migrate/database/mysql"
 	_ "github.com/rdallman/migrate/database/postgres"
 	_ "github.com/rdallman/migrate/database/sqlite3"
-	"github.com/rdallman/migrate/source"
-	"github.com/rdallman/migrate/source/go-bindata"
 	"github.com/sirupsen/logrus"
 )
 
@@ -42,50 +39,6 @@ import (
 // fields not contiguous with other fields and this field is a fixed size,
 // we'll get better locality with varchar. it's not terribly easy to do this
 // with migrations (sadly, need complex transaction)
-
-var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
-	app_name varchar(256) NOT NULL,
-	path varchar(256) NOT NULL,
-	image varchar(256) NOT NULL,
-	format varchar(16) NOT NULL,
-	memory int NOT NULL,
-	cpus int,
-	timeout int NOT NULL,
-	idle_timeout int NOT NULL,
-	type varchar(16) NOT NULL,
-	headers text NOT NULL,
-	config text NOT NULL,
-	created_at text,
-	updated_at varchar(256),
-	PRIMARY KEY (app_name, path)
-);`,
-
-	`CREATE TABLE IF NOT EXISTS apps (
-	name varchar(256) NOT NULL PRIMARY KEY,
-	config text NOT NULL,
-	created_at varchar(256),
-	updated_at varchar(256)
-);`,
-
-	`CREATE TABLE IF NOT EXISTS calls (
-	created_at varchar(256) NOT NULL,
-	started_at varchar(256) NOT NULL,
-	completed_at varchar(256) NOT NULL,
-	status varchar(256) NOT NULL,
-	id varchar(256) NOT NULL,
-	app_name varchar(256) NOT NULL,
-	path varchar(256) NOT NULL,
-	stats text,
-	error text,
-	PRIMARY KEY (id)
-);`,
-
-	`CREATE TABLE IF NOT EXISTS logs (
-	id varchar(256) NOT NULL PRIMARY KEY,
-	app_name varchar(256) NOT NULL,
-	log text NOT NULL
-);`,
-}
 
 const (
 	routeSelector = `SELECT app_name, path, image, format, memory, cpus, type, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
@@ -147,21 +100,15 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
-	err = runMigrations(url.String(), checkExistence(db)) // original url string
-	if err != nil {
-		log.WithError(err).Error("error running migrations")
-		return nil, err
-	}
-
 	switch driver {
 	case "sqlite3":
 		db.SetMaxOpenConns(1)
 	}
-	for _, v := range tables {
-		_, err = db.ExecContext(ctx, v)
-		if err != nil {
-			return nil, err
-		}
+
+	err = migrations.ApplyMigrations(ctx, driver, sqldb)
+	if err != nil {
+		log.WithError(err).Error("error running migrations")
+		return nil, err
 	}
 
 	return &sqlStore{db: db}, nil
@@ -176,77 +123,6 @@ func pingWithRetry(ctx context.Context, attempts int, sleep time.Duration, db *s
 		time.Sleep(sleep)
 	}
 	return err
-}
-
-// checkExistence checks if tables have been created yet, it is not concerned
-// about the existence of the schema migration version (since migrations were
-// added to existing dbs, we need to know whether the db exists without migrations
-// or if it's brand new).
-func checkExistence(db *sqlx.DB) bool {
-	query := db.Rebind(`SELECT name FROM apps LIMIT 1`)
-	row := db.QueryRow(query)
-
-	var dummy string
-	err := row.Scan(&dummy)
-	if err != nil && err != sql.ErrNoRows {
-		// TODO we should probably ensure this is a certain 'no such table' error
-		// and if it's not that or err no rows, we should probably block start up.
-		// if we return false here spuriously, then migrations could be skipped,
-		// which would be bad.
-		return false
-	}
-	return true
-}
-
-// check if the db already existed, if the db is brand new then we can skip
-// over all the migrations BUT we must be sure to set the right migration
-// number so that only current migrations are skipped, not any future ones.
-func runMigrations(url string, exists bool) error {
-	m, err := migrator(url)
-	if err != nil {
-		return err
-	}
-	defer m.Close()
-
-	if !exists {
-		// set to highest and bail
-		return m.Force(latestVersion(migrations.AssetNames()))
-	}
-
-	// run any migrations needed to get to latest, if any
-	err = m.Up()
-	if err == migrate.ErrNoChange { // we don't care, but want other errors
-		err = nil
-	}
-	return err
-}
-
-func migrator(url string) (*migrate.Migrate, error) {
-	s := bindata.Resource(migrations.AssetNames(),
-		func(name string) ([]byte, error) {
-			return migrations.Asset(name)
-		})
-
-	d, err := bindata.WithInstance(s)
-	if err != nil {
-		return nil, err
-	}
-
-	return migrate.NewWithSourceInstance("go-bindata", d, url)
-}
-
-// latest version will find the latest version from a list of migration
-// names (not from the db)
-func latestVersion(migs []string) int {
-	var highest uint
-	for _, m := range migs {
-		mig, _ := source.Parse(m)
-		if mig.Version > highest {
-			highest = mig.Version
-		}
-	}
-
-	return int(highest)
 }
 
 // clear is for tests only, be careful, it deletes all records.

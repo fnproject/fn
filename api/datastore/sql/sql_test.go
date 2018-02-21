@@ -8,6 +8,8 @@ import (
 	"context"
 	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
+	"github.com/fnproject/fn/api/datastore/sql/migrations"
+	_ "github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -22,12 +24,7 @@ func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		return nil, err
 	}
 
-	m, err := migrator(url.String())
-	if err != nil {
-		return nil, err
-	}
-
-	err = m.Down()
+	err = migrations.DownByOne(url.Scheme, ds.db.DB)
 	if err != nil {
 		return nil, err
 	}
