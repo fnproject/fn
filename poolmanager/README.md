@@ -53,6 +53,6 @@ FN_NODE_CERT=cert.pem  \
 FN_NODE_CERT_KEY=key.pem  \
 FN_NODE_CERT_AUTHORITY=cert.pem  \
 FN_PORT=8083  \
-FN_RUNNER_ADDRESS=localhost:8082 \
+FN_RUNNER_ADDRESS=127.0.0.1:8082 \
 ./fnnpm
 ```

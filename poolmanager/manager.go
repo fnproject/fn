@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"context"
-	"log"
 	"math"
 	"sync"
 
@@ -41,8 +40,6 @@ func NewCapacityManager(ctx context.Context, cp cp.ControlPlane) CapacityManager
 }
 
 func (m *capacityManager) LBGroup(lbgid string) LBGroup {
-	logrus.Infof("Looking for LBG %v", lbgid)
-	defer logrus.Infof("Exiting lookup of LBG %v", lbgid)
 	m.mx.RLock()
 	// Optimistic path
 	if lbg, ok := m.lbg[lbgid]; ok {
@@ -58,7 +55,7 @@ func (m *capacityManager) LBGroup(lbgid string) LBGroup {
 	if lbg, ok := m.lbg[lbgid]; ok {
 		return lbg
 	}
-	logrus.Debugf("Making new LBG to handle %v", lbgid)
+	logrus.Infof("Making new LBG to handle %v", lbgid)
 	lbg := newLBGroup(lbgid, m.ctx, m.cp)
 	m.lbg[lbgid] = lbg
 	return lbg
@@ -124,8 +121,10 @@ func newLBGroup(lbgid string, ctx context.Context, cp cp.ControlPlane) LBGroup {
 	lbg := &lbGroup{
 		ctx:          ctx,
 		id:           lbgid,
-		cp:           cp,
 		requirements: make(map[string]*requirement),
+		controlStream: make(chan requirement),
+		cp:           cp,
+		runners:	  make(map[string]*runner),
 	}
 	go lbg.control()
 	return lbg
@@ -231,7 +230,7 @@ func (lbg *lbGroup) control() {
 func (lbg *lbGroup) target(ts time.Time, target int64) {
 	if time.Now().Sub(ts) > VALID_REQUEST_LIFETIME {
 		// We have a request that's too old; drop it.
-		log.Printf("Request for capacity is too old: %v", ts)
+		logrus.Warnf("Request for capacity is too old: %v", ts)
 		return
 	}
 
@@ -253,6 +252,8 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 		for target > lbg.target_capacity && len(lbg.draining_runners) > 0 {
 			// Begin with the one we started draining last.
 			runner := lbg.draining_runners[len(lbg.draining_runners)-1]
+			logrus.Infof("Recovering runner %v at %v from draindown", runner.id, runner.address)
+
 			lbg.draining_runners = lbg.draining_runners[:len(lbg.draining_runners)-1]
 			runner.status = RUNNER_ACTIVE
 			lbg.active_runners = append(lbg.active_runners, runner)
@@ -266,18 +267,20 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 			asked_for, err := lbg.cp.ProvisionRunners(lbg.Id(), int(wanted)) // Send the request; they'll show up later
 			if err != nil {
 				// Some kind of error during attempt to scale up
-				log.Printf("Error occured during attempt to scale up: %v", err)
+				logrus.Errorf("Error occured during attempt to scale up: %v", err)
 				return
 			}
 			lbg.target_capacity += int64(asked_for) * cp.CAPACITY_PER_RUNNER
 		}
 
-	} else if target < lbg.current_capacity-cp.CAPACITY_PER_RUNNER {
+	} else if target <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER {
 		// Scale down.
 		// We pick a node to turn off and move it to the draining pool.
-		for target < lbg.current_capacity-cp.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
+		for target <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
 			// Begin with the one we added last.
 			runner := lbg.active_runners[len(lbg.active_runners)-1]
+			logrus.Infof("Marking runner %v at %v for draindown", runner.id, runner.address)
+
 			lbg.active_runners = lbg.active_runners[:len(lbg.active_runners)-1]
 			runner.status = RUNNER_DRAINING
 			runner.kill_after = time.Now().Add(MAX_DRAINDOWN_LIFETIME)
@@ -313,19 +316,20 @@ func (lbg *lbGroup) pollForRunners() {
 	for len(lbg.draining_runners) > 0 && now.After(lbg.draining_runners[0].kill_after) {
 		// Mark this runner as to be killed
 		runner := lbg.draining_runners[0]
-		log.Printf("Runner %v at %v to be shut down", runner.id, runner.address)
+		logrus.Infof("Drain down for runner %v at %v complete: signalling shutdown", runner.id, runner.address)
 		lbg.draining_runners = lbg.draining_runners[1:]
 		runner.status = RUNNER_DEAD
 		lbg.dead_runners = append(lbg.dead_runners, runner)
 		if err := lbg.cp.RemoveRunner(lbg.Id(), runner.id); err != nil {
-			log.Printf("Error attempting to close down runner %v at %v: %v", runner.id, runner.address, err)
+			logrus.Errorf("Error attempting to close down runner %v at %v: %v", runner.id, runner.address, err)
 		}
 	}
 
 	// Get CP status and process it. This might be smarter but for the moment we just loop over everything we're told.
+	logrus.Debugf("Getting hosts from ControlPlane for %v", lbg.Id())
 	latestHosts, err := lbg.cp.GetLBGRunners(lbg.Id())
 	if err != nil {
-		log.Printf("Problem talking to teh CP to fetch runner status: %v", err)
+		logrus.Errorf("Problem talking to the CP to fetch runner status: %v", err)
 		return
 	}
 
@@ -333,9 +337,13 @@ func (lbg *lbGroup) pollForRunners() {
 	for _, host := range latestHosts {
 		_, ok := lbg.runners[host.Id]
 		if ok {
+			logrus.Debugf(" ... host %v at %d is known", host.Id, host.Address)
+
 			// We already know about this
 			seen[host.Id] = true
 		} else {
+			logrus.Infof(" ... host %v at %d is new", host.Id, host.Address)
+
 			// This is a new runner. Bring it into the active pool
 			runner := &runner{
 				id:       host.Id,
@@ -343,17 +351,22 @@ func (lbg *lbGroup) pollForRunners() {
 				status:   RUNNER_ACTIVE,
 				capacity: host.Capacity,
 			}
+			lbg.runners[host.Id] = runner
 			lbg.active_runners = append(lbg.active_runners, runner)
 			lbg.current_capacity += runner.capacity // The total capacity is already computed, since we asked for this
 		}
 	}
 
 	// Work out if runners that we asked to be killed have been shut down
+	logrus.Debugf("Removing dead hosts for %v", lbg.Id())
+	// TODO the control plane might pull active or draining hosts out from under us. Deal with that too.
 	dead := make([]*runner, 0)
 	for _, runner := range lbg.dead_runners {
 		if _, ok := seen[runner.id]; ok {
 			// This runner is not yet shut down
 			dead = append(dead, runner)
+		} else {
+			delete(lbg.runners, runner.id)
 		}
 	}
 	lbg.dead_runners = dead

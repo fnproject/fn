@@ -74,7 +74,7 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 
 		runners, ok := cp.runners[lbgId]
 		if !ok {
-			runners = make([]*Runner, n)
+			runners = make([]*Runner, 0)
 		}
 		for i := 0; i < n; i++ {
 			runners = append(runners, cp.makeRunner(lbgId))

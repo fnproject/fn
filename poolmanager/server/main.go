@@ -36,10 +36,8 @@ func newNPMService(ctx context.Context, cp cp.ControlPlane) *npmService {
 }
 
 func (npm *npmService) AdvertiseCapacity(ctx context.Context, snapshots *model.CapacitySnapshotList) (*google_protobuf1.Empty, error) {
-	logrus.Infof("Received capacity request %+v\n", snapshots)
-
 	npm.capMan.Merge(snapshots)
-	logrus.Infof("Merged %+v\n", snapshots)
+	logrus.Debugf("Merged capacity requests %+v", snapshots)
 	return &google_protobuf1.Empty{}, nil
 }
 
@@ -52,6 +50,7 @@ func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*m
 	for i, r := range runners {
 		members[i] = &model.Runner{Address: r}
 	}
+	logrus.Debugf("LBGroup membership for %v is %+v", gid.GetId(), members)
 	return membership, nil
 }
 
