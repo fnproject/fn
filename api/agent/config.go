@@ -38,7 +38,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 		return cfg, errors.New("error eject idle delay cannot be zero")
 	}
 
-	if size := os.Getenv("FN_RESPONSE_SIZE"); size != "" {
+	if size := os.Getenv("FN_MAX_RESPONSE_SIZE"); size != "" {
 		cfg.MaxResponseSize, err = strconv.ParseUint(size, 10, 64)
 		if err != nil {
 			return cfg, errors.New("error initializing response buffer size")

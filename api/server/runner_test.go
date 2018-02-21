@@ -140,11 +140,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
 	rImgBs2 := "localhost:5000/fnproject/imagethatdoesnotexist"
 
-	err := os.Setenv("FN_RESPONSE_SIZE", "2048")
+	err := os.Setenv("FN_MAX_RESPONSE_SIZE", "2048")
 	if err != nil {
 		t.Errorf("Cannot set response size %v", err)
 	}
-	defer os.Setenv("FN_RESPONSE_SIZE", "")
+	defer os.Setenv("FN_MAX_RESPONSE_SIZE", "")
 
 	ds := datastore.NewMockInit(
 		[]*models.App{
