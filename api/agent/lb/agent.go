@@ -34,7 +34,7 @@ const (
 	// sleep time when scaling from 0 to 1 runners
 	noCapacityWaitInterval = 1 * time.Second
 	// amount of time to wait to place a request on a runner
-	placementTimeout = 5 * time.Second
+	placementTimeout = 15 * time.Second
 )
 
 type lbAgent struct {
