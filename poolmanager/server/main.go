@@ -50,7 +50,7 @@ func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*m
 	for i, r := range runners {
 		members[i] = &model.Runner{Address: r}
 	}
-	logrus.Debugf("LBGroup membership for %v is %+v", gid.GetId(), members)
+	logrus.Infof("LBGroup membership for %v is %+v", gid.GetId(), members)
 	return membership, nil
 }
 

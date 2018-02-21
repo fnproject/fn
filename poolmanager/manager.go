@@ -190,7 +190,7 @@ const VALID_REQUEST_LIFETIME = 500 * time.Millisecond
 const POLL_INTERVAL = time.Second
 const LARGEST_REQUEST_AT_ONCE = 20
 
-const MAX_DRAINDOWN_LIFETIME = 120 * time.Second
+const MAX_DRAINDOWN_LIFETIME = 50 * time.Second  // For the moment.
 
 func (lbg *lbGroup) control() {
 	// Control loop. This should receive a series of requirements.

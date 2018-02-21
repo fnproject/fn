@@ -46,13 +46,14 @@ FN_DB_URL=sqlite3:///tmp/lbdata/fn.db FN_MQ_URL=bolt:///tmp/lbdata/fn.mq FN_NODE
 
 ### NPM
 
-Currently the NPM uses a fixed, single-node instance of the Runner to simulate its "pool". The runner answers on port 8082 in this example.
+Currently the NPM uses a fixed, single-node instance of the Runner to simulate its "pool". The runner answers on port 8082 in this example,
+but the GRPC port is 9120.
 
 ```bash
 FN_NODE_CERT=cert.pem  \
 FN_NODE_CERT_KEY=key.pem  \
 FN_NODE_CERT_AUTHORITY=cert.pem  \
 FN_PORT=8083  \
-FN_RUNNER_ADDRESS=127.0.0.1:8082 \
+FN_RUNNER_ADDRESS=127.0.0.1:9120 \
 ./fnnpm
 ```

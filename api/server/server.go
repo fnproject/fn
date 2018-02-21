@@ -516,7 +516,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	if s.nodeType == ServerTypePureRunner {
 		// Run grpc too
-		pr, err := agent.CreatePureRunner("localhost:9190", s.agent, s.cert, s.certKey, s.certAuthority)
+		pr, err := agent.CreatePureRunner("127.0.0.1:9190", s.agent, s.cert, s.certKey, s.certAuthority)
 		if err != nil {
 			logrus.WithError(err).Fatal("Pure runner server creation error")
 		}

@@ -112,7 +112,7 @@ func (cp *controlPlane) RemoveRunner(lbgId string, id string) error {
 	defer cp.mx.Unlock()
 
 	if runners, ok := cp.runners[lbgId]; ok {
-		newRunners := make([]*Runner, len(runners))
+		newRunners := make([]*Runner, 0)
 		for _, host := range runners {
 			if host.Id != id {
 				newRunners = append(newRunners, host)
