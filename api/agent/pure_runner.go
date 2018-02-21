@@ -8,9 +8,8 @@ import (
 	"errors"
 	"fmt"
 	runner "github.com/fnproject/fn/api/agent/grpc"
-	//"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
-	//"github.com/gin-gonic/gin"
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -20,6 +19,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"time"
 )
 
 type pureRunner struct {
@@ -120,11 +120,13 @@ func (w *writerFacade) Close() error {
 }
 
 type callState struct {
-	c       *call // the agent's version of call
-	w       *writerFacade
-	input   io.WriteCloser
-	started bool
-	errch   chan error
+	c             *call // the agent's version of call
+	w             *writerFacade
+	input         io.WriteCloser
+	started       bool
+	receivedTime  strfmt.DateTime // When was the call received?
+	allocatedTime strfmt.DateTime // When did we finish allocating the slot?
+	errch         chan error
 }
 
 func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, state *callState) error {
@@ -178,6 +180,7 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 	}
 	// TODO Validation of the call
 
+	state.receivedTime = strfmt.DateTime(time.Now())
 	var w http.ResponseWriter
 	w = state.w
 	inR, inW := io.Pipe()
@@ -187,6 +190,8 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 	}
 	state.c = agent_call.(*call)
 	state.input = inW
+	// We spent some time pre-reserving a slot in GetCall so note this down now
+	state.allocatedTime = strfmt.DateTime(time.Now())
 
 	return nil
 }
@@ -209,6 +214,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		c: nil,
 		w: &writerFacade{
 			engagement:    engagement,
+			outHeaders:    make(http.Header),
 			outStatus:     200,
 			headerWritten: false,
 		},
@@ -253,8 +259,9 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 				if pr.streamError == nil { // If we can still write back...
 					err2 := engagement.Send(&runner.RunnerMsg{
 						Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
-							Committed: true,
-							Details:   state.c.Model().ID,
+							Committed:             true,
+							Details:               state.c.Model().ID,
+							SlotAllocationLatency: time.Time(state.allocatedTime).Sub(time.Time(state.receivedTime)).String(),
 						}}})
 					if err2 != nil {
 						pr.streamError = err2
