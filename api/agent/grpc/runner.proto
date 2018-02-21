@@ -9,6 +9,7 @@ message TryCall {
 message CallAcknowledged {
     bool committed = 1;
     string details = 2;
+    string slot_allocation_latency = 3;
 }
 
 // Data sent C2S and S2C - as soon as the runner sees the first of these it
