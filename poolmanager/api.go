@@ -2,11 +2,12 @@ package poolmanager
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 
 	model "github.com/fnproject/fn/poolmanager/grpc"
+	ptypes "github.com/golang/protobuf/ptypes"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
@@ -18,8 +19,8 @@ type Client interface {
 
 //CapacityAggregator exposes the method to manage capacity calculation
 type CapacityAggregator interface {
-	AddCapacity(entry *CapacityEntry, lbgID string)
-	RemoveCapacity(entry *CapacityEntry, lbgID string)
+	AssignCapacity(entry *CapacityEntry, lbgID string)
+	ReleaseCapacity(entry *CapacityEntry, lbgID string)
 	Iterate(func(string, *CapacityEntry))
 }
 
@@ -37,10 +38,11 @@ type grpcPoolManagerClient struct {
 	conn    *grpc.ClientConn
 }
 
-func CapacityUpdatesSchedule(serverAddr string, agg CapacityAggregator, period time.Duration) {
+func CapacityUpdatesSchedule(serverAddr, lbID string, agg CapacityAggregator, period time.Duration) {
 	// TODO support reconnects
 	c, e := NewClient(serverAddr)
 	if e != nil {
+		logrus.Error("Failed to connect to the node pool manager for sending capacity update")
 		return
 	}
 
@@ -52,8 +54,12 @@ func CapacityUpdatesSchedule(serverAddr string, agg CapacityAggregator, period t
 				snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
 				snapshots = append(snapshots, snapshot)
 			})
-			// TODO missing ts, etc
-			c.AdvertiseCapacity(&model.CapacitySnapshotList{Snapshots: snapshots})
+			logrus.Debugf("Advertising new capacity snapshot %+v", snapshots)
+			c.AdvertiseCapacity(&model.CapacitySnapshotList{
+				Snapshots: snapshots,
+				LbId:      lbID,
+				Ts:        ptypes.TimestampNow(),
+			})
 		}
 	}()
 }
@@ -81,7 +87,7 @@ func NewCapacityAggregator() CapacityAggregator {
 	}
 }
 
-func (a *inMemoryAggregator) AddCapacity(entry *CapacityEntry, lbgID string) {
+func (a *inMemoryAggregator) AssignCapacity(entry *CapacityEntry, lbgID string) {
 	//TODO is it possible to use prometheus gauge? definitely to Inc and Dec but how to read
 	a.capMtx.Lock()
 	defer a.capMtx.Unlock()
@@ -93,7 +99,7 @@ func (a *inMemoryAggregator) AddCapacity(entry *CapacityEntry, lbgID string) {
 	}
 }
 
-func (a *inMemoryAggregator) RemoveCapacity(entry *CapacityEntry, lbgID string) {
+func (a *inMemoryAggregator) ReleaseCapacity(entry *CapacityEntry, lbgID string) {
 	a.capMtx.Lock()
 	defer a.capMtx.Unlock()
 
@@ -114,7 +120,7 @@ func (a *inMemoryAggregator) Iterate(fn func(string, *CapacityEntry)) {
 func (c *grpcPoolManagerClient) AdvertiseCapacity(snapshots *model.CapacitySnapshotList) error {
 	_, err := c.scaler.AdvertiseCapacity(context.Background(), snapshots)
 	if err != nil {
-		log.Fatalf("Failed to push snapshots %v", err)
+		logrus.Fatalf("Failed to push snapshots %v", err)
 		return err
 	}
 	return nil

@@ -20,6 +20,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	pb "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fnproject/fn/poolmanager"
@@ -55,8 +56,9 @@ func New(runnerAddress string, agent agent.Agent, cert string, key string, ca st
 	}
 
 	go maintainConnectionToRunners(a)
-
-	poolmanager.CapacityUpdatesSchedule("localhost:8888", capacityAggregator, 1*time.Second)
+	// TODO do we need to persistent this ID in order to survive restart?
+	lbID := id.New().String()
+	poolmanager.CapacityUpdatesSchedule("localhost:8888", lbID, a.capacityAggregator, 1*time.Second)
 	return a
 }
 
@@ -116,10 +118,10 @@ func (a *lbAgent) Submit(call agent.Call) error {
 	lbGroupID := GetGroupID(call.Model())
 
 	capacityRequest := &poolmanager.CapacityEntry{TotalMemoryMb: memMb}
-	a.capacityAggregator.AddCapacity(capacityRequest, lbGroupID)
+	a.capacityAggregator.AssignCapacity(capacityRequest, lbGroupID)
 	// TODO verify that when we leave this method the call is in a completed or failed state
 	// so it is safe to remove capacity
-	defer a.capacityAggregator.RemoveCapacity(capacityRequest, lbGroupID)
+	defer a.capacityAggregator.ReleaseCapacity(capacityRequest, lbGroupID)
 
 	// TODO we need to sleep and refresh list of runners to give new capacity a chance to show
 	if len(a.connections) <= 0 {
