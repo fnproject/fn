@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
 )
@@ -100,11 +101,11 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
 
 	var jout jsonOut
-	reader := NewClampReader(h.out)
+	reader := common.NewClampReader(h.out, ci.MaxResponseSize())
 	err = json.NewDecoder(reader).Decode(&jout)
 	span.Finish()
 
-	if cl, ok := reader.(*ClampReader); ok {
+	if cl, ok := reader.(*common.ClampReader); ok {
 		if cl.E {
 			return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: body too large"))
 		}

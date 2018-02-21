@@ -139,8 +139,6 @@ func New(da DataAccess) Agent {
 		promHandler: promhttp.Handler(),
 	}
 
-	protocol.BufPoolChunkSize = int64(cfg.MaxResponseSize)
-
 	// TODO assert that agent doesn't get started for API nodes up above ?
 	a.wg.Add(1)
 	go a.asyncDequeue() // safe shutdown can nanny this fine
@@ -504,7 +502,7 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	}
 
 	// This means default IO with no limits (no clamper)
-	clamper, ok := s.stdout.(*protocol.ClampWriter)
+	clamper, ok := s.stdout.(*common.ClampWriter)
 	if !ok {
 		return ctx.Err()
 	}
@@ -549,7 +547,7 @@ func (s *coldSlot) Close(ctx context.Context) error {
 		s.tok.Close()
 	}
 	if s.stdout != nil {
-		clamper, ok := s.stdout.(*protocol.ClampWriter)
+		clamper, ok := s.stdout.(*common.ClampWriter)
 		if ok {
 			buf := clamper.W.(*bytes.Buffer)
 			protocol.BufPool.Put(buf)
@@ -563,6 +561,7 @@ type hotSlot struct {
 	done      chan struct{} // signal we are done with slot
 	errC      <-chan error  // container error
 	container *container    // TODO mask this
+	cfg       *AgentConfig
 	err       error
 }
 
@@ -596,7 +595,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.Call, call.req)
+		ci := protocol.NewCallInfo(call.Call, call.req, s.cfg.MaxResponseSize)
 		err := proto.Dispatch(ctx, ci, call.w)
 
 		// drain the container stdout if bad gw (aka container communication failed)
@@ -662,7 +661,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	buf := protocol.BufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 
-	stdout := protocol.NewClampWriter(buf)
+	stdout := common.NewClampWriter(buf, a.cfg.MaxResponseSize)
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -760,7 +759,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{make(chan struct{}), errC, container, nil}
+			slot := &hotSlot{make(chan struct{}), errC, container, &a.cfg, nil}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}

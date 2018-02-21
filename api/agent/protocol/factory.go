@@ -47,16 +47,22 @@ type CallInfo interface {
 	Request() *http.Request
 	Method() string
 	RequestURL() string
+	MaxResponseSize() uint64
 	Headers() map[string][]string
 }
 
 type callInfoImpl struct {
-	call *models.Call
-	req  *http.Request
+	call            *models.Call
+	req             *http.Request
+	maxResponseSize uint64
 }
 
 func (ci callInfoImpl) CallID() string {
 	return ci.call.ID
+}
+
+func (ci callInfoImpl) MaxResponseSize() uint64 {
+	return ci.maxResponseSize
 }
 
 func (ci callInfoImpl) ContentType() string {
@@ -110,10 +116,11 @@ func (ci callInfoImpl) Headers() map[string][]string {
 	return ci.req.Header
 }
 
-func NewCallInfo(call *models.Call, req *http.Request) CallInfo {
+func NewCallInfo(call *models.Call, req *http.Request, maxRespSize uint64) CallInfo {
 	ci := &callInfoImpl{
-		call: call,
-		req:  req,
+		call:            call,
+		req:             req,
+		maxResponseSize: maxRespSize,
 	}
 	return ci
 }
@@ -172,57 +179,3 @@ func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 // IsStreamable says whether the given protocol can be used for streaming into
 // hot functions.
 func IsStreamable(p Protocol) bool { return New(p, nil, nil).IsStreamable() }
-
-type ClampWriter struct {
-	W io.Writer
-	N int64
-	E bool
-}
-
-func NewClampWriter(buf io.Writer) io.Writer {
-	if BufPoolChunkSize != 0 {
-		return &ClampWriter{W: buf, N: BufPoolChunkSize}
-	}
-	return buf
-}
-
-func (g *ClampWriter) Write(p []byte) (int, error) {
-	if g.N <= 0 {
-		g.E = true
-		return 0, io.EOF
-	}
-	if int64(len(p)) > g.N {
-		g.E = true
-		p = p[0:g.N]
-	}
-
-	n, err := g.W.Write(p)
-	g.N -= int64(n)
-	return n, err
-}
-
-type ClampReader struct {
-	R io.Reader // underlying reader
-	N int64     // max bytes remaining
-	E bool
-}
-
-func NewClampReader(buf io.Reader) io.Reader {
-	if BufPoolChunkSize != 0 {
-		return &ClampReader{R: buf, N: BufPoolChunkSize}
-	}
-	return buf
-}
-
-func (l *ClampReader) Read(p []byte) (int, error) {
-	if l.N <= 0 {
-		l.E = true
-		return 0, io.EOF
-	}
-	if int64(len(p)) > l.N {
-		p = p[0:l.N]
-	}
-	n, err := l.R.Read(p)
-	l.N -= int64(n)
-	return n, err
-}
