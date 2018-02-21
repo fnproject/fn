@@ -209,7 +209,7 @@ func (lbg *lbGroup) control() {
 			need := lbg.Purge(lastPurge, func(lbg LBGroup, lb string) {
 				logrus.Warnf("Purging LB %v from %v - no communication received", lb, lbg.Id())
 			})
-			lastPurge := time.Now()
+			lastPurge = time.Now()
 			nextPurge = lastPurge.Add(PURGE_INTERVAL)
 			lbg.target(lastPurge, need)
 			logrus.Debugf("Purged for %v", lbg.Id())
@@ -239,6 +239,7 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 	lbg.run_mx.Lock()
 	defer lbg.run_mx.Unlock()
 
+	logrus.Debugf("Targeting capacity requirement of %v", target)
 	// We have:
 	// - total capacity in active runners
 	// - required total capacity
