@@ -55,6 +55,35 @@ var initialTables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 );`,
 }
 
+func checkOldMigrationTableVersionIfExists(db *sql.DB) (version int64, dirty bool, err error) {
+	migrationsTable := "schema_migrations"
+	ctx := context.Background()
+
+	// deleting old table after all
+	defer func() {
+		_, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS "+migrationsTable)
+	}()
+
+	err = db.QueryRowContext(
+		ctx, "SELECT version, dirty FROM "+migrationsTable+" LIMIT 1").
+		Scan(&version, &dirty)
+	switch {
+	case err == sql.ErrNoRows:
+		return -1, false, nil
+
+	case err != nil:
+		if e, ok := err.(*mysql.MySQLError); ok {
+			if e.Number == 0 {
+				return -1, false, nil
+			}
+		}
+		return 0, false, err
+
+	default:
+		return version, dirty, nil
+	}
+}
+
 func checkMigrationsUpError(err error) error {
 	if err != nil {
 		switch e := err.(type) {
@@ -126,6 +155,11 @@ func DownAll(driver string, db *sql.DB) error {
 func ApplyMigrations(ctx context.Context, driver string, db *sql.DB) error {
 	log := common.Logger(ctx)
 
+	// no point to handle error from here, basically err
+	// indicates about any problem with old migrations table
+	current, _, err := checkOldMigrationTableVersionIfExists(db)
+	log.Debug("old migration table version was: ", current)
+
 	for _, v := range initialTables {
 		_, err := db.ExecContext(ctx, v)
 		if err != nil {
@@ -135,11 +169,15 @@ func ApplyMigrations(ctx context.Context, driver string, db *sql.DB) error {
 
 	goose.SetDialect(driver)
 	migrations = sortAndConnectMigrations(migrations)
-	current, err := goose.GetDBVersion(db)
-	log.Info("current datastore version: ", current)
-	if err != nil {
-		if err != goose.ErrNoNextVersion {
-			return err
+	// current can equal to -1, 0 or current version
+	// which is suppose to be greater than zero
+	if current <= 0 {
+		current, err = goose.GetDBVersion(db)
+		log.Info("goose: current datastore version: ", current)
+		if err != nil {
+			if err != goose.ErrNoNextVersion {
+				return err
+			}
 		}
 	}
 	// datastore is fresh new
@@ -159,7 +197,7 @@ func ApplyMigrations(ctx context.Context, driver string, db *sql.DB) error {
 	log.Debug("Migrations left to apply: ", len(leftToUpgrade))
 	// we can trust this, list is sorted
 	for _, m := range leftToUpgrade {
-		if err = m.Up(db); err != nil {
+		if err := m.Up(db); err != nil {
 			log.Error("migrations upgrade error: ", err.Error())
 			return err
 		}
