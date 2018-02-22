@@ -24,18 +24,39 @@ type LBGroup interface {
 	GetMembers() []string                         // Return *ACTIVE* members
 }
 
+type Predictor interface {
+	// Given a series of requirements, return the target scale to attempt to reach
+	GetScale(time.Time, int64) int64
+}
+
 type capacityManager struct {
 	ctx context.Context
 	mx  sync.RWMutex
 	cp  cp.ControlPlane
 	lbg map[string]LBGroup
+	predictorFactory func() Predictor
 }
 
-func NewCapacityManager(ctx context.Context, cp cp.ControlPlane) CapacityManager {
-	return &capacityManager{
+func NewCapacityManager(ctx context.Context, cp cp.ControlPlane, opts... func(*capacityManager) error) (CapacityManager, error) {
+	cm := &capacityManager{
 		ctx: ctx,
 		cp:  cp,
 		lbg: make(map[string]LBGroup),
+		predictorFactory: newPredictor,
+	}
+	for _, o := range opts {
+		if err := o(cm); err != nil {
+			logrus.Errorf("Error handling option for CapacityManager %v", err)
+			return nil, err
+		}
+	}
+	return cm, nil
+}
+
+func WithPredictorFactory(pf func () Predictor) func(*capacityManager) error {
+	return func(cm *capacityManager) error {
+		cm.predictorFactory = pf
+		return nil
 	}
 }
 
@@ -56,7 +77,7 @@ func (m *capacityManager) LBGroup(lbgid string) LBGroup {
 		return lbg
 	}
 	logrus.Infof("Making new LBG to handle %v", lbgid)
-	lbg := newLBGroup(lbgid, m.ctx, m.cp)
+	lbg := newLBGroup(lbgid, m.ctx, m.cp, m.predictorFactory)
 	m.lbg[lbgid] = lbg
 	return lbg
 }
@@ -94,6 +115,8 @@ type lbGroup struct {
 	active_runners   []*runner          // Everything currently in use
 	draining_runners []*runner          // We keep tabs on these separately
 	dead_runners     []*runner          // Waiting for control plane to remove
+
+	predictor        Predictor
 }
 
 type requirement struct {
@@ -117,7 +140,7 @@ type runner struct {
 	kill_after time.Time
 }
 
-func newLBGroup(lbgid string, ctx context.Context, cp cp.ControlPlane) LBGroup {
+func newLBGroup(lbgid string, ctx context.Context, cp cp.ControlPlane, predictorFactory func () Predictor) LBGroup {
 	lbg := &lbGroup{
 		ctx:          ctx,
 		id:           lbgid,
@@ -125,6 +148,7 @@ func newLBGroup(lbgid string, ctx context.Context, cp cp.ControlPlane) LBGroup {
 		controlStream: make(chan requirement),
 		cp:           cp,
 		runners:	  make(map[string]*runner),
+		predictor:    predictorFactory(),
 	}
 	go lbg.control()
 	return lbg
@@ -243,7 +267,9 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 	lbg.run_mx.Lock()
 	defer lbg.run_mx.Unlock()
 
-	logrus.Debugf("Targeting capacity requirement of %v", target)
+	desiredScale := lbg.predictor.GetScale(ts, target)
+
+	logrus.Debugf("Targeting capacity requirement of %v gives desired scale of %v", target, desiredScale)
 	// We have:
 	// - total capacity in active runners
 	// - required total capacity
@@ -251,12 +277,12 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 	// - any additional capacity we've already asked for
 
 	// We scale appropriately.
-	if target > lbg.target_capacity {
+	if desiredScale > lbg.target_capacity {
 		// Scale up.
 		// Even including capacity we are expecting to come down the pipe, we don't have enough stuff.
 
 		// Begin by reactivating any runners we're currently draining down.
-		for target > lbg.target_capacity && len(lbg.draining_runners) > 0 {
+		for desiredScale > lbg.target_capacity && len(lbg.draining_runners) > 0 {
 			// Begin with the one we started draining last.
 			runner := lbg.draining_runners[len(lbg.draining_runners)-1]
 			logrus.Infof("Recovering runner %v at %v from draindown", runner.id, runner.address)
@@ -268,7 +294,7 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 			lbg.target_capacity += runner.capacity
 		}
 
-		if target > lbg.target_capacity {
+		if desiredScale > lbg.target_capacity {
 			// We still need additional capacity
 			wanted := math.Min(math.Ceil(float64(target-lbg.target_capacity)/cp.CAPACITY_PER_RUNNER), LARGEST_REQUEST_AT_ONCE)
 			asked_for, err := lbg.cp.ProvisionRunners(lbg.Id(), int(wanted)) // Send the request; they'll show up later
@@ -280,7 +306,7 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 			lbg.target_capacity += int64(asked_for) * cp.CAPACITY_PER_RUNNER
 		}
 
-	} else if target <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER {
+	} else if desiredScale <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER {
 		// Scale down.
 		// We pick a node to turn off and move it to the draining pool.
 		for target <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
@@ -384,4 +410,18 @@ func removeDead(seen map[string]bool, runnerMap map[string]*runner, runnerList [
 		}
 	}
 	return runnerList[:i]
+}
+
+
+// Predictions. Given a timestamp and an input total capacity requirement, return the scale we should attempt to reach
+func newPredictor() Predictor {
+	return &conservativePredictor{}
+}
+
+type conservativePredictor struct {}
+
+func (p *conservativePredictor) GetScale(ts time.Time, target int64) int64 {
+	// This is the most conservative approach. If we have a target capacity, attempt to reach that capacity by
+	// asking for sufficient scale to satisfy it all at once.
+	return target
 }

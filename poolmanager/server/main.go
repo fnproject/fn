@@ -30,8 +30,12 @@ type npmService struct {
 }
 
 func newNPMService(ctx context.Context, cp cp.ControlPlane) *npmService {
+	cm, err := poolmanager.NewCapacityManager(ctx, cp)
+	if err != nil {
+		logrus.Panic("Cannot construct capacity manager")
+	}
 	return &npmService{
-		capMan: poolmanager.NewCapacityManager(ctx, cp),
+		capMan: cm,
 	}
 }
 
