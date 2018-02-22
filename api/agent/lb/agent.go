@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -115,12 +116,8 @@ func (a *lbAgent) connectToRunner(lbGroupID string, address string, addresses *s
 	// if they are shutdown and not active
 	// defer conn.Close()
 
-	c := pb.NewRunnerProtocolClient(conn)
-	protocolClient, err := c.Engage(context.Background())
-	if err != nil {
-		logrus.WithError(err).Error("Unable to create client to runner node")
-		return
-	}
+	protocolClient := pb.NewRunnerProtocolClient(conn)
+	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connected to runner")
 	addresses.Store(address, protocolClient)
 }
 
@@ -225,7 +222,7 @@ func (a *lbAgent) Submit(call agent.Call) error {
 		runnerMap.Range(func(k, v interface{}) bool {
 			//address, protocolClient
 			address := k.(string)
-			protocolClient := v.(pb.RunnerProtocol_EngageClient)
+			protocolClient := v.(pb.RunnerProtocolClient)
 
 			// Get app and route information
 			// Construct model.Call with CONFIG in it already
@@ -237,8 +234,14 @@ func (a *lbAgent) Submit(call agent.Call) error {
 				return false
 			}
 
-			err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
-			msg, err := protocolClient.Recv()
+			runnerConnection, err := protocolClient.Engage(context.Background())
+			if err != nil {
+				logrus.WithError(err).Error("Unable to create client to runner node")
+				return false
+			}
+
+			err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
+			msg, err := runnerConnection.Recv()
 
 			if err != nil {
 				logrus.WithError(err).Error("Failed to send message to runner node")
@@ -255,6 +258,15 @@ func (a *lbAgent) Submit(call agent.Call) error {
 					// Try the next runner
 				} else {
 					logrus.Info("Runner committed invocation request, sending data frames")
+					responseWriter, err := agent.ResponseWriter(&call)
+
+					if err != nil {
+						logrus.WithError(err).Error("Unable to get response writer from call")
+						return false
+					}
+					(*responseWriter).Header().Set("SOMERANDOMHEADER", "ITSVALUE")
+					go receiveFromRunner(runnerConnection, responseWriter)
+					_ = sendToRunner(call, runnerConnection)
 					processedRequest = true
 					return false
 				}
@@ -297,6 +309,81 @@ func (a *lbAgent) AddCallListener(fnext.CallListener) {
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	logrus.Fatal("Enqueue not implemented. Panicking.")
 	return nil
+}
+
+func sendToRunner(call agent.Call, protocolClient pb.RunnerProtocol_EngageClient) error {
+	bodyReader, err := agent.RequestReader(&call)
+	if err != nil {
+		logrus.WithError(err).Error("Unable to get reader for request body")
+		return err
+	}
+	writeBufferSize := 10 * 1024 // 10KB
+	writeBuffer := make([]byte, writeBufferSize)
+	for {
+		n, err := bodyReader.Read(writeBuffer)
+		logrus.Debugf("Wrote %v bytes to the runner", n)
+
+		if err == io.EOF {
+			err = protocolClient.Send(&pb.ClientMsg{
+				Body: &pb.ClientMsg_Data{
+					Data: &pb.DataFrame{
+						Data: writeBuffer,
+						Eof:  true,
+					},
+				},
+			})
+			if err != nil {
+				logrus.WithError(err).Error("Failed to send data frame with EOF to runner")
+			}
+			break
+		}
+		err = protocolClient.Send(&pb.ClientMsg{
+			Body: &pb.ClientMsg_Data{
+				Data: &pb.DataFrame{
+					Data: writeBuffer,
+					Eof:  false,
+				},
+			},
+		})
+		if err != nil {
+			logrus.WithError(err).Error("Failed to send data frame")
+			return err
+		}
+	}
+	return nil
+}
+
+func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, w *http.ResponseWriter) {
+	for {
+		msg, err := protocolClient.Recv()
+		if err != nil {
+			logrus.WithError(err).Error("Failed to receive message from runner")
+			return
+		}
+
+		switch body := msg.Body.(type) {
+		case *pb.RunnerMsg_ResultStart:
+			switch meta := body.ResultStart.Meta.(type) {
+			case *pb.CallResultStart_Http:
+				for _, header := range meta.Http.Headers {
+					(*w).Header().Set(header.Key, header.Value)
+				}
+			default:
+				logrus.Errorf("Unhandled meta type in start message: %v", meta)
+			}
+		case *pb.RunnerMsg_Data:
+			(*w).Write(body.Data.Data)
+		case *pb.RunnerMsg_Finished:
+			if body.Finished.Success {
+				logrus.Infof("Call finished successfully: %v", body.Finished.Details)
+			} else {
+				logrus.Infof("Call finish unsuccessfully:: %v", body.Finished.Details)
+			}
+		default:
+			logrus.Errorf("Unhandled message type from runner: %v", body)
+
+		}
+	}
 }
 
 func createCredentials(certPath string, keyPath string, caCertPath string) (credentials.TransportCredentials, error) {
