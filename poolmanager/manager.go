@@ -198,11 +198,21 @@ func (lbg *lbGroup) control() {
 	lastPurge := time.Now()
 	nextPurge := lastPurge.Add(PURGE_INTERVAL)
 
-	nextPoll := lastPurge.Add(POLL_INTERVAL)
+	nextPoll := lastPurge
 
 	for {
 		logrus.Debugf("In capacity management loop for %v", lbg.Id())
 		select {
+		// Poll CP for runners (this will change, it's a stub)
+		// We put this first (and run it immediately) because if the NPM has just been restarted we want to
+		// repopulate our knowledge of what runners are currently up, so we don't generate spurious scaling requests
+		// to the CP.
+		case <-time.After(nextPoll.Sub(time.Now())):
+			logrus.Debugf("Polling for runners for %v", lbg.Id())
+			lbg.pollForRunners()
+			nextPoll = time.Now().Add(POLL_INTERVAL)
+			logrus.Debugf("Polled for %v", lbg.Id())
+
 		// Manage capacity requests
 		case <-time.After(nextPurge.Sub(time.Now())):
 			logrus.Debugf("Purging for %v", lbg.Id())
@@ -219,12 +229,6 @@ func (lbg *lbGroup) control() {
 			lbg.target(req.ts, req.total_wanted)
 			logrus.Debugf("New requirement handled", lbg.Id())
 
-		// Poll CP for runners (this will change, it's a stub)
-		case <-time.After(nextPoll.Sub(time.Now())):
-			logrus.Debugf("Polling for runners for %v", lbg.Id())
-			lbg.pollForRunners()
-			nextPoll = time.Now().Add(POLL_INTERVAL)
-			logrus.Debugf("Polled for %v", lbg.Id())
 		}
 	}
 }
