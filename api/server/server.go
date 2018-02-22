@@ -118,7 +118,7 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	curDir := pwd()
 	var defaultDB, defaultMQ string
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
-	if nodeType != ServerTypeRunner {
+	if nodeType != ServerTypeRunner && nodeType != ServerTypePureRunner {
 		// only want to activate these for full and api nodes
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
