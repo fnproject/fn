@@ -13,11 +13,13 @@ import (
 type NodePoolManager interface {
 	ScheduleUpdates(lbID string, agg CapacityAggregator, period time.Duration)
 	GetRunners(lbgID string) ([]string, error)
+	Shutdown() error
 }
 
 type remoteNodePoolManager struct {
 	serverAddr string
 	client     remoteClient
+	shutdown   chan interface{}
 }
 
 func NewNodePoolManager(serverAddr string, cert string, key string, ca string) NodePoolManager {
@@ -26,26 +28,43 @@ func NewNodePoolManager(serverAddr string, cert string, key string, ca string) N
 	if e != nil {
 		logrus.Error("Failed to connect to the node pool manager for sending capacity update")
 	}
-	return &remoteNodePoolManager{serverAddr: serverAddr, client: c}
+	return &remoteNodePoolManager{
+		serverAddr: serverAddr,
+		client:     c,
+		shutdown:   make(chan interface{}),
+	}
 }
 
 func (npm *remoteNodePoolManager) ScheduleUpdates(lbID string, agg CapacityAggregator, period time.Duration) {
 	ticker := time.NewTicker(period)
 	go func() {
-		for _ = range ticker.C {
-			snapshots := []*model.CapacitySnapshot{}
-			agg.Iterate(func(lbgID string, e *CapacityEntry) {
-				snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
-				snapshots = append(snapshots, snapshot)
-			})
-			logrus.Debugf("Advertising new capacity snapshot %+v", snapshots)
-			npm.client.AdvertiseCapacity(&model.CapacitySnapshotList{
-				Snapshots: snapshots,
-				LbId:      lbID,
-				Ts:        ptypes.TimestampNow(),
-			})
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				snapshots := []*model.CapacitySnapshot{}
+				agg.Iterate(func(lbgID string, e *CapacityEntry) {
+					snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
+					snapshots = append(snapshots, snapshot)
+				})
+				logrus.Debugf("Advertising new capacity snapshot %+v", snapshots)
+				npm.client.AdvertiseCapacity(&model.CapacitySnapshotList{
+					Snapshots: snapshots,
+					LbId:      lbID,
+					Ts:        ptypes.TimestampNow(),
+				})
+
+			case <-npm.shutdown:
+				return
+			}
 		}
 	}()
+}
+
+func (npm *remoteNodePoolManager) Shutdown() error {
+	logrus.Info("Shutting down node pool manager client")
+	close(npm.shutdown)
+	return nil
 }
 
 func (npm *remoteNodePoolManager) GetRunners(lbGroupID string) ([]string, error) {
@@ -93,8 +112,10 @@ func (a *inMemoryAggregator) AssignCapacity(entry *CapacityEntry, lbgID string) 
 
 	if v, ok := a.capacity[lbgID]; ok {
 		v.TotalMemoryMb += entry.TotalMemoryMb
+		logrus.WithField("lbg_id", lbgID).Debugf("Increased assigned capacity to %vMB", v.TotalMemoryMb)
 	} else {
 		a.capacity[lbgID] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
+		logrus.WithField("lbg_id", lbgID).Debugf("Assigned new capacity of %vMB", v.TotalMemoryMb)
 	}
 }
 
@@ -104,6 +125,7 @@ func (a *inMemoryAggregator) ReleaseCapacity(entry *CapacityEntry, lbgID string)
 
 	if v, ok := a.capacity[lbgID]; ok {
 		v.TotalMemoryMb -= entry.TotalMemoryMb
+		logrus.WithField("lbg_id", lbgID).Debugf("Released assigned capacity to %vMB", v.TotalMemoryMb)
 	}
 }
 
