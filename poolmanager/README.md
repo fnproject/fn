@@ -50,10 +50,13 @@ Currently the NPM uses a fixed, single-node instance of the Runner to simulate i
 but the GRPC port is 9120.
 
 ```bash
+go build -o fnnpm poolmanager/server/main.g
+
+FN_LOG_LEVEL=DEBUG \
 FN_NODE_CERT=cert.pem  \
 FN_NODE_CERT_KEY=key.pem  \
 FN_NODE_CERT_AUTHORITY=cert.pem  \
 FN_PORT=8083  \
-FN_RUNNER_ADDRESS=127.0.0.1:9120 \
+FN_RUNNER_ADDRESS=127.0.0.1:9190 \
 ./fnnpm
 ```

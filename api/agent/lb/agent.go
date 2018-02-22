@@ -44,25 +44,22 @@ type lbAgent struct {
 	cert               string
 	key                string
 	ca                 string
-	runnerAddresses    map[string][]string
-	runnersMtx         *sync.RWMutex
-	connections        map[string]map[string](pb.RunnerProtocol_EngageClient)
-	connsMtx           *sync.RWMutex
+	runnerAddresses    *sync.Map
+	connections        *sync.Map
 }
 
 func New(npmAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
 
 	a := &lbAgent{
-		runnerAddresses:    make(map[string][]string),
-		runnersMtx:         &sync.RWMutex{},
+		// TODO values should be RWSlice
+		runnerAddresses:    &sync.Map{}, //make(map[string][]string)
 		delegatedAgent:     agent,
 		capacityAggregator: poolmanager.NewCapacityAggregator(),
 		npm:                poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
 		cert:               cert,
 		key:                key,
 		ca:                 ca,
-		connections:        make(map[string]map[string](pb.RunnerProtocol_EngageClient)),
-		connsMtx:           &sync.RWMutex{},
+		connections:        &sync.Map{}, //map[string]map[string](pb.RunnerProtocol_EngageClient))
 	}
 
 	go a.maintainConnectionToRunners()
@@ -72,7 +69,7 @@ func New(npmAddress string, agent agent.Agent, cert string, key string, ca strin
 	return a
 }
 
-func (a *lbAgent) connectToRunner(lbGroupID string, address string) {
+func (a *lbAgent) connectToRunner(lbGroupID string, address string, addresses *sync.Map) {
 	// Not connected, so create a connection with the TLS credentials
 	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connecting to runner")
 	ctx := context.Background()
@@ -97,35 +94,37 @@ func (a *lbAgent) connectToRunner(lbGroupID string, address string) {
 		logrus.WithError(err).Error("Unable to create client to runner node")
 		return
 	}
-
-	a.connections[lbGroupID][address] = protocolClient
+	addresses.Store(address, protocolClient)
 }
 
-func (a *lbAgent) refreshRunnerConnections() {
-	a.runnersMtx.RLock()
-	a.connsMtx.Lock()
-	// Given the list of runner addresses, see if there is a connection in the connection map
-	for lbGroupId, runnerAddrs := range a.runnerAddresses {
-		for _, address := range runnerAddrs {
-			conns := a.connections[lbGroupId]
+func (a *lbAgent) refreshGroupConnections(lbGroupId string, runnerAddrs []string) {
+	for _, address := range runnerAddrs {
+		c, ok := a.connections.Load(lbGroupId)
+		if !ok {
+			c = &sync.Map{}
+			a.connections.Store(lbGroupId, c)
+		}
+		conns, ok := c.(*sync.Map)
+		if !ok {
+			logrus.Warn("Found wrong type in connections map!")
+			continue
+		}
 
-			if conns == nil {
-				conns = make(map[string](pb.RunnerProtocol_EngageClient))
-				a.connections[lbGroupId] = conns
-			}
-			// create conn
-			if _, connected := conns[address]; !connected {
-				a.connectToRunner(lbGroupId, address)
-			}
+		// create conn
+		if _, connected := conns.Load(address); !connected {
+			a.connectToRunner(lbGroupId, address, conns)
 		}
 	}
-	a.connsMtx.Unlock()
-	a.runnersMtx.RUnlock()
 }
 
 func (a *lbAgent) maintainConnectionToRunners() {
 	for {
-		a.refreshRunnerConnections()
+		a.runnerAddresses.Range(func(k, v interface{}) bool {
+			lbGroupId := k.(string)
+			runnerAddrs := v.([]string)
+			a.refreshGroupConnections(lbGroupId, runnerAddrs)
+			return true
+		})
 		time.Sleep(runnerReconnectInterval)
 	}
 }
@@ -167,31 +166,39 @@ func (a *lbAgent) Submit(call agent.Call) error {
 			logrus.WithError(err).Info("Failed to get runners from node pool manager")
 		} else if len(runnerList) > 0 {
 			logrus.WithField("runners", len(runnerList)).Info("Updating runner list")
-			a.runnersMtx.Lock()
-			a.runnerAddresses[lbGroupID] = runnerList
-			a.runnersMtx.Unlock()
-
-			a.refreshRunnerConnections()
+			a.runnerAddresses.Store(lbGroupID, runnerList)
+			a.refreshGroupConnections(lbGroupID, runnerList)
 		}
 
-		a.connsMtx.RLock()
-		runnerMap := a.connections[lbGroupID]
-		a.connsMtx.RUnlock()
-
-		if len(runnerMap) <= 0 {
+		rmap, ok := a.connections.Load(lbGroupID)
+		if !ok {
 			logrus.WithField("lbg_id", lbGroupID).Debug("No runner nodes available")
 			time.Sleep(noCapacityWaitInterval)
 			continue
 		}
 
-		// Work through the connected runner nodes, submitting the request to each
-		for address, protocolClient := range runnerMap {
+		runnerMap, ok := rmap.(*sync.Map)
+		if !ok {
+			logrus.Warn("Runner map is the wrong type")
+			return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
+		}
+
+		processedRequest := false
+		var processingError error
+
+		runnerMap.Range(func(k, v interface{}) bool {
+			//address, protocolClient
+			address := k.(string)
+			protocolClient := v.(pb.RunnerProtocol_EngageClient)
+
 			// Get app and route information
 			// Construct model.Call with CONFIG in it already
 			modelJSON, err := json.Marshal(call.Model())
 			if err != nil {
 				logrus.WithError(err).Error("Failed to encode model as JSON")
-				return err
+				processingError = err
+				processedRequest = true
+				return false
 			}
 
 			err = protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
@@ -200,8 +207,9 @@ func (a *lbAgent) Submit(call agent.Call) error {
 			if err != nil {
 				logrus.WithError(err).Error("Failed to send message to runner node")
 				// Should probably remove the runner node from the list of connections
-				delete(a.connections, address)
-				return err
+				a.connections.Delete(address)
+				// assume connection was dropped, try on next runner
+				return true
 			}
 
 			switch body := msg.Body.(type) {
@@ -211,12 +219,21 @@ func (a *lbAgent) Submit(call agent.Call) error {
 					// Try the next runner
 				} else {
 					logrus.Info("Runner committed invocation request, sending data frames")
-					return nil
-
+					processedRequest = true
+					return false
 				}
 			default:
 				logrus.Info("Unhandled message type received from runner: %v\n", msg)
 			}
+
+			return true
+		})
+
+		if processedRequest {
+			if processingError != nil {
+				return processingError
+			}
+			return nil
 		}
 
 		time.Sleep(retryWaitInterval)
