@@ -344,10 +344,8 @@ func (lbg *lbGroup) pollForRunners() {
 	for _, host := range latestHosts {
 		_, ok := lbg.runners[host.Id]
 		if ok {
-			logrus.Debugf(" ... host %v at %d is known", host.Id, host.Address)
-
 			// We already know about this
-			seen[host.Id] = true
+			logrus.Debugf(" ... host %v at %d is known", host.Id, host.Address)
 		} else {
 			logrus.Infof(" ... host %v at %d is new", host.Id, host.Address)
 
@@ -362,19 +360,28 @@ func (lbg *lbGroup) pollForRunners() {
 			lbg.active_runners = append(lbg.active_runners, runner)
 			lbg.current_capacity += runner.capacity // The total capacity is already computed, since we asked for this
 		}
+		seen[host.Id] = true
 	}
 
 	// Work out if runners that we asked to be killed have been shut down
 	logrus.Debugf("Removing dead hosts for %v", lbg.Id())
-	// TODO the control plane might pull active or draining hosts out from under us. Deal with that too.
-	dead := make([]*runner, 0)
-	for _, runner := range lbg.dead_runners {
+	// The control plane might pull active or draining hosts out from under us. Deal with that too.
+	lbg.active_runners = removeDead(seen, lbg.runners, lbg.active_runners)
+	lbg.draining_runners = removeDead(seen, lbg.runners, lbg.draining_runners)
+	lbg.dead_runners = removeDead(seen, lbg.runners, lbg.dead_runners)
+}
+
+func removeDead(seen map[string]bool, runnerMap map[string]*runner, runnerList []*runner) []*runner {
+	i := 0
+	for _, runner := range runnerList {
 		if _, ok := seen[runner.id]; ok {
-			// This runner is not yet shut down
-			dead = append(dead, runner)
+			// This runner isn't shut down yet
+			runnerList[i] = runner
+			i ++
 		} else {
-			delete(lbg.runners, runner.id)
+			logrus.Infof("Removing runner %v at %v that has disappeared", runner.id, runner.address)
+			delete(runnerMap, runner.id)
 		}
 	}
-	lbg.dead_runners = dead
+	return runnerList[:i]
 }
