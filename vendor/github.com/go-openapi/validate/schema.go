@@ -116,7 +116,12 @@ func (s *SchemaValidator) Validate(data interface{}) *Result {
 		kind = tpe.Kind()
 	}
 	d := data
+
 	if kind == reflect.Struct {
+		// NOTE: since reflect retrieves the true nature of types
+		// this means that all strfmt types passed here (e.g. strfmt.Datetime, etc..)
+		// are converted here to strings, and structs are systematically converted
+		// to map[string]interface{}.
 		d = swag.ToDynamicJSON(data)
 	}
 

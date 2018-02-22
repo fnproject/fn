@@ -1,4 +1,4 @@
-package dockerfile
+package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 // internals for handling commands. Covers many areas and a lot of
 // non-contiguous functionality. Please read the comments.
@@ -101,24 +101,17 @@ func (b *Builder) commitContainer(dispatchState *dispatchState, id string, conta
 		return nil
 	}
 
-	commitCfg := &backend.ContainerCommitConfig{
-		ContainerCommitConfig: types.ContainerCommitConfig{
-			Author: dispatchState.maintainer,
-			Pause:  true,
-			// TODO: this should be done by Commit()
-			Config: copyRunConfig(dispatchState.runConfig),
-		},
+	commitCfg := backend.CommitConfig{
+		Author: dispatchState.maintainer,
+		// TODO: this copy should be done by Commit()
+		Config:          copyRunConfig(dispatchState.runConfig),
 		ContainerConfig: containerConfig,
+		ContainerID:     id,
 	}
 
-	// Commit the container
-	imageID, err := b.docker.Commit(id, commitCfg)
-	if err != nil {
-		return err
-	}
-
-	dispatchState.imageID = imageID
-	return nil
+	imageID, err := b.docker.CommitBuildStep(commitCfg)
+	dispatchState.imageID = string(imageID)
+	return err
 }
 
 func (b *Builder) exportImage(state *dispatchState, imageMount *imageMount, runConfig *container.Config) error {

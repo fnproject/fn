@@ -1,4 +1,4 @@
-package network
+package network // import "github.com/docker/docker/api/server/router/network"
 
 import (
 	"encoding/json"
@@ -164,6 +164,13 @@ func (n *networkRouter) getNetwork(ctx context.Context, w http.ResponseWriter, r
 		// return the network. Skipped using isMatchingScope because it is true if the scope
 		// is not set which would be case if the client API v1.30
 		if strings.HasPrefix(nwk.ID, term) || (netconst.SwarmScope == scope) {
+			// If we have a previous match "backend", return it, we need verbose when enabled
+			// ex: overlay/partial_ID or name/swarm_scope
+			if nwv, ok := listByPartialID[nwk.ID]; ok {
+				nwk = nwv
+			} else if nwv, ok := listByFullName[nwk.ID]; ok {
+				nwk = nwv
+			}
 			return httputils.WriteJSON(w, http.StatusOK, nwk)
 		}
 	}
@@ -275,12 +282,11 @@ func (n *networkRouter) postNetworkConnect(ctx context.Context, w http.ResponseW
 		return err
 	}
 
-	// Always make sure there is no ambiguity with respect to the network ID/name
-	nw, err := n.backend.FindNetwork(vars["id"])
-	if err != nil {
-		return err
-	}
-	return n.backend.ConnectContainerToNetwork(connect.Container, nw.ID(), connect.EndpointConfig)
+	// Unlike other operations, we does not check ambiguity of the name/ID here.
+	// The reason is that, In case of attachable network in swarm scope, the actual local network
+	// may not be available at the time. At the same time, inside daemon `ConnectContainerToNetwork`
+	// does the ambiguity check anyway. Therefore, passing the name to daemon would be enough.
+	return n.backend.ConnectContainerToNetwork(connect.Container, vars["id"], connect.EndpointConfig)
 }
 
 func (n *networkRouter) postNetworkDisconnect(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {

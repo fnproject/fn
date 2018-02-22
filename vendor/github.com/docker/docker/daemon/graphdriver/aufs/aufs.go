@@ -20,7 +20,7 @@ aufs driver directory structure
 
 */
 
-package aufs
+package aufs // import "github.com/docker/docker/daemon/graphdriver/aufs"
 
 import (
 	"bufio"
@@ -133,10 +133,6 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	}
 	// Create the root aufs driver dir
 	if err := idtools.MkdirAllAndChown(root, 0700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil {
-		return nil, err
-	}
-
-	if err := mountpk.MakePrivate(root); err != nil {
 		return nil, err
 	}
 
@@ -607,7 +603,7 @@ func (a *Driver) Cleanup() error {
 			logrus.Debugf("aufs error unmounting %s: %s", m, err)
 		}
 	}
-	return mountpk.Unmount(a.root)
+	return mountpk.RecursiveUnmount(a.root)
 }
 
 func (a *Driver) aufsMount(ro []string, rw, target, mountLabel string) (err error) {

@@ -1,4 +1,4 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"fmt"
@@ -128,6 +128,7 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 			container.SetRemovalError(e)
 			return e
 		}
+		container.RWLayer = nil
 	}
 
 	if err := system.EnsureRemoveAll(container.Root); err != nil {

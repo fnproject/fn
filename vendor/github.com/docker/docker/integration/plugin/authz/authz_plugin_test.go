@@ -1,6 +1,6 @@
 // +build !windows
 
-package authz
+package authz // import "github.com/docker/docker/integration/plugin/authz"
 
 import (
 	"context"
@@ -19,11 +19,9 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	eventtypes "github.com/docker/docker/api/types/events"
-	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/integration/util/request"
+	"github.com/docker/docker/integration/internal/container"
 	"github.com/docker/docker/internal/test/environment"
 	"github.com/docker/docker/pkg/authorization"
 	"github.com/gotestyourself/gotestyourself/skip"
@@ -91,17 +89,15 @@ func TestAuthZPluginAllowRequest(t *testing.T) {
 	client, err := d.NewClient()
 	require.Nil(t, err)
 
-	// Ensure command successful
-	createResponse, err := client.ContainerCreate(context.Background(), &container.Config{Cmd: []string{"top"}, Image: "busybox"}, &container.HostConfig{}, &networktypes.NetworkingConfig{}, "")
-	require.Nil(t, err)
+	ctx := context.Background()
 
-	err = client.ContainerStart(context.Background(), createResponse.ID, types.ContainerStartOptions{})
-	require.Nil(t, err)
+	// Ensure command successful
+	cID := container.Run(t, ctx, client)
 
 	assertURIRecorded(t, ctrl.requestsURIs, "/containers/create")
-	assertURIRecorded(t, ctrl.requestsURIs, fmt.Sprintf("/containers/%s/start", createResponse.ID))
+	assertURIRecorded(t, ctrl.requestsURIs, fmt.Sprintf("/containers/%s/start", cID))
 
-	_, err = client.ServerVersion(context.Background())
+	_, err = client.ServerVersion(ctx)
 	require.Nil(t, err)
 	require.Equal(t, 1, ctrl.versionReqCount)
 	require.Equal(t, 1, ctrl.versionResCount)
@@ -129,7 +125,7 @@ func TestAuthZPluginTLS(t *testing.T) {
 	ctrl.reqRes.Allow = true
 	ctrl.resRes.Allow = true
 
-	client, err := request.NewTLSAPIClient(t, testDaemonHTTPSAddr, cacertPath, clientCertPath, clientKeyPath)
+	client, err := newTLSAPIClient(testDaemonHTTPSAddr, cacertPath, clientCertPath, clientKeyPath)
 	require.Nil(t, err)
 
 	_, err = client.ServerVersion(context.Background())
@@ -137,6 +133,17 @@ func TestAuthZPluginTLS(t *testing.T) {
 
 	require.Equal(t, "client", ctrl.reqUser)
 	require.Equal(t, "client", ctrl.resUser)
+}
+
+func newTLSAPIClient(host, cacertPath, certPath, keyPath string) (client.APIClient, error) {
+	dialer := &net.Dialer{
+		KeepAlive: 30 * time.Second,
+		Timeout:   30 * time.Second,
+	}
+	return client.NewClientWithOpts(
+		client.WithTLSClientConfig(cacertPath, certPath, keyPath),
+		client.WithDialer(dialer),
+		client.WithHost(host))
 }
 
 func TestAuthZPluginDenyRequest(t *testing.T) {
@@ -213,19 +220,17 @@ func TestAuthZPluginAllowEventStream(t *testing.T) {
 	client, err := d.NewClient()
 	require.Nil(t, err)
 
+	ctx := context.Background()
+
 	startTime := strconv.FormatInt(systemTime(t, client, testEnv).Unix(), 10)
 	events, errs, cancel := systemEventsSince(client, startTime)
 	defer cancel()
 
 	// Create a container and wait for the creation events
-	createResponse, err := client.ContainerCreate(context.Background(), &container.Config{Cmd: []string{"top"}, Image: "busybox"}, &container.HostConfig{}, &networktypes.NetworkingConfig{}, "")
-	require.Nil(t, err)
-
-	err = client.ContainerStart(context.Background(), createResponse.ID, types.ContainerStartOptions{})
-	require.Nil(t, err)
+	cID := container.Run(t, ctx, client)
 
 	for i := 0; i < 100; i++ {
-		c, err := client.ContainerInspect(context.Background(), createResponse.ID)
+		c, err := client.ContainerInspect(ctx, cID)
 		require.Nil(t, err)
 		if c.State.Running {
 			break
@@ -241,7 +246,7 @@ func TestAuthZPluginAllowEventStream(t *testing.T) {
 	for !created && !started {
 		select {
 		case event := <-events:
-			if event.Type == eventtypes.ContainerEventType && event.Actor.ID == createResponse.ID {
+			if event.Type == eventtypes.ContainerEventType && event.Actor.ID == cID {
 				if event.Action == "create" {
 					created = true
 				}
@@ -264,7 +269,7 @@ func TestAuthZPluginAllowEventStream(t *testing.T) {
 	// authorization plugin
 	assertURIRecorded(t, ctrl.requestsURIs, "/events")
 	assertURIRecorded(t, ctrl.requestsURIs, "/containers/create")
-	assertURIRecorded(t, ctrl.requestsURIs, fmt.Sprintf("/containers/%s/start", createResponse.ID))
+	assertURIRecorded(t, ctrl.requestsURIs, fmt.Sprintf("/containers/%s/start", cID))
 }
 
 func systemTime(t *testing.T, client client.APIClient, testEnv *environment.Execution) time.Time {
@@ -347,6 +352,8 @@ func TestAuthZPluginEnsureLoadImportWorking(t *testing.T) {
 	client, err := d.NewClient()
 	require.Nil(t, err)
 
+	ctx := context.Background()
+
 	tmp, err := ioutil.TempDir("", "test-authz-load-import")
 	require.Nil(t, err)
 	defer os.RemoveAll(tmp)
@@ -360,13 +367,9 @@ func TestAuthZPluginEnsureLoadImportWorking(t *testing.T) {
 
 	exportedImagePath := filepath.Join(tmp, "export.tar")
 
-	createResponse, err := client.ContainerCreate(context.Background(), &container.Config{Cmd: []string{}, Image: "busybox"}, &container.HostConfig{}, &networktypes.NetworkingConfig{}, "")
-	require.Nil(t, err)
+	cID := container.Run(t, ctx, client)
 
-	err = client.ContainerStart(context.Background(), createResponse.ID, types.ContainerStartOptions{})
-	require.Nil(t, err)
-
-	responseReader, err := client.ContainerExport(context.Background(), createResponse.ID)
+	responseReader, err := client.ContainerExport(context.Background(), cID)
 	require.Nil(t, err)
 	defer responseReader.Close()
 	file, err := os.Create(exportedImagePath)

@@ -1,4 +1,4 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"fmt"
@@ -266,7 +266,7 @@ func (daemon *Daemon) setRWLayer(container *container.Container) error {
 
 	rwLayerOpts := &layer.CreateRWLayerOpts{
 		MountLabel: container.MountLabel,
-		InitFunc:   daemon.getLayerInit(),
+		InitFunc:   setupInitLayer(daemon.idMappings),
 		StorageOpt: container.HostConfig.StorageOpt,
 	}
 
@@ -322,8 +322,11 @@ func verifyNetworkingConfig(nwConfig *networktypes.NetworkingConfig) error {
 		return nil
 	}
 	if len(nwConfig.EndpointsConfig) == 1 {
-		for _, v := range nwConfig.EndpointsConfig {
-			if v != nil && v.IPAMConfig != nil {
+		for k, v := range nwConfig.EndpointsConfig {
+			if v == nil {
+				return errdefs.InvalidParameter(errors.Errorf("no EndpointSettings for %s", k))
+			}
+			if v.IPAMConfig != nil {
 				if v.IPAMConfig.IPv4Address != "" && net.ParseIP(v.IPAMConfig.IPv4Address).To4() == nil {
 					return errors.Errorf("invalid IPv4 address: %s", v.IPAMConfig.IPv4Address)
 				}

@@ -107,6 +107,10 @@ const (
 	// InvalidReferenceError indicates that a $ref property could not be resolved
 	InvalidReferenceError = "invalid ref %q"
 
+	// InvalidResponseDefinitionAsSchemaError indicates an error detected on a response definition, which was mistaken with a schema definition.
+	// Most likely, this situation is encountered whenever a $ref has been added as a sibling of the response definition.
+	InvalidResponseDefinitionAsSchemaError = "invalid definition as Schema for response %s in %s"
+
 	// MultipleBodyParamError indicates that an operation specifies multiple parameter with in: body
 	MultipleBodyParamError = "operation %q has more than 1 body param: %v"
 
@@ -337,6 +341,11 @@ func invalidParameterDefinitionMsg(path, method, operationID string) errors.Erro
 func invalidParameterDefinitionAsSchemaMsg(path, method, operationID string) errors.Error {
 	return errors.New(errors.CompositeErrorCode, InvalidParameterDefinitionAsSchemaError, path, method, operationID)
 }
+
+// disabled
+//func invalidResponseDefinitionAsSchemaMsg(path, method string) errors.Error {
+//	return errors.New(errors.CompositeErrorCode, InvalidResponseDefinitionAsSchemaError, path, method)
+//}
 func someParametersBrokenMsg(path, method, operationID string) errors.Error {
 	return errors.New(errors.CompositeErrorCode, SomeParametersBrokenError, path, method, operationID)
 }

@@ -739,6 +739,27 @@
       "type" : "structure",
       "members" : { }
     },
+    "AccessKeyDetails" : {
+      "type" : "structure",
+      "members" : {
+        "AccessKeyId" : {
+          "shape" : "__string",
+          "locationName" : "accessKeyId"
+        },
+        "PrincipalId" : {
+          "shape" : "__string",
+          "locationName" : "principalId"
+        },
+        "UserName" : {
+          "shape" : "__string",
+          "locationName" : "userName"
+        },
+        "UserType" : {
+          "shape" : "__string",
+          "locationName" : "userType"
+        }
+      }
+    },
     "AccountDetail" : {
       "type" : "structure",
       "members" : {
@@ -785,6 +806,10 @@
         "NetworkConnectionAction" : {
           "shape" : "NetworkConnectionAction",
           "locationName" : "networkConnectionAction"
+        },
+        "PortProbeAction" : {
+          "shape" : "PortProbeAction",
+          "locationName" : "portProbeAction"
         }
       }
     },
@@ -1945,6 +1970,12 @@
         }
       }
     },
+    "ListOfPortProbeDetail" : {
+      "type" : "list",
+      "member" : {
+        "shape" : "PortProbeDetail"
+      }
+    },
     "ListThreatIntelSetsRequest" : {
       "type" : "structure",
       "members" : {
@@ -2197,6 +2228,32 @@
         }
       }
     },
+    "PortProbeAction" : {
+      "type" : "structure",
+      "members" : {
+        "Blocked" : {
+          "shape" : "__boolean",
+          "locationName" : "blocked"
+        },
+        "PortProbeDetails" : {
+          "shape" : "ListOfPortProbeDetail",
+          "locationName" : "portProbeDetails"
+        }
+      }
+    },
+    "PortProbeDetail" : {
+      "type" : "structure",
+      "members" : {
+        "LocalPortDetails" : {
+          "shape" : "LocalPortDetails",
+          "locationName" : "localPortDetails"
+        },
+        "RemoteIpDetails" : {
+          "shape" : "RemoteIpDetails",
+          "locationName" : "remoteIpDetails"
+        }
+      }
+    },
     "PrivateDnsName" : {
       "type" : "string"
     },
@@ -2282,6 +2339,10 @@
     "Resource" : {
       "type" : "structure",
       "members" : {
+        "AccessKeyDetails" : {
+          "shape" : "AccessKeyDetails",
+          "locationName" : "accessKeyDetails"
+        },
         "InstanceDetails" : {
           "shape" : "InstanceDetails",
           "locationName" : "instanceDetails"
