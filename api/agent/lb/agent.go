@@ -121,6 +121,31 @@ func (a *lbAgent) connectToRunner(lbGroupID string, address string, addresses *s
 }
 
 func (a *lbAgent) refreshGroupConnections(lbGroupId string, runnerAddrs []string) {
+	// clean up any connections that are no longer advertised
+	c, ok := a.connections.Load(lbGroupId)
+	if ok {
+		conns := c.(*sync.Map)
+		conns.Range(func(k, v interface{}) bool {
+			addr := k.(string)
+			found := false
+			for _, address := range runnerAddrs {
+				if address == addr {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				logrus.WithField("lbg_id", lbGroupId).WithField("runner_address", addr).Debug("Removing drained connection")
+				conns.Delete(addr)
+				// TODO expose a way of closing the grpc connection
+				// v.(pb.RunnerProtocolClient).Close()
+			}
+			return true
+		})
+
+	}
+
 	for _, address := range runnerAddrs {
 		c, ok := a.connections.Load(lbGroupId)
 		if !ok {
