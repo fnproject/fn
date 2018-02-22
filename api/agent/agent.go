@@ -3,9 +3,6 @@ package agent
 import (
 	"context"
 	"io"
-	"math"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -839,14 +837,14 @@ func init() {
 	keys := []string{"net_rx", "net_tx", "mem_limit", "mem_usage", "disk_read", "disk_write", "cpu_user", "cpu_total", "cpu_kernel"}
 
 	// TODO necessary?
-	//appKey, err := tag.NewKey("fn_appname")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
-	//pathKey, err := tag.NewKey("fn_path")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	for _, key := range keys {
 		units := "bytes"
@@ -860,7 +858,7 @@ func init() {
 		v, err := view.New(
 			"docker_stats_"+key,
 			"docker container stats for "+key,
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			dockerStatsDist,
 			view.DistributionAggregation{},
 		)

@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 type RequestStateType int
@@ -157,14 +158,14 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 func init() {
 	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
 	// or we have to white list them in the view for them to show up? test...
-	//appKey, err := tag.NewKey("fn_appname")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
-	//pathKey, err := tag.NewKey("fn_path")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	for _, key := range containerGaugeKeys {
 		if key == "" { // leave nil intentionally, let it panic
@@ -177,7 +178,7 @@ func init() {
 		v, err := view.New(
 			key,
 			"containers in state "+key,
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			measure,
 			view.CountAggregation{},
 		)
@@ -200,7 +201,7 @@ func init() {
 		v, err := view.New(
 			key,
 			"time spent in container state "+key,
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			measure,
 			view.DistributionAggregation{},
 		)

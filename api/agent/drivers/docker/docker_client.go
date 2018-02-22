@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -107,14 +108,14 @@ func init() {
 	// TODO do we have to do this? the measurements will be tagged on the context, will they be propagated
 	// or we have to white list them in the view for them to show up? test...
 	var err error
-	//appKey, err := tag.NewKey("fn_appname")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
-	//pathKey, err := tag.NewKey("fn_path")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	{
 		dockerRetriesMeasure, err = stats.Int64("docker_api_retries", "docker api retries", "")
@@ -124,7 +125,7 @@ func init() {
 		v, err := view.New(
 			"docker_api_retries",
 			"number of times we've retried docker API upon failure",
-			nil, //[]tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			dockerRetriesMeasure,
 			view.SumAggregation{},
 		)
@@ -144,7 +145,7 @@ func init() {
 		v, err := view.New(
 			"docker_api_timeout_count",
 			"number of times we've timed out calling docker API",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			dockerTimeoutMeasure,
 			view.CountAggregation{},
 		)
@@ -164,7 +165,7 @@ func init() {
 		v, err := view.New(
 			"docker_api_error_count",
 			"number of unrecoverable errors from docker API",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			dockerErrorMeasure,
 			view.CountAggregation{},
 		)
@@ -184,7 +185,7 @@ func init() {
 		v, err := view.New(
 			"docker_oom_count",
 			"number of docker container oom",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			dockerErrorMeasure,
 			view.CountAggregation{},
 		)

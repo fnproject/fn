@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 // TODO add some suga:
@@ -85,14 +86,14 @@ func init() {
 	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
 	// or we have to white list them in the view for them to show up? test...
 	var err error
-	//appKey, err := tag.NewKey("fn_appname")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
-	//pathKey, err := tag.NewKey("fn_path")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	{
 		queuedMeasure, err = stats.Int64(queuedMetricName, "calls currently queued against agent", "")
@@ -102,7 +103,7 @@ func init() {
 		v, err := view.New(
 			queuedMetricName,
 			"calls currently queued to agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			queuedMeasure,
 			view.SumAggregation{},
 		)
@@ -122,7 +123,7 @@ func init() {
 		v, err := view.New(
 			callsMetricName,
 			"calls created in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			callsMeasure,
 			view.SumAggregation{},
 		)
@@ -142,7 +143,7 @@ func init() {
 		v, err := view.New(
 			runningMetricName,
 			"calls currently running in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			runningMeasure,
 			view.SumAggregation{},
 		)
@@ -162,7 +163,7 @@ func init() {
 		v, err := view.New(
 			completedMetricName,
 			"calls completed in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			completedMeasure,
 			view.SumAggregation{},
 		)
@@ -182,7 +183,7 @@ func init() {
 		v, err := view.New(
 			failedMetricName,
 			"calls failed in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			failedMeasure,
 			view.SumAggregation{},
 		)
@@ -202,7 +203,7 @@ func init() {
 		v, err := view.New(
 			timedoutMetricName,
 			"calls timed out in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			timedoutMeasure,
 			view.SumAggregation{},
 		)
@@ -222,7 +223,7 @@ func init() {
 		v, err := view.New(
 			errorsMetricName,
 			"calls errored in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			errorsMeasure,
 			view.SumAggregation{},
 		)
@@ -242,7 +243,7 @@ func init() {
 		v, err := view.New(
 			serverBusyMetricName,
 			"calls where server was too busy in agent",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			serverBusyMeasure,
 			view.SumAggregation{},
 		)

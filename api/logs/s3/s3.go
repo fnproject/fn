@@ -21,6 +21,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -183,14 +184,14 @@ func init() {
 	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
 	// or we have to white list them in the view for them to show up? test...
 	var err error
-	//appKey, err := tag.NewKey("fn_appname")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
-	//pathKey, err := tag.NewKey("fn_path")
-	//if err != nil {
-	//logrus.Fatal(err)
-	//}
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	{
 		uploadSizeMeasure, err = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
@@ -200,7 +201,7 @@ func init() {
 		v, err := view.New(
 			"s3_log_upload_size",
 			"uploaded log size",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			uploadSizeMeasure,
 			view.DistributionAggregation{},
 		)
@@ -220,7 +221,7 @@ func init() {
 		v, err := view.New(
 			"s3_log_download_size",
 			"downloaded log size",
-			nil, // []tag.Key{appKey, pathKey},
+			[]tag.Key{appKey, pathKey},
 			uploadSizeMeasure,
 			view.DistributionAggregation{},
 		)
