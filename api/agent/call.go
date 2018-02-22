@@ -201,6 +201,13 @@ func WithContext(ctx context.Context) CallOpt {
 // This MUST run last
 func WithReservedSlot(ctx context.Context) CallOpt {
 	return func(a *agent, c *call) error {
+		// First check if we have capacity. We exit early if we don't, because
+		// reserving a slot must be a quick operation, as in, "can I reserve a
+		// slot RIGHT NOW please?".
+		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+			return models.ErrCallTimeoutServerBusy
+		}
+
 		// We need deadlines otherwise our slot will have expired in 1970... :)
 		now := time.Now()
 		slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
