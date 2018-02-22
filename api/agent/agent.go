@@ -506,7 +506,7 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 	if !ok {
 		return ctx.Err()
 	}
-	if clamper.E {
+	if clamper.IsOverflow {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: body too large"))
 	}
 
@@ -596,16 +596,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	errApp := make(chan error, 1)
 	go func() {
 		ci := protocol.NewCallInfo(call.Call, call.req, s.cfg.MaxResponseSize)
-		err := proto.Dispatch(ctx, ci, call.w)
-
-		// drain the container stdout if bad gw (aka container communication failed)
-		if err != nil && models.GetAPIErrorCode(err) == http.StatusBadGateway {
-			go func() {
-				// stdoutWrite.Close() will unblock this with EOF incoming from stdoutRead
-				io.Copy(ioutil.Discard, stdoutRead)
-			}()
-		}
-		errApp <- err
+		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 
 	var finalError error
