@@ -79,7 +79,6 @@ func (ss *syncedSlice) store(values []string) {
 func New(npmAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
 
 	a := &lbAgent{
-		// TODO values should be RWSlice
 		runnerAddresses:    &sync.Map{}, //make(map[string][]string)
 		delegatedAgent:     agent,
 		capacityAggregator: poolmanager.NewCapacityAggregator(),
@@ -159,6 +158,7 @@ func (a *lbAgent) GetCall(opts ...agent.CallOpt) (agent.Call, error) {
 }
 
 func (a *lbAgent) Close() error {
+	a.npm.Shutdown()
 	return nil
 }
 
@@ -185,11 +185,12 @@ func (a *lbAgent) Submit(call agent.Call) error {
 			return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
 		}
 
+		// TODO we might need to diff new runner set with previous and explicitly close dropped ones
 		runnerList, err := a.npm.GetRunners(lbGroupID)
 		if err != nil {
 			logrus.WithError(err).Info("Failed to get runners from node pool manager")
 
-		} else if len(runnerList) > 0 {
+		} else {
 			logrus.WithField("runners", len(runnerList)).Info("Updating runner list")
 
 			if runners, ok := a.runnerAddresses.Load(lbGroupID); ok {
