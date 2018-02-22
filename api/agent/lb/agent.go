@@ -258,14 +258,7 @@ func (a *lbAgent) Submit(call agent.Call) error {
 					// Try the next runner
 				} else {
 					logrus.Info("Runner committed invocation request, sending data frames")
-					responseWriter, err := agent.ResponseWriter(&call)
-
-					if err != nil {
-						logrus.WithError(err).Error("Unable to get response writer from call")
-						return false
-					}
-					(*responseWriter).Header().Set("SOMERANDOMHEADER", "ITSVALUE")
-					go receiveFromRunner(runnerConnection, responseWriter)
+					go receiveFromRunner(runnerConnection, call)
 					_ = sendToRunner(call, runnerConnection)
 					processedRequest = true
 					return false
@@ -353,7 +346,14 @@ func sendToRunner(call agent.Call, protocolClient pb.RunnerProtocol_EngageClient
 	return nil
 }
 
-func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, w *http.ResponseWriter) {
+func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call agent.Call) {
+	w, err := agent.ResponseWriter(&call)
+
+	if err != nil {
+		logrus.WithError(err).Error("Unable to get response writer from call")
+		return
+	}
+
 	for {
 		msg, err := protocolClient.Recv()
 		if err != nil {
@@ -379,9 +379,9 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, w *http.Re
 			} else {
 				logrus.Infof("Call finish unsuccessfully:: %v", body.Finished.Details)
 			}
+			return
 		default:
 			logrus.Errorf("Unhandled message type from runner: %v", body)
-
 		}
 	}
 }
