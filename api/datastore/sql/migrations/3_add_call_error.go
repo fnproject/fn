@@ -7,8 +7,8 @@ import (
 
 // we skip the error here to make previous datastore tables work fine
 func up3(tx *sql.Tx) error {
-	_, _ = tx.Exec("ALTER TABLE calls ADD error text;")
-	return nil
+	_, err := tx.Exec("ALTER TABLE calls ADD error text;")
+	return checkMigrationsUpError(err)
 }
 
 func down3(tx *sql.Tx) error {

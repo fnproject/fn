@@ -7,8 +7,8 @@ import (
 
 // we skip the error here to make previous datastore tables work fine
 func up7(tx *sql.Tx) error {
-	_, _ = tx.Exec("ALTER TABLE routes ADD cpus int;")
-	return nil
+	_, err := tx.Exec("ALTER TABLE routes ADD cpus int;")
+	return checkMigrationsUpError(err)
 }
 
 func down7(tx *sql.Tx) error {

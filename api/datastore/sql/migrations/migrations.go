@@ -3,9 +3,14 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/fnproject/fn/api/common"
+	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose"
 	"sort"
+	"strings"
 )
 
 var (
@@ -50,6 +55,28 @@ var initialTables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 );`,
 }
 
+func checkMigrationsUpError(err error) error {
+	if err != nil {
+		switch e := err.(type) {
+		case sqlite3.Error:
+			if strings.Contains(err.Error(), "duplicate column name") {
+				return nil
+			}
+		case *mysql.MySQLError:
+			if e.Number == 1060 {
+				return nil
+			}
+		case *pq.Error:
+			if e.Code == "42701" {
+				return nil
+			}
+		default:
+			return err
+		}
+	}
+	return err
+}
+
 // copy of goose.sortAndConnetMigrations
 func sortAndConnectMigrations(migrations goose.Migrations) goose.Migrations {
 	sort.Sort(migrations)
@@ -68,22 +95,32 @@ func sortAndConnectMigrations(migrations goose.Migrations) goose.Migrations {
 	return migrations
 }
 
-func getPreviousMigration() (*goose.Migration, error) {
-	migrations = sortAndConnectMigrations(migrations)
-	last, err := migrations.Last()
-	if err != nil {
-		return nil, err
-	}
-	return last, nil
-}
-
-func DownByOne(driver string, db *sql.DB) error {
+func DownAll(driver string, db *sql.DB) error {
 	goose.SetDialect(driver)
-	last, err := getPreviousMigration()
-	if err != nil {
-		return err
+	migrations = sortAndConnectMigrations(migrations)
+
+	for {
+		currentVersion, err := goose.GetDBVersion(db)
+		if err != nil {
+			return err
+		}
+
+		current, err := migrations.Current(currentVersion)
+		if err != nil {
+			fmt.Printf("goose: no migrations to run. current version: %d\n", currentVersion)
+			return nil
+		}
+
+		if current.Version <= 1 {
+			fmt.Printf("goose: no migrations to run. current version: %d\n", currentVersion)
+			return nil
+		}
+
+		if err = current.Down(db); err != nil {
+			return err
+		}
 	}
-	return last.Down(db)
+
 }
 
 func ApplyMigrations(ctx context.Context, driver string, db *sql.DB) error {

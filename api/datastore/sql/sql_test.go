@@ -24,7 +24,7 @@ func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		return nil, err
 	}
 
-	err = migrations.DownByOne(url.Scheme, ds.db.DB)
+	err = migrations.DownAll(url.Scheme, ds.db.DB)
 	if err != nil {
 		return nil, err
 	}

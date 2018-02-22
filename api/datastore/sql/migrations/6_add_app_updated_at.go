@@ -7,8 +7,8 @@ import (
 
 // we skip the error here to make previous datastore tables work fine
 func up6(tx *sql.Tx) error {
-	_, _ = tx.Exec("ALTER TABLE apps ADD updated_at VARCHAR(256);")
-	return nil
+	_, err := tx.Exec("ALTER TABLE apps ADD updated_at VARCHAR(256);")
+	return checkMigrationsUpError(err)
 }
 
 func down6(tx *sql.Tx) error {
