@@ -48,6 +48,33 @@ type lbAgent struct {
 	connections        *sync.Map
 }
 
+type syncedSlice struct {
+	mtx    *sync.RWMutex
+	values []string
+}
+
+func newSyncedSlice() *syncedSlice {
+	return &syncedSlice{mtx: &sync.RWMutex{}}
+}
+
+// returns a thread-safe copy of the original slice
+func (ss *syncedSlice) load() []string {
+	ss.mtx.RLock()
+	defer ss.mtx.RUnlock()
+
+	addrs := make([]string, len(ss.values))
+	copy(addrs, ss.values)
+	return addrs
+}
+
+func (ss *syncedSlice) store(values []string) {
+	ss.mtx.Lock()
+	defer ss.mtx.Unlock()
+
+	ss.values = make([]string, len(values))
+	copy(ss.values, values)
+}
+
 func New(npmAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
 
 	a := &lbAgent{
@@ -121,8 +148,8 @@ func (a *lbAgent) maintainConnectionToRunners() {
 	for {
 		a.runnerAddresses.Range(func(k, v interface{}) bool {
 			lbGroupId := k.(string)
-			runnerAddrs := v.([]string)
-			a.refreshGroupConnections(lbGroupId, runnerAddrs)
+			runnerAddrs := v.(*syncedSlice)
+			a.refreshGroupConnections(lbGroupId, runnerAddrs.load())
 			return true
 		})
 		time.Sleep(runnerReconnectInterval)
@@ -161,12 +188,21 @@ func (a *lbAgent) Submit(call agent.Call) error {
 			return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
 		}
 
-		runnerList, err := a.npm.GetLBGroup(lbGroupID)
+		runnerList, err := a.npm.GetRunners(lbGroupID)
 		if err != nil {
 			logrus.WithError(err).Info("Failed to get runners from node pool manager")
+
 		} else if len(runnerList) > 0 {
 			logrus.WithField("runners", len(runnerList)).Info("Updating runner list")
-			a.runnerAddresses.Store(lbGroupID, runnerList)
+
+			if runners, ok := a.runnerAddresses.Load(lbGroupID); ok {
+				runners.(*syncedSlice).store(runnerList)
+			} else {
+				runners := newSyncedSlice()
+				runners.store(runnerList)
+				a.runnerAddresses.Store(lbGroupID, runners)
+			}
+
 			a.refreshGroupConnections(lbGroupID, runnerList)
 		}
 

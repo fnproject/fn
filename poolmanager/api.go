@@ -12,7 +12,7 @@ import (
 
 type NodePoolManager interface {
 	ScheduleUpdates(lbID string, agg CapacityAggregator, period time.Duration)
-	GetLBGroup(lbgID string) ([]string, error)
+	GetRunners(lbgID string) ([]string, error)
 }
 
 type remoteNodePoolManager struct {
@@ -48,8 +48,8 @@ func (npm *remoteNodePoolManager) ScheduleUpdates(lbID string, agg CapacityAggre
 	}()
 }
 
-func (npm *remoteNodePoolManager) GetLBGroup(lbgID string) ([]string, error) {
-	m, err := npm.client.GetLBGroup(&model.LBGroupId{Id: lbgID})
+func (npm *remoteNodePoolManager) GetRunners(lbGroupID string) ([]string, error) {
+	m, err := npm.client.GetLBGroup(&model.LBGroupId{Id: lbGroupID})
 	if err != nil {
 		return nil, err
 	}
