@@ -36,11 +36,17 @@ type Map struct {
 // Value returns the value for the key if a value
 // for the key exists.
 func (m *Map) Value(k Key) (string, bool) {
+	if m == nil {
+		return "", false
+	}
 	v, ok := m.m[k]
 	return v, ok
 }
 
 func (m *Map) String() string {
+	if m == nil {
+		return "nil"
+	}
 	var keys []Key
 	for k := range m.m {
 		keys = append(keys, k)

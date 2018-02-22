@@ -43,8 +43,8 @@ type HTTPFormat struct{}
 
 var _ propagation.HTTPFormat = (*HTTPFormat)(nil)
 
-// FromRequest extracts a B3 span context from incoming requests.
-func (f *HTTPFormat) FromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
+// SpanContextFromRequest extracts a B3 span context from incoming requests.
+func (f *HTTPFormat) SpanContextFromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
 	tid, ok := parseTraceID(req.Header.Get(traceIDHeader))
 	if !ok {
 		return trace.SpanContext{}, false
@@ -104,8 +104,8 @@ func parseSampled(sampled string) (trace.TraceOptions, bool) {
 	}
 }
 
-// ToRequest modifies the given request to include B3 headers.
-func (f *HTTPFormat) ToRequest(sc trace.SpanContext, req *http.Request) {
+// SpanContextToRequest modifies the given request to include B3 headers.
+func (f *HTTPFormat) SpanContextToRequest(sc trace.SpanContext, req *http.Request) {
 	req.Header.Set(traceIDHeader, hex.EncodeToString(sc.TraceID[:]))
 	req.Header.Set(spanIDHeader, hex.EncodeToString(sc.SpanID[:]))
 

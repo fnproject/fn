@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package grpcstats
+package ocgrpc
 
 import (
 	"reflect"
@@ -40,12 +40,12 @@ func TestViewsAggregationsConform(t *testing.T) {
 		}
 	}
 
-	assertTypeOf(RPCClientErrorCountView, view.MeanAggregation{})
-	assertTypeOf(RPCClientRoundTripLatencyView, view.DistributionAggregation{})
-	assertTypeOf(RPCClientRequestBytesView, view.DistributionAggregation{})
-	assertTypeOf(RPCClientResponseBytesView, view.DistributionAggregation{})
-	assertTypeOf(RPCClientRequestCountView, view.DistributionAggregation{})
-	assertTypeOf(RPCClientResponseCountView, view.DistributionAggregation{})
+	assertTypeOf(ClientErrorCountView, view.MeanAggregation{})
+	assertTypeOf(ClientRoundTripLatencyView, view.DistributionAggregation{})
+	assertTypeOf(ClientRequestBytesView, view.DistributionAggregation{})
+	assertTypeOf(ClientResponseBytesView, view.DistributionAggregation{})
+	assertTypeOf(ClientRequestCountView, view.DistributionAggregation{})
+	assertTypeOf(ClientResponseCountView, view.DistributionAggregation{})
 }
 
 func TestStrictViewNames(t *testing.T) {
@@ -62,10 +62,10 @@ func TestStrictViewNames(t *testing.T) {
 		alreadySeen[v.Name()] = line
 	}
 
-	assertName(RPCClientErrorCountView, "grpc.io/client/error_count/cumulative")
-	assertName(RPCClientRoundTripLatencyView, "grpc.io/client/roundtrip_latency/cumulative")
-	assertName(RPCClientRequestBytesView, "grpc.io/client/request_bytes/cumulative")
-	assertName(RPCClientResponseBytesView, "grpc.io/client/response_bytes/cumulative")
-	assertName(RPCClientRequestCountView, "grpc.io/client/request_count/cumulative")
-	assertName(RPCClientResponseCountView, "grpc.io/client/response_count/cumulative")
+	assertName(ClientErrorCountView, "grpc.io/client/error_count")
+	assertName(ClientRoundTripLatencyView, "grpc.io/client/roundtrip_latency")
+	assertName(ClientRequestBytesView, "grpc.io/client/request_bytes")
+	assertName(ClientResponseBytesView, "grpc.io/client/response_bytes")
+	assertName(ClientRequestCountView, "grpc.io/client/request_count")
+	assertName(ClientResponseCountView, "grpc.io/client/response_count")
 }

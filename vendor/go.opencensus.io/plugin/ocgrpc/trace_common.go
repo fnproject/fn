@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package grpctrace is a package to assist with tracing incoming and outgoing gRPC requests.
-package grpctrace // import "go.opencensus.io/plugin/ocgrpc/grpctrace"
+package ocgrpc
 
 import (
 	"strings"
@@ -26,38 +25,13 @@ import (
 	"google.golang.org/grpc/stats"
 )
 
-// ClientStatsHandler is a an implementation of grpc.StatsHandler
+// clientTraceHandler is a an implementation of grpc.StatsHandler
 // that can be passed to grpc.Dial
 // using grpc.WithStatsHandler to enable trace context propagation and
 // automatic span creation for outgoing gRPC requests.
-type ClientStatsHandler struct{}
+type clientTraceHandler struct{}
 
-var _ stats.Handler = &ClientStatsHandler{}
-
-// NewClientStatsHandler returns a StatsHandler that can be passed to grpc.Dial
-// using grpc.WithStatsHandler to enable trace context propagation and
-// automatic span creation for outgoing gRPC requests.
-func NewClientStatsHandler() *ClientStatsHandler {
-	return &ClientStatsHandler{}
-}
-
-// TODO(jbd): Remove NewClientStatsHandler and NewServerStatsHandler
-// given they are not doing anything than returning a zero value pointer.
-
-// ServerStatsHandler is a an implementation of grpc.StatsHandler
-// that can be passed to grpc.NewServer using grpc.StatsHandler
-// to enable trace context propagation and automatic span creation
-// for incoming gRPC requests..
-type ServerStatsHandler struct{}
-
-// NewServerStatsHandler returns a StatsHandler that can be passed to
-// grpc.NewServer using grpc.StatsHandler to enable trace context propagation
-// and automatic span creation for incoming gRPC requests.
-func NewServerStatsHandler() *ServerStatsHandler {
-	return &ServerStatsHandler{}
-}
-
-var _ stats.Handler = &ServerStatsHandler{}
+type serverTraceHandler struct{}
 
 const traceContextKey = "grpc-trace-bin"
 
@@ -65,9 +39,9 @@ const traceContextKey = "grpc-trace-bin"
 //
 // It returns ctx with the new trace span added and a serialization of the
 // SpanContext added to the outgoing gRPC metadata.
-func (c *ClientStatsHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+func (c *clientTraceHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	name := "Sent" + strings.Replace(rti.FullMethodName, "/", ".", -1)
-	ctx, _ = trace.StartSpanWithOptions(ctx, name, trace.StartOptions{RecordEvents: true, RegisterNameForLocalSpanStore: true})
+	ctx, _ = trace.StartSpan(ctx, name)
 	traceContextBinary := propagation.Binary(trace.FromContext(ctx).SpanContext())
 	if len(traceContextBinary) == 0 {
 		return ctx
@@ -81,27 +55,26 @@ func (c *ClientStatsHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) 
 // it finds one, uses that SpanContext as the parent context of the new span.
 //
 // It returns ctx, with the new trace span added.
-func (s *ServerStatsHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+func (s *serverTraceHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	md, _ := metadata.FromIncomingContext(ctx)
 	name := "Recv" + strings.Replace(rti.FullMethodName, "/", ".", -1)
-	opt := trace.StartOptions{RecordEvents: true, RegisterNameForLocalSpanStore: true}
 	if s := md[traceContextKey]; len(s) > 0 {
 		if parent, ok := propagation.FromBinary([]byte(s[0])); ok {
-			ctx, _ = trace.StartSpanWithRemoteParent(ctx, name, parent, opt)
+			ctx, _ = trace.StartSpanWithRemoteParent(ctx, name, parent, trace.StartOptions{})
 			return ctx
 		}
 	}
-	ctx, _ = trace.StartSpanWithOptions(ctx, name, opt)
+	ctx, _ = trace.StartSpan(ctx, name)
 	return ctx
 }
 
 // HandleRPC processes the RPC stats, adding information to the current trace span.
-func (c *ClientStatsHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
+func (c *clientTraceHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 	handleRPC(ctx, rs)
 }
 
 // HandleRPC processes the RPC stats, adding information to the current trace span.
-func (s *ServerStatsHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
+func (s *serverTraceHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 	handleRPC(ctx, rs)
 }
 
@@ -115,16 +88,8 @@ func handleRPC(ctx context.Context, rs stats.RPCStats) {
 			trace.BoolAttribute{Key: "FailFast", Value: rs.FailFast})
 	case *stats.InPayload:
 		span.AddMessageReceiveEvent(0 /* TODO: messageID */, int64(rs.Length), int64(rs.WireLength))
-	case *stats.InHeader:
-		span.AddMessageReceiveEvent(0, int64(rs.WireLength), int64(rs.WireLength))
-	case *stats.InTrailer:
-		span.AddMessageReceiveEvent(0, int64(rs.WireLength), int64(rs.WireLength))
 	case *stats.OutPayload:
 		span.AddMessageSendEvent(0, int64(rs.Length), int64(rs.WireLength))
-	case *stats.OutHeader:
-		span.AddMessageSendEvent(0, 0, 0)
-	case *stats.OutTrailer:
-		span.AddMessageSendEvent(0, int64(rs.WireLength), int64(rs.WireLength))
 	case *stats.End:
 		if rs.Error != nil {
 			code, desc := grpc.Code(rs.Error), grpc.ErrorDesc(rs.Error)
@@ -132,22 +97,4 @@ func handleRPC(ctx context.Context, rs stats.RPCStats) {
 		}
 		span.End()
 	}
-}
-
-// TagConn is a no-op for this StatsHandler.
-func (c *ClientStatsHandler) TagConn(ctx context.Context, cti *stats.ConnTagInfo) context.Context {
-	return ctx
-}
-
-// TagConn is a no-op for this StatsHandler.
-func (s *ServerStatsHandler) TagConn(ctx context.Context, cti *stats.ConnTagInfo) context.Context {
-	return ctx
-}
-
-// HandleConn is a no-op for this StatsHandler.
-func (c *ClientStatsHandler) HandleConn(ctx context.Context, cs stats.ConnStats) {
-}
-
-// HandleConn is a no-op for this StatsHandler.
-func (s *ServerStatsHandler) HandleConn(ctx context.Context, cs stats.ConnStats) {
 }

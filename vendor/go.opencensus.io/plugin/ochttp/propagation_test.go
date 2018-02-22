@@ -44,7 +44,7 @@ func TestRoundTripAllFormats(t *testing.T) {
 
 	for _, format := range formats {
 		srv := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			sc, ok := format.FromRequest(req)
+			sc, ok := format.SpanContextFromRequest(req)
 			if !ok {
 				resp.WriteHeader(http.StatusBadRequest)
 			}
@@ -54,7 +54,7 @@ func TestRoundTripAllFormats(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		format.ToRequest(span.SpanContext(), req)
+		format.SpanContextToRequest(span.SpanContext(), req)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)

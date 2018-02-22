@@ -17,24 +17,7 @@ package stats
 
 // Float64Measure is a measure of type float64.
 type Float64Measure struct {
-	name        string
-	unit        string
-	description string
-}
-
-// Name returns the name of the measure.
-func (m *Float64Measure) Name() string {
-	return m.name
-}
-
-// Description returns the description of the measure.
-func (m *Float64Measure) Description() string {
-	return m.description
-}
-
-// Unit returns the unit of the measure.
-func (m *Float64Measure) Unit() string {
-	return m.unit
+	measure
 }
 
 // M creates a new float64 measurement.
@@ -50,14 +33,14 @@ func Float64(name, description, unit string) (*Float64Measure, error) {
 		return nil, err
 	}
 	m := &Float64Measure{
-		name:        name,
-		description: description,
-		unit:        unit,
+		measure: measure{
+			name:        name,
+			description: description,
+			unit:        unit,
+		},
 	}
-	_, err := register(m)
-	if err != nil {
+	if _, err := register(m); err != nil {
 		return nil, err
-	} else {
-		return m, err
 	}
+	return m, nil
 }

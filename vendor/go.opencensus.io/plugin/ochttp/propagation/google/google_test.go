@@ -53,18 +53,18 @@ func TestHTTPFormat(t *testing.T) {
 		t.Run(tt.incoming, func(t *testing.T) {
 			req, _ := http.NewRequest("GET", "http://example.com", nil)
 			req.Header.Add(httpHeader, tt.incoming)
-			sc, ok := format.FromRequest(req)
+			sc, ok := format.SpanContextFromRequest(req)
 			if !ok {
-				t.Errorf("exporter.FromRequest() = false; want true")
+				t.Errorf("exporter.SpanContextFromRequest() = false; want true")
 			}
 			if got, want := sc, tt.wantSpanContext; !reflect.DeepEqual(got, want) {
-				t.Errorf("exporter.FromRequest() returned span context %v; want %v", got, want)
+				t.Errorf("exporter.SpanContextFromRequest() returned span context %v; want %v", got, want)
 			}
 
 			req, _ = http.NewRequest("GET", "http://example.com", nil)
-			format.ToRequest(sc, req)
+			format.SpanContextToRequest(sc, req)
 			if got, want := req.Header.Get(httpHeader), tt.incoming; got != want {
-				t.Errorf("exporter.ToRequest() returned header %q; want %q", got, want)
+				t.Errorf("exporter.SpanContextToRequest() returned header %q; want %q", got, want)
 			}
 		})
 	}

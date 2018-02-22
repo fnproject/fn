@@ -113,10 +113,22 @@ func (c *collector) registerViews(views ...*view.View) {
 		return
 	}
 
-	c.reg.Unregister(c)
-	if err := c.reg.Register(c); err != nil {
-		c.opts.onError(fmt.Errorf("cannot register the collector: %v", err))
-	}
+	c.ensureRegisteredOnce()
+}
+
+// ensureRegisteredOnce invokes reg.Register on the collector itself
+// exactly once to ensure that we don't get errors such as
+//    cannot register the collector: descriptor Desc{fqName: *}
+//    already exists with the same fully-qualified name and const label values
+// which is documented by Prometheus at
+//  https://github.com/prometheus/client_golang/blob/fcc130e101e76c5d303513d0e28f4b6d732845c7/prometheus/registry.go#L89-L101
+func (c *collector) ensureRegisteredOnce() {
+	c.registerOnce.Do(func() {
+		if err := c.reg.Register(c); err != nil {
+			c.opts.onError(fmt.Errorf("cannot register the collector: %v", err))
+		}
+	})
+
 }
 
 func (o *Options) onError(err error) {
@@ -150,6 +162,8 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type collector struct {
 	opts Options
 	mu   sync.Mutex // mu guards all the fields.
+
+	registerOnce sync.Once
 
 	// reg helps collector register views dynamically.
 	reg *prometheus.Registry
@@ -257,6 +271,7 @@ func tagsToLabels(tags []tag.Tag) []string {
 
 func newCollector(opts Options, registrar *prometheus.Registry) *collector {
 	return &collector{
+		registerOnce:    sync.Once{},
 		reg:             registrar,
 		opts:            opts,
 		registeredViews: make(map[string]*prometheus.Desc),

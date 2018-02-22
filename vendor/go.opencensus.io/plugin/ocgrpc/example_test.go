@@ -18,33 +18,32 @@ import (
 	"log"
 
 	"go.opencensus.io/plugin/ocgrpc"
-	"go.opencensus.io/plugin/ocgrpc/grpcstats"
 	"google.golang.org/grpc"
 )
 
-func ExampleNewClientStatsHandler() {
+func ExampleClientHandler() {
 	// Subscribe to collect client request count.
-	if err := grpcstats.RPCClientRequestCountView.Subscribe(); err != nil {
+	if err := ocgrpc.ClientRequestCountView.Subscribe(); err != nil {
 		log.Fatal(err)
 	}
 
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	conn, err := grpc.Dial("address", grpc.WithStatsHandler(ocgrpc.NewClientStatsHandler()))
+	conn, err := grpc.Dial("address", grpc.WithStatsHandler(&ocgrpc.ClientHandler{}))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 }
 
-func ExampleNewServerStatsHandler() {
+func ExampleServerHandler() {
 	// Subscribe to collect server request count.
-	if err := grpcstats.RPCServerRequestCountView.Subscribe(); err != nil {
+	if err := ocgrpc.ServerRequestCountView.Subscribe(); err != nil {
 		log.Fatal(err)
 	}
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	s := grpc.NewServer(grpc.StatsHandler(ocgrpc.NewServerStatsHandler()))
+	s := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	_ = s // use s
 }

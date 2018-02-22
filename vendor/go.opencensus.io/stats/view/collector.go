@@ -32,7 +32,7 @@ type collector struct {
 	a Aggregation
 }
 
-func (c *collector) addSample(s string, v interface{}, now time.Time) {
+func (c *collector) addSample(s string, v float64, now time.Time) {
 	aggregator, ok := c.signatures[s]
 	if !ok {
 		aggregator = c.a.newData()

@@ -13,29 +13,7 @@
 // limitations under the License.
 //
 
-package stats
+package internal
 
-import (
-	"context"
-	"time"
-
-	"go.opencensus.io/stats/internal"
-	"go.opencensus.io/tag"
-)
-
-// Record records one or multiple measurements with the same tags at once.
-// If there are any tags in the context, measurements will be tagged with them.
-func Record(ctx context.Context, ms ...Measurement) {
-	if internal.DefaultRecorder != nil {
-		var record bool
-		for _, m := range ms {
-			if m.Measure != nil {
-				record = true
-			}
-		}
-		if !record {
-			return
-		}
-		internal.DefaultRecorder(tag.FromContext(ctx), time.Now(), ms)
-	}
-}
+// go get https://github.com/mjibson/esc.git
+//go:generate esc -pkg internal -o resources.go public/ templates/

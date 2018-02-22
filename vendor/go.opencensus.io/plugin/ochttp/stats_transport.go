@@ -48,7 +48,7 @@ func (t statsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	} else if req.ContentLength > 0 {
 		track.reqSize = req.ContentLength
 	}
-	stats.Record(ctx, ClientRequests.M(1))
+	stats.Record(ctx, ClientRequestCount.M(1))
 
 	// Perform request.
 	resp, err := t.base.RoundTrip(req)
@@ -93,10 +93,10 @@ func (t *tracker) end() {
 	t.endOnce.Do(func() {
 		m := []stats.Measurement{
 			ClientLatency.M(float64(time.Since(t.start)) / float64(time.Millisecond)),
-			ClientResponseBodySize.M(t.respSize),
+			ClientResponseBytes.M(t.respSize),
 		}
 		if t.reqSize >= 0 {
-			m = append(m, ClientRequestBodySize.M(t.reqSize))
+			m = append(m, ClientRequestBytes.M(t.reqSize))
 		}
 		ctx, _ := tag.New(t.ctx, tag.Upsert(StatusCode, t.statusCode))
 		stats.Record(ctx, m...)

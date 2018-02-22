@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grpctrace_test
+package ocgrpc
 
 import (
 	"fmt"
@@ -21,8 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"go.opencensus.io/plugin/ocgrpc/grpctrace"
-	testpb "go.opencensus.io/plugin/ocgrpc/grpctrace/testdata"
+	testpb "go.opencensus.io/plugin/ocgrpc/testdata"
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -61,12 +60,12 @@ func newTestClientAndServer() (client testpb.FooClient, server *grpc.Server, cle
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("net.Listen: %v", err)
 	}
-	server = grpc.NewServer(grpc.StatsHandler(&grpctrace.ServerStatsHandler{}))
+	server = grpc.NewServer(grpc.StatsHandler(&ServerHandler{NoStats: true}))
 	testpb.RegisterFooServer(server, &testServer{})
 	go server.Serve(listener)
 
 	// initialize client
-	clientConn, err := grpc.Dial(listener.Addr().String(), grpc.WithInsecure(), grpc.WithStatsHandler(&grpctrace.ClientStatsHandler{}), grpc.WithBlock())
+	clientConn, err := grpc.Dial(listener.Addr().String(), grpc.WithInsecure(), grpc.WithStatsHandler(&ClientHandler{NoStats: true}), grpc.WithBlock())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("grpc.Dial: %v", err)
 	}

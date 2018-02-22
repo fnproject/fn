@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package grpcstats
+package ocgrpc
 
 import (
 	"sync/atomic"
@@ -27,38 +27,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ClientStatsHandler is a stats.Handler implementation
+// clientStatsHandler is a stats.Handler implementation
 // that collects stats for a gRPC client. Predefined
 // measures and views can be used to access the collected data.
-type ClientStatsHandler struct{}
-
-var _ stats.Handler = &ClientStatsHandler{}
-
-// NewClientStatsHandler returns a stats.Handler implementation
-// that collects stats for a gRPC client. Predefined
-// measures and views can be used to access the collected data.
-func NewClientStatsHandler() *ClientStatsHandler {
-	return &ClientStatsHandler{}
-}
-
-// TODO(jbd): Remove NewClientStatsHandler and NewServerStatsHandler
-// given they are not doing anything than returning a zero value pointer.
-
-// TagConn adds connection related data to the given context and returns the
-// new context.
-func (h *ClientStatsHandler) TagConn(ctx context.Context, info *stats.ConnTagInfo) context.Context {
-	// Do nothing. This is here to satisfy the interface "google.golang.org/grpc/stats.Handler"
-	return ctx
-}
-
-// HandleConn processes the connection events.
-func (h *ClientStatsHandler) HandleConn(ctx context.Context, s stats.ConnStats) {
-	// Do nothing. This is here to satisfy the interface "google.golang.org/grpc/stats.Handler"
-}
+type clientStatsHandler struct{}
 
 // TagRPC gets the tag.Map populated by the application code, serializes
 // its tags into the GRPC metadata in order to be sent to the server.
-func (h *ClientStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
+func (h *clientStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
 	startTime := time.Now()
 	if info == nil {
 		if grpclog.V(2) {
@@ -69,20 +45,22 @@ func (h *ClientStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo)
 
 	d := &rpcData{startTime: startTime}
 	ts := tag.FromContext(ctx)
-	encoded := tag.Encode(ts)
-	ctx = stats.SetTags(ctx, encoded)
+	if ts != nil {
+		encoded := tag.Encode(ts)
+		ctx = stats.SetTags(ctx, encoded)
+	}
 	ctx, _ = tag.New(ctx,
 		tag.Upsert(KeyMethod, methodName(info.FullMethodName)),
 	)
 	// TODO(acetechnologist): should we be recording this later? What is the
 	// point of updating d.reqLen & d.reqCount if we update now?
-	ocstats.Record(ctx, RPCClientStartedCount.M(1))
+	ocstats.Record(ctx, ClientStartedCount.M(1))
 
 	return context.WithValue(ctx, grpcClientRPCKey, d)
 }
 
 // HandleRPC processes the RPC events.
-func (h *ClientStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
+func (h *clientStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
 	switch st := s.(type) {
 	case *stats.Begin, *stats.OutHeader, *stats.InHeader, *stats.InTrailer, *stats.OutTrailer:
 		// do nothing for client
@@ -97,7 +75,7 @@ func (h *ClientStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
 	}
 }
 
-func (h *ClientStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
+func (h *clientStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
 	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -106,11 +84,11 @@ func (h *ClientStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.O
 		return
 	}
 
-	ocstats.Record(ctx, RPCClientRequestBytes.M(int64(s.Length)))
+	ocstats.Record(ctx, ClientRequestBytes.M(int64(s.Length)))
 	atomic.AddInt64(&d.reqCount, 1)
 }
 
-func (h *ClientStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
+func (h *clientStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
 	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -119,11 +97,11 @@ func (h *ClientStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.In
 		return
 	}
 
-	ocstats.Record(ctx, RPCClientResponseBytes.M(int64(s.Length)))
+	ocstats.Record(ctx, ClientResponseBytes.M(int64(s.Length)))
 	atomic.AddInt64(&d.respCount, 1)
 }
 
-func (h *ClientStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
+func (h *clientStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -137,10 +115,10 @@ func (h *ClientStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 	respCount := atomic.LoadInt64(&d.respCount)
 
 	m := []ocstats.Measurement{
-		RPCClientRequestCount.M(reqCount),
-		RPCClientResponseCount.M(respCount),
-		RPCClientFinishedCount.M(1),
-		RPCClientRoundTripLatency.M(float64(elapsedTime) / float64(time.Millisecond)),
+		ClientRequestCount.M(reqCount),
+		ClientResponseCount.M(respCount),
+		ClientFinishedCount.M(1),
+		ClientRoundTripLatency.M(float64(elapsedTime) / float64(time.Millisecond)),
 	}
 
 	if s.Error != nil {
@@ -150,7 +128,7 @@ func (h *ClientStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 				tag.Upsert(KeyStatus, s.Code().String()),
 			)
 		}
-		m = append(m, RPCClientErrorCount.M(1))
+		m = append(m, ClientErrorCount.M(1))
 	}
 
 	ocstats.Record(ctx, m...)

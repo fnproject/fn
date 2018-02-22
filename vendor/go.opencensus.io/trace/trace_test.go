@@ -57,7 +57,7 @@ func (f foo) String() string {
 }
 
 // checkChild tests that c has fields set appropriately, given that it is a child span of p.
-func checkChild(p SpanContext, c *Span, expectRecordingEvents bool) error {
+func checkChild(p SpanContext, c *Span) error {
 	if c == nil {
 		return fmt.Errorf("got nil child span, want non-nil")
 	}
@@ -69,18 +69,6 @@ func checkChild(p SpanContext, c *Span, expectRecordingEvents bool) error {
 	}
 	if got, want := c.spanContext.TraceOptions, p.TraceOptions; got != want {
 		return fmt.Errorf("got child trace options %d, want %d", got, want)
-	}
-	if expectRecordingEvents {
-		if c.data == nil {
-			return fmt.Errorf("child span is not recording events")
-		}
-		if got, want := c.data.ParentSpanID, p.SpanID; got != want {
-			return fmt.Errorf("got ParentSpanID %s, want %s", got, want)
-		}
-	} else {
-		if c.data != nil {
-			return fmt.Errorf("child span is recording events")
-		}
 	}
 	return nil
 }
@@ -94,40 +82,25 @@ func TestStartSpan(t *testing.T) {
 
 func TestSampling(t *testing.T) {
 	for _, test := range []struct {
-		remoteParent        bool
-		localParent         bool
-		parentTraceOptions  TraceOptions
-		recordEvents        bool
-		sampler             Sampler
-		wantRecordingEvents bool
-		wantTraceOptions    TraceOptions
+		remoteParent       bool
+		localParent        bool
+		parentTraceOptions TraceOptions
+		sampler            Sampler
+		wantTraceOptions   TraceOptions
 	}{
-		{true, false, 0, false, nil, false, 0},
-		{true, false, 0, true, nil, true, 0},
-		{true, false, 1, false, nil, true, 1},
-		{true, false, 1, true, nil, true, 1},
-		{true, false, 0, false, NeverSample(), false, 0},
-		{true, false, 0, true, NeverSample(), true, 0},
-		{true, false, 1, false, NeverSample(), false, 0},
-		{true, false, 1, true, NeverSample(), true, 0},
-		{true, false, 0, false, AlwaysSample(), true, 1},
-		{true, false, 0, true, AlwaysSample(), true, 1},
-		{true, false, 1, false, AlwaysSample(), true, 1},
-		{true, false, 1, true, AlwaysSample(), true, 1},
-		{false, true, 0, false, NeverSample(), false, 0},
-		{false, true, 0, true, NeverSample(), true, 0},
-		{false, true, 1, false, NeverSample(), false, 0},
-		{false, true, 1, true, NeverSample(), true, 0},
-		{false, true, 0, false, AlwaysSample(), true, 1},
-		{false, true, 0, true, AlwaysSample(), true, 1},
-		{false, true, 1, false, AlwaysSample(), true, 1},
-		{false, true, 1, true, AlwaysSample(), true, 1},
-		{false, false, 0, false, nil, false, 0},
-		{false, false, 0, true, nil, true, 0},
-		{false, false, 0, false, NeverSample(), false, 0},
-		{false, false, 0, true, NeverSample(), true, 0},
-		{false, false, 0, false, AlwaysSample(), true, 1},
-		{false, false, 0, true, AlwaysSample(), true, 1},
+		{true, false, 0, nil, 0},
+		{true, false, 1, nil, 1},
+		{true, false, 0, NeverSample(), 0},
+		{true, false, 1, NeverSample(), 0},
+		{true, false, 0, AlwaysSample(), 1},
+		{true, false, 1, AlwaysSample(), 1},
+		{false, true, 0, NeverSample(), 0},
+		{false, true, 1, NeverSample(), 0},
+		{false, true, 0, AlwaysSample(), 1},
+		{false, true, 1, AlwaysSample(), 1},
+		{false, false, 0, nil, 0},
+		{false, false, 0, NeverSample(), 0},
+		{false, false, 0, AlwaysSample(), 1},
 	} {
 		var ctx context.Context
 		if test.remoteParent {
@@ -137,8 +110,7 @@ func TestSampling(t *testing.T) {
 				TraceOptions: test.parentTraceOptions,
 			}
 			ctx, _ = StartSpanWithRemoteParent(context.Background(), "foo", sc, StartOptions{
-				RecordEvents: test.recordEvents,
-				Sampler:      test.sampler,
+				Sampler: test.sampler,
 			})
 		} else if test.localParent {
 			sampler := NeverSample()
@@ -147,13 +119,11 @@ func TestSampling(t *testing.T) {
 			}
 			ctx2, _ := StartSpanWithOptions(context.Background(), "foo", StartOptions{Sampler: sampler})
 			ctx, _ = StartSpanWithOptions(ctx2, "foo", StartOptions{
-				RecordEvents: test.recordEvents,
-				Sampler:      test.sampler,
+				Sampler: test.sampler,
 			})
 		} else {
 			ctx, _ = StartSpanWithOptions(context.Background(), "foo", StartOptions{
-				RecordEvents: test.recordEvents,
-				Sampler:      test.sampler,
+				Sampler: test.sampler,
 			})
 		}
 		sc := FromContext(ctx).SpanContext()
@@ -164,9 +134,6 @@ func TestSampling(t *testing.T) {
 		if sc.SpanID == (SpanID{}) {
 			t.Errorf("case %#v: starting new span: got zero SpanID, want nonzero", test)
 		}
-		if recording := FromContext(ctx).data != nil; recording != test.wantRecordingEvents {
-			t.Errorf("case %#v: starting new span: recording events is %t, want %t", test, recording, test.wantRecordingEvents)
-		}
 		if sc.TraceOptions != test.wantTraceOptions {
 			t.Errorf("case %#v: starting new span: got TraceOptions %x, want %x", test, sc.TraceOptions, test.wantTraceOptions)
 		}
@@ -174,15 +141,13 @@ func TestSampling(t *testing.T) {
 
 	// Test that for children of local spans, the default sampler has no effect.
 	for _, test := range []struct {
-		parentTraceOptions  TraceOptions
-		recordEvents        bool
-		wantRecordingEvents bool
-		wantTraceOptions    TraceOptions
+		parentTraceOptions TraceOptions
+		wantTraceOptions   TraceOptions
 	}{
-		{0, false, false, 0},
-		{0, true, true, 0},
-		{1, false, true, 1},
-		{1, true, true, 1},
+		{0, 0},
+		{0, 0},
+		{1, 1},
+		{1, 1},
 	} {
 		for _, defaultSampler := range []Sampler{
 			NeverSample(),
@@ -195,9 +160,7 @@ func TestSampling(t *testing.T) {
 				sampler = AlwaysSample()
 			}
 			ctx2, _ := StartSpanWithOptions(context.Background(), "foo", StartOptions{Sampler: sampler})
-			ctx, _ := StartSpanWithOptions(ctx2, "foo", StartOptions{
-				RecordEvents: test.recordEvents,
-			})
+			ctx, _ := StartSpan(ctx2, "foo")
 			sc := FromContext(ctx).SpanContext()
 			if (sc == SpanContext{}) {
 				t.Errorf("case %#v: starting new child of local span: no span in context", test)
@@ -205,9 +168,6 @@ func TestSampling(t *testing.T) {
 			}
 			if sc.SpanID == (SpanID{}) {
 				t.Errorf("case %#v: starting new child of local span: got zero SpanID, want nonzero", test)
-			}
-			if recording := FromContext(ctx).data != nil; recording != test.wantRecordingEvents {
-				t.Errorf("case %#v: starting new child of local span: recording events is %t, want %t", test, recording, test.wantRecordingEvents)
 			}
 			if sc.TraceOptions != test.wantTraceOptions {
 				t.Errorf("case %#v: starting new child of local span: got TraceOptions %x, want %x", test, sc.TraceOptions, test.wantTraceOptions)
@@ -239,12 +199,12 @@ func TestStartSpanWithRemoteParent(t *testing.T) {
 		TraceOptions: 0x0,
 	}
 	ctx, _ := StartSpanWithRemoteParent(context.Background(), "StartSpanWithRemoteParent", sc, StartOptions{})
-	if err := checkChild(sc, FromContext(ctx), false); err != nil {
+	if err := checkChild(sc, FromContext(ctx)); err != nil {
 		t.Error(err)
 	}
 
-	ctx, _ = StartSpanWithRemoteParent(context.Background(), "StartSpanWithRemoteParent", sc, StartOptions{RecordEvents: true})
-	if err := checkChild(sc, FromContext(ctx), true); err != nil {
+	ctx, _ = StartSpanWithRemoteParent(context.Background(), "StartSpanWithRemoteParent", sc, StartOptions{})
+	if err := checkChild(sc, FromContext(ctx)); err != nil {
 		t.Error(err)
 	}
 
@@ -254,18 +214,18 @@ func TestStartSpanWithRemoteParent(t *testing.T) {
 		TraceOptions: 0x1,
 	}
 	ctx, _ = StartSpanWithRemoteParent(context.Background(), "StartSpanWithRemoteParent", sc, StartOptions{})
-	if err := checkChild(sc, FromContext(ctx), true); err != nil {
+	if err := checkChild(sc, FromContext(ctx)); err != nil {
 		t.Error(err)
 	}
 
-	ctx, _ = StartSpanWithRemoteParent(context.Background(), "StartSpanWithRemoteParent", sc, StartOptions{RecordEvents: true})
-	if err := checkChild(sc, FromContext(ctx), true); err != nil {
+	ctx, _ = StartSpanWithRemoteParent(context.Background(), "StartSpanWithRemoteParent", sc, StartOptions{})
+	if err := checkChild(sc, FromContext(ctx)); err != nil {
 		t.Error(err)
 	}
 
 	ctx2, _ := StartSpan(ctx, "StartSpan")
 	parent := FromContext(ctx).SpanContext()
-	if err := checkChild(parent, FromContext(ctx2), true); err != nil {
+	if err := checkChild(parent, FromContext(ctx2)); err != nil {
 		t.Error(err)
 	}
 }
@@ -278,9 +238,7 @@ func startSpan() *Span {
 			SpanID:       sid,
 			TraceOptions: 1,
 		},
-		StartOptions{
-			RecordEvents: true,
-		})
+		StartOptions{})
 }
 
 type testExporter struct {

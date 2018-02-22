@@ -52,7 +52,7 @@ func TestOnlyCumulativeWindowSupported(t *testing.T) {
 			vds: &view.Data{
 				View: newView(view.CountAggregation{}),
 				Rows: []*view.Row{
-					{nil, &count1},
+					{Data: &count1},
 				},
 			},
 			want: 1,
@@ -61,7 +61,7 @@ func TestOnlyCumulativeWindowSupported(t *testing.T) {
 			vds: &view.Data{
 				View: newView(view.MeanAggregation{}),
 				Rows: []*view.Row{
-					{nil, &mean1},
+					{Data: &mean1},
 				},
 			},
 			want: 1,
@@ -131,8 +131,8 @@ func TestCollectNonRacy(t *testing.T) {
 			count1 := view.CountData(1)
 			mean1 := &view.MeanData{Mean: 4.5, Count: 5}
 			vds := []*view.Data{
-				{View: newView(view.MeanAggregation{}), Rows: []*view.Row{{nil, mean1}}},
-				{View: newView(view.CountAggregation{}), Rows: []*view.Row{{nil, &count1}}},
+				{View: newView(view.MeanAggregation{}), Rows: []*view.Row{{Data: mean1}}},
+				{View: newView(view.CountAggregation{}), Rows: []*view.Row{{Data: &count1}}},
 			}
 			for _, v := range vds {
 				exp.ExportView(v)

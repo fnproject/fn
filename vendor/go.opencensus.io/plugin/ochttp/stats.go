@@ -22,15 +22,15 @@ import (
 
 // The following client HTTP measures are supported for use in custom views:
 var (
-	ClientRequests, _         = stats.Int64("opencensus.io/http/client/requests", "Number of HTTP requests started", stats.UnitNone)
-	ClientRequestBodySize, _  = stats.Int64("opencensus.io/http/client/request_size", "HTTP request body size if set as ContentLength (uncompressed)", stats.UnitBytes)
-	ClientResponseBodySize, _ = stats.Int64("opencensus.io/http/client/response_size", "HTTP response body size (uncompressed)", stats.UnitBytes)
-	ClientLatency, _          = stats.Float64("opencensus.io/http/client/latency", "End-to-end latency", stats.UnitMilliseconds)
+	ClientRequestCount, _  = stats.Int64("opencensus.io/http/client/request_count", "Number of HTTP requests started", stats.UnitNone)
+	ClientRequestBytes, _  = stats.Int64("opencensus.io/http/client/request_bytes", "HTTP request body size if set as ContentLength (uncompressed)", stats.UnitBytes)
+	ClientResponseBytes, _ = stats.Int64("opencensus.io/http/client/response_bytes", "HTTP response body size (uncompressed)", stats.UnitBytes)
+	ClientLatency, _       = stats.Float64("opencensus.io/http/client/latency", "End-to-end latency", stats.UnitMilliseconds)
 )
 
 // The following tags are applied to stats recorded by this package. Host, Path
 // and Method are applied to all measures. StatusCode is not applied to
-// ClientRequests, since it is recorded before the status is known.
+// ClientRequestCount, since it is recorded before the status is known.
 var (
 	// Host is the value of the HTTP Host header.
 	Host, _ = tag.NewKey("http.host")
@@ -51,16 +51,16 @@ var (
 // Package ochttp provides some convenience views.
 // You need to subscribe to the views for data to actually be collected.
 var (
-	ClientRequestCount, _                 = view.New("opencensus.io/http/client/requests", "Count of HTTP requests started", nil, ClientRequests, view.CountAggregation{})
-	ClientRequestBodySizeDistribution, _  = view.New("opencensus.io/http/client/request_size", "Size distribution of HTTP request body", nil, ClientRequestBodySize, DefaultSizeDistribution)
-	ClientResponseBodySizeDistribution, _ = view.New("opencensus.io/http/client/response_size", "Size distribution of HTTP response body", nil, ClientResponseBodySize, DefaultSizeDistribution)
-	ClientLatencyDistribution, _          = view.New("opencensus.io/http/client/latency", "Latency distribution of HTTP requests", nil, ClientLatency, DefaultLatencyDistribution)
+	ClientRequestCountView, _  = view.New("opencensus.io/http/client/request_count", "Count of HTTP requests started", nil, ClientRequestCount, view.CountAggregation{})
+	ClientRequestBytesView, _  = view.New("opencensus.io/http/client/request_bytes", "Size distribution of HTTP request body", nil, ClientRequestBytes, DefaultSizeDistribution)
+	ClientResponseBytesView, _ = view.New("opencensus.io/http/client/response_bytes", "Size distribution of HTTP response body", nil, ClientResponseBytes, DefaultSizeDistribution)
+	ClientLatencyView, _       = view.New("opencensus.io/http/client/latency", "Latency distribution of HTTP requests", nil, ClientLatency, DefaultLatencyDistribution)
 
 	ClientRequestCountByMethod, _ = view.New(
 		"opencensus.io/http/client/request_count_by_method",
 		"Client request count by HTTP method",
 		[]tag.Key{Method},
-		ClientRequests,
+		ClientRequestCount,
 		view.CountAggregation{})
 	ClientResponseCountByStatusCode, _ = view.New(
 		"opencensus.io/http/client/response_count_by_status_code",
@@ -70,10 +70,10 @@ var (
 		view.CountAggregation{})
 
 	DefaultViews = []*view.View{
-		ClientRequestCount,
-		ClientRequestBodySizeDistribution,
-		ClientResponseBodySizeDistribution,
-		ClientLatencyDistribution,
+		ClientRequestCountView,
+		ClientRequestBytesView,
+		ClientResponseBytesView,
+		ClientLatencyView,
 		ClientRequestCountByMethod,
 		ClientResponseCountByStatusCode,
 	}

@@ -61,13 +61,15 @@ func TestExportTrace(t *testing.T) {
 	trace.RegisterExporter(&te)
 	defer trace.UnregisterExporter(&te)
 
-	ctx, span0 := trace.StartSpanWithRemoteParent(context.Background(), "span0",
+	span0 := trace.NewSpanWithRemoteParent(
+		"span0",
 		trace.SpanContext{
 			TraceID:      traceID,
 			SpanID:       spanID,
 			TraceOptions: 1,
 		},
 		trace.StartOptions{})
+	ctx := trace.WithSpan(context.Background(), span0)
 	{
 		ctx1, span1 := trace.StartSpan(ctx, "span1")
 		{

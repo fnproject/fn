@@ -39,8 +39,8 @@ type HTTPFormat struct{}
 
 var _ propagation.HTTPFormat = (*HTTPFormat)(nil)
 
-// FromRequest extracts a Stackdriver Trace span context from incoming requests.
-func (f *HTTPFormat) FromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
+// SpanContextFromRequest extracts a Stackdriver Trace span context from incoming requests.
+func (f *HTTPFormat) SpanContextFromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
 	h := req.Header.Get(httpHeader)
 	// See https://cloud.google.com/trace/docs/faq for the header format.
 	// Return if the header is empty or missing, or if the header is unreasonably
@@ -86,8 +86,8 @@ func (f *HTTPFormat) FromRequest(req *http.Request) (sc trace.SpanContext, ok bo
 	return sc, true
 }
 
-// ToRequest modifies the given request to include a Stackdriver Trace header.
-func (f *HTTPFormat) ToRequest(sc trace.SpanContext, req *http.Request) {
+// SpanContextToRequest modifies the given request to include a Stackdriver Trace header.
+func (f *HTTPFormat) SpanContextToRequest(sc trace.SpanContext, req *http.Request) {
 	sid := binary.BigEndian.Uint64(sc.SpanID[:])
 	header := fmt.Sprintf("%s/%d;o=%d", hex.EncodeToString(sc.TraceID[:]), sid, int64(sc.TraceOptions))
 	req.Header.Set(httpHeader, header)

@@ -27,6 +27,13 @@
 //
 // zpages are currrently work-in-process and cannot display minutely and
 // hourly stats correctly.
+//
+// Performance
+//
+// Installing the zpages has a performance overhead because additional traces
+// and stats will be collected in-process. In most cases, we expect this
+// overhead will not be significant but it depends on many factors, including
+// how many spans your process creates and how richly annotated they are.
 package zpages // import "go.opencensus.io/zpages"
 
 import (
@@ -37,9 +44,21 @@ import (
 var once sync.Once
 
 // AddDefaultHTTPHandlers adds handlers for /rpcz and /tracez to the default HTTP request multiplexer.
+// Deprecated: Use Handler.
 func AddDefaultHTTPHandlers() {
 	once.Do(func() {
 		http.HandleFunc("/rpcz", RpczHandler)
 		http.HandleFunc("/tracez", TracezHandler)
 	})
+}
+
+// Handler is an http.Handler that serves the zpages.
+var Handler http.Handler
+
+func init() {
+	zpagesMux := http.NewServeMux()
+	zpagesMux.HandleFunc("/rpcz", RpczHandler)
+	zpagesMux.HandleFunc("/tracez", TracezHandler)
+	zpagesMux.Handle("/public/", http.FileServer(fs))
+	Handler = zpagesMux
 }

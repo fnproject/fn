@@ -39,10 +39,10 @@ func TestClient(t *testing.T) {
 	}
 
 	views := []string{
-		"opencensus.io/http/client/requests",
+		"opencensus.io/http/client/request_count",
 		"opencensus.io/http/client/latency",
-		"opencensus.io/http/client/request_size",
-		"opencensus.io/http/client/response_size",
+		"opencensus.io/http/client/request_bytes",
+		"opencensus.io/http/client/response_bytes",
 	}
 	for _, name := range views {
 		v := view.Find(name)

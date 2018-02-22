@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package grpcstats
+package ocgrpc
 
 import (
 	"testing"
@@ -72,46 +72,46 @@ func TestServerDefaultCollections(t *testing.T) {
 			},
 			[]*wantData{
 				{
-					func() *view.View { return RPCServerRequestCountView },
+					func() *view.View { return ServerRequestCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcCountBucketBoundaries, []int64{0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 1, 1, 1, 0),
+							Data: newDistributionData([]int64{0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 1, 1, 1, 0),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerResponseCountView },
+					func() *view.View { return ServerResponseCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcCountBucketBoundaries, []int64{0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 1, 1, 1, 0),
+							Data: newDistributionData([]int64{0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 1, 1, 1, 0),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerRequestBytesView },
+					func() *view.View { return ServerRequestBytesView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcBytesBucketBoundaries, []int64{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 10, 10, 10, 0),
+							Data: newDistributionData([]int64{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 10, 10, 10, 0),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerResponseBytesView },
+					func() *view.View { return ServerResponseBytesView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcBytesBucketBoundaries, []int64{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 10, 10, 10, 0),
+							Data: newDistributionData([]int64{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 1, 10, 10, 10, 0),
 						},
 					},
 				},
@@ -149,36 +149,36 @@ func TestServerDefaultCollections(t *testing.T) {
 			},
 			[]*wantData{
 				{
-					func() *view.View { return RPCServerErrorCountView },
+					func() *view.View { return ServerErrorCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyStatus, Value: "Canceled"},
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newCountData(1),
+							Data: newCountData(1),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerRequestCountView },
+					func() *view.View { return ServerRequestCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcCountBucketBoundaries, []int64{0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 2, 1, 2, 1.5, 0.5),
+							Data: newDistributionData([]int64{0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 2, 1, 2, 1.5, 0.5),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerResponseCountView },
+					func() *view.View { return ServerResponseCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcCountBucketBoundaries, []int64{0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 2, 2, 3, 2.5, 0.5),
+							Data: newDistributionData([]int64{0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 2, 2, 3, 2.5, 0.5),
 						},
 					},
 				},
@@ -229,65 +229,65 @@ func TestServerDefaultCollections(t *testing.T) {
 			},
 			[]*wantData{
 				{
-					func() *view.View { return RPCServerErrorCountView },
+					func() *view.View { return ServerErrorCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyStatus, Value: "Canceled"},
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newCountData(1),
+							Data: newCountData(1),
 						},
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyStatus, Value: "Aborted"},
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newCountData(1),
+							Data: newCountData(1),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerRequestCountView },
+					func() *view.View { return ServerRequestCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcCountBucketBoundaries, []int64{0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3, 1, 2, 1.333333333, 0.333333333*2),
+							Data: newDistributionData([]int64{0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3, 1, 2, 1.333333333, 0.333333333*2),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerResponseCountView },
+					func() *view.View { return ServerResponseCountView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcCountBucketBoundaries, []int64{0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3, 2, 3, 2.666666666, 0.333333333*2),
+							Data: newDistributionData([]int64{0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3, 2, 3, 2.666666666, 0.333333333*2),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerRequestBytesView },
+					func() *view.View { return ServerRequestBytesView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcBytesBucketBoundaries, []int64{0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 4, 1, 16384, 4864.25, 59678208.25*3),
+							Data: newDistributionData([]int64{0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 4, 1, 16384, 4864.25, 59678208.25*3),
 						},
 					},
 				},
 				{
-					func() *view.View { return RPCServerResponseBytesView },
+					func() *view.View { return ServerResponseBytesView },
 					[]*view.Row{
 						{
-							[]tag.Tag{
+							Tags: []tag.Tag{
 								{Key: KeyMethod, Value: "package.service/method"},
 							},
-							newDistributionData(rpcBytesBucketBoundaries, []int64{0, 1, 1, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0}, 8, 1, 65536, 13696.125, 481423542.982143*7),
+							Data: newDistributionData([]int64{0, 1, 1, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0}, 8, 1, 65536, 13696.125, 481423542.982143*7),
 						},
 					},
 				},
@@ -296,13 +296,13 @@ func TestServerDefaultCollections(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		for _, v := range serverViews {
+		for _, v := range DefaultServerViews {
 			if err := v.Subscribe(); err != nil {
 				t.Error(err)
 			}
 		}
 
-		h := &ServerStatsHandler{}
+		h := &serverStatsHandler{}
 		for _, rpc := range tc.rpcs {
 			mods := []tag.Mutator{}
 			for _, t := range rpc.tags {
@@ -348,7 +348,7 @@ func TestServerDefaultCollections(t *testing.T) {
 		}
 
 		// Unregister views to cleanup.
-		for _, v := range serverViews {
+		for _, v := range DefaultServerViews {
 			if err := v.Unsubscribe(); err != nil {
 				t.Error(err)
 			}
@@ -361,12 +361,12 @@ func newCountData(v int) *view.CountData {
 	return &cav
 }
 
-func newMeanData(count, mean float64) *view.MeanData {
+func newMeanData(count int64, mean float64) *view.MeanData {
 	mav := view.MeanData{Count: count, Mean: mean}
 	return &mav
 }
 
-func newDistributionData(bounds []float64, countPerBucket []int64, count int64, min, max, mean, sumOfSquaredDev float64) *view.DistributionData {
+func newDistributionData(countPerBucket []int64, count int64, min, max, mean, sumOfSquaredDev float64) *view.DistributionData {
 	return &view.DistributionData{
 		Count:           count,
 		Min:             min,

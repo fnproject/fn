@@ -55,7 +55,7 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.WithContext(ctx)
 
 	if t.format != nil {
-		t.format.ToRequest(span.SpanContext(), req)
+		t.format.SpanContextToRequest(span.SpanContext(), req)
 	}
 
 	span.SetAttributes(requestAttrs(req)...)
@@ -163,7 +163,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	var span *trace.Span
-	if sc, ok := p.FromRequest(r); ok {
+	if sc, ok := p.SpanContextFromRequest(r); ok {
 		ctx, span = trace.StartSpanWithRemoteParent(ctx, name, sc, trace.StartOptions{})
 	} else {
 		ctx, span = trace.StartSpan(ctx, name)

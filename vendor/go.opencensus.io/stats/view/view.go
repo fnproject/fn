@@ -123,7 +123,7 @@ func (v *View) collectedRows(now time.Time) []*Row {
 	return v.collector.collectedRows(v.tagKeys, now)
 }
 
-func (v *View) addSample(m *tag.Map, val interface{}, now time.Time) {
+func (v *View) addSample(m *tag.Map, val float64, now time.Time) {
 	if !v.isSubscribed() {
 		return
 	}

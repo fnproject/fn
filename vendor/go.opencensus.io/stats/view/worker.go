@@ -159,7 +159,7 @@ func newWorker() *worker {
 		views:      make(map[string]*View),
 		startTimes: make(map[*View]time.Time),
 		timer:      time.NewTicker(defaultReportingDuration),
-		c:          make(chan command),
+		c:          make(chan command, 1024),
 		quit:       make(chan bool),
 		done:       make(chan bool),
 	}

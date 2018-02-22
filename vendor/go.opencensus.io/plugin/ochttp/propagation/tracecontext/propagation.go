@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"go.opencensus.io/trace"
+	"go.opencensus.io/trace/propagation"
 )
 
 const (
@@ -31,11 +32,13 @@ const (
 	header           = "Trace-Parent"
 )
 
+var _ propagation.HTTPFormat = (*HTTPFormat)(nil)
+
 // HTTPFormat implements the TraceContext trace propagation format.
 type HTTPFormat struct{}
 
-// FromRequest extracts a span context from incoming requests.
-func (f *HTTPFormat) FromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
+// SpanContextFromRequest extracts a span context from incoming requests.
+func (f *HTTPFormat) SpanContextFromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
 	h := req.Header.Get(header)
 	if h == "" {
 		return trace.SpanContext{}, false
@@ -87,8 +90,8 @@ func (f *HTTPFormat) FromRequest(req *http.Request) (sc trace.SpanContext, ok bo
 	return sc, true
 }
 
-// ToRequest modifies the given request to include a header.
-func (f *HTTPFormat) ToRequest(sc trace.SpanContext, req *http.Request) {
+// SpanContextToRequest modifies the given request to include a header.
+func (f *HTTPFormat) SpanContextToRequest(sc trace.SpanContext, req *http.Request) {
 	h := fmt.Sprintf("%x-%x-%x-%x",
 		[]byte{supportedVersion},
 		sc.TraceID[:],

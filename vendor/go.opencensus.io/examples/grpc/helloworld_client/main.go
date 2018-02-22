@@ -23,7 +23,6 @@ import (
 	"go.opencensus.io/examples/grpc/exporter"
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
-	"go.opencensus.io/plugin/ocgrpc/grpcstats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/zpages"
 	"golang.org/x/net/context"
@@ -36,15 +35,14 @@ const (
 )
 
 func main() {
-	zpages.AddDefaultHTTPHandlers()
-	go func() { log.Fatal(http.ListenAndServe(":8080", nil)) }()
+	go func() { log.Fatal(http.ListenAndServe(":8080", zpages.Handler)) }()
 
 	// Register stats and trace exporters to export
 	// the collected data.
 	view.RegisterExporter(&exporter.Exporter{})
 
 	// Subscribe to collect client request count.
-	if err := grpcstats.RPCClientRequestCountView.Subscribe(); err != nil {
+	if err := ocgrpc.ClientErrorCountView.Subscribe(); err != nil {
 		log.Fatal(err)
 	}
 

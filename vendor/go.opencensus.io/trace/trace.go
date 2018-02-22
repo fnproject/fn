@@ -22,6 +22,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"go.opencensus.io/internal"
 )
 
 // Span represents a span of a trace.  It has an associated SpanContext, and
@@ -44,6 +46,8 @@ type Span struct {
 }
 
 // IsRecordingEvents returns true if events are being recorded for this span.
+// Use this check to avoid computing expensive annotations when they will never
+// be used.
 func (s *Span) IsRecordingEvents() bool {
 	if s == nil {
 		return false
@@ -98,24 +102,17 @@ func WithSpan(parent context.Context, s *Span) context.Context {
 
 // StartOptions contains options concerning how a span is started.
 type StartOptions struct {
-	// RecordEvents indicates whether to record data for this span, and include
-	// the span in a local span store.
-	// Events will also be recorded if the span will be exported.
-	RecordEvents bool
-
 	Sampler Sampler // if non-nil, the Sampler to consult for this span.
-
-	// RegisterNameForLocalSpanStore indicates that a local span store for spans
-	// of this name should be created, if one does not exist.
-	// If RecordEvents is false, this option has no effect.
-	RegisterNameForLocalSpanStore bool
 }
 
 // TODO(jbd): Remove start options.
 
-// StartSpan starts a new child span of the current span in the context.
+// StartSpan starts a new child span of the current span in the context. If
+// there is no span in the context, creates a new trace and span.
 //
-// If there is no span in the context, creates a new trace and span.
+// This is provided as a convenience for WithSpan(ctx, NewSpan(...)). Use it
+// if you require custom spans in addition to the default spans provided by
+// ocgrpc, ochttp or similar framework integration.
 func StartSpan(ctx context.Context, name string) (context.Context, *Span) {
 	parentSpan, _ := ctx.Value(contextKey{}).(*Span)
 	span := NewSpan(name, parentSpan, StartOptions{})
@@ -125,6 +122,8 @@ func StartSpan(ctx context.Context, name string) (context.Context, *Span) {
 // StartSpanWithOptions starts a new child span of the current span in the context.
 //
 // If there is no span in the context, creates a new trace and span.
+//
+// Deprecated: Use StartSpan(...), or WithSpan(ctx, NewSpan(...)).
 func StartSpanWithOptions(ctx context.Context, name string, o StartOptions) (context.Context, *Span) {
 	parentSpan, _ := ctx.Value(contextKey{}).(*Span)
 	span := NewSpan(name, parentSpan, o)
@@ -135,6 +134,8 @@ func StartSpanWithOptions(ctx context.Context, name string, o StartOptions) (con
 //
 // If there is an existing span in ctx, it is ignored -- the returned Span is a
 // child of the span specified by parent.
+//
+// Deprecated: Use WithSpan(ctx, NewSpanWithRemoteParent(...)).
 func StartSpanWithRemoteParent(ctx context.Context, name string, parent SpanContext, o StartOptions) (context.Context, *Span) {
 	span := NewSpanWithRemoteParent(name, parent, o)
 	return WithSpan(ctx, span), span
@@ -186,7 +187,7 @@ func startSpanInternal(name string, hasParent bool, parent SpanContext, remotePa
 			HasRemoteParent: remoteParent}).Sample)
 	}
 
-	if !o.RecordEvents && !span.spanContext.IsSampled() {
+	if !internal.LocalSpanStoreEnabled && !span.spanContext.IsSampled() {
 		return span
 	}
 
@@ -199,13 +200,9 @@ func startSpanInternal(name string, hasParent bool, parent SpanContext, remotePa
 	if hasParent {
 		span.data.ParentSpanID = parent.SpanID
 	}
-	if o.RecordEvents {
+	if internal.LocalSpanStoreEnabled {
 		var ss *spanStore
-		if o.RegisterNameForLocalSpanStore {
-			ss = spanStoreForNameCreateIfNew(name)
-		} else {
-			ss = spanStoreForName(name)
-		}
+		ss = spanStoreForNameCreateIfNew(name)
 		if ss != nil {
 			span.spanStore = ss
 			ss.add(span)

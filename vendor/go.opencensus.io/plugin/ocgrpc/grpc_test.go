@@ -20,7 +20,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"go.opencensus.io/plugin/ocgrpc/grpcstats"
 	"go.opencensus.io/trace"
 
 	"google.golang.org/grpc/stats"
@@ -33,7 +32,7 @@ func TestNewClientStatsHandler(t *testing.T) {
 
 	te := &traceExporter{}
 	trace.RegisterExporter(te)
-	if err := grpcstats.RPCClientRequestCountView.Subscribe(); err != nil {
+	if err := ClientRequestCountView.Subscribe(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +53,7 @@ func TestNewClientStatsHandler(t *testing.T) {
 		EndTime: time.Now(),
 	})
 
-	stats, err := grpcstats.RPCClientRequestCountView.RetrieveData()
+	stats, err := ClientRequestCountView.RetrieveData()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +67,7 @@ func TestNewClientStatsHandler(t *testing.T) {
 	}
 
 	// Cleanup.
-	if err := grpcstats.RPCClientRequestCountView.Unsubscribe(); err != nil {
+	if err := ClientRequestCountView.Unsubscribe(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -80,7 +79,7 @@ func TestNewServerStatsHandler(t *testing.T) {
 
 	te := &traceExporter{}
 	trace.RegisterExporter(te)
-	if err := grpcstats.RPCServerRequestCountView.Subscribe(); err != nil {
+	if err := ServerRequestCountView.Subscribe(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -98,7 +97,7 @@ func TestNewServerStatsHandler(t *testing.T) {
 		EndTime: time.Now(),
 	})
 
-	stats, err := grpcstats.RPCServerRequestCountView.RetrieveData()
+	stats, err := ServerRequestCountView.RetrieveData()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +111,7 @@ func TestNewServerStatsHandler(t *testing.T) {
 	}
 
 	// Cleanup.
-	if err := grpcstats.RPCServerRequestCountView.Unsubscribe(); err != nil {
+	if err := ServerRequestCountView.Unsubscribe(); err != nil {
 		t.Fatal(err)
 	}
 

@@ -14,7 +14,7 @@ func TestVarsInitialized(t *testing.T) {
 			t.Errorf("key not initialized: %d", i)
 		}
 	}
-	for i, m := range []stats.Measure{ClientRequests, ClientResponseBodySize, ClientRequestBodySize, ClientLatency} {
+	for i, m := range []stats.Measure{ClientRequestCount, ClientResponseBytes, ClientRequestBytes, ClientLatency} {
 		if m == nil {
 			t.Errorf("measure not initialized: %d", i)
 		}

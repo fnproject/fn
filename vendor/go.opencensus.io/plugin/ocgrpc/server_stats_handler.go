@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package grpcstats
+package ocgrpc
 
 import (
 	"fmt"
@@ -29,35 +29,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ServerStatsHandler is a stats.Handler implementation
+// serverStatsHandler is a stats.Handler implementation
 // that collects stats for a gRPC server. Predefined
 // measures and views can be used to access the collected data.
-type ServerStatsHandler struct{}
-
-var _ stats.Handler = &ServerStatsHandler{}
-
-// NewServerStatsHandler returns a stats.Handler implementation
-// that collects stats for a gRPC server. Predefined
-// measures and views can be used to access the collected data.
-func NewServerStatsHandler() *ServerStatsHandler {
-	return &ServerStatsHandler{}
-}
-
-// TagConn adds connection related data to the given context and returns the
-// new context.
-func (h *ServerStatsHandler) TagConn(ctx context.Context, info *stats.ConnTagInfo) context.Context {
-	// Do nothing. This is here to satisfy the interface "google.golang.org/grpc/stats.Handler"
-	return ctx
-}
-
-// HandleConn processes the connection events.
-func (h *ServerStatsHandler) HandleConn(ctx context.Context, s stats.ConnStats) {
-	// Do nothing. This is here to satisfy the interface "google.golang.org/grpc/stats.Handler"
-}
+type serverStatsHandler struct{}
 
 // TagRPC gets the metadata from gRPC context, extracts the encoded tags from
 // it and creates a new tag.Map and puts them into the returned context.
-func (h *ServerStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
+func (h *serverStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
 	startTime := time.Now()
 	if info == nil {
 		if grpclog.V(2) {
@@ -67,12 +46,12 @@ func (h *ServerStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo)
 	}
 	d := &rpcData{startTime: startTime}
 	ctx, _ = h.createTags(ctx, info.FullMethodName)
-	ocstats.Record(ctx, RPCServerStartedCount.M(1))
+	ocstats.Record(ctx, ServerStartedCount.M(1))
 	return context.WithValue(ctx, grpcServerRPCKey, d)
 }
 
 // HandleRPC processes the RPC events.
-func (h *ServerStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
+func (h *serverStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
 	switch st := s.(type) {
 	case *stats.Begin, *stats.InHeader, *stats.InTrailer, *stats.OutHeader, *stats.OutTrailer:
 		// Do nothing for server
@@ -88,7 +67,7 @@ func (h *ServerStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
 	}
 }
 
-func (h *ServerStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
+func (h *serverStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
 	d, ok := ctx.Value(grpcServerRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -97,11 +76,11 @@ func (h *ServerStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.In
 		return
 	}
 
-	ocstats.Record(ctx, RPCServerRequestBytes.M(int64(s.Length)))
+	ocstats.Record(ctx, ServerRequestBytes.M(int64(s.Length)))
 	atomic.AddInt64(&d.reqCount, 1)
 }
 
-func (h *ServerStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
+func (h *serverStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
 	d, ok := ctx.Value(grpcServerRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -110,11 +89,11 @@ func (h *ServerStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.O
 		return
 	}
 
-	ocstats.Record(ctx, RPCServerResponseBytes.M(int64(s.Length)))
+	ocstats.Record(ctx, ServerResponseBytes.M(int64(s.Length)))
 	atomic.AddInt64(&d.respCount, 1)
 }
 
-func (h *ServerStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
+func (h *serverStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 	d, ok := ctx.Value(grpcServerRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -128,10 +107,10 @@ func (h *ServerStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 	respCount := atomic.LoadInt64(&d.respCount)
 
 	m := []ocstats.Measurement{
-		RPCServerRequestCount.M(reqCount),
-		RPCServerResponseCount.M(respCount),
-		RPCServerFinishedCount.M(1),
-		RPCServerServerElapsedTime.M(float64(elapsedTime) / float64(time.Millisecond)),
+		ServerRequestCount.M(reqCount),
+		ServerResponseCount.M(respCount),
+		ServerFinishedCount.M(1),
+		ServerServerElapsedTime.M(float64(elapsedTime) / float64(time.Millisecond)),
 	}
 
 	if s.Error != nil {
@@ -141,7 +120,7 @@ func (h *ServerStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 				tag.Upsert(KeyStatus, s.Code().String()),
 			)
 		}
-		m = append(m, RPCServerErrorCount.M(1))
+		m = append(m, ServerErrorCount.M(1))
 	}
 
 	ocstats.Record(ctx, m...)
@@ -149,7 +128,7 @@ func (h *ServerStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 
 // createTags creates a new tag map containing the tags extracted from the
 // gRPC metadata.
-func (h *ServerStatsHandler) createTags(ctx context.Context, fullinfo string) (context.Context, error) {
+func (h *serverStatsHandler) createTags(ctx context.Context, fullinfo string) (context.Context, error) {
 	mods := []tag.Mutator{
 		tag.Upsert(KeyMethod, methodName(fullinfo)),
 	}

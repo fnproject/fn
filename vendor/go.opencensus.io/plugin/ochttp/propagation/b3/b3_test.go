@@ -150,12 +150,12 @@ func TestHTTPFormat_FromRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &HTTPFormat{}
-			sc, ok := f.FromRequest(tt.makeReq())
+			sc, ok := f.SpanContextFromRequest(tt.makeReq())
 			if ok != tt.wantOk {
-				t.Errorf("HTTPFormat.FromRequest() got ok = %v, want %v", ok, tt.wantOk)
+				t.Errorf("HTTPFormat.SpanContextFromRequest() got ok = %v, want %v", ok, tt.wantOk)
 			}
 			if !reflect.DeepEqual(sc, tt.wantSc) {
-				t.Errorf("HTTPFormat.FromRequest() got span context = %v, want %v", sc, tt.wantSc)
+				t.Errorf("HTTPFormat.SpanContextFromRequest() got span context = %v, want %v", sc, tt.wantSc)
 			}
 		})
 	}
@@ -198,7 +198,7 @@ func TestHTTPFormat_ToRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &HTTPFormat{}
 			req, _ := http.NewRequest("GET", "http://example.com", nil)
-			f.ToRequest(tt.sc, req)
+			f.SpanContextToRequest(tt.sc, req)
 
 			for k, v := range tt.wantHeaders {
 				if got, want := req.Header.Get(k), v; got != want {

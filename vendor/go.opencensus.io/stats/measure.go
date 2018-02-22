@@ -39,19 +39,41 @@ type Measure interface {
 	Unit() string
 }
 
+type measure struct {
+	name        string
+	description string
+	unit        string
+	views       int32
+}
+
+// Name returns the name of the measure.
+func (m *measure) Name() string {
+	return m.name
+}
+
+// Description returns the description of the measure.
+func (m *measure) Description() string {
+	return m.description
+}
+
+// Unit returns the unit of the measure.
+func (m *measure) Unit() string {
+	return m.unit
+}
+
 var (
 	mu           sync.RWMutex
 	measures     = make(map[string]Measure)
 	errDuplicate = errors.New("duplicate measure name")
+
+	errMeasureNameTooLong = fmt.Errorf("measure name cannot be longer than %v", internal.MaxNameLength)
 )
 
 func FindMeasure(name string) Measure {
 	mu.RLock()
-	defer mu.RUnlock()
-	if m, ok := measures[name]; ok {
-		return m
-	}
-	return nil
+	m := measures[name]
+	mu.RUnlock()
+	return m
 }
 
 func register(m Measure) (Measure, error) {
@@ -69,16 +91,16 @@ func register(m Measure) (Measure, error) {
 // provides methods to create measurements of their kind. For example, Int64Measure
 // provides M to convert an int64 into a measurement.
 type Measurement struct {
-	Value   interface{} // int64 or float64
+	Value   float64
 	Measure Measure
 }
 
 func checkName(name string) error {
 	if len(name) > internal.MaxNameLength {
-		return fmt.Errorf("measure name cannot be larger than %v", internal.MaxNameLength)
+		return errMeasureNameTooLong
 	}
 	if !internal.IsPrintable(name) {
-		return fmt.Errorf("measure name needs to be an ASCII string")
+		return errors.New("measure name needs to be an ASCII string")
 	}
 	return nil
 }
