@@ -115,7 +115,7 @@ func (a *inMemoryAggregator) AssignCapacity(entry *CapacityEntry, lbgID string) 
 		logrus.WithField("lbg_id", lbgID).Debugf("Increased assigned capacity to %vMB", v.TotalMemoryMb)
 	} else {
 		a.capacity[lbgID] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
-		logrus.WithField("lbg_id", lbgID).Debugf("Assigned new capacity of %vMB", v.TotalMemoryMb)
+		logrus.WithField("lbg_id", lbgID).Debugf("Assigned new capacity of %vMB", entry.TotalMemoryMb)
 	}
 }
 
