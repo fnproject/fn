@@ -258,8 +258,10 @@ func (a *lbAgent) Submit(call agent.Call) error {
 					// Try the next runner
 				} else {
 					logrus.Info("Runner committed invocation request, sending data frames")
-					go receiveFromRunner(runnerConnection, call)
+					done := make(chan struct{})
+					go receiveFromRunner(runnerConnection, call, done)
 					_ = sendToRunner(call, runnerConnection)
+					<-done
 					processedRequest = true
 					return false
 				}
@@ -346,7 +348,7 @@ func sendToRunner(call agent.Call, protocolClient pb.RunnerProtocol_EngageClient
 	return nil
 }
 
-func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call agent.Call) {
+func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call agent.Call, done chan struct{}) {
 	w, err := agent.ResponseWriter(&call)
 
 	if err != nil {
@@ -379,6 +381,7 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call agent
 			} else {
 				logrus.Infof("Call finish unsuccessfully:: %v", body.Finished.Details)
 			}
+			close(done)
 			return
 		default:
 			logrus.Errorf("Unhandled message type from runner: %v", body)
