@@ -28,7 +28,8 @@ func newRemoteClient(serverAddr string, cert string, key string, ca string) (rem
 		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
 		return nil, err
 	}
-	conn, err := blockingDial(ctx, serverAddr, creds)
+
+	conn, err := dialWithBackoff(ctx, serverAddr, creds, grpc.DefaultBackoffConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +44,7 @@ func newRemoteClient(serverAddr string, cert string, key string, ca string) (rem
 func (c *grpcPoolManagerClient) AdvertiseCapacity(snapshots *model.CapacitySnapshotList) error {
 	_, err := c.scaler.AdvertiseCapacity(context.Background(), snapshots)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to push snapshots")
+		logrus.WithError(err).Warn("Failed to advertise capacity")
 		return err
 	}
 	return nil
