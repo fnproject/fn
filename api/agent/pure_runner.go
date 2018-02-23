@@ -26,7 +26,6 @@ type pureRunner struct {
 	gRPCServer  *grpc.Server
 	listen      string
 	a           Agent
-	streamError error // Last communication error on the stream
 }
 
 type writerFacade struct {
@@ -79,8 +78,8 @@ func (w *writerFacade) commitHeaders() {
 	})
 
 	if err != nil {
-		logrus.Info("error sending call result", err)
-		panic(err)
+		logrus.Errorf("Error sending call result: %v", err)
+		return
 	}
 	logrus.Info("Sent call result response")
 }
@@ -98,7 +97,7 @@ func (w *writerFacade) Write(data []byte) (int, error) {
 	})
 
 	if err != nil {
-		return 0, errors.New("error sending data")
+		return 0, fmt.Errorf("Error sending data: %v", err)
 	}
 	return len(data), nil
 }
@@ -114,7 +113,7 @@ func (w *writerFacade) Close() error {
 	})
 
 	if err != nil {
-		return errors.New("error sending close frame")
+		return fmt.Errorf("Error sending close frame: %v", err)
 	}
 	return nil
 }
@@ -126,7 +125,7 @@ type callState struct {
 	started       bool
 	receivedTime  strfmt.DateTime // When was the call received?
 	allocatedTime strfmt.DateTime // When did we finish allocating the slot?
-	errch         chan error
+	streamError   error // Last communication error on the stream
 }
 
 func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, state *callState) error {
@@ -135,25 +134,25 @@ func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, st
 		go func() {
 			err := pr.a.Submit(state.c)
 			if err != nil {
-				if pr.streamError == nil { // If we can still write back...
+				if state.streamError == nil { // If we can still write back...
 					err2 := state.w.engagement.Send(&runner.RunnerMsg{
 						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
 							Success: false,
 							Details: fmt.Sprintf("%v", err),
 						}}})
 					if err2 != nil {
-						pr.streamError = err2
+						state.streamError = err2
 					}
 				}
 			} else {
-				if pr.streamError == nil { // If we can still write back...
+				if state.streamError == nil { // If we can still write back...
 					err2 := state.w.engagement.Send(&runner.RunnerMsg{
 						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
 							Success: true,
 							Details: state.c.Model().ID,
 						}}})
 					if err2 != nil {
-						pr.streamError = err2
+						state.streamError = err2
 					}
 				}
 			}
@@ -219,7 +218,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			headerWritten: false,
 		},
 		started: false,
-		errch:   make(chan error),
+		streamError: nil,
 	}
 
 	grpc.EnableTracing = false
@@ -227,7 +226,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	for {
 		msg, err := engagement.Recv()
 		if err != nil {
-			pr.streamError = err
+			state.streamError = err
 			// Caller may have died. Entirely kill the container by pushing an
 			// eof on the input, even for hot. This ensures that the hot
 			// container is not stuck in a state where it is still expecting
@@ -244,19 +243,19 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		case *runner.ClientMsg_Try:
 			err := pr.handleTryCall(engagement.Context(), body.Try, &state)
 			if err != nil {
-				if pr.streamError == nil { // If we can still write back...
+				if state.streamError == nil { // If we can still write back...
 					err2 := engagement.Send(&runner.RunnerMsg{
 						Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
 							Committed: false,
 							Details:   fmt.Sprintf("%v", err),
 						}}})
 					if err2 != nil {
-						pr.streamError = err2
-						return err2
+						state.streamError = err2
 					}
 				}
+				return err
 			} else {
-				if pr.streamError == nil { // If we can still write back...
+				if state.streamError == nil { // If we can still write back...
 					err2 := engagement.Send(&runner.RunnerMsg{
 						Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
 							Committed:             true,
@@ -264,7 +263,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 							SlotAllocationLatency: time.Time(state.allocatedTime).Sub(time.Time(state.receivedTime)).String(),
 						}}})
 					if err2 != nil {
-						pr.streamError = err2
+						state.streamError = err2
 						return err2
 					}
 				}
