@@ -14,7 +14,8 @@ add IP `127.0.0.1` to the cert by adding the line
 	template.IPAddresses = append(template.IPAddresses, net.ParseIP("127.0.0.1"))
 ```
 
-somewhere around line 124, and run it with
+somewhere around line 124,
+add the "net" package to the list of import packages and run it with
 
 ```bash
 go run generate_client_cert.go --email-address a@a.com
@@ -41,7 +42,7 @@ FN_DB_URL=sqlite3:///tmp/runnerdata/fn.db FN_MQ_URL=bolt:///tmp/runnerdata/fn.mq
 
 ```bash
 mkdir /tmp/lbdata
-FN_DB_URL=sqlite3:///tmp/lbdata/fn.db FN_MQ_URL=bolt:///tmp/lbdata/fn.mq FN_NODE_TYPE=lb FN_PORT=8081 FN_RUNNER_API_URL=http://localhost:8081 FN_NODE_CERT=cert.pem FN_NODE_CERT_AUTHORITY=cert.pem FN_NPM_ADDRESS=localhost:8083 FN_NODE_CERT_KEY=key.pem FN_LOG_LEVEL=DEBUG ./fnserver
+FN_DB_URL=sqlite3:///tmp/lbdata/fn.db FN_MQ_URL=bolt:///tmp/lbdata/fn.mq FN_NODE_TYPE=lb FN_PORT=8081 FN_RUNNER_API_URL=http://localhost:8080 FN_NODE_CERT=cert.pem FN_NODE_CERT_AUTHORITY=cert.pem FN_NPM_ADDRESS=localhost:8083 FN_NODE_CERT_KEY=key.pem FN_LOG_LEVEL=DEBUG ./fnserver
 ```
 
 ### NPM
@@ -50,7 +51,7 @@ Currently the NPM uses a fixed, single-node instance of the Runner to simulate i
 but the GRPC port is 9120.
 
 ```bash
-go build -o fnnpm poolmanager/server/main.g
+go build -o fnnpm poolmanager/server/main.go
 
 FN_LOG_LEVEL=DEBUG \
 FN_NODE_CERT=cert.pem  \
