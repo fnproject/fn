@@ -77,11 +77,11 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 	// so it is safe to remove capacity
 	defer a.capacityAggregator.ReleaseCapacity(capacityRequest, lbGroupID)
 
-	deadline := time.Now().Add(placementTimeout)
+	deadline := call.slotDeadline
 
 	for {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
+			return models.ErrCallTimeoutServerBusy
 		}
 
 		// TODO we might need to diff new runner set with previous and explicitly close dropped ones
@@ -113,7 +113,7 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 		runnerMap, ok := rmap.(*sync.Map)
 		if !ok {
 			logrus.Warn("Runner map is the wrong type")
-			return fmt.Errorf("Unable to invoke function, no runner nodes accepted request")
+			return models.ErrCallTimeoutServerBusy
 		}
 
 		processedRequest := false
@@ -129,6 +129,7 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 			modelJSON, err := json.Marshal(call.Model())
 			if err != nil {
 				logrus.WithError(err).Error("Failed to encode model as JSON")
+				// If we can't encode the model, no runner will ever be able to run this. Give up.
 				processingError = err
 				processedRequest = true
 				return false
@@ -137,14 +138,21 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 			runnerConnection, err := protocolClient.Engage(context.Background())
 			if err != nil {
 				logrus.WithError(err).Error("Unable to create client to runner node")
-				return false
+				// Try on next runner
+				return true
 			}
 
 			err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
-			msg, err := runnerConnection.Recv()
-
 			if err != nil {
 				logrus.WithError(err).Error("Failed to send message to runner node")
+				// Should probably remove the runner node from the list of connections
+				a.connections.Delete(address)
+				// assume connection was dropped, try on next runner
+				return true
+			}
+			msg, err := runnerConnection.Recv()
+			if err != nil {
+				logrus.WithError(err).Error("Failed to receive first message from runner node")
 				// Should probably remove the runner node from the list of connections
 				a.connections.Delete(address)
 				// assume connection was dropped, try on next runner
