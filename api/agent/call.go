@@ -221,10 +221,11 @@ func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
 			// reserving a slot must be a quick operation, as in, "can I reserve a
 			// slot RIGHT NOW please?".
 			if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-				a.handleStatsDequeue(ctx, c, err)
+				a.handleStatsDequeue(ctx, c, models.ErrCallTimeoutServerBusy)
 				a.endStateTrackers(ctx, c)
 				return models.ErrCallTimeoutServerBusy
 			}
+			// We need to actually update the outer scope slot, so no := here.
 			var err error
 			slot, err = a.getSlot(ctx, c)
 			if err != nil {
