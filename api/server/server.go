@@ -17,7 +17,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	lbagent "github.com/fnproject/fn/api/agent/lb"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -342,7 +341,7 @@ func WithAgentFromEnv() ServerOption {
 			if npmAddress == "" {
 				return errors.New("No FN_NPM_ADDRESS provided for an Node Pool Manager node.")
 			}
-			s.agent = lbagent.New(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			s.agent = agent.NewLBAgent(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority)
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?

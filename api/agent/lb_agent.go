@@ -1,6 +1,4 @@
-package lb
-
-// This is the agent impl for LB nodes
+package agent
 
 import (
 	"context"
@@ -20,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/fnproject/fn/api/agent"
 	pb "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -28,172 +25,49 @@ import (
 	"github.com/fnproject/fn/poolmanager"
 )
 
-const (
-	runnerReconnectInterval = 5 * time.Second
-	// sleep time to attempt placement across all runners before retrying
-	retryWaitInterval = 10 * time.Millisecond
-	// sleep time when scaling from 0 to 1 runners
-	noCapacityWaitInterval = 1 * time.Second
-	// amount of time to wait to place a request on a runner
-	placementTimeout = 15 * time.Second
-)
+// RequestReader takes an agent.Call and return a ReadCloser for the request body inside it
+func RequestReader(c *Call) (io.ReadCloser, error) {
+	// Get the call :(((((
+	cc, ok := (*c).(*call)
 
-type lbAgent struct {
-	delegatedAgent     agent.Agent
-	capacityAggregator poolmanager.CapacityAggregator
-	npm                poolmanager.NodePoolManager
-	cert               string
-	key                string
-	ca                 string
-	runnerAddresses    *sync.Map
-	connections        *sync.Map
-}
-
-type syncedSlice struct {
-	mtx    *sync.RWMutex
-	values []string
-}
-
-func newSyncedSlice() *syncedSlice {
-	return &syncedSlice{mtx: &sync.RWMutex{}}
-}
-
-// returns a thread-safe copy of the original slice
-func (ss *syncedSlice) load() []string {
-	ss.mtx.RLock()
-	defer ss.mtx.RUnlock()
-
-	addrs := make([]string, len(ss.values))
-	copy(addrs, ss.values)
-	return addrs
-}
-
-func (ss *syncedSlice) store(values []string) {
-	ss.mtx.Lock()
-	defer ss.mtx.Unlock()
-
-	ss.values = make([]string, len(values))
-	copy(ss.values, values)
-}
-
-func New(npmAddress string, agent agent.Agent, cert string, key string, ca string) agent.Agent {
-
-	a := &lbAgent{
-		runnerAddresses:    &sync.Map{}, //make(map[string][]string)
-		delegatedAgent:     agent,
-		capacityAggregator: poolmanager.NewCapacityAggregator(),
-		npm:                poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
-		cert:               cert,
-		key:                key,
-		ca:                 ca,
-		connections:        &sync.Map{}, //map[string]map[string](pb.RunnerProtocol_EngageClient))
+	if !ok {
+		return nil, errors.New("Can't cast agent.Call to agent.call")
 	}
 
-	go a.maintainConnectionToRunners()
-	// TODO do we need to persistent this ID in order to survive restart?
-	lbID := id.New().String()
-	a.npm.ScheduleUpdates(lbID, a.capacityAggregator, 1*time.Second)
-	return a
-}
-
-func (a *lbAgent) connectToRunner(lbGroupID string, address string, addresses *sync.Map) {
-	// Not connected, so create a connection with the TLS credentials
-	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connecting to runner")
-	ctx := context.Background()
-	creds, err := createCredentials(a.cert, a.key, a.ca)
-	if err != nil {
-		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
-		return
-	}
-	conn, err := blockingDial(ctx, address, creds)
-	if err != nil {
-		logrus.WithError(err).Error("Unable to connect to runner node")
-		return
+	if cc.req == nil {
+		return nil, errors.New("Call doesn't contain a request")
 	}
 
-	// We don't explicitly close connections to runners. Instead, we won't reconnect to them
-	// if they are shutdown and not active
-	// defer conn.Close()
+	logrus.Info(cc.req)
 
-	protocolClient := pb.NewRunnerProtocolClient(conn)
-	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connected to runner")
-	addresses.Store(address, protocolClient)
+	return cc.req.Body, nil
 }
 
-func (a *lbAgent) refreshGroupConnections(lbGroupId string, runnerAddrs []string) {
-	// clean up any connections that are no longer advertised
-	c, ok := a.connections.Load(lbGroupId)
-	if ok {
-		conns := c.(*sync.Map)
-		conns.Range(func(k, v interface{}) bool {
-			addr := k.(string)
-			found := false
-			for _, address := range runnerAddrs {
-				if address == addr {
-					found = true
-					break
-				}
-			}
+func ResponseWriter(c *Call) (*http.ResponseWriter, error) {
+	cc, ok := (*c).(*call)
 
-			if !found {
-				logrus.WithField("lbg_id", lbGroupId).WithField("runner_address", addr).Debug("Removing drained connection")
-				conns.Delete(addr)
-				// TODO expose a way of closing the grpc connection
-				// v.(pb.RunnerProtocolClient).Close()
-			}
-			return true
-		})
-
+	if !ok {
+		return nil, errors.New("Can't cast agent.Call to agent.call")
 	}
 
-	for _, address := range runnerAddrs {
-		c, ok := a.connections.Load(lbGroupId)
-		if !ok {
-			c = &sync.Map{}
-			a.connections.Store(lbGroupId, c)
-		}
-		conns, ok := c.(*sync.Map)
-		if !ok {
-			logrus.Warn("Found wrong type in connections map!")
-			continue
-		}
-
-		// create conn
-		if _, connected := conns.Load(address); !connected {
-			a.connectToRunner(lbGroupId, address, conns)
-		}
+	if rw, ok := cc.w.(http.ResponseWriter); ok {
+		return &rw, nil
 	}
+
+	return nil, errors.New("Unable to get HTTP response writer from the call")
 }
 
-func (a *lbAgent) maintainConnectionToRunners() {
-	for {
-		a.runnerAddresses.Range(func(k, v interface{}) bool {
-			lbGroupId := k.(string)
-			runnerAddrs := v.(*syncedSlice)
-			a.refreshGroupConnections(lbGroupId, runnerAddrs.load())
-			return true
-		})
-		time.Sleep(runnerReconnectInterval)
-	}
+// The LB agent performs its functionality by delegating to a remote node. It
+// pretends to have allocated a slot, and slot.exec() is what actually handles
+// the protocol with the remote node; this Slot implementation is used.
+type remoteSlot struct {
+	lb *lbAgent
 }
 
-// GetCall delegates to the wrapped agent
-func (a *lbAgent) GetCall(opts ...agent.CallOpt) (agent.Call, error) {
-	return a.delegatedAgent.GetCall(opts...)
-}
+func (s *remoteSlot) exec(ctx context.Context, call *call) error {
+	// TODO: do it properly!
+	a:= s.lb
 
-func (a *lbAgent) Close() error {
-	a.npm.Shutdown()
-	return nil
-}
-
-func GetGroupID(call *models.Call) string {
-	// TODO we need to make LBGroups part of data model so at the moment we just fake it
-	// with this dumb method
-	return "foobar"
-}
-
-func (a *lbAgent) Submit(call agent.Call) error {
 	memMb := call.Model().Memory
 	lbGroupID := GetGroupID(call.Model())
 
@@ -307,24 +181,204 @@ func (a *lbAgent) Submit(call agent.Call) error {
 
 		time.Sleep(retryWaitInterval)
 	}
-}
 
-func (a *lbAgent) Stats() agent.Stats {
-	return agent.Stats{
-		Queue:    0,
-		Running:  0,
-		Complete: 0,
-		Failed:   0,
-		Apps:     make(map[string]agent.AppStats),
-	}
-}
-
-func (a *lbAgent) PromHandler() http.Handler {
 	return nil
 }
 
-func (a *lbAgent) AddCallListener(fnext.CallListener) {
+func (s *remoteSlot) Close(ctx context.Context) error {
+	return nil
+}
 
+func (s *remoteSlot) Error() error {
+	return nil
+}
+
+
+const (
+	runnerReconnectInterval = 5 * time.Second
+	// sleep time to attempt placement across all runners before retrying
+	retryWaitInterval = 10 * time.Millisecond
+	// sleep time when scaling from 0 to 1 runners
+	noCapacityWaitInterval = 1 * time.Second
+	// amount of time to wait to place a request on a runner
+	placementTimeout = 15 * time.Second
+)
+
+type lbAgent struct {
+	delegatedAgent     Agent
+	capacityAggregator poolmanager.CapacityAggregator
+	npm                poolmanager.NodePoolManager
+	cert               string
+	key                string
+	ca                 string
+	runnerAddresses    *sync.Map
+	connections        *sync.Map
+}
+
+type syncedSlice struct {
+	mtx    *sync.RWMutex
+	values []string
+}
+
+func newSyncedSlice() *syncedSlice {
+	return &syncedSlice{mtx: &sync.RWMutex{}}
+}
+
+// returns a thread-safe copy of the original slice
+func (ss *syncedSlice) load() []string {
+	ss.mtx.RLock()
+	defer ss.mtx.RUnlock()
+
+	addrs := make([]string, len(ss.values))
+	copy(addrs, ss.values)
+	return addrs
+}
+
+func (ss *syncedSlice) store(values []string) {
+	ss.mtx.Lock()
+	defer ss.mtx.Unlock()
+
+	ss.values = make([]string, len(values))
+	copy(ss.values, values)
+}
+
+func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string) Agent {
+
+	a := &lbAgent{
+		runnerAddresses:    &sync.Map{}, //make(map[string][]string)
+		delegatedAgent:     agent,
+		capacityAggregator: poolmanager.NewCapacityAggregator(),
+		npm:                poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
+		cert:               cert,
+		key:                key,
+		ca:                 ca,
+		connections:        &sync.Map{}, //map[string]map[string](pb.RunnerProtocol_EngageClient))
+	}
+
+	go a.maintainConnectionToRunners()
+	// TODO do we need to persistent this ID in order to survive restart?
+	lbID := id.New().String()
+	a.npm.ScheduleUpdates(lbID, a.capacityAggregator, 1*time.Second)
+	return a
+}
+
+func (a *lbAgent) connectToRunner(lbGroupID string, address string, addresses *sync.Map) {
+	// Not connected, so create a connection with the TLS credentials
+	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connecting to runner")
+	ctx := context.Background()
+	creds, err := createCredentials(a.cert, a.key, a.ca)
+	if err != nil {
+		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+		return
+	}
+	conn, err := blockingDial(ctx, address, creds)
+	if err != nil {
+		logrus.WithError(err).Error("Unable to connect to runner node")
+		return
+	}
+
+	// We don't explicitly close connections to runners. Instead, we won't reconnect to them
+	// if they are shutdown and not active
+	// defer conn.Close()
+
+	protocolClient := pb.NewRunnerProtocolClient(conn)
+	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connected to runner")
+	addresses.Store(address, protocolClient)
+}
+
+func (a *lbAgent) refreshGroupConnections(lbGroupId string, runnerAddrs []string) {
+	// clean up any connections that are no longer advertised
+	c, ok := a.connections.Load(lbGroupId)
+	if ok {
+		conns := c.(*sync.Map)
+		conns.Range(func(k, v interface{}) bool {
+			addr := k.(string)
+			found := false
+			for _, address := range runnerAddrs {
+				if address == addr {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				logrus.WithField("lbg_id", lbGroupId).WithField("runner_address", addr).Debug("Removing drained connection")
+				conns.Delete(addr)
+				// TODO expose a way of closing the grpc connection
+				// v.(pb.RunnerProtocolClient).Close()
+			}
+			return true
+		})
+
+	}
+
+	for _, address := range runnerAddrs {
+		c, ok := a.connections.Load(lbGroupId)
+		if !ok {
+			c = &sync.Map{}
+			a.connections.Store(lbGroupId, c)
+		}
+		conns, ok := c.(*sync.Map)
+		if !ok {
+			logrus.Warn("Found wrong type in connections map!")
+			continue
+		}
+
+		// create conn
+		if _, connected := conns.Load(address); !connected {
+			a.connectToRunner(lbGroupId, address, conns)
+		}
+	}
+}
+
+func (a *lbAgent) maintainConnectionToRunners() {
+	for {
+		a.runnerAddresses.Range(func(k, v interface{}) bool {
+			lbGroupId := k.(string)
+			runnerAddrs := v.(*syncedSlice)
+			a.refreshGroupConnections(lbGroupId, runnerAddrs.load())
+			return true
+		})
+		time.Sleep(runnerReconnectInterval)
+	}
+}
+
+// GetCall delegates to the wrapped agent, but it adds a "slot reservation" for
+// a remoteSlot which will implement the actual running functionality.
+func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
+	slot := &remoteSlot{ lb: a }
+	opts = append(opts, WithReservedSlot(context.Background(), slot))
+	return a.delegatedAgent.GetCall(opts...)
+}
+
+func (a *lbAgent) Close() error {
+	a.npm.Shutdown()
+	return nil
+}
+
+func GetGroupID(call *models.Call) string {
+	// TODO we need to make LBGroups part of data model so at the moment we just fake it
+	// with this dumb method
+	return "foobar"
+}
+
+func (a *lbAgent) Submit(call Call) error {
+	return a.delegatedAgent.Submit(call)
+
+
+
+}
+
+func (a *lbAgent) Stats() Stats {
+	return a.delegatedAgent.Stats()
+}
+
+func (a *lbAgent) PromHandler() http.Handler {
+	return a.delegatedAgent.PromHandler()
+}
+
+func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
+	a.delegatedAgent.AddCallListener(cl)
 }
 
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
@@ -332,8 +386,8 @@ func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	return nil
 }
 
-func sendToRunner(call agent.Call, protocolClient pb.RunnerProtocol_EngageClient) error {
-	bodyReader, err := agent.RequestReader(&call)
+func sendToRunner(call Call, protocolClient pb.RunnerProtocol_EngageClient) error {
+	bodyReader, err := RequestReader(&call)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to get reader for request body")
 		return err
@@ -374,8 +428,8 @@ func sendToRunner(call agent.Call, protocolClient pb.RunnerProtocol_EngageClient
 	return nil
 }
 
-func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call agent.Call, done chan struct{}) {
-	w, err := agent.ResponseWriter(&call)
+func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call Call, done chan struct{}) {
+	w, err := ResponseWriter(&call)
 
 	if err != nil {
 		logrus.WithError(err).Error("Unable to get response writer from call")
@@ -506,3 +560,4 @@ func blockingDial(ctx context.Context, address string, creds credentials.Transpo
 		return nil, ctx.Err()
 	}
 }
+

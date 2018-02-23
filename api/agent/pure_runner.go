@@ -184,7 +184,7 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 	var w http.ResponseWriter
 	w = state.w
 	inR, inW := io.Pipe()
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w), WithReservedSlot(ctx))
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w), WithReservedSlot(ctx, nil))
 	if err != nil {
 		return err
 	}

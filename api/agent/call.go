@@ -199,15 +199,8 @@ func WithContext(ctx context.Context) CallOpt {
 }
 
 // This MUST run last
-func WithReservedSlot(ctx context.Context) CallOpt {
+func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
 	return func(a *agent, c *call) error {
-		// First check if we have capacity. We exit early if we don't, because
-		// reserving a slot must be a quick operation, as in, "can I reserve a
-		// slot RIGHT NOW please?".
-		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-			return models.ErrCallTimeoutServerBusy
-		}
-
 		// We need deadlines otherwise our slot will have expired in 1970... :)
 		now := time.Now()
 		slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
@@ -220,11 +213,26 @@ func WithReservedSlot(ctx context.Context) CallOpt {
 
 		a.startStateTrackers(ctx, c)
 		// The call to a.endStateTrackers() will then be done by Submit
-		slot, err := a.getSlot(ctx, c)
-		if err != nil {
-			a.handleStatsDequeue(ctx, c, err)
-			a.endStateTrackers(ctx, c)
-			return transformTimeout(err, true)
+
+		// If we're provided a slot we use it, otherwise we go through the
+		// motions of allocating it.
+		if slot == nil {
+			// First check if we have capacity. We exit early if we don't, because
+			// reserving a slot must be a quick operation, as in, "can I reserve a
+			// slot RIGHT NOW please?".
+			if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+				a.handleStatsDequeue(ctx, c, models.ErrCallTimeoutServerBusy)
+				a.endStateTrackers(ctx, c)
+				return models.ErrCallTimeoutServerBusy
+			}
+			// We need to actually update the outer scope slot, so no := here.
+			var err error
+			slot, err = a.getSlot(ctx, c)
+			if err != nil {
+				a.handleStatsDequeue(ctx, c, err)
+				a.endStateTrackers(ctx, c)
+				return transformTimeout(err, true)
+			}
 		}
 		c.reservedSlot = slot
 		return nil
