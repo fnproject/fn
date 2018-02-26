@@ -117,9 +117,9 @@ func (np *gRPCNodePool) maintenance() {
 
 }
 
-func newLBG(lbgId string) *lbg {
+func newLBG(lbgID string) *lbg {
 	return &lbg{
-		id:      lbgId,
+		id:      lbgID,
 		runners: map[string]*gRPCRunner{},
 	}
 }
@@ -127,8 +127,8 @@ func newLBG(lbgId string) *lbg {
 func (np *gRPCNodePool) reloadLBGmembership() {
 	np.mx.RLock()
 	defer np.mx.RUnlock() // XXX fix locking
-	for lbgId, lbg := range np.lbg {
-		lbg.reloadMembers(lbgId, np.npm, np.pki)
+	for lbgID, lbg := range np.lbg {
+		lbg.reloadMembers(lbgID, np.npm, np.pki)
 	}
 }
 
@@ -142,10 +142,12 @@ func (lbg *lbg) runnerList() []Runner {
 	return runners
 }
 
-func (lbg *lbg) reloadMembers(lbgId string, npm poolmanager.NodePoolManager, p pkiData) {
-	runners, err := npm.GetRunners(lbgId)
+func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p pkiData) {
+
+	runners, err := npm.GetRunners(lbgID)
 	if err != nil {
 		// XXX log and fall out
+		logrus.Debug("Failed to get the list of runners from node pool manager")
 	}
 	lbg.mx.Lock()
 	defer lbg.mx.Unlock()
@@ -153,7 +155,8 @@ func (lbg *lbg) reloadMembers(lbgId string, npm poolmanager.NodePoolManager, p p
 	for _, addr := range runners {
 		_, ok := lbg.runners[addr]
 		if !ok {
-			conn, client := runnerConnection(addr, lbgId, p)
+			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
+			conn, client := runnerConnection(addr, lbgID, p)
 			lbg.runners[addr] = &gRPCRunner{
 				address: addr,
 				conn:    conn,
@@ -166,8 +169,9 @@ func (lbg *lbg) reloadMembers(lbgId string, npm poolmanager.NodePoolManager, p p
 	// Remove any runners that we have not encountered
 	for addr, r := range lbg.runners {
 		if _, ok := seen[addr]; !ok {
-			r.close()
+			logrus.WithField("Runner_addr", addr).Debug("Removing drained runner")
 			delete(lbg.runners, addr)
+			r.close()
 		}
 	}
 }
@@ -299,8 +303,6 @@ func blockingDial(ctx context.Context, address string, creds credentials.Transpo
 func (r *gRPCRunner) TryExec(ctx context.Context, call *call) (bool, error) {
 	r.wg.Add(1)
 	defer r.wg.Done()
-
-	// Move the submit trial here
 
 	// Get app and route information
 	// Construct model.Call with CONFIG in it already
