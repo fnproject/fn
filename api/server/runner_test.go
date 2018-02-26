@@ -220,11 +220,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
 		{"/r/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
 		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
-		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "body too large", nil},
+		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusOK, nil, "body too large", nil},
+		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusOK, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "body too large", nil},
+		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
 	} {
 		body := strings.NewReader(test.body)

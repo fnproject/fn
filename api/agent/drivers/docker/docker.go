@@ -394,6 +394,48 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	}, nil
 }
 
+func (w *waitResult) wait(ctx context.Context) (status string, err error) {
+	// wait retries internally until ctx is up, so we can ignore the error and
+	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
+	// a more prevalent case is calling wait & container already finished, so again ignore err.
+	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
+
+	w.waiter.Close()
+	err = w.waiter.Wait()
+	if err != nil {
+		// plumb up i/o errors (NOTE: which MAY be typed)
+		return drivers.StatusError, err
+	}
+
+	// check the context first, if it's done then exitCode is invalid iff zero
+	// (can't know 100% without inspecting, but that's expensive and this is a good guess)
+	// if exitCode is non-zero, we prefer that since it proves termination.
+	if exitCode == 0 {
+		select {
+		case <-ctx.Done(): // check if task was canceled or timed out
+			switch ctx.Err() {
+			case context.DeadlineExceeded:
+				return drivers.StatusTimeout, context.DeadlineExceeded
+			case context.Canceled:
+				return drivers.StatusCancelled, context.Canceled
+			}
+		default:
+		}
+	}
+
+	switch exitCode {
+	default:
+		return drivers.StatusError, models.NewAPIError(http.StatusBadGateway, fmt.Errorf("container exit code %d", exitCode))
+	case 0:
+		return drivers.StatusSuccess, nil
+	case 137: // OOM
+		// TODO put in stats opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
+		common.Logger(ctx).Error("docker oom")
+		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
+		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
+	}
+}
+
 // Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
 func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan struct{}, container string, task drivers.ContainerTask) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_collect_stats")
@@ -539,46 +581,4 @@ func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string)
 		time.Sleep(100 * time.Millisecond) // avoid spin loop in case docker is actually fast
 	}
 	return nil
-}
-
-func (w *waitResult) wait(ctx context.Context) (status string, err error) {
-	// wait retries internally until ctx is up, so we can ignore the error and
-	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
-	// a more prevalent case is calling wait & container already finished, so again ignore err.
-	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
-
-	w.waiter.Close()
-	err = w.waiter.Wait()
-	if err != nil {
-		// plumb up i/o errors (NOTE: which MAY be typed)
-		return drivers.StatusError, err
-	}
-
-	// check the context first, if it's done then exitCode is invalid iff zero
-	// (can't know 100% without inspecting, but that's expensive and this is a good guess)
-	// if exitCode is non-zero, we prefer that since it proves termination.
-	if exitCode == 0 {
-		select {
-		case <-ctx.Done(): // check if task was canceled or timed out
-			switch ctx.Err() {
-			case context.DeadlineExceeded:
-				return drivers.StatusTimeout, context.DeadlineExceeded
-			case context.Canceled:
-				return drivers.StatusCancelled, context.Canceled
-			}
-		default:
-		}
-	}
-
-	switch exitCode {
-	default:
-		return drivers.StatusError, models.NewAPIError(http.StatusBadGateway, fmt.Errorf("container exit code %d", exitCode))
-	case 0:
-		return drivers.StatusSuccess, nil
-	case 137: // OOM
-		// TODO put in stats opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
-		common.Logger(ctx).Error("docker oom")
-		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
-		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)
-	}
 }

@@ -518,10 +518,11 @@ func (s *coldSlot) Close(ctx context.Context) error {
 
 // implements Slot
 type hotSlot struct {
-	done      chan struct{} // signal we are done with slot
-	errC      <-chan error  // container error
-	container *container    // TODO mask this
-	err       error
+	done        chan struct{} // signal we are done with slot
+	errC        <-chan error  // container error
+	container   *container    // TODO mask this
+	maxRespSize uint64        // TODO boo.
+	err         error
 }
 
 func (s *hotSlot) Close(ctx context.Context) error {
@@ -544,9 +545,14 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	// swap in fresh pipes & stat accumulator to not interlace with other calls that used this slot [and timed out]
 	stdinRead, stdinWrite := io.Pipe()
-	stdoutRead, stdoutWrite := io.Pipe()
+	stdoutRead, stdoutWritePipe := io.Pipe()
 	defer stdinRead.Close()
-	defer stdoutWrite.Close()
+	defer stdoutWritePipe.Close()
+
+	// NOTE: stderr is limited separately (though line writer is vulnerable to attack?)
+	// limit the bytes allowed to be written to the stdout pipe, which handles any
+	// buffering overflows (json to a string, http to a buffer, etc)
+	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.maxRespSize, models.ErrFunctionResponseTooBig)
 
 	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
 	swapBack := s.container.swap(stdinRead, stdoutWrite, call.stderr, &call.Stats)
@@ -594,7 +600,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
-		stdout:  call.w,
+		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
 		stderr:  call.stderr,
 		stats:   &call.Stats,
 	}
@@ -683,7 +689,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{make(chan struct{}), errC, container, nil}
+			slot := &hotSlot{done: make(chan struct{}), errC: errC, container: container, maxRespSize: a.cfg.MaxResponseSize}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
