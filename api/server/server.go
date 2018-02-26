@@ -321,6 +321,15 @@ func WithAgentFromEnv() ServerOption {
 			}
 			s.agent = agent.New(agent.NewCachedDataAccess(cl))
 		case ServerTypePureRunner:
+			if s.datastore != nil {
+				return errors.New("Pure runner nodes must not be configured with a datastore (FN_DB_URL).")
+			}
+			if s.mq != nil {
+				return errors.New("Pure runner nodes must not be configured with a message queue (FN_MQ_URL).")
+			}
+			if s.cert == "" || s.certKey == "" || s.certAuthority == "" {
+				return errors.New("Pure runner nodes must configure FN_NODE_CERT, FN_NODE_CERT_KEY, FN_NODE_CERT_AUTHORITY.")
+			}
 			ds, err := hybrid.NewNopDataStore()
 			if err != nil {
 				return err
@@ -330,7 +339,13 @@ func WithAgentFromEnv() ServerOption {
 			s.nodeType = ServerTypeLB
 			runnerURL := getEnv(EnvRunnerURL, "")
 			if runnerURL == "" {
-				return errors.New("No FN_RUNNER_API_URL provided for an Fn Runner node.")
+				return errors.New("No FN_RUNNER_API_URL provided for an Fn NuLB node.")
+			}
+			if s.datastore != nil {
+				return errors.New("NuLB nodes must not be configured with a datastore (FN_DB_URL).")
+			}
+			if s.mq != nil {
+				return errors.New("NuLB nodes must not be configured with a message queue (FN_MQ_URL).")
 			}
 			cl, err := hybrid.NewClient(runnerURL)
 			if err != nil {
@@ -339,7 +354,7 @@ func WithAgentFromEnv() ServerOption {
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 			npmAddress := getEnv(EnvNPMAddress, "")
 			if npmAddress == "" {
-				return errors.New("No FN_NPM_ADDRESS provided for an Node Pool Manager node.")
+				return errors.New("No FN_NPM_ADDRESS provided for an Fn NuLB node.")
 			}
 			s.agent = agent.NewLBAgent(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority)
 		default:
