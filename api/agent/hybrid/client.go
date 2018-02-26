@@ -199,7 +199,7 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 	}
 	// shove the span headers in so that the server will continue this span
 	var xxx b3.HTTPFormat
-	xxx.ToRequest(span.SpanContext(), req)
+	xxx.SpanContextToRequest(span.SpanContext(), req)
 
 	resp, err := cl.http.Do(req)
 	if err != nil {

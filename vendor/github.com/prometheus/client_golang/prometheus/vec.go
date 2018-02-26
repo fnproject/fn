@@ -251,6 +251,7 @@ func (m *MetricVec) Reset() {
 
 func (m *MetricVec) hashLabelValues(vals []string) (uint64, error) {
 	if len(vals) != len(m.desc.variableLabels) {
+		fmt.Println("vec.go+254")
 		return 0, errInconsistentCardinality
 	}
 	h := hashNew()
@@ -263,6 +264,7 @@ func (m *MetricVec) hashLabelValues(vals []string) (uint64, error) {
 
 func (m *MetricVec) hashLabels(labels Labels) (uint64, error) {
 	if len(labels) != len(m.desc.variableLabels) {
+		fmt.Println("vec.go+267")
 		return 0, errInconsistentCardinality
 	}
 	h := hashNew()

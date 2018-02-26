@@ -154,6 +154,8 @@ func (v *valueFunc) Write(out *dto.Metric) error {
 // labelValues is not consistent with the variable labels in Desc.
 func NewConstMetric(desc *Desc, valueType ValueType, value float64, labelValues ...string) (Metric, error) {
 	if len(desc.variableLabels) != len(labelValues) {
+		fmt.Println("value.go+157", desc.fqName, desc.variableLabels, labelValues)
+		panic(errInconsistentCardinality)
 		return nil, errInconsistentCardinality
 	}
 	return &constMetric{
