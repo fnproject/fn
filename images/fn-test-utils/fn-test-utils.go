@@ -44,7 +44,7 @@ type AppRequest struct {
 	// fill created with with zero bytes of specified size
 	CreateFileSize int `json:"createFileSize,omitempty"`
 	// allocate RAM and hold until next request
-	AllocateMemory int `json:"allocateMemory,om itempty"`
+	AllocateMemory int `json:"allocateMemory,omitempty"`
 	// leak RAM forever
 	LeakMemory int `json:"leakMemory,omitempty"`
 	// respond with partial output

@@ -124,6 +124,14 @@ func TestRouteRunnerPost(t *testing.T) {
 
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
+	isFailure := false
+	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
+	// for figuring out why things failed.
+	defer func() {
+		if isFailure {
+			t.Log(buf.String())
+		}
+	}()
 
 	ds := datastore.NewMockInit(
 		[]*models.App{
@@ -187,24 +195,28 @@ func TestRouteRunnerExecution(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 		respBytes, _ := ioutil.ReadAll(rec.Body)
 		respBody := string(respBytes)
+		maxLog := len(respBody)
+		if maxLog > 1024 {
+			maxLog = 1024
+		}
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
+			isFailure = true
 			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
-				i, test.expectedCode, rec.Code, respBody)
+				i, test.expectedCode, rec.Code, respBody[:maxLog])
 		}
 
 		if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
-			t.Log(buf.String())
+			isFailure = true
 			t.Errorf("Test %d: Expected response to include %s but got body: %s",
-				i, test.expectedErrSubStr, respBody)
+				i, test.expectedErrSubStr, respBody[:maxLog])
 
 		}
 
 		if test.expectedHeaders != nil {
 			for name, header := range test.expectedHeaders {
 				if header[0] != rec.Header().Get(name) {
-					t.Log(buf.String())
+					isFailure = true
 					t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
 						i, name, header[0], rec.Header().Get(name))
 				}
