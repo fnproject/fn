@@ -62,8 +62,6 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 
 	capacityRequest := &poolmanager.CapacityEntry{TotalMemoryMb: memMb}
 	a.capacityAggregator.AssignCapacity(capacityRequest, lbGroupID)
-	// TODO verify that when we leave this method the call is in a completed or failed state
-	// so it is safe to remove capacity
 	defer a.capacityAggregator.ReleaseCapacity(capacityRequest, lbGroupID)
 
 	deadline := call.slotDeadline
@@ -79,7 +77,7 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 		for _, r := range runnerList {
 			placed, err := r.TryExec(ctx, call)
 			if err != nil {
-				logrus.WithError(err).Error("Failed during call placemen")
+				logrus.WithError(err).Error("Failed during call placement")
 			}
 			if placed {
 				return err
@@ -89,7 +87,6 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 
 		time.Sleep(retryWaitInterval)
 	}
-	return nil
 }
 
 func (s *remoteSlot) Close(ctx context.Context) error {
