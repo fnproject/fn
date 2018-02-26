@@ -117,7 +117,11 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	curDir := pwd()
 	var defaultDB, defaultMQ string
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
-	if nodeType != ServerTypeRunner && nodeType != ServerTypePureRunner {
+	switch nodeType {
+		case ServerTypeLB: // nothing
+		case ServerTypeRunner: // nothing
+		case ServerTypePureRunner: // nothing
+	default:
 		// only want to activate these for full and api nodes
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
@@ -347,15 +351,15 @@ func WithAgentFromEnv() ServerOption {
 			if s.mq != nil {
 				return errors.New("NuLB nodes must not be configured with a message queue (FN_MQ_URL).")
 			}
+			npmAddress := getEnv(EnvNPMAddress, "")
+			if npmAddress == "" {
+				return errors.New("No FN_NPM_ADDRESS provided for an Fn NuLB node.")
+			}
 			cl, err := hybrid.NewClient(runnerURL)
 			if err != nil {
 				return err
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			npmAddress := getEnv(EnvNPMAddress, "")
-			if npmAddress == "" {
-				return errors.New("No FN_NPM_ADDRESS provided for an Fn NuLB node.")
-			}
 			s.agent = agent.NewLBAgent(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority)
 		default:
 			s.nodeType = ServerTypeFull
