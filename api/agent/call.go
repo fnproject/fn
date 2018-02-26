@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
+	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -228,22 +229,37 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.slotDeadline = slotDeadline
 	c.execDeadline = execDeadline
 
+	// IMPORTANT: This call id & deadline has a side effect of making the call unique, therefore
+	// a non-streamable (cold) request will create and use its own slot queue.
+	if !protocol.IsStreamable(protocol.Protocol(c.Call.Format)) {
+		// add Fn-specific information to the config to shove everything into env vars for cold
+		c.Call.Config["FN_DEADLINE"] = strfmt.DateTime(execDeadline).String()
+		c.Call.Config["FN_METHOD"] = c.Model().Method
+		c.Call.Config["FN_REQUEST_URL"] = c.Model().URL
+		c.Call.Config["FN_CALL_ID"] = c.Model().ID
+
+		// User headers are prefixed with FN_HEADER and shoved in the env vars too
+		for k, v := range c.Call.Headers {
+			k = "FN_HEADER_" + k
+			c.Call.Config[k] = strings.Join(v, ", ")
+		}
+	}
+
 	return &c, nil
 }
 
 type call struct {
 	*models.Call
 
-	da             DataAccess
-	w              io.Writer
-	req            *http.Request
-	stderr         io.ReadWriteCloser
-	ct             callTrigger
-	slots          *slotQueue
-	slotDeadline   time.Time
-	execDeadline   time.Time
-	requestState   RequestState
-	containerState ContainerState
+	da           DataAccess
+	w            io.Writer
+	req          *http.Request
+	stderr       io.ReadWriteCloser
+	ct           callTrigger
+	slots        *slotQueue
+	slotDeadline time.Time
+	execDeadline time.Time
+	requestState RequestState
 }
 
 func (c *call) Model() *models.Call { return c.Call }

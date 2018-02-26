@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +15,6 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
-	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
@@ -30,8 +29,6 @@ import (
 // to be much more robust. now we're at least running it if we delete the msg,
 // but we may never store info about that execution so still broked (if fn
 // dies). need coordination w/ db.
-// TODO if a cold call times out but container is created but hasn't replied, could
-// end up that the client doesn't get a reply until long after the timeout (b/c of container removal, async it?)
 // TODO if async would store requests (or interchange format) it would be slick, but
 // if we're going to store full calls in db maybe we should only queue pointers to ids?
 // TODO examine cases where hot can't start a container and the user would never see an error
@@ -182,23 +179,11 @@ func (a *agent) Submit(callI Call) error {
 }
 
 func (a *agent) startStateTrackers(ctx context.Context, call *call) {
-
-	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// For cold containers, we track the container state in call
-		call.containerState = NewContainerState()
-	}
-
 	call.requestState = NewRequestState()
 }
 
 func (a *agent) endStateTrackers(ctx context.Context, call *call) {
-
 	call.requestState.UpdateState(ctx, RequestStateDone, call.slots)
-
-	// For cold containers, we are done with the container.
-	if call.containerState != nil {
-		call.containerState.UpdateState(ctx, ContainerStateDone, call.slots)
-	}
 }
 
 func (a *agent) submit(ctx context.Context, call *call) error {
@@ -306,20 +291,15 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
 	defer span.Finish()
 
-	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
-		var isNew bool
-		call.slots, isNew = a.slotMgr.getSlotQueue(call)
-		call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
-		if isNew {
-			go a.hotLauncher(ctx, call)
-		}
-		s, err := a.waitHot(ctx, call)
-		return s, err
-	}
-
+	// For hot requests, we use a long lived slot queue, which we use to manage hot containers
+	var isNew bool
+	call.slots, isNew = a.slotMgr.getSlotQueue(call)
 	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
-	return a.launchCold(ctx, call)
+	if isNew {
+		go a.hotLauncher(ctx, call)
+	}
+	s, err := a.waitHot(ctx, call)
+	return s, err
 }
 
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
@@ -336,7 +316,8 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	}
 
 	logger := common.Logger(ctx)
-	logger.WithField("launcher_timeout", timeout).Info("Hot function launcher starting")
+
+	defer a.slotMgr.deleteSlotQueue(call.slots)
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
@@ -348,6 +329,11 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		a.checkLaunch(ctx, call)
 
+		if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+			cancel()
+			return
+		}
+
 		select {
 		case <-a.shutdown: // server shutdown
 			cancel()
@@ -355,7 +341,6 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		case <-ctx.Done(): // timed out
 			cancel()
 			if a.slotMgr.deleteSlotQueue(call.slots) {
-				logger.Info("Hot function launcher timed out")
 				return
 			}
 		case <-call.slots.signaller:
@@ -368,7 +353,6 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 	curStats := call.slots.getStats()
 	isAsync := call.Type == models.TypeAsync
 	isNeeded := isNewContainerNeeded(&curStats)
-	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": curStats, "isNeeded": isNeeded}).Debug("Hot function launcher stats")
 	if !isNeeded {
 		return
 	}
@@ -376,7 +360,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 	state := NewContainerState()
 	state.UpdateState(ctx, ContainerStateWait, call.slots)
 
-	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
+	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Debug("Hot function launcher starting hot container")
 
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
@@ -436,86 +420,6 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	}
 }
 
-// launchCold waits for necessary resources to launch a new container, then
-// returns the slot for that new container to run the request on.
-func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
-	isAsync := call.Type == models.TypeAsync
-	ch := make(chan Slot)
-
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_launch_cold")
-	defer span.Finish()
-
-	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
-
-	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
-		go a.prepCold(ctx, call, tok, ch)
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-
-	// wait for launch err or a slot to open up
-	select {
-	case s := <-ch:
-		if s.Error() != nil {
-			s.Close(ctx)
-			return nil, s.Error()
-		}
-		return s, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-// implements Slot
-type coldSlot struct {
-	cookie drivers.Cookie
-	tok    ResourceToken
-	err    error
-}
-
-func (s *coldSlot) Error() error {
-	return s.err
-}
-
-func (s *coldSlot) exec(ctx context.Context, call *call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
-	defer span.Finish()
-
-	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
-	call.containerState.UpdateState(ctx, ContainerStateBusy, call.slots)
-
-	waiter, err := s.cookie.Run(ctx)
-	if err != nil {
-		return err
-	}
-
-	res, err := waiter.Wait(ctx)
-	if err != nil {
-		return err
-	} else if res.Error() != nil {
-		// check for call error (oom/exit) and beam it up
-		return res.Error()
-	}
-
-	// nil or timed out
-	return ctx.Err()
-}
-
-func (s *coldSlot) Close(ctx context.Context) error {
-	if s.cookie != nil {
-		// call this from here so that in exec we don't have to eat container
-		// removal latency
-		// NOTE ensure container removal, no ctx timeout
-		ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
-		s.cookie.Close(ctx)
-	}
-	if s.tok != nil {
-		s.tok.Close()
-	}
-	return nil
-}
-
 // implements Slot
 type hotSlot struct {
 	done      chan struct{} // signal we are done with slot
@@ -556,7 +460,29 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	errApp := make(chan error, 1)
 	go func() {
 		ci := protocol.NewCallInfo(call.Call, call.req)
-		errApp <- proto.Dispatch(ctx, ci, call.w)
+		err := proto.Dispatch(ctx, ci, call.w)
+
+		// TODO: narrow this down to StatusBadGateway
+		// TODO: we can skip this for Cold containers, but let's not optimize Cold path
+		if err != nil && models.IsAPIError(err) {
+			// attempt to drain stdout before it gets closed.
+			// Typical example case is when we encounter a parse error upon read from container. eg. corrupt
+			// json or bad http. This typically means, the stdout has more data that has not been read, which
+			// will trip next request.
+			done := make(chan struct{})
+			go func() {
+				io.CopyN(ioutil.Discard, stdoutRead, 100*1024*1024)
+				close(done)
+			}()
+
+			// let drain, 50 msecs or 100MB, whichever comes first
+			select {
+			case <-done:
+			case <-time.After(time.Duration(50) * time.Millisecond):
+			}
+		}
+
+		errApp <- err
 	}()
 
 	select {
@@ -566,51 +492,6 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
-	}
-}
-
-func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
-	defer span.Finish()
-
-	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
-
-	// add Fn-specific information to the config to shove everything into env vars for cold
-	call.Config["FN_DEADLINE"] = strfmt.DateTime(call.execDeadline).String()
-	call.Config["FN_METHOD"] = call.Model().Method
-	call.Config["FN_REQUEST_URL"] = call.Model().URL
-	call.Config["FN_CALL_ID"] = call.Model().ID
-
-	// User headers are prefixed with FN_HEADER and shoved in the env vars too
-	for k, v := range call.Headers {
-		k = "FN_HEADER_" + k
-		call.Config[k] = strings.Join(v, ", ")
-	}
-
-	container := &container{
-		id:      id.New().String(), // XXX we could just let docker generate ids...
-		image:   call.Image,
-		env:     map[string]string(call.Config),
-		memory:  call.Memory,
-		cpus:    uint64(call.CPUs),
-		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
-		stdout:  call.w,
-		stderr:  call.stderr,
-		stats:   &call.Stats,
-	}
-
-	// pull & create container before we return a slot, so as to be friendly
-	// about timing out if this takes a while...
-	cookie, err := a.driver.Prepare(ctx, container)
-
-	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
-
-	slot := &coldSlot{cookie, tok, err}
-	select {
-	case ch <- slot:
-	case <-ctx.Done():
-		slot.Close(ctx)
 	}
 }
 
@@ -627,15 +508,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 	cid := id.New().String()
 
-	// set up the stderr to capture any logs before the slot is executed and
-	// between hot functions
-	stderr := newLineWriter(&logWriter{
-		logrus.WithFields(logrus.Fields{"between_log": true, "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": cid}),
-	})
-
-	// between calls we need a reader that doesn't do anything
+	// between calls we need a readers/writers that don't do anything
 	stdin := &ghostReader{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitReader)}
+	stderr := &ghostWriter{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitWriter)}
+	stdout := &ghostWriter{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitWriter)}
 	defer stdin.Close()
+	defer stderr.Close()
+	defer stdout.Close()
 
 	container := &container{
 		id:     cid, // XXX we could just let docker generate ids...
@@ -644,11 +523,27 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		memory: call.Memory,
 		cpus:   uint64(call.CPUs),
 		stdin:  stdin,
-		stdout: &ghostWriter{inner: stderr},
-		stderr: &ghostWriter{inner: stderr},
+		stdout: stdout,
+		stderr: stderr,
 	}
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		container.maxRequests = 1
+	}
+
+	logger := logrus.WithFields(logrus.Fields{
+		"id":           container.id,
+		"app":          call.AppName,
+		"route":        call.Path,
+		"image":        call.Image,
+		"memory":       call.Memory,
+		"cpus":         call.CPUs,
+		"format":       call.Format,
+		"timeout":      call.Timeout,
+		"idle_timeout": call.IdleTimeout,
+		"max_requests": container.maxRequests,
+	})
+
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -675,7 +570,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		for {
+		for idx := uint64(0); container.maxRequests == 0 || idx < container.maxRequests; idx++ {
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
 				return
@@ -688,11 +583,19 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
+
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-slot.done
 		}
 	}()
+
+	// Let's install a deadline for the container if applicable.
+	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		deadlineCtx, deadlineContainer := context.WithDeadline(ctx, call.execDeadline)
+		defer deadlineContainer()
+		ctx = deadlineCtx
+	}
 
 	res, err := waiter.Wait(ctx)
 	if err != nil {
@@ -700,6 +603,11 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	} else if res.Error() != nil {
 		err = res.Error()
 		errC <- err
+	} else if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		// For a cold container, we typically expect the container to exit after processing
+		// its one and only request. When this occurs, (without errors), we signal slot.exec
+		// will nil
+		errC <- nil
 	}
 
 	logger.WithError(err).Info("hot function terminated")
@@ -795,12 +703,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id      string // contrived
-	image   string
-	env     map[string]string
-	memory  uint64
-	cpus    uint64
-	timeout time.Duration // cold only (superfluous, but in case)
+	id     string // contrived
+	image  string
+	env    map[string]string
+	memory uint64
+	cpus   uint64
+
+	// limit total requests that can be run on this container
+	// default: zero - unlimited
+	maxRequests uint64
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -812,6 +723,7 @@ type container struct {
 }
 
 func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.Stats) func() {
+	done := false
 	// if tests don't catch this, then fuck me
 	ostdin := c.stdin.(*ghostReader).swap(stdin)
 	ostdout := c.stdout.(*ghostWriter).swap(stdout)
@@ -823,6 +735,10 @@ func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.
 	c.statsMu.Unlock()
 
 	return func() {
+		if done {
+			return
+		}
+		done = true
 		c.stdin.(*ghostReader).swap(ostdin)
 		c.stdout.(*ghostWriter).swap(ostdout)
 		c.stderr.(*ghostWriter).swap(ostderr)
@@ -840,7 +756,6 @@ func (c *container) Volumes() [][2]string           { return nil }
 func (c *container) WorkDir() string                { return "" }
 func (c *container) Close()                         {}
 func (c *container) Image() string                  { return c.image }
-func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
@@ -873,23 +788,54 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 // ghostWriter is an io.Writer who will pass writes to an inner writer
 // that may be changed at will. it is thread safe to swap or write.
 type ghostWriter struct {
-	sync.Mutex
-	inner io.Writer
+	cond   *sync.Cond
+	inner  io.Writer
+	closed bool
 }
 
 func (g *ghostWriter) swap(w io.Writer) (old io.Writer) {
-	g.Lock()
+	g.cond.L.Lock()
 	old = g.inner
 	g.inner = w
-	g.Unlock()
+	g.cond.L.Unlock()
+	g.cond.Broadcast()
 	return old
 }
 
-func (g *ghostWriter) Write(b []byte) (int, error) {
+func (g *ghostWriter) Close() {
+	g.cond.L.Lock()
+	g.closed = true
+	g.cond.L.Unlock()
+	g.cond.Broadcast()
+}
+
+func (g *ghostWriter) awaitRealWriter() (io.Writer, bool) {
+	// wait for a real writer
+	g.cond.L.Lock()
+	for {
+		if g.closed { // check this first
+			g.cond.L.Unlock()
+			return nil, false
+		}
+		if _, ok := g.inner.(*waitWriter); ok {
+			g.cond.Wait()
+		} else {
+			break
+		}
+	}
+
 	// we don't need to serialize writes but swapping g.inner could be a race if unprotected
-	g.Lock()
 	w := g.inner
-	g.Unlock()
+	g.cond.L.Unlock()
+	return w, true
+}
+
+func (g *ghostWriter) Write(b []byte) (int, error) {
+	w, ok := g.awaitRealWriter()
+	if !ok {
+		return 0, io.EOF
+	}
+
 	n, err := w.Write(b)
 	if err == io.ErrClosedPipe {
 		// NOTE: we need to mask this error so that docker does not get an error
@@ -966,4 +912,11 @@ type waitReader struct{}
 
 func (e *waitReader) Read([]byte) (int, error) {
 	panic("read on waitReader should not happen")
+}
+
+// waitWriter returns io.EOF if anyone calls Write. don't call Write, this is a sentinel type
+type waitWriter struct{}
+
+func (e *waitWriter) Write([]byte) (int, error) {
+	panic("write on waitWriter should not happen")
 }
