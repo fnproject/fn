@@ -1,9 +1,7 @@
 package agent
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -474,7 +472,6 @@ type coldSlot struct {
 	cookie drivers.Cookie
 	tok    ResourceToken
 	err    error
-	stdout io.Writer
 }
 
 func (s *coldSlot) Error() error {
@@ -501,37 +498,7 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 		return res.Error()
 	}
 
-	// This means default IO with no limits (no clamper)
-	clamper, ok := s.stdout.(*common.ClampWriter)
-	if !ok {
-		return ctx.Err()
-	}
-	if clamper.IsOverflow {
-		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid response from function err: body too large"))
-	}
-
-	errApp := make(chan error, 1)
-
-	// take ownership of this buffer to avoid cold token.Close() to touch it.
-	buf := clamper.W.(*bytes.Buffer)
-	s.stdout = nil
-	// yes, we leak this and retain the buf until client times out. But this timeout is
-	// closely bounded by our own ctx timeout below. Once we return err, we expect gin
-	// to close/finalize client request/connection.
-	go func() {
-		// IMPORTANT: keep the buffer until client is done.
-		defer protocol.BufPool.Put(buf)
-		_, err := io.Copy(call.w, ioutil.NopCloser(buf))
-		errApp <- err
-	}()
-
-	select {
-	case err := <-errApp: // from io.Copy
-		if err != nil {
-			return err
-		}
-	case <-ctx.Done(): // call timeout
-	}
+	// nil or timed out
 	return ctx.Err()
 }
 
@@ -546,13 +513,6 @@ func (s *coldSlot) Close(ctx context.Context) error {
 	if s.tok != nil {
 		s.tok.Close()
 	}
-	if s.stdout != nil {
-		clamper, ok := s.stdout.(*common.ClampWriter)
-		if ok {
-			buf := clamper.W.(*bytes.Buffer)
-			protocol.BufPool.Put(buf)
-		}
-	}
 	return nil
 }
 
@@ -561,7 +521,6 @@ type hotSlot struct {
 	done      chan struct{} // signal we are done with slot
 	errC      <-chan error  // container error
 	container *container    // TODO mask this
-	cfg       *AgentConfig
 	err       error
 }
 
@@ -595,40 +554,18 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.Call, call.req, s.cfg.MaxResponseSize)
+		ci := protocol.NewCallInfo(call.Call, call.req)
 		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
-
-	var finalError error
 
 	select {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp: // from dispatch
-		if err == nil || models.GetAPIErrorCode(err) != http.StatusBadGateway {
-			return err
-		}
-		finalError = err
+		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
 	}
-
-	// we are here because dispatch IO comm failed. Wait again up to
-	// 500 msecs to drain the I/O pipe to reduce subsequent errors
-	// in hot container. This 500 msec window drain does not necessarily
-	// guarantee that we clean these pipes (as the producer can spit out
-	// more data after) but this does clear naive (most common) cases out
-	// such as container spitting out too much (or faulty) data at once.
-	// If we fail to clear this pipe (stdoutRead), then docker IO demultiplex
-	// stdCopy will notice that we have not read all the data from it and will
-	// shutdown the container.
-	select {
-	case finalError = <-s.errC: // give precedence to error from container
-	case <-time.After(time.Duration(500) * time.Millisecond):
-	case <-ctx.Done(): // call timeout
-	}
-
-	return finalError
 }
 
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
@@ -649,10 +586,6 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		call.Config[k] = strings.Join(v, ", ")
 	}
 
-	buf := protocol.BufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-
-	stdout := common.NewClampWriter(buf, a.cfg.MaxResponseSize)
 	container := &container{
 		id:      id.New().String(), // XXX we could just let docker generate ids...
 		image:   call.Image,
@@ -661,7 +594,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
-		stdout:  stdout,
+		stdout:  call.w,
 		stderr:  call.stderr,
 		stats:   &call.Stats,
 	}
@@ -672,7 +605,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
-	slot := &coldSlot{cookie, tok, err, stdout}
+	slot := &coldSlot{cookie, tok, err}
 	select {
 	case ch <- slot:
 	case <-ctx.Done():
@@ -750,7 +683,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{make(chan struct{}), errC, container, &a.cfg, nil}
+			slot := &hotSlot{make(chan struct{}), errC, container, nil}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}

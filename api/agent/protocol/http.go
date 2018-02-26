@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
 )

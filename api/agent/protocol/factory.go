@@ -47,7 +47,6 @@ type CallInfo interface {
 	Request() *http.Request
 	Method() string
 	RequestURL() string
-	MaxResponseSize() uint64
 	Headers() map[string][]string
 }
 
@@ -59,10 +58,6 @@ type callInfoImpl struct {
 
 func (ci callInfoImpl) CallID() string {
 	return ci.call.ID
-}
-
-func (ci callInfoImpl) MaxResponseSize() uint64 {
-	return ci.maxResponseSize
 }
 
 func (ci callInfoImpl) ContentType() string {
@@ -116,11 +111,10 @@ func (ci callInfoImpl) Headers() map[string][]string {
 	return ci.req.Header
 }
 
-func NewCallInfo(call *models.Call, req *http.Request, maxRespSize uint64) CallInfo {
+func NewCallInfo(call *models.Call, req *http.Request) CallInfo {
 	ci := &callInfoImpl{
-		call:            call,
-		req:             req,
-		maxResponseSize: maxRespSize,
+		call: call,
+		req:  req,
 	}
 	return ci
 }

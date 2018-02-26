@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
 )
@@ -60,9 +59,9 @@ func (p *JSONProtocol) IsStreamable() bool {
 }
 
 func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
-	buf := BufPool.Get().(*bytes.Buffer)
+	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	defer BufPool.Put(buf)
+	defer bufPool.Put(buf)
 
 	_, err := io.Copy(buf, ci.Input())
 	if err != nil {
@@ -99,17 +98,9 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	}
 
 	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
-
 	var jout jsonOut
-	reader := common.NewClampReader(h.out, ci.MaxResponseSize(), true)
-	err = json.NewDecoder(reader).Decode(&jout)
+	err = json.NewDecoder(h.out).Decode(&jout)
 	span.Finish()
-
-	if cl, ok := reader.(*common.ClampReader); ok {
-		if cl.IsOverflow {
-			return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: body too large"))
-		}
-	}
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
