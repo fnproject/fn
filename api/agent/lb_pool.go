@@ -318,6 +318,7 @@ func blockingDial(ctx context.Context, address string, creds credentials.Transpo
 }
 
 func (r *gRPCRunner) TryExec(ctx context.Context, call *call) (bool, error) {
+	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
 	r.wg.Add(1)
 	defer r.wg.Done()
 

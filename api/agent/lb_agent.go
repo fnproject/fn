@@ -86,10 +86,7 @@ func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, l
 			return models.ErrCallTimeoutServerBusy
 		}
 
-		// TODO we might need to diff new runner set with previous and explicitly close dropped ones
-		runnerList := np.Runners(lbGroupID)
-
-		for _, r := range runnerList {
+		for _, r := range np.Runners(lbGroupID) {
 			placed, err := r.TryExec(ctx, call)
 			if err != nil {
 				logrus.WithError(err).Error("Failed during call placement")
