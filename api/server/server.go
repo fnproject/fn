@@ -142,6 +142,8 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	// Also we only need to create an agent if this is not an API node.
 	if nodeType != ServerTypeAPI {
 		opts = append(opts, WithAgentFromEnv())
+	} else {
+		opts = append(opts, WithLogstoreFromDatastore())
 	}
 	return New(ctx, opts...)
 }
@@ -303,6 +305,18 @@ func WithLogstore(ls models.LogStore) ServerOption {
 func WithAgent(agent agent.Agent) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.agent = agent
+		return nil
+	}
+}
+
+func WithLogstoreFromDatastore() ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if s.datastore == nil {
+			return errors.New("Need a datastore in order to use it as a logstore")
+		}
+		if s.logstore == nil {
+			s.logstore = s.datastore
+		}
 		return nil
 	}
 }
