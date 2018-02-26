@@ -7,6 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"time"
+
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
@@ -15,17 +21,12 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"time"
 )
 
 type pureRunner struct {
-	gRPCServer  *grpc.Server
-	listen      string
-	a           Agent
+	gRPCServer *grpc.Server
+	listen     string
+	a          Agent
 }
 
 type writerFacade struct {
@@ -125,7 +126,7 @@ type callState struct {
 	started       bool
 	receivedTime  strfmt.DateTime // When was the call received?
 	allocatedTime strfmt.DateTime // When did we finish allocating the slot?
-	streamError   error // Last communication error on the stream
+	streamError   error           // Last communication error on the stream
 }
 
 func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, state *callState) error {
@@ -217,7 +218,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			outStatus:     200,
 			headerWritten: false,
 		},
-		started: false,
+		started:     false,
 		streamError: nil,
 	}
 
@@ -280,7 +281,6 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			return fmt.Errorf("Unrecognized or unhandled message in receive loop")
 		}
 	}
-	return nil
 }
 
 func (pr *pureRunner) Start() error {
