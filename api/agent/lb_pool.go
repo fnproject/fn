@@ -22,8 +22,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	CapacityUpdatePeriod = 1 * time.Second
+)
+
 type NodePool interface {
 	Runners(lbgID string) []Runner
+	AssignCapacity(capacity *poolmanager.CapacityEntry, lbgID string)
+	ReleaseCapacity(capacity *poolmanager.CapacityEntry, lbgID string)
 	Shutdown()
 }
 
@@ -32,9 +38,10 @@ type Runner interface {
 }
 
 type gRPCNodePool struct {
-	npm poolmanager.NodePoolManager
-	mx  sync.RWMutex
-	lbg map[string]*lbg // {lbgid -> *lbg}
+	npm        poolmanager.NodePoolManager
+	aggregator poolmanager.CapacityAggregator
+	mx         sync.RWMutex
+	lbg        map[string]*lbg // {lbgid -> *lbg}
 	//TODO find a better place for this
 	pki pkiData
 
@@ -62,23 +69,25 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-func NewgRPCNodePool(npmAddress string, cert string, key string, ca string, capacityAggregator poolmanager.CapacityAggregator) *gRPCNodePool {
+func NewgRPCNodePool(npmAddress string, cert string, key string, ca string) *gRPCNodePool {
 	p := pkiData{
 		ca:   ca,
 		cert: cert,
 		key:  key,
 	}
+
 	np := &gRPCNodePool{
-		npm:      poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
-		lbg:      make(map[string]*lbg),
-		shutdown: make(chan struct{}),
-		pki:      p,
+		npm:        poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
+		aggregator: poolmanager.NewCapacityAggregator(),
+		lbg:        make(map[string]*lbg),
+		shutdown:   make(chan struct{}),
+		pki:        p,
 	}
 	go np.maintenance()
 	// TODO do we need to persistent this ID in order to survive restart?
 	lbID := id.New().String()
 
-	np.npm.ScheduleUpdates(lbID, capacityAggregator, 1*time.Second)
+	np.npm.ScheduleUpdates(lbID, np.aggregator, CapacityUpdatePeriod)
 	return np
 }
 
@@ -101,6 +110,14 @@ func (np *gRPCNodePool) Runners(lbgID string) []Runner {
 }
 
 func (np *gRPCNodePool) Shutdown() {
+}
+
+func (np *gRPCNodePool) AssignCapacity(capacity *poolmanager.CapacityEntry, lbgID string) {
+	np.aggregator.AssignCapacity(capacity, lbgID)
+
+}
+func (np *gRPCNodePool) ReleaseCapacity(capacity *poolmanager.CapacityEntry, lbgID string) {
+	np.aggregator.ReleaseCapacity(capacity, lbgID)
 }
 
 func (np *gRPCNodePool) maintenance() {

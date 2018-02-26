@@ -61,9 +61,24 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 	lbGroupID := GetGroupID(call.Model())
 
 	capacityRequest := &poolmanager.CapacityEntry{TotalMemoryMb: memMb}
-	a.capacityAggregator.AssignCapacity(capacityRequest, lbGroupID)
-	defer a.capacityAggregator.ReleaseCapacity(capacityRequest, lbGroupID)
+	a.np.AssignCapacity(capacityRequest, lbGroupID)
+	defer a.np.ReleaseCapacity(capacityRequest, lbGroupID)
 
+	err := a.placer.PlaceCall(a.np, ctx, call, lbGroupID)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to place call")
+	}
+	return err
+}
+
+type Placer interface {
+	PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error
+}
+
+type naivePlacer struct {
+}
+
+func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error {
 	deadline := call.slotDeadline
 
 	for {
@@ -72,7 +87,7 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 		}
 
 		// TODO we might need to diff new runner set with previous and explicitly close dropped ones
-		runnerList := a.np.Runners(lbGroupID)
+		runnerList := np.Runners(lbGroupID)
 
 		for _, r := range runnerList {
 			placed, err := r.TryExec(ctx, call)
@@ -87,6 +102,7 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 
 		time.Sleep(retryWaitInterval)
 	}
+
 }
 
 func (s *remoteSlot) Close(ctx context.Context) error {
@@ -108,20 +124,17 @@ const (
 )
 
 type lbAgent struct {
-	delegatedAgent     Agent
-	capacityAggregator poolmanager.CapacityAggregator
-	np                 NodePool
+	delegatedAgent Agent
+	np             NodePool
+	placer         Placer
 }
 
 func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string) Agent {
-	aggr := poolmanager.NewCapacityAggregator()
-	a := &lbAgent{
-		delegatedAgent:     agent,
-		capacityAggregator: aggr,
-		np:                 NewgRPCNodePool(npmAddress, cert, key, ca, aggr),
+	return &lbAgent{
+		delegatedAgent: agent,
+		np:             NewgRPCNodePool(npmAddress, cert, key, ca),
+		placer:         &naivePlacer{},
 	}
-
-	return a
 }
 
 // GetCall delegates to the wrapped agent, but it adds a "slot reservation" for
