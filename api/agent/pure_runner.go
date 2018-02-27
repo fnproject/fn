@@ -11,11 +11,13 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -27,6 +29,7 @@ type pureRunner struct {
 	gRPCServer *grpc.Server
 	listen     string
 	a          Agent
+	inflight   int32
 }
 
 type writerFacade struct {
@@ -198,6 +201,10 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 
 // Handles a client engagement
 func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) error {
+	// Keep lightweight tabs on what this runner is doing: for draindown tests
+	atomic.AddInt32(&pr.inflight, 1)
+	defer atomic.AddInt32(&pr.inflight, -1)
+
 	pv, ok := peer.FromContext(engagement.Context())
 	authInfo := pv.AuthInfo.(credentials.TLSInfo)
 	clientCn := authInfo.State.PeerCertificates[0].Subject.CommonName
@@ -281,6 +288,12 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			return fmt.Errorf("Unrecognized or unhandled message in receive loop")
 		}
 	}
+}
+
+func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
+	return &runner.RunnerStatus{
+		Active: atomic.LoadInt32(&pr.inflight),
+	}, nil
 }
 
 func (pr *pureRunner) Start() error {

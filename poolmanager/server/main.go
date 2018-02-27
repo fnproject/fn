@@ -55,7 +55,11 @@ func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*m
 		runners[i] = &model.Runner{Address: r}
 	}
 	membership.Runners = runners
-	logrus.Infof("LBGroup membership for %v is %+v", gid.GetId(), runners)
+	if len(runners) > 0 {
+		logrus.Infof("LBGroup membership for %v is %+v", gid.GetId(), runners)
+	} else {
+		logrus.Debugf("LBGroup membership for %v is %+v", gid.GetId(), runners)
+	}
 	return membership, nil
 }
 

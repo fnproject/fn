@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+
 // Request to allocate a slot for a call
 message TryCall {
     string models_call_json = 1;
@@ -62,6 +64,13 @@ message RunnerMsg {
     }
 }
 
+message RunnerStatus {
+    int32 active = 2;  // Number of currently inflight responses
+}
+
 service RunnerProtocol {
     rpc Engage (stream ClientMsg) returns (stream RunnerMsg);
+
+    // Rather than rely on Prometheus for this, expose status that's specific to the runner lifecycle through this.
+    rpc Status(google.protobuf.Empty) returns (RunnerStatus);
 }
