@@ -384,14 +384,10 @@ type waitResult struct {
 
 // waitResult implements drivers.WaitResult
 func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
-	defer func() {
-		w.waiter.Close()
-		w.waiter.Wait() // wait for Close() to finish processing, to make sure we gather all logs
-		close(w.done)
-	}()
+	defer close(w.done)
 
 	// wait until container is stopped (or ctx is cancelled if sooner)
-	status, err := w.drv.wait(ctx, w.container)
+	status, err := w.wait(ctx)
 	return &runResult{
 		status: status,
 		err:    err,
@@ -545,11 +541,18 @@ func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string)
 	return nil
 }
 
-func (drv *DockerDriver) wait(ctx context.Context, container string) (status string, err error) {
+func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	// wait retries internally until ctx is up, so we can ignore the error and
 	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
 	// a more prevalent case is calling wait & container already finished, so again ignore err.
-	exitCode, _ := drv.docker.WaitContainerWithContext(container, ctx)
+	exitCode, _ := w.drv.docker.WaitContainerWithContext(w.container, ctx)
+
+	w.waiter.Close()
+	err = w.waiter.Wait()
+	if err != nil {
+		// plumb up i/o errors (NOTE: which MAY be typed)
+		return drivers.StatusError, err
+	}
 
 	// check the context first, if it's done then exitCode is invalid iff zero
 	// (can't know 100% without inspecting, but that's expensive and this is a good guess)
