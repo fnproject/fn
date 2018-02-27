@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
@@ -56,6 +57,8 @@ type lbg struct {
 	mx      sync.RWMutex
 	id      string
 	runners map[string]*gRPCRunner
+	r_list  atomic.Value	// We attempt to maintain the same order of runners as advertised by the NPM.
+						    // This is to preserve as reasonable behaviour as possible for the CH algorithm
 }
 
 type gRPCRunner struct {
@@ -134,10 +137,13 @@ func (np *gRPCNodePool) maintenance() {
 }
 
 func newLBG(lbgID string) *lbg {
-	return &lbg{
+	lbg := &lbg{
 		id:      lbgID,
 		runners: map[string]*gRPCRunner{},
+		r_list:  atomic.Value{},
 	}
+	lbg.r_list.Store([]Runner{})
+	return lbg
 }
 
 func (np *gRPCNodePool) reloadLBGmembership() {
@@ -150,11 +156,11 @@ func (np *gRPCNodePool) reloadLBGmembership() {
 }
 
 func (lbg *lbg) runnerList() []Runner {
-	lbg.mx.RLock()
-	defer lbg.mx.RUnlock()
-	runners := []Runner{}
-	for _, r := range lbg.runners {
-		runners = append(runners, r)
+	orig_runners := lbg.r_list.Load().([]Runner)
+	// XXX: Return a copy. If we required this to be immutably read by the caller, we could return the structure directly
+	runners := make([]Runner, len(orig_runners))
+	for i, r := range orig_runners {
+		runners[i] = r
 	}
 	return runners
 }
@@ -167,20 +173,24 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 	}
 	lbg.mx.Lock()
 	defer lbg.mx.Unlock()
+	r_list := make([]Runner, len(runners))
 	seen := map[string]bool{} // If we've seen a particular runner or not
-	for _, addr := range runners {
-		_, ok := lbg.runners[addr]
+	for i, addr := range runners {
+		r, ok := lbg.runners[addr]
 		if !ok {
 			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
 			conn, client := runnerConnection(addr, lbgID, p)
-			lbg.runners[addr] = &gRPCRunner{
+			r = &gRPCRunner{
 				address: addr,
 				conn:    conn,
 				client:  client,
 			}
+			lbg.runners[addr] = r
 		}
+		r_list[i] = r  // Maintain the delivered order
 		seen[addr] = true
 	}
+	lbg.r_list.Store(r_list)
 
 	// Remove any runners that we have not encountered
 	for addr, r := range lbg.runners {
