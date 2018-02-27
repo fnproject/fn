@@ -157,13 +157,16 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
-	expHeaders := map[string][]string{"X-Function": {"Test"}}
+	expHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"application/json; charset=utf-8"}}
+	expCTHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"foo/bar"}}
 
-	crasher := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`          // crash container
-	oomer := `{"sleepTime": 0, "isDebug": true, "allocateMemory": 12000000}` // ask for 12MB
-	badHttp := `{"sleepTime": 0, "isDebug": true, "responseCode": -1}`       // http status of -1 (invalid http)
-	badHot := `{"invalidResponse": true, "isDebug": true}`                   // write a not json/http as output
-	ok := `{"sleepTime": 0, "isDebug": true}`                                // good response / ok
+	crasher := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`                     // crash container
+	oomer := `{"sleepTime": 0, "isDebug": true, "allocateMemory": 12000000}`            // ask for 12MB
+	badHttp := `{"sleepTime": 0, "isDebug": true, "responseCode": -1}`                  // http status of -1 (invalid http)
+	badHot := `{"invalidResponse": true, "isDebug": true}`                              // write a not json/http as output
+	ok := `{"sleepTime": 0, "isDebug": true}`                                           // good response / ok
+	respTypeLie := `{"responseContentType": "foo/bar", "sleepTime":0, "isDebug": true}` // Content-Type: foo/bar
+	respTypeJason := `{"jasonContentType": "foo/bar", "sleepTime":0, "isDebug": true}`  // Content-Type: foo/bar
 
 	for i, test := range []struct {
 		path              string
@@ -178,6 +181,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
 		// hot container now back to normal, we should get OK
 		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, ""},
+
+		{"/r/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, ""},
+
+		{"/r/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, ""},
+		{"/r/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, ""},
+		{"/r/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, ""},
 
 		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
 		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response"},
@@ -217,8 +226,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 			for name, header := range test.expectedHeaders {
 				if header[0] != rec.Header().Get(name) {
 					isFailure = true
-					t.Errorf("Test %d: Expected header `%s` to be %s but was %s",
-						i, name, header[0], rec.Header().Get(name))
+					t.Errorf("Test %d: Expected header `%s` to be %s but was %s. body: %s",
+						i, name, header[0], rec.Header().Get(name), respBody)
 				}
 			}
 		}

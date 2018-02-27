@@ -7,10 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
+	"sync"
 
 	"github.com/fnproject/fn/api/models"
 	opentracing "github.com/opentracing/opentracing-go"
+)
+
+var (
+	bufPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
 // CallRequestHTTP for the protocol that was used by the end user to call this function. We only have HTTP right now.
@@ -121,11 +125,20 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 				rw.Header().Add(k, vv) // on top of any specified on the route
 			}
 		}
-		if p.StatusCode != 0 {
-			rw.WriteHeader(p.StatusCode)
-		}
 	}
-	rw.Header().Set("Content-Length", strconv.Itoa(len(jout.Body)))
+	// after other header setting, top level content_type takes precedence and is
+	// absolute (if set). it is expected that if users want to set multiple
+	// values they put it in the string, e.g. `"content-type:"application/json; charset=utf-8"`
+	// TODO this value should not exist since it's redundant in proto headers?
+	if jout.ContentType != "" {
+		rw.Header().Set("Content-Type", jout.ContentType)
+	}
+
+	// we must set all headers before writing the status, see http.ResponseWriter contract
+	if p := jout.Protocol; p != nil && p.StatusCode != 0 {
+		rw.WriteHeader(p.StatusCode)
+	}
+
 	_, err = io.WriteString(rw, jout.Body)
 	return err
 }
