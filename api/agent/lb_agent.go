@@ -131,7 +131,6 @@ type LBAgentOption func(*lbAgent) error
 func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string, opts ... LBAgentOption) (Agent, error) {
 	a := &lbAgent{
 		delegatedAgent: agent,
-		np:             NewgRPCNodePool(npmAddress, cert, key, ca),
 		placer:         &naivePlacer{},
 	}
 	for _, o := range opts {
@@ -140,12 +139,22 @@ func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca stri
 			return nil, err
 		}
 	}
+	if a.np == nil {
+		a.np = NewgRPCNodePool(npmAddress, cert, key, ca, GRPCRunnerFactory)
+	}
 	return a, nil
 }
 
 func WithPlacer(p Placer) LBAgentOption {
 	return func(a *lbAgent) error {
 		a.placer = p
+		return nil
+	}
+}
+
+func WithNodePool(np NodePool) LBAgentOption {
+	return func(a *lbAgent) error {
+		a.np = np
 		return nil
 	}
 }
@@ -171,7 +180,6 @@ func GetGroupID(call *models.Call) string {
 
 func (a *lbAgent) Submit(call Call) error {
 	return a.delegatedAgent.Submit(call)
-
 }
 
 func (a *lbAgent) PromHandler() http.Handler {

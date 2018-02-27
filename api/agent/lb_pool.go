@@ -33,13 +33,18 @@ type NodePool interface {
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
 	TryExec(ctx context.Context, call *call) (bool, error)
+	Close()
 }
+
+// RunnerFactory is a factory func that creates a Runner usable by the pool.
+type RunnerFactory func(addr string, lbgId string, pki pkiData) (Runner, error)
 
 type gRPCNodePool struct {
 	npm        poolmanager.NodePoolManager
 	aggregator poolmanager.CapacityAggregator
 	mx         sync.RWMutex
 	lbg        map[string]*lbg // {lbgid -> *lbg}
+	generator  RunnerFactory
 	//TODO find a better place for this
 	pki pkiData
 
@@ -56,9 +61,10 @@ type pkiData struct {
 type lbg struct {
 	mx      sync.RWMutex
 	id      string
-	runners map[string]*gRPCRunner
+	runners map[string]Runner
 	r_list  atomic.Value	// We attempt to maintain the same order of runners as advertised by the NPM.
 						    // This is to preserve as reasonable behaviour as possible for the CH algorithm
+	generator RunnerFactory
 }
 
 type gRPCRunner struct {
@@ -69,7 +75,16 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-func NewgRPCNodePool(npmAddress string, cert string, key string, ca string) *gRPCNodePool {
+func GRPCRunnerFactory(addr string, lbgID string, p pkiData) (Runner, error) {
+	conn, client := runnerConnection(addr, lbgID, p)
+	return &gRPCRunner{
+		address: addr,
+		conn:    conn,
+		client:  client,
+	}, nil
+}
+
+func NewgRPCNodePool(npmAddress string, cert string, key string, ca string, rf RunnerFactory) *gRPCNodePool {
 	p := pkiData{
 		ca:   ca,
 		cert: cert,
@@ -80,6 +95,7 @@ func NewgRPCNodePool(npmAddress string, cert string, key string, ca string) *gRP
 		npm:        poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
 		aggregator: poolmanager.NewCapacityAggregator(),
 		lbg:        make(map[string]*lbg),
+		generator:  rf,
 		shutdown:   make(chan struct{}),
 		pki:        p,
 	}
@@ -100,7 +116,7 @@ func (np *gRPCNodePool) Runners(lbgID string) []Runner {
 		np.mx.Lock()
 		lbg, ok = np.lbg[lbgID]
 		if !ok {
-			lbg = newLBG(lbgID)
+			lbg = newLBG(lbgID, np.generator)
 			np.lbg[lbgID] = lbg
 		}
 		np.mx.Unlock()
@@ -136,11 +152,12 @@ func (np *gRPCNodePool) maintenance() {
 
 }
 
-func newLBG(lbgID string) *lbg {
+func newLBG(lbgID string, generator RunnerFactory) *lbg {
 	lbg := &lbg{
-		id:      lbgID,
-		runners: map[string]*gRPCRunner{},
-		r_list:  atomic.Value{},
+		id:        lbgID,
+		runners:   make(map[string]Runner),
+		r_list:    atomic.Value{},
+		generator: generator,
 	}
 	lbg.r_list.Store([]Runner{})
 	return lbg
@@ -179,11 +196,10 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 		r, ok := lbg.runners[addr]
 		if !ok {
 			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
-			conn, client := runnerConnection(addr, lbgID, p)
-			r = &gRPCRunner{
-				address: addr,
-				conn:    conn,
-				client:  client,
+			r, err := lbg.generator(addr, lbgID, p)
+			if err != nil {
+				// TODO: what?
+				panic(err)
 			}
 			lbg.runners[addr] = r
 		}
@@ -197,12 +213,12 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 		if _, ok := seen[addr]; !ok {
 			logrus.WithField("Runner_addr", addr).Debug("Removing drained runner")
 			delete(lbg.runners, addr)
-			r.close()
+			r.Close()
 		}
 	}
 }
 
-func (r *gRPCRunner) close() {
+func (r *gRPCRunner) Close() {
 	go func() {
 		r.wg.Wait()
 		r.conn.Close()
