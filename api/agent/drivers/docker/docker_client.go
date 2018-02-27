@@ -282,17 +282,12 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 }
 
 func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err error) {
-	ctx, span := trace.StartSpan(ctx, "docker_server_version")
-	defer span.End()
-
-	logger := common.Logger(ctx).WithField("docker_cmd", "DockerInfo")
-	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, logger, func() error {
-		info, err = d.docker.Info()
-		return err
-	})
-	return info, err
+	// NOTE: we're not very responsible and prometheus wasn't loved as a child, this
+	// threads through directly down to the docker call, skipping retires, so that we
+	// don't have to add tags / tracing / logger to the bare context handed to the one
+	// place this is called in initialization that has no context to report consistent
+	// stats like everything else in here. tl;dr this works, just don't use it for anything else.
+	return d.docker.Info()
 }
 
 func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
@@ -368,12 +363,14 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
 	// extract the span, but do not keep the context, since the enclosing context
 	// may be timed out, and we still want to remove the container. TODO in caller? who cares?
-	_, span := trace.StartSpan(opts.Context, "docker_remove_container")
+	ctx := common.BackgroundContext(opts.Context)
+	ctx, span := trace.StartSpan(ctx, "docker_remove_container")
 	defer span.End()
-	ctx := trace.WithSpan(context.Background(), span)
 
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
+
+	opts.Context = ctx
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "RemoveContainer")
 	err = d.retry(ctx, logger, func() error {

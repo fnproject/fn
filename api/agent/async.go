@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"go.opencensus.io/trace"
-
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 func (a *agent) asyncDequeue() {
@@ -76,6 +76,24 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	// IMPORTANT: get a context that has a child span but NO timeout (Submit imposes timeout)
 	// TODO this is a 'FollowsFrom'
 	ctx = common.BackgroundContext(ctx)
+
+	// since async doesn't come in through the normal request path,
+	// we've gotta add tags here for stats to come out properly.
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	ctx, err = tag.New(ctx,
+		tag.Insert(appKey, model.AppName),
+		tag.Insert(pathKey, model.Path),
+	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	// additional enclosing context here since this isn't spawned from an http request
 	ctx, span := trace.StartSpan(ctx, "agent_async_run")

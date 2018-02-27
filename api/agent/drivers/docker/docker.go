@@ -79,7 +79,6 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 }
 
 func checkDockerVersion(driver *DockerDriver, expected string) error {
-
 	info, err := driver.docker.Info(context.Background())
 	if err != nil {
 		return err

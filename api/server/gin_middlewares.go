@@ -49,6 +49,9 @@ func traceWrap(c *gin.Context) {
 		tag.Insert(appKey, c.Param(api.CApp)),
 		tag.Insert(pathKey, c.Param(api.CRoute)),
 	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	// TODO inspect opencensus more and see if we need to define a header ourselves
 	// to trigger per-request spans (we will want this), we can set sampler here per request.
