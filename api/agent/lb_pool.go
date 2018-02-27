@@ -142,8 +142,9 @@ func newLBG(lbgID string) *lbg {
 
 func (np *gRPCNodePool) reloadLBGmembership() {
 	np.mx.RLock()
-	defer np.mx.RUnlock() // XXX fix locking
-	for lbgID, lbg := range np.lbg {
+	lbgroups := np.lbg
+	np.mx.RUnlock()
+	for lbgID, lbg := range lbgroups {
 		lbg.reloadMembers(lbgID, np.npm, np.pki)
 	}
 }
@@ -162,7 +163,6 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 
 	runners, err := npm.GetRunners(lbgID)
 	if err != nil {
-		// XXX log and fall out
 		logrus.Debug("Failed to get the list of runners from node pool manager")
 	}
 	lbg.mx.Lock()
@@ -200,8 +200,6 @@ func (r *gRPCRunner) close() {
 }
 
 func runnerConnection(address, lbGroupID string, pki pkiData) (*grpc.ClientConn, pb.RunnerProtocolClient) {
-	// Not connected, so create a connection with the TLS credentials
-	//	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connecting to runner")
 	ctx := context.Background()
 
 	creds, err := grpcutil.CreateCredentials(pki.cert, pki.key, pki.ca)
@@ -214,10 +212,6 @@ func runnerConnection(address, lbGroupID string, pki pkiData) (*grpc.ClientConn,
 	if err != nil {
 		logrus.WithError(err).Error("Unable to connect to runner node")
 	}
-
-	// We don't explicitly close connections to runners. Instead, we won't reconnect to them
-	// if they are shutdown and not active
-	// defer conn.Close()
 
 	protocolClient := pb.NewRunnerProtocolClient(conn)
 	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connected to runner")
