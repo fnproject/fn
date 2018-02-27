@@ -204,6 +204,14 @@ func IsAPIError(e error) bool {
 	return ok
 }
 
+func GetAPIErrorCode(e error) int {
+	err, ok := e.(APIError)
+	if ok {
+		return err.Code()
+	}
+	return 0
+}
+
 // Error uniform error output
 type Error struct {
 	Error *ErrorBody `json:"error,omitempty"`
