@@ -326,16 +326,11 @@ func getSlotQueueKey(call *call) string {
 	}
 
 	var buf [sha1.Size]byte
-	byts := hash.Sum(buf[:0])
-	return unsafeString(byts)
+	hash.Sum(buf[:0])
+	return string(buf[:])
 }
 
 // WARN: this is read only
 func unsafeBytes(a string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&a))
-}
-
-// WARN: this is read only
-func unsafeString(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
 }
