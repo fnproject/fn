@@ -264,11 +264,10 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call *call) (bool, error) {
 			// Try the next runner
 		}
 		logrus.Info("Runner committed invocation request, sending data frames")
-		done := make(chan struct{})
+		done := make(chan error)
 		go receiveFromRunner(runnerConnection, call, done)
 		sendToRunner(call, runnerConnection)
-		<-done
-		return true, nil
+		return true, <-done
 
 	default:
 		logrus.Info("Unhandled message type received from runner: %v\n", msg)
@@ -319,11 +318,12 @@ func sendToRunner(call Call, protocolClient pb.RunnerProtocol_EngageClient) erro
 	return nil
 }
 
-func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call Call, done chan struct{}) {
+func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call Call, done chan error) {
 	w, err := ResponseWriter(&call)
 
 	if err != nil {
 		logrus.WithError(err).Error("Unable to get response writer from call")
+		done <- err
 		return
 	}
 
@@ -331,6 +331,7 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, call Call,
 		msg, err := protocolClient.Recv()
 		if err != nil {
 			logrus.WithError(err).Error("Failed to receive message from runner")
+			done <- err
 			return
 		}
 
