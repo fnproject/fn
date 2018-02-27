@@ -9,9 +9,9 @@ import (
 )
 
 type AgentConfig struct {
-	MinDockerVersion string        `json:"minDockerVersion"`
-	FreezeIdleMsecs  time.Duration `json:"freezeIdleMsecs"`
-	EjectIdleMsecs   time.Duration `json:"ejectIdleMsecs"`
+	MinDockerVersion string        `json:"min_docker_version"`
+	FreezeIdleMsecs  time.Duration `json:"freeze_idle_msecs"`
+	EjectIdleMsecs   time.Duration `json:"eject_idle_msecs"`
 }
 
 func NewAgentConfig() (*AgentConfig, error) {
