@@ -98,13 +98,12 @@ type dockerWrap struct {
 	dockerNoTimeout *docker.Client
 }
 
-func (d *dockerWrap) retry(ctx context.Context, f func() error) error {
+func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f func() error) error {
 	var i int
 	var err error
 	span := opentracing.SpanFromContext(ctx)
 	defer func() { span.LogFields(log.Int("docker_call_retries", i)) }()
 
-	logger := common.Logger(ctx)
 	var b common.Backoff
 	// 10 retries w/o change to backoff is ~13s if ops take ~0 time
 	for ; i < 10; i++ {
@@ -180,9 +179,10 @@ func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err err
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_server_version")
 	defer span.Finish()
 
+	logger := common.Logger(ctx).WithField("docker_cmd", "DockerInfo")
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+	err = d.retry(ctx, logger, func() error {
 		info, err = d.docker.Info()
 		return err
 	})
@@ -193,9 +193,10 @@ func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts dock
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_attach_container")
 	defer span.Finish()
 
+	logger := common.Logger(ctx).WithField("docker_cmd", "AttachContainer")
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+	err = d.retry(ctx, logger, func() error {
 		w, err = d.docker.AttachToContainerNonBlocking(opts)
 		if err != nil {
 			// always retry if attach errors, task is running, we want logs!
@@ -209,7 +210,9 @@ func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts dock
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_wait_container")
 	defer span.Finish()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "WaitContainer")
+	err = d.retry(ctx, logger, func() error {
 		code, err = d.dockerNoTimeout.WaitContainerWithContext(id, ctx)
 		return err
 	})
@@ -219,7 +222,9 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) (err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_start_container")
 	defer span.Finish()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "StartContainer")
+	err = d.retry(ctx, logger, func() error {
 		err = d.dockerNoTimeout.StartContainerWithContext(id, hostConfig, ctx)
 		if _, ok := err.(*docker.NoSuchContainer); ok {
 			// for some reason create will sometimes return successfully then say no such container here. wtf. so just retry like normal
@@ -233,7 +238,9 @@ func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.Hos
 func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *docker.Container, err error) {
 	span, ctx := opentracing.StartSpanFromContext(opts.Context, "docker_create_container")
 	defer span.Finish()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "CreateContainer")
+	err = d.retry(ctx, logger, func() error {
 		c, err = d.dockerNoTimeout.CreateContainer(opts)
 		return err
 	})
@@ -243,7 +250,9 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {
 	span, ctx := opentracing.StartSpanFromContext(opts.Context, "docker_pull_image")
 	defer span.Finish()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "PullImage")
+	err = d.retry(ctx, logger, func() error {
 		err = d.dockerNoTimeout.PullImage(opts, auth)
 		return err
 	})
@@ -259,7 +268,9 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "RemoveContainer")
+	err = d.retry(ctx, logger, func() error {
 		err = d.docker.RemoveContainer(opts)
 		return err
 	})
@@ -271,7 +282,9 @@ func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) 
 	defer span.Finish()
 	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "PauseContainer")
+	err = d.retry(ctx, logger, func() error {
 		err = d.docker.PauseContainer(id)
 		return err
 	})
@@ -283,7 +296,9 @@ func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error
 	defer span.Finish()
 	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "UnpauseContainer")
+	err = d.retry(ctx, logger, func() error {
 		err = d.docker.UnpauseContainer(id)
 		return err
 	})
@@ -295,7 +310,9 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 	defer span.Finish()
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "InspectImage")
+	err = d.retry(ctx, logger, func() error {
 		i, err = d.docker.InspectImage(name)
 		return err
 	})
@@ -307,7 +324,9 @@ func (d *dockerWrap) InspectContainerWithContext(container string, ctx context.C
 	defer span.Finish()
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
-	err = d.retry(ctx, func() error {
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "InspectContainer")
+	err = d.retry(ctx, logger, func() error {
 		c, err = d.docker.InspectContainerWithContext(container, ctx)
 		return err
 	})

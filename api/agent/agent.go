@@ -88,10 +88,6 @@ type Agent interface {
 	// Close is not safe to be called from multiple threads.
 	io.Closer
 
-	// Stats should be burned at the stake. adding so as to not ruffle feathers.
-	// TODO this should be derived from our metrics
-	Stats() Stats
-
 	// Return the http.Handler used to handle Prometheus metric requests
 	PromHandler() http.Handler
 	AddCallListener(fnext.CallListener)
@@ -118,8 +114,6 @@ type agent struct {
 
 	freezeIdleMsecs time.Duration
 	ejectIdleMsecs  time.Duration
-
-	stats // TODO kill me
 
 	// Prometheus HTTP handler
 	promHandler http.Handler
@@ -249,7 +243,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	var slot Slot
 	var err error
 	if call.reservedSlot == nil {
-		a.stats.Enqueue(ctx, call.AppName, call.Path)
+	    StatsEnqueue(ctx)
 
 		a.startStateTrackers(ctx, call)
 		defer a.endStateTrackers(ctx, call)
@@ -272,7 +266,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	}
 
 	// decrement queued count, increment running count
-	a.stats.DequeueAndStart(ctx, call.AppName, call.Path)
+	StatsDequeueAndStart(ctx)
 
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	err = slot.exec(ctx, call)
@@ -299,11 +293,11 @@ func transformTimeout(e error, isRetriable bool) error {
 // cases. Only timeouts can be a simple dequeue while other cases are actual errors.
 func (a *agent) handleStatsDequeue(ctx context.Context, call *call, err error) {
 	if err == context.DeadlineExceeded {
-		a.stats.Dequeue(ctx, call.AppName, call.Path)
-		IncrementTooBusy(ctx)
+		StatsDequeue(ctx)
+		StatsIncrementTooBusy(ctx)
 	} else {
-		a.stats.DequeueAndFail(ctx, call.AppName, call.Path)
-		IncrementErrors(ctx)
+		StatsDequeueAndFail(ctx)
+		StatsIncrementErrors(ctx)
 	}
 }
 
@@ -311,15 +305,15 @@ func (a *agent) handleStatsDequeue(ctx context.Context, call *call, err error) {
 func (a *agent) handleStatsEnd(ctx context.Context, call *call, err error) {
 	if err == nil {
 		// decrement running count, increment completed count
-		a.stats.Complete(ctx, call.AppName, call.Path)
+		StatsComplete(ctx)
 	} else {
 		// decrement running count, increment failed count
-		a.stats.Failed(ctx, call.AppName, call.Path)
+		StatsFailed(ctx)
 		// increment the timeout or errors count, as appropriate
 		if err == context.DeadlineExceeded {
-			IncrementTimedout(ctx)
+			StatsIncrementTimedout(ctx)
 		} else {
-			IncrementErrors(ctx)
+			StatsIncrementErrors(ctx)
 		}
 	}
 }

@@ -174,10 +174,6 @@ func (a *lbAgent) Submit(call Call) error {
 
 }
 
-func (a *lbAgent) Stats() Stats {
-	return a.delegatedAgent.Stats()
-}
-
 func (a *lbAgent) PromHandler() http.Handler {
 	return a.delegatedAgent.PromHandler()
 }

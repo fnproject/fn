@@ -605,7 +605,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 	// TODO: move the following under v1
-	engine.GET("/stats", s.handleStats)
 	engine.GET("/metrics", s.handlePrometheusMetrics)
 
 	profilerSetup(engine, "/debug")

@@ -3,9 +3,12 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 type testSlot struct {
@@ -258,5 +261,52 @@ func TestSlotQueueBasic3(t *testing.T) {
 	err = checkGetTokenId(t, obj, timeout, 2)
 	if err != context.DeadlineExceeded {
 		t.Fatalf(err.Error())
+	}
+}
+
+func BenchmarkSlotKey(b *testing.B) {
+	appName := "myapp"
+	path := "/"
+	image := "fnproject/fn-test-utils"
+	const timeout = 1
+	const idleTimeout = 20
+	const memory = 256
+	CPUs := models.MilliCPUs(1000)
+	method := "GET"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+	payload := "payload"
+	typ := "sync"
+	format := "default"
+	cfg := models.Config{
+		"FN_FORMAT":   format,
+		"FN_APP_NAME": appName,
+		"FN_PATH":     path,
+		"FN_MEMORY":   strconv.Itoa(memory),
+		"FN_CPUS":     CPUs.String(),
+		"FN_TYPE":     typ,
+		"APP_VAR":     "FOO",
+		"ROUTE_VAR":   "BAR",
+	}
+
+	cm := &models.Call{
+		Config:      cfg,
+		AppName:     appName,
+		Path:        path,
+		Image:       image,
+		Type:        typ,
+		Format:      format,
+		Timeout:     timeout,
+		IdleTimeout: idleTimeout,
+		Memory:      memory,
+		CPUs:        CPUs,
+		Payload:     payload,
+		URL:         url,
+		Method:      method,
+	}
+
+	call := &call{Call: cm}
+
+	for i := 0; i < b.N; i++ {
+		_ = getSlotQueueKey(call)
 	}
 }

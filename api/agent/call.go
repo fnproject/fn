@@ -209,7 +209,7 @@ func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
 		c.slotDeadline = slotDeadline
 		c.execDeadline = execDeadline
 
-		a.stats.Enqueue(ctx, c.AppName, c.Path)
+		StatsEnqueue(ctx)
 
 		a.startStateTrackers(ctx, c)
 		// The call to a.endStateTrackers() will then be done by Submit
