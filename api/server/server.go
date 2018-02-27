@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -84,6 +83,7 @@ type Server struct {
 	appListeners    *appListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
+	promExporter    *prometheus.Exporter
 }
 
 func nodeTypeFromString(value string) ServerNodeType {
@@ -313,6 +313,17 @@ func WithTracer(zipkinURL string) ServerOption {
 			trace.SetDefaultSampler(trace.AlwaysSample())
 		}
 
+		// TODO we can keep this on *Server and unregister it in Close()... can finagle later. same for tracer
+		exporter, err := prometheus.NewExporter(prometheus.Options{
+			Namespace: "fn",
+			OnError:   func(err error) { logrus.WithError(err).Error("opencensus prometheus exporter err") },
+		})
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		s.promExporter = exporter
+		view.RegisterExporter(exporter)
+
 		return nil
 	}
 }
@@ -419,17 +430,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/", handlePing)
 	engine.GET("/version", handleVersion)
 
-	exporter, err := prometheus.NewExporter(prometheus.Options{
-		Namespace: "fn",
-		OnError:   func(err error) { logrus.WithError(err).Error("opencensus prometheus exporter err") },
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	view.RegisterExporter(exporter)
-
 	// TODO: move under v1 ?
-	engine.GET("/metrics", gin.WrapH(exporter))
+	engine.GET("/metrics", gin.WrapH(s.promExporter))
 
 	profilerSetup(engine, "/debug")
 
