@@ -243,6 +243,11 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 			k = "FN_HEADER_" + k
 			c.Call.Config[k] = strings.Join(v, ", ")
 		}
+
+		// Non-streaming protocols can execute only 1 request and
+		// also need an upper bound on container running time.
+		c.maxRequests = 1
+		c.maxAliveDeadline = execDeadline
 	}
 
 	return &c, nil
@@ -260,6 +265,14 @@ type call struct {
 	slotDeadline time.Time
 	execDeadline time.Time
 	requestState RequestState
+
+	// limit total requests that can be run on this container
+	// default: zero - unlimited
+	maxRequests uint64
+
+	// max alloved deadline for the container to run
+	// for streaming requests this should be unlimited/zero
+	maxAliveDeadline time.Time
 }
 
 func (c *call) Model() *models.Call { return c.Call }

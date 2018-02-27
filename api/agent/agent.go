@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -327,9 +326,10 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
-		a.checkLaunch(ctx, call)
+		isLaunched := a.checkLaunch(ctx, call)
 
-		if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		// Non streaming protocols can only launch one container
+		if isLaunched && !protocol.IsStreamable(protocol.Protocol(call.Format)) {
 			cancel()
 			return
 		}
@@ -349,12 +349,13 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	}
 }
 
-func (a *agent) checkLaunch(ctx context.Context, call *call) {
+func (a *agent) checkLaunch(ctx context.Context, call *call) bool {
 	curStats := call.slots.getStats()
 	isAsync := call.Type == models.TypeAsync
+	isLaunched := false
 	isNeeded := isNewContainerNeeded(&curStats)
 	if !isNeeded {
-		return
+		return isLaunched
 	}
 
 	state := NewContainerState()
@@ -370,11 +371,13 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 			a.runHot(ctx, call, tok, state)
 			a.wg.Done()
 		}()
+		isLaunched = true
 	case <-ctx.Done(): // timeout
 		state.UpdateState(ctx, ContainerStateDone, call.slots)
 	case <-a.shutdown: // server shutdown
 		state.UpdateState(ctx, ContainerStateDone, call.slots)
 	}
+	return isLaunched
 }
 
 // waitHot pings and waits for a hot container from the slot queue
@@ -395,6 +398,11 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		select {
 		case s := <-ch:
 			if call.slots.acquireSlot(s) {
+				// Here this is a policy decision. We fail fast and propagate
+				// these errors from container to the client. Alternatively,
+				// we could ignore this error and get another token with
+				// the hopes that the new token (using another container) will
+				// for fine.
 				if s.slot.Error() != nil {
 					s.slot.Close(ctx)
 					return nil, s.slot.Error()
@@ -425,16 +433,20 @@ type hotSlot struct {
 	done      chan struct{} // signal we are done with slot
 	errC      <-chan error  // container error
 	container *container    // TODO mask this
-	err       error
+	fatalErr  error         // non-recoverable error
+	shutdown  func()        // terminate the container
 }
 
 func (s *hotSlot) Close(ctx context.Context) error {
+	if s.fatalErr != nil && s.shutdown != nil {
+		s.shutdown()
+	}
 	close(s.done)
 	return nil
 }
 
 func (s *hotSlot) Error() error {
-	return s.err
+	return s.fatalErr
 }
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
@@ -460,35 +472,20 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	errApp := make(chan error, 1)
 	go func() {
 		ci := protocol.NewCallInfo(call.Call, call.req)
-		err := proto.Dispatch(ctx, ci, call.w)
-
-		// TODO: narrow this down to StatusBadGateway
-		// TODO: we can skip this for Cold containers, but let's not optimize Cold path
-		if err != nil && models.IsAPIError(err) {
-			// attempt to drain stdout before it gets closed.
-			// Typical example case is when we encounter a parse error upon read from container. eg. corrupt
-			// json or bad http. This typically means, the stdout has more data that has not been read, which
-			// will trip next request.
-			done := make(chan struct{})
-			go func() {
-				io.CopyN(ioutil.Discard, stdoutRead, 100*1024*1024)
-				close(done)
-			}()
-
-			// let drain, 50 msecs or 100MB, whichever comes first
-			select {
-			case <-done:
-			case <-time.After(time.Duration(50) * time.Millisecond):
-			}
-		}
-
-		errApp <- err
+		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 
 	select {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp: // from dispatch
+		if err != nil && models.IsAPIError(err) && s.fatalErr != nil {
+			// TODO: narrow this down to StatusBadGateway, we do not want to accidentally
+			// shutdown container due to client side errors. Alternatively Dispatch()
+			// should tell us if the error is from the container or not.
+			// TODO: we can skip this for Cold containers, but let's not optimize Cold path
+			s.fatalErr = err
+		}
 		return err
 	case <-ctx.Done(): // call timeout
 		return ctx.Err()
@@ -527,10 +524,6 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		stderr: stderr,
 	}
 
-	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		container.maxRequests = 1
-	}
-
 	logger := logrus.WithFields(logrus.Fields{
 		"id":           container.id,
 		"app":          call.AppName,
@@ -541,21 +534,21 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		"format":       call.Format,
 		"timeout":      call.Timeout,
 		"idle_timeout": call.IdleTimeout,
-		"max_requests": container.maxRequests,
+		"max_requests": call.maxRequests,
 	})
 
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
 	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
 	defer cookie.Close(ctx) // NOTE ensure this ctx doesn't time out
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
-		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), err: err})
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
 
@@ -570,7 +563,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
-		for idx := uint64(0); container.maxRequests == 0 || idx < container.maxRequests; idx++ {
+		for idx := uint64(0); call.maxRequests == 0 || idx < call.maxRequests; idx++ {
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
 				return
@@ -579,7 +572,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{make(chan struct{}), errC, container, nil}
+			slot := &hotSlot{make(chan struct{}), errC, container, nil, shutdownContainer}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
@@ -590,9 +583,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		}
 	}()
 
-	// Let's install a deadline for the container if applicable.
-	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
-		deadlineCtx, deadlineContainer := context.WithDeadline(ctx, call.execDeadline)
+	if !call.maxAliveDeadline.IsZero() {
+		deadlineCtx, deadlineContainer := context.WithDeadline(ctx, call.maxAliveDeadline)
 		defer deadlineContainer()
 		ctx = deadlineCtx
 	}
@@ -708,10 +700,6 @@ type container struct {
 	env    map[string]string
 	memory uint64
 	cpus   uint64
-
-	// limit total requests that can be run on this container
-	// default: zero - unlimited
-	maxRequests uint64
 
 	stdin  io.Reader
 	stdout io.Writer
