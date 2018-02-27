@@ -225,7 +225,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = trace.WithSpan(context.Background(), trace.FromContext(ctx))
+	ctx = common.BackgroundContext(ctx)
 	err = call.End(ctx, err)
 	return transformTimeout(err, false)
 }
@@ -314,7 +314,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = trace.WithSpan(common.WithLogger(context.Background(), logger), trace.FromContext(ctx))
+	ctx = common.BackgroundContext(ctx)
 	ctx, span := trace.StartSpan(ctx, "agent_hot_launcher")
 	defer span.End()
 
@@ -481,7 +481,7 @@ func (s *coldSlot) Close(ctx context.Context) error {
 		// call this from here so that in exec we don't have to eat container
 		// removal latency
 		// NOTE ensure container removal, no ctx timeout
-		ctx = trace.WithSpan(context.Background(), trace.FromContext(ctx))
+		ctx = common.BackgroundContext(ctx)
 		s.cookie.Close(ctx)
 	}
 	if s.tok != nil {
@@ -591,7 +591,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = trace.WithSpan(context.Background(), trace.FromContext(ctx))
+	ctx = common.BackgroundContext(ctx)
 	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
 	defer span.End()
 	defer tok.Close() // IMPORTANT: this MUST get called

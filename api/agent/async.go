@@ -6,6 +6,7 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
 )
@@ -74,7 +75,7 @@ func (a *agent) asyncChew(ctx context.Context) <-chan *models.Call {
 func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	// IMPORTANT: get a context that has a child span but NO timeout (Submit imposes timeout)
 	// TODO this is a 'FollowsFrom'
-	ctx = trace.WithSpan(context.Background(), trace.FromContext(ctx))
+	ctx = common.BackgroundContext(ctx)
 
 	// additional enclosing context here since this isn't spawned from an http request
 	ctx, span := trace.StartSpan(ctx, "agent_async_run")
