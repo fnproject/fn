@@ -121,7 +121,8 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 	if writer.Header().Get("Content-Type") == "" {
 		// see http.DetectContentType, the go server is supposed to do this for us but doesn't appear to?
 		var contentType string
-		if bytes.HasPrefix(buf.Bytes(), jsonPrefix) {
+		jsonPrefix := [1]byte{'{'} // stack allocated
+		if bytes.HasPrefix(buf.Bytes(), jsonPrefix[:]) {
 			// try to detect json, since DetectContentType isn't a hipster.
 			contentType = "application/json; charset=utf-8"
 		} else {
@@ -139,8 +140,6 @@ func (s *Server) serve(c *gin.Context, appName, path string) error {
 
 	return nil
 }
-
-var jsonPrefix = []byte("{")
 
 var _ http.ResponseWriter = new(syncResponseWriter)
 
