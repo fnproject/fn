@@ -1,4 +1,4 @@
-package poolmanager
+package grpcutil
 
 import (
 	"context"
@@ -16,7 +16,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func dialWithBackoff(ctx context.Context, address string, creds credentials.TransportCredentials, backoffCfg grpc.BackoffConfig) (*grpc.ClientConn, error) {
+// DialWithBackoff creates a grpc connection using backoff strategy for reconnections
+func DialWithBackoff(ctx context.Context, address string, creds credentials.TransportCredentials, backoffCfg grpc.BackoffConfig) (*grpc.ClientConn, error) {
 	return secureDial(ctx, address, creds, grpc.WithBackoffConfig(backoffCfg))
 }
 
@@ -49,7 +50,8 @@ func secureDial(ctx context.Context, address string, creds credentials.Transport
 
 }
 
-func createCredentials(certPath string, keyPath string, caCertPath string) (credentials.TransportCredentials, error) {
+// CreateCredentials creates a new set of TLS credentials
+func CreateCredentials(certPath string, keyPath string, caCertPath string) (credentials.TransportCredentials, error) {
 	// Load the client certificates from disk
 	certificate, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {

@@ -3,6 +3,7 @@ package poolmanager
 import (
 	"context"
 
+	"github.com/fnproject/fn/grpcutil"
 	model "github.com/fnproject/fn/poolmanager/grpc"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -23,13 +24,13 @@ type grpcPoolManagerClient struct {
 func newRemoteClient(serverAddr string, cert string, key string, ca string) (remoteClient, error) {
 	logrus.WithField("npm_address", serverAddr).Info("Connecting to node pool manager")
 	ctx := context.Background()
-	creds, err := createCredentials(cert, key, ca)
+	creds, err := grpcutil.CreateCredentials(cert, key, ca)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
 		return nil, err
 	}
 
-	conn, err := dialWithBackoff(ctx, serverAddr, creds, grpc.DefaultBackoffConfig)
+	conn, err := grpcutil.DialWithBackoff(ctx, serverAddr, creds, grpc.DefaultBackoffConfig)
 	if err != nil {
 		return nil, err
 	}
