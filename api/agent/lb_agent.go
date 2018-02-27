@@ -126,11 +126,27 @@ type lbAgent struct {
 	placer         Placer
 }
 
-func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string) Agent {
-	return &lbAgent{
+type LBAgentOption func(*lbAgent) error
+
+func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string, opts ... LBAgentOption) (Agent, error) {
+	a := &lbAgent{
 		delegatedAgent: agent,
 		np:             NewgRPCNodePool(npmAddress, cert, key, ca),
 		placer:         &naivePlacer{},
+	}
+	for _, o := range opts {
+		if err := o(a); err != nil {
+			logrus.WithField("error", err).Fatal("Can't construct an LBAgent")
+			return nil, err
+		}
+	}
+	return a, nil
+}
+
+func WithPlacer(p Placer) LBAgentOption {
+	return func(a *lbAgent) error {
+		a.placer = p
+		return nil
 	}
 }
 

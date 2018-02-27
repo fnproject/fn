@@ -40,6 +40,7 @@ const (
 	EnvLOGDBURL   = "FN_LOGSTORE_URL"
 	EnvRunnerURL  = "FN_RUNNER_API_URL"
 	EnvNPMAddress = "FN_NPM_ADDRESS"
+	EnvLBPlacementAlg = "FN_PLACER"
 	EnvNodeType   = "FN_NODE_TYPE"
 	EnvPort       = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS    = "FN_API_CORS"
@@ -373,8 +374,18 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
+			// Select the placement algorithm
+			opts := []agent.LBAgentOption{}
+			switch getEnv(EnvLBPlacementAlg, "") {
+			case "":
+			case "ch":
+				opts = append(opts, agent.WithCHPlacer())
+			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			s.agent = agent.NewLBAgent(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			s.agent, err = agent.NewLBAgent(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority, opts...)
+			if err != nil {
+				return errors.New("LBAgent creation failed")
+			}
 		default:
 			s.nodeType = ServerTypeFull
 			if s.logstore == nil { // TODO seems weird?
