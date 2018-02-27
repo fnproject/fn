@@ -61,3 +61,11 @@ FN_PORT=8083  \
 FN_RUNNER_ADDRESS=127.0.0.1:9190 \
 ./fnnpm
 ```
+
+### Directing a request to a specific LB Group
+
+While the data model is extended to support LB Group metadata, requests can specify the LB Group mapping via the temporary extension header `X_FN_LB_GROUP_ID`. If not present, the LB Group ID will be set to _default_.
+
+```bash
+curl -H "X_FN_LB_GROUP_ID: noway" http://localhost:8081/r/myapp/hello
+```

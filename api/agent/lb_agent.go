@@ -128,7 +128,7 @@ type lbAgent struct {
 
 type LBAgentOption func(*lbAgent) error
 
-func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string, opts ... LBAgentOption) (Agent, error) {
+func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string, opts ...LBAgentOption) (Agent, error) {
 	a := &lbAgent{
 		delegatedAgent: agent,
 		placer:         &naivePlacer{},
@@ -173,9 +173,13 @@ func (a *lbAgent) Close() error {
 }
 
 func GetGroupID(call *models.Call) string {
-	// TODO we need to make LBGroups part of data model so at the moment we just fake it
-	// with this dumb method
-	return "foobar"
+	// TODO expose LB Group metadata in data model
+	// as a temporary workaround, read from HTTP Header
+	lbgID := call.Headers.Get("X_FN_LB_GROUP_ID")
+	if lbgID == "" {
+		return "default"
+	}
+	return lbgID
 }
 
 func (a *lbAgent) Submit(call Call) error {
