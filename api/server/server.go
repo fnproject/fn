@@ -421,7 +421,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	exporter, err := prometheus.NewExporter(prometheus.Options{
 		Namespace: "fn",
-		// OnError:   func(err error) { panic(err) },
+		OnError:   func(err error) { logrus.WithError(err).Error("opencensus prometheus exporter err") },
 	})
 	if err != nil {
 		log.Fatal(err)
