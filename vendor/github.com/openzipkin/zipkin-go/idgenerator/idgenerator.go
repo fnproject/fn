@@ -91,14 +91,14 @@ func (r *randomID128) SpanID(traceID model.TraceID) (id model.ID) {
 	return
 }
 
-// randomTimestamped can generate 128 bit time sortable traceid's and 64 bit
-// spanid's.
+// randomTimestamped can generate 128 bit time sortable traceid's compatible
+// with AWS X-Ray and 64 bit spanid's.
 type randomTimestamped struct{}
 
 func (t *randomTimestamped) TraceID() (id model.TraceID) {
 	seededIDLock.Lock()
 	id = model.TraceID{
-		High: uint64(time.Now().UnixNano()),
+		High: uint64(time.Now().Unix()<<32) + uint64(seededIDGen.Int31()),
 		Low:  uint64(seededIDGen.Int63()),
 	}
 	seededIDLock.Unlock()

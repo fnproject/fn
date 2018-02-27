@@ -16,6 +16,7 @@ package ochttp_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,6 +25,7 @@ import (
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
 )
 
 const reqCount = 5
@@ -118,4 +120,114 @@ func TestClient(t *testing.T) {
 			t.Fatalf("%s = %d; want %d", viewName, got, reqCount)
 		}
 	}
+}
+
+func BenchmarkTransportNoInstrumentation(b *testing.B) {
+	benchmarkClientServer(b, &ochttp.Transport{NoStats: true, NoTrace: true})
+}
+
+func BenchmarkTransportTraceOnly(b *testing.B) {
+	benchmarkClientServer(b, &ochttp.Transport{NoStats: true})
+}
+
+func BenchmarkTransportStatsOnly(b *testing.B) {
+	benchmarkClientServer(b, &ochttp.Transport{NoTrace: true})
+}
+
+func BenchmarkTransportAllInstrumentation(b *testing.B) {
+	benchmarkClientServer(b, &ochttp.Transport{})
+}
+
+func benchmarkClientServer(b *testing.B, transport *ochttp.Transport) {
+	b.ReportAllocs()
+	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(rw, "Hello world.\n")
+	}))
+	defer ts.Close()
+	transport.Sampler = trace.AlwaysSample()
+	var client http.Client
+	client.Transport = transport
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		res, err := client.Get(ts.URL)
+		if err != nil {
+			b.Fatalf("Get: %v", err)
+		}
+		all, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil {
+			b.Fatal("ReadAll:", err)
+		}
+		body := string(all)
+		if body != "Hello world.\n" {
+			b.Fatal("Got body:", body)
+		}
+	}
+}
+
+func BenchmarkTransportParallel64NoInstrumentation(b *testing.B) {
+	benchmarkClientServerParallel(b, 64, &ochttp.Transport{NoTrace: true, NoStats: true})
+}
+
+func BenchmarkTransportParallel64TraceOnly(b *testing.B) {
+	benchmarkClientServerParallel(b, 64, &ochttp.Transport{NoStats: true})
+}
+
+func BenchmarkTransportParallel64StatsOnly(b *testing.B) {
+	benchmarkClientServerParallel(b, 64, &ochttp.Transport{NoTrace: true})
+}
+
+func BenchmarkTransportParallel64AllInstrumentation(b *testing.B) {
+	benchmarkClientServerParallel(b, 64, &ochttp.Transport{})
+}
+
+func benchmarkClientServerParallel(b *testing.B, parallelism int, transport *ochttp.Transport) {
+	b.ReportAllocs()
+	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(rw, "Hello world.\n")
+	}))
+	defer ts.Close()
+
+	var c http.Client
+	transport.Base = &http.Transport{
+		MaxIdleConns:        parallelism,
+		MaxIdleConnsPerHost: parallelism,
+	}
+	transport.Sampler = trace.AlwaysSample()
+	c.Transport = transport
+
+	b.ResetTimer()
+
+	// TODO(ramonza): replace with b.RunParallel (it didn't work when I tried)
+
+	var wg sync.WaitGroup
+	wg.Add(parallelism)
+	for i := 0; i < parallelism; i++ {
+		iterations := b.N / parallelism
+		if i == 0 {
+			iterations += b.N % parallelism
+		}
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				res, err := c.Get(ts.URL)
+				if err != nil {
+					b.Logf("Get: %v", err)
+					return
+				}
+				all, err := ioutil.ReadAll(res.Body)
+				res.Body.Close()
+				if err != nil {
+					b.Logf("ReadAll: %v", err)
+					return
+				}
+				body := string(all)
+				if body != "Hello world.\n" {
+					panic("Got body: " + body)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }

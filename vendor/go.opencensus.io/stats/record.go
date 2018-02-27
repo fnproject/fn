@@ -17,7 +17,6 @@ package stats
 
 import (
 	"context"
-	"time"
 
 	"go.opencensus.io/stats/internal"
 	"go.opencensus.io/tag"
@@ -36,6 +35,6 @@ func Record(ctx context.Context, ms ...Measurement) {
 		if !record {
 			return
 		}
-		internal.DefaultRecorder(tag.FromContext(ctx), time.Now(), ms)
+		internal.DefaultRecorder(tag.FromContext(ctx), ms)
 	}
 }

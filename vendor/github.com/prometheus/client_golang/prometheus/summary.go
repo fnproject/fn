@@ -506,7 +506,6 @@ func NewConstSummary(
 	labelValues ...string,
 ) (Metric, error) {
 	if len(desc.variableLabels) != len(labelValues) {
-		fmt.Println("summary.go+509")
 		return nil, errInconsistentCardinality
 	}
 	return &constSummary{

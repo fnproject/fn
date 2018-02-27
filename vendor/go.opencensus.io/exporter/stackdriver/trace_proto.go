@@ -36,14 +36,11 @@ const (
 	maxAttributeStringValue    = 256
 	agentLabel                 = "g.co/agent"
 
-	labelErrorMessage     = `trace.cloud.google.com/error/message`
-	labelHTTPHost         = `trace.cloud.google.com/http/host`
-	labelHTTPMethod       = `trace.cloud.google.com/http/method`
-	labelHTTPRequestSize  = `trace.cloud.google.com/http/request/size`
-	labelHTTPResponseSize = `trace.cloud.google.com/http/response/size`
-	labelHTTPStatusCode   = `trace.cloud.google.com/http/status_code`
-	labelHTTPURL          = `trace.cloud.google.com/http/url`
-	labelHTTPUserAgent    = `trace.cloud.google.com/http/user_agent`
+	labelHTTPHost       = `/http/host`
+	labelHTTPMethod     = `/http/method`
+	labelHTTPStatusCode = `/http/status_code`
+	labelHTTPPath       = `/http/path`
+	labelHTTPUserAgent  = `/http/user_agent`
 )
 
 // proto returns a protocol buffer representation of a SpanData.
@@ -178,8 +175,8 @@ func copyAttributes(out **tracepb.Span_Attributes, in map[string]interface{}) {
 			continue
 		}
 		switch key {
-		case ochttp.URLAttribute:
-			(*out).AttributeMap[labelHTTPURL] = av
+		case ochttp.PathAttribute:
+			(*out).AttributeMap[labelHTTPPath] = av
 		case ochttp.HostAttribute:
 			(*out).AttributeMap[labelHTTPHost] = av
 		case ochttp.MethodAttribute:
@@ -188,10 +185,6 @@ func copyAttributes(out **tracepb.Span_Attributes, in map[string]interface{}) {
 			(*out).AttributeMap[labelHTTPUserAgent] = av
 		case ochttp.StatusCodeAttribute:
 			(*out).AttributeMap[labelHTTPStatusCode] = av
-		case ochttp.RequestSizeAttribute:
-			(*out).AttributeMap[labelHTTPRequestSize] = av
-		case ochttp.ResponseSizeAttribute:
-			(*out).AttributeMap[labelHTTPResponseSize] = av
 		default:
 			if len(key) > 128 {
 				dropped++

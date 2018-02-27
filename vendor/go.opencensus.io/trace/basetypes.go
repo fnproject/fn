@@ -27,11 +27,11 @@ type (
 )
 
 func (t TraceID) String() string {
-	return fmt.Sprintf("%02x", [16]byte(t))
+	return fmt.Sprintf("%02x", t[:])
 }
 
 func (s SpanID) String() string {
-	return fmt.Sprintf("%02x", [8]byte(s))
+	return fmt.Sprintf("%02x", s[:])
 }
 
 // Annotation represents a text annotation with a set of attributes and a timestamp.

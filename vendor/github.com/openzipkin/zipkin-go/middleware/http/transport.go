@@ -44,7 +44,7 @@ func TransportTrace(enable bool) TransportOption {
 }
 
 // NewTransport returns a new Zipkin instrumented http RoundTripper which can be
-// used with a standad library http Client.
+// used with a standard library http Client.
 func NewTransport(tracer *zipkin.Tracer, options ...TransportOption) (http.RoundTripper, error) {
 	if tracer == nil {
 		return nil, ErrValidTracerRequired

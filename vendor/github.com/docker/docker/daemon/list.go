@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/container"
+	"github.com/docker/docker/daemon/images"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/volume"
@@ -182,6 +183,10 @@ func (daemon *Daemon) filterByNameIDMatches(view container.View, ctx *listContex
 
 // reduceContainers parses the user's filtering options and generates the list of containers to return based on a reducer.
 func (daemon *Daemon) reduceContainers(config *types.ContainerListOptions, reducer containerReducer) ([]*types.Container, error) {
+	if err := config.Filters.Validate(acceptedPsFilterTags); err != nil {
+		return nil, err
+	}
+
 	var (
 		view       = daemon.containersReplica.Snapshot()
 		containers = []*types.Container{}
@@ -235,7 +240,7 @@ func (daemon *Daemon) reducePsContainer(container *container.Snapshot, ctx *list
 
 	// release lock because size calculation is slow
 	if ctx.Size {
-		sizeRw, sizeRootFs := daemon.getSize(newC.ID)
+		sizeRw, sizeRootFs := daemon.imageService.GetContainerLayerSize(newC.ID)
 		newC.SizeRw = sizeRw
 		newC.SizeRootFs = sizeRootFs
 	}
@@ -245,10 +250,6 @@ func (daemon *Daemon) reducePsContainer(container *container.Snapshot, ctx *list
 // foldFilter generates the container filter based on the user's filtering options.
 func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerListOptions) (*listContext, error) {
 	psFilters := config.Filters
-
-	if err := psFilters.Validate(acceptedPsFilterTags); err != nil {
-		return nil, err
-	}
 
 	var filtExited []int
 
@@ -323,17 +324,17 @@ func (daemon *Daemon) foldFilter(view container.View, config *types.ContainerLis
 	if psFilters.Contains("ancestor") {
 		ancestorFilter = true
 		psFilters.WalkValues("ancestor", func(ancestor string) error {
-			id, _, err := daemon.GetImageIDAndOS(ancestor)
+			img, err := daemon.imageService.GetImage(ancestor)
 			if err != nil {
 				logrus.Warnf("Error while looking up for image %v", ancestor)
 				return nil
 			}
-			if imagesFilter[id] {
+			if imagesFilter[img.ID()] {
 				// Already seen this ancestor, skip it
 				return nil
 			}
 			// Then walk down the graph and put the imageIds in imagesFilter
-			populateImageFilterByParents(imagesFilter, id, daemon.imageStore.Children)
+			populateImageFilterByParents(imagesFilter, img.ID(), daemon.imageService.Children)
 			return nil
 		})
 	}
@@ -591,11 +592,11 @@ func (daemon *Daemon) refreshImage(s *container.Snapshot, ctx *listContext) (*ty
 	c := s.Container
 	image := s.Image // keep the original ref if still valid (hasn't changed)
 	if image != s.ImageID {
-		id, _, err := daemon.GetImageIDAndOS(image)
-		if _, isDNE := err.(errImageDoesNotExist); err != nil && !isDNE {
+		img, err := daemon.imageService.GetImage(image)
+		if _, isDNE := err.(images.ErrImageDoesNotExist); err != nil && !isDNE {
 			return nil, err
 		}
-		if err != nil || id.String() != s.ImageID {
+		if err != nil || img.ImageID() != s.ImageID {
 			// ref changed, we need to use original ID
 			image = s.ImageID
 		}

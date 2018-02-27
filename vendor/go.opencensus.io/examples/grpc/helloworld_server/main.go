@@ -21,7 +21,7 @@ import (
 	"net"
 	"net/http"
 
-	"go.opencensus.io/examples/grpc/exporter"
+	"go.opencensus.io/examples/exporter"
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"

@@ -89,8 +89,12 @@ func TestTransport_RoundTrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			transport := &testTransport{ch: make(chan *http.Request, 1)}
-			rt := &traceTransport{format: &testPropagator{}}
-			rt.base = transport
+
+			rt := &Transport{
+				NoStats:     true,
+				Propagation: &testPropagator{},
+				Base:        transport,
+			}
 
 			req, _ := http.NewRequest("GET", "http://foo.com", nil)
 			if tt.parent != nil {
@@ -196,7 +200,11 @@ func TestEndToEnd(t *testing.T) {
 	}
 	req = req.WithContext(ctx)
 
-	rt := &traceTransport{format: defaultFormat, base: http.DefaultTransport}
+	rt := &Transport{
+		NoStats:     true,
+		Propagation: defaultFormat,
+		Base:        http.DefaultTransport,
+	}
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
 		t.Fatalf("unexpected error %s", err)
@@ -336,16 +344,13 @@ func TestRequestAttributes(t *testing.T) {
 			makeReq: func() *http.Request {
 				req, _ := http.NewRequest("GET", "http://example.com/hello", nil)
 				req.Header.Add("User-Agent", "ua")
-				req.ContentLength = 128
 				return req
 			},
 			wantAttrs: []trace.Attribute{
-				trace.StringAttribute{Key: URLAttribute, Value: "http://example.com/hello"},
+				trace.StringAttribute{Key: PathAttribute, Value: "/hello"},
 				trace.StringAttribute{Key: HostAttribute, Value: "example.com"},
 				trace.StringAttribute{Key: MethodAttribute, Value: "GET"},
-				trace.StringAttribute{Key: PathAttribute, Value: "/hello"},
 				trace.StringAttribute{Key: UserAgentAttribute, Value: "ua"},
-				trace.Int64Attribute{Key: RequestSizeAttribute, Value: 128},
 			},
 		},
 	}
@@ -369,17 +374,15 @@ func TestResponseAttributes(t *testing.T) {
 	}{
 		{
 			name: "non-zero HTTP 200 response",
-			resp: &http.Response{StatusCode: 200, ContentLength: 128},
+			resp: &http.Response{StatusCode: 200},
 			wantAttrs: []trace.Attribute{
-				trace.Int64Attribute{Key: ResponseSizeAttribute, Value: 128},
 				trace.Int64Attribute{Key: StatusCodeAttribute, Value: 200},
 			},
 		},
 		{
 			name: "zero HTTP 500 response",
-			resp: &http.Response{StatusCode: 500, ContentLength: 0},
+			resp: &http.Response{StatusCode: 500},
 			wantAttrs: []trace.Attribute{
-				trace.Int64Attribute{Key: ResponseSizeAttribute, Value: 0},
 				trace.Int64Attribute{Key: StatusCodeAttribute, Value: 500},
 			},
 		},

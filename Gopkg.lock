@@ -59,6 +59,7 @@
     "aws/request",
     "aws/session",
     "aws/signer/v4",
+    "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
     "private/protocol/query",
@@ -71,8 +72,8 @@
     "service/s3/s3manager",
     "service/sts"
   ]
-  revision = "c9b25d6bfa986ab6d195479871a96e81b8882536"
-  version = "v1.12.77"
+  revision = "bff41fb23b7550368282029f6478819d6a99ae0f"
+  version = "v1.12.79"
 
 [[projects]]
   branch = "master"
@@ -89,7 +90,7 @@
   branch = "master"
   name = "github.com/containerd/continuity"
   packages = ["pathdriver"]
-  revision = "3eb6c382b26d2cc63a4a8c0d2355f23d90efe83b"
+  revision = "d8fb8589b0e8e85b8c8bbaa8840226d0dfeb7371"
 
 [[projects]]
   name = "github.com/coreos/go-semver"
@@ -147,7 +148,7 @@
     "pkg/term",
     "pkg/term/windows"
   ]
-  revision = "68c3201626439d5be5c24d14d4fe7e27fe93954d"
+  revision = "1346a2c89a11f2d111ff20f46d557f1f9ccbbeb7"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -174,7 +175,7 @@
     ".",
     "utils"
   ]
-  revision = "5d768b2006f11737b6a69a758ddd6d2fac04923e"
+  revision = "49183b946a083774a18b0de0a3184abebc1dec8d"
 
 [[projects]]
   name = "github.com/fnproject/fn_go"
@@ -292,13 +293,13 @@
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
-  revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
+  revision = "0d03ad0b6405ada874d59d97c416b5cf4234e154"
 
 [[projects]]
   branch = "master"
   name = "github.com/go-openapi/validate"
   packages = ["."]
-  revision = "1ff04bd4a6c8a4af5813bd5bf3dc24c4756b9ee2"
+  revision = "180bba53b98899f743a112e568bed9e2ef31aa20"
 
 [[projects]]
   name = "github.com/go-sql-driver/mysql"
@@ -400,7 +401,7 @@
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "a4e142e9c047c904fa2f1e144d9a84e6133024bc"
+  revision = "00c29f56e2386353d58c599509e8dc3801b0d716"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -434,7 +435,7 @@
     "reporter",
     "reporter/http"
   ]
-  revision = "3741243b287094fda649c7f0fa74bd51f37dc122"
+  revision = "f197ec29e729f226d23370ea60f0e49b8f44ccf4"
 
 [[projects]]
   name = "github.com/patrickmn/go-cache"
@@ -488,7 +489,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "282c8707aa210456a825798969cc27edda34992a"
+  revision = "75f2d6163c7a100bed6e971044ea3de30ee3a678"
 
 [[projects]]
   name = "github.com/rdallman/migrate"
@@ -517,6 +518,7 @@
   version = "v1.1"
 
 [[projects]]
+  branch = "master"
   name = "go.opencensus.io"
   packages = [
     "exporter/prometheus",
@@ -532,14 +534,13 @@
     "trace",
     "trace/propagation"
   ]
-  revision = "c9774183e3e14211cf87f61752279f6b8eb55682"
-  version = "v0.3.0"
+  revision = "4566f1f203a083514e9c57fecc0836ecc4a0eb11"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
+  revision = "8c653846df49742c4c85ec37e5d9f8d3ba657895"
 
 [[projects]]
   branch = "master"
@@ -549,7 +550,7 @@
     "context/ctxhttp",
     "idna"
   ]
-  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
+  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
 
 [[projects]]
   branch = "master"
@@ -558,10 +559,9 @@
     "unix",
     "windows"
   ]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/text"
   packages = [
     "collate",
@@ -580,7 +580,8 @@
     "unicode/rangetable",
     "width"
   ]
-  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v8"
@@ -598,14 +599,14 @@
   revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
 
 [[projects]]
-  branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+  revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
+  version = "v2.1.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "434ad6c879d708111a6f99029f82149888053e1fa9ddc116f96adeb72b1bdc9f"
+  inputs-digest = "51e5bbe66f1c9af38787323fffb614441513d6ec0eca0e31781954f445e12e63"
   solver-name = "gps-cdcl"
   solver-version = 1

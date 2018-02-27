@@ -1,10 +1,8 @@
 package daemon // import "github.com/docker/docker/daemon"
 
 import (
-	"path/filepath"
 	"sync"
 
-	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/plugingetter"
 	metrics "github.com/docker/go-metrics"
 	"github.com/pkg/errors"
@@ -16,7 +14,6 @@ const metricsPluginType = "MetricsCollector"
 
 var (
 	containerActions          metrics.LabeledTimer
-	imageActions              metrics.LabeledTimer
 	networkActions            metrics.LabeledTimer
 	engineInfo                metrics.LabeledGauge
 	engineCpus                metrics.Gauge
@@ -54,7 +51,6 @@ func init() {
 	engineMemory = ns.NewGauge("engine_memory", "The number of bytes of memory that the host system of the engine has", metrics.Bytes)
 	healthChecksCounter = ns.NewCounter("health_checks", "The total number of health checks")
 	healthChecksFailedCounter = ns.NewCounter("health_checks_failed", "The total number of failed health checks")
-	imageActions = ns.NewLabeledTimer("image_actions", "The number of seconds it takes to process each image action", "action")
 
 	stateCtr = newStateCounter(ns.NewDesc("container_states", "The count of containers in various states", metrics.Unit("containers"), "state"))
 	ns.Add(stateCtr)
@@ -132,18 +128,6 @@ func (d *Daemon) cleanupMetricsPlugins() {
 	}
 }
 
-type metricsPlugin struct {
-	plugingetter.CompatPlugin
-}
-
-func (p metricsPlugin) sock() string {
-	return "metrics.sock"
-}
-
-func (p metricsPlugin) sockBase() string {
-	return filepath.Join(p.BasePath(), "run", "docker")
-}
-
 func pluginStartMetricsCollection(p plugingetter.CompatPlugin) error {
 	type metricsPluginResponse struct {
 		Err string
@@ -161,13 +145,5 @@ func pluginStartMetricsCollection(p plugingetter.CompatPlugin) error {
 func pluginStopMetricsCollection(p plugingetter.CompatPlugin) {
 	if err := p.Client().Call(metricsPluginType+".StopMetrics", nil, nil); err != nil {
 		logrus.WithError(err).WithField("name", p.Name()).Error("error stopping metrics collector")
-	}
-
-	mp := metricsPlugin{p}
-	sockPath := filepath.Join(mp.sockBase(), mp.sock())
-	if err := mount.Unmount(sockPath); err != nil {
-		if mounted, _ := mount.Mounted(sockPath); mounted {
-			logrus.WithError(err).WithField("name", p.Name()).WithField("socket", sockPath).Error("error unmounting metrics socket for plugin")
-		}
 	}
 }

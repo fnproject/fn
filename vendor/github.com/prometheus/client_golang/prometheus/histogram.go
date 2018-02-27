@@ -402,7 +402,6 @@ func NewConstHistogram(
 	labelValues ...string,
 ) (Metric, error) {
 	if len(desc.variableLabels) != len(labelValues) {
-		fmt.Println("histogram.go+405")
 		return nil, errInconsistentCardinality
 	}
 	return &constHistogram{

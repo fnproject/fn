@@ -50,7 +50,7 @@ var defaultWorker *worker
 
 var defaultReportingDuration = 10 * time.Second
 
-// FindMeasure returns a registered view associated with this name.
+// Find returns a registered view associated with this name.
 // If no registered view is found, nil is returned.
 func Find(name string) (v *View) {
 	req := &getViewByNameReq{
@@ -130,11 +130,10 @@ func (v *View) RetrieveData() ([]*Row, error) {
 	return resp.rows, resp.err
 }
 
-func record(tags *tag.Map, now time.Time, ms interface{}) {
+func record(tags *tag.Map, ms interface{}) {
 	req := &recordReq{
-		now: now,
-		tm:  tags,
-		ms:  ms.([]stats.Measurement),
+		tm: tags,
+		ms: ms.([]stats.Measurement),
 	}
 	defaultWorker.c <- req
 }
@@ -225,24 +224,22 @@ func (w *worker) tryRegisterView(v *View) error {
 	return nil
 }
 
-func (w *worker) reportUsage(start time.Time) {
+func (w *worker) reportUsage(now time.Time) {
 	for _, v := range w.views {
 		if !v.isSubscribed() {
 			continue
 		}
-		rows := v.collectedRows(start)
-		s, ok := w.startTimes[v]
+		rows := v.collectedRows()
+		_, ok := w.startTimes[v]
 		if !ok {
-			w.startTimes[v] = start
-		} else {
-			start = s
+			w.startTimes[v] = now
 		}
 		// Make sure collector is never going
 		// to mutate the exported data.
 		rows = deepCopyRowData(rows)
 		viewData := &Data{
 			View:  v,
-			Start: start,
+			Start: w.startTimes[v],
 			End:   time.Now(),
 			Rows:  rows,
 		}

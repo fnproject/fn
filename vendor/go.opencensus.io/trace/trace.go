@@ -102,7 +102,15 @@ func WithSpan(parent context.Context, s *Span) context.Context {
 
 // StartOptions contains options concerning how a span is started.
 type StartOptions struct {
-	Sampler Sampler // if non-nil, the Sampler to consult for this span.
+	// Sampler to consult for this Span. If provided, it is always consulted.
+	//
+	// If not provided, then the behavior differs based on whether
+	// the parent of this Span is remote, local, or there is no parent.
+	// In the case of a remote parent or no parent, the
+	// default sampler (see SetDefaultSampler) will be consulted. Otherwise,
+	// when there is a non-remote parent, no new sampling decision will be made:
+	// we will preserve the sampling of the parent.
+	Sampler Sampler
 }
 
 // TODO(jbd): Remove start options.

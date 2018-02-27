@@ -2239,14 +2239,7 @@ func (s *DockerSuite) TestRunSlowStdoutConsumer(c *check.C) {
 	// alternate to /dev/zero and /dev/stdout.
 	testRequires(c, DaemonIsLinux)
 
-	// TODO will remove this if issue #35963 fixed
-	var args []string
-	if runtime.GOARCH == "amd64" {
-		args = []string{"run", "--rm", "busybox", "/bin/sh", "-c", "dd if=/dev/zero of=/dev/stdout bs=1024 count=2000 | catv"}
-	} else {
-		args = []string{"run", "--rm", "busybox", "/bin/sh", "-c", "dd if=/dev/zero of=/dev/stdout bs=1024 count=2000 | cat -v"}
-	}
-
+	args := []string{"run", "--rm", "busybox", "/bin/sh", "-c", "dd if=/dev/zero of=/dev/stdout bs=1024 count=2000 | cat -v"}
 	cont := exec.Command(dockerBinary, args...)
 
 	stdout, err := cont.StdoutPipe()
@@ -4242,35 +4235,6 @@ func (s *DockerSuite) TestRunCredentialSpecWellFormed(c *check.C) {
 	validCS := readFile(`fixtures\credentialspecs\valid.json`, c)
 	writeFile(filepath.Join(testEnv.DaemonInfo.DockerRootDir, `credentialspecs\valid.json`), validCS, c)
 	dockerCmd(c, "run", `--security-opt=credentialspec=file://valid.json`, "busybox", "true")
-}
-
-// Windows specific test to ensure that a servicing app container is started
-// if necessary once a container exits. It does this by forcing a no-op
-// servicing event and verifying the event from Hyper-V-Compute
-func (s *DockerSuite) TestRunServicingContainer(c *check.C) {
-	testRequires(c, DaemonIsWindows, SameHostDaemon)
-
-	// This functionality does not exist in post-RS3 builds.
-	// Note we get the version number from the full build string, as Windows
-	// reports Windows 8 version 6.2 build 9200 from non-manifested binaries.
-	// Ref: https://msdn.microsoft.com/en-us/library/windows/desktop/ms724451(v=vs.85).aspx
-	v, err := kernel.GetKernelVersion()
-	c.Assert(err, checker.IsNil)
-	build, _ := strconv.Atoi(strings.Split(strings.SplitN(v.String(), " ", 3)[2][1:], ".")[0])
-	if build > 16299 {
-		c.Skip("Disabled on post-RS3 builds")
-	}
-
-	out := cli.DockerCmd(c, "run", "-d", testEnv.PlatformDefaults.BaseImage, "cmd", "/c", "mkdir c:\\programdata\\Microsoft\\Windows\\ContainerUpdates\\000_000_d99f45d0-ffc8-4af7-bd9c-ea6a62e035c9_200 && sc control cexecsvc 255").Combined()
-	containerID := strings.TrimSpace(out)
-	cli.WaitExited(c, containerID, 60*time.Second)
-
-	result := icmd.RunCommand("powershell", "echo", `(Get-WinEvent -ProviderName "Microsoft-Windows-Hyper-V-Compute" -FilterXPath 'Event[System[EventID=2010]]' -MaxEvents 1).Message`)
-	result.Assert(c, icmd.Success)
-	out2 := result.Combined()
-	c.Assert(out2, checker.Contains, `"Servicing":true`, check.Commentf("Servicing container does not appear to have been started: %s", out2))
-	c.Assert(out2, checker.Contains, `Windows Container (Servicing)`, check.Commentf("Didn't find 'Windows Container (Servicing): %s", out2))
-	c.Assert(out2, checker.Contains, containerID+"_servicing", check.Commentf("Didn't find '%s_servicing': %s", containerID+"_servicing", out2))
 }
 
 func (s *DockerSuite) TestRunDuplicateMount(c *check.C) {

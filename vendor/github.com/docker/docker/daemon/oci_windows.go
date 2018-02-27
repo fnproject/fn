@@ -1,7 +1,6 @@
 package daemon // import "github.com/docker/docker/daemon"
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -10,11 +9,11 @@ import (
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
-	"github.com/docker/docker/layer"
 	"github.com/docker/docker/oci"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -25,7 +24,7 @@ const (
 )
 
 func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
-	img, err := daemon.GetImage(string(c.ImageID))
+	img, err := daemon.imageService.GetImage(string(c.ImageID))
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +101,7 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		mounts = append(mounts, secretMounts...)
 	}
 
-	configMounts, err := c.ConfigMounts()
-	if err != nil {
-		return nil, err
-	}
+	configMounts := c.ConfigMounts()
 	if configMounts != nil {
 		mounts = append(mounts, configMounts...)
 	}
@@ -142,29 +138,10 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		}
 	}
 	s.Process.User.Username = c.Config.User
-
-	// Get the layer path for each layer.
-	max := len(img.RootFS.DiffIDs)
-	for i := 1; i <= max; i++ {
-		img.RootFS.DiffIDs = img.RootFS.DiffIDs[:i]
-		if !system.IsOSSupported(img.OperatingSystem()) {
-			return nil, fmt.Errorf("cannot get layerpath for ImageID %s: %s ", img.RootFS.ChainID(), system.ErrNotSupportedOperatingSystem)
-		}
-		layerPath, err := layer.GetLayerPath(daemon.layerStores[img.OperatingSystem()], img.RootFS.ChainID())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get layer path from graphdriver %s for ImageID %s - %s", daemon.layerStores[img.OperatingSystem()], img.RootFS.ChainID(), err)
-		}
-		// Reverse order, expecting parent most first
-		s.Windows.LayerFolders = append([]string{layerPath}, s.Windows.LayerFolders...)
-	}
-	if c.RWLayer == nil {
-		return nil, errors.New("RWLayer of container " + c.ID + " is unexpectedly nil")
-	}
-	m, err := c.RWLayer.Metadata()
+	s.Windows.LayerFolders, err = daemon.imageService.GetLayerFolders(img, c.RWLayer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get layer metadata - %s", err)
+		return nil, errors.Wrapf(err, "container %s", c.ID)
 	}
-	s.Windows.LayerFolders = append(s.Windows.LayerFolders, m["dir"])
 
 	dnsSearch := daemon.getDNSSearchSettings(c)
 
@@ -348,9 +325,6 @@ func (daemon *Daemon) createSpecWindowsFields(c *container.Container, s *specs.S
 		}
 		s.Windows.CredentialSpec = cs
 	}
-
-	// Assume we are not starting a container for a servicing operation
-	s.Windows.Servicing = false
 
 	return nil
 }

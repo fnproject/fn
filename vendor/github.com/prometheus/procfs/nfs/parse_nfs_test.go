@@ -94,7 +94,7 @@ proc4 48 98 51 54 83 85 23 24 1 28 73 68 83 12 84 39 68 59 58 88 29 74 69 96 21 
 					FsStat:      13332,
 					FsInfo:      2,
 					PathConf:    1,
-					Commit:      23729, },
+					Commit:      23729},
 				ClientV4Stats: nfs.ClientV4Stats{
 					Null:               98,
 					Read:               51,

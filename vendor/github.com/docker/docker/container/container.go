@@ -38,7 +38,7 @@ import (
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/docker/volume"
 	"github.com/docker/go-connections/nat"
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 	"github.com/docker/libnetwork"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
@@ -391,6 +391,8 @@ func (container *Container) StartLogger() (logger.Logger, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		container.LogPath = info.LogPath
 	}
 
 	l, err := initDriver(info)
@@ -974,11 +976,6 @@ func (container *Container) startLogging() error {
 	copier.Run()
 	container.LogDriver = l
 
-	// set LogPath field only for json-file logdriver
-	if jl, ok := l.(*jsonfilelog.JSONFileLogger); ok {
-		container.LogPath = jl.LogPath()
-	}
-
 	return nil
 }
 
@@ -1047,21 +1044,6 @@ func getSecretTargetPath(r *swarmtypes.SecretReference) string {
 	}
 
 	return filepath.Join(containerSecretMountPath, r.File.Name)
-}
-
-// ConfigsDirPath returns the path to the directory where configs are stored on
-// disk.
-func (container *Container) ConfigsDirPath() (string, error) {
-	return container.GetRootResourcePath("configs")
-}
-
-// ConfigFilePath returns the path to the on-disk location of a config.
-func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference) (string, error) {
-	configs, err := container.ConfigsDirPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configs, configRef.ConfigID), nil
 }
 
 // CreateDaemonEnvironment creates a new environment variable slice for this container.

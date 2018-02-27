@@ -76,4 +76,4 @@ ignored = ["github.com/fnproject/fn/cli"]
 
 [[constraint]]
   name = "go.opencensus.io"
-  version = "0.3.0"
+  branch = "master"

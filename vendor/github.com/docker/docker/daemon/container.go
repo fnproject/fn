@@ -158,7 +158,7 @@ func (daemon *Daemon) newContainer(name string, operatingSystem string, config *
 	base.ImageID = imgID
 	base.NetworkSettings = &network.Settings{IsAnonymousEndpoint: noExplicitName}
 	base.Name = name
-	base.Driver = daemon.GraphDriverName(operatingSystem)
+	base.Driver = daemon.imageService.GraphDriverForOS(operatingSystem)
 	base.OS = operatingSystem
 	return base, err
 }
@@ -343,6 +343,16 @@ func (daemon *Daemon) verifyContainerSettings(platform string, hostConfig *conta
 		return nil, errors.Errorf("invalid isolation '%s' on %s", hostConfig.Isolation, runtime.GOOS)
 	}
 
+	var (
+		err      error
+		warnings []string
+	)
 	// Now do platform-specific verification
-	return verifyPlatformContainerSettings(daemon, hostConfig, config, update)
+	if warnings, err = verifyPlatformContainerSettings(daemon, hostConfig, config, update); err != nil {
+		return warnings, err
+	}
+	if hostConfig.NetworkMode.IsHost() && len(hostConfig.PortBindings) > 0 {
+		warnings = append(warnings, "Published ports are discarded when using host network mode")
+	}
+	return warnings, err
 }

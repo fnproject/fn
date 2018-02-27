@@ -119,16 +119,16 @@ func (v *View) Measure() stats.Measure {
 	return v.m
 }
 
-func (v *View) collectedRows(now time.Time) []*Row {
-	return v.collector.collectedRows(v.tagKeys, now)
+func (v *View) collectedRows() []*Row {
+	return v.collector.collectedRows(v.tagKeys)
 }
 
-func (v *View) addSample(m *tag.Map, val float64, now time.Time) {
+func (v *View) addSample(m *tag.Map, val float64) {
 	if !v.isSubscribed() {
 		return
 	}
 	sig := string(encodeWithKeys(m, v.tagKeys))
-	v.collector.addSample(sig, val, now)
+	v.collector.addSample(sig, val)
 }
 
 // A Data is a set of rows about usage of the single measure associated

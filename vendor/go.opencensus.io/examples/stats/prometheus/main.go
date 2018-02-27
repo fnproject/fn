@@ -75,7 +75,7 @@ func main() {
 		"processed video size over time",
 		nil,
 		videoSize,
-		view.DistributionAggregation([]float64{1 << 10, 1<<15, 1 << 20, 1 << 25}),
+		view.DistributionAggregation([]float64{0, 1 << 16, 1 << 32}),
 	)
 	if err != nil {
 		log.Fatalf("Cannot create view: %v", err)
@@ -92,10 +92,9 @@ func main() {
 
 	// Record some data points...
 	go func() {
-		rand.Seed(time.Now().Unix())
 		for {
 			stats.Record(ctx, videoCount.M(1))
-			stats.Record(ctx, videoSize.M(int64(rand.ExpFloat64() * (1<<24))))
+			stats.Record(ctx, videoSize.M(rand.Int63()))
 			<-time.After(time.Millisecond * time.Duration(1+rand.Intn(400)))
 		}
 	}()

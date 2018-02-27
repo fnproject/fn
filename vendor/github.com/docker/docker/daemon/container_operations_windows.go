@@ -21,10 +21,7 @@ func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
 		return nil
 	}
 
-	localPath, err := c.ConfigsDirPath()
-	if err != nil {
-		return err
-	}
+	localPath := c.ConfigsDirPath()
 	logrus.Debugf("configs: setting up config dir: %s", localPath)
 
 	// create local config root
@@ -51,11 +48,7 @@ func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
 			continue
 		}
 
-		fPath, err := c.ConfigFilePath(*configRef)
-		if err != nil {
-			return err
-		}
-
+		fPath := c.ConfigFilePath(*configRef)
 		log := logrus.WithFields(logrus.Fields{"name": configRef.File.Name, "path": fPath})
 
 		log.Debug("injecting config")
@@ -69,12 +62,6 @@ func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
 	}
 
 	return nil
-}
-
-// getSize returns real size & virtual size
-func (daemon *Daemon) getSize(containerID string) (int64, int64) {
-	// TODO Windows
-	return 0, 0
 }
 
 func (daemon *Daemon) setupIpcDirs(container *container.Container) error {

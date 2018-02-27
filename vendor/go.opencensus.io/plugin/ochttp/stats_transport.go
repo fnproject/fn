@@ -24,11 +24,13 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 // statsTransport is an http.RoundTripper that collects stats for the outgoing requests.
 type statsTransport struct {
-	base http.RoundTripper
+	base    http.RoundTripper
+	sampler trace.Sampler
 }
 
 // RoundTrip implements http.RoundTripper, delegating to Base and recording stats for the request.
