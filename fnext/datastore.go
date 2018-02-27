@@ -64,7 +64,9 @@ func (e *extds) UpdateApp(ctx context.Context, app *models.App) (*models.App, er
 }
 
 func (e *extds) RemoveApp(ctx context.Context, appName string) error {
-	err := e.al.BeforeAppDelete(ctx, appName)
+	var app models.App
+	app.Name = appName
+	err := e.al.BeforeAppDelete(ctx, &app)
 	if err != nil {
 		return err
 	}
@@ -74,7 +76,7 @@ func (e *extds) RemoveApp(ctx context.Context, appName string) error {
 		return err
 	}
 
-	return e.al.AfterAppDelete(ctx, appName)
+	return e.al.AfterAppDelete(ctx, &app)
 }
 
 func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {

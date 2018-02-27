@@ -56,7 +56,7 @@ func (a *appListeners) AfterAppUpdate(ctx context.Context, app *models.App) erro
 	return nil
 }
 
-func (a *appListeners) BeforeAppDelete(ctx context.Context, app string) error {
+func (a *appListeners) BeforeAppDelete(ctx context.Context, app *models.App) error {
 	for _, l := range *a {
 		err := l.BeforeAppDelete(ctx, app)
 		if err != nil {
@@ -66,7 +66,7 @@ func (a *appListeners) BeforeAppDelete(ctx context.Context, app string) error {
 	return nil
 }
 
-func (a *appListeners) AfterAppDelete(ctx context.Context, app string) error {
+func (a *appListeners) AfterAppDelete(ctx context.Context, app *models.App) error {
 	for _, l := range *a {
 		err := l.AfterAppDelete(ctx, app)
 		if err != nil {
