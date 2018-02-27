@@ -62,8 +62,8 @@ type lbg struct {
 	mx      sync.RWMutex
 	id      string
 	runners map[string]Runner
-	r_list  atomic.Value	// We attempt to maintain the same order of runners as advertised by the NPM.
-						    // This is to preserve as reasonable behaviour as possible for the CH algorithm
+	r_list  atomic.Value // We attempt to maintain the same order of runners as advertised by the NPM.
+	// This is to preserve as reasonable behaviour as possible for the CH algorithm
 	generator RunnerFactory
 }
 
@@ -196,14 +196,15 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 		r, ok := lbg.runners[addr]
 		if !ok {
 			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
-			r, err := lbg.generator(addr, lbgID, p)
+			var err error
+			r, err = lbg.generator(addr, lbgID, p)
 			if err != nil {
 				// TODO: what?
 				panic(err)
 			}
 			lbg.runners[addr] = r
 		}
-		r_list[i] = r  // Maintain the delivered order
+		r_list[i] = r // Maintain the delivered order
 		seen[addr] = true
 	}
 	lbg.r_list.Store(r_list)
