@@ -1,7 +1,6 @@
 package poolmanager
 
 import (
-	"sync"
 	"time"
 
 	model "github.com/fnproject/fn/poolmanager/grpc"
@@ -10,8 +9,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	UpdatesBufferSize = 10000
+)
+
 type NodePoolManager interface {
-	ScheduleUpdates(lbID string, agg CapacityAggregator, period time.Duration)
+	AdvertiseCapacity(snapshots *model.CapacitySnapshotList) error
 	GetRunners(lbgID string) ([]string, error)
 	Shutdown() error
 }
@@ -19,7 +22,6 @@ type NodePoolManager interface {
 type remoteNodePoolManager struct {
 	serverAddr string
 	client     remoteClient
-	shutdown   chan interface{}
 }
 
 func NewNodePoolManager(serverAddr string, cert string, key string, ca string) NodePoolManager {
@@ -31,40 +33,12 @@ func NewNodePoolManager(serverAddr string, cert string, key string, ca string) N
 	return &remoteNodePoolManager{
 		serverAddr: serverAddr,
 		client:     c,
-		shutdown:   make(chan interface{}),
 	}
-}
-
-func (npm *remoteNodePoolManager) ScheduleUpdates(lbID string, agg CapacityAggregator, period time.Duration) {
-	ticker := time.NewTicker(period)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				snapshots := []*model.CapacitySnapshot{}
-				agg.Iterate(func(lbgID string, e *CapacityEntry) {
-					snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
-					snapshots = append(snapshots, snapshot)
-				})
-				logrus.Debugf("Advertising new capacity snapshot %+v", snapshots)
-				npm.client.AdvertiseCapacity(&model.CapacitySnapshotList{
-					Snapshots: snapshots,
-					LbId:      lbID,
-					Ts:        ptypes.TimestampNow(),
-				})
-
-			case <-npm.shutdown:
-				return
-			}
-		}
-	}()
 }
 
 func (npm *remoteNodePoolManager) Shutdown() error {
 	logrus.Info("Shutting down node pool manager client")
-	close(npm.shutdown)
-	return nil
+	return npm.client.Shutdown()
 }
 
 func (npm *remoteNodePoolManager) GetRunners(lbGroupID string) ([]string, error) {
@@ -81,59 +55,124 @@ func (npm *remoteNodePoolManager) GetRunners(lbGroupID string) ([]string, error)
 	return runnerList, nil
 }
 
+func (npm *remoteNodePoolManager) AdvertiseCapacity(snapshots *model.CapacitySnapshotList) error {
+	logrus.Debugf("Advertising new capacity snapshot %+v", snapshots)
+	return npm.client.AdvertiseCapacity(snapshots)
+}
+
 //CapacityAggregator exposes the method to manage capacity calculation
 type CapacityAggregator interface {
-	AssignCapacity(entry *CapacityEntry, lbgID string)
-	ReleaseCapacity(entry *CapacityEntry, lbgID string)
+	ScheduleUpdates(lbID string, npm NodePoolManager, period time.Duration)
+	AssignCapacity(entry *CapacityEntry)
+	ReleaseCapacity(entry *CapacityEntry)
 	Iterate(func(string, *CapacityEntry))
+	Shutdown() error
 }
 
 type CapacityEntry struct {
 	TotalMemoryMb uint64
+	LBGroupID     string
+	assignment    bool
 }
 
 type inMemoryAggregator struct {
+	updates  chan *CapacityEntry
 	capacity map[string]*CapacityEntry
-	capMtx   *sync.RWMutex
+	shutdown chan interface{}
 }
 
 //NewCapacityAggregator return a CapacityAggregator
 func NewCapacityAggregator() CapacityAggregator {
 	return &inMemoryAggregator{
+		updates:  make(chan *CapacityEntry, UpdatesBufferSize),
 		capacity: make(map[string]*CapacityEntry),
-		capMtx:   &sync.RWMutex{},
+		shutdown: make(chan interface{}),
 	}
 }
 
-func (a *inMemoryAggregator) AssignCapacity(entry *CapacityEntry, lbgID string) {
-	//TODO is it possible to use prometheus gauge? definitely to Inc and Dec but how to read
-	a.capMtx.Lock()
-	defer a.capMtx.Unlock()
+func (agg *inMemoryAggregator) ScheduleUpdates(lbID string, npm NodePoolManager, period time.Duration) {
+	ticker := time.NewTicker(period)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				snapshots := []*model.CapacitySnapshot{}
+				agg.Iterate(func(lbgID string, e *CapacityEntry) {
+					snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
+					snapshots = append(snapshots, snapshot)
+				})
 
-	if v, ok := a.capacity[lbgID]; ok {
-		v.TotalMemoryMb += entry.TotalMemoryMb
-		logrus.WithField("lbg_id", lbgID).Debugf("Increased assigned capacity to %vMB", v.TotalMemoryMb)
+				npm.AdvertiseCapacity(&model.CapacitySnapshotList{
+					Snapshots: snapshots,
+					LbId:      lbID,
+					Ts:        ptypes.TimestampNow(),
+				})
+
+			case update := <-agg.updates:
+				agg.mergeUpdate(update)
+
+			case <-agg.shutdown:
+				return
+
+			}
+		}
+	}()
+}
+
+func (a *inMemoryAggregator) AssignCapacity(entry *CapacityEntry) {
+	a.udpateCapacity(entry, true)
+}
+
+func (a *inMemoryAggregator) ReleaseCapacity(entry *CapacityEntry) {
+	a.udpateCapacity(entry, false)
+}
+
+// don't leak implementation to caller
+func (a *inMemoryAggregator) udpateCapacity(entry *CapacityEntry, assignment bool) {
+	if entry.LBGroupID == "" {
+		logrus.Warn("Missing LBG for capacity update!")
+		return
+	}
+
+	entry.assignment = assignment
+
+	select {
+	case a.updates <- entry:
+		// do not block
+	default:
+		logrus.Warn("Buffer size exceeded, dropping released capacity update before aggregation")
+	}
+}
+
+func (a *inMemoryAggregator) mergeUpdate(entry *CapacityEntry) {
+	if v, ok := a.capacity[entry.LBGroupID]; ok {
+		if entry.assignment {
+			v.TotalMemoryMb += entry.TotalMemoryMb
+			logrus.WithField("lbg_id", entry.LBGroupID).Debugf("Increased assigned capacity to %vMB", v.TotalMemoryMb)
+		} else {
+			v.TotalMemoryMb -= entry.TotalMemoryMb
+			logrus.WithField("lbg_id", entry.LBGroupID).Debugf("Released assigned capacity to %vMB", v.TotalMemoryMb)
+		}
+
 	} else {
-		a.capacity[lbgID] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
-		logrus.WithField("lbg_id", lbgID).Debugf("Assigned new capacity of %vMB", entry.TotalMemoryMb)
-	}
-}
-
-func (a *inMemoryAggregator) ReleaseCapacity(entry *CapacityEntry, lbgID string) {
-	a.capMtx.Lock()
-	defer a.capMtx.Unlock()
-
-	if v, ok := a.capacity[lbgID]; ok {
-		v.TotalMemoryMb -= entry.TotalMemoryMb
-		logrus.WithField("lbg_id", lbgID).Debugf("Released assigned capacity to %vMB", v.TotalMemoryMb)
+		if entry.assignment {
+			a.capacity[entry.LBGroupID] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
+			logrus.WithField("lbg_id", entry.LBGroupID).Debugf("Assigned new capacity of %vMB", entry.TotalMemoryMb)
+		} else {
+			logrus.WithField("lbg_id", entry.LBGroupID).Warn("Attempted to release unknown assigned capacity!")
+		}
 	}
 }
 
 func (a *inMemoryAggregator) Iterate(fn func(string, *CapacityEntry)) {
-	a.capMtx.Lock()
-	defer a.capMtx.Unlock()
-
 	for k, v := range a.capacity {
 		fn(k, v)
 	}
+}
+
+func (a *inMemoryAggregator) Shutdown() error {
+	logrus.Info("Shutting down capacity aggregator")
+	close(a.shutdown)
+	return nil
 }

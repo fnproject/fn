@@ -24,8 +24,8 @@ const (
 // NodePool is the interface to interact with Node pool manager
 type NodePool interface {
 	Runners(lbgID string) []Runner
-	AssignCapacity(capacity *poolmanager.CapacityEntry, lbgID string)
-	ReleaseCapacity(capacity *poolmanager.CapacityEntry, lbgID string)
+	AssignCapacity(capacity *poolmanager.CapacityEntry)
+	ReleaseCapacity(capacity *poolmanager.CapacityEntry)
 	Shutdown()
 }
 
@@ -84,7 +84,7 @@ func NewgRPCNodePool(npmAddress string, cert string, key string, ca string) *gRP
 	// TODO do we need to persistent this ID in order to survive restart?
 	lbID := id.New().String()
 
-	np.npm.ScheduleUpdates(lbID, np.aggregator, CapacityUpdatePeriod)
+	np.aggregator.ScheduleUpdates(lbID, np.npm, CapacityUpdatePeriod)
 	return np
 }
 
@@ -107,14 +107,16 @@ func (np *gRPCNodePool) Runners(lbgID string) []Runner {
 }
 
 func (np *gRPCNodePool) Shutdown() {
+	np.aggregator.Shutdown()
+	np.npm.Shutdown()
 }
 
-func (np *gRPCNodePool) AssignCapacity(capacity *poolmanager.CapacityEntry, lbgID string) {
-	np.aggregator.AssignCapacity(capacity, lbgID)
+func (np *gRPCNodePool) AssignCapacity(capacity *poolmanager.CapacityEntry) {
+	np.aggregator.AssignCapacity(capacity)
 
 }
-func (np *gRPCNodePool) ReleaseCapacity(capacity *poolmanager.CapacityEntry, lbgID string) {
-	np.aggregator.ReleaseCapacity(capacity, lbgID)
+func (np *gRPCNodePool) ReleaseCapacity(capacity *poolmanager.CapacityEntry) {
+	np.aggregator.ReleaseCapacity(capacity)
 }
 
 func (np *gRPCNodePool) maintenance() {

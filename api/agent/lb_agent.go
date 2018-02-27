@@ -60,9 +60,9 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 	memMb := call.Model().Memory
 	lbGroupID := GetGroupID(call.Model())
 
-	capacityRequest := &poolmanager.CapacityEntry{TotalMemoryMb: memMb}
-	a.np.AssignCapacity(capacityRequest, lbGroupID)
-	defer a.np.ReleaseCapacity(capacityRequest, lbGroupID)
+	capacityRequest := &poolmanager.CapacityEntry{TotalMemoryMb: memMb, LBGroupID: lbGroupID}
+	a.np.AssignCapacity(capacityRequest)
+	defer a.np.ReleaseCapacity(capacityRequest)
 
 	err := a.placer.PlaceCall(a.np, ctx, call, lbGroupID)
 	if err != nil {
