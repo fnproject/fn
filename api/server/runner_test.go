@@ -17,6 +17,12 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 )
 
+type noLimits struct{}
+
+func (nl noLimits) MaxMemory() uint64         { return 0 }
+func (nl noLimits) MaxCPUs() uint64           { return 0 }
+func (nl noLimits) MaxFilesystemSize() uint64 { return 0 }
+
 func testRunner(t *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
 	ds := datastore.NewMock()
 	var mq models.MessageQueue = &mqs.Mock{}
@@ -28,7 +34,7 @@ func testRunner(t *testing.T, args ...interface{}) (agent.Agent, context.CancelF
 			mq = arg
 		}
 	}
-	r := agent.New(agent.NewDirectDataAccess(ds, ds, mq))
+	r := agent.New(agent.NewDirectDataAccess(ds, ds, mq), noLimits{})
 	return r, func() { r.Close() }
 }
 

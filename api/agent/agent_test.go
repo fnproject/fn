@@ -21,6 +21,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type noLimits struct{}
+
+func (nl noLimits) MaxMemory() uint64         { return 0 }
+func (nl noLimits) MaxCPUs() uint64           { return 0 }
+func (nl noLimits) MaxFilesystemSize() uint64 { return 0 }
+
+type withLimits struct {
+	memory uint64
+	cpus   uint64
+	fs     uint64
+}
+
+func (wl withLimits) MaxMemory() uint64         { return wl.memory }
+func (wl withLimits) MaxCPUs() uint64           { return wl.cpus }
+func (wl withLimits) MaxFilesystemSize() uint64 { return wl.fs }
+
 func init() {
 	// TODO figure out some sane place to stick this
 	formatter := &logrus.TextFormatter{
@@ -91,7 +107,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	w := httptest.NewRecorder()
@@ -233,7 +249,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -303,7 +319,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -398,7 +414,7 @@ func TestSubmitError(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -454,7 +470,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	bodOne := `{"echoContent":"yodawg"}`
@@ -517,12 +533,75 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit(nil, nil, nil)
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))), noLimits{})
 	defer a.Close()
 
 	_, err := a.GetCall(FromModel(call))
 	if err != models.ErrCallTimeoutServerBusy {
 		t.Fatal("did not get expected err, got: ", err)
+	}
+}
+
+func TestUseResourceImpossibilityToTestMemoryLimitClampingLogic(t *testing.T) {
+	// We have a call requesting masses of memory exactly like in the test
+	// above, but we set a service-mandated limit on the agent so the call can
+	// now be satisfied.
+	call := &models.Call{
+		AppName:     "yo",
+		Path:        "/yoyo",
+		Image:       "fnproject/fn-test-utils",
+		Type:        "sync",
+		Format:      "http",
+		Timeout:     1,
+		IdleTimeout: 2,
+		Memory:      math.MaxUint64,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))), withLimits{memory: 128})
+	defer a.Close()
+
+	_, err := a.GetCall(FromModel(call))
+	if err != nil {
+		t.Fatal("Expected GetCall to succeed with clamped memory limit, got: ", err)
+	}
+}
+
+func TestUseResourceImpossibilityToTestCPULimitClampingLogic(t *testing.T) {
+	// We have a call requesting masses of CPUs, we verify that it fails to be
+	// processed with no limits, and succeeds with a clamped limit.
+	call := &models.Call{
+		AppName:     "yo",
+		Path:        "/yoyo",
+		Image:       "fnproject/fn-test-utils",
+		Type:        "sync",
+		Format:      "http",
+		Timeout:     1,
+		IdleTimeout: 2,
+		CPUs:        models.MaxMilliCPUs,
+	}
+
+	// FromModel doesn't need a datastore, for now...
+	ds := datastore.NewMockInit(nil, nil, nil)
+
+	// Fail without the clamp
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))), noLimits{})
+	defer a.Close()
+
+	_, err := a.GetCall(FromModel(call))
+	if err != models.ErrCallTimeoutServerBusy {
+		t.Fatal("did not get expected err, got: ", err)
+	}
+
+	// Add the clamp and succeed
+	a2 := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))), withLimits{cpus: 1000})
+	defer a2.Close()
+
+	_, err = a2.GetCall(FromModel(call))
+	if err != nil {
+		t.Fatal("Expected GetCall to succeed with clamped CPU limit, got: ", err)
 	}
 }
 
@@ -623,7 +702,7 @@ func TestPipesAreClear(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	// test read this body after 5s (after call times out) and make sure we don't get yodawg
@@ -773,7 +852,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 		}, nil,
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), noLimits{})
 	defer a.Close()
 
 	bodOne := `{"echoContent":"yodawg"}`

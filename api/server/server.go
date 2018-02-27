@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -41,6 +42,9 @@ const (
 	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvAPICORS   = "FN_API_CORS"
 	EnvZipkinURL = "FN_ZIPKIN_URL"
+	EnvMaxMemory = "FN_MAX_FUNC_MEMORY"
+	EnvMaxCPUs   = "FN_MAX_FUNC_CPUS"
+	EnvMaxFS     = "FN_MAX_FUNC_FILESYSTEM_SIZE"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -67,10 +71,22 @@ func (s ServerNodeType) String() string {
 	}
 }
 
+// functionLimits implements agent.FunctionLimits
+type functionLimits struct {
+	maxMemory         uint64
+	maxCPUs           uint64
+	maxFilesystemSize uint64
+}
+
+func (fl functionLimits) MaxMemory() uint64         { return fl.maxMemory }
+func (fl functionLimits) MaxCPUs() uint64           { return fl.maxCPUs }
+func (fl functionLimits) MaxFilesystemSize() uint64 { return fl.maxFilesystemSize }
+
 type Server struct {
 	// TODO this one maybe we have `AddRoute` in extensions?
 	Router *gin.Engine
 
+	limits          functionLimits
 	agent           agent.Agent
 	datastore       models.Datastore
 	mq              models.MessageQueue
@@ -108,8 +124,16 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
-	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
+	opts = append(opts, WithMaxMemory(getEnv(EnvMaxMemory, "")))
+	opts = append(opts, WithMaxCPUs(getEnv(EnvMaxCPUs, "")))
+	opts = append(opts, WithMaxFS(getEnv(EnvMaxFS, "")))
 	opts = append(opts, WithType(nodeType))
+
+	// Agent handling depends on node type and several other options so it must be the last processed option.
+	// Also we only need to create an agent if this is not an API node.
+	if nodeType != ServerTypeAPI {
+		opts = append(opts, WithAgentFromEnv())
+	}
 	return New(ctx, opts...)
 }
 
@@ -175,22 +199,54 @@ func WithLogURL(logstoreURL string) ServerOption {
 	}
 }
 
-func WithRunnerURL(runnerURL string) ServerOption {
+func WithType(t ServerNodeType) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		if runnerURL != "" {
-			cl, err := hybrid.NewClient(runnerURL)
-			if err != nil {
-				return err
-			}
-			s.agent = agent.New(agent.NewCachedDataAccess(cl))
-		}
+		s.nodeType = t
 		return nil
 	}
 }
 
-func WithType(t ServerNodeType) ServerOption {
+func WithMaxMemory(mm string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		s.nodeType = t
+		if mm != "" {
+			i, err := strconv.ParseUint(mm, 10, 64)
+			if err != nil {
+				s.limits.maxMemory = i
+				return nil
+			}
+			return err
+		}
+		s.limits.maxMemory = 0
+		return nil
+	}
+}
+
+func WithMaxCPUs(mc string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if mc != "" {
+			i, err := strconv.ParseUint(mc, 10, 64)
+			if err != nil {
+				s.limits.maxCPUs = i
+				return nil
+			}
+			return err
+		}
+		s.limits.maxCPUs = 0
+		return nil
+	}
+}
+
+func WithMaxFS(mfs string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if mfs != "" {
+			i, err := strconv.ParseUint(mfs, 10, 64)
+			if err != nil {
+				s.limits.maxFilesystemSize = i
+				return nil
+			}
+			return err
+		}
+		s.limits.maxFilesystemSize = 0
 		return nil
 	}
 }
@@ -223,6 +279,37 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
+// WithAgentFromEnv must be provided as the last server option because it relies
+// on all other options being set first.
+func WithAgentFromEnv() ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		switch s.nodeType {
+		case ServerTypeAPI:
+			return errors.New("Should not initialize an agent for an Fn API node.")
+		case ServerTypeRunner:
+			runnerURL := getEnv(EnvRunnerURL, "")
+			if runnerURL == "" {
+				return errors.New("No FN_RUNNER_API_URL provided for an Fn Runner node.")
+			}
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(cl), s.limits)
+		default:
+			s.nodeType = ServerTypeFull
+			if s.logstore == nil { // TODO seems weird?
+				s.logstore = s.datastore
+			}
+			if s.datastore == nil || s.logstore == nil || s.mq == nil {
+				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)), s.limits)
+		}
+		return nil
+	}
+}
+
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
@@ -245,33 +332,15 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		}
 	}
 
-	if s.logstore == nil { // TODO seems weird?
-		s.logstore = s.datastore
-	}
-
-	// TODO we maybe should use the agent.DirectDataAccess in the /runner endpoints server side?
-
+	// Check that WithAgent options have been processed correctly.
 	switch s.nodeType {
 	case ServerTypeAPI:
 		if s.agent != nil {
-			log.Info("shutting down agent configured for api node")
-			s.agent.Close()
-		}
-		s.agent = nil
-	case ServerTypeRunner:
-		if s.agent == nil {
-			log.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
+			log.Fatal("Incorrect configuration, API nodes must not have an agent initialized.")
 		}
 	default:
-		s.nodeType = ServerTypeFull
-		if s.datastore == nil || s.logstore == nil || s.mq == nil {
-			log.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
-		}
-
-		// TODO force caller to use WithAgent option? at this point we need to use the ds/ls/mq configured after all opts are run.
 		if s.agent == nil {
-			// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
-			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			log.Fatal("Incorrect configuration, non-API nodes must have an agent initialized.")
 		}
 	}
 

@@ -97,10 +97,25 @@ type Agent interface {
 	Enqueue(context.Context, *models.Call) error
 }
 
+// FunctionLimits records the resource limitations imposed by the Fn node on any
+// function running in it.
+type FunctionLimits interface {
+	// MaxMemory represents the imposed limit on memory, in megabytes.
+	MaxMemory() uint64
+
+	// MaxCPUs represents the imposed limit on CPU usage, in milliCPUs.
+	MaxCPUs() uint64
+
+	// MaxFilesystemSize represents the imposed limit on filesystem size, in
+	// megabytes.
+	MaxFilesystemSize() uint64
+}
+
 type agent struct {
 	da            DataAccess
 	callListeners []fnext.CallListener
 
+	limits FunctionLimits
 	driver drivers.Driver
 
 	slotMgr *slotQueueMgr
@@ -119,11 +134,18 @@ type agent struct {
 	promHandler http.Handler
 }
 
-func New(da DataAccess) Agent {
+func New(da DataAccess, fl FunctionLimits) Agent {
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
 		ServerVersion: "17.06.0-ce",
 	})
+
+	if fl.MaxFilesystemSize() != 0 {
+		supported := driver.SupportsLimit(nil, drivers.LimitFilesystem)
+		if !supported {
+			logrus.Fatal("Can't set FN_MAX_FUNC_FILESYSTEM_SIZE, storage driver does not support quotas")
+		}
+	}
 
 	freezeIdleMsecs, err := getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
 	if err != nil {
@@ -142,6 +164,7 @@ func New(da DataAccess) Agent {
 
 	a := &agent{
 		da:              da,
+		limits:          fl,
 		driver:          driver,
 		slotMgr:         NewSlotQueueMgr(),
 		resources:       NewResourceTracker(),
@@ -412,8 +435,10 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 
 	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
+	clampedMemory := nonZeroMin(call.Memory, a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok := <-a.resources.GetResourceToken(ctx, clampedMemory, clampedCPUs, isAsync):
 		a.wg.Add(1) // add waiter in this thread
 		go func() {
 			// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
@@ -481,8 +506,10 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
 
+	clampedMemory := nonZeroMin(call.Memory, a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok := <-a.resources.GetResourceToken(ctx, clampedMemory, clampedCPUs, isAsync):
 		go a.prepCold(ctx, call, tok, ch)
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -603,6 +630,18 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 }
 
+// nonZeroMin returns zero only if both parameters are zero, otherwise it
+// returns the minimum non-zero number of the two.
+func nonZeroMin(a uint64, b uint64) uint64 {
+	if a != 0 && b != 0 {
+		if a < b {
+			return a
+		}
+		return b
+	}
+	return a ^ b // We know one of them is zero, bitwise xor will return the other one
+}
+
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
 	defer span.Finish()
@@ -621,17 +660,21 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		call.Config[k] = strings.Join(v, ", ")
 	}
 
+	clampedMemory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
+	clampedFilesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
 	container := &container{
-		id:      id.New().String(), // XXX we could just let docker generate ids...
-		image:   call.Image,
-		env:     map[string]string(call.Config),
-		memory:  call.Memory,
-		cpus:    uint64(call.CPUs),
-		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
-		stdout:  call.w,
-		stderr:  call.stderr,
-		stats:   &call.Stats,
+		id:         id.New().String(), // XXX we could just let docker generate ids...
+		image:      call.Image,
+		env:        map[string]string(call.Config),
+		memory:     clampedMemory,
+		cpus:       clampedCPUs,
+		filesystem: clampedFilesystem,
+		timeout:    time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
+		stdin:      call.req.Body,
+		stdout:     call.w,
+		stderr:     call.stderr,
+		stats:      &call.Stats,
 	}
 
 	// pull & create container before we return a slot, so as to be friendly
@@ -671,15 +714,19 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	stdin := &ghostReader{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitReader)}
 	defer stdin.Close()
 
+	clampedMemory := nonZeroMin(uint64(call.Memory), a.limits.MaxMemory())
+	clampedCPUs := nonZeroMin(uint64(call.CPUs), a.limits.MaxCPUs())
+	clampedFilesystem := nonZeroMin(uint64(call.FilesystemSize), a.limits.MaxFilesystemSize())
 	container := &container{
-		id:     cid, // XXX we could just let docker generate ids...
-		image:  call.Image,
-		env:    map[string]string(call.Config),
-		memory: call.Memory,
-		cpus:   uint64(call.CPUs),
-		stdin:  stdin,
-		stdout: &ghostWriter{inner: stderr},
-		stderr: &ghostWriter{inner: stderr},
+		id:         cid, // XXX we could just let docker generate ids...
+		image:      call.Image,
+		env:        map[string]string(call.Config),
+		memory:     clampedMemory,
+		cpus:       clampedCPUs,
+		filesystem: clampedFilesystem,
+		stdin:      stdin,
+		stdout:     &ghostWriter{inner: stderr},
+		stderr:     &ghostWriter{inner: stderr},
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -829,12 +876,13 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id      string // contrived
-	image   string
-	env     map[string]string
-	memory  uint64
-	cpus    uint64
-	timeout time.Duration // cold only (superfluous, but in case)
+	id         string // contrived
+	image      string
+	env        map[string]string
+	memory     uint64
+	cpus       uint64
+	filesystem uint64
+	timeout    time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -882,6 +930,7 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
+func (c *container) FilesystemSize() uint64         { return c.filesystem }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
