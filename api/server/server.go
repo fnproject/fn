@@ -718,10 +718,3 @@ type callsResponse struct {
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
 }
-
-// A third server mode which is lb
-
-// How is the hybrid agent chosen?
-// It can behave like an agent initially, but then make a request to a runner with the model call
-// The agent's knowledge of the world just needs to be a bit more sophisticated - and it needs to
-// request runner capacity - at the moment it *is* the runner node, so doesn't know about other ones
