@@ -84,7 +84,7 @@ func GRPCRunnerFactory(addr string, lbgID string, p pkiData) (Runner, error) {
 	}, nil
 }
 
-func NewgRPCNodePool(npmAddress string, cert string, key string, ca string, rf RunnerFactory) *gRPCNodePool {
+func NewgRPCNodePool(npmAddress string, cert string, key string, ca string, rf RunnerFactory) NodePool {
 	p := pkiData{
 		ca:   ca,
 		cert: cert,
