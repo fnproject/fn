@@ -153,9 +153,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rnr, cancelrnr := testRunner(t, ds)
 	defer cancelrnr()
 
-	fnl := logs.NewMock()
-
-	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
 
 	expHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"foo/bar"}}
@@ -168,57 +166,63 @@ func TestRouteRunnerExecution(t *testing.T) {
 	respTypeLie := `{"responseContentType": "foo/bar", "sleepTime":0, "isDebug": true}` // Content-Type: foo/bar
 	respTypeJason := `{"jasonContentType": "foo/bar", "sleepTime":0, "isDebug": true}`  // Content-Type: foo/bar
 
+	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
+	multiLog := `{"sleepTime": 1, "isDebug": true}`
+	multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
+
 	for i, test := range []struct {
-		path              string
-		body              string
-		method            string
-		expectedCode      int
-		expectedHeaders   map[string][]string
-		expectedErrSubStr string
+		path               string
+		body               string
+		method             string
+		expectedCode       int
+		expectedHeaders    map[string][]string
+		expectedErrSubStr  string
+		expectedLogsSubStr []string
 	}{
-		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, ""},
+		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
+		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
 		// hot container now back to normal, we should get OK
-		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, ""},
+		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/r/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, ""},
+		{"/r/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/r/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, ""},
-		{"/r/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, ""},
-		{"/r/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, ""},
+		{"/r/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/r/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
+		{"/r/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
 
-		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response"},
-		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response"},
+		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
+		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
 
-		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, ""},
-		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2"},
-		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
-		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied"},
+		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2", nil},
+		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
+		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		// hit a registry that doesn't exist, make sure the real error body gets plumbed out
-		{"/r/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused"},
+		{"/r/myapp/mydneregistry", ``, "GET", http.StatusInternalServerError, nil, "connection refused", nil},
 
-		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory"},
+		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
+		{"/r/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 		respBytes, _ := ioutil.ReadAll(rec.Body)
 		respBody := string(respBytes)
-		maxLog := len(respBody)
-		if maxLog > 1024 {
-			maxLog = 1024
+		maxBody := len(respBody)
+		if maxBody > 1024 {
+			maxBody = 1024
 		}
 
 		if rec.Code != test.expectedCode {
 			isFailure = true
 			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
-				i, test.expectedCode, rec.Code, respBody[:maxLog])
+				i, test.expectedCode, rec.Code, respBody[:maxBody])
 		}
 
 		if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
 			isFailure = true
 			t.Errorf("Test %d: Expected response to include %s but got body: %s",
-				i, test.expectedErrSubStr, respBody[:maxLog])
+				i, test.expectedErrSubStr, respBody[:maxBody])
 
 		}
 
@@ -228,6 +232,37 @@ func TestRouteRunnerExecution(t *testing.T) {
 					isFailure = true
 					t.Errorf("Test %d: Expected header `%s` to be %s but was %s. body: %s",
 						i, name, header[0], rec.Header().Get(name), respBody)
+				}
+			}
+		}
+
+		if test.expectedLogsSubStr != nil {
+			callID := rec.Header().Get("Fn_call_id")
+
+			logReader, err := ds.GetLog(context.Background(), "myapp", callID)
+			if err != nil {
+				isFailure = true
+				t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
+					i, callID, err.Error())
+			} else {
+				logBytes, err := ioutil.ReadAll(logReader)
+				if err != nil {
+					isFailure = true
+					t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
+						i, callID, err.Error())
+				} else {
+					logBody := string(logBytes)
+					maxLog := len(logBody)
+					if maxLog > 1024 {
+						maxLog = 1024
+					}
+					for _, match := range test.expectedLogsSubStr {
+						if !strings.Contains(logBody, match) {
+							isFailure = true
+							t.Errorf("Test %d: GetLog read IO call_id:%s cannot find: %s in logs: %s",
+								i, callID, match, logBody[:maxLog])
+						}
+					}
 				}
 			}
 		}

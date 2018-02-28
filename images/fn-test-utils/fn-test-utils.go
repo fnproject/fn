@@ -50,8 +50,8 @@ type AppRequest struct {
 	AllocateMemory int `json:"allocateMemory,omitempty"`
 	// leak RAM forever
 	LeakMemory int `json:"leakMemory,omitempty"`
-	// respond with partial output
-	ResponseSize int `json:"responseSize,omitempty"`
+	// duplicate trailer if > 0
+	TrailerRepeat int `json:"trailerRepeat,omitempty"`
 	// corrupt http or json
 	InvalidResponse bool `json:"invalidResponse,omitempty"`
 	// TODO: simulate slow read/slow write
@@ -72,6 +72,7 @@ type AppResponse struct {
 	Headers http.Header       `json:"header"`
 	Config  map[string]string `json:"config"`
 	Data    map[string]string `json:"data"`
+	Trailer []string          `json:"trailer"`
 }
 
 func init() {
@@ -88,6 +89,15 @@ func getTotalLeaks() int {
 
 func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	req, resp := processRequest(ctx, in)
+
+	if req.InvalidResponse {
+		_, err := io.Copy(out, strings.NewReader(InvalidResponseStr))
+		if err != nil {
+			log.Printf("io copy error %v", err)
+			panic(err.Error())
+		}
+	}
+
 	var outto fdkresponse
 	outto.Writer = out
 	finalizeRequest(&outto, req, resp)
@@ -125,6 +135,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 
 	if request.IsDebug {
 		format, _ := os.LookupEnv("FN_FORMAT")
+		log.Printf("BeginOfLogs")
 		log.Printf("Received format %v", format)
 		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header)
@@ -190,8 +201,17 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		Request: request,
 		Headers: fnctx.Header,
 		Config:  fnctx.Config,
+		Trailer: make([]string, 0, request.TrailerRepeat),
 	}
 
+	for i := request.TrailerRepeat; i > 0; i-- {
+		resp.Trailer = append(resp.Trailer, request.EchoContent)
+	}
+
+	// Well, almost true.. If panic/errors, we may print stuff after this
+	if request.IsDebug {
+		log.Printf("EndOfLogs")
+	}
 	return &request, &resp
 }
 
@@ -226,7 +246,7 @@ func testDoHTTP(ctx context.Context, in io.Reader, out io.Writer) {
 	for {
 		err := testDoHTTPOnce(ctx, in, out, &buf, hdr)
 		if err != nil {
-			break
+			panic("testDoHTTPOnce: " + err.Error())
 		}
 	}
 }
@@ -238,7 +258,7 @@ func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
 	for {
 		err := testDoJSONOnce(ctx, in, out, &buf, hdr)
 		if err != nil {
-			break
+			panic("testDoJSONOnce: " + err.Error())
 		}
 	}
 }
@@ -251,13 +271,12 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 	resp.Status = 200
 	resp.Header = hdr
 
-	responseSize := 0
-
 	var jsonRequest fdkutils.JsonIn
 	err := json.NewDecoder(in).Decode(&jsonRequest)
 	if err != nil {
 		// stdin now closed
 		if err == io.EOF {
+			log.Printf("json decoder read EOF %v", err)
 			return err
 		}
 		resp.Status = http.StatusInternalServerError
@@ -274,23 +293,20 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
-		responseSize = appReq.ResponseSize
 	}
 
 	jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
 
-	if responseSize > 0 {
-		b, err := json.Marshal(jsonResponse)
-		if err != nil {
-			return err
-		}
-		if len(b) > responseSize {
-			responseSize = len(b)
-		}
-		b = b[:responseSize]
-		out.Write(b)
-	} else {
-		json.NewEncoder(out).Encode(jsonResponse)
+	b, err := json.Marshal(jsonResponse)
+	if err != nil {
+		log.Printf("json marshal error %v", err)
+		return err
+	}
+
+	_, err = out.Write(b)
+	if err != nil {
+		log.Printf("json write error %v", err)
+		return err
 	}
 
 	return nil
@@ -324,12 +340,11 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 	resp.Status = 200
 	resp.Header = hdr
 
-	responseSize := 0
-
 	req, err := http.ReadRequest(bufio.NewReader(in))
 	if err != nil {
 		// stdin now closed
 		if err == io.EOF {
+			log.Printf("http read EOF %v", err)
 			return err
 		}
 		// TODO it would be nice if we could let the user format this response to their preferred style..
@@ -348,33 +363,14 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
-		responseSize = appReq.ResponseSize
 	}
 
 	hResp := fdkutils.GetHTTPResp(buf, &resp.Response, req)
 
-	if responseSize > 0 {
-
-		var buf bytes.Buffer
-		bufWriter := bufio.NewWriter(&buf)
-
-		err := hResp.Write(bufWriter)
-		if err != nil {
-			return err
-		}
-
-		bufReader := bufio.NewReader(&buf)
-
-		if buf.Len() > responseSize {
-			responseSize = buf.Len()
-		}
-
-		_, err = io.CopyN(out, bufReader, int64(responseSize))
-		if err != nil {
-			return err
-		}
-	} else {
-		hResp.Write(out)
+	err = hResp.Write(out)
+	if err != nil {
+		log.Printf("http response write error %v", err)
+		return err
 	}
 
 	return nil
