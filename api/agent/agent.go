@@ -284,27 +284,27 @@ func statSpans(ctx context.Context, call *call) (_ context.Context, finish func(
 // or it may wait for resources to become available to launch a new container.
 func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	// start the deadline context for waiting for slots
-	ctx, cancel := context.WithDeadline(ctx, call.slotDeadline)
+	slotCtx, cancel := context.WithDeadline(ctx, call.slotDeadline)
 	defer cancel()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
+	span, slotCtx := opentracing.StartSpanFromContext(slotCtx, "agent_get_slot")
 	defer span.Finish()
 
 	// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 	var isNew bool
 	call.slots, isNew = a.slotMgr.getSlotQueue(call)
-	call.requestState.UpdateState(ctx, RequestStateWait, call.slots)
+	call.requestState.UpdateState(slotCtx, RequestStateWait, call.slots)
 	if isNew {
-		go a.hotLauncher(ctx, call)
+		go a.hotLauncher(slotCtx, ctx, call)
 	}
-	s, err := a.waitHot(ctx, call)
+	s, err := a.waitHot(slotCtx, call)
 	return s, err
 }
 
 // hotLauncher is spawned in a go routine for each slot queue to monitor stats and launch hot
 // containers if needed. Upon shutdown or activity timeout, hotLauncher exits and during exit,
 // it destroys the slot queue.
-func (a *agent) hotLauncher(ctx context.Context, call *call) {
+func (a *agent) hotLauncher(slotCtx, origCtx context.Context, call *call) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
@@ -314,19 +314,24 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		timeout = idleTimeout
 	}
 
-	logger := common.Logger(ctx)
+	logger := common.Logger(origCtx)
 
 	defer a.slotMgr.deleteSlotQueue(call.slots)
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(common.WithLogger(context.Background(), logger), opentracing.SpanFromContext(ctx))
+	ctx := context.Background()
+	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		ctx = slotCtx // non-stream protocol, do bound the ctx to client slot wait
+	}
+
+	ctx = opentracing.ContextWithSpan(common.WithLogger(ctx, logger), opentracing.SpanFromContext(origCtx))
 	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_launcher")
 	defer span.Finish()
 
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
-		isLaunched := a.checkLaunch(ctx, call)
+		isLaunched := a.checkLaunch(ctx, slotCtx, origCtx, call)
 
 		// Non streaming protocols can only launch one container
 		if isLaunched && !protocol.IsStreamable(protocol.Protocol(call.Format)) {
@@ -349,7 +354,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	}
 }
 
-func (a *agent) checkLaunch(ctx context.Context, call *call) bool {
+func (a *agent) checkLaunch(ctx, slotCtx, origCtx context.Context, call *call) bool {
 	curStats := call.slots.getStats()
 	isAsync := call.Type == models.TypeAsync
 	isLaunched := false
@@ -367,8 +372,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) bool {
 	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
 		a.wg.Add(1) // add waiter in this thread
 		go func() {
-			// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
-			a.runHot(ctx, call, tok, state)
+			a.runHot(slotCtx, origCtx, call, tok, state)
 			a.wg.Done()
 		}()
 		isLaunched = true
@@ -492,18 +496,16 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	}
 }
 
-func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
+func (a *agent) runHot(slotCtx context.Context, origCtx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_run_hot")
+	unboundedCtx := opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(origCtx))
+	span, unboundedCtx := opentracing.StartSpanFromContext(unboundedCtx, "agent_run_hot")
 	defer span.Finish()
 	defer tok.Close() // IMPORTANT: this MUST get called
 
-	state.UpdateState(ctx, ContainerStateStart, call.slots)
-	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
-
-	cid := id.New().String()
+	state.UpdateState(unboundedCtx, ContainerStateStart, call.slots)
+	defer state.UpdateState(unboundedCtx, ContainerStateDone, call.slots)
 
 	// between calls we need a readers/writers that don't do anything
 	stdin := &ghostReader{cond: sync.NewCond(new(sync.Mutex)), inner: new(waitReader)}
@@ -514,7 +516,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	defer stdout.Close()
 
 	container := &container{
-		id:     cid, // XXX we could just let docker generate ids...
+		id:     id.New().String(), // XXX we could just let docker generate ids...
 		image:  call.Image,
 		env:    map[string]string(call.Config),
 		memory: call.Memory,
@@ -537,35 +539,49 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		"max_requests": call.maxRequests,
 	})
 
-	ctx = common.WithLogger(ctx, logger)
+	unboundedCtx = common.WithLogger(unboundedCtx, logger)
 
-	cookie, err := a.driver.Prepare(ctx, container)
+	// For non-streaming requests, slotCtx is the slot context
+	// that triggered this operation. Tie Prepare timeout to it.
+	prepDeadline := unboundedCtx
+	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		prepDeadline = slotCtx
+	}
+
+	cookie, err := a.driver.Prepare(prepDeadline, container)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
-	defer cookie.Close(ctx) // NOTE ensure this ctx doesn't time out
+	defer cookie.Close(unboundedCtx) // NOTE ensure this ctx doesn't time out
 
-	waiter, err := cookie.Run(ctx)
+	// For non-streaming requests, we must tie the container exec/deadline to
+	// original request
+	runDeadlineCtx := unboundedCtx
+	if !protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		runDeadlineCtx = origCtx
+	}
+
+	waiter, err := cookie.Run(runDeadlineCtx)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
 
 	// container is running
-	state.UpdateState(ctx, ContainerStateIdle, call.slots)
+	state.UpdateState(unboundedCtx, ContainerStateIdle, call.slots)
 
 	// buffered, in case someone has slot when waiter returns but isn't yet listening
 	errC := make(chan error, 1)
 
-	ctx, shutdownContainer := context.WithCancel(ctx)
+	runCtx, shutdownContainer := context.WithCancel(runDeadlineCtx)
 	defer shutdownContainer() // close this if our waiter returns, to call off slots
 	go func() {
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
 		for idx := uint64(0); call.maxRequests == 0 || idx < call.maxRequests; idx++ {
 			select { // make sure everything is up before trying to send slot
-			case <-ctx.Done(): // container shutdown
+			case <-runCtx.Done(): // container shutdown
 				return
 			case <-a.shutdown: // server shutdown
 				return
@@ -573,7 +589,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			}
 
 			slot := &hotSlot{make(chan struct{}), errC, container, nil, shutdownContainer}
-			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
+			if !a.runHotReq(runCtx, call, state, logger, cookie, slot) {
 				return
 			}
 
@@ -583,13 +599,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 		}
 	}()
 
-	if !call.maxAliveDeadline.IsZero() {
-		deadlineCtx, deadlineContainer := context.WithDeadline(ctx, call.maxAliveDeadline)
-		defer deadlineContainer()
-		ctx = deadlineCtx
-	}
-
-	res, err := waiter.Wait(ctx)
+	res, err := waiter.Wait(runCtx)
 	if err != nil {
 		errC <- err
 	} else if res.Error() != nil {
