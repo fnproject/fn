@@ -93,9 +93,9 @@ func DefaultgRPCNodePool(npmAddress string, cert string, key string, ca string) 
 }
 
 func NewgRPCNodePool(cert string, key string, ca string,
-	                 npm poolmanager.NodePoolManager,
-	                 aggregator poolmanager.CapacityAggregator,
-	                 rf RunnerFactory) NodePool {
+	npm poolmanager.NodePoolManager,
+	aggregator poolmanager.CapacityAggregator,
+	rf RunnerFactory) NodePool {
 	p := pkiData{
 		ca:   ca,
 		cert: cert,
@@ -210,12 +210,14 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 			var err error
 			r, err = lbg.generator(addr, lbgID, p)
 			if err != nil {
-				// TODO: what?
-				panic(err)
+				logrus.WithField("runner_addr", addr).Debug("Creation of the new runner failed")
+			} else {
+				lbg.runners[addr] = r
 			}
-			lbg.runners[addr] = r
 		}
-		r_list[i] = r // Maintain the delivered order
+		if r != nil {
+			r_list[i] = r // Maintain the delivered order
+		}
 		seen[addr] = true
 	}
 	lbg.r_list.Store(r_list)
@@ -223,7 +225,7 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 	// Remove any runners that we have not encountered
 	for addr, r := range lbg.runners {
 		if _, ok := seen[addr]; !ok {
-			logrus.WithField("Runner_addr", addr).Debug("Removing drained runner")
+			logrus.WithField("runner_addr", addr).Debug("Removing drained runner")
 			delete(lbg.runners, addr)
 			r.Close()
 		}
