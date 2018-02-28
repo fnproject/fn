@@ -84,7 +84,18 @@ func GRPCRunnerFactory(addr string, lbgID string, p pkiData) (Runner, error) {
 	}, nil
 }
 
-func NewgRPCNodePool(npmAddress string, cert string, key string, ca string, rf RunnerFactory) NodePool {
+func DefaultgRPCNodePool(npmAddress string, cert string, key string, ca string) NodePool {
+	npm := poolmanager.NewNodePoolManager(npmAddress, cert, key, ca)
+	aggregator := poolmanager.NewCapacityAggregator()
+	rf := GRPCRunnerFactory
+
+	return NewgRPCNodePool(cert, key, ca, npm, aggregator, rf)
+}
+
+func NewgRPCNodePool(cert string, key string, ca string,
+	                 npm poolmanager.NodePoolManager,
+	                 aggregator poolmanager.CapacityAggregator,
+	                 rf RunnerFactory) NodePool {
 	p := pkiData{
 		ca:   ca,
 		cert: cert,
@@ -92,8 +103,8 @@ func NewgRPCNodePool(npmAddress string, cert string, key string, ca string, rf R
 	}
 
 	np := &gRPCNodePool{
-		npm:        poolmanager.NewNodePoolManager(npmAddress, cert, key, ca),
-		aggregator: poolmanager.NewCapacityAggregator(),
+		npm:        npm,
+		aggregator: aggregator,
 		lbg:        make(map[string]*lbg),
 		generator:  rf,
 		shutdown:   make(chan struct{}),

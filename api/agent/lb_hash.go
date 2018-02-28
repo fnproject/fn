@@ -16,11 +16,7 @@ import (
 type chPlacer struct {
 }
 
-func WithCHPlacer() LBAgentOption {
-	return WithPlacer(newCHPlacer())
-}
-
-func newCHPlacer() Placer {
+func NewCHPlacer() Placer {
 	return &chPlacer{}
 }
 

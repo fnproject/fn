@@ -375,14 +375,16 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			// Select the placement algorithm
-			opts := []agent.LBAgentOption{}
+			var placer agent.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {
-			case "":
 			case "ch":
-				opts = append(opts, agent.WithCHPlacer())
+				placer = agent.NewCHPlacer()
+			default:
+				placer = agent.NewNaivePlacer()
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			s.agent, err = agent.NewLBAgent(npmAddress, delegatedAgent, s.cert, s.certKey, s.certAuthority, opts...)
+			nodePool := agent.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
+			s.agent, err = agent.NewLBAgent(delegatedAgent, nodePool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}

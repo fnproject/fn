@@ -78,6 +78,10 @@ type Placer interface {
 type naivePlacer struct {
 }
 
+func NewNaivePlacer() Placer {
+	return &naivePlacer{}
+}
+
 func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error {
 	deadline := call.slotDeadline
 
@@ -126,37 +130,13 @@ type lbAgent struct {
 	placer         Placer
 }
 
-type LBAgentOption func(*lbAgent) error
-
-func NewLBAgent(npmAddress string, agent Agent, cert string, key string, ca string, opts ...LBAgentOption) (Agent, error) {
+func NewLBAgent(agent Agent, np NodePool, p Placer) (Agent, error) {
 	a := &lbAgent{
 		delegatedAgent: agent,
-		placer:         &naivePlacer{},
-	}
-	for _, o := range opts {
-		if err := o(a); err != nil {
-			logrus.WithField("error", err).Fatal("Can't construct an LBAgent")
-			return nil, err
-		}
-	}
-	if a.np == nil {
-		a.np = NewgRPCNodePool(npmAddress, cert, key, ca, GRPCRunnerFactory)
+		np:             np,
+		placer:         p,
 	}
 	return a, nil
-}
-
-func WithPlacer(p Placer) LBAgentOption {
-	return func(a *lbAgent) error {
-		a.placer = p
-		return nil
-	}
-}
-
-func WithNodePool(np NodePool) LBAgentOption {
-	return func(a *lbAgent) error {
-		a.np = np
-		return nil
-	}
 }
 
 // GetCall delegates to the wrapped agent, but it adds a "slot reservation" for
