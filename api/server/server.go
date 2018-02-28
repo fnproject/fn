@@ -43,6 +43,7 @@ const (
 	EnvLBPlacementAlg = "FN_PLACER"
 	EnvNodeType   = "FN_NODE_TYPE"
 	EnvPort       = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvGRPCPort   = "FN_GRPC_PORT"
 	EnvAPICORS    = "FN_API_CORS"
 	EnvZipkinURL  = "FN_ZIPKIN_URL"
 	// Certificates to communicate with other FN nodes
@@ -54,6 +55,7 @@ const (
 	DefaultLogLevel = "info"
 	DefaultLogDest  = "stderr"
 	DefaultPort     = 8080
+	DefaultGRPCPort = 9190
 )
 
 type ServerNodeType int32
@@ -85,6 +87,8 @@ type Server struct {
 	// TODO this one maybe we have `AddRoute` in extensions?
 	Router *gin.Engine
 
+	webListenPort   int
+	grpcListenPort  int
 	agent           agent.Agent
 	datastore       models.Datastore
 	mq              models.MessageQueue
@@ -127,6 +131,8 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
+	opts = append(opts, WithWebPort(getEnvInt(EnvPort, DefaultPort)))
+	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
 	opts = append(opts, WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)))
 	opts = append(opts, WithLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, "")))
 	opts = append(opts, WithTracer(getEnv(EnvZipkinURL, ""))) // do this early on, so below can use these
@@ -156,6 +162,20 @@ func pwd() string {
 	}
 	// Replace forward slashes in case this is windows, URL parser errors
 	return strings.Replace(cwd, "\\", "/", -1)
+}
+
+func WithWebPort(port int) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.webListenPort = port
+		return nil
+	}
+}
+
+func WithGRPCPort(port int) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.grpcListenPort = port
+		return nil
+	}
 }
 
 func WithLogLevel(ll string) ServerOption {
@@ -374,6 +394,8 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
+			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
+			nodePool := agent.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
 			// Select the placement algorithm
 			var placer agent.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {
@@ -382,8 +404,6 @@ func WithAgentFromEnv() ServerOption {
 			default:
 				placer = agent.NewNaivePlacer()
 			}
-			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			nodePool := agent.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
 			s.agent, err = agent.NewLBAgent(delegatedAgent, nodePool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
@@ -410,7 +430,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 	log := common.Logger(ctx)
 	s := &Server{
-		Router: gin.New(),
+		Router:         gin.New(),
+		// Add default ports
+		webListenPort:  DefaultPort,
+		grpcListenPort: DefaultGRPCPort,
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
 
@@ -544,7 +567,7 @@ func (s *Server) Start(ctx context.Context) {
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
 	// FN_PORT environment variable was defined.
-	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
+	listen := fmt.Sprintf(":%d", s.webListenPort)
 
 	const runHeader = `
         ______
@@ -561,7 +584,8 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	if s.nodeType == ServerTypePureRunner {
 		// Run grpc too
-		pr, err := agent.CreatePureRunner("127.0.0.1:9190", s.agent, s.cert, s.certKey, s.certAuthority)
+		grpcAddr := fmt.Sprintf("127.0.0.1:%d", s.grpcListenPort)
+		pr, err := agent.CreatePureRunner(grpcAddr, s.agent, s.cert, s.certKey, s.certAuthority)
 		if err != nil {
 			logrus.WithError(err).Fatal("Pure runner server creation error")
 		}
