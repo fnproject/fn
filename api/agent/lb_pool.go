@@ -32,7 +32,7 @@ type NodePool interface {
 
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
-	TryExec(ctx context.Context, call *call) (bool, error)
+	TryExec(ctx context.Context, call Call) (bool, error)
 	Close()
 }
 
@@ -246,7 +246,7 @@ func runnerConnection(address, lbGroupID string, pki pkiData) (*grpc.ClientConn,
 	return conn, protocolClient
 }
 
-func (r *gRPCRunner) TryExec(ctx context.Context, call *call) (bool, error) {
+func (r *gRPCRunner) TryExec(ctx context.Context, call Call) (bool, error) {
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
 	r.wg.Add(1)
 	defer r.wg.Done()

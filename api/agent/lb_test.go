@@ -2,8 +2,11 @@ package agent
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 type mockRunner struct {
@@ -14,7 +17,7 @@ type mockRunner struct {
 	curCalls int32 // Current calls
 }
 
-func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) {
+func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) RunnerFactory {
 	return func(addr string, lbgID string, p pkiData) (Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
@@ -26,20 +29,20 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) {
 func (r *mockRunner) checkAndIncrCalls() error {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
-	if curCalls >= maxCalls {
-		return models.ErrTimeoutServerBusy
+	if r.curCalls >= r.maxCalls {
+		return models.ErrCallTimeoutServerBusy //TODO is that the correct error?
 	}
-	curCalls += 1
+	r.curCalls++
 	return nil
 }
 
 func (r *mockRunner) decrCalls() {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
-	curCalls -= 1
+	r.curCalls--
 }
 
-func (r *mockRunner) TryExec(ctx context.Context, call *call) (bool, error) {
+func (r *mockRunner) TryExec(ctx context.Context, call Call) (bool, error) {
 	err := r.checkAndIncrCalls()
 	if err != nil {
 		return false, err
@@ -49,15 +52,15 @@ func (r *mockRunner) TryExec(ctx context.Context, call *call) (bool, error) {
 	r.wg.Add(1)
 	defer r.wg.Done()
 
-	time.sleep(r.sleep)
+	time.Sleep(r.sleep)
 
-	w, err := ResponseWriter(call)
+	w, err := ResponseWriter(&call)
 	if err != nil {
 		return true, err
 	}
 	buf := []byte("OK")
 	(*w).Header().Set("Content-Type", "text/plain")
-	(*w).Header().Set("Content-Length", len(buf))
+	(*w).Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	(*w).Write(buf)
 
 	return true, nil
