@@ -14,24 +14,28 @@ var (
 	migrations = goose.Migrations{}
 )
 
-// each new migration will add corresponding column to the table def
 var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
 	memory int NOT NULL,
+	cpus int,
 	timeout int NOT NULL,
 	idle_timeout int NOT NULL,
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
+	created_at text,
+	updated_at varchar(256),
 	PRIMARY KEY (app_name, path)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS apps (
 	name varchar(256) NOT NULL PRIMARY KEY,
-	config text NOT NULL
+	config text NOT NULL,
+	created_at varchar(256),
+	updated_at varchar(256)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS calls (
@@ -42,6 +46,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	id varchar(256) NOT NULL,
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
+	stats text,
+	error text,
 	PRIMARY KEY (id)
 );`,
 
@@ -113,13 +119,6 @@ func DownAll(driver string, db *sql.DB) error {
 func ApplyMigrations(ctx context.Context, db *sqlx.DB) error {
 	goose.SetDialect(db.DriverName())
 	log := common.Logger(ctx)
-
-	for _, v := range tables {
-		_, err := db.ExecContext(ctx, v)
-		if err != nil {
-			return err
-		}
-	}
 
 	left, err := syncToGooseTable(ctx, db)
 	if err != nil {
