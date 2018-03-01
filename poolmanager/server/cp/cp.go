@@ -34,17 +34,16 @@ type controlPlane struct {
 
 	runners map[string][]*Runner
 
-	_fakeRunner string
+	_fakeRunners []string
 }
 
 const REQUEST_DURATION = 5 * time.Second
 
-
-func NewControlPlane(fakeRunner string) ControlPlane {
+func NewControlPlane(fakeRunners []string) ControlPlane {
 	cp := &controlPlane{
 		runners: make(map[string][]*Runner),
 
-		_fakeRunner: fakeRunner,
+		_fakeRunners: fakeRunners,
 	}
 	return cp
 }
@@ -77,7 +76,7 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 			runners = make([]*Runner, 0)
 		}
 		for i := 0; i < n; i++ {
-			runners = append(runners, cp.makeRunner(lbgId))
+			runners = append(runners, cp.makeRunners(lbgId)...)
 		}
 		cp.runners[lbgId] = runners
 	}()
@@ -85,24 +84,28 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 	return n, nil
 }
 
+// Make runner(s)
+func (cp *controlPlane) makeRunners(lbg string) []*Runner {
 
-// Make a runner
-func (cp *controlPlane) makeRunner(lbg string) *Runner {
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
-	if err != nil {
-		log.Panic("Error constructing UUID for runner: ", err)
+	var runners []*Runner
+	for _, fakeRunner := range cp._fakeRunners {
+
+		b := make([]byte, 16)
+		_, err := rand.Read(b)
+		if err != nil {
+			log.Panic("Error constructing UUID for runner: ", err)
+		}
+
+		uuid := fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+
+		runners = append(runners, &Runner{
+			Id:       uuid,
+			Address:  fakeRunner,
+			Capacity: CAPACITY_PER_RUNNER,
+		})
 	}
-
-	uuid := fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-
-	return &Runner{
-		Id: uuid,
-		Address: cp._fakeRunner,
-		Capacity: CAPACITY_PER_RUNNER,
-	}
+	return runners
 }
-
 
 // Ditch a runner from the pool.
 // We do this immediately - no point modelling a wait here

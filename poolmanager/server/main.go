@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
@@ -69,7 +70,7 @@ const (
 	EnvCertKey      = "FN_NODE_CERT_KEY"
 	EnvCertAuth     = "FN_NODE_CERT_AUTHORITY"
 	EnvPort         = "FN_PORT"
-	EnvSingleRunner = "FN_RUNNER_ADDRESS"
+	EnvFixedRunners = "FN_RUNNER_ADDRESS"
 )
 
 func getAndCheckFile(envVar string) (string, error) {
@@ -145,8 +146,8 @@ func main() {
 
 	logrus.Info("Starting Node Pool Manager gRPC service")
 
-	fakeRunner := getEnv(EnvSingleRunner)
-	svc := newNPMService(context.Background(), cp.NewControlPlane(fakeRunner))
+	fakeRunners := strings.Split(getEnv(EnvFixedRunners), ",")
+	svc := newNPMService(context.Background(), cp.NewControlPlane(fakeRunners))
 	model.RegisterNodePoolScalerServer(gRPCServer, svc)
 	model.RegisterRunnerManagerServer(gRPCServer, svc)
 
