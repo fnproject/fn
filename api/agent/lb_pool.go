@@ -37,7 +37,7 @@ type Runner interface {
 }
 
 // RunnerFactory is a factory func that creates a Runner usable by the pool.
-type RunnerFactory func(addr string, lbgId string, pki pkiData) (Runner, error)
+type RunnerFactory func(addr string, lbgId string, cert string, key string, ca string) (Runner, error)
 
 type gRPCNodePool struct {
 	npm        poolmanager.NodePoolManager
@@ -83,7 +83,12 @@ func (n *nullRunner) TryExec(ctx context.Context, call Call) (bool, error) {
 
 func (n *nullRunner) Close() {}
 
-func GRPCRunnerFactory(addr string, lbgID string, p pkiData) (Runner, error) {
+func GRPCRunnerFactory(addr string, lbgID string, cert string, key string, ca string) (Runner, error) {
+	p := pkiData{
+		cert: cert,
+		key: key,
+		ca: ca,
+	}
 	conn, client := runnerConnection(addr, lbgID, p)
 	return &gRPCRunner{
 		address: addr,
@@ -214,7 +219,7 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 		r, ok := lbg.runners[addr]
 		if !ok {
 			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
-			r, errGenerator = lbg.generator(addr, lbgID, p)
+			r, errGenerator = lbg.generator(addr, lbgID, p.cert, p.key, p.ca)
 			if errGenerator != nil {
 				logrus.WithField("runner_addr", addr).Debug("Creation of the new runner failed")
 			} else {

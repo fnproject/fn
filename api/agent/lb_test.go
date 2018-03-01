@@ -57,7 +57,7 @@ func (npm *mockNodePoolManager) Shutdown() error {
 }
 
 func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) RunnerFactory {
-	return func(addr string, lbgID string, p pkiData) (Runner, error) {
+	return func(addr string, lbgID string, cert string, key string, ca string) (Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
 			maxCalls: maxCalls,
@@ -67,7 +67,7 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) RunnerFactory {
 }
 
 func FaultyRunnerFactory() RunnerFactory {
-	return func(addr string, lbgID string, p pkiData) (Runner, error) {
+	return func(addr string, lbgID string, cert string, key string, ca string) (Runner, error) {
 		return &mockRunner{
 			addr: addr,
 		}, errors.New("Creation of new runner failed")
@@ -174,7 +174,7 @@ func TestReloadMembersRemoveRunners(t *testing.T) {
 	// actual runners before the update
 	actualRunners := []string{"171.16.0.1", "171.16.0.2", "171.16.0.19"}
 	for _, v := range actualRunners {
-		r, err := lb.generator(v, lbgID, np.pki)
+		r, err := lb.generator(v, lbgID, np.pki.cert, np.pki.key, np.pki.ca)
 		if err != nil {
 			t.Error("Failed to create new runner")
 		}
