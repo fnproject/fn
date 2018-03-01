@@ -76,7 +76,7 @@ type Server struct {
 	mq              models.MessageQueue
 	logstore        models.LogStore
 	nodeType        ServerNodeType
-	appListeners    []fnext.AppListener
+	appListeners    *appListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 }
@@ -279,6 +279,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	s.Router.Use(loggerWrap, traceWrap, panicWrap) // TODO should be opts
 	optionalCorsWrap(s.Router)                     // TODO should be an opt
 	s.bindHandlers(ctx)
+
+	s.appListeners = new(appListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners)
+
 	return s
 }
 

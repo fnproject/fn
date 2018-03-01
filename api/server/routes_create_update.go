@@ -109,22 +109,10 @@ func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, met
 	} else if app == nil {
 		// Create a new application
 		newapp := &models.App{Name: wroute.Route.AppName}
-
-		err = s.FireBeforeAppCreate(ctx, newapp)
-		if err != nil {
-			return err
-		}
-
 		_, err = s.datastore.InsertApp(ctx, newapp)
 		if err != nil {
 			return err
 		}
-
-		err = s.FireAfterAppCreate(ctx, newapp)
-		if err != nil {
-			return err
-		}
-
 	}
 	return nil
 }

@@ -7,14 +7,17 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
-// AddAppListener adds a listener that will be notified on App created.
+type appListeners []fnext.AppListener
+
+var _ fnext.AppListener = new(appListeners)
+
+// AddAppListener adds an AppListener for the server to use.
 func (s *Server) AddAppListener(listener fnext.AppListener) {
-	s.appListeners = append(s.appListeners, listener)
+	*s.appListeners = append(*s.appListeners, listener)
 }
 
-// FireBeforeAppCreate is used to call all the server's Listeners BeforeAppCreate functions.
-func (s *Server) FireBeforeAppCreate(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) BeforeAppCreate(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.BeforeAppCreate(ctx, app)
 		if err != nil {
 			return err
@@ -23,9 +26,8 @@ func (s *Server) FireBeforeAppCreate(ctx context.Context, app *models.App) error
 	return nil
 }
 
-// FireAfterAppCreate is used to call all the server's Listeners AfterAppCreate functions.
-func (s *Server) FireAfterAppCreate(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) AfterAppCreate(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.AfterAppCreate(ctx, app)
 		if err != nil {
 			return err
@@ -34,9 +36,8 @@ func (s *Server) FireAfterAppCreate(ctx context.Context, app *models.App) error 
 	return nil
 }
 
-// FireBeforeAppUpdate is used to call all the server's Listeners BeforeAppUpdate functions.
-func (s *Server) FireBeforeAppUpdate(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) BeforeAppUpdate(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.BeforeAppUpdate(ctx, app)
 		if err != nil {
 			return err
@@ -45,9 +46,8 @@ func (s *Server) FireBeforeAppUpdate(ctx context.Context, app *models.App) error
 	return nil
 }
 
-// FireAfterAppUpdate is used to call all the server's Listeners AfterAppUpdate functions.
-func (s *Server) FireAfterAppUpdate(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) AfterAppUpdate(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.AfterAppUpdate(ctx, app)
 		if err != nil {
 			return err
@@ -56,9 +56,8 @@ func (s *Server) FireAfterAppUpdate(ctx context.Context, app *models.App) error 
 	return nil
 }
 
-// FireBeforeAppDelete is used to call all the server's Listeners BeforeAppDelete functions.
-func (s *Server) FireBeforeAppDelete(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) BeforeAppDelete(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.BeforeAppDelete(ctx, app)
 		if err != nil {
 			return err
@@ -67,9 +66,8 @@ func (s *Server) FireBeforeAppDelete(ctx context.Context, app *models.App) error
 	return nil
 }
 
-// FireAfterAppDelete is used to call all the server's Listeners AfterAppDelete functions.
-func (s *Server) FireAfterAppDelete(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) AfterAppDelete(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.AfterAppDelete(ctx, app)
 		if err != nil {
 			return err
@@ -78,12 +76,8 @@ func (s *Server) FireAfterAppDelete(ctx context.Context, app *models.App) error 
 	return nil
 }
 
-// FireBeforeAppGet runs AppListener's BeforeAppGet method.
-// todo: All of these listener methods could/should return the 2nd param rather than modifying in place. For instance,
-// if a listener were to change the appName here (maybe prefix it or something for the database), it wouldn't be reflected anywhere else.
-// If this returned appName, then keep passing along the returned appName, it would work.
-func (s *Server) FireBeforeAppGet(ctx context.Context, appName string) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) BeforeAppGet(ctx context.Context, appName string) error {
+	for _, l := range *a {
 		err := l.BeforeAppGet(ctx, appName)
 		if err != nil {
 			return err
@@ -92,9 +86,8 @@ func (s *Server) FireBeforeAppGet(ctx context.Context, appName string) error {
 	return nil
 }
 
-// FireAfterAppGet runs AppListener's AfterAppGet method.
-func (s *Server) FireAfterAppGet(ctx context.Context, app *models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) AfterAppGet(ctx context.Context, app *models.App) error {
+	for _, l := range *a {
 		err := l.AfterAppGet(ctx, app)
 		if err != nil {
 			return err
@@ -103,9 +96,8 @@ func (s *Server) FireAfterAppGet(ctx context.Context, app *models.App) error {
 	return nil
 }
 
-// FireBeforeAppsList runs AppListener's BeforeAppsList method.
-func (s *Server) FireBeforeAppsList(ctx context.Context, filter *models.AppFilter) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) BeforeAppsList(ctx context.Context, filter *models.AppFilter) error {
+	for _, l := range *a {
 		err := l.BeforeAppsList(ctx, filter)
 		if err != nil {
 			return err
@@ -114,9 +106,8 @@ func (s *Server) FireBeforeAppsList(ctx context.Context, filter *models.AppFilte
 	return nil
 }
 
-// FireAfterAppsList runs AppListener's AfterAppsList method.
-func (s *Server) FireAfterAppsList(ctx context.Context, apps []*models.App) error {
-	for _, l := range s.appListeners {
+func (a *appListeners) AfterAppsList(ctx context.Context, apps []*models.App) error {
+	for _, l := range *a {
 		err := l.AfterAppsList(ctx, apps)
 		if err != nil {
 			return err
