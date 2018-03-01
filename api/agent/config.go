@@ -21,7 +21,6 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	cfg := &AgentConfig{
 		MinDockerVersion: "17.06.0-ce",
-		MaxResponseSize:  1024 * 1024 * 10, // 10MB default
 	}
 
 	cfg.FreezeIdleMsecs, err = getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
@@ -43,7 +42,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 		if err != nil {
 			return cfg, errors.New("error initializing response buffer size")
 		}
-		if cfg.MaxResponseSize <= 0 {
+		if cfg.MaxResponseSize < 0 {
 			return cfg, errors.New("error invalid response buffer size")
 		}
 	}
