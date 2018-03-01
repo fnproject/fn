@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	UpdatesBufferSize = 10000
+	updatesBufferSize = 10000
 )
 
 type NodePoolManager interface {
@@ -67,7 +67,7 @@ type CapacityAdvertiser interface {
 	Shutdown() error
 }
 
-type CapacityEntry struct {
+type capacityEntry struct {
 	TotalMemoryMb uint64
 }
 
@@ -78,13 +78,13 @@ type CapacityRequest struct {
 }
 
 // true if this capacity requirement requires no resources
-func (e *CapacityEntry) isZero() bool {
+func (e *capacityEntry) isZero() bool {
 	return e.TotalMemoryMb == 0
 }
 
 type queueingAdvertiser struct {
 	updates  chan *CapacityRequest
-	capacity map[string]*CapacityEntry
+	capacity map[string]*capacityEntry
 	shutdown chan interface{}
 	npm      NodePoolManager
 	lbID     string
@@ -93,8 +93,8 @@ type queueingAdvertiser struct {
 //NewCapacityAdvertiser return a CapacityAdvertiser
 func NewCapacityAdvertiser(npm NodePoolManager, lbID string, period time.Duration) CapacityAdvertiser {
 	agg := &queueingAdvertiser{
-		updates:  make(chan *CapacityRequest, UpdatesBufferSize),
-		capacity: make(map[string]*CapacityEntry),
+		updates:  make(chan *CapacityRequest, updatesBufferSize),
+		capacity: make(map[string]*capacityEntry),
 		shutdown: make(chan interface{}),
 		npm:      npm,
 		lbID:     lbID,
@@ -161,7 +161,7 @@ func (a *queueingAdvertiser) mergeUpdate(r *CapacityRequest) {
 
 	} else {
 		if r.assignment {
-			a.capacity[r.LBGroupID] = &CapacityEntry{TotalMemoryMb: r.TotalMemoryMb}
+			a.capacity[r.LBGroupID] = &capacityEntry{TotalMemoryMb: r.TotalMemoryMb}
 			logrus.WithField("lbg_id", r.LBGroupID).Debugf("Assigned new capacity of %vMB", r.TotalMemoryMb)
 		} else {
 			logrus.WithField("lbg_id", r.LBGroupID).Warn("Attempted to release unknown assigned capacity!")
