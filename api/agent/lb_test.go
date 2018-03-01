@@ -68,7 +68,9 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) RunnerFactory {
 
 func FaultyRunnerFactory() RunnerFactory {
 	return func(addr string, lbgID string, p pkiData) (Runner, error) {
-		return nil, errors.New("Creation of new runner failed")
+		return &mockRunner{
+			addr: addr,
+		}, errors.New("Creation of new runner failed")
 	}
 }
 
@@ -189,5 +191,9 @@ func TestReloadMembersFailToCreateNewRunners(t *testing.T) {
 	actualRunners := lb.runners
 	if len(actualRunners) != 0 {
 		t.Errorf("List of runners should be empty")
+	}
+	ordList := lb.r_list.Load().([]Runner)
+	if ordList[0] != nil {
+		t.Errorf("Ordered list of runners should be empty")
 	}
 }

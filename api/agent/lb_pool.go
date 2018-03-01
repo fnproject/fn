@@ -203,19 +203,19 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 	defer lbg.mx.Unlock()
 	r_list := make([]Runner, len(runners))
 	seen := map[string]bool{} // If we've seen a particular runner or not
+	var errGenerator error
 	for i, addr := range runners {
 		r, ok := lbg.runners[addr]
 		if !ok {
 			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
-			var err error
-			r, err = lbg.generator(addr, lbgID, p)
-			if err != nil {
+			r, errGenerator = lbg.generator(addr, lbgID, p)
+			if errGenerator != nil {
 				logrus.WithField("runner_addr", addr).Debug("Creation of the new runner failed")
 			} else {
 				lbg.runners[addr] = r
 			}
 		}
-		if r != nil {
+		if errGenerator == nil {
 			r_list[i] = r // Maintain the delivered order
 		}
 		seen[addr] = true
