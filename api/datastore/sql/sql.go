@@ -105,7 +105,7 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		db.SetMaxOpenConns(1)
 	}
 
-	err = migrations.ApplyMigrations(ctx, driver, sqldb)
+	err = migrations.ApplyMigrations(ctx, db)
 	if err != nil {
 		log.WithError(err).Error("error running migrations")
 		return nil, err
@@ -489,16 +489,7 @@ func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appName string, filter *
 }
 
 func (ds *sqlStore) Tx(f func(*sqlx.Tx) error) error {
-	tx, err := ds.db.Beginx()
-	if err != nil {
-		return err
-	}
-	err = f(tx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
+	return migrations.WithTx(ds.db, f)
 }
 
 func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {

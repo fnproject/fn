@@ -7,7 +7,7 @@ import (
 
 func up4(tx *sql.Tx) error {
 	_, err := tx.Exec("ALTER TABLE routes ADD updated_at VARCHAR(256);")
-	return checkMigrationsUpError(err)
+	return err
 }
 
 func down4(tx *sql.Tx) error {

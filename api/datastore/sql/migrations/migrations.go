@@ -5,12 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/fnproject/fn/api/common"
-	"github.com/go-sql-driver/mysql"
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
+	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose"
 	"sort"
-	"strings"
 )
 
 var (
@@ -18,7 +15,7 @@ var (
 )
 
 // each new migration will add corresponding column to the table def
-var initialTables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
+var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_name varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
@@ -55,55 +52,17 @@ var initialTables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 );`,
 }
 
-func checkOldMigrationTableVersionIfExists(db *sql.DB) (version int64, dirty bool, err error) {
-	migrationsTable := "schema_migrations"
-	ctx := context.Background()
-
-	// deleting old table after all
-	defer func() {
-		_, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS "+migrationsTable)
-	}()
-
-	err = db.QueryRowContext(
-		ctx, "SELECT version, dirty FROM "+migrationsTable+" LIMIT 1").
-		Scan(&version, &dirty)
-	switch {
-	case err == sql.ErrNoRows:
-		return -1, false, nil
-
-	case err != nil:
-		if e, ok := err.(*mysql.MySQLError); ok {
-			if e.Number == 0 {
-				return -1, false, nil
-			}
-		}
-		return 0, false, err
-
-	default:
-		return version, dirty, nil
-	}
-}
-
-func checkMigrationsUpError(err error) error {
+func WithTx(db *sqlx.DB, f func(*sqlx.Tx) error) error {
+	tx, err := db.Beginx()
 	if err != nil {
-		switch e := err.(type) {
-		case sqlite3.Error:
-			if strings.Contains(err.Error(), "duplicate column name") {
-				return nil
-			}
-		case *mysql.MySQLError:
-			if e.Number == 1060 {
-				return nil
-			}
-		case *pq.Error:
-			if e.Code == "42701" {
-				return nil
-			}
-		default:
-			return err
-		}
+		return err
 	}
-	return err
+	err = f(tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
 // copy of goose.sortAndConnetMigrations
@@ -149,56 +108,27 @@ func DownAll(driver string, db *sql.DB) error {
 			return err
 		}
 	}
-
 }
 
-func ApplyMigrations(ctx context.Context, driver string, db *sql.DB) error {
+func ApplyMigrations(ctx context.Context, db *sqlx.DB) error {
+	goose.SetDialect(db.DriverName())
 	log := common.Logger(ctx)
 
-	// no point to handle error from here, basically err
-	// indicates about any problem with old migrations table
-	current, _, err := checkOldMigrationTableVersionIfExists(db)
-	log.Debug("old migration table version was: ", current)
-
-	for _, v := range initialTables {
+	for _, v := range tables {
 		_, err := db.ExecContext(ctx, v)
 		if err != nil {
 			return err
 		}
 	}
 
-	goose.SetDialect(driver)
-	migrations = sortAndConnectMigrations(migrations)
-	// current can equal to -1, 0 or current version
-	// which is suppose to be greater than zero
-	if current <= 0 {
-		current, err = goose.GetDBVersion(db)
-		log.Info("goose: current datastore version: ", current)
-		if err != nil {
-			if err != goose.ErrNoNextVersion {
-				return err
-			}
-		}
+	left, err := syncToGooseTable(ctx, db)
+	if err != nil {
+		return err
 	}
-	// datastore is fresh new
-	if current == -1 {
-		current = 0
-	}
-	// bad migrations?
-	if current > int64(len(migrations)) {
-		log.Fatal("malformed datastore version ")
-	}
-	//latest version, nothing to do
-	//if current == int64(len(migrations)) {
-	//	return nil
-	//}
-	// we run migrations only in case if there is a new version(s)
-	leftToUpgrade := migrations[current:]
-	log.Debug("Migrations left to apply: ", len(leftToUpgrade))
-	// we can trust this, list is sorted
-	for _, m := range leftToUpgrade {
-		if err := m.Up(db); err != nil {
-			log.Error("migrations upgrade error: ", err.Error())
+	log.Debug("migrations left to apply: ", len(left))
+
+	for _, m := range left {
+		if err := m.Up(db.DB); err != nil {
 			return err
 		}
 	}
