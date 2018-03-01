@@ -60,59 +60,63 @@ func (npm *remoteNodePoolManager) AdvertiseCapacity(snapshots *model.CapacitySna
 	return npm.client.AdvertiseCapacity(snapshots)
 }
 
-//CapacityAggregator exposes the method to manage capacity calculation
-type CapacityAggregator interface {
-	ScheduleUpdates(lbID string, npm NodePoolManager, period time.Duration)
-	AssignCapacity(entry *CapacityEntry)
-	ReleaseCapacity(entry *CapacityEntry)
-	Iterate(func(string, *CapacityEntry))
+//CapacityAdvertiser allows capacity to be assigned/released and advertised to a node pool manager
+type CapacityAdvertiser interface {
+	AssignCapacity(r *CapacityRequest)
+	ReleaseCapacity(r *CapacityRequest)
 	Shutdown() error
 }
 
 type CapacityEntry struct {
 	TotalMemoryMb uint64
+}
+
+type CapacityRequest struct {
+	TotalMemoryMb uint64
 	LBGroupID     string
 	assignment    bool
 }
 
-type inMemoryAggregator struct {
-	updates  chan *CapacityEntry
+// true if this capacity requirement requires no resources
+func (e *CapacityEntry) isZero() bool {
+	return e.TotalMemoryMb == 0
+}
+
+type queueingAdvertiser struct {
+	updates  chan *CapacityRequest
 	capacity map[string]*CapacityEntry
 	shutdown chan interface{}
+	npm      NodePoolManager
+	lbID     string
 }
 
-//NewCapacityAggregator return a CapacityAggregator
-func NewCapacityAggregator() CapacityAggregator {
-	return &inMemoryAggregator{
-		updates:  make(chan *CapacityEntry, UpdatesBufferSize),
+//NewCapacityAdvertiser return a CapacityAdvertiser
+func NewCapacityAdvertiser(npm NodePoolManager, lbID string, period time.Duration) CapacityAdvertiser {
+	agg := &queueingAdvertiser{
+		updates:  make(chan *CapacityRequest, UpdatesBufferSize),
 		capacity: make(map[string]*CapacityEntry),
 		shutdown: make(chan interface{}),
+		npm:      npm,
+		lbID:     lbID,
 	}
+
+	agg.scheduleUpdates(period)
+	return agg
 }
 
-func (agg *inMemoryAggregator) ScheduleUpdates(lbID string, npm NodePoolManager, period time.Duration) {
+func (a *queueingAdvertiser) scheduleUpdates(period time.Duration) {
 	ticker := time.NewTicker(period)
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				snapshots := []*model.CapacitySnapshot{}
-				agg.Iterate(func(lbgID string, e *CapacityEntry) {
-					snapshot := &model.CapacitySnapshot{GroupId: &model.LBGroupId{Id: lbgID}, MemMbTotal: e.TotalMemoryMb}
-					snapshots = append(snapshots, snapshot)
-				})
+				a.sendAdvertisements()
 
-				npm.AdvertiseCapacity(&model.CapacitySnapshotList{
-					Snapshots: snapshots,
-					LbId:      lbID,
-					Ts:        ptypes.TimestampNow(),
-				})
+			case update := <-a.updates:
+				a.mergeUpdate(update)
 
-			case update := <-agg.updates:
-				agg.mergeUpdate(update)
-
-			case <-agg.shutdown:
+			case <-a.shutdown:
 				return
 
 			}
@@ -120,59 +124,78 @@ func (agg *inMemoryAggregator) ScheduleUpdates(lbID string, npm NodePoolManager,
 	}()
 }
 
-func (a *inMemoryAggregator) AssignCapacity(entry *CapacityEntry) {
-	a.udpateCapacity(entry, true)
+func (a *queueingAdvertiser) AssignCapacity(r *CapacityRequest) {
+	a.udpateCapacity(r, true)
 }
 
-func (a *inMemoryAggregator) ReleaseCapacity(entry *CapacityEntry) {
-	a.udpateCapacity(entry, false)
+func (a *queueingAdvertiser) ReleaseCapacity(r *CapacityRequest) {
+	a.udpateCapacity(r, false)
 }
 
 // don't leak implementation to caller
-func (a *inMemoryAggregator) udpateCapacity(entry *CapacityEntry, assignment bool) {
-	if entry.LBGroupID == "" {
+func (a *queueingAdvertiser) udpateCapacity(r *CapacityRequest, assignment bool) {
+	if r.LBGroupID == "" {
 		logrus.Warn("Missing LBG for capacity update!")
 		return
 	}
 
-	entry.assignment = assignment
+	r.assignment = assignment
 
 	select {
-	case a.updates <- entry:
+	case a.updates <- r:
 		// do not block
 	default:
 		logrus.Warn("Buffer size exceeded, dropping released capacity update before aggregation")
 	}
 }
 
-func (a *inMemoryAggregator) mergeUpdate(entry *CapacityEntry) {
-	if v, ok := a.capacity[entry.LBGroupID]; ok {
-		if entry.assignment {
-			v.TotalMemoryMb += entry.TotalMemoryMb
-			logrus.WithField("lbg_id", entry.LBGroupID).Debugf("Increased assigned capacity to %vMB", v.TotalMemoryMb)
+func (a *queueingAdvertiser) mergeUpdate(r *CapacityRequest) {
+	if e, ok := a.capacity[r.LBGroupID]; ok {
+		if r.assignment {
+			e.TotalMemoryMb += r.TotalMemoryMb
+			logrus.WithField("lbg_id", r.LBGroupID).Debugf("Increased assigned capacity to %vMB", e.TotalMemoryMb)
 		} else {
-			v.TotalMemoryMb -= entry.TotalMemoryMb
-			logrus.WithField("lbg_id", entry.LBGroupID).Debugf("Released assigned capacity to %vMB", v.TotalMemoryMb)
+			e.TotalMemoryMb -= r.TotalMemoryMb
+			logrus.WithField("lbg_id", r.LBGroupID).Debugf("Released assigned capacity to %vMB", e.TotalMemoryMb)
 		}
 
 	} else {
-		if entry.assignment {
-			a.capacity[entry.LBGroupID] = &CapacityEntry{TotalMemoryMb: entry.TotalMemoryMb}
-			logrus.WithField("lbg_id", entry.LBGroupID).Debugf("Assigned new capacity of %vMB", entry.TotalMemoryMb)
+		if r.assignment {
+			a.capacity[r.LBGroupID] = &CapacityEntry{TotalMemoryMb: r.TotalMemoryMb}
+			logrus.WithField("lbg_id", r.LBGroupID).Debugf("Assigned new capacity of %vMB", r.TotalMemoryMb)
 		} else {
-			logrus.WithField("lbg_id", entry.LBGroupID).Warn("Attempted to release unknown assigned capacity!")
+			logrus.WithField("lbg_id", r.LBGroupID).Warn("Attempted to release unknown assigned capacity!")
 		}
 	}
 }
 
-func (a *inMemoryAggregator) Iterate(fn func(string, *CapacityEntry)) {
-	for k, v := range a.capacity {
-		fn(k, v)
+func (a *queueingAdvertiser) sendAdvertisements() {
+	snapshots := []*model.CapacitySnapshot{}
+	for lbgID, e := range a.capacity {
+		snapshots = append(snapshots, &model.CapacitySnapshot{
+			GroupId:    &model.LBGroupId{Id: lbgID},
+			MemMbTotal: e.TotalMemoryMb,
+		})
+
+		// clean entries with zero capacity requirements
+		// after including them in advertisement
+		if e.isZero() {
+			logrus.WithField("lbg_id", lbgID).Debug("Purging nil capacity requirement")
+			delete(a.capacity, lbgID)
+		}
 	}
+	// don't block consuming updates while calling out to NPM
+	go func() {
+		a.npm.AdvertiseCapacity(&model.CapacitySnapshotList{
+			Snapshots: snapshots,
+			LbId:      a.lbID,
+			Ts:        ptypes.TimestampNow(),
+		})
+	}()
 }
 
-func (a *inMemoryAggregator) Shutdown() error {
-	logrus.Info("Shutting down capacity aggregator")
+func (a *queueingAdvertiser) Shutdown() error {
+	logrus.Info("Shutting down capacity advertiser")
 	close(a.shutdown)
 	return nil
 }

@@ -25,8 +25,8 @@ const (
 // NodePool is the interface to interact with Node pool manager
 type NodePool interface {
 	Runners(lbgID string) []Runner
-	AssignCapacity(capacity *poolmanager.CapacityEntry)
-	ReleaseCapacity(capacity *poolmanager.CapacityEntry)
+	AssignCapacity(r *poolmanager.CapacityRequest)
+	ReleaseCapacity(r *poolmanager.CapacityRequest)
 	Shutdown()
 }
 
@@ -41,7 +41,7 @@ type RunnerFactory func(addr string, lbgId string, pki pkiData) (Runner, error)
 
 type gRPCNodePool struct {
 	npm        poolmanager.NodePoolManager
-	aggregator poolmanager.CapacityAggregator
+	advertiser poolmanager.CapacityAdvertiser
 	mx         sync.RWMutex
 	lbg        map[string]*lbg // {lbgid -> *lbg}
 	generator  RunnerFactory
@@ -94,15 +94,17 @@ func GRPCRunnerFactory(addr string, lbgID string, p pkiData) (Runner, error) {
 
 func DefaultgRPCNodePool(npmAddress string, cert string, key string, ca string) NodePool {
 	npm := poolmanager.NewNodePoolManager(npmAddress, cert, key, ca)
-	aggregator := poolmanager.NewCapacityAggregator()
+	// TODO do we need to persistent this ID in order to survive restart?
+	lbID := id.New().String()
+	advertiser := poolmanager.NewCapacityAdvertiser(npm, lbID, CapacityUpdatePeriod)
 	rf := GRPCRunnerFactory
 
-	return NewgRPCNodePool(cert, key, ca, npm, aggregator, rf)
+	return NewgRPCNodePool(cert, key, ca, npm, advertiser, rf)
 }
 
 func NewgRPCNodePool(cert string, key string, ca string,
 	npm poolmanager.NodePoolManager,
-	aggregator poolmanager.CapacityAggregator,
+	advertiser poolmanager.CapacityAdvertiser,
 	rf RunnerFactory) NodePool {
 	p := pkiData{
 		ca:   ca,
@@ -112,17 +114,13 @@ func NewgRPCNodePool(cert string, key string, ca string,
 
 	np := &gRPCNodePool{
 		npm:        npm,
-		aggregator: aggregator,
+		advertiser: advertiser,
 		lbg:        make(map[string]*lbg),
 		generator:  rf,
 		shutdown:   make(chan struct{}),
 		pki:        p,
 	}
 	go np.maintenance()
-	// TODO do we need to persistent this ID in order to survive restart?
-	lbID := id.New().String()
-
-	np.aggregator.ScheduleUpdates(lbID, np.npm, CapacityUpdatePeriod)
 	return np
 }
 
@@ -145,16 +143,16 @@ func (np *gRPCNodePool) Runners(lbgID string) []Runner {
 }
 
 func (np *gRPCNodePool) Shutdown() {
-	np.aggregator.Shutdown()
+	np.advertiser.Shutdown()
 	np.npm.Shutdown()
 }
 
-func (np *gRPCNodePool) AssignCapacity(capacity *poolmanager.CapacityEntry) {
-	np.aggregator.AssignCapacity(capacity)
+func (np *gRPCNodePool) AssignCapacity(r *poolmanager.CapacityRequest) {
+	np.advertiser.AssignCapacity(r)
 
 }
-func (np *gRPCNodePool) ReleaseCapacity(capacity *poolmanager.CapacityEntry) {
-	np.aggregator.ReleaseCapacity(capacity)
+func (np *gRPCNodePool) ReleaseCapacity(r *poolmanager.CapacityRequest) {
+	np.advertiser.ReleaseCapacity(r)
 }
 
 func (np *gRPCNodePool) maintenance() {
