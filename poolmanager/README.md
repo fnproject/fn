@@ -146,7 +146,7 @@ docker run -d \
 #### Second runner
 ```bash
 docker run -d \
-           --name runner \
+           --name runner-2 \
            -v /var/run/docker.sock:/var/run/docker.sock \
            -p 9191:9191 \
            -e FN_GRPC_PORT=9191 \
