@@ -27,13 +27,23 @@ type SystemTestNodePool struct {
 
 func NewSystemTestNodePool() (agent.NodePool, error) {
     factory := agent.GRPCRunnerFactory
-    addr := fmt.Sprintf("%s:9190", whoAmI())
-    runner, err := factory(addr, "default", "test_cert.pem", "test_key.pem", "test_ca.pem")
+    addr0 := fmt.Sprintf("%s:9190", whoAmI())
+    addr1 := fmt.Sprintf("%s:9191", whoAmI())
+    addr2 := fmt.Sprintf("%s:9192", whoAmI())
+    r0, err := factory(addr0, "default", "test_cert.pem", "test_key.pem", "test_ca.pem")
+    if err != nil {
+        return nil, err
+    }
+    r1, err := factory(addr1, "default", "test_cert.pem", "test_key.pem", "test_ca.pem")
+    if err != nil {
+        return nil, err
+    }
+    r2, err := factory(addr2, "default", "test_cert.pem", "test_key.pem", "test_ca.pem")
     if err != nil {
         return nil, err
     }
     return &SystemTestNodePool{
-        runners: []agent.Runner{runner},
+        runners: []agent.Runner{r0, r1, r2},
     }, nil
 }
 
@@ -68,18 +78,28 @@ func SetUpSystem() error {
     }
     logrus.Info("Created LB node")
 
-    pr, err := SetUpPureRunnerNode(ctx)
+    pr0, err := SetUpPureRunnerNode(ctx, 0)
     if err != nil {
         return err
     }
-    logrus.Info("Created Pure Runner node")
+    pr1, err := SetUpPureRunnerNode(ctx, 1)
+    if err != nil {
+        return err
+    }
+    pr2, err := SetUpPureRunnerNode(ctx, 2)
+    if err != nil {
+        return err
+    }
+    logrus.Info("Created Pure Runner nodes")
 
     go func() { api.Start(ctx) }()
     logrus.Info("Started API node")
     go func() { lb.Start(ctx) }()
     logrus.Info("Started LB node")
-    go func() { pr.Start(ctx) }()
-    logrus.Info("Started Pure Runner node")
+    go func() { pr0.Start(ctx) }()
+    go func() { pr1.Start(ctx) }()
+    go func() { pr2.Start(ctx) }()
+    logrus.Info("Started Pure Runner nodes")
     // Wait for init - not great
     time.Sleep(5 * time.Second)
     return nil
@@ -95,6 +115,14 @@ func CleanUpSystem() error {
         return err
     }
     _, err = http.Get("http://127.0.0.1:8082/shutdown")
+    if err != nil {
+        return err
+    }
+    _, err = http.Get("http://127.0.0.1:8083/shutdown")
+    if err != nil {
+        return err
+    }
+    _, err = http.Get("http://127.0.0.1:8084/shutdown")
     if err != nil {
         return err
     }
@@ -121,7 +149,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
     opts = append(opts, server.WithNodeCertKey("test_key.pem"))
     opts = append(opts, server.WithNodeCertAuthority("test_ca.pem"))
     opts = append(opts, server.WithLogstoreFromDatastore())
-    opts = append(opts, server.EnableShutdownEndpoint(ctx, func(){}))
+    opts = append(opts, server.EnableShutdownEndpoint(ctx, func(){})) // TODO: do it properly
     return server.New(ctx, opts...), nil
 }
 
@@ -138,16 +166,14 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
     opts = append(opts, server.WithNodeCert("test_cert.pem"))
     opts = append(opts, server.WithNodeCertKey("test_key.pem"))
     opts = append(opts, server.WithNodeCertAuthority("test_ca.pem"))
-    opts = append(opts, server.EnableShutdownEndpoint(ctx, func(){}))
+    opts = append(opts, server.EnableShutdownEndpoint(ctx, func(){})) // TODO: do it properly
 
     runnerURL := "http://127.0.0.1:8080"
-    //npmAddress := "http://127.0.0.1:8083"
     cl, err := hybrid.NewClient(runnerURL)
     if err != nil {
         return nil, err
     }
     delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-    // agent.DefaultgRPCNodePool(npmAddress, "test_cert.pem", "test_key.pem", "test_ca.pem")
     nodePool, err := NewSystemTestNodePool()
     if err != nil {
         return nil, err
@@ -162,11 +188,11 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
     return server.New(ctx, opts...), nil
 }
 
-func SetUpPureRunnerNode(ctx context.Context) (*server.Server, error) {
+func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
     nodeType := server.ServerTypePureRunner
     opts := make([]server.ServerOption, 0)
-    opts = append(opts, server.WithWebPort(8082))
-    opts = append(opts, server.WithGRPCPort(9190))
+    opts = append(opts, server.WithWebPort(8082 + nodeNum))
+    opts = append(opts, server.WithGRPCPort(9190 + nodeNum))
     opts = append(opts, server.WithType(nodeType))
     opts = append(opts, server.WithLogLevel(server.DefaultLogLevel))
     opts = append(opts, server.WithLogDest(server.DefaultLogDest, "PURE-RUNNER"))
@@ -176,7 +202,7 @@ func SetUpPureRunnerNode(ctx context.Context) (*server.Server, error) {
     opts = append(opts, server.WithNodeCert("test_cert.pem"))
     opts = append(opts, server.WithNodeCertKey("test_key.pem"))
     opts = append(opts, server.WithNodeCertAuthority("test_ca.pem"))
-    opts = append(opts, server.EnableShutdownEndpoint(ctx, func(){}))
+    opts = append(opts, server.EnableShutdownEndpoint(ctx, func(){})) // TODO: do it properly
 
     ds, err := hybrid.NewNopDataStore()
     if err != nil {
