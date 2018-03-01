@@ -191,6 +191,13 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		Leaks = append(Leaks, &chunk)
 	}
 
+	if request.IsDebug {
+		info := getDockerInfo()
+		log.Printf("DockerInfo %+v", info)
+		data["DockerId"] = info.Id
+		data["DockerHostname"] = info.Hostname
+	}
+
 	// simulate crash
 	if request.IsCrash {
 		panic("Crash requested")
@@ -216,8 +223,16 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 }
 
 func main() {
+	if os.Getenv("ENABLE_HEADER") != "" {
+		log.Printf("Container starting")
+	}
+
 	format, _ := os.LookupEnv("FN_FORMAT")
 	testDo(format, os.Stdin, os.Stdout)
+
+	if os.Getenv("ENABLE_FOOTER") != "" {
+		log.Printf("Container ending")
+	}
 }
 
 func testDo(format string, in io.Reader, out io.Writer) {
@@ -411,4 +426,40 @@ func createFile(name string, size int) error {
 		}
 	}
 	return nil
+}
+
+type DockerInfo struct {
+	Hostname string
+	Id       string
+}
+
+func getDockerInfo() DockerInfo {
+	var info DockerInfo
+
+	info.Hostname, _ = os.Hostname()
+
+	// cgroup file has lines such as, where last token is the docker id
+	/*
+		12:freezer:/docker/610d96c712c6983776f920f2bcf10fae056a6fe5274393c86678ca802d184b0a
+	*/
+	file, err := os.Open("/proc/self/cgroup")
+	if err == nil {
+		defer file.Close()
+		r := bufio.NewReader(file)
+		for {
+			line, _, err := r.ReadLine()
+			if err != nil {
+				break
+			}
+
+			tokens := bytes.Split(line, []byte("/"))
+			tokLen := len(tokens)
+			if tokLen >= 3 && bytes.Compare(tokens[tokLen-2], []byte("docker")) == 0 {
+				info.Id = string(tokens[tokLen-1])
+				break
+			}
+		}
+	}
+
+	return info
 }

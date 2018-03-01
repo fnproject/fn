@@ -133,20 +133,26 @@ func TestRouteRunnerExecution(t *testing.T) {
 		}
 	}()
 
+	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
+	rHdr := map[string][]string{"X-Function": {"Test"}}
+	rImg := "fnproject/fn-test-utils"
+	rImgBs1 := "fnproject/imagethatdoesnotexist"
+	rImgBs2 := "localhost:5000/fnproject/imagethatdoesnotexist"
+
 	ds := datastore.NewMockInit(
 		[]*models.App{
 			{Name: "myapp", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myhot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myhotjason", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myerror", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/mydne", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30},
-			{Path: "/mydnehot", AppName: "myapp", Image: "fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
-			{Path: "/mydneregistry", AppName: "myapp", Image: "localhost:5000/fnproject/imagethatdoesnotexist", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30},
-			{Path: "/myoom", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30},
+			{Path: "/", AppName: "myapp", Image: rImg, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myhot", AppName: "myapp", Image: rImg, Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myhotjason", AppName: "myapp", Image: rImg, Type: "sync", Format: "json", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myroute", AppName: "myapp", Image: rImg, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myerror", AppName: "myapp", Image: rImg, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydne", AppName: "myapp", Image: rImgBs1, Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydnehot", AppName: "myapp", Image: rImgBs1, Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydneregistry", AppName: "myapp", Image: rImgBs2, Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myoom", AppName: "myapp", Image: rImg, Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
 		}, nil,
 	)
 
@@ -158,13 +164,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 	expHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"foo/bar"}}
 
-	crasher := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`                     // crash container
-	oomer := `{"sleepTime": 0, "isDebug": true, "allocateMemory": 12000000}`            // ask for 12MB
-	badHttp := `{"sleepTime": 0, "isDebug": true, "responseCode": -1}`                  // http status of -1 (invalid http)
-	badHot := `{"invalidResponse": true, "isDebug": true}`                              // write a not json/http as output
-	ok := `{"sleepTime": 0, "isDebug": true}`                                           // good response / ok
-	respTypeLie := `{"responseContentType": "foo/bar", "sleepTime":0, "isDebug": true}` // Content-Type: foo/bar
-	respTypeJason := `{"jasonContentType": "foo/bar", "sleepTime":0, "isDebug": true}`  // Content-Type: foo/bar
+	crasher := `{"isDebug": true, "isCrash": true}`                      // crash container
+	oomer := `{"isDebug": true, "allocateMemory": 12000000}`             // ask for 12MB
+	badHot := `{"invalidResponse": true, "isDebug": true}`               // write a not json/http as output
+	ok := `{"isDebug": true}`                                            // good response / ok
+	respTypeLie := `{"responseContentType": "foo/bar", "isDebug": true}` // Content-Type: foo/bar
+	respTypeJason := `{"jasonContentType": "foo/bar", "isDebug": true}`  // Content-Type: foo/bar
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	multiLog := `{"sleepTime": 1, "isDebug": true}`
@@ -181,7 +186,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	}{
 		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
-		{"/r/myapp/myhot", badHttp, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
+		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
 		// hot container now back to normal, we should get OK
 		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
@@ -191,7 +196,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
 		{"/r/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
 
-		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
 		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
 
 		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
@@ -203,6 +207,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 		{"/r/myapp/myoom", oomer, "GET", http.StatusBadGateway, nil, "container out of memory", nil},
 		{"/r/myapp/myhot", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
+		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
 	} {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
