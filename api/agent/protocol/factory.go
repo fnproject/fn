@@ -157,14 +157,14 @@ func (p Protocol) MarshalJSON() ([]byte, error) {
 
 // New creates a valid protocol handler from a I/O pipe representing containers
 // stdin/stdout.
-func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
+func New(p Protocol, in io.WriteCloser, out io.Reader) ContainerIO {
 	switch p {
 	case HTTP:
 		return &HTTPProtocol{in, out}
 	case JSON:
 		return &JSONProtocol{in, out}
 	case Default, Empty:
-		return &DefaultProtocol{}
+		return &DefaultProtocol{in, out}
 	}
 	return &errorProto{errInvalidProtocol}
 }
