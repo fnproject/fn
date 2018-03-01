@@ -51,9 +51,8 @@ type CallInfo interface {
 }
 
 type callInfoImpl struct {
-	call            *models.Call
-	req             *http.Request
-	maxResponseSize uint64
+	call *models.Call
+	req  *http.Request
 }
 
 func (ci callInfoImpl) CallID() string {

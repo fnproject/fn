@@ -324,11 +324,6 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		return err
 	}
 
-	_, err = out.Write(b)
-	if err != nil {
-		log.Printf("json write error %v", err)
-		return err
-	}
 	return nil
 }
 
