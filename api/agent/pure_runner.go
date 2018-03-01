@@ -297,7 +297,7 @@ func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.Runne
 }
 
 func (pr *pureRunner) Start() error {
-	logrus.Info("Listening on ", pr.listen)
+	logrus.Info("Pure Runner listening on ", pr.listen)
 	lis, err := net.Listen("tcp", pr.listen)
 	if err != nil {
 		return fmt.Errorf("could not listen on %s: %s", pr.listen, err)
