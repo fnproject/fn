@@ -134,12 +134,12 @@ func TestFullStack(t *testing.T) {
 		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0},
 		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
 		// NOTE: cache is lazy, loads when a request comes in for the route, not when added
-		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusOK, 0},
+		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, 0},
 		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/fn-test-utils", "type": "sync"  } }`, http.StatusOK, 0},
 		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
-		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK, 1},
+		{"execute myroute", "POST", "/r/myapp/myroute", `{ "echoContent": "Teste" }`, http.StatusOK, 1},
 		{"execute myroute2", "POST", "/r/myapp/myroute2", `{"sleepTime": 0, "isDebug": true, "isCrash": true}`, http.StatusBadGateway, 2},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},
@@ -170,11 +170,11 @@ func TestRunnerNode(t *testing.T) {
 	// Add route with an API server using the same DB
 	{
 		apiServer := testServer(ds, &mqs.Mock{}, logDB, nil, ServerTypeAPI)
-		_, rec := routerRequest(t, apiServer.Router, "POST", "/v1/apps/myapp/routes", bytes.NewBuffer([]byte(`{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`)))
+		_, rec := routerRequest(t, apiServer.Router, "POST", "/v1/apps/myapp/routes", bytes.NewBuffer([]byte(`{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/fn-test-utils", "type": "sync" } }`)))
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status code 200 when creating sync route, but got %d", rec.Code)
 		}
-		_, rec = routerRequest(t, apiServer.Router, "POST", "/v1/apps/myapp/routes", bytes.NewBuffer([]byte(`{ "route": { "name": "myasyncroute", "path": "/myasyncroute", "image": "fnproject/hello", "type": "async" } }`)))
+		_, rec = routerRequest(t, apiServer.Router, "POST", "/v1/apps/myapp/routes", bytes.NewBuffer([]byte(`{ "route": { "name": "myasyncroute", "path": "/myasyncroute", "image": "fnproject/fn-test-utils", "type": "async" } }`)))
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status code 200 when creating async route, but got %d", rec.Code)
 		}
@@ -191,15 +191,15 @@ func TestRunnerNode(t *testing.T) {
 		expectedCacheSize int // TODO kill me
 	}{
 		// Support sync and async API calls
-		{"execute sync route succeeds", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusOK, 1},
-		{"execute async route succeeds", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusAccepted, 1},
+		{"execute sync route succeeds", "POST", "/r/myapp/myroute", `{ "echoContent": "Teste" }`, http.StatusOK, 1},
+		{"execute async route succeeds", "POST", "/r/myapp/myasyncroute", `{ "echoContent": "Teste" }`, http.StatusAccepted, 1},
 
 		// All other API functions should not be available on runner nodes
 		{"create app not found", "POST", "/v1/apps", `{ "app": { "name": "myapp" } }`, http.StatusBadRequest, 0},
 		{"list apps not found", "GET", "/v1/apps", ``, http.StatusBadRequest, 0},
 		{"get app not found", "GET", "/v1/apps/myapp", ``, http.StatusBadRequest, 0},
 
-		{"add route not found", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusBadRequest, 0},
+		{"add route not found", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusBadRequest, 0},
 		{"get route not found", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusBadRequest, 0},
 		{"get all routes not found", "GET", "/v1/apps/myapp/routes", ``, http.StatusBadRequest, 0},
 		{"delete app not found", "DELETE", "/v1/apps/myapp", ``, http.StatusBadRequest, 0},
@@ -238,17 +238,17 @@ func TestApiNode(t *testing.T) {
 		{"list apps", "GET", "/v1/apps", ``, http.StatusOK, 0},
 		{"get app", "GET", "/v1/apps/myapp", ``, http.StatusOK, 0},
 
-		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/hello", "type": "sync" } }`, http.StatusOK, 0},
+		{"add myroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute", "path": "/myroute", "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, 0},
 		{"add myroute2", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myroute2", "path": "/myroute2", "image": "fnproject/fn-test-utils", "type": "sync"  } }`, http.StatusOK, 0},
-		{"add myasyncroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myasyncroute", "path": "/myasyncroute", "image": "fnproject/hello", "type": "async" } }`, http.StatusOK, 0},
+		{"add myasyncroute", "POST", "/v1/apps/myapp/routes", `{ "route": { "name": "myasyncroute", "path": "/myasyncroute", "image": "fnproject/fn-test-utils", "type": "async" } }`, http.StatusOK, 0},
 		{"get myroute", "GET", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 0},
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 0},
 		{"get all routes", "GET", "/v1/apps/myapp/routes", ``, http.StatusOK, 0},
 
 		// Don't support calling sync or async
-		{"execute myroute", "POST", "/r/myapp/myroute", `{ "name": "Teste" }`, http.StatusBadRequest, 1},
-		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "name": "Teste" }`, http.StatusBadRequest, 2},
-		{"execute myasyncroute", "POST", "/r/myapp/myasyncroute", `{ "name": "Teste" }`, http.StatusBadRequest, 1},
+		{"execute myroute", "POST", "/r/myapp/myroute", `{ "echoContent": "Teste" }`, http.StatusBadRequest, 1},
+		{"execute myroute2", "POST", "/r/myapp/myroute2", `{ "echoContent": "Teste" }`, http.StatusBadRequest, 2},
+		{"execute myasyncroute", "POST", "/r/myapp/myasyncroute", `{ "echoContent": "Teste" }`, http.StatusBadRequest, 1},
 
 		{"get myroute2", "GET", "/v1/apps/myapp/routes/myroute2", ``, http.StatusOK, 2},
 		{"delete myroute", "DELETE", "/v1/apps/myapp/routes/myroute", ``, http.StatusOK, 1},

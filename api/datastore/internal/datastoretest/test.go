@@ -526,7 +526,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				// unchanged
 				AppName:     testRoute.AppName,
 				Path:        testRoute.Path,
-				Image:       "fnproject/hello",
+				Image:       "fnproject/fn-test-utils",
 				Type:        "sync",
 				Format:      "http",
 				IdleTimeout: testRoute.IdleTimeout,
@@ -570,7 +570,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				// unchanged
 				AppName:     testRoute.AppName,
 				Path:        testRoute.Path,
-				Image:       "fnproject/hello",
+				Image:       "fnproject/fn-test-utils",
 				Type:        "sync",
 				Format:      "http",
 				Timeout:     2,
@@ -724,7 +724,7 @@ var testApp = &models.App{
 var testRoute = &models.Route{
 	AppName:     testApp.Name,
 	Path:        "/test",
-	Image:       "fnproject/hello",
+	Image:       "fnproject/fn-test-utils",
 	Type:        "sync",
 	Format:      "http",
 	Timeout:     models.DefaultTimeout,
