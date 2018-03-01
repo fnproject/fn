@@ -82,6 +82,10 @@ func (e *capacityEntry) isZero() bool {
 	return e.TotalMemoryMb == 0
 }
 
+func (e *capacityEntry) isNegative() bool {
+	return e.TotalMemoryMb < 0
+}
+
 type queueingAdvertiser struct {
 	updates  chan *CapacityRequest
 	capacity map[string]*capacityEntry
@@ -157,6 +161,9 @@ func (a *queueingAdvertiser) mergeUpdate(r *CapacityRequest) {
 		} else {
 			e.TotalMemoryMb -= r.TotalMemoryMb
 			logrus.WithField("lbg_id", r.LBGroupID).Debugf("Released assigned capacity to %vMB", e.TotalMemoryMb)
+		}
+		if e.isNegative() {
+			logrus.WithField("lbg_id", r.LBGroupID).Warn("Negative total memory")
 		}
 
 	} else {
