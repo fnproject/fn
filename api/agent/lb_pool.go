@@ -75,6 +75,14 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
+type nullRunner struct{}
+
+func (n *nullRunner) TryExec(ctx context.Context, call Call) (bool, error) {
+	return false, nil
+}
+
+func (n *nullRunner) Close() {}
+
 func GRPCRunnerFactory(addr string, lbgID string, p pkiData) (Runner, error) {
 	conn, client := runnerConnection(addr, lbgID, p)
 	return &gRPCRunner{
@@ -217,7 +225,13 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 		}
 		if errGenerator == nil {
 			r_list[i] = r // Maintain the delivered order
+		} else {
+			// some algorithms (like consistent hash) work better if the i'th element
+			// of r_list points to the same node on all LBs, so insert a placeholder
+			// if we can't create the runner for some reason"
+			r_list[i] = &nullRunner{}
 		}
+
 		seen[addr] = true
 	}
 	lbg.r_list.Store(r_list)

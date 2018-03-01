@@ -129,14 +129,18 @@ func setupMockNodePool(lbgID string, expectedRunners []string) (*mockgRPCNodePoo
 	return np, lb
 }
 
-func checkRunners(t *testing.T, expectedRunners []string, actualRunners map[string]Runner) {
+func checkRunners(t *testing.T, expectedRunners []string, actualRunners map[string]Runner, ordList []Runner) {
 	if len(expectedRunners) != len(actualRunners) {
 		t.Errorf("List of runners is wrong, expected: %d got: %d", len(expectedRunners), len(actualRunners))
 	}
-	for _, r := range expectedRunners {
+	for i, r := range expectedRunners {
 		_, ok := actualRunners[r]
 		if !ok {
 			t.Errorf("Advertised runner %s not found in the list of runners", r)
+		}
+		ordR := ordList[i].(*mockRunner)
+		if ordR.addr != r {
+			t.Error("Ordered list is not in sync with the advertised list")
 		}
 	}
 }
@@ -145,9 +149,11 @@ func TestReloadMembersNoRunners(t *testing.T) {
 	lbgID := "lb-test"
 	// // Empty list, no runners available
 	np, lb := setupMockNodePool(lbgID, make([]string, 0))
+
 	np.lbg[lbgID].reloadMembers(lbgID, np.npm, np.pki)
 	expectedRunners := []string{}
-	checkRunners(t, expectedRunners, lb.runners)
+	ordList := lb.r_list.Load().([]Runner)
+	checkRunners(t, expectedRunners, lb.runners, ordList)
 }
 
 func TestReloadMembersNewRunners(t *testing.T) {
@@ -156,13 +162,15 @@ func TestReloadMembersNewRunners(t *testing.T) {
 	np, lb := setupMockNodePool(lbgID, expectedRunners)
 
 	np.lbg[lbgID].reloadMembers(lbgID, np.npm, np.pki)
-	checkRunners(t, expectedRunners, lb.runners)
+	ordList := lb.r_list.Load().([]Runner)
+	checkRunners(t, expectedRunners, lb.runners, ordList)
 }
 
 func TestReloadMembersRemoveRunners(t *testing.T) {
 	lbgID := "lb-test"
 	expectedRunners := []string{"171.16.0.1", "171.16.0.3"}
 	np, lb := setupMockNodePool(lbgID, expectedRunners)
+
 	// actual runners before the update
 	actualRunners := []string{"171.16.0.1", "171.16.0.2", "171.16.0.19"}
 	for _, v := range actualRunners {
@@ -178,7 +186,8 @@ func TestReloadMembersRemoveRunners(t *testing.T) {
 	}
 
 	np.lbg[lbgID].reloadMembers(lbgID, np.npm, np.pki)
-	checkRunners(t, expectedRunners, lb.runners)
+	ordList := lb.r_list.Load().([]Runner)
+	checkRunners(t, expectedRunners, lb.runners, ordList)
 }
 
 func TestReloadMembersFailToCreateNewRunners(t *testing.T) {
@@ -193,7 +202,8 @@ func TestReloadMembersFailToCreateNewRunners(t *testing.T) {
 		t.Errorf("List of runners should be empty")
 	}
 	ordList := lb.r_list.Load().([]Runner)
-	if ordList[0] != nil {
-		t.Errorf("Ordered list of runners should be empty")
+	_, ok := ordList[0].(*nullRunner)
+	if !ok {
+		t.Errorf("Ordered list should have a nullRunner")
 	}
 }
