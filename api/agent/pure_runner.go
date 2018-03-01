@@ -53,7 +53,7 @@ func (w *writerFacade) commitHeaders() {
 		return
 	}
 	w.headerWritten = true
-	logrus.Info("committing call result with headers  %v : %d", w.outHeaders, w.outStatus)
+	logrus.Infof("Committing call result with status %d and headers %v", w.outStatus, w.outHeaders)
 
 	var outHeaders []*runner.HttpHeader
 
@@ -66,7 +66,7 @@ func (w *writerFacade) commitHeaders() {
 		}
 	}
 
-	logrus.Info("sending response value")
+	logrus.Info("Sending call result start message")
 
 	err := w.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_ResultStart{
@@ -85,11 +85,11 @@ func (w *writerFacade) commitHeaders() {
 		logrus.Errorf("Error sending call result: %v", err)
 		return
 	}
-	logrus.Info("Sent call result response")
+	logrus.Info("Sent call result message")
 }
 
 func (w *writerFacade) Write(data []byte) (int, error) {
-	logrus.Debug("Got response data %d bytes long", len(data))
+	logrus.Infof("Sending call response data %d bytes long", len(data))
 	w.commitHeaders()
 	err := w.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
@@ -107,6 +107,7 @@ func (w *writerFacade) Write(data []byte) (int, error) {
 }
 
 func (w *writerFacade) Close() error {
+	logrus.Info("Sending call response data end")
 	w.commitHeaders()
 	err := w.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
@@ -148,16 +149,31 @@ func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, st
 						state.streamError = err2
 					}
 				}
-			} else {
+				return
+			}
+			// First close the writer, then send the call finished message
+			err = state.w.Close()
+			if err != nil {
 				if state.streamError == nil { // If we can still write back...
 					err2 := state.w.engagement.Send(&runner.RunnerMsg{
 						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
-							Success: true,
-							Details: state.c.Model().ID,
+							Success: false,
+							Details: fmt.Sprintf("%v", err),
 						}}})
 					if err2 != nil {
 						state.streamError = err2
 					}
+				}
+				return
+			}
+			if state.streamError == nil { // If we can still write back...
+				err2 := state.w.engagement.Send(&runner.RunnerMsg{
+					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+						Success: true,
+						Details: state.c.Model().ID,
+					}}})
+				if err2 != nil {
+					state.streamError = err2
 				}
 			}
 		}()
@@ -206,15 +222,13 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	defer atomic.AddInt32(&pr.inflight, -1)
 
 	pv, ok := peer.FromContext(engagement.Context())
-	authInfo := pv.AuthInfo.(credentials.TLSInfo)
-	clientCn := authInfo.State.PeerCertificates[0].Subject.CommonName
-	logrus.Info("Got connection from", clientCn)
+	logrus.Info("Starting engagement")
 	if ok {
-		logrus.Info("got peer ", pv)
+		logrus.Info("Peer is ", pv)
 	}
 	md, ok := metadata.FromIncomingContext(engagement.Context())
 	if ok {
-		logrus.Info("got md ", md)
+		logrus.Info("MD is ", md)
 	}
 
 	var state = callState{
@@ -230,7 +244,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	}
 
 	grpc.EnableTracing = false
-	logrus.Info("entering runner loop")
+	logrus.Info("Entering engagement loop")
 	for {
 		msg, err := engagement.Recv()
 		if err != nil {
@@ -300,7 +314,7 @@ func (pr *pureRunner) Start() error {
 	logrus.Info("Pure Runner listening on ", pr.listen)
 	lis, err := net.Listen("tcp", pr.listen)
 	if err != nil {
-		return fmt.Errorf("could not listen on %s: %s", pr.listen, err)
+		return fmt.Errorf("Could not listen on %s: %s", pr.listen, err)
 	}
 
 	if err := pr.gRPCServer.Serve(lis); err != nil {
@@ -313,18 +327,18 @@ func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) 
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
-		return nil, fmt.Errorf("could not load server key pair: %s", err)
+		return nil, fmt.Errorf("Could not load server key pair: %s", err)
 	}
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
 	authority, err := ioutil.ReadFile(ca)
 	if err != nil {
-		return nil, fmt.Errorf("could not read ca certificate: %s", err)
+		return nil, fmt.Errorf("Could not read ca certificate: %s", err)
 	}
 
 	if ok := certPool.AppendCertsFromPEM(authority); !ok {
-		return nil, errors.New("failed to append client certs")
+		return nil, errors.New("Failed to append client certs")
 	}
 
 	creds := credentials.NewTLS(&tls.Config{
