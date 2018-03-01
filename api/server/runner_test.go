@@ -222,7 +222,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpect},
 		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusOK, nil, "function response too large", nil},
+		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
 		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
