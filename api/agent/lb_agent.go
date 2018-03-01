@@ -153,9 +153,11 @@ func (a *lbAgent) Close() error {
 }
 
 func GetGroupID(call *models.Call) string {
-	// TODO expose LB Group metadata in data model
-	// as a temporary workaround, read from HTTP Header
-	lbgID := call.Headers.Get("X_FN_LB_GROUP_ID")
+	// TODO until fn supports metadata, allow LB Group ID to
+	// be overridden via configuration.
+	// Note that employing this mechanism will expose the value of the
+	// LB Group ID to the function as an environment variable!
+	lbgID := call.Config["FN_LB_GROUP_ID"]
 	if lbgID == "" {
 		return "default"
 	}
