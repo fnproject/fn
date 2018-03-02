@@ -17,6 +17,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -395,7 +396,7 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			nodePool := agent.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
+			nodePool := agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
 			// Select the placement algorithm
 			var placer agent.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {

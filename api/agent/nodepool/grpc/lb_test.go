@@ -1,4 +1,4 @@
-package agent
+package grpc
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/poolmanager"
 	model "github.com/fnproject/fn/poolmanager/grpc"
@@ -29,11 +30,11 @@ type mockNodePoolManager struct {
 type mockgRPCNodePool struct {
 	npm       poolmanager.NodePoolManager
 	lbg       map[string]*lbg
-	generator RunnerFactory
+	generator agent.RunnerFactory
 	pki       pkiData
 }
 
-func newMockgRPCNodePool(rf RunnerFactory, runners []string) *mockgRPCNodePool {
+func newMockgRPCNodePool(rf agent.RunnerFactory, runners []string) *mockgRPCNodePool {
 	npm := &mockNodePoolManager{runners: runners}
 
 	return &mockgRPCNodePool{
@@ -56,8 +57,8 @@ func (npm *mockNodePoolManager) Shutdown() error {
 	return nil
 }
 
-func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) RunnerFactory {
-	return func(addr string, lbgID string, cert string, key string, ca string) (Runner, error) {
+func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) agent.RunnerFactory {
+	return func(addr string, lbgID string, cert string, key string, ca string) (agent.Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
 			maxCalls: maxCalls,
@@ -66,8 +67,8 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) RunnerFactory {
 	}
 }
 
-func FaultyRunnerFactory() RunnerFactory {
-	return func(addr string, lbgID string, cert string, key string, ca string) (Runner, error) {
+func FaultyRunnerFactory() agent.RunnerFactory {
+	return func(addr string, lbgID string, cert string, key string, ca string) (agent.Runner, error) {
 		return &mockRunner{
 			addr: addr,
 		}, errors.New("Creation of new runner failed")
@@ -90,7 +91,7 @@ func (r *mockRunner) decrCalls() {
 	r.curCalls--
 }
 
-func (r *mockRunner) TryExec(ctx context.Context, call Call) (bool, error) {
+func (r *mockRunner) TryExec(ctx context.Context, call agent.Call) (bool, error) {
 	err := r.checkAndIncrCalls()
 	if err != nil {
 		return false, err
@@ -102,7 +103,7 @@ func (r *mockRunner) TryExec(ctx context.Context, call Call) (bool, error) {
 
 	time.Sleep(r.sleep)
 
-	w, err := ResponseWriter(&call)
+	w, err := agent.ResponseWriter(&call)
 	if err != nil {
 		return true, err
 	}
@@ -129,7 +130,7 @@ func setupMockNodePool(lbgID string, expectedRunners []string) (*mockgRPCNodePoo
 	return np, lb
 }
 
-func checkRunners(t *testing.T, expectedRunners []string, actualRunners map[string]Runner, ordList []Runner) {
+func checkRunners(t *testing.T, expectedRunners []string, actualRunners map[string]agent.Runner, ordList []agent.Runner) {
 	if len(expectedRunners) != len(actualRunners) {
 		t.Errorf("List of runners is wrong, expected: %d got: %d", len(expectedRunners), len(actualRunners))
 	}
@@ -152,7 +153,7 @@ func TestReloadMembersNoRunners(t *testing.T) {
 
 	np.lbg[lbgID].reloadMembers(lbgID, np.npm, np.pki)
 	expectedRunners := []string{}
-	ordList := lb.r_list.Load().([]Runner)
+	ordList := lb.r_list.Load().([]agent.Runner)
 	checkRunners(t, expectedRunners, lb.runners, ordList)
 }
 
@@ -162,7 +163,7 @@ func TestReloadMembersNewRunners(t *testing.T) {
 	np, lb := setupMockNodePool(lbgID, expectedRunners)
 
 	np.lbg[lbgID].reloadMembers(lbgID, np.npm, np.pki)
-	ordList := lb.r_list.Load().([]Runner)
+	ordList := lb.r_list.Load().([]agent.Runner)
 	checkRunners(t, expectedRunners, lb.runners, ordList)
 }
 
@@ -186,7 +187,7 @@ func TestReloadMembersRemoveRunners(t *testing.T) {
 	}
 
 	np.lbg[lbgID].reloadMembers(lbgID, np.npm, np.pki)
-	ordList := lb.r_list.Load().([]Runner)
+	ordList := lb.r_list.Load().([]agent.Runner)
 	checkRunners(t, expectedRunners, lb.runners, ordList)
 }
 
@@ -201,9 +202,8 @@ func TestReloadMembersFailToCreateNewRunners(t *testing.T) {
 	if len(actualRunners) != 0 {
 		t.Errorf("List of runners should be empty")
 	}
-	ordList := lb.r_list.Load().([]Runner)
-	_, ok := ordList[0].(*nullRunner)
-	if !ok {
+	ordList := lb.r_list.Load().([]agent.Runner)
+	if ordList[0] != agent.NullRunner {
 		t.Errorf("Ordered list should have a nullRunner")
 	}
 }
