@@ -24,5 +24,5 @@ func TestS3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create s3 datastore: %v", err)
 	}
-	logTesting.Test(t, nil, ls)
+	logTesting.Test(t, ls)
 }

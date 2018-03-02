@@ -89,7 +89,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 				IdleTimeout: idleTimeout,
 				Memory:      memory,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -233,7 +233,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
@@ -304,7 +304,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
@@ -434,7 +434,7 @@ func TestSubmitError(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
@@ -489,7 +489,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 				IdleTimeout: 10,
 				Memory:      128,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -553,7 +553,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
 	defer a.Close()
@@ -658,7 +658,7 @@ func TestPipesAreClear(t *testing.T) {
 				IdleTimeout: ca.IdleTimeout,
 				Memory:      ca.Memory,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -808,7 +808,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 				IdleTimeout: call.IdleTimeout,
 				Memory:      call.Memory,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))

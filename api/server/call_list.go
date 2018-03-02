@@ -26,7 +26,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 		return
 	}
 
-	calls, err := s.datastore.GetCalls(ctx, &filter)
+	calls, err := s.logstore.GetCalls(ctx, &filter)
 
 	var nextCursor string
 	if len(calls) > 0 && len(calls) == filter.PerPage {

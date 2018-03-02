@@ -3,6 +3,7 @@ package id
 import (
 	"errors"
 	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -239,4 +240,43 @@ func (id *Id) UnmarshalText(v []byte) error {
 	(*id)[15] = ((dec[v[24]] << 5) | dec[v[25]])
 
 	return nil
+}
+
+// reverse encoding useful for sorting, descending
+var rEncoding = reverseString(Encoding)
+
+func reverseString(input string) string {
+	// rsc: http://groups.google.com/group/golang-nuts/browse_thread/thread/a0fb81698275eede
+
+	// Get Unicode code points.
+	n := 0
+	rune := make([]rune, len(input))
+	for _, r := range input {
+		rune[n] = r
+		n++
+	}
+	rune = rune[0:n]
+	// Reverse
+	for i := 0; i < n/2; i++ {
+		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
+	}
+
+	// Convert back to UTF-8.
+	return string(rune)
+}
+
+// EncodeDescending returns a lexicographically sortable descending encoding
+// of a given id, e.g. 000 -> ZZZ, which allows reversing the sort order when stored
+// contiguously since ids are lexicographically sortable. The returned string will
+// be of len(src), and assumes src is from the base32 crockford alphabet, otherwise
+// using 0xFF.
+func EncodeDescending(src string) string {
+	var buf [EncodedSize]byte
+	copy(buf[:], src)
+	for i, s := range buf[:len(src)] {
+		// XXX(reed): optimize as dec is
+		j := strings.Index(Encoding, string(s))
+		buf[i] = rEncoding[j]
+	}
+	return string(buf[:len(src)])
 }
