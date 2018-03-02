@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/fnproject/fn/api/agent"
 	pb "github.com/fnproject/fn/api/agent/grpc"
@@ -28,9 +29,9 @@ type gRPCNodePool struct {
 	advertiser poolmanager.CapacityAdvertiser
 	mx         sync.RWMutex
 	lbg        map[string]*lbg // {lbgid -> *lbg}
-	generator  agent.RunnerFactory
+	generator  secureRunnerFactory
 	//TODO find a better place for this
-	pki pkiData
+	pki *pkiData
 
 	shutdown chan struct{}
 }
@@ -48,7 +49,7 @@ type lbg struct {
 	runners map[string]agent.Runner
 	r_list  atomic.Value // We attempt to maintain the same order of runners as advertised by the NPM.
 	// This is to preserve as reasonable behaviour as possible for the CH algorithm
-	generator agent.RunnerFactory
+	generator secureRunnerFactory
 }
 
 type gRPCRunner struct {
@@ -59,13 +60,20 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-func GRPCRunnerFactory(addr string, lbgID string, cert string, key string, ca string) (agent.Runner, error) {
-	p := pkiData{
+// allow factory to be overridden in tests
+type secureRunnerFactory func(addr string, cert string, key string, ca string) (agent.Runner, error)
+
+func secureGRPCRunnerFactory(addr string, cert string, key string, ca string) (agent.Runner, error) {
+	p := &pkiData{
 		cert: cert,
 		key:  key,
 		ca:   ca,
 	}
-	conn, client := runnerConnection(addr, lbgID, p)
+	conn, client, err := runnerConnection(addr, p)
+	if err != nil {
+		return nil, err
+	}
+
 	return &gRPCRunner{
 		address: addr,
 		conn:    conn,
@@ -78,16 +86,11 @@ func DefaultgRPCNodePool(npmAddress string, cert string, key string, ca string) 
 	// TODO do we need to persistent this ID in order to survive restart?
 	lbID := id.New().String()
 	advertiser := poolmanager.NewCapacityAdvertiser(npm, lbID, CapacityUpdatePeriod)
-	rf := GRPCRunnerFactory
-
-	return NewgRPCNodePool(cert, key, ca, npm, advertiser, rf)
+	return newgRPCNodePool(cert, key, ca, npm, advertiser, secureGRPCRunnerFactory)
 }
 
-func NewgRPCNodePool(cert string, key string, ca string,
-	npm poolmanager.NodePoolManager,
-	advertiser poolmanager.CapacityAdvertiser,
-	rf agent.RunnerFactory) agent.NodePool {
-	p := pkiData{
+func newgRPCNodePool(cert string, key string, ca string, npm poolmanager.NodePoolManager, advertiser poolmanager.CapacityAdvertiser, rf secureRunnerFactory) agent.NodePool {
+	p := &pkiData{
 		ca:   ca,
 		cert: cert,
 		key:  key,
@@ -150,7 +153,7 @@ func (np *gRPCNodePool) maintenance() {
 
 }
 
-func newLBG(lbgID string, generator agent.RunnerFactory) *lbg {
+func newLBG(lbgID string, generator secureRunnerFactory) *lbg {
 	lbg := &lbg{
 		id:        lbgID,
 		runners:   make(map[string]agent.Runner),
@@ -174,13 +177,11 @@ func (lbg *lbg) runnerList() []agent.Runner {
 	orig_runners := lbg.r_list.Load().([]agent.Runner)
 	// XXX: Return a copy. If we required this to be immutably read by the caller, we could return the structure directly
 	runners := make([]agent.Runner, len(orig_runners))
-	for i, r := range orig_runners {
-		runners[i] = r
-	}
+	copy(runners, orig_runners)
 	return runners
 }
 
-func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p pkiData) {
+func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p *pkiData) {
 
 	runners, err := npm.GetRunners(lbgID)
 	if err != nil {
@@ -194,8 +195,8 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p p
 	for i, addr := range runners {
 		r, ok := lbg.runners[addr]
 		if !ok {
-			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
-			r, errGenerator = lbg.generator(addr, lbgID, p.cert, p.key, p.ca)
+			logrus.WithField("runner_addr", addr).WithField("cert", p.cert).Debug("New Runner to be added")
+			r, errGenerator = lbg.generator(addr, p.cert, p.key, p.ca)
 			if errGenerator != nil {
 				logrus.WithField("runner_addr", addr).Debug("Creation of the new runner failed")
 			} else {
@@ -232,24 +233,32 @@ func (r *gRPCRunner) Close() {
 	}()
 }
 
-func runnerConnection(address, lbGroupID string, pki pkiData) (*grpc.ClientConn, pb.RunnerProtocolClient) {
+func runnerConnection(address string, pki *pkiData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 	ctx := context.Background()
 
-	creds, err := grpcutil.CreateCredentials(pki.cert, pki.key, pki.ca)
-	if err != nil {
-		logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
-
+	var creds credentials.TransportCredentials
+	if pki != nil {
+		var err error
+		creds, err = grpcutil.CreateCredentials(pki.cert, pki.key, pki.ca)
+		if err != nil {
+			logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
+			return nil, nil, err
+		}
 	}
-	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, grpc.DefaultBackoffConfig)
 
+	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, grpc.DefaultBackoffConfig)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to connect to runner node")
 	}
 
 	protocolClient := pb.NewRunnerProtocolClient(conn)
-	logrus.WithField("lbg_id", lbGroupID).WithField("runner_addr", address).Info("Connected to runner")
+	logrus.WithField("runner_addr", address).Info("Connected to runner")
 
-	return conn, protocolClient
+	return conn, protocolClient, nil
+}
+
+func (r *gRPCRunner) Address() string {
+	return r.address
 }
 
 func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error) {

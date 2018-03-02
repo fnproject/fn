@@ -6,7 +6,7 @@ import (
 	"github.com/fnproject/fn/poolmanager"
 )
 
-// NodePool is the interface to interact with Node pool manager
+// NodePool provides information about pools of runners and receives capacity demands
 type NodePool interface {
 	Runners(lbgID string) []Runner
 	AssignCapacity(r *poolmanager.CapacityRequest)
@@ -18,10 +18,8 @@ type NodePool interface {
 type Runner interface {
 	TryExec(ctx context.Context, call Call) (bool, error)
 	Close()
+	Address() string
 }
-
-// RunnerFactory is a factory func that creates a Runner usable by the pool.
-type RunnerFactory func(addr string, lbgId string, cert string, key string, ca string) (Runner, error)
 
 type nullRunner struct{}
 
@@ -30,5 +28,9 @@ func (n *nullRunner) TryExec(ctx context.Context, call Call) (bool, error) {
 }
 
 func (n *nullRunner) Close() {}
+
+func (n *nullRunner) Address() string {
+	return ""
+}
 
 var NullRunner Runner = &nullRunner{}

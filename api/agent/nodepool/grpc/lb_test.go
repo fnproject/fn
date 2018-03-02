@@ -30,17 +30,18 @@ type mockNodePoolManager struct {
 type mockgRPCNodePool struct {
 	npm       poolmanager.NodePoolManager
 	lbg       map[string]*lbg
-	generator agent.RunnerFactory
-	pki       pkiData
+	generator secureRunnerFactory
+	pki       *pkiData
 }
 
-func newMockgRPCNodePool(rf agent.RunnerFactory, runners []string) *mockgRPCNodePool {
+func newMockgRPCNodePool(rf secureRunnerFactory, runners []string) *mockgRPCNodePool {
 	npm := &mockNodePoolManager{runners: runners}
 
 	return &mockgRPCNodePool{
 		npm:       npm,
 		lbg:       make(map[string]*lbg),
 		generator: rf,
+		pki:       &pkiData{},
 	}
 }
 
@@ -57,8 +58,8 @@ func (npm *mockNodePoolManager) Shutdown() error {
 	return nil
 }
 
-func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) agent.RunnerFactory {
-	return func(addr string, lbgID string, cert string, key string, ca string) (agent.Runner, error) {
+func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) secureRunnerFactory {
+	return func(addr string, cert string, key string, ca string) (agent.Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
 			maxCalls: maxCalls,
@@ -67,8 +68,8 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) agent.RunnerFacto
 	}
 }
 
-func FaultyRunnerFactory() agent.RunnerFactory {
-	return func(addr string, lbgID string, cert string, key string, ca string) (agent.Runner, error) {
+func FaultyRunnerFactory() secureRunnerFactory {
+	return func(addr string, cert string, key string, ca string) (agent.Runner, error) {
 		return &mockRunner{
 			addr: addr,
 		}, errors.New("Creation of new runner failed")
@@ -119,6 +120,10 @@ func (r *mockRunner) Close() {
 	go func() {
 		r.wg.Wait()
 	}()
+}
+
+func (r *mockRunner) Address() string {
+	return ""
 }
 
 func setupMockNodePool(lbgID string, expectedRunners []string) (*mockgRPCNodePool, *lbg) {
@@ -175,7 +180,7 @@ func TestReloadMembersRemoveRunners(t *testing.T) {
 	// actual runners before the update
 	actualRunners := []string{"171.16.0.1", "171.16.0.2", "171.16.0.19"}
 	for _, v := range actualRunners {
-		r, err := lb.generator(v, lbgID, np.pki.cert, np.pki.key, np.pki.ca)
+		r, err := lb.generator(v, np.pki.cert, np.pki.key, np.pki.ca)
 		if err != nil {
 			t.Error("Failed to create new runner")
 		}

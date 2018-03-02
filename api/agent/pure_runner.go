@@ -324,6 +324,20 @@ func (pr *pureRunner) Start() error {
 }
 
 func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) (*pureRunner, error) {
+	if cert != "" && key != "" && ca != "" {
+		c, err := creds(cert, key, ca)
+		if err != nil {
+			logrus.WithField("runner_addr", addr).Warn("Failed to create credentials!")
+			return nil, err
+		}
+		return createPureRunner(addr, a, c)
+	}
+
+	logrus.Warn("Running pure runner in insecure mode!")
+	return createPureRunner(addr, a, nil)
+}
+
+func creds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -341,14 +355,20 @@ func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) 
 		return nil, errors.New("Failed to append client certs")
 	}
 
-	creds := credentials.NewTLS(&tls.Config{
+	return credentials.NewTLS(&tls.Config{
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{certificate},
 		ClientCAs:    certPool,
-	})
+	}), nil
+}
 
-	srv := grpc.NewServer(grpc.Creds(creds))
-
+func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
+	var srv *grpc.Server
+	if creds != nil {
+		srv = grpc.NewServer(grpc.Creds(creds))
+	} else {
+		srv = grpc.NewServer()
+	}
 	pr := &pureRunner{
 		gRPCServer: srv,
 		listen:     addr,
@@ -356,6 +376,5 @@ func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) 
 	}
 
 	runner.RegisterRunnerProtocolServer(srv, pr)
-
 	return pr, nil
 }

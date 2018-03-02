@@ -33,20 +33,21 @@ import (
 )
 
 const (
-	EnvLogLevel       = "FN_LOG_LEVEL"
-	EnvLogDest        = "FN_LOG_DEST"
-	EnvLogPrefix      = "FN_LOG_PREFIX"
-	EnvMQURL          = "FN_MQ_URL"
-	EnvDBURL          = "FN_DB_URL"
-	EnvLOGDBURL       = "FN_LOGSTORE_URL"
-	EnvRunnerURL      = "FN_RUNNER_API_URL"
-	EnvNPMAddress     = "FN_NPM_ADDRESS"
-	EnvLBPlacementAlg = "FN_PLACER"
-	EnvNodeType       = "FN_NODE_TYPE"
-	EnvPort           = "FN_PORT" // be careful, Gin expects this variable to be "port"
-	EnvGRPCPort       = "FN_GRPC_PORT"
-	EnvAPICORS        = "FN_API_CORS"
-	EnvZipkinURL      = "FN_ZIPKIN_URL"
+	EnvLogLevel        = "FN_LOG_LEVEL"
+	EnvLogDest         = "FN_LOG_DEST"
+	EnvLogPrefix       = "FN_LOG_PREFIX"
+	EnvMQURL           = "FN_MQ_URL"
+	EnvDBURL           = "FN_DB_URL"
+	EnvLOGDBURL        = "FN_LOGSTORE_URL"
+	EnvRunnerURL       = "FN_RUNNER_API_URL"
+	EnvNPMAddress      = "FN_NPM_ADDRESS"
+	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
+	EnvLBPlacementAlg  = "FN_PLACER"
+	EnvNodeType        = "FN_NODE_TYPE"
+	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvGRPCPort        = "FN_GRPC_PORT"
+	EnvAPICORS         = "FN_API_CORS"
+	EnvZipkinURL       = "FN_ZIPKIN_URL"
 	// Certificates to communicate with other FN nodes
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
@@ -367,9 +368,6 @@ func WithAgentFromEnv() ServerOption {
 			if s.mq != nil {
 				return errors.New("Pure runner nodes must not be configured with a message queue (FN_MQ_URL).")
 			}
-			if s.cert == "" || s.certKey == "" || s.certAuthority == "" {
-				return errors.New("Pure runner nodes must configure FN_NODE_CERT, FN_NODE_CERT_KEY, FN_NODE_CERT_AUTHORITY.")
-			}
 			ds, err := hybrid.NewNopDataStore()
 			if err != nil {
 				return err
@@ -387,16 +385,26 @@ func WithAgentFromEnv() ServerOption {
 			if s.mq != nil {
 				return errors.New("NuLB nodes must not be configured with a message queue (FN_MQ_URL).")
 			}
-			npmAddress := getEnv(EnvNPMAddress, "")
-			if npmAddress == "" {
-				return errors.New("No FN_NPM_ADDRESS provided for an Fn NuLB node.")
-			}
+
 			cl, err := hybrid.NewClient(runnerURL)
 			if err != nil {
 				return err
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
-			nodePool := agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
+
+			npmAddress := getEnv(EnvNPMAddress, "")
+			runnerAddresses := getEnv(EnvRunnerAddresses, "")
+
+			var nodePool agent.NodePool
+			if npmAddress != "" {
+				// TODO refactor DefaultgRPCNodePool as an extension
+				nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
+			} else if runnerAddresses != "" {
+				nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
+			} else {
+				return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
+			}
+
 			// Select the placement algorithm
 			var placer agent.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {

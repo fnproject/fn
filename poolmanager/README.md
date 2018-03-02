@@ -64,11 +64,14 @@ FN_RUNNER_ADDRESS=127.0.0.1:9190 \
 
 ### Directing a request to a specific LB Group
 
-While the data model is extended to support LB Group metadata, requests can specify the LB Group mapping via the temporary extension header `X_FN_LB_GROUP_ID`. If not present, the LB Group ID will be set to _default_.
+Until a generic metadata mechanism is available in fn, an application or route can be [configured][docs/developers/configs.md] so that incoming requests are forwarded to runners in the specified LB group. In the absence of this configuration, requests will map to the _default_ LB group.
 
+For example, to set an app's LB group:
 ```bash
-curl -H "X_FN_LB_GROUP_ID: noway" http://localhost:8081/r/myapp/hello
+fn apps config set myapp FN_LB_GROUP_ID my-app-pool
 ```
+
+Note that the value of _FN_LB_GROUP_ID_ above will then be visible to the function as an environment variable.
 
 ## Starting the components (in Docker containers)
 
@@ -127,6 +130,22 @@ docker run -d \
            fnproject/nulb:latest
 ```
 
+If running with a static set of runners (ie. without NPM):
+```bash
+docker run -d \
+           --name nulb \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 8081:8080 \
+           -v $(pwd)/cert.pem:/certs/cert.pem \
+           -v $(pwd)/key.pem:/certs/key.pem \
+           -e FN_RUNNER_API_URL=http://docker.for.mac.localhost:8080 \
+           -e FN_RUNNER_ADDRESSES=docker.for.mac.localhost:9190,docker.for.mac.localhost:9191 \
+           -e FN_NODE_CERT=/certs/cert.pem \
+           -e FN_NODE_CERT_KEY=/certs/key.pem \
+           -e FN_NODE_CERT_AUTHORITY=/certs/cert.pem \
+           fnproject/nulb:latest
+```
+
 #### First runner
 ```bash
 docker run -d \
@@ -159,4 +178,50 @@ docker run -d \
            fnproject/runner:latest
 ```
 
+## Running a load-balanced set of runners with Node Pool Manager
+Note: the communication between NuLB and runners in this mode does not currently support certificates and will be insecure!
 
+### API
+
+```
+docker run -d \
+           -name api \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 8080:8080 \
+           fnproject/api:latest
+```
+
+#### First runner
+```bash
+docker run -d \
+           --name runner \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 9190:9190 \
+           -e FN_GRPC_PORT=9190 \
+           -p 8095:8080 \
+           fnproject/runner:latest
+```
+
+#### Second runner
+```bash
+docker run -d \
+           --name runner-2 \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 9191:9191 \
+           -e FN_GRPC_PORT=9191 \
+           -p 8096:8080 \
+           fnproject/runner:latest
+```
+
+### NuLB
+
+Pass in the static set of runners to _FN_RUNNER_ADDRESSES_:
+```bash
+docker run -d \
+           --name nulb \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 8081:8080 \
+           -e FN_RUNNER_API_URL=http://docker.for.mac.localhost:8080 \
+           -e FN_RUNNER_ADDRESSES=docker.for.mac.localhost:9190,docker.for.mac.localhost:9191 \
+           fnproject/nulb:latest
+```
