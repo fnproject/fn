@@ -130,22 +130,6 @@ docker run -d \
            fnproject/nulb:latest
 ```
 
-If running with a static set of runners (ie. without NPM):
-```bash
-docker run -d \
-           --name nulb \
-           -v /var/run/docker.sock:/var/run/docker.sock \
-           -p 8081:8080 \
-           -v $(pwd)/cert.pem:/certs/cert.pem \
-           -v $(pwd)/key.pem:/certs/key.pem \
-           -e FN_RUNNER_API_URL=http://docker.for.mac.localhost:8080 \
-           -e FN_RUNNER_ADDRESSES=docker.for.mac.localhost:9190,docker.for.mac.localhost:9191 \
-           -e FN_NODE_CERT=/certs/cert.pem \
-           -e FN_NODE_CERT_KEY=/certs/key.pem \
-           -e FN_NODE_CERT_AUTHORITY=/certs/cert.pem \
-           fnproject/nulb:latest
-```
-
 #### First runner
 ```bash
 docker run -d \
