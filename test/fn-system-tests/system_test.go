@@ -7,6 +7,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
 	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn/poolmanager"
 
@@ -26,7 +27,7 @@ type SystemTestNodePool struct {
 }
 
 func NewSystemTestNodePool() (agent.NodePool, error) {
-	factory := agent.GRPCRunnerFactory
+	factory := agent_grpc.GRPCRunnerFactory
 	addr0 := fmt.Sprintf("%s:9190", whoAmI())
 	addr1 := fmt.Sprintf("%s:9191", whoAmI())
 	addr2 := fmt.Sprintf("%s:9192", whoAmI())
