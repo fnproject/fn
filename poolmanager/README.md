@@ -64,11 +64,14 @@ FN_RUNNER_ADDRESS=127.0.0.1:9190 \
 
 ### Directing a request to a specific LB Group
 
-While the data model is extended to support LB Group metadata, requests can specify the LB Group mapping via the temporary extension header `X_FN_LB_GROUP_ID`. If not present, the LB Group ID will be set to _default_.
+Until a generic metadata mechanism is available in fn, an application or route can be [configured][docs/developers/configs.md] so that incoming requests are forwarded to runners in the specified LB group. In the absence of this configuration, requests will map to the _default_ LB group.
 
+For example, to set an app's LB group:
 ```bash
-curl -H "X_FN_LB_GROUP_ID: noway" http://localhost:8081/r/myapp/hello
+fn apps config set myapp FN_LB_GROUP_ID my-app-pool
 ```
+
+Note that the value of _FN_LB_GROUP_ID_ above will then be visible to the function as an environment variable.
 
 ## Starting the components (in Docker containers)
 
