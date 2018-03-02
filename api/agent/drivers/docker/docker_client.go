@@ -186,7 +186,7 @@ func init() {
 			"docker_oom_count",
 			"number of docker container oom",
 			[]tag.Key{appKey, pathKey},
-			dockerErrorMeasure,
+			dockerOOMMeasure,
 			view.CountAggregation{},
 		)
 		if err != nil {
