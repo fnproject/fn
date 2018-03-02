@@ -148,70 +148,70 @@ type paramHelper struct {
 }
 
 func (h *paramHelper) safeExpandedParamsFor(path, method, operationID string, res *Result, s *SpecValidator) (params []spec.Parameter) {
-	for _, ppr := range s.analyzer.SafeParamsFor(method, path,
-		func(p spec.Parameter, err error) bool {
-			res.AddErrors(someParametersBrokenMsg(path, method, operationID))
-			// original error from analyzer
-			res.AddErrors(err)
-			return true
-		}) {
-		pr, red := h.resolveParam(path, method, operationID, ppr, s)
-		if red.HasErrors() { // Safeguard
-			// NOTE: it looks like the new spec.Ref.GetPointer() method expands the full tree, so this code is no more reachable
+	operation, ok := s.analyzer.OperationFor(method, path)
+	if ok {
+		// expand parameters first if necessary
+		resolvedParams := []spec.Parameter{}
+		for _, ppr := range operation.Parameters {
+			resolvedParam, red := h.resolveParam(path, method, operationID, &ppr, s)
 			res.Merge(red)
-			if red.HasErrors() && !s.Options.ContinueOnErrors {
-				break
+			if resolvedParam != nil {
+				resolvedParams = append(resolvedParams, *resolvedParam)
 			}
-			continue
 		}
-		params = append(params, pr)
+		// remove params with invalid expansion from slice
+		operation.Parameters = resolvedParams
+
+		for _, ppr := range s.analyzer.SafeParamsFor(method, path,
+			func(p spec.Parameter, err error) bool {
+				// since params have already been expanded, there are few causes for error
+				res.AddErrors(someParametersBrokenMsg(path, method, operationID))
+				// original error from analyzer
+				res.AddErrors(err)
+				return true
+			}) {
+			params = append(params, ppr)
+		}
 	}
 	return
 }
 
-func (h *paramHelper) resolveParam(path, method, operationID string, ppr spec.Parameter, s *SpecValidator) (spec.Parameter, *Result) {
-	// Resolve references with any depth for parameter
-	// NOTE: the only difference with what analysis does is in the "for": analysis SafeParamsFor() stops at first ref.
+func (h *paramHelper) resolveParam(path, method, operationID string, param *spec.Parameter, s *SpecValidator) (*spec.Parameter, *Result) {
+	// Expand parameter with $ref if needed
 	res := new(Result)
-	pr := ppr
-	sw := s.spec.Spec()
 
-	for pr.Ref.String() != "" {
-		obj, _, err := pr.Ref.GetPointer().Get(sw)
+	if param.Ref.String() != "" {
+		err := spec.ExpandParameter(param, s.spec.SpecFilePath())
 		if err != nil { // Safeguard
-			// NOTE: it looks like the new spec.Ref.GetPointer() method expands the full tree, so this code is no more reachable
+			// NOTE: we may enter enter here when the whole parameter is an unresolved $ref
 			refPath := strings.Join([]string{"\"" + path + "\"", method}, ".")
-			errorHelp.addPointerError(res, err, pr.Ref.String(), refPath)
-			pr = spec.Parameter{}
-		} else {
-			if checkedObj, ok := h.checkedParamAssertion(obj, pr.Name, pr.In, operationID, res); ok {
-				pr = checkedObj
-			} else {
-				pr = spec.Parameter{}
-			}
+			errorHelp.addPointerError(res, err, param.Ref.String(), refPath)
+			return nil, res
 		}
+		res.Merge(h.checkExpandedParam(param, param.Name, param.In, operationID))
 	}
-	return pr, res
+	return param, res
 }
 
-func (h *paramHelper) checkedParamAssertion(obj interface{}, path, in, operation string, res *Result) (spec.Parameter, bool) {
-	// Secure parameter type assertion and try to explain failure
-	if checkedObj, ok := obj.(spec.Parameter); ok {
-		return checkedObj, true
-	}
+func (h *paramHelper) checkExpandedParam(pr *spec.Parameter, path, in, operation string) *Result {
+	// Secure parameter structure after $ref resolution
+	res := new(Result)
+	simpleZero := spec.SimpleSchema{}
 	// Try to explain why... best guess
-	if _, ok := obj.(spec.Schema); ok {
+	if pr.In == "body" && pr.SimpleSchema != simpleZero {
 		// Most likely, a $ref with a sibling is an unwanted situation: in itself this is a warning...
-		res.AddWarnings(refShouldNotHaveSiblingsMsg(path, operation))
 		// but we detect it because of the following error:
 		// schema took over Parameter for an unexplained reason
+		res.AddWarnings(refShouldNotHaveSiblingsMsg(path, operation))
+		res.AddErrors(invalidParameterDefinitionMsg(path, in, operation))
+	} else if pr.In != "body" && pr.Schema != nil {
+		res.AddWarnings(refShouldNotHaveSiblingsMsg(path, operation))
 		res.AddErrors(invalidParameterDefinitionAsSchemaMsg(path, in, operation))
-	} else { // Safeguard
-		// NOTE: the only known case for this error is $ref expansion replaced parameter by a Schema
-		// Here, another structure replaced spec.Parameter. We should not be able to enter there. Croaks a generic error.
+	} else if (pr.In == "body" && pr.Schema == nil) || (pr.In != "body" && pr.SimpleSchema == simpleZero) { // Safeguard
+		// Other unexpected mishaps
 		res.AddErrors(invalidParameterDefinitionMsg(path, in, operation))
 	}
-	return spec.Parameter{}, false
+	return res
 }
 
 type responseHelper struct {
@@ -219,18 +219,15 @@ type responseHelper struct {
 }
 
 func (r *responseHelper) expandResponseRef(response *spec.Response, path string, s *SpecValidator) (*spec.Response, *Result) {
-	// Recursively follow possible $ref's on responses
+	// Expand response with $ref if needed
 	res := new(Result)
-	for response.Ref.String() != "" {
-		obj, _, err := response.Ref.GetPointer().Get(s.spec.Spec())
+	if response.Ref.String() != "" {
+		err := spec.ExpandResponse(response, s.spec.SpecFilePath())
 		if err != nil { // Safeguard
-			// NOTE: with ref expansion in spec, this code is no more reachable
-			errorHelp.addPointerError(res, err, response.Ref.String(), strings.Join([]string{"\"" + path + "\"", response.ResponseProps.Schema.ID}, "."))
-			break
+			// NOTE: we may enter here when the whole response is an unresolved $ref.
+			errorHelp.addPointerError(res, err, response.Ref.String(), path)
+			return nil, res
 		}
-		// Here we may expect type assertion to be guaranteed (not like in the Parameter case)
-		nr := obj.(spec.Response)
-		response = &nr
 	}
 	return response, res
 }

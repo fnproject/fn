@@ -1,4 +1,4 @@
-package graphdriver
+package graphdriver // import "github.com/docker/docker/daemon/graphdriver"
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ func newPluginDriver(name string, pl plugingetter.CompatPlugin, config Options) 
 	home := config.Root
 	if !pl.IsV1() {
 		if p, ok := pl.(*v2.Plugin); ok {
-			if p.PropagatedMount != "" {
+			if p.PluginObj.Config.PropagatedMount != "" {
 				home = p.PluginObj.Config.PropagatedMount
 			}
 		}

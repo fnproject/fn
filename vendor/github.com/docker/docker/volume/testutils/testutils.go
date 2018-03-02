@@ -1,4 +1,4 @@
-package testutils
+package testutils // import "github.com/docker/docker/volume/testutils"
 
 import (
 	"encoding/json"
@@ -178,8 +178,8 @@ func (p *fakePlugin) IsV1() bool {
 	return false
 }
 
-func (p *fakePlugin) BasePath() string {
-	return ""
+func (p *fakePlugin) ScopedPath(s string) string {
+	return s
 }
 
 type fakePluginGetter struct {

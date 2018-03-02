@@ -1,4 +1,4 @@
-package container
+package container // import "github.com/docker/docker/container"
 
 import (
 	"bytes"
@@ -1047,21 +1047,6 @@ func getSecretTargetPath(r *swarmtypes.SecretReference) string {
 	}
 
 	return filepath.Join(containerSecretMountPath, r.File.Name)
-}
-
-// ConfigsDirPath returns the path to the directory where configs are stored on
-// disk.
-func (container *Container) ConfigsDirPath() (string, error) {
-	return container.GetRootResourcePath("configs")
-}
-
-// ConfigFilePath returns the path to the on-disk location of a config.
-func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference) (string, error) {
-	configs, err := container.ConfigsDirPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configs, configRef.ConfigID), nil
 }
 
 // CreateDaemonEnvironment creates a new environment variable slice for this container.

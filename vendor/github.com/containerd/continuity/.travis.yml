@@ -1,4 +1,5 @@
 language: go
+sudo: required
 
 go:
   - 1.8.x
@@ -12,7 +13,6 @@ env:
   - TRAVIS_GOOS=windows
   - TRAVIS_GOOS=linux
   - TRAVIS_GOOS=darwin
-  - TRAVIS_GOOS=solaris
 
 script:
   - export GOOS=${TRAVIS_GOOS}

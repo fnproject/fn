@@ -1,4 +1,4 @@
-package awslogs
+package awslogs // import "github.com/docker/docker/daemon/logger/awslogs"
 
 import (
 	"errors"
@@ -723,6 +723,59 @@ func TestCollectBatchMultilinePatternNegativeEventAge(t *testing.T) {
 	assert.Equal(t, 1, len(argument.LogEvents), "Expected single multiline event")
 	assert.Equal(t, logline+"\n"+logline+"\n", *argument.LogEvents[0].Message, "Received incorrect multiline message")
 
+	stream.Close()
+}
+
+func TestCollectBatchMultilinePatternMaxEventSize(t *testing.T) {
+	mockClient := newMockClient()
+	multilinePattern := regexp.MustCompile("xxxx")
+	stream := &logStream{
+		client:           mockClient,
+		logGroupName:     groupName,
+		logStreamName:    streamName,
+		multilinePattern: multilinePattern,
+		sequenceToken:    aws.String(sequenceToken),
+		messages:         make(chan *logger.Message),
+	}
+	mockClient.putLogEventsResult <- &putLogEventsResult{
+		successResult: &cloudwatchlogs.PutLogEventsOutput{
+			NextSequenceToken: aws.String(nextSequenceToken),
+		},
+	}
+	ticks := make(chan time.Time)
+	newTicker = func(_ time.Duration) *time.Ticker {
+		return &time.Ticker{
+			C: ticks,
+		}
+	}
+
+	go stream.collectBatch()
+
+	// Log max event size
+	longline := strings.Repeat("A", maximumBytesPerEvent)
+	stream.Log(&logger.Message{
+		Line:      []byte(longline),
+		Timestamp: time.Now(),
+	})
+
+	// Log short event
+	shortline := strings.Repeat("B", 100)
+	stream.Log(&logger.Message{
+		Line:      []byte(shortline),
+		Timestamp: time.Now(),
+	})
+
+	// Fire ticker
+	ticks <- time.Now().Add(batchPublishFrequency)
+
+	// Verify multiline events
+	// We expect a maximum sized event with no new line characters and a
+	// second short event with a new line character at the end
+	argument := <-mockClient.putLogEventsArgument
+	assert.NotNil(t, argument, "Expected non-nil PutLogEventsInput")
+	assert.Equal(t, 2, len(argument.LogEvents), "Expected two events")
+	assert.Equal(t, longline, *argument.LogEvents[0].Message, "Received incorrect multiline message")
+	assert.Equal(t, shortline+"\n", *argument.LogEvents[1].Message, "Received incorrect multiline message")
 	stream.Close()
 }
 

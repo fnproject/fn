@@ -3,7 +3,7 @@
 //
 // In implementing the various functions of the daemon, there is often
 // a method-specific struct for configuring the runtime behavior.
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"context"
@@ -32,7 +32,6 @@ import (
 	"github.com/sirupsen/logrus"
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
-	"github.com/docker/docker/daemon/initlayer"
 	"github.com/docker/docker/daemon/stats"
 	dmetadata "github.com/docker/docker/distribution/metadata"
 	"github.com/docker/docker/distribution/xfer"
@@ -41,8 +40,8 @@ import (
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/migrate/v1"
-	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
+	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
@@ -120,7 +119,8 @@ type Daemon struct {
 	hosts            map[string]bool // hosts stores the addresses the daemon is listening on
 	startupDone      chan struct{}
 
-	attachmentStore network.AttachmentStore
+	attachmentStore       network.AttachmentStore
+	attachableNetworkLock *locker.Locker
 }
 
 // StoreHosts stores the addresses the daemon is listening on
@@ -564,6 +564,7 @@ func (daemon *Daemon) DaemonLeavesCluster() {
 func (daemon *Daemon) setClusterProvider(clusterProvider cluster.Provider) {
 	daemon.clusterProvider = clusterProvider
 	daemon.netController.SetClusterProvider(clusterProvider)
+	daemon.attachableNetworkLock = locker.New()
 }
 
 // IsSwarmCompatible verifies if the current daemon
@@ -668,8 +669,6 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 		return nil, fmt.Errorf("error setting default isolation mode: %v", err)
 	}
 
-	logrus.Debugf("Using default logging driver %s", config.LogConfig.Type)
-
 	if err := configureMaxThreads(config); err != nil {
 		logrus.Warnf("Failed to configure golang's threads limit: %v", err)
 	}
@@ -748,6 +747,10 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't create plugin manager")
+	}
+
+	if err := d.setupDefaultLogConfig(); err != nil {
+		return nil, err
 	}
 
 	for operatingSystem, gd := range d.graphDrivers {
@@ -870,10 +873,7 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	d.trustKey = trustKey
 	d.idIndex = truncindex.NewTruncIndex([]string{})
 	d.statsCollector = d.newStatsCollector(1 * time.Second)
-	d.defaultLogConfig = containertypes.LogConfig{
-		Type:   config.LogConfig.Type,
-		Config: config.LogConfig.Config,
-	}
+
 	d.EventsService = eventsService
 	d.volumes = volStore
 	d.root = config.Root
@@ -949,25 +949,30 @@ func (daemon *Daemon) shutdownContainer(c *container.Container) error {
 	return nil
 }
 
-// ShutdownTimeout returns the shutdown timeout based on the max stopTimeout of the containers,
-// and is limited by daemon's ShutdownTimeout.
+// ShutdownTimeout returns the timeout (in seconds) before containers are forcibly
+// killed during shutdown. The default timeout can be configured both on the daemon
+// and per container, and the longest timeout will be used. A grace-period of
+// 5 seconds is added to the configured timeout.
+//
+// A negative (-1) timeout means "indefinitely", which means that containers
+// are not forcibly killed, and the daemon shuts down after all containers exit.
 func (daemon *Daemon) ShutdownTimeout() int {
-	// By default we use daemon's ShutdownTimeout.
 	shutdownTimeout := daemon.configStore.ShutdownTimeout
+	if shutdownTimeout < 0 {
+		return -1
+	}
+	if daemon.containers == nil {
+		return shutdownTimeout
+	}
 
 	graceTimeout := 5
-	if daemon.containers != nil {
-		for _, c := range daemon.containers.List() {
-			if shutdownTimeout >= 0 {
-				stopTimeout := c.StopTimeout()
-				if stopTimeout < 0 {
-					shutdownTimeout = -1
-				} else {
-					if stopTimeout+graceTimeout > shutdownTimeout {
-						shutdownTimeout = stopTimeout + graceTimeout
-					}
-				}
-			}
+	for _, c := range daemon.containers.List() {
+		stopTimeout := c.StopTimeout()
+		if stopTimeout < 0 {
+			return -1
+		}
+		if stopTimeout+graceTimeout > shutdownTimeout {
+			shutdownTimeout = stopTimeout + graceTimeout
 		}
 	}
 	return shutdownTimeout
@@ -1043,6 +1048,9 @@ func (daemon *Daemon) Shutdown() error {
 // Mount sets container.BaseFS
 // (is it not set coming in? why is it unset?)
 func (daemon *Daemon) Mount(container *container.Container) error {
+	if container.RWLayer == nil {
+		return errors.New("RWLayer of container " + container.ID + " is unexpectedly nil")
+	}
 	dir, err := container.RWLayer.Mount(container.GetMountLabel())
 	if err != nil {
 		return err
@@ -1065,6 +1073,9 @@ func (daemon *Daemon) Mount(container *container.Container) error {
 
 // Unmount unsets the container base filesystem
 func (daemon *Daemon) Unmount(container *container.Container) error {
+	if container.RWLayer == nil {
+		return errors.New("RWLayer of container " + container.ID + " is unexpectedly nil")
+	}
 	if err := container.RWLayer.Unmount(); err != nil {
 		logrus.Errorf("Error unmounting container %s: %s", container.ID, err)
 		return err
@@ -1126,11 +1137,6 @@ func prepareTempDir(rootDir string, rootIDs idtools.IDPair) (string, error) {
 	// We don't remove the content of tmpdir if it's not the default,
 	// it may hold things that do not belong to us.
 	return tmpDir, idtools.MkdirAllAndChown(tmpDir, 0700, rootIDs)
-}
-
-func (daemon *Daemon) setupInitLayer(initPath containerfs.ContainerFS) error {
-	rootIDs := daemon.idMappings.RootPair()
-	return initlayer.Setup(initPath, rootIDs)
 }
 
 func (daemon *Daemon) setGenericResources(conf *config.Config) error {

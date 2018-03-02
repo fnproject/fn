@@ -715,3 +715,33 @@ func TestSpec_ValidateBodyFormDataParams(t *testing.T) {
 		assert.Len(t, res.Errors, 1)
 	}
 }
+
+func TestSpec_Issue73(t *testing.T) {
+	doc, err := loads.Spec(filepath.Join("fixtures", "bugs", "73", "fixture-swagger.yaml"))
+	if assert.NoError(t, err) {
+		validator := NewSpecValidator(doc.Schema(), strfmt.Default)
+		res, _ := validator.Validate(doc)
+		assert.Empty(t, res.Errors, " in fixture-swagger.yaml")
+	}
+
+	doc, err = loads.Spec(filepath.Join("fixtures", "bugs", "73", "fixture-swagger-2.yaml"))
+	if assert.NoError(t, err) {
+		validator := NewSpecValidator(doc.Schema(), strfmt.Default)
+		res, _ := validator.Validate(doc)
+		assert.Empty(t, res.Errors, "in fixture-swagger-2.yaml")
+	}
+
+	doc, err = loads.Spec(filepath.Join("fixtures", "bugs", "73", "fixture-swagger-3.yaml"))
+	if assert.NoError(t, err) {
+		validator := NewSpecValidator(doc.Schema(), strfmt.Default)
+		res, _ := validator.Validate(doc)
+		assert.Empty(t, res.Errors, "in fixture-swagger-3.yaml")
+	}
+
+	doc, err = loads.Spec(filepath.Join("fixtures", "bugs", "73", "fixture-swagger-good.yaml"))
+	if assert.NoError(t, err) {
+		validator := NewSpecValidator(doc.Schema(), strfmt.Default)
+		res, _ := validator.Validate(doc)
+		assert.Empty(t, res.Errors, " in fixture-swagger-good.yaml")
+	}
+}

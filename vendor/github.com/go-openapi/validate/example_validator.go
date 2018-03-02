@@ -66,8 +66,8 @@ func (ex *exampleValidator) validateExampleValueValidAgainstSchema() *Result {
 						// check param default value is valid
 						red := NewParamValidator(&param, s.KnownFormats).Validate(param.Example)
 						if red.HasErrorsOrWarnings() {
-							res.AddErrors(exampleValueDoesNotValidateMsg(param.Name, param.In))
-							res.Merge(red)
+							res.AddWarnings(exampleValueDoesNotValidateMsg(param.Name, param.In))
+							res.MergeAsWarnings(red)
 						}
 					}
 
@@ -75,7 +75,7 @@ func (ex *exampleValidator) validateExampleValueValidAgainstSchema() *Result {
 					if param.Items != nil {
 						red := ex.validateExampleValueItemsAgainstSchema(param.Name, param.In, &param, param.Items)
 						if red.HasErrorsOrWarnings() {
-							res.AddErrors(exampleValueItemsDoesNotValidateMsg(param.Name, param.In))
+							res.AddWarnings(exampleValueItemsDoesNotValidateMsg(param.Name, param.In))
 							res.Merge(red)
 						}
 					}
@@ -84,7 +84,7 @@ func (ex *exampleValidator) validateExampleValueValidAgainstSchema() *Result {
 						// Validate example value against schema
 						red := ex.validateExampleValueSchemaAgainstSchema(param.Name, param.In, param.Schema)
 						if red.HasErrorsOrWarnings() {
-							res.AddErrors(exampleValueDoesNotValidateMsg(param.Name, param.In))
+							res.AddWarnings(exampleValueDoesNotValidateMsg(param.Name, param.In))
 							res.Merge(red)
 						}
 					}
@@ -133,8 +133,8 @@ func (ex *exampleValidator) validateExampleInResponse(resp *spec.Response, respo
 			if h.Example != nil {
 				red := NewHeaderValidator(nm, &h, s.KnownFormats).Validate(h.Example)
 				if red.HasErrorsOrWarnings() {
-					res.AddErrors(exampleValueHeaderDoesNotValidateMsg(operationID, nm, responseName))
-					res.Merge(red)
+					res.AddWarnings(exampleValueHeaderDoesNotValidateMsg(operationID, nm, responseName))
+					res.MergeAsWarnings(red)
 				}
 			}
 
@@ -142,8 +142,8 @@ func (ex *exampleValidator) validateExampleInResponse(resp *spec.Response, respo
 			if h.Items != nil {
 				red := ex.validateExampleValueItemsAgainstSchema(nm, "header", &h, h.Items)
 				if red.HasErrorsOrWarnings() {
-					res.AddErrors(exampleValueHeaderItemsDoesNotValidateMsg(operationID, nm, responseName))
-					res.Merge(red)
+					res.AddWarnings(exampleValueHeaderItemsDoesNotValidateMsg(operationID, nm, responseName))
+					res.MergeAsWarnings(red)
 				}
 			}
 
@@ -158,7 +158,7 @@ func (ex *exampleValidator) validateExampleInResponse(resp *spec.Response, respo
 		red := ex.validateExampleValueSchemaAgainstSchema(responseCodeAsStr, "response", response.Schema)
 		if red.HasErrorsOrWarnings() {
 			// Additional message to make sure the context of the error is not lost
-			res.AddErrors(exampleValueInDoesNotValidateMsg(operationID, responseName))
+			res.AddWarnings(exampleValueInDoesNotValidateMsg(operationID, responseName))
 			res.Merge(red)
 		}
 	}
@@ -166,7 +166,7 @@ func (ex *exampleValidator) validateExampleInResponse(resp *spec.Response, respo
 	if response.Examples != nil {
 		if response.Schema != nil {
 			if example, ok := response.Examples["application/json"]; ok {
-				res.Merge(NewSchemaValidator(response.Schema, s.spec.Spec(), path, s.KnownFormats).Validate(example))
+				res.MergeAsWarnings(NewSchemaValidator(response.Schema, s.spec.Spec(), path, s.KnownFormats).Validate(example))
 			} else {
 				// TODO: validate other media types too
 				res.AddWarnings(examplesMimeNotSupportedMsg(operationID, responseName))
@@ -183,7 +183,7 @@ func (ex *exampleValidator) validateExampleValueSchemaAgainstSchema(path, in str
 	s := ex.SpecValidator
 	if schema != nil { // Safeguard
 		if schema.Example != nil {
-			res.Merge(NewSchemaValidator(schema, s.spec.Spec(), path+".example", s.KnownFormats).Validate(schema.Example))
+			res.MergeAsWarnings(NewSchemaValidator(schema, s.spec.Spec(), path+".example", s.KnownFormats).Validate(schema.Example))
 		}
 		if schema.Items != nil {
 			if schema.Items.Schema != nil {
@@ -226,7 +226,7 @@ func (ex *exampleValidator) validateExampleValueItemsAgainstSchema(path, in stri
 	s := ex.SpecValidator
 	if items != nil {
 		if items.Example != nil {
-			res.Merge(newItemsValidator(path, in, items, root, s.KnownFormats).Validate(0, items.Example))
+			res.MergeAsWarnings(newItemsValidator(path, in, items, root, s.KnownFormats).Validate(0, items.Example))
 		}
 		if items.Items != nil {
 			res.Merge(ex.validateExampleValueItemsAgainstSchema(path+"[0].example", in, root, items.Items))

@@ -25,64 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-/*
-func TestExample_ValidateExamples(t *testing.T) {
-	tests := []string{
-		"response",
-		"response-ref",
-	}
-
-	for _, tt := range tests {
-		doc, err := loads.Spec(filepath.Join("fixtures", "validation", "valid-example-"+tt+".json"))
-		if DebugTest {
-			t.Log("Valid spec")
-		}
-		if assert.NoError(t, err) {
-			validator := NewSpecValidator(spec.MustLoadSwagger20Schema(), strfmt.Default)
-			validator.spec = doc
-			validator.analyzer = analysis.New(doc.Spec())
-			myExampleValidator := &exampleValidator{SpecValidator: validator}
-			res := myExampleValidator.Validate()
-			assert.Empty(t, res.Errors, tt+" should not have errors")
-			if DebugTest && t.Failed() {
-				t.Log("DEVMODE: Returned errors:")
-				for _, e := range res.Errors {
-					t.Logf("%v", e)
-				}
-				t.Log("DEVMODE: Returned warnings:")
-				for _, e := range res.Warnings {
-					t.Logf("%v", e)
-				}
-			}
-		}
-
-		if DebugTest {
-			t.Log("Invalid spec")
-		}
-		doc, err = loads.Spec(filepath.Join("fixtures", "validation", "invalid-example-"+tt+".json"))
-		if assert.NoError(t, err) {
-			validator := NewSpecValidator(spec.MustLoadSwagger20Schema(), strfmt.Default)
-			validator.spec = doc
-			validator.analyzer = analysis.New(doc.Spec())
-			myExampleValidator := &exampleValidator{SpecValidator: validator}
-			res := myExampleValidator.Validate()
-			assert.NotEmpty(t, res.Errors, tt+" should have errors")
-			assert.Len(t, res.Errors, 1, tt+" should have 1 error")
-			if DebugTest && t.Failed() {
-				t.Log("DEVMODE: Returned errors:")
-				for _, e := range res.Errors {
-					t.Logf("%v", e)
-				}
-				t.Log("DEVMODE: Returned warnings:")
-				for _, e := range res.Warnings {
-					t.Logf("%v", e)
-				}
-			}
-		}
-	}
-}
-*/
-
 func TestExample_ValidateExamples(t *testing.T) {
 	doc, _ := loads.Analyzed(PetStoreJSONMessage, "")
 	validator := NewSpecValidator(spec.MustLoadSwagger20Schema(), strfmt.Default)
@@ -164,12 +106,20 @@ func TestExample_ValidateExamples(t *testing.T) {
 			validator.analyzer = analysis.New(doc.Spec())
 			myExampleValidator := &exampleValidator{SpecValidator: validator}
 			res := myExampleValidator.Validate()
-			assert.NotEmpty(t, res.Errors, tt+" should have errors")
+			switch tt {
+			case "header-badpattern":
+				// This fixture exhibits real errors besides example values
+				assert.NotEmpty(t, res.Errors, tt+" should have errors")
+				assert.NotEmpty(t, res.Warnings, tt+" should have warnings")
+			default:
+				assert.Empty(t, res.Errors, tt+" should not have errors")
+				assert.NotEmpty(t, res.Warnings, tt+" should have warnings")
+			}
 			// Update: now we have an additional message to explain it's all about a default value
 			// Example:
 			// - default value for limit in query does not validate its Schema
 			// - limit in query must be of type integer: "string"]
-			assert.True(t, len(res.Errors) >= 1, tt+" should have at least 1 error")
+			assert.True(t, len(res.Warnings) >= 1, tt+" should have at least 1 warning")
 
 			if DebugTest && t.Failed() {
 				t.Logf("DEVMODE: Returned errors for %s:", tt)

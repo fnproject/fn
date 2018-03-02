@@ -2239,14 +2239,7 @@ func (s *DockerSuite) TestRunSlowStdoutConsumer(c *check.C) {
 	// alternate to /dev/zero and /dev/stdout.
 	testRequires(c, DaemonIsLinux)
 
-	// TODO will remove this if issue #35963 fixed
-	var args []string
-	if runtime.GOARCH == "amd64" {
-		args = []string{"run", "--rm", "busybox", "/bin/sh", "-c", "dd if=/dev/zero of=/dev/stdout bs=1024 count=2000 | catv"}
-	} else {
-		args = []string{"run", "--rm", "busybox", "/bin/sh", "-c", "dd if=/dev/zero of=/dev/stdout bs=1024 count=2000 | cat -v"}
-	}
-
+	args := []string{"run", "--rm", "busybox", "/bin/sh", "-c", "dd if=/dev/zero of=/dev/stdout bs=1024 count=2000 | cat -v"}
 	cont := exec.Command(dockerBinary, args...)
 
 	stdout, err := cont.StdoutPipe()
@@ -4002,7 +3995,7 @@ func (s *DockerSuite) TestRunAttachFailedNoLeak(c *check.C) {
 		v, err := kernel.GetKernelVersion()
 		c.Assert(err, checker.IsNil)
 		build, _ := strconv.Atoi(strings.Split(strings.SplitN(v.String(), " ", 3)[2][1:], ".")[0])
-		if build >= 16292 { // @jhowardmsft TODO - replace with final RS3 build and ==
+		if build == 16299 {
 			c.Skip("Temporarily disabled on RS3 builds")
 		}
 	}

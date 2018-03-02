@@ -1,4 +1,4 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"errors"
@@ -20,6 +20,7 @@ import (
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/libnetwork"
+	netconst "github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
 	"github.com/docker/libnetwork/types"
@@ -259,6 +260,13 @@ func (daemon *Daemon) updateNetworkSettings(container *container.Container, n li
 		}
 
 		if sn.Name() == n.Name() {
+			// If the network scope is swarm, then this
+			// is an attachable network, which may not
+			// be locally available previously.
+			// So always update.
+			if n.Info().Scope() == netconst.SwarmScope {
+				continue
+			}
 			// Avoid duplicate config
 			return nil
 		}
@@ -272,10 +280,8 @@ func (daemon *Daemon) updateNetworkSettings(container *container.Container, n li
 		}
 	}
 
-	if _, ok := container.NetworkSettings.Networks[n.Name()]; !ok {
-		container.NetworkSettings.Networks[n.Name()] = &network.EndpointSettings{
-			EndpointSettings: endpointConfig,
-		}
+	container.NetworkSettings.Networks[n.Name()] = &network.EndpointSettings{
+		EndpointSettings: endpointConfig,
 	}
 
 	return nil
@@ -340,7 +346,9 @@ func (daemon *Daemon) updateNetwork(container *container.Container) error {
 }
 
 func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrName string, epConfig *networktypes.EndpointSettings) (libnetwork.Network, *networktypes.NetworkingConfig, error) {
-	n, err := daemon.FindNetwork(getNetworkID(idOrName, epConfig))
+	id := getNetworkID(idOrName, epConfig)
+
+	n, err := daemon.FindNetwork(id)
 	if err != nil {
 		// We should always be able to find the network for a
 		// managed container.
@@ -373,21 +381,26 @@ func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrN
 		retryCount int
 	)
 
+	if n == nil && daemon.attachableNetworkLock != nil {
+		daemon.attachableNetworkLock.Lock(id)
+		defer daemon.attachableNetworkLock.Unlock(id)
+	}
+
 	for {
 		// In all other cases, attempt to attach to the network to
 		// trigger attachment in the swarm cluster manager.
 		if daemon.clusterProvider != nil {
 			var err error
-			config, err = daemon.clusterProvider.AttachNetwork(getNetworkID(idOrName, epConfig), container.ID, addresses)
+			config, err = daemon.clusterProvider.AttachNetwork(id, container.ID, addresses)
 			if err != nil {
 				return nil, nil, err
 			}
 		}
 
-		n, err = daemon.FindNetwork(getNetworkID(idOrName, epConfig))
+		n, err = daemon.FindNetwork(id)
 		if err != nil {
 			if daemon.clusterProvider != nil {
-				if err := daemon.clusterProvider.DetachNetwork(getNetworkID(idOrName, epConfig), container.ID); err != nil {
+				if err := daemon.clusterProvider.DetachNetwork(id, container.ID); err != nil {
 					logrus.Warnf("Could not rollback attachment for container %s to network %s: %v", container.ID, idOrName, err)
 				}
 			}

@@ -1,4 +1,4 @@
-package build
+package build // import "github.com/docker/docker/integration/build"
 
 import (
 	"archive/tar"
@@ -13,7 +13,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
-	"github.com/docker/docker/integration/util/request"
+	"github.com/docker/docker/integration/internal/request"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -242,6 +242,75 @@ RUN cat somefile`
 	image, _, err := apiclient.ImageInspectWithRaw(context.Background(), imageIDs[2])
 	require.NoError(t, err)
 	assert.Contains(t, image.Config.Env, "bar=baz")
+}
+
+// #35403 #36122
+func TestBuildUncleanTarFilenames(t *testing.T) {
+	ctx := context.TODO()
+	defer setupTest(t)()
+
+	dockerfile := `FROM scratch
+COPY foo /
+FROM scratch
+COPY bar /`
+
+	buf := bytes.NewBuffer(nil)
+	w := tar.NewWriter(buf)
+	writeTarRecord(t, w, "Dockerfile", dockerfile)
+	writeTarRecord(t, w, "../foo", "foocontents0")
+	writeTarRecord(t, w, "/bar", "barcontents0")
+	err := w.Close()
+	require.NoError(t, err)
+
+	apiclient := testEnv.APIClient()
+	resp, err := apiclient.ImageBuild(ctx,
+		buf,
+		types.ImageBuildOptions{
+			Remove:      true,
+			ForceRemove: true,
+		})
+
+	out := bytes.NewBuffer(nil)
+	require.NoError(t, err)
+	_, err = io.Copy(out, resp.Body)
+	resp.Body.Close()
+	require.NoError(t, err)
+
+	// repeat with changed data should not cause cache hits
+
+	buf = bytes.NewBuffer(nil)
+	w = tar.NewWriter(buf)
+	writeTarRecord(t, w, "Dockerfile", dockerfile)
+	writeTarRecord(t, w, "../foo", "foocontents1")
+	writeTarRecord(t, w, "/bar", "barcontents1")
+	err = w.Close()
+	require.NoError(t, err)
+
+	resp, err = apiclient.ImageBuild(ctx,
+		buf,
+		types.ImageBuildOptions{
+			Remove:      true,
+			ForceRemove: true,
+		})
+
+	out = bytes.NewBuffer(nil)
+	require.NoError(t, err)
+	_, err = io.Copy(out, resp.Body)
+	resp.Body.Close()
+	require.NoError(t, err)
+	require.NotContains(t, out.String(), "Using cache")
+}
+
+func writeTarRecord(t *testing.T, w *tar.Writer, fn, contents string) {
+	err := w.WriteHeader(&tar.Header{
+		Name:     fn,
+		Mode:     0600,
+		Size:     int64(len(contents)),
+		Typeflag: '0',
+	})
+	require.NoError(t, err)
+	_, err = w.Write([]byte(contents))
+	require.NoError(t, err)
 }
 
 type buildLine struct {
