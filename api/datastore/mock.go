@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/logs"
@@ -15,7 +14,6 @@ import (
 type mock struct {
 	Apps   []*models.App
 	Routes []*models.Route
-	Calls  []*models.Call
 	data   map[string][]byte
 
 	models.LogStore
@@ -26,7 +24,7 @@ func NewMock() models.Datastore {
 }
 
 func NewMockInit(apps []*models.App, routes []*models.Route, calls []*models.Call) models.Datastore {
-	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte), logs.NewMock()})
+	return datastoreutil.NewValidator(&mock{apps, routes, make(map[string][]byte), logs.NewMock()})
 }
 
 func (m *mock) GetApp(ctx context.Context, appName string) (app *models.App, err error) {
@@ -81,7 +79,6 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) RemoveApp(ctx context.Context, appName string) error {
-	m.batchDeleteCalls(ctx, appName)
 	m.batchDeleteRoutes(ctx, appName)
 	for i, a := range m.Apps {
 		if a.Name == appName {
@@ -162,104 +159,6 @@ func (m *mock) RemoveRoute(ctx context.Context, appName, routePath string) error
 		}
 	}
 	return models.ErrRoutesNotFound
-}
-
-func (m *mock) Put(ctx context.Context, key, value []byte) error {
-	if len(value) == 0 {
-		delete(m.data, string(key))
-	} else {
-		m.data[string(key)] = value
-	}
-	return nil
-}
-
-func (m *mock) Get(ctx context.Context, key []byte) ([]byte, error) {
-	return m.data[string(key)], nil
-}
-
-func (m *mock) InsertCall(ctx context.Context, call *models.Call) error {
-	m.Calls = append(m.Calls, call)
-	return nil
-}
-
-// This equivalence only makes sense in the context of the datastore, so it's
-// not in the model.
-func equivalentCalls(expected *models.Call, actual *models.Call) bool {
-	equivalentFields := expected.ID == actual.ID &&
-		time.Time(expected.CreatedAt).Unix() == time.Time(actual.CreatedAt).Unix() &&
-		time.Time(expected.StartedAt).Unix() == time.Time(actual.StartedAt).Unix() &&
-		time.Time(expected.CompletedAt).Unix() == time.Time(actual.CompletedAt).Unix() &&
-		expected.Status == actual.Status &&
-		expected.AppName == actual.AppName &&
-		expected.Path == actual.Path &&
-		expected.Error == actual.Error &&
-		len(expected.Stats) == len(actual.Stats)
-	// TODO: We don't do comparisons of individual Stats. We probably should.
-	return equivalentFields
-}
-
-func (m *mock) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
-	for _, t := range m.Calls {
-		if t.ID == from.ID && t.AppName == from.AppName {
-			if equivalentCalls(from, t) {
-				*t = *to
-				return nil
-			}
-			return models.ErrDatastoreCannotUpdateCall
-		}
-	}
-	return models.ErrCallNotFound
-}
-
-func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
-	for _, t := range m.Calls {
-		if t.ID == callID && t.AppName == appName {
-			return t, nil
-		}
-	}
-
-	return nil, models.ErrCallNotFound
-}
-
-type sortC []*models.Call
-
-func (s sortC) Len() int           { return len(s) }
-func (s sortC) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
-func (s sortC) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
-	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
-	// calls are in DESC order so use sort.Reverse
-	sort.Sort(sort.Reverse(sortC(m.Calls)))
-
-	var calls []*models.Call
-	for _, c := range m.Calls {
-		if len(calls) == filter.PerPage {
-			break
-		}
-
-		if (filter.AppName == "" || c.AppName == filter.AppName) &&
-			(filter.Path == "" || filter.Path == c.Path) &&
-			(time.Time(filter.FromTime).IsZero() || time.Time(filter.FromTime).Before(time.Time(c.CreatedAt))) &&
-			(time.Time(filter.ToTime).IsZero() || time.Time(c.CreatedAt).Before(time.Time(filter.ToTime))) &&
-			(filter.Cursor == "" || strings.Compare(filter.Cursor, c.ID) > 0) {
-
-			calls = append(calls, c)
-		}
-	}
-
-	return calls, nil
-}
-
-func (m *mock) batchDeleteCalls(ctx context.Context, appName string) error {
-	newCalls := []*models.Call{}
-	for _, c := range m.Calls {
-		if c.AppName != appName {
-			newCalls = append(newCalls, c)
-		}
-	}
-	m.Calls = newCalls
-	return nil
 }
 
 func (m *mock) batchDeleteRoutes(ctx context.Context, appName string) error {
