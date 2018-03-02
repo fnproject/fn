@@ -370,8 +370,6 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
 
-	opts.Context = ctx
-
 	logger := common.Logger(ctx).WithField("docker_cmd", "RemoveContainer")
 	err = d.retry(ctx, logger, func() error {
 		err = d.docker.RemoveContainer(opts)
