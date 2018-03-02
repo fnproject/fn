@@ -18,6 +18,7 @@ import (
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
+	agent_k8s "github.com/fnproject/fn/api/agent/nodepool/k8s"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -43,6 +44,11 @@ const (
 	EnvNPMAddress      = "FN_NPM_ADDRESS"
 	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
 	EnvLBPlacementAlg  = "FN_PLACER"
+	EnvLBPlacementAlg  = "FN_PLACER"
+	EnvLBNodePool      = "FN_NODEPOOL"
+	EnvLBK8sNamespace  = "FN_K8S_NAMESPACE"
+	EnvLBK8sSelector   = "FN_K8S_SELECTOR"
+	EnvLBK8sTargetPort = "FN_K8S_TARGET_PORT"
 	EnvNodeType        = "FN_NODE_TYPE"
 	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvGRPCPort        = "FN_GRPC_PORT"
@@ -407,10 +413,8 @@ func WithAgentFromEnv() ServerOption {
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
-			npmAddress := getEnv(EnvNPMAddress, "")
-			runnerAddresses := getEnv(EnvRunnerAddresses, "")
+<<<<<<< HEAD
 
-			var nodePool agent.NodePool
 			if npmAddress != "" {
 				// TODO refactor DefaultgRPCNodePool as an extension
 				nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
@@ -418,6 +422,33 @@ func WithAgentFromEnv() ServerOption {
 				nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
 			} else {
 				return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
+			}
+
+			var nodePool agent.NodePool
+			switch getEnv(EnvLBNodePool, "") {
+			case "k8s":
+				ns := getEnv(EnvLBK8sNamespace, "")
+				labelSelector := getEnv(EnvLBK8sSelector, "")
+				targetPort := getEnv(EnvLBK8sTargetPort, "8080")
+				port, err := strconv.Atoi(targetPort)
+				if err != nil {
+					return err
+				}
+				nodePool, err = agent_k8s.NewK8sPool(ns, labelSelector, port, s.cert, s.certKey, s.certAuthority)
+				if err != nil {
+					return err
+				}
+			default:
+				npmAddress := getEnv(EnvNPMAddress, "")
+				runnerAddresses := getEnv(EnvRunnerAddresses, "")
+				if npmAddress != "" {
+					// TODO refactor DefaultgRPCNodePool as an extension
+					nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
+				} else if runnerAddresses != "" {
+					nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
+				} else {
+					return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
+				}
 			}
 
 			// Select the placement algorithm

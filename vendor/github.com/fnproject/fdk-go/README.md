@@ -17,7 +17,7 @@ or your favorite vendoring solution :)
 # Examples
 
 For a simple getting started, see the [examples](/examples/hello) and follow
-the [README](/examples/hello/README.md). If you already have `fn` set up it
+the [README](/examples/README.md). If you already have `fn` set up it
 will take 2 minutes!
 
 # Advanced example
