@@ -431,7 +431,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	engine.GET("/version", handleVersion)
 
 	// TODO: move under v1 ?
-	engine.GET("/metrics", gin.WrapH(s.promExporter))
+	if s.promExporter != nil {
+		engine.GET("/metrics", gin.WrapH(s.promExporter))
+	}
 
 	profilerSetup(engine, "/debug")
 
