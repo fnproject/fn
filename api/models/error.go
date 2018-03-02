@@ -181,6 +181,10 @@ var (
 		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
 			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
 	}
+	ErrFunctionResponseTooBig = err{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function response too large"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
