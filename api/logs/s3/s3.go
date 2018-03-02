@@ -146,7 +146,7 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 		return fmt.Errorf("failed to write log, %v", err)
 	}
 
-	stats.Record(ctx, downloadSizeMeasure.M(int64(cr.count)))
+	stats.Record(ctx, uploadSizeMeasure.M(int64(cr.count)))
 	return nil
 }
 
@@ -222,7 +222,7 @@ func init() {
 			"s3_log_download_size",
 			"downloaded log size",
 			[]tag.Key{appKey, pathKey},
-			uploadSizeMeasure,
+			downloadSizeMeasure,
 			view.DistributionAggregation{},
 		)
 		if err != nil {
