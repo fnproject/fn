@@ -199,16 +199,16 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
 		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
-		// hot container now back to normal, we should get OK
+		// hot container now back to normal:
 		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
+		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
+		// hot container now back to normal:
 		{"/r/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, "", nil},
 
 		{"/r/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
 		{"/r/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
 		{"/r/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
-
-		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
 
 		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
 		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2", nil},
