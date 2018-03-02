@@ -345,30 +345,52 @@ func dockerMsg(derr *docker.Error) string {
 // Run executes the docker container. If task runs, drivers.RunResult will be returned. If something fails outside the task (ie: Docker), it will return error.
 // The docker driver will attempt to cast the task to a Auther. If that succeeds, private image support is available. See the Auther interface for how to implement this.
 func (drv *DockerDriver) run(ctx context.Context, container string, task drivers.ContainerTask) (drivers.WaitResult, error) {
+
 	mwOut, mwErr := task.Logger()
+	attachSuccess := make(chan struct{})
+	stopSignal := make(chan struct{})
+	startWait := make(chan error, 1)
 
 	waiter, err := drv.docker.AttachToContainerNonBlocking(ctx, docker.AttachToContainerOptions{
-		Container: container, OutputStream: mwOut, ErrorStream: mwErr,
-		Stream: true, Stdout: true, Stderr: true,
-		Stdin: true, InputStream: task.Input()})
+		Success:      attachSuccess,
+		Container:    container,
+		OutputStream: mwOut,
+		ErrorStream:  mwErr,
+		Stream:       true,
+		Stdout:       true,
+		Stderr:       true,
+		Stdin:        true,
+		InputStream:  task.Input()})
+
 	if err != nil && ctx.Err() == nil {
 		// ignore if ctx has errored, rewrite status lay below
 		return nil, err
 	}
 
-	// we want to stop trying to collect stats when the container exits
-	// collectStats will stop when stopSignal is closed or ctx is cancelled
-	stopSignal := make(chan struct{})
-	go drv.collectStats(ctx, stopSignal, container, task)
+	if err == nil {
+		// IMPORTANT: if attach NBIO did not return error above, then we know attachSuccess
+		// is going to be honored. See github.com/fsouza/go-dockerclient/client.go hijack()
+		go func() {
+			<-attachSuccess
+			attachSuccess <- struct{}{}
 
-	err = drv.startTask(ctx, container)
-	if err != nil && ctx.Err() == nil {
-		// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
-		return nil, err
+			// we want to stop trying to collect stats when the container exits
+			// collectStats will stop when stopSignal is closed or ctx is cancelled
+			go drv.collectStats(ctx, stopSignal, container, task)
+
+			err = drv.startTask(ctx, container)
+			if err != nil && ctx.Err() == nil {
+				// if there's just a timeout making the docker calls, drv.wait below will rewrite it to timeout
+				startWait <- err
+			} else {
+				startWait <- nil
+			}
+		}()
 	}
 
 	return &waitResult{
 		container: container,
+		startWait: startWait,
 		waiter:    waiter,
 		drv:       drv,
 		done:      stopSignal,
@@ -378,6 +400,7 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 // waitResult implements drivers.WaitResult
 type waitResult struct {
 	container string
+	startWait chan error
 	waiter    docker.CloseWaiter
 	drv       *DockerDriver
 	done      chan struct{}
@@ -393,6 +416,16 @@ func (w *waitResult) Wait(ctx context.Context) drivers.RunResult {
 		status: status,
 		err:    err,
 	}
+}
+
+func (w *waitResult) translateCtxErr(ctx context.Context) (status string, err error) {
+	switch ctx.Err() {
+	case context.DeadlineExceeded:
+		return drivers.StatusTimeout, context.DeadlineExceeded
+	case context.Canceled:
+		return drivers.StatusCancelled, context.Canceled
+	}
+	panic(fmt.Sprintf("bug ctx should be done err=%v", ctx.Err()))
 }
 
 // Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
@@ -543,6 +576,17 @@ func (drv *DockerDriver) awaitHealthcheck(ctx context.Context, container string)
 }
 
 func (w *waitResult) wait(ctx context.Context) (status string, err error) {
+
+	// First, let's check if the container was started at all...
+	select {
+	case <-ctx.Done(): // check if task was canceled or timed out
+		return w.translateCtxErr(ctx)
+	case err := <-w.startWait:
+		if err != nil {
+			return drivers.StatusError, err
+		}
+	}
+
 	// wait retries internally until ctx is up, so we can ignore the error and
 	// just say it was a timeout if we have [fatal] errors talking to docker, etc.
 	// a more prevalent case is calling wait & container already finished, so again ignore err.
@@ -561,12 +605,7 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	if exitCode == 0 {
 		select {
 		case <-ctx.Done(): // check if task was canceled or timed out
-			switch ctx.Err() {
-			case context.DeadlineExceeded:
-				return drivers.StatusTimeout, context.DeadlineExceeded
-			case context.Canceled:
-				return drivers.StatusCancelled, context.Canceled
-			}
+			return w.translateCtxErr(ctx)
 		default:
 		}
 	}
