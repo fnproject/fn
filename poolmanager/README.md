@@ -178,8 +178,8 @@ docker run -d \
            fnproject/runner:latest
 ```
 
-## Running a load-balanced set of runners with Node Pool Manager
-Note: the communication between NuLB and runners in this mode does not currently support certificates and will be insecure!
+## Running without the Node Pool Manager
+This mode assumes that NuLB is started with a static set of runners in a single global pool. Note that this configuration does not support runner certificates and is that the communication between NuLB and runners is unencrypted.
 
 ### API
 

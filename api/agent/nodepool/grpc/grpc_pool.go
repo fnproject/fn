@@ -90,6 +90,8 @@ func DefaultgRPCNodePool(npmAddress string, cert string, key string, ca string) 
 }
 
 func newgRPCNodePool(cert string, key string, ca string, npm poolmanager.NodePoolManager, advertiser poolmanager.CapacityAdvertiser, rf secureRunnerFactory) agent.NodePool {
+
+	logrus.Info("Starting dynamic runner pool")
 	p := &pkiData{
 		ca:   ca,
 		cert: cert,
@@ -195,7 +197,7 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p *
 	for i, addr := range runners {
 		r, ok := lbg.runners[addr]
 		if !ok {
-			logrus.WithField("runner_addr", addr).WithField("cert", p.cert).Debug("New Runner to be added")
+			logrus.WithField("runner_addr", addr).Debug("New Runner to be added")
 			r, errGenerator = lbg.generator(addr, p.cert, p.key, p.ca)
 			if errGenerator != nil {
 				logrus.WithField("runner_addr", addr).Debug("Creation of the new runner failed")

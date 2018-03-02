@@ -70,13 +70,6 @@ func (np *staticNodePool) AddRunner(address string) error {
 	np.rMtx.Lock()
 	defer np.rMtx.Unlock()
 
-	// don't add duplicates
-	for _, r := range np.runners {
-		if r.Address() == address {
-			return nil
-		}
-	}
-
 	r, err := np.generator(address)
 	if err != nil {
 		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
