@@ -130,6 +130,22 @@ docker run -d \
            fnproject/nulb:latest
 ```
 
+If running with a static set of runners (ie. without NPM):
+```bash
+docker run -d \
+           --name nulb \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 8081:8080 \
+           -v $(pwd)/cert.pem:/certs/cert.pem \
+           -v $(pwd)/key.pem:/certs/key.pem \
+           -e FN_RUNNER_API_URL=http://docker.for.mac.localhost:8080 \
+           -e FN_RUNNER_ADDRESSES=docker.for.mac.localhost:9190,docker.for.mac.localhost:9191 \
+           -e FN_NODE_CERT=/certs/cert.pem \
+           -e FN_NODE_CERT_KEY=/certs/key.pem \
+           -e FN_NODE_CERT_AUTHORITY=/certs/cert.pem \
+           fnproject/nulb:latest
+```
+
 #### First runner
 ```bash
 docker run -d \
@@ -162,4 +178,50 @@ docker run -d \
            fnproject/runner:latest
 ```
 
+## Running without the Node Pool Manager
+This mode assumes that NuLB is started with a static set of runners in a single global pool. Note that this configuration does not support runner certificates and is that the communication between NuLB and runners is unencrypted.
 
+### API
+
+```
+docker run -d \
+           -name api \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 8080:8080 \
+           fnproject/api:latest
+```
+
+#### First runner
+```bash
+docker run -d \
+           --name runner \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 9190:9190 \
+           -e FN_GRPC_PORT=9190 \
+           -p 8095:8080 \
+           fnproject/runner:latest
+```
+
+#### Second runner
+```bash
+docker run -d \
+           --name runner-2 \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 9191:9191 \
+           -e FN_GRPC_PORT=9191 \
+           -p 8096:8080 \
+           fnproject/runner:latest
+```
+
+### NuLB
+
+Pass in the static set of runners to _FN_RUNNER_ADDRESSES_:
+```bash
+docker run -d \
+           --name nulb \
+           -v /var/run/docker.sock:/var/run/docker.sock \
+           -p 8081:8080 \
+           -e FN_RUNNER_API_URL=http://docker.for.mac.localhost:8080 \
+           -e FN_RUNNER_ADDRESSES=docker.for.mac.localhost:9190,docker.for.mac.localhost:9191 \
+           fnproject/nulb:latest
+```

@@ -70,7 +70,7 @@ const (
 	EnvCertKey      = "FN_NODE_CERT_KEY"
 	EnvCertAuth     = "FN_NODE_CERT_AUTHORITY"
 	EnvPort         = "FN_PORT"
-	EnvFixedRunners = "FN_RUNNER_ADDRESS"
+	EnvFixedRunners = "FN_RUNNER_ADDRESSES"
 )
 
 func getAndCheckFile(envVar string) (string, error) {
