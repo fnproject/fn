@@ -5,7 +5,6 @@ import (
 	"github.com/pressly/goose"
 )
 
-// we skip the error here to make previous datastore tables work fine
 func up7(tx *sql.Tx) error {
 	_, err := tx.Exec("ALTER TABLE routes ADD cpus int;")
 	return err

@@ -3,11 +3,11 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"sort"
+
 	"github.com/fnproject/fn/api/common"
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose"
-	"sort"
 )
 
 var (
@@ -101,12 +101,10 @@ func DownAll(driver string, db *sql.DB) error {
 
 		current, err := migrations.Current(currentVersion)
 		if err != nil {
-			fmt.Printf("goose: no migrations to run. current version: %d\n", currentVersion)
-			return nil
+			return err
 		}
 
 		if current.Version <= 1 {
-			fmt.Printf("goose: no migrations to run. current version: %d\n", currentVersion)
 			return nil
 		}
 

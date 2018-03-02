@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/fnproject/fn/api/common"
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose"
@@ -32,7 +33,11 @@ func checkOldMigration(ctx context.Context, db *sqlx.DB) (int64, error) {
 		return -1, err
 	}
 	if dirty {
-		log.Fatal("database corrupted")
+		log.Fatal("database corrupted, please return the database " +
+			"to a stable state under this migration version (run the down " +
+			"migration at the version indicated?) in table schema_migrations " +
+			"and unset the dirty bit in that table to restore the " +
+			"database to a working condition")
 	}
 	if current > 0 {
 		// will cause partial upgrade, starting from
@@ -105,7 +110,6 @@ func syncToGooseTable(ctx context.Context, db *sqlx.DB) (goose.Migrations, error
 		return goose.Migrations{}, err
 	}
 
-	// in case of a new datastore this will return a new slice [0:], with all the migrations we have
 	// in case of the existing datastore this will return the slice of migrations left to apply from current goose version
 	// in case of up-to-date datastore this will return an empty slice because there are no more migrations left to apply
 	return sortedMigrations[gooseCurrent:], nil
