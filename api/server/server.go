@@ -32,20 +32,20 @@ import (
 )
 
 const (
-	EnvLogLevel   = "FN_LOG_LEVEL"
-	EnvLogDest    = "FN_LOG_DEST"
-	EnvLogPrefix  = "FN_LOG_PREFIX"
-	EnvMQURL      = "FN_MQ_URL"
-	EnvDBURL      = "FN_DB_URL"
-	EnvLOGDBURL   = "FN_LOGSTORE_URL"
-	EnvRunnerURL  = "FN_RUNNER_API_URL"
-	EnvNPMAddress = "FN_NPM_ADDRESS"
+	EnvLogLevel       = "FN_LOG_LEVEL"
+	EnvLogDest        = "FN_LOG_DEST"
+	EnvLogPrefix      = "FN_LOG_PREFIX"
+	EnvMQURL          = "FN_MQ_URL"
+	EnvDBURL          = "FN_DB_URL"
+	EnvLOGDBURL       = "FN_LOGSTORE_URL"
+	EnvRunnerURL      = "FN_RUNNER_API_URL"
+	EnvNPMAddress     = "FN_NPM_ADDRESS"
 	EnvLBPlacementAlg = "FN_PLACER"
-	EnvNodeType   = "FN_NODE_TYPE"
-	EnvPort       = "FN_PORT" // be careful, Gin expects this variable to be "port"
-	EnvGRPCPort   = "FN_GRPC_PORT"
-	EnvAPICORS    = "FN_API_CORS"
-	EnvZipkinURL  = "FN_ZIPKIN_URL"
+	EnvNodeType       = "FN_NODE_TYPE"
+	EnvPort           = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvGRPCPort       = "FN_GRPC_PORT"
+	EnvAPICORS        = "FN_API_CORS"
+	EnvZipkinURL      = "FN_ZIPKIN_URL"
 	// Certificates to communicate with other FN nodes
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
@@ -123,9 +123,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	var defaultDB, defaultMQ string
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
 	switch nodeType {
-		case ServerTypeLB: // nothing
-		case ServerTypeRunner: // nothing
-		case ServerTypePureRunner: // nothing
+	case ServerTypeLB: // nothing
+	case ServerTypeRunner: // nothing
+	case ServerTypePureRunner: // nothing
 	default:
 		// only want to activate these for full and api nodes
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
@@ -430,7 +430,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 	log := common.Logger(ctx)
 	s := &Server{
-		Router:         gin.New(),
+		Router: gin.New(),
 		// Add default ports
 		webListenPort:  DefaultPort,
 		grpcListenPort: DefaultGRPCPort,

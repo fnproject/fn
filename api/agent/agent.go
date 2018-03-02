@@ -243,7 +243,7 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	var slot Slot
 	var err error
 	if call.reservedSlot == nil {
-	    StatsEnqueue(ctx)
+		StatsEnqueue(ctx)
 
 		a.startStateTrackers(ctx, call)
 		defer a.endStateTrackers(ctx, call)

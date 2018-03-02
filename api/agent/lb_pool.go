@@ -86,8 +86,8 @@ func (n *nullRunner) Close() {}
 func GRPCRunnerFactory(addr string, lbgID string, cert string, key string, ca string) (Runner, error) {
 	p := pkiData{
 		cert: cert,
-		key: key,
-		ca: ca,
+		key:  key,
+		ca:   ca,
 	}
 	conn, client := runnerConnection(addr, lbgID, p)
 	return &gRPCRunner{

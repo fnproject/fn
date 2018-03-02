@@ -1,6 +1,6 @@
 /* The consistent hash ring from the original fnlb.
    The behaviour of this depends on changes to the runner list leaving it relatively stable.
- */
+*/
 
 package agent
 

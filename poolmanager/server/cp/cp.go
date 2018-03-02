@@ -1,20 +1,19 @@
 /*
 	Interface between the Node Pool Manager and the Control Plane
- */
-
+*/
 
 package cp
 
 import (
+	"crypto/rand"
+	"fmt"
+	"log"
 	"sync"
 	"time"
-	"fmt"
-	"crypto/rand"
-	"log"
 )
 
 type Runner struct {
-	Id string
+	Id      string
 	Address string
 	// Other: certs etc here as managed and installed by CP
 	Capacity int64
@@ -28,9 +27,8 @@ type ControlPlane interface {
 	RemoveRunner(lbgId string, id string) error
 }
 
-
 type controlPlane struct {
-	mx      sync.RWMutex
+	mx sync.RWMutex
 
 	runners map[string][]*Runner
 
@@ -48,7 +46,6 @@ func NewControlPlane(fakeRunners []string) ControlPlane {
 	return cp
 }
 
-
 func (cp *controlPlane) GetLBGRunners(lbgId string) ([]*Runner, error) {
 	cp.mx.RLock()
 	defer cp.mx.RUnlock()
@@ -56,13 +53,12 @@ func (cp *controlPlane) GetLBGRunners(lbgId string) ([]*Runner, error) {
 	runners := make([]*Runner, 0)
 	if hosts, ok := cp.runners[lbgId]; ok {
 		for _, host := range hosts {
-			runners = append(runners, host)  // In this CP implementation, a Runner is an immutable thing, so passing the pointer is fine
+			runners = append(runners, host) // In this CP implementation, a Runner is an immutable thing, so passing the pointer is fine
 		}
 	}
 
 	return runners, nil
 }
-
 
 func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 	// Simulate some small amount of time for the CP to service this request
