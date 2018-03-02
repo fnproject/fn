@@ -24,6 +24,8 @@ export POSTGRES_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/
 export MYSQL_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
 export MINIO_URL="s3://admin:password@${MINIO_HOST}:${MINIO_PORT}/us-east-1/fnlogs"
 
+export FN_LOG_LEVEL=debug
+
 go test -v $(go list ./... | grep -v vendor | grep -v examples | grep -v test/fn-api-tests | grep -v images/fn-test-utils)
 go vet $(go list ./... | grep -v vendor)
 

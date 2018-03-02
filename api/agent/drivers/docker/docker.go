@@ -367,9 +367,9 @@ func (drv *DockerDriver) run(ctx context.Context, container string, task drivers
 		return nil, err
 	}
 
+	// IMPORTANT: if attach NBIO did not return error above, then we know attachSuccess
+	// is going to be honored. See github.com/fsouza/go-dockerclient/client.go hijack()
 	if err == nil {
-		// IMPORTANT: if attach NBIO did not return error above, then we know attachSuccess
-		// is going to be honored. See github.com/fsouza/go-dockerclient/client.go hijack()
 		go func() {
 			<-attachSuccess
 			attachSuccess <- struct{}{}
