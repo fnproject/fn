@@ -52,6 +52,20 @@ type lbg struct {
 	generator secureRunnerFactory
 }
 
+type nullRunner struct{}
+
+func (n *nullRunner) TryExec(ctx context.Context, call agent.Call) (bool, error) {
+	return false, nil
+}
+
+func (n *nullRunner) Close() {}
+
+func (n *nullRunner) Address() string {
+	return ""
+}
+
+var nullRunnerSingleton = new(nullRunner)
+
 type gRPCRunner struct {
 	// Need a WaitGroup of TryExec in flight
 	wg      sync.WaitGroup
@@ -211,7 +225,7 @@ func (lbg *lbg) reloadMembers(lbgID string, npm poolmanager.NodePoolManager, p *
 			// some algorithms (like consistent hash) work better if the i'th element
 			// of r_list points to the same node on all LBs, so insert a placeholder
 			// if we can't create the runner for some reason"
-			r_list[i] = agent.NullRunner
+			r_list[i] = nullRunnerSingleton
 		}
 
 		seen[addr] = true

@@ -208,7 +208,7 @@ func TestReloadMembersFailToCreateNewRunners(t *testing.T) {
 		t.Errorf("List of runners should be empty")
 	}
 	ordList := lb.r_list.Load().([]agent.Runner)
-	if ordList[0] != agent.NullRunner {
+	if ordList[0] != nullRunnerSingleton {
 		t.Errorf("Ordered list should have a nullRunner")
 	}
 }

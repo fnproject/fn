@@ -20,17 +20,3 @@ type Runner interface {
 	Close()
 	Address() string
 }
-
-type nullRunner struct{}
-
-func (n *nullRunner) TryExec(ctx context.Context, call Call) (bool, error) {
-	return false, nil
-}
-
-func (n *nullRunner) Close() {}
-
-func (n *nullRunner) Address() string {
-	return ""
-}
-
-var NullRunner Runner = &nullRunner{}
