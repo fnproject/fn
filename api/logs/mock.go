@@ -1,30 +1,32 @@
 package logs
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 
 	"github.com/fnproject/fn/api/models"
 )
 
 type mock struct {
-	Logs map[string]io.Reader
+	Logs map[string][]byte
 }
 
 func NewMock() models.LogStore {
-	return &mock{make(map[string]io.Reader)}
+	return &mock{make(map[string][]byte)}
 }
 
 func (m *mock) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
-	m.Logs[callID] = callLog
-	return nil
+	bytes, err := ioutil.ReadAll(callLog)
+	m.Logs[callID] = bytes
+	return err
 }
 
 func (m *mock) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
-	logEntry := m.Logs[callID]
-	if logEntry == nil {
+	logEntry, ok := m.Logs[callID]
+	if !ok {
 		return nil, models.ErrCallLogNotFound
 	}
-
-	return logEntry, nil
+	return bytes.NewReader(logEntry), nil
 }

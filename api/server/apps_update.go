@@ -35,19 +35,7 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 
 	wapp.App.Name = c.MustGet(api.AppName).(string)
 
-	err = s.FireBeforeAppUpdate(ctx, wapp.App)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
 	app, err := s.datastore.UpdateApp(ctx, wapp.App)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	err = s.FireAfterAppUpdate(ctx, wapp.App)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

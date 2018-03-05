@@ -257,51 +257,6 @@ func TestCanCauseTimeout(t *testing.T) {
 	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
-func TestMultiLog(t *testing.T) {
-	t.Parallel()
-	s := SetupDefaultSuite()
-	routePath := "/multi-log"
-	image := "funcy/multi-log:0.0.1"
-	routeType := "sync"
-
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
-
-	u := url.URL{
-		Scheme: "http",
-		Host:   Host(),
-	}
-	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
-
-	callID := CallSync(t, u, &bytes.Buffer{})
-
-	cfg := &operations.GetAppsAppCallsCallLogParams{
-		Call:    callID,
-		App:     s.AppName,
-		Context: s.Context,
-	}
-
-	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Error(err.Error())
-	} else {
-		if logObj.Payload == "" {
-			t.Errorf("Log entry must not be empty!")
-		}
-		if !strings.Contains(logObj.Payload, "First line") {
-			t.Errorf("Log entry must contain `First line` "+
-				"string, but got: %v", logObj.Payload)
-		}
-		if !strings.Contains(logObj.Payload, "Second line") {
-			t.Errorf("Log entry must contain `Second line` "+
-				"string, but got: %v", logObj.Payload)
-		}
-	}
-
-	DeleteApp(t, s.Context, s.Client, s.AppName)
-}
-
 func TestCallResponseHeadersMatch(t *testing.T) {
 	t.Parallel()
 	s := SetupDefaultSuite()

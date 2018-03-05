@@ -169,6 +169,7 @@ func (li *lineWriter) Close() error {
 }
 
 // io.Writer that allows limiting bytes written to w
+// TODO change to use clamp writer, this is dupe code
 type limitWriter struct {
 	n, max int
 	io.Writer

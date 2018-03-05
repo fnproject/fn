@@ -73,9 +73,9 @@ func TestRootMiddleware(t *testing.T) {
 			{Name: "myapp2", Config: models.Config{}},
 		},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/app2func", AppName: "myapp2", Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
+			{Path: "/", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/app2func", AppName: "myapp2", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
 				Config: map[string]string{"NAME": "johnny"},
 			},
 		}, nil,
@@ -119,9 +119,9 @@ func TestRootMiddleware(t *testing.T) {
 		expectedCode   int
 		expectedInBody string
 	}{
-		{"/r/myapp", ``, "GET", map[string][]string{}, http.StatusOK, "middle"},
-		{"/r/myapp/myroute", ``, "GET", map[string][]string{}, http.StatusOK, "middle"},
-		{"/v1/apps", ``, "GET", map[string][]string{"funcit": {"Test"}}, http.StatusOK, "johnny"},
+		{"/r/myapp", `{"isDebug": true}`, "GET", map[string][]string{}, http.StatusOK, "middle"},
+		{"/r/myapp/myroute", `{"isDebug": true}`, "GET", map[string][]string{}, http.StatusOK, "middle"},
+		{"/v1/apps", `{"isDebug": true}`, "GET", map[string][]string{"funcit": {"Test"}}, http.StatusOK, "johnny"},
 	} {
 		body := strings.NewReader(test.body)
 		req, err := http.NewRequest(test.method, "http://127.0.0.1:8080"+test.path, body)

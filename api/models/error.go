@@ -181,6 +181,10 @@ var (
 		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
 			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
 	}
+	ErrFunctionResponseTooBig = err{
+		code:  http.StatusBadGateway,
+		error: fmt.Errorf("function response too large"),
+	}
 )
 
 // APIError any error that implements this interface will return an API response
@@ -202,6 +206,14 @@ func NewAPIError(code int, e error) APIError { return err{code, e} }
 func IsAPIError(e error) bool {
 	_, ok := e.(APIError)
 	return ok
+}
+
+func GetAPIErrorCode(e error) int {
+	err, ok := e.(APIError)
+	if ok {
+		return err.Code()
+	}
+	return 0
 }
 
 // Error uniform error output

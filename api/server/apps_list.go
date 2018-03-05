@@ -14,18 +14,7 @@ func (s *Server) handleAppList(c *gin.Context) {
 	filter := &models.AppFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
 
-	err := s.FireBeforeAppsList(ctx, filter)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
 	apps, err := s.datastore.GetApps(ctx, filter)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-	err = s.FireAfterAppsList(ctx, apps)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

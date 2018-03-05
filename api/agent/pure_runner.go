@@ -29,17 +29,17 @@ import (
 // callHandle represents the state of the call as handled by the pure runner, and additionally it implements the
 // interface of http.ResponseWriter so that it can be used for streaming the output back.
 type callHandle struct {
-	engagement    runner.RunnerProtocol_EngageServer
-	c             *call // the agent's version of call
-	input         io.WriteCloser
-	started       bool
+	engagement runner.RunnerProtocol_EngageServer
+	c          *call // the agent's version of call
+	input      io.WriteCloser
+	started    bool
 	// As the state can be set and checked by both goroutines handling this state, we need a mutex.
-	stateMutex    sync.Mutex
+	stateMutex sync.Mutex
 	// Timings, for metrics:
 	receivedTime  strfmt.DateTime // When was the call received?
 	allocatedTime strfmt.DateTime // When did we finish allocating the slot?
 	// Last communication error on the stream (if any). This basically acts as a cancellation flag too.
-	streamError   error
+	streamError error
 	// For implementing http.ResponseWriter:
 	outHeaders    http.Header
 	outStatus     int

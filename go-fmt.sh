@@ -6,6 +6,7 @@ set -euo pipefail
 OUT=$(find . ! \( -path ./vendor -prune \) ! \( -path ./.git -prune \) -name '*.go' -exec gofmt -l {} +)
 
 if [ -n "$OUT" ]; then
+  echo "gofmt reported formatting errors in:"
   echo "$OUT"
   exit 1
 fi

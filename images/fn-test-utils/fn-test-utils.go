@@ -29,6 +29,9 @@ type AppRequest struct {
 	ResponseCode int `json:"responseCode,omitempty"`
 	// if specified, this is our response content-type
 	ResponseContentType string `json:"responseContentType,omitempty"`
+	// if specified, this is our response content-type.
+	// jason doesn't sit with the other kids at school.
+	JasonContentType string `json:"jasonContentType,omitempty"`
 	// if specified, this is echoed back to client
 	EchoContent string `json:"echoContent,omitempty"`
 	// verbose mode
@@ -47,8 +50,8 @@ type AppRequest struct {
 	AllocateMemory int `json:"allocateMemory,omitempty"`
 	// leak RAM forever
 	LeakMemory int `json:"leakMemory,omitempty"`
-	// respond with partial output
-	ResponseSize int `json:"responseSize,omitempty"`
+	// duplicate trailer if > 0
+	TrailerRepeat int `json:"trailerRepeat,omitempty"`
 	// corrupt http or json
 	InvalidResponse bool `json:"invalidResponse,omitempty"`
 	// TODO: simulate slow read/slow write
@@ -69,6 +72,7 @@ type AppResponse struct {
 	Headers http.Header       `json:"header"`
 	Config  map[string]string `json:"config"`
 	Data    map[string]string `json:"data"`
+	Trailer []string          `json:"trailer"`
 }
 
 func init() {
@@ -85,22 +89,38 @@ func getTotalLeaks() int {
 
 func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	req, resp := processRequest(ctx, in)
-	finalizeRequest(out, req, resp)
+
+	if req.InvalidResponse {
+		_, err := io.Copy(out, strings.NewReader(InvalidResponseStr))
+		if err != nil {
+			log.Printf("io copy error %v", err)
+			panic(err.Error())
+		}
+	}
+
+	var outto fdkresponse
+	outto.Writer = out
+	finalizeRequest(&outto, req, resp)
 }
 
-func finalizeRequest(out io.Writer, req *AppRequest, resp *AppResponse) {
+func finalizeRequest(out *fdkresponse, req *AppRequest, resp *AppResponse) {
 	// custom response code
 	if req.ResponseCode != 0 {
-		fdk.WriteStatus(out, req.ResponseCode)
+		out.Status = req.ResponseCode
 	} else {
-		fdk.WriteStatus(out, 200)
+		out.Status = 200
 	}
 
 	// custom content type
 	if req.ResponseContentType != "" {
-		fdk.SetHeader(out, "Content-Type", req.ResponseContentType)
-	} else {
-		fdk.SetHeader(out, "Content-Type", "application/json")
+		out.Header.Set("Content-Type", req.ResponseContentType)
+	}
+	// NOTE: don't add 'application/json' explicitly here as an else,
+	// we will test that go's auto-detection logic does not fade since
+	// some people are relying on it now
+
+	if req.JasonContentType != "" {
+		out.JasonContentType = req.JasonContentType
 	}
 
 	json.NewEncoder(out).Encode(resp)
@@ -115,6 +135,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 
 	if request.IsDebug {
 		format, _ := os.LookupEnv("FN_FORMAT")
+		log.Printf("BeginOfLogs")
 		log.Printf("Received format %v", format)
 		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header)
@@ -170,6 +191,13 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		Leaks = append(Leaks, &chunk)
 	}
 
+	if request.IsDebug {
+		info := getDockerInfo()
+		log.Printf("DockerInfo %+v", info)
+		data["DockerId"] = info.Id
+		data["DockerHostname"] = info.Hostname
+	}
+
 	// simulate crash
 	if request.IsCrash {
 		panic("Crash requested")
@@ -180,14 +208,31 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		Request: request,
 		Headers: fnctx.Header,
 		Config:  fnctx.Config,
+		Trailer: make([]string, 0, request.TrailerRepeat),
 	}
 
+	for i := request.TrailerRepeat; i > 0; i-- {
+		resp.Trailer = append(resp.Trailer, request.EchoContent)
+	}
+
+	// Well, almost true.. If panic/errors, we may print stuff after this
+	if request.IsDebug {
+		log.Printf("EndOfLogs")
+	}
 	return &request, &resp
 }
 
 func main() {
+	if os.Getenv("ENABLE_HEADER") != "" {
+		log.Printf("Container starting")
+	}
+
 	format, _ := os.LookupEnv("FN_FORMAT")
 	testDo(format, os.Stdin, os.Stdout)
+
+	if os.Getenv("ENABLE_FOOTER") != "" {
+		log.Printf("Container ending")
+	}
 }
 
 func testDo(format string, in io.Reader, out io.Writer) {
@@ -216,7 +261,7 @@ func testDoHTTP(ctx context.Context, in io.Reader, out io.Writer) {
 	for {
 		err := testDoHTTPOnce(ctx, in, out, &buf, hdr)
 		if err != nil {
-			break
+			panic("testDoHTTPOnce: " + err.Error())
 		}
 	}
 }
@@ -228,7 +273,7 @@ func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
 	for {
 		err := testDoJSONOnce(ctx, in, out, &buf, hdr)
 		if err != nil {
-			break
+			panic("testDoJSONOnce: " + err.Error())
 		}
 	}
 }
@@ -236,19 +281,17 @@ func testDoJSON(ctx context.Context, in io.Reader, out io.Writer) {
 func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-	resp := fdkutils.Response{
-		Writer: buf,
-		Status: 200,
-		Header: hdr,
-	}
-
-	responseSize := 0
+	var resp fdkresponse
+	resp.Writer = buf
+	resp.Status = 200
+	resp.Header = hdr
 
 	var jsonRequest fdkutils.JsonIn
 	err := json.NewDecoder(in).Decode(&jsonRequest)
 	if err != nil {
 		// stdin now closed
 		if err == io.EOF {
+			log.Printf("json decoder read EOF %v", err)
 			return err
 		}
 		resp.Status = http.StatusInternalServerError
@@ -265,43 +308,58 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
-		responseSize = appReq.ResponseSize
 	}
 
-	jsonResponse := fdkutils.GetJSONResp(buf, &resp, &jsonRequest)
+	jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
 
-	if responseSize > 0 {
-		b, err := json.Marshal(jsonResponse)
-		if err != nil {
-			return err
-		}
-		if len(b) > responseSize {
-			responseSize = len(b)
-		}
-		b = b[:responseSize]
-		out.Write(b)
-	} else {
-		json.NewEncoder(out).Encode(jsonResponse)
+	b, err := json.Marshal(jsonResponse)
+	if err != nil {
+		log.Printf("json marshal error %v", err)
+		return err
+	}
+
+	_, err = out.Write(b)
+	if err != nil {
+		log.Printf("json write error %v", err)
+		return err
 	}
 
 	return nil
 }
 
+// since we need to test little jason's content type since he's special. but we
+// don't want to add redundant and confusing fields to the fdk...
+type fdkresponse struct {
+	fdkutils.Response
+
+	JasonContentType string // dumb
+}
+
+// copy of fdk.GetJSONResp but with sugar for stupid jason's little fields
+func getJSONResp(buf *bytes.Buffer, fnResp *fdkresponse, req *fdkutils.JsonIn) *fdkutils.JsonOut {
+	return &fdkutils.JsonOut{
+		Body:        buf.String(),
+		ContentType: fnResp.JasonContentType,
+		Protocol: fdkutils.CallResponseHTTP{
+			StatusCode: fnResp.Status,
+			Headers:    fnResp.Header,
+		},
+	}
+}
+
 func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes.Buffer, hdr http.Header) error {
 	buf.Reset()
 	fdkutils.ResetHeaders(hdr)
-	resp := fdkutils.Response{
-		Writer: buf,
-		Status: 200,
-		Header: hdr,
-	}
-
-	responseSize := 0
+	var resp fdkresponse
+	resp.Writer = buf
+	resp.Status = 200
+	resp.Header = hdr
 
 	req, err := http.ReadRequest(bufio.NewReader(in))
 	if err != nil {
 		// stdin now closed
 		if err == io.EOF {
+			log.Printf("http read EOF %v", err)
 			return err
 		}
 		// TODO it would be nice if we could let the user format this response to their preferred style..
@@ -320,33 +378,14 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
-		responseSize = appReq.ResponseSize
 	}
 
-	hResp := fdkutils.GetHTTPResp(buf, &resp, req)
+	hResp := fdkutils.GetHTTPResp(buf, &resp.Response, req)
 
-	if responseSize > 0 {
-
-		var buf bytes.Buffer
-		bufWriter := bufio.NewWriter(&buf)
-
-		err := hResp.Write(bufWriter)
-		if err != nil {
-			return err
-		}
-
-		bufReader := bufio.NewReader(&buf)
-
-		if buf.Len() > responseSize {
-			responseSize = buf.Len()
-		}
-
-		_, err = io.CopyN(out, bufReader, int64(responseSize))
-		if err != nil {
-			return err
-		}
-	} else {
-		hResp.Write(out)
+	err = hResp.Write(out)
+	if err != nil {
+		log.Printf("http response write error %v", err)
+		return err
 	}
 
 	return nil
@@ -387,4 +426,40 @@ func createFile(name string, size int) error {
 		}
 	}
 	return nil
+}
+
+type DockerInfo struct {
+	Hostname string
+	Id       string
+}
+
+func getDockerInfo() DockerInfo {
+	var info DockerInfo
+
+	info.Hostname, _ = os.Hostname()
+
+	// cgroup file has lines such as, where last token is the docker id
+	/*
+		12:freezer:/docker/610d96c712c6983776f920f2bcf10fae056a6fe5274393c86678ca802d184b0a
+	*/
+	file, err := os.Open("/proc/self/cgroup")
+	if err == nil {
+		defer file.Close()
+		r := bufio.NewReader(file)
+		for {
+			line, _, err := r.ReadLine()
+			if err != nil {
+				break
+			}
+
+			tokens := bytes.Split(line, []byte("/"))
+			tokLen := len(tokens)
+			if tokLen >= 3 && bytes.Compare(tokens[tokLen-2], []byte("docker")) == 0 {
+				info.Id = string(tokens[tokLen-1])
+				break
+			}
+		}
+	}
+
+	return info
 }
