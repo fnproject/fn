@@ -344,6 +344,21 @@ func WithLogstoreFromDatastore() ServerOption {
 	}
 }
 
+// WithFullAgent is a shorthand for WithAgent(... create a full agent here ...)
+func WithFullAgent() ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.nodeType = ServerTypeFull
+		if s.logstore == nil {
+			s.logstore = s.datastore
+		}
+		if s.datastore == nil || s.logstore == nil || s.mq == nil {
+			return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+		}
+		s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		return nil
+	}
+}
+
 // WithAgentFromEnv must be provided as the last server option because it relies
 // on all other options being set first.
 func WithAgentFromEnv() ServerOption {
