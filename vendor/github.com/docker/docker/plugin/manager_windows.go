@@ -1,4 +1,4 @@
-package plugin
+package plugin // import "github.com/docker/docker/plugin"
 
 import (
 	"fmt"
@@ -26,5 +26,3 @@ func (pm *Manager) restore(p *v2.Plugin) error {
 // Shutdown plugins
 func (pm *Manager) Shutdown() {
 }
-
-func setupRoot(root string) error { return nil }

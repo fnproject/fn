@@ -13,7 +13,8 @@ import (
 	"strings"
 	"sync"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	"go.opencensus.io/trace"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -166,9 +167,9 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 		c.L.Unlock()
 	}()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_resource_token")
+	ctx, span := trace.StartSpan(ctx, "agent_get_resource_token")
 	go func() {
-		defer span.Finish()
+		defer span.End()
 		defer cancel()
 		c.L.Lock()
 
@@ -254,9 +255,9 @@ func (a *resourceTracker) WaitAsyncResource(ctx context.Context) chan struct{} {
 		c.L.Unlock()
 	}()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_wait_async_resource")
+	ctx, span := trace.StartSpan(ctx, "agent_wait_async_resource")
 	go func() {
-		defer span.Finish()
+		defer span.End()
 		defer cancel()
 		c.L.Lock()
 		isWaiting = true

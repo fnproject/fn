@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"sync"
 
+	"go.opencensus.io/trace"
+
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var (
@@ -87,26 +88,26 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 }
 
 func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "dispatch_json")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "dispatch_json")
+	defer span.End()
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_write_request")
+	_, span = trace.StartSpan(ctx, "dispatch_json_write_request")
 	err := h.writeJSONToContainer(ci)
-	span.Finish()
+	span.End()
 	if err != nil {
 		return err
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_read_response")
+	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
 	err = json.NewDecoder(h.out).Decode(&jout)
-	span.Finish()
+	span.End()
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "dispatch_json_write_response")
-	defer span.Finish()
+	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
+	defer span.End()
 
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {

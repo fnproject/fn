@@ -1,4 +1,4 @@
-package dockerfile
+package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/builder"
 	"github.com/docker/docker/builder/dockerfile/instructions"
+	"github.com/docker/docker/builder/dockerfile/shell"
+	"github.com/docker/docker/image"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
@@ -125,7 +127,7 @@ func TestFromScratch(t *testing.T) {
 func TestFromWithArg(t *testing.T) {
 	tag, expected := ":sometag", "expectedthisid"
 
-	getImage := func(name string) (builder.Image, builder.ReleaseableLayer, error) {
+	getImage := func(name string) (builder.Image, builder.ROLayer, error) {
 		assert.Equal(t, "alpine"+tag, name)
 		return &mockImage{id: "expectedthisid"}, nil, nil
 	}
@@ -141,7 +143,7 @@ func TestFromWithArg(t *testing.T) {
 	cmd := &instructions.Stage{
 		BaseName: "alpine:${THETAG}",
 	}
-	err := processMetaArg(metaArg, NewShellLex('\\'), args)
+	err := processMetaArg(metaArg, shell.NewLex('\\'), args)
 
 	sb := newDispatchRequest(b, '\\', nil, args, newStagesBuildResults())
 	require.NoError(t, err)
@@ -157,7 +159,7 @@ func TestFromWithArg(t *testing.T) {
 func TestFromWithUndefinedArg(t *testing.T) {
 	tag, expected := "sometag", "expectedthisid"
 
-	getImage := func(name string) (builder.Image, builder.ReleaseableLayer, error) {
+	getImage := func(name string) (builder.Image, builder.ROLayer, error) {
 		assert.Equal(t, "alpine", name)
 		return &mockImage{id: "expectedthisid"}, nil, nil
 	}
@@ -431,7 +433,7 @@ func TestRunWithBuildArgs(t *testing.T) {
 		return imageCache
 	}
 	b.imageProber = newImageProber(mockBackend, nil, false)
-	mockBackend.getImageFunc = func(_ string) (builder.Image, builder.ReleaseableLayer, error) {
+	mockBackend.getImageFunc = func(_ string) (builder.Image, builder.ROLayer, error) {
 		return &mockImage{
 			id:     "abcdef",
 			config: &container.Config{Cmd: origCmd},
@@ -444,7 +446,7 @@ func TestRunWithBuildArgs(t *testing.T) {
 		assert.Equal(t, strslice.StrSlice{""}, config.Config.Entrypoint)
 		return container.ContainerCreateCreatedBody{ID: "12345"}, nil
 	}
-	mockBackend.commitFunc = func(cID string, cfg *backend.ContainerCommitConfig) (string, error) {
+	mockBackend.commitFunc = func(cfg backend.CommitConfig) (image.ID, error) {
 		// Check the runConfig.Cmd sent to commit()
 		assert.Equal(t, origCmd, cfg.Config.Cmd)
 		assert.Equal(t, cachedCmd, cfg.ContainerConfig.Cmd)

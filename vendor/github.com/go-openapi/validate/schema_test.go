@@ -107,7 +107,7 @@ func TestSchemaValidator_PatternProperties(t *testing.T) {
 }
 
 func TestSchemaValidator_Panic(t *testing.T) {
-	assert.PanicsWithValue(t, "Invalid schema provided to SchemaValidator: object has no key \"pointer-to-nowhere\"", schemaValidatorPanicker)
+	assert.PanicsWithValue(t, `Invalid schema provided to SchemaValidator: object has no field "pointer-to-nowhere"`, schemaValidatorPanicker)
 }
 
 func schemaValidatorPanicker() {

@@ -1,4 +1,4 @@
-package container
+package container // import "github.com/docker/docker/daemon/cluster/executor/container"
 
 import (
 	"io/ioutil"
@@ -12,7 +12,7 @@ import (
 )
 
 func newTestControllerWithMount(m api.Mount) (*controller, error) {
-	return newController(&daemon.Daemon{}, &api.Task{
+	return newController(&daemon.Daemon{}, nil, &api.Task{
 		ID:        stringid.GenerateRandomID(),
 		ServiceID: stringid.GenerateRandomID(),
 		Spec: api.TaskSpec{

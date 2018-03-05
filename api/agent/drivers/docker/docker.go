@@ -12,13 +12,15 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/stats"
+	"go.opencensus.io/trace"
+
 	"github.com/coreos/go-semver/semver"
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/go-openapi/strfmt"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -77,7 +79,6 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 }
 
 func checkDockerVersion(driver *DockerDriver, expected string) error {
-
 	info, err := driver.docker.Info(context.Background())
 	if err != nil {
 		return err
@@ -269,9 +270,9 @@ func (drv *DockerDriver) ensureImage(ctx context.Context, task drivers.Container
 
 	if task, ok := task.(Auther); ok {
 		var err error
-		span, _ := opentracing.StartSpanFromContext(ctx, "docker_auth")
+		_, span := trace.StartSpan(ctx, "docker_auth")
 		config, err = task.DockerAuth()
-		span.Finish()
+		span.End()
 		if err != nil {
 			return err
 		}
@@ -396,8 +397,8 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 
 // Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled
 func (drv *DockerDriver) collectStats(ctx context.Context, stopSignal <-chan struct{}, container string, task drivers.ContainerTask) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_collect_stats")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "docker_collect_stats")
+	defer span.End()
 
 	log := common.Logger(ctx)
 
@@ -576,7 +577,7 @@ func (w *waitResult) wait(ctx context.Context) (status string, err error) {
 	case 0:
 		return drivers.StatusSuccess, nil
 	case 137: // OOM
-		// TODO put in stats opentracing.SpanFromContext(ctx).LogFields(log.String("docker", "oom"))
+		stats.Record(ctx, dockerOOMMeasure.M(1))
 		common.Logger(ctx).Error("docker oom")
 		err := errors.New("container out of memory, you may want to raise route.memory for this route (default: 128MB)")
 		return drivers.StatusKilled, models.NewAPIError(http.StatusBadGateway, err)

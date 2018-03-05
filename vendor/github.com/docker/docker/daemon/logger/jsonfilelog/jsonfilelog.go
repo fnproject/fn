@@ -1,7 +1,7 @@
 // Package jsonfilelog provides the default Logger implementation for
 // Docker logging. This logger logs to files on the host server in the
 // JSON format.
-package jsonfilelog
+package jsonfilelog // import "github.com/docker/docker/daemon/logger/jsonfilelog"
 
 import (
 	"bytes"
@@ -148,11 +148,6 @@ func ValidateLogOpt(cfg map[string]string) error {
 		}
 	}
 	return nil
-}
-
-// LogPath returns the location the given json logger logs to.
-func (l *JSONFileLogger) LogPath() string {
-	return l.writer.LogPath()
 }
 
 // Close closes underlying file and signals all readers to stop.

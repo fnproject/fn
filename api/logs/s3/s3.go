@@ -17,10 +17,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 // TODO we should encrypt these, user will have to supply a key though (or all
@@ -124,8 +126,8 @@ func path(appName, callID string) string {
 }
 
 func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "s3_insert_log")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "s3_insert_log")
+	defer span.End()
 
 	// wrap original reader in a decorator to keep track of read bytes without buffering
 	cr := &countingReader{r: callLog}
@@ -144,13 +146,13 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 		return fmt.Errorf("failed to write log, %v", err)
 	}
 
-	common.PublishHistogramToSpan(span, "s3_log_upload_size", float64(cr.count))
+	stats.Record(ctx, uploadSizeMeasure.M(int64(cr.count)))
 	return nil
 }
 
 func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "s3_get_log")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "s3_get_log")
+	defer span.End()
 
 	objectName := path(appName, callID)
 	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading log")
@@ -169,6 +171,65 @@ func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, 
 		return nil, fmt.Errorf("failed to read log, %v", err)
 	}
 
-	common.PublishHistogramToSpan(span, "s3_log_download_size", float64(size))
+	stats.Record(ctx, downloadSizeMeasure.M(size))
 	return bytes.NewReader(target.Bytes()), nil
+}
+
+var (
+	uploadSizeMeasure   *stats.Int64Measure
+	downloadSizeMeasure *stats.Int64Measure
+)
+
+func init() {
+	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
+	// or we have to white list them in the view for them to show up? test...
+	var err error
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	{
+		uploadSizeMeasure, err = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"s3_log_upload_size",
+			"uploaded log size",
+			[]tag.Key{appKey, pathKey},
+			uploadSizeMeasure,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	{
+		downloadSizeMeasure, err = stats.Int64("s3_log_download_size", "downloaded log size", "byte")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"s3_log_download_size",
+			"downloaded log size",
+			[]tag.Key{appKey, pathKey},
+			downloadSizeMeasure,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
 }

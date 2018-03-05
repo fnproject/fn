@@ -1,4 +1,4 @@
-package loggerutils
+package loggerutils // import "github.com/docker/docker/daemon/logger/loggerutils"
 
 import (
 	"bytes"
@@ -130,13 +130,6 @@ func rotate(name string, maxFiles int) error {
 	return nil
 }
 
-// LogPath returns the location the given writer logs to.
-func (w *LogFile) LogPath() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.f.Name()
-}
-
 // MaxFiles return maximum number of files
 func (w *LogFile) MaxFiles() int {
 	return w.maxFiles
@@ -192,8 +185,12 @@ func (w *LogFile) ReadLogs(config logger.ReadConfig, watcher *logger.LogWatcher)
 		for _, f := range files {
 			seekers = append(seekers, f)
 		}
-		seekers = append(seekers, currentChunk)
-		tailFile(multireader.MultiReadSeeker(seekers...), watcher, w.createDecoder, config)
+		if currentChunk.Size() > 0 {
+			seekers = append(seekers, currentChunk)
+		}
+		if len(seekers) > 0 {
+			tailFile(multireader.MultiReadSeeker(seekers...), watcher, w.createDecoder, config)
+		}
 	}
 
 	w.mu.RLock()

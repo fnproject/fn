@@ -1,6 +1,6 @@
 // +build !windows
 
-package dockerfile
+package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 import (
 	"errors"
@@ -20,10 +20,4 @@ func normalizeWorkdir(_ string, current string, requested string) (string, error
 		return filepath.Join(string(os.PathSeparator), current, requested), nil
 	}
 	return requested, nil
-}
-
-// equalEnvKeys compare two strings and returns true if they are equal. On
-// Windows this comparison is case insensitive.
-func equalEnvKeys(from, to string) bool {
-	return from == to
 }

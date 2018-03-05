@@ -1,4 +1,4 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"fmt"
@@ -15,7 +15,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/image"
-	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/system"
@@ -42,7 +41,7 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 
 	os := runtime.GOOS
 	if params.Config.Image != "" {
-		img, err := daemon.GetImage(params.Config.Image)
+		img, err := daemon.imageService.GetImage(params.Config.Image)
 		if err == nil {
 			os = img.OS
 		}
@@ -92,7 +91,7 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 
 	os := runtime.GOOS
 	if params.Config.Image != "" {
-		img, err = daemon.GetImage(params.Config.Image)
+		img, err = daemon.imageService.GetImage(params.Config.Image)
 		if err != nil {
 			return nil, err
 		}
@@ -158,9 +157,11 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig, managed bool) (
 	}
 
 	// Set RWLayer for container after mount labels have been set
-	if err := daemon.setRWLayer(container); err != nil {
+	rwLayer, err := daemon.imageService.CreateLayer(container, setupInitLayer(daemon.idMappings))
+	if err != nil {
 		return nil, errdefs.System(err)
 	}
+	container.RWLayer = rwLayer
 
 	rootIDs := daemon.idMappings.RootPair()
 	if err := idtools.MkdirAndChown(container.Root, 0700, rootIDs); err != nil {
@@ -254,33 +255,6 @@ func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig)
 	return nil, nil
 }
 
-func (daemon *Daemon) setRWLayer(container *container.Container) error {
-	var layerID layer.ChainID
-	if container.ImageID != "" {
-		img, err := daemon.imageStore.Get(container.ImageID)
-		if err != nil {
-			return err
-		}
-		layerID = img.RootFS.ChainID()
-	}
-
-	rwLayerOpts := &layer.CreateRWLayerOpts{
-		MountLabel: container.MountLabel,
-		InitFunc:   daemon.getLayerInit(),
-		StorageOpt: container.HostConfig.StorageOpt,
-	}
-
-	// Indexing by OS is safe here as validation of OS has already been performed in create() (the only
-	// caller), and guaranteed non-nil
-	rwLayer, err := daemon.layerStores[container.OS].CreateRWLayer(container.ID, layerID, rwLayerOpts)
-	if err != nil {
-		return err
-	}
-	container.RWLayer = rwLayer
-
-	return nil
-}
-
 // VolumeCreate creates a volume with the specified name, driver, and opts
 // This is called directly from the Engine API
 func (daemon *Daemon) VolumeCreate(name, driverName string, opts, labels map[string]string) (*types.Volume, error) {
@@ -322,8 +296,11 @@ func verifyNetworkingConfig(nwConfig *networktypes.NetworkingConfig) error {
 		return nil
 	}
 	if len(nwConfig.EndpointsConfig) == 1 {
-		for _, v := range nwConfig.EndpointsConfig {
-			if v != nil && v.IPAMConfig != nil {
+		for k, v := range nwConfig.EndpointsConfig {
+			if v == nil {
+				return errdefs.InvalidParameter(errors.Errorf("no EndpointSettings for %s", k))
+			}
+			if v.IPAMConfig != nil {
 				if v.IPAMConfig.IPv4Address != "" && net.ParseIP(v.IPAMConfig.IPv4Address).To4() == nil {
 					return errors.Errorf("invalid IPv4 address: %s", v.IPAMConfig.IPv4Address)
 				}

@@ -1,4 +1,4 @@
-package convert
+package convert // import "github.com/docker/docker/daemon/cluster/convert"
 
 import (
 	"strings"
@@ -42,9 +42,11 @@ func TaskFromGRPC(t swarmapi.Task) (types.Task, error) {
 	task.Status.Timestamp, _ = gogotypes.TimestampFromProto(t.Status.Timestamp)
 
 	if containerStatus != nil {
-		task.Status.ContainerStatus.ContainerID = containerStatus.ContainerID
-		task.Status.ContainerStatus.PID = int(containerStatus.PID)
-		task.Status.ContainerStatus.ExitCode = int(containerStatus.ExitCode)
+		task.Status.ContainerStatus = &types.ContainerStatus{
+			ContainerID: containerStatus.ContainerID,
+			PID:         int(containerStatus.PID),
+			ExitCode:    int(containerStatus.ExitCode),
+		}
 	}
 
 	// NetworksAttachments

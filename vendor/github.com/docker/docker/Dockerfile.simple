@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #            will need updating, to avoid errors. Ping #docker-maintainers on IRC
 #            with a heads-up.
 # IMPORTANT: When updating this please note that stdlib archive/tar pkg is vendored
-ENV GO_VERSION 1.9.2
+ENV GO_VERSION 1.9.4
 RUN curl -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
 	| tar -xzC /usr/local
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
@@ -50,10 +50,11 @@ ENV GOPATH /go
 ENV CGO_LDFLAGS -L/lib
 
 # Install runc, containerd, tini and docker-proxy
-# Please edit hack/dockerfile/install-binaries.sh to update them.
-COPY hack/dockerfile/binaries-commits /tmp/binaries-commits
-COPY hack/dockerfile/install-binaries.sh /tmp/install-binaries.sh
-RUN /tmp/install-binaries.sh runc containerd tini proxy dockercli
+# Please edit hack/dockerfile/install/<name>.installer to update them.
+COPY hack/dockerfile/install hack/dockerfile/install
+RUN for i in runc containerd tini proxy dockercli; \
+		do hack/dockerfile/install/install.sh $i; \
+	done
 ENV PATH=/usr/local/cli:$PATH
 
 ENV AUTO_GOPATH 1

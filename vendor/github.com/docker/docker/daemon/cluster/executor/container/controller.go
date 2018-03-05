@@ -1,4 +1,4 @@
-package container
+package container // import "github.com/docker/docker/daemon/cluster/executor/container"
 
 import (
 	"fmt"
@@ -40,8 +40,8 @@ type controller struct {
 var _ exec.Controller = &controller{}
 
 // NewController returns a docker exec runner for the provided task.
-func newController(b executorpkg.Backend, task *api.Task, node *api.NodeDescription, dependencies exec.DependencyGetter) (*controller, error) {
-	adapter, err := newContainerAdapter(b, task, node, dependencies)
+func newController(b executorpkg.Backend, i executorpkg.ImageBackend, task *api.Task, node *api.NodeDescription, dependencies exec.DependencyGetter) (*controller, error) {
+	adapter, err := newContainerAdapter(b, i, task, node, dependencies)
 	if err != nil {
 		return nil, err
 	}
@@ -621,6 +621,8 @@ func parsePortMap(portMap nat.PortMap) ([]*api.PortConfig, error) {
 			protocol = api.ProtocolTCP
 		case "udp":
 			protocol = api.ProtocolUDP
+		case "sctp":
+			protocol = api.ProtocolSCTP
 		default:
 			return nil, fmt.Errorf("invalid protocol: %s", parts[1])
 		}

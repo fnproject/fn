@@ -3,9 +3,10 @@ package tests
 import (
 	"testing"
 
+	"reflect"
+
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn_go/models"
-	"reflect"
 )
 
 func TestCreateRouteEmptyType(t *testing.T) {

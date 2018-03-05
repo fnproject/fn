@@ -6,10 +6,11 @@ import (
 	"net/http"
 
 	"errors"
+	"strings"
+
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"strings"
 )
 
 // note: for backward compatibility, will go away later
