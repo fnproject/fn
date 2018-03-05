@@ -1,4 +1,8 @@
-# Running fn in split LB/API/runner mode
+# Running fn in Multitenant Compute Mode
+
+## Motivation
+
+By running Fn in multitenant mode, you can define independent pools of compute resources available to functions in the platform. By associating a function with a particular _load balancing group_, its invocations are guaranteed to execute on the compute resources assigned to that specific group. The pluggable _node pool manager_ abstraction provides a mechanism to scale compute resources dynamically, based on capacity requirements advertised by the load-balancing layer. Together with load balancer groups, it allows you to implement independent capacity and scaling policies for different sets of users or tenants. 
 
 ## Create certificates
 
