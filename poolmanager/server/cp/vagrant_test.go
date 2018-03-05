@@ -7,7 +7,14 @@ func TestProvisionBox(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = vbox.provision()
+	_, err = vbox.provision()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGetAddr(t *testing.T) {
+	_, err := getNodeAddr("fn-vagrant")
 	if err != nil {
 		t.Fatal(err)
 	}
