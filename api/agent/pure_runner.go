@@ -221,7 +221,7 @@ func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 				defer state.stateMutex.Unlock()
 				if state.streamError == nil {
 					err2 := state.engagement.Send(&runner.RunnerMsg{
-						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+						Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 							Success: false,
 							Details: fmt.Sprintf("%v", err),
 						}}})
@@ -242,7 +242,7 @@ func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 				defer state.stateMutex.Unlock()
 				if state.streamError == nil {
 					err2 := state.engagement.Send(&runner.RunnerMsg{
-						Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+						Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 							Success: false,
 							Details: fmt.Sprintf("%v", err),
 						}}})
@@ -259,7 +259,7 @@ func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 			defer state.stateMutex.Unlock()
 			if state.streamError == nil {
 				err2 := state.engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+					Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 						Success: true,
 						Details: state.c.Model().ID,
 					}}})
@@ -364,7 +364,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			// from Send.
 			if err != nil {
 				_ = engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
+					Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
 						Committed: false,
 						Details:   fmt.Sprintf("%v", err),
 					}}})
@@ -374,7 +374,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			// If we succeed in creating the call, but we get a stream error sending a message back, we must cancel
 			// the call because we've probably lost the connection.
 			err = engagement.Send(&runner.RunnerMsg{
-				Body: &runner.RunnerMsg_Acknowledged{&runner.CallAcknowledged{
+				Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
 					Committed:             true,
 					Details:               state.c.Model().ID,
 					SlotAllocationLatency: time.Time(state.allocatedTime).Sub(time.Time(state.receivedTime)).String(),
@@ -392,7 +392,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 				// could also run afoul of a stream error, but at that point we don't care, just cancel the call with
 				// the original error.
 				_ = state.engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+					Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 						Success: false,
 						Details: fmt.Sprintf("%v", err),
 					}}})
@@ -405,7 +405,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 			// could also run afoul of a stream error, but at that point we don't care, just cancel the call with
 			// the catastrophic error.
 			_ = state.engagement.Send(&runner.RunnerMsg{
-				Body: &runner.RunnerMsg_Finished{&runner.CallFinished{
+				Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 					Success: false,
 					Details: fmt.Sprintf("%v", err),
 				}}})
