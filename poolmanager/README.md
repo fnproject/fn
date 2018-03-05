@@ -11,7 +11,7 @@ tl;dr: Get this https://github.com/levigross/go-mutual-tls/blob/master/generate_
 add IP `127.0.0.1` to the cert by adding the line
 
 ```golang
-	template.IPAddresses = append(template.IPAddresses, net.ParseIP("127.0.0.1"))
+template.IPAddresses = append(template.IPAddresses, net.ParseIP("127.0.0.1"))
 ```
 
 somewhere around line 124,
@@ -58,7 +58,7 @@ FN_NODE_CERT=cert.pem  \
 FN_NODE_CERT_KEY=key.pem  \
 FN_NODE_CERT_AUTHORITY=cert.pem  \
 FN_PORT=8083  \
-FN_RUNNER_ADDRESS=127.0.0.1:9190 \
+FN_RUNNER_ADDRESSES=127.0.0.1:9190 \
 ./fnnpm
 ```
 
@@ -67,11 +67,12 @@ FN_RUNNER_ADDRESS=127.0.0.1:9190 \
 Until a generic metadata mechanism is available in fn, an application or route can be [configured][docs/developers/configs.md] so that incoming requests are forwarded to runners in the specified LB group. In the absence of this configuration, requests will map to the _default_ LB group.
 
 For example, to set an app's LB group:
+
 ```bash
 fn apps config set myapp FN_LB_GROUP_ID my-app-pool
 ```
 
-Note that the value of _FN_LB_GROUP_ID_ above will then be visible to the function as an environment variable.
+Note that the value of _FN\_LB\_GROUP\_ID_ above will then be visible to the function as an environment variable.
 
 ## Starting the components (in Docker containers)
 
@@ -91,6 +92,7 @@ docker build -f images/runner/Dockerfile -t fnproject/runner:latest .
 ### API
 
 This *shouldn't* need to talk to the Docker daemon, but it still tries to *for now*. So mount the socket.
+
 ```
 docker run -d \
            -name api \
@@ -109,12 +111,15 @@ docker run -d \
            -e FN_NODE_CERT=/certs/cert.pem \
            -e FN_NODE_CERT_KEY=/certs/key.pem \
            -e FN_NODE_CERT_AUTHORITY=/certs/cert.pem \
+           -e FN_LOG_LEVEL=INFO \
+           -e FN_PORT=8083 \
            fnproject/fnnpm:latest
 ```
 
 ### NuLB
 
 Again, this *shouldn't* need to talk to the Docker daemon, but it still tries to *for now*. So mount the socket.
+
 ```bash
 docker run -d \
            --name nulb \
@@ -122,11 +127,13 @@ docker run -d \
            -p 8081:8080 \
            -v $(pwd)/cert.pem:/certs/cert.pem \
            -v $(pwd)/key.pem:/certs/key.pem \
+           -e FN_NODE_TYPE=lb \
            -e FN_RUNNER_API_URL=http://docker.for.mac.localhost:8080 \
            -e FN_NPM_ADDRESS=docker.for.mac.localhost:8083 \
            -e FN_NODE_CERT=/certs/cert.pem \
            -e FN_NODE_CERT_KEY=/certs/key.pem \
            -e FN_NODE_CERT_AUTHORITY=/certs/cert.pem \
+           -e FN_PORT=8081 \
            fnproject/nulb:latest
 ```
 
@@ -169,7 +176,7 @@ This mode assumes that NuLB is started with a static set of runners in a single 
 
 ```
 docker run -d \
-           -name api \
+           --name api \
            -v /var/run/docker.sock:/var/run/docker.sock \
            -p 8080:8080 \
            fnproject/api:latest
@@ -199,7 +206,8 @@ docker run -d \
 
 ### NuLB
 
-Pass in the static set of runners to _FN_RUNNER_ADDRESSES_:
+Pass in the static set of runners to _FN\_RUNNER\_ADDRESSES_:
+
 ```bash
 docker run -d \
            --name nulb \
