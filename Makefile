@@ -58,7 +58,7 @@ test-system: test-basic
 build-static:
 	go install
 
-full-test: build-static test test-api
+full-test: build-static test test-api test-system
 
 img-hello:
 	docker pull fnproject/hello
