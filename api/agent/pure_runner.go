@@ -60,7 +60,7 @@ func (ch *callHandle) commitHeaders() error {
 		return nil
 	}
 	ch.headerWritten = true
-	logrus.Infof("Committing call result with status %d and headers %v", ch.outStatus, ch.outHeaders)
+	logrus.Debugf("Committing call result with status %d", ch.outStatus)
 
 	var outHeaders []*runner.HttpHeader
 
@@ -82,7 +82,7 @@ func (ch *callHandle) commitHeaders() error {
 		return fmt.Errorf("Bailing out because of communication error: %v", ch.streamError)
 	}
 
-	logrus.Info("Sending call result start message")
+	logrus.Debug("Sending call result start message")
 	err = ch.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_ResultStart{
 			ResultStart: &runner.CallResultStart{
@@ -96,11 +96,11 @@ func (ch *callHandle) commitHeaders() error {
 		},
 	})
 	if err != nil {
-		logrus.Errorf("Error sending call result: %v", err)
+		logrus.WithError(err).Error("Error sending call result")
 		ch.streamError = err
 		return err
 	}
-	logrus.Info("Sent call result message")
+	logrus.Debug("Sent call result message")
 	return nil
 }
 
@@ -119,7 +119,7 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		return 0, fmt.Errorf("Bailing out because of communication error: %v", ch.streamError)
 	}
 
-	logrus.Infof("Sending call response data %d bytes long", len(data))
+	logrus.Debugf("Sending call response data %d bytes long", len(data))
 	err = ch.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
 			Data: &runner.DataFrame{
@@ -149,7 +149,7 @@ func (ch *callHandle) Close() error {
 	if err != nil {
 		return fmt.Errorf("Bailing out because of communication error: %v", ch.streamError)
 	}
-	logrus.Info("Sending call response data end")
+	logrus.Debug("Sending call response data end")
 	err = ch.engagement.Send(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
 			Data: &runner.DataFrame{
@@ -322,13 +322,13 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	defer atomic.AddInt32(&pr.inflight, -1)
 
 	pv, ok := peer.FromContext(engagement.Context())
-	logrus.Info("Starting engagement")
+	logrus.Debug("Starting engagement")
 	if ok {
-		logrus.Info("Peer is ", pv)
+		logrus.Debug("Peer is ", pv)
 	}
 	md, ok := metadata.FromIncomingContext(engagement.Context())
 	if ok {
-		logrus.Info("MD is ", md)
+		logrus.Debug("MD is ", md)
 	}
 
 	var state = callHandle{
@@ -343,7 +343,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	}
 
 	grpc.EnableTracing = false
-	logrus.Info("Entering engagement loop")
+	logrus.Debug("Entering engagement loop")
 	for {
 		msg, err := engagement.Recv()
 		if err != nil {
