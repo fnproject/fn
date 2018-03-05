@@ -46,7 +46,7 @@ func NewCapacityManager(ctx context.Context, cp cp.ControlPlane, opts ...func(*c
 	}
 	for _, o := range opts {
 		if err := o(cm); err != nil {
-			logrus.Errorf("Error handling option for CapacityManager %v", err)
+			logrus.WithError(err).Error("Error handling option for CapacityManager")
 			return nil, err
 		}
 	}
@@ -300,7 +300,7 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 			asked_for, err := lbg.cp.ProvisionRunners(lbg.Id(), int(wanted)) // Send the request; they'll show up later
 			if err != nil {
 				// Some kind of error during attempt to scale up
-				logrus.Errorf("Error occured during attempt to scale up: %v", err)
+				logrus.WithError(err).Error("Error occured during attempt to scale up")
 				return
 			}
 			lbg.target_capacity += int64(asked_for) * cp.CAPACITY_PER_RUNNER
@@ -354,7 +354,7 @@ func (lbg *lbGroup) pollForRunners() {
 		runner.status = RUNNER_DEAD
 		lbg.dead_runners = append(lbg.dead_runners, runner)
 		if err := lbg.cp.RemoveRunner(lbg.Id(), runner.id); err != nil {
-			logrus.Errorf("Error attempting to close down runner %v at %v: %v", runner.id, runner.address, err)
+			logrus.WithError(err).Errorf("Error attempting to close down runner %v at %v", runner.id, runner.address)
 		}
 	}
 
@@ -362,7 +362,7 @@ func (lbg *lbGroup) pollForRunners() {
 	logrus.Debugf("Getting hosts from ControlPlane for %v", lbg.Id())
 	latestHosts, err := lbg.cp.GetLBGRunners(lbg.Id())
 	if err != nil {
-		logrus.Errorf("Problem talking to the CP to fetch runner status: %v", err)
+		logrus.WithError(err).Errorf("Problem talking to the CP to fetch runner status")
 		return
 	}
 
