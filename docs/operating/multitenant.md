@@ -42,7 +42,7 @@ mkdir /tmp/runnerdata
 FN_NODE_TYPE=pure-runner FN_PORT=8082 FN_NODE_CERT=cert.pem FN_NODE_CERT_AUTHORITY=cert.pem FN_NODE_CERT_KEY=key.pem ./fnserver
 ```
 
-### NuLB
+### LB
 
 ```bash
 mkdir /tmp/lbdata
@@ -53,6 +53,7 @@ FN_NODE_TYPE=lb FN_PORT=8081 FN_RUNNER_API_URL=http://localhost:8080 FN_NODE_CER
 
 Currently the NPM uses a fixed, single-node instance of the Runner to simulate its "pool". The runner answers on port 8082 in this example,
 but the GRPC port is 9190.
+Grap the runner address and put in as value for the `FN_RUNNER_ADDRESSES` env variable.
 
 ```bash
 go build -o fnnpm poolmanager/server/main.go
@@ -62,7 +63,7 @@ FN_NODE_CERT=cert.pem  \
 FN_NODE_CERT_KEY=key.pem  \
 FN_NODE_CERT_AUTHORITY=cert.pem  \
 FN_PORT=8083  \
-FN_RUNNER_ADDRESSES=127.0.0.1:9190 \
+FN_RUNNER_ADDRESSES=<RUNNER_ADDRESS_HERE>:9190 \
 ./fnnpm
 ```
 
@@ -86,7 +87,7 @@ The images don't yet exist in a registry, so they need building first.
 
 ```bash
 docker build -f images/fnnpm/Dockerfile -t fnproject/fnnpm:latest .
-docker build -f images/nulb/Dockerfile -t fnproject/nulb:latest .
+docker build -f images/lb/Dockerfile -t fnproject/lb:latest .
 docker build -f images/api/Dockerfile -t fnproject/api:latest .
 docker build -f images/runner/Dockerfile -t fnproject/runner:latest .
 ```
@@ -164,7 +165,7 @@ docker run -d \
            fnproject/fnnpm:latest
 ```
 
-### NuLB
+### LB
 
 Again, this *shouldn't* need to talk to the Docker daemon, but it still tries to *for now*. So mount the socket.
 
@@ -177,7 +178,7 @@ export NPM=`docker inspect --format '{{ .NetworkSettings.IPAddress }}' fnnpm`
 
 ```bash
 docker run -d \
-           --name nulb \
+           --name lb \
            -v /var/run/docker.sock:/var/run/docker.sock \
            -p 8081:8080 \
            -v $(pwd)/cert.pem:/certs/cert.pem \
@@ -188,10 +189,10 @@ docker run -d \
            -e FN_NODE_CERT=/certs/cert.pem \
            -e FN_NODE_CERT_KEY=/certs/key.pem \
            -e FN_NODE_CERT_AUTHORITY=/certs/cert.pem \
-           fnproject/nulb:latest
+           fnproject/lb:latest
 ```
 ## Running without the Node Pool Manager
-This mode assumes that NuLB is started with a static set of runners in a single global pool. Note that this configuration does not support runner certificates and is that the communication between NuLB and runners is unencrypted.
+This mode assumes that LB is started with a static set of runners in a single global pool. Note that this configuration does not support runner certificates and is that the communication between LB and runners is unencrypted.
 
 ### API
 
@@ -225,7 +226,7 @@ docker run -d \
            fnproject/runner:latest
 ```
 
-### NuLB
+### LB
 
 Retrieve the IP addresses for the runners and the API:
 
@@ -240,10 +241,10 @@ Pass in the static set of runners to _FN\_RUNNER\_ADDRESSES_:
 
 ```bash
 docker run -d \
-           --name nulb \
+           --name lb \
            -v /var/run/docker.sock:/var/run/docker.sock \
            -p 8081:8080 \
            -e FN_RUNNER_API_URL=http://$API:8080 \
            -e FN_RUNNER_ADDRESSES=$RUNNER1:9190,$RUNNER2:9191 \
-           fnproject/nulb:latest
+           fnproject/lb:latest
 ```
