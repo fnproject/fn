@@ -7,9 +7,9 @@ remove_containers
 
 case "$1" in
     "sqlite3" )
-    rm -fr /tmp/fn_integration_tests.db
-    touch /tmp/fn_integration_tests.db
-    export FN_DB_URL="sqlite3:///tmp/fn_integration_tests.db"
+    rm -fr /tmp/fn_system_tests.db
+    touch /tmp/fn_system_tests.db
+    export FN_DB_URL="sqlite3:///tmp/fn_system_tests.db"
     ;;
 
     "mysql" )
