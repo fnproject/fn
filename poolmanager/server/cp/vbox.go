@@ -42,6 +42,9 @@ func (v *VirtualBoxCP) provision() (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		os.Chdir(wd)
+	}()
 
 	node := newNodeName()
 	nodeDir, err := ioutil.TempDir(wd, node)
@@ -49,7 +52,7 @@ func (v *VirtualBoxCP) provision() (*Runner, error) {
 		return nil, err
 	}
 	//copy vagrant file into there
-	vagrantFile := fmt.Sprintf("%s/%s", wd, "Vagrantfile")
+	vagrantFile := fmt.Sprintf("%s/poolmanager/server/cp/%s", wd, "Vagrantfile")
 	newVagrantFile := fmt.Sprintf("%s/%s", nodeDir, "Vagrantfile")
 	err = copyFile(vagrantFile, newVagrantFile)
 	if err != nil {
@@ -68,19 +71,12 @@ func (v *VirtualBoxCP) provision() (*Runner, error) {
 		return nil, err
 	}
 	//Get the broadcast addr and call it a day
-	addr, err := getNodeAddr(node)
-	if err != nil {
-		return nil, err
-	}
-	return &Runner{
-		Id:      node,
-		Address: addr,
-	}, nil
+	return getRunner(node)
 }
 
 //Gets the address that its broadcasting at
 //VBoxManage guestproperty get "cp_default_1520116902053_77841" "/VirtualBox/GuestInfo/Net/1/V4/Broadcast"
-func getNodeAddr(node string) (string, error) {
+func getRunner(node string) (*Runner, error) {
 	//TODO make the vagrant file templated
 	vmsCmd := exec.Command("VBoxManage", "list", "vms")
 	var vmsOut bytes.Buffer
@@ -114,13 +110,16 @@ func getNodeAddr(node string) (string, error) {
 	err = broadCastAddrCmd.Run()
 	if err != nil {
 		log.Println("error running", err.Error(), stdErr.String())
-		return "", err
+		return nil, err
 	}
 	addr := strings.Split(out.String(), ":")
 	if len(addr) != 2 {
-		return "", fmt.Errorf("Unable to get address got:'%s' as output", out.String())
+		return nil, fmt.Errorf("Unable to get address got:'%s' as output", out.String())
 	}
-	return addr[1], nil
+	return &Runner{
+		Id: realNode,
+		addr[1],
+	}, nil
 }
 
 func (v *VirtualBoxCP) GetLBGRunners(lgbID string) ([]*Runner, error) {
