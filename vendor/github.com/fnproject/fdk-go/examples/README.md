@@ -4,7 +4,7 @@ The goal of the `fdk`'s are to make it just as easy to write a hot function as
 it is a cold one. The best way to showcase this is with an example.
 
 This is an example of a hot function using the fdk-go bindings. The [hot function
-documentation](https://github.com/fnproject/fn/blob/master/docs/hot-functions.md)
+documentation](https://github.com/fnproject/fn/blob/master/docs/developers/hot-functions.md)
 contains an analysis of how this example works under the hood. With any of the
 examples provided here, you may use any format to configure your functions in
 `fn` itself. Here we add instructions to set up functions with a 'hot' format.

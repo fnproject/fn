@@ -12,9 +12,11 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 const (
@@ -98,18 +100,123 @@ type dockerWrap struct {
 	dockerNoTimeout *docker.Client
 }
 
+func init() {
+	// TODO doing this at each call site seems not the intention of the library since measurements
+	// need to be created and views registered. doing this up front seems painful but maybe there
+	// are benefits?
+
+	// TODO do we have to do this? the measurements will be tagged on the context, will they be propagated
+	// or we have to white list them in the view for them to show up? test...
+	var err error
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	{
+		dockerRetriesMeasure, err = stats.Int64("docker_api_retries", "docker api retries", "")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"docker_api_retries",
+			"number of times we've retried docker API upon failure",
+			[]tag.Key{appKey, pathKey},
+			dockerRetriesMeasure,
+			view.SumAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	{
+		dockerTimeoutMeasure, err = stats.Int64("docker_api_timeout", "docker api timeouts", "")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"docker_api_timeout_count",
+			"number of times we've timed out calling docker API",
+			[]tag.Key{appKey, pathKey},
+			dockerTimeoutMeasure,
+			view.CountAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	{
+		dockerErrorMeasure, err = stats.Int64("docker_api_error", "docker api errors", "")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"docker_api_error_count",
+			"number of unrecoverable errors from docker API",
+			[]tag.Key{appKey, pathKey},
+			dockerErrorMeasure,
+			view.CountAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	{
+		dockerOOMMeasure, err = stats.Int64("docker_oom", "docker oom", "")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"docker_oom_count",
+			"number of docker container oom",
+			[]tag.Key{appKey, pathKey},
+			dockerOOMMeasure,
+			view.CountAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+}
+
+var (
+	// TODO it's either this or stats.FindMeasure("string").M() -- this is safer but painful
+	dockerRetriesMeasure *stats.Int64Measure
+	dockerTimeoutMeasure *stats.Int64Measure
+	dockerErrorMeasure   *stats.Int64Measure
+	dockerOOMMeasure     *stats.Int64Measure
+)
+
 func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f func() error) error {
 	var i int
 	var err error
-	span := opentracing.SpanFromContext(ctx)
-	defer func() { span.LogFields(log.Int("docker_call_retries", i)) }()
+	defer func() { stats.Record(ctx, dockerRetriesMeasure.M(int64(i))) }()
 
 	var b common.Backoff
 	// 10 retries w/o change to backoff is ~13s if ops take ~0 time
 	for ; i < 10; i++ {
 		select {
 		case <-ctx.Done():
-			span.LogFields(log.String("task", "fail.docker"))
+			stats.Record(ctx, dockerTimeoutMeasure.M(1))
 			logger.WithError(ctx.Err()).Warnf("docker call timed out")
 			return ctx.Err()
 		default:
@@ -119,11 +226,10 @@ func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f fun
 		if common.IsTemporary(err) || isDocker50x(err) {
 			logger.WithError(err).Warn("docker temporary error, retrying")
 			b.Sleep(ctx)
-			span.LogFields(log.String("task", "tmperror.docker"))
 			continue
 		}
 		if err != nil {
-			span.LogFields(log.String("task", "error.docker"))
+			stats.Record(ctx, dockerErrorMeasure.M(1))
 		}
 		return err
 	}
@@ -176,22 +282,17 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 }
 
 func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_server_version")
-	defer span.Finish()
-
-	logger := common.Logger(ctx).WithField("docker_cmd", "DockerInfo")
-	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, logger, func() error {
-		info, err = d.docker.Info()
-		return err
-	})
-	return info, err
+	// NOTE: we're not very responsible and prometheus wasn't loved as a child, this
+	// threads through directly down to the docker call, skipping retires, so that we
+	// don't have to add tags / tracing / logger to the bare context handed to the one
+	// place this is called in initialization that has no context to report consistent
+	// stats like everything else in here. tl;dr this works, just don't use it for anything else.
+	return d.docker.Info()
 }
 
 func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_attach_container")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "docker_attach_container")
+	defer span.End()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "AttachContainer")
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
@@ -208,8 +309,8 @@ func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts dock
 }
 
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_wait_container")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "docker_wait_container")
+	defer span.End()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "WaitContainer")
 	err = d.retry(ctx, logger, func() error {
@@ -220,8 +321,8 @@ func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (c
 }
 
 func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) (err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_start_container")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "docker_start_container")
+	defer span.End()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "StartContainer")
 	err = d.retry(ctx, logger, func() error {
@@ -236,8 +337,8 @@ func (d *dockerWrap) StartContainerWithContext(id string, hostConfig *docker.Hos
 }
 
 func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *docker.Container, err error) {
-	span, ctx := opentracing.StartSpanFromContext(opts.Context, "docker_create_container")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(opts.Context, "docker_create_container")
+	defer span.End()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "CreateContainer")
 	err = d.retry(ctx, logger, func() error {
@@ -248,8 +349,8 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 }
 
 func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {
-	span, ctx := opentracing.StartSpanFromContext(opts.Context, "docker_pull_image")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(opts.Context, "docker_pull_image")
+	defer span.End()
 
 	logger := common.Logger(ctx).WithField("docker_cmd", "PullImage")
 	err = d.retry(ctx, logger, func() error {
@@ -262,9 +363,9 @@ func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthCon
 func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err error) {
 	// extract the span, but do not keep the context, since the enclosing context
 	// may be timed out, and we still want to remove the container. TODO in caller? who cares?
-	span, _ := opentracing.StartSpanFromContext(opts.Context, "docker_remove_container")
-	defer span.Finish()
-	ctx := opentracing.ContextWithSpan(context.Background(), span)
+	ctx := common.BackgroundContext(opts.Context)
+	ctx, span := trace.StartSpan(ctx, "docker_remove_container")
+	defer span.End()
 
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
@@ -278,8 +379,8 @@ func (d *dockerWrap) RemoveContainer(opts docker.RemoveContainerOptions) (err er
 }
 
 func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "docker_pause_container")
-	defer span.Finish()
+	_, span := trace.StartSpan(ctx, "docker_pause_container")
+	defer span.End()
 	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
 	defer cancel()
 
@@ -292,8 +393,8 @@ func (d *dockerWrap) PauseContainer(id string, ctx context.Context) (err error) 
 }
 
 func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "docker_unpause_container")
-	defer span.Finish()
+	_, span := trace.StartSpan(ctx, "docker_unpause_container")
+	defer span.End()
 	ctx, cancel := context.WithTimeout(ctx, pauseTimeout)
 	defer cancel()
 
@@ -306,8 +407,8 @@ func (d *dockerWrap) UnpauseContainer(id string, ctx context.Context) (err error
 }
 
 func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.Image, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_inspect_image")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "docker_inspect_image")
+	defer span.End()
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
 
@@ -320,8 +421,8 @@ func (d *dockerWrap) InspectImage(ctx context.Context, name string) (i *docker.I
 }
 
 func (d *dockerWrap) InspectContainerWithContext(container string, ctx context.Context) (c *docker.Container, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "docker_inspect_container")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "docker_inspect_container")
+	defer span.End()
 	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
 	defer cancel()
 

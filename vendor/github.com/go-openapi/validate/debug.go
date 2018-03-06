@@ -15,8 +15,11 @@
 package validate
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 )
 
 var (
@@ -31,14 +34,16 @@ func init() {
 
 func debugOptions() {
 	if Debug {
-		log.SetFlags(log.LstdFlags | log.Lshortfile)
-		log.SetPrefix("validate")
+		//log.SetFlags(log.LstdFlags | log.Lshortfile)
+		log.SetFlags(log.LstdFlags)
+		log.SetPrefix("validate:")
 	}
 }
 
 func debugLog(msg string, args ...interface{}) {
 	// A private, trivial trace logger, based on go-openapi/spec/expander.go:debugLog()
 	if Debug {
-		log.Printf(msg, args...)
+		_, file1, pos1, _ := runtime.Caller(1)
+		log.Printf("%s:%d: %s", filepath.Base(file1), pos1, fmt.Sprintf(msg, args...))
 	}
 }

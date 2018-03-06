@@ -1,4 +1,4 @@
-package client
+package client // import "github.com/docker/docker/client"
 
 import (
 	"io"
@@ -37,6 +37,7 @@ type CommonAPIClient interface {
 	NegotiateAPIVersion(ctx context.Context)
 	NegotiateAPIVersionPing(types.Ping)
 	DialSession(ctx context.Context, proto string, meta map[string][]string) (net.Conn, error)
+	Close() error
 }
 
 // ContainerAPIClient defines API client methods for the containers

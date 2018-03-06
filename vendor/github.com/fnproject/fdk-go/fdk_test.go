@@ -13,6 +13,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/fnproject/fdk-go/utils"
 )
 
 func echoHTTPHandler(ctx context.Context, in io.Reader, out io.Writer) {
@@ -27,7 +29,7 @@ func TestHandler(t *testing.T) {
 	io.WriteString(&in, inString)
 
 	var out bytes.Buffer
-	echoHTTPHandler(buildCtx(), &in, &out)
+	echoHTTPHandler(utils.BuildCtx(), &in, &out)
 
 	if out.String() != inString {
 		t.Fatalf("this was supposed to be easy. strings no matchy: %s got: %s", inString, out.String())
@@ -41,7 +43,7 @@ func TestDefault(t *testing.T) {
 
 	var out bytes.Buffer
 
-	doDefault(HandlerFunc(echoHTTPHandler), buildCtx(), &in, &out)
+	utils.DoDefault(HandlerFunc(echoHTTPHandler), utils.BuildCtx(), &in, &out)
 
 	if out.String() != inString {
 		t.Fatalf("strings no matchy: %s got: %s", inString, out.String())
@@ -71,12 +73,14 @@ func JSONWithStatusCode(_ context.Context, in io.Reader, out io.Writer) {
 }
 
 func TestJSON(t *testing.T) {
-	req := &jsonIn{
+	req := &utils.JsonIn{
 		`{"name":"john"}`,
 		"application/json",
 		"someid",
-		callRequestHTTP{
-			Type:       "json",
+		"2018-01-30T16:52:39.786Z",
+		"sync",
+		utils.CallRequestHTTP{
+			Type:       "http",
 			RequestURL: "someURL",
 			Headers:    http.Header{},
 		},
@@ -90,12 +94,12 @@ func TestJSON(t *testing.T) {
 
 	var out, buf bytes.Buffer
 
-	err = doJSONOnce(HandlerFunc(JSONHandler), buildCtx(), &in, &out, &buf, make(http.Header))
+	err = utils.DoJSONOnce(HandlerFunc(JSONHandler), utils.BuildCtx(), &in, &out, &buf, make(http.Header))
 	if err != nil {
 		t.Fatal("should not return error", err)
 	}
 
-	JSONOut := &jsonOut{}
+	JSONOut := &utils.JsonOut{}
 	err = json.NewDecoder(&out).Decode(JSONOut)
 
 	if err != nil {
@@ -115,8 +119,8 @@ func TestFailedJSON(t *testing.T) {
 
 	var out, buf bytes.Buffer
 
-	JSONOut := &jsonOut{}
-	err := doJSONOnce(HandlerFunc(JSONHandler), buildCtx(), in, &out, &buf, make(http.Header))
+	JSONOut := &utils.JsonOut{}
+	err := utils.DoJSONOnce(HandlerFunc(JSONHandler), utils.BuildCtx(), in, &out, &buf, make(http.Header))
 	if err != nil {
 		t.Fatal("should not return error", err)
 	}
@@ -133,7 +137,7 @@ func TestFailedJSON(t *testing.T) {
 func TestJSONEOF(t *testing.T) {
 	var in, out, buf bytes.Buffer
 
-	err := doJSONOnce(HandlerFunc(JSONHandler), buildCtx(), &in, &out, &buf, make(http.Header))
+	err := utils.DoJSONOnce(HandlerFunc(JSONHandler), utils.BuildCtx(), &in, &out, &buf, make(http.Header))
 	if err != io.EOF {
 		t.Fatal("should return EOF")
 	}
@@ -141,11 +145,13 @@ func TestJSONEOF(t *testing.T) {
 
 func TestJSONOverwriteStatusCodeAndHeaders(t *testing.T) {
 	var out, buf bytes.Buffer
-	req := &jsonIn{
+	req := &utils.JsonIn{
 		`{"name":"john"}`,
 		"application/json",
 		"someid",
-		callRequestHTTP{
+		"2018-01-30T16:52:39.786Z",
+		"sync",
+		utils.CallRequestHTTP{
 			Type:       "json",
 			RequestURL: "someURL",
 			Headers:    http.Header{},
@@ -158,12 +164,12 @@ func TestJSONOverwriteStatusCodeAndHeaders(t *testing.T) {
 		t.Fatal("Unable to marshal request")
 	}
 
-	err = doJSONOnce(HandlerFunc(JSONWithStatusCode), buildCtx(), &in, &out, &buf, make(http.Header))
+	err = utils.DoJSONOnce(HandlerFunc(JSONWithStatusCode), utils.BuildCtx(), &in, &out, &buf, make(http.Header))
 	if err != nil {
 		t.Fatal("should not return error", err)
 	}
 
-	JSONOut := &jsonOut{}
+	JSONOut := &utils.JsonOut{}
 	err = json.NewDecoder(&out).Decode(JSONOut)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -185,8 +191,8 @@ func TestHTTP(t *testing.T) {
 	in := HTTPreq(t, bodyString)
 
 	var out bytes.Buffer
-	ctx := buildCtx()
-	err := doHTTPOnce(HandlerFunc(echoHTTPHandler), ctx, in, &out, &bytes.Buffer{}, make(http.Header))
+	ctx := utils.BuildCtx()
+	err := utils.DoHTTPOnce(HandlerFunc(echoHTTPHandler), ctx, in, &out, &bytes.Buffer{}, make(http.Header))
 	if err != nil {
 		t.Fatal("should not return error", err)
 	}
@@ -218,9 +224,9 @@ func TestHTTP(t *testing.T) {
 func TestHTTPEOF(t *testing.T) {
 	var in bytes.Buffer
 	var out bytes.Buffer
-	ctx := buildCtx()
+	ctx := utils.BuildCtx()
 
-	err := doHTTPOnce(HandlerFunc(echoHTTPHandler), ctx, &in, &out, &bytes.Buffer{}, make(http.Header))
+	err := utils.DoHTTPOnce(HandlerFunc(echoHTTPHandler), ctx, &in, &out, &bytes.Buffer{}, make(http.Header))
 	if err != io.EOF {
 		t.Fatal("should return EOF")
 	}

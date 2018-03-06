@@ -58,12 +58,27 @@ type TLSClientOptions struct {
 	// LoadedCertificate is set.
 	LoadedKey crypto.PrivateKey
 
-	// CA is a path to a PEM-encoded certificate.
+	// CA is a path to a PEM-encoded certificate that specifies the root certificate
+	// to use when validating the TLS certificate presented by the server. If this field
+	// (and LoadedCA) is not set, the system certificate pool is used. This field is ignored if LoadedCA
+	// is set.
 	CA string
 
-	ServerName         string
+	// LoadedCA specifies the root certificate to use when validating the server's TLS certificate.
+	// If this field (and CA) is not set, the system certificate pool is used.
+	LoadedCA *x509.Certificate
+
+	// ServerName specifies the hostname to use when verifying the server certificate.
+	// If this field is set then InsecureSkipVerify will be ignored and treated as
+	// false.
+	ServerName string
+
+	// InsecureSkipVerify controls whether the certificate chain and hostname presented
+	// by the server are validated. If false, any certificate is accepted.
 	InsecureSkipVerify bool
-	_                  struct{}
+
+	// Prevents callers using unkeyed fields.
+	_ struct{}
 }
 
 // TLSClientAuth creates a tls.Config for mutual auth
@@ -111,7 +126,11 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 	// When no CA certificate is provided, default to the system cert pool
 	// that way when a request is made to a server known by the system trust store,
 	// the name is still verified
-	if opts.CA != "" {
+	if opts.LoadedCA != nil {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AddCert(opts.LoadedCA)
+		cfg.RootCAs = caCertPool
+	} else if opts.CA != "" {
 		// load ca cert
 		caCert, err := ioutil.ReadFile(opts.CA)
 		if err != nil {

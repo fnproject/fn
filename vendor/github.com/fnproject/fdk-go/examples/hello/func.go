@@ -19,13 +19,13 @@ func myHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	}
 	json.NewDecoder(in).Decode(&person)
 	if person.Name == "" {
-		person.Name = "world"
+		person.Name = "World"
 	}
 
 	msg := struct {
-		Msg string `json:"msg"`
+		Msg string `json:"message"`
 	}{
-		Msg: fmt.Sprintf("Hello %s!", person.Name),
+		Msg: fmt.Sprintf("Hello %s", person.Name),
 	}
 
 	json.NewEncoder(out).Encode(&msg)

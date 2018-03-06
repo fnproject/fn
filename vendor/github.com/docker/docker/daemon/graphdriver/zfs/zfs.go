@@ -1,6 +1,6 @@
 // +build linux freebsd
 
-package zfs
+package zfs // import "github.com/docker/docker/daemon/graphdriver/zfs"
 
 import (
 	"fmt"
@@ -108,9 +108,6 @@ func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdri
 		return nil, fmt.Errorf("Failed to create '%s': %v", base, err)
 	}
 
-	if err := mount.MakePrivate(base); err != nil {
-		return nil, err
-	}
 	d := &Driver{
 		dataset:          rootDataset,
 		options:          options,
@@ -181,10 +178,10 @@ func (d *Driver) String() string {
 	return "zfs"
 }
 
-// Cleanup is called on daemon shutdown. It unmounts the bind mount
-// created by mount.MakePrivate() in Init().
+// Cleanup is called on daemon shutdown, it is a no-op for ZFS.
+// TODO(@cpuguy83): Walk layer tree and check mounts?
 func (d *Driver) Cleanup() error {
-	return mount.Unmount(d.options.mountPath)
+	return nil
 }
 
 // Status returns information about the ZFS filesystem. It returns a two dimensional array of information

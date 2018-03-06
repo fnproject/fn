@@ -168,10 +168,6 @@ func (a *lbAgent) Submit(call Call) error {
 	return a.delegatedAgent.Submit(call)
 }
 
-func (a *lbAgent) PromHandler() http.Handler {
-	return a.delegatedAgent.PromHandler()
-}
-
 func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
 	a.delegatedAgent.AddCallListener(cl)
 }

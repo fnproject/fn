@@ -1,4 +1,4 @@
-package plugingetter
+package plugingetter // import "github.com/docker/docker/pkg/plugingetter"
 
 import (
 	"github.com/docker/docker/pkg/plugins"
@@ -17,7 +17,7 @@ const (
 type CompatPlugin interface {
 	Client() *plugins.Client
 	Name() string
-	BasePath() string
+	ScopedPath(string) string
 	IsV1() bool
 }
 

@@ -1,6 +1,7 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -78,7 +79,7 @@ func (daemon *Daemon) ContainerInspectCurrent(name string, size bool) (*types.Co
 	container.Unlock()
 
 	if size {
-		sizeRw, sizeRootFs := daemon.getSize(base.ID)
+		sizeRw, sizeRootFs := daemon.imageService.GetContainerLayerSize(base.ID)
 		base.SizeRw = &sizeRw
 		base.SizeRootFs = &sizeRootFs
 	}
@@ -184,14 +185,24 @@ func (daemon *Daemon) getInspectData(container *container.Container) (*types.Con
 
 	contJSONBase.GraphDriver.Name = container.Driver
 
+	if container.RWLayer == nil {
+		if container.Dead {
+			return contJSONBase, nil
+		}
+		return nil, errdefs.System(errors.New("RWLayer of container " + container.ID + " is unexpectedly nil"))
+	}
+
 	graphDriverData, err := container.RWLayer.Metadata()
 	// If container is marked as Dead, the container's graphdriver metadata
 	// could have been removed, it will cause error if we try to get the metadata,
 	// we can ignore the error if the container is dead.
-	if err != nil && !container.Dead {
-		return nil, errdefs.System(err)
+	if err != nil {
+		if !container.Dead {
+			return nil, errdefs.System(err)
+		}
+	} else {
+		contJSONBase.GraphDriver.Data = graphDriverData
 	}
-	contJSONBase.GraphDriver.Data = graphDriverData
 
 	return contJSONBase, nil
 }

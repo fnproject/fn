@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"context"
+
 	"github.com/fnproject/fn/api/datastore/sql"
 	logTesting "github.com/fnproject/fn/api/logs/testing"
 )

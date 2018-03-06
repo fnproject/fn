@@ -1,4 +1,4 @@
-package dockerfile
+package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 // This file contains the dispatchers for each command. Note that
 // `nullDispatch` is not actually a command, but support for commands we parse
@@ -20,6 +20,7 @@ import (
 	"github.com/docker/docker/builder"
 	"github.com/docker/docker/builder/dockerfile/instructions"
 	"github.com/docker/docker/builder/dockerfile/parser"
+	"github.com/docker/docker/builder/dockerfile/shell"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -47,7 +48,7 @@ func dispatchEnv(d dispatchRequest, c *instructions.EnvCommand) error {
 		for i, envVar := range runConfig.Env {
 			envParts := strings.SplitN(envVar, "=", 2)
 			compareFrom := envParts[0]
-			if equalEnvKeys(compareFrom, name) {
+			if shell.EqualEnvKeys(compareFrom, name) {
 				runConfig.Env[i] = newVar
 				gotOne = true
 				break
@@ -197,7 +198,7 @@ func dispatchTriggeredOnBuild(d dispatchRequest, triggers []string) error {
 	return nil
 }
 
-func (d *dispatchRequest) getExpandedImageName(shlex *ShellLex, name string) (string, error) {
+func (d *dispatchRequest) getExpandedImageName(shlex *shell.Lex, name string) (string, error) {
 	substitutionArgs := []string{}
 	for key, value := range d.state.buildArgs.GetAllMeta() {
 		substitutionArgs = append(substitutionArgs, key+"="+value)
@@ -242,7 +243,7 @@ func (d *dispatchRequest) getImageOrStage(name string) (builder.Image, error) {
 	}
 	return imageMount.Image(), nil
 }
-func (d *dispatchRequest) getFromImage(shlex *ShellLex, name string) (builder.Image, error) {
+func (d *dispatchRequest) getFromImage(shlex *shell.Lex, name string) (builder.Image, error) {
 	name, err := d.getExpandedImageName(shlex, name)
 	if err != nil {
 		return nil, err
@@ -347,11 +348,15 @@ func dispatchRun(d dispatchRequest, c *instructions.RunCommand) error {
 	if err := d.builder.containerManager.Run(d.builder.clientCtx, cID, d.builder.Stdout, d.builder.Stderr); err != nil {
 		if err, ok := err.(*statusCodeError); ok {
 			// TODO: change error type, because jsonmessage.JSONError assumes HTTP
+			msg := fmt.Sprintf(
+				"The command '%s' returned a non-zero code: %d",
+				strings.Join(runConfig.Cmd, " "), err.StatusCode())
+			if err.Error() != "" {
+				msg = fmt.Sprintf("%s: %s", msg, err.Error())
+			}
 			return &jsonmessage.JSONError{
-				Message: fmt.Sprintf(
-					"The command '%s' returned a non-zero code: %d",
-					strings.Join(runConfig.Cmd, " "), err.StatusCode()),
-				Code: err.StatusCode(),
+				Message: msg,
+				Code:    err.StatusCode(),
 			}
 		}
 		return err

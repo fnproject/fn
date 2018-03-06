@@ -132,6 +132,28 @@ func TestRuntime_TLSAuthConfigWithECKey(t *testing.T) {
 	}
 }
 
+func TestRuntime_TLSAuthConfigWithLoadedCA(t *testing.T) {
+
+	certPem, err := ioutil.ReadFile("../fixtures/certs/myCA.crt")
+	require.NoError(t, err)
+
+	block, _ := pem.Decode(certPem)
+	require.NotNil(t, block)
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	require.NoError(t, err)
+
+	var opts TLSClientOptions
+	opts.LoadedCA = cert
+
+	cfg, err := TLSClientAuth(opts)
+	if assert.NoError(t, err) {
+		if assert.NotNil(t, cfg) {
+			assert.NotNil(t, cfg.RootCAs)
+		}
+	}
+}
+
 func TestRuntime_Concurrent(t *testing.T) {
 	// test that it can make a simple request
 	// and get the response for it.

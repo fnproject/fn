@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"io"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -16,9 +15,11 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/go-openapi/strfmt"
-	"github.com/opentracing/opentracing-go"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 // TODO we should prob store async calls in db immediately since we're returning id (will 404 until post-execution)
@@ -85,8 +86,6 @@ type Agent interface {
 	// Close is not safe to be called from multiple threads.
 	io.Closer
 
-	// Return the http.Handler used to handle Prometheus metric requests
-	PromHandler() http.Handler
 	AddCallListener(fnext.CallListener)
 
 	// Enqueue is to use the agent's sweet sweet client bindings to remotely
@@ -109,9 +108,6 @@ type agent struct {
 	wg       sync.WaitGroup // TODO rename
 	shutonce sync.Once
 	shutdown chan struct{}
-
-	// Prometheus HTTP handler
-	promHandler http.Handler
 }
 
 func New(da DataAccess) Agent {
@@ -135,13 +131,12 @@ func NewSyncOnly(da DataAccess) Agent {
 	})
 
 	a := &agent{
-		cfg:         *cfg,
-		da:          da,
-		driver:      driver,
-		slotMgr:     NewSlotQueueMgr(),
-		resources:   NewResourceTracker(),
-		shutdown:    make(chan struct{}),
-		promHandler: promhttp.Handler(),
+		cfg:       *cfg,
+		da:        da,
+		driver:    driver,
+		slotMgr:   NewSlotQueueMgr(),
+		resources: NewResourceTracker(),
+		shutdown:  make(chan struct{}),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -178,8 +173,8 @@ func (a *agent) Submit(callI Call) error {
 	call.req = call.req.WithContext(ctx)
 	defer cancel()
 
-	ctx, finish := statSpans(ctx, call)
-	defer finish()
+	ctx, span := trace.StartSpan(ctx, "agent_submit")
+	defer span.End()
 
 	err := a.submit(ctx, call)
 	return err
@@ -206,41 +201,34 @@ func (a *agent) endStateTrackers(ctx context.Context, call *call) {
 }
 
 func (a *agent) submit(ctx context.Context, call *call) error {
-	var slot Slot
-	var err error
-	if call.reservedSlot == nil {
-		StatsEnqueue(ctx)
+	statsEnqueue(ctx)
 
-		a.startStateTrackers(ctx, call)
-		defer a.endStateTrackers(ctx, call)
+	// TODO can we replace state trackers with metrics?
+	a.startStateTrackers(ctx, call)
+	defer a.endStateTrackers(ctx, call)
 
-		slot, err = a.getSlot(ctx, call)
-		if err != nil {
-			a.handleStatsDequeue(ctx, call, err)
-			return transformTimeout(err, true)
-		}
-	} else {
-		slot = call.reservedSlot
-		defer a.endStateTrackers(ctx, call)
+	slot, err := a.getSlot(ctx, call)
+	if err != nil {
+		handleStatsDequeue(ctx, err)
+		return transformTimeout(err, true)
 	}
 	defer slot.Close(ctx) // notify our slot is free once we're done
 
 	err = call.Start(ctx)
 	if err != nil {
-		a.handleStatsDequeue(ctx, call, err)
+		handleStatsDequeue(ctx, err)
 		return transformTimeout(err, true)
 	}
 
-	// decrement queued count, increment running count
-	StatsDequeueAndStart(ctx)
+	statsDequeueAndStart(ctx)
 
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	err = slot.exec(ctx, call)
-	a.handleStatsEnd(ctx, call, err)
+	handleStatsEnd(ctx, err)
 
 	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
 	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+	ctx = common.BackgroundContext(ctx)
 	err = call.End(ctx, err)
 	return transformTimeout(err, false)
 }
@@ -257,51 +245,30 @@ func transformTimeout(e error, isRetriable bool) error {
 
 // handleStatsDequeue handles stats for dequeuing for early exit (getSlot or Start)
 // cases. Only timeouts can be a simple dequeue while other cases are actual errors.
-func (a *agent) handleStatsDequeue(ctx context.Context, call *call, err error) {
+func handleStatsDequeue(ctx context.Context, err error) {
 	if err == context.DeadlineExceeded {
-		StatsDequeue(ctx)
-		StatsIncrementTooBusy(ctx)
+		statsDequeue(ctx)
+		statsTooBusy(ctx)
 	} else {
-		StatsDequeueAndFail(ctx)
-		StatsIncrementErrors(ctx)
+		statsDequeueAndFail(ctx)
+		statsErrors(ctx)
 	}
 }
 
 // handleStatsEnd handles stats for after a call is ran, depending on error.
-func (a *agent) handleStatsEnd(ctx context.Context, call *call, err error) {
+func handleStatsEnd(ctx context.Context, err error) {
 	if err == nil {
 		// decrement running count, increment completed count
-		StatsComplete(ctx)
+		statsComplete(ctx)
 	} else {
 		// decrement running count, increment failed count
-		StatsFailed(ctx)
+		statsFailed(ctx)
 		// increment the timeout or errors count, as appropriate
 		if err == context.DeadlineExceeded {
-			StatsIncrementTimedout(ctx)
+			statsTimedout(ctx)
 		} else {
-			StatsIncrementErrors(ctx)
+			statsErrors(ctx)
 		}
-	}
-}
-
-func statSpans(ctx context.Context, call *call) (_ context.Context, finish func()) {
-	// agent_submit_global has no parent span because we don't want it to inherit fn_appname or fn_path
-	spanGlobal := opentracing.StartSpan("agent_submit_global")
-
-	// agent_submit_global has no parent span because we don't want it to inherit fn_path
-	spanApp := opentracing.StartSpan("agent_submit_app")
-	spanApp.SetBaggageItem("fn_appname", call.AppName)
-
-	// agent_submit has a parent span in the usual way
-	// it doesn't matter if it inherits fn_appname or fn_path (and we set them here in any case)
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_submit")
-	span.SetBaggageItem("fn_appname", call.AppName)
-	span.SetBaggageItem("fn_path", call.Path)
-
-	return ctx, func() {
-		spanGlobal.Finish()
-		spanApp.Finish()
-		span.Finish()
 	}
 }
 
@@ -313,8 +280,8 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	ctx, cancel := context.WithDeadline(ctx, call.slotDeadline)
 	defer cancel()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_get_slot")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_get_slot")
+	defer span.End()
 
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
@@ -350,9 +317,9 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(common.WithLogger(context.Background(), logger), opentracing.SpanFromContext(ctx))
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_launcher")
-	defer span.Finish()
+	ctx = common.BackgroundContext(ctx)
+	ctx, span := trace.StartSpan(ctx, "agent_hot_launcher")
+	defer span.End()
 
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -405,8 +372,8 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 
 // waitHot pings and waits for a hot container from the slot queue
 func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_wait_hot")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_wait_hot")
+	defer span.End()
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // shut down dequeuer if we grab a slot
@@ -452,8 +419,8 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 	isAsync := call.Type == models.TypeAsync
 	ch := make(chan Slot)
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_launch_cold")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_launch_cold")
+	defer span.End()
 
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
 
@@ -489,8 +456,8 @@ func (s *coldSlot) Error() error {
 }
 
 func (s *coldSlot) exec(ctx context.Context, call *call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_cold_exec")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_cold_exec")
+	defer span.End()
 
 	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
 	call.containerState.UpdateState(ctx, ContainerStateBusy, call.slots)
@@ -517,7 +484,7 @@ func (s *coldSlot) Close(ctx context.Context) error {
 		// call this from here so that in exec we don't have to eat container
 		// removal latency
 		// NOTE ensure container removal, no ctx timeout
-		ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+		ctx = common.BackgroundContext(ctx)
 		s.cookie.Close(ctx)
 	}
 	if s.tok != nil {
@@ -545,8 +512,8 @@ func (s *hotSlot) Error() error {
 }
 
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_hot_exec")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_hot_exec")
+	defer span.End()
 
 	call.requestState.UpdateState(ctx, RequestStateExec, call.slots)
 
@@ -585,8 +552,8 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 }
 
 func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch chan Slot) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_prep_cold")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_prep_cold")
+	defer span.End()
 
 	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
 
@@ -632,9 +599,9 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state ContainerState) {
 	// IMPORTANT: get a context that has a child span / logger but NO timeout
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_run_hot")
-	defer span.Finish()
+	ctx = common.BackgroundContext(ctx)
+	ctx, span := trace.StartSpan(ctx, "agent_run_hot")
+	defer span.End()
 	defer tok.Close() // IMPORTANT: this MUST get called
 
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
@@ -862,22 +829,54 @@ func (c *container) CPUs() uint64                   { return c.cpus }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
-
-	// Convert each metric value from uint64 to float64
-	// and, for backward compatibility reasons, prepend each metric name with "docker_stats_fn_"
-	// (if we don't care about compatibility then we can remove that)
-	var metrics = make(map[string]float64)
 	for key, value := range stat.Metrics {
-		metrics["docker_stats_fn_"+key] = float64(value)
+		stats.Record(ctx, stats.FindMeasure("docker_stats_"+key).(*stats.Int64Measure).M(int64(value)))
 	}
-
-	common.PublishHistograms(ctx, metrics)
 
 	c.statsMu.Lock()
 	if c.stats != nil {
 		*(c.stats) = append(*(c.stats), stat)
 	}
 	c.statsMu.Unlock()
+}
+
+func init() {
+	// TODO this is nasty figure out how to use opencensus to not have to declare these
+	keys := []string{"net_rx", "net_tx", "mem_limit", "mem_usage", "disk_read", "disk_write", "cpu_user", "cpu_total", "cpu_kernel"}
+
+	// TODO necessary?
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	for _, key := range keys {
+		units := "bytes"
+		if strings.Contains(key, "cpu") {
+			units = "cpu"
+		}
+		dockerStatsDist, err := stats.Int64("docker_stats_"+key, "docker container stats for "+key, units)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		v, err := view.New(
+			"docker_stats_"+key,
+			"docker container stats for "+key,
+			[]tag.Key{appKey, pathKey},
+			dockerStatsDist,
+			view.DistributionAggregation{},
+		)
+		if err != nil {
+			logrus.Fatalf("cannot create view: %v", err)
+		}
+		if err := v.Subscribe(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {

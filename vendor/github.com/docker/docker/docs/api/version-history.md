@@ -13,6 +13,16 @@ keywords: "API, Docker, rcli, REST, documentation"
      will be rejected.
 -->
 
+## v1.37 API changes
+
+[Docker Engine API v1.37](https://docs.docker.com/engine/api/v1.36/) documentation
+
+* `POST /containers/create` and `POST /services/create` now supports exposing SCTP ports.
+* `POST /configs/create` and `POST /configs/{id}/create` now accept a `Templating` driver.
+* `GET /configs` and `GET /configs/{id}` now return the `Templating` driver of the config.
+* `POST /secrets/create` and `POST /secrets/{id}/create` now accept a `Templating` driver.
+* `GET /secrets` and `GET /secrets/{id}` now return the `Templating` driver of the secret.
+
 ## v1.36 API changes
 
 [Docker Engine API v1.36](https://docs.docker.com/engine/api/v1.36/) documentation
@@ -236,7 +246,9 @@ keywords: "API, Docker, rcli, REST, documentation"
 * `POST /secrets/{id}/update` updates the secret `id`.
 * `POST /services/(id or name)/update` now accepts service name or prefix of service id as a parameter.
 * `POST /containers/create` added 2 built-in log-opts that work on all logging drivers,
-`mode` (`blocking`|`non-blocking`), and `max-buffer-size` (e.g. `2m`) which enables a non-blocking log buffer.
+  `mode` (`blocking`|`non-blocking`), and `max-buffer-size` (e.g. `2m`) which enables a non-blocking log buffer.
+* `POST /containers/create` now takes `HostConfig.Init` field to run an init
+  inside the container that forwards signals and reaps processes.
 
 ## v1.24 API changes
 

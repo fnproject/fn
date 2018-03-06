@@ -1,6 +1,6 @@
 // +build linux
 
-package btrfs
+package btrfs // import "github.com/docker/docker/daemon/graphdriver/btrfs"
 
 /*
 #include <stdlib.h>
@@ -29,7 +29,6 @@ import (
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-units"
@@ -74,10 +73,6 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 	if err := idtools.MkdirAllAndChown(home, 0700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil {
-		return nil, err
-	}
-
-	if err := mount.MakePrivate(home); err != nil {
 		return nil, err
 	}
 
@@ -163,11 +158,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 
 // Cleanup unmounts the home directory.
 func (d *Driver) Cleanup() error {
-	if err := d.subvolDisableQuota(); err != nil {
-		return err
-	}
-
-	return mount.Unmount(d.home)
+	return d.subvolDisableQuota()
 }
 
 func free(p *C.char) {
