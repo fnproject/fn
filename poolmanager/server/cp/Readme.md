@@ -25,3 +25,7 @@ using the other host only network.
 Running the following command should clear all of these collision problems:
 
 `VBoxManage dhcpserver remove --netname HostInterfaceNetworking-vboxnet0`
+
+##Support
+
+This is only intended to be used to test distributed components any use further than this will not be supported.

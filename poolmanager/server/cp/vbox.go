@@ -23,16 +23,18 @@ func init() {
 }
 
 type VirtualBoxCP struct {
-	runnerMap map[string][]*Runner
+	runnerMap   map[string][]*Runner
+	vagrantPath string
 }
 
-func NewVirtualBoxCP() (*VirtualBoxCP, error) {
+func NewVirtualBoxCP(vagrantPath string) (*VirtualBoxCP, error) {
 	runnerMap := make(map[string][]*Runner)
 	if err := whichVBox.Run(); err != nil {
 		return nil, err
 	}
 	return &VirtualBoxCP{
-		runnerMap: runnerMap,
+		runnerMap:   runnerMap,
+		vagrantPath: vagrantPath,
 	}, nil
 }
 
@@ -52,9 +54,8 @@ func (v *VirtualBoxCP) provision() (*Runner, error) {
 		return nil, err
 	}
 	//copy vagrant file into there
-	vagrantFile := fmt.Sprintf("%s/poolmanager/server/cp/%s", wd, "Vagrantfile")
 	newVagrantFile := fmt.Sprintf("%s/%s", nodeDir, "Vagrantfile")
-	err = copyFile(vagrantFile, newVagrantFile)
+	err = copyFile(v.vagrantPath, newVagrantFile)
 	if err != nil {
 		return nil, err
 	}
