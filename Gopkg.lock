@@ -175,11 +175,7 @@
     ".",
     "utils"
   ]
-<<<<<<< HEAD
-  revision = "5d768b2006f11737b6a69a758ddd6d2fac04923e"
-=======
   revision = "49183b946a083774a18b0de0a3184abebc1dec8d"
->>>>>>> origin/master
 
 [[projects]]
   name = "github.com/fnproject/fn_go"
@@ -665,10 +661,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-<<<<<<< HEAD
-  inputs-digest = "8ec5b81a0e654c27357133c005be598f725219988d3e196382e81f7928f5c994"
-=======
   inputs-digest = "51e5bbe66f1c9af38787323fffb614441513d6ec0eca0e31781954f445e12e63"
->>>>>>> origin/master
   solver-name = "gps-cdcl"
   solver-version = 1
