@@ -1,15 +1,16 @@
-package service
+package service // import "github.com/docker/docker/integration/service"
 
 import (
+	"io/ioutil"
 	"runtime"
 	"testing"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/swarm"
+	swarmtypes "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/integration-cli/request"
+	"github.com/docker/docker/integration/internal/swarm"
 	"github.com/gotestyourself/gotestyourself/poll"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,9 +19,9 @@ import (
 
 func TestCreateServiceMultipleTimes(t *testing.T) {
 	defer setupTest(t)()
-	d := newSwarm(t)
+	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := request.NewClientForHost(d.Sock())
+	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
 	require.NoError(t, err)
 
 	overlayName := "overlay1"
@@ -35,7 +36,7 @@ func TestCreateServiceMultipleTimes(t *testing.T) {
 
 	var instances uint64 = 4
 	serviceSpec := swarmServiceSpec("TestService", instances)
-	serviceSpec.TaskTemplate.Networks = append(serviceSpec.TaskTemplate.Networks, swarm.NetworkAttachmentConfig{Target: overlayName})
+	serviceSpec.TaskTemplate.Networks = append(serviceSpec.TaskTemplate.Networks, swarmtypes.NetworkAttachmentConfig{Target: overlayName})
 
 	serviceResp, err := client.ServiceCreate(context.Background(), serviceSpec, types.ServiceCreateOptions{
 		QueryRegistry: false,
@@ -84,9 +85,9 @@ func TestCreateServiceMultipleTimes(t *testing.T) {
 
 func TestCreateWithDuplicateNetworkNames(t *testing.T) {
 	defer setupTest(t)()
-	d := newSwarm(t)
+	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := request.NewClientForHost(d.Sock())
+	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
 	require.NoError(t, err)
 
 	name := "foo"
@@ -110,7 +111,7 @@ func TestCreateWithDuplicateNetworkNames(t *testing.T) {
 	var instances uint64 = 1
 	serviceSpec := swarmServiceSpec("top", instances)
 
-	serviceSpec.TaskTemplate.Networks = append(serviceSpec.TaskTemplate.Networks, swarm.NetworkAttachmentConfig{Target: name})
+	serviceSpec.TaskTemplate.Networks = append(serviceSpec.TaskTemplate.Networks, swarmtypes.NetworkAttachmentConfig{Target: name})
 
 	service, err := client.ServiceCreate(context.Background(), serviceSpec, types.ServiceCreateOptions{})
 	require.NoError(t, err)
@@ -144,19 +145,181 @@ func TestCreateWithDuplicateNetworkNames(t *testing.T) {
 	poll.WaitOn(t, networkIsRemoved(client, n1.ID), poll.WithTimeout(1*time.Minute), poll.WithDelay(10*time.Second))
 }
 
-func swarmServiceSpec(name string, replicas uint64) swarm.ServiceSpec {
-	return swarm.ServiceSpec{
-		Annotations: swarm.Annotations{
+func TestCreateServiceSecretFileMode(t *testing.T) {
+	defer setupTest(t)()
+	d := swarm.NewSwarm(t, testEnv)
+	defer d.Stop(t)
+	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	secretResp, err := client.SecretCreate(ctx, swarmtypes.SecretSpec{
+		Annotations: swarmtypes.Annotations{
+			Name: "TestSecret",
+		},
+		Data: []byte("TESTSECRET"),
+	})
+	require.NoError(t, err)
+
+	var instances uint64 = 1
+	serviceSpec := swarmtypes.ServiceSpec{
+		Annotations: swarmtypes.Annotations{
+			Name: "TestService",
+		},
+		TaskTemplate: swarmtypes.TaskSpec{
+			ContainerSpec: &swarmtypes.ContainerSpec{
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh", "-c", "ls -l /etc/secret || /bin/top"},
+				Secrets: []*swarmtypes.SecretReference{
+					{
+						File: &swarmtypes.SecretReferenceFileTarget{
+							Name: "/etc/secret",
+							UID:  "0",
+							GID:  "0",
+							Mode: 0777,
+						},
+						SecretID:   secretResp.ID,
+						SecretName: "TestSecret",
+					},
+				},
+			},
+		},
+		Mode: swarmtypes.ServiceMode{
+			Replicated: &swarmtypes.ReplicatedService{
+				Replicas: &instances,
+			},
+		},
+	}
+
+	serviceResp, err := client.ServiceCreate(ctx, serviceSpec, types.ServiceCreateOptions{
+		QueryRegistry: false,
+	})
+	require.NoError(t, err)
+
+	poll.WaitOn(t, serviceRunningTasksCount(client, serviceResp.ID, instances))
+
+	filter := filters.NewArgs()
+	filter.Add("service", serviceResp.ID)
+	tasks, err := client.TaskList(ctx, types.TaskListOptions{
+		Filters: filter,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, len(tasks), 1)
+
+	body, err := client.ContainerLogs(ctx, tasks[0].Status.ContainerStatus.ContainerID, types.ContainerLogsOptions{
+		ShowStdout: true,
+	})
+	require.NoError(t, err)
+	defer body.Close()
+
+	content, err := ioutil.ReadAll(body)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "-rwxrwxrwx")
+
+	err = client.ServiceRemove(ctx, serviceResp.ID)
+	require.NoError(t, err)
+
+	poll.WaitOn(t, serviceIsRemoved(client, serviceResp.ID))
+	poll.WaitOn(t, noTasks(client))
+
+	err = client.SecretRemove(ctx, "TestSecret")
+	require.NoError(t, err)
+}
+
+func TestCreateServiceConfigFileMode(t *testing.T) {
+	defer setupTest(t)()
+	d := swarm.NewSwarm(t, testEnv)
+	defer d.Stop(t)
+	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	configResp, err := client.ConfigCreate(ctx, swarmtypes.ConfigSpec{
+		Annotations: swarmtypes.Annotations{
+			Name: "TestConfig",
+		},
+		Data: []byte("TESTCONFIG"),
+	})
+	require.NoError(t, err)
+
+	var instances uint64 = 1
+	serviceSpec := swarmtypes.ServiceSpec{
+		Annotations: swarmtypes.Annotations{
+			Name: "TestService",
+		},
+		TaskTemplate: swarmtypes.TaskSpec{
+			ContainerSpec: &swarmtypes.ContainerSpec{
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh", "-c", "ls -l /etc/config || /bin/top"},
+				Configs: []*swarmtypes.ConfigReference{
+					{
+						File: &swarmtypes.ConfigReferenceFileTarget{
+							Name: "/etc/config",
+							UID:  "0",
+							GID:  "0",
+							Mode: 0777,
+						},
+						ConfigID:   configResp.ID,
+						ConfigName: "TestConfig",
+					},
+				},
+			},
+		},
+		Mode: swarmtypes.ServiceMode{
+			Replicated: &swarmtypes.ReplicatedService{
+				Replicas: &instances,
+			},
+		},
+	}
+
+	serviceResp, err := client.ServiceCreate(ctx, serviceSpec, types.ServiceCreateOptions{
+		QueryRegistry: false,
+	})
+	require.NoError(t, err)
+
+	poll.WaitOn(t, serviceRunningTasksCount(client, serviceResp.ID, instances))
+
+	filter := filters.NewArgs()
+	filter.Add("service", serviceResp.ID)
+	tasks, err := client.TaskList(ctx, types.TaskListOptions{
+		Filters: filter,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, len(tasks), 1)
+
+	body, err := client.ContainerLogs(ctx, tasks[0].Status.ContainerStatus.ContainerID, types.ContainerLogsOptions{
+		ShowStdout: true,
+	})
+	require.NoError(t, err)
+	defer body.Close()
+
+	content, err := ioutil.ReadAll(body)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "-rwxrwxrwx")
+
+	err = client.ServiceRemove(ctx, serviceResp.ID)
+	require.NoError(t, err)
+
+	poll.WaitOn(t, serviceIsRemoved(client, serviceResp.ID))
+	poll.WaitOn(t, noTasks(client))
+
+	err = client.ConfigRemove(ctx, "TestConfig")
+	require.NoError(t, err)
+}
+
+func swarmServiceSpec(name string, replicas uint64) swarmtypes.ServiceSpec {
+	return swarmtypes.ServiceSpec{
+		Annotations: swarmtypes.Annotations{
 			Name: name,
 		},
-		TaskTemplate: swarm.TaskSpec{
-			ContainerSpec: &swarm.ContainerSpec{
+		TaskTemplate: swarmtypes.TaskSpec{
+			ContainerSpec: &swarmtypes.ContainerSpec{
 				Image:   "busybox:latest",
 				Command: []string{"/bin/top"},
 			},
 		},
-		Mode: swarm.ServiceMode{
-			Replicated: &swarm.ReplicatedService{
+		Mode: swarmtypes.ServiceMode{
+			Replicated: &swarmtypes.ReplicatedService{
 				Replicas: &replicas,
 			},
 		},
@@ -175,7 +338,7 @@ func serviceRunningTasksCount(client client.ServiceAPIClient, serviceID string, 
 			return poll.Error(err)
 		case len(tasks) == int(instances):
 			for _, task := range tasks {
-				if task.Status.State != swarm.TaskStateRunning {
+				if task.Status.State != swarmtypes.TaskStateRunning {
 					return poll.Continue("waiting for tasks to enter run state")
 				}
 			}

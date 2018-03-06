@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 func (a *agent) asyncDequeue() {
@@ -17,8 +19,8 @@ func (a *agent) asyncDequeue() {
 	defer cancel()
 
 	// parent span here so that we can see how many async calls are running
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_async_dequeue")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_async_dequeue")
+	defer span.End()
 
 	for {
 		select {
@@ -73,11 +75,29 @@ func (a *agent) asyncChew(ctx context.Context) <-chan *models.Call {
 func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	// IMPORTANT: get a context that has a child span but NO timeout (Submit imposes timeout)
 	// TODO this is a 'FollowsFrom'
-	ctx = opentracing.ContextWithSpan(context.Background(), opentracing.SpanFromContext(ctx))
+	ctx = common.BackgroundContext(ctx)
+
+	// since async doesn't come in through the normal request path,
+	// we've gotta add tags here for stats to come out properly.
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	ctx, err = tag.New(ctx,
+		tag.Insert(appKey, model.AppName),
+		tag.Insert(pathKey, model.Path),
+	)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	// additional enclosing context here since this isn't spawned from an http request
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_async_run")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_async_run")
+	defer span.End()
 
 	call, err := a.GetCall(
 		FromModel(model),

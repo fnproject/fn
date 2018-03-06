@@ -1,42 +1,79 @@
-package container
+package container // import "github.com/docker/docker/integration/container"
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/integration/util/request"
-	"github.com/docker/docker/pkg/stdcopy"
+	containertypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/integration/internal/container"
+	"github.com/docker/docker/integration/internal/request"
+	"github.com/gotestyourself/gotestyourself/poll"
+	"github.com/gotestyourself/gotestyourself/skip"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestUpdateCPUQUota(t *testing.T) {
-	t.Parallel()
+func TestUpdateMemory(t *testing.T) {
+	skip.If(t, testEnv.DaemonInfo.OSType != "linux")
+	skip.If(t, !testEnv.DaemonInfo.MemoryLimit)
+	skip.If(t, !testEnv.DaemonInfo.SwapLimit)
 
+	defer setupTest(t)()
 	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
-	c, err := client.ContainerCreate(ctx, &container.Config{
-		Image: "busybox",
-		Cmd:   []string{"top"},
-	}, nil, nil, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := client.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
-			panic(fmt.Sprintf("failed to clean up after test: %v", err))
+	cID := container.Run(t, ctx, client, func(c *container.TestContainerConfig) {
+		c.HostConfig.Resources = containertypes.Resources{
+			Memory: 200 * 1024 * 1024,
 		}
-	}()
+	})
 
-	if err := client.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	poll.WaitOn(t, container.IsInState(ctx, client, cID, "running"), poll.WithDelay(100*time.Millisecond))
+
+	const (
+		setMemory     int64 = 314572800
+		setMemorySwap int64 = 524288000
+	)
+
+	_, err := client.ContainerUpdate(ctx, cID, containertypes.UpdateConfig{
+		Resources: containertypes.Resources{
+			Memory:     setMemory,
+			MemorySwap: setMemorySwap,
+		},
+	})
+	require.NoError(t, err)
+
+	inspect, err := client.ContainerInspect(ctx, cID)
+	require.NoError(t, err)
+	assert.Equal(t, setMemory, inspect.HostConfig.Memory)
+	assert.Equal(t, setMemorySwap, inspect.HostConfig.MemorySwap)
+
+	res, err := container.Exec(ctx, client, cID,
+		[]string{"cat", "/sys/fs/cgroup/memory/memory.limit_in_bytes"})
+	require.NoError(t, err)
+	require.Empty(t, res.Stderr())
+	require.Equal(t, 0, res.ExitCode)
+	assert.Equal(t, strconv.FormatInt(setMemory, 10), strings.TrimSpace(res.Stdout()))
+
+	res, err = container.Exec(ctx, client, cID,
+		[]string{"cat", "/sys/fs/cgroup/memory/memory.memsw.limit_in_bytes"})
+	require.NoError(t, err)
+	require.Empty(t, res.Stderr())
+	require.Equal(t, 0, res.ExitCode)
+	assert.Equal(t, strconv.FormatInt(setMemorySwap, 10), strings.TrimSpace(res.Stdout()))
+}
+
+func TestUpdateCPUQuota(t *testing.T) {
+	t.Parallel()
+
+	defer setupTest(t)()
+	client := request.NewAPIClient(t)
+	ctx := context.Background()
+
+	cID := container.Run(t, ctx, client)
 
 	for _, test := range []struct {
 		desc   string
@@ -47,62 +84,24 @@ func TestUpdateCPUQUota(t *testing.T) {
 		{desc: "a lower value", update: 10000},
 		{desc: "unset value", update: -1},
 	} {
-		if _, err := client.ContainerUpdate(ctx, c.ID, container.UpdateConfig{
-			Resources: container.Resources{
+		if _, err := client.ContainerUpdate(ctx, cID, containertypes.UpdateConfig{
+			Resources: containertypes.Resources{
 				CPUQuota: test.update,
 			},
 		}); err != nil {
 			t.Fatal(err)
 		}
 
-		inspect, err := client.ContainerInspect(ctx, c.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		inspect, err := client.ContainerInspect(ctx, cID)
+		require.NoError(t, err)
+		assert.Equal(t, test.update, inspect.HostConfig.CPUQuota)
 
-		if inspect.HostConfig.CPUQuota != test.update {
-			t.Fatalf("quota not updated in the API, expected %d, got: %d", test.update, inspect.HostConfig.CPUQuota)
-		}
+		res, err := container.Exec(ctx, client, cID,
+			[]string{"/bin/cat", "/sys/fs/cgroup/cpu/cpu.cfs_quota_us"})
+		require.NoError(t, err)
+		require.Empty(t, res.Stderr())
+		require.Equal(t, 0, res.ExitCode)
 
-		execCreate, err := client.ContainerExecCreate(ctx, c.ID, types.ExecConfig{
-			Cmd:          []string{"/bin/cat", "/sys/fs/cgroup/cpu/cpu.cfs_quota_us"},
-			AttachStdout: true,
-			AttachStderr: true,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		attach, err := client.ContainerExecAttach(ctx, execCreate.ID, types.ExecStartCheck{})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if err := client.ContainerExecStart(ctx, execCreate.ID, types.ExecStartCheck{}); err != nil {
-			t.Fatal(err)
-		}
-
-		buf := bytes.NewBuffer(nil)
-		ready := make(chan error)
-
-		go func() {
-			_, err := stdcopy.StdCopy(buf, buf, attach.Reader)
-			ready <- err
-		}()
-
-		select {
-		case <-time.After(60 * time.Second):
-			t.Fatal("timeout waiting for exec to complete")
-		case err := <-ready:
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		actual := strings.TrimSpace(buf.String())
-		if actual != strconv.Itoa(int(test.update)) {
-			t.Fatalf("expected cgroup value %d, got: %s", test.update, actual)
-		}
+		assert.Equal(t, strconv.FormatInt(test.update, 10), strings.TrimSpace(res.Stdout()))
 	}
-
 }

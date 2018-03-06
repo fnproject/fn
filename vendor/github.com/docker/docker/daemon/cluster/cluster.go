@@ -1,4 +1,4 @@
-package cluster
+package cluster // import "github.com/docker/docker/daemon/cluster"
 
 //
 // ## Swarmkit integration
@@ -83,6 +83,7 @@ type Config struct {
 	Root                   string
 	Name                   string
 	Backend                executorpkg.Backend
+	ImageBackend           executorpkg.ImageBackend
 	PluginBackend          plugin.Backend
 	NetworkSubnetsProvider NetworkSubnetsProvider
 

@@ -654,10 +654,10 @@ func (s *SpecValidator) validateParameters() *Result {
 				var hasForm, hasBody bool
 
 				// Check parameters names uniqueness for operation
+				// TODO: should be done after param expansion
 				res.Merge(s.checkUniqueParams(path, method, op))
 
 				for _, pr := range paramHelp.safeExpandedParamsFor(path, method, op.ID, res, s) {
-
 					// Validate pattern regexp for parameters with a Pattern property
 					if _, err := compileRegexp(pr.Pattern); err != nil {
 						res.AddErrors(invalidPatternInParamMsg(op.ID, pr.Name, pr.Pattern))
@@ -754,10 +754,10 @@ func (s *SpecValidator) checkUniqueParams(path, method string, op *spec.Operatio
 	if op.Parameters != nil { // Safeguard
 		for _, ppr := range op.Parameters {
 			ok := false
-			pr, red := paramHelp.resolveParam(path, method, op.ID, ppr, s)
+			pr, red := paramHelp.resolveParam(path, method, op.ID, &ppr, s)
 			res.Merge(red)
 
-			if pr.Name != "" { // params with empty name does no participate the check
+			if pr != nil && pr.Name != "" { // params with empty name does no participate the check
 				key := fmt.Sprintf("%s#%s", pr.In, pr.Name)
 
 				if _, ok = pnames[key]; ok {

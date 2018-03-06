@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/trace"
+
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -209,7 +210,7 @@ func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
 		c.slotDeadline = slotDeadline
 		c.execDeadline = execDeadline
 
-		StatsEnqueue(ctx)
+		statsEnqueue(ctx)
 
 		a.startStateTrackers(ctx, c)
 		// The call to a.endStateTrackers() will then be done by Submit
@@ -221,7 +222,7 @@ func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
 			// reserving a slot must be a quick operation, as in, "can I reserve a
 			// slot RIGHT NOW please?".
 			if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-				a.handleStatsDequeue(ctx, c, models.ErrCallTimeoutServerBusy)
+				handleStatsDequeue(ctx, models.ErrCallTimeoutServerBusy)
 				a.endStateTrackers(ctx, c)
 				return models.ErrCallTimeoutServerBusy
 			}
@@ -229,7 +230,7 @@ func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
 			var err error
 			slot, err = a.getSlot(ctx, c)
 			if err != nil {
-				a.handleStatsDequeue(ctx, c, err)
+				handleStatsDequeue(ctx, err)
 				a.endStateTrackers(ctx, c)
 				return transformTimeout(err, true)
 			}
@@ -313,8 +314,8 @@ type call struct {
 func (c *call) Model() *models.Call { return c.Call }
 
 func (c *call) Start(ctx context.Context) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_start")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_call_start")
+	defer span.End()
 
 	// Check context timeouts, errors
 	if ctx.Err() != nil {
@@ -354,8 +355,8 @@ func (c *call) Start(ctx context.Context) error {
 }
 
 func (c *call) End(ctx context.Context, errIn error) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "agent_call_end")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "agent_call_end")
+	defer span.End()
 
 	c.CompletedAt = strfmt.DateTime(time.Now())
 

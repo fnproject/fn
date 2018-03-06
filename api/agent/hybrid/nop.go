@@ -7,7 +7,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/models"
-	opentracing "github.com/opentracing/opentracing-go"
+	"go.opencensus.io/trace"
 )
 
 // nopDataStore implements agent.DataAccess
@@ -18,37 +18,37 @@ func NewNopDataStore() (agent.DataAccess, error) {
 }
 
 func (cl *nopDataStore) Enqueue(ctx context.Context, c *models.Call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "nop_datastore_enqueue")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "nop_datastore_enqueue")
+	defer span.End()
 	return errors.New("Should not call Enqueue on a NOP data store")
 }
 
 func (cl *nopDataStore) Dequeue(ctx context.Context) (*models.Call, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "nop_datastore_dequeue")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "nop_datastore_dequeue")
+	defer span.End()
 	return nil, errors.New("Should not call Dequeue on a NOP data store")
 }
 
 func (cl *nopDataStore) Start(ctx context.Context, c *models.Call) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "nop_datastore_start")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "nop_datastore_start")
+	defer span.End()
 	return nil // It's ok to call this method, and it does no operations
 }
 
 func (cl *nopDataStore) Finish(ctx context.Context, c *models.Call, r io.Reader, async bool) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "nop_datastore_end")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "nop_datastore_end")
+	defer span.End()
 	return nil // It's ok to call this method, and it does no operations
 }
 
 func (cl *nopDataStore) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "nop_datastore_get_app")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "nop_datastore_get_app")
+	defer span.End()
 	return nil, errors.New("Should not call GetApp on a NOP data store")
 }
 
 func (cl *nopDataStore) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "nop_datastore_get_route")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "nop_datastore_get_route")
+	defer span.End()
 	return nil, errors.New("Should not call GetRoute on a NOP data store")
 }
