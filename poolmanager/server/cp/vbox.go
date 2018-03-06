@@ -83,7 +83,7 @@ func getRunner(node string) (*Runner, error) {
 	vmsCmd.Stdout = &vmsOut
 	err := vmsCmd.Run()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	vms := strings.Split(vmsOut.String(), "\n")
 	var realNode string
@@ -117,8 +117,8 @@ func getRunner(node string) (*Runner, error) {
 		return nil, fmt.Errorf("Unable to get address got:'%s' as output", out.String())
 	}
 	return &Runner{
-		Id: realNode,
-		addr[1],
+		Id:      realNode,
+		Address: addr[1],
 	}, nil
 }
 
@@ -144,7 +144,54 @@ func (v *VirtualBoxCP) ProvisionRunners(lgbID string, n int) (int, error) {
 }
 
 func (v *VirtualBoxCP) RemoveRunner(lbgID string, id string) error {
-	return errors.New("Not done")
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		os.Chdir(wd)
+	}()
+
+	runners, ok := v.runnerMap[lbgID]
+	if !ok {
+		return errors.New("No lgbID with this name")
+	}
+	//look for it in the customers map
+	found := false
+	for _, r := range runners {
+		if id == r.Id {
+			found = true
+			break
+		}
+	}
+	if found == false {
+		return errors.New("No VM by this ID")
+	}
+	//switch to the dir and remove it
+	//vm name is fn-vagrant-7183faa4-7321-47e9-8fd9-4a0aa1ac818e497509110_default_1520299457972_92567 everything before the first _
+	split := strings.Split(id, "_")
+	dirName := split[0]
+	err = os.Chdir(dirName)
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+	destroyCmd := exec.Command("vagrant", "destroy", "-f")
+	err = destroyCmd.Run()
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+	// back to working dir and rm -rf ignore these erro
+	err = os.Chdir(wd)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(dirName)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func newNodeName() string {
