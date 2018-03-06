@@ -47,7 +47,7 @@ func SetMachineIdHost(addr net.IP, port uint16) {
 func New() Id {
 	var id Id
 	t := time.Now()
-	// TODO optimize out division by constant (check assembly for compiler optimization)
+	// NOTE compiler optimizes out division by constant for us
 	ms := uint64(t.Unix())*1000 + uint64(t.Nanosecond()/int(time.Millisecond))
 	count := atomic.AddUint64(&counter, 1)
 
