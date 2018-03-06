@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/google/uuid"
+	idgen "github.com/fnproject/fn/api/id"
 )
 
 const vboxNamePrefix = "fn-vagrant"
@@ -196,7 +196,7 @@ func (v *VirtualBoxCP) RemoveRunner(lbgID string, id string) error {
 }
 
 func newNodeName() string {
-	id := uuid.New()
+	id := idgen.New()
 	return fmt.Sprintf("%s-%s", vboxNamePrefix, id.String())
 }
 
