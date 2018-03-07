@@ -33,11 +33,12 @@ type callHandle struct {
 	c          *call // the agent's version of call
 	input      io.WriteCloser
 	started    bool
+	done       chan error // to synchronize
 	// As the state can be set and checked by both goroutines handling this state, we need a mutex.
 	stateMutex sync.Mutex
 	// Timings, for metrics:
-	receivedTime  strfmt.DateTime // When was the call received?
-	allocatedTime strfmt.DateTime // When did we finish allocating the slot?
+	receivedTime      strfmt.DateTime // When was the call received?
+	allocatedTime     strfmt.DateTime // When did we finish allocating capacity?
 	// Last communication error on the stream (if any). This basically acts as a cancellation flag too.
 	streamError error
 	// For implementing http.ResponseWriter:
@@ -177,7 +178,7 @@ func (ch *callHandle) cancel(ctx context.Context, err error) {
 	// First, record that there has been an error.
 	ch.streamError = err
 	// Caller may have died or disconnected. The behaviour here depends on the state of the call.
-	// If the call was placed (i.e. GetCall was called and a slot reserved) we need to handle it...
+	// If the call was placed and is running we need to handle it...
 	if ch.c != nil {
 		// If we've actually started the call we're in the middle of an execution with i/o going back and forth.
 		// This is hard to stop. Side effects can be occurring at any point. However, at least we should stop
@@ -188,13 +189,43 @@ func (ch *callHandle) cancel(ctx context.Context, err error) {
 		// handling in Submit.
 		if ch.started {
 			ch.input.Close()
-		} else {
-			// If we haven't started but we have allocated a reserved slot, we need to close it and release it.
-			if ch.c.reservedSlot != nil {
-				ch.c.reservedSlot.Close(ctx)
-			}
 		}
 	}
+}
+
+type pureRunnerCapacityManager struct {
+	totalCapacityUnits     uint64
+	committedCapacityUnits uint64
+	mtx                    sync.Mutex
+}
+
+type capacityDeallocator func()
+
+func newPureRunnerCapacityManager(units uint64) pureRunnerCapacityManager {
+	return pureRunnerCapacityManager{
+		totalCapacityUnits:     units,
+		committedCapacityUnits: 0,
+	}
+}
+
+func (prcm *pureRunnerCapacityManager) checkAndReserveCapacity(units uint64) error {
+	prcm.mtx.Lock()
+	defer prcm.mtx.Unlock()
+	if prcm.committedCapacityUnits + units < prcm.totalCapacityUnits {
+		prcm.committedCapacityUnits = prcm.committedCapacityUnits + units
+		return nil
+	}
+	return models.ErrCallTimeoutServerBusy
+}
+
+func (prcm *pureRunnerCapacityManager) releaseCapacity(units uint64) {
+	prcm.mtx.Lock()
+	defer prcm.mtx.Unlock()
+	if units <= prcm.committedCapacityUnits {
+		prcm.committedCapacityUnits = prcm.committedCapacityUnits - units
+		return
+	}
+	panic("Fatal error in pure runner capacity calculation, getting to sub-zero capacity")
 }
 
 type pureRunner struct {
@@ -202,6 +233,7 @@ type pureRunner struct {
 	listen     string
 	a          Agent
 	inflight   int32
+	capacity   pureRunnerCapacityManager
 }
 
 func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
@@ -229,6 +261,7 @@ func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 						state.streamError = err2
 					}
 				}
+				state.done <- err
 				return
 			}
 			// First close the writer, then send the call finished message
@@ -250,6 +283,7 @@ func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 						state.streamError = err2
 					}
 				}
+				state.done <- err
 				return
 			}
 			// At this point everything should have worked. Send a successful message... and if that runs afoul of a
@@ -265,8 +299,12 @@ func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 					}}})
 				if err2 != nil {
 					state.streamError = err2
+					state.done <- err2
+					return
 				}
 			}
+
+			state.done <- nil
 		}()
 	}
 }
@@ -291,28 +329,33 @@ func (pr *pureRunner) handleData(ctx context.Context, data *runner.DataFrame, st
 	return nil
 }
 
-func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, state *callHandle) error {
+func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, state *callHandle) (capacityDeallocator, error) {
+	state.receivedTime = strfmt.DateTime(time.Now())
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
-		return err
+		return func(){}, err
 	}
-	// TODO Validation of the call
 
-	state.receivedTime = strfmt.DateTime(time.Now())
+	// Capacity check first
+	err = pr.capacity.checkAndReserveCapacity(c.Memory)
+	if err != nil {
+		return func(){}, err
+	}
+
+	// Proceed!
 	var w http.ResponseWriter
 	w = state
 	inR, inW := io.Pipe()
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w), WithReservedSlot(ctx, nil))
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w))
 	if err != nil {
-		return err
+		return func(){ pr.capacity.releaseCapacity(c.Memory) }, err
 	}
 	state.c = agent_call.(*call)
 	state.input = inW
-	// We spent some time pre-reserving a slot in GetCall so note this down now
 	state.allocatedTime = strfmt.DateTime(time.Now())
 
-	return nil
+	return func(){ pr.capacity.releaseCapacity(c.Memory) }, nil
 }
 
 // Handles a client engagement
@@ -336,6 +379,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		c:             nil,
 		input:         nil,
 		started:       false,
+		done:          make(chan error),
 		streamError:   nil,
 		outHeaders:    make(http.Header),
 		outStatus:     200,
@@ -343,54 +387,79 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	}
 
 	grpc.EnableTracing = false
-	logrus.Debug("Entering engagement loop")
-	for {
-		msg, err := engagement.Recv()
+	logrus.Debug("Entering engagement handler")
+
+	msg, err := engagement.Recv()
+	if err != nil {
+		// In this case the connection has dropped before we've even started.
+		return err
+	}
+	switch body := msg.Body.(type) {
+	case *runner.ClientMsg_Try:
+		dealloc, err := pr.handleTryCall(engagement.Context(), body.Try, &state)
+		defer dealloc()
+		// At the stage of TryCall, there is only one thread running and nothing has happened yet so there should
+		// not be a streamError. We can handle `err` by sending a message back. If we cause a stream error by sending
+		// the message, we are in a "double exception" case and we might as well cancel the call with the original
+		// error, so we can ignore the error from Send.
 		if err != nil {
-			// In this case the connection has dropped or there's something bad happening. We know we can't even send
-			// a message back. Cancel the call, all bets are off.
+			_ = engagement.Send(&runner.RunnerMsg{
+				Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
+					Committed: false,
+					Details:   fmt.Sprintf("%v", err),
+				}}})
 			state.cancel(engagement.Context(), err)
 			return err
 		}
 
-		switch body := msg.Body.(type) {
+		// If we succeed in creating the call, but we get a stream error sending a message back, we must cancel
+		// the call because we've probably lost the connection.
+		err = engagement.Send(&runner.RunnerMsg{
+			Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
+				Committed:             true,
+				Details:               state.c.Model().ID,
+				SlotAllocationLatency: time.Time(state.allocatedTime).Sub(time.Time(state.receivedTime)).String(),
+			}}})
+		if err != nil {
+			state.cancel(engagement.Context(), err)
+			return err
+		}
 
-		case *runner.ClientMsg_Try:
-			err := pr.handleTryCall(engagement.Context(), body.Try, &state)
-			// At the stage of TryCall, there is only one thread running and nothing has happened yet so there should
-			// not be a streamError. We can handle `err` by sending a message back and cancelling the call because
-			// the slot may need to be released. If we cause a stream error by sending the message, we are in a "double
-			// exception" case and we might as well cancel the call with the original error, so we can ignore the error
-			// from Send.
+		// Then at this point we start handling the data that should be being pushed to us.
+		for {
+			msg, err := engagement.Recv()
 			if err != nil {
-				_ = engagement.Send(&runner.RunnerMsg{
-					Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
-						Committed: false,
-						Details:   fmt.Sprintf("%v", err),
-					}}})
-				state.cancel(engagement.Context(), err)
-				return err
-			}
-			// If we succeed in creating the call, but we get a stream error sending a message back, we must cancel
-			// the call because we've probably lost the connection.
-			err = engagement.Send(&runner.RunnerMsg{
-				Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
-					Committed:             true,
-					Details:               state.c.Model().ID,
-					SlotAllocationLatency: time.Time(state.allocatedTime).Sub(time.Time(state.receivedTime)).String(),
-				}}})
-			if err != nil {
+				// In this case the connection has dropped or there's something bad happening. We know we can't even
+				// send a message back. Cancel the call, all bets are off.
 				state.cancel(engagement.Context(), err)
 				return err
 			}
 
-		case *runner.ClientMsg_Data:
-			err := pr.handleData(engagement.Context(), body.Data, &state)
-			if err != nil {
-				// If this happens, then we couldn't write into the input. The state of the function is inconsistent and
-				// therefore we need to cancel. We also need to communicate back that the function has failed; that
+			switch body := msg.Body.(type) {
+			case *runner.ClientMsg_Data:
+				err := pr.handleData(engagement.Context(), body.Data, &state)
+				if err != nil {
+					// If this happens, then we couldn't write into the input. The state of the function is inconsistent
+					// and therefore we need to cancel. We also need to communicate back that the function has failed;
+					// that could also run afoul of a stream error, but at that point we don't care, just cancel the
+					// call with the original error.
+					_ = state.engagement.Send(&runner.RunnerMsg{
+						Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
+							Success: false,
+							Details: fmt.Sprintf("%v", err),
+						}}})
+					state.cancel(engagement.Context(), err)
+					return err
+				}
+				// Then break the loop if this was the last input data frame, i.e. eof is on
+				if body.Data.Eof {
+					break
+				}
+			default:
+				err := errors.New("Protocol failure in communication with function runner")
+				// This is essentially a panic. Try to communicate back that the call has failed, and bail out; that
 				// could also run afoul of a stream error, but at that point we don't care, just cancel the call with
-				// the original error.
+				// the catastrophic error.
 				_ = state.engagement.Send(&runner.RunnerMsg{
 					Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 						Success: false,
@@ -399,20 +468,21 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 				state.cancel(engagement.Context(), err)
 				return err
 			}
-		default:
-			err := fmt.Errorf("Catastrophic failure in communication with function runner")
-			// This is essentially a panic. Try to communicate back that the call has failed, and bail out; that
-			// could also run afoul of a stream error, but at that point we don't care, just cancel the call with
-			// the catastrophic error.
-			_ = state.engagement.Send(&runner.RunnerMsg{
-				Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-					Success: false,
-					Details: fmt.Sprintf("%v", err),
-				}}})
-			state.cancel(engagement.Context(), err)
-			return err
 		}
+
+		// Synchronize to the function running goroutine finishing
+		select {
+		case <-state.done:
+		case <-engagement.Context().Done():
+			return engagement.Context().Err()
+		}
+
+	default:
+		// Protocol error. This should not happen.
+		return errors.New("Protocol failure in communication with function runner")
 	}
+
+	return nil
 }
 
 func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
@@ -473,6 +543,8 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 	}), nil
 }
 
+const megabyte uint64 = 1024 * 1024
+
 func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
 	var srv *grpc.Server
 	if creds != nil {
@@ -480,12 +552,20 @@ func createPureRunner(addr string, a Agent, creds credentials.TransportCredentia
 	} else {
 		srv = grpc.NewServer()
 	}
+	memUnits := getAvailableMemoryUnits()
 	pr := &pureRunner{
 		gRPCServer: srv,
 		listen:     addr,
 		a:          a,
+		capacity:   newPureRunnerCapacityManager(memUnits),
 	}
 
 	runner.RegisterRunnerProtocolServer(srv, pr)
 	return pr, nil
+}
+
+func getAvailableMemoryUnits() uint64 {
+	// To reuse code - but it's a bit of a hack. TODO: refactor the OS-specific get memory funcs out of that.
+	throwawayRT := NewResourceTracker().(*resourceTracker)
+	return throwawayRT.ramAsyncTotal
 }

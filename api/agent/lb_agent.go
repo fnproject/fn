@@ -139,11 +139,10 @@ func NewLBAgent(agent Agent, np NodePool, p Placer) (Agent, error) {
 	return a, nil
 }
 
-// GetCall delegates to the wrapped agent, but it adds a "slot reservation" for
-// a remoteSlot which will implement the actual running functionality.
+// GetCall delegates to the wrapped agent but disables the capacity check as
+// this agent isn't actually running the call.
 func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
-	slot := &remoteSlot{lb: a}
-	opts = append(opts, WithReservedSlot(context.Background(), slot))
+	opts = append(opts, WithoutPreemptiveCapacityCheck())
 	return a.delegatedAgent.GetCall(opts...)
 }
 
