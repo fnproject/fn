@@ -37,8 +37,8 @@ type callHandle struct {
 	// As the state can be set and checked by both goroutines handling this state, we need a mutex.
 	stateMutex sync.Mutex
 	// Timings, for metrics:
-	receivedTime      strfmt.DateTime // When was the call received?
-	allocatedTime     strfmt.DateTime // When did we finish allocating capacity?
+	receivedTime  strfmt.DateTime // When was the call received?
+	allocatedTime strfmt.DateTime // When did we finish allocating capacity?
 	// Last communication error on the stream (if any). This basically acts as a cancellation flag too.
 	streamError error
 	// For implementing http.ResponseWriter:
@@ -211,7 +211,7 @@ func newPureRunnerCapacityManager(units uint64) pureRunnerCapacityManager {
 func (prcm *pureRunnerCapacityManager) checkAndReserveCapacity(units uint64) error {
 	prcm.mtx.Lock()
 	defer prcm.mtx.Unlock()
-	if prcm.committedCapacityUnits + units < prcm.totalCapacityUnits {
+	if prcm.committedCapacityUnits+units < prcm.totalCapacityUnits {
 		prcm.committedCapacityUnits = prcm.committedCapacityUnits + units
 		return nil
 	}
@@ -334,13 +334,13 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
-		return func(){}, err
+		return func() {}, err
 	}
 
 	// Capacity check first
 	err = pr.capacity.checkAndReserveCapacity(c.Memory)
 	if err != nil {
-		return func(){}, err
+		return func() {}, err
 	}
 
 	// Proceed!
@@ -349,13 +349,13 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 	inR, inW := io.Pipe()
 	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w))
 	if err != nil {
-		return func(){ pr.capacity.releaseCapacity(c.Memory) }, err
+		return func() { pr.capacity.releaseCapacity(c.Memory) }, err
 	}
 	state.c = agent_call.(*call)
 	state.input = inW
 	state.allocatedTime = strfmt.DateTime(time.Now())
 
-	return func(){ pr.capacity.releaseCapacity(c.Memory) }, nil
+	return func() { pr.capacity.releaseCapacity(c.Memory) }, nil
 }
 
 // Handles a client engagement

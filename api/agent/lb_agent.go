@@ -5,10 +5,13 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fnproject/fn/poolmanager"
@@ -46,16 +49,12 @@ func ResponseWriter(c *Call) (*http.ResponseWriter, error) {
 	return nil, errors.New("Unable to get HTTP response writer from the call")
 }
 
-// The LB agent performs its functionality by delegating to a remote node. It
-// pretends to have allocated a slot, and slot.exec() is what actually handles
-// the protocol with the remote node; this Slot implementation is used.
 type remoteSlot struct {
-	lb *lbAgent
+	lbAgent *lbAgent
 }
 
 func (s *remoteSlot) exec(ctx context.Context, call *call) error {
-	// TODO: do it properly!
-	a := s.lb
+	a := s.lbAgent
 
 	memMb := call.Model().Memory
 	lbGroupID := GetGroupID(call.Model())
@@ -69,6 +68,14 @@ func (s *remoteSlot) exec(ctx context.Context, call *call) error {
 		logrus.WithError(err).Error("Failed to place call")
 	}
 	return err
+}
+
+func (s *remoteSlot) Close(ctx context.Context) error {
+	return nil
+}
+
+func (s *remoteSlot) Error() error {
+	return nil
 }
 
 type Placer interface {
@@ -106,14 +113,6 @@ func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, l
 
 }
 
-func (s *remoteSlot) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *remoteSlot) Error() error {
-	return nil
-}
-
 const (
 	runnerReconnectInterval = 5 * time.Second
 	// sleep time to attempt placement across all runners before retrying
@@ -128,6 +127,9 @@ type lbAgent struct {
 	delegatedAgent Agent
 	np             NodePool
 	placer         Placer
+
+	wg       sync.WaitGroup // Needs a good name
+	shutdown chan struct{}
 }
 
 func NewLBAgent(agent Agent, np NodePool, p Placer) (Agent, error) {
@@ -163,8 +165,56 @@ func GetGroupID(call *models.Call) string {
 	return lbgID
 }
 
-func (a *lbAgent) Submit(call Call) error {
-	return a.delegatedAgent.Submit(call)
+func (a *lbAgent) Submit(callI Call) error {
+	a.wg.Add(1)
+	defer a.wg.Done()
+
+	select {
+	case <-a.shutdown:
+		return models.ErrCallTimeoutServerBusy
+	default:
+	}
+
+	call := callI.(*call)
+
+	ctx, cancel := context.WithDeadline(call.req.Context(), call.execDeadline)
+	call.req = call.req.WithContext(ctx)
+	defer cancel()
+
+	ctx, span := trace.StartSpan(ctx, "agent_submit")
+	defer span.End()
+
+	err := a.submit(ctx, call)
+	return err
+}
+
+func (a *lbAgent) submit(ctx context.Context, call *call) error {
+	statsEnqueue(ctx)
+
+	a.startStateTrackers(ctx, call)
+	defer a.endStateTrackers(ctx, call)
+
+	slot := &remoteSlot{lbAgent: a}
+
+	defer slot.Close(ctx) // notify our slot is free once we're done
+
+	err := call.Start(ctx)
+	if err != nil {
+		handleStatsDequeue(ctx, err)
+		return transformTimeout(err, true)
+	}
+
+	statsDequeueAndStart(ctx)
+
+	// pass this error (nil or otherwise) to end directly, to store status, etc
+	err = slot.exec(ctx, call)
+	handleStatsEnd(ctx, err)
+
+	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
+	// but this could put us over the timeout if the call did not reply yet (need better policy).
+	ctx = common.BackgroundContext(ctx)
+	err = call.End(ctx, err)
+	return transformTimeout(err, false)
 }
 
 func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
@@ -174,4 +224,14 @@ func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	logrus.Fatal("Enqueue not implemented. Panicking.")
 	return nil
+}
+
+func (a *lbAgent) startStateTrackers(ctx context.Context, call *call) {
+	delegatedAgent := a.delegatedAgent.(*agent)
+	delegatedAgent.startStateTrackers(ctx, call)
+}
+
+func (a *lbAgent) endStateTrackers(ctx context.Context, call *call) {
+	delegatedAgent := a.delegatedAgent.(*agent)
+	delegatedAgent.endStateTrackers(ctx, call)
 }
