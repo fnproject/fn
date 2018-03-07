@@ -426,7 +426,8 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		}
 
 		// Then at this point we start handling the data that should be being pushed to us.
-		for {
+		foundEof := false
+		for !foundEof {
 			msg, err := engagement.Recv()
 			if err != nil {
 				// In this case the connection has dropped or there's something bad happening. We know we can't even
@@ -453,7 +454,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 				}
 				// Then break the loop if this was the last input data frame, i.e. eof is on
 				if body.Data.Eof {
-					break
+					foundEof = true
 				}
 			default:
 				err := errors.New("Protocol failure in communication with function runner")
