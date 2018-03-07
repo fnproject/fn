@@ -20,6 +20,27 @@ import (
 	"github.com/fnproject/fn/api/mqs"
 )
 
+func envTweaker(name, value string) func() {
+	bck, ok := os.LookupEnv(name)
+
+	err := os.Setenv(name, value)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return func() {
+		var err error
+		if !ok {
+			err = os.Unsetenv(name)
+		} else {
+			err = os.Setenv(name, bck)
+		}
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
 func testRunner(t *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
 	ds := datastore.NewMock()
 	var mq models.MessageQueue = &mqs.Mock{}
@@ -128,6 +149,13 @@ func TestRouteRunnerPost(t *testing.T) {
 func TestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
+
+	// freezer stops I/O once the container is no longer handling a request, the tests below need
+	// it disabled to reliably test normal/naive behaviour. Given this however, we need to make sure,
+	// that we know that when freezer is enabled (normal operation) the I/O will block once it kicks in.
+	tweaker := envTweaker("FN_FREEZE_IDLE_MSECS", "-1")
+	defer tweaker()
+
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
 	// for figuring out why things failed.
 	defer func() {
@@ -273,6 +301,9 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
+	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
+	defer tweaker()
+
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
 	// for figuring out why things failed.
 	defer func() {
@@ -286,12 +317,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rImg := "fnproject/fn-test-utils"
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
 	rImgBs2 := "localhost:5000/fnproject/imagethatdoesnotexist"
-
-	err := os.Setenv("FN_MAX_RESPONSE_SIZE", "2048")
-	if err != nil {
-		t.Errorf("Cannot set response size %v", err)
-	}
-	defer os.Setenv("FN_MAX_RESPONSE_SIZE", "")
 
 	ds := datastore.NewMockInit(
 		[]*models.App{
