@@ -199,43 +199,9 @@ func WithContext(ctx context.Context) CallOpt {
 	}
 }
 
-// This MUST run last
-func WithReservedSlot(ctx context.Context, slot Slot) CallOpt {
+func WithoutPreemptiveCapacityCheck() CallOpt {
 	return func(a *agent, c *call) error {
-		// We need deadlines otherwise our slot will have expired in 1970... :)
-		now := time.Now()
-		slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
-		execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
-
-		c.slotDeadline = slotDeadline
-		c.execDeadline = execDeadline
-
-		statsEnqueue(ctx)
-
-		a.startStateTrackers(ctx, c)
-		// The call to a.endStateTrackers() will then be done by Submit
-
-		// If we're provided a slot we use it, otherwise we go through the
-		// motions of allocating it.
-		if slot == nil {
-			// First check if we have capacity. We exit early if we don't, because
-			// reserving a slot must be a quick operation, as in, "can I reserve a
-			// slot RIGHT NOW please?".
-			if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-				handleStatsDequeue(ctx, models.ErrCallTimeoutServerBusy)
-				a.endStateTrackers(ctx, c)
-				return models.ErrCallTimeoutServerBusy
-			}
-			// We need to actually update the outer scope slot, so no := here.
-			var err error
-			slot, err = a.getSlot(ctx, c)
-			if err != nil {
-				handleStatsDequeue(ctx, err)
-				a.endStateTrackers(ctx, c)
-				return transformTimeout(err, true)
-			}
-		}
-		c.reservedSlot = slot
+		c.disablePreemptiveCapacityCheck = true
 		return nil
 	}
 }
@@ -258,8 +224,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	// Only perform this check if we haven't already reserved a slot
-	if c.reservedSlot == nil {
+	if !c.disablePreemptiveCapacityCheck {
 		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
 			// if we're not going to be able to run this call on this machine, bail here.
 			return nil, models.ErrCallTimeoutServerBusy
@@ -282,15 +247,12 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
-	// Only set deadlines if we haven't already reserved a slot (in that case we already have them)
-	if c.reservedSlot == nil {
-		now := time.Now()
-		slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
-		execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
+	now := time.Now()
+	slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
+	execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
 
-		c.slotDeadline = slotDeadline
-		c.execDeadline = execDeadline
-	}
+	c.slotDeadline = slotDeadline
+	c.execDeadline = execDeadline
 
 	return &c, nil
 }
@@ -303,12 +265,13 @@ type call struct {
 	req            *http.Request
 	stderr         io.ReadWriteCloser
 	ct             callTrigger
-	reservedSlot   Slot
 	slots          *slotQueue
 	slotDeadline   time.Time
 	execDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
+	// This can be used to disable the preemptive capacity check in GetCall
+	disablePreemptiveCapacityCheck bool
 }
 
 func (c *call) Model() *models.Call { return c.Call }
