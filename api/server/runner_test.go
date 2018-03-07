@@ -133,8 +133,6 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	defer func() {
 		if isFailure {
 			t.Log(buf.String())
-		} else {
-			t.Log(buf.String())
 		}
 	}()
 
@@ -215,9 +213,6 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		containerIds = append(containerIds, "N/A")
 
-		t.Logf("Test %d: body: %s",
-			i, respBody)
-
 		if rec.Code != test.expectedCode {
 			isFailure = true
 			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
@@ -258,6 +253,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		containerIds[2] == containerIds[3] {
 		t.Logf("json container ids are OK, ids=%v", containerIds)
 	} else {
+		isFailure = true
 		t.Errorf("json container ids are not OK, ids=%v", containerIds)
 	}
 
@@ -269,6 +265,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		containerIds[2] == containerIds[3] {
 		t.Logf("http container ids are OK, ids=%v", containerIds)
 	} else {
+		isFailure = true
 		t.Errorf("http container ids are not OK, ids=%v", containerIds)
 	}
 }
@@ -280,8 +277,6 @@ func TestRouteRunnerExecution(t *testing.T) {
 	// for figuring out why things failed.
 	defer func() {
 		if isFailure {
-			t.Log(buf.String())
-		} else {
 			t.Log(buf.String())
 		}
 	}()

@@ -254,11 +254,6 @@ func postProcessRequest(request *AppRequest, out io.Writer) error {
 			log.Printf("PostOutGarbage write string error %v", err)
 			return err
 		}
-		_, err = io.WriteString(out, "\n\r")
-		if err != nil {
-			log.Printf("PostOutGarbage write string error %v", err)
-			return err
-		}
 	}
 
 	if request.PostErrGarbage != "" {
