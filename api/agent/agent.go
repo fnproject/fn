@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -787,9 +786,6 @@ func NewHotContainer(call *call) (*container, func()) {
 	stdin := common.NewGhostReader()
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
-
-	// any write between calls should be discarded
-	stdout.Swap(ioutil.Discard)
 
 	// direct stderr to log writer between calls
 	stderr.Swap(newLineWriter(&logWriter{
