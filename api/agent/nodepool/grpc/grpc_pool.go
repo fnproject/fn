@@ -315,14 +315,14 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error)
 			return false, nil
 			// Try the next runner
 		}
-		logrus.Info("Runner committed invocation request, sending data frames")
+		logrus.Debug("Runner committed invocation request, sending data frames")
 		done := make(chan error)
 		go receiveFromRunner(runnerConnection, call, done)
 		sendToRunner(call, runnerConnection)
 		return true, <-done
 
 	default:
-		logrus.Info("Unhandled message type received from runner: %v\n", msg)
+		logrus.Error("Unhandled message type received from runner: %v\n", msg)
 		return true, nil
 	}
 
