@@ -13,7 +13,7 @@ case "$1" in
     ;;
 
     "mysql" )
-    DB_CONTAINER="func-mysql-test"
+    DB_CONTAINER="func-mysql-system-test"
     docker rm -fv ${DB_CONTAINER} || echo No prev mysql test db container
     docker run --name ${DB_CONTAINER} -p 3307:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
     MYSQL_HOST=`host ${DB_CONTAINER}`
@@ -23,7 +23,7 @@ case "$1" in
     ;;
 
     "postgres" )
-    DB_CONTAINER="func-postgres-test"
+    DB_CONTAINER="func-postgres-system-test"
     docker rm -fv ${DB_CONTAINER} || echo No prev test db container
     docker run --name ${DB_CONTAINER} -e "POSTGRES_DB=funcs" -e "POSTGRES_PASSWORD=root"  -p 5432:5432 -d postgres:9.3-alpine
     POSTGRES_HOST=`host ${DB_CONTAINER}`
