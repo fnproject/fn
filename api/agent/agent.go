@@ -611,7 +611,10 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	container, closer := NewHotContainer(call)
+	// if freezer is enabled, be consistent with freezer behavior and
+	// block stdout and stderr between calls.
+	isBlockIdleIO := MaxDisabledMsecs != a.cfg.FreezeIdleMsecs
+	container, closer := NewHotContainer(call, isBlockIdleIO)
 	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -779,7 +782,7 @@ type container struct {
 	stats   *drivers.Stats
 }
 
-func NewHotContainer(call *call) (*container, func()) {
+func NewHotContainer(call *call, isBlockIdleIO bool) (*container, func()) {
 
 	id := id.New().String()
 
@@ -787,10 +790,15 @@ func NewHotContainer(call *call) (*container, func()) {
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
 
-	// direct stderr to log writer between calls
-	stderr.Swap(newLineWriter(&logWriter{
-		logrus.WithFields(logrus.Fields{"between_log": true, "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
-	}))
+	// when not processing a request, do we block IO?
+	if !isBlockIdleIO {
+		stderr.Swap(newLineWriter(&logWriter{
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+		}))
+		stdout.Swap(newLineWriter(&logWriter{
+			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+		}))
+	}
 
 	return &container{
 			id:     id, // XXX we could just let docker generate ids...

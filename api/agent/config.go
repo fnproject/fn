@@ -15,6 +15,8 @@ type AgentConfig struct {
 	MaxResponseSize  uint64        `json:"max_response_size"`
 }
 
+var MaxDisabledMsecs = time.Duration(math.MaxInt64)
+
 func NewAgentConfig() (*AgentConfig, error) {
 
 	var err error
@@ -60,8 +62,8 @@ func getEnvMsecs(name string, defaultVal time.Duration) (time.Duration, error) {
 			return defaultVal, err
 		}
 		// disable if negative or set to msecs specified.
-		if durInt < 0 || time.Duration(durInt) >= math.MaxInt64/time.Millisecond {
-			delay = math.MaxInt64
+		if durInt < 0 || time.Duration(durInt) >= MaxDisabledMsecs/time.Millisecond {
+			delay = MaxDisabledMsecs
 		} else {
 			delay = time.Duration(durInt) * time.Millisecond
 		}

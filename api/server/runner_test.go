@@ -149,6 +149,10 @@ func TestRouteRunnerPost(t *testing.T) {
 func TestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
+
+	// let's make freezer immediate, so that we don't deal with
+	// more timing related issues below. Slightly gains us a bit more
+	// determinism.
 	tweaker := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
 	defer tweaker()
 
@@ -217,7 +221,8 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		// CASE I: immediate garbage: should be ignored (TODO: this should test immediateGarbage case, FIX THIS)
 		{"/r/zoo/http", ok, "GET", http.StatusOK, "", nil, 0},
 
-		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should trigger container shutdown
+		// CASE II: delayed garbage: make sure delayed output lands in between request processing, freezer should block,
+		// bad IO lands on next request.
 		{"/r/zoo/http", delayedGarbage, "GET", http.StatusOK, "", nil, time.Second * 2},
 
 		// CASE III: normal, but should not land on any container from case I/II.
