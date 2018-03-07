@@ -26,7 +26,12 @@ go run generate_client_cert.go --email-address a@a.com
 ```
 
 Tada! Certs.
-
+### Build everything
+```bash
+make dep
+dep ensure
+make all
+```
 ## Starting the components (as regular processes)
 
 ### API server
@@ -247,4 +252,35 @@ docker run -d \
            -e FN_RUNNER_API_URL=http://$API:8080 \
            -e FN_RUNNER_ADDRESSES=$RUNNER1:9190,$RUNNER2:9191 \
            fnproject/lb:latest
+```
+
+## Is it on?
+
+```bash
+export FN_API_URL=http://localhost:8081 #change localhost to your sever if it's not local
+# In working fn 
+fn app create test
+fn deploy --app test # In this case the FN name is hello
+curl http://localhost:8081/r/test/hello  # Note the FN name at the end of the URL
+```
+You should see activity in all but the API logs.
+```
+#load balencer
+DEBU[2018-03-07T14:38:42-08:00] Advertising new capacity snapshot ts:<seconds:1520462322 nanos:221906113 > lb_id:"01C819KFV50000200000000000"
+DEBU[2018-03-07T14:38:42-08:00] Received runner list                          runners="[]"
+DEBU[2018-03-07T14:38:42-08:00] Received runner list                          runners="[]"
+
+#NPM
+DEBU[3498] Getting hosts from ControlPlane for default
+DEBU[3498] Removing dead hosts for default
+DEBU[3498] Polled for default
+DEBU[3498] In capacity management loop for default
+DEBU[3498] LBGroup membership for default is []
+DEBU[3499] LBGroup membership for default is []
+DEBU[3499] Merged capacity requests ts:<seconds:1520462366 nanos:221992647 > lb_id:"01C819KFV50000200000000000"
+DEBU[3499] Polling for runners for default
+
+##Runner
+INFO[2018-03-07T14:35:00-08:00] starting call                                 app=test container_id=01C819MFKHA7WG200000000000 id=01C819MXYJA7WGC00000000000 route=/hello
+INFO[2018-03-07T14:35:30-08:00] hot function terminated                       app=test cpus= error="context canceled" format=json id=01C819MFKHA7WG200000000000 idle_timeout=30 image="ericfode/hello:0.0.8" memory=128 route=/hello
 ```
