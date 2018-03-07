@@ -56,9 +56,9 @@ func TestRunnerDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := waiter.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
+	result := waiter.Wait(ctx)
+	if result.Error() != nil {
+		t.Fatal(result.Error())
 	}
 
 	if result.Status() != "success" {
@@ -109,9 +109,9 @@ func TestRunnerDockerStdin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := waiter.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
+	result := waiter.Wait(ctx)
+	if result.Error() != nil {
+		t.Fatal(result.Error())
 	}
 
 	if result.Status() != "success" {

@@ -384,7 +384,7 @@ type waitResult struct {
 }
 
 // waitResult implements drivers.WaitResult
-func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
+func (w *waitResult) Wait(ctx context.Context) drivers.RunResult {
 	defer close(w.done)
 
 	// wait until container is stopped (or ctx is cancelled if sooner)
@@ -392,7 +392,7 @@ func (w *waitResult) Wait(ctx context.Context) (drivers.RunResult, error) {
 	return &runResult{
 		status: status,
 		err:    err,
-	}, nil
+	}
 }
 
 // Repeatedly collect stats from the specified docker container until the stopSignal is closed or the context is cancelled

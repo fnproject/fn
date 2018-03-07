@@ -100,7 +100,8 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 
 	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
-	err = json.NewDecoder(h.out).Decode(&jout)
+	decoder := json.NewDecoder(h.out)
+	err = decoder.Decode(&jout)
 	span.End()
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
@@ -112,7 +113,8 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	rw, ok := w.(http.ResponseWriter)
 	if !ok {
 		// logs can just copy the full thing in there, headers and all.
-		return json.NewEncoder(w).Encode(jout)
+		err := json.NewEncoder(w).Encode(jout)
+		return h.isExcessData(err, decoder)
 	}
 
 	// this has to be done for pulling out:
@@ -141,5 +143,16 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	}
 
 	_, err = io.WriteString(rw, jout.Body)
+	return h.isExcessData(err, decoder)
+}
+
+func (h *JSONProtocol) isExcessData(err error, decoder *json.Decoder) error {
+	if err == nil {
+		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
+		tmp, ok := decoder.Buffered().(*bytes.Reader)
+		if ok && tmp.Len() > 0 {
+			return ErrExcessData
+		}
+	}
 	return err
 }

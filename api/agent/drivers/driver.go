@@ -47,7 +47,7 @@ type WaitResult interface {
 	// provided context is canceled and the container does not return first, the
 	// resulting status will be 'canceled'. If the provided context times out
 	// then the resulting status will be 'timeout'.
-	Wait(context.Context) (RunResult, error)
+	Wait(context.Context) RunResult
 }
 
 type Driver interface {
