@@ -191,3 +191,13 @@ type waitWriter struct{}
 func (e *waitWriter) Write([]byte) (int, error) {
 	panic("write on waitWriter should not happen")
 }
+
+type eofWriter struct{}
+
+func NewEofWriter() io.Writer {
+	return &eofWriter{}
+}
+
+func (e *eofWriter) Write([]byte) (int, error) {
+	return 0, io.EOF
+}

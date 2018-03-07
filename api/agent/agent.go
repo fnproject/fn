@@ -609,24 +609,8 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	// between calls we need a reader that doesn't do anything
-	stdin := common.NewGhostReader()
-	stderr := common.NewGhostWriter()
-	stdout := common.NewGhostWriter()
-	defer stdin.Close()
-	defer stderr.Close()
-	defer stdout.Close()
-
-	container := &container{
-		id:     id.New().String(), // XXX we could just let docker generate ids...
-		image:  call.Image,
-		env:    map[string]string(call.Config),
-		memory: call.Memory,
-		cpus:   uint64(call.CPUs),
-		stdin:  stdin,
-		stdout: stdout,
-		stderr: stderr,
-	}
+	container, closer := NewHotContainer(call)
+	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
@@ -786,6 +770,38 @@ type container struct {
 	// lock protects the stats swapping
 	statsMu sync.Mutex
 	stats   *drivers.Stats
+}
+
+func NewHotContainer(call *call) (*container, func()) {
+
+	id := id.New().String()
+
+	stdin := common.NewGhostReader()
+	stderr := common.NewGhostWriter()
+	stdout := common.NewGhostWriter()
+
+	// any write between calls should trigger EOF
+	stdout.Swap(common.NewEofWriter())
+
+	// direct stderr to log writer between calls
+	stderr.Swap(newLineWriter(&logWriter{
+		logrus.WithFields(logrus.Fields{"between_log": true, "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+	}))
+
+	return &container{
+			id:     id, // XXX we could just let docker generate ids...
+			image:  call.Image,
+			env:    map[string]string(call.Config),
+			memory: call.Memory,
+			cpus:   uint64(call.CPUs),
+			stdin:  stdin,
+			stdout: stdout,
+			stderr: stderr,
+		}, func() {
+			stdin.Close()
+			stderr.Close()
+			stdout.Close()
+		}
 }
 
 func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.Stats) func() {
