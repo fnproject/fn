@@ -180,7 +180,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		// CASE I: immediate garbage: likely to be in the json decoder buffer after json resp parsing
 		{"/r/zoo/json/", immediateGarbage, "GET", http.StatusOK, "", nil, 0},
 
-		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should trigger container shutdown
+		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should be ignored
 		{"/r/zoo/json/", delayedGarbage, "GET", http.StatusOK, "", nil, time.Second * 2},
 
 		// CASE III: normal, but should not land on any container from case I/II.
@@ -192,8 +192,8 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		//
 		// HTTP WORLD
 		//
-		// CASE I: immediate garbage: likely to be in the http buffered reader after http body parsing
-		{"/r/zoo/http", immediateGarbage, "GET", http.StatusOK, "", nil, time.Millisecond * 500},
+		// CASE I: immediate garbage: should be ignored
+		{"/r/zoo/http", immediateGarbage, "GET", http.StatusOK, "", nil, 0},
 
 		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should trigger container shutdown
 		{"/r/zoo/http", delayedGarbage, "GET", http.StatusOK, "", nil, time.Second * 2},
@@ -254,7 +254,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 	// now cross check JSON container ids:
 	if containerIds[0] != containerIds[1] &&
-		containerIds[1] != containerIds[2] &&
+		containerIds[1] == containerIds[2] &&
 		containerIds[2] == containerIds[3] {
 		t.Logf("json container ids are OK, ids=%v", containerIds)
 	} else {
@@ -264,8 +264,8 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	containerIds = containerIds[4:]
 
 	// now cross check HTTP container ids:
-	if containerIds[0] != containerIds[1] &&
-		containerIds[1] != containerIds[2] &&
+	if containerIds[0] == containerIds[1] &&
+		containerIds[1] == containerIds[2] &&
 		containerIds[2] == containerIds[3] {
 		t.Logf("http container ids are OK, ids=%v", containerIds)
 	} else {

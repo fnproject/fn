@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -494,14 +495,10 @@ type hotSlot struct {
 	errC        <-chan error  // container error
 	container   *container    // TODO mask this
 	maxRespSize uint64        // TODO boo.
-	shutFun     func()        // shutdown container
 	fatalErr    error
 }
 
 func (s *hotSlot) Close(ctx context.Context) error {
-	if s.fatalErr != nil && s.shutFun != nil {
-		s.shutFun()
-	}
 	close(s.done)
 	return nil
 }
@@ -654,13 +651,18 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{done: make(chan struct{}), errC: errC, container: container, maxRespSize: a.cfg.MaxResponseSize, shutFun: shutdownContainer}
+			slot := &hotSlot{done: make(chan struct{}), errC: errC, container: container, maxRespSize: a.cfg.MaxResponseSize}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
 			// wait for this call to finish
 			// NOTE do NOT select with shutdown / other channels. slot handles this.
 			<-slot.done
+
+			if slot.fatalErr != nil {
+				logger.WithError(slot.fatalErr).Info("hot function terminating")
+				return
+			}
 		}
 	}()
 
@@ -786,8 +788,8 @@ func NewHotContainer(call *call) (*container, func()) {
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
 
-	// any write between calls should trigger EOF, which terminates container
-	stdout.Swap(common.NewEofWriter())
+	// any write between calls should be discarded
+	stdout.Swap(ioutil.Discard)
 
 	// direct stderr to log writer between calls
 	stderr.Swap(newLineWriter(&logWriter{
