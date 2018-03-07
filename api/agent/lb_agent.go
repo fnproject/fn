@@ -82,28 +82,39 @@ func NewNaivePlacer() Placer {
 	return &naivePlacer{}
 }
 
+func minDuration(f, s time.Duration) time.Duration {
+	if f < s {
+		return f
+	}
+	return s
+}
+
 func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error {
-	deadline := call.slotDeadline
+	timeout := time.After(call.slotDeadline.Sub(time.Now()))
 
 	for {
-		if time.Now().After(deadline) {
+		select {
+		case <-ctx.Done():
 			return models.ErrCallTimeoutServerBusy
-		}
-
-		for _, r := range np.Runners(lbGroupID) {
-			placed, err := r.TryExec(ctx, call)
-			if err != nil {
-				logrus.WithError(err).Error("Failed during call placement")
+		case <-timeout:
+			return models.ErrCallTimeoutServerBusy
+		default:
+			for _, r := range np.Runners(lbGroupID) {
+				placed, err := r.TryExec(ctx, call)
+				if err != nil {
+					logrus.WithError(err).Error("Failed during call placement")
+				}
+				if placed {
+					return err
+				}
 			}
-			if placed {
-				return err
+			remaining := call.slotDeadline.Sub(time.Now())
+			if remaining <= 0 {
+				return models.ErrCallTimeoutServerBusy
 			}
-
+			time.Sleep(minDuration(retryWaitInterval, remaining))
 		}
-
-		time.Sleep(retryWaitInterval)
 	}
-
 }
 
 func (s *remoteSlot) Close(ctx context.Context) error {
@@ -149,6 +160,10 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 
 func (a *lbAgent) Close() error {
 	a.np.Shutdown()
+	err := a.delegatedAgent.Close()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -290,7 +290,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error)
 		// If we can't encode the model, no runner will ever be able to run this. Give up.
 		return true, err
 	}
-	runnerConnection, err := r.client.Engage(context.Background())
+	runnerConnection, err := r.client.Engage(ctx)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to create client to runner node")
 		// Try on next runner

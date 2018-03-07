@@ -602,14 +602,20 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	if s.nodeType == ServerTypePureRunner {
 		// Run grpc too
-		grpcAddr := fmt.Sprintf("%s:%d", whoAmI().String(), s.grpcListenPort)
+		grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
 		pr, err := agent.CreatePureRunner(grpcAddr, s.agent, s.cert, s.certKey, s.certAuthority)
 		if err != nil {
-			logrus.WithError(err).Fatal("Pure runner server creation error")
+			logrus.WithError(err).Error("Pure runner server creation error")
+			cancel()
+		} else {
+			go func() {
+				err := pr.Start()
+				if err != nil {
+					logrus.WithError(err).Error("fail to start pure runner")
+					cancel()
+				}
+			}()
 		}
-		go func() {
-			pr.Start()
-		}()
 	}
 
 	server := http.Server{
@@ -638,7 +644,10 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	}
 
 	if s.agent != nil {
-		s.agent.Close() // after we stop taking requests, wait for all tasks to finish
+		err := s.agent.Close() // after we stop taking requests, wait for all tasks to finish
+		if err != nil {
+			logrus.WithError(err).Error("Fail to close the agent")
+		}
 	}
 }
 

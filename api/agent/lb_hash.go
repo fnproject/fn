@@ -24,41 +24,41 @@ func NewCHPlacer() Placer {
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
 func (p *chPlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error {
-	deadline := call.slotDeadline
-
 	// The key is just the path in this case
 	key := call.Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
-
+	timeout := time.After(call.slotDeadline.Sub(time.Now()))
 	for {
-		if time.Now().After(deadline) {
+
+		select {
+		case <-ctx.Done():
 			return models.ErrCallTimeoutServerBusy
-		}
+		case <-timeout:
+			return models.ErrCallTimeoutServerBusy
+		default:
+			runners := np.Runners(lbGroupID)
+			i := int(jumpConsistentHash(sum64, int32(len(runners))))
+			for j := 0; j < len(runners); j++ {
+				r := runners[i]
 
-		runners := np.Runners(lbGroupID)
-		if len(runners) < 1 {
-			time.Sleep(retryWaitInterval)
-			continue
-		}
+				placed, err := r.TryExec(ctx, call)
+				if err != nil {
+					logrus.WithError(err).Error("Failed during call placement")
+				}
+				if placed {
+					return err
+				}
 
-		i := int(jumpConsistentHash(sum64, int32(len(runners))))
-		for j := 0; j < len(runners); j++ {
-			r := runners[i]
-
-			placed, err := r.TryExec(ctx, call)
-			if err != nil {
-				logrus.WithError(err).Error("Failed during call placement")
+				i = (i + 1) % len(runners)
 			}
-			if placed {
-				return err
+
+			remaining := call.slotDeadline.Sub(time.Now())
+			if remaining <= 0 {
+				return models.ErrCallTimeoutServerBusy
 			}
-
-			i = (i + 1) % len(runners)
+			time.Sleep(minDuration(retryWaitInterval, remaining))
 		}
-
-		time.Sleep(retryWaitInterval)
 	}
-
 }
 
 // A Fast, Minimal Memory, Consistent Hash Algorithm:
