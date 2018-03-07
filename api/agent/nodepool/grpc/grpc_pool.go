@@ -322,7 +322,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error)
 		return true, <-done
 
 	default:
-		logrus.Error("Unhandled message type received from runner: %v\n", msg)
+		logrus.Errorf("Unhandled message type received from runner: %v\n", msg)
 		return true, nil
 	}
 
