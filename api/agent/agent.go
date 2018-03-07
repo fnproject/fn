@@ -443,13 +443,13 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 // implements Slot
 type coldSlot struct {
-	cookie drivers.Cookie
-	tok    ResourceToken
-	err    error
+	cookie   drivers.Cookie
+	tok      ResourceToken
+	fatalErr error
 }
 
 func (s *coldSlot) Error() error {
-	return s.err
+	return s.fatalErr
 }
 
 func (s *coldSlot) exec(ctx context.Context, call *call) error {
@@ -544,8 +544,14 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	case err := <-s.errC: // error from container
 		return err
 	case err := <-errApp: // from dispatch
-		if err != nil && models.IsAPIError(err) && s.fatalErr == nil {
-			s.fatalErr = err
+		if s.fatalErr == nil && err != nil {
+			if models.IsAPIError(err) {
+				s.fatalErr = err
+			} else if err == protocol.ErrExcessData {
+				s.fatalErr = err
+				// suppress excess data error, but do shutdown the container
+				return nil
+			}
 		}
 		return err
 	case <-ctx.Done(): // call timeout
@@ -780,7 +786,7 @@ func NewHotContainer(call *call) (*container, func()) {
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
 
-	// any write between calls should trigger EOF
+	// any write between calls should trigger EOF, which terminates container
 	stdout.Swap(common.NewEofWriter())
 
 	// direct stderr to log writer between calls

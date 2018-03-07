@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
@@ -123,6 +125,154 @@ func TestRouteRunnerPost(t *testing.T) {
 	}
 }
 
+func TestRouteRunnerIOPipes(t *testing.T) {
+	buf := setLogBuffer()
+	isFailure := false
+	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
+	// for figuring out why things failed.
+	defer func() {
+		if isFailure {
+			t.Log(buf.String())
+		} else {
+			t.Log(buf.String())
+		}
+	}()
+
+	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
+	rImg := "fnproject/fn-test-utils"
+
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: "zoo", Config: models.Config{}},
+		},
+		[]*models.Route{
+			{Path: "/json", AppName: "zoo", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+			{Path: "/http", AppName: "zoo", Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+		}, nil,
+	)
+
+	rnr, cancelrnr := testRunner(t, ds)
+	defer cancelrnr()
+
+	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+
+	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
+	immediateGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 0}`
+	delayedGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 1000}`
+	ok := `{"isDebug": true}`
+
+	//multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
+
+	containerIds := make([]string, 0)
+
+	for i, test := range []struct {
+		path               string
+		body               string
+		method             string
+		expectedCode       int
+		expectedErrSubStr  string
+		expectedLogsSubStr []string
+		sleepAmount        time.Duration
+	}{
+		//
+		// JSON WORLD
+		//
+		// CASE I: immediate garbage: likely to be in the json decoder buffer after json resp parsing
+		{"/r/zoo/json/", immediateGarbage, "GET", http.StatusOK, "", nil, 0},
+
+		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should trigger container shutdown
+		{"/r/zoo/json/", delayedGarbage, "GET", http.StatusOK, "", nil, time.Second * 2},
+
+		// CASE III: normal, but should not land on any container from case I/II.
+		{"/r/zoo/json/", ok, "GET", http.StatusOK, "", nil, 0},
+
+		// CASE IV: should land on CASE III container
+		{"/r/zoo/json/", ok, "GET", http.StatusOK, "", nil, 0},
+
+		//
+		// HTTP WORLD
+		//
+		// CASE I: immediate garbage: likely to be in the http buffered reader after http body parsing
+		{"/r/zoo/http", immediateGarbage, "GET", http.StatusOK, "", nil, time.Millisecond * 500},
+
+		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should trigger container shutdown
+		{"/r/zoo/http", delayedGarbage, "GET", http.StatusOK, "", nil, time.Second * 2},
+
+		// CASE III: normal, but should not land on any container from case I/II.
+		{"/r/zoo/http/", ok, "GET", http.StatusOK, "", nil, 0},
+
+		// CASE IV: should land on CASE III container
+		{"/r/zoo/http/", ok, "GET", http.StatusOK, "", nil, 0},
+	} {
+		body := strings.NewReader(test.body)
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+		respBytes, _ := ioutil.ReadAll(rec.Body)
+		respBody := string(respBytes)
+		maxBody := len(respBody)
+		if maxBody > 1024 {
+			maxBody = 1024
+		}
+
+		containerIds = append(containerIds, "N/A")
+
+		t.Logf("Test %d: body: %s",
+			i, respBody)
+
+		if rec.Code != test.expectedCode {
+			isFailure = true
+			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+				i, test.expectedCode, rec.Code, respBody[:maxBody])
+		}
+
+		if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
+			isFailure = true
+			t.Errorf("Test %d: Expected response to include %s but got body: %s",
+				i, test.expectedErrSubStr, respBody[:maxBody])
+
+		}
+
+		if test.expectedLogsSubStr != nil {
+			callID := rec.Header().Get("Fn_call_id")
+			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
+				isFailure = true
+			}
+		}
+
+		if rec.Code == http.StatusOK {
+			dockerId, err := getDockerId(respBytes)
+			if err != nil {
+				isFailure = true
+				t.Errorf("Test %d: cannot fetch docker id body: %s",
+					i, respBody[:maxBody])
+			}
+			t.Logf("Test %d: dockerId: %v", i, dockerId)
+			containerIds[i] = dockerId
+		}
+
+		time.Sleep(test.sleepAmount)
+	}
+
+	// now cross check JSON container ids:
+	if containerIds[0] != containerIds[1] &&
+		containerIds[1] != containerIds[2] &&
+		containerIds[2] == containerIds[3] {
+		t.Logf("json container ids are OK, ids=%v", containerIds)
+	} else {
+		t.Errorf("json container ids are not OK, ids=%v", containerIds)
+	}
+
+	containerIds = containerIds[4:]
+
+	// now cross check HTTP container ids:
+	if containerIds[0] != containerIds[1] &&
+		containerIds[1] != containerIds[2] &&
+		containerIds[2] == containerIds[3] {
+		t.Logf("http container ids are OK, ids=%v", containerIds)
+	} else {
+		t.Errorf("http container ids are not OK, ids=%v", containerIds)
+	}
+}
+
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
@@ -130,6 +280,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 	// for figuring out why things failed.
 	defer func() {
 		if isFailure {
+			t.Log(buf.String())
+		} else {
 			t.Log(buf.String())
 		}
 	}()
@@ -182,10 +334,10 @@ func TestRouteRunnerExecution(t *testing.T) {
 	respTypeJason := `{"jasonContentType": "foo/bar", "isDebug": true}`  // Content-Type: foo/bar
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
-	multiLog := `{"sleepTime": 1, "isDebug": true}`
+	multiLog := `{"sleepTime": 1000, "isDebug": true}`
 	multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
-	bigoutput := `{"sleepTime": 0, "isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
-	smalloutput := `{"sleepTime": 0, "isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1}`  // 1 trailer < 2K
+	bigoutput := `{"isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
+	smalloutput := `{"isDebug": true, "echoContent": "repeatme", "trailerRepeat": 1}`  // 1 trailer < 2K
 
 	for i, test := range []struct {
 		path               string
@@ -261,35 +413,67 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 		if test.expectedLogsSubStr != nil {
 			callID := rec.Header().Get("Fn_call_id")
-
-			logReader, err := ds.GetLog(context.Background(), "myapp", callID)
-			if err != nil {
+			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
 				isFailure = true
-				t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
-					i, callID, err.Error())
-			} else {
-				logBytes, err := ioutil.ReadAll(logReader)
-				if err != nil {
-					isFailure = true
-					t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
-						i, callID, err.Error())
-				} else {
-					logBody := string(logBytes)
-					maxLog := len(logBody)
-					if maxLog > 1024 {
-						maxLog = 1024
-					}
-					for _, match := range test.expectedLogsSubStr {
-						if !strings.Contains(logBody, match) {
-							isFailure = true
-							t.Errorf("Test %d: GetLog read IO call_id:%s cannot find: %s in logs: %s",
-								i, callID, match, logBody[:maxLog])
-						}
-					}
-				}
 			}
 		}
 	}
+}
+
+func getDockerId(respBytes []byte) (string, error) {
+
+	var respJs map[string]interface{}
+	var data map[string]interface{}
+
+	err := json.Unmarshal(respBytes, &respJs)
+	if err != nil {
+		return "", err
+	}
+
+	data, ok := respJs["data"].(map[string]interface{})
+	if !ok {
+		return "", errors.New("unexpected json: data map")
+	}
+
+	id, ok := data["DockerId"].(string)
+	if !ok {
+		return "", errors.New("unexpected json: docker id string")
+	}
+
+	return id, nil
+}
+
+func checkLogs(t *testing.T, tnum int, ds models.Datastore, callID string, expected []string) bool {
+
+	logReader, err := ds.GetLog(context.Background(), "myapp", callID)
+	if err != nil {
+		t.Errorf("Test %d: GetLog for call_id:%s returned err %s",
+			tnum, callID, err.Error())
+		return false
+	}
+
+	logBytes, err := ioutil.ReadAll(logReader)
+	if err != nil {
+		t.Errorf("Test %d: GetLog read IO call_id:%s returned err %s",
+			tnum, callID, err.Error())
+		return false
+	}
+
+	logBody := string(logBytes)
+	maxLog := len(logBody)
+	if maxLog > 1024 {
+		maxLog = 1024
+	}
+
+	for _, match := range expected {
+		if !strings.Contains(logBody, match) {
+			t.Errorf("Test %d: GetLog read IO call_id:%s cannot find: %s in logs: %s",
+				tnum, callID, match, logBody[:maxLog])
+			return false
+		}
+	}
+
+	return true
 }
 
 // implement models.MQ and models.APIError

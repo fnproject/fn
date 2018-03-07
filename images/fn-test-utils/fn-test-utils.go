@@ -54,6 +54,12 @@ type AppRequest struct {
 	TrailerRepeat int `json:"trailerRepeat,omitempty"`
 	// corrupt http or json
 	InvalidResponse bool `json:"invalidResponse,omitempty"`
+	// if specified we 'sleep' the specified msecs *after* processing request
+	PostSleepTime int `json:"postSleepTime,omitempty"`
+	// spit this out in stdout after processing each request
+	PostOutGarbage string `json:"postOutGarbage,omitempty"`
+	// spit this out in stderr after processing each request
+	PostErrGarbage string `json:"postErrGarbage,omitempty"`
 	// TODO: simulate slow read/slow write
 	// TODO: simulate partial IO write/read
 	// TODO: simulate high cpu usage (async and sync)
@@ -101,6 +107,10 @@ func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	var outto fdkresponse
 	outto.Writer = out
 	finalizeRequest(&outto, req, resp)
+	err := postProcessRequest(req, out)
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func finalizeRequest(out *fdkresponse, req *AppRequest, resp *AppResponse) {
@@ -222,6 +232,42 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 	return &request, &resp
 }
 
+func postProcessRequest(request *AppRequest, out io.Writer) error {
+	if request == nil {
+		return nil
+	}
+
+	if request.PostSleepTime > 0 {
+		if request.IsDebug {
+			log.Printf("PostProcess Sleeping %d", request.PostSleepTime)
+		}
+		time.Sleep(time.Duration(request.PostSleepTime) * time.Millisecond)
+	}
+
+	if request.PostOutGarbage != "" {
+		if request.IsDebug {
+			log.Printf("PostProcess PostOutGarbage %s", request.PostOutGarbage)
+		}
+
+		_, err := io.WriteString(out, request.PostOutGarbage)
+		if err != nil {
+			log.Printf("PostOutGarbage write string error %v", err)
+			return err
+		}
+		_, err = io.WriteString(out, "\n\r")
+		if err != nil {
+			log.Printf("PostOutGarbage write string error %v", err)
+			return err
+		}
+	}
+
+	if request.PostErrGarbage != "" {
+		log.Printf("PostProcess PostErrGarbage %s", request.PostErrGarbage)
+	}
+
+	return nil
+}
+
 func main() {
 	if os.Getenv("ENABLE_HEADER") != "" {
 		log.Printf("Container starting")
@@ -287,6 +333,7 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 	resp.Header = hdr
 
 	var jsonRequest fdkutils.JsonIn
+	var appRequest *AppRequest
 	err := json.NewDecoder(in).Decode(&jsonRequest)
 	if err != nil {
 		// stdin now closed
@@ -295,7 +342,11 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			return err
 		}
 		resp.Status = http.StatusInternalServerError
-		io.WriteString(resp, fmt.Sprintf(`{"error": %v}`, err.Error()))
+		_, err = io.WriteString(resp, fmt.Sprintf(`{"error": %v}`, err.Error()))
+		if err != nil {
+			log.Printf("json write string error %v", err)
+			return err
+		}
 	} else {
 		fdkutils.SetHeaders(ctx, jsonRequest.Protocol.Headers)
 		ctx, cancel := fdkutils.CtxWithDeadline(ctx, jsonRequest.Deadline)
@@ -308,6 +359,7 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
+		appRequest = appReq
 	}
 
 	jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
@@ -324,7 +376,7 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		return err
 	}
 
-	return nil
+	return postProcessRequest(appRequest, out)
 }
 
 // since we need to test little jason's content type since he's special. but we
@@ -355,6 +407,7 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 	resp.Status = 200
 	resp.Header = hdr
 
+	var appRequest *AppRequest
 	req, err := http.ReadRequest(bufio.NewReader(in))
 	if err != nil {
 		// stdin now closed
@@ -364,7 +417,11 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		}
 		// TODO it would be nice if we could let the user format this response to their preferred style..
 		resp.Status = http.StatusInternalServerError
-		io.WriteString(resp, err.Error())
+		_, err = io.WriteString(resp, err.Error())
+		if err != nil {
+			log.Printf("http write string error %v", err)
+			return err
+		}
 	} else {
 		fnDeadline := fdkutils.Context(ctx).Header.Get("FN_DEADLINE")
 		ctx, cancel := fdkutils.CtxWithDeadline(ctx, fnDeadline)
@@ -378,6 +435,7 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
 
+		appRequest = appReq
 	}
 
 	hResp := fdkutils.GetHTTPResp(buf, &resp.Response, req)
@@ -388,7 +446,7 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		return err
 	}
 
-	return nil
+	return postProcessRequest(appRequest, out)
 }
 
 func getChunk(size int) []byte {

@@ -192,7 +192,8 @@ func (e *waitWriter) Write([]byte) (int, error) {
 	panic("write on waitWriter should not happen")
 }
 
-type eofWriter struct{}
+type eofWriter struct {
+}
 
 func NewEofWriter() io.Writer {
 	return &eofWriter{}

@@ -46,7 +46,8 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	}
 
 	_, span = trace.StartSpan(ctx, "dispatch_http_read_response")
-	resp, err := http.ReadResponse(bufio.NewReader(h.out), ci.Request())
+	bufReader := bufio.NewReader(h.out)
+	resp, err := http.ReadResponse(bufReader, ci.Request())
 	span.End()
 	if err != nil {
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid http response from function err: %v", err))
@@ -75,6 +76,7 @@ func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if resp.StatusCode > 0 {
 		rw.WriteHeader(resp.StatusCode)
 	}
+
 	io.Copy(rw, resp.Body)
 	return nil
 }
