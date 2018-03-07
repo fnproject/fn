@@ -149,6 +149,8 @@ func TestRouteRunnerPost(t *testing.T) {
 func TestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
+	tweaker := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
+	defer tweaker()
 
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
 	// for figuring out why things failed.
