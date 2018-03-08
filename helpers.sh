@@ -24,8 +24,6 @@ function remove_containers {
     docker rm -fv func-postgres-test 2>/dev/null || true
     docker rm -fv func-mysql-test 2>/dev/null || true
     docker rm -fv func-minio-test 2>/dev/null || true
-    docker rm -fv func-mysql-system-test 2>/dev/null || true
-    docker rm -fv func-postgres-system-test 2>/dev/null || true
 }
 
 function wait_for_db {
