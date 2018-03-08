@@ -78,11 +78,7 @@ func SetUpSystem() error {
 }
 
 func CleanUpSystem() error {
-	_, err := http.Get("http://127.0.0.1:8080/shutdown")
-	if err != nil {
-		return err
-	}
-	_, err = http.Get("http://127.0.0.1:8081/shutdown")
+	_, err := http.Get("http://127.0.0.1:8081/shutdown")
 	if err != nil {
 		return err
 	}
@@ -98,6 +94,10 @@ func CleanUpSystem() error {
 	if err != nil {
 		return err
 	}
+	_, err = http.Get("http://127.0.0.1:8085/shutdown")
+	if err != nil {
+		return err
+	}
 	// Wait for shutdown - not great
 	time.Sleep(5 * time.Second)
 	return nil
@@ -110,7 +110,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	nodeType := server.ServerTypeAPI
 	opts := make([]server.ServerOption, 0)
-	opts = append(opts, server.WithWebPort(8080))
+	opts = append(opts, server.WithWebPort(8085))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(server.DefaultLogLevel))
 	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "API"))
@@ -134,8 +134,8 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 
-	runnerURL := "http://127.0.0.1:8080"
-	cl, err := hybrid.NewClient(runnerURL)
+	apiURL := "http://127.0.0.1:8085"
+	cl, err := hybrid.NewClient(apiURL)
 	if err != nil {
 		return nil, err
 	}
