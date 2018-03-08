@@ -146,7 +146,8 @@ func TestRouteRunnerPost(t *testing.T) {
 	}
 }
 
-func TestRouteRunnerIOPipes(t *testing.T) {
+// removing this flappy test pending on resolution of
+func skipTestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
 
@@ -436,12 +437,14 @@ func TestRouteRunnerExecution(t *testing.T) {
 			}
 		}
 
+		/* removes flaky log test awaiting resolution of issue #796
 		if test.expectedLogsSubStr != nil {
 			callID := rec.Header().Get("Fn_call_id")
 			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
 				isFailure = true
 			}
 		}
+		*/
 	}
 }
 
