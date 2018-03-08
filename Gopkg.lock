@@ -99,6 +99,12 @@
   version = "v0.2.0"
 
 [[projects]]
+  name = "github.com/dchest/siphash"
+  packages = ["."]
+  revision = "4ebf1de738443ea7f45f02dc394c4df1942a126d"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -324,12 +330,6 @@
   ]
   revision = "925541529c1fa6821df4e44ce2723319eb2be768"
   version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  revision = "553a641470496b2327abcac10b36396bd98e45c9"
 
 [[projects]]
   branch = "master"
@@ -661,6 +661,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "51e5bbe66f1c9af38787323fffb614441513d6ec0eca0e31781954f445e12e63"
+  inputs-digest = "1818456581749a8ec46a6fded1c10e7f706f9e77aa1ac2061d25c3080883376d"
   solver-name = "gps-cdcl"
   solver-version = 1
