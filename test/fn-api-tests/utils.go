@@ -81,7 +81,6 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 				panic("Failed to start server.")
 			}
 		})
-		log.Println("apiURL:", apiURL)
 		_, err := http.Get(apiURL + "/version")
 		for err != nil {
 			_, err = http.Get(apiURL + "/version")
@@ -146,7 +145,6 @@ func SetupDefaultSuite() *SuiteSetup {
 	} else {
 		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
 		if ok != nil {
-			log.Println("Making functions server")
 			_, cancel := getServerWithCancel()
 			ss.Cancel = cancel
 		}
