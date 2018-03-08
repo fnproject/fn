@@ -9,7 +9,7 @@ import (
 
 	"github.com/fnproject/fn/poolmanager"
 	model "github.com/fnproject/fn/poolmanager/grpc"
-	"github.com/fnproject/fn/poolmanager/server/cp"
+	"github.com/fnproject/fn/poolmanager/server/controlplane"
 
 	"crypto/tls"
 	"crypto/x509"
@@ -19,7 +19,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
+	"plugin"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
@@ -30,7 +30,7 @@ type npmService struct {
 	capMan poolmanager.CapacityManager
 }
 
-func newNPMService(ctx context.Context, cp cp.ControlPlane) *npmService {
+func newNPMService(ctx context.Context, cp controlplane.ControlPlane) *npmService {
 	cm, err := poolmanager.NewCapacityManager(ctx, cp)
 	if err != nil {
 		logrus.Panic("Cannot construct capacity manager")
@@ -66,11 +66,10 @@ func (npm *npmService) GetLBGroup(ctx context.Context, gid *model.LBGroupId) (*m
 
 const (
 	// Certificates to communicate with other FN nodes
-	EnvCert         = "FN_NODE_CERT"
-	EnvCertKey      = "FN_NODE_CERT_KEY"
-	EnvCertAuth     = "FN_NODE_CERT_AUTHORITY"
-	EnvPort         = "FN_PORT"
-	EnvFixedRunners = "FN_RUNNER_ADDRESSES"
+	EnvCert     = "FN_NODE_CERT"
+	EnvCertKey  = "FN_NODE_CERT_KEY"
+	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
+	EnvPort     = "FN_PORT"
 )
 
 func getAndCheckFile(envVar string) (string, error) {
@@ -116,6 +115,25 @@ func createGrpcCreds(cert string, key string, ca string) (grpc.ServerOption, err
 	return grpc.Creds(creds), nil
 }
 
+func newPluggableControlPlane() controlplane.ControlPlane {
+	pluginLocation := getEnv("CONTROL_PLANE_SO")
+	controlPlanePlugin, err := plugin.Open(pluginLocation)
+
+	if err != nil {
+		panic(err)
+	}
+
+	cpSymbol, err := controlPlanePlugin.Lookup("ControlPlane")
+
+	if err != nil {
+		panic(err)
+	}
+
+	cp := cpSymbol.(controlplane.ControlPlane)
+
+	return cp
+}
+
 func main() {
 	level, err := logrus.ParseLevel(getEnv("FN_LOG_LEVEL"))
 	if err != nil {
@@ -146,8 +164,7 @@ func main() {
 
 	logrus.Info("Starting Node Pool Manager gRPC service")
 
-	fakeRunners := strings.Split(getEnv(EnvFixedRunners), ",")
-	svc := newNPMService(context.Background(), cp.NewControlPlane(fakeRunners))
+	svc := newNPMService(context.Background(), newPluggableControlPlane())
 	model.RegisterNodePoolScalerServer(gRPCServer, svc)
 	model.RegisterRunnerManagerServer(gRPCServer, svc)
 

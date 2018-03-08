@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	model "github.com/fnproject/fn/poolmanager/grpc"
-	"github.com/fnproject/fn/poolmanager/server/cp"
+	"github.com/fnproject/fn/poolmanager/server/controlplane"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,12 +32,12 @@ type Predictor interface {
 type capacityManager struct {
 	ctx              context.Context
 	mx               sync.RWMutex
-	cp               cp.ControlPlane
+	cp               controlplane.ControlPlane
 	lbg              map[string]LBGroup
 	predictorFactory func() Predictor
 }
 
-func NewCapacityManager(ctx context.Context, cp cp.ControlPlane, opts ...func(*capacityManager) error) (CapacityManager, error) {
+func NewCapacityManager(ctx context.Context, cp controlplane.ControlPlane, opts ...func(*capacityManager) error) (CapacityManager, error) {
 	cm := &capacityManager{
 		ctx:              ctx,
 		cp:               cp,
@@ -107,7 +107,7 @@ type lbGroup struct {
 
 	// Attributes for managing runner pool membership
 	run_mx sync.RWMutex
-	cp     cp.ControlPlane
+	cp     controlplane.ControlPlane
 
 	current_capacity int64              // Of all active runners
 	target_capacity  int64              // All active runners plus any we've already asked for
@@ -140,7 +140,7 @@ type runner struct {
 	kill_after time.Time
 }
 
-func newLBGroup(lbgid string, ctx context.Context, cp cp.ControlPlane, predictorFactory func() Predictor) LBGroup {
+func newLBGroup(lbgid string, ctx context.Context, cp controlplane.ControlPlane, predictorFactory func() Predictor) LBGroup {
 	lbg := &lbGroup{
 		ctx:           ctx,
 		id:            lbgid,
@@ -296,20 +296,20 @@ func (lbg *lbGroup) target(ts time.Time, target int64) {
 
 		if desiredScale > lbg.target_capacity {
 			// We still need additional capacity
-			wanted := math.Min(math.Ceil(float64(target-lbg.target_capacity)/cp.CAPACITY_PER_RUNNER), LARGEST_REQUEST_AT_ONCE)
+			wanted := math.Min(math.Ceil(float64(target-lbg.target_capacity)/controlplane.CAPACITY_PER_RUNNER), LARGEST_REQUEST_AT_ONCE)
 			asked_for, err := lbg.cp.ProvisionRunners(lbg.Id(), int(wanted)) // Send the request; they'll show up later
 			if err != nil {
 				// Some kind of error during attempt to scale up
 				logrus.WithError(err).Error("Error occured during attempt to scale up")
 				return
 			}
-			lbg.target_capacity += int64(asked_for) * cp.CAPACITY_PER_RUNNER
+			lbg.target_capacity += int64(asked_for) * controlplane.CAPACITY_PER_RUNNER
 		}
 
-	} else if desiredScale <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER {
+	} else if desiredScale <= lbg.current_capacity-controlplane.CAPACITY_PER_RUNNER {
 		// Scale down.
 		// We pick a node to turn off and move it to the draining pool.
-		for target <= lbg.current_capacity-cp.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
+		for target <= lbg.current_capacity-controlplane.CAPACITY_PER_RUNNER && len(lbg.active_runners) > 0 {
 			// Begin with the one we added last.
 			runner := lbg.active_runners[len(lbg.active_runners)-1]
 			logrus.Infof("Marking runner %v at %v for draindown", runner.id, runner.address)
