@@ -220,10 +220,7 @@ func TestApiNode(t *testing.T) {
 	ds, logDB, close := prepareDB(ctx, t)
 	defer close()
 
-	rnr, rnrcancel := testRunner(t, ds)
-	defer rnrcancel()
-
-	srv := testServer(ds, &mqs.Mock{}, logDB, rnr, ServerTypeAPI)
+	srv := testServer(ds, &mqs.Mock{}, logDB, nil, ServerTypeAPI)
 
 	for _, test := range []struct {
 		name              string

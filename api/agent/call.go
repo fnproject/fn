@@ -168,6 +168,22 @@ func FromModel(mCall *models.Call) CallOpt {
 	}
 }
 
+func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
+	return func(a *agent, c *call) error {
+		c.Call = mCall
+
+		req, err := http.NewRequest(c.Method, c.URL, in)
+		if err != nil {
+			return err
+		}
+		req.Header = c.Headers
+
+		c.req = req
+		// TODO anything else really?
+		return nil
+	}
+}
+
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
 	return func(a *agent, c *call) error {
@@ -179,6 +195,13 @@ func WithWriter(w io.Writer) CallOpt {
 func WithContext(ctx context.Context) CallOpt {
 	return func(a *agent, c *call) error {
 		c.req = c.req.WithContext(ctx)
+		return nil
+	}
+}
+
+func WithoutPreemptiveCapacityCheck() CallOpt {
+	return func(a *agent, c *call) error {
+		c.disablePreemptiveCapacityCheck = true
 		return nil
 	}
 }
@@ -201,9 +224,11 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-		// if we're not going to be able to run this call on this machine, bail here.
-		return nil, models.ErrCallTimeoutServerBusy
+	if !c.disablePreemptiveCapacityCheck {
+		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+			// if we're not going to be able to run this call on this machine, bail here.
+			return nil, models.ErrCallTimeoutServerBusy
+		}
 	}
 
 	c.da = a.da
@@ -245,6 +270,8 @@ type call struct {
 	execDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
+	// This can be used to disable the preemptive capacity check in GetCall
+	disablePreemptiveCapacityCheck bool
 }
 
 func (c *call) Model() *models.Call { return c.Call }

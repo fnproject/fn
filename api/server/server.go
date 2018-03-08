@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -34,22 +37,31 @@ import (
 )
 
 const (
-	EnvLogLevel  = "FN_LOG_LEVEL"
-	EnvLogDest   = "FN_LOG_DEST"
-	EnvLogPrefix = "FN_LOG_PREFIX"
-	EnvMQURL     = "FN_MQ_URL"
-	EnvDBURL     = "FN_DB_URL"
-	EnvLOGDBURL  = "FN_LOGSTORE_URL"
-	EnvRunnerURL = "FN_RUNNER_API_URL"
-	EnvNodeType  = "FN_NODE_TYPE"
-	EnvPort      = "FN_PORT" // be careful, Gin expects this variable to be "port"
-	EnvAPICORS   = "FN_API_CORS"
-	EnvZipkinURL = "FN_ZIPKIN_URL"
+	EnvLogLevel        = "FN_LOG_LEVEL"
+	EnvLogDest         = "FN_LOG_DEST"
+	EnvLogPrefix       = "FN_LOG_PREFIX"
+	EnvMQURL           = "FN_MQ_URL"
+	EnvDBURL           = "FN_DB_URL"
+	EnvLOGDBURL        = "FN_LOGSTORE_URL"
+	EnvRunnerURL       = "FN_RUNNER_API_URL"
+	EnvNPMAddress      = "FN_NPM_ADDRESS"
+	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
+	EnvLBPlacementAlg  = "FN_PLACER"
+	EnvNodeType        = "FN_NODE_TYPE"
+	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
+	EnvGRPCPort        = "FN_GRPC_PORT"
+	EnvAPICORS         = "FN_API_CORS"
+	EnvZipkinURL       = "FN_ZIPKIN_URL"
+	// Certificates to communicate with other FN nodes
+	EnvCert     = "FN_NODE_CERT"
+	EnvCertKey  = "FN_NODE_CERT_KEY"
+	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
 
 	// Defaults
 	DefaultLogLevel = "info"
 	DefaultLogDest  = "stderr"
 	DefaultPort     = 8080
+	DefaultGRPCPort = 9190
 )
 
 type ServerNodeType int32
@@ -57,7 +69,9 @@ type ServerNodeType int32
 const (
 	ServerTypeFull ServerNodeType = iota
 	ServerTypeAPI
+	ServerTypeLB
 	ServerTypeRunner
+	ServerTypePureRunner
 )
 
 func (s ServerNodeType) String() string {
@@ -66,8 +80,12 @@ func (s ServerNodeType) String() string {
 		return "full"
 	case ServerTypeAPI:
 		return "api"
+	case ServerTypeLB:
+		return "lb"
 	case ServerTypeRunner:
 		return "runner"
+	case ServerTypePureRunner:
+		return "pure-runner"
 	}
 }
 
@@ -75,11 +93,16 @@ type Server struct {
 	// TODO this one maybe we have `AddRoute` in extensions?
 	Router *gin.Engine
 
+	webListenPort   int
+	grpcListenPort  int
 	agent           agent.Agent
 	datastore       models.Datastore
 	mq              models.MessageQueue
 	logstore        models.LogStore
 	nodeType        ServerNodeType
+	cert            string
+	certKey         string
+	certAuthority   string
 	appListeners    *appListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
@@ -90,8 +113,12 @@ func nodeTypeFromString(value string) ServerNodeType {
 	switch value {
 	case "api":
 		return ServerTypeAPI
+	case "lb":
+		return ServerTypeLB
 	case "runner":
 		return ServerTypeRunner
+	case "pure-runner":
+		return ServerTypePureRunner
 	default:
 		return ServerTypeFull
 	}
@@ -102,11 +129,17 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	curDir := pwd()
 	var defaultDB, defaultMQ string
 	nodeType := nodeTypeFromString(getEnv(EnvNodeType, "")) // default to full
-	if nodeType != ServerTypeRunner {
+	switch nodeType {
+	case ServerTypeLB: // nothing
+	case ServerTypeRunner: // nothing
+	case ServerTypePureRunner: // nothing
+	default:
 		// only want to activate these for full and api nodes
 		defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 		defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	}
+	opts = append(opts, WithWebPort(getEnvInt(EnvPort, DefaultPort)))
+	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
 	opts = append(opts, WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)))
 	opts = append(opts, WithLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, "")))
 	opts = append(opts, WithTracer(getEnv(EnvZipkinURL, ""))) // do this early on, so below can use these
@@ -115,6 +148,17 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
 	opts = append(opts, WithRunnerURL(getEnv(EnvRunnerURL, "")))
 	opts = append(opts, WithType(nodeType))
+	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
+	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
+	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
+
+	// Agent handling depends on node type and several other options so it must be the last processed option.
+	// Also we only need to create an agent if this is not an API node.
+	if nodeType != ServerTypeAPI {
+		opts = append(opts, WithAgentFromEnv())
+	} else {
+		opts = append(opts, WithLogstoreFromDatastore())
+	}
 	return New(ctx, opts...)
 }
 
@@ -125,6 +169,20 @@ func pwd() string {
 	}
 	// Replace forward slashes in case this is windows, URL parser errors
 	return strings.Replace(cwd, "\\", "/", -1)
+}
+
+func WithWebPort(port int) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.webListenPort = port
+		return nil
+	}
+}
+
+func WithGRPCPort(port int) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.grpcListenPort = port
+		return nil
+	}
 }
 
 func WithLogLevel(ll string) ServerOption {
@@ -200,6 +258,57 @@ func WithType(t ServerNodeType) ServerOption {
 	}
 }
 
+func WithNodeCert(cert string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if cert != "" {
+			abscert, err := filepath.Abs(cert)
+			if err != nil {
+				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert file", cert)
+			}
+			_, err = os.Stat(abscert)
+			if err != nil {
+				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert file", abscert)
+			}
+			s.cert = abscert
+		}
+		return nil
+	}
+}
+
+func WithNodeCertKey(key string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if key != "" {
+			abskey, err := filepath.Abs(key)
+			if err != nil {
+				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert key file", key)
+			}
+			_, err = os.Stat(abskey)
+			if err != nil {
+				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert key file", abskey)
+			}
+			s.certKey = abskey
+		}
+		return nil
+	}
+}
+
+func WithNodeCertAuthority(ca string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if ca != "" {
+			absca, err := filepath.Abs(ca)
+			if err != nil {
+				return fmt.Errorf("Unable to resolve %v: please specify a valid and readable cert authority file", ca)
+			}
+			_, err = os.Stat(absca)
+			if err != nil {
+				return fmt.Errorf("Cannot stat %v: please specify a valid and readable cert authority file", absca)
+			}
+			s.certAuthority = absca
+		}
+		return nil
+	}
+}
+
 func WithDatastore(ds models.Datastore) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.datastore = ds
@@ -228,6 +337,120 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
+func WithLogstoreFromDatastore() ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		if s.datastore == nil {
+			return errors.New("Need a datastore in order to use it as a logstore")
+		}
+		if s.logstore == nil {
+			s.logstore = s.datastore
+		}
+		return nil
+	}
+}
+
+// WithFullAgent is a shorthand for WithAgent(... create a full agent here ...)
+func WithFullAgent() ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.nodeType = ServerTypeFull
+		if s.logstore == nil {
+			s.logstore = s.datastore
+		}
+		if s.datastore == nil || s.logstore == nil || s.mq == nil {
+			return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+		}
+		s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		return nil
+	}
+}
+
+// WithAgentFromEnv must be provided as the last server option because it relies
+// on all other options being set first.
+func WithAgentFromEnv() ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		switch s.nodeType {
+		case ServerTypeAPI:
+			return errors.New("Should not initialize an agent for an Fn API node.")
+		case ServerTypeRunner:
+			runnerURL := getEnv(EnvRunnerURL, "")
+			if runnerURL == "" {
+				return errors.New("No FN_RUNNER_API_URL provided for an Fn Runner node.")
+			}
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(cl))
+		case ServerTypePureRunner:
+			if s.datastore != nil {
+				return errors.New("Pure runner nodes must not be configured with a datastore (FN_DB_URL).")
+			}
+			if s.mq != nil {
+				return errors.New("Pure runner nodes must not be configured with a message queue (FN_MQ_URL).")
+			}
+			ds, err := hybrid.NewNopDataStore()
+			if err != nil {
+				return err
+			}
+			s.agent = agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
+		case ServerTypeLB:
+			s.nodeType = ServerTypeLB
+			runnerURL := getEnv(EnvRunnerURL, "")
+			if runnerURL == "" {
+				return errors.New("No FN_RUNNER_API_URL provided for an Fn NuLB node.")
+			}
+			if s.datastore != nil {
+				return errors.New("NuLB nodes must not be configured with a datastore (FN_DB_URL).")
+			}
+			if s.mq != nil {
+				return errors.New("NuLB nodes must not be configured with a message queue (FN_MQ_URL).")
+			}
+
+			cl, err := hybrid.NewClient(runnerURL)
+			if err != nil {
+				return err
+			}
+			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
+
+			npmAddress := getEnv(EnvNPMAddress, "")
+			runnerAddresses := getEnv(EnvRunnerAddresses, "")
+
+			var nodePool agent.NodePool
+			if npmAddress != "" {
+				// TODO refactor DefaultgRPCNodePool as an extension
+				nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
+			} else if runnerAddresses != "" {
+				nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
+			} else {
+				return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
+			}
+
+			// Select the placement algorithm
+			var placer agent.Placer
+			switch getEnv(EnvLBPlacementAlg, "") {
+			case "ch":
+				placer = agent.NewCHPlacer()
+			default:
+				placer = agent.NewNaivePlacer()
+			}
+			s.agent, err = agent.NewLBAgent(delegatedAgent, nodePool, placer)
+			if err != nil {
+				return errors.New("LBAgent creation failed")
+			}
+		default:
+			s.nodeType = ServerTypeFull
+			if s.logstore == nil { // TODO seems weird?
+				s.logstore = s.datastore
+			}
+			if s.datastore == nil || s.logstore == nil || s.mq == nil {
+				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
+			}
+			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+		}
+		return nil
+	}
+}
+
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
@@ -237,6 +460,9 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	log := common.Logger(ctx)
 	s := &Server{
 		Router: gin.New(),
+		// Add default ports
+		webListenPort:  DefaultPort,
+		grpcListenPort: DefaultGRPCPort,
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
 
@@ -250,33 +476,15 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		}
 	}
 
-	if s.logstore == nil { // TODO seems weird?
-		s.logstore = s.datastore
-	}
-
-	// TODO we maybe should use the agent.DirectDataAccess in the /runner endpoints server side?
-
+	// Check that WithAgent options have been processed correctly.
 	switch s.nodeType {
 	case ServerTypeAPI:
 		if s.agent != nil {
-			log.Info("shutting down agent configured for api node")
-			s.agent.Close()
-		}
-		s.agent = nil
-	case ServerTypeRunner:
-		if s.agent == nil {
-			log.Fatal("No agent started for a runner node, add FN_RUNNER_API_URL to configuration.")
+			log.Fatal("Incorrect configuration, API nodes must not have an agent initialized.")
 		}
 	default:
-		s.nodeType = ServerTypeFull
-		if s.datastore == nil || s.logstore == nil || s.mq == nil {
-			log.Fatal("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
-		}
-
-		// TODO force caller to use WithAgent option? at this point we need to use the ds/ls/mq configured after all opts are run.
 		if s.agent == nil {
-			// TODO for tests we don't want cache, really, if we force WithAgent this can be fixed. cache needs to be moved anyway so that runner nodes can use it...
-			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			log.Fatal("Incorrect configuration, non-API nodes must have an agent initialized.")
 		}
 	}
 
@@ -377,7 +585,7 @@ func (s *Server) Start(ctx context.Context) {
 func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	// By default it serves on :8080 unless a
 	// FN_PORT environment variable was defined.
-	listen := fmt.Sprintf(":%d", getEnvInt(EnvPort, DefaultPort))
+	listen := fmt.Sprintf(":%d", s.webListenPort)
 
 	const runHeader = `
         ______
@@ -391,6 +599,24 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	logrus.WithField("type", s.nodeType).Infof("Fn serving on `%v`", listen)
 
 	installChildReaper()
+
+	if s.nodeType == ServerTypePureRunner {
+		// Run grpc too
+		grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
+		pr, err := agent.CreatePureRunner(grpcAddr, s.agent, s.cert, s.certKey, s.certAuthority)
+		if err != nil {
+			logrus.WithError(err).Error("Pure runner server creation error")
+			cancel()
+		} else {
+			go func() {
+				err := pr.Start()
+				if err != nil {
+					logrus.WithError(err).Error("fail to start pure runner")
+					cancel()
+				}
+			}()
+		}
+	}
 
 	server := http.Server{
 		Addr:    listen,
@@ -418,7 +644,10 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	}
 
 	if s.agent != nil {
-		s.agent.Close() // after we stop taking requests, wait for all tasks to finish
+		err := s.agent.Close() // after we stop taking requests, wait for all tasks to finish
+		if err != nil {
+			logrus.WithError(err).Error("Fail to close the agent")
+		}
 	}
 }
 
@@ -437,49 +666,52 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 	profilerSetup(engine, "/debug")
 
-	if s.nodeType != ServerTypeRunner {
-		v1 := engine.Group("/v1")
-		v1.Use(setAppNameInCtx)
-		v1.Use(s.apiMiddlewareWrapper())
-		v1.GET("/apps", s.handleAppList)
-		v1.POST("/apps", s.handleAppCreate)
+	// Pure runners don't have any route, they have grpc
+	if s.nodeType != ServerTypePureRunner {
+		if s.nodeType != ServerTypeRunner {
+			v1 := engine.Group("/v1")
+			v1.Use(setAppNameInCtx)
+			v1.Use(s.apiMiddlewareWrapper())
+			v1.GET("/apps", s.handleAppList)
+			v1.POST("/apps", s.handleAppCreate)
 
-		{
-			apps := v1.Group("/apps/:app")
-			apps.Use(appNameCheck)
+			{
+				apps := v1.Group("/apps/:app")
+				apps.Use(appNameCheck)
 
-			apps.GET("", s.handleAppGet)
-			apps.PATCH("", s.handleAppUpdate)
-			apps.DELETE("", s.handleAppDelete)
+				apps.GET("", s.handleAppGet)
+				apps.PATCH("", s.handleAppUpdate)
+				apps.DELETE("", s.handleAppDelete)
 
-			apps.GET("/routes", s.handleRouteList)
-			apps.POST("/routes", s.handleRoutesPostPutPatch)
-			apps.GET("/routes/:route", s.handleRouteGet)
-			apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
-			apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
-			apps.DELETE("/routes/*route", s.handleRouteDelete)
+				apps.GET("/routes", s.handleRouteList)
+				apps.POST("/routes", s.handleRoutesPostPutPatch)
+				apps.GET("/routes/:route", s.handleRouteGet)
+				apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
+				apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
+				apps.DELETE("/routes/*route", s.handleRouteDelete)
 
-			apps.GET("/calls", s.handleCallList)
+				apps.GET("/calls", s.handleCallList)
 
-			apps.GET("/calls/:call", s.handleCallGet)
-			apps.GET("/calls/:call/log", s.handleCallLogGet)
+				apps.GET("/calls/:call", s.handleCallGet)
+				apps.GET("/calls/:call/log", s.handleCallLogGet)
+			}
+
+			{
+				runner := v1.Group("/runner")
+				runner.PUT("/async", s.handleRunnerEnqueue)
+				runner.GET("/async", s.handleRunnerDequeue)
+
+				runner.POST("/start", s.handleRunnerStart)
+				runner.POST("/finish", s.handleRunnerFinish)
+			}
 		}
 
-		{
-			runner := v1.Group("/runner")
-			runner.PUT("/async", s.handleRunnerEnqueue)
-			runner.GET("/async", s.handleRunnerDequeue)
-
-			runner.POST("/start", s.handleRunnerStart)
-			runner.POST("/finish", s.handleRunnerFinish)
+		if s.nodeType != ServerTypeAPI {
+			runner := engine.Group("/r")
+			runner.Use(appNameCheck)
+			runner.Any("/:app", s.handleFunctionCall)
+			runner.Any("/:app/*route", s.handleFunctionCall)
 		}
-	}
-
-	if s.nodeType != ServerTypeAPI {
-		runner := engine.Group("/r")
-		runner.Use(appNameCheck)
-		runner.Any("/:app", s.handleFunctionCall)
-		runner.Any("/:app/*route", s.handleFunctionCall)
 	}
 
 	engine.NoRoute(func(c *gin.Context) {

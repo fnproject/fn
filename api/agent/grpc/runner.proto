@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+// Request to allocate a slot for a call
+message TryCall {
+    string models_call_json = 1;
+}
+
+// Call has been accepted and a slot allocated, or it's been rejected
+message CallAcknowledged {
+    bool committed = 1;
+    string details = 2;
+    string slot_allocation_latency = 3;
+}
+
+// Data sent C2S and S2C - as soon as the runner sees the first of these it
+// will start running. If empty content, there must be one of these with eof.
+// The runner will send these for the body of the response, AFTER it has sent
+// a CallEnding message.
+message DataFrame {
+    bytes data = 1;
+    bool eof = 2;
+}
+
+message HttpHeader {
+    string key = 1;
+    string value = 2;
+}
+
+message HttpRespMeta {
+    int32 status_code = 1;
+    repeated HttpHeader headers = 2;
+}
+
+// Call has started to finish - data might not be here yet and it will be sent
+// as DataFrames.
+message CallResultStart {
+    oneof meta {
+        HttpRespMeta http = 100;
+    }
+}
+
+// Call has really finished, it might have completed or crashed
+message CallFinished {
+    bool success = 1;
+    string details = 2;
+}
+
+
+message ClientMsg {
+    oneof body {
+        TryCall try = 1;
+        DataFrame data = 2;
+    }
+}
+
+message RunnerMsg {
+    oneof body {
+        CallAcknowledged acknowledged = 1;
+        CallResultStart result_start = 2;
+        DataFrame data = 3;
+        CallFinished finished = 4;
+    }
+}
+
+message RunnerStatus {
+    int32 active = 2;  // Number of currently inflight responses
+}
+
+service RunnerProtocol {
+    rpc Engage (stream ClientMsg) returns (stream RunnerMsg);
+
+    // Rather than rely on Prometheus for this, expose status that's specific to the runner lifecycle through this.
+    rpc Status(google.protobuf.Empty) returns (RunnerStatus);
+}

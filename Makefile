@@ -50,10 +50,15 @@ test-api: test-basic
 	./api_test.sh mysql 4 0
 	./api_test.sh postgres 4 0
 
+test-system: test-basic
+	./system_test.sh sqlite3 4
+	./system_test.sh mysql 4 0
+	./system_test.sh postgres 4 0
+
 build-static:
 	go install
 
-full-test: build-static test test-api
+full-test: build-static test test-api test-system
 
 img-hello:
 	docker pull fnproject/hello
@@ -77,6 +82,12 @@ test-build-arm:
 	GOARCH=arm GOARM=6 $(MAKE) build
 	GOARCH=arm GOARM=7 $(MAKE) build
 	GOARCH=arm64 $(MAKE) build
+
+protos: api/agent/grpc/runner.pb.go poolmanager/grpc/poolmanager.pb.go
+
+%.pb.go: %.proto
+	protoc  --proto_path=$(@D) --proto_path=./vendor \
+    --go_out=plugins=grpc:$(@D) $<
 
 run: build
 	GIN_MODE=debug ./fnserver

@@ -111,6 +111,13 @@ type agent struct {
 }
 
 func New(da DataAccess) Agent {
+	a := NewSyncOnly(da).(*agent)
+	a.wg.Add(1)
+	go a.asyncDequeue() // safe shutdown can nanny this fine
+	return a
+}
+
+func NewSyncOnly(da DataAccess) Agent {
 
 	cfg, err := NewAgentConfig()
 	if err != nil {
@@ -133,9 +140,6 @@ func New(da DataAccess) Agent {
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
-	a.wg.Add(1)
-	go a.asyncDequeue() // safe shutdown can nanny this fine
-
 	return a
 }
 
@@ -199,7 +203,6 @@ func (a *agent) endStateTrackers(ctx context.Context, call *call) {
 func (a *agent) submit(ctx context.Context, call *call) error {
 	statsEnqueue(ctx)
 
-	// TODO can we replace state trackers with metrics?
 	a.startStateTrackers(ctx, call)
 	defer a.endStateTrackers(ctx, call)
 
@@ -208,7 +211,6 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 		handleStatsDequeue(ctx, err)
 		return transformTimeout(err, true)
 	}
-
 	defer slot.Close(ctx) // notify our slot is free once we're done
 
 	err = call.Start(ctx)
