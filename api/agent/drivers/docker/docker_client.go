@@ -290,25 +290,10 @@ func (d *dockerWrap) Info(ctx context.Context) (info *docker.DockerInfo, err err
 	return d.docker.Info()
 }
 
-func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (w docker.CloseWaiter, err error) {
+func (d *dockerWrap) AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error) {
 	ctx, span := trace.StartSpan(ctx, "docker_attach_container")
 	defer span.End()
-
-	// WARNING: fragile logic below, especially if Success channel is set in opts.
-	// Current impl in d.docker seems safe to repeat the attach even with
-	// Success channel set.
-	logger := common.Logger(ctx).WithField("docker_cmd", "AttachContainer")
-	ctx, cancel := context.WithTimeout(ctx, retryTimeout)
-	defer cancel()
-	err = d.retry(ctx, logger, func() error {
-		w, err = d.docker.AttachToContainerNonBlocking(opts)
-		if err != nil {
-			// always retry if attach errors, task is running, we want logs!
-			err = temp(err)
-		}
-		return err
-	})
-	return w, err
+	return d.docker.AttachToContainerNonBlocking(opts)
 }
 
 func (d *dockerWrap) WaitContainerWithContext(id string, ctx context.Context) (code int, err error) {
