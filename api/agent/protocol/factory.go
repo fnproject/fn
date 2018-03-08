@@ -13,6 +13,8 @@ import (
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
 
+var ErrExcessData = errors.New("Excess data in stream")
+
 type errorProto struct {
 	error
 }

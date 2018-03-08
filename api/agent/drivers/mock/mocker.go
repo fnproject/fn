@@ -52,6 +52,6 @@ type runResult struct {
 	start  time.Time
 }
 
-func (r *runResult) Wait(context.Context) (drivers.RunResult, error) { return r, nil }
-func (r *runResult) Status() string                                  { return r.status }
-func (r *runResult) Error() error                                    { return r.err }
+func (r *runResult) Wait(context.Context) drivers.RunResult { return r }
+func (r *runResult) Status() string                         { return r.status }
+func (r *runResult) Error() error                           { return r.err }
