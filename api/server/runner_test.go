@@ -436,14 +436,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 			}
 		}
 
-		/* flaky test - waiting to be fixed by issue #796
 		if test.expectedLogsSubStr != nil {
 			callID := rec.Header().Get("Fn_call_id")
 			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
 				isFailure = true
 			}
 		}
-		*/
 	}
 }
 
