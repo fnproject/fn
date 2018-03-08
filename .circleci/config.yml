@@ -9,6 +9,7 @@ jobs:
       - GOVERSION=1.9.1
       - OS=linux
       - ARCH=amd64
+      - FN_LOG_LEVEL=debug
     steps:
       - checkout
       # install Go
