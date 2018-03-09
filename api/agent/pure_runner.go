@@ -544,8 +544,6 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 	}), nil
 }
 
-const megabyte uint64 = 1024 * 1024
-
 func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
 	var srv *grpc.Server
 	if creds != nil {
@@ -565,8 +563,10 @@ func createPureRunner(addr string, a Agent, creds credentials.TransportCredentia
 	return pr, nil
 }
 
+const megabyte uint64 = 1024 * 1024
+
 func getAvailableMemoryUnits() uint64 {
 	// To reuse code - but it's a bit of a hack. TODO: refactor the OS-specific get memory funcs out of that.
 	throwawayRT := NewResourceTracker().(*resourceTracker)
-	return throwawayRT.ramAsyncTotal
+	return throwawayRT.ramAsyncTotal / megabyte
 }
