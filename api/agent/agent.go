@@ -794,6 +794,10 @@ func NewHotContainer(call *call, isBlockIdleIO bool) (*container, func()) {
 
 	// when not processing a request, do we block IO?
 	if !isBlockIdleIO {
+		// IMPORTANT: we are not operating on a TTY allocated container. This means, stderr and stdout are multiplexed
+		// from the same stream internally via docker using a multiplexing protocol. Therefore, stderr/stdout *BOTH*
+		// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
+		// reading from the other one without risking head-of-line blocking.
 		stderr.Swap(newLineWriter(&logWriter{
 			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))

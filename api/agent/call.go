@@ -240,7 +240,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 	// setup stderr logger separate (don't inherit ctx vars)
 	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": c.AppName, "path": c.Path, "image": c.Image, "call_id": c.ID})
-	c.stderr = setupLogger(logger)
+	c.stderr = setupLogger(logger, a.cfg.MaxLogSize)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -18,7 +17,7 @@ var (
 // setupLogger returns an io.ReadWriteCloser which may write to multiple io.Writer's,
 // and may be read from the returned io.Reader (singular). After Close is called,
 // the Reader is not safe to read from, nor the Writer to write to.
-func setupLogger(logger logrus.FieldLogger) io.ReadWriteCloser {
+func setupLogger(logger logrus.FieldLogger, maxSize uint64) io.ReadWriteCloser {
 	lbuf := bufPool.Get().(*bytes.Buffer)
 	dbuf := logPool.Get().(*bytes.Buffer)
 
@@ -34,10 +33,8 @@ func setupLogger(logger logrus.FieldLogger) io.ReadWriteCloser {
 	// we don't need to limit the log writer, but we do need it to dispense lines
 	linew := newLineWriterWithBuffer(lbuf, &logWriter{logger})
 
-	const MB = 1 * 1024 * 1024 // pick a number any number.. TODO configurable ?
-
 	// we don't need to log per line to db, but we do need to limit it
-	limitw := &nopCloser{newLimitWriter(MB, dbuf)}
+	limitw := &nopCloser{newLimitWriter(int(maxSize), dbuf)}
 
 	// TODO / NOTE: we want linew to be first because limitw may error if limit
 	// is reached but we still want to log. we should probably ignore hitting the
@@ -170,28 +167,38 @@ func (li *lineWriter) Close() error {
 
 // io.Writer that allows limiting bytes written to w
 // TODO change to use clamp writer, this is dupe code
-type limitWriter struct {
+type limitDiscardWriter struct {
 	n, max int
 	io.Writer
 }
 
 func newLimitWriter(max int, w io.Writer) io.Writer {
-	return &limitWriter{max: max, Writer: w}
+	return &limitDiscardWriter{max: max, Writer: w}
 }
 
-func (l *limitWriter) Write(b []byte) (int, error) {
+func (l *limitDiscardWriter) Write(b []byte) (int, error) {
+	inpLen := len(b)
 	if l.n >= l.max {
-		return 0, errors.New("max log size exceeded, truncating log")
+		return inpLen, nil
 	}
-	if l.n+len(b) >= l.max {
+
+	if l.n+inpLen >= l.max {
 		// cut off to prevent gigantic line attack
 		b = b[:l.max-l.n]
 	}
+
 	n, err := l.Writer.Write(b)
 	l.n += n
+
 	if l.n >= l.max {
 		// write in truncation message to log once
 		l.Writer.Write([]byte(fmt.Sprintf("\n-----max log size %d bytes exceeded, truncating log-----\n", l.max)))
+	} else if n != len(b) {
+		// Is this truly a partial write? We'll be honest if that's the case.
+		return n, err
 	}
-	return n, err
+
+	// yes, we lie... this is to prevent callers to blow up, we always pretend
+	// that we were able to write the entire buffer.
+	return inpLen, err
 }

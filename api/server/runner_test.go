@@ -153,8 +153,10 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	// let's make freezer immediate, so that we don't deal with
 	// more timing related issues below. Slightly gains us a bit more
 	// determinism.
-	tweaker := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
-	defer tweaker()
+	tweaker1 := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
+	tweaker2 := envTweaker("FN_MAX_LOG_SIZE", "5")
+	defer tweaker1()
+	defer tweaker2()
 
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
 	// for figuring out why things failed.
@@ -186,8 +188,6 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	immediateGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 0}`
 	delayedGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 1000}`
 	ok := `{"isDebug": true}`
-
-	//multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
 
 	containerIds := make([]string, 0)
 
@@ -275,7 +275,6 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		t.Logf("Test %d: dockerId: %v", i, containerIds[i])
 		time.Sleep(test.sleepAmount)
 	}
-
 	jsonIds := containerIds[0:4]
 
 	// now cross check JSON container ids:
