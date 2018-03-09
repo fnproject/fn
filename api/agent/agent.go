@@ -492,11 +492,12 @@ func (s *coldSlot) Close(ctx context.Context) error {
 
 // implements Slot
 type hotSlot struct {
-	done        chan struct{} // signal we are done with slot
-	errC        <-chan error  // container error
-	container   *container    // TODO mask this
-	maxRespSize uint64        // TODO boo.
-	fatalErr    error
+	done          chan struct{} // signal we are done with slot
+	errC          <-chan error  // container error
+	container     *container    // TODO mask this
+	maxRespSize   uint64        // TODO boo.
+	fatalErr      error
+	containerSpan trace.SpanContext
 }
 
 func (s *hotSlot) Close(ctx context.Context) error {
@@ -522,6 +523,13 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
+
+	// link the container span to ours for additional context (start/freeze/etc.)
+	span.AddLink(trace.Link{
+		TraceID: s.containerSpan.TraceID,
+		SpanID:  s.containerSpan.SpanID,
+		Type:    trace.LinkTypeChild,
+	})
 
 	// swap in fresh pipes & stat accumulator to not interlace with other calls that used this slot [and timed out]
 	stdinRead, stdinWrite := io.Pipe()
@@ -663,7 +671,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{done: make(chan struct{}), errC: errC, container: container, maxRespSize: a.cfg.MaxResponseSize}
+			slot := &hotSlot{
+				done:          make(chan struct{}),
+				errC:          errC,
+				container:     container,
+				maxRespSize:   a.cfg.MaxResponseSize,
+				containerSpan: trace.FromContext(ctx).SpanContext(),
+			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
