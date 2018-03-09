@@ -152,20 +152,15 @@ func (h *JSONProtocol) isExcessData(err error, decoder *json.Decoder) error {
 		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
 		reader, ok := decoder.Buffered().(*bytes.Reader)
 		if ok && reader.Len() > 0 {
-
-			buf := bufPool.Get().(*bytes.Buffer)
-			buf.Reset()
-			defer bufPool.Put(buf)
-
 			// Let's check if extra data is whitespace, which is valid/ignored in json
-			io.CopyN(buf, reader, int64(reader.Len()))
-
-			isNonSpace := func(c rune) bool {
-				return !unicode.IsSpace(c)
-			}
-
-			if bytes.IndexFunc(buf.Bytes(), isNonSpace) != -1 {
-				return ErrExcessData
+			for {
+				r, _, err := reader.ReadRune()
+				if err == io.EOF {
+					break
+				}
+				if !unicode.IsSpace(r) {
+					return ErrExcessData
+				}
 			}
 		}
 	}
