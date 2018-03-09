@@ -121,9 +121,9 @@ func NewSyncOnly(da DataAccess) Agent {
 
 	cfg, err := NewAgentConfig()
 	if err != nil {
-		logrus.WithField("cfg", cfg).WithError(err).Fatal("error in agent config")
+		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
 	}
-	logrus.WithField("cfg", cfg).Info("agent starting")
+	logrus.Infof("agent starting cfg=%+v", cfg)
 
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
