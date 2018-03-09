@@ -392,7 +392,14 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			s.agent = agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
+			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
+			delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
+			_, cancel := context.WithCancel(ctx)
+			prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			if err != nil {
+				return err
+			}
+			s.agent = prAgent
 		case ServerTypeLB:
 			s.nodeType = ServerTypeLB
 			runnerURL := getEnv(EnvRunnerURL, "")
@@ -599,24 +606,6 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	logrus.WithField("type", s.nodeType).Infof("Fn serving on `%v`", listen)
 
 	installChildReaper()
-
-	if s.nodeType == ServerTypePureRunner {
-		// Run grpc too
-		grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
-		pr, err := agent.CreatePureRunner(grpcAddr, s.agent, s.cert, s.certKey, s.certAuthority)
-		if err != nil {
-			logrus.WithError(err).Error("Pure runner server creation error")
-			cancel()
-		} else {
-			go func() {
-				err := pr.Start()
-				if err != nil {
-					logrus.WithError(err).Error("fail to start pure runner")
-					cancel()
-				}
-			}()
-		}
-	}
 
 	server := http.Server{
 		Addr:    listen,
