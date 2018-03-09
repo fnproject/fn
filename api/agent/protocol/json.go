@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"unicode"
 
 	"go.opencensus.io/trace"
 
@@ -149,9 +150,18 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 func (h *JSONProtocol) isExcessData(err error, decoder *json.Decoder) error {
 	if err == nil {
 		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
-		tmp, ok := decoder.Buffered().(*bytes.Reader)
-		if ok && tmp.Len() > 0 {
-			return ErrExcessData
+		reader, ok := decoder.Buffered().(*bytes.Reader)
+		if ok && reader.Len() > 0 {
+			// Let's check if extra data is whitespace, which is valid/ignored in json
+			for {
+				r, _, err := reader.ReadRune()
+				if err == io.EOF {
+					break
+				}
+				if !unicode.IsSpace(r) {
+					return ErrExcessData
+				}
+			}
 		}
 	}
 	return err
