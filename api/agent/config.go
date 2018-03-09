@@ -2,6 +2,7 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -13,6 +14,7 @@ type AgentConfig struct {
 	FreezeIdleMsecs  time.Duration `json:"freeze_idle_msecs"`
 	EjectIdleMsecs   time.Duration `json:"eject_idle_msecs"`
 	MaxResponseSize  uint64        `json:"max_response_size"`
+	MaxLogSize       uint64        `json:"max_log_size"`
 }
 
 var MaxDisabledMsecs = time.Duration(math.MaxInt64)
@@ -23,11 +25,23 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	cfg := &AgentConfig{
 		MinDockerVersion: "17.06.0-ce",
+		MaxLogSize:       1 * 1024 * 1024,
 	}
 
 	cfg.FreezeIdleMsecs, err = getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
 	if err != nil {
 		return cfg, errors.New("error initializing freeze idle delay")
+	}
+
+	if tmp := os.Getenv("FN_MAX_LOG_SIZE"); tmp != "" {
+		cfg.MaxLogSize, err = strconv.ParseUint(tmp, 10, 64)
+		if err != nil {
+			return cfg, errors.New("error initializing max log size")
+		}
+		// for safety during uint64 to int conversions in Write()/Read(), etc.
+		if cfg.MaxLogSize > math.MaxInt32 {
+			return cfg, fmt.Errorf("error invalid max log size %v > %v", cfg.MaxLogSize, math.MaxInt32)
+		}
 	}
 
 	cfg.EjectIdleMsecs, err = getEnvMsecs("FN_EJECT_IDLE_MSECS", 1000*time.Millisecond)
@@ -39,13 +53,10 @@ func NewAgentConfig() (*AgentConfig, error) {
 		return cfg, errors.New("error eject idle delay cannot be zero")
 	}
 
-	if size := os.Getenv("FN_MAX_RESPONSE_SIZE"); size != "" {
-		cfg.MaxResponseSize, err = strconv.ParseUint(size, 10, 64)
+	if tmp := os.Getenv("FN_MAX_RESPONSE_SIZE"); tmp != "" {
+		cfg.MaxResponseSize, err = strconv.ParseUint(tmp, 10, 64)
 		if err != nil {
 			return cfg, errors.New("error initializing response buffer size")
-		}
-		if cfg.MaxResponseSize < 0 {
-			return cfg, errors.New("error invalid response buffer size")
 		}
 	}
 

@@ -145,6 +145,8 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			Image:        task.Image(),
 			Volumes:      map[string]struct{}{},
 			OpenStdin:    true,
+			AttachStdout: true,
+			AttachStderr: true,
 			AttachStdin:  true,
 			StdinOnce:    true,
 		},
