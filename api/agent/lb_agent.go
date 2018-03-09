@@ -30,8 +30,6 @@ func RequestReader(c *Call) (io.ReadCloser, error) {
 		return nil, errors.New("Call doesn't contain a request")
 	}
 
-	logrus.Info(cc.req)
-
 	return cc.req.Body, nil
 }
 
