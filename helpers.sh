@@ -31,7 +31,7 @@ function wait_for_db {
   PORT="$2"
   TIMEOUT="$3"
   for i in `seq ${TIMEOUT}` ; do
-    ! nc -z "${HOST}" "${PORT}" > /dev/null 2>&1
+    ! nc -w 1 -z "${HOST}" "${PORT}" > /dev/null 2>&1
     result=$?
     if [ $result -ne 0 ] ; then
       echo "DB listening on ${HOST}:${PORT}"
