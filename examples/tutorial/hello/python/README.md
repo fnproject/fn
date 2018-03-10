@@ -6,31 +6,38 @@ This example will show you how to test and deploy Python code to Fn. It will als
 
 ```sh
 # Initialize your function creating a func.yaml file
-fn init --name hello-python
+fn init --runtime python3.6 hello-python
+
+# Enter the directory fn created.
+cd hello-python
 
 # Test your function. 
 # This will run inside a container exactly how it will on the server. It will also install and vendor dependencies from Gemfile
 fn run
 
-# Now try with an input
-cat sample.payload.json | fn run
+# Now try with input
+echo '{ "name" : "Johnny" }' | fn run
+
+# Run the sample tests defined in test.json
+fn test
 
 # Deploy your functions to the Fn server (default localhost:8080)
 # This will create a route to your function as well
-fn deploy --app myapp
+# Be sure you have launched fn server already using "fn start"
+fn deploy --app myapp --local
 ```
 ### Now call your function:
 
 ```sh
-curl http://localhost:8080/r/myapp/python
+curl http://localhost:8080/r/myapp/hello-python
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/python](http://localhost:8080/r/myapp/python)
+Or call from a browser: [http://localhost:8080/r/myapp/hello-python](http://localhost:8080/r/myapp/hello-python)
 
 And now with the JSON input:
 
 ```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/python
+curl -H "Content-Type: application/json" -X POST -d '{ "name" : "Johnny" }' http://localhost:8080/r/myapp/hello-python
 ```
 
 That's it! Our `fn deploy` packaged our function and sent it to the Fn server. Try editing `func.py` 
@@ -44,24 +51,17 @@ In Python, we create a [requirements](https://pip.pypa.io/en/stable/user_guide/)
 
 1. We piped JSON data into the function at the command line
     ```sh
-    cat sample.payload.json | fn run
+    echo '{ "name" : "Johnny" }' | fn run
     ```
 
-2. We received our function input through **stdin**
+2. We received our function input through the **handler** function in a variable called **data**
     ```python
-    obj = json.loads(sys.stdin.read())
+    def handler(ctx, data=None, loop=None):
+        body = json.loads(data) if len(data) > 0 else {"name": "World"}
     ```
 
-3. We wrote our output to **stdout**
+3. We returned our output from **handler**
     ```python
-    print "Hello", name, "!"
+    return "Hello {0}".format(body.get("name"))
     ```
 
-4. We sent **stderr** to the server logs
-    ```python
-    sys.stderr.write("Starting Python Function\n")
-    ```
-
-
-# Next Up
-## [Part 2: Input Parameters](../../params)
