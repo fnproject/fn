@@ -311,7 +311,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error)
 	switch body := msg.Body.(type) {
 	case *pb.RunnerMsg_Acknowledged:
 		if !body.Acknowledged.Committed {
-			logrus.Errorf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
+			logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
 			return false, nil
 			// Try the next runner
 		}
