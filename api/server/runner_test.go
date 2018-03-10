@@ -146,6 +146,100 @@ func TestRouteRunnerPost(t *testing.T) {
 	}
 }
 
+func TestRouteRunnerFastFail(t *testing.T) {
+	buf := setLogBuffer()
+	isFailure := false
+
+	tweaker1 := envTweaker("FN_MAX_MEMORY", "134217728")           // 128MB
+	tweaker2 := envTweaker("FN_ENABLE_NB_RESOURCE_TRACKER", "yes") // enable fast-fail (no wait on CPU/Mem)
+	defer tweaker1()
+	defer tweaker2()
+
+	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
+	// for figuring out why things failed.
+	defer func() {
+		if isFailure {
+			t.Log(buf.String())
+		}
+	}()
+
+	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
+	rImg := "fnproject/fn-test-utils"
+
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: "foo", Config: models.Config{}},
+		},
+		[]*models.Route{
+			{Path: "/json", AppName: "foo", Image: rImg, Type: "sync", Format: "json", Memory: 80, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+		}, nil,
+	)
+
+	rnr, cancelrnr := testRunner(t, ds)
+	defer cancelrnr()
+
+	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+	ok := `{"sleepTime": 1000, "isDebug": true}`
+
+	results := make(chan error)
+
+	type tester struct {
+		path              string
+		body              string
+		method            string
+		expectedCode      int
+		expectedErrSubStr string
+	}
+
+	for idx, test := range []tester{
+		{"/r/foo/json/", ok, "GET", http.StatusOK, ""},
+		{"/r/foo/json/", ok, "GET", http.StatusOK, ""},
+		{"/r/foo/json/", ok, "GET", http.StatusOK, ""},
+		{"/r/foo/json/", ok, "GET", http.StatusOK, ""},
+	} {
+		go func(i int, test tester) {
+			body := strings.NewReader(test.body)
+			_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+			respBytes, _ := ioutil.ReadAll(rec.Body)
+			respBody := string(respBytes)
+			maxBody := len(respBody)
+			if maxBody > 1024 {
+				maxBody = 1024
+			}
+
+			if rec.Code != test.expectedCode {
+				results <- fmt.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+					i, test.expectedCode, rec.Code, respBody[:maxBody])
+			} else if test.expectedErrSubStr != "" && !strings.Contains(respBody, test.expectedErrSubStr) {
+				results <- fmt.Errorf("Test %d: Expected response to include %s but got body: %s",
+					i, test.expectedErrSubStr, respBody[:maxBody])
+			} else {
+				results <- nil
+			}
+
+		}(idx, test)
+	}
+
+	totalSuccess := 0
+	totalFail := 0
+
+	// Scan for 4 test results
+	for i := 0; i < 4; i++ {
+		err := <-results
+		if err != nil {
+			t.Logf("Test %d: received: %s (this is probably OK)", i, err.Error())
+			totalFail++
+		} else {
+			totalSuccess++
+		}
+	}
+
+	if totalSuccess != 1 {
+		t.Errorf("Expected 1 success but got %d (fail: %d)", totalSuccess, totalFail)
+		isFailure = true
+	}
+}
+
 func TestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false

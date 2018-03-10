@@ -179,7 +179,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 	// ask for 4GB and 10 CPU
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false, false)
 	defer cancel()
 
 	_, err := fetchToken(ch)
@@ -198,7 +198,7 @@ func TestResourceGetSimple(t *testing.T) {
 
 	// ask for another 4GB and 10 CPU
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false)
+	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false, false)
 	defer cancel()
 
 	_, err = fetchToken(ch)
@@ -226,6 +226,69 @@ func TestResourceGetSimple(t *testing.T) {
 	}
 }
 
+func TestResourceGetSimpleNB(t *testing.T) {
+
+	var vals trackerVals
+	trI := NewResourceTracker(nil)
+	tr := trI.(*resourceTracker)
+
+	vals.setDefaults()
+
+	// let's make it like CPU and MEM are 100% full
+	vals.mau = vals.mat
+	vals.cau = vals.cat
+
+	setTrackerTestVals(tr, &vals)
+
+	// ask for 4GB and 10 CPU
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := trI.GetResourceToken(ctx, 4*1024, 1000, false, true)
+	defer cancel()
+
+	tok := <-ch
+	if tok.Error() == nil {
+		t.Fatalf("full system should not hand out token")
+	}
+
+	// reset back
+	vals.setDefaults()
+	setTrackerTestVals(tr, &vals)
+
+	tok1 := <-trI.GetResourceToken(ctx, 4*1024, 1000, false, true)
+	if tok1.Error() != nil {
+		t.Fatalf("empty system should hand out token")
+	}
+
+	// ask for another 4GB and 10 CPU
+	ctx, cancel = context.WithCancel(context.Background())
+	ch = trI.GetResourceToken(ctx, 4*1024, 1000, false, true)
+	defer cancel()
+
+	tok = <-ch
+	if tok.Error() == nil {
+		t.Fatalf("full system should not hand out token")
+	}
+
+	// close means, giant token resources released
+	tok1.Close()
+
+	tok = <-trI.GetResourceToken(ctx, 4*1024, 1000, false, true)
+	if tok.Error() != nil {
+		t.Fatalf("empty system should hand out token")
+	}
+
+	tok.Close()
+
+	// POOLS should all be empty now
+	getTrackerTestVals(tr, &vals)
+	if vals.msu != 0 || vals.mau != 0 {
+		t.Fatalf("faulty state MEM %#v", vals)
+	}
+	if vals.csu != 0 || vals.cau != 0 {
+		t.Fatalf("faulty state CPU %#v", vals)
+	}
+}
+
 func TestResourceGetCombo(t *testing.T) {
 
 	var vals trackerVals
@@ -237,7 +300,7 @@ func TestResourceGetCombo(t *testing.T) {
 
 	// impossible request
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := trI.GetResourceToken(ctx, 20*1024, 20000, false)
+	ch := trI.GetResourceToken(ctx, 20*1024, 20000, false, false)
 	_, err := fetchToken(ch)
 	if err == nil {
 		t.Fatalf("impossible request should never return (error here)")
@@ -247,7 +310,7 @@ func TestResourceGetCombo(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	// let's use up 2 GB of 3GB async pool
-	ch = trI.GetResourceToken(ctx, 2*1024, 10, true)
+	ch = trI.GetResourceToken(ctx, 2*1024, 10, true, false)
 	tok1, err := fetchToken(ch)
 	if err != nil {
 		t.Fatalf("empty async system should hand out token1")
@@ -257,7 +320,7 @@ func TestResourceGetCombo(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	// remaining 1 GB async
-	ch = trI.GetResourceToken(ctx, 1*1024, 11, true)
+	ch = trI.GetResourceToken(ctx, 1*1024, 11, true, false)
 	tok2, err := fetchToken(ch)
 	if err != nil {
 		t.Fatalf("empty async system should hand out token2")
@@ -270,7 +333,7 @@ func TestResourceGetCombo(t *testing.T) {
 	// SYNC POOL HAS 1GB
 
 	// we no longer can get async token
-	ch = trI.GetResourceToken(ctx, 1*1024, 12, true)
+	ch = trI.GetResourceToken(ctx, 1*1024, 12, true, false)
 	_, err = fetchToken(ch)
 	if err == nil {
 		t.Fatalf("full async system should not hand out a token")
@@ -280,7 +343,7 @@ func TestResourceGetCombo(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	// but we should get 1GB sync token
-	ch = trI.GetResourceToken(ctx, 1*1024, 13, false)
+	ch = trI.GetResourceToken(ctx, 1*1024, 13, false, false)
 	tok3, err := fetchToken(ch)
 	if err != nil {
 		t.Fatalf("empty sync system should hand out token3")
@@ -292,7 +355,7 @@ func TestResourceGetCombo(t *testing.T) {
 	// NOW ASYNC AND SYNC POOLS ARE FULL
 
 	// this should fail
-	ch = trI.GetResourceToken(ctx, 1*1024, 14, false)
+	ch = trI.GetResourceToken(ctx, 1*1024, 14, false, false)
 	_, err = fetchToken(ch)
 	if err == nil {
 		t.Fatalf("full system should not hand out a token")
@@ -308,7 +371,7 @@ func TestResourceGetCombo(t *testing.T) {
 	// SYNC POOL IS FULL
 
 	// async pool should provide this
-	ch = trI.GetResourceToken(ctx, 1*1024, 15, false)
+	ch = trI.GetResourceToken(ctx, 1*1024, 15, false, false)
 	tok4, err := fetchToken(ch)
 	if err != nil {
 		t.Fatalf("async system should hand out token4")
@@ -326,7 +389,7 @@ func TestResourceGetCombo(t *testing.T) {
 	// SYNC POOL HAS 1GB FREE
 
 	// now, we ask for 2GB sync token, it should be provided from both async+sync pools
-	ch = trI.GetResourceToken(ctx, 2*1024, 16, false)
+	ch = trI.GetResourceToken(ctx, 2*1024, 16, false, false)
 	tok5, err := fetchToken(ch)
 	if err != nil {
 		t.Fatalf("async+sync system should hand out token5")
