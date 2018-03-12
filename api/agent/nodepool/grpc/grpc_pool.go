@@ -262,7 +262,8 @@ func runnerConnection(address string, pki *pkiData) (*grpc.ClientConn, pb.Runner
 		}
 	}
 
-	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, grpc.DefaultBackoffConfig)
+	// we want to set a very short timeout to fail-fast if something goes wrong
+	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, 100*time.Millisecond, grpc.DefaultBackoffConfig)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to connect to runner node")
 	}
@@ -311,7 +312,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error)
 	switch body := msg.Body.(type) {
 	case *pb.RunnerMsg_Acknowledged:
 		if !body.Acknowledged.Committed {
-			logrus.Errorf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
+			logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
 			return false, nil
 			// Try the next runner
 		}

@@ -146,16 +146,17 @@ func TestRouteRunnerPost(t *testing.T) {
 	}
 }
 
-// removing this flappy test pending on resolution of
-func skipTestRouteRunnerIOPipes(t *testing.T) {
+func TestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
 
 	// let's make freezer immediate, so that we don't deal with
 	// more timing related issues below. Slightly gains us a bit more
 	// determinism.
-	tweaker := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
-	defer tweaker()
+	tweaker1 := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
+	tweaker2 := envTweaker("FN_MAX_LOG_SIZE", "5")
+	defer tweaker1()
+	defer tweaker2()
 
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
 	// for figuring out why things failed.
@@ -185,10 +186,9 @@ func skipTestRouteRunnerIOPipes(t *testing.T) {
 
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	immediateGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 0}`
+	immediateJsonValidGarbage := `{"isDebug": true, "postOutGarbage": "\r", "postSleepTime": 0}`
 	delayedGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 1000}`
 	ok := `{"isDebug": true}`
-
-	//multiLogExpect := []string{"BeginOfLogs", "EndOfLogs"}
 
 	containerIds := make([]string, 0)
 
@@ -204,6 +204,9 @@ func skipTestRouteRunnerIOPipes(t *testing.T) {
 		//
 		// JSON WORLD
 		//
+		// this should go through.
+		{"/r/zoo/json/", immediateJsonValidGarbage, "GET", http.StatusOK, "", nil, 0},
+
 		// CASE I: immediate garbage: likely to be in the json decoder buffer after json resp parsing
 		{"/r/zoo/json/", immediateGarbage, "GET", http.StatusOK, "", nil, 0},
 
@@ -277,20 +280,21 @@ func skipTestRouteRunnerIOPipes(t *testing.T) {
 		time.Sleep(test.sleepAmount)
 	}
 
-	jsonIds := containerIds[0:4]
+	jsonIds := containerIds[0:5]
 
 	// now cross check JSON container ids:
-	if jsonIds[0] != jsonIds[1] &&
-		jsonIds[2] == "N/A" &&
-		jsonIds[1] != jsonIds[2] &&
-		jsonIds[2] != jsonIds[3] {
+	if jsonIds[1] != jsonIds[2] &&
+		jsonIds[0] == jsonIds[1] &&
+		jsonIds[3] == "N/A" &&
+		jsonIds[2] != jsonIds[3] &&
+		jsonIds[3] != jsonIds[4] {
 		t.Logf("json container ids are OK, ids=%v", jsonIds)
 	} else {
 		isFailure = true
 		t.Errorf("json container ids are not OK, ids=%v", jsonIds)
 	}
 
-	httpids := containerIds[4:]
+	httpids := containerIds[5:]
 
 	// now cross check HTTP container ids:
 	if httpids[0] == httpids[1] &&
