@@ -1,4 +1,4 @@
-package cp
+package controlplane
 
 import (
 	"bytes"
