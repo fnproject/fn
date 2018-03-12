@@ -173,12 +173,12 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
 	delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
-	_, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(ctx)
 	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "")
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, server.WithAgent(prAgent))
+	opts = append(opts, server.WithAgent(prAgent), server.WithExtraCtx(cancelCtx))
 
 	return server.New(ctx, opts...), nil
 }
