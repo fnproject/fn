@@ -2,6 +2,7 @@ package poolmanager
 
 import (
 	"context"
+	"time"
 
 	"github.com/fnproject/fn/grpcutil"
 	model "github.com/fnproject/fn/poolmanager/grpc"
@@ -30,7 +31,7 @@ func newRemoteClient(serverAddr string, cert string, key string, ca string) (rem
 		return nil, err
 	}
 
-	conn, err := grpcutil.DialWithBackoff(ctx, serverAddr, creds, grpc.DefaultBackoffConfig)
+	conn, err := grpcutil.DialWithBackoff(ctx, serverAddr, creds, 300*time.Millisecond, grpc.DefaultBackoffConfig)
 	if err != nil {
 		return nil, err
 	}

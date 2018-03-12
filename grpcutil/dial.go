@@ -17,17 +17,17 @@ import (
 )
 
 // DialWithBackoff creates a grpc connection using backoff strategy for reconnections
-func DialWithBackoff(ctx context.Context, address string, creds credentials.TransportCredentials, backoffCfg grpc.BackoffConfig) (*grpc.ClientConn, error) {
-	return dial(ctx, address, creds, grpc.WithBackoffConfig(backoffCfg))
+func DialWithBackoff(ctx context.Context, address string, creds credentials.TransportCredentials, timeout time.Duration, backoffCfg grpc.BackoffConfig) (*grpc.ClientConn, error) {
+	return dial(ctx, address, creds, timeout, grpc.WithBackoffConfig(backoffCfg))
 }
 
 // uses grpc connection backoff protocol https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md
-func dial(ctx context.Context, address string, creds credentials.TransportCredentials, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func dial(ctx context.Context, address string, creds credentials.TransportCredentials, timeoutDialer time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 
 	dialer := func(address string, timeout time.Duration) (net.Conn, error) {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		conn, err := (&net.Dialer{Cancel: ctx.Done()}).Dial("tcp", address)
+		conn, err := (&net.Dialer{Cancel: ctx.Done(), Timeout: timeoutDialer}).Dial("tcp", address)
 		if err != nil {
 			logrus.WithField("grpc_addr", address).Warn("Failed to dial grpc connection")
 			return nil, err

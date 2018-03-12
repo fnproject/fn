@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/fnproject/fn/api/agent"
@@ -263,7 +262,8 @@ func runnerConnection(address string, pki *pkiData) (*grpc.ClientConn, pb.Runner
 		}
 	}
 
-	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, grpc.DefaultBackoffConfig)
+	// we want to set a very short timeout to fail-fast if something goes wrong
+	conn, err := grpcutil.DialWithBackoff(ctx, address, creds, 100*time.Millisecond, grpc.DefaultBackoffConfig)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to connect to runner node")
 	}
@@ -282,15 +282,6 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call agent.Call) (bool, error)
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
 	r.wg.Add(1)
 	defer r.wg.Done()
-	// If the connection is not READY, we want to fail-fast.
-	// There are some cases where the connection stays in CONNECTING, for example if the
-	// runner dies not gracefully (e.g. unplug the cable), the connection get stuck until
-	// the context times out.
-	// https://github.com/grpc/grpc/blob/master/doc/connectivity-semantics-and-api.md
-	if r.conn.GetState() != connectivity.Ready {
-		logrus.WithField("runner_address", r.address).Debug("Runner connection is not ready")
-		return false, nil
-	}
 
 	// Get app and route information
 	// Construct model.Call with CONFIG in it already
