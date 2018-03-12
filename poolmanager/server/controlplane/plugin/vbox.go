@@ -21,8 +21,6 @@ const (
 	vboxNamePrefix = "fn-vagrant"
 )
 
-//var whichVBox *exec.Cmd
-
 func init() {
 	vagrantPath, ok := os.LookupEnv(vagrantEnv)
 	if !ok {
@@ -40,22 +38,6 @@ func main() {
 type VirtualBoxCP struct {
 	runnerMap   map[string][]*controlplane.Runner
 	vagrantPath string
-}
-
-func NewVirtualBoxCP() (*VirtualBoxCP, error) {
-	vagrantPath, ok := os.LookupEnv(vagrantEnv)
-	log.Printf("here")
-	if !ok {
-		log.Panicf("Missing config key: %v", vagrantEnv)
-	}
-	runnerMap := make(map[string][]*controlplane.Runner)
-	//if err := whichVBox.Run(); err != nil {
-	//	return nil, err
-	//}
-	return &VirtualBoxCP{
-		runnerMap:   runnerMap,
-		vagrantPath: vagrantPath,
-	}, nil
 }
 
 func (v *VirtualBoxCP) provision() (*controlplane.Runner, error) {
