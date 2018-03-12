@@ -642,7 +642,17 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 	for i, ctx := range s.extraCtxs {
 		cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}
 	}
-	reflect.Select(cases) // Just wait for one of them. TODO: maybe some logging of which one was triggered?
+	nth, recv, wasSend := reflect.Select(cases)
+	if wasSend {
+		logrus.WithFields(logrus.Fields{
+			"ctxNumber":     nth,
+			"receivedValue": recv.String(),
+		}).Debug("Stopping because of received value from done context.")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"ctxNumber": nth,
+		}).Debug("Stopping because of closed channel from done context.")
+	}
 
 	// TODO: do not wait forever during graceful shutdown (add graceful shutdown timeout)
 	if err := server.Shutdown(context.Background()); err != nil {
