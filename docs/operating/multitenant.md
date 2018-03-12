@@ -56,7 +56,7 @@ but the GRPC port is 9190.
 Grap the runner address and put in as value for the `FN_RUNNER_ADDRESSES` env variable.
 
 ```bash
-go build -o noop.so poolmanager/server/controlplane/plugin/noop.go
+go build -buildmode=plugin -o noop.so poolmanager/server/controlplane/plugin/noop.go
 go build -o fnnpm poolmanager/server/main.go
 
 FN_LOG_LEVEL=DEBUG \
