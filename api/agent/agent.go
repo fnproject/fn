@@ -508,6 +508,12 @@ func (s *hotSlot) Error() error {
 	return s.fatalErr
 }
 
+func (s *hotSlot) trySetError(err error) {
+	if s.fatalErr == nil {
+		s.fatalErr = err
+	}
+}
+
 func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	ctx, span := trace.StartSpan(ctx, "agent_hot_exec")
 	defer span.End()
@@ -540,19 +546,21 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	select {
 	case err := <-s.errC: // error from container
+		s.trySetError(err)
 		return err
 	case err := <-errApp: // from dispatch
-		if s.fatalErr == nil && err != nil {
+		if err != nil {
 			if models.IsAPIError(err) {
-				s.fatalErr = err
+				s.trySetError(err)
 			} else if err == protocol.ErrExcessData {
-				s.fatalErr = err
+				s.trySetError(err)
 				// suppress excess data error, but do shutdown the container
 				return nil
 			}
 		}
 		return err
 	case <-ctx.Done(): // call timeout
+		s.trySetError(ctx.Err())
 		return ctx.Err()
 	}
 }
