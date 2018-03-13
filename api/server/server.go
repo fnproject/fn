@@ -545,7 +545,7 @@ func WithTracer(zipkinURL string) ServerOption {
 
 		reg := promclient.NewRegistry()
 		reg.MustRegister(promclient.NewProcessCollector(os.Getpid(), "fn"),
-			promclient.NewProcessCollectorPIDFn(dockerPid, "dockerd"),
+			promclient.NewProcessCollectorPIDFn(dockerPid(), "dockerd"),
 			promclient.NewGoCollector(),
 		)
 
@@ -565,7 +565,7 @@ func WithTracer(zipkinURL string) ServerOption {
 }
 
 // TODO plumbing considerations, we've put the S pipe next to the chandalier...
-func dockerPid() (int, error) {
+func dockerPid() func() (int, error) {
 	// prometheus' process collector only works on linux anyway. let them do the
 	// process detection, if we return an error here we just get 0 metrics and it
 	// does not log / blow up (that's fine!) it's also likely we hit permissions
@@ -573,38 +573,53 @@ func dockerPid() (int, error) {
 	// just want for prod).
 
 	var pid int
-	err := filepath.Walk("/proc", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			// we get permission errors digging around in here, ignore them and press on
+
+	return func() (int, error) {
+		if pid != 0 {
+			// make sure it's docker pid.
+			if isDockerPid("/proc/" + strconv.Itoa(pid) + "/status") {
+				return pid, nil
+			}
+			pid = 0 // reset to go search
+		}
+
+		err := filepath.Walk("/proc", func(path string, info os.FileInfo, err error) error {
+			if err != nil || pid != 0 {
+				// we get permission errors digging around in here, ignore them and press on
+				return nil
+			}
+
+			// /proc/<pid>/status
+			if strings.Count(path, "/") == 3 && strings.Contains(path, "/status") {
+				if isDockerPid(path) {
+					// extract pid from path
+					pid, _ = strconv.Atoi(path[6:strings.LastIndex(path, "/")])
+					return io.EOF // end the search
+				}
+			}
+
+			// keep searching
 			return nil
+		})
+		if err == io.EOF { // used as sentinel
+			err = nil
 		}
-
-		// /proc/<pid>/status
-		if strings.Count(path, "/") == 3 && strings.Contains(path, "/status") {
-			// first line of status file is: "Name: <name>"
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			// scan first line only
-			scanner := bufio.NewScanner(f)
-			scanner.Scan()
-			if strings.HasSuffix(scanner.Text(), "dockerd") {
-				// extract pid from path
-				pid, _ = strconv.Atoi(path[6:strings.LastIndex(path, "/")])
-				return io.EOF // end the search
-			}
-		}
-
-		// keep searching
-		return nil
-	})
-	if err == io.EOF { // used as sentinel
-		err = nil
+		return pid, err
 	}
-	return pid, err
+}
+
+func isDockerPid(path string) bool {
+	// first line of status file is: "Name: <name>"
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	// scan first line only
+	scanner := bufio.NewScanner(f)
+	scanner.Scan()
+	return strings.HasSuffix(scanner.Text(), "dockerd")
 }
 
 func setMachineID() {
