@@ -154,7 +154,7 @@
     "pkg/term",
     "pkg/term/windows"
   ]
-  revision = "1346a2c89a11f2d111ff20f46d557f1f9ccbbeb7"
+  revision = "241c904e6f5fff020890a7641558e83a209c0bbd"
 
 [[projects]]
   name = "github.com/docker/go-connections"
@@ -193,8 +193,8 @@
     "client/routes",
     "models"
   ]
-  revision = "847fec724330b2741336431502db292fc5a45211"
-  version = "0.2.3"
+  revision = "1c5ec475d4536388b366b1f075945cd64d8c1cb4"
+  version = "0.2.4"
 
 [[projects]]
   name = "github.com/fsouza/go-dockerclient"
@@ -207,8 +207,8 @@
     "internal",
     "redis"
   ]
-  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
-  version = "v1.5.0"
+  revision = "a69d19351219b6dd56f274f96d85a7014a2ec34e"
+  version = "v1.6.0"
 
 [[projects]]
   name = "github.com/gin-contrib/cors"
@@ -235,8 +235,8 @@
 [[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
-  revision = "32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a"
-  version = "v1.32.0"
+  revision = "6333e38ac20b8949a8dd68baa3650f4dee8f39f0"
+  version = "v1.33.0"
 
 [[projects]]
   branch = "master"
@@ -287,7 +287,7 @@
   branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "1de3e0542de65ad8d75452a595886fdd0befb363"
+  revision = "d8000b5bfbd1147255710505a27c735b6b2ae2ac"
 
 [[projects]]
   branch = "master"
@@ -299,7 +299,7 @@
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
-  revision = "0d03ad0b6405ada874d59d97c416b5cf4234e154"
+  revision = "ceb469cb0fdf2d792f28d771bc05da6c606f55e5"
 
 [[projects]]
   branch = "master"
@@ -361,7 +361,7 @@
     ".",
     "reflectx"
   ]
-  revision = "05cef0741ade10ca668982355b3f3f0bcf0ff0a8"
+  revision = "cf35089a197953c69420c8d0cecda90809764b1d"
 
 [[projects]]
   branch = "master"
@@ -380,17 +380,7 @@
     "jlexer",
     "jwriter"
   ]
-  revision = "32fa128f234d041f196a9f3e0fea5ac9772c08e1"
-
-[[projects]]
-  name = "github.com/mattes/migrate"
-  packages = [
-    ".",
-    "database",
-    "source"
-  ]
-  revision = "035c07716cd373d88456ec4d701402df52584cb4"
-  version = "v3.0.1"
+  revision = "f594efddfa171111dc4349cd6e78e8f61dc7936f"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -441,7 +431,6 @@
   version = "v0.1.1"
 
 [[projects]]
-  branch = "master"
   name = "github.com/openzipkin/zipkin-go"
   packages = [
     "model",
@@ -449,6 +438,7 @@
     "reporter/http"
   ]
   revision = "f197ec29e729f226d23370ea60f0e49b8f44ccf4"
+  version = "v0.1.0"
 
 [[projects]]
   name = "github.com/patrickmn/go-cache"
@@ -491,7 +481,7 @@
     "internal/bitbucket.org/ww/goautoneg",
     "model"
   ]
-  revision = "89604d197083d4781071d3c65855d24ecfb0a563"
+  revision = "e4aa40a9169a88835b849a6efb71e05dc04b88f0"
 
 [[projects]]
   branch = "master"
@@ -502,19 +492,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "75f2d6163c7a100bed6e971044ea3de30ee3a678"
-
-[[projects]]
-  name = "github.com/rdallman/migrate"
-  packages = [
-    ".",
-    "database/mysql",
-    "database/postgres",
-    "database/sqlite3",
-    "source",
-    "source/go-bindata"
-  ]
-  revision = "bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef"
+  revision = "54d17b57dd7d4a3aa092476596b3f8a933bde349"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -547,13 +525,13 @@
     "trace",
     "trace/propagation"
   ]
-  revision = "4566f1f203a083514e9c57fecc0836ecc4a0eb11"
+  revision = "f1af72ab88d638dcc20ea6ecf83c98b59b092559"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "8c653846df49742c4c85ec37e5d9f8d3ba657895"
+  revision = "182114d582623c1caa54f73de9c7224e23a48487"
 
 [[projects]]
   branch = "master"
@@ -568,7 +546,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
+  revision = "ae89d30ce0c63142b652837da33d782e2b0a9b25"
 
 [[projects]]
   branch = "master"
@@ -577,7 +555,7 @@
     "unix",
     "windows"
   ]
-  revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
+  revision = "c28acc882ebcbfbe8ce9f0f14b9ac26ee138dd51"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -605,7 +583,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
+  revision = "df60624c1e9b9d2973e889c7a1cff73155da81c4"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -661,6 +639,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1818456581749a8ec46a6fded1c10e7f706f9e77aa1ac2061d25c3080883376d"
+  inputs-digest = "4001fea69927fe605d8c5a47d02f119a0eef15b291eff46d6d993309462f5406"
   solver-name = "gps-cdcl"
   solver-version = 1

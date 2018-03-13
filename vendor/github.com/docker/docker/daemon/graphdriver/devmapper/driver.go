@@ -9,16 +9,16 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/devicemapper"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/mount"
-	"github.com/docker/docker/pkg/system"
 	units "github.com/docker/go-units"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -122,12 +122,18 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 // Cleanup unmounts a device.
 func (d *Driver) Cleanup() error {
 	err := d.DeviceSet.Shutdown(d.home)
+	umountErr := mount.RecursiveUnmount(d.home)
 
-	if err2 := mount.RecursiveUnmount(d.home); err == nil {
-		err = err2
+	// in case we have two errors, prefer the one from Shutdown()
+	if err != nil {
+		return err
 	}
 
-	return err
+	if umountErr != nil {
+		return errors.Wrapf(umountErr, "error unmounting %s", d.home)
+	}
+
+	return nil
 }
 
 // CreateReadWrite creates a layer that is writable for use as a container
@@ -145,7 +151,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	return d.DeviceSet.AddDevice(id, parent, storageOpt)
 }
 
-// Remove removes a device with a given id, unmounts the filesystem.
+// Remove removes a device with a given id, unmounts the filesystem, and removes the mount point.
 func (d *Driver) Remove(id string) error {
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
@@ -160,7 +166,21 @@ func (d *Driver) Remove(id string) error {
 	if err := d.DeviceSet.DeleteDevice(id, false); err != nil {
 		return fmt.Errorf("failed to remove device %s: %v", id, err)
 	}
-	return system.EnsureRemoveAll(path.Join(d.home, "mnt", id))
+
+	// Most probably the mount point is already removed on Put()
+	// (see DeviceSet.UnmountDevice()), but just in case it was not
+	// let's try to remove it here as well, ignoring errors as
+	// an older kernel can return EBUSY if e.g. the mount was leaked
+	// to other mount namespaces. A failure to remove the container's
+	// mount point is not important and should not be treated
+	// as a failure to remove the container.
+	mp := path.Join(d.home, "mnt", id)
+	err := unix.Rmdir(mp)
+	if err != nil && !os.IsNotExist(err) {
+		logrus.WithField("storage-driver", "devicemapper").Warnf("unable to remove mount point %q: %s", mp, err)
+	}
+
+	return nil
 }
 
 // Get mounts a device with given id into the root filesystem

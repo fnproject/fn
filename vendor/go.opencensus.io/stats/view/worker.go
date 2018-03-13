@@ -16,7 +16,6 @@
 package view
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -32,14 +31,14 @@ func init() {
 }
 
 type measureRef struct {
-	measure stats.Measure
-	views   map[*View]struct{}
+	measure string
+	views   map[*viewInternal]struct{}
 }
 
 type worker struct {
 	measures   map[string]*measureRef
-	views      map[string]*View
-	startTimes map[*View]time.Time
+	views      map[string]*viewInternal
+	startTimes map[*viewInternal]time.Time
 
 	timer      *time.Ticker
 	c          chan command
@@ -50,8 +49,8 @@ var defaultWorker *worker
 
 var defaultReportingDuration = 10 * time.Second
 
-// Find returns a registered view associated with this name.
-// If no registered view is found, nil is returned.
+// Find returns a subscribed view associated with this name.
+// If no subscribed view is found, nil is returned.
 func Find(name string) (v *View) {
 	req := &getViewByNameReq{
 		name: name,
@@ -62,67 +61,60 @@ func Find(name string) (v *View) {
 	return resp.v
 }
 
-// Register registers view. It returns an error if the view is already registered.
-//
-// Subscription automatically registers a view.
-// Most users will not register directly but register via subscription.
-// Registration can be used by libraries to claim a view name.
-//
-// Unregister the view once the view is not required anymore.
-func Register(v *View) error {
-	req := &registerViewReq{
-		v:   v,
-		err: make(chan error),
-	}
-	defaultWorker.c <- req
-	return <-req.err
+// Deprecated: Registering is a no-op. Use the Subscribe function.
+func Register(_ *View) error {
+	return nil
 }
 
-// Unregister removes the previously registered view. It returns an error
-// if the view wasn't registered. All data collected and not reported for the
-// corresponding view will be lost. The view is automatically be unsubscribed.
-func Unregister(v *View) error {
-	req := &unregisterViewReq{
-		v:   v,
-		err: make(chan error),
-	}
-	defaultWorker.c <- req
-	return <-req.err
+// Deprecated: Unregistering is a no-op, see: Unsubscribe.
+func Unregister(_ *View) error {
+	return nil
 }
 
-// Subscribe subscribes a view. Once a view is subscribed, it reports data
-// via the exporters.
-// During subscription, if the view wasn't registered, it will be automatically
-// registered. Once the view is no longer needed to export data,
-// user should unsubscribe from the view.
+// Deprecated: Use the Subscribe function.
 func (v *View) Subscribe() error {
+	return Subscribe(v)
+}
+
+// Subscribe begins collecting data for the given views.
+// Once a view is subscribed, it reports data to the registered exporters.
+func Subscribe(views ...*View) error {
 	req := &subscribeToViewReq{
-		v:   v,
-		err: make(chan error),
+		views: views,
+		err:   make(chan error),
 	}
 	defaultWorker.c <- req
 	return <-req.err
 }
 
-// Unsubscribe unsubscribes a previously subscribed view.
-// Data will not be exported from this view once unsubscription happens.
-func (v *View) Unsubscribe() error {
+// Unsubscribe the given views. Data will not longer be exported for these views
+// after Unsubscribe returns.
+func Unsubscribe(views ...*View) {
+	names := make([]string, len(views))
+	for i := range views {
+		names[i] = views[i].Name
+	}
 	req := &unsubscribeFromViewReq{
-		v:   v,
-		err: make(chan error),
+		views: names,
+		done:  make(chan struct{}),
 	}
 	defaultWorker.c <- req
-	return <-req.err
+	<-req.done
 }
 
-// RetrieveData returns the current collected data for the view.
-func (v *View) RetrieveData() ([]*Row, error) {
+// Deprecated: Use the Unsubscribe function instead.
+func (v *View) Unsubscribe() error {
 	if v == nil {
-		return nil, errors.New("cannot retrieve data from nil view")
+		return nil
 	}
+	Unsubscribe(v)
+	return nil
+}
+
+func RetrieveData(viewName string) ([]*Row, error) {
 	req := &retrieveDataReq{
 		now: time.Now(),
-		v:   v,
+		v:   viewName,
 		c:   make(chan *retrieveDataResp),
 	}
 	defaultWorker.c <- req
@@ -155,8 +147,8 @@ func SetReportingPeriod(d time.Duration) {
 func newWorker() *worker {
 	return &worker{
 		measures:   make(map[string]*measureRef),
-		views:      make(map[string]*View),
-		startTimes: make(map[*View]time.Time),
+		views:      make(map[string]*viewInternal),
+		startTimes: make(map[*viewInternal]time.Time),
 		timer:      time.NewTicker(defaultReportingDuration),
 		c:          make(chan command, 1024),
 		quit:       make(chan bool),
@@ -187,41 +179,36 @@ func (w *worker) stop() {
 	<-w.done
 }
 
-func (w *worker) getMeasureRef(m stats.Measure) *measureRef {
-	if mr, ok := w.measures[m.Name()]; ok {
+func (w *worker) getMeasureRef(name string) *measureRef {
+	if mr, ok := w.measures[name]; ok {
 		return mr
 	}
 	mr := &measureRef{
-		measure: m,
-		views:   make(map[*View]struct{}),
+		measure: name,
+		views:   make(map[*viewInternal]struct{}),
 	}
-	w.measures[m.Name()] = mr
+	w.measures[name] = mr
 	return mr
 }
 
-func (w *worker) tryRegisterView(v *View) error {
-	if err := checkViewName(v.name); err != nil {
-		return err
+func (w *worker) tryRegisterView(v *View) (*viewInternal, error) {
+	vi, err := newViewInternal(v)
+	if err != nil {
+		return nil, err
 	}
-	if x, ok := w.views[v.Name()]; ok {
-		if x != v {
-			return fmt.Errorf("cannot register view %q; another view with the same name is already registered", v.Name())
+	if x, ok := w.views[vi.view.Name]; ok {
+		if !x.view.same(vi.view) {
+			return nil, fmt.Errorf("cannot subscribe view %q; a different view with the same name is already subscribed", v.Name)
 		}
 
 		// the view is already registered so there is nothing to do and the
 		// command is considered successful.
-		return nil
+		return x, nil
 	}
-
-	if v.Measure() == nil {
-		return fmt.Errorf("cannot register view %q: measure not defined", v.Name())
-	}
-
-	w.views[v.Name()] = v
-	ref := w.getMeasureRef(v.Measure())
-	ref.views[v] = struct{}{}
-
-	return nil
+	w.views[vi.view.Name] = vi
+	ref := w.getMeasureRef(vi.view.Measure.Name())
+	ref.views[vi] = struct{}{}
+	return vi, nil
 }
 
 func (w *worker) reportUsage(now time.Time) {
@@ -238,7 +225,7 @@ func (w *worker) reportUsage(now time.Time) {
 		// to mutate the exported data.
 		rows = deepCopyRowData(rows)
 		viewData := &Data{
-			View:  v,
+			View:  v.view,
 			Start: w.startTimes[v],
 			End:   time.Now(),
 			Rows:  rows,

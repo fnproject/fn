@@ -31,7 +31,7 @@ func TestViewsAggregationsConform(t *testing.T) {
 	// Add any other defined views to be type checked during tests to ensure we don't regress.
 
 	assertTypeOf := func(v *view.View, wantSample view.Aggregation) {
-		aggregation := v.Aggregation()
+		aggregation := v.Aggregation
 		gotValue := reflect.ValueOf(aggregation)
 		wantValue := reflect.ValueOf(wantSample)
 		if gotValue.Type() != wantValue.Type() {
@@ -52,14 +52,14 @@ func TestStrictViewNames(t *testing.T) {
 	alreadySeen := make(map[string]int)
 	assertName := func(v *view.View, want string) {
 		_, _, line, _ := runtime.Caller(1)
-		if prevLine, ok := alreadySeen[v.Name()]; ok {
+		if prevLine, ok := alreadySeen[v.Name]; ok {
 			t.Errorf("Item's Name on line %d was already used on line %d", line, prevLine)
 			return
 		}
-		if got := v.Name(); got != want {
+		if got := v.Name; got != want {
 			t.Errorf("Item on line: %d got %q want %q", line, got, want)
 		}
-		alreadySeen[v.Name()] = line
+		alreadySeen[v.Name] = line
 	}
 
 	assertName(ClientErrorCountView, "grpc.io/client/error_count")

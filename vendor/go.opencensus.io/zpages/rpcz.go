@@ -58,16 +58,18 @@ var (
 )
 
 func init() {
-	for view := range viewType {
-		if err := view.Subscribe(); err != nil {
-			log.Printf("error subscribing to view %q: %v", view.Name(), err)
-		}
+	views := make([]*view.View, 0, len(viewType))
+	for v := range viewType {
+		views = append(views, v)
+	}
+	err := view.Subscribe(views...)
+	if err != nil {
+		log.Printf("error subscribing to views: %v", err)
 	}
 	view.RegisterExporter(snapExporter{})
 }
 
-// RpczHandler is a handler for /rpcz.
-func RpczHandler(w http.ResponseWriter, r *http.Request) {
+func rpczHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	WriteHTMLRpczPage(w)
 }

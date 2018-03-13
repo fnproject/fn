@@ -20,9 +20,8 @@ var (
 	// TODO doesn't have to be a glob
 	MigrationsTable = "schema_migrations"
 
-	ErrLocked     = errors.New("database is locked")
-	ErrDirty      = errors.New("database is dirty")
-	ErrOutOfOrder = errors.New("non-contiguous migration attempted")
+	ErrLocked = errors.New("database is locked")
+	ErrDirty  = errors.New("database is dirty")
 )
 
 const (
@@ -30,8 +29,8 @@ const (
 )
 
 type Migration interface {
-	Up(*sqlx.Tx) error
-	Down(*sqlx.Tx) error
+	Up(context.Context, *sqlx.Tx) error
+	Down(context.Context, *sqlx.Tx) error
 	Version() int64
 }
 
@@ -45,14 +44,14 @@ var _ Migration = new(MigFields)
 
 // MigFields implements Migration and can be used for convenience.
 type MigFields struct {
-	UpFunc      func(*sqlx.Tx) error
-	DownFunc    func(*sqlx.Tx) error
+	UpFunc      func(context.Context, *sqlx.Tx) error
+	DownFunc    func(context.Context, *sqlx.Tx) error
 	VersionFunc func() int64
 }
 
-func (m MigFields) Up(tx *sqlx.Tx) error   { return m.UpFunc(tx) }
-func (m MigFields) Down(tx *sqlx.Tx) error { return m.DownFunc(tx) }
-func (m MigFields) Version() int64         { return m.VersionFunc() }
+func (m MigFields) Up(ctx context.Context, tx *sqlx.Tx) error   { return m.UpFunc(ctx, tx) }
+func (m MigFields) Down(ctx context.Context, tx *sqlx.Tx) error { return m.DownFunc(ctx, tx) }
+func (m MigFields) Version() int64                              { return m.VersionFunc() }
 
 // TODO instance must have `multiStatements` set to true ?
 
@@ -65,13 +64,10 @@ func Down(ctx context.Context, db *sqlx.DB, migs []Migration) error {
 }
 
 func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error {
-	var curVersion int64
+	var curVersion int64 // could be NilVersion, is ok
 	err := tx(ctx, db, func(tx *sqlx.Tx) error {
-		err := ensureVersionTable(ctx, tx)
-		if err != nil {
-			return err
-		}
 		var dirty bool
+		var err error
 		curVersion, dirty, err = Version(ctx, tx)
 		if dirty {
 			return ErrDirty
@@ -90,11 +86,11 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 	if up {
 		sort.Sort(sorted(migs))
 	} else {
-		migs = []Migration(sort.Reverse(sorted(migs)).(sorted))
+		sort.Sort(sort.Reverse(sorted(migs)))
 	}
 	for _, m := range migs {
 		// skip over migrations we have run
-		if (up && curVersion < m.Version()) || (!up && curVersion > m.Version()) {
+		if (up && curVersion < m.Version()) || (!up && curVersion >= m.Version()) {
 
 			// do each individually, for large migrations it's better to checkpoint
 			// than to try to do them all in one big go.
@@ -182,9 +178,9 @@ func run(ctx context.Context, db *sqlx.DB, m Migration, up bool) error {
 
 			// enforce monotonicity
 			if up && curVersion != NilVersion && m.Version() != curVersion+1 {
-				return ErrOutOfOrder
+				return fmt.Errorf("non-contiguous migration attempted up: %v != %v", m.Version(), curVersion+1)
 			} else if !up && m.Version() != curVersion { // down is always unraveling
-				return ErrOutOfOrder
+				return fmt.Errorf("non-contiguous migration attempted down: %v != %v", m.Version(), curVersion)
 			}
 
 			// TODO is this robust enough? we could check
@@ -194,12 +190,12 @@ func run(ctx context.Context, db *sqlx.DB, m Migration, up bool) error {
 			}
 
 			// TODO we don't need the dirty bit anymore since we're using transactions?
-			err = SetVersion(ctx, tx, m.Version(), true)
+			err = SetVersion(ctx, tx, version, true)
 
 			if up {
-				err = m.Up(tx)
+				err = m.Up(ctx, tx)
 			} else {
-				err = m.Down(tx)
+				err = m.Down(ctx, tx)
 			}
 
 			if err != nil {
@@ -230,7 +226,7 @@ func lock(ctx context.Context, tx *sqlx.Tx) error {
 	var query string
 	switch tx.DriverName() {
 	case "postgres", "pgx", "pq-timeouts", "cloudsqlpostgres":
-		query = `SELECT pg_try_advisory_lock($1)`
+		query = `SELECT pg_try_advisory_lock(?)`
 	case "mysql", "oci8", "ora", "goracle":
 		query = "SELECT GET_LOCK(?, -1)"
 	case "sqlite3":
@@ -260,7 +256,7 @@ func unlock(ctx context.Context, tx *sqlx.Tx) error {
 	var query string
 	switch tx.DriverName() {
 	case "postgres", "pgx", "pq-timeouts", "cloudsqlpostgres":
-		query = `SELECT pg_advisory_unlock($1)`
+		query = `SELECT pg_advisory_unlock(?)`
 	case "mysql", "oci8", "ora", "goracle":
 		query = `SELECT RELEASE_LOCK(?)`
 	case "sqlite3":
@@ -277,6 +273,11 @@ func unlock(ctx context.Context, tx *sqlx.Tx) error {
 }
 
 func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) error {
+	err := ensureVersionTable(ctx, tx)
+	if err != nil {
+		return nil
+	}
+
 	// TODO need to handle down migration better
 	// ideally, we have a record of each up/down migration with a timestamp for auditing,
 	// this just nukes the whole table which is kinda lame.
@@ -286,7 +287,7 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 	}
 
 	if version >= 0 {
-		query = tx.Rebind("INSERT INTO `" + MigrationsTable + "` (version, dirty) VALUES (?, ?)")
+		query = tx.Rebind(`INSERT INTO ` + MigrationsTable + ` (version, dirty) VALUES (?, ?)`)
 		if _, err := tx.ExecContext(ctx, query, version, dirty); err != nil {
 			return err
 		}
@@ -296,7 +297,7 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 }
 
 func Version(ctx context.Context, tx *sqlx.Tx) (version int64, dirty bool, err error) {
-	query := tx.Rebind("SELECT version, dirty FROM `" + MigrationsTable + "` LIMIT 1")
+	query := tx.Rebind(`SELECT version, dirty FROM ` + MigrationsTable + ` LIMIT 1`)
 	err = tx.QueryRowContext(ctx, query).Scan(&version, &dirty)
 	switch {
 	case err == sql.ErrNoRows:

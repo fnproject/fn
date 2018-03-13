@@ -62,6 +62,7 @@ func (m *RouteWrapper) validateError(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil
@@ -81,6 +82,7 @@ func (m *RouteWrapper) validateRoute(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil

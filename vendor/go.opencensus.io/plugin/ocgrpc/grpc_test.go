@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"go.opencensus.io/stats/view"
 	"golang.org/x/net/context"
 
 	"go.opencensus.io/trace"
@@ -25,11 +26,8 @@ import (
 	"google.golang.org/grpc/stats"
 )
 
-func TestNewClientStatsHandler(t *testing.T) {
+func TestClientHandler(t *testing.T) {
 	ctx := context.Background()
-
-	handler := NewClientStatsHandler()
-
 	te := &traceExporter{}
 	trace.RegisterExporter(te)
 	if err := ClientRequestCountView.Subscribe(); err != nil {
@@ -41,6 +39,7 @@ func TestNewClientStatsHandler(t *testing.T) {
 	})
 	ctx = trace.WithSpan(ctx, span)
 
+	var handler ClientHandler
 	ctx = handler.TagRPC(ctx, &stats.RPCTagInfo{
 		FullMethodName: "/service.foo/method",
 	})
@@ -53,7 +52,7 @@ func TestNewClientStatsHandler(t *testing.T) {
 		EndTime: time.Now(),
 	})
 
-	stats, err := ClientRequestCountView.RetrieveData()
+	stats, err := view.RetrieveData(ClientRequestCountView.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,26 +66,24 @@ func TestNewClientStatsHandler(t *testing.T) {
 	}
 
 	// Cleanup.
-	if err := ClientRequestCountView.Unsubscribe(); err != nil {
-		t.Fatal(err)
-	}
+	view.Unsubscribe(ClientErrorCountView)
 }
 
-func TestNewServerStatsHandler(t *testing.T) {
+func TestServerHandler(t *testing.T) {
 	ctx := context.Background()
-
-	handler := NewServerStatsHandler()
-
 	te := &traceExporter{}
 	trace.RegisterExporter(te)
 	if err := ServerRequestCountView.Subscribe(); err != nil {
 		t.Fatal(err)
 	}
 
+	// Ensure we start tracing.
 	span := trace.NewSpan("/foo", nil, trace.StartOptions{
 		Sampler: trace.AlwaysSample(),
 	})
 	ctx = trace.WithSpan(ctx, span)
+
+	handler := &ServerHandler{}
 	ctx = handler.TagRPC(ctx, &stats.RPCTagInfo{
 		FullMethodName: "/service.foo/method",
 	})
@@ -97,7 +94,7 @@ func TestNewServerStatsHandler(t *testing.T) {
 		EndTime: time.Now(),
 	})
 
-	stats, err := ServerRequestCountView.RetrieveData()
+	stats, err := view.RetrieveData(ServerRequestCountView.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,10 +108,7 @@ func TestNewServerStatsHandler(t *testing.T) {
 	}
 
 	// Cleanup.
-	if err := ServerRequestCountView.Unsubscribe(); err != nil {
-		t.Fatal(err)
-	}
-
+	view.Unsubscribe(ServerRequestCountView)
 }
 
 type traceExporter struct {

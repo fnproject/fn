@@ -21,16 +21,16 @@ import (
 	"go.opencensus.io/trace"
 )
 
-// Exporter is a stats and trace exporter that logs
+// PrintExporter is a stats and trace exporter that logs
 // the exported data to the console.
-type Exporter struct{}
+type PrintExporter struct{}
 
 // ExportView logs the view data.
-func (e *Exporter) ExportView(vd *view.Data) {
+func (e *PrintExporter) ExportView(vd *view.Data) {
 	log.Println(vd)
 }
 
 // ExportSpan logs the trace span.
-func (e *Exporter) ExportSpan(vd *trace.SpanData) {
+func (e *PrintExporter) ExportSpan(vd *trace.SpanData) {
 	log.Println(vd)
 }

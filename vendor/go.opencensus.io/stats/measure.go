@@ -43,7 +43,6 @@ type measure struct {
 	name        string
 	description string
 	unit        string
-	views       int32
 }
 
 // Name returns the name of the measure.
@@ -69,6 +68,7 @@ var (
 	errMeasureNameTooLong = fmt.Errorf("measure name cannot be longer than %v", internal.MaxNameLength)
 )
 
+// FindMeasure finds the Measure instance, if any, associated with the given name.
 func FindMeasure(name string) Measure {
 	mu.RLock()
 	m := measures[name]
@@ -91,8 +91,18 @@ func register(m Measure) (Measure, error) {
 // provides methods to create measurements of their kind. For example, Int64Measure
 // provides M to convert an int64 into a measurement.
 type Measurement struct {
-	Value   float64
-	Measure Measure
+	v float64
+	m Measure
+}
+
+// Value returns the value of the Measurement as a float64.
+func (m Measurement) Value() float64 {
+	return m.v
+}
+
+// Measure returns the Measure from which this Measurement was created.
+func (m Measurement) Measure() Measure {
+	return m.m
 }
 
 func checkName(name string) error {

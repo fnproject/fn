@@ -20,12 +20,6 @@ import (
 	"google.golang.org/grpc/stats"
 )
 
-// NewServerStatsHandler enables OpenCensus stats and trace
-// for gRPC servers. Deprecated, construct a ServerHandler directly.
-func NewServerStatsHandler() stats.Handler {
-	return &ServerHandler{}
-}
-
 // ServerHandler implements gRPC stats.Handler recording OpenCensus stats and
 // traces. Use with gRPC servers.
 type ServerHandler struct {
@@ -38,11 +32,6 @@ type ServerHandler struct {
 	NoStats bool
 }
 
-var (
-	serverTrace serverTraceHandler
-	serverStats serverStatsHandler
-)
-
 func (s *ServerHandler) HandleConn(ctx context.Context, cs stats.ConnStats) {
 	// no-op
 }
@@ -54,19 +43,19 @@ func (s *ServerHandler) TagConn(ctx context.Context, cti *stats.ConnTagInfo) con
 
 func (s *ServerHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 	if !s.NoTrace {
-		serverTrace.HandleRPC(ctx, rs)
+		s.traceHandleRPC(ctx, rs)
 	}
 	if !s.NoStats {
-		serverStats.HandleRPC(ctx, rs)
+		s.statsHandleRPC(ctx, rs)
 	}
 }
 
 func (s *ServerHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
 	if !s.NoTrace {
-		ctx = serverTrace.TagRPC(ctx, rti)
+		ctx = s.traceTagRPC(ctx, rti)
 	}
 	if !s.NoStats {
-		ctx = serverStats.TagRPC(ctx, rti)
+		ctx = s.statsTagRPC(ctx, rti)
 	}
 	return ctx
 }

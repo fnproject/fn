@@ -83,14 +83,18 @@ func TestExporter_makeReq(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := view.New("testview", "desc", []tag.Key{key}, m, view.CountAggregation{})
-	if err != nil {
-		t.Fatal(err)
+	v := &view.View{
+		Name:        "testview",
+		Description: "desc",
+		TagKeys:     []tag.Key{key},
+		Measure:     m,
+		Aggregation: view.CountAggregation{},
 	}
-
-	distView, err := view.New("distview", "desc", nil, m, view.DistributionAggregation([]float64{2, 4, 7}))
-	if err != nil {
-		t.Fatal(err)
+	distView := &view.View{
+		Name:        "distview",
+		Description: "desc",
+		Measure:     m,
+		Aggregation: view.DistributionAggregation{2, 4, 7},
 	}
 
 	start := time.Now()
@@ -384,14 +388,13 @@ func TestExporter_makeReq_batching(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := view.New("view", "desc", []tag.Key{key}, m, view.CountAggregation{})
-	if err != nil {
-		t.Fatal(err)
+	v := &view.View{
+		Name:        "view",
+		Description: "desc",
+		TagKeys:     []tag.Key{key},
+		Measure:     m,
+		Aggregation: view.CountAggregation{},
 	}
-	if err := view.Register(v); err != nil {
-		t.Fatal(err)
-	}
-	defer view.Unregister(v)
 
 	tests := []struct {
 		name      string
@@ -573,9 +576,12 @@ func TestExporter_createMeasure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := view.New("testview", "desc", []tag.Key{key}, m, view.CountAggregation{})
-	if err != nil {
-		t.Fatal(err)
+	v := &view.View{
+		Name:        "testview",
+		Description: "desc",
+		TagKeys:     []tag.Key{key},
+		Measure:     m,
+		Aggregation: view.CountAggregation{},
 	}
 
 	data := view.CountData(0)
@@ -599,7 +605,7 @@ func TestExporter_createMeasure(t *testing.T) {
 			Type:        "hello",
 			MetricKind:  metricpb.MetricDescriptor_CUMULATIVE,
 			ValueType:   metricpb.MetricDescriptor_INT64,
-			Labels:      newLabelDescriptors(vd.View.TagKeys()),
+			Labels:      newLabelDescriptors(vd.View.TagKeys),
 		}, nil
 	}
 
@@ -632,14 +638,17 @@ func TestExporter_makeReq_withCustomMonitoredResource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := view.New("testview", "desc", []tag.Key{key}, m, view.CountAggregation{})
-	if err != nil {
+	v := &view.View{
+		Name:        "testview",
+		Description: "desc",
+		TagKeys:     []tag.Key{key},
+		Measure:     m,
+		Aggregation: view.CountAggregation{},
+	}
+	if err := view.Subscribe(v); err != nil {
 		t.Fatal(err)
 	}
-	if err := v.Subscribe(); err != nil {
-		t.Fatal(err)
-	}
-	defer v.Unsubscribe()
+	defer view.Unsubscribe(v)
 
 	start := time.Now()
 	end := start.Add(time.Minute)

@@ -19,12 +19,6 @@
 //
 // Users can also embed the HTML for stats and traces in custom status pages.
 //
-// To add the handlers to the default HTTP request multiplexer with the patterns
-// /rpcz and /tracez, call:
-// 	zpages.AddDefaultHTTPHandlers()
-// If your program does not already start an HTTP server, you can use:
-// 	go func() { log.Fatal(http.ListenAndServe(":8080", nil)) }()
-//
 // zpages are currrently work-in-process and cannot display minutely and
 // hourly stats correctly.
 //
@@ -38,27 +32,15 @@ package zpages // import "go.opencensus.io/zpages"
 
 import (
 	"net/http"
-	"sync"
 )
-
-var once sync.Once
-
-// AddDefaultHTTPHandlers adds handlers for /rpcz and /tracez to the default HTTP request multiplexer.
-// Deprecated: Use Handler.
-func AddDefaultHTTPHandlers() {
-	once.Do(func() {
-		http.HandleFunc("/rpcz", RpczHandler)
-		http.HandleFunc("/tracez", TracezHandler)
-	})
-}
 
 // Handler is an http.Handler that serves the zpages.
 var Handler http.Handler
 
 func init() {
 	zpagesMux := http.NewServeMux()
-	zpagesMux.HandleFunc("/rpcz", RpczHandler)
-	zpagesMux.HandleFunc("/tracez", TracezHandler)
+	zpagesMux.HandleFunc("/rpcz", rpczHandler)
+	zpagesMux.HandleFunc("/tracez", tracezHandler)
 	zpagesMux.Handle("/public/", http.FileServer(fs))
 	Handler = zpagesMux
 }

@@ -14,15 +14,15 @@ const testsqlite3 = "file::memory:?mode=memory&cache=shared"
 
 type tm struct{}
 
-func (t *tm) Up(tx *sqlx.Tx) error {
-	_, err := tx.Exec(`CREATE TABLE IF NOT EXISTS foo (
+func (t *tm) Up(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS foo (
 		bar bigint NOT NULL PRIMARY KEY
 	)`)
 	return err
 }
 
-func (t *tm) Down(tx *sqlx.Tx) error {
-	_, err := tx.Exec("DROP TABLE foo")
+func (t *tm) Down(ctx context.Context, tx *sqlx.Tx) error {
+	_, err := tx.ExecContext(ctx, "DROP TABLE foo")
 	return err
 }
 

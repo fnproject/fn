@@ -45,7 +45,7 @@ func main() {
 	go func() { log.Fatal(http.ListenAndServe(":8081", zpages.Handler)) }()
 	// Register stats and trace exporters to export
 	// the collected data.
-	view.RegisterExporter(&exporter.Exporter{})
+	view.RegisterExporter(&exporter.PrintExporter{})
 
 	// Subscribe to collect server request count.
 	if err := ocgrpc.ServerRequestCountView.Subscribe(); err != nil {
@@ -59,7 +59,7 @@ func main() {
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	s := grpc.NewServer(grpc.StatsHandler(ocgrpc.NewServerStatsHandler()))
+	s := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	pb.RegisterGreeterServer(s, &server{})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)

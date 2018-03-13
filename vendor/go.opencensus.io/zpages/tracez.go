@@ -86,8 +86,7 @@ func canonicalCodeString(code int32) string {
 	return canonicalCodes[code]
 }
 
-// TracezHandler is a handler for /tracez.
-func TracezHandler(w http.ResponseWriter, r *http.Request) {
+func tracezHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	name := r.Form.Get(spanNameQueryField)

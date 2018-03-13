@@ -360,9 +360,10 @@ func TestOversizedLog(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	} else {
-		if len(logObj.Payload) >= size {
+		log := logObj.Payload.Log.Log
+		if len(log) >= size {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
-				size/1024, len(logObj.Payload))
+				size/1024, len(log))
 		}
 	}
 	DeleteApp(t, s.Context, s.Client, s.AppName)

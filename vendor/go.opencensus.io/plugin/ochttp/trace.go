@@ -20,11 +20,14 @@ import (
 	"net/url"
 	"sync"
 
+	"go.opencensus.io/plugin/ochttp/propagation/b3"
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
 )
 
 // TODO(jbd): Add godoc examples.
+
+var defaultFormat propagation.HTTPFormat = &b3.HTTPFormat{}
 
 // Attributes recorded on the span for the requests.
 // Only trace exporters will need them.
@@ -33,13 +36,13 @@ const (
 	MethodAttribute     = "http.method"
 	PathAttribute       = "http.path"
 	UserAgentAttribute  = "http.user_agent"
-	StatusCodeAttribute = "http.status"
+	StatusCodeAttribute = "http.status_code"
 )
 
 type traceTransport struct {
-	base    http.RoundTripper
-	sampler trace.Sampler
-	format  propagation.HTTPFormat
+	base         http.RoundTripper
+	startOptions trace.StartOptions
+	format       propagation.HTTPFormat
 }
 
 // TODO(jbd): Add message events for request and response size.
@@ -52,7 +55,7 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// TODO(jbd): Discuss whether we want to prefix
 	// outgoing requests with Sent.
 	parent := trace.FromContext(req.Context())
-	span := trace.NewSpan(name, parent, trace.StartOptions{Sampler: t.sampler})
+	span := trace.NewSpan(name, parent, t.startOptions)
 	req = req.WithContext(trace.WithSpan(req.Context(), span))
 
 	if t.format != nil {
@@ -132,55 +135,6 @@ func (t *traceTransport) CancelRequest(req *http.Request) {
 	}
 }
 
-// Handler is a http.Handler that is aware of the incoming request's span.
-//
-// The extracted span can be accessed from the incoming request's
-// context.
-//
-//    span := trace.FromContext(r.Context())
-//
-// The server span will be automatically ended at the end of ServeHTTP.
-//
-// Incoming propagation mechanism is determined by the given HTTP propagators.
-type Handler struct {
-	// Propagation defines how traces are propagated. If unspecified,
-	// B3 propagation will be used.
-	Propagation propagation.HTTPFormat
-
-	// Handler is the handler used to handle the incoming request.
-	Handler http.Handler
-}
-
-// TODO(jbd): Add Handler.NoTrace and Handler.NoStats.
-
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	name := spanNameFromURL("Recv", r.URL)
-
-	p := h.Propagation
-	if p == nil {
-		p = defaultFormat
-	}
-
-	ctx := r.Context()
-	var span *trace.Span
-	if sc, ok := p.SpanContextFromRequest(r); ok {
-		ctx, span = trace.StartSpanWithRemoteParent(ctx, name, sc, trace.StartOptions{})
-	} else {
-		ctx, span = trace.StartSpan(ctx, name)
-	}
-	defer span.End()
-
-	span.SetAttributes(requestAttrs(r)...)
-
-	r = r.WithContext(ctx)
-
-	handler := h.Handler
-	if handler == nil {
-		handler = http.DefaultServeMux
-	}
-	handler.ServeHTTP(w, r)
-}
-
 func spanNameFromURL(prefix string, u *url.URL) string {
 	host := u.Hostname()
 	port := ":" + u.Port()
@@ -192,15 +146,15 @@ func spanNameFromURL(prefix string, u *url.URL) string {
 
 func requestAttrs(r *http.Request) []trace.Attribute {
 	return []trace.Attribute{
-		trace.StringAttribute{Key: PathAttribute, Value: r.URL.Path},
-		trace.StringAttribute{Key: HostAttribute, Value: r.URL.Host},
-		trace.StringAttribute{Key: MethodAttribute, Value: r.Method},
-		trace.StringAttribute{Key: UserAgentAttribute, Value: r.UserAgent()},
+		trace.StringAttribute(PathAttribute, r.URL.Path),
+		trace.StringAttribute(HostAttribute, r.URL.Host),
+		trace.StringAttribute(MethodAttribute, r.Method),
+		trace.StringAttribute(UserAgentAttribute, r.UserAgent()),
 	}
 }
 
 func responseAttrs(resp *http.Response) []trace.Attribute {
 	return []trace.Attribute{
-		trace.Int64Attribute{Key: StatusCodeAttribute, Value: int64(resp.StatusCode)},
+		trace.Int64Attribute(StatusCodeAttribute, int64(resp.StatusCode)),
 	}
 }

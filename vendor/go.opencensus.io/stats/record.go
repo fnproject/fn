@@ -26,15 +26,6 @@ import (
 // If there are any tags in the context, measurements will be tagged with them.
 func Record(ctx context.Context, ms ...Measurement) {
 	if internal.DefaultRecorder != nil {
-		var record bool
-		for _, m := range ms {
-			if m.Measure != nil {
-				record = true
-			}
-		}
-		if !record {
-			return
-		}
 		internal.DefaultRecorder(tag.FromContext(ctx), ms)
 	}
 }

@@ -48,7 +48,7 @@ func statsExamples() {
 	_ = m
 
 	// START aggs
-	distAgg := view.DistributionAggregation([]float64{0, 1 << 32, 2 << 32, 3 << 32})
+	distAgg := view.DistributionAggregation{0, 1 << 32, 2 << 32, 3 << 32}
 	countAgg := view.CountAggregation{}
 	sumAgg := view.SumAggregation{}
 	meanAgg := view.MeanAggregation{}
@@ -57,35 +57,15 @@ func statsExamples() {
 	_, _, _, _ = distAgg, countAgg, sumAgg, meanAgg
 
 	// START view
-	v, err := view.New(
-		"my.org/video_size_distribution",
-		"distribution of processed video size over time",
-		nil,
-		videoSize,
-		distAgg,
-	)
-	if err != nil {
-		log.Fatalf("cannot create view: %v", err)
-	}
-	if err := view.Register(v); err != nil {
-		log.Fatal(err)
+	if err = view.Subscribe(&view.View{
+		Name:        "my.org/video_size_distribution",
+		Description: "distribution of processed video size over time",
+		Measure:     videoSize,
+		Aggregation: view.DistributionAggregation([]float64{0, 1 << 32, 2 << 32, 3 << 32}),
+	}); err != nil {
+		log.Fatalf("Failed to subscribe to view: %v", err)
 	}
 	// END view
-
-	// START findView
-	v = view.Find("my.org/video_size_distribution")
-	if v == nil {
-		log.Fatalln("view not found")
-	}
-	// END findView
-
-	_ = v
-
-	// START unregisterView
-	if err = view.Unregister(v); err != nil {
-		log.Fatal(err)
-	}
-	// END unregisterView
 
 	// START reportingPeriod
 	view.SetReportingPeriod(5 * time.Second)
@@ -94,12 +74,6 @@ func statsExamples() {
 	// START record
 	stats.Record(ctx, videoSize.M(102478))
 	// END record
-
-	// START subscribe
-	if err := v.Subscribe(); err != nil {
-		log.Fatal(err)
-	}
-	// END subscribe
 
 	// START registerExporter
 	// Register an exporter to be able to retrieve

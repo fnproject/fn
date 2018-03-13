@@ -51,6 +51,7 @@ func (m *CallWrapper) validateCall(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil
