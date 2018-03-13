@@ -305,7 +305,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
-	timeout := a.cfg.HotLauncherTimeoutMsecs
+	timeout := a.cfg.HotLauncherTimeout
 	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
@@ -403,7 +403,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		}
 
 		// set sleep to x msecs after first iteration
-		sleep = a.cfg.HotPollMsecs * time.Millisecond
+		sleep = a.cfg.HotPoll * time.Millisecond
 		// send a notification to launchHot()
 		select {
 		case call.slots.signaller <- true:
@@ -623,7 +623,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 
 	// if freezer is enabled, be consistent with freezer behavior and
 	// block stdout and stderr between calls.
-	isBlockIdleIO := MaxDisabledMsecs != a.cfg.FreezeIdleMsecs
+	isBlockIdleIO := MaxDisabledMsecs != a.cfg.FreezeIdle
 	container, closer := NewHotContainer(call, isBlockIdleIO)
 	defer closer()
 
@@ -694,9 +694,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	var err error
 	isFrozen := false
 
-	freezeTimer := time.NewTimer(a.cfg.FreezeIdleMsecs)
+	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	ejectTicker := time.NewTicker(a.cfg.EjectIdleMsecs)
+	ejectTicker := time.NewTicker(a.cfg.EjectIdle)
 
 	defer freezeTimer.Stop()
 	defer idleTimer.Stop()
@@ -710,7 +710,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	}()
 
 	// if an immediate freeze is requested, freeze first before enqueuing at all.
-	if a.cfg.FreezeIdleMsecs == time.Duration(0) && !isFrozen {
+	if a.cfg.FreezeIdle == time.Duration(0) && !isFrozen {
 		err = cookie.Freeze(ctx)
 		if err != nil {
 			return false

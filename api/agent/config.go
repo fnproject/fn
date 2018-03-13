@@ -9,28 +9,28 @@ import (
 )
 
 type AgentConfig struct {
-	MinDockerVersion        string        `json:"min_docker_version"`
-	FreezeIdleMsecs         time.Duration `json:"freeze_idle_msecs"`
-	EjectIdleMsecs          time.Duration `json:"eject_idle_msecs"`
-	HotPollMsecs            time.Duration `json:"hot_poll_msecs"`
-	HotLauncherTimeoutMsecs time.Duration `json:"hot_launcher_timeout_msecs"`
-	AsyncChewPollMsecs      time.Duration `json:"async_chew_poll_msecs"`
-	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
-	MaxLogSize              uint64        `json:"max_log_size_bytes"`
-	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
-	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
+	MinDockerVersion   string        `json:"min_docker_version"`
+	FreezeIdle         time.Duration `json:"freeze_idle_msecs"`
+	EjectIdle          time.Duration `json:"eject_idle_msecs"`
+	HotPoll            time.Duration `json:"hot_poll_msecs"`
+	HotLauncherTimeout time.Duration `json:"hot_launcher_timeout_msecs"`
+	AsyncChewPoll      time.Duration `json:"async_chew_poll_msecs"`
+	MaxResponseSize    uint64        `json:"max_response_size_bytes"`
+	MaxLogSize         uint64        `json:"max_log_size_bytes"`
+	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
+	MaxTotalMemory     uint64        `json:"max_total_memory_bytes"`
 }
 
 const (
-	EnvFreezeIdleMsecs         = "FN_FREEZE_IDLE_MSECS"
-	EnvEjectIdleMsecs          = "FN_EJECT_IDLE_MSECS"
-	EnvHotPollMsecs            = "FN_HOT_POLL_MSECS"
-	EnvHotLauncherTimeoutMsecs = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
-	EnvAsyncChewPollMsecs      = "FN_ASYNC_CHEW_POLL_MSECS"
-	EnvMaxResponseSize         = "FN_MAX_RESPONSE_SIZE_BYTES"
-	EnvMaxLogSize              = "FN_MAX_LOG_SIZE_BYTES"
-	EnvMaxTotalCPU             = "FN_MAX_TOTAL_CPU_MCPUS"
-	EnvMaxTotalMemory          = "FN_MAX_TOTAL_MEMORY_BYTES"
+	EnvFreezeIdle         = "FN_FREEZE_IDLE_MSECS"
+	EnvEjectIdle          = "FN_EJECT_IDLE_MSECS"
+	EnvHotPoll            = "FN_HOT_POLL_MSECS"
+	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
+	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
+	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE_BYTES"
+	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
+	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
+	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -44,11 +44,11 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	var err error
 
-	err = setEnvMsecs(err, EnvFreezeIdleMsecs, &cfg.FreezeIdleMsecs, 50*time.Millisecond)
-	err = setEnvMsecs(err, EnvEjectIdleMsecs, &cfg.EjectIdleMsecs, 1000*time.Millisecond)
-	err = setEnvMsecs(err, EnvHotPollMsecs, &cfg.HotPollMsecs, 200*time.Millisecond)
-	err = setEnvMsecs(err, EnvHotLauncherTimeoutMsecs, &cfg.HotLauncherTimeoutMsecs, time.Duration(60)*time.Minute)
-	err = setEnvMsecs(err, EnvAsyncChewPollMsecs, &cfg.AsyncChewPollMsecs, time.Duration(60)*time.Second)
+	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
+	err = setEnvMsecs(err, EnvEjectIdle, &cfg.EjectIdle, 1000*time.Millisecond)
+	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, 200*time.Millisecond)
+	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
+	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
@@ -58,8 +58,8 @@ func NewAgentConfig() (*AgentConfig, error) {
 		return cfg, err
 	}
 
-	if cfg.EjectIdleMsecs == time.Duration(0) {
-		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdleMsecs)
+	if cfg.EjectIdle == time.Duration(0) {
+		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdle)
 	}
 	if cfg.MaxLogSize > math.MaxInt32 {
 		// for safety during uint64 to int conversions in Write()/Read(), etc.
