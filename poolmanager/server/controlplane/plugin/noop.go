@@ -1,56 +1,47 @@
-/*
-	Interface between the Node Pool Manager and the Control Plane
-*/
-
-package cp
+/**
+ * Dummy implementation for the controlplane that just adds delays
+ */
+package main
 
 import (
 	"crypto/rand"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/fnproject/fn/poolmanager/server/controlplane"
 )
 
-type Runner struct {
-	Id      string
-	Address string
-	// Other: certs etc here as managed and installed by CP
-	Capacity int64
-}
+const (
+	EnvFixedRunners = "FN_RUNNER_ADDRESSES"
+)
 
-const CAPACITY_PER_RUNNER = 4096
-
-type ControlPlane interface {
-	GetLBGRunners(lgbId string) ([]*Runner, error)
-	ProvisionRunners(lgbId string, n int) (int, error)
-	RemoveRunner(lbgId string, id string) error
-}
-
-type controlPlane struct {
-	mx sync.RWMutex
-
-	runners map[string][]*Runner
-
+type noopControlPlane struct {
+	mx           sync.RWMutex
+	runners      map[string][]*controlplane.Runner
 	_fakeRunners []string
 }
 
 const REQUEST_DURATION = 5 * time.Second
 
-func NewControlPlane(fakeRunners []string) ControlPlane {
-	cp := &controlPlane{
-		runners: make(map[string][]*Runner),
-
-		_fakeRunners: fakeRunners,
+func init() {
+	ControlPlane = noopControlPlane{
+		runners:      make(map[string][]*controlplane.Runner),
+		_fakeRunners: strings.Split(getEnv(EnvFixedRunners), ","),
 	}
-	return cp
 }
 
-func (cp *controlPlane) GetLBGRunners(lbgId string) ([]*Runner, error) {
+func main() {
+}
+
+func (cp *noopControlPlane) GetLBGRunners(lbgId string) ([]*controlplane.Runner, error) {
 	cp.mx.RLock()
 	defer cp.mx.RUnlock()
 
-	runners := make([]*Runner, 0)
+	runners := make([]*controlplane.Runner, 0)
 	if hosts, ok := cp.runners[lbgId]; ok {
 		for _, host := range hosts {
 			runners = append(runners, host) // In this CP implementation, a Runner is an immutable thing, so passing the pointer is fine
@@ -60,7 +51,7 @@ func (cp *controlPlane) GetLBGRunners(lbgId string) ([]*Runner, error) {
 	return runners, nil
 }
 
-func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
+func (cp *noopControlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 	// Simulate some small amount of time for the CP to service this request
 	go func() {
 		time.Sleep(REQUEST_DURATION)
@@ -69,7 +60,7 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 
 		runners, ok := cp.runners[lbgId]
 		if !ok {
-			runners = make([]*Runner, 0)
+			runners = make([]*controlplane.Runner, 0)
 		}
 		for i := 0; i < n; i++ {
 			runners = append(runners, cp.makeRunners(lbgId)...)
@@ -81,9 +72,9 @@ func (cp *controlPlane) ProvisionRunners(lbgId string, n int) (int, error) {
 }
 
 // Make runner(s)
-func (cp *controlPlane) makeRunners(lbg string) []*Runner {
+func (cp *noopControlPlane) makeRunners(lbg string) []*controlplane.Runner {
 
-	var runners []*Runner
+	var runners []*controlplane.Runner
 	for _, fakeRunner := range cp._fakeRunners {
 
 		b := make([]byte, 16)
@@ -94,10 +85,10 @@ func (cp *controlPlane) makeRunners(lbg string) []*Runner {
 
 		uuid := fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 
-		runners = append(runners, &Runner{
+		runners = append(runners, &controlplane.Runner{
 			Id:       uuid,
 			Address:  fakeRunner,
-			Capacity: CAPACITY_PER_RUNNER,
+			Capacity: controlplane.CapacityPerRunner,
 		})
 	}
 	return runners
@@ -106,12 +97,12 @@ func (cp *controlPlane) makeRunners(lbg string) []*Runner {
 // Ditch a runner from the pool.
 // We do this immediately - no point modelling a wait here
 // note: if this actually took time, we'd want to detect this properly so as to not confuse the NPM
-func (cp *controlPlane) RemoveRunner(lbgId string, id string) error {
+func (cp *noopControlPlane) RemoveRunner(lbgId string, id string) error {
 	cp.mx.Lock()
 	defer cp.mx.Unlock()
 
 	if runners, ok := cp.runners[lbgId]; ok {
-		newRunners := make([]*Runner, 0)
+		newRunners := make([]*controlplane.Runner, 0)
 		for _, host := range runners {
 			if host.Id != id {
 				newRunners = append(newRunners, host)
@@ -121,3 +112,13 @@ func (cp *controlPlane) RemoveRunner(lbgId string, id string) error {
 	}
 	return nil
 }
+
+func getEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		log.Panicf("Missing config key: %v", key)
+	}
+	return value
+}
+
+var ControlPlane noopControlPlane

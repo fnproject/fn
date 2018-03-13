@@ -2,7 +2,7 @@
 
 ## Motivation
 
-By running Fn in multitenant mode, you can define independent pools of compute resources available to functions in the platform. By associating a function with a particular _load balancing group_, its invocations are guaranteed to execute on the compute resources assigned to that specific group. The pluggable _node pool manager_ abstraction provides a mechanism to scale compute resources dynamically, based on capacity requirements advertised by the load-balancing layer. Together with load balancer groups, it allows you to implement independent capacity and scaling policies for different sets of users or tenants. 
+By running Fn in multitenant mode, you can define independent pools of compute resources available to functions in the platform. By associating a function with a particular _load balancing group_, its invocations are guaranteed to execute on the compute resources assigned to that specific group. The pluggable _node pool manager_ abstraction provides a mechanism to scale compute resources dynamically, based on capacity requirements advertised by the load-balancing layer. Together with load balancer groups, it allows you to implement independent capacity and scaling policies for different sets of users or tenants.
 
 ## Create certificates
 
@@ -56,6 +56,7 @@ but the GRPC port is 9190.
 Grap the runner address and put in as value for the `FN_RUNNER_ADDRESSES` env variable.
 
 ```bash
+go build -buildmode=plugin -o noop.so poolmanager/server/controlplane/plugin/noop.go
 go build -o fnnpm poolmanager/server/main.go
 
 FN_LOG_LEVEL=DEBUG \
@@ -64,6 +65,7 @@ FN_NODE_CERT_KEY=key.pem  \
 FN_NODE_CERT_AUTHORITY=cert.pem  \
 FN_PORT=8083  \
 FN_RUNNER_ADDRESSES=<RUNNER_ADDRESS_HERE>:9190 \
+CONTROL_PLANE_SO=noop.so \
 ./fnnpm
 ```
 

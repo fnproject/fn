@@ -398,7 +398,7 @@ func WithAgentFromEnv() ServerOption {
 			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
 			delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 			cancelCtx, cancel := context.WithCancel(ctx)
-			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
 			if err != nil {
 				return err
 			}
