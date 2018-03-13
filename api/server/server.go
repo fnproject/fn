@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +31,7 @@ import (
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/exporter/zipkin"
@@ -518,7 +521,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	return s
 }
 
-// TODO need to fix this to handle the nil case better
+// TODO this should be a 'plugin' most likely
 func WithTracer(zipkinURL string) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		var (
@@ -540,9 +543,15 @@ func WithTracer(zipkinURL string) ServerOption {
 			trace.SetDefaultSampler(trace.AlwaysSample())
 		}
 
-		// TODO we can keep this on *Server and unregister it in Close()... can finagle later. same for tracer
+		reg := promclient.NewRegistry()
+		reg.MustRegister(promclient.NewProcessCollector(os.Getpid(), "fn"),
+			promclient.NewProcessCollectorPIDFn(dockerPid(), "dockerd"),
+			promclient.NewGoCollector(),
+		)
+
 		exporter, err := prometheus.NewExporter(prometheus.Options{
 			Namespace: "fn",
+			Registry:  reg,
 			OnError:   func(err error) { logrus.WithError(err).Error("opencensus prometheus exporter err") },
 		})
 		if err != nil {
@@ -553,6 +562,64 @@ func WithTracer(zipkinURL string) ServerOption {
 
 		return nil
 	}
+}
+
+// TODO plumbing considerations, we've put the S pipe next to the chandalier...
+func dockerPid() func() (int, error) {
+	// prometheus' process collector only works on linux anyway. let them do the
+	// process detection, if we return an error here we just get 0 metrics and it
+	// does not log / blow up (that's fine!) it's also likely we hit permissions
+	// errors here for many installations, we want to do similar and ignore (we
+	// just want for prod).
+
+	var pid int
+
+	return func() (int, error) {
+		if pid != 0 {
+			// make sure it's docker pid.
+			if isDockerPid("/proc/" + strconv.Itoa(pid) + "/status") {
+				return pid, nil
+			}
+			pid = 0 // reset to go search
+		}
+
+		err := filepath.Walk("/proc", func(path string, info os.FileInfo, err error) error {
+			if err != nil || pid != 0 {
+				// we get permission errors digging around in here, ignore them and press on
+				return nil
+			}
+
+			// /proc/<pid>/status
+			if strings.Count(path, "/") == 3 && strings.Contains(path, "/status") {
+				if isDockerPid(path) {
+					// extract pid from path
+					pid, _ = strconv.Atoi(path[6:strings.LastIndex(path, "/")])
+					return io.EOF // end the search
+				}
+			}
+
+			// keep searching
+			return nil
+		})
+		if err == io.EOF { // used as sentinel
+			err = nil
+		}
+		return pid, err
+	}
+}
+
+func isDockerPid(path string) bool {
+	// first line of status file is: "Name: <name>"
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	// scan first line only
+	scanner := bufio.NewScanner(f)
+	scanner.Scan()
+	return strings.HasSuffix(scanner.Text(), "dockerd")
 }
 
 func setMachineID() {
