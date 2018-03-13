@@ -1,14 +1,15 @@
 package sql
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"testing"
 
-	"context"
-
 	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
+	"github.com/fnproject/fn/api/datastore/sql/migratex"
+	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -23,12 +24,7 @@ func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		return nil, err
 	}
 
-	m, err := migrator(url.String())
-	if err != nil {
-		return nil, err
-	}
-
-	err = m.Down()
+	err = migratex.Down(ctx, ds.db, migrations.Migrations)
 	if err != nil {
 		return nil, err
 	}

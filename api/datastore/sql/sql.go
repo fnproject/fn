@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-sql-driver/mysql"
@@ -23,12 +24,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rdallman/migrate"
-	_ "github.com/rdallman/migrate/database/mysql"
-	_ "github.com/rdallman/migrate/database/postgres"
-	_ "github.com/rdallman/migrate/database/sqlite3"
-	"github.com/rdallman/migrate/source"
-	"github.com/rdallman/migrate/source/go-bindata"
 	"github.com/sirupsen/logrus"
 )
 
@@ -147,7 +142,9 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
-	err = runMigrations(url.String(), checkExistence(db)) // original url string
+	sdb := &sqlStore{db: db}
+
+	err = sdb.runMigrations(ctx, checkExistence(db), migrations.Migrations)
 	if err != nil {
 		log.WithError(err).Error("error running migrations")
 		return nil, err
@@ -164,7 +161,7 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		}
 	}
 
-	return &sqlStore{db: db}, nil
+	return sdb, nil
 }
 
 func pingWithRetry(ctx context.Context, attempts int, sleep time.Duration, db *sqlx.DB) (err error) {
@@ -201,52 +198,29 @@ func checkExistence(db *sqlx.DB) bool {
 // check if the db already existed, if the db is brand new then we can skip
 // over all the migrations BUT we must be sure to set the right migration
 // number so that only current migrations are skipped, not any future ones.
-func runMigrations(url string, exists bool) error {
-	m, err := migrator(url)
-	if err != nil {
-		return err
-	}
-	defer m.Close()
-
-	if !exists {
+func (ds *sqlStore) runMigrations(ctx context.Context, dbExists bool, migrations []migratex.Migration) error {
+	if !dbExists {
 		// set to highest and bail
-		return m.Force(latestVersion(migrations.AssetNames()))
+		return ds.Tx(func(tx *sqlx.Tx) error {
+			return migratex.SetVersion(ctx, tx, latestVersion(migrations), false)
+		})
 	}
 
 	// run any migrations needed to get to latest, if any
-	err = m.Up()
-	if err == migrate.ErrNoChange { // we don't care, but want other errors
-		err = nil
-	}
-	return err
-}
-
-func migrator(url string) (*migrate.Migrate, error) {
-	s := bindata.Resource(migrations.AssetNames(),
-		func(name string) ([]byte, error) {
-			return migrations.Asset(name)
-		})
-
-	d, err := bindata.WithInstance(s)
-	if err != nil {
-		return nil, err
-	}
-
-	return migrate.NewWithSourceInstance("go-bindata", d, url)
+	return migratex.Up(ctx, ds.db, migrations)
 }
 
 // latest version will find the latest version from a list of migration
 // names (not from the db)
-func latestVersion(migs []string) int {
-	var highest uint
-	for _, m := range migs {
-		mig, _ := source.Parse(m)
-		if mig.Version > highest {
-			highest = mig.Version
+func latestVersion(migs []migratex.Migration) int64 {
+	var highest int64
+	for _, mig := range migs {
+		if mig.Version() > highest {
+			highest = mig.Version()
 		}
 	}
 
-	return int(highest)
+	return highest
 }
 
 // clear is for tests only, be careful, it deletes all records.
