@@ -17,7 +17,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
@@ -44,7 +43,6 @@ const (
 	EnvDBURL           = "FN_DB_URL"
 	EnvLOGDBURL        = "FN_LOGSTORE_URL"
 	EnvRunnerURL       = "FN_RUNNER_API_URL"
-	EnvNPMAddress      = "FN_NPM_ADDRESS"
 	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
 	EnvLBPlacementAlg  = "FN_PLACER"
 	EnvNodeType        = "FN_NODE_TYPE"
@@ -106,6 +104,7 @@ type Server struct {
 	appListeners    *appListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
+	runnerPool      models.RunnerPool
 	promExporter    *prometheus.Exporter
 }
 
@@ -337,6 +336,23 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
+// WithRunnerPool implements fnext.ExtServer
+// overrides the default runner pool implementation when running in load-balanced mode
+func (s *Server) WithRunnerPool(runnerPool models.RunnerPool) {
+	s.runnerPool = runnerPool
+}
+
+func (s *Server) RunnerPool() (models.RunnerPool, error) {
+	if s.runnerPool == nil {
+		runnerAddresses := getEnv(EnvRunnerAddresses, "")
+		if runnerAddresses == "" {
+			return nil, errors.New("Must provide FN_RUNNER_ADDRESSES  when running in default load-balanced mode!")
+		}
+		s.runnerPool = agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ","))
+	}
+	return s.runnerPool, nil
+}
+
 func WithLogstoreFromDatastore() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		if s.datastore == nil {
@@ -412,19 +428,6 @@ func WithAgentFromEnv() ServerOption {
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
-			npmAddress := getEnv(EnvNPMAddress, "")
-			runnerAddresses := getEnv(EnvRunnerAddresses, "")
-
-			var nodePool agent.NodePool
-			if npmAddress != "" {
-				// TODO refactor DefaultgRPCNodePool as an extension
-				nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
-			} else if runnerAddresses != "" {
-				nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
-			} else {
-				return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
-			}
-
 			// Select the placement algorithm
 			var placer agent.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {
@@ -433,7 +436,12 @@ func WithAgentFromEnv() ServerOption {
 			default:
 				placer = agent.NewNaivePlacer()
 			}
-			s.agent, err = agent.NewLBAgent(delegatedAgent, nodePool, placer)
+			runnerPool, err := s.RunnerPool()
+			if err != nil {
+				return errors.New("RunnerPool creation failed")
+			}
+
+			s.agent, err = agent.NewLBAgent(delegatedAgent, runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}

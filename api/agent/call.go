@@ -274,6 +274,22 @@ type call struct {
 	disablePreemptiveCapacityCheck bool
 }
 
+func (c *call) SlotDeadline() time.Time {
+	return c.slotDeadline
+}
+
+func (c *call) Request() *http.Request {
+	return c.req
+}
+
+func (c *call) ResponseWriter() io.Writer {
+	return c.w
+}
+
+func (c *call) StdErr() io.ReadWriteCloser {
+	return c.stderr
+}
+
 func (c *call) Model() *models.Call { return c.Call }
 
 func (c *call) Start(ctx context.Context) error {

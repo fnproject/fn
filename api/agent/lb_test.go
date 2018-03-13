@@ -1,4 +1,4 @@
-package grpc
+package agent
 
 import (
 	"context"
@@ -92,7 +92,7 @@ func (r *mockRunner) decrCalls() {
 	r.curCalls--
 }
 
-func (r *mockRunner) TryExec(ctx context.Context, call agent.Call) (bool, error) {
+func (r *mockRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool, error) {
 	err := r.checkAndIncrCalls()
 	if err != nil {
 		return false, err

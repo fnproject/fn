@@ -1,11 +1,11 @@
-package grpc
+package agent
 
 import (
 	"context"
 	"testing"
 
 	"github.com/fnproject/fn/api/agent"
-	"github.com/fnproject/fn/poolmanager"
+	"github.com/fnproject/fn/api/models"
 )
 
 func setupStaticPool(runners []string) agent.NodePool {
@@ -16,7 +16,7 @@ type mockStaticRunner struct {
 	address string
 }
 
-func (r *mockStaticRunner) TryExec(ctx context.Context, call agent.Call) (bool, error) {
+func (r *mockStaticRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool, error) {
 	return true, nil
 }
 
@@ -34,19 +34,6 @@ func mockRunnerFactory(addr string) (agent.Runner, error) {
 func TestNewStaticPool(t *testing.T) {
 	addrs := []string{"127.0.0.1:8080", "127.0.0.1:8081"}
 	np := setupStaticPool(addrs)
-
-	if len(np.Runners("foo")) != len(addrs) {
-		t.Fatalf("Invalid number of runners %v", len(np.Runners("foo")))
-	}
-}
-
-func TestCapacityForStaticPool(t *testing.T) {
-	addrs := []string{"127.0.0.1:8080", "127.0.0.1:8081"}
-	np := setupStaticPool(addrs)
-
-	cr := &poolmanager.CapacityRequest{TotalMemoryMb: 100, LBGroupID: "foo"}
-	np.AssignCapacity(cr)
-	np.ReleaseCapacity(cr)
 
 	if len(np.Runners("foo")) != len(addrs) {
 		t.Fatalf("Invalid number of runners %v", len(np.Runners("foo")))

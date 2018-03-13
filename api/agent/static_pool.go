@@ -1,18 +1,16 @@
-package grpc
+package agent
 
 import (
 	"sync"
 
+	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
-
-	"github.com/fnproject/fn/api/agent"
-	"github.com/fnproject/fn/poolmanager"
 )
 
 // allow factory to be overridden in tests
-type insecureRunnerFactory func(addr string) (agent.Runner, error)
+type insecureRunnerFactory func(addr string) (models.Runner, error)
 
-func insecureGRPCRunnerFactory(addr string) (agent.Runner, error) {
+func insecureGRPCRunnerFactory(addr string) (models.Runner, error) {
 	conn, client, err := runnerConnection(addr, nil)
 	if err != nil {
 		return nil, err
@@ -26,21 +24,20 @@ func insecureGRPCRunnerFactory(addr string) (agent.Runner, error) {
 }
 
 // manages a single set of runners ignoring lb groups
-type staticNodePool struct {
+type staticRunnerPool struct {
 	generator insecureRunnerFactory
 	rMtx      *sync.RWMutex
-	runners   []agent.Runner
+	runners   []models.Runner
 }
 
-// NewStaticNodePool returns a NodePool consisting of a static set of runners
-func DefaultStaticNodePool(runnerAddresses []string) agent.NodePool {
-	return newStaticNodePool(runnerAddresses, insecureGRPCRunnerFactory)
+// DefaultStaticRunnerPool returns a RunnerPool consisting of a static set of runners
+func DefaultStaticRunnerPool(runnerAddresses []string) models.RunnerPool {
+	return newStaticRunnerPool(runnerAddresses, insecureGRPCRunnerFactory)
 }
 
-// NewStaticNodePool returns a NodePool consisting of a static set of runners
-func newStaticNodePool(runnerAddresses []string, runnerFactory insecureRunnerFactory) agent.NodePool {
+func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerFactory) models.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
-	var runners []agent.Runner
+	var runners []models.Runner
 	for _, addr := range runnerAddresses {
 		r, err := runnerFactory(addr)
 		if err != nil {
@@ -50,23 +47,23 @@ func newStaticNodePool(runnerAddresses []string, runnerFactory insecureRunnerFac
 		logrus.WithField("runner_addr", addr).Debug("Adding runner to pool")
 		runners = append(runners, r)
 	}
-	return &staticNodePool{
+	return &staticRunnerPool{
 		rMtx:      &sync.RWMutex{},
 		runners:   runners,
 		generator: runnerFactory,
 	}
 }
 
-func (np *staticNodePool) Runners(lbgID string) []agent.Runner {
+func (np *staticRunnerPool) Runners(call models.RunnerCall) []models.Runner {
 	np.rMtx.RLock()
 	defer np.rMtx.RUnlock()
 
-	r := make([]agent.Runner, len(np.runners))
+	r := make([]models.Runner, len(np.runners))
 	copy(r, np.runners)
 	return r
 }
 
-func (np *staticNodePool) AddRunner(address string) error {
+func (np *staticRunnerPool) AddRunner(address string) error {
 	np.rMtx.Lock()
 	defer np.rMtx.Unlock()
 
@@ -79,7 +76,7 @@ func (np *staticNodePool) AddRunner(address string) error {
 	return nil
 }
 
-func (np *staticNodePool) RemoveRunner(address string) {
+func (np *staticRunnerPool) RemoveRunner(address string) {
 	np.rMtx.Lock()
 	defer np.rMtx.Unlock()
 
@@ -92,14 +89,6 @@ func (np *staticNodePool) RemoveRunner(address string) {
 	}
 }
 
-func (np *staticNodePool) AssignCapacity(r *poolmanager.CapacityRequest) {
-	// NO-OP
-}
-
-func (np *staticNodePool) ReleaseCapacity(r *poolmanager.CapacityRequest) {
-	// NO-OP
-}
-
-func (np *staticNodePool) Shutdown() {
+func (np *staticRunnerPool) Shutdown() {
 	// NO-OP
 }

@@ -23,11 +23,11 @@ func NewCHPlacer() Placer {
 // This borrows the CH placement algorithm from the original FNLB.
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
-func (p *chPlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error {
+func (p *chPlacer) PlaceCall(rp models.RunnerPool, ctx context.Context, call models.RunnerCall) error {
 	// The key is just the path in this case
-	key := call.Path
+	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
-	timeout := time.After(call.slotDeadline.Sub(time.Now()))
+	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
 	for {
 
 		select {
@@ -36,7 +36,7 @@ func (p *chPlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGro
 		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
 		default:
-			runners := np.Runners(lbGroupID)
+			runners := rp.Runners(call)
 			i := int(jumpConsistentHash(sum64, int32(len(runners))))
 			for j := 0; j < len(runners); j++ {
 				r := runners[i]
@@ -52,7 +52,7 @@ func (p *chPlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGro
 				i = (i + 1) % len(runners)
 			}
 
-			remaining := call.slotDeadline.Sub(time.Now())
+			remaining := call.SlotDeadline().Sub(time.Now())
 			if remaining <= 0 {
 				return models.ErrCallTimeoutServerBusy
 			}
