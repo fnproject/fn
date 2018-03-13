@@ -1,4 +1,4 @@
-package controlplane
+package main
 
 import (
 	"bytes"
@@ -11,34 +11,36 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/fnproject/fn/poolmanager/server/controlplane"
+
 	idgen "github.com/fnproject/fn/api/id"
 )
 
-const vboxNamePrefix = "fn-vagrant"
-
-var whichVBox *exec.Cmd
+const (
+	vagrantEnv     = "VAGRANT_PATH"
+	vboxNamePrefix = "fn-vagrant"
+)
 
 func init() {
-	whichVBox = exec.Command("which", "vagrant")
+	vagrantPath, ok := os.LookupEnv(vagrantEnv)
+	if !ok {
+		log.Panicf("Missing config key: %v", vagrantEnv)
+	}
+	ControlPlane = VirtualBoxCP{
+		runnerMap:   make(map[string][]*controlplane.Runner),
+		vagrantPath: vagrantPath,
+	}
+}
+
+func main() {
 }
 
 type VirtualBoxCP struct {
-	runnerMap   map[string][]*Runner
+	runnerMap   map[string][]*controlplane.Runner
 	vagrantPath string
 }
 
-func NewVirtualBoxCP(vagrantPath string) (*VirtualBoxCP, error) {
-	runnerMap := make(map[string][]*Runner)
-	if err := whichVBox.Run(); err != nil {
-		return nil, err
-	}
-	return &VirtualBoxCP{
-		runnerMap:   runnerMap,
-		vagrantPath: vagrantPath,
-	}, nil
-}
-
-func (v *VirtualBoxCP) provision() (*Runner, error) {
+func (v *VirtualBoxCP) provision() (*controlplane.Runner, error) {
 	//set up dir
 	wd, err := os.Getwd()
 	if err != nil {
@@ -77,7 +79,7 @@ func (v *VirtualBoxCP) provision() (*Runner, error) {
 
 //Gets the address that its broadcasting at
 //VBoxManage guestproperty get "cp_default_1520116902053_77841" "/VirtualBox/GuestInfo/Net/1/V4/Broadcast"
-func getRunner(node string) (*Runner, error) {
+func getRunner(node string) (*controlplane.Runner, error) {
 	//TODO make the vagrant file templated
 	vmsCmd := exec.Command("VBoxManage", "list", "vms")
 	var vmsOut bytes.Buffer
@@ -117,13 +119,13 @@ func getRunner(node string) (*Runner, error) {
 	if len(addr) != 2 {
 		return nil, fmt.Errorf("Unable to get address got:'%s' as output", out.String())
 	}
-	return &Runner{
+	return &controlplane.Runner{
 		Id:      realNode,
 		Address: addr[1],
 	}, nil
 }
 
-func (v *VirtualBoxCP) GetLBGRunners(lgbID string) ([]*Runner, error) {
+func (v *VirtualBoxCP) GetLBGRunners(lgbID string) ([]*controlplane.Runner, error) {
 	runners, ok := v.runnerMap[lgbID]
 	if !ok {
 		return nil, errors.New("Not Found")
@@ -132,7 +134,7 @@ func (v *VirtualBoxCP) GetLBGRunners(lgbID string) ([]*Runner, error) {
 }
 
 func (v *VirtualBoxCP) ProvisionRunners(lgbID string, n int) (int, error) {
-	runners := make([]*Runner, 0, n)
+	runners := make([]*controlplane.Runner, 0, n)
 	for i := 0; i < n; i++ {
 		runner, err := v.provision()
 		runners = append(runners, runner)
@@ -225,3 +227,5 @@ func copyFile(src string, dst string) error {
 	// Will return nil if no errors occurred
 	return d.Close()
 }
+
+var ControlPlane VirtualBoxCP
