@@ -19,15 +19,22 @@ import (
 	"context"
 	"testing"
 
+	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 )
 
-func Test_View_MeasureFloat64_AggregationDistribution_WindowCumulative(t *testing.T) {
+func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 	k1, _ := tag.NewKey("k1")
 	k2, _ := tag.NewKey("k2")
 	k3, _ := tag.NewKey("k3")
-	agg1 := DistributionAggregation([]float64{2})
-	view, err := New("VF1", "desc VF1", []tag.Key{k1, k2}, nil, agg1)
+	agg1 := DistributionAggregation{2}
+	m, _ := stats.Int64("Test_View_MeasureFloat64_AggregationDistribution/m1", "", stats.UnitNone)
+	view1 := &View{
+		TagKeys:     []tag.Key{k1, k2},
+		Measure:     m,
+		Aggregation: agg1,
+	}
+	view, err := newViewInternal(view1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +197,8 @@ func Test_View_MeasureFloat64_AggregationSum(t *testing.T) {
 	k1, _ := tag.NewKey("k1")
 	k2, _ := tag.NewKey("k2")
 	k3, _ := tag.NewKey("k3")
-	view, err := New("VF1", "desc VF1", []tag.Key{k1, k2}, nil, SumAggregation{})
+	m, _ := stats.Int64("Test_View_MeasureFloat64_AggregationSum/m1", "", stats.UnitNone)
+	view, err := newViewInternal(&View{TagKeys: []tag.Key{k1, k2}, Measure: m, Aggregation: SumAggregation{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,11 +309,36 @@ func Test_View_MeasureFloat64_AggregationSum(t *testing.T) {
 	}
 }
 
-func Test_View_MeasureFloat64_AggregationMean_WindowCumulative(t *testing.T) {
+func TestCanonicalize(t *testing.T) {
+	k1, _ := tag.NewKey("k1")
+	k2, _ := tag.NewKey("k2")
+	m, _ := stats.Int64("TestCanonicalize/m1", "desc desc", stats.UnitNone)
+	v := &View{TagKeys: []tag.Key{k2, k1}, Measure: m, Aggregation: MeanAggregation{}}
+	vc, err := v.canonicalized()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := vc.Name, "TestCanonicalize/m1"; got != want {
+		t.Errorf("vc.Name = %q; want %q", got, want)
+	}
+	if got, want := vc.Description, "desc desc"; got != want {
+		t.Errorf("vc.Description = %q; want %q", got, want)
+	}
+	if got, want := len(vc.TagKeys), 2; got != want {
+		t.Errorf("len(vc.TagKeys) = %d; want %d", got, want)
+	}
+	if got, want := vc.TagKeys[0].Name(), "k1"; got != want {
+		t.Errorf("vc.TagKeys[0].Name() = %q; want %q", got, want)
+	}
+}
+
+func Test_View_MeasureFloat64_AggregationMean(t *testing.T) {
 	k1, _ := tag.NewKey("k1")
 	k2, _ := tag.NewKey("k2")
 	k3, _ := tag.NewKey("k3")
-	view, err := New("VF1", "desc VF1", []tag.Key{k1, k2}, nil, MeanAggregation{})
+	m, _ := stats.Int64("Test_View_MeasureFloat64_AggregationMean/m1", "", stats.UnitNone)
+	viewDesc := &View{TagKeys: []tag.Key{k1, k2}, Measure: m, Aggregation: MeanAggregation{}}
+	view, err := newViewInternal(viewDesc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,13 +457,19 @@ func TestViewSortedKeys(t *testing.T) {
 	k3, _ := tag.NewKey("c")
 	ks := []tag.Key{k1, k3, k2}
 
-	v, err := New("sort_keys", "desc sort_keys", ks, nil, MeanAggregation{})
-	if err != nil {
-		t.Fatalf("NewView() = %v", err)
-	}
+	m, _ := stats.Int64("TestViewSortedKeys/m1", "", stats.UnitNone)
+	Subscribe(&View{
+		Name:        "sort_keys",
+		Description: "desc sort_keys",
+		TagKeys:     ks,
+		Measure:     m,
+		Aggregation: &MeanAggregation{},
+	})
+	// Subscribe normalizes the view by sorting the tag keys, retrieve the normalized view
+	v := Find("sort_keys")
 
 	want := []string{"a", "b", "c"}
-	vks := v.TagKeys()
+	vks := v.TagKeys
 	if len(vks) != len(want) {
 		t.Errorf("Keys = %+v; want %+v", vks, want)
 	}

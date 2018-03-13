@@ -39,7 +39,7 @@ check_license:
 	@echo ">> checking license header"
 	@./scripts/check_license.sh
 
-test: sysfs/fixtures/.unpacked
+test: fixtures/.unpacked sysfs/fixtures/.unpacked
 	@echo ">> running all tests"
 	@$(GO) test -race $(shell $(GO) list ./... | grep -v /vendor/ | grep -v examples)
 
@@ -55,8 +55,8 @@ staticcheck: $(STATICCHECK)
 	@echo ">> running staticcheck"
 	@$(STATICCHECK) -ignore "$(STATICCHECK_IGNORE)" $(pkgs)
 
-sysfs/fixtures/.unpacked: sysfs/fixtures.ttar
-	./ttar -C sysfs -x -f sysfs/fixtures.ttar
+%/.unpacked: %.ttar
+	./ttar -C $(dir $*) -x -f $*.ttar
 	touch $@
 
 $(FIRST_GOPATH)/bin/staticcheck:

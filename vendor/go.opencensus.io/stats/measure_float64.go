@@ -23,7 +23,7 @@ type Float64Measure struct {
 // M creates a new float64 measurement.
 // Use Record to record measurements.
 func (m *Float64Measure) M(v float64) Measurement {
-	return Measurement{Measure: m, Value: v}
+	return Measurement{m: m, v: v}
 }
 
 // Float64 creates a new measure of type Float64Measure. It returns

@@ -27,14 +27,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// clientStatsHandler is a stats.Handler implementation
-// that collects stats for a gRPC client. Predefined
-// measures and views can be used to access the collected data.
-type clientStatsHandler struct{}
-
 // TagRPC gets the tag.Map populated by the application code, serializes
 // its tags into the GRPC metadata in order to be sent to the server.
-func (h *clientStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
+func (h *ClientHandler) statsTagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
 	startTime := time.Now()
 	if info == nil {
 		if grpclog.V(2) {
@@ -60,7 +55,7 @@ func (h *clientStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo)
 }
 
 // HandleRPC processes the RPC events.
-func (h *clientStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
+func (h *ClientHandler) statsHandleRPC(ctx context.Context, s stats.RPCStats) {
 	switch st := s.(type) {
 	case *stats.Begin, *stats.OutHeader, *stats.InHeader, *stats.InTrailer, *stats.OutTrailer:
 		// do nothing for client
@@ -75,7 +70,7 @@ func (h *clientStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
 	}
 }
 
-func (h *clientStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
+func (h *ClientHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
 	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -88,7 +83,7 @@ func (h *clientStatsHandler) handleRPCOutPayload(ctx context.Context, s *stats.O
 	atomic.AddInt64(&d.reqCount, 1)
 }
 
-func (h *clientStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
+func (h *ClientHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
 	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
@@ -101,7 +96,7 @@ func (h *clientStatsHandler) handleRPCInPayload(ctx context.Context, s *stats.In
 	atomic.AddInt64(&d.respCount, 1)
 }
 
-func (h *clientStatsHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
+func (h *ClientHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {

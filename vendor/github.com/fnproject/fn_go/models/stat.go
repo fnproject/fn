@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // Stat stat
@@ -28,6 +29,11 @@ func (m *Stat) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateMetrics(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateTimestamp(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -52,6 +58,20 @@ func (m *Stat) validateMetrics(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
+	}
+
+	return nil
+}
+
+func (m *Stat) validateTimestamp(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Timestamp) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("timestamp", "body", "date-time", m.Timestamp.String(), formats); err != nil {
+		return err
 	}
 
 	return nil

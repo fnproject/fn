@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package prometheus contains the Prometheus exporters for
-// Stackdriver Monitoring.
+// Package prometheus contains a Prometheus exporter.
 //
 // Please note that this exporter is currently work in progress and not complete.
 package prometheus // import "go.opencensus.io/exporter/prometheus"
@@ -51,6 +50,7 @@ type Exporter struct {
 // Options contains options for configuring the exporter.
 type Options struct {
 	Namespace string
+	Registry  *prometheus.Registry
 	OnError   func(err error)
 }
 
@@ -74,13 +74,15 @@ func newExporter(o Options) (*Exporter, error) {
 	if o.Namespace == "" {
 		o.Namespace = defaultNamespace
 	}
-	reg := prometheus.NewRegistry()
-	collector := newCollector(o, reg)
+	if o.Registry == nil {
+		o.Registry = prometheus.NewRegistry()
+	}
+	collector := newCollector(o, o.Registry)
 	e := &Exporter{
 		opts:    o,
-		g:       reg,
+		g:       o.Registry,
 		c:       collector,
-		handler: promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
+		handler: promhttp.HandlerFor(o.Registry, promhttp.HandlerOpts{}),
 	}
 	return e, nil
 }
@@ -99,8 +101,8 @@ func (c *collector) registerViews(views ...*view.View) {
 		if !ok {
 			desc := prometheus.NewDesc(
 				viewName(c.opts.Namespace, view),
-				view.Description(),
-				tagKeysToLabels(view.TagKeys()),
+				view.Description,
+				tagKeysToLabels(view.TagKeys),
 				nil,
 			)
 			c.registeredViewsMu.Lock()
@@ -228,7 +230,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *collector) toMetric(desc *prometheus.Desc, v *view.View, row *view.Row) (prometheus.Metric, error) {
-	switch agg := v.Aggregation().(type) {
+	switch agg := v.Aggregation.(type) {
 	case view.CountAggregation:
 		data := row.Data.(*view.CountData)
 		return prometheus.NewConstMetric(desc, prometheus.CounterValue, float64(*data), tagValues(row.Tags)...)
@@ -250,7 +252,7 @@ func (c *collector) toMetric(desc *prometheus.Desc, v *view.View, row *view.Row)
 		return prometheus.NewConstMetric(desc, prometheus.UntypedValue, float64(*data), tagValues(row.Tags)...)
 
 	default:
-		return nil, fmt.Errorf("aggregation %T is not yet supported", v.Aggregation())
+		return nil, fmt.Errorf("aggregation %T is not yet supported", v.Aggregation)
 	}
 }
 
@@ -287,13 +289,13 @@ func tagValues(t []tag.Tag) []string {
 }
 
 func viewName(namespace string, v *view.View) string {
-	return namespace + "_" + internal.Sanitize(v.Name())
+	return namespace + "_" + internal.Sanitize(v.Name)
 }
 
 func viewSignature(namespace string, v *view.View) string {
 	var buf bytes.Buffer
 	buf.WriteString(viewName(namespace, v))
-	for _, k := range v.TagKeys() {
+	for _, k := range v.TagKeys {
 		buf.WriteString("-" + k.Name())
 	}
 	return buf.String()

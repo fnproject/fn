@@ -21,23 +21,16 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
-func Example_view() {
-	m, err := stats.Int64("my.org/measure/openconns", "open connections", "")
-	if err != nil {
-		log.Fatal(err)
-	}
+func Example() {
+	m, _ := stats.Int64("my.org/measure/openconns", "open connections", "")
 
-	v, err := view.New(
-		"my.org/views/openconns",
-		"open connections distribution over one second time window",
-		nil,
-		m,
-		view.DistributionAggregation([]float64{0, 1000, 2000}),
-	)
+	err := view.Subscribe(&view.View{
+		Name:        "my.org/views/openconns",
+		Description: "open connections",
+		Measure:     m,
+		Aggregation: view.DistributionAggregation{0, 1000, 2000},
+	})
 	if err != nil {
-		log.Fatal(err)
-	}
-	if err := v.Subscribe(); err != nil {
 		log.Fatal(err)
 	}
 

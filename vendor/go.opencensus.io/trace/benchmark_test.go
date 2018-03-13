@@ -36,9 +36,9 @@ func BenchmarkSpanWithAnnotations_3(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, span := StartSpan(ctx, "/foo")
 		span.SetAttributes(
-			BoolAttribute{Key: "key1", Value: false},
-			StringAttribute{Key: "key2", Value: "hello"},
-			Int64Attribute{Key: "key3", Value: 123},
+			BoolAttribute("key1", false),
+			StringAttribute("key2", "hello"),
+			Int64Attribute("key3", 123),
 		)
 		span.End()
 	}
@@ -51,12 +51,12 @@ func BenchmarkSpanWithAnnotations_6(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, span := StartSpan(ctx, "/foo")
 		span.SetAttributes(
-			BoolAttribute{Key: "key1", Value: false},
-			BoolAttribute{Key: "key2", Value: true},
-			StringAttribute{Key: "key3", Value: "hello"},
-			StringAttribute{Key: "key4", Value: "hello"},
-			Int64Attribute{Key: "key5", Value: 123},
-			Int64Attribute{Key: "key6", Value: 456},
+			BoolAttribute("key1", false),
+			BoolAttribute("key2", true),
+			StringAttribute("key3", "hello"),
+			StringAttribute("key4", "hello"),
+			Int64Attribute("key5", 123),
+			Int64Attribute("key6", 456),
 		)
 		span.End()
 	}

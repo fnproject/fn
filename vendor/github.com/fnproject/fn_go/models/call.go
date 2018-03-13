@@ -6,10 +6,13 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // Call call
@@ -44,8 +47,9 @@ type Call struct {
 	// Read Only: true
 	StartedAt strfmt.DateTime `json:"started_at,omitempty"`
 
-	// stats
-	Stats CallStats `json:"stats"`
+	// A histogram of stats for a call, each is a snapshot of a calls state at the timestamp.
+	// Read Only: true
+	Stats []*Stat `json:"stats"`
 
 	// Call execution status.
 	// Read Only: true
@@ -56,9 +60,96 @@ type Call struct {
 func (m *Call) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateCompletedAt(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateCreatedAt(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateStartedAt(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateStats(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *Call) validateCompletedAt(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CompletedAt) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("completed_at", "body", "date-time", m.CompletedAt.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Call) validateCreatedAt(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CreatedAt) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("created_at", "body", "date-time", m.CreatedAt.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Call) validateStartedAt(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.StartedAt) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("started_at", "body", "date-time", m.StartedAt.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Call) validateStats(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Stats) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Stats); i++ {
+
+		if swag.IsZero(m.Stats[i]) { // not required
+			continue
+		}
+
+		if m.Stats[i] != nil {
+
+			if err := m.Stats[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("stats" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+
+		}
+
+	}
+
 	return nil
 }
 

@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	testpb "go.opencensus.io/plugin/ocgrpc/testdata"
+	"go.opencensus.io/plugin/ocgrpc/internal/testpb"
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -124,7 +124,7 @@ func TestStreaming(t *testing.T) {
 	s1 := <-te.ch
 	s2 := <-te.ch
 
-	checkSpanData(t, s1, s2, ".testdata.Foo.Multiple", true)
+	checkSpanData(t, s1, s2, ".testpb.Foo.Multiple", true)
 
 	select {
 	case <-te.ch:
@@ -167,7 +167,7 @@ func TestStreamingFail(t *testing.T) {
 	s1 := <-te.ch
 	s2 := <-te.ch
 
-	checkSpanData(t, s1, s2, ".testdata.Foo.Multiple", false)
+	checkSpanData(t, s1, s2, ".testpb.Foo.Multiple", false)
 	cleanup()
 
 	select {
@@ -196,7 +196,7 @@ func TestSingle(t *testing.T) {
 	s1 := <-te.ch
 	s2 := <-te.ch
 
-	checkSpanData(t, s1, s2, ".testdata.Foo.Single", true)
+	checkSpanData(t, s1, s2, ".testpb.Foo.Single", true)
 	cleanup()
 
 	select {
@@ -225,7 +225,7 @@ func TestSingleFail(t *testing.T) {
 	s1 := <-te.ch
 	s2 := <-te.ch
 
-	checkSpanData(t, s1, s2, ".testdata.Foo.Single", false)
+	checkSpanData(t, s1, s2, ".testpb.Foo.Single", false)
 	cleanup()
 
 	select {
