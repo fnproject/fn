@@ -403,7 +403,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 		}
 
 		// set sleep to x msecs after first iteration
-		sleep = a.cfg.HotPoll * time.Millisecond
+		sleep = a.cfg.HotPoll
 		// send a notification to launchHot()
 		select {
 		case call.slots.signaller <- true:
