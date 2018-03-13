@@ -27,7 +27,7 @@ const (
 	EnvHotPoll            = "FN_HOT_POLL_MSECS"
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
 	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
-	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE_BYTES"
+	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE"
 	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
 	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"

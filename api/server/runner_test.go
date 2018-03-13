@@ -311,7 +311,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
-	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE_BYTES", "2048")
+	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
 	defer tweaker()
 
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
