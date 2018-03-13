@@ -8,8 +8,8 @@ import (
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
-    "github.com/fnproject/fn/api/models"
-    "github.com/fnproject/fn/api/server"
+	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/server"
 
 	"github.com/sirupsen/logrus"
 
@@ -18,7 +18,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-    "sync"
+	"sync"
 	"testing"
 	"time"
 )
@@ -156,38 +156,37 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	return server.New(ctx, opts...), nil
 }
 
-
 type testCapacityGate struct {
-    runnerNumber           int
-    committedCapacityUnits uint64
-    mtx                    sync.Mutex
+	runnerNumber           int
+	committedCapacityUnits uint64
+	mtx                    sync.Mutex
 }
 
 const (
-    FixedTestCapacityUnitsPerRunner = 512
+	FixedTestCapacityUnitsPerRunner = 512
 )
 
 func (tcg *testCapacityGate) CheckAndReserveCapacity(units uint64) error {
-    tcg.mtx.Lock()
-    defer tcg.mtx.Unlock()
-    if tcg.committedCapacityUnits+units <= FixedTestCapacityUnitsPerRunner {
-        logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is committing capacity")
-        tcg.committedCapacityUnits = tcg.committedCapacityUnits + units
-        return nil
-    }
-    logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is out of capacity")
-    return models.ErrCallTimeoutServerBusy
+	tcg.mtx.Lock()
+	defer tcg.mtx.Unlock()
+	if tcg.committedCapacityUnits+units <= FixedTestCapacityUnitsPerRunner {
+		logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is committing capacity")
+		tcg.committedCapacityUnits = tcg.committedCapacityUnits + units
+		return nil
+	}
+	logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is out of capacity")
+	return models.ErrCallTimeoutServerBusy
 }
 
 func (tcg *testCapacityGate) ReleaseCapacity(units uint64) {
-    tcg.mtx.Lock()
-    defer tcg.mtx.Unlock()
-    if units <= tcg.committedCapacityUnits {
-        logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is releasing capacity")
-        tcg.committedCapacityUnits = tcg.committedCapacityUnits - units
-        return
-    }
-    panic("Fatal error in test capacity calculation, getting to sub-zero capacity")
+	tcg.mtx.Lock()
+	defer tcg.mtx.Unlock()
+	if units <= tcg.committedCapacityUnits {
+		logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is releasing capacity")
+		tcg.committedCapacityUnits = tcg.committedCapacityUnits - units
+		return
+	}
+	panic("Fatal error in test capacity calculation, getting to sub-zero capacity")
 }
 
 func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
