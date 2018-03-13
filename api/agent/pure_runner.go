@@ -277,33 +277,6 @@ func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
 	return errors.New("Enqueue cannot be called directly in a Pure Runner.")
 }
 
-func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
-	return pr.a.GetCall(opts...)
-}
-
-func (pr *pureRunner) Submit(Call) error {
-	return errors.New("Submit cannot be called directly in a Pure Runner.")
-}
-
-func (pr *pureRunner) Close() error {
-	// First stop accepting requests
-	pr.gRPCServer.GracefulStop()
-	// Then let the agent finish
-	err := pr.a.Close()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
-	pr.a.AddCallListener(cl)
-}
-
-func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
-	return errors.New("Enqueue cannot be called directly in a Pure Runner.")
-}
-
 func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
 	// Only start it once!
 	state.stateMutex.Lock()
