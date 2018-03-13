@@ -6,7 +6,7 @@ All migration files should be of the format:
 
 The number at the beginning of the file name should be monotonically
 increasing, from the last highest file number in this directory. E.g. if there
-is `11_add_foo_bar.sql`, your new file should be `12_add_bar_baz.sql`.
+is `11_add_foo_bar.go`, your new file should be `12_add_bar_baz.go`.
 
 Each migration file have to contain both up and down function:
 
