@@ -17,6 +17,7 @@ import (
 
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/fnext"
 	"github.com/go-openapi/strfmt"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
@@ -228,12 +229,41 @@ func (prcm *pureRunnerCapacityManager) releaseCapacity(units uint64) {
 	panic("Fatal error in pure runner capacity calculation, getting to sub-zero capacity")
 }
 
+// pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
+// and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
 	gRPCServer *grpc.Server
 	listen     string
 	a          Agent
 	inflight   int32
 	capacity   pureRunnerCapacityManager
+}
+
+func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
+	return pr.a.GetCall(opts...)
+}
+
+func (pr *pureRunner) Submit(Call) error {
+	return errors.New("Submit cannot be called directly in a Pure Runner.")
+}
+
+func (pr *pureRunner) Close() error {
+	// First stop accepting requests
+	pr.gRPCServer.GracefulStop()
+	// Then let the agent finish
+	err := pr.a.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
+	pr.a.AddCallListener(cl)
+}
+
+func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
+	return errors.New("Enqueue cannot be called directly in a Pure Runner.")
 }
 
 func (pr *pureRunner) ensureFunctionIsRunning(state *callHandle) {
@@ -505,18 +535,36 @@ func (pr *pureRunner) Start() error {
 	return err
 }
 
-func CreatePureRunner(addr string, a Agent, cert string, key string, ca string) (*pureRunner, error) {
+func NewPureRunner(cancel context.CancelFunc, addr string, a Agent, cert string, key string, ca string) (*pureRunner, error) {
+	var pr *pureRunner
+	var err error
 	if cert != "" && key != "" && ca != "" {
 		c, err := creds(cert, key, ca)
 		if err != nil {
 			logrus.WithField("runner_addr", addr).Warn("Failed to create credentials!")
 			return nil, err
 		}
-		return createPureRunner(addr, a, c)
+		pr, err = createPureRunner(addr, a, c)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		logrus.Warn("Running pure runner in insecure mode!")
+		pr, err = createPureRunner(addr, a, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	logrus.Warn("Running pure runner in insecure mode!")
-	return createPureRunner(addr, a, nil)
+	go func() {
+		err := pr.Start()
+		if err != nil {
+			logrus.WithError(err).Error("Failed to start pure runner")
+			cancel()
+		}
+	}()
+
+	return pr, nil
 }
 
 func creds(cert string, key string, ca string) (credentials.TransportCredentials, error) {

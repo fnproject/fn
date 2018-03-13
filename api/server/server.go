@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -107,6 +108,8 @@ type Server struct {
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
+	// Extensions can append to this list of contexts so that cancellations are properly handled.
+	extraCtxs []context.Context
 }
 
 func nodeTypeFromString(value string) ServerNodeType {
@@ -392,7 +395,15 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			s.agent = agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
+			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
+			delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
+			cancelCtx, cancel := context.WithCancel(ctx)
+			prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			if err != nil {
+				return err
+			}
+			s.agent = prAgent
+			s.extraCtxs = append(s.extraCtxs, cancelCtx)
 		case ServerTypeLB:
 			s.nodeType = ServerTypeLB
 			runnerURL := getEnv(EnvRunnerURL, "")
@@ -447,6 +458,14 @@ func WithAgentFromEnv() ServerOption {
 			}
 			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
 		}
+		return nil
+	}
+}
+
+// WithExtraCtx appends a context to the list of contexts the server will watch for cancellations / errors / signals.
+func WithExtraCtx(extraCtx context.Context) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.extraCtxs = append(s.extraCtxs, extraCtx)
 		return nil
 	}
 }
@@ -600,24 +619,6 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 	installChildReaper()
 
-	if s.nodeType == ServerTypePureRunner {
-		// Run grpc too
-		grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
-		pr, err := agent.CreatePureRunner(grpcAddr, s.agent, s.cert, s.certKey, s.certAuthority)
-		if err != nil {
-			logrus.WithError(err).Error("Pure runner server creation error")
-			cancel()
-		} else {
-			go func() {
-				err := pr.Start()
-				if err != nil {
-					logrus.WithError(err).Error("fail to start pure runner")
-					cancel()
-				}
-			}()
-		}
-	}
-
 	server := http.Server{
 		Addr:    listen,
 		Handler: &ochttp.Handler{Handler: s.Router},
@@ -635,8 +636,23 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		}
 	}()
 
-	// listening for signals or listener errors...
-	<-ctx.Done()
+	// listening for signals or listener errors or cancellations on all registered contexts.
+	s.extraCtxs = append(s.extraCtxs, ctx)
+	cases := make([]reflect.SelectCase, len(s.extraCtxs))
+	for i, ctx := range s.extraCtxs {
+		cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}
+	}
+	nth, recv, wasSend := reflect.Select(cases)
+	if wasSend {
+		logrus.WithFields(logrus.Fields{
+			"ctxNumber":     nth,
+			"receivedValue": recv.String(),
+		}).Debug("Stopping because of received value from done context.")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"ctxNumber": nth,
+		}).Debug("Stopping because of closed channel from done context.")
+	}
 
 	// TODO: do not wait forever during graceful shutdown (add graceful shutdown timeout)
 	if err := server.Shutdown(context.Background()); err != nil {
