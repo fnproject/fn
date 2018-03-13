@@ -615,6 +615,6 @@ const megabyte uint64 = 1024 * 1024
 
 func getAvailableMemoryUnits() uint64 {
 	// To reuse code - but it's a bit of a hack. TODO: refactor the OS-specific get memory funcs out of that.
-	throwawayRT := NewResourceTracker().(*resourceTracker)
+	throwawayRT := NewResourceTracker(nil).(*resourceTracker)
 	return throwawayRT.ramAsyncTotal / megabyte
 }

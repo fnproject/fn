@@ -154,7 +154,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	// more timing related issues below. Slightly gains us a bit more
 	// determinism.
 	tweaker1 := envTweaker("FN_FREEZE_IDLE_MSECS", "0")
-	tweaker2 := envTweaker("FN_MAX_LOG_SIZE", "5")
+	tweaker2 := envTweaker("FN_MAX_LOG_SIZE_BYTES", "5")
 	defer tweaker1()
 	defer tweaker2()
 
@@ -311,7 +311,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
-	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE", "2048")
+	tweaker := envTweaker("FN_MAX_RESPONSE_SIZE_BYTES", "2048")
 	defer tweaker()
 
 	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)

@@ -74,14 +74,14 @@ type resourceTracker struct {
 	tokenWaiterCount uint64
 }
 
-func NewResourceTracker() ResourceTracker {
+func NewResourceTracker(cfg *AgentConfig) ResourceTracker {
 
 	obj := &resourceTracker{
 		cond: sync.NewCond(new(sync.Mutex)),
 	}
 
-	obj.initializeMemory()
-	obj.initializeCPU()
+	obj.initializeMemory(cfg)
+	obj.initializeCPU(cfg)
 	return obj
 }
 
@@ -295,7 +295,7 @@ func clampUint64(val, min, max uint64) uint64 {
 	return val
 }
 
-func (a *resourceTracker) initializeCPU() {
+func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
 
 	var maxSyncCPU, maxAsyncCPU, cpuAsyncHWMark uint64
 	var totalCPU, availCPU uint64
@@ -318,6 +318,11 @@ func (a *resourceTracker) initializeCPU() {
 		cgroupCPU := checkCgroupCPU()
 		if cgroupCPU > 0 {
 			availCPU = minUint64(availCPU, cgroupCPU)
+		}
+
+		// now based on cfg, further clamp on calculated values
+		if cfg != nil && cfg.MaxTotalCPU != 0 {
+			availCPU = minUint64(cfg.MaxTotalCPU, availCPU)
 		}
 
 		// TODO: check cgroup cpuset to clamp this further. We might be restricted into
@@ -360,7 +365,7 @@ func (a *resourceTracker) initializeCPU() {
 	a.cpuAsyncTotal = maxAsyncCPU
 }
 
-func (a *resourceTracker) initializeMemory() {
+func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 
 	var maxSyncMemory, maxAsyncMemory, ramAsyncHWMark uint64
 
@@ -388,6 +393,11 @@ func (a *resourceTracker) initializeMemory() {
 			logrus.WithError(err).Fatal("Out of memory")
 		}
 		availMemory = availMemory - headRoom
+
+		// now based on cfg, further clamp on calculated values
+		if cfg != nil && cfg.MaxTotalMemory != 0 {
+			availMemory = minUint64(cfg.MaxTotalMemory, availMemory)
+		}
 
 		logrus.WithFields(logrus.Fields{
 			"totalMemory": totalMemory,
@@ -420,9 +430,9 @@ func (a *resourceTracker) initializeMemory() {
 	}
 
 	if maxSyncMemory+maxAsyncMemory < 256*Mem1MB {
-		logrus.Warn("Severaly Limited memory: ramSync + ramAsync < 256MB")
+		logrus.Warn("Severely Limited memory: ramSync + ramAsync < 256MB")
 	} else if maxAsyncMemory < 256*Mem1MB {
-		logrus.Warn("Severaly Limited memory: ramAsync < 256MB")
+		logrus.Warn("Severely Limited memory: ramAsync < 256MB")
 	}
 
 	a.ramAsyncHWMark = ramAsyncHWMark

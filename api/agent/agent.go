@@ -135,7 +135,7 @@ func NewSyncOnly(da DataAccess) Agent {
 		da:        da,
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
-		resources: NewResourceTracker(),
+		resources: NewResourceTracker(cfg),
 		shutdown:  make(chan struct{}),
 	}
 
@@ -305,7 +305,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
-	timeout := time.Duration(60) * time.Minute
+	timeout := a.cfg.HotLauncherTimeoutMsecs
 	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
@@ -380,7 +380,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	ch := call.slots.startDequeuer(ctx)
 
 	// 1) if we can get a slot immediately, grab it.
-	// 2) if we don't, send a signaller every 200ms until we do.
+	// 2) if we don't, send a signaller every x msecs until we do.
 
 	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
 	for {
@@ -402,8 +402,8 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			// ping dequeuer again
 		}
 
-		// set sleep to 200ms after first iteration
-		sleep = 200 * time.Millisecond
+		// set sleep to x msecs after first iteration
+		sleep = a.cfg.HotPollMsecs * time.Millisecond
 		// send a notification to launchHot()
 		select {
 		case call.slots.signaller <- true:
