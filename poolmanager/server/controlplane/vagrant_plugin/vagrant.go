@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/fnproject/fn/poolmanager/server/controlplane"
 
@@ -26,9 +27,15 @@ func init() {
 	if !ok {
 		log.Panicf("Missing config key: %v", vagrantEnv)
 	}
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Panicf("error getting wd %s", err.Error())
+	}
 	ControlPlane = VagrantCP{
 		runnerMap:   make(map[string][]*controlplane.Runner),
 		vagrantPath: vagrantPath,
+		homePath:    wd,
+		mx:          &sync.Mutex{},
 	}
 }
 
@@ -38,35 +45,27 @@ func main() {
 type VagrantCP struct {
 	runnerMap   map[string][]*controlplane.Runner
 	vagrantPath string
+	homePath    string
+	mx          *sync.Mutex
 }
 
 func (v *VagrantCP) provision() (*controlplane.Runner, error) {
 	//set up dir
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		os.Chdir(wd)
-	}()
-
 	node := newNodeName()
-	nodeDir, err := ioutil.TempDir(wd, node)
+	nodeDir := filepath.Join(v.homePath, node)
+	err := os.Mkdir(nodeDir, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 	//copy vagrant file into there
-	newVagrantFile := fmt.Sprintf("%s/%s", nodeDir, "Vagrantfile")
+	newVagrantFile := filepath.Join(nodeDir, "Vagrantfile")
 	err = copyFile(v.vagrantPath, newVagrantFile)
 	if err != nil {
 		return nil, err
 	}
-
-	err = os.Chdir(nodeDir)
-	if err != nil {
-		log.Println(err.Error())
-		return nil, err
-	}
+	v.mx.Lock()
+	defer v.mx.Unlock()
+	err = os.Setenv("VAGRANT_VAGRANTFILE", newVagrantFile)
 	vagrantUp := exec.Command("vagrant", "up")
 	err = vagrantUp.Run()
 	if err != nil {
@@ -135,13 +134,25 @@ func (v *VagrantCP) GetLBGRunners(lgbID string) ([]*controlplane.Runner, error) 
 
 func (v *VagrantCP) ProvisionRunners(lgbID string, n int) (int, error) {
 	runners := make([]*controlplane.Runner, 0, n)
+	runnerQ := make(chan *controlplane.Runner, 1)
+	var wg sync.WaitGroup
+
 	for i := 0; i < n; i++ {
-		runner, err := v.provision()
-		runners = append(runners, runner)
-		if err != nil {
-			return 0, err
-		}
+		go func() {
+			runner, err := v.provision()
+			if err != nil {
+				log.Printf("error provisioning runner %s", err.Error())
+			}
+			runnerQ <- runner
+		}()
 	}
+	go func() {
+		for r := range runnerQ {
+			runners = append(runners, r)
+			wg.Done()
+		}
+	}()
+	wg.Wait()
 	v.runnerMap[lgbID] = runners
 	return n, nil
 }
