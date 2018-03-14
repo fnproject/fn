@@ -19,6 +19,7 @@ type AgentConfig struct {
 	MaxLogSize         uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory     uint64        `json:"max_total_memory_bytes"`
+	MaxFsSize          uint64        `json:"max_fs_size_mb"`
 }
 
 const (
@@ -31,6 +32,7 @@ const (
 	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
 	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
+	EnvMaxFsSize          = "FN_MAX_FS_SIZE_MB"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -53,6 +55,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
+	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
 
 	if err != nil {
 		return cfg, err
