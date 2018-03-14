@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	vagrantEnv     = "VAGRANT_PATH"
-	vboxNamePrefix = "fn-vagrant"
+	vagrantEnv        = "VAGRANT_PATH"
+	vagrantNamePrefix = "fn-vagrant"
 )
 
 func init() {
@@ -26,7 +26,7 @@ func init() {
 	if !ok {
 		log.Panicf("Missing config key: %v", vagrantEnv)
 	}
-	ControlPlane = VirtualBoxCP{
+	ControlPlane = VagrantCP{
 		runnerMap:   make(map[string][]*controlplane.Runner),
 		vagrantPath: vagrantPath,
 	}
@@ -35,12 +35,12 @@ func init() {
 func main() {
 }
 
-type VirtualBoxCP struct {
+type VagrantCP struct {
 	runnerMap   map[string][]*controlplane.Runner
 	vagrantPath string
 }
 
-func (v *VirtualBoxCP) provision() (*controlplane.Runner, error) {
+func (v *VagrantCP) provision() (*controlplane.Runner, error) {
 	//set up dir
 	wd, err := os.Getwd()
 	if err != nil {
@@ -67,8 +67,8 @@ func (v *VirtualBoxCP) provision() (*controlplane.Runner, error) {
 		log.Println(err.Error())
 		return nil, err
 	}
-	vboxProvision := exec.Command("vagrant", "up")
-	err = vboxProvision.Run()
+	vagrantUp := exec.Command("vagrant", "up")
+	err = vagrantUp.Run()
 	if err != nil {
 		log.Println(err.Error())
 		return nil, err
@@ -125,7 +125,7 @@ func getRunner(node string) (*controlplane.Runner, error) {
 	}, nil
 }
 
-func (v *VirtualBoxCP) GetLBGRunners(lgbID string) ([]*controlplane.Runner, error) {
+func (v *VagrantCP) GetLBGRunners(lgbID string) ([]*controlplane.Runner, error) {
 	runners, ok := v.runnerMap[lgbID]
 	if !ok {
 		return nil, errors.New("Not Found")
@@ -133,7 +133,7 @@ func (v *VirtualBoxCP) GetLBGRunners(lgbID string) ([]*controlplane.Runner, erro
 	return runners, nil
 }
 
-func (v *VirtualBoxCP) ProvisionRunners(lgbID string, n int) (int, error) {
+func (v *VagrantCP) ProvisionRunners(lgbID string, n int) (int, error) {
 	runners := make([]*controlplane.Runner, 0, n)
 	for i := 0; i < n; i++ {
 		runner, err := v.provision()
@@ -146,7 +146,7 @@ func (v *VirtualBoxCP) ProvisionRunners(lgbID string, n int) (int, error) {
 	return n, nil
 }
 
-func (v *VirtualBoxCP) RemoveRunner(lbgID string, id string) error {
+func (v *VagrantCP) RemoveRunner(lbgID string, id string) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -199,7 +199,7 @@ func (v *VirtualBoxCP) RemoveRunner(lbgID string, id string) error {
 
 func newNodeName() string {
 	id := idgen.New()
-	return fmt.Sprintf("%s-%s", vboxNamePrefix, id.String())
+	return fmt.Sprintf("%s-%s", vagrantNamePrefix, id.String())
 }
 
 //TODO move to a util folder if needed again
@@ -228,4 +228,4 @@ func copyFile(src string, dst string) error {
 	return d.Close()
 }
 
-var ControlPlane VirtualBoxCP
+var ControlPlane VagrantCP
