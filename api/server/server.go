@@ -866,20 +866,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
-			{
-				runner := clean.Group("/runner")
-				runner.PUT("/async", s.handleRunnerEnqueue)
-				runner.GET("/async", s.handleRunnerDequeue)
-
-				runner.POST("/start", s.handleRunnerStart)
-				runner.POST("/finish", s.handleRunnerFinish)
-
-				appsAPIV2 := runner.Group("/apps/:app")
-				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.GET("", s.handleAppGetByID)
-				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
-			}
-
 		}
 
 		if s.nodeType != ServerTypeAPI {

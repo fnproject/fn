@@ -157,7 +157,6 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 	return a
 }
 
-
 func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	return a.da.GetAppByID(ctx, appID)
 }

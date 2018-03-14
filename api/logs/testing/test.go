@@ -22,10 +22,10 @@ var testApp = &models.App{
 }
 
 var testRoute = &models.Route{
-	Path:    "/test",
-	Image:   "fnproject/fn-test-utils",
-	Type:    "sync",
-	Format:  "http",
+	Path:   "/test",
+	Image:  "fnproject/fn-test-utils",
+	Type:   "sync",
+	Format: "http",
 }
 
 func SetupTestCall(t *testing.T, ctx context.Context, ds models.Datastore) *models.Call {

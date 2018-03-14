@@ -152,7 +152,6 @@ func TestRoutePut(t *testing.T) {
 		// success
 		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusOK, nil},
 		{commonDS, logs.NewMock(), http.MethodPut, "/v1/apps/a/routes/myroute", `{ "route": { "image": "fnproject/fn-test-utils", "type": "sync" } }`, http.StatusOK, nil},
-
 	} {
 		test.run(t, i, buf)
 	}
@@ -221,9 +220,9 @@ func TestRouteList(t *testing.T) {
 				AppID: app.ID,
 			},
 			{
-				Path:    "/myroute2",
-				Image:   "fnproject/fn-test-utils",
-				AppID:   app.ID,
+				Path:  "/myroute2",
+				Image: "fnproject/fn-test-utils",
+				AppID: app.ID,
 			},
 		},
 		nil, // no calls

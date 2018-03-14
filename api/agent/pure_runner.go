@@ -250,6 +250,14 @@ type pureRunner struct {
 	capacity   CapacityGate
 }
 
+func (pr *pureRunner) GetAppID(ctx context.Context, appName string) (string, error) {
+	return pr.a.GetAppID(ctx, appName)
+}
+
+func (pr *pureRunner) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return pr.a.GetAppByID(ctx, appID)
+}
+
 func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
 	return pr.a.GetCall(opts...)
 }

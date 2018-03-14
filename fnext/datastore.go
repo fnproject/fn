@@ -20,13 +20,13 @@ type extds struct {
 	rl RouteListener
 }
 
-func (e *extds) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	err := e.al.BeforeAppGet(ctx, appName)
+func (e *extds) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	err := e.al.BeforeAppGet(ctx, appID)
 	if err != nil {
 		return nil, err
 	}
 
-	app, err := e.Datastore.GetApp(ctx, appName)
+	app, err := e.Datastore.GetAppByID(ctx, appID)
 	if err != nil {
 		return nil, err
 	}

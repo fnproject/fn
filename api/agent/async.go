@@ -88,7 +88,7 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 		logrus.Fatal(err)
 	}
 	ctx, err = tag.New(ctx,
-		tag.Insert(appKey, model.AppName),
+		tag.Insert(appKey, model.AppID),
 		tag.Insert(pathKey, model.Path),
 	)
 	if err != nil {

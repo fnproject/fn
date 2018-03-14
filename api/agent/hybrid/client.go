@@ -119,8 +119,8 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 }
 
 func (cl *client) GetAppID(ctx context.Context, appName string) (string, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "hybrid_client_get_app_id")
-	defer span.Finish()
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app_id")
+	defer span.End()
 
 	var a struct {
 		A models.App `json:"app"`

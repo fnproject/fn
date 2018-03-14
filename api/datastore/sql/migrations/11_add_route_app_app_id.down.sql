@@ -1,1 +1,0 @@
-ALTER TABLE routes DROP COLUMN app_id;

@@ -1,1 +1,0 @@
-ALTER TABLE apps ADD id VARCHAR(256);
