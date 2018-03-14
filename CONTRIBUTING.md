@@ -53,7 +53,7 @@ asking for suggestions on how to address the documentation part.
 
 ### Build
 
-Requires Go >= 1.9.1.
+Requires Go >= 1.10.0.
 
 The first time after you clone or after dependencies get updated, run:
 
