@@ -597,6 +597,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		env:     map[string]string(call.Config),
 		memory:  call.Memory,
 		cpus:    uint64(call.CPUs),
+		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
 		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
@@ -629,10 +630,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	// if freezer is enabled, be consistent with freezer behavior and
-	// block stdout and stderr between calls.
-	isBlockIdleIO := MaxDisabledMsecs != a.cfg.FreezeIdle
-	container, closer := NewHotContainer(call, isBlockIdleIO)
+	container, closer := NewHotContainer(call, &a.cfg)
 	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -795,6 +793,7 @@ type container struct {
 	env     map[string]string
 	memory  uint64
 	cpus    uint64
+	fsSize  uint64
 	timeout time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
@@ -806,7 +805,11 @@ type container struct {
 	stats   *drivers.Stats
 }
 
-func NewHotContainer(call *call, isBlockIdleIO bool) (*container, func()) {
+func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
+
+	// if freezer is enabled, be consistent with freezer behavior and
+	// block stdout and stderr between calls.
+	isBlockIdleIO := MaxDisabledMsecs != cfg.FreezeIdle
 
 	id := id.New().String()
 
@@ -834,6 +837,7 @@ func NewHotContainer(call *call, isBlockIdleIO bool) (*container, func()) {
 			env:    map[string]string(call.Config),
 			memory: call.Memory,
 			cpus:   uint64(call.CPUs),
+			fsSize: cfg.MaxFsSize,
 			stdin:  stdin,
 			stdout: stdout,
 			stderr: stderr,
@@ -877,6 +881,7 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
+func (c *container) FsSize() uint64                 { return c.fsSize }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
