@@ -150,8 +150,8 @@ func TestRouteRunnerFastFail(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
 
-	tweaker1 := envTweaker("FN_MAX_MEMORY", "134217728")           // 128MB
-	tweaker2 := envTweaker("FN_ENABLE_NB_RESOURCE_TRACKER", "yes") // enable fast-fail (no wait on CPU/Mem)
+	tweaker1 := envTweaker("FN_MAX_TOTAL_MEMORY_BYTES", "134217728") // 128MB
+	tweaker2 := envTweaker("FN_ENABLE_NB_RESOURCE_TRACKER", "yes")   // enable fast-fail (no wait on CPU/Mem)
 	defer tweaker1()
 	defer tweaker2()
 
