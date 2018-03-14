@@ -187,7 +187,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	// sleep between logs and with debug enabled, fn-test-utils will log header/footer below:
 	immediateGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 0}`
 	immediateJsonValidGarbage := `{"isDebug": true, "postOutGarbage": "\r", "postSleepTime": 0}`
-	delayedGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 1000}`
+	delayedGarbage := `{"isDebug": true, "postOutGarbage": "YOGURT_YOGURT_YOGURT", "postSleepTime": 1500}`
 	ok := `{"isDebug": true}`
 
 	containerIds := make([]string, 0)
@@ -211,7 +211,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		{"/r/zoo/json/", immediateGarbage, "GET", http.StatusOK, "", nil, 0},
 
 		// CASE II: delayed garbage: make sure delayed output lands in between request processing, should be blocked until next req
-		{"/r/zoo/json/", delayedGarbage, "GET", http.StatusOK, "", nil, time.Second * 2},
+		{"/r/zoo/json/", delayedGarbage, "GET", http.StatusOK, "", nil, time.Millisecond * 2500},
 
 		// CASE III: normal, but should get faulty I/O from previous
 		{"/r/zoo/json/", ok, "GET", http.StatusBadGateway, "invalid json", nil, 0},
