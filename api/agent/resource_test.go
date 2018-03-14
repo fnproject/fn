@@ -99,7 +99,7 @@ func TestResourceAsyncWait(t *testing.T) {
 
 	var vals trackerVals
 
-	trI := NewResourceTracker()
+	trI := NewResourceTracker(nil)
 
 	tr := trI.(*resourceTracker)
 
@@ -166,7 +166,7 @@ func TestResourceAsyncWait(t *testing.T) {
 func TestResourceGetSimple(t *testing.T) {
 
 	var vals trackerVals
-	trI := NewResourceTracker()
+	trI := NewResourceTracker(nil)
 	tr := trI.(*resourceTracker)
 
 	vals.setDefaults()
@@ -229,7 +229,7 @@ func TestResourceGetSimple(t *testing.T) {
 func TestResourceGetCombo(t *testing.T) {
 
 	var vals trackerVals
-	trI := NewResourceTracker()
+	trI := NewResourceTracker(nil)
 	tr := trI.(*resourceTracker)
 
 	vals.setDefaults()
