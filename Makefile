@@ -55,10 +55,7 @@ test-system: test-basic
 	./system_test.sh mysql 4 0
 	./system_test.sh postgres 4 0
 
-build-static:
-	go install
-
-full-test: build-static test test-api test-system
+full-test: test test-api test-system
 
 img-hello:
 	docker pull fnproject/hello
