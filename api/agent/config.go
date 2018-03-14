@@ -61,9 +61,9 @@ func NewAgentConfig() (*AgentConfig, error) {
 	if cfg.EjectIdle == time.Duration(0) {
 		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdle)
 	}
-	if cfg.MaxLogSize > math.MaxInt32 {
+	if cfg.MaxLogSize > math.MaxInt64 {
 		// for safety during uint64 to int conversions in Write()/Read(), etc.
-		return cfg, fmt.Errorf("error invalid %s %v > %v", EnvMaxLogSize, cfg.MaxLogSize, math.MaxInt32)
+		return cfg, fmt.Errorf("error invalid %s %v > %v", EnvMaxLogSize, cfg.MaxLogSize, math.MaxInt64)
 	}
 
 	return cfg, nil
