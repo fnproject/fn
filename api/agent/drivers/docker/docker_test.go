@@ -37,6 +37,7 @@ func (f *taskDockerTest) FsSize() uint64                          { return 0 }
 func (f *taskDockerTest) WorkDir() string                         { return "" }
 func (f *taskDockerTest) Close()                                  {}
 func (f *taskDockerTest) Input() io.Reader                        { return f.input }
+func (f *taskDockerTest) IsNetEnabled() bool                      { return true }
 
 func TestRunnerDocker(t *testing.T) {
 	dkr := NewDocker(drivers.Config{})
