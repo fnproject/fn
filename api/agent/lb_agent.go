@@ -69,9 +69,6 @@ func (sp *naivePlacer) PlaceCall(rp models.RunnerPool, ctx context.Context, call
 			} else {
 				for _, r := range runners {
 					placed, err := r.TryExec(ctx, call)
-					if err != nil {
-						logrus.WithError(err).Error("Failed to exec call on runner")
-					}
 					if placed {
 						return err
 					}
