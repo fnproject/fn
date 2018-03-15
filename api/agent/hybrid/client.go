@@ -130,11 +130,7 @@ func (cl *client) GetAppID(ctx context.Context, appName string) (string, error) 
 }
 
 func (cl *client) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (cl *client) GetAppByName(ctx context.Context, appID string) (*models.App, error) {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
+	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app_id")
 	defer span.End()
 
 	var a struct {
