@@ -114,14 +114,14 @@ func (np *staticRunnerPool) Shutdown(ctx context.Context) (e error) {
 	var wg sync.WaitGroup
 	for _, r := range np.runners {
 		wg.Add(1)
-		go func() {
+		go func(runner models.Runner) {
 			defer wg.Done()
-			err := r.Close(ctx)
+			err := runner.Close(ctx)
 			if err != nil {
-				logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Failed to close runner")
+				logrus.WithError(err).WithField("runner_addr", runner.Address()).Error("Failed to close runner")
 				errors <- err
 			}
-		}()
+		}(r)
 	}
 
 	done := make(chan interface{})
