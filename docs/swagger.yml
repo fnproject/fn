@@ -504,6 +504,12 @@ definitions:
           - json
         description: Payload format sent into function.
         type: string
+      network:
+        enum:
+          - default
+          - disabled
+        description: Container network options.
+        type: string
       config:
         type: object
         description: Route configuration - overrides application configuration

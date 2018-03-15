@@ -116,6 +116,9 @@ type ContainerTask interface {
 	// Filesystem size limit for the container, in megabytes.
 	FsSize() uint64
 
+	// Is Network enabled?
+	IsNetEnabled() bool
+
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string

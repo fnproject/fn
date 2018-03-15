@@ -33,6 +33,7 @@ type Route struct {
 	Headers     Headers         `json:"headers,omitempty" db:"headers"`
 	Type        string          `json:"type" db:"type"`
 	Format      string          `json:"format" db:"format"`
+	Network     string          `json:"network,omitempty" db:"network"`
 	Timeout     int32           `json:"timeout" db:"timeout"`
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config          `json:"config,omitempty" db:"config"`
@@ -52,6 +53,10 @@ func (r *Route) SetDefaults() {
 
 	if r.Format == "" {
 		r.Format = FormatDefault
+	}
+
+	if r.Network == NetworkNone {
+		r.Network = NetworkDefault
 	}
 
 	if r.Headers == nil {
@@ -115,6 +120,10 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidFormat
 	}
 
+	if r.Network != NetworkNone && r.Network != NetworkDefault && r.Network != NetworkDisabled {
+		return ErrRoutesInvalidNetwork
+	}
+
 	if r.Timeout <= 0 ||
 		(r.Type == TypeSync && r.Timeout > MaxSyncTimeout) ||
 		(r.Type == TypeAsync && r.Timeout > MaxAsyncTimeout) {
@@ -166,6 +175,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 	eq = eq && r1.Headers.Equals(r2.Headers)
 	eq = eq && r1.Type == r2.Type
 	eq = eq && r1.Format == r2.Format
+	eq = eq && r1.Network == r2.Network
 	eq = eq && r1.Timeout == r2.Timeout
 	eq = eq && r1.IdleTimeout == r2.IdleTimeout
 	eq = eq && r1.Config.Equals(r2.Config)
@@ -202,6 +212,9 @@ func (r *Route) Update(new *Route) {
 	}
 	if new.Format != "" {
 		r.Format = new.Format
+	}
+	if new.Network != "" {
+		r.Network = new.Network
 	}
 	if new.Headers != nil {
 		if r.Headers == nil {

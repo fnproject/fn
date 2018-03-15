@@ -598,6 +598,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		memory:  call.Memory,
 		cpus:    uint64(call.CPUs),
 		fsSize:  a.cfg.MaxFsSize,
+		network: call.Network,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
 		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
@@ -794,6 +795,7 @@ type container struct {
 	memory  uint64
 	cpus    uint64
 	fsSize  uint64
+	network string
 	timeout time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
@@ -832,15 +834,16 @@ func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
 	}
 
 	return &container{
-			id:     id, // XXX we could just let docker generate ids...
-			image:  call.Image,
-			env:    map[string]string(call.Config),
-			memory: call.Memory,
-			cpus:   uint64(call.CPUs),
-			fsSize: cfg.MaxFsSize,
-			stdin:  stdin,
-			stdout: stdout,
-			stderr: stderr,
+			id:      id, // XXX we could just let docker generate ids...
+			image:   call.Image,
+			env:     map[string]string(call.Config),
+			memory:  call.Memory,
+			cpus:    uint64(call.CPUs),
+			fsSize:  cfg.MaxFsSize,
+			network: call.Network,
+			stdin:   stdin,
+			stdout:  stdout,
+			stderr:  stderr,
 		}, func() {
 			stdin.Close()
 			stderr.Close()
@@ -882,6 +885,7 @@ func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
 func (c *container) FsSize() uint64                 { return c.fsSize }
+func (c *container) IsNetEnabled() bool             { return c.network != models.NetworkDisabled }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

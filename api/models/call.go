@@ -25,6 +25,15 @@ const (
 	FormatJSON = "json"
 )
 
+const (
+	// NetworkNone ...
+	NetworkNone = ""
+	// NetworkDefault ...
+	NetworkDefault = "default"
+	// NetworkDisabled ...
+	NetworkDisabled = "disabled"
+)
+
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
 
 type CallLog struct {
@@ -94,6 +103,9 @@ type Call struct {
 
 	// Format is the format to pass input into the function.
 	Format string `json:"format,omitempty" db:"-"`
+
+	// Network is the networking model used in the function.
+	Network string `json:"network,omitempty" db:"-"`
 
 	// Payload for the call. This is only used by async calls, to store their input.
 	// TODO should we copy it into here too for debugging sync?

@@ -159,6 +159,10 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context: ctx,
 	}
 
+	if !task.IsNetEnabled() {
+		container.Config.NetworkDisabled = true
+	}
+
 	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
 	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
 	// which is approx 8 CPUS in CFS world.

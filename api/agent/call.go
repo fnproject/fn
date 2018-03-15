@@ -92,8 +92,9 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Path:    route.Path,
 			Image:   route.Image,
 			// Delay: 0,
-			Type:   route.Type,
-			Format: route.Format,
+			Type:    route.Type,
+			Network: route.Network,
+			Format:  route.Format,
 			// Payload: TODO,
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     route.Timeout,
@@ -127,6 +128,7 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
 	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
 	conf["FN_TYPE"] = route.Type
+	conf["FN_NETWORK"] = route.Network
 
 	CPUs := route.CPUs.String()
 	if CPUs != "" {
