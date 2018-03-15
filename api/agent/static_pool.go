@@ -1,10 +1,16 @@
 package agent
 
 import (
+	"context"
 	"sync"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	staticPoolShutdownTimeout = 5 * time.Second
 )
 
 // allow factory to be overridden in tests
@@ -54,13 +60,13 @@ func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerF
 	}
 }
 
-func (np *staticRunnerPool) Runners(call models.RunnerCall) []models.Runner {
+func (np *staticRunnerPool) Runners(call models.RunnerCall) ([]models.Runner, error) {
 	np.rMtx.RLock()
 	defer np.rMtx.RUnlock()
 
 	r := make([]models.Runner, len(np.runners))
 	copy(r, np.runners)
-	return r
+	return r, nil
 }
 
 func (np *staticRunnerPool) AddRunner(address string) error {
@@ -80,8 +86,15 @@ func (np *staticRunnerPool) RemoveRunner(address string) {
 	np.rMtx.Lock()
 	defer np.rMtx.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), staticPoolShutdownTimeout)
+	defer cancel()
+
 	for i, r := range np.runners {
 		if r.Address() == address {
+			err := r.Close(ctx)
+			if err != nil {
+				logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Failed to close runner")
+			}
 			// delete runner from list
 			np.runners = append(np.runners[:i], np.runners[i+1:]...)
 			return
@@ -89,6 +102,45 @@ func (np *staticRunnerPool) RemoveRunner(address string) {
 	}
 }
 
-func (np *staticRunnerPool) Shutdown() {
-	// NO-OP
+// Shutdown blocks waiting for all runners to close, or until ctx is done
+func (np *staticRunnerPool) Shutdown(ctx context.Context) (e error) {
+	np.rMtx.Lock()
+	defer np.rMtx.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), staticPoolShutdownTimeout)
+	defer cancel()
+
+	errors := make(chan error, len(np.runners))
+	var wg sync.WaitGroup
+	for _, r := range np.runners {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := r.Close(ctx)
+			if err != nil {
+				logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Failed to close runner")
+				errors <- err
+			}
+		}()
+	}
+
+	done := make(chan interface{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+
+	select {
+	case <-done:
+		close(errors)
+		for e := range errors {
+			// return the first error
+			if e != nil {
+				return e
+			}
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err() // context timed out while waiting
+	}
 }

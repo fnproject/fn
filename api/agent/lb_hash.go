@@ -36,26 +36,31 @@ func (p *chPlacer) PlaceCall(rp models.RunnerPool, ctx context.Context, call mod
 		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
 		default:
-			runners := rp.Runners(call)
-			i := int(jumpConsistentHash(sum64, int32(len(runners))))
-			for j := 0; j < len(runners); j++ {
-				r := runners[i]
+			runners, err := rp.Runners(call)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to find runners for call")
+			} else {
+				i := int(jumpConsistentHash(sum64, int32(len(runners))))
+				for j := 0; j < len(runners); j++ {
+					r := runners[i]
 
-				placed, err := r.TryExec(ctx, call)
-				if err != nil {
-					logrus.WithError(err).Error("Failed during call placement")
-				}
-				if placed {
-					return err
-				}
+					placed, err := r.TryExec(ctx, call)
+					if err != nil {
+						logrus.WithError(err).Error("Failed to exec call on runner")
+					}
+					if placed {
+						return err
+					}
 
-				i = (i + 1) % len(runners)
+					i = (i + 1) % len(runners)
+				}
 			}
 
 			remaining := call.SlotDeadline().Sub(time.Now())
 			if remaining <= 0 {
 				return models.ErrCallTimeoutServerBusy
 			}
+			// backoff
 			time.Sleep(minDuration(retryWaitInterval, remaining))
 		}
 	}

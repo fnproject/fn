@@ -30,7 +30,9 @@ func (n *nullRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool,
 	return false, nil
 }
 
-func (n *nullRunner) Close() {}
+func (n *nullRunner) Close() error {
+	return nil
+}
 
 func (n *nullRunner) Address() string {
 	return ""
@@ -67,11 +69,22 @@ func secureGRPCRunnerFactory(addr string, cert string, key string, ca string) (m
 	}, nil
 }
 
-func (r *gRPCRunner) Close() {
+// Close waits until the context is closed for all inflight requests
+// to complete prior to terminating the underlying grpc connection
+func (r *gRPCRunner) Close(ctx context.Context) error {
+	err := make(chan error)
 	go func() {
+		defer close(err)
 		r.wg.Wait()
-		r.conn.Close()
+		err <- r.conn.Close()
 	}()
+
+	select {
+	case e := <-err:
+		return e
+	case <-ctx.Done():
+		return ctx.Err() // context timed out while waiting
+	}
 }
 
 func runnerConnection(address string, pki *pkiData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {

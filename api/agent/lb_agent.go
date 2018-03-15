@@ -63,19 +63,26 @@ func (sp *naivePlacer) PlaceCall(rp models.RunnerPool, ctx context.Context, call
 		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
 		default:
-			for _, r := range rp.Runners(call) {
-				placed, err := r.TryExec(ctx, call)
-				if err != nil {
-					logrus.WithError(err).Error("Failed during call placement")
-				}
-				if placed {
-					return err
+			runners, err := rp.Runners(call)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to find runners for call")
+			} else {
+				for _, r := range runners {
+					placed, err := r.TryExec(ctx, call)
+					if err != nil {
+						logrus.WithError(err).Error("Failed to exec call on runner")
+					}
+					if placed {
+						return err
+					}
 				}
 			}
+
 			remaining := call.SlotDeadline().Sub(time.Now())
 			if remaining <= 0 {
 				return models.ErrCallTimeoutServerBusy
 			}
+			// backoff
 			time.Sleep(minDuration(retryWaitInterval, remaining))
 		}
 	}
@@ -88,7 +95,8 @@ const (
 	// sleep time when scaling from 0 to 1 runners
 	noCapacityWaitInterval = 1 * time.Second
 	// amount of time to wait to place a request on a runner
-	placementTimeout = 15 * time.Second
+	placementTimeout          = 15 * time.Second
+	runnerPoolShutdownTimeout = 5 * time.Second
 )
 
 type lbAgent struct {
@@ -117,7 +125,11 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 }
 
 func (a *lbAgent) Close() error {
-	a.rp.Shutdown()
+	// we should really be passing the server's context here
+	ctx, cancel := context.WithTimeout(context.Background(), runnerPoolShutdownTimeout)
+	defer cancel()
+
+	a.rp.Shutdown(ctx)
 	err := a.delegatedAgent.Close()
 	if err != nil {
 		return err

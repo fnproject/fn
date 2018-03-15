@@ -105,7 +105,6 @@ type Server struct {
 	appListeners    *appListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
-	runnerPool      models.RunnerPool
 	promExporter    *prometheus.Exporter
 	runnerPool      models.RunnerPool
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
@@ -338,12 +337,6 @@ func WithAgent(agent agent.Agent) ServerOption {
 		s.agent = agent
 		return nil
 	}
-}
-
-// WithRunnerPool implements fnext.ExtServer
-// overrides the default runner pool implementation when running in load-balanced mode
-func (s *Server) WithRunnerPool(runnerPool models.RunnerPool) {
-	s.runnerPool = runnerPool
 }
 
 func (s *Server) RunnerPool() (models.RunnerPool, error) {
