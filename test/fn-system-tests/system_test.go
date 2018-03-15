@@ -171,7 +171,14 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, server.WithAgent(agent.NewSyncOnly(agent.NewCachedDataAccess(ds))))
+	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
+	delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
+	cancelCtx, cancel := context.WithCancel(ctx)
+	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "")
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, server.WithAgent(prAgent), server.WithExtraCtx(cancelCtx))
 
 	return server.New(ctx, opts...), nil
 }
