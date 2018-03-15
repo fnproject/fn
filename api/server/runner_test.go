@@ -374,6 +374,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
 
+	faultyHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"text/plain; charset=utf-8"}}
+
 	for i, test := range []struct {
 		path               string
 		body               string
@@ -383,21 +385,21 @@ func TestRouteRunnerExecution(t *testing.T) {
 		expectedErrSubStr  string
 		expectedLogsSubStr []string
 	}{
-		{"/r/myapp/", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/r/myapp/", ok, "GET", http.StatusOK, faultyHeaders, "", nil},
 
 		{"/r/myapp/myhot", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid http response", nil},
 		// hot container now back to normal:
-		{"/r/myapp/myhot", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/r/myapp/myhot", ok, "GET", http.StatusOK, faultyHeaders, "", nil},
 
 		{"/r/myapp/myhotjason", badHot, "GET", http.StatusBadGateway, expHeaders, "invalid json response", nil},
 		// hot container now back to normal:
-		{"/r/myapp/myhotjason", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/r/myapp/myhotjason", ok, "GET", http.StatusOK, faultyHeaders, "", nil},
 
 		{"/r/myapp/myhot", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
 		{"/r/myapp/myhotjason", respTypeLie, "GET", http.StatusOK, expCTHeaders, "", nil},
 		{"/r/myapp/myhotjason", respTypeJason, "GET", http.StatusOK, expCTHeaders, "", nil},
 
-		{"/r/myapp/myroute", ok, "GET", http.StatusOK, expHeaders, "", nil},
+		{"/r/myapp/myroute", ok, "GET", http.StatusOK, faultyHeaders, "", nil},
 		{"/r/myapp/myerror", crasher, "GET", http.StatusBadGateway, expHeaders, "container exit code 2", nil},
 		{"/r/myapp/mydne", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
 		{"/r/myapp/mydnehot", ``, "GET", http.StatusNotFound, nil, "pull access denied", nil},
@@ -409,9 +411,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
 		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
+		// 18
+		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusOK, nil, "", nil},
 		{"/r/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
+		// 20
+		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusOK, nil, "", nil},
 		{"/r/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
 	} {
 		trx := fmt.Sprintf("_trx_%d_", i)
