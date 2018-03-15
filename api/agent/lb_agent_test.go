@@ -153,16 +153,6 @@ func TestOneRunner(t *testing.T) {
 	}
 }
 
-func TestEnforceTimeoutFromSlot(t *testing.T) {
-	placer := NewNaivePlacer()
-	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{slotDeadline: time.Now()}
-	err := placer.PlaceCall(rp, context.Background(), call)
-	if err == nil {
-		t.Fatal("Call should have timed out")
-	}
-}
-
 func TestEnforceTimeoutFromContext(t *testing.T) {
 	placer := NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
@@ -203,7 +193,7 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 	}
 }
 
-func TestTimeoutDuringBackoff(t *testing.T) {
+func TestEnforceSlotTimeout(t *testing.T) {
 	placer := NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
 
