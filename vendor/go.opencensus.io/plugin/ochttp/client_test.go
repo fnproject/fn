@@ -97,7 +97,7 @@ func TestClient(t *testing.T) {
 			t.Errorf("view not found %q", viewName)
 			continue
 		}
-		rows, err := v.RetrieveData()
+		rows, err := view.RetrieveData(v.Name)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -114,7 +114,8 @@ func TestClient(t *testing.T) {
 		case *view.DistributionData:
 			count = data.Count
 		default:
-			t.Errorf("don't know how to handle data type: %v", data)
+			t.Errorf("Unkown data type: %v", data)
+			continue
 		}
 		if got := count; got != reqCount {
 			t.Fatalf("%s = %d; want %d", viewName, got, reqCount)
@@ -144,7 +145,7 @@ func benchmarkClientServer(b *testing.B, transport *ochttp.Transport) {
 		fmt.Fprintf(rw, "Hello world.\n")
 	}))
 	defer ts.Close()
-	transport.Sampler = trace.AlwaysSample()
+	transport.StartOptions.Sampler = trace.AlwaysSample()
 	var client http.Client
 	client.Transport = transport
 	b.ResetTimer()
@@ -194,7 +195,7 @@ func benchmarkClientServerParallel(b *testing.B, parallelism int, transport *och
 		MaxIdleConns:        parallelism,
 		MaxIdleConnsPerHost: parallelism,
 	}
-	transport.Sampler = trace.AlwaysSample()
+	transport.StartOptions.Sampler = trace.AlwaysSample()
 	c.Transport = transport
 
 	b.ResetTimer()

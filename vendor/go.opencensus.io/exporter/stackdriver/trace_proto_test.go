@@ -78,9 +78,9 @@ func TestExportTrace(t *testing.T) {
 			span2.Annotatef(nil, "in span%d", 2)
 			span2.Annotate(nil, big.NewRat(2, 4).String())
 			span2.SetAttributes(
-				trace.StringAttribute{Key: "key1", Value: "value1"},
-				trace.StringAttribute{Key: "key2", Value: "value2"})
-			span2.SetAttributes(trace.Int64Attribute{Key: "key1", Value: 100})
+				trace.StringAttribute("key1", "value1"),
+				trace.StringAttribute("key2", "value2"))
+			span2.SetAttributes(trace.Int64Attribute("key1", 100))
 			span2.End()
 		}
 		{
@@ -92,9 +92,9 @@ func TestExportTrace(t *testing.T) {
 			{
 				_, span4 := trace.StartSpan(ctx3, "span4")
 				x := 42
-				a1 := []trace.Attribute{trace.StringAttribute{Key: "k1", Value: "v1"}}
-				a2 := []trace.Attribute{trace.StringAttribute{Key: "k2", Value: "v2"}}
-				a3 := []trace.Attribute{trace.StringAttribute{Key: "k3", Value: "v3"}}
+				a1 := []trace.Attribute{trace.StringAttribute("k1", "v1")}
+				a2 := []trace.Attribute{trace.StringAttribute("k2", "v2")}
+				a3 := []trace.Attribute{trace.StringAttribute("k3", "v3")}
 				a4 := map[string]interface{}{"k4": "v4"}
 				r := big.NewRat(2, 4)
 				span4.Annotate(a1, r.String())

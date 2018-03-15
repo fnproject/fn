@@ -135,7 +135,7 @@ func NewSyncOnly(da DataAccess) Agent {
 		da:        da,
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
-		resources: NewResourceTracker(),
+		resources: NewResourceTracker(cfg),
 		shutdown:  make(chan struct{}),
 	}
 
@@ -305,7 +305,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	// Let use 60 minutes or 2 * IdleTimeout as hot queue idle timeout, pick
 	// whichever is longer. If in this time, there's no activity, then
 	// we destroy the hot queue.
-	timeout := time.Duration(60) * time.Minute
+	timeout := a.cfg.HotLauncherTimeout
 	idleTimeout := time.Duration(call.IdleTimeout) * time.Second * 2
 	if timeout < idleTimeout {
 		timeout = idleTimeout
@@ -380,7 +380,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 	ch := call.slots.startDequeuer(ctx)
 
 	// 1) if we can get a slot immediately, grab it.
-	// 2) if we don't, send a signaller every 200ms until we do.
+	// 2) if we don't, send a signaller every x msecs until we do.
 
 	sleep := 1 * time.Microsecond // pad, so time.After doesn't send immediately
 	for {
@@ -402,8 +402,8 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			// ping dequeuer again
 		}
 
-		// set sleep to 200ms after first iteration
-		sleep = 200 * time.Millisecond
+		// set sleep to x msecs after first iteration
+		sleep = a.cfg.HotPoll
 		// send a notification to launchHot()
 		select {
 		case call.slots.signaller <- true:
@@ -492,11 +492,12 @@ func (s *coldSlot) Close(ctx context.Context) error {
 
 // implements Slot
 type hotSlot struct {
-	done        chan struct{} // signal we are done with slot
-	errC        <-chan error  // container error
-	container   *container    // TODO mask this
-	maxRespSize uint64        // TODO boo.
-	fatalErr    error
+	done          chan struct{} // signal we are done with slot
+	errC          <-chan error  // container error
+	container     *container    // TODO mask this
+	maxRespSize   uint64        // TODO boo.
+	fatalErr      error
+	containerSpan trace.SpanContext
 }
 
 func (s *hotSlot) Close(ctx context.Context) error {
@@ -522,6 +523,13 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	// link the container id and id in the logs [for us!]
 	common.Logger(ctx).WithField("container_id", s.container.id).Info("starting call")
+
+	// link the container span to ours for additional context (start/freeze/etc.)
+	span.AddLink(trace.Link{
+		TraceID: s.containerSpan.TraceID,
+		SpanID:  s.containerSpan.SpanID,
+		Type:    trace.LinkTypeChild,
+	})
 
 	// swap in fresh pipes & stat accumulator to not interlace with other calls that used this slot [and timed out]
 	stdinRead, stdinWrite := io.Pipe()
@@ -589,6 +597,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		env:     map[string]string(call.Config),
 		memory:  call.Memory,
 		cpus:    uint64(call.CPUs),
+		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
 		stdin:   call.req.Body,
 		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
@@ -621,10 +630,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	// if freezer is enabled, be consistent with freezer behavior and
-	// block stdout and stderr between calls.
-	isBlockIdleIO := MaxDisabledMsecs != a.cfg.FreezeIdleMsecs
-	container, closer := NewHotContainer(call, isBlockIdleIO)
+	container, closer := NewHotContainer(call, &a.cfg)
 	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -663,7 +669,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			default: // ok
 			}
 
-			slot := &hotSlot{done: make(chan struct{}), errC: errC, container: container, maxRespSize: a.cfg.MaxResponseSize}
+			slot := &hotSlot{
+				done:          make(chan struct{}),
+				errC:          errC,
+				container:     container,
+				maxRespSize:   a.cfg.MaxResponseSize,
+				containerSpan: trace.FromContext(ctx).SpanContext(),
+			}
 			if !a.runHotReq(ctx, call, state, logger, cookie, slot) {
 				return
 			}
@@ -694,9 +706,9 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	var err error
 	isFrozen := false
 
-	freezeTimer := time.NewTimer(a.cfg.FreezeIdleMsecs)
+	freezeTimer := time.NewTimer(a.cfg.FreezeIdle)
 	idleTimer := time.NewTimer(time.Duration(call.IdleTimeout) * time.Second)
-	ejectTicker := time.NewTicker(a.cfg.EjectIdleMsecs)
+	ejectTicker := time.NewTicker(a.cfg.EjectIdle)
 
 	defer freezeTimer.Stop()
 	defer idleTimer.Stop()
@@ -710,7 +722,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 	}()
 
 	// if an immediate freeze is requested, freeze first before enqueuing at all.
-	if a.cfg.FreezeIdleMsecs == time.Duration(0) && !isFrozen {
+	if a.cfg.FreezeIdle == time.Duration(0) && !isFrozen {
 		err = cookie.Freeze(ctx)
 		if err != nil {
 			return false
@@ -781,6 +793,7 @@ type container struct {
 	env     map[string]string
 	memory  uint64
 	cpus    uint64
+	fsSize  uint64
 	timeout time.Duration // cold only (superfluous, but in case)
 
 	stdin  io.Reader
@@ -792,7 +805,11 @@ type container struct {
 	stats   *drivers.Stats
 }
 
-func NewHotContainer(call *call, isBlockIdleIO bool) (*container, func()) {
+func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
+
+	// if freezer is enabled, be consistent with freezer behavior and
+	// block stdout and stderr between calls.
+	isBlockIdleIO := MaxDisabledMsecs != cfg.FreezeIdle
 
 	id := id.New().String()
 
@@ -820,6 +837,7 @@ func NewHotContainer(call *call, isBlockIdleIO bool) (*container, func()) {
 			env:    map[string]string(call.Config),
 			memory: call.Memory,
 			cpus:   uint64(call.CPUs),
+			fsSize: cfg.MaxFsSize,
 			stdin:  stdin,
 			stdout: stdout,
 			stderr: stderr,
@@ -863,6 +881,7 @@ func (c *container) Timeout() time.Duration         { return c.timeout }
 func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
+func (c *container) FsSize() uint64                 { return c.fsSize }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

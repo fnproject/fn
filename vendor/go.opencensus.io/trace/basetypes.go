@@ -47,29 +47,41 @@ type Attribute interface {
 	isAttribute()
 }
 
-// BoolAttribute represents a bool-valued attribute.
-type BoolAttribute struct {
-	Key   string
-	Value bool
+// BoolAttribute returns a bool-valued attribute.
+func BoolAttribute(key string, value bool) Attribute {
+	return boolAttribute{key: key, value: value}
 }
 
-func (b BoolAttribute) isAttribute() {}
-
-// Int64Attribute represents an int64-valued attribute.
-type Int64Attribute struct {
-	Key   string
-	Value int64
+type boolAttribute struct {
+	key   string
+	value bool
 }
 
-func (i Int64Attribute) isAttribute() {}
+func (b boolAttribute) isAttribute() {}
 
-// StringAttribute represents a string-valued attribute.
-type StringAttribute struct {
-	Key   string
-	Value string
+type int64Attribute struct {
+	key   string
+	value int64
 }
 
-func (s StringAttribute) isAttribute() {}
+func (i int64Attribute) isAttribute() {}
+
+// Int64Attribute returns an int64-valued attribute.
+func Int64Attribute(key string, value int64) Attribute {
+	return int64Attribute{key: key, value: value}
+}
+
+type stringAttribute struct {
+	key   string
+	value string
+}
+
+func (s stringAttribute) isAttribute() {}
+
+// StringAttribute returns a string-valued attribute.
+func StringAttribute(key string, value string) Attribute {
+	return stringAttribute{key: key, value: value}
+}
 
 // LinkType specifies the relationship between the span that had the link
 // added, and the linked span.

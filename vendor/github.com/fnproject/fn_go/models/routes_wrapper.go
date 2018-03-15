@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -26,7 +28,7 @@ type RoutesWrapper struct {
 
 	// routes
 	// Required: true
-	Routes RoutesWrapperRoutes `json:"routes"`
+	Routes []*Route `json:"routes"`
 }
 
 // Validate validates this routes wrapper
@@ -63,6 +65,7 @@ func (m *RoutesWrapper) validateError(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil
@@ -74,11 +77,23 @@ func (m *RoutesWrapper) validateRoutes(formats strfmt.Registry) error {
 		return err
 	}
 
-	if err := m.Routes.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("routes")
+	for i := 0; i < len(m.Routes); i++ {
+
+		if swag.IsZero(m.Routes[i]) { // not required
+			continue
 		}
-		return err
+
+		if m.Routes[i] != nil {
+
+			if err := m.Routes[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("routes" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+
+		}
+
 	}
 
 	return nil

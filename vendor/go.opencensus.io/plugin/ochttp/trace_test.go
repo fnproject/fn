@@ -121,9 +121,6 @@ func TestTransport_RoundTrip(t *testing.T) {
 }
 
 func TestHandler(t *testing.T) {
-	// TODO(#431): remove SetDefaultSampler
-	trace.SetDefaultSampler(trace.ProbabilitySampler(0.0))
-
 	traceID := [16]byte{16, 84, 69, 170, 120, 67, 188, 139, 242, 6, 177, 32, 0, 16, 0, 0}
 	tests := []struct {
 		header           string
@@ -157,8 +154,9 @@ func TestHandler(t *testing.T) {
 						t.Errorf("TraceOptions = %v; want %v", got, want)
 					}
 				}),
+				StartOptions: trace.StartOptions{Sampler: trace.ProbabilitySampler(0.0)},
+				Propagation:  propagator,
 			}
-			handler.Propagation = propagator
 			req, _ := http.NewRequest("GET", "http://foo.com", nil)
 			req.Header.Add("trace", tt.header)
 			handler.ServeHTTP(nil, req)
@@ -347,10 +345,10 @@ func TestRequestAttributes(t *testing.T) {
 				return req
 			},
 			wantAttrs: []trace.Attribute{
-				trace.StringAttribute{Key: PathAttribute, Value: "/hello"},
-				trace.StringAttribute{Key: HostAttribute, Value: "example.com"},
-				trace.StringAttribute{Key: MethodAttribute, Value: "GET"},
-				trace.StringAttribute{Key: UserAgentAttribute, Value: "ua"},
+				trace.StringAttribute("http.path", "/hello"),
+				trace.StringAttribute("http.host", "example.com"),
+				trace.StringAttribute("http.method", "GET"),
+				trace.StringAttribute("http.user_agent", "ua"),
 			},
 		},
 	}
@@ -376,14 +374,14 @@ func TestResponseAttributes(t *testing.T) {
 			name: "non-zero HTTP 200 response",
 			resp: &http.Response{StatusCode: 200},
 			wantAttrs: []trace.Attribute{
-				trace.Int64Attribute{Key: StatusCodeAttribute, Value: 200},
+				trace.Int64Attribute("http.status_code", 200),
 			},
 		},
 		{
 			name: "zero HTTP 500 response",
 			resp: &http.Response{StatusCode: 500},
 			wantAttrs: []trace.Attribute{
-				trace.Int64Attribute{Key: StatusCodeAttribute, Value: 500},
+				trace.Int64Attribute("http.status_code", 500),
 			},
 		},
 	}

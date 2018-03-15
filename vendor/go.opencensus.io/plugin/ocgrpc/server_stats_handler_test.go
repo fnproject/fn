@@ -302,7 +302,7 @@ func TestServerDefaultCollections(t *testing.T) {
 			}
 		}
 
-		h := &serverStatsHandler{}
+		h := &ServerHandler{NoTrace: true}
 		for _, rpc := range tc.rpcs {
 			mods := []tag.Mutator{}
 			for _, t := range rpc.tags {
@@ -326,33 +326,29 @@ func TestServerDefaultCollections(t *testing.T) {
 		}
 
 		for _, wantData := range tc.wants {
-			gotRows, err := wantData.v().RetrieveData()
+			gotRows, err := view.RetrieveData(wantData.v().Name)
 			if err != nil {
-				t.Errorf("%q: RetrieveData (%q) = %v", tc.label, wantData.v().Name(), err)
+				t.Errorf("%q: RetrieveData (%q) = %v", tc.label, wantData.v().Name, err)
 				continue
 			}
 
 			for _, gotRow := range gotRows {
 				if !containsRow(wantData.rows, gotRow) {
-					t.Errorf("%q: unwanted row for view %q: %v", tc.label, wantData.v().Name(), gotRow)
+					t.Errorf("%q: unwanted row for view %q: %v", tc.label, wantData.v().Name, gotRow)
 					break
 				}
 			}
 
 			for _, wantRow := range wantData.rows {
 				if !containsRow(gotRows, wantRow) {
-					t.Errorf("%q: missing row for view %q: %v", tc.label, wantData.v().Name(), wantRow)
+					t.Errorf("%q: missing row for view %q: %v", tc.label, wantData.v().Name, wantRow)
 					break
 				}
 			}
 		}
 
 		// Unregister views to cleanup.
-		for _, v := range DefaultServerViews {
-			if err := v.Unsubscribe(); err != nil {
-				t.Error(err)
-			}
-		}
+		view.Unsubscribe(DefaultServerViews...)
 	}
 }
 

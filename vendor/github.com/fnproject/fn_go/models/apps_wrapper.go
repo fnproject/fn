@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -19,7 +21,7 @@ type AppsWrapper struct {
 
 	// apps
 	// Required: true
-	Apps AppsWrapperApps `json:"apps"`
+	Apps []*App `json:"apps"`
 
 	// error
 	Error *ErrorBody `json:"error,omitempty"`
@@ -55,11 +57,23 @@ func (m *AppsWrapper) validateApps(formats strfmt.Registry) error {
 		return err
 	}
 
-	if err := m.Apps.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("apps")
+	for i := 0; i < len(m.Apps); i++ {
+
+		if swag.IsZero(m.Apps[i]) { // not required
+			continue
 		}
-		return err
+
+		if m.Apps[i] != nil {
+
+			if err := m.Apps[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("apps" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+
+		}
+
 	}
 
 	return nil
@@ -79,6 +93,7 @@ func (m *AppsWrapper) validateError(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil

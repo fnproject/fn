@@ -16,7 +16,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/zpages"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -35,11 +33,9 @@ const (
 )
 
 func main() {
-	go func() { log.Fatal(http.ListenAndServe(":8080", zpages.Handler)) }()
-
 	// Register stats and trace exporters to export
 	// the collected data.
-	view.RegisterExporter(&exporter.Exporter{})
+	view.RegisterExporter(&exporter.PrintExporter{})
 
 	// Subscribe to collect client request count.
 	if err := ocgrpc.ClientErrorCountView.Subscribe(); err != nil {
@@ -48,7 +44,7 @@ func main() {
 
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	conn, err := grpc.Dial(address, grpc.WithStatsHandler(ocgrpc.NewClientStatsHandler()), grpc.WithInsecure())
+	conn, err := grpc.Dial(address, grpc.WithStatsHandler(&ocgrpc.ClientHandler{}), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

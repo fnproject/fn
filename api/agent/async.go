@@ -53,7 +53,7 @@ func (a *agent) asyncChew(ctx context.Context) <-chan *models.Call {
 	ch := make(chan *models.Call, 1)
 
 	go func() {
-		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, a.cfg.AsyncChewPoll)
 		defer cancel()
 
 		call, err := a.da.Dequeue(ctx)

@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -28,7 +30,9 @@ import (
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/exporter/jaeger"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/plugin/ochttp"
@@ -51,6 +55,7 @@ const (
 	EnvGRPCPort        = "FN_GRPC_PORT"
 	EnvAPICORS         = "FN_API_CORS"
 	EnvZipkinURL       = "FN_ZIPKIN_URL"
+	EnvJaegerURL       = "FN_JAEGER_URL"
 	// Certificates to communicate with other FN nodes
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
@@ -144,7 +149,9 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithGRPCPort(getEnvInt(EnvGRPCPort, DefaultGRPCPort)))
 	opts = append(opts, WithLogLevel(getEnv(EnvLogLevel, DefaultLogLevel)))
 	opts = append(opts, WithLogDest(getEnv(EnvLogDest, DefaultLogDest), getEnv(EnvLogPrefix, "")))
-	opts = append(opts, WithTracer(getEnv(EnvZipkinURL, ""))) // do this early on, so below can use these
+	opts = append(opts, WithZipkin(getEnv(EnvZipkinURL, "")))
+	opts = append(opts, WithJaeger(getEnv(EnvJaegerURL, "")))
+	opts = append(opts, WithPrometheus()) // TODO option to turn this off?
 	opts = append(opts, WithDBURL(getEnv(EnvDBURL, defaultDB)))
 	opts = append(opts, WithMQURL(getEnv(EnvMQURL, defaultMQ)))
 	opts = append(opts, WithLogURL(getEnv(EnvLOGDBURL, "")))
@@ -520,41 +527,126 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	return s
 }
 
-// TODO need to fix this to handle the nil case better
-func WithTracer(zipkinURL string) ServerOption {
+func WithPrometheus() ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		var (
-			// TODO add server identifier to this crap
-			//debugMode          = false
-			//serviceName        = "fnserver"
-			//serviceHostPort    = "localhost:8080" // meh
-			zipkinHTTPEndpoint = zipkinURL
-			// ex: "http://zipkin:9411/api/v2/spans"
+		reg := promclient.NewRegistry()
+		reg.MustRegister(promclient.NewProcessCollector(os.Getpid(), "fn"),
+			promclient.NewProcessCollectorPIDFn(dockerPid(), "dockerd"),
+			promclient.NewGoCollector(),
 		)
 
-		if zipkinHTTPEndpoint != "" {
-			reporter := zipkinhttp.NewReporter(zipkinURL, zipkinhttp.MaxBacklog(10000))
-			exporter := zipkin.NewExporter(reporter, nil)
-			trace.RegisterExporter(exporter)
-			logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("exporting spans to zipkin")
-
-			// TODO don't do this. testing parity.
-			trace.SetDefaultSampler(trace.AlwaysSample())
-		}
-
-		// TODO we can keep this on *Server and unregister it in Close()... can finagle later. same for tracer
 		exporter, err := prometheus.NewExporter(prometheus.Options{
 			Namespace: "fn",
+			Registry:  reg,
 			OnError:   func(err error) { logrus.WithError(err).Error("opencensus prometheus exporter err") },
 		})
 		if err != nil {
-			logrus.Fatal(err)
+			return fmt.Errorf("error starting prometheus exporter: %v", err)
 		}
 		s.promExporter = exporter
 		view.RegisterExporter(exporter)
-
 		return nil
 	}
+}
+
+func WithJaeger(jaegerURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		// ex: "http://localhost:14268"
+		if jaegerURL == "" {
+			return nil
+		}
+
+		exporter, err := jaeger.NewExporter(jaeger.Options{
+			Endpoint:    jaegerURL,
+			ServiceName: "fn",
+		})
+		if err != nil {
+			return fmt.Errorf("error connecting to jaeger: %v", err)
+		}
+		trace.RegisterExporter(exporter)
+		logrus.WithFields(logrus.Fields{"url": jaegerURL}).Info("exporting spans to jaeger")
+
+		// TODO don't do this. testing parity.
+		trace.SetDefaultSampler(trace.AlwaysSample())
+		return nil
+	}
+}
+
+func WithZipkin(zipkinURL string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		// ex: "http://zipkin:9411/api/v2/spans"
+
+		if zipkinURL == "" {
+			return nil
+		}
+
+		reporter := zipkinhttp.NewReporter(zipkinURL, zipkinhttp.MaxBacklog(10000))
+		exporter := zipkin.NewExporter(reporter, nil)
+		trace.RegisterExporter(exporter)
+		logrus.WithFields(logrus.Fields{"url": zipkinURL}).Info("exporting spans to zipkin")
+
+		// TODO don't do this. testing parity.
+		trace.SetDefaultSampler(trace.AlwaysSample())
+		return nil
+	}
+}
+
+// TODO plumbing considerations, we've put the S pipe next to the chandalier...
+func dockerPid() func() (int, error) {
+	// prometheus' process collector only works on linux anyway. let them do the
+	// process detection, if we return an error here we just get 0 metrics and it
+	// does not log / blow up (that's fine!) it's also likely we hit permissions
+	// errors here for many installations, we want to do similar and ignore (we
+	// just want for prod).
+
+	var pid int
+
+	return func() (int, error) {
+		if pid != 0 {
+			// make sure it's docker pid.
+			if isDockerPid("/proc/" + strconv.Itoa(pid) + "/status") {
+				return pid, nil
+			}
+			pid = 0 // reset to go search
+		}
+
+		err := filepath.Walk("/proc", func(path string, info os.FileInfo, err error) error {
+			if err != nil || pid != 0 {
+				// we get permission errors digging around in here, ignore them and press on
+				return nil
+			}
+
+			// /proc/<pid>/status
+			if strings.Count(path, "/") == 3 && strings.Contains(path, "/status") {
+				if isDockerPid(path) {
+					// extract pid from path
+					pid, _ = strconv.Atoi(path[6:strings.LastIndex(path, "/")])
+					return io.EOF // end the search
+				}
+			}
+
+			// keep searching
+			return nil
+		})
+		if err == io.EOF { // used as sentinel
+			err = nil
+		}
+		return pid, err
+	}
+}
+
+func isDockerPid(path string) bool {
+	// first line of status file is: "Name: <name>"
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	// scan first line only
+	scanner := bufio.NewScanner(f)
+	scanner.Scan()
+	return strings.HasSuffix(scanner.Text(), "dockerd")
 }
 
 func setMachineID() {

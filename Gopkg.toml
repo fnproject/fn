@@ -54,10 +54,6 @@ ignored = ["github.com/fnproject/fn/cli"]
   revision = "bc3c7b0525e59d3ecfab3e1568350895fd4a462f"
 
 [[constraint]]
-  name = "github.com/rdallman/migrate" # TODO change to mattes/migrate w/ https://github.com/mattes/migrate/pull/299
-  revision = "bc72eeb997c7334cb5f05f5aefd2d70bc34d71ef"
-
-[[constraint]]
   # NOTE: locked for a reason - https://github.com/go-sql-driver/mysql/issues/657
   name = "github.com/go-sql-driver/mysql"
   revision = "21d7e97c9f760ca685a01ecea202e1c84276daa1"

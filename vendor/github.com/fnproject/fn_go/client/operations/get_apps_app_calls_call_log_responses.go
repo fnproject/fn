@@ -54,7 +54,7 @@ func NewGetAppsAppCallsCallLogOK() *GetAppsAppCallsCallLogOK {
 Log found
 */
 type GetAppsAppCallsCallLogOK struct {
-	Payload string
+	Payload *models.LogWrapper
 }
 
 func (o *GetAppsAppCallsCallLogOK) Error() string {
@@ -63,8 +63,10 @@ func (o *GetAppsAppCallsCallLogOK) Error() string {
 
 func (o *GetAppsAppCallsCallLogOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
+	o.Payload = new(models.LogWrapper)
+
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 

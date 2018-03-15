@@ -59,6 +59,7 @@ func (m *AppWrapper) validateApp(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil
@@ -78,6 +79,7 @@ func (m *AppWrapper) validateError(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil

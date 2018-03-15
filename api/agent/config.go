@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -10,75 +9,102 @@ import (
 )
 
 type AgentConfig struct {
-	MinDockerVersion string        `json:"min_docker_version"`
-	FreezeIdleMsecs  time.Duration `json:"freeze_idle_msecs"`
-	EjectIdleMsecs   time.Duration `json:"eject_idle_msecs"`
-	MaxResponseSize  uint64        `json:"max_response_size"`
-	MaxLogSize       uint64        `json:"max_log_size"`
+	MinDockerVersion   string        `json:"min_docker_version"`
+	FreezeIdle         time.Duration `json:"freeze_idle_msecs"`
+	EjectIdle          time.Duration `json:"eject_idle_msecs"`
+	HotPoll            time.Duration `json:"hot_poll_msecs"`
+	HotLauncherTimeout time.Duration `json:"hot_launcher_timeout_msecs"`
+	AsyncChewPoll      time.Duration `json:"async_chew_poll_msecs"`
+	MaxResponseSize    uint64        `json:"max_response_size_bytes"`
+	MaxLogSize         uint64        `json:"max_log_size_bytes"`
+	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
+	MaxTotalMemory     uint64        `json:"max_total_memory_bytes"`
+	MaxFsSize          uint64        `json:"max_fs_size_mb"`
 }
 
-var MaxDisabledMsecs = time.Duration(math.MaxInt64)
+const (
+	EnvFreezeIdle         = "FN_FREEZE_IDLE_MSECS"
+	EnvEjectIdle          = "FN_EJECT_IDLE_MSECS"
+	EnvHotPoll            = "FN_HOT_POLL_MSECS"
+	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
+	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
+	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE"
+	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
+	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
+	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
+	EnvMaxFsSize          = "FN_MAX_FS_SIZE_MB"
+
+	MaxDisabledMsecs = time.Duration(math.MaxInt64)
+)
 
 func NewAgentConfig() (*AgentConfig, error) {
-
-	var err error
 
 	cfg := &AgentConfig{
 		MinDockerVersion: "17.06.0-ce",
 		MaxLogSize:       1 * 1024 * 1024,
 	}
 
-	cfg.FreezeIdleMsecs, err = getEnvMsecs("FN_FREEZE_IDLE_MSECS", 50*time.Millisecond)
+	var err error
+
+	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
+	err = setEnvMsecs(err, EnvEjectIdle, &cfg.EjectIdle, 1000*time.Millisecond)
+	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, 200*time.Millisecond)
+	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
+	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
+	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
+	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
+	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
+	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
+	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
+
 	if err != nil {
-		return cfg, errors.New("error initializing freeze idle delay")
+		return cfg, err
 	}
 
-	if tmp := os.Getenv("FN_MAX_LOG_SIZE"); tmp != "" {
-		cfg.MaxLogSize, err = strconv.ParseUint(tmp, 10, 64)
-		if err != nil {
-			return cfg, errors.New("error initializing max log size")
-		}
+	if cfg.EjectIdle == time.Duration(0) {
+		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdle)
+	}
+	if cfg.MaxLogSize > math.MaxInt64 {
 		// for safety during uint64 to int conversions in Write()/Read(), etc.
-		if cfg.MaxLogSize > math.MaxInt32 {
-			return cfg, fmt.Errorf("error invalid max log size %v > %v", cfg.MaxLogSize, math.MaxInt32)
-		}
-	}
-
-	cfg.EjectIdleMsecs, err = getEnvMsecs("FN_EJECT_IDLE_MSECS", 1000*time.Millisecond)
-	if err != nil {
-		return cfg, errors.New("error initializing eject idle delay")
-	}
-
-	if cfg.EjectIdleMsecs == time.Duration(0) {
-		return cfg, errors.New("error eject idle delay cannot be zero")
-	}
-
-	if tmp := os.Getenv("FN_MAX_RESPONSE_SIZE"); tmp != "" {
-		cfg.MaxResponseSize, err = strconv.ParseUint(tmp, 10, 64)
-		if err != nil {
-			return cfg, errors.New("error initializing response buffer size")
-		}
+		return cfg, fmt.Errorf("error invalid %s %v > %v", EnvMaxLogSize, cfg.MaxLogSize, math.MaxInt64)
 	}
 
 	return cfg, nil
 }
 
-func getEnvMsecs(name string, defaultVal time.Duration) (time.Duration, error) {
+func setEnvUint(err error, name string, dst *uint64) error {
+	if err != nil {
+		return err
+	}
+	if tmp := os.Getenv(name); tmp != "" {
+		val, err := strconv.ParseUint(tmp, 10, 64)
+		if err != nil {
+			return fmt.Errorf("error invalid %s=%s", name, tmp)
+		}
+		*dst = val
+	}
+	return nil
+}
 
-	delay := defaultVal
+func setEnvMsecs(err error, name string, dst *time.Duration, defaultVal time.Duration) error {
+	if err != nil {
+		return err
+	}
+
+	*dst = defaultVal
 
 	if dur := os.Getenv(name); dur != "" {
 		durInt, err := strconv.ParseInt(dur, 10, 64)
 		if err != nil {
-			return defaultVal, err
+			return fmt.Errorf("error invalid %s=%s err=%s", name, dur, err)
 		}
 		// disable if negative or set to msecs specified.
 		if durInt < 0 || time.Duration(durInt) >= MaxDisabledMsecs/time.Millisecond {
-			delay = MaxDisabledMsecs
+			*dst = MaxDisabledMsecs
 		} else {
-			delay = time.Duration(durInt) * time.Millisecond
+			*dst = time.Duration(durInt) * time.Millisecond
 		}
 	}
 
-	return delay, nil
+	return nil
 }

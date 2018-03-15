@@ -49,6 +49,7 @@ func (m *Error) validateError(formats strfmt.Registry) error {
 			}
 			return err
 		}
+
 	}
 
 	return nil

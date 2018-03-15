@@ -196,7 +196,7 @@ func (e *statsExporter) makeReq(vds []*view.Data, limit int) []*monitoringpb.Cre
 		for _, row := range vd.Rows {
 			ts := &monitoringpb.TimeSeries{
 				Metric: &metricpb.Metric{
-					Type:   namespacedViewName(vd.View.Name(), false),
+					Type:   namespacedViewName(vd.View.Name, false),
 					Labels: newLabels(row.Tags, e.taskValue),
 				},
 				Resource: resource,
@@ -228,10 +228,10 @@ func (e *statsExporter) createMeasure(ctx context.Context, vd *view.Data) error 
 	e.createdViewsMu.Lock()
 	defer e.createdViewsMu.Unlock()
 
-	m := vd.View.Measure()
-	agg := vd.View.Aggregation()
-	tagKeys := vd.View.TagKeys()
-	viewName := vd.View.Name()
+	m := vd.View.Measure
+	agg := vd.View.Aggregation
+	tagKeys := vd.View.TagKeys
+	viewName := vd.View.Name
 
 	if md, ok := e.createdViews[viewName]; ok {
 		return equalAggTagKeys(md, agg, tagKeys)
@@ -279,7 +279,7 @@ func (e *statsExporter) createMeasure(ctx context.Context, vd *view.Data) error 
 			Type:        namespacedViewName(viewName, false),
 			MetricKind:  metricKind,
 			ValueType:   valueType,
-			Labels:      newLabelDescriptors(vd.View.TagKeys()),
+			Labels:      newLabelDescriptors(vd.View.TagKeys),
 		},
 	})
 	if err != nil {
@@ -333,7 +333,7 @@ func newTypedValue(vd *view.View, r *view.Row) *monitoringpb.TypedValue {
 			},
 		}}
 	case *view.DistributionData:
-		bounds := vd.Aggregation().(view.DistributionAggregation)
+		bounds := vd.Aggregation.(view.DistributionAggregation)
 		return &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 			DistributionValue: &distributionpb.Distribution{
 				Count: v.Count,

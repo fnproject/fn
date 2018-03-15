@@ -113,6 +113,9 @@ type ContainerTask interface {
 	// CPUs in milli CPU units
 	CPUs() uint64
 
+	// Filesystem size limit for the container, in megabytes.
+	FsSize() uint64
+
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string
