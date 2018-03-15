@@ -40,7 +40,7 @@ func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	}
 
 	appID := c.MustGet(api.AppID).(string)
-	app, err := s.agent.GetAppByID(c.Request.Context(), appID)
+	app, err := s.agent.GetAppByID(ctx, appID)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 	// strip params, etc.
 
 	call, err := s.agent.GetCall(
-		agent.WithWriter(c.Writer), // XXX (reed): order matters [for now]
+		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
 		agent.FromRequest(app, path, c.Request),
 	)
 	if err != nil {
