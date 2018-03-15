@@ -9,14 +9,14 @@ import (
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
 type RunnerPool interface {
-	Runners(call RunnerCall) []Runner
-	Shutdown()
+	Runners(call RunnerCall) ([]Runner, error)
+	Shutdown() error
 }
 
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
 	TryExec(ctx context.Context, call RunnerCall) (bool, error)
-	Close()
+	Close() error
 	Address() string
 }
 
