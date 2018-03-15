@@ -26,10 +26,8 @@ const (
 )
 
 const (
-	// NetworkNone ...
-	NetworkNone = ""
 	// NetworkDefault ...
-	NetworkDefault = "default"
+	NetworkDefault = ""
 	// NetworkDisabled ...
 	NetworkDisabled = "disabled"
 )

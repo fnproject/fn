@@ -55,7 +55,7 @@ func (r *Route) SetDefaults() {
 		r.Format = FormatDefault
 	}
 
-	if r.Network == NetworkNone {
+	if r.Network == "" {
 		r.Network = NetworkDefault
 	}
 
@@ -120,7 +120,7 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidFormat
 	}
 
-	if r.Network != NetworkNone && r.Network != NetworkDefault && r.Network != NetworkDisabled {
+	if r.Network != NetworkDefault && r.Network != NetworkDisabled {
 		return ErrRoutesInvalidNetwork
 	}
 

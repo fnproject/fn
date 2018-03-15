@@ -505,9 +505,6 @@ definitions:
         description: Payload format sent into function.
         type: string
       network:
-        enum:
-          - default
-          - disabled
         description: Container network options.
         type: string
       config:
