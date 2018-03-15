@@ -113,6 +113,7 @@ type Server struct {
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
+	runnerPool      models.RunnerPool
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -840,6 +841,12 @@ func (s *Server) bindHandlers(ctx context.Context) {
 // implements fnext.ExtServer
 func (s *Server) Datastore() models.Datastore {
 	return s.datastore
+}
+
+// WithRunnerPool provides an extension point for overriding
+// the default runner pool implementation when running in load-balanced mode
+func (s *Server) WithRunnerPool(runnerPool models.RunnerPool) {
+	s.runnerPool = runnerPool
 }
 
 // returns the unescaped ?cursor and ?perPage values

@@ -38,6 +38,9 @@ type ExtServer interface {
 	// AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
 	AddRouteEndpointFunc(method, path string, handler func(w http.ResponseWriter, r *http.Request, app *models.App, route *models.Route))
 
+	// WithRunnerPool overrides the default runner pool implementation when running in load-balanced mode
+	WithRunnerPool(runnerPool models.RunnerPool)
+
 	// Datastore returns the Datastore Fn is using
 	Datastore() models.Datastore
 }
