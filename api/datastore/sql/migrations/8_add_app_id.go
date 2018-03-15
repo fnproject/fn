@@ -19,7 +19,9 @@ func up8(ctx context.Context, tx *sqlx.Tx) error {
 	}
 	for _, statement := range addAppIDStatements {
 		_, err := tx.ExecContext(ctx, statement)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	rows, err := tx.QueryxContext(ctx, "SELECT DISTINCT name FROM apps;")
@@ -27,11 +29,7 @@ func up8(ctx context.Context, tx *sqlx.Tx) error {
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
+	res := []*models.App{}
 	for rows.Next() {
 
 		var app models.App
@@ -42,8 +40,20 @@ func up8(ctx context.Context, tx *sqlx.Tx) error {
 			}
 			return err
 		}
-
 		app.ID = id.New().String()
+		res = append(res, &app)
+	}
+	err = rows.Close()
+	if err != nil {
+		return err
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	// it is required for some reason, can't do this within the rows iteration.
+	for _, app := range res {
 		query := tx.Rebind(`UPDATE apps SET id=:id WHERE name=:name`)
 		_, err = tx.NamedExecContext(ctx, query, app)
 		if err != nil {
@@ -51,16 +61,12 @@ func up8(ctx context.Context, tx *sqlx.Tx) error {
 		}
 
 		for _, t := range []string{"routes", "calls", "logs"} {
-			q := fmt.Sprintf(`UPDATE %v SET app_id=? WHERE app_name=?;`, t)
-			_, err = tx.ExecContext(ctx, tx.Rebind(q), app.ID, app.Name)
+			q := fmt.Sprintf(`UPDATE %s SET app_id=:id WHERE app_name=:name;`, t)
+			_, err = tx.NamedExecContext(ctx, tx.Rebind(q), app)
 			if err != nil {
 				return err
 			}
 		}
-	}
-
-	if err := rows.Err(); err != nil {
-		return err
 	}
 
 	dropAppNameStatements := []string{
@@ -70,10 +76,12 @@ func up8(ctx context.Context, tx *sqlx.Tx) error {
 	}
 	for _, statement := range dropAppNameStatements {
 		_, err := tx.ExecContext(ctx, statement)
-		return err
+		if err != nil {
+			return err
+		}
 	}
-	return nil
 
+	return nil
 }
 
 func down8(ctx context.Context, tx *sqlx.Tx) error {
@@ -85,7 +93,9 @@ func down8(ctx context.Context, tx *sqlx.Tx) error {
 	}
 	for _, statement := range addAppNameStatements {
 		_, err := tx.ExecContext(ctx, statement)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	rows, err := tx.QueryxContext(ctx, "SELECT DISTINCT id, name FROM apps;")
@@ -93,11 +103,7 @@ func down8(ctx context.Context, tx *sqlx.Tx) error {
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
+	res := []*models.App{}
 	for rows.Next() {
 		var app models.App
 		err := rows.StructScan(&app)
@@ -107,29 +113,39 @@ func down8(ctx context.Context, tx *sqlx.Tx) error {
 			}
 			return err
 		}
-
-		for _, t := range []string{"routes", "calls", "logs"} {
-			q := fmt.Sprintf(`UPDATE %v SET app_name=? WHERE app_id=?;`, t)
-			_, err = tx.ExecContext(ctx, tx.Rebind(q), app.Name, app.ID)
-			if err != nil {
-				return err
-			}
-		}
+		res = append(res, &app)
+	}
+	err = rows.Close()
+	if err != nil {
+		return err
 	}
 
 	if err := rows.Err(); err != nil {
 		return err
 	}
 
-	removeAppIDStatemets := []string{
+	// it is required for some reason, can't do this within the rows iteration.
+	for _, app := range res {
+		for _, t := range []string{"routes", "calls", "logs"} {
+			q := "UPDATE " + t + " SET app_name=:name WHERE app_id=:id;"
+			_, err = tx.NamedExecContext(ctx, tx.Rebind(q), app)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	removeAppIDStatements := []string{
 		"ALTER TABLE logs DROP COLUMN app_id;",
 		"ALTER TABLE calls DROP COLUMN app_id;",
 		"ALTER TABLE routes DROP COLUMN app_id;",
 		"ALTER TABLE apps DROP COLUMN id;",
 	}
-	for _, statement := range removeAppIDStatemets {
+	for _, statement := range removeAppIDStatements {
 		_, err := tx.ExecContext(ctx, statement)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

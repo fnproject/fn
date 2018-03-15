@@ -111,7 +111,8 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 	}
 	for _, m := range migs {
 		// skip over migrations we have run
-		if (up && curVersion < m.Version()) || (!up && curVersion >= m.Version()) {
+		mVersion := m.Version()
+		if (up && curVersion < mVersion) || (!up && curVersion >= mVersion) {
 
 			// do each individually, for large migrations it's better to checkpoint
 			// than to try to do them all in one big go.
