@@ -220,8 +220,3 @@ func TestEnforceSlotTimeout(t *testing.T) {
 		t.Fatal("Expected a call failure")
 	}
 }
-
-func TestSurvivesFailedRunner(t *testing.T) {
-	// // Empty list, no runners available
-	setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-}

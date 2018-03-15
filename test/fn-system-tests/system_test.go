@@ -7,7 +7,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
+	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/server"
 
 	"github.com/sirupsen/logrus"
@@ -22,17 +22,17 @@ import (
 )
 
 type SystemTestNodePool struct {
-	runners []agent.Runner
+	runners []models.Runner
 }
 
-func NewSystemTestNodePool() (agent.NodePool, error) {
+func NewSystemTestNodePool() (models.RunnerPool, error) {
 	myAddr := whoAmI()
 	runners := []string{
 		fmt.Sprintf("%s:9190", myAddr),
 		fmt.Sprintf("%s:9191", myAddr),
 		fmt.Sprintf("%s:9192", myAddr),
 	}
-	return agent_grpc.DefaultStaticNodePool(runners), nil
+	return agent.DefaultStaticRunnerPool(runners), nil
 }
 
 func SetUpSystem() error {
