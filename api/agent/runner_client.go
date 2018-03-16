@@ -121,9 +121,8 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	r.wg.Add(1)
 	defer r.wg.Done()
 
-	// Get app and route information
-	// Construct model.RunnerCall with CONFIG in it already
-	modelJSON, err := json.Marshal(call)
+	// extract the call's model data to pass on to the pure runner
+	modelJSON, err := json.Marshal(call.Model())
 	if err != nil {
 		logrus.WithError(err).Error("Failed to encode model as JSON")
 		// If we can't encode the model, no runner will ever be able to run this. Give up.
