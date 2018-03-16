@@ -16,28 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type pkiData struct {
-	ca   string
-	key  string
-	cert string
-}
-
-type nullRunner struct{}
-
-func (n *nullRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
-	return false, nil
-}
-
-func (n *nullRunner) Close() error {
-	return nil
-}
-
-func (n *nullRunner) Address() string {
-	return ""
-}
-
-var nullRunnerSingleton = new(nullRunner)
-
 type gRPCRunner struct {
 	// Need a WaitGroup of TryExec in flight
 	wg      sync.WaitGroup
@@ -46,16 +24,8 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-// allow factory to be overridden in tests
-type secureRunnerFactory func(addr string, cert string, key string, ca string) (pool.Runner, error)
-
-func secureGRPCRunnerFactory(addr string, cert string, key string, ca string) (pool.Runner, error) {
-	p := &pkiData{
-		cert: cert,
-		key:  key,
-		ca:   ca,
-	}
-	conn, client, err := runnerConnection(addr, p)
+func SecureGRPCRunnerFactory(addr string, pki *pool.PKIData) (pool.Runner, error) {
+	conn, client, err := runnerConnection(addr, pki)
 	if err != nil {
 		return nil, err
 	}
@@ -85,13 +55,13 @@ func (r *gRPCRunner) Close(ctx context.Context) error {
 	}
 }
 
-func runnerConnection(address string, pki *pkiData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+func runnerConnection(address string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 	ctx := context.Background()
 
 	var creds credentials.TransportCredentials
 	if pki != nil {
 		var err error
-		creds, err = grpcutil.CreateCredentials(pki.cert, pki.key, pki.ca)
+		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca)
 		if err != nil {
 			logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
 			return nil, nil, err

@@ -27,7 +27,7 @@ type mockRunner struct {
 type mockRunnerPool struct {
 	runners   []pool.Runner
 	generator insecureRunnerFactory
-	pki       *pkiData
+	pki       *pool.PKIData
 }
 
 func newMockRunnerPool(rf insecureRunnerFactory, runnerAddrs []string) *mockRunnerPool {
@@ -43,7 +43,7 @@ func newMockRunnerPool(rf insecureRunnerFactory, runnerAddrs []string) *mockRunn
 	return &mockRunnerPool{
 		runners:   runners,
 		generator: rf,
-		pki:       &pkiData{},
+		pki:       &pool.PKIData{},
 	}
 }
 
