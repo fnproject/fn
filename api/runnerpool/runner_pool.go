@@ -21,6 +21,15 @@ type RunnerPool interface {
 	Shutdown(context.Context) error
 }
 
+type PKIData struct {
+	Ca   string
+	Key  string
+	Cert string
+}
+
+// SecureRunnerFactory represents a factory method for constructing runners with PKI
+type SecureRunnerFactory func(addr string, pki *PKIData) (Runner, error)
+
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
 	TryExec(ctx context.Context, call RunnerCall) (bool, error)
