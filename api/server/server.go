@@ -347,15 +347,33 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
+func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
+	runnerAddresses := getEnv(EnvRunnerAddresses, "")
+	if runnerAddresses == "" {
+		return nil, errors.New("Must provide FN_RUNNER_ADDRESSES  when running in default load-balanced mode!")
+	}
+	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
+}
+
+// RunnerPool returns the configured RunnerPool or creates a new default one
+// if none has been configured
 func (s *Server) RunnerPool() (pool.RunnerPool, error) {
 	if s.runnerPool == nil {
-		runnerAddresses := getEnv(EnvRunnerAddresses, "")
-		if runnerAddresses == "" {
-			return nil, errors.New("Must provide FN_RUNNER_ADDRESSES  when running in default load-balanced mode!")
+		rp, err := s.defaultRunnerPool()
+		if err != nil {
+			s.runnerPool = rp
 		}
-		s.runnerPool = agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ","))
+		return rp, err
 	}
 	return s.runnerPool, nil
+}
+
+// WithRunnerPool overrides the default RunnerPool implementation to use
+func WithRunnerPool(rp pool.RunnerPool) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.runnerPool = rp
+		return nil
+	}
 }
 
 func WithLogstoreFromDatastore() ServerOption {
@@ -843,12 +861,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 // implements fnext.ExtServer
 func (s *Server) Datastore() models.Datastore {
 	return s.datastore
-}
-
-// WithRunnerPool provides an extension point for overriding
-// the default runner pool implementation when running in load-balanced mode
-func (s *Server) WithRunnerPool(runnerPool pool.RunnerPool) {
-	s.runnerPool = runnerPool
 }
 
 // returns the unescaped ?cursor and ?perPage values
