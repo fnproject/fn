@@ -26,6 +26,7 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
@@ -111,7 +112,7 @@ type Server struct {
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
-	runnerPool      models.RunnerPool
+	runnerPool      pool.RunnerPool
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -346,7 +347,7 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
-func (s *Server) RunnerPool() (models.RunnerPool, error) {
+func (s *Server) RunnerPool() (pool.RunnerPool, error) {
 	if s.runnerPool == nil {
 		runnerAddresses := getEnv(EnvRunnerAddresses, "")
 		if runnerAddresses == "" {
@@ -846,7 +847,7 @@ func (s *Server) Datastore() models.Datastore {
 
 // WithRunnerPool provides an extension point for overriding
 // the default runner pool implementation when running in load-balanced mode
-func (s *Server) WithRunnerPool(runnerPool models.RunnerPool) {
+func (s *Server) WithRunnerPool(runnerPool pool.RunnerPool) {
 	s.runnerPool = runnerPool
 }
 

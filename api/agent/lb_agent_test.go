@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 )
 
 type mockRunner struct {
@@ -23,13 +24,13 @@ type mockRunner struct {
 }
 
 type mockRunnerPool struct {
-	runners   []models.Runner
+	runners   []pool.Runner
 	generator insecureRunnerFactory
 	pki       *pkiData
 }
 
 func newMockRunnerPool(rf insecureRunnerFactory, runnerAddrs []string) *mockRunnerPool {
-	var runners []models.Runner
+	var runners []pool.Runner
 	for _, addr := range runnerAddrs {
 		r, err := rf(addr)
 		if err != nil {
@@ -45,7 +46,7 @@ func newMockRunnerPool(rf insecureRunnerFactory, runnerAddrs []string) *mockRunn
 	}
 }
 
-func (npm *mockRunnerPool) Runners(call models.RunnerCall) ([]models.Runner, error) {
+func (npm *mockRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
 	return npm.runners, nil
 }
 
@@ -54,7 +55,7 @@ func (npm *mockRunnerPool) Shutdown(context.Context) error {
 }
 
 func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) insecureRunnerFactory {
-	return func(addr string) (models.Runner, error) {
+	return func(addr string) (pool.Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
 			maxCalls: maxCalls,
@@ -64,7 +65,7 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) insecureRunnerFac
 }
 
 func FaultyRunnerFactory() insecureRunnerFactory {
-	return func(addr string) (models.Runner, error) {
+	return func(addr string) (pool.Runner, error) {
 		return &mockRunner{
 			addr: addr,
 		}, errors.New("Creation of new runner failed")
@@ -87,7 +88,7 @@ func (r *mockRunner) decrCalls() {
 	r.curCalls--
 }
 
-func (r *mockRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool, error) {
+func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	err := r.checkAndIncrCalls()
 	if err != nil {
 		return false, err

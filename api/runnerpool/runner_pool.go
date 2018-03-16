@@ -1,10 +1,12 @@
-package models
+package runnerpool
 
 import (
 	"context"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/fnproject/fn/api/models"
 )
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
@@ -27,5 +29,5 @@ type RunnerCall interface {
 	Request() *http.Request
 	ResponseWriter() io.Writer
 	StdErr() io.ReadWriteCloser
-	Model() *Call
+	Model() *models.Call
 }

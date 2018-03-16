@@ -10,6 +10,7 @@ import (
 
 	"github.com/dchest/siphash"
 	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,7 +24,7 @@ func NewCHPlacer() Placer {
 // This borrows the CH placement algorithm from the original FNLB.
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
-func (p *chPlacer) PlaceCall(rp models.RunnerPool, ctx context.Context, call models.RunnerCall) error {
+func (p *chPlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error {
 	// The key is just the path in this case
 	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))

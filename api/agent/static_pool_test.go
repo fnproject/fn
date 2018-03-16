@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 )
 
-func setupStaticPool(runners []string) models.RunnerPool {
+func setupStaticPool(runners []string) pool.RunnerPool {
 	return newStaticRunnerPool(runners, mockRunnerFactory)
 }
 
@@ -15,7 +15,7 @@ type mockStaticRunner struct {
 	address string
 }
 
-func (r *mockStaticRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool, error) {
+func (r *mockStaticRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	return true, nil
 }
 
@@ -27,7 +27,7 @@ func (r *mockStaticRunner) Address() string {
 	return r.address
 }
 
-func mockRunnerFactory(addr string) (models.Runner, error) {
+func mockRunnerFactory(addr string) (pool.Runner, error) {
 	return &mockStaticRunner{address: addr}, nil
 }
 

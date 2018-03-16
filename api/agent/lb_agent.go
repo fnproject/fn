@@ -10,6 +10,7 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/fnext"
 )
 
@@ -17,7 +18,7 @@ type remoteSlot struct {
 	lbAgent *lbAgent
 }
 
-func (s *remoteSlot) exec(ctx context.Context, call models.RunnerCall) error {
+func (s *remoteSlot) exec(ctx context.Context, call pool.RunnerCall) error {
 	a := s.lbAgent
 
 	err := a.placer.PlaceCall(a.rp, ctx, call)
@@ -36,7 +37,7 @@ func (s *remoteSlot) Error() error {
 }
 
 type Placer interface {
-	PlaceCall(rp models.RunnerPool, ctx context.Context, call models.RunnerCall) error
+	PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error
 }
 
 type naivePlacer struct {
@@ -53,7 +54,7 @@ func minDuration(f, s time.Duration) time.Duration {
 	return s
 }
 
-func (sp *naivePlacer) PlaceCall(rp models.RunnerPool, ctx context.Context, call models.RunnerCall) error {
+func (sp *naivePlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error {
 	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
 
 	for {
@@ -98,14 +99,14 @@ const (
 
 type lbAgent struct {
 	delegatedAgent Agent
-	rp             models.RunnerPool
+	rp             pool.RunnerPool
 	placer         Placer
 
 	wg       sync.WaitGroup // Needs a good name
 	shutdown chan struct{}
 }
 
-func NewLBAgent(agent Agent, rp models.RunnerPool, p Placer) (Agent, error) {
+func NewLBAgent(agent Agent, rp pool.RunnerPool, p Placer) (Agent, error) {
 	a := &lbAgent{
 		delegatedAgent: agent,
 		rp:             rp,

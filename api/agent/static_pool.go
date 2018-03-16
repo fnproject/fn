@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,9 +14,9 @@ const (
 )
 
 // allow factory to be overridden in tests
-type insecureRunnerFactory func(addr string) (models.Runner, error)
+type insecureRunnerFactory func(addr string) (pool.Runner, error)
 
-func insecureGRPCRunnerFactory(addr string) (models.Runner, error) {
+func insecureGRPCRunnerFactory(addr string) (pool.Runner, error) {
 	conn, client, err := runnerConnection(addr, nil)
 	if err != nil {
 		return nil, err
@@ -33,17 +33,17 @@ func insecureGRPCRunnerFactory(addr string) (models.Runner, error) {
 type staticRunnerPool struct {
 	generator insecureRunnerFactory
 	rMtx      *sync.RWMutex
-	runners   []models.Runner
+	runners   []pool.Runner
 }
 
 // DefaultStaticRunnerPool returns a RunnerPool consisting of a static set of runners
-func DefaultStaticRunnerPool(runnerAddresses []string) models.RunnerPool {
+func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
 	return newStaticRunnerPool(runnerAddresses, insecureGRPCRunnerFactory)
 }
 
-func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerFactory) models.RunnerPool {
+func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerFactory) pool.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
-	var runners []models.Runner
+	var runners []pool.Runner
 	for _, addr := range runnerAddresses {
 		r, err := runnerFactory(addr)
 		if err != nil {
@@ -60,11 +60,11 @@ func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerF
 	}
 }
 
-func (np *staticRunnerPool) Runners(call models.RunnerCall) ([]models.Runner, error) {
+func (np *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
 	np.rMtx.RLock()
 	defer np.rMtx.RUnlock()
 
-	r := make([]models.Runner, len(np.runners))
+	r := make([]pool.Runner, len(np.runners))
 	copy(r, np.runners)
 	return r, nil
 }
@@ -114,7 +114,7 @@ func (np *staticRunnerPool) Shutdown(ctx context.Context) (e error) {
 	var wg sync.WaitGroup
 	for _, r := range np.runners {
 		wg.Add(1)
-		go func(runner models.Runner) {
+		go func(runner pool.Runner) {
 			defer wg.Done()
 			err := runner.Close(ctx)
 			if err != nil {

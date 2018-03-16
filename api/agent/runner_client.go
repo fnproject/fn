@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
-	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
 	"github.com/sirupsen/logrus"
 )
@@ -26,7 +26,7 @@ type pkiData struct {
 
 type nullRunner struct{}
 
-func (n *nullRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool, error) {
+func (n *nullRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	return false, nil
 }
 
@@ -49,9 +49,9 @@ type gRPCRunner struct {
 }
 
 // allow factory to be overridden in tests
-type secureRunnerFactory func(addr string, cert string, key string, ca string) (models.Runner, error)
+type secureRunnerFactory func(addr string, cert string, key string, ca string) (pool.Runner, error)
 
-func secureGRPCRunnerFactory(addr string, cert string, key string, ca string) (models.Runner, error) {
+func secureGRPCRunnerFactory(addr string, cert string, key string, ca string) (pool.Runner, error) {
 	p := &pkiData{
 		cert: cert,
 		key:  key,
@@ -116,7 +116,7 @@ func (r *gRPCRunner) Address() string {
 	return r.address
 }
 
-func (r *gRPCRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool, error) {
+func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
 	r.wg.Add(1)
 	defer r.wg.Done()
@@ -167,7 +167,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call models.RunnerCall) (bool,
 
 }
 
-func sendToRunner(call models.RunnerCall, protocolClient pb.RunnerProtocol_EngageClient) error {
+func sendToRunner(call pool.RunnerCall, protocolClient pb.RunnerProtocol_EngageClient) error {
 	bodyReader := call.Request().Body
 	writeBufferSize := 10 * 1024 // 10KB
 	writeBuffer := make([]byte, writeBufferSize)
@@ -205,7 +205,7 @@ func sendToRunner(call models.RunnerCall, protocolClient pb.RunnerProtocol_Engag
 	return nil
 }
 
-func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c models.RunnerCall, done chan error) {
+func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
 	w, ok := c.ResponseWriter().(http.ResponseWriter)
 	if !ok {
 		err := errors.New("Unable to get HTTP response writer from the call")

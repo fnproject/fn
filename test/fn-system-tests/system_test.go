@@ -7,7 +7,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/server"
 
 	"github.com/sirupsen/logrus"
@@ -22,10 +21,10 @@ import (
 )
 
 type SystemTestNodePool struct {
-	runners []models.Runner
+	runners []pool.Runner
 }
 
-func NewSystemTestNodePool() (models.RunnerPool, error) {
+func NewSystemTestNodePool() (pool.RunnerPool, error) {
 	myAddr := whoAmI()
 	runners := []string{
 		fmt.Sprintf("%s:9190", myAddr),
