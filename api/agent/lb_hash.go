@@ -17,7 +17,7 @@ import (
 type chPlacer struct {
 }
 
-func NewCHPlacer() Placer {
+func NewCHPlacer() pool.Placer {
 	return &chPlacer{}
 }
 

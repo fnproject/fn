@@ -36,14 +36,10 @@ func (s *remoteSlot) Error() error {
 	return nil
 }
 
-type Placer interface {
-	PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error
-}
-
 type naivePlacer struct {
 }
 
-func NewNaivePlacer() Placer {
+func NewNaivePlacer() pool.Placer {
 	return &naivePlacer{}
 }
 
@@ -100,13 +96,13 @@ const (
 type lbAgent struct {
 	delegatedAgent Agent
 	rp             pool.RunnerPool
-	placer         Placer
+	placer         pool.Placer
 
 	wg       sync.WaitGroup // Needs a good name
 	shutdown chan struct{}
 }
 
-func NewLBAgent(agent Agent, rp pool.RunnerPool, p Placer) (Agent, error) {
+func NewLBAgent(agent Agent, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
 	a := &lbAgent{
 		delegatedAgent: agent,
 		rp:             rp,

@@ -9,6 +9,12 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
+// Placer implements a placement strategy for calls that are load-balanced
+// across runners in a pool
+type Placer interface {
+	PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error
+}
+
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
 type RunnerPool interface {
 	Runners(call RunnerCall) ([]Runner, error)

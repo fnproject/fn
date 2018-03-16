@@ -50,7 +50,6 @@ const (
 	EnvLOGDBURL        = "FN_LOGSTORE_URL"
 	EnvRunnerURL       = "FN_RUNNER_API_URL"
 	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
-	EnvLBPlacementAlg  = "FN_PLACER"
 	EnvNodeType        = "FN_NODE_TYPE"
 	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvGRPCPort        = "FN_GRPC_PORT"
@@ -112,7 +111,6 @@ type Server struct {
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
-	runnerPool      pool.RunnerPool
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -355,25 +353,8 @@ func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
 	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
 }
 
-// RunnerPool returns the configured RunnerPool or creates a new default one
-// if none has been configured
-func (s *Server) RunnerPool() (pool.RunnerPool, error) {
-	if s.runnerPool == nil {
-		rp, err := s.defaultRunnerPool()
-		if err != nil {
-			s.runnerPool = rp
-		}
-		return rp, err
-	}
-	return s.runnerPool, nil
-}
-
-// WithRunnerPool overrides the default RunnerPool implementation to use
-func WithRunnerPool(rp pool.RunnerPool) ServerOption {
-	return func(ctx context.Context, s *Server) error {
-		s.runnerPool = rp
-		return nil
-	}
+func (s *Server) defaultPlacer() pool.Placer {
+	return agent.NewNaivePlacer()
 }
 
 func WithLogstoreFromDatastore() ServerOption {
@@ -459,18 +440,11 @@ func WithAgentFromEnv() ServerOption {
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
-			// Select the placement algorithm
-			var placer agent.Placer
-			switch getEnv(EnvLBPlacementAlg, "") {
-			case "ch":
-				placer = agent.NewCHPlacer()
-			default:
-				placer = agent.NewNaivePlacer()
-			}
-			runnerPool, err := s.RunnerPool()
+			runnerPool, err := s.defaultRunnerPool()
 			if err != nil {
-				return errors.New("RunnerPool creation failed")
+				return err
 			}
+			placer := s.defaultPlacer()
 
 			s.agent, err = agent.NewLBAgent(delegatedAgent, runnerPool, placer)
 			if err != nil {
