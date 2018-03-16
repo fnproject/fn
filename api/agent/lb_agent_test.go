@@ -15,12 +15,13 @@ import (
 )
 
 type mockRunner struct {
-	wg       sync.WaitGroup
-	sleep    time.Duration
-	mtx      sync.Mutex
-	maxCalls int32 // Max concurrent calls
-	curCalls int32 // Current calls
-	addr     string
+	wg        sync.WaitGroup
+	sleep     time.Duration
+	mtx       sync.Mutex
+	maxCalls  int32 // Max concurrent calls
+	curCalls  int32 // Current calls
+	procCalls int32 // Processed calls
+	addr      string
 }
 
 type mockRunnerPool struct {
@@ -100,6 +101,7 @@ func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 
 	time.Sleep(r.sleep)
 
+	r.procCalls++
 	return true, nil
 }
 
@@ -111,7 +113,7 @@ func (r *mockRunner) Close(ctx context.Context) error {
 }
 
 func (r *mockRunner) Address() string {
-	return ""
+	return r.addr
 }
 
 type mockRunnerCall struct {
@@ -189,7 +191,7 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 	close(failures)
 
 	err := <-failures
-	if err != nil {
+	if err != nil || rp.runners[1].(*mockRunner).procCalls != 1 {
 		t.Fatal("Expected spillover to second runner")
 	}
 }
