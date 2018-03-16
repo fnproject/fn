@@ -21,13 +21,13 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
@@ -50,9 +50,7 @@ const (
 	EnvDBURL           = "FN_DB_URL"
 	EnvLOGDBURL        = "FN_LOGSTORE_URL"
 	EnvRunnerURL       = "FN_RUNNER_API_URL"
-	EnvNPMAddress      = "FN_NPM_ADDRESS"
 	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
-	EnvLBPlacementAlg  = "FN_PLACER"
 	EnvNodeType        = "FN_NODE_TYPE"
 	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvGRPCPort        = "FN_GRPC_PORT"
@@ -116,7 +114,6 @@ type Server struct {
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
-	runnerPool      models.RunnerPool
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -351,6 +348,18 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
+func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
+	runnerAddresses := getEnv(EnvRunnerAddresses, "")
+	if runnerAddresses == "" {
+		return nil, errors.New("Must provide FN_RUNNER_ADDRESSES  when running in default load-balanced mode!")
+	}
+	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
+}
+
+func (s *Server) defaultPlacer() pool.Placer {
+	return agent.NewNaivePlacer()
+}
+
 func WithLogstoreFromDatastore() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		if s.datastore == nil {
@@ -434,28 +443,13 @@ func WithAgentFromEnv() ServerOption {
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
-			npmAddress := getEnv(EnvNPMAddress, "")
-			runnerAddresses := getEnv(EnvRunnerAddresses, "")
-
-			var nodePool agent.NodePool
-			if npmAddress != "" {
-				// TODO refactor DefaultgRPCNodePool as an extension
-				nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
-			} else if runnerAddresses != "" {
-				nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
-			} else {
-				return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
+			runnerPool, err := s.defaultRunnerPool()
+			if err != nil {
+				return err
 			}
+			placer := s.defaultPlacer()
 
-			// Select the placement algorithm
-			var placer agent.Placer
-			switch getEnv(EnvLBPlacementAlg, "") {
-			case "ch":
-				placer = agent.NewCHPlacer()
-			default:
-				placer = agent.NewNaivePlacer()
-			}
-			s.agent, err = agent.NewLBAgent(delegatedAgent, nodePool, placer)
+			s.agent, err = agent.NewLBAgent(delegatedAgent, runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}
@@ -890,12 +884,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 // implements fnext.ExtServer
 func (s *Server) Datastore() models.Datastore {
 	return s.datastore
-}
-
-// WithRunnerPool provides an extension point for overriding
-// the default runner pool implementation when running in load-balanced mode
-func (s *Server) WithRunnerPool(runnerPool models.RunnerPool) {
-	s.runnerPool = runnerPool
 }
 
 // returns the unescaped ?cursor and ?perPage values

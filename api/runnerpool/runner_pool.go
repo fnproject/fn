@@ -1,22 +1,30 @@
-package models
+package runnerpool
 
 import (
 	"context"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/fnproject/fn/api/models"
 )
+
+// Placer implements a placement strategy for calls that are load-balanced
+// across runners in a pool
+type Placer interface {
+	PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error
+}
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
 type RunnerPool interface {
 	Runners(call RunnerCall) ([]Runner, error)
-	Shutdown() error
+	Shutdown(context.Context) error
 }
 
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
 	TryExec(ctx context.Context, call RunnerCall) (bool, error)
-	Close() error
+	Close(ctx context.Context) error
 	Address() string
 }
 
@@ -25,7 +33,7 @@ type Runner interface {
 type RunnerCall interface {
 	SlotDeadline() time.Time
 	Request() *http.Request
-	ResponseWriter() io.Writer
+	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser
-	Model() *Call
+	Model() *models.Call
 }
