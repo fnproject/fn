@@ -131,7 +131,7 @@ func (c *mockRunnerCall) SlotDeadline() time.Time {
 func (c *mockRunnerCall) Request() *http.Request {
 	return c.r
 }
-func (c *mockRunnerCall) ResponseWriter() io.Writer {
+func (c *mockRunnerCall) ResponseWriter() http.ResponseWriter {
 	return c.rw
 }
 func (c *mockRunnerCall) StdErr() io.ReadWriteCloser {
