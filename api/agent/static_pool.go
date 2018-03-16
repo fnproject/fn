@@ -60,59 +60,59 @@ func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerF
 	}
 }
 
-func (np *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
-	np.rMtx.RLock()
-	defer np.rMtx.RUnlock()
+func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
+	rp.rMtx.RLock()
+	defer rp.rMtx.RUnlock()
 
-	r := make([]pool.Runner, len(np.runners))
-	copy(r, np.runners)
+	r := make([]pool.Runner, len(rp.runners))
+	copy(r, rp.runners)
 	return r, nil
 }
 
-func (np *staticRunnerPool) AddRunner(address string) error {
-	np.rMtx.Lock()
-	defer np.rMtx.Unlock()
+func (rp *staticRunnerPool) AddRunner(address string) error {
+	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
 
-	r, err := np.generator(address)
+	r, err := rp.generator(address)
 	if err != nil {
 		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
 		return err
 	}
-	np.runners = append(np.runners, r)
+	rp.runners = append(rp.runners, r)
 	return nil
 }
 
-func (np *staticRunnerPool) RemoveRunner(address string) {
-	np.rMtx.Lock()
-	defer np.rMtx.Unlock()
+func (rp *staticRunnerPool) RemoveRunner(address string) {
+	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), staticPoolShutdownTimeout)
 	defer cancel()
 
-	for i, r := range np.runners {
+	for i, r := range rp.runners {
 		if r.Address() == address {
 			err := r.Close(ctx)
 			if err != nil {
 				logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Failed to close runner")
 			}
 			// delete runner from list
-			np.runners = append(np.runners[:i], np.runners[i+1:]...)
+			rp.runners = append(rp.runners[:i], rp.runners[i+1:]...)
 			return
 		}
 	}
 }
 
 // Shutdown blocks waiting for all runners to close, or until ctx is done
-func (np *staticRunnerPool) Shutdown(ctx context.Context) (e error) {
-	np.rMtx.Lock()
-	defer np.rMtx.Unlock()
+func (rp *staticRunnerPool) Shutdown(ctx context.Context) (e error) {
+	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), staticPoolShutdownTimeout)
 	defer cancel()
 
-	errors := make(chan error, len(np.runners))
+	errors := make(chan error, len(rp.runners))
 	var wg sync.WaitGroup
-	for _, r := range np.runners {
+	for _, r := range rp.runners {
 		wg.Add(1)
 		go func(runner pool.Runner) {
 			defer wg.Done()
