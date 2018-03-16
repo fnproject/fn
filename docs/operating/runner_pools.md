@@ -12,18 +12,21 @@ You can run a load-balanced setup for fn to route requests to a group of one or 
 FN_NODE_TYPE=api ./fnserver
 ```
 
-### Runner
+### Runners
 
 ```bash
 mkdir /tmp/runnerdata
+# first runner
 FN_NODE_TYPE=pure-runner FN_PORT=8082 FN_GRPC_PORT=9190 ./fnserver
+# on another terminal, start a second runner
+FN_NODE_TYPE=pure-runner FN_PORT=8083 FN_GRPC_PORT=9191 ./fnserver
 ```
 
 ### LB
 
 ```bash
 mkdir /tmp/lbdata
-FN_NODE_TYPE=lb FN_PORT=8081 FN_RUNNER_API_URL=http://localhost:8080 FN_RUNNER_ADDRESSES=localhost:9190 FN_LOG_LEVEL=DEBUG ./fnserver
+FN_NODE_TYPE=lb FN_PORT=8081 FN_RUNNER_API_URL=http://localhost:8080 FN_RUNNER_ADDRESSES=localhost:9190,localhost:9191 FN_LOG_LEVEL=DEBUG ./fnserver
 ```
 
 ## Starting the components (in Docker containers)
