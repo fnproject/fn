@@ -27,8 +27,8 @@ type PKIData struct {
 	Cert string
 }
 
-// SecureRunnerFactory represents a factory method for constructing runners with PKI
-type SecureRunnerFactory func(addr string, pki *PKIData) (Runner, error)
+// MTLSRunnerFactory represents a factory method for constructing runners using mTLS
+type MTLSRunnerFactory func(addr string, pki *PKIData) (Runner, error)
 
 // Runner is the interface to invoke the execution of a function call on a specific runner
 type Runner interface {
