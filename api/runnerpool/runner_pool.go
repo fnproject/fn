@@ -27,7 +27,7 @@ type Runner interface {
 type RunnerCall interface {
 	SlotDeadline() time.Time
 	Request() *http.Request
-	ResponseWriter() io.Writer
+	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser
 	Model() *models.Call
 }

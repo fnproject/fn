@@ -3,9 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
-	"net/http"
 	"sync"
 	"time"
 
@@ -205,13 +203,7 @@ func sendToRunner(call pool.RunnerCall, protocolClient pb.RunnerProtocol_EngageC
 }
 
 func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
-	w, ok := c.ResponseWriter().(http.ResponseWriter)
-	if !ok {
-		err := errors.New("Unable to get HTTP response writer from the call")
-		logrus.WithError(err).Error("Unable to get response writer from call")
-		done <- err
-		return
-	}
+	w := c.ResponseWriter()
 
 	for {
 		msg, err := protocolClient.Recv()

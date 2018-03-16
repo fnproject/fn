@@ -282,8 +282,8 @@ func (c *call) Request() *http.Request {
 	return c.req
 }
 
-func (c *call) ResponseWriter() io.Writer {
-	return c.w
+func (c *call) ResponseWriter() http.ResponseWriter {
+	return c.w.(http.ResponseWriter)
 }
 
 func (c *call) StdErr() io.ReadWriteCloser {
