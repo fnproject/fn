@@ -16,22 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type nullRunner struct{}
-
-func (n *nullRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
-	return false, nil
-}
-
-func (n *nullRunner) Close() error {
-	return nil
-}
-
-func (n *nullRunner) Address() string {
-	return ""
-}
-
-var nullRunnerSingleton = new(nullRunner)
-
 type gRPCRunner struct {
 	// Need a WaitGroup of TryExec in flight
 	wg      sync.WaitGroup
