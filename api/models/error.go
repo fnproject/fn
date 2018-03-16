@@ -185,6 +185,22 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
+	ErrEmptyMetadataKey = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid empty metadata key, metadata keys must be non-empty strings"),
+	}
+	ErrInvalidMetadataKeyLength = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Invalid metadata key length, metadata keys may not be larger than %d bytes",maxMetadataKeyBytes),
+	}
+	ErrInvalidMetadataValueLength = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Invalid metadata value length, metadata values may not be larger than %d bytes when serialized as JSON",maxMetadataValueBytes),
+	}
+	ErrTooManyMetadataKeys = err{
+		code:  http.StatusBadRequest,
+		error:  fmt.Errorf("Invalid metadata change, new key(s) exceed maximum permitted number of metadata keys (%d)",maxMetadataKeys),
+	}
 )
 
 // APIError any error that implements this interface will return an API response

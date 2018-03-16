@@ -144,6 +144,12 @@ type Call struct {
 	// Error is the reason why the call failed, it is only non-empty if
 	// status is equal to "error".
 	Error string `json:"error,omitempty" db:"error"`
+
+	// AppMetadata contains a copy of the app metadata
+	AppMetadata Metadata `json:"app_metadata,omitempty" db:"app_metadata"`
+
+	// RouteMetadata contains a copy of the app metadata
+	RouteMetadata Metadata `json:"route_metadata,omitempty" db:"route_metadata"`
 }
 
 type CallFilter struct {

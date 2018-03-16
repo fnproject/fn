@@ -519,6 +519,11 @@ definitions:
         default: 30
         format: int32
         description: Hot functions idle timeout before termination. Value in Seconds
+      metadata:
+        type: object
+        description: Route metadata - this can be any object containing any value in its keys, keys must not exceed 128 bytes, and the seralized representation of values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time
@@ -539,9 +544,14 @@ definitions:
         readOnly: true
       config:
         type: object
-        description: Application configuration, applied to all routes.
+        description: Application function configuration, applied to all routes.
         additionalProperties:
           type: string
+      metadata:
+        type: object
+        description: Application metadata - this can be any object containing any value in its keys, keys must not exceed 128 bytes, and the seralized representation of values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time

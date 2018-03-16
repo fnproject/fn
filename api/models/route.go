@@ -36,6 +36,7 @@ type Route struct {
 	Timeout     int32           `json:"timeout" db:"timeout"`
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config          `json:"config,omitempty" db:"config"`
+	Metadata    Metadata        `json:"metadata,omitempty" db:"metadata"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
@@ -129,6 +130,9 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidMemory
 	}
 
+	if err := r.Metadata.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -169,6 +173,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 	eq = eq && r1.Timeout == r2.Timeout
 	eq = eq && r1.IdleTimeout == r2.IdleTimeout
 	eq = eq && r1.Config.Equals(r2.Config)
+	eq = eq && r1.Metadata.Equals(r2.Metadata)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(r1.CreatedAt).Equal(time.Time(r2.CreatedAt))
@@ -179,7 +184,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 // Update updates fields in r with non-zero field values from new, and sets
 // updated_at if any of the fields change. 0-length slice Header values, and
 // empty-string Config values trigger removal of map entry.
-func (r *Route) Update(new *Route) {
+func (r *Route) Update(new *Route)  {
 	original := r.Clone()
 
 	if new.Image != "" {
@@ -227,6 +232,8 @@ func (r *Route) Update(new *Route) {
 			}
 		}
 	}
+
+	r.Metadata = r.Metadata.MergeChange(new.Metadata)
 
 	if !r.Equals(original) {
 		r.UpdatedAt = strfmt.DateTime(time.Now())
