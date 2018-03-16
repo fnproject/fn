@@ -223,7 +223,7 @@ func newPureRunnerCapacityManager(units uint64) *pureRunnerCapacityManager {
 func (prcm *pureRunnerCapacityManager) CheckAndReserveCapacity(units uint64) error {
 	prcm.mtx.Lock()
 	defer prcm.mtx.Unlock()
-	if prcm.committedCapacityUnits+units <= prcm.totalCapacityUnits {
+	if prcm.totalCapacityUnits-prcm.committedCapacityUnits >= units {
 		prcm.committedCapacityUnits = prcm.committedCapacityUnits + units
 		return nil
 	}
