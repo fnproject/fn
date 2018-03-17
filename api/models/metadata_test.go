@@ -62,9 +62,10 @@ var mdCases = []struct {
 	{val: &testObj{Md: EmptyMetadata().withRawKey("intval", "1001")}, valString: "{\"metadata\":{\"intval\":1001}}"},
 	{val: &testObj{Md: EmptyMetadata().withRawKey("floatval", "3.141")}, valString: "{\"metadata\":{\"floatval\":3.141}}"},
 	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", "{\"foo\":\"fooval\",\"bar\":\"barval\"}")}, valString: "{\"metadata\":{\"objval\":{\"foo\":\"fooval\",\"bar\":\"barval\"}}}"},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", "{\"foo\":\"fooval\",\"bar\":{\"barbar\":\"barbarval\"}}")}, valString: "{\"metadata\":{\"objval\":{\"foo\":\"fooval\",\"bar\":{\"barbar\":\"barbarval\"}}}}"},
 }
 
-func TestMetadataJsonSerialization(t *testing.T) {
+func TestMetadataJSONMarshalling(t *testing.T) {
 
 	for _, tc := range mdCases {
 		v, err := json.Marshal(tc.val)
@@ -78,7 +79,7 @@ func TestMetadataJsonSerialization(t *testing.T) {
 
 }
 
-func TestMetadataJsonDeSerialization(t *testing.T) {
+func TestMetadataJSONUnMarshalling(t *testing.T) {
 
 	for _, tc := range mdCases {
 		tv := testObj{}
@@ -97,12 +98,20 @@ var validKeys = []string{
 	"ok",
 	strings.Repeat("a", maxMetadataKeyBytes),
 	"fnproject/internal/foo",
+	"foo.bar.com.baz",
+	"foo$bar!_+-()[]:@/<>$",
+
 }
+
+
 var invalidKeys = []struct {
 	key string
 	err APIError
 }{
-	{"", ErrEmptyMetadataKey},
+	{"", ErrInvalidMetadataKey},
+	{" ", ErrInvalidMetadataKey},
+	{ "\u00e9", ErrInvalidMetadataKey},
+	{ "foo bar", ErrInvalidMetadataKey},
 	{strings.Repeat("a", maxMetadataKeyBytes+1), ErrInvalidMetadataKeyLength},
 }
 

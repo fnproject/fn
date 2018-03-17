@@ -185,9 +185,9 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
-	ErrEmptyMetadataKey = err{
+	ErrInvalidMetadataKey = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid empty metadata key, metadata keys must be non-empty strings"),
+		error: errors.New("Invalid metadata key, metadata keys must be non-empty ascii strings"),
 	}
 	ErrInvalidMetadataKeyLength = err{
 		code:  http.StatusBadRequest,

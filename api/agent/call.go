@@ -105,8 +105,6 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			CreatedAt:     strfmt.DateTime(time.Now()),
 			URL:           reqURL(req),
 			Method:        req.Method,
-			AppMetadata:   app.Metadata,
-			RouteMetadata: route.Metadata,
 		}
 
 		c.req = req

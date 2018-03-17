@@ -6,12 +6,12 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"errors"
+	"regexp"
 )
 
 // Metadata encapsulates key-value metadata. The structure is immutable via its public API and nil-safe for its contract
 // permissive nilability is here to simplify updates and reduce the need for nil handling in extensions - metadata should be updated by over-writing the original object:
-//  oldMd := EmptyMetadata()
-//  newMd := oldMd.With("fooKey",1)
+//  target.Metadata  = target.Metadata.With("fooKey",1)
 //  // old MD remains empty
 // Metadata is lenable
 type Metadata map[string]*metadataValue
@@ -73,10 +73,12 @@ func (v *metadataValue) UnmarshalJSON(val []byte) (error) {
 	return nil
 }
 
+var validKeyRegex = regexp.MustCompile("^[!-~]+$")
+
 func validateField(key string, value *metadataValue) APIError {
 
-	if key == "" {
-		return ErrEmptyMetadataKey
+	if !validKeyRegex.Match([]byte(key)) {
+		return ErrInvalidMetadataKey
 	}
 
 	keyLen := len([]byte(key))
@@ -86,7 +88,7 @@ func validateField(key string, value *metadataValue) APIError {
 	}
 
 	if value.isEmptyValue() {
-		return ErrEmptyMetadataKey
+		return ErrInvalidMetadataKey
 	}
 
 	if len(value.val) > maxMetadataValueBytes {
@@ -118,9 +120,9 @@ func (m Metadata) With(key string, data interface{}) (Metadata, error) {
 
 	var newMd Metadata
 	if m == nil {
-		newMd = make(Metadata)
+		newMd = make(Metadata, 1)
 	} else {
-		newMd = m.Clone()
+		newMd = m.clone()
 	}
 
 	newMd[key] = newVal
@@ -151,7 +153,7 @@ func (m Metadata) Get(key string) ([]byte, bool) {
 }
 
 func (m Metadata) Without(key string) Metadata {
-	nuVal := m.Clone()
+	nuVal := m.clone()
 	delete(nuVal, key)
 	return nuVal
 }
@@ -159,7 +161,7 @@ func (m Metadata) Without(key string) Metadata {
 // MergeChange merges a delta (possibly including deletes) with an existing metadata object and returns a new (copy) metadata object or an error.
 // This assumes that both old and new metadata objects contain only valid keys and only newVs may contain  deletes
 func (m Metadata) MergeChange(newVs Metadata) Metadata {
-	newMd := m.Clone()
+	newMd := m.clone()
 
 	for k, v := range newVs {
 		if v.isEmptyValue() {
@@ -178,13 +180,13 @@ func (m Metadata) MergeChange(newVs Metadata) Metadata {
 	return newMd
 }
 
-// Clone produces a key-wise copy of the map
-func (m Metadata) Clone() Metadata {
+// clone produces a key-wise copy of the map
+func (m Metadata) clone() Metadata {
 
 	if m == nil {
 		return nil
 	}
-	newMd := make(Metadata)
+	newMd := make(Metadata, len(m))
 	for ok, ov := range m {
 		newMd[ok] = ov
 	}

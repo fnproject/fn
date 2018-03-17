@@ -59,9 +59,6 @@ func (a *App) Clone() *App {
 		}
 	}
 
-	if a.Metadata != nil {
-		clone.Metadata = a.Metadata.Clone()
-	}
 	return clone
 }
 
