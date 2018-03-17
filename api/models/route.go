@@ -184,7 +184,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 // Update updates fields in r with non-zero field values from new, and sets
 // updated_at if any of the fields change. 0-length slice Header values, and
 // empty-string Config values trigger removal of map entry.
-func (r *Route) Update(new *Route)  {
+func (r *Route) Update(new *Route) {
 	original := r.Clone()
 
 	if new.Image != "" {

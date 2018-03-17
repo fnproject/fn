@@ -1,11 +1,11 @@
 package models
 
 import (
-	"testing"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
-	"fmt"
+	"testing"
 )
 
 type testObj struct {
@@ -100,9 +100,7 @@ var validKeys = []string{
 	"fnproject/internal/foo",
 	"foo.bar.com.baz",
 	"foo$bar!_+-()[]:@/<>$",
-
 }
-
 
 var invalidKeys = []struct {
 	key string
@@ -110,8 +108,8 @@ var invalidKeys = []struct {
 }{
 	{"", ErrInvalidMetadataKey},
 	{" ", ErrInvalidMetadataKey},
-	{ "\u00e9", ErrInvalidMetadataKey},
-	{ "foo bar", ErrInvalidMetadataKey},
+	{"\u00e9", ErrInvalidMetadataKey},
+	{"foo bar", ErrInvalidMetadataKey},
 	{strings.Repeat("a", maxMetadataKeyBytes+1), ErrInvalidMetadataKeyLength},
 }
 
@@ -205,7 +203,7 @@ func TestMergeMetadata(t *testing.T) {
 		{first: EmptyMetadata().withRawKey("key1", "\"val1\""), second: EmptyMetadata().withRawKey("key2", "\"val2\""), result: EmptyMetadata().withRawKey("key1", "\"val1\"").withRawKey("key2", "\"val2\"")},
 		{first: EmptyMetadata().withRawKey("key1", "\"val1\""), second: EmptyMetadata().withRawKey("key1", "\"\""), result: EmptyMetadata()},
 		{first: EmptyMetadata().withRawKey("key1", "\"val1\""), second: EmptyMetadata().withRawKey("key2", "\"\""), result: EmptyMetadata().withRawKey("key1", "\"val1\"")},
-		{first: mdWithNKeys(maxMetadataKeys - 1), second: EmptyMetadata().withRawKey("newkey", "\"val\""), result: mdWithNKeys(maxMetadataKeys - 1).withRawKey("newkey", "\"val\"")},
+		{first: mdWithNKeys(maxMetadataKeys - 1), second: EmptyMetadata().withRawKey("newkey", "\"val\""), result: mdWithNKeys(maxMetadataKeys-1).withRawKey("newkey", "\"val\"")},
 	}
 
 	for _, v := range validCases {

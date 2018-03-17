@@ -191,15 +191,15 @@ var (
 	}
 	ErrInvalidMetadataKeyLength = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Invalid metadata key length, metadata keys may not be larger than %d bytes",maxMetadataKeyBytes),
+		error: fmt.Errorf("Invalid metadata key length, metadata keys may not be larger than %d bytes", maxMetadataKeyBytes),
 	}
 	ErrInvalidMetadataValueLength = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Invalid metadata value length, metadata values may not be larger than %d bytes when serialized as JSON",maxMetadataValueBytes),
+		error: fmt.Errorf("Invalid metadata value length, metadata values may not be larger than %d bytes when serialized as JSON", maxMetadataValueBytes),
 	}
 	ErrTooManyMetadataKeys = err{
 		code:  http.StatusBadRequest,
-		error:  fmt.Errorf("Invalid metadata change, new key(s) exceed maximum permitted number of metadata keys (%d)",maxMetadataKeys),
+		error: fmt.Errorf("Invalid metadata change, new key(s) exceed maximum permitted number of metadata keys (%d)", maxMetadataKeys),
 	}
 )
 

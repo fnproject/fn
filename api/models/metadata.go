@@ -1,11 +1,11 @@
 package models
 
 import (
-	"encoding/json"
-	"fmt"
 	"bytes"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 )
 
@@ -60,7 +60,7 @@ func (v *metadataValue) isEmptyValue() bool {
 }
 
 // UnmarshalJSON compacts metadata values but does not alter key-ordering for keys
-func (v *metadataValue) UnmarshalJSON(val []byte) (error) {
+func (v *metadataValue) UnmarshalJSON(val []byte) error {
 	buf := bytes.Buffer{}
 	err := json.Compact(&buf, val)
 	if err != nil {
