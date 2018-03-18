@@ -3,12 +3,12 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/fnproject/fn_go/models"
 	"net/url"
 	"path"
 	"strconv"
 	"strings"
 	"testing"
-	"github.com/fnproject/fn_go/models"
 )
 
 type JSONResponse struct {

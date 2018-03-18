@@ -270,7 +270,6 @@ func TestAppUpdate(t *testing.T) {
 		}
 	}()
 
-
 	for i, test := range []struct {
 		mock          models.Datastore
 		logDB         models.LogStore
@@ -292,7 +291,7 @@ func TestAppUpdate(t *testing.T) {
 		// success: add/set MD key
 		{datastore.NewMockInit(
 			[]*models.App{{
-				Name:     "myapp",
+				Name: "myapp",
 			}}, nil, nil,
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "metadata": {"k-0" : "val"} } }`, http.StatusOK, nil},
 
@@ -326,7 +325,7 @@ func TestAppUpdate(t *testing.T) {
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s` but was `%s`",
-					i, test.expectedError.Error(),resp.Error.Message)
+					i, test.expectedError.Error(), resp.Error.Message)
 			}
 		}
 

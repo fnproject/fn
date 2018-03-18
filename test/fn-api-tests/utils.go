@@ -168,11 +168,10 @@ func (s *SuiteSetup) Cleanup() {
 	//	deleteRoute(ctx, s.Client, ar.appName, ar.routeName)
 	//}
 
-	for _,app := range s.createdApps {
+	for _, app := range s.createdApps {
 		safeDeleteApp(ctx, s.Client, app)
 	}
 }
-
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	detectedEnv := os.Environ()

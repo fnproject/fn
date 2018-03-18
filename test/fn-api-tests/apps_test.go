@@ -1,11 +1,11 @@
 package tests
 
 import (
-	"strings"
-	"testing"
 	"github.com/fnproject/fn_go/client/apps"
 	"github.com/fnproject/fn_go/models"
 	"reflect"
+	"strings"
+	"testing"
 )
 
 func TestAppDeleteNotFound(t *testing.T) {

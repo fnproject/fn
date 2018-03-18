@@ -2,10 +2,10 @@ package tests
 
 import (
 	"context"
+	"log"
 	"strings"
 	"testing"
 	"time"
-	"log"
 
 	"github.com/fnproject/fn_go/client"
 	"github.com/fnproject/fn_go/client/apps"

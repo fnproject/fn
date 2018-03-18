@@ -6,8 +6,8 @@ import (
 	"reflect"
 
 	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn_go/models"
 	"github.com/fnproject/fn_go/client/routes"
+	"github.com/fnproject/fn_go/models"
 )
 
 func TestShouldRejectEmptyRouteType(t *testing.T) {

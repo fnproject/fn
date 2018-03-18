@@ -50,7 +50,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
-    meta_data text NOT NULL,
+	meta_data text NOT NULL,
 	created_at text,
 	updated_at varchar(256),
 	PRIMARY KEY (app_name, path)
@@ -59,7 +59,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	`CREATE TABLE IF NOT EXISTS apps (
 	name varchar(256) NOT NULL PRIMARY KEY,
 	config text NOT NULL,
-    meta_data text NOT NULL,
+	meta_data text NOT NULL,
 	created_at varchar(256),
 	updated_at varchar(256)
 );`,
@@ -306,7 +306,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 
 		app.Update(newapp)
 		err = app.Validate()
-		if err !=nil {
+		if err != nil {
 			return err
 		}
 

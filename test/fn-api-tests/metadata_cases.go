@@ -1,9 +1,9 @@
 package tests
 
 import (
-	"strings"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 const (
@@ -16,7 +16,7 @@ var emptyMd = map[string]interface{}{}
 
 func makeMdMap(size int) map[string]interface{} {
 	md := make(map[string]interface{}, size)
-	for i := 0; i < size; i ++ {
+	for i := 0; i < size; i++ {
 		md[fmt.Sprintf("k-%d", i)] = "val"
 	}
 	return md
