@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"github.com/fnproject/fn_go/models"
 )
 
 type JSONResponse struct {
@@ -17,15 +18,15 @@ type JSONResponse struct {
 func TestFnJSONFormats(t *testing.T) {
 	t.Parallel()
 	s := SetupDefaultSuite()
+	defer s.Cleanup()
 
 	// TODO(treeder): put image in fnproject @ dockerhub
-	image := "denismakogon/test-hot-json-go:0.0.1"
-	format := "json"
-	route := "/test-hot-json-go"
 
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, route, image, "sync",
-		format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	rt := s.BasicRoute()
+	rt.Image = "denismakogon/test-hot-json-go:0.0.1"
+	rt.Format = "json"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
@@ -63,5 +64,4 @@ func TestFnJSONFormats(t *testing.T) {
 		}
 	}
 
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }

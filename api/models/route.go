@@ -36,7 +36,7 @@ type Route struct {
 	Timeout     int32           `json:"timeout" db:"timeout"`
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config          `json:"config,omitempty" db:"config"`
-	Metadata    Metadata        `json:"metadata,omitempty" db:"metadata"`
+	Metadata    Metadata        `json:"metadata,omitempty" db:"meta_data"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
@@ -184,35 +184,35 @@ func (r1 *Route) Equals(r2 *Route) bool {
 // Update updates fields in r with non-zero field values from new, and sets
 // updated_at if any of the fields change. 0-length slice Header values, and
 // empty-string Config values trigger removal of map entry.
-func (r *Route) Update(new *Route) {
+func (r *Route) Update(patch *Route) {
 	original := r.Clone()
 
-	if new.Image != "" {
-		r.Image = new.Image
+	if patch.Image != "" {
+		r.Image = patch.Image
 	}
-	if new.Memory != 0 {
-		r.Memory = new.Memory
+	if patch.Memory != 0 {
+		r.Memory = patch.Memory
 	}
-	if new.CPUs != 0 {
-		r.CPUs = new.CPUs
+	if patch.CPUs != 0 {
+		r.CPUs = patch.CPUs
 	}
-	if new.Type != "" {
-		r.Type = new.Type
+	if patch.Type != "" {
+		r.Type = patch.Type
 	}
-	if new.Timeout != 0 {
-		r.Timeout = new.Timeout
+	if patch.Timeout != 0 {
+		r.Timeout = patch.Timeout
 	}
-	if new.IdleTimeout != 0 {
-		r.IdleTimeout = new.IdleTimeout
+	if patch.IdleTimeout != 0 {
+		r.IdleTimeout = patch.IdleTimeout
 	}
-	if new.Format != "" {
-		r.Format = new.Format
+	if patch.Format != "" {
+		r.Format = patch.Format
 	}
-	if new.Headers != nil {
+	if patch.Headers != nil {
 		if r.Headers == nil {
 			r.Headers = Headers(make(http.Header))
 		}
-		for k, v := range new.Headers {
+		for k, v := range patch.Headers {
 			if len(v) == 0 {
 				http.Header(r.Headers).Del(k)
 			} else {
@@ -220,11 +220,11 @@ func (r *Route) Update(new *Route) {
 			}
 		}
 	}
-	if new.Config != nil {
+	if patch.Config != nil {
 		if r.Config == nil {
 			r.Config = make(Config)
 		}
-		for k, v := range new.Config {
+		for k, v := range patch.Config {
 			if v == "" {
 				delete(r.Config, k)
 			} else {
@@ -233,7 +233,7 @@ func (r *Route) Update(new *Route) {
 		}
 	}
 
-	r.Metadata = r.Metadata.MergeChange(new.Metadata)
+	r.Metadata = r.Metadata.MergeChange(patch.Metadata)
 
 	if !r.Equals(original) {
 		r.UpdatedAt = strfmt.DateTime(time.Now())

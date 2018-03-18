@@ -56,7 +56,8 @@ func (v *metadataValue) MarshalJSON() ([]byte, error) {
 }
 
 func (v *metadataValue) isEmptyValue() bool {
-	return string(v.val) == "\"\""
+	sval := string(v.val)
+	return sval == "\"\"" || sval == "null"
 }
 
 // UnmarshalJSON compacts metadata values but does not alter key-ordering for keys
@@ -88,7 +89,7 @@ func validateField(key string, value *metadataValue) APIError {
 	}
 
 	if value.isEmptyValue() {
-		return ErrInvalidMetadataKey
+		return ErrInvalidMetadataValue
 	}
 
 	if len(value.val) > maxMetadataValueBytes {
@@ -129,6 +130,8 @@ func (m Metadata) With(key string, data interface{}) (Metadata, error) {
 	return newMd, nil
 }
 
+// Validate validates a final metadata object prior to store,
+// This will reject partial metadata changes (containing deletes)
 func (m Metadata) Validate() APIError {
 
 	for k, v := range m {

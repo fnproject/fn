@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	apiutils "github.com/fnproject/fn/test/fn-api-tests"
+	"github.com/fnproject/fn_go/models"
 )
 
 func LB() (string, error) {
@@ -24,9 +25,13 @@ func LB() (string, error) {
 
 func TestCanExecuteFunction(t *testing.T) {
 	s := apiutils.SetupDefaultSuite()
-	apiutils.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	apiutils.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	defer s.Cleanup()
+
+	rt := s.BasicRoute()
+	rt.Type = "sync"
+
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	lb, err := LB()
 	if err != nil {
@@ -48,14 +53,18 @@ func TestCanExecuteFunction(t *testing.T) {
 	if !strings.Contains(expectedOutput, output.String()) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 	}
-	apiutils.DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestBasicConcurrentExecution(t *testing.T) {
 	s := apiutils.SetupDefaultSuite()
-	apiutils.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	apiutils.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	defer s.Cleanup()
+
+	rt := s.BasicRoute()
+	rt.Type = "sync"
+
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	lb, err := LB()
 	if err != nil {
@@ -93,5 +102,4 @@ func TestBasicConcurrentExecution(t *testing.T) {
 		}
 	}
 
-	apiutils.DeleteApp(t, s.Context, s.Client, s.AppName)
 }

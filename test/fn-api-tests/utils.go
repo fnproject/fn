@@ -95,6 +95,11 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 	return s, cancel2
 }
 
+type appRoute struct {
+	appName   string
+	routeName string
+}
+
 type SuiteSetup struct {
 	Context      context.Context
 	Client       *client.Fn
@@ -109,6 +114,9 @@ type SuiteSetup struct {
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
 	Cancel       context.CancelFunc
+
+	createdApps   []string
+	createdRoutes []*appRoute
 }
 
 func RandStringBytes(n int) string {
@@ -153,19 +161,18 @@ func SetupDefaultSuite() *SuiteSetup {
 	return ss
 }
 
-func Cleanup() {
+func (s *SuiteSetup) Cleanup() {
 	ctx := context.Background()
-	c := APIClient()
-	approutesLock.Lock()
-	defer approutesLock.Unlock()
-	for appName, rs := range appsandroutes {
-		for _, routePath := range rs {
-			deleteRoute(ctx, c, appName, routePath)
-		}
-		DeleteAppNoT(ctx, c, appName)
+
+	//for _,ar := range s.createdRoutes {
+	//	deleteRoute(ctx, s.Client, ar.appName, ar.routeName)
+	//}
+
+	for _,app := range s.createdApps {
+		safeDeleteApp(ctx, s.Client, app)
 	}
-	appsandroutes = make(map[string][]string)
 }
+
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	detectedEnv := os.Environ()

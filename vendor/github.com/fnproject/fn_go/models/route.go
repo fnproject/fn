@@ -44,6 +44,9 @@ type Route struct {
 	// Max usable memory for this route (MiB).
 	Memory uint64 `json:"memory,omitempty"`
 
+	// Route metadata - this can be any object containing any value in its keys, keys must not exceed 128 bytes, and the seralized representation of values must not exeed 512 bytes
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+
 	// URL path that will be matched to this route
 	// Read Only: true
 	Path string `json:"path,omitempty"`

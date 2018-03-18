@@ -52,9 +52,11 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrAppsTooLongName},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
-
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "metadata" : { "":"val" }}}`, http.StatusBadRequest, models.ErrInvalidMetadataKey},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "metadata" : { "key":"" }}}`, http.StatusBadRequest, models.ErrInvalidMetadataValue},
 		// success
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" , "metadata": {"k1":"v1", "k2":[]}}}`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -72,8 +74,8 @@ func TestAppCreate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Errorf("Test %d: Expected error message to have `%s`",
-					i, test.expectedError.Error())
+				t.Errorf("Test %d: Expected error message to have `%s` but got `%s`",
+					i, test.expectedError.Error(), resp.Error.Message)
 			}
 		}
 
@@ -268,6 +270,7 @@ func TestAppUpdate(t *testing.T) {
 		}
 	}()
 
+
 	for i, test := range []struct {
 		mock          models.Datastore
 		logDB         models.LogStore
@@ -279,6 +282,20 @@ func TestAppUpdate(t *testing.T) {
 		// errors
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
+		// Addresses #380
+		{datastore.NewMockInit(
+			[]*models.App{{
+				Name: "myapp",
+			}}, nil, nil,
+		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
+
+		// success: add/set MD key
+		{datastore.NewMockInit(
+			[]*models.App{{
+				Name:     "myapp",
+			}}, nil, nil,
+		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "metadata": {"k-0" : "val"} } }`, http.StatusOK, nil},
+
 		// success
 		{datastore.NewMockInit(
 			[]*models.App{{
@@ -286,12 +303,12 @@ func TestAppUpdate(t *testing.T) {
 			}}, nil, nil,
 		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 
-		// Addresses #380
+		// success
 		{datastore.NewMockInit(
 			[]*models.App{{
 				Name: "myapp",
 			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
+		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -308,8 +325,8 @@ func TestAppUpdate(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Errorf("Test %d: Expected error message to have `%s`",
-					i, test.expectedError.Error())
+				t.Errorf("Test %d: Expected error message to have `%s` but was `%s`",
+					i, test.expectedError.Error(),resp.Error.Message)
 			}
 		}
 

@@ -8,13 +8,13 @@ import (
 )
 
 func up9(ctx context.Context, tx *sqlx.Tx) error {
-	_, err := tx.ExecContext(ctx, "ALTER TABLE routes ADD metadata TEXT;")
+	_, err := tx.ExecContext(ctx, "ALTER TABLE routes ADD meta_data TEXT;")
 
 	return err
 }
 
 func down9(ctx context.Context, tx *sqlx.Tx) error {
-	_, err := tx.ExecContext(ctx, "ALTER TABLE routes DROP COLUMN metadata;")
+	_, err := tx.ExecContext(ctx, "ALTER TABLE routes DROP COLUMN meta_data;")
 	return err
 }
 

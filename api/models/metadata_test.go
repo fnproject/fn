@@ -94,27 +94,14 @@ func TestMetadataJSONUnMarshalling(t *testing.T) {
 
 }
 
-var validKeys = []string{
-	"ok",
-	strings.Repeat("a", maxMetadataKeyBytes),
-	"fnproject/internal/foo",
-	"foo.bar.com.baz",
-	"foo$bar!_+-()[]:@/<>$",
-}
-
-var invalidKeys = []struct {
-	key string
-	err APIError
-}{
-	{"", ErrInvalidMetadataKey},
-	{" ", ErrInvalidMetadataKey},
-	{"\u00e9", ErrInvalidMetadataKey},
-	{"foo bar", ErrInvalidMetadataKey},
-	{strings.Repeat("a", maxMetadataKeyBytes+1), ErrInvalidMetadataKeyLength},
-}
-
 func TestMetadataWithHonorsKeyLimits(t *testing.T) {
-
+	var validKeys = []string{
+		"ok",
+		strings.Repeat("a", maxMetadataKeyBytes),
+		"fnproject/internal/foo",
+		"foo.bar.com.baz",
+		"foo$bar!_+-()[]:@/<>$",
+	}
 	for _, k := range validKeys {
 		m, err := EmptyMetadata().With(k, "value")
 
@@ -129,6 +116,16 @@ func TestMetadataWithHonorsKeyLimits(t *testing.T) {
 
 	}
 
+	var invalidKeys = []struct {
+		key string
+		err APIError
+	}{
+		{"", ErrInvalidMetadataKey},
+		{" ", ErrInvalidMetadataKey},
+		{"\u00e9", ErrInvalidMetadataKey},
+		{"foo bar", ErrInvalidMetadataKey},
+		{strings.Repeat("a", maxMetadataKeyBytes+1), ErrInvalidMetadataKeyLength},
+	}
 	for _, kc := range invalidKeys {
 		_, err := EmptyMetadata().With(kc.key, "value")
 		if err == nil {
@@ -158,25 +155,49 @@ func TestMetadataHonorsValueLimits(t *testing.T) {
 	}
 
 	for _, v := range validValues {
-		mv := make(Metadata)
 
-		mv, err := mv.With("key", v)
+		_, err := EmptyMetadata().With("key", v)
 		if err != nil {
 			t.Errorf("Should have accepted valid value %s,%v", v, err)
 		}
-	}
-	invalidValues := []interface{}{
-		"",
-		nil,
-		strings.Repeat("a", maxMetadataValueBytes-1),
-		[]string{strings.Repeat("a", maxMetadataValueBytes-3)},
-	}
-	for _, v := range invalidValues {
-		mv := make(Metadata)
 
-		mv, err := mv.With("key", v)
+		rawJson, err := json.Marshal(v)
+		if err != nil {
+			panic(err)
+		}
+		md := EmptyMetadata().withRawKey("key", string(rawJson))
+
+		err = md.Validate()
+		if err != nil {
+			t.Errorf("Should have validated valid value  successfully %s, got error %v", string(rawJson), err)
+		}
+	}
+
+	invalidValues := []struct {
+		val interface{}
+		err APIError
+	}{
+		{"", ErrInvalidMetadataValue},
+		{nil, ErrInvalidMetadataValue},
+		{strings.Repeat("a", maxMetadataValueBytes-1), ErrInvalidMetadataValueLength},
+		{[]string{strings.Repeat("a", maxMetadataValueBytes-3)}, ErrInvalidMetadataValueLength},
+	}
+
+	for _, v := range invalidValues {
+		_, err := EmptyMetadata().With("key", v.val)
 		if err == nil {
 			t.Errorf("Should have rejected invalid value \"%v\"", v)
+		}
+
+		rawJson, err := json.Marshal(v.val)
+		if err != nil {
+			panic(err)
+		}
+		md := EmptyMetadata().withRawKey("key", string(rawJson))
+
+		err = md.Validate()
+		if err != v.err {
+			t.Errorf("Expected validation error %v for '%s', got %v", v.err, string(rawJson), err)
 		}
 	}
 
@@ -187,7 +208,7 @@ func TestMergeMetadata(t *testing.T) {
 	mdWithNKeys := func(n int) Metadata {
 		md := EmptyMetadata()
 		for i := 0; i < n; i++ {
-			md = md.withRawKey(fmt.Sprint("key-%d", i), "val")
+			md = md.withRawKey(fmt.Sprintf("key-%d", i), "val")
 		}
 		return md
 	}
@@ -207,10 +228,10 @@ func TestMergeMetadata(t *testing.T) {
 	}
 
 	for _, v := range validCases {
-		new := v.first.MergeChange(v.second)
+		newMd := v.first.MergeChange(v.second)
 
-		if !reflect.DeepEqual(new, v.result) {
-			t.Errorf("Change %v + %v :  expected %v got %v", v.first, v.second, v.result, new)
+		if !reflect.DeepEqual(newMd, v.result) {
+			t.Errorf("Change %v + %v :  expected %v got %v", v.first, v.second, v.result, newMd)
 		}
 
 	}

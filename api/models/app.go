@@ -10,7 +10,7 @@ import (
 type App struct {
 	Name      string          `json:"name" db:"name"`
 	Config    Config          `json:"config,omitempty" db:"config"`
-	Metadata  Metadata        `json:"metadata,omitempty" db:"metadata"`
+	Metadata  Metadata        `json:"metadata,omitempty" db:"meta_data"`
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
@@ -40,8 +40,8 @@ func (a *App) Validate() error {
 			return ErrAppsInvalidName
 		}
 	}
-
-	if err := a.Metadata.Validate(); err != nil {
+	err := a.Metadata.Validate()
+	if err != nil {
 		return err
 	}
 	return nil
@@ -78,14 +78,14 @@ func (a1 *App) Equals(a2 *App) bool {
 }
 
 // Update adds entries from patch to a.Config and a.Metadata, and removes entries with empty values.
-func (a *App) Update(src *App) {
+func (a *App) Update(patch *App) {
 	original := a.Clone()
 
-	if src.Config != nil {
+	if patch.Config != nil {
 		if a.Config == nil {
 			a.Config = make(Config)
 		}
-		for k, v := range src.Config {
+		for k, v := range patch.Config {
 			if v == "" {
 				delete(a.Config, k)
 			} else {
@@ -94,7 +94,7 @@ func (a *App) Update(src *App) {
 		}
 	}
 
-	a.Metadata = src.Metadata.MergeChange(src.Metadata)
+	a.Metadata = a.Metadata.MergeChange(patch.Metadata)
 
 	if !a.Equals(original) {
 		a.UpdatedAt = strfmt.DateTime(time.Now())

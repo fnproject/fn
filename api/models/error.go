@@ -187,11 +187,15 @@ var (
 	}
 	ErrInvalidMetadataKey = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid metadata key, metadata keys must be non-empty ascii strings"),
+		error: errors.New("Invalid metadata key, metadata keys must be non-empty ascii strings excluding whitespace"),
 	}
 	ErrInvalidMetadataKeyLength = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("Invalid metadata key length, metadata keys may not be larger than %d bytes", maxMetadataKeyBytes),
+	}
+	ErrInvalidMetadataValue = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid metadata value, values may only be non-empty strings, numbers, objects, or arrays"),
 	}
 	ErrInvalidMetadataValueLength = err{
 		code:  http.StatusBadRequest,
