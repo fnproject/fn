@@ -52,6 +52,9 @@ func TestCanExecuteFunction(t *testing.T) {
 }
 
 func TestBasicConcurrentExecution(t *testing.T) {
+	SystemTweaker().ChangeNodeCapacities(512)
+	defer SystemTweaker().RestoreInitialNodeCapacities()
+
 	s := apiutils.SetupDefaultSuite()
 	apiutils.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
 	apiutils.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
