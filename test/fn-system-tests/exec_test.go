@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fnproject/fn/api/models"
 	apiutils "github.com/fnproject/fn/test/fn-api-tests"
 )
 
@@ -96,5 +97,40 @@ func TestBasicConcurrentExecution(t *testing.T) {
 		}
 	}
 
+	apiutils.DeleteApp(t, s.Context, s.Client, s.AppName)
+}
+
+func TestSaturatedSystem(t *testing.T) {
+	// Set the capacity to 0 so we always look out of capacity.
+	SystemTweaker().ChangeNodeCapacities(0)
+	defer SystemTweaker().RestoreInitialNodeCapacities()
+
+	s := apiutils.SetupDefaultSuite()
+	apiutils.CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
+	apiutils.CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
+		s.Format /* s.Timeout */, 5, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
+
+	content := &bytes.Buffer{}
+	output := &bytes.Buffer{}
+	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	if err != nil {
+		if err != models.ErrCallTimeoutServerBusy {
+			t.Errorf("Got unexpected error: %v", err)
+		}
+	}
+	expectedOutput := "{\"error\":{\"message\":\"Timed out - server too busy\"}}\n"
+	if !strings.Contains(expectedOutput, output.String()) {
+		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+	}
 	apiutils.DeleteApp(t, s.Context, s.Client, s.AppName)
 }

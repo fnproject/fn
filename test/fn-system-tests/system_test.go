@@ -184,7 +184,7 @@ func (tcg *testCapacityGate) CheckAndReserveCapacity(units uint64) error {
 		tcg.committedCapacityUnits = tcg.committedCapacityUnits + units
 		return nil
 	}
-	logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is out of capacity")
+	logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("currentlyCommitted", tcg.committedCapacityUnits).Debug("Runner is out of capacity")
 	return models.ErrCallTimeoutServerBusy
 }
 
