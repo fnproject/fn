@@ -149,6 +149,11 @@ To define the function execution as `hot function` you set it as one of the foll
 
 - `"http"`
 
+#### network (string)
+
+`network` defines container networking options. Only supported option is `disabled`. Use `disabled` 
+to launch containers without networking.
+
 ### 'Hot function' Only Properties
 
 This properties are only used if the function is in `hot function` mode

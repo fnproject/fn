@@ -146,6 +146,111 @@ func TestRouteRunnerPost(t *testing.T) {
 	}
 }
 
+//
+// Checks /proc/net/route contents to make sure no routes present
+//
+func TestRouteRunnerDisabledNet(t *testing.T) {
+	buf := setLogBuffer()
+	isFailure := false
+
+	// Log once after we are done, flow of events are important (hot/cold containers, idle timeout, etc.)
+	// for figuring out why things failed.
+	defer func() {
+		if isFailure {
+			t.Log(buf.String())
+		}
+	}()
+
+	rCfg := map[string]string{}
+	rImg := "fnproject/fn-test-utils"
+	rNet := "disabled"
+
+	ds := datastore.NewMockInit(
+		[]*models.App{
+			{Name: "zoo1", Config: models.Config{}},
+		},
+		[]*models.Route{
+			{Path: "/json-net", AppName: "zoo1", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 30, Config: rCfg},
+			{Path: "/json-nonet", AppName: "zoo1", Image: rImg, Type: "sync", Format: "json", Network: rNet, Memory: 64, Timeout: 10, IdleTimeout: 30, Config: rCfg},
+			{Path: "/cold-nonet", AppName: "zoo1", Image: rImg, Type: "sync", Format: "default", Network: rNet, Memory: 64, Timeout: 10, IdleTimeout: 30, Config: rCfg},
+		}, nil,
+	)
+
+	rnr, cancelrnr := testRunner(t, ds)
+	defer cancelrnr()
+
+	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+
+	readDev := `{"isDebug": true, "readFile": "/proc/net/route"}`
+
+	type AppResponse struct {
+		Request map[string]interface{} `json:"request"`
+		Headers http.Header            `json:"header"`
+		Config  map[string]string      `json:"config"`
+		Data    map[string]string      `json:"data"`
+		Trailer []string               `json:"trailer"`
+	}
+
+	for i, test := range []struct {
+		path         string
+		body         string
+		method       string
+		expectedCode int
+		netDisabled  bool
+	}{
+		{"/r/zoo1/json-net/", readDev, "GET", http.StatusOK, false},
+		{"/r/zoo1/json-nonet/", readDev, "GET", http.StatusOK, true},
+		{"/r/zoo1/cold-nonet/", readDev, "GET", http.StatusOK, true},
+	} {
+		body := strings.NewReader(test.body)
+		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
+		respBytes, _ := ioutil.ReadAll(rec.Body)
+		respBody := string(respBytes)
+		maxBody := len(respBody)
+		if maxBody > 1024 {
+			maxBody = 1024
+		}
+
+		if rec.Code != test.expectedCode {
+			isFailure = true
+			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+				i, test.expectedCode, rec.Code, respBody[:maxBody])
+		}
+
+		var aResp AppResponse
+		err := json.NewDecoder(bytes.NewReader(respBytes)).Decode(&aResp)
+		if err != nil {
+			isFailure = true
+			t.Errorf("Test %d: %s cannot json parse: %s",
+				i, err.Error(), respBody[:maxBody])
+		}
+
+		/* If network is disabled, then /proc/dev/route should look like this (last line empty):
+		Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT
+		*/
+
+		route, ok := aResp.Data["/proc/net/route.read_output"]
+		if !ok {
+			isFailure = true
+			t.Errorf("Test %d: cannot find /proc/dev/route in body: %s %+v",
+				i, respBody[:maxBody], aResp.Data)
+		}
+
+		routes := strings.Split(route, "\n")
+		if (test.netDisabled && len(routes) != 2) || (!test.netDisabled && len(routes) <= 2) {
+			isFailure = true
+			t.Errorf("Test %d: cannot process contents (lines:%d) of /proc/dev/route in body: %s",
+				i, len(routes), route)
+		}
+
+		if !strings.HasPrefix(routes[0], "Iface\t") && routes[len(routes)-1] != "" {
+			isFailure = true
+			t.Errorf("Test %d: cannot find Iface in contents of /proc/dev/route or last line not empty in body: %s",
+				i, route)
+		}
+	}
+}
+
 func TestRouteRunnerIOPipes(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
