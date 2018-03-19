@@ -17,7 +17,7 @@ type JSONResponse struct {
 
 func TestFnJSONFormats(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	// TODO(treeder): put image in fnproject @ dockerhub

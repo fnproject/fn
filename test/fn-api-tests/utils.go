@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -100,7 +99,7 @@ type appRoute struct {
 	routeName string
 }
 
-type SuiteSetup struct {
+type TestHarness struct {
 	Context      context.Context
 	Client       *client.Fn
 	AppName      string
@@ -127,9 +126,9 @@ func RandStringBytes(n int) string {
 	return strings.ToLower(string(b))
 }
 
-func SetupDefaultSuite() *SuiteSetup {
+func SetupHarness() *TestHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	ss := &SuiteSetup{
+	ss := &TestHarness{
 		Context:      ctx,
 		Client:       APIClient(),
 		AppName:      "fnintegrationtestapp" + RandStringBytes(10),
@@ -161,7 +160,7 @@ func SetupDefaultSuite() *SuiteSetup {
 	return ss
 }
 
-func (s *SuiteSetup) Cleanup() {
+func (s *TestHarness) Cleanup() {
 	ctx := context.Background()
 
 	//for _,ar := range s.createdRoutes {
@@ -218,20 +217,6 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-}
-
-func MyCaller() string {
-	fpcs := make([]uintptr, 1)
-	n := runtime.Callers(3, fpcs)
-	if n == 0 {
-		return "n/a"
-	}
-	fun := runtime.FuncForPC(fpcs[0] - 1)
-	if fun == nil {
-		return "n/a"
-	}
-	f, l := fun.FileLine(fpcs[0] - 1)
-	return fmt.Sprintf("%s:%d", f, l)
 }
 
 func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback func() error) (err error) {

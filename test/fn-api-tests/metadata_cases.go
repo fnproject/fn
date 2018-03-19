@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+//  common test cases around metadata (shared by any objects that support it)
+
 const (
 	maxMetadataKeys = 100
 	maxValueSize    = 512
@@ -72,6 +74,7 @@ var updateMetadataErrorCases = []struct {
 	{"too_many_keys_in_update", map[string]interface{}{}, makeMdMap(maxMetadataKeys + 1)},
 }
 
+//MetadataEquivalent checks if two metadata maps are semantically equivalent, including nil == empty map
 func MetadataEquivalent(md1, md2 map[string]interface{}) bool {
 
 	if len(md1) == 0 && len(md2) == 0 {

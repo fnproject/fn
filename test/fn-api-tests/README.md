@@ -2,7 +2,7 @@ FN integration API tests
 ======================================
 
 
-These are tests that can either run locally (e.g. in an IDE) using the local codebase to instantiate a server or remotely
+These are tests that can either run locally against the current codebase (e.g. in an IDE)  or remotely against a  running Fn instance.
 
 
 Test dependencies
@@ -10,7 +10,7 @@ Test dependencies
 
 ```bash
 DOCKER_HOST - for building images
-FN_API_URL - Fn API endpoint -
+FN_API_URL - Fn API endpoint - leave this unset to test using the local codebase
 ```
 
 How to run tests?

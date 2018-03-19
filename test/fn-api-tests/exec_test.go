@@ -59,7 +59,7 @@ func CallSync(t *testing.T, u url.URL, content io.Reader) string {
 
 func TestCanCallfunction(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -87,7 +87,7 @@ func TestCanCallfunction(t *testing.T) {
 
 func TestCallOutputMatch(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
 	rt := s.BasicRoute()
 	rt.Type = "sync"
@@ -118,7 +118,7 @@ func TestCanCallAsync(t *testing.T) {
 	newRouteType := "async"
 	t.Parallel()
 
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
 	rt := s.BasicRoute()
 	rt.Type = "sync"
@@ -140,7 +140,7 @@ func TestCanCallAsync(t *testing.T) {
 func TestCanGetAsyncState(t *testing.T) {
 	newRouteType := "async"
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
 	rt := s.BasicRoute()
@@ -200,7 +200,7 @@ func TestCanGetAsyncState(t *testing.T) {
 
 func TestCanCauseTimeout(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -257,7 +257,7 @@ func TestCanCauseTimeout(t *testing.T) {
 
 func TestCallResponseHeadersMatch(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -287,7 +287,7 @@ func TestCallResponseHeadersMatch(t *testing.T) {
 
 func TestCanWriteLogs(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
@@ -326,7 +326,7 @@ func TestCanWriteLogs(t *testing.T) {
 
 func TestOversizedLog(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()

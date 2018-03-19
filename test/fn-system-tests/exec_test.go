@@ -24,7 +24,7 @@ func LB() (string, error) {
 }
 
 func TestCanExecuteFunction(t *testing.T) {
-	s := apiutils.SetupDefaultSuite()
+	s := apiutils.SetupHarness()
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
 	defer s.Cleanup()
 
@@ -56,7 +56,7 @@ func TestCanExecuteFunction(t *testing.T) {
 }
 
 func TestBasicConcurrentExecution(t *testing.T) {
-	s := apiutils.SetupDefaultSuite()
+	s := apiutils.SetupHarness()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
 	defer s.Cleanup()

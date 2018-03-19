@@ -13,7 +13,7 @@ import (
 
 func TestCallsMissingApp(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	cfg := &call.GetAppsAppCallsParams{
 		App:     s.AppName,
 		Path:    &s.RoutePath,
@@ -27,7 +27,7 @@ func TestCallsMissingApp(t *testing.T) {
 
 func TestCallsDummy(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -48,7 +48,7 @@ func TestCallsDummy(t *testing.T) {
 
 func TestGetExactCall(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})

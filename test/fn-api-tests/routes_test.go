@@ -6,13 +6,14 @@ import (
 	"reflect"
 
 	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn_go/client/apps"
 	"github.com/fnproject/fn_go/client/routes"
 	"github.com/fnproject/fn_go/models"
 )
 
 func TestShouldRejectEmptyRouteType(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -31,7 +32,7 @@ func TestShouldRejectEmptyRouteType(t *testing.T) {
 
 func TestCanCreateRoute(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -49,7 +50,7 @@ func TestCanCreateRoute(t *testing.T) {
 
 func TestListRoutes(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -72,7 +73,7 @@ func TestListRoutes(t *testing.T) {
 
 func TestInspectRoute(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -114,7 +115,7 @@ func TestCanUpdateRouteAttributes(t *testing.T) {
 		tc := tci
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			s := SetupDefaultSuite()
+			s := SetupHarness()
 			defer s.Cleanup()
 
 			s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -150,7 +151,7 @@ func TestCanUpdateRouteConfig(t *testing.T) {
 		tc := tci
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			s := SetupDefaultSuite()
+			s := SetupHarness()
 			defer s.Cleanup()
 			s.GivenAppExists(t, &models.App{Name: s.AppName})
 			route := s.BasicRoute()
@@ -184,10 +185,156 @@ func TestCanUpdateRouteConfig(t *testing.T) {
 
 }
 
+func TestSetRouteMetadataOnCreate(t *testing.T) {
+	t.Parallel()
+	for _, tci := range createMetadataValidCases {
+		// iterator mutation meets parallelism... pfft
+		tc := tci
+		t.Run("valid_"+tc.name, func(t *testing.T) {
+			s := SetupHarness()
+			defer s.Cleanup()
+
+			s.GivenAppExists(t, &models.App{
+				Name: s.AppName,
+			})
+			rt := s.BasicRoute()
+			rt.Metadata = tc.metadata
+
+			route, err := s.Client.Routes.PostAppsAppRoutes(&routes.PostAppsAppRoutesParams{
+				App:     s.AppName,
+				Context: s.Context,
+				Body: &models.RouteWrapper{
+					Route: rt,
+				},
+			})
+
+			if err != nil {
+				t.Fatalf("Failed to create route with valid metadata %v got error %v", tc.metadata, err)
+			}
+
+			gotMd := route.Payload.Route.Metadata
+			if !MetadataEquivalent(gotMd, tc.metadata) {
+				t.Errorf("Returned metadata %v does not match set metadata %v", gotMd, tc.metadata)
+			}
+
+			getRoute := s.RouteMustExist(t, s.AppName, s.RoutePath)
+
+			if !MetadataEquivalent(getRoute.Metadata, tc.metadata) {
+				t.Errorf("GET metadata '%v' does not match set metadata %v", getRoute.Metadata, tc.metadata)
+			}
+
+		})
+	}
+
+	for _, tci := range createMetadataErrorCases {
+		// iterator mutation meets parallelism... pfft
+		tc := tci
+		t.Run("invalid_"+tc.name, func(ti *testing.T) {
+			ti.Parallel()
+			s := SetupHarness()
+			defer s.Cleanup()
+
+			_, err := s.PostApp(&models.App{
+				Name:     s.AppName,
+				Metadata: tc.metadata,
+			})
+
+			if err == nil {
+				t.Fatalf("Created app with invalid metadata %v but expected error", tc.metadata)
+			}
+
+			if _, ok := err.(*apps.PostAppsBadRequest); !ok {
+				t.Errorf("Expecting bad request for invalid metadata, got %v", err)
+			}
+
+		})
+	}
+}
+
+func TestSetRouteMetadataOnPatch(t *testing.T) {
+	t.Parallel()
+
+	for _, tci := range updateMetadataValidCases {
+		// iterator mutation meets parallelism... pfft
+		tc := tci
+		t.Run("valid_"+tc.name, func(t *testing.T) {
+			s := SetupHarness()
+			defer s.Cleanup()
+
+			s.GivenAppExists(t, &models.App{Name: s.AppName})
+			rt := s.BasicRoute()
+			rt.Metadata = tc.initialMetadata
+			s.GivenRouteExists(t, s.AppName, rt)
+
+			res, err := s.Client.Routes.PatchAppsAppRoutesRoute(&routes.PatchAppsAppRoutesRouteParams{
+				App:     s.AppName,
+				Route:   s.RoutePath[1:],
+				Context: s.Context,
+				Body: &models.RouteWrapper{
+					Route: &models.Route{
+						Metadata: tc.change,
+					},
+				},
+			})
+
+			if err != nil {
+				t.Fatalf("Failed to patch metadata with %v on route: %v", tc.change, err)
+			}
+
+			gotMd := res.Payload.Route.Metadata
+			if !MetadataEquivalent(gotMd, tc.expected) {
+				t.Errorf("Returned metadata %v does not match set metadata %v", gotMd, tc.expected)
+			}
+
+			getRoute := s.RouteMustExist(t, s.AppName, s.RoutePath)
+
+			if !MetadataEquivalent(getRoute.Metadata, tc.expected) {
+				t.Errorf("GET metadata '%v' does not match set metadata %v", getRoute.Metadata, tc.expected)
+			}
+		})
+	}
+
+	for _, tci := range updateMetadataErrorCases {
+		// iterator mutation meets parallelism... pfft
+		tc := tci
+		t.Run("invalid_"+tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := SetupHarness()
+			defer s.Cleanup()
+
+			s.GivenAppExists(t, &models.App{
+				Name: s.AppName,
+			})
+			rt := s.BasicRoute()
+			rt.Metadata = tc.initialMetadata
+			s.GivenRouteExists(t, s.AppName, rt)
+
+			_, err := s.Client.Routes.PatchAppsAppRoutesRoute(&routes.PatchAppsAppRoutesRouteParams{
+				App:     s.AppName,
+				Route:   s.RoutePath[1:],
+				Context: s.Context,
+				Body: &models.RouteWrapper{
+					Route: &models.Route{
+						Metadata: tc.change,
+					},
+				},
+			})
+
+			if err == nil {
+				t.Errorf("patched route with invalid metadata %v but expected error", tc.change)
+			}
+			if _, ok := err.(*routes.PatchAppsAppRoutesRouteBadRequest); !ok {
+				t.Errorf("Expecting bad request for invalid metadata, got %v", err)
+			}
+
+		})
+	}
+}
+
 func TestCantUpdateRoutePath(t *testing.T) {
 
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -214,7 +361,7 @@ func TestCantUpdateRoutePath(t *testing.T) {
 
 func TestRoutePreventsDuplicate(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -232,7 +379,7 @@ func TestRoutePreventsDuplicate(t *testing.T) {
 
 func TestCanDeleteRoute(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -251,7 +398,7 @@ func TestCanDeleteRoute(t *testing.T) {
 
 func TestCantDeleteMissingRoute(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -274,7 +421,7 @@ func TestCantDeleteMissingRoute(t *testing.T) {
 
 func TestPutRouteCreatesNewApp(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	_, err := s.PutRoute(s.AppName, s.RoutePath, s.BasicRoute())
@@ -284,12 +431,12 @@ func TestPutRouteCreatesNewApp(t *testing.T) {
 	}
 
 	s.AppMustExist(t, s.AppName)
-	s.RequireRouteExists(t, s.AppName, s.RoutePath)
+	s.RouteMustExist(t, s.AppName, s.RoutePath)
 
 }
 
 func TestPutRouteToExistingApp(t *testing.T) {
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -298,12 +445,12 @@ func TestPutRouteToExistingApp(t *testing.T) {
 		t.Fatalf("Failed to create route, got error %v", err)
 	}
 	s.AppMustExist(t, s.AppName)
-	s.RequireRouteExists(t, s.AppName, s.RoutePath)
+	s.RouteMustExist(t, s.AppName, s.RoutePath)
 }
 
 func TestPutRouteUpdatesRoute(t *testing.T) {
 	newRouteType := "sync"
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})
@@ -324,7 +471,7 @@ func TestPutRouteUpdatesRoute(t *testing.T) {
 }
 
 func TestPutIsIdempotentForHeaders(t *testing.T) {
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	defer s.Cleanup()
 
 	s.GivenAppExists(t, &models.App{Name: s.AppName})

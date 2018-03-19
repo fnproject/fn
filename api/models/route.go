@@ -130,9 +130,11 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidMemory
 	}
 
-	if err := r.Metadata.Validate(); err != nil {
+	err = r.Metadata.Validate()
+	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

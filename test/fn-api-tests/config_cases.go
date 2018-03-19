@@ -2,6 +2,8 @@ package tests
 
 import "reflect"
 
+//  common test cases around config for apps/routes
+
 var updateConfigCases = []struct {
 	name         string
 	intialConfig map[string]string
@@ -17,6 +19,7 @@ var updateConfigCases = []struct {
 	{"delete config key", map[string]string{"key": "value1"}, map[string]string{"key": ""}, map[string]string{}},
 }
 
+//ConfigEquivalent checks if two config objects are semantically equivalent (including nils)
 func ConfigEquivalent(a map[string]string, b map[string]string) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true
