@@ -23,7 +23,8 @@ func (m Metadata) withRawKey(key string, val string) Metadata {
 		newMd[k] = v
 	}
 
-	newMd[key] = &metadataValue{val: []byte(val)}
+	v := metadataValue([]byte(val))
+	newMd[key] = &v
 	return newMd
 }
 

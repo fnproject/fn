@@ -19,9 +19,7 @@ type Metadata map[string]*metadataValue
 // metadataValue encapsulates a metadata value in the metadata map,
 // This is stored in its un-parsed JSON format for later (re-) parsing into specific structs or values
 // metadataValue objects are  immutable after JSON load
-type metadataValue struct {
-	val []byte
-}
+type metadataValue []byte
 
 const (
 	maxMetadataValueBytes = 512
@@ -36,7 +34,7 @@ func (m Metadata) Equals(other Metadata) bool {
 	}
 	for k1, v1 := range m {
 		v2, _ := other[k1]
-		if !bytes.Equal(v1.val, v2.val) {
+		if !bytes.Equal(*v1, *v2) {
 			return false
 		}
 	}
@@ -48,20 +46,20 @@ func EmptyMetadata() Metadata {
 }
 
 func (mv *metadataValue) String() string {
-	return string(mv.val)
+	return string(*mv)
 }
 
 func (v *metadataValue) MarshalJSON() ([]byte, error) {
-	return []byte(v.val), nil
+	return *v, nil
 }
 
-func (v *metadataValue) isEmptyValue() bool {
-	sval := string(v.val)
+func (mv *metadataValue) isEmptyValue() bool {
+	sval := string(*mv)
 	return sval == "\"\"" || sval == "null"
 }
 
 // UnmarshalJSON compacts metadata values but does not alter key-ordering for keys
-func (v *metadataValue) UnmarshalJSON(val []byte) error {
+func (mv *metadataValue) UnmarshalJSON(val []byte) error {
 	buf := bytes.Buffer{}
 	err := json.Compact(&buf, val)
 	if err != nil {
@@ -70,13 +68,13 @@ func (v *metadataValue) UnmarshalJSON(val []byte) error {
 	if err != nil {
 		return err
 	}
-	v.val = buf.Bytes()
+	*mv = buf.Bytes()
 	return nil
 }
 
 var validKeyRegex = regexp.MustCompile("^[!-~]+$")
 
-func validateField(key string, value *metadataValue) APIError {
+func validateField(key string, value metadataValue) APIError {
 
 	if !validKeyRegex.Match([]byte(key)) {
 		return ErrInvalidMetadataKey
@@ -92,7 +90,7 @@ func validateField(key string, value *metadataValue) APIError {
 		return ErrInvalidMetadataValue
 	}
 
-	if len(value.val) > maxMetadataValueBytes {
+	if len(value) > maxMetadataValueBytes {
 		return ErrInvalidMetadataValueLength
 	}
 
@@ -112,7 +110,7 @@ func (m Metadata) With(key string, data interface{}) (Metadata, error) {
 		return nil, err
 	}
 
-	newVal := &metadataValue{jsonBytes}
+	newVal := jsonBytes
 	err = validateField(key, newVal)
 
 	if err != nil {
@@ -125,8 +123,8 @@ func (m Metadata) With(key string, data interface{}) (Metadata, error) {
 	} else {
 		newMd = m.clone()
 	}
-
-	newMd[key] = newVal
+	mv := metadataValue(newVal)
+	newMd[key] = &mv
 	return newMd, nil
 }
 
@@ -135,7 +133,7 @@ func (m Metadata) With(key string, data interface{}) (Metadata, error) {
 func (m Metadata) Validate() APIError {
 
 	for k, v := range m {
-		err := validateField(k, v)
+		err := validateField(k, *v)
 		if err != nil {
 			return err
 		}
@@ -150,7 +148,7 @@ func (m Metadata) Validate() APIError {
 // Get returns a raw JSON value of a metadata key
 func (m Metadata) Get(key string) ([]byte, bool) {
 	if v, ok := m[key]; ok {
-		return v.val, ok
+		return *v, ok
 	}
 	return nil, false
 
