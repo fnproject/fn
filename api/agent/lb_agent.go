@@ -2,9 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
-	"io"
-	"net/http"
 	"sync"
 	"time"
 
@@ -13,55 +10,18 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/fnext"
-	"github.com/fnproject/fn/poolmanager"
 )
-
-// RequestReader takes an agent.Call and return a ReadCloser for the request body inside it
-func RequestReader(c *Call) (io.ReadCloser, error) {
-	// Get the call :(((((
-	cc, ok := (*c).(*call)
-
-	if !ok {
-		return nil, errors.New("Can't cast agent.Call to agent.call")
-	}
-
-	if cc.req == nil {
-		return nil, errors.New("Call doesn't contain a request")
-	}
-
-	return cc.req.Body, nil
-}
-
-func ResponseWriter(c *Call) (*http.ResponseWriter, error) {
-	cc, ok := (*c).(*call)
-
-	if !ok {
-		return nil, errors.New("Can't cast agent.Call to agent.call")
-	}
-
-	if rw, ok := cc.w.(http.ResponseWriter); ok {
-		return &rw, nil
-	}
-
-	return nil, errors.New("Unable to get HTTP response writer from the call")
-}
 
 type remoteSlot struct {
 	lbAgent *lbAgent
 }
 
-func (s *remoteSlot) exec(ctx context.Context, call *call) error {
+func (s *remoteSlot) exec(ctx context.Context, call pool.RunnerCall) error {
 	a := s.lbAgent
 
-	memMb := call.Model().Memory
-	lbGroupID := GetGroupID(call.Model())
-
-	capacityRequest := &poolmanager.CapacityRequest{TotalMemoryMb: memMb, LBGroupID: lbGroupID}
-	a.np.AssignCapacity(capacityRequest)
-	defer a.np.ReleaseCapacity(capacityRequest)
-
-	err := a.placer.PlaceCall(a.np, ctx, call, lbGroupID)
+	err := a.placer.PlaceCall(a.rp, ctx, call)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to place call")
 	}
@@ -76,14 +36,10 @@ func (s *remoteSlot) Error() error {
 	return nil
 }
 
-type Placer interface {
-	PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error
-}
-
 type naivePlacer struct {
 }
 
-func NewNaivePlacer() Placer {
+func NewNaivePlacer() pool.Placer {
 	return &naivePlacer{}
 }
 
@@ -94,8 +50,8 @@ func minDuration(f, s time.Duration) time.Duration {
 	return s
 }
 
-func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, lbGroupID string) error {
-	timeout := time.After(call.slotDeadline.Sub(time.Now()))
+func (sp *naivePlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error {
+	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
 
 	for {
 		select {
@@ -104,19 +60,23 @@ func (sp *naivePlacer) PlaceCall(np NodePool, ctx context.Context, call *call, l
 		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
 		default:
-			for _, r := range np.Runners(lbGroupID) {
-				placed, err := r.TryExec(ctx, call)
-				if err != nil {
-					logrus.WithError(err).Error("Failed during call placement")
-				}
-				if placed {
-					return err
+			runners, err := rp.Runners(call)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to find runners for call")
+			} else {
+				for _, r := range runners {
+					placed, err := r.TryExec(ctx, call)
+					if placed {
+						return err
+					}
 				}
 			}
-			remaining := call.slotDeadline.Sub(time.Now())
+
+			remaining := call.SlotDeadline().Sub(time.Now())
 			if remaining <= 0 {
 				return models.ErrCallTimeoutServerBusy
 			}
+			// backoff
 			time.Sleep(minDuration(retryWaitInterval, remaining))
 		}
 	}
@@ -129,22 +89,23 @@ const (
 	// sleep time when scaling from 0 to 1 runners
 	noCapacityWaitInterval = 1 * time.Second
 	// amount of time to wait to place a request on a runner
-	placementTimeout = 15 * time.Second
+	placementTimeout          = 15 * time.Second
+	runnerPoolShutdownTimeout = 5 * time.Second
 )
 
 type lbAgent struct {
 	delegatedAgent Agent
-	np             NodePool
-	placer         Placer
+	rp             pool.RunnerPool
+	placer         pool.Placer
 
 	wg       sync.WaitGroup // Needs a good name
 	shutdown chan struct{}
 }
 
-func NewLBAgent(agent Agent, np NodePool, p Placer) (Agent, error) {
+func NewLBAgent(agent Agent, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
 	a := &lbAgent{
 		delegatedAgent: agent,
-		np:             np,
+		rp:             rp,
 		placer:         p,
 	}
 	return a, nil
@@ -158,7 +119,11 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 }
 
 func (a *lbAgent) Close() error {
-	a.np.Shutdown()
+	// we should really be passing the server's context here
+	ctx, cancel := context.WithTimeout(context.Background(), runnerPoolShutdownTimeout)
+	defer cancel()
+
+	a.rp.Shutdown(ctx)
 	err := a.delegatedAgent.Close()
 	if err != nil {
 		return err

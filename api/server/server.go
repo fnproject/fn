@@ -17,16 +17,17 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"unicode"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/version"
 	"github.com/fnproject/fn/fnext"
 	"github.com/gin-gonic/gin"
@@ -49,9 +50,7 @@ const (
 	EnvDBURL           = "FN_DB_URL"
 	EnvLOGDBURL        = "FN_LOGSTORE_URL"
 	EnvRunnerURL       = "FN_RUNNER_API_URL"
-	EnvNPMAddress      = "FN_NPM_ADDRESS"
 	EnvRunnerAddresses = "FN_RUNNER_ADDRESSES"
-	EnvLBPlacementAlg  = "FN_PLACER"
 	EnvNodeType        = "FN_NODE_TYPE"
 	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvGRPCPort        = "FN_GRPC_PORT"
@@ -62,6 +61,8 @@ const (
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
+
+	EnvProcessCollectorList = "FN_PROCESS_COLLECTOR_LIST"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -113,7 +114,6 @@ type Server struct {
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
-	runnerPool      models.RunnerPool
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -348,6 +348,18 @@ func WithAgent(agent agent.Agent) ServerOption {
 	}
 }
 
+func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
+	runnerAddresses := getEnv(EnvRunnerAddresses, "")
+	if runnerAddresses == "" {
+		return nil, errors.New("Must provide FN_RUNNER_ADDRESSES  when running in default load-balanced mode!")
+	}
+	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
+}
+
+func (s *Server) defaultPlacer() pool.Placer {
+	return agent.NewNaivePlacer()
+}
+
 func WithLogstoreFromDatastore() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		if s.datastore == nil {
@@ -406,7 +418,7 @@ func WithAgentFromEnv() ServerOption {
 			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
 			delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 			cancelCtx, cancel := context.WithCancel(ctx)
-			prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
 			if err != nil {
 				return err
 			}
@@ -431,28 +443,13 @@ func WithAgentFromEnv() ServerOption {
 			}
 			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
-			npmAddress := getEnv(EnvNPMAddress, "")
-			runnerAddresses := getEnv(EnvRunnerAddresses, "")
-
-			var nodePool agent.NodePool
-			if npmAddress != "" {
-				// TODO refactor DefaultgRPCNodePool as an extension
-				nodePool = agent_grpc.DefaultgRPCNodePool(npmAddress, s.cert, s.certKey, s.certAuthority)
-			} else if runnerAddresses != "" {
-				nodePool = agent_grpc.DefaultStaticNodePool(strings.Split(runnerAddresses, ","))
-			} else {
-				return errors.New("Must provide either FN_NPM_ADDRESS or FN_RUNNER_ADDRESSES for an Fn NuLB node.")
+			runnerPool, err := s.defaultRunnerPool()
+			if err != nil {
+				return err
 			}
+			placer := s.defaultPlacer()
 
-			// Select the placement algorithm
-			var placer agent.Placer
-			switch getEnv(EnvLBPlacementAlg, "") {
-			case "ch":
-				placer = agent.NewCHPlacer()
-			default:
-				placer = agent.NewNaivePlacer()
-			}
-			s.agent, err = agent.NewLBAgent(delegatedAgent, nodePool, placer)
+			s.agent, err = agent.NewLBAgent(delegatedAgent, runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}
@@ -530,9 +527,16 @@ func WithPrometheus() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		reg := promclient.NewRegistry()
 		reg.MustRegister(promclient.NewProcessCollector(os.Getpid(), "fn"),
-			promclient.NewProcessCollectorPIDFn(dockerPid(), "dockerd"),
 			promclient.NewGoCollector(),
 		)
+
+		for _, exeName := range getMonitoredCmdNames() {
+			san := promSanitizeMetricName(exeName)
+			err := reg.Register(promclient.NewProcessCollectorPIDFn(getPidCmd(exeName), san))
+			if err != nil {
+				panic(err)
+			}
+		}
 
 		exporter, err := prometheus.NewExporter(prometheus.Options{
 			Namespace: "fn",
@@ -590,8 +594,35 @@ func WithZipkin(zipkinURL string) ServerOption {
 	}
 }
 
+// prometheus only allows [a-zA-Z0-9:_] in metrics names.
+func promSanitizeMetricName(name string) string {
+	res := make([]rune, 0, len(name))
+	for _, rVal := range name {
+		if unicode.IsDigit(rVal) || unicode.IsLetter(rVal) || rVal == ':' {
+			res = append(res, rVal)
+		} else {
+			res = append(res, '_')
+		}
+	}
+	return string(res)
+}
+
+// determine sidecar-monitored cmd names. But by default
+// we track dockerd + containerd
+func getMonitoredCmdNames() []string {
+
+	// override? empty variable to disable trackers
+	val, ok := os.LookupEnv(EnvProcessCollectorList)
+	if ok {
+		return strings.Fields(val)
+	}
+
+	// by default, we monitor dockerd and containerd
+	return []string{"dockerd", "docker-containerd"}
+}
+
 // TODO plumbing considerations, we've put the S pipe next to the chandalier...
-func dockerPid() func() (int, error) {
+func getPidCmd(cmdName string) func() (int, error) {
 	// prometheus' process collector only works on linux anyway. let them do the
 	// process detection, if we return an error here we just get 0 metrics and it
 	// does not log / blow up (that's fine!) it's also likely we hit permissions
@@ -602,50 +633,62 @@ func dockerPid() func() (int, error) {
 
 	return func() (int, error) {
 		if pid != 0 {
-			// make sure it's docker pid.
-			if isDockerPid("/proc/" + strconv.Itoa(pid) + "/status") {
+			// make sure it's our pid.
+			if isPidMatchCmd(cmdName, pid) {
 				return pid, nil
 			}
 			pid = 0 // reset to go search
 		}
 
-		err := filepath.Walk("/proc", func(path string, info os.FileInfo, err error) error {
-			if err != nil || pid != 0 {
-				// we get permission errors digging around in here, ignore them and press on
-				return nil
-			}
-
-			// /proc/<pid>/status
-			if strings.Count(path, "/") == 3 && strings.Contains(path, "/status") {
-				if isDockerPid(path) {
-					// extract pid from path
-					pid, _ = strconv.Atoi(path[6:strings.LastIndex(path, "/")])
-					return io.EOF // end the search
+		if pids, err := getPidList(); err == nil {
+			for _, test := range pids {
+				if isPidMatchCmd(cmdName, test) {
+					pid = test
+					return pid, nil
 				}
 			}
-
-			// keep searching
-			return nil
-		})
-		if err == io.EOF { // used as sentinel
-			err = nil
 		}
-		return pid, err
+
+		return pid, io.EOF
 	}
 }
 
-func isDockerPid(path string) bool {
-	// first line of status file is: "Name: <name>"
-	f, err := os.Open(path)
+func isPidMatchCmd(cmdName string, pid int) bool {
+	fs, err := os.Open("/proc/" + strconv.Itoa(pid) + "/cmdline")
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer fs.Close()
 
-	// scan first line only
-	scanner := bufio.NewScanner(f)
-	scanner.Scan()
-	return strings.HasSuffix(scanner.Text(), "dockerd")
+	rd := bufio.NewReader(fs)
+	tok, err := rd.ReadSlice(0)
+	if err != nil || len(tok) < len(cmdName) {
+		return false
+	}
+
+	return filepath.Base(string(tok[:len(tok)-1])) == cmdName
+}
+
+func getPidList() ([]int, error) {
+	var pids []int
+	dir, err := os.Open("/proc")
+	if err != nil {
+		return pids, nil
+	}
+	defer dir.Close()
+
+	files, err := dir.Readdirnames(0)
+	if err != nil {
+		return pids, nil
+	}
+
+	pids = make([]int, 0, len(files))
+	for _, tok := range files {
+		if conv, err := strconv.ParseUint(tok, 10, 64); err == nil {
+			pids = append(pids, int(conv))
+		}
+	}
+	return pids, nil
 }
 
 func setMachineID() {
@@ -841,12 +884,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 // implements fnext.ExtServer
 func (s *Server) Datastore() models.Datastore {
 	return s.datastore
-}
-
-// WithRunnerPool provides an extension point for overriding
-// the default runner pool implementation when running in load-balanced mode
-func (s *Server) WithRunnerPool(runnerPool models.RunnerPool) {
-	s.runnerPool = runnerPool
 }
 
 // returns the unescaped ?cursor and ?perPage values

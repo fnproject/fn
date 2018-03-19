@@ -7,7 +7,8 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	agent_grpc "github.com/fnproject/fn/api/agent/nodepool/grpc"
+	"github.com/fnproject/fn/api/models"
+	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
 
 	"github.com/sirupsen/logrus"
@@ -17,22 +18,23 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 type SystemTestNodePool struct {
-	runners []agent.Runner
+	runners []pool.Runner
 }
 
-func NewSystemTestNodePool() (agent.NodePool, error) {
+func NewSystemTestNodePool() (pool.RunnerPool, error) {
 	myAddr := whoAmI()
 	runners := []string{
 		fmt.Sprintf("%s:9190", myAddr),
 		fmt.Sprintf("%s:9191", myAddr),
 		fmt.Sprintf("%s:9192", myAddr),
 	}
-	return agent_grpc.DefaultStaticNodePool(runners), nil
+	return agent.DefaultStaticRunnerPool(runners), nil
 }
 
 func SetUpSystem() error {
@@ -154,6 +156,39 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	return server.New(ctx, opts...), nil
 }
 
+type testCapacityGate struct {
+	runnerNumber           int
+	committedCapacityUnits uint64
+	mtx                    sync.Mutex
+}
+
+const (
+	FixedTestCapacityUnitsPerRunner = 512
+)
+
+func (tcg *testCapacityGate) CheckAndReserveCapacity(units uint64) error {
+	tcg.mtx.Lock()
+	defer tcg.mtx.Unlock()
+	if tcg.committedCapacityUnits+units <= FixedTestCapacityUnitsPerRunner {
+		logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is committing capacity")
+		tcg.committedCapacityUnits = tcg.committedCapacityUnits + units
+		return nil
+	}
+	logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is out of capacity")
+	return models.ErrCallTimeoutServerBusy
+}
+
+func (tcg *testCapacityGate) ReleaseCapacity(units uint64) {
+	tcg.mtx.Lock()
+	defer tcg.mtx.Unlock()
+	if units <= tcg.committedCapacityUnits {
+		logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is releasing capacity")
+		tcg.committedCapacityUnits = tcg.committedCapacityUnits - units
+		return
+	}
+	panic("Fatal error in test capacity calculation, getting to sub-zero capacity")
+}
+
 func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
 	opts := make([]server.ServerOption, 0)
@@ -174,7 +209,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
 	delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 	cancelCtx, cancel := context.WithCancel(ctx)
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "")
+	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "", &testCapacityGate{runnerNumber: nodeNum})
 	if err != nil {
 		return nil, err
 	}
