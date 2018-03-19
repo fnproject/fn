@@ -123,10 +123,13 @@ func TestSetAppMetadataOnCreate(t *testing.T) {
 }
 
 func TestUpdateAppMetadataOnPatch(t *testing.T) {
+	t.Parallel()
+
 	for _, tci := range updateMetadataValidCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
+			t.Parallel()
 			s := SetupHarness()
 			defer s.Cleanup()
 
@@ -242,6 +245,7 @@ func TestAppInsect(t *testing.T) {
 }
 
 func TestAppPatchConfig(t *testing.T) {
+	t.Parallel()
 
 	for _, tci := range updateConfigCases {
 		// iterator mutation meets parallelism... pfft

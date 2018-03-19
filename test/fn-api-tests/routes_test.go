@@ -191,6 +191,7 @@ func TestSetRouteMetadataOnCreate(t *testing.T) {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
+			t.Parallel()
 			s := SetupHarness()
 			defer s.Cleanup()
 
@@ -258,6 +259,7 @@ func TestSetRouteMetadataOnPatch(t *testing.T) {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
+			t.Parallel()
 			s := SetupHarness()
 			defer s.Cleanup()
 

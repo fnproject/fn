@@ -12,7 +12,7 @@ import (
 // Metadata encapsulates key-value metadata. The structure is immutable via its public API and nil-safe for its contract
 // permissive nilability is here to simplify updates and reduce the need for nil handling in extensions - metadata should be updated by over-writing the original object:
 //  target.Metadata  = target.Metadata.With("fooKey",1)
-//  // old MD remains empty
+// old MD remains empty
 // Metadata is lenable
 type Metadata map[string]*metadataValue
 
@@ -147,6 +147,7 @@ func (m Metadata) Validate() APIError {
 	return nil
 }
 
+// Get returns a raw JSON value of a metadata key
 func (m Metadata) Get(key string) ([]byte, bool) {
 	if v, ok := m[key]; ok {
 		return v.val, ok
@@ -155,6 +156,7 @@ func (m Metadata) Get(key string) ([]byte, bool) {
 
 }
 
+// Without returns a new metadata map with a value excluded
 func (m Metadata) Without(key string) Metadata {
 	nuVal := m.clone()
 	delete(nuVal, key)
@@ -184,6 +186,7 @@ func (m Metadata) MergeChange(newVs Metadata) Metadata {
 }
 
 // clone produces a key-wise copy of the map
+// publically MD can be copied by reference as it's (by contract) immutable
 func (m Metadata) clone() Metadata {
 
 	if m == nil {
@@ -196,7 +199,7 @@ func (m Metadata) clone() Metadata {
 	return newMd
 }
 
-// implements sql.Valuer, returning a string
+// Value implements sql.Valuer, returning a string
 func (m Metadata) Value() (driver.Value, error) {
 	if len(m) < 1 {
 		return driver.Value(string("")), nil
@@ -206,7 +209,7 @@ func (m Metadata) Value() (driver.Value, error) {
 	return driver.Value(b.String()), err
 }
 
-// implements sql.Scanner
+// Scan implements sql.Scanner
 func (m *Metadata) Scan(value interface{}) error {
 	if value == nil || value == "" {
 		*m = nil

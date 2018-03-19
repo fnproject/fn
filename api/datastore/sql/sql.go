@@ -458,7 +458,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			:idle_timeout,
 			:headers,
 			:config,
-            :meta_data,
+			:meta_data,
 			:created_at,
 			:updated_at
 		);`)
@@ -500,7 +500,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			idle_timeout = :idle_timeout,
 			headers = :headers,
 			config = :config,
-            meta_data = :meta_data,
+			meta_data = :meta_data,
 			updated_at = :updated_at
 		WHERE app_name=:app_name AND path=:path;`)
 
