@@ -36,7 +36,7 @@ func (s *TestHarness) PostRoute(appName string, route *models.Route) (*routes.Po
 	ok, err := s.Client.Routes.PostAppsAppRoutes(cfg)
 
 	if err == nil {
-		s.createdRoutes = append(s.createdRoutes, &appRoute{appName: appName, routeName: ok.Payload.Route.Path})
+		s.createdApps[appName] = true
 	}
 	return ok, err
 
@@ -117,7 +117,8 @@ func (s *TestHarness) PutRoute(appName string, routePath string, route *models.R
 	resp, err := s.Client.Routes.PutAppsAppRoutesRoute(cfg)
 
 	if err == nil {
-		s.createdApps = append(s.createdApps, appName)
+		s.createdApps[appName] = true
 	}
+
 	return resp, err
 }

@@ -47,11 +47,9 @@ func APIClient() *client.Fn {
 }
 
 var (
-	getServer     sync.Once
-	cancel2       context.CancelFunc
-	s             *server.Server
-	appsandroutes = make(map[string][]string)
-	approutesLock sync.Mutex
+	getServer sync.Once
+	cancel2   context.CancelFunc
+	s         *server.Server
 )
 
 func getServerWithCancel() (*server.Server, context.CancelFunc) {
@@ -114,8 +112,7 @@ type TestHarness struct {
 	RouteHeaders map[string][]string
 	Cancel       context.CancelFunc
 
-	createdApps   []string
-	createdRoutes []*appRoute
+	createdApps map[string]bool
 }
 
 func RandStringBytes(n int) string {
@@ -142,6 +139,7 @@ func SetupHarness() *TestHarness {
 		Memory:       uint64(256),
 		Timeout:      int32(30),
 		IdleTimeout:  int32(30),
+		createdApps:  make(map[string]bool),
 	}
 
 	if Host() != "localhost:8080" {
@@ -167,7 +165,7 @@ func (s *TestHarness) Cleanup() {
 	//	deleteRoute(ctx, s.Client, ar.appName, ar.routeName)
 	//}
 
-	for _, app := range s.createdApps {
+	for app, _ := range s.createdApps {
 		safeDeleteApp(ctx, s.Client, app)
 	}
 }

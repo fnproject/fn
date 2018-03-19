@@ -23,12 +23,7 @@ func (s *TestHarness) PostApp(app *models.App) (*apps.PostAppsOK, error) {
 	ok, err := s.Client.Apps.PostApps(cfg)
 
 	if err == nil {
-		approutesLock.Lock()
-		_, got := appsandroutes[ok.Payload.App.Name]
-		if !got {
-			appsandroutes[ok.Payload.App.Name] = []string{}
-		}
-		approutesLock.Unlock()
+		s.createdApps[ok.Payload.App.Name] = true
 	}
 	return ok, err
 }
