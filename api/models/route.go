@@ -36,7 +36,7 @@ type Route struct {
 	Timeout     int32           `json:"timeout" db:"timeout"`
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	Config      Config          `json:"config,omitempty" db:"config"`
-	Metadata    Metadata        `json:"metadata,omitempty" db:"meta_data"`
+	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
@@ -130,7 +130,7 @@ func (r *Route) Validate() error {
 		return ErrRoutesInvalidMemory
 	}
 
-	err = r.Metadata.Validate()
+	err = r.Annotations.Validate()
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 	eq = eq && r1.Timeout == r2.Timeout
 	eq = eq && r1.IdleTimeout == r2.IdleTimeout
 	eq = eq && r1.Config.Equals(r2.Config)
-	eq = eq && r1.Metadata.Equals(r2.Metadata)
+	eq = eq && r1.Annotations.Equals(r2.Annotations)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(r1.CreatedAt).Equal(time.Time(r2.CreatedAt))
@@ -235,7 +235,7 @@ func (r *Route) Update(patch *Route) {
 		}
 	}
 
-	r.Metadata = r.Metadata.MergeChange(patch.Metadata)
+	r.Annotations = r.Annotations.MergeChange(patch.Annotations)
 
 	if !r.Equals(original) {
 		r.UpdatedAt = strfmt.DateTime(time.Now())

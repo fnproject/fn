@@ -185,9 +185,9 @@ func TestCanUpdateRouteConfig(t *testing.T) {
 
 }
 
-func TestSetRouteMetadataOnCreate(t *testing.T) {
+func TestSetRouteAnnotationsOnCreate(t *testing.T) {
 	t.Parallel()
-	for _, tci := range createMetadataValidCases {
+	for _, tci := range createAnnotationsValidCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
@@ -199,7 +199,7 @@ func TestSetRouteMetadataOnCreate(t *testing.T) {
 				Name: s.AppName,
 			})
 			rt := s.BasicRoute()
-			rt.Metadata = tc.metadata
+			rt.Annotations = tc.annotations
 
 			route, err := s.Client.Routes.PostAppsAppRoutes(&routes.PostAppsAppRoutesParams{
 				App:     s.AppName,
@@ -210,24 +210,24 @@ func TestSetRouteMetadataOnCreate(t *testing.T) {
 			})
 
 			if err != nil {
-				t.Fatalf("Failed to create route with valid metadata %v got error %v", tc.metadata, err)
+				t.Fatalf("Failed to create route with valid annotations %v got error %v", tc.annotations, err)
 			}
 
-			gotMd := route.Payload.Route.Metadata
-			if !MetadataEquivalent(gotMd, tc.metadata) {
-				t.Errorf("Returned metadata %v does not match set metadata %v", gotMd, tc.metadata)
+			gotMd := route.Payload.Route.Annotations
+			if !AnnotationsEquivalent(gotMd, tc.annotations) {
+				t.Errorf("Returned annotations %v does not match set annotations %v", gotMd, tc.annotations)
 			}
 
 			getRoute := s.RouteMustExist(t, s.AppName, s.RoutePath)
 
-			if !MetadataEquivalent(getRoute.Metadata, tc.metadata) {
-				t.Errorf("GET metadata '%v' does not match set metadata %v", getRoute.Metadata, tc.metadata)
+			if !AnnotationsEquivalent(getRoute.Annotations, tc.annotations) {
+				t.Errorf("GET annotations '%v' does not match set annotations %v", getRoute.Annotations, tc.annotations)
 			}
 
 		})
 	}
 
-	for _, tci := range createMetadataErrorCases {
+	for _, tci := range createAnnotationsErrorCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("invalid_"+tc.name, func(ti *testing.T) {
@@ -236,16 +236,16 @@ func TestSetRouteMetadataOnCreate(t *testing.T) {
 			defer s.Cleanup()
 
 			_, err := s.PostApp(&models.App{
-				Name:     s.AppName,
-				Metadata: tc.metadata,
+				Name:        s.AppName,
+				Annotations: tc.annotations,
 			})
 
 			if err == nil {
-				t.Fatalf("Created app with invalid metadata %v but expected error", tc.metadata)
+				t.Fatalf("Created app with invalid annotations %v but expected error", tc.annotations)
 			}
 
 			if _, ok := err.(*apps.PostAppsBadRequest); !ok {
-				t.Errorf("Expecting bad request for invalid metadata, got %v", err)
+				t.Errorf("Expecting bad request for invalid annotations, got %v", err)
 			}
 
 		})
@@ -255,7 +255,7 @@ func TestSetRouteMetadataOnCreate(t *testing.T) {
 func TestSetRouteMetadataOnPatch(t *testing.T) {
 	t.Parallel()
 
-	for _, tci := range updateMetadataValidCases {
+	for _, tci := range updateAnnotationsValidCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
@@ -265,7 +265,7 @@ func TestSetRouteMetadataOnPatch(t *testing.T) {
 
 			s.GivenAppExists(t, &models.App{Name: s.AppName})
 			rt := s.BasicRoute()
-			rt.Metadata = tc.initialMetadata
+			rt.Annotations = tc.initial
 			s.GivenRouteExists(t, s.AppName, rt)
 
 			res, err := s.Client.Routes.PatchAppsAppRoutesRoute(&routes.PatchAppsAppRoutesRouteParams{
@@ -274,29 +274,29 @@ func TestSetRouteMetadataOnPatch(t *testing.T) {
 				Context: s.Context,
 				Body: &models.RouteWrapper{
 					Route: &models.Route{
-						Metadata: tc.change,
+						Annotations: tc.change,
 					},
 				},
 			})
 
 			if err != nil {
-				t.Fatalf("Failed to patch metadata with %v on route: %v", tc.change, err)
+				t.Fatalf("Failed to patch annotations with %v on route: %v", tc.change, err)
 			}
 
-			gotMd := res.Payload.Route.Metadata
-			if !MetadataEquivalent(gotMd, tc.expected) {
-				t.Errorf("Returned metadata %v does not match set metadata %v", gotMd, tc.expected)
+			gotMd := res.Payload.Route.Annotations
+			if !AnnotationsEquivalent(gotMd, tc.expected) {
+				t.Errorf("Returned annotations %v does not match set annotations %v", gotMd, tc.expected)
 			}
 
 			getRoute := s.RouteMustExist(t, s.AppName, s.RoutePath)
 
-			if !MetadataEquivalent(getRoute.Metadata, tc.expected) {
-				t.Errorf("GET metadata '%v' does not match set metadata %v", getRoute.Metadata, tc.expected)
+			if !AnnotationsEquivalent(getRoute.Annotations, tc.expected) {
+				t.Errorf("GET annotations '%v' does not match set annotations %v", getRoute.Annotations, tc.expected)
 			}
 		})
 	}
 
-	for _, tci := range updateMetadataErrorCases {
+	for _, tci := range updateAnnotationsErrorCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("invalid_"+tc.name, func(t *testing.T) {
@@ -308,7 +308,7 @@ func TestSetRouteMetadataOnPatch(t *testing.T) {
 				Name: s.AppName,
 			})
 			rt := s.BasicRoute()
-			rt.Metadata = tc.initialMetadata
+			rt.Annotations = tc.initial
 			s.GivenRouteExists(t, s.AppName, rt)
 
 			_, err := s.Client.Routes.PatchAppsAppRoutesRoute(&routes.PatchAppsAppRoutesRouteParams{
@@ -317,16 +317,16 @@ func TestSetRouteMetadataOnPatch(t *testing.T) {
 				Context: s.Context,
 				Body: &models.RouteWrapper{
 					Route: &models.Route{
-						Metadata: tc.change,
+						Annotations: tc.change,
 					},
 				},
 			})
 
 			if err == nil {
-				t.Errorf("patched route with invalid metadata %v but expected error", tc.change)
+				t.Errorf("patched route with invalid annotations %v but expected error", tc.change)
 			}
 			if _, ok := err.(*routes.PatchAppsAppRoutesRouteBadRequest); !ok {
-				t.Errorf("Expecting bad request for invalid metadata, got %v", err)
+				t.Errorf("Expecting bad request for invalid annotations, got %v", err)
 			}
 
 		})

@@ -64,9 +64,9 @@ func TestAppCreateNoConfigSuccess(t *testing.T) {
 
 }
 
-func TestSetAppMetadataOnCreate(t *testing.T) {
+func TestSetAppAnnotationsOnCreate(t *testing.T) {
 	t.Parallel()
-	for _, tci := range createMetadataValidCases {
+	for _, tci := range createAnnotationsValidCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
@@ -75,29 +75,29 @@ func TestSetAppMetadataOnCreate(t *testing.T) {
 			defer s.Cleanup()
 
 			app, err := s.PostApp(&models.App{
-				Name:     s.AppName,
-				Metadata: tc.metadata,
+				Name:        s.AppName,
+				Annotations: tc.annotations,
 			})
 
 			if err != nil {
-				t.Fatalf("Failed to create app with valid metadata %v got error %v", tc.metadata, err)
+				t.Fatalf("Failed to create app with valid annotations %v got error %v", tc.annotations, err)
 			}
 
-			gotMd := app.Payload.App.Metadata
-			if !MetadataEquivalent(gotMd, tc.metadata) {
-				t.Errorf("Returned metadata %v does not match set metadata %v", gotMd, tc.metadata)
+			gotMd := app.Payload.App.Annotations
+			if !AnnotationsEquivalent(gotMd, tc.annotations) {
+				t.Errorf("Returned annotations %v does not match set annotations %v", gotMd, tc.annotations)
 			}
 
 			getApp := s.AppMustExist(t, s.AppName)
 
-			if !MetadataEquivalent(getApp.Metadata, tc.metadata) {
-				t.Errorf("GET metadata '%v' does not match set metadata %v", getApp.Metadata, tc.metadata)
+			if !AnnotationsEquivalent(getApp.Annotations, tc.annotations) {
+				t.Errorf("GET annotations '%v' does not match set annotations %v", getApp.Annotations, tc.annotations)
 			}
 
 		})
 	}
 
-	for _, tci := range createMetadataErrorCases {
+	for _, tci := range createAnnotationsErrorCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("invalid_"+tc.name, func(ti *testing.T) {
@@ -106,26 +106,26 @@ func TestSetAppMetadataOnCreate(t *testing.T) {
 			defer s.Cleanup()
 
 			_, err := s.PostApp(&models.App{
-				Name:     s.AppName,
-				Metadata: tc.metadata,
+				Name:        s.AppName,
+				Annotations: tc.annotations,
 			})
 
 			if err == nil {
-				t.Fatalf("Created app with invalid metadata %v but expected error", tc.metadata)
+				t.Fatalf("Created app with invalid annotations %v but expected error", tc.annotations)
 			}
 
 			if _, ok := err.(*apps.PostAppsBadRequest); !ok {
-				t.Errorf("Expecting bad request for invalid metadata, got %v", err)
+				t.Errorf("Expecting bad request for invalid annotations, got %v", err)
 			}
 
 		})
 	}
 }
 
-func TestUpdateAppMetadataOnPatch(t *testing.T) {
+func TestUpdateAppAnnotationsOnPatch(t *testing.T) {
 	t.Parallel()
 
-	for _, tci := range updateMetadataValidCases {
+	for _, tci := range updateAnnotationsValidCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("valid_"+tc.name, func(t *testing.T) {
@@ -134,8 +134,8 @@ func TestUpdateAppMetadataOnPatch(t *testing.T) {
 			defer s.Cleanup()
 
 			s.GivenAppExists(t, &models.App{
-				Name:     s.AppName,
-				Metadata: tc.initialMetadata,
+				Name:        s.AppName,
+				Annotations: tc.initial,
 			})
 
 			res, err := s.Client.Apps.PatchAppsApp(&apps.PatchAppsAppParams{
@@ -143,29 +143,29 @@ func TestUpdateAppMetadataOnPatch(t *testing.T) {
 				Context: s.Context,
 				Body: &models.AppWrapper{
 					App: &models.App{
-						Metadata: tc.change,
+						Annotations: tc.change,
 					},
 				},
 			})
 
 			if err != nil {
-				t.Fatalf("Failed to patch metadata with %v on app: %v", tc.change, err)
+				t.Fatalf("Failed to patch annotations with %v on app: %v", tc.change, err)
 			}
 
-			gotMd := res.Payload.App.Metadata
-			if !MetadataEquivalent(gotMd, tc.expected) {
-				t.Errorf("Returned metadata %v does not match set metadata %v", gotMd, tc.expected)
+			gotMd := res.Payload.App.Annotations
+			if !AnnotationsEquivalent(gotMd, tc.expected) {
+				t.Errorf("Returned annotations %v does not match set annotations %v", gotMd, tc.expected)
 			}
 
 			getApp := s.AppMustExist(t, s.AppName)
 
-			if !MetadataEquivalent(getApp.Metadata, tc.expected) {
-				t.Errorf("GET metadata '%v' does not match set metadata %v", getApp.Metadata, tc.expected)
+			if !AnnotationsEquivalent(getApp.Annotations, tc.expected) {
+				t.Errorf("GET annotations '%v' does not match set annotations %v", getApp.Annotations, tc.expected)
 			}
 		})
 	}
 
-	for _, tci := range updateMetadataErrorCases {
+	for _, tci := range updateAnnotationsErrorCases {
 		// iterator mutation meets parallelism... pfft
 		tc := tci
 		t.Run("invalid_"+tc.name, func(t *testing.T) {
@@ -174,8 +174,8 @@ func TestUpdateAppMetadataOnPatch(t *testing.T) {
 			defer s.Cleanup()
 
 			s.GivenAppExists(t, &models.App{
-				Name:     s.AppName,
-				Metadata: tc.initialMetadata,
+				Name:        s.AppName,
+				Annotations: tc.initial,
 			})
 
 			_, err := s.Client.Apps.PatchAppsApp(&apps.PatchAppsAppParams{
@@ -183,16 +183,16 @@ func TestUpdateAppMetadataOnPatch(t *testing.T) {
 				Context: s.Context,
 				Body: &models.AppWrapper{
 					App: &models.App{
-						Metadata: tc.change,
+						Annotations: tc.change,
 					},
 				},
 			})
 
 			if err == nil {
-				t.Errorf("patched app with invalid metadata %v but expected error", tc.change)
+				t.Errorf("patched app with invalid annotations %v but expected error", tc.change)
 			}
 			if _, ok := err.(*apps.PatchAppsAppBadRequest); !ok {
-				t.Errorf("Expecting bad request for invalid metadata, got %v", err)
+				t.Errorf("Expecting bad request for invalid annotations, got %v", err)
 			}
 
 		})

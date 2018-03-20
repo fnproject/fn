@@ -193,8 +193,8 @@
     "client/routes",
     "models"
   ]
-  revision = "34c83650636d7f03c57681cd44b254caff33bfba"
-  version = "0.2.5"
+  revision = "1d0c9a10acfbb6c91171752dc76d814db42af6f2"
+  version = "0.2.6"
 
 [[projects]]
   name = "github.com/fsouza/go-dockerclient"

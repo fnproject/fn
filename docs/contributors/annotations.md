@@ -1,16 +1,14 @@
-# App and Route Metadata
+# App and Route Annotations
 
-App and Route metadata allows people building on the Fn platform to encode consumer-specific data inline with Apps and Routes.
+App and Route annotations allow users building on the Fn platform to encode consumer-specific data inline with Apps and Routes.
 
-Metadata can be used to either communicate and carry information externally (only by API users) or to communicate between external applications and Fn extensions.
-
-
+Annotations can be used to either communicate and carry information externally (only by API users) or to communicate between external applications and Fn extensions.
 
 ## Use cases/Examples:
 
-### Externally defined/consumed metadata
+### Externally defined/consumed annotations
 
-Software using Fn as a service,  attaches non-identifying metadata  to Fn objects for subsequent reads (e.g. my reference for this function/app )
+Software using Fn as a service,  attaches non-identifying metadata annotatinos to Fn resources for subsequent reads (e.g. my reference for this function/app )
 
 Writer : API user, Reader: API user
 
@@ -21,7 +19,7 @@ POST /v1/apps
 
  {
  ...
-  "metadata" : {
+  "annotations" : {
     "platx.com/ref" : "adsfasdfads"
   }
  ...
@@ -37,14 +35,14 @@ POST /v1/apps
 ...
    {
      ...
-       "metadata" :  {
+       "annotations" :  {
               "my_cloud_provider.com/network_id" : "network.id"
        }
      ...
 }
 ```
 
-###  Extensions: Allow indicating internally derived/set values to user (API extension sets metadata, prevents user from changing it)
+###  Extensions: Allow indicating internally derived/set values to user (API extension sets/generates annotations, prevents user from changing it)
 
 Writer : Internal platform extension, Reader: API user.
 
@@ -54,7 +52,7 @@ GET /v1/apps/myapp
 ...
    {
      ...
-       "metadata" :  {
+       "annotations" :  {
               "my_cloud_provider.com/create_user" : "foo@foo.com"
        }
      ...
@@ -68,7 +66,7 @@ PATCH /v1/apps/myapp
 ...
    {
      ...
-       "metadata" :  {
+       "annotations" :  {
               "my_cloud_provider.com/create_user" : "foo@foo.com"
        }
      ...
@@ -77,12 +75,12 @@ PATCH /v1/apps/myapp
 HTTP/1.1  400 Invalid operation
 
 {
-   "error": "metadata key cannot be changed",
+   "error": "annotation key cannot be changed",
 }
 ```
 
 ## Content Examples
-example : user attaches local metadata
+example : user attaches local annotations
 
 ```json
 PUT /v1/apps/foo
@@ -90,7 +88,7 @@ PUT /v1/apps/foo
 {
   app: {
    ...
-    "metadata": {
+    "annotations": {
          "mylabel": "super-cool-fn",
          "myMetaData": {
            "k1": "foo",
@@ -103,13 +101,13 @@ PUT /v1/apps/foo
 }
 ```
 
-User sets extension-specific metadata:
+User sets extension-specific annotations:
 
 ```
 PUT /v1/apps/foo
 {
    ...
-    "metadata": {
+    "annotations": {
         "example.extension.com/v1/myval" : "val"
     }
   ...
@@ -120,13 +118,13 @@ PUT /v1/apps/foo
 
 A key consists of any printable (non-extended) ascii characters excluding whitespace characters.
 
-The maximum (byte) size of a key is  128 bytes (excluding quotes).
+The maximum (byte) size of a key is 128 bytes (excluding quotes).
 
-Keys are stored as free text with the object,   normatively however,  extensions and systems using metadata *must* use a namespace prefix based on an identified domain and followed by at least one '/' character.
+Keys are stored as free text with the object. Normatively extensions and systems using annotations *must* use a namespace prefix based on an identified domain and followed by at least one '/' character.
 
-Systems *should* use independent metadata keys for any value that can be changed independently.
+Systems *should* use independent annotation keys for any value that can be changed independently.
 
-Extensions *should not* interact with metadata keys that are not prefixed with a domain they own.
+Extensions *should not* interact with annotations keys that are not prefixed with a domain they own.
 
 ## Value syntax
 
@@ -134,11 +132,13 @@ Values may contain any valid JSON value (object/array/string/number) except the 
 
 The serialised JSON representation (rendered without excess whitespace as a string) of a single value must not exceed a 512 bytes.
 
-## Modifying and deleting metadata keys
+## Modifying and deleting annotation keys
 
-A key can be modified by a PATCH operation containing a partial metadata map indicating the keys to update (or delete)
+A key can be modified by a PATCH operation containing a partial `annotations` object indicating the keys to update (or delete)
 
 A key can be deleted by a PATCH operation by setting its value to an empty string.
+
+For each element that of data that can be changed independently, you *should* use a new top-level annotation key.
 
 ## Maximum number of keys
 
@@ -148,4 +148,4 @@ Fn may return a larger number of keys.
 
 ## Extension interaction with resource modification
 
-An extension  may prevent a PUT,PATCH or POST operation on a domain object based on the value of a metadata key passed in by a user,  in this case this should result in an HTTP  400 error with an informational message indicating that an error was present in the medata and containing the exact key  or keys which caused the error.
+An extension  may prevent a PUT,PATCH or POST operation on a domain object based on the value of an annotation passed in by a user, in this case this should result in an HTTP  400 error with an informational message indicating that an error was present in the annotations and containing the exact key  or keys which caused the error.

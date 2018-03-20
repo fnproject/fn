@@ -8,11 +8,11 @@ import (
 )
 
 type App struct {
-	Name      string          `json:"name" db:"name"`
-	Config    Config          `json:"config,omitempty" db:"config"`
-	Metadata  Metadata        `json:"metadata,omitempty" db:"meta_data"`
-	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	Name        string          `json:"name" db:"name"`
+	Config      Config          `json:"config,omitempty" db:"config"`
+	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
+	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 func (a *App) SetDefaults() {
@@ -40,7 +40,7 @@ func (a *App) Validate() error {
 			return ErrAppsInvalidName
 		}
 	}
-	err := a.Metadata.Validate()
+	err := a.Annotations.Validate()
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	eq := true
 	eq = eq && a1.Name == a2.Name
 	eq = eq && a1.Config.Equals(a2.Config)
-	eq = eq && a1.Metadata.Equals(a2.Metadata)
+	eq = eq && a1.Annotations.Equals(a2.Annotations)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
 	// and these are not values the user may set so we kind of don't care.
 	//eq = eq && time.Time(a1.CreatedAt).Equal(time.Time(a2.CreatedAt))
@@ -77,7 +77,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	return eq
 }
 
-// Update adds entries from patch to a.Config and a.Metadata, and removes entries with empty values.
+// Update adds entries from patch to a.Config and a.Annotations, and removes entries with empty values.
 func (a *App) Update(patch *App) {
 	original := a.Clone()
 
@@ -94,7 +94,7 @@ func (a *App) Update(patch *App) {
 		}
 	}
 
-	a.Metadata = a.Metadata.MergeChange(patch.Metadata)
+	a.Annotations = a.Annotations.MergeChange(patch.Annotations)
 
 	if !a.Equals(original) {
 		a.UpdatedAt = strfmt.DateTime(time.Now())

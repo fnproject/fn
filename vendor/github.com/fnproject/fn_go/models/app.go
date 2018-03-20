@@ -17,15 +17,15 @@ import (
 // swagger:model App
 type App struct {
 
+	// Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+	Annotations map[string]interface{} `json:"annotations,omitempty"`
+
 	// Application function configuration, applied to all routes.
 	Config map[string]string `json:"config,omitempty"`
 
 	// Time when app was created. Always in UTC.
 	// Read Only: true
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
-
-	// Application metadata - this can be any object containing any value in its keys, keys must not exceed 128 bytes, and the seralized representation of values must not exeed 512 bytes
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
 
 	// Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _.
 	// Read Only: true

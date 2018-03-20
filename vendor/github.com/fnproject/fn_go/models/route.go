@@ -19,6 +19,9 @@ import (
 // swagger:model Route
 type Route struct {
 
+	// Route annotations - this is a map of annotations attached to this route, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+	Annotations map[string]interface{} `json:"annotations,omitempty"`
+
 	// Route configuration - overrides application configuration
 	Config map[string]string `json:"config,omitempty"`
 
@@ -43,9 +46,6 @@ type Route struct {
 
 	// Max usable memory for this route (MiB).
 	Memory uint64 `json:"memory,omitempty"`
-
-	// Route metadata - this can be any object containing any value in its keys, keys must not exceed 128 bytes, and the seralized representation of values must not exeed 512 bytes
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
 
 	// URL path that will be matched to this route
 	// Read Only: true

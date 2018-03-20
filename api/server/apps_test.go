@@ -52,11 +52,11 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrAppsTooLongName},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "metadata" : { "":"val" }}}`, http.StatusBadRequest, models.ErrInvalidMetadataKey},
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "metadata" : { "key":"" }}}`, http.StatusBadRequest, models.ErrInvalidMetadataValue},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "annotations" : { "":"val" }}}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "annotations" : { "key":"" }}}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
 		// success
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" , "metadata": {"k1":"v1", "k2":[]}}}`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}}`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -293,7 +293,7 @@ func TestAppUpdate(t *testing.T) {
 			[]*models.App{{
 				Name: "myapp",
 			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "metadata": {"k-0" : "val"} } }`, http.StatusOK, nil},
+		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "annotations": {"k-0" : "val"} } }`, http.StatusOK, nil},
 
 		// success
 		{datastore.NewMockInit(

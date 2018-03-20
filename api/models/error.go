@@ -185,25 +185,25 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
-	ErrInvalidMetadataKey = err{
+	ErrInvalidAnnotationKey = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid metadata key, metadata keys must be non-empty ascii strings excluding whitespace"),
+		error: errors.New("Invalid annotation key, annotation keys must be non-empty ascii strings excluding whitespace"),
 	}
-	ErrInvalidMetadataKeyLength = err{
+	ErrInvalidAnnotationKeyLength = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Invalid metadata key length, metadata keys may not be larger than %d bytes", maxMetadataKeyBytes),
+		error: fmt.Errorf("Invalid annotation key length, annotation keys may not be larger than %d bytes", maxAnnotationKeyBytes),
 	}
-	ErrInvalidMetadataValue = err{
+	ErrInvalidAnnotationValue = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Invalid metadata value, values may only be non-empty strings, numbers, objects, or arrays"),
+		error: errors.New("Invalid annotation value, annotation values may only be non-empty strings, numbers, objects, or arrays"),
 	}
-	ErrInvalidMetadataValueLength = err{
+	ErrInvalidAnnotationValueLength = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Invalid metadata value length, metadata values may not be larger than %d bytes when serialized as JSON", maxMetadataValueBytes),
+		error: fmt.Errorf("Invalid annotation value length, annotation values may not be larger than %d bytes when serialized as JSON", maxAnnotationValueBytes),
 	}
-	ErrTooManyMetadataKeys = err{
+	ErrTooManyAnnotationKeys = err{
 		code:  http.StatusBadRequest,
-		error: fmt.Errorf("Invalid metadata change, new key(s) exceed maximum permitted number of metadata keys (%d)", maxMetadataKeys),
+		error: fmt.Errorf("Invalid annotation change, new key(s) exceed maximum permitted number of annotations keys (%d)", maxAnnotationsKeys),
 	}
 )
 

@@ -8,14 +8,13 @@ import (
 )
 
 func up8(ctx context.Context, tx *sqlx.Tx) error {
-	// Note the DB column name for metadata is "meta_data" to avoid keyword clashes on mysql
-	_, err := tx.ExecContext(ctx, "ALTER TABLE apps ADD meta_data TEXT;")
+	_, err := tx.ExecContext(ctx, "ALTER TABLE apps ADD annotations TEXT;")
 
 	return err
 }
 
 func down8(ctx context.Context, tx *sqlx.Tx) error {
-	_, err := tx.ExecContext(ctx, "ALTER TABLE apps DROP COLUMN meta_data;")
+	_, err := tx.ExecContext(ctx, "ALTER TABLE apps DROP COLUMN annotations;")
 	return err
 }
 

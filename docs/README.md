@@ -57,4 +57,4 @@ If you are operating Fn, this section is for you.
 If you are working on the Fn Project, want to work on it or are creating extensions, this section is for you.
 
 * [Writing Extensions](contributors/extensions.md)
-* [Using Metadata](contributors/metadata.md)
+* [Using Annotations](contributors/annotations.md)
