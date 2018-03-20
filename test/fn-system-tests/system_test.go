@@ -206,9 +206,8 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 		return nil, err
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
-	delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 	cancelCtx, cancel := context.WithCancel(ctx)
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "", &testCapacityGate{runnerNumber: nodeNum})
+	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", &testCapacityGate{runnerNumber: nodeNum})
 	if err != nil {
 		return nil, err
 	}

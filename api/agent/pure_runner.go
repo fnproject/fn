@@ -546,15 +546,16 @@ func (pr *pureRunner) Start() error {
 	return err
 }
 
-func UnsecuredPureRunner(cancel context.CancelFunc, addr string, a Agent) (*pureRunner, error) {
-	return NewPureRunner(cancel, addr, a, "", "", "", nil)
+func UnsecuredPureRunner(cancel context.CancelFunc, addr string, da DataAccess) (*pureRunner, error) {
+	return NewPureRunner(cancel, addr, da, "", "", "", nil)
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, a Agent, cert string, key string, ca string) (*pureRunner, error) {
-	return NewPureRunner(cancel, addr, a, cert, key, ca, nil)
+func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string) (*pureRunner, error) {
+	return NewPureRunner(cancel, addr, da, cert, key, ca, nil)
 }
 
-func NewPureRunner(cancel context.CancelFunc, addr string, a Agent, cert string, key string, ca string, gate CapacityGate) (*pureRunner, error) {
+func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, gate CapacityGate) (*pureRunner, error) {
+	a := createAgent(da, true)
 	var pr *pureRunner
 	var err error
 	if cert != "" && key != "" && ca != "" {

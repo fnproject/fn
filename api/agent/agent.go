@@ -112,14 +112,10 @@ type agent struct {
 }
 
 func New(da DataAccess) Agent {
-	a := NewSyncOnly(da).(*agent)
+	a := createAgent(da, true).(*agent)
 	a.wg.Add(1)
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 	return a
-}
-
-func NewSyncOnly(da DataAccess) Agent {
-	return createAgent(da, true)
 }
 
 func createAgent(da DataAccess, withDocker bool) Agent {
