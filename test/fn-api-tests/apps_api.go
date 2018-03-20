@@ -33,9 +33,8 @@ func (s *TestHarness) GivenAppExists(t *testing.T, app *models.App) {
 
 	appPayload, err := s.PostApp(app)
 	if err != nil {
-		{
-			t.Fatalf("Failed to create app %v", app)
-		}
+		t.Fatalf("Failed to create app %v", app)
+
 	}
 	if !strings.Contains(app.Name, appPayload.Payload.App.Name) {
 		t.Fatalf("App name mismatch.\nExpected: %v\nActual: %v",

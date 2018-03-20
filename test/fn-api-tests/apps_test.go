@@ -11,6 +11,7 @@ import (
 func TestAppDeleteNotFound(t *testing.T) {
 	t.Parallel()
 	s := SetupHarness()
+	defer s.Cleanup()
 
 	cfg := &apps.DeleteAppsAppParams{
 		App:     "missing-app",

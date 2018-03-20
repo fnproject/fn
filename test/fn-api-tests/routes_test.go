@@ -145,7 +145,7 @@ func TestCanUpdateRouteAttributes(t *testing.T) {
 
 }
 
-func TestCanUpdateRouteConfig(t *testing.T) {
+func TestRoutePatchConfig(t *testing.T) {
 	t.Parallel()
 	for _, tci := range updateConfigCases {
 		tc := tci

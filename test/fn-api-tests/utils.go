@@ -92,11 +92,8 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 	return s, cancel2
 }
 
-type appRoute struct {
-	appName   string
-	routeName string
-}
-
+// TestHarness provides context and pre-configured clients to an individual test, it has some helper functions to create Apps and Routes that mirror the underlying client operations and clean them up after the test is complete
+// This is not goroutine safe and each test case should use its own harness.
 type TestHarness struct {
 	Context      context.Context
 	Client       *client.Fn
@@ -123,6 +120,7 @@ func RandStringBytes(n int) string {
 	return strings.ToLower(string(b))
 }
 
+// SetupHarness creates a test harness for a test case - this picks up external options and
 func SetupHarness() *TestHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	ss := &TestHarness{
