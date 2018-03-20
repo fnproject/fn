@@ -141,13 +141,12 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 	nodePool, err := NewSystemTestNodePool()
 	if err != nil {
 		return nil, err
 	}
 	placer := agent.NewNaivePlacer()
-	agent, err := agent.NewLBAgent(delegatedAgent, nodePool, placer)
+	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
 	if err != nil {
 		return nil, err
 	}

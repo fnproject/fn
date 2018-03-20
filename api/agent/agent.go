@@ -9,6 +9,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/docker"
+	"github.com/fnproject/fn/api/agent/drivers/mock"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -118,7 +119,10 @@ func New(da DataAccess) Agent {
 }
 
 func NewSyncOnly(da DataAccess) Agent {
+	return createAgent(da, true)
+}
 
+func createAgent(da DataAccess, withDocker bool) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -126,9 +130,14 @@ func NewSyncOnly(da DataAccess) Agent {
 	logrus.Infof("agent starting cfg=%+v", cfg)
 
 	// TODO: Create drivers.New(runnerConfig)
-	driver := docker.NewDocker(drivers.Config{
-		ServerVersion: cfg.MinDockerVersion,
-	})
+	var driver drivers.Driver
+	if withDocker {
+		driver = docker.NewDocker(drivers.Config{
+			ServerVersion: cfg.MinDockerVersion,
+		})
+	} else {
+		driver = mock.New()
+	}
 
 	a := &agent{
 		cfg:       *cfg,

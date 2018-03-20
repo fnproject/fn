@@ -102,7 +102,8 @@ type lbAgent struct {
 	shutdown chan struct{}
 }
 
-func NewLBAgent(agent Agent, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
+func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
+	agent := createAgent(da, false)
 	a := &lbAgent{
 		delegatedAgent: agent,
 		rp:             rp,
