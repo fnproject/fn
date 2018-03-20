@@ -21,8 +21,29 @@ var (
 	MigrationsTable = "schema_migrations"
 
 	ErrLocked = errors.New("database is locked")
-	ErrDirty  = errors.New("database is dirty")
 )
+
+func migrateErr(version int64, up bool, err error) ErrMigration {
+	dir := "up"
+	if !up {
+		dir = "down"
+	}
+	return ErrMigration(fmt.Sprintf("error running migration. version: %v direction: %v err: %v", version, dir, err))
+}
+
+// ErrMigration represents an error running a specific migration in a specific direction
+type ErrMigration string
+
+func (e ErrMigration) Error() string { return string(e) }
+
+func dirtyErr(version int64) ErrDirty {
+	return ErrDirty(fmt.Sprintf("database is dirty. version: %v", version))
+}
+
+// ErrDirty is an error that is returned when a db is dirty.
+type ErrDirty string
+
+func (e ErrDirty) Error() string { return string(e) }
 
 const (
 	NilVersion = -1
@@ -70,7 +91,7 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 		var err error
 		curVersion, dirty, err = Version(ctx, tx)
 		if dirty {
-			return ErrDirty
+			return dirtyErr(curVersion)
 		}
 		return err
 	})
@@ -173,7 +194,7 @@ func run(ctx context.Context, db *sqlx.DB, m Migration, up bool) error {
 			// migration has not already been applied.
 			curVersion, dirty, err := Version(ctx, tx)
 			if dirty {
-				return ErrDirty
+				return dirtyErr(curVersion)
 			}
 
 			// enforce monotonicity
@@ -199,7 +220,7 @@ func run(ctx context.Context, db *sqlx.DB, m Migration, up bool) error {
 			}
 
 			if err != nil {
-				return err
+				return migrateErr(version, up, err)
 			}
 
 			err = SetVersion(ctx, tx, version, false)
