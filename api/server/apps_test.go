@@ -293,18 +293,10 @@ func TestAppUpdate(t *testing.T) {
 		{ds, logs.NewMock(), "/v1/apps/myapp", ``, http.StatusBadRequest, models.ErrInvalidJSON},
 
 		// Addresses #380
-		{datastore.NewMockInit(
-			[]*models.App{{
-				Name: "myapp",
-			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
+		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "name": "othername" } }`, http.StatusConflict, nil},
 
 		// success: add/set MD key
-		{datastore.NewMockInit(
-			[]*models.App{{
-				Name: "myapp",
-			}}, nil, nil,
-		), logs.NewMock(), "/v1/apps/myapp", `{ "app": { "annotations": {"k-0" : "val"} } }`, http.StatusOK, nil},
+		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "annotations": {"k-0" : "val"} } }`, http.StatusOK, nil},
 
 		// success
 		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
