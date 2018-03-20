@@ -193,7 +193,7 @@
     "client/routes",
     "models"
   ]
-  revision = "1d0c9a10acfbb6c91171752dc76d814db42af6f2"
+  revision = "e2f92e36625a4b93c596ac3b912a4994ae574f64"
   version = "0.2.6"
 
 [[projects]]
@@ -653,6 +653,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b2dbfdfa711fd0651bd597ce4579d089b868d670854659494560222b0b1d6fde"
+  inputs-digest = "bd152d9d0bb0ac9975ecc30f368747c21a047f30bd5037fb19e4835631baae52"
   solver-name = "gps-cdcl"
   solver-version = 1
