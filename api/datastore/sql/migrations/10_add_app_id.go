@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func up8(ctx context.Context, tx *sqlx.Tx) error {
+func up10(ctx context.Context, tx *sqlx.Tx) error {
 	addAppIDStatements := []string{
 		"ALTER TABLE apps ADD id VARCHAR(256);",
 		"ALTER TABLE calls ADD app_id VARCHAR(256);",
@@ -84,7 +84,7 @@ func up8(ctx context.Context, tx *sqlx.Tx) error {
 	return nil
 }
 
-func down8(ctx context.Context, tx *sqlx.Tx) error {
+func down10(ctx context.Context, tx *sqlx.Tx) error {
 
 	addAppNameStatements := []string{
 		"ALTER TABLE calls ADD app_name VARCHAR(256);",
@@ -152,8 +152,8 @@ func down8(ctx context.Context, tx *sqlx.Tx) error {
 
 func init() {
 	Migrations = append(Migrations, &migratex.MigFields{
-		VersionFunc: vfunc(8),
-		UpFunc:      up8,
-		DownFunc:    down8,
+		VersionFunc: vfunc(10),
+		UpFunc:      up10,
+		DownFunc:    down10,
 	})
 }
