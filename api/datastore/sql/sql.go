@@ -50,6 +50,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
+	annotations text NOT NULL,
 	created_at text,
 	updated_at varchar(256),
 	PRIMARY KEY (app_name, path)
@@ -58,6 +59,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	`CREATE TABLE IF NOT EXISTS apps (
 	name varchar(256) NOT NULL PRIMARY KEY,
 	config text NOT NULL,
+	annotations text NOT NULL,
 	created_at varchar(256),
 	updated_at varchar(256)
 );`,
@@ -83,7 +85,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector = `SELECT app_name, path, image, format, memory, cpus, type, timeout, idle_timeout, headers, config, created_at, updated_at FROM routes`
+	routeSelector = `SELECT app_name, path, image, format, memory, cpus, type, timeout, idle_timeout, headers, config, annotations, created_at, updated_at FROM routes`
 	callSelector  = `SELECT id, created_at, started_at, completed_at, status, app_name, path, stats, error FROM calls`
 )
 
@@ -254,12 +256,14 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 	query := ds.db.Rebind(`INSERT INTO apps (
 		name,
 		config,
+		annotations,
 		created_at,
 		updated_at
 	)
 	VALUES (
 		:name,
 		:config,
+		:annotations,
 		:created_at,
 		:updated_at
 	);`)
@@ -290,7 +294,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
 		// must only modify modifiable fields (as seen here). need to fix brittle..
-		query := tx.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
+		query := tx.Rebind(`SELECT name, config, annotations, created_at, updated_at FROM apps WHERE name=?`)
 		row := tx.QueryRowxContext(ctx, query, app.Name)
 
 		err := row.StructScan(app)
@@ -301,8 +305,12 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 		}
 
 		app.Update(newapp)
+		err = app.Validate()
+		if err != nil {
+			return err
+		}
 
-		query = tx.Rebind(`UPDATE apps SET config=:config, updated_at=:updated_at WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
@@ -355,7 +363,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appName string) error {
 }
 
 func (ds *sqlStore) GetApp(ctx context.Context, name string) (*models.App, error) {
-	query := ds.db.Rebind(`SELECT name, config, created_at, updated_at FROM apps WHERE name=?`)
+	query := ds.db.Rebind(`SELECT name, config, annotations, created_at, updated_at FROM apps WHERE name=?`)
 	row := ds.db.QueryRowxContext(ctx, query, name)
 
 	var res models.App
@@ -378,7 +386,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	if err != nil {
 		return nil, err
 	}
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, created_at, updated_at FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, annotations, created_at, updated_at FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -434,6 +442,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			idle_timeout,
 			headers,
 			config,
+			annotations,
 			created_at,
 			updated_at
 		)
@@ -449,6 +458,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			:idle_timeout,
 			:headers,
 			:config,
+			:annotations,
 			:created_at,
 			:updated_at
 		);`)
@@ -490,6 +500,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			idle_timeout = :idle_timeout,
 			headers = :headers,
 			config = :config,
+			annotations = :annotations,
 			updated_at = :updated_at
 		WHERE app_name=:app_name AND path=:path;`)
 

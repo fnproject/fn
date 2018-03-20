@@ -519,6 +519,11 @@ definitions:
         default: 30
         format: int32
         description: Hot functions idle timeout before termination. Value in Seconds
+      annotations:
+        type: object
+        description: Route annotations - this is a map of annotations attached to this route, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time
@@ -539,9 +544,14 @@ definitions:
         readOnly: true
       config:
         type: object
-        description: Application configuration, applied to all routes.
+        description: Application function configuration, applied to all routes.
         additionalProperties:
           type: string
+      annotations:
+        type: object
+        description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time

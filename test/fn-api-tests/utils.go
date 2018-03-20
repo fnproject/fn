@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -48,11 +47,9 @@ func APIClient() *client.Fn {
 }
 
 var (
-	getServer     sync.Once
-	cancel2       context.CancelFunc
-	s             *server.Server
-	appsandroutes = make(map[string][]string)
-	approutesLock sync.Mutex
+	getServer sync.Once
+	cancel2   context.CancelFunc
+	s         *server.Server
 )
 
 func getServerWithCancel() (*server.Server, context.CancelFunc) {
@@ -95,7 +92,9 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 	return s, cancel2
 }
 
-type SuiteSetup struct {
+// TestHarness provides context and pre-configured clients to an individual test, it has some helper functions to create Apps and Routes that mirror the underlying client operations and clean them up after the test is complete
+// This is not goroutine safe and each test case should use its own harness.
+type TestHarness struct {
 	Context      context.Context
 	Client       *client.Fn
 	AppName      string
@@ -109,6 +108,8 @@ type SuiteSetup struct {
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
 	Cancel       context.CancelFunc
+
+	createdApps map[string]bool
 }
 
 func RandStringBytes(n int) string {
@@ -119,9 +120,10 @@ func RandStringBytes(n int) string {
 	return strings.ToLower(string(b))
 }
 
-func SetupDefaultSuite() *SuiteSetup {
+// SetupHarness creates a test harness for a test case - this picks up external options and
+func SetupHarness() *TestHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	ss := &SuiteSetup{
+	ss := &TestHarness{
 		Context:      ctx,
 		Client:       APIClient(),
 		AppName:      "fnintegrationtestapp" + RandStringBytes(10),
@@ -135,6 +137,7 @@ func SetupDefaultSuite() *SuiteSetup {
 		Memory:       uint64(256),
 		Timeout:      int32(30),
 		IdleTimeout:  int32(30),
+		createdApps:  make(map[string]bool),
 	}
 
 	if Host() != "localhost:8080" {
@@ -153,18 +156,16 @@ func SetupDefaultSuite() *SuiteSetup {
 	return ss
 }
 
-func Cleanup() {
+func (s *TestHarness) Cleanup() {
 	ctx := context.Background()
-	c := APIClient()
-	approutesLock.Lock()
-	defer approutesLock.Unlock()
-	for appName, rs := range appsandroutes {
-		for _, routePath := range rs {
-			deleteRoute(ctx, c, appName, routePath)
-		}
-		DeleteAppNoT(ctx, c, appName)
+
+	//for _,ar := range s.createdRoutes {
+	//	deleteRoute(ctx, s.Client, ar.appName, ar.routeName)
+	//}
+
+	for app, _ := range s.createdApps {
+		safeDeleteApp(ctx, s.Client, app)
 	}
-	appsandroutes = make(map[string][]string)
 }
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
@@ -212,20 +213,6 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-}
-
-func MyCaller() string {
-	fpcs := make([]uintptr, 1)
-	n := runtime.Callers(3, fpcs)
-	if n == 0 {
-		return "n/a"
-	}
-	fun := runtime.FuncForPC(fpcs[0] - 1)
-	if fun == nil {
-		return "n/a"
-	}
-	f, l := fun.FileLine(fpcs[0] - 1)
-	return fmt.Sprintf("%s:%d", f, l)
 }
 
 func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback func() error) (err error) {

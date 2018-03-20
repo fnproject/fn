@@ -193,8 +193,8 @@
     "client/routes",
     "models"
   ]
-  revision = "1c5ec475d4536388b366b1f075945cd64d8c1cb4"
-  version = "0.2.4"
+  revision = "e2f92e36625a4b93c596ac3b912a4994ae574f64"
+  version = "0.2.6"
 
 [[projects]]
   name = "github.com/fsouza/go-dockerclient"
@@ -653,6 +653,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d8661bd78eda741b449a3675c52207af1bd738c63cb4f74d018edbaf0e9ef77d"
+  inputs-digest = "bd152d9d0bb0ac9975ecc30f368747c21a047f30bd5037fb19e4835631baae52"
   solver-name = "gps-cdcl"
   solver-version = 1

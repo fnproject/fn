@@ -185,6 +185,26 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
+	ErrInvalidAnnotationKey = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid annotation key, annotation keys must be non-empty ascii strings excluding whitespace"),
+	}
+	ErrInvalidAnnotationKeyLength = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Invalid annotation key length, annotation keys may not be larger than %d bytes", maxAnnotationKeyBytes),
+	}
+	ErrInvalidAnnotationValue = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid annotation value, annotation values may only be non-empty strings, numbers, objects, or arrays"),
+	}
+	ErrInvalidAnnotationValueLength = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Invalid annotation value length, annotation values may not be larger than %d bytes when serialized as JSON", maxAnnotationValueBytes),
+	}
+	ErrTooManyAnnotationKeys = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Invalid annotation change, new key(s) exceed maximum permitted number of annotations keys (%d)", maxAnnotationsKeys),
+	}
 )
 
 // APIError any error that implements this interface will return an API response

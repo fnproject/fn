@@ -27,7 +27,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 
 [[constraint]]
   name = "github.com/fnproject/fn_go"
-  version = "0.2.0"
+  version = "0.2.6"
 
 [[constraint]]
   name = "github.com/gin-gonic/gin"

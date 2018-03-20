@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/fnproject/fn_go/client/call"
+	"github.com/fnproject/fn_go/models"
 )
 
 func TestCallsMissingApp(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
+	s := SetupHarness()
 	cfg := &call.GetAppsAppCallsParams{
 		App:     s.AppName,
 		Path:    &s.RoutePath,
@@ -26,10 +27,11 @@ func TestCallsMissingApp(t *testing.T) {
 
 func TestCallsDummy(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s := SetupHarness()
+	defer s.Cleanup()
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenRouteExists(t, s.AppName, s.BasicRoute())
 
 	cfg := &call.GetAppsAppCallsCallParams{
 		Call:    "dummy",
@@ -42,15 +44,15 @@ func TestCallsDummy(t *testing.T) {
 		t.Error("Must fail because `dummy` call does not exist.")
 	}
 
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestGetExactCall(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, s.RouteType,
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s := SetupHarness()
+	defer s.Cleanup()
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenRouteExists(t, s.AppName, s.BasicRoute())
 
 	u := url.URL{
 		Scheme: "http",
@@ -76,5 +78,4 @@ func TestGetExactCall(t *testing.T) {
 		t.Error(retryErr.Error())
 	}
 
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
