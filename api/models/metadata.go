@@ -34,6 +34,9 @@ func (m Metadata) Equals(other Metadata) bool {
 	}
 	for k1, v1 := range m {
 		v2, _ := other[k1]
+		if v2 == nil {
+			return false
+		}
 		if !bytes.Equal(*v1, *v2) {
 			return false
 		}

@@ -2,10 +2,10 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
+	"testing"
 	"reflect"
 	"strings"
-	"testing"
+	"fmt"
 )
 
 type testObj struct {
@@ -28,6 +28,16 @@ func (m Metadata) withRawKey(key string, val string) Metadata {
 	return newMd
 }
 
+func mustParseMd(t *testing.T, md string) Metadata {
+	mdObj := make(Metadata)
+
+	err := json.Unmarshal([]byte(md), &mdObj)
+	if err != nil {
+		t.Fatalf("Failed to parse must-parse value %s %v", md, err)
+	}
+	return mdObj
+}
+
 func TestMetadataEqual(t *testing.T) {
 	mdWithVal, _ := EmptyMetadata().With("foo", "Bar")
 
@@ -36,11 +46,21 @@ func TestMetadataEqual(t *testing.T) {
 		b      Metadata
 		equals bool
 	}{
-
 		{EmptyMetadata(), EmptyMetadata(), true},
 		{mdWithVal, EmptyMetadata(), false},
 		{mdWithVal, mdWithVal, true},
+		{EmptyMetadata().withRawKey("v1", `"a"`), EmptyMetadata().withRawKey("v1", `"b"`), false},
+		{EmptyMetadata().withRawKey("v1", `"a"`), EmptyMetadata().withRawKey("v2", `"a"`), false},
+
 		{mdWithVal.Without("foo"), EmptyMetadata(), true},
+		{mustParseMd(t,
+			"{ \r\n\t"+`"md.1":{ ` + "\r\n\t" + `
+
+			"subkey1": "value\n with\n newlines",
+
+			"subkey2": true
+		}
+		}`), mustParseMd(t,`{"md.1":{"subkey1":"value\n with\n newlines", "subkey2":true}}`), true},
 	}
 
 	for _, tc := range tcs {
@@ -59,11 +79,12 @@ var mdCases = []struct {
 	valString string
 }{
 	{val: &testObj{Md: EmptyMetadata()}, valString: "{}"},
-	{val: &testObj{Md: EmptyMetadata().withRawKey("stringval", "\"bar\"")}, valString: "{\"metadata\":{\"stringval\":\"bar\"}}"},
-	{val: &testObj{Md: EmptyMetadata().withRawKey("intval", "1001")}, valString: "{\"metadata\":{\"intval\":1001}}"},
-	{val: &testObj{Md: EmptyMetadata().withRawKey("floatval", "3.141")}, valString: "{\"metadata\":{\"floatval\":3.141}}"},
-	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", "{\"foo\":\"fooval\",\"bar\":\"barval\"}")}, valString: "{\"metadata\":{\"objval\":{\"foo\":\"fooval\",\"bar\":\"barval\"}}}"},
-	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", "{\"foo\":\"fooval\",\"bar\":{\"barbar\":\"barbarval\"}}")}, valString: "{\"metadata\":{\"objval\":{\"foo\":\"fooval\",\"bar\":{\"barbar\":\"barbarval\"}}}}"},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("stringval", `"bar"`)}, valString: `{"metadata":{"stringval":"bar"}}`},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("intval", `1001`)}, valString: `{"metadata":{"intval":1001}}`},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("floatval", "3.141")}, valString: `{"metadata":{"floatval":3.141}}`},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", `{"foo":"fooval", "bar":"barval"}`)}, valString: `{"metadata":{"objval":{"foo":"fooval", "bar":"barval"}}}`},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", `{"foo":"fooval", "bar":{"barbar":"barbarval"}}`)}, valString: `{"metadata":{"objval":{"foo":"fooval", "bar":{"barbar":"barbarval"}}}}`},
+	{val: &testObj{Md: EmptyMetadata().withRawKey("objval", `{"foo":"JSON newline \\n string"}`)}, valString: `{"metadata":{"objval":{"foo":"JSON newline \\n string"}}}`},
 }
 
 func TestMetadataJSONMarshalling(t *testing.T) {
@@ -225,7 +246,7 @@ func TestMergeMetadata(t *testing.T) {
 		{first: EmptyMetadata().withRawKey("key1", "\"val1\""), second: EmptyMetadata().withRawKey("key2", "\"val2\""), result: EmptyMetadata().withRawKey("key1", "\"val1\"").withRawKey("key2", "\"val2\"")},
 		{first: EmptyMetadata().withRawKey("key1", "\"val1\""), second: EmptyMetadata().withRawKey("key1", "\"\""), result: EmptyMetadata()},
 		{first: EmptyMetadata().withRawKey("key1", "\"val1\""), second: EmptyMetadata().withRawKey("key2", "\"\""), result: EmptyMetadata().withRawKey("key1", "\"val1\"")},
-		{first: mdWithNKeys(maxMetadataKeys - 1), second: EmptyMetadata().withRawKey("newkey", "\"val\""), result: mdWithNKeys(maxMetadataKeys-1).withRawKey("newkey", "\"val\"")},
+		{first: mdWithNKeys(maxMetadataKeys - 1), second: EmptyMetadata().withRawKey("newkey", "\"val\""), result: mdWithNKeys(maxMetadataKeys - 1).withRawKey("newkey", "\"val\"")},
 	}
 
 	for _, v := range validCases {
