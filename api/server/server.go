@@ -416,9 +416,8 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
-			delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 			cancelCtx, cancel := context.WithCancel(ctx)
-			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, ds, s.cert, s.certKey, s.certAuthority)
 			if err != nil {
 				return err
 			}
@@ -441,7 +440,6 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
 			runnerPool, err := s.defaultRunnerPool()
 			if err != nil {
@@ -449,7 +447,7 @@ func WithAgentFromEnv() ServerOption {
 			}
 			placer := s.defaultPlacer()
 
-			s.agent, err = agent.NewLBAgent(delegatedAgent, runnerPool, placer)
+			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}

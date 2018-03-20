@@ -141,13 +141,12 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 	nodePool, err := NewSystemTestNodePool()
 	if err != nil {
 		return nil, err
 	}
 	placer := agent.NewNaivePlacer()
-	agent, err := agent.NewLBAgent(delegatedAgent, nodePool, placer)
+	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
 	if err != nil {
 		return nil, err
 	}
@@ -207,9 +206,8 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 		return nil, err
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
-	delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 	cancelCtx, cancel := context.WithCancel(ctx)
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "", &testCapacityGate{runnerNumber: nodeNum})
+	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", &testCapacityGate{runnerNumber: nodeNum})
 	if err != nil {
 		return nil, err
 	}
