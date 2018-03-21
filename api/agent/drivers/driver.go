@@ -60,6 +60,9 @@ type Driver interface {
 	//
 	// The returned cookie should respect the task's timeout when it is run.
 	Prepare(ctx context.Context, task ContainerTask) (Cookie, error)
+
+	// close & shutdown the driver
+	Close() error
 }
 
 // RunResult indicates only the final state of the task.

@@ -10,6 +10,8 @@ jobs:
       - OS=linux
       - ARCH=amd64
       - FN_LOG_LEVEL=debug
+      # let use prefork containers, we intentially pick a very small size to increase test coverage
+      - FN_PRE_FORK_POOL_SIZE=2
     steps:
       - checkout
       # install Go

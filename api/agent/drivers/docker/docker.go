@@ -123,6 +123,14 @@ func registryFromEnv() map[string]docker.AuthConfiguration {
 	return auths.Configs
 }
 
+func (drv *DockerDriver) Close() error {
+	var err error
+	if drv.pool != nil {
+		err = drv.pool.Close()
+	}
+	return err
+}
+
 func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Prepare"})
 	var cmd []string

@@ -40,6 +40,8 @@ const (
 
 	DefaultImage = "busybox"
 	DefaultCmd   = "tail -f /dev/null"
+
+	ShutdownTimeout = time.Duration(1) * time.Second
 )
 
 type poolTask struct {
@@ -68,6 +70,7 @@ type dockerPool struct {
 	inuse   map[string]struct{}
 	free    []string
 	limiter *rate.Limiter
+	cancel  func()
 }
 
 type DockerPool interface {
@@ -77,6 +80,9 @@ type DockerPool interface {
 
 	// Release the id back to the pool
 	FreePoolId(id string)
+
+	// stop and terminate the pool
+	Close() error
 }
 
 func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
@@ -86,13 +92,15 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 		return nil
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	pool := &dockerPool{
 		inuse:   make(map[string]struct{}, conf.PreForkPoolSize),
 		free:    make([]string, 0, conf.PreForkPoolSize),
 		limiter: rate.NewLimiter(LimitPerSec, LimitBurst),
+		cancel:  cancel,
 	}
 
-	ctx := context.Background()
 	for i := 0; i < cap(pool.free); i++ {
 
 		task := &poolTask{
@@ -112,6 +120,13 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 	}
 
 	return pool
+}
+
+func (pool *dockerPool) Close() error {
+	if pool.cancel != nil {
+		pool.cancel()
+	}
+	return nil
 }
 
 func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver, task *poolTask) {
@@ -196,6 +211,12 @@ func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver
 
 		log.WithError(err).Infof("prefork pool container exited exit_code=%d", exitCode)
 	}
+
+	// final exit cleanup
+	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+	defer cancel()
+	removeOpts.Context = ctx
+	driver.docker.RemoveContainer(removeOpts)
 }
 
 func (pool *dockerPool) register(id string) {

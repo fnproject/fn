@@ -157,12 +157,16 @@ func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
 }
 
 func (a *agent) Close() error {
+	var err error
 	a.shutonce.Do(func() {
+		if a.driver != nil {
+			err = a.driver.Close()
+		}
 		close(a.shutdown)
 	})
 
 	a.wg.Wait()
-	return nil
+	return err
 }
 
 func (a *agent) Submit(callI Call) error {
