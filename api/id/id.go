@@ -11,7 +11,7 @@ type Id [16]byte
 
 var (
 	machineID uint64
-	counter   uint64
+	counter   uint32
 )
 
 // SetMachineId may only be called by one thread before any id generation
@@ -45,11 +45,15 @@ func SetMachineIdHost(addr net.IP, port uint16) {
 // Ids are sortable within (not between, thanks to clocks) each machine, with
 // a modified base32 encoding exposed for convenience in API usage.
 func New() Id {
-	var id Id
 	t := time.Now()
 	// NOTE compiler optimizes out division by constant for us
 	ms := uint64(t.Unix())*1000 + uint64(t.Nanosecond()/int(time.Millisecond))
-	count := atomic.AddUint64(&counter, 1)
+	count := atomic.AddUint32(&counter, 1)
+	return newID(ms, machineID, count)
+}
+
+func newID(ms, machineID uint64, count uint32) Id {
+	var id Id
 
 	id[0] = byte(ms >> 40)
 	id[1] = byte(ms >> 32)
@@ -58,14 +62,13 @@ func New() Id {
 	id[4] = byte(ms >> 8)
 	id[5] = byte(ms)
 
-	id[6] = byte(machineID >> 12)
-	id[7] = byte(machineID >> 4)
+	id[6] = byte(machineID >> 40)
+	id[7] = byte(machineID >> 32)
+	id[8] = byte(machineID >> 24)
+	id[9] = byte(machineID >> 16)
+	id[10] = byte(machineID >> 8)
+	id[11] = byte(machineID)
 
-	id[8] = byte(machineID<<4) | byte((count<<4)>>60)
-
-	id[9] = byte(count >> 48)
-	id[10] = byte(count >> 40)
-	id[11] = byte(count >> 32)
 	id[12] = byte(count >> 24)
 	id[13] = byte(count >> 16)
 	id[14] = byte(count >> 8)
