@@ -1,7 +1,12 @@
 package id
 
 import (
+	"encoding/binary"
+	"fmt"
+	"math"
+	"net"
 	"testing"
+	"time"
 )
 
 func BenchmarkGen(b *testing.B) {
@@ -26,5 +31,33 @@ func BenchmarkUnmarshalText(b *testing.B) {
 		var id Id
 		id.UnmarshalText(byts)
 		_ = id
+	}
+}
+
+func TestIdRaw(t *testing.T) {
+	SetMachineIdHost(net.IP{127, 0, 0, 1}, 8080)
+
+	ts := time.Now()
+	ms := uint64(ts.Unix())*1000 + uint64(ts.Nanosecond()/int(time.Millisecond))
+	count := uint32(math.MaxUint32)
+	id := newID(ms, machineID, count)
+	fmt.Println(len(id), id)
+
+	var buf [8]byte
+	copy(buf[2:], id[:6])
+	idTime := binary.BigEndian.Uint64(buf[:])
+	if ms != idTime {
+		t.Fatal("id time doesn't not match time given", ms, idTime)
+	}
+
+	copy(buf[2:], id[6:12])
+	idMid := binary.BigEndian.Uint64(buf[:])
+	if idMid != machineID {
+		t.Fatal("machine id mismatch", idMid, machineID)
+	}
+
+	idCount := binary.BigEndian.Uint32(id[12:16])
+	if idCount != count {
+		t.Fatal("count mismatch", idCount, count)
 	}
 }
