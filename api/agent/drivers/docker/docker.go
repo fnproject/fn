@@ -52,6 +52,7 @@ type DockerDriver struct {
 	docker   dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
 	hostname string
 	auths    map[string]docker.AuthConfiguration
+	pool     DockerPool
 }
 
 // implements drivers.Driver
@@ -73,6 +74,10 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 		if err != nil {
 			logrus.WithError(err).Fatal("docker version error")
 		}
+	}
+
+	if conf.PreForkPoolSize != 0 {
+		driver.pool = NewDockerPool(conf, driver)
 	}
 
 	return driver
@@ -141,7 +146,6 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			MemorySwap:   int64(task.Memory()), // disables swap
 			KernelMemory: int64(task.Memory()),
 			CPUShares:    drv.conf.CPUShares,
-			Hostname:     drv.hostname,
 			Image:        task.Image(),
 			Volumes:      map[string]struct{}{},
 			OpenStdin:    true,
@@ -157,6 +161,20 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			},
 		},
 		Context: ctx,
+	}
+
+	poolId := ""
+	if drv.pool != nil {
+		id, err := drv.pool.AllocPoolId()
+		if err != nil {
+			log.WithError(err).Error("Could not fetch pre fork pool container")
+		} else {
+			poolId = id
+			container.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
+		}
+	} else {
+		// hostname and container NetworkMode is not compatible.
+		container.Config.Hostname = drv.hostname
 	}
 
 	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
@@ -210,16 +228,20 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 	}
 
 	// discard removal error
-	return &cookie{id: task.Id(), task: task, drv: drv}, nil
+	return &cookie{id: task.Id(), task: task, drv: drv, poolId: poolId}, nil
 }
 
 type cookie struct {
-	id   string
-	task drivers.ContainerTask
-	drv  *DockerDriver
+	id     string
+	poolId string
+	task   drivers.ContainerTask
+	drv    *DockerDriver
 }
 
 func (c *cookie) Close(ctx context.Context) error {
+	if c.poolId != "" && c.drv.pool != nil {
+		defer c.drv.pool.FreePoolId(c.poolId)
+	}
 	return c.drv.removeContainer(ctx, c.id)
 }
 

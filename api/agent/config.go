@@ -20,6 +20,9 @@ type AgentConfig struct {
 	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory     uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize          uint64        `json:"max_fs_size_mb"`
+	PreForkPoolSize    uint64        `json:"pre_fork_pool_size"`
+	PreForkImage       string        `json:"pre_fork_image"`
+	PreForkCmd         string        `json:"pre_fork_pool_cmd"`
 }
 
 const (
@@ -33,6 +36,9 @@ const (
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
 	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
 	EnvMaxFsSize          = "FN_MAX_FS_SIZE_MB"
+	EnvPreForkPoolSize    = "FN_PRE_FORK_POOL_SIZE"
+	EnvPreForkImage       = "FN_PRE_FORK_IMAGE"
+	EnvPreForkCmd         = "FN_PRE_FORK_CMD"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -56,10 +62,14 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
+	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
 
 	if err != nil {
 		return cfg, err
 	}
+
+	cfg.PreForkImage = os.Getenv(EnvPreForkImage)
+	cfg.PreForkCmd = os.Getenv(EnvPreForkCmd)
 
 	if cfg.EjectIdle == time.Duration(0) {
 		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdle)

@@ -129,7 +129,10 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 	var driver drivers.Driver
 	if withDocker {
 		driver = docker.NewDocker(drivers.Config{
-			ServerVersion: cfg.MinDockerVersion,
+			ServerVersion:   cfg.MinDockerVersion,
+			PreForkPoolSize: cfg.PreForkPoolSize,
+			PreForkImage:    cfg.PreForkImage,
+			PreForkCmd:      cfg.PreForkCmd,
 		})
 	} else {
 		driver = mock.New()
