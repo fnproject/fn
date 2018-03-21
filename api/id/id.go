@@ -63,13 +63,13 @@ func New() Id {
 
 	id[8] = byte(machineID<<4) | byte((count<<4)>>60)
 
-	id[8] = byte(count >> 48)
-	id[8] = byte(count >> 40)
-	id[8] = byte(count >> 32)
-	id[8] = byte(count >> 24)
-	id[8] = byte(count >> 16)
-	id[8] = byte(count >> 8)
-	id[8] = byte(count)
+	id[9] = byte(count >> 48)
+	id[10] = byte(count >> 40)
+	id[11] = byte(count >> 32)
+	id[12] = byte(count >> 24)
+	id[13] = byte(count >> 16)
+	id[14] = byte(count >> 8)
+	id[15] = byte(count)
 
 	return id
 }
