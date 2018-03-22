@@ -73,6 +73,11 @@ type dockerPool struct {
 	cancel  func()
 }
 
+type DockerPoolStats struct {
+	inuse int
+	free  int
+}
+
 type DockerPool interface {
 	// fetch a pre-allocated free id from the pool
 	// may return too busy error
@@ -83,6 +88,9 @@ type DockerPool interface {
 
 	// stop and terminate the pool
 	Close() error
+
+	// returns inuse versus free
+	Usage() DockerPoolStats
 }
 
 func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
@@ -150,6 +158,7 @@ func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver
 			LogConfig: docker.LogConfig{
 				Type: "none",
 			},
+			AutoRemove: true,
 		},
 		Context: ctx,
 	}
@@ -269,4 +278,15 @@ func (pool *dockerPool) FreePoolId(id string) {
 	}
 
 	pool.lock.Unlock()
+}
+
+func (pool *dockerPool) Usage() DockerPoolStats {
+	var stats DockerPoolStats
+	pool.lock.Lock()
+
+	stats.inuse = len(pool.inuse)
+	stats.free = len(pool.free)
+
+	pool.lock.Unlock()
+	return stats
 }
