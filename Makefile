@@ -57,6 +57,8 @@ test-system: test-basic
 
 full-test: test test-api test-system
 
+img-busybox:
+	docker pull busybox
 img-hello:
 	docker pull fnproject/hello
 img-mysql:
@@ -66,7 +68,7 @@ img-postgres:
 img-minio:
 	docker pull minio/minio
 
-pull-images: img-hello img-mysql img-postgres img-minio
+pull-images: img-hello img-mysql img-postgres img-minio img-busybox
 
 test-datastore:
 	cd api/datastore && go test -v ./...
