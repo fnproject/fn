@@ -98,8 +98,8 @@ func TestRunnerDockerPoolFaulty(t *testing.T) {
 
 	<-time.After(time.Duration(500) * time.Millisecond)
 
-	// Not much to see if pre-fork has exit 1, but let's close
-	// and wait just to see we don't crash and burn.
+	// Not much to see if pre-fork has exited, but let's close
+	// and wait at least to make sure we don't crash and burn.
 	id1, err := pool.AllocPoolId()
 	t.Logf("pool AllocPoolId id=%s err=%v", id1, err)
 	if id1 != "" {
