@@ -101,6 +101,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Memory:      route.Memory,
 			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
+			Annotations: buildAnnotations(app, route),
 			Headers:     req.Header,
 			CreatedAt:   strfmt.DateTime(time.Now()),
 			URL:         reqURL(req),
@@ -133,6 +134,17 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 		conf["FN_CPUS"] = CPUs
 	}
 	return conf
+}
+
+func buildAnnotations(app *models.App, route *models.Route) models.Annotations {
+	ann := make(models.Annotations)
+	for k, v := range app.Annotations {
+		ann[k] = v
+	}
+	for k, v := range route.Annotations {
+		ann[k] = v
+	}
+	return ann
 }
 
 func reqURL(req *http.Request) string {
