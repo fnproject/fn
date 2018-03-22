@@ -71,6 +71,7 @@ type dockerPool struct {
 	free    []string
 	limiter *rate.Limiter
 	cancel  func()
+	wg      sync.WaitGroup // TODO rename
 }
 
 type DockerPoolStats struct {
@@ -96,7 +97,7 @@ type DockerPool interface {
 func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 
 	// Docker pool is an optimization & feature only for Linux
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != "linux" || conf.PreForkPoolSize == 0 {
 		return nil
 	}
 
@@ -109,7 +110,7 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 		cancel:  cancel,
 	}
 
-	for i := 0; i < cap(pool.free); i++ {
+	for i := uint64(0); i < conf.PreForkPoolSize; i++ {
 
 		task := &poolTask{
 			id:    fmt.Sprintf("%d_prefork_%s", i, id.New().String()),
@@ -124,6 +125,7 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 			task.cmd = conf.PreForkCmd
 		}
 
+		pool.wg.Add(1)
 		go pool.nannyContainer(ctx, driver, task)
 	}
 
@@ -131,13 +133,13 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 }
 
 func (pool *dockerPool) Close() error {
-	if pool.cancel != nil {
-		pool.cancel()
-	}
+	pool.cancel()
+	pool.wg.Wait()
 	return nil
 }
 
 func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver, task *poolTask) {
+	defer pool.wg.Done()
 
 	log := common.Logger(ctx).WithFields(logrus.Fields{"name": task.Id()})
 

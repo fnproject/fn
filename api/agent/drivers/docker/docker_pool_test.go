@@ -78,18 +78,9 @@ func TestRunnerDockerPool(t *testing.T) {
 		t.Fatalf("drv close err=%s", err.Error())
 	}
 
-	// primitive wait here
-	i = 0
-	for ; i < 10; i++ {
-		stats := pool.Usage()
-		if stats.free == 0 && stats.inuse == 0 {
-			break
-		}
-
-		<-time.After(time.Duration(500) * time.Millisecond)
-	}
-	if i == 10 {
-		t.Fatalf("pool shutdown timeout stats=%+v", pool.Usage())
+	stats := pool.Usage()
+	if stats.free != 0 && stats.inuse != 0 {
+		t.Fatalf("pool shutdown timeout stats=%+v", stats)
 	}
 }
 
@@ -133,18 +124,8 @@ func TestRunnerDockerPoolFaulty(t *testing.T) {
 		t.Fatalf("drv close err=%s", err.Error())
 	}
 
-	// primitive wait here
-	i := 0
-	for ; i < 10; i++ {
-		stats := pool.Usage()
-		if stats.free == 0 && stats.inuse == 0 {
-			break
-		}
-
-		<-time.After(time.Duration(500) * time.Millisecond)
+	stats := pool.Usage()
+	if stats.free != 0 && stats.inuse != 0 {
+		t.Fatalf("pool shutdown timeout stats=%+v", stats)
 	}
-	if i == 10 {
-		t.Fatalf("pool shutdown timeout stats=%+v", pool.Usage())
-	}
-
 }
