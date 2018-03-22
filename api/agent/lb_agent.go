@@ -132,18 +132,6 @@ func (a *lbAgent) Close() error {
 	return nil
 }
 
-func GetGroupID(call *models.Call) string {
-	// TODO until fn supports metadata, allow LB Group ID to
-	// be overridden via configuration.
-	// Note that employing this mechanism will expose the value of the
-	// LB Group ID to the function as an environment variable!
-	lbgID := call.Config["FN_LB_GROUP_ID"]
-	if lbgID == "" {
-		return "default"
-	}
-	return lbgID
-}
-
 func (a *lbAgent) Submit(callI Call) error {
 	a.wg.Add(1)
 	defer a.wg.Done()
