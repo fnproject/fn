@@ -82,12 +82,10 @@ func Test(t *testing.T, ds models.Datastore, fnl models.LogStore) {
 		call.ID = id.New().String()
 		logText := "test"
 		log := strings.NewReader(logText)
-		//TODO(xxx): use app_id
 		err := fnl.InsertLog(ctx, call.AppID, call.ID, log)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		//TODO(xxx): use app_id
 		logEntry, err := fnl.GetLog(ctx, testApp.ID, call.ID)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during log get `%v`", err)
