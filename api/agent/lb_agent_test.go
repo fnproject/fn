@@ -122,6 +122,8 @@ type mockRunnerCall struct {
 	rw           http.ResponseWriter
 	stdErr       io.ReadWriteCloser
 	model        *models.Call
+	app          *models.App
+	route        *models.Route
 }
 
 func (c *mockRunnerCall) SlotDeadline() time.Time {
@@ -139,6 +141,12 @@ func (c *mockRunnerCall) StdErr() io.ReadWriteCloser {
 }
 func (c *mockRunnerCall) Model() *models.Call {
 	return c.model
+}
+func (c *mockRunnerCall) App() *models.App {
+	return c.app
+}
+func (c *mockRunnerCall) Route() *models.Route {
+	return c.route
 }
 
 func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxCalls int32) *mockRunnerPool {

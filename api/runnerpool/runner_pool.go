@@ -45,4 +45,6 @@ type RunnerCall interface {
 	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser
 	Model() *models.Call
+	App() *models.App
+	Route() *models.Route
 }
