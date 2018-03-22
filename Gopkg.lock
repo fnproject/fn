@@ -509,7 +509,6 @@
   version = "v1.1"
 
 [[projects]]
-  branch = "master"
   name = "go.opencensus.io"
   packages = [
     "exporter/jaeger",
@@ -659,6 +658,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "476e0b453b4947a75639db11c7a092d3157be8e665eb7a7a2633422f737f5369"
+  inputs-digest = "1da8f3b4885673e5d2b431cf72e0a089da506c4ec6da226d6faaa25aeeff958c"
   solver-name = "gps-cdcl"
   solver-version = 1
