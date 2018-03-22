@@ -47,11 +47,11 @@ func newMockRunnerPool(rf insecureRunnerFactory, runnerAddrs []string) *mockRunn
 	}
 }
 
-func (npm *mockRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
-	return npm.runners, nil
+func (rp *mockRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
+	return rp.runners, nil
 }
 
-func (npm *mockRunnerPool) Shutdown(context.Context) error {
+func (rp *mockRunnerPool) Shutdown(context.Context) error {
 	return nil
 }
 

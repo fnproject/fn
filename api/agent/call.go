@@ -65,6 +65,10 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			route.Format = models.FormatDefault
 		}
 
+		// make app and route models available in the request context
+		ctx := context.WithValue(req.Context(), "FN_APP_MODEL", app)
+		req = req.WithContext(context.WithValue(ctx, "FN_ROUTE_MODEL", route))
+
 		id := id.New().String()
 
 		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
