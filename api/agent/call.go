@@ -107,6 +107,8 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			URL:         reqURL(req),
 			Method:      req.Method,
 		}
+		c.app = app
+		c.route = route
 
 		c.req = req
 		return nil
@@ -272,6 +274,9 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 type call struct {
 	*models.Call
 
+	app   *models.App
+	route *models.Route
+
 	da             DataAccess
 	w              io.Writer
 	req            *http.Request
@@ -303,6 +308,10 @@ func (c *call) StdErr() io.ReadWriteCloser {
 }
 
 func (c *call) Model() *models.Call { return c.Call }
+
+func (c *call) App() *models.App { return c.app }
+
+func (c *call) Route() *models.Route { return c.route }
 
 func (c *call) Start(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "agent_call_start")
