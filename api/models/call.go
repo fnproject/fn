@@ -126,6 +126,9 @@ type Call struct {
 	// Config is the set of configuration variables for the call
 	Config Config `json:"config,omitempty" db:"-"`
 
+	// Annotations is the set of annotations for the app/route of the call.
+	Annotations Annotations `json:"annotations,omitempty" db:"-"`
+
 	// Headers are headers from the request that created this call
 	Headers http.Header `json:"headers,omitempty" db:"-"`
 
