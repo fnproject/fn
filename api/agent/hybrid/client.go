@@ -118,8 +118,8 @@ func (cl *client) Finish(ctx context.Context, c *models.Call, r io.Reader, async
 	return err
 }
 
-func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_app")
+func (cl *client) GetApp(req *http.Request, appName string) (*models.App, error) {
+	ctx, span := trace.StartSpan(req.Context(), "hybrid_client_get_app")
 	defer span.End()
 
 	var a struct {
@@ -129,8 +129,8 @@ func (cl *client) GetApp(ctx context.Context, appName string) (*models.App, erro
 	return &a.A, err
 }
 
-func (cl *client) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "hybrid_client_get_route")
+func (cl *client) GetRoute(req *http.Request, appName, route string) (*models.Route, error) {
+	ctx, span := trace.StartSpan(req.Context(), "hybrid_client_get_route")
 	defer span.End()
 
 	// TODO trim prefix is pretty odd here eh?
