@@ -589,6 +589,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/time"
+  packages = ["rate"]
+  revision = "26559e0f760e39c24d730d3224364aef164ee23f"
+
+[[projects]]
+  branch = "master"
   name = "google.golang.org/api"
   packages = ["support/bundler"]
   revision = "c24aa0e5ed34558ea50c016e4fb92c5e9aa69f2c"
@@ -653,6 +659,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bd152d9d0bb0ac9975ecc30f368747c21a047f30bd5037fb19e4835631baae52"
+  inputs-digest = "a7ba96a9cacdff4bbcb3f1824aea4095601292e2ac97987245bb27f9853d887b"
   solver-name = "gps-cdcl"
   solver-version = 1

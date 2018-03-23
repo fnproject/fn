@@ -60,6 +60,9 @@ type Driver interface {
 	//
 	// The returned cookie should respect the task's timeout when it is run.
 	Prepare(ctx context.Context, task ContainerTask) (Cookie, error)
+
+	// close & shutdown the driver
+	Close() error
 }
 
 // RunResult indicates only the final state of the task.
@@ -189,8 +192,11 @@ const (
 type Config struct {
 	Docker string `json:"docker"`
 	// TODO CPUShares should likely be on a per container basis
-	CPUShares     int64  `json:"cpu_shares"`
-	ServerVersion string `json:"server_version"`
+	CPUShares       int64  `json:"cpu_shares"`
+	ServerVersion   string `json:"server_version"`
+	PreForkPoolSize uint64 `json:"pre_fork_pool_size"`
+	PreForkImage    string `json:"pre_fork_image"`
+	PreForkCmd      string `json:"pre_fork_cmd"`
 }
 
 func average(samples []Stat) (Stat, bool) {

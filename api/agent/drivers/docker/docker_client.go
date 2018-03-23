@@ -275,7 +275,7 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 	_, containerNotFound := err.(*docker.NoSuchContainer)
 	dockerErr, ok := err.(*docker.Error)
 	if containerNotFound || (ok && dockerErr.Status == 404) {
-		log.WithError(err).Error("filtering error")
+		log.WithError(err).Info("filtering error")
 		return nil
 	}
 	return err
