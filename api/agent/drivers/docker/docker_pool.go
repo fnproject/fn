@@ -103,6 +103,9 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	log := common.Logger(ctx)
+	log.Error("WARNING: Experimental Prefork Docker Pool Enabled")
+
 	pool := &dockerPool{
 		inuse:   make(map[string]struct{}, conf.PreForkPoolSize),
 		free:    make([]string, 0, conf.PreForkPoolSize),

@@ -36,9 +36,9 @@ const (
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
 	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
 	EnvMaxFsSize          = "FN_MAX_FS_SIZE_MB"
-	EnvPreForkPoolSize    = "FN_PRE_FORK_POOL_SIZE"
-	EnvPreForkImage       = "FN_PRE_FORK_IMAGE"
-	EnvPreForkCmd         = "FN_PRE_FORK_CMD"
+	EnvPreForkPoolSize    = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
+	EnvPreForkImage       = "FN_EXPERIMENTAL_PREFORK_IMAGE"
+	EnvPreForkCmd         = "FN_EXPERIMENTAL_PREFORK_CMD"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
