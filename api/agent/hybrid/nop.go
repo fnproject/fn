@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/models"
@@ -41,14 +42,14 @@ func (cl *nopDataStore) Finish(ctx context.Context, c *models.Call, r io.Reader,
 	return nil // It's ok to call this method, and it does no operations
 }
 
-func (cl *nopDataStore) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	ctx, span := trace.StartSpan(ctx, "nop_datastore_get_app")
+func (cl *nopDataStore) GetApp(req *http.Request, appName string) (*models.App, error) {
+	_, span := trace.StartSpan(req.Context(), "nop_datastore_get_app")
 	defer span.End()
 	return nil, errors.New("Should not call GetApp on a NOP data store")
 }
 
-func (cl *nopDataStore) GetRoute(ctx context.Context, appName, route string) (*models.Route, error) {
-	ctx, span := trace.StartSpan(ctx, "nop_datastore_get_route")
+func (cl *nopDataStore) GetRoute(req *http.Request, appName, route string) (*models.Route, error) {
+	_, span := trace.StartSpan(req.Context(), "nop_datastore_get_route")
 	defer span.End()
 	return nil, errors.New("Should not call GetRoute on a NOP data store")
 }
