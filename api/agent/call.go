@@ -137,7 +137,7 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 }
 
 func buildAnnotations(app *models.App, route *models.Route) models.Annotations {
-	ann := make(models.Annotations)
+	ann := make(models.Annotations, len(app.Annotations)+len(route.Annotations))
 	for k, v := range app.Annotations {
 		ann[k] = v
 	}
