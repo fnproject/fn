@@ -35,12 +35,12 @@ type CallResponseHTTP struct {
 
 // jsonIn We're not using this since we're writing JSON directly right now, but trying to keep it current anyways, much easier to read/follow
 type jsonIn struct {
-	CallID      string          `json:"call_id"`
-	Deadline    string          `json:"deadline"`
-	Body        string          `json:"body"`
-	ContentType string          `json:"content_type"`
-	Protocol    CallRequestHTTP `json:"protocol"`
-	Version     string          `json:"version"`
+	CallID          string          `json:"call_id"`
+	Deadline        string          `json:"deadline"`
+	Body            string          `json:"body"`
+	ContentType     string          `json:"content_type"`
+	Protocol        CallRequestHTTP `json:"protocol"`
+	ProtocolVersion string          `json:"protocol_version"`
 }
 
 // jsonOut the expected response from the function container
@@ -88,7 +88,7 @@ func (h *JSONProtocolV1) writeJSONToContainer(ci CallInfo) error {
 			RequestURL: ci.RequestURL(),
 			Headers:    ci.Headers(),
 		},
-		Version: h.Version(),
+		ProtocolVersion: h.Version(),
 	}
 
 	return json.NewEncoder(h.in).Encode(in)

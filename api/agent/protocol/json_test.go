@@ -73,9 +73,9 @@ func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	if incomingReq.Version != proto.Version() {
+	if incomingReq.ProtocolVersion != proto.Version() {
 		t.Errorf("Protocol version mismatch. Expected: '%s'. Actual: '%s'",
-			proto.Version(), incomingReq.Version)
+			proto.Version(), incomingReq.ProtocolVersion)
 	}
 
 	if incomingReq.CallID != ci.CallID() {
