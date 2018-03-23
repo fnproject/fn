@@ -19,6 +19,7 @@ type errorProto struct {
 	error
 }
 
+func (e errorProto) Version() string                                              { return "1.0.0" }
 func (e errorProto) IsStreamable() bool                                           { return false }
 func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error { return e }
 
@@ -27,7 +28,7 @@ func (e errorProto) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) erro
 // It returns any protocol error, if present.
 type ContainerIO interface {
 	IsStreamable() bool
-
+	Version() string
 	// Dispatch will handle sending stdin and stdout to a container. Implementers
 	// of Dispatch may format the input and output differently. Dispatch must respect
 	// the req.Context() timeout / cancellation.
@@ -164,7 +165,7 @@ func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 	case HTTP:
 		return &HTTPProtocol{in, out}
 	case JSON:
-		return &JSONProtocol{in, out}
+		return &JSONProtocolV1{in, out}
 	case Default, Empty:
 		return &DefaultProtocol{}
 	}

@@ -53,7 +53,7 @@ func setupRequest(data interface{}) *callInfoImpl {
 func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
 	ci := setupRequest(nil)
 	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
+	proto := JSONProtocolV1{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {
@@ -72,6 +72,12 @@ func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
+
+	if incomingReq.Version != proto.Version() {
+		t.Errorf("Protocol version mismatch. Expected: '%s'. Actual: '%s'",
+			proto.Version(), incomingReq.Version)
+	}
+
 	if incomingReq.CallID != ci.CallID() {
 		t.Errorf("Request CallID assertion mismatch: expected: %s, got %s",
 			ci.CallID(), incomingReq.CallID)
@@ -90,7 +96,7 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
 	ci := setupRequest(rDataBefore)
 	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
+	proto := JSONProtocolV1{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {
@@ -135,7 +141,7 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	ci := setupRequest(nil)
 	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
+	proto := JSONProtocolV1{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {
@@ -179,7 +185,7 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	ci := setupRequest(nil)
 	r, w := io.Pipe()
-	proto := JSONProtocol{w, r}
+	proto := JSONProtocolV1{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {

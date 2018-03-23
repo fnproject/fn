@@ -40,6 +40,7 @@ type jsonIn struct {
 	Body        string          `json:"body"`
 	ContentType string          `json:"content_type"`
 	Protocol    CallRequestHTTP `json:"protocol"`
+	Version     string          `json:"version"`
 }
 
 // jsonOut the expected response from the function container
@@ -50,17 +51,21 @@ type jsonOut struct {
 }
 
 // JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
-type JSONProtocol struct {
+type JSONProtocolV1 struct {
 	// These are the container input streams, not the input from the request or the output for the response
 	in  io.Writer
 	out io.Reader
 }
 
-func (p *JSONProtocol) IsStreamable() bool {
+func (p *JSONProtocolV1) Version() string {
+	return "1.0.0"
+}
+
+func (p *JSONProtocolV1) IsStreamable() bool {
 	return true
 }
 
-func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
+func (h *JSONProtocolV1) writeJSONToContainer(ci CallInfo) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
@@ -83,12 +88,13 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 			RequestURL: ci.RequestURL(),
 			Headers:    ci.Headers(),
 		},
+		Version: h.Version(),
 	}
 
 	return json.NewEncoder(h.in).Encode(in)
 }
 
-func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *JSONProtocolV1) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
 	ctx, span := trace.StartSpan(ctx, "dispatch_json")
 	defer span.End()
 
@@ -147,7 +153,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	return h.isExcessData(err, decoder)
 }
 
-func (h *JSONProtocol) isExcessData(err error, decoder *json.Decoder) error {
+func (h *JSONProtocolV1) isExcessData(err error, decoder *json.Decoder) error {
 	if err == nil {
 		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
 		reader, ok := decoder.Buffered().(*bytes.Reader)
