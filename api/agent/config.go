@@ -26,6 +26,7 @@ type AgentConfig struct {
 	PreForkImage       string        `json:"pre_fork_image"`
 	PreForkCmd         string        `json:"pre_fork_pool_cmd"`
 	PreForkUseOnce     uint64        `json:"pre_fork_use_once"`
+	PreForkNetworks    string        `json:"pre_fork_networks"`
 }
 
 const (
@@ -45,6 +46,7 @@ const (
 	EnvPreForkImage       = "FN_EXPERIMENTAL_PREFORK_IMAGE"
 	EnvPreForkCmd         = "FN_EXPERIMENTAL_PREFORK_CMD"
 	EnvPreForkUseOnce     = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
+	EnvPreForkNetworks    = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -77,6 +79,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
 	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
 	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
+	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
 
 	if err != nil {
 		return cfg, err

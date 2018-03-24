@@ -49,10 +49,11 @@ const (
 )
 
 type poolTask struct {
-	id    string
-	image string
-	cmd   string
-	state PoolTaskStateType
+	id      string
+	image   string
+	cmd     string
+	netMode string
+	state   PoolTaskStateType
 }
 
 func (c *poolTask) Id() string                                       { return c.id }
@@ -92,7 +93,7 @@ type DockerPoolStats struct {
 
 type DockerPool interface {
 	// fetch a pre-allocated free id from the pool
-	// may return too busy error
+	// may return too busy error.
 	AllocPoolId() (string, error)
 
 	// Release the id back to the pool
@@ -128,13 +129,19 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 		pool.isRecycle = true
 	}
 
+	networks := strings.Fields(conf.PreForkNetworks)
+	if len(networks) == 0 {
+		networks = append(networks, "")
+	}
+
 	pool.wg.Add(int(conf.PreForkPoolSize))
-	for i := uint64(0); i < conf.PreForkPoolSize; i++ {
+	for i := 0; i < int(conf.PreForkPoolSize); i++ {
 
 		task := &poolTask{
-			id:    fmt.Sprintf("%d_prefork_%s", i, id.New().String()),
-			image: conf.PreForkImage,
-			cmd:   conf.PreForkCmd,
+			id:      fmt.Sprintf("%d_prefork_%s", i, id.New().String()),
+			image:   conf.PreForkImage,
+			cmd:     conf.PreForkCmd,
+			netMode: networks[i%len(networks)],
 		}
 
 		go pool.nannyContainer(ctx, driver, task)
@@ -151,7 +158,7 @@ func (pool *dockerPool) Close() error {
 
 func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriver, task *poolTask) {
 
-	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id()})
+	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
 	err := driver.ensureImage(ctx, task)
 	if err != nil {
@@ -176,6 +183,7 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 			LogConfig: docker.LogConfig{
 				Type: "none",
 			},
+			NetworkMode: task.netMode,
 		},
 		Context: ctx,
 	}
@@ -201,7 +209,7 @@ func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriv
 
 func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDriver, task *poolTask) {
 
-	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id()})
+	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
 	killOpts := docker.KillContainerOptions{
 		ID:      task.Id(),
@@ -258,7 +266,7 @@ func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver
 	defer pool.performTeardown(ctx, driver, task)
 	defer pool.wg.Done()
 
-	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id()})
+	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
 
 	// We spin forever, keeping the pool resident and running at all times.
 	for ctx.Err() == nil {
