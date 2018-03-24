@@ -35,6 +35,7 @@ type dockerClient interface {
 	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
+	KillContainer(opts docker.KillContainerOptions) error
 	CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error)
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PauseContainer(id string, ctx context.Context) error
@@ -334,6 +335,18 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 		return err
 	})
 	return c, err
+}
+
+func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error) {
+	ctx, span := trace.StartSpan(opts.Context, "docker_kill_container")
+	defer span.End()
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "KillContainer")
+	err = d.retry(ctx, logger, func() error {
+		err = d.dockerNoTimeout.KillContainer(opts)
+		return err
+	})
+	return err
 }
 
 func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {

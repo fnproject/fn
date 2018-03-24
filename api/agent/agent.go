@@ -141,6 +141,7 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 			PreForkPoolSize: cfg.PreForkPoolSize,
 			PreForkImage:    cfg.PreForkImage,
 			PreForkCmd:      cfg.PreForkCmd,
+			PreForkUseOnce:  cfg.PreForkUseOnce,
 		})
 	} else {
 		driver = mock.New()
