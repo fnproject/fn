@@ -1,4 +1,4 @@
-// Package vision provides access to the Google Cloud Vision API.
+// Package vision provides access to the Cloud Vision API.
 //
 // See https://cloud.google.com/vision/
 //
@@ -2446,6 +2446,9 @@ type GoogleCloudVisionV1p2beta1AsyncAnnotateFileResponse struct {
 	// OutputConfig: The output location and metadata from
 	// AsyncAnnotateFileRequest.
 	OutputConfig *GoogleCloudVisionV1p2beta1OutputConfig `json:"outputConfig,omitempty"`
+
+	// Outputs: The full list of output files in GCS.
+	Outputs []*GoogleCloudVisionV1p2beta1GcsDestination `json:"outputs,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "OutputConfig") to
 	// unconditionally include in API requests. By default, fields with

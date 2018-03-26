@@ -234,6 +234,8 @@ void migrate_global_cache() {
 template <typename T>
 T* round_trip(T* t) {
   typename plugin::ToType<T>::type p;
+  plugin::clear_global_cache();
+  plugin_output::clear_global_cache();
   plugin_output::convert(t, p);
   migrate_global_cache();
   return plugin::convert(p);
@@ -275,12 +277,12 @@ void test_const_value(t_const_value* sut) {
     BOOST_CHECK_EQUAL(sut->get_map().size(), sut2->get_map().size());
     {
       std::map<t_const_value::t_const_value_type, t_const_value::t_const_value_type> sut_values;
-      for (std::map<t_const_value*, t_const_value*>::const_iterator it = sut->get_map().begin();
+      for (std::map<t_const_value*, t_const_value*, t_const_value::value_compare>::const_iterator it = sut->get_map().begin();
            it != sut->get_map().end(); it++) {
         sut_values[it->first->get_type()] = it->second->get_type();
       }
       std::map<t_const_value::t_const_value_type, t_const_value::t_const_value_type> sut2_values;
-      for (std::map<t_const_value*, t_const_value*>::const_iterator it = sut2->get_map().begin();
+      for (std::map<t_const_value*, t_const_value*, t_const_value::value_compare>::const_iterator it = sut2->get_map().begin();
            it != sut2->get_map().end(); it++) {
         sut2_values[it->first->get_type()] = it->second->get_type();
       }

@@ -311,7 +311,7 @@
       }
     }
   },
-  "revision": "20180301",
+  "revision": "20180312",
   "rootUrl": "https://slides.googleapis.com/",
   "schemas": {
     "AffineTransform": {
@@ -4315,7 +4315,7 @@
           "type": "boolean"
         },
         "end": {
-          "description": "The time at which to end playback, measured in seconds from the beginning\nof the video.\nIf set, the end time should be after the start time.\nIf not set or if you set this to a value that exceeds the video duration,\nthe video will be played until its end.",
+          "description": "The time at which to end playback, measured in seconds from the beginning\nof the video.\nIf set, the end time should be after the start time.\nIf not set or if you set this to a value that exceeds the video's length,\nthe video will be played until its end.",
           "format": "uint32",
           "type": "integer"
         },

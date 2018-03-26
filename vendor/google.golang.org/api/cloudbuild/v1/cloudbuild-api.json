@@ -251,7 +251,7 @@
               ]
             },
             "create": {
-              "description": "Starts a build with the specified configuration.\n\nThis method returns a long-running `Operation`, which includes the build ID.\nPass the build ID to `GetBuild` to determine the build status\n(such as `SUCCESS` or `FAILURE`).",
+              "description": "Starts a build with the specified configuration.\n\nThis method returns a long-running `Operation`, which includes the build\nID. Pass the build ID to `GetBuild` to determine the build status (such as\n`SUCCESS` or `FAILURE`).",
               "flatPath": "v1/projects/{projectId}/builds",
               "httpMethod": "POST",
               "id": "cloudbuild.projects.builds.create",
@@ -572,7 +572,7 @@
       }
     }
   },
-  "revision": "20180301",
+  "revision": "20180315",
   "rootUrl": "https://cloudbuild.googleapis.com/",
   "schemas": {
     "Build": {
@@ -880,7 +880,7 @@
           "type": "array"
         },
         "waitFor": {
-          "description": "The ID(s) of the step(s) that this build step depends on.\nThis build step will not start until all the build steps in `wait_for`\nhave completed successfully. If `wait_for` is empty, this build step will\nstart when all previous build steps in the `Build.Steps` list have completed\nsuccessfully.",
+          "description": "The ID(s) of the step(s) that this build step depends on.\nThis build step will not start until all the build steps in `wait_for`\nhave completed successfully. If `wait_for` is empty, this build step will\nstart when all previous build steps in the `Build.Steps` list have\ncompleted successfully.",
           "items": {
             "type": "string"
           },

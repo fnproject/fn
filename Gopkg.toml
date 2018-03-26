@@ -72,4 +72,8 @@ ignored = ["github.com/fnproject/fn/cli"]
 
 [[constraint]]
   name = "go.opencensus.io"
-  revision = "f1af72ab88d638dcc20ea6ecf83c98b59b092559"
+  version = "0.6.0"
+
+[[override]]
+  name = "git.apache.org/thrift.git"
+  revision = "272470790ad6db791bd6f9db399b2cd2d5879f74"

@@ -496,6 +496,17 @@ type Cluster struct {
 	// be upgraded over time; such upgrades are reflected
 	// in
 	// currentMasterVersion and currentNodeVersion.
+	//
+	// Users may specify either explicit versions offered by
+	// Kubernetes Engine or version aliases, which have the following
+	// behavior:
+	//
+	// - "latest": picks the highest valid Kubernetes version
+	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version
+	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
+	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
+	// - "","-": picks the default Kubernetes version
 	InitialClusterVersion string `json:"initialClusterVersion,omitempty"`
 
 	// InitialNodeCount: The number of nodes to create in this cluster. You
@@ -563,6 +574,13 @@ type Cluster struct {
 	// authorized networks feature.
 	MasterAuthorizedNetworksConfig *MasterAuthorizedNetworksConfig `json:"masterAuthorizedNetworksConfig,omitempty"`
 
+	// MasterIpv4CidrBlock: The IP prefix in CIDR notation to use for the
+	// hosted master network.
+	// This prefix will be used for assigning private IP addresses to
+	// the
+	// master or set of masters, as well as the ILB VIP.
+	MasterIpv4CidrBlock string `json:"masterIpv4CidrBlock,omitempty"`
+
 	// MonitoringService: The monitoring service the cluster should use to
 	// write metrics.
 	// Currently available options:
@@ -589,7 +607,8 @@ type Cluster struct {
 	// [network](/compute/docs/networks-and-firewalls#networks) to which
 	// the
 	// cluster is connected. If left unspecified, the `default` network
-	// will be used.
+	// will be used. On output this shows the network ID instead of
+	// the name.
 	Network string `json:"network,omitempty"`
 
 	// NetworkPolicy: Configuration options for the NetworkPolicy feature.
@@ -627,6 +646,13 @@ type Cluster struct {
 	// PodSecurityPolicyConfig: Configuration for the PodSecurityPolicy
 	// feature.
 	PodSecurityPolicyConfig *PodSecurityPolicyConfig `json:"podSecurityPolicyConfig,omitempty"`
+
+	// PrivateCluster: If this is a private cluster setup. Private clusters
+	// are clusters that, by
+	// default have no external IP addresses on the nodes and where nodes
+	// and the
+	// master communicate over private IP addresses.
+	PrivateCluster bool `json:"privateCluster,omitempty"`
 
 	// ResourceLabels: The resource labels for the cluster to use to
 	// annotate any related GCE
@@ -679,7 +705,9 @@ type Cluster struct {
 	// Subnetwork: The name of the Google Compute
 	// Engine
 	// [subnetwork](/compute/docs/subnetworks) to which the
-	// cluster is connected.
+	// cluster is connected. On output this shows the subnetwork ID instead
+	// of
+	// the name.
 	Subnetwork string `json:"subnetwork,omitempty"`
 
 	// Zone: [Output only] The name of the Google Compute
@@ -750,9 +778,18 @@ type ClusterUpdate struct {
 
 	// DesiredMasterVersion: The Kubernetes version to change the master to.
 	// The only valid value is the
-	// latest supported version. Use "-" to have the server automatically
-	// select
-	// the latest version.
+	// latest supported version.
+	//
+	// Users may specify either explicit versions offered by
+	// Kubernetes Engine or version aliases, which have the following
+	// behavior:
+	//
+	// - "latest": picks the highest valid Kubernetes version
+	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version
+	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
+	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
+	// - "-": picks the default Kubernetes version
 	DesiredMasterVersion string `json:"desiredMasterVersion,omitempty"`
 
 	// DesiredMonitoringService: The monitoring service the cluster should
@@ -781,8 +818,18 @@ type ClusterUpdate struct {
 
 	// DesiredNodeVersion: The Kubernetes version to change the nodes to
 	// (typically an
-	// upgrade). Use `-` to upgrade to the latest version supported by
-	// the server.
+	// upgrade).
+	//
+	// Users may specify either explicit versions offered by
+	// Kubernetes Engine or version aliases, which have the following
+	// behavior:
+	//
+	// - "latest": picks the highest valid Kubernetes version
+	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version
+	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
+	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
+	// - "-": picks the Kubernetes master version
 	DesiredNodeVersion string `json:"desiredNodeVersion,omitempty"`
 
 	// DesiredPodSecurityPolicyConfig: The desired configuration options for
@@ -3146,11 +3193,18 @@ type UpdateMasterRequest struct {
 	// This field has been deprecated and replaced by the name field.
 	ClusterId string `json:"clusterId,omitempty"`
 
-	// MasterVersion: The Kubernetes version to change the master to. The
-	// only valid value is the
-	// latest supported version. Use "-" to have the server automatically
-	// select
-	// the latest version.
+	// MasterVersion: The Kubernetes version to change the master to.
+	//
+	// Users may specify either explicit versions offered by
+	// Kubernetes Engine or version aliases, which have the following
+	// behavior:
+	//
+	// - "latest": picks the highest valid Kubernetes version
+	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version
+	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
+	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
+	// - "-": picks the default Kubernetes version
 	MasterVersion string `json:"masterVersion,omitempty"`
 
 	// Name: The name (project, location, cluster) of the cluster to
@@ -3218,8 +3272,18 @@ type UpdateNodePoolRequest struct {
 
 	// NodeVersion: The Kubernetes version to change the nodes to (typically
 	// an
-	// upgrade). Use `-` to upgrade to the latest version supported by
-	// the server.
+	// upgrade).
+	//
+	// Users may specify either explicit versions offered by Kubernetes
+	// Engine or
+	// version aliases, which have the following behavior:
+	//
+	// - "latest": picks the highest valid Kubernetes version
+	// - "1.X": picks the highest valid patch+gke.N patch in the 1.X
+	// version
+	// - "1.X.Y": picks the highest valid gke.N patch in the 1.X.Y version
+	// - "1.X.Y-gke.N": picks an explicit Kubernetes version
+	// - "-": picks the Kubernetes master version
 	NodeVersion string `json:"nodeVersion,omitempty"`
 
 	// ProjectId: Deprecated. The Google Developers Console [project ID or

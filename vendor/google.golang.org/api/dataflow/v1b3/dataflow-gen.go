@@ -767,6 +767,8 @@ type CounterMetadata struct {
 	//   "SET" - Aggregated value is a set of unique contributed values.
 	//   "DISTRIBUTION" - Aggregated value captures statistics about a
 	// distribution.
+	//   "LATEST_VALUE" - Aggregated value tracks the latest value of a
+	// variable.
 	Kind string `json:"kind,omitempty"`
 
 	// OtherUnits: A string referring to the unit type.
@@ -954,6 +956,9 @@ type CounterUpdate struct {
 
 	// Integer: Integer value for Sum, Max, Min.
 	Integer *SplitInt64 `json:"integer,omitempty"`
+
+	// IntegerGauge: Gauge data
+	IntegerGauge *IntegerGauge `json:"integerGauge,omitempty"`
 
 	// IntegerList: List of integers, for Set.
 	IntegerList *IntegerList `json:"integerList,omitempty"`
@@ -2064,6 +2069,39 @@ type InstructionOutput struct {
 
 func (s *InstructionOutput) MarshalJSON() ([]byte, error) {
 	type NoMethod InstructionOutput
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// IntegerGauge: A metric value representing temporal values of a
+// variable.
+type IntegerGauge struct {
+	// Timestamp: The time at which this value was measured. Measured as
+	// msecs from epoch.
+	Timestamp string `json:"timestamp,omitempty"`
+
+	// Value: The value of the variable represented by this gauge.
+	Value *SplitInt64 `json:"value,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Timestamp") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Timestamp") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *IntegerGauge) MarshalJSON() ([]byte, error) {
+	type NoMethod IntegerGauge
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -3262,6 +3300,8 @@ type NameAndKind struct {
 	//   "SET" - Aggregated value is a set of unique contributed values.
 	//   "DISTRIBUTION" - Aggregated value captures statistics about a
 	// distribution.
+	//   "LATEST_VALUE" - Aggregated value tracks the latest value of a
+	// variable.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the counter.

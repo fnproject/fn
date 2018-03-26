@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 
+	"go.opencensus.io/plugin/ochttp/propagation/b3"
+	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
 	"go.opencensus.io/trace"
 )
 
@@ -91,7 +93,6 @@ func TestTransport_RoundTrip(t *testing.T) {
 			transport := &testTransport{ch: make(chan *http.Request, 1)}
 
 			rt := &Transport{
-				NoStats:     true,
 				Propagation: &testPropagator{},
 				Base:        transport,
 			}
@@ -141,8 +142,6 @@ func TestHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.header, func(t *testing.T) {
-			propagator := &testPropagator{}
-
 			handler := &Handler{
 				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					span := trace.FromContext(r.Context())
@@ -155,7 +154,7 @@ func TestHandler(t *testing.T) {
 					}
 				}),
 				StartOptions: trace.StartOptions{Sampler: trace.ProbabilitySampler(0.0)},
-				Propagation:  propagator,
+				Propagation:  &testPropagator{},
 			}
 			req, _ := http.NewRequest("GET", "http://foo.com", nil)
 			req.Header.Add("trace", tt.header)
@@ -173,116 +172,169 @@ func (c *collector) ExportSpan(s *trace.SpanData) {
 }
 
 func TestEndToEnd(t *testing.T) {
-	var spans collector
-	trace.RegisterExporter(&spans)
-	defer trace.UnregisterExporter(&spans)
+	trace.SetDefaultSampler(trace.AlwaysSample())
 
-	span := trace.NewSpan(
-		"top-level",
-		nil,
-		trace.StartOptions{
-			Sampler: trace.AlwaysSample(),
+	tc := []struct {
+		name            string
+		handler         *Handler
+		transport       *Transport
+		wantSameTraceID bool
+		wantLinks       bool // expect a link between client and server span
+	}{
+		{
+			name:            "internal default propagation",
+			handler:         &Handler{},
+			transport:       &Transport{},
+			wantSameTraceID: true,
+		},
+		{
+			name:            "external default propagation",
+			handler:         &Handler{IsPublicEndpoint: true},
+			transport:       &Transport{},
+			wantSameTraceID: false,
+			wantLinks:       true,
+		},
+		{
+			name:            "internal TraceContext propagation",
+			handler:         &Handler{Propagation: &tracecontext.HTTPFormat{}},
+			transport:       &Transport{Propagation: &tracecontext.HTTPFormat{}},
+			wantSameTraceID: true,
+		},
+		{
+			name:            "misconfigured propagation",
+			handler:         &Handler{IsPublicEndpoint: true, Propagation: &tracecontext.HTTPFormat{}},
+			transport:       &Transport{Propagation: &b3.HTTPFormat{}},
+			wantSameTraceID: false,
+			wantLinks:       false,
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			var spans collector
+			trace.RegisterExporter(&spans)
+			defer trace.UnregisterExporter(&spans)
+
+			// Start the server.
+			serverDone := make(chan struct{})
+			serverReturn := make(chan time.Time)
+			url := serveHTTP(tt.handler, serverDone, serverReturn)
+
+			// Start a root Span in the client.
+			root := trace.NewSpan(
+				"top-level",
+				nil,
+				trace.StartOptions{})
+			ctx := trace.WithSpan(context.Background(), root)
+
+			// Make the request.
+			req, err := http.NewRequest(
+				http.MethodPost,
+				fmt.Sprintf("%s/example/url/path?qparam=val", url),
+				strings.NewReader("expected-request-body"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req = req.WithContext(ctx)
+			resp, err := tt.transport.RoundTrip(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("resp.StatusCode = %d", resp.StatusCode)
+			}
+
+			// Tell the server to return from request handling.
+			serverReturn <- time.Now().Add(time.Millisecond)
+
+			respBody, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := string(respBody), "expected-response"; got != want {
+				t.Fatalf("respBody = %q; want %q", got, want)
+			}
+
+			resp.Body.Close()
+
+			<-serverDone
+			trace.UnregisterExporter(&spans)
+
+			if got, want := len(spans), 2; got != want {
+				t.Fatalf("len(spans) = %d; want %d", got, want)
+			}
+
+			var client, server *trace.SpanData
+			for _, sp := range spans {
+				switch sp.SpanKind {
+				case trace.SpanKindClient:
+					client = sp
+					if got, want := client.Name, "/example/url/path"; got != want {
+						t.Errorf("Span name: %q; want %q", got, want)
+					}
+				case trace.SpanKindServer:
+					server = sp
+					if got, want := server.Name, "/example/url/path"; got != want {
+						t.Errorf("Span name: %q; want %q", got, want)
+					}
+				default:
+					t.Fatalf("server or client span missing")
+				}
+			}
+
+			if tt.wantSameTraceID {
+				if server.TraceID != client.TraceID {
+					t.Errorf("TraceID does not match: server.TraceID=%q client.TraceID=%q", server.TraceID, client.TraceID)
+				}
+				if !server.HasRemoteParent {
+					t.Errorf("server span should have remote parent")
+				}
+				if server.ParentSpanID != client.SpanID {
+					t.Errorf("server span should have client span as parent")
+				}
+			}
+			if !tt.wantSameTraceID {
+				if server.TraceID == client.TraceID {
+					t.Errorf("TraceID should not be trusted")
+				}
+			}
+			if tt.wantLinks {
+				if got, want := len(server.Links), 1; got != want {
+					t.Errorf("len(server.Links) = %d; want %d", got, want)
+				} else {
+					link := server.Links[0]
+					if got, want := link.TraceID, root.SpanContext().TraceID; got != want {
+						t.Errorf("link.TraceID = %q; want %q", got, want)
+					}
+					if got, want := link.Type, trace.LinkTypeChild; got != want {
+						t.Errorf("link.Type = %v; want %v", got, want)
+					}
+				}
+			}
+			if server.StartTime.Before(client.StartTime) {
+				t.Errorf("server span starts before client span")
+			}
+			if server.EndTime.After(client.EndTime) {
+				t.Errorf("client span ends before server span")
+			}
 		})
-	ctx := trace.WithSpan(context.Background(), span)
-
-	serverDone := make(chan struct{})
-	serverReturn := make(chan time.Time)
-	url := serveHTTP(serverDone, serverReturn)
-
-	req, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("%s/example/url/path?qparam=val", url),
-		strings.NewReader("expected-request-body"))
-	if err != nil {
-		t.Fatalf("unexpected error %#v", err)
-	}
-	req = req.WithContext(ctx)
-
-	rt := &Transport{
-		NoStats:     true,
-		Propagation: defaultFormat,
-		Base:        http.DefaultTransport,
-	}
-	resp, err := rt.RoundTrip(req)
-	if err != nil {
-		t.Fatalf("unexpected error %s", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected stats: %d", resp.StatusCode)
-	}
-
-	serverReturn <- time.Now().Add(time.Millisecond)
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("unexpected read error: %#v", err)
-	}
-	if string(respBody) != "expected-response" {
-		t.Fatalf("unexpected response: %s", string(respBody))
-	}
-
-	resp.Body.Close()
-
-	<-serverDone
-	trace.UnregisterExporter(&spans)
-
-	if got, want := len(spans), 2; got != want {
-		t.Fatalf("len(%#v) = %d; want %d", spans, got, want)
-	}
-
-	var client, server *trace.SpanData
-	for _, sp := range spans {
-		if strings.HasPrefix(sp.Name, "Sent.") {
-			client = sp
-			serverHostport := req.URL.Hostname() + ":" + req.URL.Port()
-			if got, want := client.Name, "Sent."+serverHostport+"/example/url/path"; got != want {
-				t.Errorf("Span name: %q; want %q", got, want)
-			}
-		} else if strings.HasPrefix(sp.Name, "Recv.") {
-			server = sp
-			if got, want := server.Name, "Recv./example/url/path"; got != want {
-				t.Errorf("Span name: %q; want %q", got, want)
-			}
-		}
-	}
-
-	if server == nil || client == nil {
-		t.Fatalf("server or client span missing")
-	}
-	if server.TraceID != client.TraceID {
-		t.Errorf("TraceID does not match: server.TraceID=%q client.TraceID=%q", server.TraceID, client.TraceID)
-	}
-	if server.StartTime.Before(client.StartTime) {
-		t.Errorf("server span starts before client span")
-	}
-	if server.EndTime.After(client.EndTime) {
-		t.Errorf("client span ends before server span")
-	}
-	if !server.HasRemoteParent {
-		t.Errorf("server span should have remote parent")
-	}
-	if server.ParentSpanID != client.SpanID {
-		t.Errorf("server span should have client span as parent")
 	}
 }
 
-func serveHTTP(done chan struct{}, wait chan time.Time) string {
-	handler := &Handler{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(200)
-			w.(http.Flusher).Flush()
+func serveHTTP(handler *Handler, done chan struct{}, wait chan time.Time) string {
+	handler.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.(http.Flusher).Flush()
 
-			// simulate a slow-responding server
-			sleepUntil := <-wait
-			for time.Now().Before(sleepUntil) {
-				time.Sleep(sleepUntil.Sub(time.Now()))
-			}
+		// Simulate a slow-responding server.
+		sleepUntil := <-wait
+		for time.Now().Before(sleepUntil) {
+			time.Sleep(sleepUntil.Sub(time.Now()))
+		}
 
-			io.WriteString(w, "expected-response")
-			close(done)
-		}),
-	}
-
+		io.WriteString(w, "expected-response")
+		close(done)
+	})
 	server := httptest.NewServer(handler)
 	go func() {
 		<-done
@@ -293,38 +345,25 @@ func serveHTTP(done chan struct{}, wait chan time.Time) string {
 
 func TestSpanNameFromURL(t *testing.T) {
 	tests := []struct {
-		prefix string
-		u      string
-		want   string
+		u    string
+		want string
 	}{
 		{
-			prefix: "Sent",
-			u:      "http://localhost:80/hello?q=a",
-			want:   "Sent.localhost/hello",
+			u:    "http://localhost:80/hello?q=a",
+			want: "/hello",
 		},
 		{
-			prefix: "Recv",
-			u:      "https://localhost:443/a",
-			want:   "Recv.localhost/a",
-		},
-		{
-			prefix: "Recv",
-			u:      "https://example.com:7654/a",
-			want:   "Recv.example.com:7654/a",
-		},
-		{
-			prefix: "Sent",
-			u:      "/a/b?q=c",
-			want:   "Sent./a/b",
+			u:    "/a/b?q=c",
+			want: "/a/b",
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.prefix+"-"+tt.u, func(t *testing.T) {
+		t.Run(tt.u, func(t *testing.T) {
 			u, err := url.Parse(tt.u)
 			if err != nil {
 				t.Errorf("url.Parse() = %v", err)
 			}
-			if got := spanNameFromURL(tt.prefix, u); got != tt.want {
+			if got := spanNameFromURL(u); got != tt.want {
 				t.Errorf("spanNameFromURL() = %v, want %v", got, tt.want)
 			}
 		})
@@ -340,13 +379,13 @@ func TestRequestAttributes(t *testing.T) {
 		{
 			name: "GET example.com/hello",
 			makeReq: func() *http.Request {
-				req, _ := http.NewRequest("GET", "http://example.com/hello", nil)
+				req, _ := http.NewRequest("GET", "http://example.com:779/hello", nil)
 				req.Header.Add("User-Agent", "ua")
 				return req
 			},
 			wantAttrs: []trace.Attribute{
 				trace.StringAttribute("http.path", "/hello"),
-				trace.StringAttribute("http.host", "example.com"),
+				trace.StringAttribute("http.host", "example.com:779"),
 				trace.StringAttribute("http.method", "GET"),
 				trace.StringAttribute("http.user_agent", "ua"),
 			},
@@ -392,5 +431,29 @@ func TestResponseAttributes(t *testing.T) {
 				t.Errorf("Response attributes = %#v; want %#v", got, want)
 			}
 		})
+	}
+}
+
+func TestStatusUnitTest(t *testing.T) {
+	tests := []struct {
+		in   int
+		want trace.Status
+	}{
+		{200, trace.Status{Code: 0, Message: `"OK"`}},
+		{100, trace.Status{Code: 2, Message: `"UNKNOWN"`}},
+		{500, trace.Status{Code: 2, Message: `"UNKNOWN"`}},
+		{404, trace.Status{Code: 5, Message: `"NOT_FOUND"`}},
+		{600, trace.Status{Code: 2, Message: `"UNKNOWN"`}},
+		{401, trace.Status{Code: 16, Message: `"UNAUTHENTICATED"`}},
+		{403, trace.Status{Code: 7, Message: `"PERMISSION_DENIED"`}},
+		{301, trace.Status{Code: 0, Message: `"OK"`}},
+		{501, trace.Status{Code: 12, Message: `"UNIMPLEMENTED"`}},
+	}
+
+	for _, tt := range tests {
+		got, want := status(tt.in), tt.want
+		if got != want {
+			t.Errorf("status(%d) got = (%#v) want = (%#v)", tt.in, got, want)
+		}
 	}
 }

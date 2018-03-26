@@ -1114,7 +1114,7 @@ type BasicChartSpec struct {
 
 	// StackedType: The stacked type for charts that support vertical
 	// stacking.
-	// Applies to Area, Bar, Column, and Stepped Area charts.
+	// Applies to Area, Bar, Column, Combo, and Stepped Area charts.
 	//
 	// Possible values:
 	//   "BASIC_CHART_STACKED_TYPE_UNSPECIFIED" - Default value, do not use.
@@ -2894,6 +2894,9 @@ type ChartSpec struct {
 	// TitleTextPosition: The title text position.
 	// This field is optional.
 	TitleTextPosition *TextPosition `json:"titleTextPosition,omitempty"`
+
+	// TreemapChart: A treemap chart specification.
+	TreemapChart *TreemapChartSpec `json:"treemapChart,omitempty"`
 
 	// WaterfallChart: A waterfall chart specification.
 	WaterfallChart *WaterfallChartSpec `json:"waterfallChart,omitempty"`
@@ -7886,6 +7889,186 @@ func (s *TextToColumnsRequest) MarshalJSON() ([]byte, error) {
 	type NoMethod TextToColumnsRequest
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// TreemapChartColorScale: A color scale for a treemap chart.
+type TreemapChartColorScale struct {
+	// MaxValueColor: The background color for cells with a color value
+	// greater than or equal
+	// to maxValue. Defaults to #109618 if not
+	// specified.
+	MaxValueColor *Color `json:"maxValueColor,omitempty"`
+
+	// MidValueColor: The background color for cells with a color value at
+	// the midpoint between
+	// minValue and
+	// maxValue. Defaults to #efe6dc if not
+	// specified.
+	MidValueColor *Color `json:"midValueColor,omitempty"`
+
+	// MinValueColor: The background color for cells with a color value less
+	// than or equal to
+	// minValue. Defaults to #dc3912 if not
+	// specified.
+	MinValueColor *Color `json:"minValueColor,omitempty"`
+
+	// NoDataColor: The background color for cells that have no color data
+	// associated with
+	// them. Defaults to #000000 if not specified.
+	NoDataColor *Color `json:"noDataColor,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "MaxValueColor") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "MaxValueColor") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *TreemapChartColorScale) MarshalJSON() ([]byte, error) {
+	type NoMethod TreemapChartColorScale
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// TreemapChartSpec: A <a
+// href="/chart/interactive/docs/gallery/treemap">Treemap chart</a>.
+type TreemapChartSpec struct {
+	// ColorData: The data that determines the background color of each
+	// treemap data cell.
+	// This field is optional. If not specified, size_data will be used
+	// to
+	// determine background colors. If specified, the data is expected to
+	// be
+	// numeric. color_scale will determine how the values in this data map
+	// to
+	// data cell background colors.
+	ColorData *ChartData `json:"colorData,omitempty"`
+
+	// ColorScale: The color scale for data cells in the treemap chart. Data
+	// cells are
+	// assigned colors based on their color values. These color values come
+	// from
+	// color_data, or from size_data if color_data is not specified.
+	// Cells with color values less than or equal to min_value will
+	// have minValueColor as their
+	// background color. Cells with color values greater than or equal
+	// to
+	// max_value will have
+	// maxValueColor as their background
+	// color. Cells with color values between min_value and max_value
+	// will
+	// have background colors on a gradient between
+	// minValueColor and
+	// maxValueColor, the midpoint of
+	// the gradient being midValueColor.
+	// Cells with missing or non-numeric color values will have
+	// noDataColor as their background
+	// color.
+	ColorScale *TreemapChartColorScale `json:"colorScale,omitempty"`
+
+	// HeaderColor: The background color for header cells.
+	HeaderColor *Color `json:"headerColor,omitempty"`
+
+	// HideTooltips: True to hide tooltips.
+	HideTooltips bool `json:"hideTooltips,omitempty"`
+
+	// HintedLevels: The number of additional data levels beyond the labeled
+	// levels to be shown
+	// on the treemap chart. These levels are not interactive and are
+	// shown
+	// without their labels. Defaults to 0 if not specified.
+	HintedLevels int64 `json:"hintedLevels,omitempty"`
+
+	// Labels: The data that contains the treemap cell labels.
+	Labels *ChartData `json:"labels,omitempty"`
+
+	// Levels: The number of data levels to show on the treemap chart. These
+	// levels are
+	// interactive and are shown with their labels. Defaults to 2 if
+	// not
+	// specified.
+	Levels int64 `json:"levels,omitempty"`
+
+	// MaxValue: The maximum possible data value. Cells with values greater
+	// than this will
+	// have the same color as cells with this value. If not specified,
+	// defaults
+	// to the actual maximum value from color_data, or the maximum value
+	// from
+	// size_data if color_data is not specified.
+	MaxValue float64 `json:"maxValue,omitempty"`
+
+	// MinValue: The minimum possible data value. Cells with values less
+	// than this will
+	// have the same color as cells with this value. If not specified,
+	// defaults
+	// to the actual minimum value from color_data, or the minimum value
+	// from
+	// size_data if color_data is not specified.
+	MinValue float64 `json:"minValue,omitempty"`
+
+	// ParentLabels: The data the contains the treemap cells' parent labels.
+	ParentLabels *ChartData `json:"parentLabels,omitempty"`
+
+	// SizeData: The data that determines the size of each treemap data
+	// cell. This data is
+	// expected to be numeric. The cells corresponding to non-numeric or
+	// missing
+	// data will not be rendered. If color_data is not specified, this
+	// data
+	// will be used to determine data cell background colors as well.
+	SizeData *ChartData `json:"sizeData,omitempty"`
+
+	// TextFormat: The text format for all labels on the chart.
+	TextFormat *TextFormat `json:"textFormat,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "ColorData") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ColorData") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *TreemapChartSpec) MarshalJSON() ([]byte, error) {
+	type NoMethod TreemapChartSpec
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+func (s *TreemapChartSpec) UnmarshalJSON(data []byte) error {
+	type NoMethod TreemapChartSpec
+	var s1 struct {
+		MaxValue gensupport.JSONFloat64 `json:"maxValue"`
+		MinValue gensupport.JSONFloat64 `json:"minValue"`
+		*NoMethod
+	}
+	s1.NoMethod = (*NoMethod)(s)
+	if err := json.Unmarshal(data, &s1); err != nil {
+		return err
+	}
+	s.MaxValue = float64(s1.MaxValue)
+	s.MinValue = float64(s1.MinValue)
+	return nil
 }
 
 // UnmergeCellsRequest: Unmerges cells in the given range.

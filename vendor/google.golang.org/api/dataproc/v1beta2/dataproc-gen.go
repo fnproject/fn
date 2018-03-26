@@ -43,7 +43,7 @@ var _ = ctxhttp.Do
 const apiId = "dataproc:v1beta2"
 const apiName = "dataproc"
 const apiVersion = "v1beta2"
-const basePath = "https://content-dataproc.googleapis.com/"
+const basePath = "https://dataproc.googleapis.com/"
 
 // OAuth2 scopes used by this API.
 const (
@@ -1590,8 +1590,11 @@ func (s *LoggingConfig) MarshalJSON() ([]byte, error) {
 
 // ManagedCluster: Cluster that is managed by the workflow.
 type ManagedCluster struct {
-	// ClusterName: Required. The cluster name. Cluster names within a
-	// project must be unique. Names from deleted clusters can be reused.
+	// ClusterName: Required. The cluster name prefix. A unique cluster name
+	// will be formed by appending a random suffix.The name must contain
+	// only lower-case letters (a-z), numbers (0-9), and hyphens (-). Must
+	// begin with a letter. Cannot begin or end with hyphen. Must consist of
+	// between 2 and 35 characters.
 	ClusterName string `json:"clusterName,omitempty"`
 
 	// Config: Required. The cluster configuration.
@@ -1602,7 +1605,7 @@ type ManagedCluster struct {
 	// the following PCRE regular expression: \p{Ll}\p{Lo}{0,62}Label values
 	// must be between 1 and 63 characters long, and must conform to the
 	// following PCRE regular expression: \p{Ll}\p{Lo}\p{N}_-{0,63}No more
-	// than 64 labels can be associated with a given cluster.
+	// than 32 labels can be associated with a given cluster.
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ClusterName") to
@@ -1774,7 +1777,7 @@ type OrderedJob struct {
 	// must be between 1 and 63 characters long, and must conform to the
 	// following regular expression: \p{Ll}\p{Lo}{0,62}Label values must be
 	// between 1 and 63 characters long, and must conform to the following
-	// regular expression: \p{Ll}\p{Lo}\p{N}_-{0,63}No more than 64 labels
+	// regular expression: \p{Ll}\p{Lo}\p{N}_-{0,63}No more than 32 labels
 	// can be associated with a given job.
 	Labels map[string]string `json:"labels,omitempty"`
 
@@ -1800,8 +1803,11 @@ type OrderedJob struct {
 
 	// StepId: Required. The step id. The id must be unique among all jobs
 	// within the template.The step id is used as prefix for job id, as job
-	// workflow-step-id label, and in prerequisite_step_ids field from other
-	// steps.
+	// goog-dataproc-workflow-step-id label, and in prerequisiteStepIds
+	// field from other steps.The id must contain only letters (a-z, A-Z),
+	// numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end
+	// with underscore or hyphen. Must consist of between 3 and 50
+	// characters.
 	StepId string `json:"stepId,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "HadoopJob") to
@@ -2470,6 +2476,10 @@ type WorkflowMetadata struct {
 	// Graph: Output only. The workflow graph.
 	Graph *WorkflowGraph `json:"graph,omitempty"`
 
+	// Parameters: Map from parameter names to values that were used for
+	// those parameters.
+	Parameters map[string]string `json:"parameters,omitempty"`
+
 	// State: Output only. The workflow state.
 	//
 	// Possible values:
@@ -2564,7 +2574,10 @@ type WorkflowTemplate struct {
 	// CreateTime: Output only. The time template was created.
 	CreateTime string `json:"createTime,omitempty"`
 
-	// Id: Required. The template id.
+	// Id: Required. The template id.The id must contain only letters (a-z,
+	// A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin
+	// or end with underscore or hyphen. Must consist of between 3 and 50
+	// characters.
 	Id string `json:"id,omitempty"`
 
 	// Jobs: Required. The Directed Acyclic Graph of Jobs to submit.

@@ -31,7 +31,10 @@ from distutils.errors import CCompilerError, DistutilsExecError, DistutilsPlatfo
 # Fix to build sdist under vagrant
 import os
 if 'vagrant' in str(os.environ):
-    del os.link
+    try:
+        del os.link
+    except AttributeError:
+        pass
 
 include_dirs = ['src']
 if sys.platform == 'win32':
@@ -87,7 +90,7 @@ def run_setup(with_binary):
     twisted_deps = ['twisted']
 
     setup(name='thrift',
-          version='0.11.0',
+          version='1.0.0-dev',
           description='Python bindings for the Apache Thrift RPC system',
           author='Thrift Developers',
           author_email='dev@thrift.apache.org',

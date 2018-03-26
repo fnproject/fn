@@ -392,3 +392,55 @@ func writeTextTraces(w io.Writer, data traceData) {
 	}
 	tw.Flush()
 }
+
+type summaryPageData struct {
+	Header             []string
+	LatencyBucketNames []string
+	Links              bool
+	TracesEndpoint     string
+	Rows               []summaryPageRow
+}
+
+type summaryPageRow struct {
+	Name    string
+	Active  int
+	Latency []int
+	Errors  int
+}
+
+func getSummaryPageData() summaryPageData {
+	data := summaryPageData{
+		Links:          true,
+		TracesEndpoint: "tracez",
+	}
+	internalTrace := internal.Trace.(interface {
+		ReportSpansPerMethod() map[string]internal.PerMethodSummary
+	})
+	for name, s := range internalTrace.ReportSpansPerMethod() {
+		if len(data.Header) == 0 {
+			data.Header = []string{"Name", "Active"}
+			for _, b := range s.LatencyBuckets {
+				l := b.MinLatency
+				s := fmt.Sprintf(">%v", l)
+				if l == 100*time.Second {
+					s = ">100s"
+				}
+				data.Header = append(data.Header, s)
+				data.LatencyBucketNames = append(data.LatencyBucketNames, s)
+			}
+			data.Header = append(data.Header, "Errors")
+		}
+		row := summaryPageRow{Name: name, Active: s.Active}
+		for _, l := range s.LatencyBuckets {
+			row.Latency = append(row.Latency, l.Size)
+		}
+		for _, e := range s.ErrorBuckets {
+			row.Errors += e.Size
+		}
+		data.Rows = append(data.Rows, row)
+	}
+	sort.Slice(data.Rows, func(i, j int) bool {
+		return data.Rows[i].Name < data.Rows[j].Name
+	})
+	return data
+}

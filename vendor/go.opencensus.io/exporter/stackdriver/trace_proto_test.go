@@ -77,10 +77,10 @@ func TestExportTrace(t *testing.T) {
 			span2.AddMessageSendEvent(0x123, 1024, 512)
 			span2.Annotatef(nil, "in span%d", 2)
 			span2.Annotate(nil, big.NewRat(2, 4).String())
-			span2.SetAttributes(
+			span2.AddAttributes(
 				trace.StringAttribute("key1", "value1"),
 				trace.StringAttribute("key2", "value2"))
-			span2.SetAttributes(trace.Int64Attribute("key1", 100))
+			span2.AddAttributes(trace.Int64Attribute("key1", 100))
 			span2.End()
 		}
 		{

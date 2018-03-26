@@ -105,7 +105,7 @@ func init() {
 			"calls currently queued to agent",
 			[]tag.Key{appKey, pathKey},
 			queuedMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -125,7 +125,7 @@ func init() {
 			"calls created in agent",
 			[]tag.Key{appKey, pathKey},
 			callsMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -145,7 +145,7 @@ func init() {
 			"calls currently running in agent",
 			[]tag.Key{appKey, pathKey},
 			runningMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -165,7 +165,7 @@ func init() {
 			"calls completed in agent",
 			[]tag.Key{appKey, pathKey},
 			completedMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -185,7 +185,7 @@ func init() {
 			"calls failed in agent",
 			[]tag.Key{appKey, pathKey},
 			failedMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -205,7 +205,7 @@ func init() {
 			"calls timed out in agent",
 			[]tag.Key{appKey, pathKey},
 			timedoutMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -225,7 +225,7 @@ func init() {
 			"calls errored in agent",
 			[]tag.Key{appKey, pathKey},
 			errorsMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -245,7 +245,7 @@ func init() {
 			"calls where server was too busy in agent",
 			[]tag.Key{appKey, pathKey},
 			serverBusyMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)

@@ -766,3 +766,21 @@ var intKeyedMapStructValueString = `{` +
 	`"foo":{"42":"life"},` +
 	`"bar":{"32":{"354634382":"life"}}` +
 	`}`
+
+type IntArray [2]int
+
+//easyjson:json
+type IntArrayStruct struct {
+	Pointer *IntArray `json:"pointer"`
+	Value   IntArray  `json:"value"`
+}
+
+var intArrayStructValue = IntArrayStruct{
+	Pointer: &IntArray{1, 2},
+	Value:   IntArray{1, 2},
+}
+
+var intArrayStructValueString = `{` +
+	`"pointer":[1,2],` +
+	`"value":[1,2]` +
+	`}`

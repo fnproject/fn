@@ -470,6 +470,8 @@ type CheckError struct {
 	// `ACTIVE` in LoquatV2.
 	//   "SECURITY_POLICY_VIOLATED" - Request is not allowed as per security
 	// policies defined in Org Policy.
+	//   "INVALID_CREDENTIAL" - The credential in the request can not be
+	// verified.
 	//   "NAMESPACE_LOOKUP_UNAVAILABLE" - The backend server for looking up
 	// project id/number is unavailable.
 	//   "SERVICE_STATUS_UNAVAILABLE" - The backend server for checking

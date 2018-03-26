@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -12,11 +13,13 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/integration-cli/cli/build/fakecontext"
 	"github.com/docker/docker/integration/internal/request"
 	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/gotestyourself/gotestyourself/assert"
+	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"github.com/gotestyourself/gotestyourself/skip"
 )
 
 func TestBuildWithRemoveAndForceRemove(t *testing.T) {
@@ -94,21 +97,21 @@ func TestBuildWithRemoveAndForceRemove(t *testing.T) {
 
 			buff := bytes.NewBuffer(nil)
 			tw := tar.NewWriter(buff)
-			require.NoError(t, tw.WriteHeader(&tar.Header{
+			assert.NilError(t, tw.WriteHeader(&tar.Header{
 				Name: "Dockerfile",
 				Size: int64(len(dockerfile)),
 			}))
 			_, err := tw.Write(dockerfile)
-			require.NoError(t, err)
-			require.NoError(t, tw.Close())
+			assert.NilError(t, err)
+			assert.NilError(t, tw.Close())
 			resp, err := client.ImageBuild(ctx, buff, types.ImageBuildOptions{Remove: c.rm, ForceRemove: c.forceRm, NoCache: true})
-			require.NoError(t, err)
+			assert.NilError(t, err)
 			defer resp.Body.Close()
 			filter, err := buildContainerIdsFilter(resp.Body)
-			require.NoError(t, err)
+			assert.NilError(t, err)
 			remainingContainers, err := client.ContainerList(ctx, types.ContainerListOptions{Filters: filter, All: true})
-			require.NoError(t, err)
-			require.Equal(t, c.numberOfIntermediateContainers, len(remainingContainers), "Expected %v remaining intermediate containers, got %v", c.numberOfIntermediateContainers, len(remainingContainers))
+			assert.NilError(t, err)
+			assert.Equal(t, c.numberOfIntermediateContainers, len(remainingContainers), "Expected %v remaining intermediate containers, got %v", c.numberOfIntermediateContainers, len(remainingContainers))
 		})
 	}
 }
@@ -158,16 +161,16 @@ func TestBuildMultiStageParentConfig(t *testing.T) {
 			ForceRemove: true,
 			Tags:        []string{"build1"},
 		})
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = io.Copy(ioutil.Discard, resp.Body)
 	resp.Body.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	image, _, err := apiclient.ImageInspectWithRaw(ctx, "build1")
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
-	assert.Equal(t, "/foo/sub2", image.Config.WorkingDir)
-	assert.Contains(t, image.Config.Env, "WHO=parent")
+	assert.Check(t, is.Equal("/foo/sub2", image.Config.WorkingDir))
+	assert.Check(t, is.Contains(image.Config.Env, "WHO=parent"))
 }
 
 func TestBuildWithEmptyLayers(t *testing.T) {
@@ -192,10 +195,10 @@ func TestBuildWithEmptyLayers(t *testing.T) {
 			Remove:      true,
 			ForceRemove: true,
 		})
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = io.Copy(ioutil.Discard, resp.Body)
 	resp.Body.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 }
 
 // TestBuildMultiStageOnBuild checks that ONBUILD commands are applied to
@@ -228,20 +231,20 @@ RUN cat somefile`
 		})
 
 	out := bytes.NewBuffer(nil)
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = io.Copy(out, resp.Body)
 	resp.Body.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
-	assert.Contains(t, out.String(), "Successfully built")
+	assert.Check(t, is.Contains(out.String(), "Successfully built"))
 
 	imageIDs, err := getImageIDsFromBuild(out.Bytes())
-	require.NoError(t, err)
-	assert.Equal(t, 3, len(imageIDs))
+	assert.NilError(t, err)
+	assert.Check(t, is.Equal(3, len(imageIDs)))
 
 	image, _, err := apiclient.ImageInspectWithRaw(context.Background(), imageIDs[2])
-	require.NoError(t, err)
-	assert.Contains(t, image.Config.Env, "bar=baz")
+	assert.NilError(t, err)
+	assert.Check(t, is.Contains(image.Config.Env, "bar=baz"))
 }
 
 // #35403 #36122
@@ -260,7 +263,7 @@ COPY bar /`
 	writeTarRecord(t, w, "../foo", "foocontents0")
 	writeTarRecord(t, w, "/bar", "barcontents0")
 	err := w.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	apiclient := testEnv.APIClient()
 	resp, err := apiclient.ImageBuild(ctx,
@@ -271,10 +274,10 @@ COPY bar /`
 		})
 
 	out := bytes.NewBuffer(nil)
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = io.Copy(out, resp.Body)
 	resp.Body.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	// repeat with changed data should not cause cache hits
 
@@ -284,7 +287,7 @@ COPY bar /`
 	writeTarRecord(t, w, "../foo", "foocontents1")
 	writeTarRecord(t, w, "/bar", "barcontents1")
 	err = w.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
 	resp, err = apiclient.ImageBuild(ctx,
 		buf,
@@ -294,16 +297,19 @@ COPY bar /`
 		})
 
 	out = bytes.NewBuffer(nil)
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = io.Copy(out, resp.Body)
 	resp.Body.Close()
-	require.NoError(t, err)
-	require.NotContains(t, out.String(), "Using cache")
+	assert.NilError(t, err)
+	assert.Assert(t, !strings.Contains(out.String(), "Using cache"))
 }
 
 // docker/for-linux#135
 // #35641
 func TestBuildMultiStageLayerLeak(t *testing.T) {
+	fmt.Println(testEnv.DaemonAPIVersion())
+	skip.IfCondition(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.38"),
+		"Don't run on API lower than 1.38 as it has been fixed starting from that version")
 	ctx := context.TODO()
 	defer setupTest(t)()
 
@@ -333,12 +339,12 @@ RUN [ ! -f foo ]
 		})
 
 	out := bytes.NewBuffer(nil)
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = io.Copy(out, resp.Body)
 	resp.Body.Close()
-	require.NoError(t, err)
+	assert.NilError(t, err)
 
-	assert.Contains(t, out.String(), "Successfully built")
+	assert.Check(t, is.Contains(out.String(), "Successfully built"))
 }
 
 func writeTarRecord(t *testing.T, w *tar.Writer, fn, contents string) {
@@ -348,9 +354,9 @@ func writeTarRecord(t *testing.T, w *tar.Writer, fn, contents string) {
 		Size:     int64(len(contents)),
 		Typeflag: '0',
 	})
-	require.NoError(t, err)
+	assert.NilError(t, err)
 	_, err = w.Write([]byte(contents))
-	require.NoError(t, err)
+	assert.NilError(t, err)
 }
 
 type buildLine struct {

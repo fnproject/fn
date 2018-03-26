@@ -1583,7 +1583,7 @@
       }
     }
   },
-  "revision": "20180222",
+  "revision": "20180307",
   "rootUrl": "https://appengine.googleapis.com/",
   "schemas": {
     "ApiConfigHandler": {
@@ -1708,7 +1708,7 @@
           "type": "string"
         },
         "locationId": {
-          "description": "Location from which this application runs. Application instances run out of the data centers in the specified location, which is also where all of the application's end user content is stored.Defaults to us-central1.View the list of supported locations (https://cloud.google.com/appengine/docs/locations).",
+          "description": "Location from which this application runs. Application instances run out of the data centers in the specified location, which is also where all of the application's end user content is stored.Defaults to us-central.View the list of supported locations (https://cloud.google.com/appengine/docs/locations).",
           "type": "string"
         },
         "name": {
@@ -2627,6 +2627,10 @@
       "description": "A resource that represents Google Cloud Platform location.",
       "id": "Location",
       "properties": {
+        "displayName": {
+          "description": "The friendly name for this location, typically a nearby city name. For example, \"Tokyo\".",
+          "type": "string"
+        },
         "labels": {
           "additionalProperties": {
             "type": "string"

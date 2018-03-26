@@ -1815,9 +1815,24 @@ type SubscriptionPurchase struct {
 	// supplemental information about an order.
 	DeveloperPayload string `json:"developerPayload,omitempty"`
 
+	// EmailAddress: The email address of the user when the subscription was
+	// purchased. Only present for purchases made with 'Subscribe with
+	// Google'.
+	EmailAddress string `json:"emailAddress,omitempty"`
+
 	// ExpiryTimeMillis: Time at which the subscription will expire, in
 	// milliseconds since the Epoch.
 	ExpiryTimeMillis int64 `json:"expiryTimeMillis,omitempty,string"`
+
+	// FamilyName: The family name of the user when the subscription was
+	// purchased. Only present for purchases made with 'Subscribe with
+	// Google'.
+	FamilyName string `json:"familyName,omitempty"`
+
+	// GivenName: The given name of the user when the subscription was
+	// purchased. Only present for purchases made with 'Subscribe with
+	// Google'.
+	GivenName string `json:"givenName,omitempty"`
 
 	// Kind: This kind represents a subscriptionPurchase object in the
 	// androidpublisher service.
@@ -1858,6 +1873,16 @@ type SubscriptionPurchase struct {
 	// For example, if the price is specified in British pounds sterling,
 	// price_currency_code is "GBP".
 	PriceCurrencyCode string `json:"priceCurrencyCode,omitempty"`
+
+	// ProfileId: The profile id of the user when the subscription was
+	// purchased. Only present for purchases made with 'Subscribe with
+	// Google'.
+	ProfileId string `json:"profileId,omitempty"`
+
+	// ProfileName: The profile name of the user when the subscription was
+	// purchased. Only present for purchases made with 'Subscribe with
+	// Google'.
+	ProfileName string `json:"profileName,omitempty"`
 
 	// PurchaseType: The type of purchase of the subscription. This field is
 	// only set if this purchase was not made using the standard in-app
@@ -2052,7 +2077,7 @@ func (s *TokenPagination) MarshalJSON() ([]byte, error) {
 
 type Track struct {
 	// Track: Identifier for this track. One of "alpha", "beta",
-	// "production" or "rollout".
+	// "production", "rollout" or "internal".
 	Track string `json:"track,omitempty"`
 
 	UserFraction float64 `json:"userFraction,omitempty"`
@@ -7556,9 +7581,9 @@ func (c *EditsTestersGetCall) Do(opts ...googleapi.CallOption) (*Testers, error)
 	//       "type": "string"
 	//     },
 	//     "track": {
-	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\" or \"rollout\".",
+	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\", \"rollout\" or \"internal\".",
 	//       "location": "path",
-	//       "pattern": "(alpha|beta|production|rollout)",
+	//       "pattern": "(alpha|beta|production|rollout|internal)",
 	//       "required": true,
 	//       "type": "string"
 	//     }
@@ -7706,9 +7731,9 @@ func (c *EditsTestersPatchCall) Do(opts ...googleapi.CallOption) (*Testers, erro
 	//       "type": "string"
 	//     },
 	//     "track": {
-	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\" or \"rollout\".",
+	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\", \"rollout\" or \"internal\".",
 	//       "location": "path",
-	//       "pattern": "(alpha|beta|production|rollout)",
+	//       "pattern": "(alpha|beta|production|rollout|internal)",
 	//       "required": true,
 	//       "type": "string"
 	//     }
@@ -7859,9 +7884,9 @@ func (c *EditsTestersUpdateCall) Do(opts ...googleapi.CallOption) (*Testers, err
 	//       "type": "string"
 	//     },
 	//     "track": {
-	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\" or \"rollout\".",
+	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\", \"rollout\" or \"internal\".",
 	//       "location": "path",
-	//       "pattern": "(alpha|beta|production|rollout)",
+	//       "pattern": "(alpha|beta|production|rollout|internal)",
 	//       "required": true,
 	//       "type": "string"
 	//     }
@@ -8021,9 +8046,9 @@ func (c *EditsTracksGetCall) Do(opts ...googleapi.CallOption) (*Track, error) {
 	//       "type": "string"
 	//     },
 	//     "track": {
-	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\" or \"rollout\".",
+	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\", \"rollout\" or \"internal\".",
 	//       "location": "path",
-	//       "pattern": "(alpha|beta|production|rollout)",
+	//       "pattern": "(alpha|beta|production|rollout|internal)",
 	//       "required": true,
 	//       "type": "string"
 	//     }
@@ -8322,9 +8347,9 @@ func (c *EditsTracksPatchCall) Do(opts ...googleapi.CallOption) (*Track, error) 
 	//       "type": "string"
 	//     },
 	//     "track": {
-	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\" or \"rollout\".",
+	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\", \"rollout\" or \"internal\".",
 	//       "location": "path",
-	//       "pattern": "(alpha|beta|production|rollout)",
+	//       "pattern": "(alpha|beta|production|rollout|internal)",
 	//       "required": true,
 	//       "type": "string"
 	//     }
@@ -8478,9 +8503,9 @@ func (c *EditsTracksUpdateCall) Do(opts ...googleapi.CallOption) (*Track, error)
 	//       "type": "string"
 	//     },
 	//     "track": {
-	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\" or \"rollout\".",
+	//       "description": "The track to read or modify. Acceptable values are: \"alpha\", \"beta\", \"production\", \"rollout\" or \"internal\".",
 	//       "location": "path",
-	//       "pattern": "(alpha|beta|production|rollout)",
+	//       "pattern": "(alpha|beta|production|rollout|internal)",
 	//       "required": true,
 	//       "type": "string"
 	//     }

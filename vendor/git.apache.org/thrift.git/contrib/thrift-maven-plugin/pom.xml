@@ -27,7 +27,7 @@
   <artifactId>thrift-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
   <name>thrift-maven-plugin</name>
-  <version>0.11.0</version>
+  <version>1.0-SNAPSHOT</version>
   <build>
     <plugins>
       <plugin>

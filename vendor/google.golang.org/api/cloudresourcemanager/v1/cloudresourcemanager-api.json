@@ -12,7 +12,7 @@
     }
   },
   "basePath": "",
-  "baseUrl": "https://content-cloudresourcemanager.googleapis.com/",
+  "baseUrl": "https://cloudresourcemanager.googleapis.com/",
   "batchPath": "batch",
   "canonicalName": "Cloud Resource Manager",
   "description": "The Google Cloud Resource Manager API provides methods for creating, reading, and updating project metadata.",
@@ -762,7 +762,7 @@
           ]
         },
         "delete": {
-          "description": "Marks the Project identified by the specified\n`project_id` (for example, `my-project-123`) for deletion.\nThis method will only affect the Project if the following criteria are met:\n\n+ The Project does not have a billing account associated with it.\n+ The Project has a lifecycle state of\nACTIVE.\n\nThis method changes the Project's lifecycle state from\nACTIVE\nto DELETE_REQUESTED.\nThe deletion starts at an unspecified time,\nat which point the Project is no longer accessible.\n\nUntil the deletion completes, you can check the lifecycle state\nchecked by retrieving the Project with GetProject,\nand the Project remains visible to ListProjects.\nHowever, you cannot update the project.\n\nAfter the deletion completes, the Project is not retrievable by\nthe  GetProject and\nListProjects methods.\n\nThe caller must have modify permissions for this Project.",
+          "description": "Marks the Project identified by the specified\n`project_id` (for example, `my-project-123`) for deletion.\nThis method will only affect the Project if it has a lifecycle state of\nACTIVE.\n\nThis method changes the Project's lifecycle state from\nACTIVE\nto DELETE_REQUESTED.\nThe deletion starts at an unspecified time,\nat which point the Project is no longer accessible.\n\nUntil the deletion completes, you can check the lifecycle state\nchecked by retrieving the Project with GetProject,\nand the Project remains visible to ListProjects.\nHowever, you cannot update the project.\n\nAfter the deletion completes, the Project is not retrievable by\nthe  GetProject and\nListProjects methods.\n\nThe caller must have modify permissions for this Project.",
           "flatPath": "v1/projects/{projectId}",
           "httpMethod": "DELETE",
           "id": "cloudresourcemanager.projects.delete",
@@ -1155,8 +1155,8 @@
       }
     }
   },
-  "revision": "20180305",
-  "rootUrl": "https://content-cloudresourcemanager.googleapis.com/",
+  "revision": "20180315",
+  "rootUrl": "https://cloudresourcemanager.googleapis.com/",
   "schemas": {
     "Ancestor": {
       "description": "Identifying information for a single ancestor of a project.",

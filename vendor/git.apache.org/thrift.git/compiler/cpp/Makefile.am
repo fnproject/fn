@@ -71,7 +71,7 @@ compiler_core =  src/thrift/common.h \
                  src/thrift/parse/parse.cc \
                  src/thrift/generate/t_generator.h \
                  src/thrift/generate/t_oop_generator.h \
-                 src/thrift/generate/t_html_generator.h
+                 src/thrift/generate/t_html_generator.h 
 
 thrift_SOURCES = src/thrift/main.h \
                  src/thrift/main.cc \
@@ -88,6 +88,7 @@ thrift_SOURCES += src/thrift/generate/t_c_glib_generator.cc \
                   src/thrift/generate/t_haxe_generator.cc \
                   src/thrift/generate/t_csharp_generator.cc \
                   src/thrift/generate/t_netcore_generator.cc \
+                  src/thrift/generate/t_netcore_generator.h \
                   src/thrift/generate/t_py_generator.cc \
                   src/thrift/generate/t_rb_generator.cc \
                   src/thrift/generate/t_perl_generator.cc \
@@ -108,7 +109,8 @@ thrift_SOURCES += src/thrift/generate/t_c_glib_generator.cc \
                   src/thrift/generate/t_gv_generator.cc \
                   src/thrift/generate/t_d_generator.cc \
                   src/thrift/generate/t_lua_generator.cc \
-                  src/thrift/generate/t_rs_generator.cc
+                  src/thrift/generate/t_rs_generator.cc \
+                  src/thrift/generate/t_cl_generator.cc
 
 thrift_CPPFLAGS = -I$(srcdir)/src
 thrift_CXXFLAGS = -Wall -Wextra -pedantic -Werror
@@ -153,7 +155,7 @@ include_generatedir = $(include_thriftdir)/generate
 include_generate_HEADERS = src/thrift/generate/t_generator.h \
                            src/thrift/generate/t_generator_registry.h \
                            src/thrift/generate/t_oop_generator.h \
-                           src/thrift/generate/t_html_generator.h
+                           src/thrift/generate/t_html_generator.h 
 
 include_parsedir = $(include_thriftdir)/parse
 include_parse_HEADERS = src/thrift/parse/t_service.h \

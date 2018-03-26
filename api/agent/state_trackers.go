@@ -180,7 +180,7 @@ func init() {
 			"containers in state "+key,
 			[]tag.Key{appKey, pathKey},
 			measure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -203,7 +203,7 @@ func init() {
 			"time spent in container state "+key,
 			[]tag.Key{appKey, pathKey},
 			measure,
-			view.DistributionAggregation{},
+			view.Distribution(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)

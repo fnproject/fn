@@ -57,8 +57,7 @@ namespace Thrift.Server
             try
             {
                 // cancelation token
-                _serverTask = Task.Factory.StartNew(() => StartListening(cancellationToken),
-                    TaskCreationOptions.LongRunning);
+                _serverTask = Task.Factory.StartNew(() => StartListening(cancellationToken), TaskCreationOptions.LongRunning);
                 await _serverTask;
             }
             catch (Exception ex)
@@ -87,7 +86,7 @@ namespace Thrift.Server
                     try
                     {
                         var client = await ServerTransport.AcceptAsync(cancellationToken);
-                        await Task.Factory.StartNew(() => Execute(client, cancellationToken));
+                        await Task.Factory.StartNew(() => Execute(client, cancellationToken), cancellationToken);
                     }
                     catch (TTransportException ttx)
                     {
@@ -101,7 +100,11 @@ namespace Thrift.Server
                 }
                 else
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(_clientWaitingDelay), cancellationToken);
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(_clientWaitingDelay), cancellationToken);
+                    }
+                    catch(TaskCanceledException) { }
                 }
             }
 
@@ -136,8 +139,7 @@ namespace Thrift.Server
 
                 if (ServerEventHandler != null)
                 {
-                    connectionContext =
-                        await ServerEventHandler.CreateContextAsync(inputProtocol, outputProtocol, cancellationToken);
+                    connectionContext = await ServerEventHandler.CreateContextAsync(inputProtocol, outputProtocol, cancellationToken);
                 }
 
                 while (!cancellationToken.IsCancellationRequested)
@@ -149,8 +151,7 @@ namespace Thrift.Server
 
                     if (ServerEventHandler != null)
                     {
-                        await
-                            ServerEventHandler.ProcessContextAsync(connectionContext, inputTransport, cancellationToken);
+                        await ServerEventHandler.ProcessContextAsync(connectionContext, inputTransport, cancellationToken);
                     }
 
                     if (!await processor.ProcessAsync(inputProtocol, outputProtocol, cancellationToken))
@@ -170,9 +171,7 @@ namespace Thrift.Server
 
             if (ServerEventHandler != null)
             {
-                await
-                    ServerEventHandler.DeleteContextAsync(connectionContext, inputProtocol, outputProtocol,
-                        cancellationToken);
+                await ServerEventHandler.DeleteContextAsync(connectionContext, inputProtocol, outputProtocol, cancellationToken);
             }
 
             inputTransport?.Close();

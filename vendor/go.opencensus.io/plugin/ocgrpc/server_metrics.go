@@ -47,7 +47,7 @@ var (
 		Description: "RPC Errors",
 		TagKeys:     []tag.Key{KeyMethod, KeyStatus},
 		Measure:     ServerErrorCount,
-		Aggregation: view.CountAggregation{},
+		Aggregation: view.Count(),
 	}
 
 	ServerServerElapsedTimeView = &view.View{
@@ -91,16 +91,14 @@ var (
 	}
 )
 
-// All default server views provided by this package:
-var (
-	DefaultServerViews = []*view.View{
-		ServerErrorCountView,
-		ServerServerElapsedTimeView,
-		ServerRequestBytesView,
-		ServerResponseBytesView,
-		ServerRequestCountView,
-		ServerResponseCountView,
-	}
-)
+// DefaultServerViews are the default server views provided by this package.
+var DefaultServerViews = []*view.View{
+	ServerErrorCountView,
+	ServerServerElapsedTimeView,
+	ServerRequestBytesView,
+	ServerResponseBytesView,
+	ServerRequestCountView,
+	ServerResponseCountView,
+}
 
 // TODO(jbd): Add roundtrip_latency, uncompressed_request_bytes, uncompressed_response_bytes, request_count, response_count.

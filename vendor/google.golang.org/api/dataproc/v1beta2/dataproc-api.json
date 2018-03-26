@@ -9,7 +9,7 @@
     }
   },
   "basePath": "",
-  "baseUrl": "https://content-dataproc.googleapis.com/",
+  "baseUrl": "https://dataproc.googleapis.com/",
   "batchPath": "batch",
   "canonicalName": "Dataproc",
   "description": "Manages Hadoop-based clusters and jobs on Google Cloud Platform.",
@@ -1630,8 +1630,8 @@
       }
     }
   },
-  "revision": "20180306",
-  "rootUrl": "https://content-dataproc.googleapis.com/",
+  "revision": "20180320",
+  "rootUrl": "https://dataproc.googleapis.com/",
   "schemas": {
     "AcceleratorConfig": {
       "description": "Specifies the type and number of accelerator cards attached to the instances of an instance group (see GPUs on Compute Engine).",
@@ -2508,7 +2508,7 @@
       "id": "ManagedCluster",
       "properties": {
         "clusterName": {
-          "description": "Required. The cluster name. Cluster names within a project must be unique. Names from deleted clusters can be reused.",
+          "description": "Required. The cluster name prefix. A unique cluster name will be formed by appending a random suffix.The name must contain only lower-case letters (a-z), numbers (0-9), and hyphens (-). Must begin with a letter. Cannot begin or end with hyphen. Must consist of between 2 and 35 characters.",
           "type": "string"
         },
         "config": {
@@ -2519,7 +2519,7 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Optional. The labels to associate with this cluster.Label keys must be between 1 and 63 characters long, and must conform to the following PCRE regular expression: \\p{Ll}\\p{Lo}{0,62}Label values must be between 1 and 63 characters long, and must conform to the following PCRE regular expression: \\p{Ll}\\p{Lo}\\p{N}_-{0,63}No more than 64 labels can be associated with a given cluster.",
+          "description": "Optional. The labels to associate with this cluster.Label keys must be between 1 and 63 characters long, and must conform to the following PCRE regular expression: \\p{Ll}\\p{Lo}{0,62}Label values must be between 1 and 63 characters long, and must conform to the following PCRE regular expression: \\p{Ll}\\p{Lo}\\p{N}_-{0,63}No more than 32 labels can be associated with a given cluster.",
           "type": "object"
         }
       },
@@ -2607,7 +2607,7 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Optional. The labels to associate with this job.Label keys must be between 1 and 63 characters long, and must conform to the following regular expression: \\p{Ll}\\p{Lo}{0,62}Label values must be between 1 and 63 characters long, and must conform to the following regular expression: \\p{Ll}\\p{Lo}\\p{N}_-{0,63}No more than 64 labels can be associated with a given job.",
+          "description": "Optional. The labels to associate with this job.Label keys must be between 1 and 63 characters long, and must conform to the following regular expression: \\p{Ll}\\p{Lo}{0,62}Label values must be between 1 and 63 characters long, and must conform to the following regular expression: \\p{Ll}\\p{Lo}\\p{N}_-{0,63}No more than 32 labels can be associated with a given job.",
           "type": "object"
         },
         "pigJob": {
@@ -2638,7 +2638,7 @@
           "description": "Job is a SparkSql job."
         },
         "stepId": {
-          "description": "Required. The step id. The id must be unique among all jobs within the template.The step id is used as prefix for job id, as job workflow-step-id label, and in prerequisite_step_ids field from other steps.",
+          "description": "Required. The step id. The id must be unique among all jobs within the template.The step id is used as prefix for job id, as job goog-dataproc-workflow-step-id label, and in prerequisiteStepIds field from other steps.The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between 3 and 50 characters.",
           "type": "string"
         }
       },
@@ -3010,6 +3010,13 @@
           "$ref": "WorkflowGraph",
           "description": "Output only. The workflow graph."
         },
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map from parameter names to values that were used for those parameters.",
+          "type": "object"
+        },
         "state": {
           "description": "Output only. The workflow state.",
           "enum": [
@@ -3094,7 +3101,7 @@
           "type": "string"
         },
         "id": {
-          "description": "Required. The template id.",
+          "description": "Required. The template id.The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of between 3 and 50 characters.",
           "type": "string"
         },
         "jobs": {

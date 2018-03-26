@@ -28,6 +28,9 @@ BUILT_SOURCES = gen-cpp/AnnotationTest_types.h \
                 gen-cpp/ChildService.h \
                 gen-cpp/EmptyService.h \
                 gen-cpp/ParentService.h \
+		gen-cpp/OneWayTest_types.h \
+		gen-cpp/OneWayService.h \
+		gen-cpp/OneWayTest_constants.h \
                 gen-cpp/proc_types.h
 
 noinst_LTLIBRARIES = libtestgencpp.la libprocessortest.la
@@ -36,6 +39,8 @@ nodist_libtestgencpp_la_SOURCES = \
 	gen-cpp/AnnotationTest_types.h \
 	gen-cpp/DebugProtoTest_types.cpp \
 	gen-cpp/DebugProtoTest_types.h \
+	gen-cpp/DoubleConstantsTest_constants.cpp \
+	gen-cpp/DoubleConstantsTest_constants.h \
 	gen-cpp/EnumTest_types.cpp \
 	gen-cpp/EnumTest_types.h \
 	gen-cpp/OptionalRequiredTest_types.cpp \
@@ -48,6 +53,12 @@ nodist_libtestgencpp_la_SOURCES = \
 	gen-cpp/ThriftTest_constants.h \
 	gen-cpp/TypedefTest_types.cpp \
 	gen-cpp/TypedefTest_types.h \
+	gen-cpp/OneWayService.cpp \
+	gen-cpp/OneWayTest_constants.cpp \
+	gen-cpp/OneWayTest_types.h \
+	gen-cpp/OneWayService.h \
+	gen-cpp/OneWayTest_constants.h \
+	gen-cpp/OneWayTest_types.cpp \
 	ThriftTest_extras.cpp \
 	DebugProtoTest_extras.cpp
 
@@ -93,6 +104,7 @@ check_PROGRAMS = \
 	link_test \
 	OpenSSLManualInitTest \
 	EnumTest \
+	RenderedDoubleConstantsTest \
         AnnotationTest
 
 if AMX_HAVE_LIBEVENT
@@ -113,6 +125,7 @@ TESTS = \
 
 UnitTests_SOURCES = \
 	UnitTestMain.cpp \
+	OneWayHTTPTest.cpp \
 	TMemoryBufferTest.cpp \
 	TBufferBaseTest.cpp \
 	Base64Test.cpp \
@@ -130,7 +143,9 @@ endif
 
 UnitTests_LDADD = \
   libtestgencpp.la \
-  $(BOOST_TEST_LDADD)
+  $(BOOST_TEST_LDADD) \
+  $(BOOST_SYSTEM_LDADD) \
+  $(BOOST_THREAD_LDADD)
 
 TInterruptTest_SOURCES = \
 	TSocketInterruptTest.cpp \
@@ -189,6 +204,10 @@ EnumTest_SOURCES = \
 EnumTest_LDADD = \
   libtestgencpp.la \
   $(BOOST_TEST_LDADD)
+
+RenderedDoubleConstantsTest_SOURCES = RenderedDoubleConstantsTest.cpp
+
+RenderedDoubleConstantsTest_LDADD = libtestgencpp.la $(BOOST_TEST_LDADD)
 
 AnnotationTest_SOURCES = \
 	AnnotationTest.cpp
@@ -367,6 +386,10 @@ gen-cpp/AnnotationTest_constants.cpp gen-cpp/AnnotationTest_constants.h gen-cpp/
 gen-cpp/DebugProtoTest_types.cpp gen-cpp/DebugProtoTest_types.h gen-cpp/EmptyService.cpp gen-cpp/EmptyService.h: $(top_srcdir)/test/DebugProtoTest.thrift
 	$(THRIFT) --gen cpp $<
 
+gen-cpp/DoubleConstantsTest_constants.cpp gen-cpp/DoubleConstantsTest_constants.h: $(top_srcdir)/test/DoubleConstantsTest.thrift
+	$(THRIFT) --gen cpp $<
+
+
 gen-cpp/EnumTest_types.cpp gen-cpp/EnumTest_types.h: $(top_srcdir)/test/EnumTest.thrift
 	$(THRIFT) --gen cpp $<
 
@@ -385,6 +408,9 @@ gen-cpp/Service.cpp gen-cpp/StressTest_types.cpp: $(top_srcdir)/test/StressTest.
 gen-cpp/SecondService.cpp gen-cpp/ThriftTest_constants.cpp gen-cpp/ThriftTest.cpp gen-cpp/ThriftTest_types.cpp gen-cpp/ThriftTest_types.h: $(top_srcdir)/test/ThriftTest.thrift
 	$(THRIFT) --gen cpp $<
 
+gen-cpp/OneWayService.cpp gen-cpp/OneWayTest_constants.cpp gen-cpp/OneWayTest_types.h gen-cpp/OneWayService.h gen-cpp/OneWayTest_constants.h gen-cpp/OneWayTest_types.cpp: OneWayTest.thrift
+	$(THRIFT) --gen cpp $<
+
 gen-cpp/ChildService.cpp gen-cpp/ChildService.h gen-cpp/ParentService.cpp gen-cpp/ParentService.h gen-cpp/proc_types.cpp gen-cpp/proc_types.h: processor/proc.thrift
 	$(THRIFT) --gen cpp:templates,cob_style $<
 
@@ -401,4 +427,5 @@ EXTRA_DIST = \
 	qt \
 	CMakeLists.txt \
 	DebugProtoTest_extras.cpp \
-	ThriftTest_extras.cpp
+	ThriftTest_extras.cpp \
+	OneWayTest.thrift

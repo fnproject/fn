@@ -27,7 +27,7 @@ func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 	k1, _ := tag.NewKey("k1")
 	k2, _ := tag.NewKey("k2")
 	k3, _ := tag.NewKey("k3")
-	agg1 := DistributionAggregation{2}
+	agg1 := Distribution(2)
 	m, _ := stats.Int64("Test_View_MeasureFloat64_AggregationDistribution/m1", "", stats.UnitNone)
 	view1 := &View{
 		TagKeys:     []tag.Key{k1, k2},
@@ -65,7 +65,7 @@ func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 				{
 					[]tag.Tag{{Key: k1, Value: "v1"}},
 					&DistributionData{
-						2, 1, 5, 3, 8, []int64{1, 1}, agg1,
+						2, 1, 5, 3, 8, []int64{1, 1}, []float64{2},
 					},
 				},
 			},
@@ -80,13 +80,13 @@ func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 				{
 					[]tag.Tag{{Key: k1, Value: "v1"}},
 					&DistributionData{
-						1, 1, 1, 1, 0, []int64{1, 0}, agg1,
+						1, 1, 1, 1, 0, []int64{1, 0}, []float64{2},
 					},
 				},
 				{
 					[]tag.Tag{{Key: k2, Value: "v2"}},
 					&DistributionData{
-						1, 5, 5, 5, 0, []int64{0, 1}, agg1,
+						1, 5, 5, 5, 0, []int64{0, 1}, []float64{2},
 					},
 				},
 			},
@@ -104,25 +104,25 @@ func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 				{
 					[]tag.Tag{{Key: k1, Value: "v1"}},
 					&DistributionData{
-						2, 1, 5, 3, 8, []int64{1, 1}, agg1,
+						2, 1, 5, 3, 8, []int64{1, 1}, []float64{2},
 					},
 				},
 				{
 					[]tag.Tag{{Key: k1, Value: "v1 other"}},
 					&DistributionData{
-						1, 1, 1, 1, 0, []int64{1, 0}, agg1,
+						1, 1, 1, 1, 0, []int64{1, 0}, []float64{2},
 					},
 				},
 				{
 					[]tag.Tag{{Key: k2, Value: "v2"}},
 					&DistributionData{
-						1, 5, 5, 5, 0, []int64{0, 1}, agg1,
+						1, 5, 5, 5, 0, []int64{0, 1}, []float64{2},
 					},
 				},
 				{
 					[]tag.Tag{{Key: k1, Value: "v1"}, {Key: k2, Value: "v2"}},
 					&DistributionData{
-						1, 5, 5, 5, 0, []int64{0, 1}, agg1,
+						1, 5, 5, 5, 0, []int64{0, 1}, []float64{2},
 					},
 				},
 			},
@@ -142,19 +142,19 @@ func Test_View_MeasureFloat64_AggregationDistribution(t *testing.T) {
 				{
 					[]tag.Tag{{Key: k1, Value: "v1 is a very long value key"}},
 					&DistributionData{
-						2, 1, 5, 3, 8, []int64{1, 1}, agg1,
+						2, 1, 5, 3, 8, []int64{1, 1}, []float64{2},
 					},
 				},
 				{
 					[]tag.Tag{{Key: k1, Value: "v1 is another very long value key"}},
 					&DistributionData{
-						1, 1, 1, 1, 0, []int64{1, 0}, agg1,
+						1, 1, 1, 1, 0, []int64{1, 0}, []float64{2},
 					},
 				},
 				{
 					[]tag.Tag{{Key: k1, Value: "v1 is a very long value key"}, {Key: k2, Value: "v2 is a very long value key"}},
 					&DistributionData{
-						4, 1, 5, 3, 2.66666666666667 * 3, []int64{1, 3}, agg1,
+						4, 1, 5, 3, 2.66666666666667 * 3, []int64{1, 3}, []float64{2},
 					},
 				},
 			},
@@ -198,7 +198,7 @@ func Test_View_MeasureFloat64_AggregationSum(t *testing.T) {
 	k2, _ := tag.NewKey("k2")
 	k3, _ := tag.NewKey("k3")
 	m, _ := stats.Int64("Test_View_MeasureFloat64_AggregationSum/m1", "", stats.UnitNone)
-	view, err := newViewInternal(&View{TagKeys: []tag.Key{k1, k2}, Measure: m, Aggregation: SumAggregation{}})
+	view, err := newViewInternal(&View{TagKeys: []tag.Key{k1, k2}, Measure: m, Aggregation: Sum()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,21 +313,21 @@ func TestCanonicalize(t *testing.T) {
 	k1, _ := tag.NewKey("k1")
 	k2, _ := tag.NewKey("k2")
 	m, _ := stats.Int64("TestCanonicalize/m1", "desc desc", stats.UnitNone)
-	v := &View{TagKeys: []tag.Key{k2, k1}, Measure: m, Aggregation: MeanAggregation{}}
-	vc, err := v.canonicalized()
+	v := &View{TagKeys: []tag.Key{k2, k1}, Measure: m, Aggregation: Mean()}
+	err := v.canonicalize()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := vc.Name, "TestCanonicalize/m1"; got != want {
+	if got, want := v.Name, "TestCanonicalize/m1"; got != want {
 		t.Errorf("vc.Name = %q; want %q", got, want)
 	}
-	if got, want := vc.Description, "desc desc"; got != want {
+	if got, want := v.Description, "desc desc"; got != want {
 		t.Errorf("vc.Description = %q; want %q", got, want)
 	}
-	if got, want := len(vc.TagKeys), 2; got != want {
+	if got, want := len(v.TagKeys), 2; got != want {
 		t.Errorf("len(vc.TagKeys) = %d; want %d", got, want)
 	}
-	if got, want := vc.TagKeys[0].Name(), "k1"; got != want {
+	if got, want := v.TagKeys[0].Name(), "k1"; got != want {
 		t.Errorf("vc.TagKeys[0].Name() = %q; want %q", got, want)
 	}
 }
@@ -337,7 +337,7 @@ func Test_View_MeasureFloat64_AggregationMean(t *testing.T) {
 	k2, _ := tag.NewKey("k2")
 	k3, _ := tag.NewKey("k3")
 	m, _ := stats.Int64("Test_View_MeasureFloat64_AggregationMean/m1", "", stats.UnitNone)
-	viewDesc := &View{TagKeys: []tag.Key{k1, k2}, Measure: m, Aggregation: MeanAggregation{}}
+	viewDesc := &View{TagKeys: []tag.Key{k1, k2}, Measure: m, Aggregation: Mean()}
 	view, err := newViewInternal(viewDesc)
 	if err != nil {
 		t.Fatal(err)
@@ -463,7 +463,7 @@ func TestViewSortedKeys(t *testing.T) {
 		Description: "desc sort_keys",
 		TagKeys:     ks,
 		Measure:     m,
-		Aggregation: &MeanAggregation{},
+		Aggregation: Mean(),
 	})
 	// Subscribe normalizes the view by sorting the tag keys, retrieve the normalized view
 	v := Find("sort_keys")

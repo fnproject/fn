@@ -1,4 +1,4 @@
-﻿#
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements. See the NOTICE file
 # distributed with this work for additional information
@@ -18,9 +18,6 @@
 #
 
 include_directories(SYSTEM "${Boost_INCLUDE_DIRS}")
-
-add_definitions("-D__STDC_FORMAT_MACROS")
-add_definitions("-D__STDC_LIMIT_MACROS")
 
 if (WITH_DYN_LINK_TEST)
     add_definitions( -DBOOST_TEST_DYN_LINK )
@@ -43,6 +40,10 @@ set(testgencpp_SOURCES
     gen-cpp/Recursive_types.h
     gen-cpp/ThriftTest_types.cpp
     gen-cpp/ThriftTest_types.h
+    gen-cpp/OneWayTest_types.cpp
+    gen-cpp/OneWayTest_types.h
+    gen-cpp/OneWayService.cpp
+    gen-cpp/OneWayService.h
     gen-cpp/TypedefTest_types.cpp
     gen-cpp/TypedefTest_types.h
     ThriftTest_extras.cpp
@@ -71,6 +72,7 @@ target_link_libraries(Benchmark testgencpp)
 
 set(UnitTest_SOURCES
     UnitTestMain.cpp
+    OneWayHTTPTest.cpp
     TMemoryBufferTest.cpp
     TBufferBaseTest.cpp
     Base64Test.cpp
@@ -392,6 +394,10 @@ add_custom_command(OUTPUT gen-cpp/Service.cpp gen-cpp/StressTest_types.cpp
 
 add_custom_command(OUTPUT gen-cpp/SecondService.cpp gen-cpp/ThriftTest_constants.cpp gen-cpp/ThriftTest.cpp gen-cpp/ThriftTest_types.cpp gen-cpp/ThriftTest_types.h
     COMMAND ${THRIFT_COMPILER} --gen cpp ${PROJECT_SOURCE_DIR}/test/ThriftTest.thrift
+)
+
+add_custom_command(OUTPUT gen-cpp/OneWayService.cpp gen-cpp/OneWayTest_constants.cpp gen-cpp/OneWayTest_types.h gen-cpp/OneWayService.h gen-cpp/OneWayTest_constants.h gen-cpp/OneWayTest_types.cpp
+    COMMAND ${THRIFT_COMPILER} --gen cpp ${CMAKE_CURRENT_SOURCE_DIR}/OneWayTest.thrift
 )
 
 add_custom_command(OUTPUT gen-cpp/ChildService.cpp gen-cpp/ChildService.h gen-cpp/ParentService.cpp gen-cpp/ParentService.h gen-cpp/proc_types.cpp gen-cpp/proc_types.h

@@ -29,7 +29,7 @@
   "description": "Views and manages your Google Analytics data.",
   "discoveryVersion": "v1",
   "documentationLink": "https://developers.google.com/analytics/",
-  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/o3DGRejYlQONYxz9qTIt_cgX6AA\"",
+  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/pZyXISvfodVzorQpGHmIl5L61w8\"",
   "icons": {
     "x16": "https://www.google.com/images/icons/product/analytics-16.png",
     "x32": "https://www.google.com/images/icons/product/analytics-32.png"
@@ -3745,7 +3745,7 @@
           "description": "Provision account.",
           "httpMethod": "POST",
           "id": "analytics.provisioning.createAccountTree",
-          "path": "provisioning/createAccount",
+          "path": "provisioning/createAccountTree",
           "request": {
             "$ref": "AccountTreeRequest"
           },
@@ -3759,7 +3759,7 @@
       }
     }
   },
-  "revision": "20171211",
+  "revision": "20180309",
   "rootUrl": "https://www.googleapis.com/",
   "schemas": {
     "Account": {

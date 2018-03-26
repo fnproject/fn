@@ -1170,6 +1170,25 @@ func TestResolveLocalRef_Response(t *testing.T) {
 	}
 }
 
+func TestResolveForTransitiveRefs(t *testing.T) {
+	var spec *Swagger
+	rawSpec, err := ioutil.ReadFile("fixtures/specs/todos.json")
+	assert.NoError(t, err)
+
+	basePath, err := absPath("fixtures/specs/todos.json")
+	assert.NoError(t, err)
+
+	opts := &ExpandOptions{
+		RelativeBase: basePath,
+	}
+
+	err = json.Unmarshal(rawSpec, &spec)
+	assert.NoError(t, err)
+
+	err = ExpandSpec(spec, opts)
+	assert.NoError(t, err)
+}
+
 // PetStoreJSONMessage json raw message for Petstore20
 var PetStoreJSONMessage = json.RawMessage([]byte(PetStore20))
 

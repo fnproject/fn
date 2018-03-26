@@ -314,7 +314,7 @@
       }
     }
   },
-  "revision": "20180212",
+  "revision": "20180306",
   "rootUrl": "https://oslogin.googleapis.com/",
   "schemas": {
     "Empty": {
@@ -426,7 +426,7 @@
     }
   },
   "servicePath": "",
-  "title": "Google Cloud OS Login API",
+  "title": "Cloud OS Login API",
   "version": "v1beta",
   "version_module": true
 }

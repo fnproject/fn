@@ -950,7 +950,7 @@ func init() {
 			"docker container stats for "+key,
 			[]tag.Key{appKey, pathKey},
 			dockerStatsDist,
-			view.DistributionAggregation{},
+			view.Distribution(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)

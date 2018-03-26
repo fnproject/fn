@@ -127,7 +127,7 @@ func init() {
 			"number of times we've retried docker API upon failure",
 			[]tag.Key{appKey, pathKey},
 			dockerRetriesMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -147,7 +147,7 @@ func init() {
 			"number of times we've timed out calling docker API",
 			[]tag.Key{appKey, pathKey},
 			dockerTimeoutMeasure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -167,7 +167,7 @@ func init() {
 			"number of unrecoverable errors from docker API",
 			[]tag.Key{appKey, pathKey},
 			dockerErrorMeasure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -187,7 +187,7 @@ func init() {
 			"number of docker container oom",
 			[]tag.Key{appKey, pathKey},
 			dockerOOMMeasure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)

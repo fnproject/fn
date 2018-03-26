@@ -24,7 +24,7 @@
   "description": "Declares, configures, and deploys complex solutions on Google Cloud Platform.",
   "discoveryVersion": "v1",
   "documentationLink": "https://cloud.google.com/deployment-manager/",
-  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/L_ygoCRkmtwA6-Mj5fjEetgu-hQ\"",
+  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/e3d_k3vYLbSd_vluuySMj1lei3Y\"",
   "icons": {
     "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
     "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
@@ -145,7 +145,6 @@
             "deployment": {
               "description": "The name of the deployment for this request.",
               "location": "path",
-              "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
               "required": true,
               "type": "string"
             },
@@ -242,6 +241,20 @@
             "project"
           ],
           "parameters": {
+            "createPolicy": {
+              "default": "CREATE_OR_ACQUIRE",
+              "description": "Sets the policy to use for creating new resources.",
+              "enum": [
+                "ACQUIRE",
+                "CREATE_OR_ACQUIRE"
+              ],
+              "enumDescriptions": [
+                "",
+                ""
+              ],
+              "location": "query",
+              "type": "string"
+            },
             "preview": {
               "description": "If set to true, creates a deployment and creates \"shell\" resources but does not actually instantiate these resources. This allows you to preview what your deployment looks like. After previewing a deployment, you can deploy your resources by making a request with the update() method or you can use the cancelPreview() method to cancel the preview altogether. Note that the deployment will still exist after you cancel the preview and you must separately delete this deployment if you want to remove it.",
               "location": "query",
@@ -919,7 +932,7 @@
       }
     }
   },
-  "revision": "20180222",
+  "revision": "20180309",
   "rootUrl": "https://www.googleapis.com/",
   "schemas": {
     "AuditConfig": {

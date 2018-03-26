@@ -165,7 +165,7 @@
       }
     }
   },
-  "revision": "20180221",
+  "revision": "20180320",
   "rootUrl": "https://vision.googleapis.com/",
   "schemas": {
     "Color": {
@@ -320,6 +320,13 @@
         "outputConfig": {
           "$ref": "GoogleCloudVisionV1p2beta1OutputConfig",
           "description": "The output location and metadata from AsyncAnnotateFileRequest."
+        },
+        "outputs": {
+          "description": "The full list of output files in GCS.",
+          "items": {
+            "$ref": "GoogleCloudVisionV1p2beta1GcsDestination"
+          },
+          "type": "array"
         }
       },
       "type": "object"
@@ -1684,7 +1691,7 @@
     }
   },
   "servicePath": "",
-  "title": "Google Cloud Vision API",
+  "title": "Cloud Vision API",
   "version": "v1p2beta1",
   "version_module": true
 }
