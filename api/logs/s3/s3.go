@@ -201,7 +201,7 @@ func init() {
 			"uploaded log size",
 			[]tag.Key{appKey, pathKey},
 			uploadSizeMeasure,
-			view.DistributionAggregation{},
+			view.Distribution(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -221,7 +221,7 @@ func init() {
 			"downloaded log size",
 			[]tag.Key{appKey, pathKey},
 			downloadSizeMeasure,
-			view.DistributionAggregation{},
+			view.Distribution(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
