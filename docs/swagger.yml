@@ -470,6 +470,9 @@ definitions:
   Route:
     type: object
     properties:
+      app_id:
+        type: string
+        description: App ID
       path:
         type: string
         description: URL path that will be matched to this route
@@ -538,6 +541,10 @@ definitions:
   App:
     type: object
     properties:
+      id:
+        type: string
+        description: App ID
+        readOnly: true
       name:
         type: string
         description: "Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _."
@@ -675,9 +682,9 @@ definitions:
         type: string
         description: Call execution error, if status is 'error'.
         readOnly: true
-      app_name:
+      app_id:
         type: string
-        description: App name that is assigned to a route that is being executed.
+        description: App ID that is assigned to a route that is being executed.
         readOnly: true
       path:
         type: string
