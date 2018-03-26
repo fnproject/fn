@@ -53,7 +53,7 @@ func setupRequest(data interface{}) *callInfoImpl {
 func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
 	ci := setupRequest(nil)
 	r, w := io.Pipe()
-	proto := JSONProtocolV1{w, r}
+	proto := JSONProtocol{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {
@@ -96,7 +96,7 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
 	ci := setupRequest(rDataBefore)
 	r, w := io.Pipe()
-	proto := JSONProtocolV1{w, r}
+	proto := JSONProtocol{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {
@@ -141,7 +141,7 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 	ci := setupRequest(nil)
 	r, w := io.Pipe()
-	proto := JSONProtocolV1{w, r}
+	proto := JSONProtocol{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {
@@ -185,7 +185,7 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
 	ci := setupRequest(nil)
 	r, w := io.Pipe()
-	proto := JSONProtocolV1{w, r}
+	proto := JSONProtocol{w, r}
 	go func() {
 		err := proto.writeJSONToContainer(ci)
 		if err != nil {

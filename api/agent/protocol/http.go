@@ -21,10 +21,6 @@ type HTTPProtocol struct {
 	out io.Reader
 }
 
-func (p *HTTPProtocol) Version() string {
-	return "1.1"
-}
-
 func (p *HTTPProtocol) IsStreamable() bool { return true }
 
 func (h *HTTPProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {

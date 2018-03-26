@@ -51,21 +51,21 @@ type jsonOut struct {
 }
 
 // JSONProtocol converts stdin/stdout streams from HTTP into JSON format.
-type JSONProtocolV1 struct {
+type JSONProtocol struct {
 	// These are the container input streams, not the input from the request or the output for the response
 	in  io.Writer
 	out io.Reader
 }
 
-func (p *JSONProtocolV1) Version() string {
+func (p *JSONProtocol) Version() string {
 	return "1.0.0"
 }
 
-func (p *JSONProtocolV1) IsStreamable() bool {
+func (p *JSONProtocol) IsStreamable() bool {
 	return true
 }
 
-func (h *JSONProtocolV1) writeJSONToContainer(ci CallInfo) error {
+func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
@@ -94,7 +94,7 @@ func (h *JSONProtocolV1) writeJSONToContainer(ci CallInfo) error {
 	return json.NewEncoder(h.in).Encode(in)
 }
 
-func (h *JSONProtocolV1) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
 	ctx, span := trace.StartSpan(ctx, "dispatch_json")
 	defer span.End()
 
@@ -153,7 +153,7 @@ func (h *JSONProtocolV1) Dispatch(ctx context.Context, ci CallInfo, w io.Writer)
 	return h.isExcessData(err, decoder)
 }
 
-func (h *JSONProtocolV1) isExcessData(err error, decoder *json.Decoder) error {
+func (h *JSONProtocol) isExcessData(err error, decoder *json.Decoder) error {
 	if err == nil {
 		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
 		reader, ok := decoder.Buffered().(*bytes.Reader)
