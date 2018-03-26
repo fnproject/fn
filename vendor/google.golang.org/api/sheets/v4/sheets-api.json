@@ -819,7 +819,7 @@
       }
     }
   },
-  "revision": "20180306",
+  "revision": "20180313",
   "rootUrl": "https://sheets.googleapis.com/",
   "schemas": {
     "AddBandingRequest": {
@@ -1323,7 +1323,7 @@
           "type": "array"
         },
         "stackedType": {
-          "description": "The stacked type for charts that support vertical stacking.\nApplies to Area, Bar, Column, and Stepped Area charts.",
+          "description": "The stacked type for charts that support vertical stacking.\nApplies to Area, Bar, Column, Combo, and Stepped Area charts.",
           "enum": [
             "BASIC_CHART_STACKED_TYPE_UNSPECIFIED",
             "NOT_STACKED",
@@ -2333,6 +2333,10 @@
         "titleTextPosition": {
           "$ref": "TextPosition",
           "description": "The title text position.\nThis field is optional."
+        },
+        "treemapChart": {
+          "$ref": "TreemapChartSpec",
+          "description": "A treemap chart specification."
         },
         "waterfallChart": {
           "$ref": "WaterfallChartSpec",
@@ -5151,6 +5155,88 @@
         "source": {
           "$ref": "GridRange",
           "description": "The source data range.  This must span exactly one column."
+        }
+      },
+      "type": "object"
+    },
+    "TreemapChartColorScale": {
+      "description": "A color scale for a treemap chart.",
+      "id": "TreemapChartColorScale",
+      "properties": {
+        "maxValueColor": {
+          "$ref": "Color",
+          "description": "The background color for cells with a color value greater than or equal\nto maxValue. Defaults to #109618 if not\nspecified."
+        },
+        "midValueColor": {
+          "$ref": "Color",
+          "description": "The background color for cells with a color value at the midpoint between\nminValue and\nmaxValue. Defaults to #efe6dc if not\nspecified."
+        },
+        "minValueColor": {
+          "$ref": "Color",
+          "description": "The background color for cells with a color value less than or equal to\nminValue. Defaults to #dc3912 if not\nspecified."
+        },
+        "noDataColor": {
+          "$ref": "Color",
+          "description": "The background color for cells that have no color data associated with\nthem. Defaults to #000000 if not specified."
+        }
+      },
+      "type": "object"
+    },
+    "TreemapChartSpec": {
+      "description": "A \u003ca href=\"/chart/interactive/docs/gallery/treemap\"\u003eTreemap chart\u003c/a\u003e.",
+      "id": "TreemapChartSpec",
+      "properties": {
+        "colorData": {
+          "$ref": "ChartData",
+          "description": "The data that determines the background color of each treemap data cell.\nThis field is optional. If not specified, size_data will be used to\ndetermine background colors. If specified, the data is expected to be\nnumeric. color_scale will determine how the values in this data map to\ndata cell background colors."
+        },
+        "colorScale": {
+          "$ref": "TreemapChartColorScale",
+          "description": "The color scale for data cells in the treemap chart. Data cells are\nassigned colors based on their color values. These color values come from\ncolor_data, or from size_data if color_data is not specified.\nCells with color values less than or equal to min_value will\nhave minValueColor as their\nbackground color. Cells with color values greater than or equal to\nmax_value will have\nmaxValueColor as their background\ncolor. Cells with color values between min_value and max_value will\nhave background colors on a gradient between\nminValueColor and\nmaxValueColor, the midpoint of\nthe gradient being midValueColor.\nCells with missing or non-numeric color values will have\nnoDataColor as their background\ncolor."
+        },
+        "headerColor": {
+          "$ref": "Color",
+          "description": "The background color for header cells."
+        },
+        "hideTooltips": {
+          "description": "True to hide tooltips.",
+          "type": "boolean"
+        },
+        "hintedLevels": {
+          "description": "The number of additional data levels beyond the labeled levels to be shown\non the treemap chart. These levels are not interactive and are shown\nwithout their labels. Defaults to 0 if not specified.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "labels": {
+          "$ref": "ChartData",
+          "description": "The data that contains the treemap cell labels."
+        },
+        "levels": {
+          "description": "The number of data levels to show on the treemap chart. These levels are\ninteractive and are shown with their labels. Defaults to 2 if not\nspecified.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "maxValue": {
+          "description": "The maximum possible data value. Cells with values greater than this will\nhave the same color as cells with this value. If not specified, defaults\nto the actual maximum value from color_data, or the maximum value from\nsize_data if color_data is not specified.",
+          "format": "double",
+          "type": "number"
+        },
+        "minValue": {
+          "description": "The minimum possible data value. Cells with values less than this will\nhave the same color as cells with this value. If not specified, defaults\nto the actual minimum value from color_data, or the minimum value from\nsize_data if color_data is not specified.",
+          "format": "double",
+          "type": "number"
+        },
+        "parentLabels": {
+          "$ref": "ChartData",
+          "description": "The data the contains the treemap cells' parent labels."
+        },
+        "sizeData": {
+          "$ref": "ChartData",
+          "description": "The data that determines the size of each treemap data cell. This data is\nexpected to be numeric. The cells corresponding to non-numeric or missing\ndata will not be rendered. If color_data is not specified, this data\nwill be used to determine data cell background colors as well."
+        },
+        "textFormat": {
+          "$ref": "TextFormat",
+          "description": "The text format for all labels on the chart."
         }
       },
       "type": "object"

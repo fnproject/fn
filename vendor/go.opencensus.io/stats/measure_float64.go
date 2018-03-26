@@ -20,9 +20,20 @@ type Float64Measure struct {
 	measure
 }
 
+func (m *Float64Measure) subscribe() {
+	m.measure.subscribe()
+}
+
+func (m *Float64Measure) subscribed() bool {
+	return m.measure.subscribed()
+}
+
 // M creates a new float64 measurement.
 // Use Record to record measurements.
 func (m *Float64Measure) M(v float64) Measurement {
+	if !m.subscribed() {
+		return Measurement{}
+	}
 	return Measurement{m: m, v: v}
 }
 

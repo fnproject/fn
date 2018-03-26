@@ -4,7 +4,8 @@
   "batchPath": "batch/pagespeedonline/v4",
   "description": "Analyzes the performance of a web page and provides tailored suggestions to make that page faster.",
   "discoveryVersion": "v1",
-  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/pP7h1URmYSyYoOU6ofcFP2Efxhk\"",
+  "documentationLink": "https://developers.google.com/speed/docs/insights/v4/getting-started",
+  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/XCul5cFRh1Et1JIhvRP7o7R9irw\"",
   "icons": {
     "x16": "https://www.google.com/images/icons/product/pagespeed-16.png",
     "x32": "https://www.google.com/images/icons/product/pagespeed-32.png"
@@ -141,7 +142,7 @@
       }
     }
   },
-  "revision": "20180308",
+  "revision": "20180315",
   "rootUrl": "https://www.googleapis.com/",
   "schemas": {
     "PagespeedApiFormatStringV4": {

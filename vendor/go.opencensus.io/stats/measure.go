@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"go.opencensus.io/stats/internal"
 )
@@ -37,12 +38,25 @@ type Measure interface {
 	Name() string
 	Description() string
 	Unit() string
+
+	subscribe()
+	subscribed() bool
 }
 
 type measure struct {
+	subs int32 // access atomically
+
 	name        string
 	description string
 	unit        string
+}
+
+func (m *measure) subscribe() {
+	atomic.StoreInt32(&m.subs, 1)
+}
+
+func (m *measure) subscribed() bool {
+	return atomic.LoadInt32(&m.subs) == 1
 }
 
 // Name returns the name of the measure.
@@ -61,10 +75,12 @@ func (m *measure) Unit() string {
 }
 
 var (
-	mu           sync.RWMutex
-	measures     = make(map[string]Measure)
-	errDuplicate = errors.New("duplicate measure name")
+	mu       sync.RWMutex
+	measures = make(map[string]Measure)
+)
 
+var (
+	errDuplicate          = errors.New("duplicate measure name")
 	errMeasureNameTooLong = fmt.Errorf("measure name cannot be longer than %v", internal.MaxNameLength)
 )
 

@@ -18,7 +18,8 @@ import (
 	"go.opencensus.io/tag"
 )
 
-type Recorder func(*tag.Map, interface{})
-
 // DefaultRecorder will be called for each Record call.
-var DefaultRecorder Recorder = nil
+var DefaultRecorder func(*tag.Map, interface{})
+
+// SubscriptionReporter reports when a view subscribed with a measure.
+var SubscriptionReporter func(measure string)

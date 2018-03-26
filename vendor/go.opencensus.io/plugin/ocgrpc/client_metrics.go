@@ -43,7 +43,7 @@ var (
 		Description: "RPC Errors",
 		TagKeys:     []tag.Key{KeyStatus, KeyMethod},
 		Measure:     ClientErrorCount,
-		Aggregation: view.MeanAggregation{},
+		Aggregation: view.Mean(),
 	}
 
 	ClientRoundTripLatencyView = &view.View{
@@ -87,17 +87,15 @@ var (
 	}
 )
 
-// All the default client views provided by this package:
-var (
-	DefaultClientViews = []*view.View{
-		ClientErrorCountView,
-		ClientRoundTripLatencyView,
-		ClientRequestBytesView,
-		ClientResponseBytesView,
-		ClientRequestCountView,
-		ClientResponseCountView,
-	}
-)
+// DefaultClientViews are the default client views provided by this package.
+var DefaultClientViews = []*view.View{
+	ClientErrorCountView,
+	ClientRoundTripLatencyView,
+	ClientRequestBytesView,
+	ClientResponseBytesView,
+	ClientRequestCountView,
+	ClientResponseCountView,
+}
 
 // TODO(jbd): Add roundtrip_latency, uncompressed_request_bytes, uncompressed_response_bytes, request_count, response_count.
 // TODO(acetechnologist): This is temporary and will need to be replaced by a

@@ -14,18 +14,22 @@
 # Apache Thrift Docker build environment for Ubuntu Artful
 # Using all stock Ubuntu Artful packaging except for:
 # - cpp: stock boost 1.62 in artful has a nasty bug so we use stock boost 1.63
-# - d: does not come with Ubuntu so we're installing the latest
-# - d: deimos for libevent and openssl omitted - not compatible / build errors
-# - haxe: see THRIFT-4352, but test/haxe cores during testing
-#         and hxcpp 3.4.64 is not compatible with artful
+# - d: dmd does not come with Ubuntu
+# - dart: does not come with Ubuntu
+# - dotnet: does not come with Ubuntu
+# - haxe: version 3.4.2 that comes with Ubuntu cores in our CI build
+# - go: xenial comes with 1.8, we want the latest (supported)
+# - nodejs: want v8, Ubuntu comes with v6
 #
 
 FROM buildpack-deps:artful-scm
 MAINTAINER Apache Thrift <dev@thrift.apache.org>
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && \ 
-    apt-get dist-upgrade -y && \ 
+### Add apt repos
+
+RUN apt-get update && \
+    apt-get dist-upgrade -y && \
     apt-get install -y --no-install-recommends \
       apt \
       apt-transport-https \
@@ -39,15 +43,25 @@ RUN apt-get update && \
 # RUN echo "deb http://download.mono-project.com/repo/debian xenial main" | tee /etc/apt/sources.list.d/mono.list && \
 #     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A6A19B38D3D831EF
 
-# dotnet (core)
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg && \
-    echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-artful-prod artful main" > /etc/apt/sources.list.d/dotnetdev.list
+# Dart
+RUN curl https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    curl https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > \
+      /etc/apt/sources.list.d/dart_stable.list
 
-# node.js (this step runs apt-get update internally) - if we ever want a later version
-RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
+# dotnet (netcore)
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg && \
+    echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-artful-prod artful main" > \
+      /etc/apt/sources.list.d/dotnetdev.list
+
+# haxe (https://haxe.org/download/linux/)
+RUN add-apt-repository ppa:haxe/releases -y
+
+# node.js
+RUN curl -sL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
+    echo "deb https://deb.nodesource.com/node_8.x artful main" | tee /etc/apt/sources.list.d/nodesource.list
 
 ### install general dependencies
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
 `# General dependencies` \
       bash-completion \
       bison \
@@ -78,49 +92,42 @@ RUN apt-get install -y --no-install-recommends \
 `# csharp (mono) dependencies` \
       mono-devel
 
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EBCF975E5BA24D5E && \
-    wget http://master.dl.sourceforge.net/project/d-apt/files/d-apt.list -O /etc/apt/sources.list.d/d-apt.list && \
-    wget -qO - https://dlang.org/d-keyring.gpg | apt-key add - && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-      `# D dependencies` \
-      dmd-bin \
-      libphobos2-dev \
-      dub \
-      dfmt \
-      dscanner \
-      libevent-dev \
-      libssl-dev \
-      xdg-utils
-# libevent deimos doesn't seem to work so not enabling it:
-# RUN mkdir -p /usr/include/dmd/druntime/import/deimos /usr/include/dmd/druntime/import/C && \
-#     curl -sSL https://github.com/D-Programming-Deimos/libevent/archive/master.tar.gz| tar xz && \
-#     mv libevent-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
-#     mv libevent-master/C/* /usr/include/dmd/druntime/import/C/ && \
-#     rm -rf libevent-master
-# openssl deimos doesn't work with openssl-1.0.2 so not enabling it:
-# RUN curl -sSL https://github.com/D-Programming-Deimos/openssl/archive/master.tar.gz| tar xz && \
-#     mv openssl-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
-#     mv openssl-master/C/* /usr/include/dmd/druntime/import/C/ && \
-#     rm -rf openssl-master
+ENV SBCL_VERSION 1.4.5
+RUN \
+`# Common Lisp (sbcl) dependencies` \
+    curl --version && \
+    curl -O -J -L https://kent.dl.sourceforge.net/project/sbcl/sbcl/${SBCL_VERSION}/sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2 && \
+    tar xjf sbcl-${SBCL_VERSION}-x86-64-linux-binary.tar.bz2 && \
+    cd sbcl-${SBCL_VERSION}-x86-64-linux && \
+    ./install.sh && \
+    sbcl --version && \
+    rm -rf sbcl*
 
-# dart cannot be downloaded by aptitude because of
-# https://github.com/dart-lang/sdk/issues/30512
-# RUN curl https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-#     curl https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list && \
-#     apt-get update && \
-#     apt-get install -y --no-install-recommends \
-#       `# Dart dependencies` \
-#       dart
-# so instead we do:
-RUN wget https://storage.googleapis.com/dart-archive/channels/stable/release/latest/linux_packages/dart_1.24.2-1_amd64.deb && \
-    dpkg -i dart_1.24.2-1_amd64.deb && \
-    rm dart_1.24.2-1_amd64.deb
+ENV D_VERSION     2.077.1
+ENV DMD_DEB       dmd_2.077.1-0_amd64.deb
+RUN \
+`# D dependencies` \
+    wget -q http://downloads.dlang.org/releases/2.x/${D_VERSION}/${DMD_DEB} && \
+    dpkg --install ${DMD_DEB} && \
+    rm -f ${DMD_DEB} && \
+    mkdir -p /usr/include/dmd/druntime/import/deimos /usr/include/dmd/druntime/import/C && \
+    curl -sSL https://github.com/D-Programming-Deimos/libevent/archive/master.tar.gz| tar xz && \
+    mv libevent-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
+    mv libevent-master/C/* /usr/include/dmd/druntime/import/C/ && \
+    rm -rf libevent-master && \
+    curl -sSL https://github.com/D-Programming-Deimos/openssl/archive/master.tar.gz| tar xz && \
+    mv openssl-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
+    mv openssl-master/C/* /usr/include/dmd/druntime/import/C/ && \
+    rm -rf openssl-master
+
+RUN apt-get install -y --no-install-recommends \
+      `# Dart dependencies` \
+      dart/stable
 ENV PATH /usr/lib/dart/bin:$PATH
 
 RUN apt-get install -y --no-install-recommends \
 `# dotnet core dependencies` \
-      dotnet-sdk-2.0.3
+      dotnet-sdk-2.1.4
 
 RUN apt-get install -y --no-install-recommends \
 `# Erlang dependencies` \
@@ -134,24 +141,28 @@ RUN apt-get install -y --no-install-recommends \
 `# GlibC dependencies` \
       libglib2.0-dev
 
-RUN apt-get install -y --no-install-recommends \
-`# golang (go) dependencies` \
-      golang-go \
-      golang-race-detector-runtime
+# golang
+ENV GOLANG_VERSION 1.10
+ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
+ENV GOLANG_DOWNLOAD_SHA256 b5a64335f1490277b585832d1f6c7f8c6c11206cba5cd3f771dcb87b98ad1a33
+RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz && \
+      echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - && \
+            tar -C /usr/local -xzf golang.tar.gz && \
+                  ln -s /usr/local/go/bin/go /usr/local/bin && \
+                        rm golang.tar.gz
 
 RUN apt-get install -y --no-install-recommends \
 `# Haskell dependencies` \
       ghc \
       cabal-install
 
-# see THRIFT-4352, test/haxe cores on artful
-# RUN apt-get install -y --no-install-recommends \
-# `# Haxe dependencies` \
-#       haxe \
-#       neko \
-#       neko-dev
-# RUN haxelib setup --always /usr/share/haxe/lib && \
-#     haxelib install --always hxcpp
+RUN apt-get install -y --no-install-recommends \
+`# Haxe dependencies` \
+      haxe \
+      neko \
+      neko-dev && \
+    haxelib setup --always /usr/share/haxe/lib && \
+    haxelib install --always hxcpp 2>&1 > /dev/null
 
 RUN apt-get install -y --no-install-recommends \
 `# Java dependencies` \
@@ -194,7 +205,7 @@ RUN apt-get install -y --no-install-recommends \
       php-dev \
       php-pear \
       re2c \
-      phpunit
+      composer
 
 RUN apt-get install -y --no-install-recommends \
 `# Python dependencies` \
@@ -229,7 +240,6 @@ RUN apt-get install -y --no-install-recommends \
       ruby \
       ruby-dev \
       ruby-bundler
-RUN gem install bundler --no-ri --no-rdoc
 
 RUN apt-get install -y --no-install-recommends \
 `# Rust dependencies` \

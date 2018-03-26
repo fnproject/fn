@@ -23,7 +23,7 @@
   "description": "Configures and serves authoritative DNS records.",
   "discoveryVersion": "v1",
   "documentationLink": "https://developers.google.com/cloud-dns",
-  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/A5BDKbKQemrrtwPxFAsqazMm3yE\"",
+  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/LxBnCwWxzMjcp95c1imUQ5t4wRU\"",
   "icons": {
     "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
     "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
@@ -501,9 +501,6 @@
             }
           },
           "path": "{project}/managedZones/{managedZone}",
-          "response": {
-            "$ref": "ManagedZonesDeleteResponse"
-          },
           "scopes": [
             "https://www.googleapis.com/auth/cloud-platform",
             "https://www.googleapis.com/auth/ndev.clouddns.readwrite"
@@ -763,7 +760,7 @@
       }
     }
   },
-  "revision": "20180123",
+  "revision": "20180314",
   "rootUrl": "https://www.googleapis.com/",
   "schemas": {
     "Change": {
@@ -1048,6 +1045,13 @@
           "description": "Identifies what kind of resource this is. Value: the fixed string \"dns#managedZone\".",
           "type": "string"
         },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "User labels.",
+          "type": "object"
+        },
         "name": {
           "description": "User assigned name for this resource. Must be unique within the project. The name must be 1-63 characters long, must begin with a letter, end with a letter or digit, and only contain lowercase letters, digits or dashes.",
           "type": "string"
@@ -1131,15 +1135,6 @@
             "$ref": "Operation"
           },
           "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "ManagedZonesDeleteResponse": {
-      "id": "ManagedZonesDeleteResponse",
-      "properties": {
-        "header": {
-          "$ref": "ResponseHeader"
         }
       },
       "type": "object"

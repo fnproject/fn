@@ -71,6 +71,10 @@ type Options struct {
 	// with type global and no resource labels will be used.
 	// Optional.
 	Resource *monitoredrespb.MonitoredResource
+
+	// MetricPrefix overrides the OpenCensus prefix of a stackdriver metric.
+	// Optional.
+	MetricPrefix string
 }
 
 // Exporter is a stats.Exporter and trace.Exporter

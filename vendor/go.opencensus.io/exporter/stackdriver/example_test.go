@@ -33,8 +33,14 @@ func Example() {
 
 	// Export to Stackdriver Monitoring.
 	view.RegisterExporter(exporter)
-	// Subscribe views to see stats in Stackdriver Monitoring
-	view.Subscribe(ochttp.ClientLatencyView, ochttp.ClientResponseBytesView)
+
+	// Subscribe views to see stats in Stackdriver Monitoring.
+	if err := view.Subscribe(
+		ochttp.ClientLatencyView,
+		ochttp.ClientResponseBytesView,
+	); err != nil {
+		log.Fatal(err)
+	}
 
 	// Export to Stackdriver Trace.
 	trace.RegisterExporter(exporter)

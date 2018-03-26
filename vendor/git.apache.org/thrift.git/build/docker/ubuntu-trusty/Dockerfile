@@ -25,8 +25,10 @@ FROM buildpack-deps:trusty-scm
 MAINTAINER Apache Thrift <dev@thrift.apache.org>
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && \ 
-    apt-get dist-upgrade -y && \ 
+### Add apt repos
+
+RUN apt-get update && \
+    apt-get dist-upgrade -y && \
     apt-get install -y --no-install-recommends \
       apt \
       apt-transport-https \
@@ -35,6 +37,16 @@ RUN apt-get update && \
       dirmngr \
       software-properties-common \
       wget
+
+# D
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EBCF975E5BA24D5E && \
+        wget http://master.dl.sourceforge.net/project/d-apt/files/d-apt.list -O /etc/apt/sources.list.d/d-apt.list && \
+        wget -qO - https://dlang.org/d-keyring.gpg | apt-key add -
+
+# Dart
+RUN curl https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+        curl https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > \
+          /etc/apt/sources.list.d/dart_stable.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 `# General dependencies` \
@@ -66,11 +78,7 @@ RUN apt-get install -y --no-install-recommends \
 `# csharp (mono) dependencies` \
       mono-devel
 
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EBCF975E5BA24D5E && \
-    wget http://master.dl.sourceforge.net/project/d-apt/files/d-apt.list -O /etc/apt/sources.list.d/d-apt.list && \
-    wget -qO - https://dlang.org/d-keyring.gpg | apt-key add - && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apt-get install -y --no-install-recommends \
 `# D dependencies` \
       dmd-bin=2.070.2-0 \
       libphobos2-dev=2.070.2-0 \
@@ -78,20 +86,17 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EBCF975E5BA24D5E &&
       dfmt \
       dscanner \
       xdg-utils
-# RUN mkdir -p /usr/include/dmd/druntime/import/deimos /usr/include/dmd/druntime/import/C && \
-#     curl -sSL https://github.com/D-Programming-Deimos/libevent/archive/master.tar.gz| tar xz && \
-#     mv libevent-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
-#     mv libevent-master/C/* /usr/include/dmd/druntime/import/C/ && \
-#     rm -rf libevent-master
-# RUN curl -sSL https://github.com/D-Programming-Deimos/openssl/archive/master.tar.gz| tar xz && \
-#     mv openssl-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
-#     mv openssl-master/C/* /usr/include/dmd/druntime/import/C/ && \
-#     rm -rf openssl-master
+RUN mkdir -p /usr/include/dmd/druntime/import/deimos /usr/include/dmd/druntime/import/C && \
+    curl -sSL https://github.com/D-Programming-Deimos/libevent/archive/master.tar.gz| tar xz && \
+    mv libevent-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
+    mv libevent-master/C/* /usr/include/dmd/druntime/import/C/ && \
+    rm -rf libevent-master
+RUN curl -sSL https://github.com/D-Programming-Deimos/openssl/archive/master.tar.gz| tar xz && \
+    mv openssl-master/deimos/* /usr/include/dmd/druntime/import/deimos/ && \
+    mv openssl-master/C/* /usr/include/dmd/druntime/import/C/ && \
+    rm -rf openssl-master
 
-RUN curl https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    curl https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apt-get install -y --no-install-recommends \
 `# Dart dependencies` \
       dart=1.20.1-1
 ENV PATH /usr/lib/dart/bin:$PATH
@@ -108,9 +113,15 @@ RUN apt-get install -y --no-install-recommends \
 `# GlibC dependencies` \
       libglib2.0-dev
 
-RUN apt-get install -y --no-install-recommends \
-`# golang (go) dependencies` \
-      golang-go
+# golang
+ENV GOLANG_VERSION 1.7.6
+ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
+ENV GOLANG_DOWNLOAD_SHA256 ad5808bf42b014c22dd7646458f631385003049ded0bb6af2efc7f1f79fa29ea
+RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz && \
+      echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - && \
+      tar -C /usr/local -xzf golang.tar.gz && \
+      ln -s /usr/local/go/bin/go /usr/local/bin && \
+      rm golang.tar.gz
 
 RUN apt-get install -y --no-install-recommends \
 `# Haskell dependencies` \
@@ -166,8 +177,8 @@ RUN apt-get install -y --no-install-recommends \
       php5-cli \
       php5-dev \
       php-pear \
-      re2c \
-      phpunit
+      re2c && \
+      wget https://getcomposer.org/installer -O - -q | php -- --quiet --install-dir=/usr/local/bin/ --filename=composer
 
 RUN apt-get install -y --no-install-recommends \
 `# Python dependencies` \
@@ -189,7 +200,7 @@ RUN apt-get install -y --no-install-recommends \
       python3-wheel \
       python3-zope.interface && \
     pip install -U ipaddress backports.ssl_match_hostname tornado && \
-    pip3 install -U backports.ssl_match_hostname tornado 
+    pip3 install -U backports.ssl_match_hostname tornado
 # installing tornado by pip/pip3 instead of debian package
 # if we install the debian package, the build fails in py2
 
@@ -210,6 +221,16 @@ RUN apt-get install -y --no-install-recommends \
       cppcheck \
       sloccount && \
     pip install flake8
+
+# Install BouncyCastle provider to fix Java builds issues with JDK 7
+# Builds accessing repote repositories fail as seen here: https://github.com/travis-ci/travis-ci/issues/8503
+RUN apt-get install -y --no-install-recommends \
+`# BouncyCastle JCE Provider dependencies` \
+      libbcprov-java && \
+    ln -s /usr/share/java/bcprov.jar /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/ext/bcprov.jar && \
+    awk -F . -v OFS=. 'BEGIN{n=2}/^security\.provider/ {split($3, posAndEquals, "=");$3=n++"="posAndEquals[2];print;next} 1' /etc/java-7-openjdk/security/java.security > /tmp/java.security && \
+  echo "security.provider.1=org.bouncycastle.jce.provider.BouncyCastleProvider" >> /tmp/java.security && \
+  mv /tmp/java.security /etc/java-7-openjdk/security/java.security
 
 # Clean up
 RUN rm -rf /var/cache/apt/* && \

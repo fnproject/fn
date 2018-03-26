@@ -512,6 +512,12 @@ type AndroidModel struct {
 	// Examples: "default", "preview", "deprecated"
 	Tags []string `json:"tags,omitempty"`
 
+	// VideoRecordingNotSupported: True if and only if tests with this model
+	// DO NOT have video output.
+	// See also TestSpecification.disable_video_recording
+	// @OutputOnly
+	VideoRecordingNotSupported bool `json:"videoRecordingNotSupported,omitempty"`
+
 	// ForceSendFields is a list of field names (e.g. "Brand") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
@@ -1841,6 +1847,13 @@ type TestDetails struct {
 	// to the end of progress_messages.
 	// @OutputOnly
 	ProgressMessages []string `json:"progressMessages,omitempty"`
+
+	// VideoRecordingDisabled: Indicates that video will not be recorded for
+	// this execution either because
+	// the user chose to disable it or the device does not support it.
+	// See AndroidModel.video_recording_not_supported
+	// @OutputOnly
+	VideoRecordingDisabled bool `json:"videoRecordingDisabled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ErrorMessage") to
 	// unconditionally include in API requests. By default, fields with

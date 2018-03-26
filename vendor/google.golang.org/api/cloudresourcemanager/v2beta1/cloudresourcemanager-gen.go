@@ -43,7 +43,7 @@ var _ = ctxhttp.Do
 const apiId = "cloudresourcemanager:v2beta1"
 const apiName = "cloudresourcemanager"
 const apiVersion = "v2beta1"
-const basePath = "https://content-cloudresourcemanager.googleapis.com/"
+const basePath = "https://cloudresourcemanager.googleapis.com/"
 
 // OAuth2 scopes used by this API.
 const (

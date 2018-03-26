@@ -9,7 +9,7 @@
     }
   },
   "basePath": "",
-  "baseUrl": "https://content-dataproc.googleapis.com/",
+  "baseUrl": "https://dataproc.googleapis.com/",
   "batchPath": "batch",
   "canonicalName": "Dataproc",
   "description": "Manages Hadoop-based clusters and jobs on Google Cloud Platform.",
@@ -783,8 +783,8 @@
       }
     }
   },
-  "revision": "20180306",
-  "rootUrl": "https://content-dataproc.googleapis.com/",
+  "revision": "20180312",
+  "rootUrl": "https://dataproc.googleapis.com/",
   "schemas": {
     "AcceleratorConfig": {
       "description": "Specifies the type and number of accelerator cards attached to the instances of an instance. See GPUs on Compute Engine.",

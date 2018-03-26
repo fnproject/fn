@@ -17,7 +17,7 @@ import (
 	"github.com/fnproject/fdk-go/utils"
 )
 
-func echoHTTPHandler(ctx context.Context, in io.Reader, out io.Writer) {
+func echoHTTPHandler(_ context.Context, in io.Reader, out io.Writer) {
 	io.Copy(out, in)
 	WriteStatus(out, http.StatusTeapot+2)
 	SetHeader(out, "yo", "dawg")
@@ -67,19 +67,18 @@ func JSONHandler(_ context.Context, in io.Reader, out io.Writer) {
 	}
 }
 
-func JSONWithStatusCode(_ context.Context, in io.Reader, out io.Writer) {
+func JSONWithStatusCode(_ context.Context, _ io.Reader, out io.Writer) {
 	SetHeader(out, "Content-Type", "application/json")
 	WriteStatus(out, 201)
 }
 
 func TestJSON(t *testing.T) {
 	req := &utils.JsonIn{
-		`{"name":"john"}`,
-		"application/json",
-		"someid",
-		"2018-01-30T16:52:39.786Z",
-		"sync",
-		utils.CallRequestHTTP{
+		CallID:      "someid",
+		Body:        `{"name":"john"}`,
+		ContentType: "application/json",
+		Deadline:    "2018-01-30T16:52:39.786Z",
+		Protocol: utils.CallRequestHTTP{
 			Type:       "http",
 			RequestURL: "someURL",
 			Headers:    http.Header{},
@@ -146,12 +145,11 @@ func TestJSONEOF(t *testing.T) {
 func TestJSONOverwriteStatusCodeAndHeaders(t *testing.T) {
 	var out, buf bytes.Buffer
 	req := &utils.JsonIn{
-		`{"name":"john"}`,
-		"application/json",
-		"someid",
-		"2018-01-30T16:52:39.786Z",
-		"sync",
-		utils.CallRequestHTTP{
+		CallID:      "someid",
+		Body:        `{"name":"john"}`,
+		ContentType: "application/json",
+		Deadline:    "2018-01-30T16:52:39.786Z",
+		Protocol: utils.CallRequestHTTP{
 			Type:       "json",
 			RequestURL: "someURL",
 			Headers:    http.Header{},

@@ -4812,6 +4812,12 @@ type LiveBroadcastContentDetails struct {
 	// broadcast stream visible to viewers.
 	StartWithSlate bool `json:"startWithSlate,omitempty"`
 
+	// Possible values:
+	//   "left_right"
+	//   "mono"
+	//   "top_bottom"
+	StereoLayout string `json:"stereoLayout,omitempty"`
+
 	// ForceSendFields is a list of field names (e.g. "BoundStreamId") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
@@ -7490,6 +7496,10 @@ func (s *SponsorListResponse) MarshalJSON() ([]byte, error) {
 type SponsorSnippet struct {
 	// ChannelId: The id of the channel being sponsored.
 	ChannelId string `json:"channelId,omitempty"`
+
+	// CumulativeDurationMonths: The cumulative time a user has been a
+	// sponsor in months.
+	CumulativeDurationMonths int64 `json:"cumulativeDurationMonths,omitempty"`
 
 	// SponsorDetails: Details about the sponsor.
 	SponsorDetails *ChannelProfileDetails `json:"sponsorDetails,omitempty"`

@@ -43,11 +43,11 @@ type View struct {
 	Measure stats.Measure
 
 	// Aggregation is the aggregation function tp apply to the set of Measurements.
-	Aggregation Aggregation
+	Aggregation *Aggregation
 }
 
 // Deprecated: Use &View{}.
-func New(name, description string, keys []tag.Key, measure stats.Measure, agg Aggregation) (*View, error) {
+func New(name, description string, keys []tag.Key, measure stats.Measure, agg *Aggregation) (*View, error) {
 	if measure == nil {
 		panic("measure may not be nil")
 	}
@@ -83,29 +83,26 @@ func (v *View) same(other *View) bool {
 
 // canonicalized returns a validated View canonicalized by setting explicit
 // defaults for Name and Description and sorting the TagKeys
-func (v *View) canonicalized() (*View, error) {
+func (v *View) canonicalize() error {
 	if v.Measure == nil {
-		return nil, fmt.Errorf("cannot subscribe view %q: measure not set", v.Name)
+		return fmt.Errorf("cannot subscribe view %q: measure not set", v.Name)
 	}
 	if v.Aggregation == nil {
-		return nil, fmt.Errorf("cannot subscribe view %q: aggregation not set", v.Name)
+		return fmt.Errorf("cannot subscribe view %q: aggregation not set", v.Name)
 	}
-	vc := *v
-	if vc.Name == "" {
-		vc.Name = vc.Measure.Name()
+	if v.Name == "" {
+		v.Name = v.Measure.Name()
 	}
-	if vc.Description == "" {
-		vc.Description = vc.Measure.Description()
+	if v.Description == "" {
+		v.Description = v.Measure.Description()
 	}
-	if err := checkViewName(vc.Name); err != nil {
-		return nil, err
+	if err := checkViewName(v.Name); err != nil {
+		return err
 	}
-	vc.TagKeys = make([]tag.Key, len(v.TagKeys))
-	copy(vc.TagKeys, v.TagKeys)
-	sort.Slice(vc.TagKeys, func(i, j int) bool {
-		return vc.TagKeys[i].Name() < vc.TagKeys[j].Name()
+	sort.Slice(v.TagKeys, func(i, j int) bool {
+		return v.TagKeys[i].Name() < v.TagKeys[j].Name()
 	})
-	return &vc, nil
+	return nil
 }
 
 // viewInternal is the internal representation of a View.
@@ -116,12 +113,8 @@ type viewInternal struct {
 }
 
 func newViewInternal(v *View) (*viewInternal, error) {
-	vc, err := v.canonicalized()
-	if err != nil {
-		return nil, err
-	}
 	return &viewInternal{
-		view:      vc,
+		view:      v,
 		collector: &collector{make(map[string]AggregationData), v.Aggregation},
 	}, nil
 }

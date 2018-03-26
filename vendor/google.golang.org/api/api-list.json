@@ -791,7 +791,7 @@
    "id": "cloudresourcemanager:v1",
    "name": "cloudresourcemanager",
    "version": "v1",
-   "title": "Google Cloud Resource Manager API",
+   "title": "Cloud Resource Manager API",
    "description": "The Google Cloud Resource Manager API provides methods for creating, reading, and updating project metadata.",
    "discoveryRestUrl": "https://cloudresourcemanager.googleapis.com/$discovery/rest?version=v1",
    "icons": {
@@ -799,14 +799,14 @@
     "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
    },
    "documentationLink": "https://cloud.google.com/resource-manager",
-   "preferred": true
+   "preferred": false
   },
   {
    "kind": "discovery#directoryItem",
    "id": "cloudresourcemanager:v1beta1",
    "name": "cloudresourcemanager",
    "version": "v1beta1",
-   "title": "Google Cloud Resource Manager API",
+   "title": "Cloud Resource Manager API",
    "description": "The Google Cloud Resource Manager API provides methods for creating, reading, and updating project metadata.",
    "discoveryRestUrl": "https://cloudresourcemanager.googleapis.com/$discovery/rest?version=v1beta1",
    "icons": {
@@ -818,10 +818,25 @@
   },
   {
    "kind": "discovery#directoryItem",
+   "id": "cloudresourcemanager:v2",
+   "name": "cloudresourcemanager",
+   "version": "v2",
+   "title": "Cloud Resource Manager API",
+   "description": "The Google Cloud Resource Manager API provides methods for creating, reading, and updating project metadata.",
+   "discoveryRestUrl": "https://cloudresourcemanager.googleapis.com/$discovery/rest?version=v2",
+   "icons": {
+    "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
+    "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
+   },
+   "documentationLink": "https://cloud.google.com/resource-manager",
+   "preferred": true
+  },
+  {
+   "kind": "discovery#directoryItem",
    "id": "cloudresourcemanager:v2beta1",
    "name": "cloudresourcemanager",
    "version": "v2beta1",
-   "title": "Google Cloud Resource Manager API",
+   "title": "Cloud Resource Manager API",
    "description": "The Google Cloud Resource Manager API provides methods for creating, reading, and updating project metadata.",
    "discoveryRestUrl": "https://cloudresourcemanager.googleapis.com/$discovery/rest?version=v2beta1",
    "icons": {
@@ -905,70 +920,6 @@
    },
    "documentationLink": "https://cloud.google.com/trace",
    "preferred": true
-  },
-  {
-   "kind": "discovery#directoryItem",
-   "id": "clouduseraccounts:alpha",
-   "name": "clouduseraccounts",
-   "version": "alpha",
-   "title": "Cloud User Accounts API",
-   "description": "Creates and manages users and groups for accessing Google Compute Engine virtual machines.",
-   "discoveryRestUrl": "https://www.googleapis.com/discovery/v1/apis/clouduseraccounts/alpha/rest",
-   "discoveryLink": "./apis/clouduseraccounts/alpha/rest",
-   "icons": {
-    "x16": "https://www.google.com/images/icons/product/compute_engine-16.png",
-    "x32": "https://www.google.com/images/icons/product/compute_engine-32.png"
-   },
-   "documentationLink": "https://cloud.google.com/compute/docs/access/user-accounts/api/latest/",
-   "preferred": false
-  },
-  {
-   "kind": "discovery#directoryItem",
-   "id": "clouduseraccounts:beta",
-   "name": "clouduseraccounts",
-   "version": "beta",
-   "title": "Cloud User Accounts API",
-   "description": "Creates and manages users and groups for accessing Google Compute Engine virtual machines.",
-   "discoveryRestUrl": "https://www.googleapis.com/discovery/v1/apis/clouduseraccounts/beta/rest",
-   "discoveryLink": "./apis/clouduseraccounts/beta/rest",
-   "icons": {
-    "x16": "https://www.google.com/images/icons/product/compute_engine-16.png",
-    "x32": "https://www.google.com/images/icons/product/compute_engine-32.png"
-   },
-   "documentationLink": "https://cloud.google.com/compute/docs/access/user-accounts/api/latest/",
-   "preferred": false
-  },
-  {
-   "kind": "discovery#directoryItem",
-   "id": "clouduseraccounts:vm_alpha",
-   "name": "clouduseraccounts",
-   "version": "vm_alpha",
-   "title": "Cloud User Accounts API",
-   "description": "Creates and manages users and groups for accessing Google Compute Engine virtual machines.",
-   "discoveryRestUrl": "https://www.googleapis.com/discovery/v1/apis/clouduseraccounts/vm_alpha/rest",
-   "discoveryLink": "./apis/clouduseraccounts/vm_alpha/rest",
-   "icons": {
-    "x16": "https://www.google.com/images/icons/product/compute_engine-16.png",
-    "x32": "https://www.google.com/images/icons/product/compute_engine-32.png"
-   },
-   "documentationLink": "https://cloud.google.com/compute/docs/access/user-accounts/api/latest/",
-   "preferred": true
-  },
-  {
-   "kind": "discovery#directoryItem",
-   "id": "clouduseraccounts:vm_beta",
-   "name": "clouduseraccounts",
-   "version": "vm_beta",
-   "title": "Cloud User Accounts API",
-   "description": "Creates and manages users and groups for accessing Google Compute Engine virtual machines.",
-   "discoveryRestUrl": "https://www.googleapis.com/discovery/v1/apis/clouduseraccounts/vm_beta/rest",
-   "discoveryLink": "./apis/clouduseraccounts/vm_beta/rest",
-   "icons": {
-    "x16": "https://www.google.com/images/icons/product/compute_engine-16.png",
-    "x32": "https://www.google.com/images/icons/product/compute_engine-32.png"
-   },
-   "documentationLink": "https://cloud.google.com/compute/docs/access/user-accounts/api/latest/",
-   "preferred": false
   },
   {
    "kind": "discovery#directoryItem",
@@ -1268,6 +1219,21 @@
   },
   {
    "kind": "discovery#directoryItem",
+   "id": "dialogflow:v2",
+   "name": "dialogflow",
+   "version": "v2",
+   "title": "Dialogflow API",
+   "description": "An end-to-end development suite for conversational interfaces (e.g., chatbots, voice-powered apps and devices).",
+   "discoveryRestUrl": "https://dialogflow.googleapis.com/$discovery/rest?version=v2",
+   "icons": {
+    "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
+    "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
+   },
+   "documentationLink": "https://cloud.google.com/dialogflow-enterprise/",
+   "preferred": true
+  },
+  {
+   "kind": "discovery#directoryItem",
    "id": "dialogflow:v2beta1",
    "name": "dialogflow",
    "version": "v2beta1",
@@ -1279,7 +1245,7 @@
     "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
    },
    "documentationLink": "https://cloud.google.com/dialogflow-enterprise/",
-   "preferred": true
+   "preferred": false
   },
   {
    "kind": "discovery#directoryItem",
@@ -1314,11 +1280,26 @@
   },
   {
    "kind": "discovery#directoryItem",
+   "id": "dlp:v2",
+   "name": "dlp",
+   "version": "v2",
+   "title": "Cloud Data Loss Prevention (DLP) API",
+   "description": "Provides methods for detection, risk analysis, and de-identification of privacy-sensitive fragments in text, images, and Google Cloud Platform storage repositories.",
+   "discoveryRestUrl": "https://dlp.googleapis.com/$discovery/rest?version=v2",
+   "icons": {
+    "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
+    "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
+   },
+   "documentationLink": "https://cloud.google.com/dlp/docs/",
+   "preferred": true
+  },
+  {
+   "kind": "discovery#directoryItem",
    "id": "dlp:v2beta1",
    "name": "dlp",
    "version": "v2beta1",
-   "title": "DLP API",
-   "description": "The Google Data Loss Prevention API provides methods for detection of privacy-sensitive fragments in text, images, and Google Cloud Platform storage repositories.",
+   "title": "Cloud Data Loss Prevention (DLP) API",
+   "description": "Provides methods for detection, risk analysis, and de-identification of privacy-sensitive fragments in text, images, and Google Cloud Platform storage repositories.",
    "discoveryRestUrl": "https://dlp.googleapis.com/$discovery/rest?version=v2beta1",
    "icons": {
     "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
@@ -1332,15 +1313,15 @@
    "id": "dlp:v2beta2",
    "name": "dlp",
    "version": "v2beta2",
-   "title": "DLP API",
-   "description": "The Google Data Loss Prevention API provides methods for detection of privacy-sensitive fragments in text, images, and Google Cloud Platform storage repositories.",
+   "title": "Cloud Data Loss Prevention (DLP) API",
+   "description": "Provides methods for detection, risk analysis, and de-identification of privacy-sensitive fragments in text, images, and Google Cloud Platform storage repositories.",
    "discoveryRestUrl": "https://dlp.googleapis.com/$discovery/rest?version=v2beta2",
    "icons": {
     "x16": "https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png",
     "x32": "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
    },
    "documentationLink": "https://cloud.google.com/dlp/docs/",
-   "preferred": true
+   "preferred": false
   },
   {
    "kind": "discovery#directoryItem",
@@ -2014,6 +1995,7 @@
     "x16": "https://www.google.com/images/icons/product/pagespeed-16.png",
     "x32": "https://www.google.com/images/icons/product/pagespeed-32.png"
    },
+   "documentationLink": "https://developers.google.com/speed/docs/insights/v4/getting-started",
    "preferred": true
   },
   {
@@ -2610,7 +2592,7 @@
    "id": "speech:v1",
    "name": "speech",
    "version": "v1",
-   "title": "Google Cloud Speech API",
+   "title": "Cloud Speech API",
    "description": "Converts audio to text by applying powerful neural network models.",
    "discoveryRestUrl": "https://speech.googleapis.com/$discovery/rest?version=v1",
    "icons": {
@@ -2625,7 +2607,7 @@
    "id": "speech:v1beta1",
    "name": "speech",
    "version": "v1beta1",
-   "title": "Google Cloud Speech API",
+   "title": "Cloud Speech API",
    "description": "Converts audio to text by applying powerful neural network models.",
    "discoveryRestUrl": "https://speech.googleapis.com/$discovery/rest?version=v1beta1",
    "icons": {
@@ -2961,7 +2943,7 @@
    "id": "vision:v1p1beta1",
    "name": "vision",
    "version": "v1p1beta1",
-   "title": "Google Cloud Vision API",
+   "title": "Cloud Vision API",
    "description": "Integrates Google Vision features, including image labeling, face, logo, and landmark detection, optical character recognition (OCR), and detection of explicit content, into applications.",
    "discoveryRestUrl": "https://vision.googleapis.com/$discovery/rest?version=v1p1beta1",
    "icons": {
@@ -2976,7 +2958,7 @@
    "id": "vision:v1p2beta1",
    "name": "vision",
    "version": "v1p2beta1",
-   "title": "Google Cloud Vision API",
+   "title": "Cloud Vision API",
    "description": "Integrates Google Vision features, including image labeling, face, logo, and landmark detection, optical character recognition (OCR), and detection of explicit content, into applications.",
    "discoveryRestUrl": "https://vision.googleapis.com/$discovery/rest?version=v1p2beta1",
    "icons": {
@@ -2991,7 +2973,7 @@
    "id": "vision:v1",
    "name": "vision",
    "version": "v1",
-   "title": "Google Cloud Vision API",
+   "title": "Cloud Vision API",
    "description": "Integrates Google Vision features, including image labeling, face, logo, and landmark detection, optical character recognition (OCR), and detection of explicit content, into applications.",
    "discoveryRestUrl": "https://vision.googleapis.com/$discovery/rest?version=v1",
    "icons": {

@@ -32,7 +32,7 @@
   "description": "A data platform for customers to create, manage, share and query data.",
   "discoveryVersion": "v1",
   "documentationLink": "https://cloud.google.com/bigquery/",
-  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/635jJ7Ek3ovMh_Mrru9RCl0fBYw\"",
+  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/77sYFu0di9EzzwuBGmUFES4JWbE\"",
   "icons": {
     "x16": "https://www.google.com/images/icons/product/search-16.gif",
     "x32": "https://www.google.com/images/icons/product/search-32.gif"
@@ -998,7 +998,7 @@
       }
     }
   },
-  "revision": "20180223",
+  "revision": "20180311",
   "rootUrl": "https://www.googleapis.com/",
   "schemas": {
     "BigtableColumn": {
@@ -2229,6 +2229,11 @@
         },
         "totalBytesProcessed": {
           "description": "[Output-only] Total bytes processed for the job.",
+          "format": "int64",
+          "type": "string"
+        },
+        "totalPartitionsProcessed": {
+          "description": "[Output-only] Total number of partitions processed from all partitioned tables referenced in the job.",
           "format": "int64",
           "type": "string"
         },

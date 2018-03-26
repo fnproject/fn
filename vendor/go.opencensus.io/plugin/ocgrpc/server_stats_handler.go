@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TagRPC gets the metadata from gRPC context, extracts the encoded tags from
+// statsTagRPC gets the metadata from gRPC context, extracts the encoded tags from
 // it and creates a new tag.Map and puts them into the returned context.
 func (h *ServerHandler) statsTagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
 	startTime := time.Now()
@@ -39,13 +39,16 @@ func (h *ServerHandler) statsTagRPC(ctx context.Context, info *stats.RPCTagInfo)
 		}
 		return ctx
 	}
-	d := &rpcData{startTime: startTime}
-	ctx, _ = h.createTags(ctx, info.FullMethodName)
-	ocstats.Record(ctx, ServerStartedCount.M(1))
+	d := &rpcData{
+		startTime: startTime,
+		method:    info.FullMethodName,
+	}
+	ctx, _ = h.createTags(ctx)
+	record(ctx, d, "", ServerStartedCount.M(1))
 	return context.WithValue(ctx, grpcServerRPCKey, d)
 }
 
-// HandleRPC processes the RPC events.
+// statsHandleRPC processes the RPC events.
 func (h *ServerHandler) statsHandleRPC(ctx context.Context, s stats.RPCStats) {
 	switch st := s.(type) {
 	case *stats.Begin, *stats.InHeader, *stats.InTrailer, *stats.OutHeader, *stats.OutTrailer:
@@ -66,12 +69,12 @@ func (h *ServerHandler) handleRPCInPayload(ctx context.Context, s *stats.InPaylo
 	d, ok := ctx.Value(grpcServerRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
-			grpclog.Infoln("serverHandler.handleRPCInPayload failed to retrieve *rpcData from context")
+			grpclog.Infoln("handleRPCInPayload: failed to retrieve *rpcData from context")
 		}
 		return
 	}
 
-	ocstats.Record(ctx, ServerRequestBytes.M(int64(s.Length)))
+	record(ctx, d, "", ServerRequestBytes.M(int64(s.Length)))
 	atomic.AddInt64(&d.reqCount, 1)
 }
 
@@ -79,12 +82,12 @@ func (h *ServerHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPay
 	d, ok := ctx.Value(grpcServerRPCKey).(*rpcData)
 	if !ok {
 		if grpclog.V(2) {
-			grpclog.Infoln("serverHandler.handleRPCOutPayload failed to retrieve *rpcData from context")
+			grpclog.Infoln("handleRPCOutPayload: failed to retrieve *rpcData from context")
 		}
 		return
 	}
 
-	ocstats.Record(ctx, ServerResponseBytes.M(int64(s.Length)))
+	record(ctx, d, "", ServerResponseBytes.M(int64(s.Length)))
 	atomic.AddInt64(&d.respCount, 1)
 }
 
@@ -108,31 +111,27 @@ func (h *ServerHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
 		ServerServerElapsedTime.M(float64(elapsedTime) / float64(time.Millisecond)),
 	}
 
+	var st string
 	if s.Error != nil {
 		s, ok := status.FromError(s.Error)
 		if ok {
-			ctx, _ = tag.New(ctx,
-				tag.Upsert(KeyStatus, s.Code().String()),
-			)
+			st = s.Code().String()
 		}
 		m = append(m, ServerErrorCount.M(1))
 	}
-
-	ocstats.Record(ctx, m...)
+	record(ctx, d, st, m...)
 }
 
 // createTags creates a new tag map containing the tags extracted from the
 // gRPC metadata.
-func (h *ServerHandler) createTags(ctx context.Context, fullinfo string) (context.Context, error) {
-	mods := []tag.Mutator{
-		tag.Upsert(KeyMethod, methodName(fullinfo)),
+func (h *ServerHandler) createTags(ctx context.Context) (context.Context, error) {
+	buf := stats.Tags(ctx)
+	if buf == nil {
+		return ctx, nil
 	}
-	if tagsBin := stats.Tags(ctx); tagsBin != nil {
-		old, err := tag.Decode([]byte(tagsBin))
-		if err != nil {
-			return nil, fmt.Errorf("serverHandler.createTags failed to decode tagsBin %v: %v", tagsBin, err)
-		}
-		return tag.New(tag.NewContext(ctx, old), mods...)
+	propagated, err := tag.Decode(buf)
+	if err != nil {
+		return nil, fmt.Errorf("serverHandler.createTags failed to decode: %v", err)
 	}
-	return tag.New(ctx, mods...)
+	return tag.NewContext(ctx, propagated), nil
 }

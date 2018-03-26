@@ -9,7 +9,7 @@
     }
   },
   "basePath": "",
-  "baseUrl": "https://tpu.googleapis.com/",
+  "baseUrl": "https://content-tpu.googleapis.com/",
   "batchPath": "batch",
   "canonicalName": "TPU",
   "description": "TPU API provides customers with access to Google TPU technology.",
@@ -187,6 +187,81 @@
             }
           },
           "resources": {
+            "acceleratorTypes": {
+              "methods": {
+                "get": {
+                  "description": "Gets AcceleratorType.",
+                  "flatPath": "v1alpha1/projects/{projectsId}/locations/{locationsId}/acceleratorTypes/{acceleratorTypesId}",
+                  "httpMethod": "GET",
+                  "id": "tpu.projects.locations.acceleratorTypes.get",
+                  "parameterOrder": [
+                    "name"
+                  ],
+                  "parameters": {
+                    "name": {
+                      "description": "The resource name.",
+                      "location": "path",
+                      "pattern": "^projects/[^/]+/locations/[^/]+/acceleratorTypes/[^/]+$",
+                      "required": true,
+                      "type": "string"
+                    }
+                  },
+                  "path": "v1alpha1/{+name}",
+                  "response": {
+                    "$ref": "AcceleratorType"
+                  },
+                  "scopes": [
+                    "https://www.googleapis.com/auth/cloud-platform"
+                  ]
+                },
+                "list": {
+                  "description": "Lists accelerator types supported by this API.",
+                  "flatPath": "v1alpha1/projects/{projectsId}/locations/{locationsId}/acceleratorTypes",
+                  "httpMethod": "GET",
+                  "id": "tpu.projects.locations.acceleratorTypes.list",
+                  "parameterOrder": [
+                    "parent"
+                  ],
+                  "parameters": {
+                    "filter": {
+                      "description": "List filter.",
+                      "location": "query",
+                      "type": "string"
+                    },
+                    "orderBy": {
+                      "description": "Sort results.",
+                      "location": "query",
+                      "type": "string"
+                    },
+                    "pageSize": {
+                      "description": "The maximum number of items to return.",
+                      "format": "int32",
+                      "location": "query",
+                      "type": "integer"
+                    },
+                    "pageToken": {
+                      "description": "The next_page_token value returned from a previous List request, if any.",
+                      "location": "query",
+                      "type": "string"
+                    },
+                    "parent": {
+                      "description": "The parent resource name.",
+                      "location": "path",
+                      "pattern": "^projects/[^/]+/locations/[^/]+$",
+                      "required": true,
+                      "type": "string"
+                    }
+                  },
+                  "path": "v1alpha1/{+parent}/acceleratorTypes",
+                  "response": {
+                    "$ref": "ListAcceleratorTypesResponse"
+                  },
+                  "scopes": [
+                    "https://www.googleapis.com/auth/cloud-platform"
+                  ]
+                }
+              }
+            },
             "nodes": {
               "methods": {
                 "create": {
@@ -622,13 +697,46 @@
       }
     }
   },
-  "revision": "20180202",
-  "rootUrl": "https://tpu.googleapis.com/",
+  "revision": "20180303",
+  "rootUrl": "https://content-tpu.googleapis.com/",
   "schemas": {
+    "AcceleratorType": {
+      "description": "A accelerator type that a Node can be configured with.",
+      "id": "AcceleratorType",
+      "properties": {
+        "name": {
+          "description": "The resource name.",
+          "type": "string"
+        },
+        "type": {
+          "description": "the accelerator type.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "Empty": {
       "description": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:\n\n    service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
       "id": "Empty",
       "properties": {},
+      "type": "object"
+    },
+    "ListAcceleratorTypesResponse": {
+      "description": "Response for ListAcceleratorTypes.",
+      "id": "ListAcceleratorTypesResponse",
+      "properties": {
+        "acceleratorTypes": {
+          "description": "The listed nodes.",
+          "items": {
+            "$ref": "AcceleratorType"
+          },
+          "type": "array"
+        },
+        "nextPageToken": {
+          "description": "The next page token or empty if none.",
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "ListLocationsResponse": {
@@ -707,6 +815,10 @@
       "description": "A resource that represents Google Cloud Platform location.",
       "id": "Location",
       "properties": {
+        "displayName": {
+          "description": "The friendly name for this location, typically a nearby city name.\nFor example, \"Tokyo\".",
+          "type": "string"
+        },
         "labels": {
           "additionalProperties": {
             "type": "string"

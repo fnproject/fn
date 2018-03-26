@@ -43,7 +43,7 @@ var _ = ctxhttp.Do
 const apiId = "dataproc:v1"
 const apiName = "dataproc"
 const apiVersion = "v1"
-const basePath = "https://content-dataproc.googleapis.com/"
+const basePath = "https://dataproc.googleapis.com/"
 
 // OAuth2 scopes used by this API.
 const (

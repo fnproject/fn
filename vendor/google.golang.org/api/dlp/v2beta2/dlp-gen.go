@@ -1,4 +1,4 @@
-// Package dlp provides access to the DLP API.
+// Package dlp provides access to the Cloud Data Loss Prevention (DLP) API.
 //
 // See https://cloud.google.com/dlp/docs/
 //
@@ -3189,6 +3189,7 @@ func (s *GooglePrivacyDlpV2beta2CryptoKey) MarshalJSON() ([]byte, error) {
 // Identifiers must be at least two characters long.
 // In the case that the identifier is the empty string, it will be
 // skipped.
+// See [Pseudonymization](/dlp/docs/pseudonymization) for example usage.
 type GooglePrivacyDlpV2beta2CryptoReplaceFfxFpeConfig struct {
 	// Possible values:
 	//   "FFX_COMMON_NATIVE_ALPHABET_UNSPECIFIED"
@@ -4194,10 +4195,16 @@ type GooglePrivacyDlpV2beta2FindingLimits struct {
 
 	// MaxFindingsPerItem: Max number of findings that will be returned for
 	// each item scanned.
+	// When set within `InspectDataSourceRequest`,
+	// the maximum returned is 1000 regardless if this is set higher.
+	// When set within `InspectContentRequest`, this field is ignored.
 	MaxFindingsPerItem int64 `json:"maxFindingsPerItem,omitempty"`
 
-	// MaxFindingsPerRequest: Max total number of findings that will be
-	// returned per request/job.
+	// MaxFindingsPerRequest: Max number of findings that will be returned
+	// per request/job.
+	// When set within `InspectContentRequest`, the maximum returned is
+	// 1000
+	// regardless if this is set higher.
 	MaxFindingsPerRequest int64 `json:"maxFindingsPerRequest,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.

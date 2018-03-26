@@ -3,7 +3,7 @@
   "baseUrl": "https://chat.googleapis.com/",
   "batchPath": "batch",
   "canonicalName": "Hangouts Chat",
-  "description": "",
+  "description": "Create bots and extend the new Hangouts Chat.",
   "discoveryVersion": "v1",
   "documentationLink": "https://developers.google.com/hangouts/chat",
   "fullyEncodeReservedExpansion": true,
@@ -479,7 +479,7 @@
       }
     }
   },
-  "revision": "20180301",
+  "revision": "20180321",
   "rootUrl": "https://chat.googleapis.com/",
   "schemas": {
     "ActionParameter": {

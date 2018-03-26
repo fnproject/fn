@@ -345,4 +345,12 @@ module('Insanity');
     });
   });
 
+module('Oneway');
 
+  asyncTest('testOneway', function() {
+    expect(1);
+    client.testOneway(1, function(result) {
+      equal(result, undefined);
+      QUnit.start();
+    });
+  });

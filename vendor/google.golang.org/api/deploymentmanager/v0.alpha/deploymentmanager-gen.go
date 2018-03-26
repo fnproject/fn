@@ -4323,7 +4323,6 @@ func (c *DeploymentsDeleteCall) Do(opts ...googleapi.CallOption) (*Operation, er
 	//     "deployment": {
 	//       "description": "The name of the deployment for this request.",
 	//       "location": "path",
-	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
 	//       "required": true,
 	//       "type": "string"
 	//     },
@@ -4670,7 +4669,8 @@ func (r *DeploymentsService) Insert(project string, deployment *Deployment) *Dep
 	return c
 }
 
-// CreatePolicy sets the optional parameter "createPolicy":
+// CreatePolicy sets the optional parameter "createPolicy": Sets the
+// policy to use for creating new resources.
 //
 // Possible values:
 //   "ACQUIRE"
@@ -4790,7 +4790,7 @@ func (c *DeploymentsInsertCall) Do(opts ...googleapi.CallOption) (*Operation, er
 	//   "parameters": {
 	//     "createPolicy": {
 	//       "default": "CREATE_OR_ACQUIRE",
-	//       "description": "",
+	//       "description": "Sets the policy to use for creating new resources.",
 	//       "enum": [
 	//         "ACQUIRE",
 	//         "CREATE",

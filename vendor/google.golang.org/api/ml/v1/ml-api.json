@@ -992,7 +992,7 @@
       }
     }
   },
-  "revision": "20180306",
+  "revision": "20180320",
   "rootUrl": "https://ml.googleapis.com/",
   "schemas": {
     "GoogleApi__HttpBody": {
@@ -1487,7 +1487,7 @@
           "type": "array"
         },
         "maxValue": {
-          "description": "Required if typeis `DOUBLE` or `INTEGER`. This field\nshould be unset if type is `CATEGORICAL`. This value should be integers if\ntype is `INTEGER`.",
+          "description": "Required if type is `DOUBLE` or `INTEGER`. This field\nshould be unset if type is `CATEGORICAL`. This value should be integers if\ntype is `INTEGER`.",
           "format": "double",
           "type": "number"
         },
@@ -1651,7 +1651,7 @@
       "type": "object"
     },
     "GoogleCloudMlV1__TrainingInput": {
-      "description": "Represents input parameters for a training job. When using the\ngcloud command to submit your training job, you can specify\nthe input parameters as command-line arguments and/or in a YAML configuration\nfile referenced from the --config command-line argument. For\ndetails, see the guide to\n\u003ca href=\"/ml-engine/docs/training-jobs\"\u003esubmitting a training job\u003c/a\u003e.",
+      "description": "Represents input parameters for a training job. When using the\ngcloud command to submit your training job, you can specify\nthe input parameters as command-line arguments and/or in a YAML configuration\nfile referenced from the --config command-line argument. For\ndetails, see the guide to\n\u003ca href=\"/ml-engine/docs/training-jobs\"\u003esubmitting a training job\u003c/a\u003e.\nNext ID: 22",
       "id": "GoogleCloudMlV1__TrainingInput",
       "properties": {
         "args": {
@@ -1821,6 +1821,10 @@
         },
         "name": {
           "description": "Required.The name specified for the version when it was created.\n\nThe version name must be unique within the model it is created in.",
+          "type": "string"
+        },
+        "pythonVersion": {
+          "description": "Optional. The version of Python used in prediction. If not set, the default\nversion is '2.7'. Python '3.5' is available when `runtime_version` is set\nto '1.4' and above. Python '2.7' works with all supported runtime versions.",
           "type": "string"
         },
         "runtimeVersion": {

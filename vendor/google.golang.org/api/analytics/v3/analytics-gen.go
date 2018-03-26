@@ -19274,7 +19274,7 @@ func (c *ProvisioningCreateAccountTreeCall) doRequest(alt string) (*http.Respons
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "provisioning/createAccount")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "provisioning/createAccountTree")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
 	req.Header = reqHeaders
@@ -19322,7 +19322,7 @@ func (c *ProvisioningCreateAccountTreeCall) Do(opts ...googleapi.CallOption) (*A
 	//   "description": "Provision account.",
 	//   "httpMethod": "POST",
 	//   "id": "analytics.provisioning.createAccountTree",
-	//   "path": "provisioning/createAccount",
+	//   "path": "provisioning/createAccountTree",
 	//   "request": {
 	//     "$ref": "AccountTreeRequest"
 	//   },
