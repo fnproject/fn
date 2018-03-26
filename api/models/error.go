@@ -60,6 +60,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app"),
 	}
+	ErrDatastoreEmptyAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app ID"),
+	}
 	ErrDatastoreEmptyRoute = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route"),
@@ -112,7 +116,7 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid route Format"),
 	}
-	ErrRoutesMissingAppName = err{
+	ErrRoutesMissingAppID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route AppName"),
 	}

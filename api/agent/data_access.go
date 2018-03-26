@@ -16,11 +16,13 @@ import (
 // but actually operate on the data in different ways (by direct access or by
 // mediation through an API node).
 type DataAccess interface {
-	// GetApp abstracts querying the datastore for an app.
-	GetApp(ctx context.Context, appName string) (*models.App, error)
+	GetAppID(ctx context.Context, appName string) (string, error)
+
+	// GetAppByID abstracts querying the datastore for an app.
+	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 
 	// GetRoute abstracts querying the datastore for a route within an app.
-	GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error)
+	GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error)
 
 	// Enqueue will add a Call to the queue (ultimately forwards to mq.Push).
 	Enqueue(ctx context.Context, mCall *models.Call) error
@@ -54,16 +56,20 @@ func NewCachedDataAccess(da DataAccess) DataAccess {
 	return cda
 }
 
-func routeCacheKey(appname, path string) string {
-	return "r:" + appname + "\x00" + path
+func routeCacheKey(app, path string) string {
+	return "r:" + app + "\x00" + path
 }
 
-func appCacheKey(appname string) string {
-	return "a:" + appname
+func appIDCacheKey(appID string) string {
+	return "a:" + appID
 }
 
-func (da *CachedDataAccess) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	key := appCacheKey(appName)
+func (da *CachedDataAccess) GetAppID(ctx context.Context, appName string) (string, error) {
+	return da.DataAccess.GetAppID(ctx, appName)
+}
+
+func (da *CachedDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	key := appIDCacheKey(appID)
 	app, ok := da.cache.Get(key)
 	if ok {
 		return app.(*models.App), nil
@@ -71,7 +77,7 @@ func (da *CachedDataAccess) GetApp(ctx context.Context, appName string) (*models
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetApp(ctx, appName)
+			return da.DataAccess.GetAppByID(ctx, appID)
 		})
 
 	if err != nil {
@@ -82,8 +88,8 @@ func (da *CachedDataAccess) GetApp(ctx context.Context, appName string) (*models
 	return app.(*models.App), nil
 }
 
-func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {
-	key := routeCacheKey(appName, routePath)
+func (da *CachedDataAccess) GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error) {
+	key := routeCacheKey(appID, routePath)
 	r, ok := da.cache.Get(key)
 	if ok {
 		return r.(*models.Route), nil
@@ -91,7 +97,7 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appName string, routeP
 
 	resp, err := da.singleflight.Do(key,
 		func() (interface{}, error) {
-			return da.DataAccess.GetRoute(ctx, appName, routePath)
+			return da.DataAccess.GetRoute(ctx, appID, routePath)
 		})
 
 	if err != nil {
@@ -117,12 +123,16 @@ func NewDirectDataAccess(ds models.Datastore, ls models.LogStore, mq models.Mess
 	return da
 }
 
-func (da *directDataAccess) GetApp(ctx context.Context, appName string) (*models.App, error) {
-	return da.ds.GetApp(ctx, appName)
+func (da *directDataAccess) GetAppID(ctx context.Context, appName string) (string, error) {
+	return da.ds.GetAppID(ctx, appName)
 }
 
-func (da *directDataAccess) GetRoute(ctx context.Context, appName string, routePath string) (*models.Route, error) {
-	return da.ds.GetRoute(ctx, appName, routePath)
+func (da *directDataAccess) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return da.ds.GetAppByID(ctx, appID)
+}
+
+func (da *directDataAccess) GetRoute(ctx context.Context, appID string, routePath string) (*models.Route, error) {
+	return da.ds.GetRoute(ctx, appID, routePath)
 }
 
 func (da *directDataAccess) Enqueue(ctx context.Context, mCall *models.Call) error {
@@ -155,7 +165,7 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := da.ls.InsertLog(ctx, mCall.AppName, mCall.ID, stderr); err != nil {
+	if err := da.ls.InsertLog(ctx, mCall.AppID, mCall.ID, stderr); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

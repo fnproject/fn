@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -70,7 +69,7 @@ func routerRequest(t *testing.T, router *gin.Engine, method, path string, body i
 	return routerRequest2(t, router, req)
 }
 
-func routerRequest2(t *testing.T, router *gin.Engine, req *http.Request) (*http.Request, *httptest.ResponseRecorder) {
+func routerRequest2(_ *testing.T, router *gin.Engine, req *http.Request) (*http.Request, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
 	rec.Body = new(bytes.Buffer)
 	router.ServeHTTP(rec, req)
@@ -84,19 +83,13 @@ func newRouterRequest(t *testing.T, method, path string, body io.Reader) (*http.
 	return req, rec
 }
 
-func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) models.Error {
-	respBody, err := ioutil.ReadAll(rec.Body)
-	if err != nil {
+func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.Error {
+	var err models.Error
+	decodeErr := json.NewDecoder(rec.Body).Decode(&err)
+	if decodeErr != nil {
 		t.Error("Test: Expected not empty response body")
 	}
-
-	var errResp models.Error
-	err = json.Unmarshal(respBody, &errResp)
-	if err != nil {
-		t.Error("Test: Expected response body to be a valid models.Error object")
-	}
-
-	return errResp
+	return &err
 }
 
 func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogStore, func()) {
@@ -152,6 +145,7 @@ func TestFullStack(t *testing.T) {
 
 		if rec.Code != test.expectedCode {
 			t.Log(buf.String())
+			t.Log(rec.Body.String())
 			t.Errorf("Test \"%s\": Expected status code to be %d but was %d",
 				test.name, test.expectedCode, rec.Code)
 		}
@@ -265,13 +259,13 @@ func TestApiNode(t *testing.T) {
 
 func TestHybridEndpoints(t *testing.T) {
 	buf := setLogBuffer()
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{{
-			Name: "myapp",
-		}},
+		[]*models.App{app},
 		[]*models.Route{{
-			AppName: "myapp",
-			Path:    "yodawg",
+			AppID: app.ID,
+			Path:  "yodawg",
 		}}, nil,
 	)
 
@@ -281,9 +275,9 @@ func TestHybridEndpoints(t *testing.T) {
 
 	newCallBody := func() string {
 		call := &models.Call{
-			ID:      id.New().String(),
-			AppName: "myapp",
-			Path:    "yodawg",
+			AppID: app.ID,
+			ID:    id.New().String(),
+			Path:  "yodawg",
 			// TODO ?
 		}
 		var b bytes.Buffer

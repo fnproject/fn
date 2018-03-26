@@ -63,8 +63,7 @@ func createStore(bucketName, endpoint, region, accessKeyID, secretAccessKey stri
 		DisableSSL:       aws.Bool(!useSSL),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	session := session.Must(session.NewSession(config))
-	client := s3.New(session)
+	client := s3.New(session.Must(session.NewSession(config)))
 
 	return &store{
 		client:     client,
@@ -125,14 +124,13 @@ func path(appName, callID string) string {
 	return appName + "/" + callID
 }
 
-func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
+func (s *store) InsertLog(ctx context.Context, appID, callID string, callLog io.Reader) error {
 	ctx, span := trace.StartSpan(ctx, "s3_insert_log")
 	defer span.End()
 
 	// wrap original reader in a decorator to keep track of read bytes without buffering
 	cr := &countingReader{r: callLog}
-
-	objectName := path(appName, callID)
+	objectName := path(appID, callID)
 	params := &s3manager.UploadInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectName),
@@ -150,11 +148,11 @@ func (s *store) InsertLog(ctx context.Context, appName, callID string, callLog i
 	return nil
 }
 
-func (s *store) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
+func (s *store) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
 	ctx, span := trace.StartSpan(ctx, "s3_get_log")
 	defer span.End()
 
-	objectName := path(appName, callID)
+	objectName := path(appID, callID)
 	logrus.WithFields(logrus.Fields{"bucketName": s.bucket, "key": objectName}).Debug("Downloading log")
 
 	// stream the logs to an in-memory buffer

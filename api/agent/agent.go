@@ -92,6 +92,12 @@ type Agent interface {
 	// Enqueue is to use the agent's sweet sweet client bindings to remotely
 	// queue async tasks and should be removed from Agent interface ASAP.
 	Enqueue(context.Context, *models.Call) error
+
+	// GetAppID is to get the match of an app name to its ID
+	GetAppID(ctx context.Context, appName string) (string, error)
+
+	// GetAppByID is to get the app by ID
+	GetAppByID(ctx context.Context, appID string) (*models.App, error)
 }
 
 type agent struct {
@@ -149,6 +155,14 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
 	return a
+}
+
+func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return a.da.GetAppByID(ctx, appID)
+}
+
+func (a *agent) GetAppID(ctx context.Context, appName string) (string, error) {
+	return a.da.GetAppID(ctx, appName)
 }
 
 // TODO shuffle this around somewhere else (maybe)
@@ -645,7 +659,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	container, closer := NewHotContainer(call, &a.cfg)
 	defer closer()
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -836,10 +850,10 @@ func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
 		// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
 		// reading from the other one without risking head-of-line blocking.
 		stderr.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))
 		stdout.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))
 	}
 

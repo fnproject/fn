@@ -284,7 +284,7 @@ func getSlotQueueKey(call *call) string {
 	hash.Reset()
 	defer shapool.Put(hash)
 
-	hash.Write(unsafeBytes(call.AppName))
+	hash.Write(unsafeBytes(call.AppID))
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Path))
 	hash.Write(unsafeBytes("\x00"))

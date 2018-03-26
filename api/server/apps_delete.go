@@ -10,8 +10,7 @@ import (
 func (s *Server) handleAppDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appName := c.MustGet(api.AppName).(string)
-	err := s.datastore.RemoveApp(ctx, appName)
+	err := s.datastore.RemoveApp(ctx, c.MustGet(api.AppID).(string))
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

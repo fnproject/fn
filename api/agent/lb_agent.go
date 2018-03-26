@@ -112,6 +112,16 @@ func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error)
 	return a, nil
 }
 
+// GetAppID is to get the match of an app name to its ID
+func (a *lbAgent) GetAppID(ctx context.Context, appName string) (string, error) {
+	return a.delegatedAgent.GetAppID(ctx, appName)
+}
+
+// GetAppByID is to get the app by ID
+func (a *lbAgent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return a.delegatedAgent.GetAppByID(ctx, appID)
+}
+
 // GetCall delegates to the wrapped agent but disables the capacity check as
 // this agent isn't actually running the call.
 func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {

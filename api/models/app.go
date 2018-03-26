@@ -4,10 +4,12 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/fnproject/fn/api/id"
 	"github.com/go-openapi/strfmt"
 )
 
 type App struct {
+	ID          string          `json:"id" db:"id"`
 	Name        string          `json:"name" db:"name"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
@@ -25,6 +27,9 @@ func (a *App) SetDefaults() {
 	if a.Config == nil {
 		// keeps the json from being nil
 		a.Config = map[string]string{}
+	}
+	if a.ID == "" {
+		a.ID = id.New().String()
 	}
 }
 
@@ -58,7 +63,7 @@ func (a *App) Clone() *App {
 			clone.Config[k] = v
 		}
 	}
-
+	clone.ID = a.ID
 	return clone
 }
 
@@ -67,6 +72,7 @@ func (a1 *App) Equals(a2 *App) bool {
 	// the RHS of && won't eval if eq==false so config checking is lazy
 
 	eq := true
+	eq = eq && a1.ID == a2.ID
 	eq = eq && a1.Name == a2.Name
 	eq = eq && a1.Config.Equals(a2.Config)
 	eq = eq && a1.Annotations.Equals(a2.Annotations)

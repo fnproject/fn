@@ -49,14 +49,9 @@ type Param struct {
 }
 type Params []Param
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
+func FromRequest(app *models.App, path string, req *http.Request) CallOpt {
 	return func(a *agent, c *call) error {
-		app, err := a.da.GetApp(req.Context(), appName)
-		if err != nil {
-			return err
-		}
-
-		route, err := a.da.GetRoute(req.Context(), appName, path)
+		route, err := a.da.GetRoute(req.Context(), app.ID, path)
 		if err != nil {
 			return err
 		}
@@ -87,10 +82,9 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		}
 
 		c.Call = &models.Call{
-			ID:      id,
-			AppName: appName,
-			Path:    route.Path,
-			Image:   route.Image,
+			ID:    id,
+			Path:  route.Path,
+			Image: route.Image,
 			// Delay: 0,
 			Type:   route.Type,
 			Format: route.Format,
@@ -106,6 +100,7 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			CreatedAt:   strfmt.DateTime(time.Now()),
 			URL:         reqURL(req),
 			Method:      req.Method,
+			AppID:       app.ID,
 		}
 
 		c.req = req
@@ -247,11 +242,11 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.ct = a
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
+		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
 	c.req = c.req.WithContext(ctx)
 
 	// setup stderr logger separate (don't inherit ctx vars)
-	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": c.AppName, "path": c.Path, "image": c.Image, "call_id": c.ID})
+	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
 	c.stderr = setupLogger(logger, a.cfg.MaxLogSize)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)

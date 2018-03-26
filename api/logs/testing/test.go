@@ -8,47 +8,88 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/datastore/sql"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
+	"net/url"
+	"os"
 )
 
 var testApp = &models.App{
 	Name: "Test",
+	ID:   id.New().String(),
 }
 
 var testRoute = &models.Route{
-	AppName: testApp.Name,
-	Path:    "/test",
-	Image:   "fnproject/fn-test-utils",
-	Type:    "sync",
-	Format:  "http",
+	Path:   "/test",
+	Image:  "fnproject/fn-test-utils",
+	Type:   "sync",
+	Format: "http",
 }
 
-func SetupTestCall() *models.Call {
+func SetupTestCall(t *testing.T, ctx context.Context, ds models.Datastore) *models.Call {
+	testApp.SetDefaults()
+
+	_, err := ds.InsertApp(ctx, testApp)
+	if err != nil {
+		t.Log(err.Error())
+		t.Fatalf("Test InsertLog(ctx, call.ID, logText): unable to insert app, err: `%v`", err)
+	}
+	testRoute.AppID = testApp.ID
+	_, err = ds.InsertRoute(ctx, testRoute)
+	if err != nil {
+		t.Log(err.Error())
+		t.Fatalf("Test InsertLog(ctx, call.ID, logText): unable to insert app route, err: `%v`", err)
+	}
+
 	var call models.Call
+	call.AppID = testApp.ID
 	call.CreatedAt = strfmt.DateTime(time.Now())
 	call.Status = "success"
 	call.StartedAt = strfmt.DateTime(time.Now())
 	call.CompletedAt = strfmt.DateTime(time.Now())
-	call.AppName = testApp.Name
+	call.AppID = testApp.ID
 	call.Path = testRoute.Path
 	return &call
 }
 
-func Test(t *testing.T, fnl models.LogStore) {
+const tmpLogDb = "/tmp/func_test_log.db"
+
+func SetupSQLiteDS(t *testing.T) models.Datastore {
+	os.Remove(tmpLogDb)
 	ctx := context.Background()
-	call := SetupTestCall()
+	uLog, err := url.Parse("sqlite3://" + tmpLogDb)
+	if err != nil {
+		t.Fatalf("failed to parse url: %v", err)
+	}
+
+	ds, err := sql.New(ctx, uLog)
+	if err != nil {
+		t.Fatalf("failed to create sqlite3 datastore: %v", err)
+	}
+	return ds
+}
+
+func Test(t *testing.T, ds models.Datastore, fnl models.LogStore) {
+	ctx := context.Background()
+	if ds == nil {
+		ds = SetupSQLiteDS(t)
+	}
+	call := SetupTestCall(t, ctx, ds)
 
 	t.Run("call-log-insert-get", func(t *testing.T) {
 		call.ID = id.New().String()
 		logText := "test"
 		log := strings.NewReader(logText)
-		err := fnl.InsertLog(ctx, call.AppName, call.ID, log)
+		err := fnl.InsertLog(ctx, call.AppID, call.ID, log)
 		if err != nil {
 			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during inserting log `%v`", err)
 		}
-		logEntry, err := fnl.GetLog(ctx, call.AppName, call.ID)
+		logEntry, err := fnl.GetLog(ctx, testApp.ID, call.ID)
+		if err != nil {
+			t.Fatalf("Test InsertLog(ctx, call.ID, logText): unexpected error during log get `%v`", err)
+		}
 		var b bytes.Buffer
 		io.Copy(&b, logEntry)
 		if !strings.Contains(b.String(), logText) {
@@ -59,7 +100,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 
 	t.Run("call-log-not-found", func(t *testing.T) {
 		call.ID = id.New().String()
-		_, err := fnl.GetLog(ctx, call.AppName, call.ID)
+		_, err := fnl.GetLog(ctx, call.AppID, call.ID)
 		if err != models.ErrCallLogNotFound {
 			t.Fatal("GetLog should return not found, but got:", err)
 		}

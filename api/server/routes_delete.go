@@ -11,15 +11,15 @@ import (
 func (s *Server) handleRouteDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appName := c.MustGet(api.AppName).(string)
+	appID := c.MustGet(api.AppID).(string)
 	routePath := path.Clean(c.MustGet(api.Path).(string))
 
-	if _, err := s.datastore.GetRoute(ctx, appName, routePath); err != nil {
+	if _, err := s.datastore.GetRoute(ctx, appID, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	if err := s.datastore.RemoveRoute(ctx, appName, routePath); err != nil {
+	if err := s.datastore.RemoveRoute(ctx, appID, routePath); err != nil {
 		handleErrorResponse(c, err)
 		return
 	}

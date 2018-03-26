@@ -7,10 +7,15 @@ import (
 )
 
 type Datastore interface {
-	// GetApp gets an App by name.
+	// GetAppByID gets an App by ID.
+	// Returns ErrDatastoreEmptyAppID for empty appID.
+	// Returns ErrAppsNotFound if no app is found.
+	GetAppByID(ctx context.Context, appID string) (*App, error)
+
+	// GetAppID gets an app ID by app name, ensures if app exists.
 	// Returns ErrDatastoreEmptyAppName for empty appName.
 	// Returns ErrAppsNotFound if no app is found.
-	GetApp(ctx context.Context, appName string) (*App, error)
+	GetAppID(ctx context.Context, appName string) (string, error)
 
 	// GetApps gets a slice of Apps, optionally filtered by name.
 	// Missing filter or empty name will match all Apps.
@@ -28,17 +33,17 @@ type Datastore interface {
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
 	// Returns ErrAppsNotFound if an App is not found.
-	RemoveApp(ctx context.Context, appName string) error
+	RemoveApp(ctx context.Context, appID string) error
 
 	// GetRoute looks up a matching Route for appName and the literal request route routePath.
 	// Returns ErrDatastoreEmptyAppName when appName is empty, and ErrDatastoreEmptyRoutePath when
 	// routePath is empty.
 	// Returns ErrRoutesNotFound when no matching route is found.
-	GetRoute(ctx context.Context, appName, routePath string) (*Route, error)
+	GetRoute(ctx context.Context, appID, routePath string) (*Route, error)
 
 	// GetRoutesByApp gets a slice of routes for a appName, optionally filtering on filter (filter.AppName is ignored).
 	// Returns ErrDatastoreEmptyAppName if appName is empty.
-	GetRoutesByApp(ctx context.Context, appName string, filter *RouteFilter) ([]*Route, error)
+	GetRoutesByApp(ctx context.Context, appID string, filter *RouteFilter) ([]*Route, error)
 
 	// InsertRoute inserts a route. Returns ErrDatastoreEmptyRoute when route is nil, and ErrDatastoreEmptyAppName
 	// or ErrDatastoreEmptyRoutePath for empty AppName or Path.
@@ -49,9 +54,9 @@ type Datastore interface {
 	// ErrDatastoreEmptyAppName or ErrDatastoreEmptyRoutePath for empty AppName or Path.
 	UpdateRoute(ctx context.Context, route *Route) (*Route, error)
 
-	// RemoveRoute removes a route. Returns ErrDatastoreEmptyAppName when appName is empty, and
+	// RemoveRoute removes a route. Returns ErrDatastoreEmptyAppID when appName is empty, and
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
-	RemoveRoute(ctx context.Context, appName, routePath string) error
+	RemoveRoute(ctx context.Context, appID, routePath string) error
 
 	// InsertCall inserts a call into the datastore, it will error if the call already
 	// exists.
@@ -63,7 +68,7 @@ type Datastore interface {
 	UpdateCall(ctx context.Context, from *Call, to *Call) error
 
 	// GetCall returns a call at a certain id and app name.
-	GetCall(ctx context.Context, appName, callID string) (*Call, error)
+	GetCall(ctx context.Context, appID, callID string) (*Call, error)
 
 	// GetCalls returns a list of calls that satisfy the given CallFilter. If no
 	// calls exist, an empty list and a nil error are returned.

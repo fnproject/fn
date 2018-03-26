@@ -21,7 +21,7 @@ type AppListener interface {
 	// AfterAppDelete called after deleting App in the database
 	AfterAppDelete(ctx context.Context, app *models.App) error
 	// BeforeAppGet called right before getting an app
-	BeforeAppGet(ctx context.Context, appName string) error
+	BeforeAppGet(ctx context.Context, appID string) error
 	// AfterAppGet called after getting app from database
 	AfterAppGet(ctx context.Context, app *models.App) error
 	// BeforeAppsList called right before getting a list of all user's apps. Modify the filter to adjust what gets returned.
