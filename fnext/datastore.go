@@ -6,16 +6,18 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-func NewDatastore(ds models.Datastore, al AppListener) models.Datastore {
+func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener) models.Datastore {
 	return &extds{
 		Datastore: ds,
 		al:        al,
+		rl:        rl,
 	}
 }
 
 type extds struct {
 	models.Datastore
 	al AppListener
+	rl RouteListener
 }
 
 func (e *extds) GetApp(ctx context.Context, appName string) (*models.App, error) {
@@ -92,4 +94,46 @@ func (e *extds) GetApps(ctx context.Context, filter *models.AppFilter) ([]*model
 
 	err = e.al.AfterAppsList(ctx, apps)
 	return apps, err
+}
+
+func (e *extds) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
+	err := e.rl.BeforeRouteCreate(ctx, route)
+	if err != nil {
+		return nil, err
+	}
+
+	route, err = e.Datastore.InsertRoute(ctx, route)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.rl.AfterRouteCreate(ctx, route)
+	return route, err
+}
+
+func (e *extds) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
+	err := e.rl.BeforeRouteUpdate(ctx, route)
+	if err != nil {
+		return nil, err
+	}
+
+	route, err = e.Datastore.UpdateRoute(ctx, route)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.rl.AfterRouteUpdate(ctx, route)
+	return route, err
+}
+
+func (e *extds) RemoveRoute(ctx context.Context, appName string, routePath string) error {
+	err := e.rl.BeforeRouteDelete(ctx, appName, routePath)
+	if err != nil {
+		return err
+	}
+	err = e.Datastore.RemoveRoute(ctx, appName, routePath)
+	if err != nil {
+		return err
+	}
+	return e.rl.AfterRouteDelete(ctx, appName, routePath)
 }

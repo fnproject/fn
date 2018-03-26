@@ -41,6 +41,21 @@ type AppListener interface {
 	// }
 }
 
+type RouteListener interface {
+	// BeforeRouteCreate called before route created in the datastore
+	BeforeRouteCreate(ctx context.Context, route *models.Route) error
+	// AfterRouteCreate called after route create in the datastore
+	AfterRouteCreate(ctx context.Context, route *models.Route) error
+	// BeforeRouteUpdate called before route update in datastore
+	BeforeRouteUpdate(ctx context.Context, route *models.Route) error
+	// AfterRouteUpdate called after route updated in datastore
+	AfterRouteUpdate(ctx context.Context, route *models.Route) error
+	// BeforeRouteDelete called before route deleted from the datastore
+	BeforeRouteDelete(ctx context.Context, appName string, routePath string) error
+	// AfterRouteDelete called after route deleted from the datastore
+	AfterRouteDelete(ctx context.Context, appName string, routePath string) error
+}
+
 // CallListener enables callbacks around Call events
 type CallListener interface {
 	// BeforeCall called before a function is executed
