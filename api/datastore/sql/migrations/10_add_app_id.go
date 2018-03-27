@@ -10,6 +10,56 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+var sqlStatements = [...]string{`CREATE TABLE IF NOT EXISTS routes (
+	app_id varchar(256) NOT NULL,
+	path varchar(256) NOT NULL,
+	image varchar(256) NOT NULL,
+	format varchar(16) NOT NULL,
+	memory int NOT NULL,
+	cpus int,
+	timeout int NOT NULL,
+	idle_timeout int NOT NULL,
+	type varchar(16) NOT NULL,
+	headers text NOT NULL,
+	config text NOT NULL,
+	annotations text NOT NULL,
+	created_at text,
+	updated_at varchar(256),
+	PRIMARY KEY (app_id, path)
+);`,
+
+	`CREATE TABLE IF NOT EXISTS calls (
+	created_at varchar(256) NOT NULL,
+	started_at varchar(256) NOT NULL,
+	completed_at varchar(256) NOT NULL,
+	status varchar(256) NOT NULL,
+	id varchar(256) NOT NULL,
+	app_id varchar(256) NOT NULL,
+	path varchar(256) NOT NULL,
+	stats text,
+	error text,
+	PRIMARY KEY (id)
+);`,
+
+	`CREATE TABLE IF NOT EXISTS logs (
+	id varchar(256) NOT NULL PRIMARY KEY,
+	app_id varchar(256) NOT NULL,
+	log text NOT NULL
+);`,
+}
+
+var tables = [...]map[string]string{
+	{"table": "routes", "statement": sqlStatements[0],
+		"columns": "app_id,path,image,format,memory,cpus,timeout," +
+			"idle_timeout,type,headers,config,annotations,created_at,updated_at"},
+
+	{"table": "calls", "statement": sqlStatements[1],
+		"columns": "created_at,started_at,completed_at,status,id,app_id,path,stats,error"},
+
+	{"table": "logs", "statement": sqlStatements[2],
+		"columns": "id,app_id,log"},
+}
+
 func up10(ctx context.Context, tx *sqlx.Tx) error {
 	addAppIDStatements := []string{
 		"ALTER TABLE apps ADD id VARCHAR(256);",
@@ -69,15 +119,40 @@ func up10(ctx context.Context, tx *sqlx.Tx) error {
 		}
 	}
 
-	dropAppNameStatements := []string{
-		"ALTER TABLE routes DROP COLUMN app_name;",
-		"ALTER TABLE calls DROP COLUMN app_name;",
-		"ALTER TABLE logs DROP COLUMN app_name;",
-	}
-	for _, statement := range dropAppNameStatements {
-		_, err := tx.ExecContext(ctx, statement)
-		if err != nil {
-			return err
+	if tx.DriverName() != "sqlite3" {
+		dropAppNameStatements := []string{
+			"ALTER TABLE routes DROP COLUMN app_name;",
+			"ALTER TABLE calls DROP COLUMN app_name;",
+			"ALTER TABLE logs DROP COLUMN app_name;",
+		}
+		for _, statement := range dropAppNameStatements {
+			_, err := tx.ExecContext(ctx, statement)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, t := range tables {
+			statement := t["statement"]
+			tableName := t["table"]
+			columns := t["columns"]
+			_, err = tx.ExecContext(ctx, tx.Rebind(fmt.Sprintf("ALTER TABLE %s RENAME TO old_%s;", tableName, tableName)))
+			if err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, tx.Rebind(statement))
+			if err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, tx.Rebind(fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM old_%s;", tableName, columns, columns, tableName)))
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, tx.Rebind(fmt.Sprintf("DROP TABLE old_%s;", tableName)))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
