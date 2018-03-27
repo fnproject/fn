@@ -5,6 +5,12 @@
 [![CircleCI](https://circleci.com/gh/fnproject/fn.svg?style=svg&circle-token=6a62ac329bc5b68b484157fbe88df7612ffd9ea0)](https://circleci.com/gh/fnproject/fn) [![GoDoc](https://godoc.org/github.com/fnproject/fn?status.svg)](https://godoc.org/github.com/fnproject/fn)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/fn)](https://goreportcard.com/report/github.com/fnproject/fn)
 
+## Path to 1.0
+
+The Fn team is working towards a 1.0 release where we'll lock down all the API's and I/O formats. The target date for RC1 is **April 30, 2018**. 
+
+The last remaining issues are in this [milestone](https://github.com/fnproject/fn/milestone/10).
+
 ## Welcome
 Fn is an event-driven, open source, [Functions-as-a-Service (FaaS)](docs/serverless.md) compute platform that you can run anywhere. Some of its key features:
 
