@@ -135,7 +135,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 }
 
 func sendToRunner(call pool.RunnerCall, protocolClient pb.RunnerProtocol_EngageClient) error {
-	bodyReader := call.Request().Body
+	bodyReader := call.EventRequest().Body()
 	writeBufferSize := 10 * 1024 // 10KB
 	writeBuffer := make([]byte, writeBufferSize)
 	for {

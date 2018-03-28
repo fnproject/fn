@@ -124,9 +124,9 @@ func (a *lbAgent) GetAppByID(ctx context.Context, appID string) (*models.App, er
 
 // GetCall delegates to the wrapped agent but disables the capacity check as
 // this agent isn't actually running the call.
-func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
+func (a *lbAgent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	opts = append(opts, WithoutPreemptiveCapacityCheck())
-	return a.delegatedAgent.GetCall(opts...)
+	return a.delegatedAgent.GetCall(ctx, opts...)
 }
 
 func (a *lbAgent) Close() error {
@@ -166,8 +166,8 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	call := callI.(*call)
 
-	ctx, cancel := context.WithDeadline(call.req.Context(), call.execDeadline)
-	call.req = call.req.WithContext(ctx)
+	ctx, cancel := context.WithDeadline(call.event.Context(), call.execDeadline)
+	call.event = call.event.WithContext(ctx)
 	defer cancel()
 
 	ctx, span := trace.StartSpan(ctx, "agent_submit")

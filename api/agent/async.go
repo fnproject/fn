@@ -100,6 +100,7 @@ func (a *agent) asyncRun(ctx context.Context, model *models.Call) {
 	defer span.End()
 
 	call, err := a.GetCall(
+		ctx,
 		FromModel(model),
 		WithContext(ctx), // NOTE: order is important
 	)

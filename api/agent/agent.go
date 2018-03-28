@@ -73,7 +73,7 @@ import (
 type Agent interface {
 	// GetCall will return a Call that is executable by the Agent, which
 	// can be built via various CallOpt's provided to the method.
-	GetCall(...CallOpt) (Call, error)
+	GetCall(context.Context, ...CallOpt) (Call, error)
 
 	// Submit will attempt to execute a call locally, a Call may store information
 	// about itself in its Start and End methods, which will be called in Submit
@@ -195,8 +195,8 @@ func (a *agent) Submit(callI Call) error {
 
 	call := callI.(*call)
 
-	ctx, cancel := context.WithDeadline(call.req.Context(), call.execDeadline)
-	call.req = call.req.WithContext(ctx)
+	ctx, cancel := context.WithDeadline(call.event.Context(), call.execDeadline)
+	call.event = call.event.WithContext(ctx)
 	defer cancel()
 
 	ctx, span := trace.StartSpan(ctx, "agent_submit")
@@ -574,7 +574,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.Call, call.req)
+		ci := protocol.NewCallInfo(call.Call, call.event)
 		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 
@@ -625,7 +625,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		cpus:    uint64(call.CPUs),
 		fsSize:  a.cfg.MaxFsSize,
 		timeout: time.Duration(call.Timeout) * time.Second, // this is unnecessary, but in case removal fails...
-		stdin:   call.req.Body,
+		stdin:   call.event.Body(),
 		stdout:  common.NewClampWriter(call.w, a.cfg.MaxResponseSize, models.ErrFunctionResponseTooBig),
 		stderr:  call.stderr,
 		stats:   &call.Stats,

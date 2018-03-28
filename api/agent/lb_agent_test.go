@@ -118,7 +118,7 @@ func (r *mockRunner) Address() string {
 
 type mockRunnerCall struct {
 	slotDeadline time.Time
-	r            *http.Request
+	event        *models.EventRequest
 	rw           http.ResponseWriter
 	stdErr       io.ReadWriteCloser
 	model        *models.Call
@@ -128,8 +128,8 @@ func (c *mockRunnerCall) SlotDeadline() time.Time {
 	return c.slotDeadline
 }
 
-func (c *mockRunnerCall) Request() *http.Request {
-	return c.r
+func (c *mockRunnerCall) EventRequest() *models.EventRequest {
+	return c.event
 }
 func (c *mockRunnerCall) ResponseWriter() http.ResponseWriter {
 	return c.rw

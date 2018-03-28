@@ -49,9 +49,9 @@ type Param struct {
 }
 type Params []Param
 
-func FromRequest(app *models.App, path string, req *http.Request) CallOpt {
+func FromEventRequest(app *models.App, path string, event *models.EventRequest) CallOpt {
 	return func(a *agent, c *call) error {
-		route, err := a.da.GetRoute(req.Context(), app.ID, path)
+		route, err := a.da.GetRoute(event.Context(), app.ID, path)
 		if err != nil {
 			return err
 		}
@@ -96,14 +96,14 @@ func FromRequest(app *models.App, path string, req *http.Request) CallOpt {
 			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
 			Annotations: buildAnnotations(app, route),
-			Headers:     req.Header,
+			Headers:     event.Header(),
 			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         reqURL(req),
-			Method:      req.Method,
+			URL:         event.RequestURL(),
+			Method:      event.Method(),
 			AppID:       app.ID,
 		}
 
-		c.req = req
+		c.event = event
 		return nil
 	}
 }
@@ -142,20 +142,6 @@ func buildAnnotations(app *models.App, route *models.Route) models.Annotations {
 	return ann
 }
 
-func reqURL(req *http.Request) string {
-	if req.URL.Scheme == "" {
-		if req.TLS == nil {
-			req.URL.Scheme = "http"
-		} else {
-			req.URL.Scheme = "https"
-		}
-	}
-	if req.URL.Host == "" {
-		req.URL.Host = req.Host
-	}
-	return req.URL.String()
-}
-
 // TODO this currently relies on FromRequest having happened before to create the model
 // here, to be a fully qualified model. We probably should double check but having a way
 // to bypass will likely be what's used anyway unless forced.
@@ -163,13 +149,13 @@ func FromModel(mCall *models.Call) CallOpt {
 	return func(a *agent, c *call) error {
 		c.Call = mCall
 
-		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
-		if err != nil {
-			return err
-		}
-		req.Header = c.Headers
+		event := &models.EventRequest{}
+		event.WithBody(strings.NewReader(c.Payload))
+		event.WithHeader(c.Headers)
+		event.WithRequestURL(c.URL)
+		event.WithMethod(c.Method)
 
-		c.req = req
+		c.event = event
 		// TODO anything else really?
 		return nil
 	}
@@ -179,13 +165,13 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 	return func(a *agent, c *call) error {
 		c.Call = mCall
 
-		req, err := http.NewRequest(c.Method, c.URL, in)
-		if err != nil {
-			return err
-		}
-		req.Header = c.Headers
+		event := &models.EventRequest{}
+		event.WithBody(in)
+		event.WithHeader(c.Headers)
+		event.WithRequestURL(c.URL)
+		event.WithMethod(c.Method)
 
-		c.req = req
+		c.event = event
 		// TODO anything else really?
 		return nil
 	}
@@ -201,7 +187,7 @@ func WithWriter(w io.Writer) CallOpt {
 
 func WithContext(ctx context.Context) CallOpt {
 	return func(a *agent, c *call) error {
-		c.req = c.req.WithContext(ctx)
+		c.event = c.event.WithContext(ctx)
 		return nil
 	}
 }
@@ -216,7 +202,7 @@ func WithoutPreemptiveCapacityCheck() CallOpt {
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
 // TODO where to put this? async and sync both call this
-func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
+func (a *agent) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
 	var c call
 
 	for _, o := range opts {
@@ -227,7 +213,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	}
 
 	// TODO typed errors to test
-	if c.req == nil || c.Call == nil {
+	if c.event == nil || c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
 	}
 
@@ -241,9 +227,8 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.da = a.da
 	c.ct = a
 
-	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
-	c.req = c.req.WithContext(ctx)
+	ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
+	c.event = c.event.WithContext(ctx)
 
 	// setup stderr logger separate (don't inherit ctx vars)
 	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
@@ -269,7 +254,7 @@ type call struct {
 
 	da             DataAccess
 	w              io.Writer
-	req            *http.Request
+	event          *models.EventRequest
 	stderr         io.ReadWriteCloser
 	ct             callTrigger
 	slots          *slotQueue
@@ -285,8 +270,8 @@ func (c *call) SlotDeadline() time.Time {
 	return c.slotDeadline
 }
 
-func (c *call) Request() *http.Request {
-	return c.req
+func (c *call) EventRequest() *models.EventRequest {
+	return c.event
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {

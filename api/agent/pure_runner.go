@@ -258,8 +258,8 @@ func (pr *pureRunner) GetAppByID(ctx context.Context, appID string) (*models.App
 	return pr.a.GetAppByID(ctx, appID)
 }
 
-func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
-	return pr.a.GetCall(opts...)
+func (pr *pureRunner) GetCall(ctx context.Context, opts ...CallOpt) (Call, error) {
+	return pr.a.GetCall(ctx, opts...)
 }
 
 func (pr *pureRunner) Submit(Call) error {
@@ -396,11 +396,11 @@ func (pr *pureRunner) handleTryCall(ctx context.Context, tc *runner.TryCall, sta
 	var w http.ResponseWriter
 	w = state
 	inR, inW := io.Pipe()
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w))
+	agentCall, err := pr.a.GetCall(ctx, FromModelAndInput(&c, inR), WithWriter(w))
 	if err != nil {
 		return func() { pr.capacity.ReleaseCapacity(c.Memory) }, err
 	}
-	state.c = agent_call.(*call)
+	state.c = agentCall.(*call)
 	state.input = inW
 	state.allocatedTime = strfmt.DateTime(time.Now())
 

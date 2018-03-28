@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net/http"
 	"time"
 
 	"github.com/fnproject/fn/api/models"
@@ -46,15 +45,15 @@ type CallInfo interface {
 	// This could be abstracted into separate Protocol objects for each type and all the following information could go in there.
 	// This is a bit confusing because we also have the protocol's for getting information in and out of the function containers.
 	ProtocolType() string
-	Request() *http.Request
+	Event() *models.EventRequest
 	Method() string
 	RequestURL() string
 	Headers() map[string][]string
 }
 
 type callInfoImpl struct {
-	call *models.Call
-	req  *http.Request
+	call  *models.Call
+	event *models.EventRequest
 }
 
 func (ci callInfoImpl) CallID() string {
@@ -62,16 +61,16 @@ func (ci callInfoImpl) CallID() string {
 }
 
 func (ci callInfoImpl) ContentType() string {
-	return ci.req.Header.Get("Content-Type")
+	return ci.event.ContentType()
 }
 
 // Input returns the call's input/body
 func (ci callInfoImpl) Input() io.Reader {
-	return ci.req.Body
+	return ci.event.Body()
 }
 
 func (ci callInfoImpl) Deadline() strfmt.DateTime {
-	deadline, ok := ci.req.Context().Deadline()
+	deadline, ok := ci.event.Context().Deadline()
 	if !ok {
 		// In theory deadline must have been set here, but if it wasn't then
 		// at this point it is already too late to raise an error. Set it to
@@ -95,12 +94,12 @@ func (ci callInfoImpl) CallType() string {
 // ProtocolType at the moment can only be "http". Once we have Kafka or other
 // possible origins for calls this will track what the origin was.
 func (ci callInfoImpl) ProtocolType() string {
-	return "http"
+	return ci.event.Type()
 }
 
 // Request basically just for the http format, since that's the only that makes sense to have the full request as is
-func (ci callInfoImpl) Request() *http.Request {
-	return ci.req
+func (ci callInfoImpl) Event() *models.EventRequest {
+	return ci.event
 }
 func (ci callInfoImpl) Method() string {
 	return ci.call.Method
@@ -109,13 +108,13 @@ func (ci callInfoImpl) RequestURL() string {
 	return ci.call.URL
 }
 func (ci callInfoImpl) Headers() map[string][]string {
-	return ci.req.Header
+	return ci.event.Header()
 }
 
-func NewCallInfo(call *models.Call, req *http.Request) CallInfo {
+func NewCallInfo(call *models.Call, event *models.EventRequest) CallInfo {
 	ci := &callInfoImpl{
-		call: call,
-		req:  req,
+		call:  call,
+		event: event,
 	}
 	return ci
 }
