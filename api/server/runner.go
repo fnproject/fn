@@ -73,9 +73,13 @@ func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 	// GetCall can mod headers, assign an id, look up the route/app (cached),
 	// strip params, etc.
 
+	event := &models.EventRequest{}
+	event.FromHTTPRequest(c.Request)
+
 	call, err := s.agent.GetCall(
+		event.Context(),
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(app, path, c.Request),
+		agent.FromEventRequest(app, path, event),
 	)
 	if err != nil {
 		return err

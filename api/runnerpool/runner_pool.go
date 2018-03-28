@@ -42,7 +42,7 @@ type Runner interface {
 // processed by a RunnerPool
 type RunnerCall interface {
 	SlotDeadline() time.Time
-	Request() *http.Request
+	EventRequest() *models.EventRequest
 	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser
 	Model() *models.Call

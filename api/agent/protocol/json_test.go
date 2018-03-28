@@ -46,8 +46,10 @@ func setupRequest(data interface{}) *callInfoImpl {
 	// fixup URL in models.Call
 	call.URL = req.URL.String()
 
-	ci := &callInfoImpl{call, req}
-	return ci
+	event := &models.EventRequest{}
+	event.FromHTTPRequest(req)
+
+	return &callInfoImpl{call, event}
 }
 
 func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
@@ -158,9 +160,9 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 		t.Errorf("Request body assertion mismatch: expected: %s, got %s",
 			"<empty-string>", incomingReq.Body)
 	}
-	if !models.Headers(ci.req.Header).Equals(models.Headers(incomingReq.Protocol.Headers)) {
+	if !models.Headers(ci.event.Header()).Equals(models.Headers(incomingReq.Protocol.Headers)) {
 		t.Errorf("Request headers assertion mismatch: expected: %s, got %s",
-			ci.req.Header, incomingReq.Protocol.Headers)
+			ci.event.Header(), incomingReq.Protocol.Headers)
 	}
 	if incomingReq.Protocol.Type != ci.ProtocolType() {
 		t.Errorf("Call protocol type assertion mismatch: expected: %s, got %s",

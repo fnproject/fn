@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
@@ -111,10 +112,15 @@ func TestCallConfigurationRequest(t *testing.T) {
 	req.Header.Add("Content-Length", contentLength)
 	req.Header.Add("FN_PATH", "thewrongroute") // ensures that this doesn't leak out, should be overwritten
 
+	event := &models.EventRequest{}
+	event.FromHTTPRequest(req)
+
 	call, err := a.GetCall(
+		context.Background(),
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(app, path, req),
+		FromEventRequest(app, path, event),
 	)
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,15 +244,16 @@ func TestCallConfigurationModel(t *testing.T) {
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
-	callI, err := a.GetCall(FromModel(cm))
+	callI, err := a.GetCall(
+		context.Background(), FromModel(cm))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	req := callI.(*call).req
+	event := callI.(*call).event
 
 	var b bytes.Buffer
-	io.Copy(&b, req.Body)
+	io.Copy(&b, event.Body())
 
 	if b.String() != payload {
 		t.Fatal("expected payload to match, but it was a lie")
@@ -309,23 +316,24 @@ func TestAsyncCallHeaders(t *testing.T) {
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
-	callI, err := a.GetCall(FromModel(cm))
+	callI, err := a.GetCall(
+		context.Background(), FromModel(cm))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// make sure headers seem reasonable
-	req := callI.(*call).req
+	event := callI.(*call).event
 
 	// These should be here based on payload length and/or fn_header_* original headers
 	expectedHeaders := make(http.Header)
 	expectedHeaders.Set("Content-Type", contentType)
 	expectedHeaders.Set("Content-Length", strconv.FormatInt(int64(len(payload)), 10))
 
-	checkExpectedHeaders(t, expectedHeaders, req.Header)
+	checkExpectedHeaders(t, expectedHeaders, event.Header())
 
 	var b bytes.Buffer
-	io.Copy(&b, req.Body)
+	io.Copy(&b, event.Body())
 
 	if b.String() != payload {
 		t.Fatal("expected payload to match, but it was a lie")
@@ -439,7 +447,8 @@ func TestSubmitError(t *testing.T) {
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
-	callI, err := a.GetCall(FromModel(cm))
+	callI, err := a.GetCall(
+		context.Background(), FromModel(cm))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -507,7 +516,13 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, path, req), WithWriter(&out))
+	event := &models.EventRequest{}
+	event.FromHTTPRequest(req)
+
+	callI, err := a.GetCall(
+		context.Background(),
+		FromEventRequest(app, path, event),
+		WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,7 +573,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
 	defer a.Close()
 
-	_, err := a.GetCall(FromModel(call))
+	_, err := a.GetCall(context.Background(), FromModel(call))
 	if err != models.ErrCallTimeoutServerBusy {
 		t.Fatal("did not get expected err, got: ", err)
 	}
@@ -680,7 +695,13 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outOne))
+	event := &models.EventRequest{}
+	event.FromHTTPRequest(req)
+
+	callI, err := a.GetCall(
+		context.Background(),
+		FromEventRequest(app, ca.Path, event),
+		WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +735,12 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outTwo))
+	event.FromHTTPRequest(req)
+
+	callI, err = a.GetCall(
+		context.Background(),
+		FromEventRequest(app, ca.Path, event),
+		WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -821,7 +847,12 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outOne))
+	event := &models.EventRequest{}
+	event.FromHTTPRequest(req)
+	callI, err := a.GetCall(
+		context.Background(),
+		FromEventRequest(app, call.Path, event),
+		WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -846,7 +877,11 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outTwo))
+	event.FromHTTPRequest(req)
+	callI, err = a.GetCall(
+		context.Background(),
+		FromEventRequest(app, call.Path, event),
+		WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
