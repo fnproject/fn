@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
@@ -8,6 +9,10 @@ import (
 )
 
 func TestRunnerDockerPool(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("prefork only supported on Linux")
+		return
+	}
 
 	cfg := &drivers.Config{}
 
@@ -85,6 +90,10 @@ func TestRunnerDockerPool(t *testing.T) {
 }
 
 func TestRunnerDockerPoolFaulty(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("prefork only supported on Linux")
+		return
+	}
 
 	cfg := &drivers.Config{}
 
