@@ -11,41 +11,27 @@ import (
 
 const (
 	staticPoolShutdownTimeout = 5 * time.Second
+	defaultRunnerPoolCN       = "runner.fn.fnproject.github.com"
 )
-
-// allow factory to be overridden in tests
-type insecureRunnerFactory func(addr string) (pool.Runner, error)
-
-func insecureGRPCRunnerFactory(addr string) (pool.Runner, error) {
-	conn, client, err := runnerConnection(addr, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &gRPCRunner{
-		address: addr,
-		conn:    conn,
-		client:  client,
-	}, nil
-}
 
 // manages a single set of runners ignoring lb groups
 type staticRunnerPool struct {
-	generator insecureRunnerFactory
+	generator pool.MTLSRunnerFactory
+	pki       *pool.PKIData // can be nil when running in insecure mode
+	runnerCN  string
 	rMtx      *sync.RWMutex
 	runners   []pool.Runner
 }
 
-// DefaultStaticRunnerPool returns a RunnerPool consisting of a static set of runners
-func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
-	return newStaticRunnerPool(runnerAddresses, insecureGRPCRunnerFactory)
+func DefaultStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData) pool.RunnerPool {
+	return NewStaticRunnerPool(runnerAddresses, pki, defaultRunnerPoolCN, SecureGRPCRunnerFactory)
 }
 
-func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerFactory) pool.RunnerPool {
+func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN string, runnerFactory pool.MTLSRunnerFactory) pool.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
 	var runners []pool.Runner
 	for _, addr := range runnerAddresses {
-		r, err := runnerFactory(addr)
+		r, err := runnerFactory(addr, defaultRunnerPoolCN, pki)
 		if err != nil {
 			logrus.WithField("runner_addr", addr).Warn("Invalid runner")
 			continue
@@ -56,6 +42,8 @@ func newStaticRunnerPool(runnerAddresses []string, runnerFactory insecureRunnerF
 	return &staticRunnerPool{
 		rMtx:      &sync.RWMutex{},
 		runners:   runners,
+		pki:       pki,
+		runnerCN:  runnerCN,
 		generator: runnerFactory,
 	}
 }
@@ -73,7 +61,7 @@ func (rp *staticRunnerPool) AddRunner(address string) error {
 	rp.rMtx.Lock()
 	defer rp.rMtx.Unlock()
 
-	r, err := rp.generator(address)
+	r, err := rp.generator(address, rp.runnerCN, rp.pki)
 	if err != nil {
 		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
 		return err

@@ -39,7 +39,7 @@ func dial(ctx context.Context, address string, creds credentials.TransportCreden
 
 		conn, _, err = creds.ClientHandshake(ctx, address, conn)
 		if err != nil {
-			logrus.WithError(err).WithField("grpc_addr", address).Warn("Failed grpc handshake")
+			logrus.WithError(err).WithField("grpc_addr", address).Warn("Failed grpc TLS handshake")
 			return nil, err
 		}
 		return conn, nil
@@ -54,7 +54,9 @@ func dial(ctx context.Context, address string, creds credentials.TransportCreden
 }
 
 // CreateCredentials creates a new set of TLS credentials
-func CreateCredentials(certPath string, keyPath string, caCertPath string) (credentials.TransportCredentials, error) {
+// certificateCommonName must match the CN of the signed certificate
+// for the TLS handshake to work
+func CreateCredentials(certPath, keyPath, caCertPath, certCommonName string) (credentials.TransportCredentials, error) {
 	// Load the client certificates from disk
 	certificate, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
@@ -74,7 +76,7 @@ func CreateCredentials(certPath string, keyPath string, caCertPath string) (cred
 	}
 
 	return credentials.NewTLS(&tls.Config{
-		ServerName:   "127.0.0.1", // NOTE: this is required!
+		ServerName:   certCommonName,
 		Certificates: []tls.Certificate{certificate},
 		RootCAs:      certPool,
 	}), nil
