@@ -16,11 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// the comm
-	RunnerCertificateCommonName = "runner.fn.fnproject.github.com"
-)
-
 type gRPCRunner struct {
 	// Need a WaitGroup of TryExec in flight
 	wg      sync.WaitGroup
