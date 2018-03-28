@@ -8,7 +8,7 @@ import (
 )
 
 func setupStaticPool(runners []string) pool.RunnerPool {
-	return newStaticRunnerPool(runners, mockRunnerFactory)
+	return NewStaticRunnerPool(runners, nil, "", mockRunnerFactory)
 }
 
 type mockStaticRunner struct {
@@ -27,7 +27,7 @@ func (r *mockStaticRunner) Address() string {
 	return r.address
 }
 
-func mockRunnerFactory(addr string) (pool.Runner, error) {
+func mockRunnerFactory(addr, cn string, pki *pool.PKIData) (pool.Runner, error) {
 	return &mockStaticRunner{address: addr}, nil
 }
 
