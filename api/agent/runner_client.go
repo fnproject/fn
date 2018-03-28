@@ -24,8 +24,8 @@ type gRPCRunner struct {
 	client  pb.RunnerProtocolClient
 }
 
-func SecureGRPCRunnerFactory(addr string, pki *pool.PKIData) (pool.Runner, error) {
-	conn, client, err := runnerConnection(addr, pki)
+func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool.Runner, error) {
+	conn, client, err := runnerConnection(addr, runnerCertCN, pki)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +55,13 @@ func (r *gRPCRunner) Close(ctx context.Context) error {
 	}
 }
 
-func runnerConnection(address string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 	ctx := context.Background()
 
 	var creds credentials.TransportCredentials
 	if pki != nil {
 		var err error
-		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca)
+		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca, runnerCertCN)
 		if err != nil {
 			logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
 			return nil, nil, err

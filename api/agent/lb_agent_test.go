@@ -26,14 +26,14 @@ type mockRunner struct {
 
 type mockRunnerPool struct {
 	runners   []pool.Runner
-	generator insecureRunnerFactory
+	generator pool.MTLSRunnerFactory
 	pki       *pool.PKIData
 }
 
-func newMockRunnerPool(rf insecureRunnerFactory, runnerAddrs []string) *mockRunnerPool {
+func newMockRunnerPool(rf pool.MTLSRunnerFactory, runnerAddrs []string) *mockRunnerPool {
 	var runners []pool.Runner
 	for _, addr := range runnerAddrs {
-		r, err := rf(addr)
+		r, err := rf(addr, "", nil)
 		if err != nil {
 			continue
 		}
@@ -55,8 +55,8 @@ func (rp *mockRunnerPool) Shutdown(context.Context) error {
 	return nil
 }
 
-func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) insecureRunnerFactory {
-	return func(addr string) (pool.Runner, error) {
+func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) pool.MTLSRunnerFactory {
+	return func(addr, cn string, pki *pool.PKIData) (pool.Runner, error) {
 		return &mockRunner{
 			sleep:    sleep,
 			maxCalls: maxCalls,
@@ -65,8 +65,8 @@ func NewMockRunnerFactory(sleep time.Duration, maxCalls int32) insecureRunnerFac
 	}
 }
 
-func FaultyRunnerFactory() insecureRunnerFactory {
-	return func(addr string) (pool.Runner, error) {
+func FaultyRunnerFactory() pool.MTLSRunnerFactory {
+	return func(addr, cn string, pki *pool.PKIData) (pool.Runner, error) {
 		return &mockRunner{
 			addr: addr,
 		}, errors.New("Creation of new runner failed")
