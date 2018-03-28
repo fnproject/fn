@@ -1,3 +1,4 @@
+// Package mock provides a fake Driver implementation that is only used for testing.
 package mock
 
 import (

@@ -102,6 +102,8 @@ type lbAgent struct {
 	shutdown chan struct{}
 }
 
+// NewLBAgent creates an Agent that knows how to load-balance function calls
+// across a group of runner nodes.
 func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
 	agent := createAgent(da, false)
 	a := &lbAgent{

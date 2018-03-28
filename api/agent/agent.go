@@ -43,17 +43,17 @@ import (
 // TODO it would be really nice if we made the ramToken wrap the driver cookie (less brittle,
 // if those leak the container leaks too...) -- not the allocation, but the token.Close and cookie.Close
 // TODO if machine is out of ram, just timeout immediately / wait for hot slot? (discuss policy)
-//
+
 // Agent exposes an api to create calls from various parameters and then submit
 // those calls, it also exposes a 'safe' shutdown mechanism via its Close method.
 // Agent has a few roles:
-// * manage the memory pool for a given server
-// * manage the container lifecycle for calls (hot+cold)
-// * execute calls against containers
-// * invoke Start and End for each call appropriately
-// * check the mq for any async calls, and submit them
+//	* manage the memory pool for a given server
+//	* manage the container lifecycle for calls (hot+cold)
+//	* execute calls against containers
+//	* invoke Start and End for each call appropriately
+//	* check the mq for any async calls, and submit them
 //
-// overview:
+// Overview:
 // Upon submission of a call, Agent will start the call's timeout timer
 // immediately. If the call is hot, Agent will attempt to find an active hot
 // container for that route, and if necessary launch another container. Cold
@@ -69,7 +69,6 @@ import (
 // sending any input, if hot. call.End will be called regardless of the
 // timeout timer's status if the call was executed, and that error returned may
 // be returned from Submit.
-
 type Agent interface {
 	// GetCall will return a Call that is executable by the Agent, which
 	// can be built via various CallOpt's provided to the method.
@@ -117,6 +116,7 @@ type agent struct {
 	shutdown chan struct{}
 }
 
+// New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess) Agent {
 	a := createAgent(da, true).(*agent)
 	a.wg.Add(1)
