@@ -19,8 +19,6 @@ import (
 	"syscall"
 	"unicode"
 
-	"github.com/fnproject/fn/api/runnerpool"
-
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
@@ -356,17 +354,7 @@ func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
 	if runnerAddresses == "" {
 		return nil, errors.New("Must provide FN_RUNNER_ADDRESSES  when running in default load-balanced mode!")
 	}
-
-	var pki *runnerpool.PKIData
-	if s.cert != "" && s.certKey != "" && s.certAuthority != "" {
-		pki = &runnerpool.PKIData{
-			Ca:   s.certAuthority,
-			Key:  s.certKey,
-			Cert: s.cert,
-		}
-	}
-
-	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ","), pki), nil
+	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
 }
 
 func (s *Server) defaultPlacer() pool.Placer {

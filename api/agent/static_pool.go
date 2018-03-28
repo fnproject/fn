@@ -11,7 +11,6 @@ import (
 
 const (
 	staticPoolShutdownTimeout = 5 * time.Second
-	defaultRunnerPoolCN       = "runner.fn.fnproject.github.com"
 )
 
 // manages a single set of runners ignoring lb groups
@@ -23,15 +22,15 @@ type staticRunnerPool struct {
 	runners   []pool.Runner
 }
 
-func DefaultStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData) pool.RunnerPool {
-	return NewStaticRunnerPool(runnerAddresses, pki, defaultRunnerPoolCN, SecureGRPCRunnerFactory)
+func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
+	return NewStaticRunnerPool(runnerAddresses, nil, "", SecureGRPCRunnerFactory)
 }
 
 func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN string, runnerFactory pool.MTLSRunnerFactory) pool.RunnerPool {
 	logrus.WithField("runners", runnerAddresses).Info("Starting static runner pool")
 	var runners []pool.Runner
 	for _, addr := range runnerAddresses {
-		r, err := runnerFactory(addr, defaultRunnerPoolCN, pki)
+		r, err := runnerFactory(addr, runnerCN, pki)
 		if err != nil {
 			logrus.WithField("runner_addr", addr).Warn("Invalid runner")
 			continue
