@@ -554,15 +554,15 @@ func (pr *pureRunner) Start() error {
 	return err
 }
 
-func UnsecuredPureRunner(cancel context.CancelFunc, addr string, da DataAccess) (*pureRunner, error) {
+func UnsecuredPureRunner(cancel context.CancelFunc, addr string, da DataAccess) (Agent, error) {
 	return NewPureRunner(cancel, addr, da, "", "", "", nil)
 }
 
-func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string) (*pureRunner, error) {
+func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string) (Agent, error) {
 	return NewPureRunner(cancel, addr, da, cert, key, ca, nil)
 }
 
-func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, gate CapacityGate) (*pureRunner, error) {
+func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, gate CapacityGate) (Agent, error) {
 	a := createAgent(da, true)
 	var pr *pureRunner
 	var err error
