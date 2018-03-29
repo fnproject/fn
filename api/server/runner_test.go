@@ -327,7 +327,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rHdr := map[string][]string{"X-Function": {"Test"}}
 	rImg := "fnproject/fn-test-utils"
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
-	rImgBs2 := "localhost:5000/fnproject/imagethatdoesnotexist"
+	rImgBs2 := "localhost:5050/fnproject/imagethatdoesnotexist"
 
 	app := &models.App{Name: "myapp"}
 	app.SetDefaults()
