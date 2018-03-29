@@ -147,6 +147,12 @@ func (c MilliCPUs) String() string {
 func (c *MilliCPUs) UnmarshalJSON(data []byte) error {
 
 	outer := bytes.TrimSpace(data)
+
+	if bytes.Equal(outer, []byte("null")) {
+		*c = MilliCPUs(0)
+		return nil
+	}
+
 	if !bytes.HasSuffix(outer, []byte("\"")) || !bytes.HasPrefix(outer, []byte("\"")) {
 		return ErrInvalidJSON
 	}
