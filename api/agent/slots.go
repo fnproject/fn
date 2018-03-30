@@ -326,6 +326,25 @@ func getSlotQueueKey(call *call) string {
 		hash.Write(unsafeBytes("\x00"))
 	}
 
+	// we need to additionally delimit config and annotations to eliminate overlap bug
+	hash.Write(unsafeBytes("\x00"))
+
+	keys = keys[:0] // clear keys
+	for k := range call.Annotations {
+		i := sort.SearchStrings(keys, k)
+		keys = append(keys, "")
+		copy(keys[i+1:], keys[i:])
+		keys[i] = k
+	}
+
+	for _, k := range keys {
+		hash.Write(unsafeBytes(k))
+		hash.Write(unsafeBytes("\x00"))
+		v, _ := call.Annotations.Get(k)
+		hash.Write(v)
+		hash.Write(unsafeBytes("\x00"))
+	}
+
 	var buf [sha1.Size]byte
 	hash.Sum(buf[:0])
 	return string(buf[:])
