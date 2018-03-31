@@ -46,7 +46,13 @@ func SetMachineIdHost(addr net.IP, port uint16) {
 // Ids are sortable within (not between, thanks to clocks) each machine, with
 // a modified base32 encoding exposed for convenience in API usage.
 func New() Id {
-	t := time.Now()
+	// NewWithTime will be inlined
+	return NewWithTime(time.Now())
+}
+
+// NewWithTime returns an id that uses the milliseconds from the given time.
+// New is identical to NewWithTime(time.Now())
+func NewWithTime(t time.Time) Id {
 	// NOTE compiler optimizes out division by constant for us
 	ms := uint64(t.Unix())*1000 + uint64(t.Nanosecond()/int(time.Millisecond))
 	count := atomic.AddUint32(&counter, 1)

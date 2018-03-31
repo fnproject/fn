@@ -267,6 +267,8 @@ func flipCursor(oid string) string {
 func callMarkerKey(app, path, id string) string {
 	id = flipCursor(id)
 	// s3 urls use / and are url, we need to encode this since paths have / in them
+	// NOTE: s3 urls are max of 1024 chars. path is the only non-fixed sized object in here
+	// but it is fixed to 256 chars in sql (by chance, mostly). further validation may be needed if weirdness ensues.
 	path = base64.RawURLEncoding.EncodeToString([]byte(path))
 	return callMarkerPrefix + app + "/" + path + "/" + id
 }
@@ -323,18 +325,12 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 			marker = callMarkerKey(filter.AppID, filter.Path, filter.Cursor)
 		}
 	} else if t := time.Time(filter.ToTime); !t.IsZero() {
-		// we need to use first 48 bits of id to approximate created_at, to skip over records
-		// if looking far into the past to save time.
-		ms := uint64(t.Unix()*1000) + uint64(t.Nanosecond()/int(time.Millisecond))
-		var buf id.Id
-		buf[0] = byte(ms >> 40)
-		buf[1] = byte(ms >> 32)
-		buf[2] = byte(ms >> 24)
-		buf[3] = byte(ms >> 16)
-		buf[4] = byte(ms >> 8)
-		buf[5] = byte(ms)
-		mid := buf.String()[:10]
-		// timestamp is first 10 bytes of string encoded
+		// get a fake id that has the most significant bits set to the to_time (first 48 bits)
+		fako := id.NewWithTime(t)
+		//var buf [id.EncodedSize]byte
+		//fakoId.MarshalTextTo(buf)
+		//mid := string(buf[:10])
+		mid := fako.String()
 		marker = callKey(filter.AppID, mid)
 		if filter.Path != "" {
 			marker = callMarkerKey(filter.AppID, filter.Path, mid)
@@ -378,11 +374,11 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 			id = fields[3]
 		} else {
 			fields := strings.Split(*obj.Key, "/")
-			app = fields[1]
-			id = fields[2]
 			if len(fields) != 3 {
 				return calls, fmt.Errorf("invalid key in calls: %v", *obj.Key)
 			}
+			app = fields[1]
+			id = fields[2]
 		}
 
 		// the id here is already reverse encoded, keep it that way.
