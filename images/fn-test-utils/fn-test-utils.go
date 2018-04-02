@@ -60,6 +60,8 @@ type AppRequest struct {
 	PostOutGarbage string `json:"postOutGarbage,omitempty"`
 	// spit this out in stderr after processing each request
 	PostErrGarbage string `json:"postErrGarbage,omitempty"`
+	// returns an error response
+	ErrorResponse string `json:"errorResponse,omitempty"` // @treeder: agggh, camelcase...
 	// TODO: simulate slow read/slow write
 	// TODO: simulate partial IO write/read
 	// TODO: simulate high cpu usage (async and sync)
@@ -74,11 +76,12 @@ var Leaks []*[]byte
 var Hold []byte
 
 type AppResponse struct {
-	Request AppRequest        `json:"request"`
-	Headers http.Header       `json:"header"`
-	Config  map[string]string `json:"config"`
-	Data    map[string]string `json:"data"`
-	Trailer []string          `json:"trailer"`
+	Request       AppRequest        `json:"request"`
+	Headers       http.Header       `json:"header"`
+	Config        map[string]string `json:"config"`
+	Data          map[string]string `json:"data"`
+	Trailer       []string          `json:"trailer"`
+	ErrorResponse map[string]string `json:"error"`
 }
 
 func init() {
@@ -150,6 +153,14 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 		log.Printf("Received request %#v", request)
 		log.Printf("Received headers %v", fnctx.Header)
 		log.Printf("Received config %v", fnctx.Config)
+	}
+
+	if request.ErrorResponse != "" {
+		resp := &AppResponse{
+			Request:       request,
+			ErrorResponse: map[string]string{"message": request.ErrorResponse},
+		}
+		return &request, resp
 	}
 
 	// simulate load if requested
@@ -329,6 +340,7 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 
 	var jsonRequest fdkutils.JsonIn
 	var appRequest *AppRequest
+	var b []byte
 	err := json.NewDecoder(in).Decode(&jsonRequest)
 	if err != nil {
 		// stdin now closed
@@ -348,21 +360,26 @@ func testDoJSONOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 		defer cancel()
 
 		appReq, appResp := processRequest(ctx, strings.NewReader(jsonRequest.Body))
-		finalizeRequest(&resp, appReq, appResp)
-
+		if val, ok := appResp.ErrorResponse["error"]; ok {
+			resp.Status = http.StatusInternalServerError
+			resp.JasonContentType = "application/json"
+			b = []byte(`{"error": "` + val + `"}`)
+		} else {
+			finalizeRequest(&resp, appReq, appResp)
+		}
 		if appReq.InvalidResponse {
 			io.Copy(out, strings.NewReader(InvalidResponseStr))
 		}
-
 		appRequest = appReq
 	}
 
-	jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
-
-	b, err := json.Marshal(jsonResponse)
-	if err != nil {
-		log.Printf("json marshal error %v", err)
-		return err
+	if b != nil {
+		jsonResponse := getJSONResp(buf, &resp, &jsonRequest)
+		b, err = json.Marshal(jsonResponse)
+		if err != nil {
+			log.Printf("json marshal error %v", err)
+			return err
+		}
 	}
 
 	_, err = out.Write(b)

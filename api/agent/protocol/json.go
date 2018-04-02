@@ -33,6 +33,12 @@ type CallResponseHTTP struct {
 	Headers    http.Header `json:"headers,omitempty"`
 }
 
+type errorOut struct {
+	Message string `json:"message"`
+	Type    string `json:"type,omitempty"`
+	Trace   string `json:"trace,omitempty"`
+}
+
 // jsonIn We're not using this since we're writing JSON directly right now, but trying to keep it current anyways, much easier to read/follow
 type jsonIn struct {
 	CallID      string          `json:"call_id"`
@@ -46,6 +52,7 @@ type jsonIn struct {
 type jsonOut struct {
 	Body        string            `json:"body"`
 	ContentType string            `json:"content_type"`
+	Error       *errorOut         `json:"error,omitempty"`
 	Protocol    *CallResponseHTTP `json:"protocol,omitempty"`
 }
 
@@ -89,6 +96,8 @@ func (h *JSONProtocol) writeJSONToContainer(ci CallInfo) error {
 }
 
 func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
+	fmt.Println("JSON Dispatch")
+
 	ctx, span := trace.StartSpan(ctx, "dispatch_json")
 	defer span.End()
 
@@ -98,16 +107,21 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("FUCK 2")
 	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
+	// buf := new(bytes.Buffer)
+	// buf.ReadFrom(h.out)
+	// s := buf.String()
+	// log.Println("output string:", s)
 	decoder := json.NewDecoder(h.out)
 	err = decoder.Decode(&jout)
 	span.End()
 	if err != nil {
+		fmt.Println("FUCKER", err)
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
-
+	fmt.Println("FUCK 3")
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
 	defer span.End()
 
@@ -117,33 +131,52 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 		err := json.NewEncoder(w).Encode(jout)
 		return h.isExcessData(err, decoder)
 	}
-
-	// this has to be done for pulling out:
-	// - status code
-	// - body
-	// - headers
-	if jout.Protocol != nil {
-		p := jout.Protocol
-		for k, v := range p.Headers {
-			for _, vv := range v {
-				rw.Header().Add(k, vv) // on top of any specified on the route
-			}
+	fmt.Println("FUCK 4")
+	body := jout.Body
+	statusCode := 200
+	fmt.Printf("JOUT: %+v\n", jout)
+	if jout.Error != nil {
+		fmt.Println("ERROR RESPONSE")
+		// then we'll do an error response, protocol specific things override these
+		statusCode = 500
+		rw.Header().Set("Content-Type", "application/json")
+		b, err := json.Marshal(jout.Error)
+		if err != nil {
+			// this should never happen...
+			return models.NewAPIError(http.StatusInternalServerError, fmt.Errorf("error marshalling error output. This shouldn't happen, please file an issue at github.com/fnproject/fn: %v", err))
 		}
+		body = string(b)
 	}
-	// after other header setting, top level content_type takes precedence and is
+
 	// absolute (if set). it is expected that if users want to set multiple
 	// values they put it in the string, e.g. `"content-type:"application/json; charset=utf-8"`
-	// TODO this value should not exist since it's redundant in proto headers?
 	if jout.ContentType != "" {
 		rw.Header().Set("Content-Type", jout.ContentType)
 	}
 
-	// we must set all headers before writing the status, see http.ResponseWriter contract
-	if p := jout.Protocol; p != nil && p.StatusCode != 0 {
-		rw.WriteHeader(p.StatusCode)
+	// Protocol specific values take precedence over top level values.
+	// this has to be done for pulling out:
+	// - status code
+	// - body
+	// - headers
+	p := jout.Protocol
+	if p != nil {
+		if p.StatusCode != 0 {
+			statusCode = p.StatusCode
+		}
+		for k, v := range p.Headers {
+			for _, vv := range v {
+				// Set() so it overrides anything else
+				rw.Header().Set(k, vv) // on top of any specified on the route
+			}
+		}
 	}
 
-	_, err = io.WriteString(rw, jout.Body)
+	fmt.Printf("writing headers: %+v\n", rw.Header())
+	// we must set all headers before writing the status, see http.ResponseWriter contract
+	rw.WriteHeader(statusCode)
+
+	_, err = io.WriteString(rw, body)
 	return h.isExcessData(err, decoder)
 }
 
