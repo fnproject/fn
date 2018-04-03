@@ -203,7 +203,8 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			}
 			// There should be an EOF following the last packet
 			if _, err := protocolClient.Recv(); err != io.EOF {
-				logrus.Errorf("Did not receive expected EOF from runner stream: %v", err)
+				logrus.WithError(err).Error("Did not receive expected EOF from runner stream")
+				done <- err
 			}
 			close(done)
 			return

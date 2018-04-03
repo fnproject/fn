@@ -135,9 +135,11 @@ func (c *mockRunnerCall) RequestBody() io.ReadCloser {
 func (c *mockRunnerCall) ResponseWriter() http.ResponseWriter {
 	return c.rw
 }
+
 func (c *mockRunnerCall) StdErr() io.ReadWriteCloser {
 	return c.stdErr
 }
+
 func (c *mockRunnerCall) Model() *models.Call {
 	return c.model
 }
