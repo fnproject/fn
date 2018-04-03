@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"hash"
+	"reflect"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -332,5 +333,17 @@ func getSlotQueueKey(call *call) string {
 
 // WARN: this is read only
 func unsafeBytes(a string) []byte {
-	return *(*[]byte)(unsafe.Pointer(&a))
+	strHeader := (*reflect.StringHeader)(unsafe.Pointer(&a))
+
+	var b []byte
+	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	byteHeader.Data = strHeader.Data
+
+	// need to take the length of `a` here to ensure it's alive until after we update b's Data
+	// field since the garbage collector can collect a variable once it is no longer used
+	// not when it goes out of scope, for more details see https://github.com/golang/go/issues/9046
+	l := len(a)
+	byteHeader.Len = l
+	byteHeader.Cap = l
+	return b
 }
