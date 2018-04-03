@@ -135,7 +135,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 }
 
 func sendToRunner(call pool.RunnerCall, protocolClient pb.RunnerProtocol_EngageClient) error {
-	bodyReader := call.Request().Body
+	bodyReader := call.RequestBody()
 	writeBufferSize := 10 * 1024 // 10KB
 	writeBuffer := make([]byte, writeBufferSize)
 	for {
@@ -199,7 +199,12 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			if body.Finished.Success {
 				logrus.Infof("Call finished successfully: %v", body.Finished.Details)
 			} else {
-				logrus.Infof("Call finish unsuccessfully:: %v", body.Finished.Details)
+				logrus.Infof("Call finished unsuccessfully: %v", body.Finished.Details)
+			}
+			// There should be an EOF following the last packet
+			if _, err := protocolClient.Recv(); err != io.EOF {
+				logrus.WithError(err).Error("Did not receive expected EOF from runner stream")
+				done <- err
 			}
 			close(done)
 			return
