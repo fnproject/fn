@@ -199,7 +199,11 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			if body.Finished.Success {
 				logrus.Infof("Call finished successfully: %v", body.Finished.Details)
 			} else {
-				logrus.Infof("Call finish unsuccessfully:: %v", body.Finished.Details)
+				logrus.Infof("Call finished unsuccessfully: %v", body.Finished.Details)
+			}
+			// There should be an EOF following the last packet
+			if _, err := protocolClient.Recv(); err != io.EOF {
+				logrus.Errorf("Did not receive expected EOF from runner stream: %v", err)
 			}
 			close(done)
 			return
