@@ -128,9 +128,10 @@ func (c *mockRunnerCall) SlotDeadline() time.Time {
 	return c.slotDeadline
 }
 
-func (c *mockRunnerCall) Request() *http.Request {
-	return c.r
+func (c *mockRunnerCall) RequestBody() io.ReadCloser {
+	return c.r.Body
 }
+
 func (c *mockRunnerCall) ResponseWriter() http.ResponseWriter {
 	return c.rw
 }

@@ -285,8 +285,8 @@ func (c *call) SlotDeadline() time.Time {
 	return c.slotDeadline
 }
 
-func (c *call) Request() *http.Request {
-	return c.req
+func (c *call) RequestBody() io.ReadCloser {
+	return c.req.Body
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {
