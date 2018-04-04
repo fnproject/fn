@@ -46,7 +46,7 @@ const (
 func NewAgentConfig() (*AgentConfig, error) {
 
 	cfg := &AgentConfig{
-		MinDockerVersion: "17.06.0-ce",
+		MinDockerVersion: "17.10.0-ce",
 		MaxLogSize:       1 * 1024 * 1024,
 	}
 
