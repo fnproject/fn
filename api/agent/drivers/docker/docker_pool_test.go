@@ -8,13 +8,21 @@ import (
 	"github.com/fnproject/fn/api/agent/drivers"
 )
 
+func getDefaultCfg() *drivers.Config {
+	cfg := &drivers.Config{
+		PreForkImage: "busybox",
+		PreForkCmd:   "tail -f /dev/null",
+	}
+	return cfg
+}
+
 func TestRunnerDockerPool(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("prefork only supported on Linux")
 		return
 	}
 
-	cfg := &drivers.Config{}
+	cfg := getDefaultCfg()
 
 	// shouldn't spin up a pool since cfg is empty
 	drv := NewDocker(*cfg)
@@ -95,7 +103,7 @@ func TestRunnerDockerPoolFaulty(t *testing.T) {
 		return
 	}
 
-	cfg := &drivers.Config{}
+	cfg := getDefaultCfg()
 
 	// shouldn't spin up a pool since cfg is empty
 	drv := NewDocker(*cfg)

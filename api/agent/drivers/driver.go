@@ -197,6 +197,8 @@ type Config struct {
 	PreForkPoolSize uint64 `json:"pre_fork_pool_size"`
 	PreForkImage    string `json:"pre_fork_image"`
 	PreForkCmd      string `json:"pre_fork_cmd"`
+	PreForkUseOnce  uint64 `json:"pre_fork_use_once"`
+	PreForkNetworks string `json:"pre_fork_networks"`
 }
 
 func average(samples []Stat) (Stat, bool) {

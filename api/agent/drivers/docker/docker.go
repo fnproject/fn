@@ -131,6 +131,29 @@ func (drv *DockerDriver) Close() error {
 	return err
 }
 
+func (drv *DockerDriver) tryUsePool(ctx context.Context, container *docker.CreateContainerOptions) string {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "tryUsePool"})
+
+	if drv.pool != nil {
+		id, err := drv.pool.AllocPoolId()
+		if err == nil {
+			linker := fmt.Sprintf("container:%s", id)
+			// We are able to fetch a container from pool. Now, use its
+			// network, ipc and pid namespaces.
+			container.HostConfig.NetworkMode = linker
+			//container.HostConfig.IpcMode = linker
+			//container.HostConfig.PidMode = linker
+			return id
+		}
+
+		log.WithError(err).Error("Could not fetch pre fork pool container")
+	}
+
+	// hostname and container NetworkMode is not compatible.
+	container.Config.Hostname = drv.hostname
+	return ""
+}
+
 func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Prepare"})
 	var cmd []string
@@ -171,19 +194,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context: ctx,
 	}
 
-	poolId := ""
-	if drv.pool != nil {
-		id, err := drv.pool.AllocPoolId()
-		if err != nil {
-			log.WithError(err).Error("Could not fetch pre fork pool container")
-		} else {
-			poolId = id
-			container.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
-		}
-	} else {
-		// hostname and container NetworkMode is not compatible.
-		container.Config.Hostname = drv.hostname
-	}
+	poolId := drv.tryUsePool(ctx, &container)
 
 	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
 	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,

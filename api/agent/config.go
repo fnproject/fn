@@ -25,6 +25,8 @@ type AgentConfig struct {
 	PreForkPoolSize    uint64        `json:"pre_fork_pool_size"`
 	PreForkImage       string        `json:"pre_fork_image"`
 	PreForkCmd         string        `json:"pre_fork_pool_cmd"`
+	PreForkUseOnce     uint64        `json:"pre_fork_use_once"`
+	PreForkNetworks    string        `json:"pre_fork_networks"`
 }
 
 const (
@@ -43,6 +45,8 @@ const (
 	EnvPreForkPoolSize    = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
 	EnvPreForkImage       = "FN_EXPERIMENTAL_PREFORK_IMAGE"
 	EnvPreForkCmd         = "FN_EXPERIMENTAL_PREFORK_CMD"
+	EnvPreForkUseOnce     = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
+	EnvPreForkNetworks    = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -53,6 +57,8 @@ func NewAgentConfig() (*AgentConfig, error) {
 		MinDockerVersion:   "17.10.0-ce",
 		MaxLogSize:         1 * 1024 * 1024,
 		MaxCallEndStacking: 8192,
+		PreForkImage:       "busybox",
+		PreForkCmd:         "tail -f /dev/null",
 	}
 
 	var err error
@@ -70,13 +76,14 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
 	err = setEnvUint(err, EnvMaxCallEndStacking, &cfg.MaxCallEndStacking)
+	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
+	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
+	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
+	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
 
 	if err != nil {
 		return cfg, err
 	}
-
-	cfg.PreForkImage = os.Getenv(EnvPreForkImage)
-	cfg.PreForkCmd = os.Getenv(EnvPreForkCmd)
 
 	if cfg.EjectIdle == time.Duration(0) {
 		return cfg, fmt.Errorf("error %s cannot be zero", EnvEjectIdle)
@@ -87,6 +94,16 @@ func NewAgentConfig() (*AgentConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func setEnvStr(err error, name string, dst *string) error {
+	if err != nil {
+		return err
+	}
+	if tmp, ok := os.LookupEnv(name); ok {
+		*dst = tmp
+	}
+	return nil
 }
 
 func setEnvUint(err error, name string, dst *uint64) error {

@@ -34,20 +34,26 @@ var (
 	ErrorPoolEmpty = errors.New("docker pre fork pool empty")
 )
 
+type PoolTaskStateType int
+
+const (
+	PoolTaskStateInit  PoolTaskStateType = iota // initializing
+	PoolTaskStateReady                          // ready to be run
+)
+
 const (
 	LimitPerSec = 10
 	LimitBurst  = 20
-
-	DefaultImage = "busybox"
-	DefaultCmd   = "tail -f /dev/null"
 
 	ShutdownTimeout = time.Duration(1) * time.Second
 )
 
 type poolTask struct {
-	id    string
-	image string
-	cmd   string
+	id      string
+	image   string
+	cmd     string
+	netMode string
+	state   PoolTaskStateType
 }
 
 func (c *poolTask) Id() string                                       { return c.id }
@@ -65,13 +71,19 @@ func (c *poolTask) CPUs() uint64                                     { return 0 
 func (c *poolTask) FsSize() uint64                                   { return 0 }
 func (c *poolTask) WriteStat(ctx context.Context, stat drivers.Stat) {}
 
+type dockerPoolItem struct {
+	id     string
+	cancel func()
+}
+
 type dockerPool struct {
-	lock    sync.Mutex
-	inuse   map[string]struct{}
-	free    []string
-	limiter *rate.Limiter
-	cancel  func()
-	wg      sync.WaitGroup // TODO rename
+	lock      sync.Mutex
+	inuse     map[string]dockerPoolItem
+	free      []dockerPoolItem
+	limiter   *rate.Limiter
+	cancel    func()
+	wg        sync.WaitGroup
+	isRecycle bool
 }
 
 type DockerPoolStats struct {
@@ -81,7 +93,7 @@ type DockerPoolStats struct {
 
 type DockerPool interface {
 	// fetch a pre-allocated free id from the pool
-	// may return too busy error
+	// may return too busy error.
 	AllocPoolId() (string, error)
 
 	// Release the id back to the pool
@@ -107,28 +119,31 @@ func NewDockerPool(conf drivers.Config, driver *DockerDriver) DockerPool {
 	log.Error("WARNING: Experimental Prefork Docker Pool Enabled")
 
 	pool := &dockerPool{
-		inuse:   make(map[string]struct{}, conf.PreForkPoolSize),
-		free:    make([]string, 0, conf.PreForkPoolSize),
+		inuse:   make(map[string]dockerPoolItem, conf.PreForkPoolSize),
+		free:    make([]dockerPoolItem, 0, conf.PreForkPoolSize),
 		limiter: rate.NewLimiter(LimitPerSec, LimitBurst),
 		cancel:  cancel,
 	}
 
-	for i := uint64(0); i < conf.PreForkPoolSize; i++ {
+	if conf.PreForkUseOnce != 0 {
+		pool.isRecycle = true
+	}
+
+	networks := strings.Fields(conf.PreForkNetworks)
+	if len(networks) == 0 {
+		networks = append(networks, "")
+	}
+
+	pool.wg.Add(int(conf.PreForkPoolSize))
+	for i := 0; i < int(conf.PreForkPoolSize); i++ {
 
 		task := &poolTask{
-			id:    fmt.Sprintf("%d_prefork_%s", i, id.New().String()),
-			image: DefaultImage,
-			cmd:   DefaultCmd,
+			id:      fmt.Sprintf("%d_prefork_%s", i, id.New().String()),
+			image:   conf.PreForkImage,
+			cmd:     conf.PreForkCmd,
+			netMode: networks[i%len(networks)],
 		}
 
-		if conf.PreForkImage != "" {
-			task.image = conf.PreForkImage
-		}
-		if conf.PreForkCmd != "" {
-			task.cmd = conf.PreForkCmd
-		}
-
-		pool.wg.Add(1)
 		go pool.nannyContainer(ctx, driver, task)
 	}
 
@@ -141,10 +156,15 @@ func (pool *dockerPool) Close() error {
 	return nil
 }
 
-func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver, task *poolTask) {
-	defer pool.wg.Done()
+func (pool *dockerPool) performInitState(ctx context.Context, driver *DockerDriver, task *poolTask) {
 
-	log := common.Logger(ctx).WithFields(logrus.Fields{"name": task.Id()})
+	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
+
+	err := driver.ensureImage(ctx, task)
+	if err != nil {
+		log.WithError(err).Info("prefork pool image pull failed")
+		return
+	}
 
 	containerOpts := docker.CreateContainerOptions{
 		Name: task.Id(),
@@ -163,7 +183,7 @@ func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver
 			LogConfig: docker.LogConfig{
 				Type: "none",
 			},
-			AutoRemove: true,
+			NetworkMode: task.netMode,
 		},
 		Context: ctx,
 	}
@@ -175,67 +195,109 @@ func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver
 		Context:       ctx,
 	}
 
-	// We spin forever, keeping the pool resident and running at all times.
-	for {
-		err := pool.limiter.Wait(ctx)
-		if err != nil {
-			// should not really happen unless ctx has a deadline or burst is 0.
-			log.WithError(err).Info("prefork pool rate limiter failed")
-			break
-		}
+	// ignore failure here
+	driver.docker.RemoveContainer(removeOpts)
 
-		// Let's try to clean up any left overs
-		err = driver.docker.RemoveContainer(removeOpts)
-		if err != nil {
-			log.WithError(err).Info("prefork pool container remove failed (this is probably OK)")
-		}
-
-		err = driver.ensureImage(ctx, task)
-		if err != nil {
-			log.WithError(err).Info("prefork pool image pull failed")
-			continue
-		}
-
-		_, err = driver.docker.CreateContainer(containerOpts)
-		if err != nil {
-			log.WithError(err).Info("prefork pool container create failed")
-			continue
-		}
-
-		err = driver.docker.StartContainerWithContext(task.Id(), nil, ctx)
-		if err != nil {
-			log.WithError(err).Info("prefork pool container start failed")
-			continue
-		}
-
-		log.Debug("prefork pool container ready")
-
-		// IMPORTANT: container is now up and running. Register it to make it
-		// available for function containers.
-		pool.register(task.Id())
-
-		// We are optimistic here where provided image and command really blocks
-		// and runs forever.
-		exitCode, err := driver.docker.WaitContainerWithContext(task.Id(), ctx)
-
-		// IMPORTANT: We have exited. This window is potentially very destructive, as any new
-		// function containers created during this window will fail. We must immediately
-		// proceed to unregister ourself to avoid further issues.
-		pool.unregister(task.Id())
-
-		log.WithError(err).Infof("prefork pool container exited exit_code=%d", exitCode)
+	_, err = driver.docker.CreateContainer(containerOpts)
+	if err != nil {
+		log.WithError(err).Info("prefork pool container create failed")
+		return
 	}
 
-	// final exit cleanup
+	task.state = PoolTaskStateReady
+}
+
+func (pool *dockerPool) performReadyState(ctx context.Context, driver *DockerDriver, task *poolTask) {
+
+	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
+
+	killOpts := docker.KillContainerOptions{
+		ID:      task.Id(),
+		Context: ctx,
+	}
+
+	defer func() {
+		err := driver.docker.KillContainer(killOpts)
+		if err != nil {
+			log.WithError(err).Info("prefork pool container kill failed")
+			task.state = PoolTaskStateInit
+		}
+	}()
+
+	err := driver.docker.StartContainerWithContext(task.Id(), nil, ctx)
+	if err != nil {
+		log.WithError(err).Info("prefork pool container start failed")
+		task.state = PoolTaskStateInit
+		return
+	}
+
+	log.Debug("prefork pool container ready")
+
+	// IMPORTANT: container is now up and running. Register it to make it
+	// available for function containers.
+	ctx, cancel := context.WithCancel(ctx)
+
+	pool.register(task.Id(), cancel)
+	exitCode, err := driver.docker.WaitContainerWithContext(task.Id(), ctx)
+	pool.unregister(task.Id())
+
+	if ctx.Err() == nil {
+		log.WithError(err).Infof("prefork pool container exited exit_code=%d", exitCode)
+		task.state = PoolTaskStateInit
+	}
+}
+
+func (pool *dockerPool) performTeardown(ctx context.Context, driver *DockerDriver, task *poolTask) {
+
 	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 	defer cancel()
-	removeOpts.Context = ctx
+
+	removeOpts := docker.RemoveContainerOptions{
+		ID:            task.Id(),
+		Force:         true,
+		RemoveVolumes: true,
+		Context:       ctx,
+	}
+
 	driver.docker.RemoveContainer(removeOpts)
 }
 
-func (pool *dockerPool) register(id string) {
+func (pool *dockerPool) nannyContainer(ctx context.Context, driver *DockerDriver, task *poolTask) {
+	defer pool.performTeardown(ctx, driver, task)
+	defer pool.wg.Done()
+
+	log := common.Logger(ctx).WithFields(logrus.Fields{"id": task.Id(), "net": task.netMode})
+
+	// We spin forever, keeping the pool resident and running at all times.
+	for ctx.Err() == nil {
+
+		if task.state != PoolTaskStateReady {
+			err := pool.limiter.Wait(ctx)
+			if err != nil {
+				// should not really happen unless ctx has a deadline or burst is 0.
+				log.WithError(err).Info("prefork pool rate limiter failed")
+				break
+			}
+		}
+
+		if task.state != PoolTaskStateReady {
+			pool.performInitState(ctx, driver, task)
+		}
+
+		if task.state == PoolTaskStateReady {
+			pool.performReadyState(ctx, driver, task)
+		}
+	}
+}
+
+func (pool *dockerPool) register(id string, cancel func()) {
+	item := dockerPoolItem{
+		id:     id,
+		cancel: cancel,
+	}
+
 	pool.lock.Lock()
-	pool.free = append(pool.free, id)
+	pool.free = append(pool.free, item)
 	pool.lock.Unlock()
 }
 
@@ -247,7 +309,7 @@ func (pool *dockerPool) unregister(id string) {
 		delete(pool.inuse, id)
 	} else {
 		for i := 0; i < len(pool.free); i += 1 {
-			if pool.free[i] == id {
+			if pool.free[i].id == id {
 				pool.free = append(pool.free[:i], pool.free[i+1:]...)
 				break
 			}
@@ -268,18 +330,26 @@ func (pool *dockerPool) AllocPoolId() (string, error) {
 
 	id := pool.free[len(pool.free)-1]
 	pool.free = pool.free[:len(pool.free)-1]
-	pool.inuse[id] = struct{}{}
+	pool.inuse[id.id] = id
 
-	return id, nil
+	return id.id, nil
 }
 
 func (pool *dockerPool) FreePoolId(id string) {
+
+	isRecycle := pool.isRecycle
+
 	pool.lock.Lock()
 
-	_, ok := pool.inuse[id]
+	item, ok := pool.inuse[id]
 	if ok {
+		if item.cancel != nil && isRecycle {
+			item.cancel()
+		}
 		delete(pool.inuse, id)
-		pool.free = append(pool.free, id)
+		if !isRecycle {
+			pool.free = append(pool.free, item)
+		}
 	}
 
 	pool.lock.Unlock()
