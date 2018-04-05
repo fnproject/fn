@@ -250,12 +250,19 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	err = slot.exec(ctx, call)
 	handleStatsEnd(ctx, err)
-
-	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
-	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = common.BackgroundContext(ctx)
-	err = call.End(ctx, err)
+	a.handleCallEnd(ctx, call, err)
 	return transformTimeout(err, false)
+}
+
+func (a *agent) handleCallEnd(ctx context.Context, call *call, err error) {
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		ctx = common.BackgroundContext(ctx)
+		ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
+		call.End(ctx, err)
+		cancel()
+	}()
 }
 
 func transformTimeout(e error, isRetriable bool) error {

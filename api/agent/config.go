@@ -15,6 +15,7 @@ type AgentConfig struct {
 	HotPoll            time.Duration `json:"hot_poll_msecs"`
 	HotLauncherTimeout time.Duration `json:"hot_launcher_timeout_msecs"`
 	AsyncChewPoll      time.Duration `json:"async_chew_poll_msecs"`
+	CallEndTimeout     time.Duration `json:"call_end_timeout"`
 	MaxResponseSize    uint64        `json:"max_response_size_bytes"`
 	MaxLogSize         uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
@@ -31,6 +32,7 @@ const (
 	EnvHotPoll            = "FN_HOT_POLL_MSECS"
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
 	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
+	EnvCallEndTimeout     = "FN_CALL_END_TIMEOUT_MSECS"
 	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE"
 	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
@@ -57,6 +59,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, 200*time.Millisecond)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
+	err = setEnvMsecs(err, EnvCallEndTimeout, &cfg.CallEndTimeout, time.Duration(10)*time.Minute)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
