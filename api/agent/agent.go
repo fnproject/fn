@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -111,9 +112,10 @@ type agent struct {
 	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
-	wg       sync.WaitGroup // TODO rename
-	shutonce sync.Once
-	shutdown chan struct{}
+	wg           sync.WaitGroup // TODO rename
+	shutonce     sync.Once
+	shutdown     chan struct{}
+	callEndCount int64
 }
 
 // New creates an Agent that executes functions locally as Docker containers.
@@ -250,12 +252,21 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	err = slot.exec(ctx, call)
 	handleStatsEnd(ctx, err)
-
-	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
-	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = common.BackgroundContext(ctx)
-	err = call.End(ctx, err)
+	a.handleCallEnd(ctx, call, err)
 	return transformTimeout(err, false)
+}
+
+func (a *agent) handleCallEnd(ctx context.Context, call *call, err error) {
+	a.wg.Add(1)
+	atomic.AddInt64(&a.callEndCount, 1)
+	go func() {
+		ctx = common.BackgroundContext(ctx)
+		ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
+		call.End(ctx, err)
+		cancel()
+		atomic.AddInt64(&a.callEndCount, -1)
+		a.wg.Done()
+	}()
 }
 
 func transformTimeout(e error, isRetriable bool) error {
@@ -307,6 +318,11 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 
 	ctx, span := trace.StartSpan(ctx, "agent_get_slot")
 	defer span.End()
+
+	// first check any excess case of call.End() stacking.
+	if atomic.LoadInt64(&a.callEndCount) >= int64(a.cfg.MaxCallEndStacking) {
+		return nil, context.DeadlineExceeded
+	}
 
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers

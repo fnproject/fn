@@ -193,7 +193,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 	containerIds := make([]string, 0)
 
-	for i, test := range []struct {
+	testCases := []struct {
 		path               string
 		body               string
 		method             string
@@ -235,7 +235,11 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		// CASE IV: should land on CASE III container
 		{"/r/zoo/http/", ok, "GET", http.StatusOK, "", nil, 0},
-	} {
+	}
+
+	callIds := make([]string, len(testCases))
+
+	for i, test := range testCases {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 		respBytes, _ := ioutil.ReadAll(rec.Body)
@@ -246,6 +250,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		}
 
 		containerIds = append(containerIds, "N/A")
+		callIds[i] = rec.Header().Get("Fn_call_id")
 
 		if rec.Code != test.expectedCode {
 			isFailure = true
@@ -260,13 +265,6 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		}
 
-		if test.expectedLogsSubStr != nil {
-			callID := rec.Header().Get("Fn_call_id")
-			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
-				isFailure = true
-			}
-		}
-
 		if rec.Code == http.StatusOK {
 			dockerId, err := getDockerId(respBytes)
 			if err != nil {
@@ -279,6 +277,14 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		t.Logf("Test %d: dockerId: %v", i, containerIds[i])
 		time.Sleep(test.sleepAmount)
+	}
+
+	for i, test := range testCases {
+		if test.expectedLogsSubStr != nil {
+			if !checkLogs(t, i, ds, callIds[i], test.expectedLogsSubStr) {
+				isFailure = true
+			}
+		}
 	}
 
 	jsonIds := containerIds[0:5]
@@ -374,7 +380,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
 
-	for i, test := range []struct {
+	testCases := []struct {
 		path               string
 		body               string
 		method             string
@@ -413,7 +419,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
 		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
 		{"/r/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
-	} {
+	}
+
+	callIds := make([]string, len(testCases))
+
+	for i, test := range testCases {
 		trx := fmt.Sprintf("_trx_%d_", i)
 		body := strings.NewReader(strings.Replace(test.body, "_TRX_ID_", trx, 1))
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
@@ -423,6 +433,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 		if maxBody > 1024 {
 			maxBody = 1024
 		}
+
+		callIds[i] = rec.Header().Get("Fn_call_id")
 
 		if rec.Code != test.expectedCode {
 			isFailure = true
@@ -453,10 +465,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 				}
 			}
 		}
+	}
 
+	for i, test := range testCases {
 		if test.expectedLogsSubStr != nil {
-			callID := rec.Header().Get("Fn_call_id")
-			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
+			if !checkLogs(t, i, ds, callIds[i], test.expectedLogsSubStr) {
 				isFailure = true
 			}
 		}
