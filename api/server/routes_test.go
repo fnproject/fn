@@ -100,7 +100,7 @@ func TestRouteCreate(t *testing.T) {
 
 	a := &models.App{Name: "a"}
 	a.SetDefaults()
-	commonDS := datastore.NewMockInit([]*models.App{a}, nil, nil)
+	commonDS := datastore.NewMockInit([]*models.App{a})
 	for i, test := range []routeTestCase{
 		// errors
 		{commonDS, logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", ``, http.StatusBadRequest, models.ErrInvalidJSON},
@@ -118,7 +118,7 @@ func TestRouteCreate(t *testing.T) {
 					AppID: a.ID,
 					Path:  "/myroute",
 				},
-			}, nil,
+			},
 		), logs.NewMock(), http.MethodPost, "/v1/apps/a/routes", `{ "route": { "image": "fnproject/fn-test-utils", "path": "/myroute", "type": "sync" } }`, http.StatusConflict, models.ErrRoutesAlreadyExists},
 
 		// success
@@ -135,7 +135,7 @@ func TestRoutePut(t *testing.T) {
 
 	a := &models.App{Name: "a"}
 	a.SetDefaults()
-	commonDS := datastore.NewMockInit([]*models.App{a}, nil, nil)
+	commonDS := datastore.NewMockInit([]*models.App{a})
 
 	for i, test := range []routeTestCase{
 		// errors (NOTE: this route doesn't exist yet)
@@ -163,7 +163,7 @@ func TestRouteDelete(t *testing.T) {
 	a := &models.App{Name: "a"}
 	a.SetDefaults()
 	routes := []*models.Route{{AppID: a.ID, Path: "/myroute"}}
-	commonDS := datastore.NewMockInit([]*models.App{a}, routes, nil)
+	commonDS := datastore.NewMockInit([]*models.App{a}, routes)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -225,7 +225,6 @@ func TestRouteList(t *testing.T) {
 				AppID: app.ID,
 			},
 		},
-		nil, // no calls
 	)
 	fnl := logs.NewMock()
 
@@ -329,7 +328,7 @@ func TestRouteGet(t *testing.T) {
 
 func TestRouteUpdate(t *testing.T) {
 	buf := setLogBuffer()
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	for i, test := range []routeTestCase{
 		// success

@@ -45,7 +45,7 @@ func TestRouteRunnerAsyncExecution(t *testing.T) {
 			{Type: "async", Path: "/myroute", AppID: app.ID, Image: "fnproject/hello", Config: map[string]string{"test": "true"}, Memory: 128, CPUs: 200, Timeout: 30, IdleTimeout: 30},
 			{Type: "async", Path: "/myerror", AppID: app.ID, Image: "fnproject/error", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
 			{Type: "async", Path: "/myroute/:param", AppID: app.ID, Image: "fnproject/hello", Config: map[string]string{"test": "true"}, Memory: 128, Timeout: 30, IdleTimeout: 30},
-		}, nil,
+		},
 	)
 	mq := &mqs.Mock{}
 

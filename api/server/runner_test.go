@@ -61,7 +61,7 @@ func TestRouteRunnerGet(t *testing.T) {
 	app := &models.App{Name: "myapp", Config: models.Config{}}
 	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{app}, nil, nil,
+		[]*models.App{app},
 	)
 
 	rnr, cancel := testRunner(t, ds)
@@ -105,7 +105,7 @@ func TestRouteRunnerPost(t *testing.T) {
 	app := &models.App{Name: "myapp", Config: models.Config{}}
 	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{app}, nil, nil,
+		[]*models.App{app},
 	)
 
 	rnr, cancel := testRunner(t, ds)
@@ -177,7 +177,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		[]*models.Route{
 			{Path: "/json", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
 			{Path: "/http", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
-		}, nil,
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -346,7 +346,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/mybigoutputcold", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
 			{Path: "/mybigoutputhttp", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
 			{Path: "/mybigoutputjson", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
-		}, nil,
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -538,7 +538,7 @@ func TestFailedEnqueue(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Route{
 			{Path: "/dummy", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30, AppID: app.ID},
-		}, nil,
+		},
 	)
 	err := errors.New("Unable to push task to queue")
 	mq := &errorMQ{err, http.StatusInternalServerError}
@@ -591,7 +591,7 @@ func TestRouteRunnerTimeout(t *testing.T) {
 			{Path: "/hot-json", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
 			{Path: "/bigmem-cold", Image: "fnproject/fn-test-utils", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30, AppID: app.ID},
 			{Path: "/bigmem-hot", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: hugeMem, Timeout: 1, IdleTimeout: 30, AppID: app.ID},
-		}, nil,
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -661,7 +661,7 @@ func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Route{
 			{Path: "/hot", AppID: app.ID, Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 5},
-		}, nil,
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)

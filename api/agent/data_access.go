@@ -160,7 +160,7 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 	// this means that we could potentially store an error / timeout status for a
 	// call that ran successfully [by a user's perspective]
 	// TODO: this should be update, really
-	if err := da.ds.InsertCall(ctx, mCall); err != nil {
+	if err := da.ls.InsertCall(ctx, mCall); err != nil {
 		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

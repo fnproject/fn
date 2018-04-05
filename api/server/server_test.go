@@ -266,7 +266,7 @@ func TestHybridEndpoints(t *testing.T) {
 		[]*models.Route{{
 			AppID: app.ID,
 			Path:  "yodawg",
-		}}, nil,
+		}},
 	)
 
 	logDB := logs.NewMock()

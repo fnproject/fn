@@ -2,7 +2,6 @@ package id
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 	"net"
 	"testing"
@@ -41,7 +40,6 @@ func TestIdRaw(t *testing.T) {
 	ms := uint64(ts.Unix())*1000 + uint64(ts.Nanosecond()/int(time.Millisecond))
 	count := uint32(math.MaxUint32)
 	id := newID(ms, machineID, count)
-	fmt.Println(len(id), id)
 
 	var buf [8]byte
 	copy(buf[2:], id[:6])
@@ -59,5 +57,21 @@ func TestIdRaw(t *testing.T) {
 	idCount := binary.BigEndian.Uint32(id[12:16])
 	if idCount != count {
 		t.Fatal("count mismatch", idCount, count)
+	}
+}
+
+func TestDescending(t *testing.T) {
+	id := "0123WXYZ"
+
+	flip := EncodeDescending(id)
+
+	if len(flip) != len(id) {
+		t.Fatal("flipped string has different length:", len(flip), len(id))
+	}
+
+	for i := range flip {
+		if flip[i] != id[len(id)-1-i] {
+			t.Fatalf("flipped encoding not working. got: %v, want: %v", flip[i], id[len(id)-1-i])
+		}
 	}
 }

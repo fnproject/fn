@@ -10,6 +10,7 @@ import (
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
+	logstoretest "github.com/fnproject/fn/api/logs/testing"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -56,6 +57,9 @@ func TestDatastore(t *testing.T) {
 	}
 	datastoretest.Test(t, f)
 
+	// also logs
+	logstoretest.Test(t, f(t))
+
 	// NOTE: sqlite3 does not like ALTER TABLE DROP COLUMN so do not run
 	// migration tests against it, only pg and mysql -- should prove UP migrations
 	// will likely work for sqlite3, but may need separate testing by devs :(
@@ -80,6 +84,9 @@ func TestDatastore(t *testing.T) {
 		// test fresh w/o migrations
 		datastoretest.Test(t, f)
 
+		// also test sql implements logstore
+		logstoretest.Test(t, f(t))
+
 		f = func(t *testing.T) models.Datastore {
 			t.Log("with migrations now!")
 			ds, err := newWithMigrations(ctx, u)
@@ -95,6 +102,9 @@ func TestDatastore(t *testing.T) {
 
 		// test that migrations work & things work with them
 		datastoretest.Test(t, f)
+
+		// also test sql implements logstore
+		logstoretest.Test(t, f(t))
 	}
 
 	if pg := os.Getenv("POSTGRES_URL"); pg != "" {

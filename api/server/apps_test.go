@@ -116,9 +116,7 @@ func TestAppDelete(t *testing.T) {
 		Name: "myapp",
 	}
 	app.SetDefaults()
-	ds := datastore.NewMockInit(
-		[]*models.App{app}, nil, nil,
-	)
+	ds := datastore.NewMockInit([]*models.App{app})
 	for i, test := range []struct {
 		ds            models.Datastore
 		logDB         models.LogStore
@@ -168,8 +166,6 @@ func TestAppList(t *testing.T) {
 			{Name: "myapp2"},
 			{Name: "myapp3"},
 		},
-		nil, // no routes
-		nil, // no calls
 	)
 	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
@@ -277,9 +273,7 @@ func TestAppUpdate(t *testing.T) {
 		Name: "myapp",
 	}
 	app.SetDefaults()
-	ds := datastore.NewMockInit(
-		[]*models.App{app}, nil, nil,
-	)
+	ds := datastore.NewMockInit([]*models.App{app})
 
 	for i, test := range []struct {
 		mock          models.Datastore
