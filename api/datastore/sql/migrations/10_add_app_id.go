@@ -22,7 +22,7 @@ var sqlStatements = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
-	annotations text NOT NULL,
+	annotations text,
 	created_at text,
 	updated_at varchar(256),
 	PRIMARY KEY (app_id, path)
