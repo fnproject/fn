@@ -448,14 +448,6 @@ func TestSubmitError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error but got none")
 	}
-
-	if cm.Status != "error" {
-		t.Fatal("expected status to be set to 'error' but was", cm.Status)
-	}
-
-	if cm.Error == "" {
-		t.Fatal("expected error string to be set on call")
-	}
 }
 
 // this implements io.Reader, but importantly, is not a strings.Reader or
