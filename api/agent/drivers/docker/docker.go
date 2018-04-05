@@ -141,8 +141,8 @@ func (drv *DockerDriver) tryUsePool(ctx context.Context, container *docker.Creat
 			// We are able to fetch a container from pool. Now, use its
 			// network, ipc and pid namespaces.
 			container.HostConfig.NetworkMode = linker
-			container.HostConfig.IpcMode = linker
-			container.HostConfig.PidMode = linker
+			//container.HostConfig.IpcMode = linker
+			//container.HostConfig.PidMode = linker
 			return id
 		}
 
