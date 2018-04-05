@@ -16,6 +16,7 @@ type AgentConfig struct {
 	HotLauncherTimeout time.Duration `json:"hot_launcher_timeout_msecs"`
 	AsyncChewPoll      time.Duration `json:"async_chew_poll_msecs"`
 	CallEndTimeout     time.Duration `json:"call_end_timeout"`
+	MaxCallEndStacking uint64        `json:"max_call_end_stacking"`
 	MaxResponseSize    uint64        `json:"max_response_size_bytes"`
 	MaxLogSize         uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
@@ -33,6 +34,7 @@ const (
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
 	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
 	EnvCallEndTimeout     = "FN_CALL_END_TIMEOUT_MSECS"
+	EnvMaxCallEndStacking = "FN_MAX_CALL_END_STACKING"
 	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE"
 	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
@@ -48,8 +50,9 @@ const (
 func NewAgentConfig() (*AgentConfig, error) {
 
 	cfg := &AgentConfig{
-		MinDockerVersion: "17.10.0-ce",
-		MaxLogSize:       1 * 1024 * 1024,
+		MinDockerVersion:   "17.10.0-ce",
+		MaxLogSize:         1 * 1024 * 1024,
+		MaxCallEndStacking: 8192,
 	}
 
 	var err error
@@ -66,6 +69,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
 	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
+	err = setEnvUint(err, EnvMaxCallEndStacking, &cfg.MaxCallEndStacking)
 
 	if err != nil {
 		return cfg, err
