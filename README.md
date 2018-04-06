@@ -119,7 +119,7 @@ That's it! You just deployed your first function and called it. Try updating the
 * View our [YouTube Channel](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * View our [API Docs](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml)
 * Check out our sub-projects: [Flow](https://github.com/fnproject/flow), [UI](https://github.com/fnproject/ui), [FnLB](https://github.com/fnproject/lb)
-* For a full presentation with lots of content you can use in your own presentations, see [The Fn Project Presentation Master](https://docs.google.com/presentation/d/1zdgzSgCfhmF_zK-ziMB_-oqG2C2xVlCE90M1aO70SqU/edit)
+* For a full presentation with lots of content you can use in your own presentations, see [The Fn Project Presentation Master](http://deck.fnproject.io)
 
 
 ## Get Help
@@ -132,9 +132,11 @@ That's it! You just deployed your first function and called it. Try updating the
 * Join our [Slack Community](http://slack.fnproject.io)
 * Learn how to [contribute](CONTRIBUTING.md)
 * See [issues](https://github.com/fnproject/fn/issues) for issues you can help with
+* Join us at one of our [Fn Events](http://events.fnproject.io) or even speak at one!
 
 ## Stay Informed
 
 * [Blog](https://medium.com/fnproject)
 * [Twitter](https://twitter.com/fnproj)
 * [YouTube](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
+* [Events](http://events.fnproject.io)
