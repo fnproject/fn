@@ -253,6 +253,16 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 	return a.handleCallEnd(ctx, call, slot, err, true)
 }
 
+func (a *agent) scheduleCallEnd(fn func()) {
+	a.wg.Add(1)
+	atomic.AddInt64(&a.callEndCount, 1)
+	go func() {
+		fn()
+		atomic.AddInt64(&a.callEndCount, -1)
+		a.wg.Done()
+	}()
+}
+
 func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
 
 	// For hot-containers, slot close is a simple channel close... No need
@@ -262,12 +272,10 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 		slot = nil
 	}
 
-	// This means call has succeeded, in order to reduce latency here
+	// This means call was routed (executed), in order to reduce latency here
 	// we perform most of these tasks in go-routine asynchronously.
 	if isCommitted {
-		a.wg.Add(1)
-		atomic.AddInt64(&a.callEndCount, 1)
-		go func() {
+		a.scheduleCallEnd(func() {
 			ctx = common.BackgroundContext(ctx)
 			if slot != nil {
 				slot.Close(ctx) // (no timeout)
@@ -275,9 +283,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
 			call.End(ctx, err)
 			cancel()
-			atomic.AddInt64(&a.callEndCount, -1)
-			a.wg.Done()
-		}()
+		})
 
 		handleStatsEnd(ctx, err)
 		return transformTimeout(err, false)
@@ -287,14 +293,9 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 	// ASAP in the background if we haven't already done so (cold-container case),
 	// in order to keep latency down.
 	if slot != nil {
-		a.wg.Add(1)
-		atomic.AddInt64(&a.callEndCount, 1)
-		go func() {
-			ctx = common.BackgroundContext(ctx)
-			slot.Close(ctx) // (no timeout)
-			atomic.AddInt64(&a.callEndCount, -1)
-			a.wg.Done()
-		}()
+		a.scheduleCallEnd(func() {
+			slot.Close(common.BackgroundContext(ctx)) // (no timeout)
+		})
 	}
 
 	handleStatsDequeue(ctx, err)
