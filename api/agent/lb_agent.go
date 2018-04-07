@@ -136,6 +136,7 @@ func (a *lbAgent) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), runnerPoolShutdownTimeout)
 	defer cancel()
 
+	close(a.shutdown)
 	a.rp.Shutdown(ctx)
 	err := a.delegatedAgent.Close()
 	a.wg.Wait()
