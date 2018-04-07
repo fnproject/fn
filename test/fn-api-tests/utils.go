@@ -23,7 +23,7 @@ import (
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func Host() string {
+func GetAPIURL() (string, *url.URL) {
 	apiURL := os.Getenv("FN_API_URL")
 	if apiURL == "" {
 		apiURL = "http://localhost:8080"
@@ -31,8 +31,13 @@ func Host() string {
 
 	u, err := url.Parse(apiURL)
 	if err != nil {
-		log.Fatalln("Couldn't parse API URL:", err)
+		log.Fatalf("Couldn't parse API URL: %s error: %s", apiURL, err)
 	}
+	return apiURL, u
+}
+
+func Host() string {
+	_, u := GetAPIURL()
 	return u.Host
 }
 
@@ -48,15 +53,36 @@ func APIClient() *client.Fn {
 
 var (
 	getServer sync.Once
-	cancel2   context.CancelFunc
 	s         *server.Server
 )
 
-func getServerWithCancel() (*server.Server, context.CancelFunc) {
-	getServer.Do(func() {
-		ctx, cancel := context.WithCancel(context.Background())
+func checkServer(ctx context.Context) error {
+	if ctx.Err() != nil {
+		log.Print("Server check failed, timeout")
+		return ctx.Err()
+	}
 
-		apiURL := "http://localhost:8080"
+	apiURL, _ := GetAPIURL()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiURL+"/version", nil)
+	if err != nil {
+		log.Panicf("Server check new request failed: %s", err)
+	}
+
+	req = req.WithContext(ctx)
+	_, err = client.Do(req)
+	if err != nil {
+		log.Printf("Server is not up... err: %s", err)
+		return err
+	}
+	return ctx.Err()
+}
+
+func startServer() {
+
+	getServer.Do(func() {
+		ctx := context.Background()
 
 		common.SetLogLevel("fatal")
 		timeString := time.Now().Format("2006_01_02_15_04_05")
@@ -71,31 +97,43 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 
 		s = server.New(ctx, server.WithDBURL(dbURL), server.WithMQURL(mqURL), server.WithFullAgent())
 
-		go s.Start(ctx)
-		started := false
-		time.AfterFunc(time.Second*10, func() {
-			if !started {
-				panic("Failed to start server.")
-			}
-		})
-		_, err := http.Get(apiURL + "/version")
-		for err != nil {
-			_, err = http.Get(apiURL + "/version")
-		}
-		started = true
-		cancel2 = context.CancelFunc(func() {
-			cancel()
+		go func() {
+			s.Start(ctx)
 			os.Remove(tmpMq)
 			os.Remove(tmpDb)
-		})
+		}()
+
+		startCtx, startCancel := context.WithDeadline(ctx, time.Now().Add(time.Duration(10)*time.Second))
+		defer startCancel()
+		for {
+			err := checkServer(startCtx)
+			if err == nil {
+				break
+			}
+			select {
+			case <-time.After(time.Second * 1):
+			case <-ctx.Done():
+			}
+			if ctx.Err() != nil {
+				log.Panic("Server check failed, timeout")
+			}
+		}
 	})
-	return s, cancel2
+
+	// check once
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(2)*time.Second))
+	defer cancel()
+	err := checkServer(ctx)
+	if err != nil {
+		log.Panicf("Server check failed: %s", err)
+	}
 }
 
 // TestHarness provides context and pre-configured clients to an individual test, it has some helper functions to create Apps and Routes that mirror the underlying client operations and clean them up after the test is complete
 // This is not goroutine safe and each test case should use its own harness.
 type TestHarness struct {
 	Context      context.Context
+	Cancel       func()
 	Client       *client.Fn
 	AppName      string
 	RoutePath    string
@@ -107,7 +145,6 @@ type TestHarness struct {
 	IdleTimeout  int32
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
-	Cancel       context.CancelFunc
 
 	createdApps map[string]bool
 }
@@ -125,6 +162,7 @@ func SetupHarness() *TestHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	ss := &TestHarness{
 		Context:      ctx,
+		Cancel:       cancel,
 		Client:       APIClient(),
 		AppName:      "fnintegrationtestapp" + RandStringBytes(10),
 		RoutePath:    "/fnintegrationtestroute" + RandStringBytes(10),
@@ -133,26 +171,13 @@ func SetupHarness() *TestHarness {
 		RouteType:    "async",
 		RouteConfig:  map[string]string{},
 		RouteHeaders: map[string][]string{},
-		Cancel:       cancel,
 		Memory:       uint64(256),
 		Timeout:      int32(30),
 		IdleTimeout:  int32(30),
 		createdApps:  make(map[string]bool),
 	}
 
-	if Host() != "localhost:8080" {
-		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
-		if ok != nil {
-			panic("Cannot reach remote api for functions")
-		}
-	} else {
-		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
-		if ok != nil {
-			_, cancel := getServerWithCancel()
-			ss.Cancel = cancel
-		}
-	}
-
+	startServer()
 	return ss
 }
 
