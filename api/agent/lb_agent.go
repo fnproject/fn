@@ -182,9 +182,6 @@ func (a *lbAgent) Submit(callI Call) error {
 func (a *lbAgent) submit(ctx context.Context, call *call) error {
 	statsEnqueue(ctx)
 
-	a.startStateTrackers(ctx, call)
-	defer a.endStateTrackers(ctx, call)
-
 	slot := &remoteSlot{lbAgent: a}
 
 	defer slot.Close(ctx) // notify our slot is free once we're done
@@ -215,14 +212,4 @@ func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	logrus.Fatal("Enqueue not implemented. Panicking.")
 	return nil
-}
-
-func (a *lbAgent) startStateTrackers(ctx context.Context, call *call) {
-	delegatedAgent := a.delegatedAgent.(*agent)
-	delegatedAgent.startStateTrackers(ctx, call)
-}
-
-func (a *lbAgent) endStateTrackers(ctx context.Context, call *call) {
-	delegatedAgent := a.delegatedAgent.(*agent)
-	delegatedAgent.endStateTrackers(ctx, call)
 }
