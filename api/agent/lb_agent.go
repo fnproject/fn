@@ -8,33 +8,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/fnext"
 )
-
-type remoteSlot struct {
-	lbAgent *lbAgent
-}
-
-func (s *remoteSlot) exec(ctx context.Context, call pool.RunnerCall) error {
-	a := s.lbAgent
-
-	err := a.placer.PlaceCall(a.rp, ctx, call)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to place call")
-	}
-	return err
-}
-
-func (s *remoteSlot) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *remoteSlot) Error() error {
-	return nil
-}
 
 type naivePlacer struct {
 }
@@ -76,8 +53,13 @@ func (sp *naivePlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call p
 			if remaining <= 0 {
 				return models.ErrCallTimeoutServerBusy
 			}
+
 			// backoff
-			time.Sleep(minDuration(retryWaitInterval, remaining))
+			select {
+			case <-ctx.Done():
+			case <-timeout:
+			case <-time.After(minDuration(retryWaitInterval, remaining)):
+			}
 		}
 	}
 }
@@ -183,27 +165,19 @@ func (a *lbAgent) Submit(callI Call) error {
 func (a *lbAgent) submit(ctx context.Context, call *call) error {
 	statsEnqueue(ctx)
 
-	slot := &remoteSlot{lbAgent: a}
-
-	defer slot.Close(ctx) // notify our slot is free once we're done
-
 	err := call.Start(ctx)
 	if err != nil {
-		handleStatsDequeue(ctx, err)
-		return transformTimeout(err, true)
+		return a.handleCallEnd(ctx, call, err, false)
 	}
 
 	statsDequeueAndStart(ctx)
 
-	// pass this error (nil or otherwise) to end directly, to store status, etc
-	err = slot.exec(ctx, call)
-	handleStatsEnd(ctx, err)
+	err = a.placer.PlaceCall(a.rp, ctx, call)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to place call")
+	}
 
-	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
-	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = common.BackgroundContext(ctx)
-	err = call.End(ctx, err)
-	return transformTimeout(err, false)
+	return a.handleCallEnd(ctx, call, err, true)
 }
 
 func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
@@ -213,4 +187,9 @@ func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	logrus.Fatal("Enqueue not implemented. Panicking.")
 	return nil
+}
+
+func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isCommitted bool) error {
+	delegatedAgent := a.delegatedAgent.(*agent)
+	return delegatedAgent.handleCallEnd(ctx, call, nil, err, isCommitted)
 }
