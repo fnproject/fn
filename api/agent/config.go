@@ -87,9 +87,6 @@ func NewAgentConfig() (*AgentConfig, error) {
 		return cfg, err
 	}
 
-	cfg.PreForkImage = os.Getenv(EnvPreForkImage)
-	cfg.PreForkCmd = os.Getenv(EnvPreForkCmd)
-
 	if _, ok := os.LookupEnv(EnvEnableNBResourceTracker); ok {
 		cfg.EnableNBResourceTracker = true
 	}
