@@ -57,7 +57,9 @@ func (sp *naivePlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call p
 			// backoff
 			select {
 			case <-ctx.Done():
+				return models.ErrCallTimeoutServerBusy
 			case <-timeout:
+				return models.ErrCallTimeoutServerBusy
 			case <-time.After(minDuration(retryWaitInterval, remaining)):
 			}
 		}
