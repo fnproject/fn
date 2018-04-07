@@ -138,6 +138,7 @@ func (a *lbAgent) Close() error {
 
 	a.rp.Shutdown(ctx)
 	err := a.delegatedAgent.Close()
+	a.wg.Wait()
 	if err != nil {
 		return err
 	}
