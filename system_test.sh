@@ -24,7 +24,6 @@ case "$1" in
     MYSQL_HOST=`host ${DB_CONTAINER}`
     MYSQL_PORT=3307
     export FN_DB_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
-    wait_for_db ${MYSQL_HOST} ${MYSQL_PORT} 5
     ;;
 
     "postgres" )
@@ -34,7 +33,6 @@ case "$1" in
     POSTGRES_HOST=`host ${DB_CONTAINER}`
     POSTGRES_PORT=5433
     export FN_DB_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable"
-    wait_for_db ${POSTGRES_HOST} ${POSTGRES_PORT} 5
     ;;
 esac
 
