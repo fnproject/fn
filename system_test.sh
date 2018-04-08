@@ -39,7 +39,8 @@ case "$1" in
 esac
 
 # avoid port conflicts with api_test.sh which are run in parallel
-FN_API_URL="http://localhost:8085"
+export FN_API_URL="http://localhost:8085"
+export FN_DS_DB_PING_MAX_RETRIES=60
 cd test/fn-system-tests && FN_DB_URL=${FN_DB_URL} FN_API_URL=${FN_API_URL} go test -v -parallel ${2:-1} ./...; cd ../../
 
 remove_system_containers
