@@ -194,7 +194,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	opts = append(opts, server.WithWebPort(8082+nodeNum))
 	opts = append(opts, server.WithGRPCPort(9190+nodeNum))
 	opts = append(opts, server.WithType(nodeType))
-	opts = append(opts, server.WithLogLevel(server.DefaultLogLevel))
+	opts = append(opts, server.WithLogLevel("debug"))
 	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "PURE-RUNNER"))
 	opts = append(opts, server.WithDBURL(""))
 	opts = append(opts, server.WithMQURL(""))
