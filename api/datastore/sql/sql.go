@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,6 +91,8 @@ const (
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
+
+	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
 
 type sqlStore struct {
@@ -136,8 +139,9 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 	}
 
 	db := sqlx.NewDb(sqldb, driver)
+
 	// force a connection and test that it worked
-	err = pingWithRetry(ctx, 10, time.Second*1, db)
+	err = pingWithRetry(ctx, db)
 	if err != nil {
 		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't ping db")
 		return nil, err
@@ -169,13 +173,33 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 	return sdb, nil
 }
 
-func pingWithRetry(ctx context.Context, attempts int, sleep time.Duration, db *sqlx.DB) (err error) {
-	for i := 0; i < attempts; i++ {
+func pingWithRetry(ctx context.Context, db *sqlx.DB) (err error) {
+
+	attempts := int64(10)
+	if tmp := os.Getenv(EnvDBPingMaxRetries); tmp != "" {
+		attempts, err = strconv.ParseInt(tmp, 10, 64)
+		if err != nil {
+			return fmt.Errorf("cannot parse (%s) invalid %s=%s", err, EnvDBPingMaxRetries, tmp)
+		}
+		if attempts < 0 {
+			return fmt.Errorf("cannot parse invalid %s=%s", EnvDBPingMaxRetries, tmp)
+		}
+	}
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	for i := int64(0); i < attempts; i++ {
 		err = db.PingContext(ctx)
 		if err == nil {
 			return nil
 		}
-		time.Sleep(sleep)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second * 1):
+		}
 	}
 	return err
 }
