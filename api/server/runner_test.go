@@ -166,13 +166,14 @@ func TestRouteRunnerFastFail(t *testing.T) {
 	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
 	rImg := "fnproject/fn-test-utils"
 
+	app := &models.App{Name: "foo"}
+	app.SetDefaults()
+
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "foo", Config: models.Config{}},
-		},
+		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/json", AppName: "foo", Image: rImg, Type: "sync", Format: "json", Memory: 80, Timeout: 30, IdleTimeout: 30, Config: rCfg},
-		}, nil,
+			{Path: "/json", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 80, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
