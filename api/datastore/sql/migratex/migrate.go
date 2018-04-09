@@ -76,25 +76,19 @@ func (m MigFields) Version() int64                              { return m.Versi
 
 // TODO instance must have `multiStatements` set to true ?
 
-func Up(ctx context.Context, db *sqlx.DB, migs []Migration) error {
-	return migrate(ctx, db, migs, true)
+func Up(ctx context.Context, tx *sqlx.Tx, migs []Migration) error {
+	return migrate(ctx, tx, migs, true)
 }
 
-func Down(ctx context.Context, db *sqlx.DB, migs []Migration) error {
-	return migrate(ctx, db, migs, false)
+func Down(ctx context.Context, tx *sqlx.Tx, migs []Migration) error {
+	return migrate(ctx, tx, migs, false)
 }
 
-func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error {
-	var curVersion int64 // could be NilVersion, is ok
-	err := tx(ctx, db, func(tx *sqlx.Tx) error {
-		var dirty bool
-		var err error
-		curVersion, dirty, err = Version(ctx, tx)
-		if dirty {
-			return dirtyErr(curVersion)
-		}
-		return err
-	})
+func migrate(ctx context.Context, tx *sqlx.Tx, migs []Migration, up bool) error {
+	curVersion, dirty, err := Version(ctx, tx)
+	if dirty {
+		return dirtyErr(curVersion)
+	}
 	if err != nil {
 		return err
 	}
@@ -119,7 +113,7 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 			// XXX(reed): we could more gracefully handle concurrent databases trying to
 			// run migrations here by handling error and feeding back the version.
 			// get something working mode for now...
-			err := run(ctx, db, m, up)
+			err := run(ctx, tx, m, up)
 			if err != nil {
 				return err
 			}
@@ -127,19 +121,6 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 	}
 
 	return nil
-}
-
-func tx(ctx context.Context, db *sqlx.DB, f func(*sqlx.Tx) error) error {
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	err = f(tx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
 }
 
 func withLock(ctx context.Context, tx *sqlx.Tx, f func(*sqlx.Tx) error) error {
@@ -188,45 +169,43 @@ func (m MultiError) Error() string {
 	return strings.Join(strs, "\n")
 }
 
-func run(ctx context.Context, db *sqlx.DB, m Migration, up bool) error {
-	return tx(ctx, db, func(tx *sqlx.Tx) error {
-		return withLock(ctx, tx, func(tx *sqlx.Tx) error {
-			// within the transaction, we need to check the version and ensure this
-			// migration has not already been applied.
-			curVersion, dirty, err := Version(ctx, tx)
-			if dirty {
-				return dirtyErr(curVersion)
-			}
+func run(ctx context.Context, tx *sqlx.Tx, m Migration, up bool) error {
+	return withLock(ctx, tx, func(tx *sqlx.Tx) error {
+		// within the transaction, we need to check the version and ensure this
+		// migration has not already been applied.
+		curVersion, dirty, err := Version(ctx, tx)
+		if dirty {
+			return dirtyErr(curVersion)
+		}
 
-			// enforce monotonicity
-			if up && curVersion != NilVersion && m.Version() != curVersion+1 {
-				return fmt.Errorf("non-contiguous migration attempted up: %v != %v", m.Version(), curVersion+1)
-			} else if !up && m.Version() != curVersion { // down is always unraveling
-				return fmt.Errorf("non-contiguous migration attempted down: %v != %v", m.Version(), curVersion)
-			}
+		// enforce monotonicity
+		if up && curVersion != NilVersion && m.Version() != curVersion+1 {
+			return fmt.Errorf("non-contiguous migration attempted up: %v != %v", m.Version(), curVersion+1)
+		} else if !up && m.Version() != curVersion { // down is always unraveling
+			return fmt.Errorf("non-contiguous migration attempted down: %v != %v", m.Version(), curVersion)
+		}
 
-			// TODO is this robust enough? we could check
-			version := m.Version()
-			if !up {
-				version = m.Version() - 1
-			}
+		// TODO is this robust enough? we could check
+		version := m.Version()
+		if !up {
+			version = m.Version() - 1
+		}
 
-			// TODO we don't need the dirty bit anymore since we're using transactions?
-			err = SetVersion(ctx, tx, version, true)
+		// TODO we don't need the dirty bit anymore since we're using transactions?
+		err = SetVersion(ctx, tx, version, true)
 
-			if up {
-				err = m.Up(ctx, tx)
-			} else {
-				err = m.Down(ctx, tx)
-			}
+		if up {
+			err = m.Up(ctx, tx)
+		} else {
+			err = m.Down(ctx, tx)
+		}
 
-			if err != nil {
-				return migrateErr(version, up, err)
-			}
+		if err != nil {
+			return migrateErr(version, up, err)
+		}
 
-			err = SetVersion(ctx, tx, version, false)
-			return err
-		})
+		err = SetVersion(ctx, tx, version, false)
+		return err
 	})
 }
 

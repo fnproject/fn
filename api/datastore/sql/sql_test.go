@@ -25,7 +25,18 @@ func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		return nil, err
 	}
 
-	err = migratex.Down(ctx, ds.db, migrations.Migrations)
+	tx, err := ds.db.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
+	err = migratex.Down(ctx, tx, migrations.Migrations)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}
