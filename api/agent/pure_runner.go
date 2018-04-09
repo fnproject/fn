@@ -428,7 +428,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		c:             nil,
 		input:         nil,
 		started:       false,
-		done:          make(chan error),
+		done:          make(chan error, 1),
 		streamError:   nil,
 		outHeaders:    make(http.Header),
 		outStatus:     200,
