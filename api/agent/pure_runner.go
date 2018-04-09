@@ -28,6 +28,29 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
+/*
+	Pure Runner (implements Agent) proxies gRPC requests to the actual Agent instance. This is
+	done using http.ResponseWriter interfaces where Agent pushes the function I/O through:
+	1) Function output to pure runner is received through callHandle http.ResponseWriter interface.
+	2) Function input from pure runner to Agent is processed through callHandle io.PipeWriter.
+	3) LB to runner input is handled via receiver (inQueue)
+	4) runner to LB output is handled via sender (outQueue)
+
+	The flow of events is as follows:
+
+	1) LB sends ClientMsg_Try to runner
+	2) Runner allocates its resources and sends an ACK: RunnerMsg_Acknowledged
+	3) LB sends ClientMsg_Data messages with an EOF for last message set.
+	4) Runner upon receiving with ClientMsg_Data calls agent.Submit()
+	5) agent.Submit starts reading data from callHandle io.PipeReader, this reads
+		data from LB via gRPC receiver (inQueue).
+	6) agent.Submit starts sending data via callHandle http.ResponseWriter interface,
+		which is pushed to gRPC sender (outQueue) to the LB.
+	7) agent.Submit() completes, this means, the Function I/O is now completed.
+	8) Runner finalizes gRPC session with RunnerMsg_Finished to LB.
+
+*/
+
 var (
 	ErrorExpectedTry  = errors.New("Protocol failure: expected ClientMsg_Try")
 	ErrorExpectedData = errors.New("Protocol failure: expected ClientMsg_Data")
@@ -56,10 +79,17 @@ type callHandle struct {
 	doneQueue chan struct{}
 	errQueue  chan error
 	inQueue   chan *runner.ClientMsg
-	pipeToFn  io.WriteCloser
+
+	// Pipe to push data to the agent Function container
+	pipeToFnW *io.PipeWriter
+	pipeToFnR *io.PipeReader
 }
 
 func NewCallHandle(engagement runner.RunnerProtocol_EngageServer) *callHandle {
+
+	// set up a pipe to push data to agent Function container
+	pipeR, pipeW := io.Pipe()
+
 	state := &callHandle{
 		engagement: engagement,
 		ctx:        engagement.Context(),
@@ -69,24 +99,31 @@ func NewCallHandle(engagement runner.RunnerProtocol_EngageServer) *callHandle {
 		doneQueue:  make(chan struct{}),
 		errQueue:   make(chan error, 1), // always allow one error (buffered)
 		inQueue:    make(chan *runner.ClientMsg),
+		pipeToFnW:  pipeW,
+		pipeToFnR:  pipeR,
 	}
 
-	// spawn receiver and sender go-routines. We can work
-	// concurrently on engagement Send()/Recv() separately, but multiple
-	// go-routines cannot issue Send() at the same time.
+	// spawn one receiver and one sender go-routine.
+	// See: https://grpc.io/docs/reference/go/generated-code.html, which reads:
+	//   "Thread-safety: note that client-side RPC invocations and server-side RPC handlers
+	//   are thread-safe and are meant to be run on concurrent goroutines. But also note that
+	//   for individual streams, incoming and outgoing data is bi-directional but serial;
+	//   so e.g. individual streams do not support concurrent reads or concurrent writes
+	//   (but reads are safely concurrent with writes)."
 	state.spawnReceiver()
 	state.spawnSender()
 	return state
 }
 
+// closePipeToFn closes the pipe that feeds data to the function in agent.
 func (ch *callHandle) closePipeToFn() {
 	ch.pipeToFnCloseOnce.Do(func() {
-		if ch.pipeToFn != nil {
-			ch.pipeToFn.Close()
-		}
+		ch.pipeToFnW.Close()
 	})
 }
 
+// finalize initiates a graceful shutdown of the session. This is
+// currently achieved by a sentinel nil enqueue to gRPC sender.
 func (ch *callHandle) finalize() error {
 	// final sentinel nil msg for graceful shutdown
 	err := ch.enqueueMsg(nil)
@@ -96,6 +133,8 @@ func (ch *callHandle) finalize() error {
 	return err
 }
 
+// shutdown initiates a shutdown and terminates the gRPC session with
+// a given error.
 func (ch *callHandle) shutdown(err error) {
 
 	ch.closePipeToFn()
@@ -115,6 +154,8 @@ func (ch *callHandle) shutdown(err error) {
 	})
 }
 
+// waitError waits until the session is completed and results
+// any queued error if there is any.
 func (ch *callHandle) waitError() error {
 	select {
 	case <-ch.ctx.Done():
@@ -135,6 +176,7 @@ func (ch *callHandle) waitError() error {
 	return err
 }
 
+// enqueueMsg attempts to queue a message to the gRPC sender
 func (ch *callHandle) enqueueMsg(msg *runner.RunnerMsg) error {
 	select {
 	case ch.outQueue <- msg:
@@ -145,6 +187,8 @@ func (ch *callHandle) enqueueMsg(msg *runner.RunnerMsg) error {
 	return io.EOF
 }
 
+// enqueueMsgStricy enqueues a message to the gRPC sender and if
+// that fails then initiates an error case shutdown.
 func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	err := ch.enqueueMsg(msg)
 	if err != nil {
@@ -153,6 +197,8 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
+// enqueueCallResponse enqueues a Submit() response to the LB
+// and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
 	defer ch.finalize()
 
@@ -182,6 +228,9 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		}}})
 }
 
+// enqueueAck enqueues a ACK or NACK response to the LB for ClientMsg_Try
+// request. If NACK, then it also initiates a graceful shutdown of the
+// session.
 func (ch *callHandle) enqueueAck(err error) error {
 	// NACK
 	if err != nil {
@@ -205,6 +254,8 @@ func (ch *callHandle) enqueueAck(err error) error {
 		}}})
 }
 
+// spawnPipeToFn pumps data to Function via callHandle io.PipeWriter (pipeToFnW)
+// which is fed using input channel.
 func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
 
 	input := make(chan *runner.DataFrame)
@@ -222,7 +273,7 @@ func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
 				}
 
 				if len(data.Data) > 0 {
-					_, err := io.CopyN(ch.pipeToFn, bytes.NewReader(data.Data), int64(len(data.Data)))
+					_, err := io.CopyN(ch.pipeToFnW, bytes.NewReader(data.Data), int64(len(data.Data)))
 					if err != nil {
 						ch.shutdown(err)
 						return
@@ -238,6 +289,8 @@ func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
 	return input
 }
 
+// spawnReceiver starts a gRPC receiver, which
+// feeds received LB messages into inQueue
 func (ch *callHandle) spawnReceiver() {
 
 	go func() {
@@ -260,6 +313,8 @@ func (ch *callHandle) spawnReceiver() {
 	}()
 }
 
+// spawnSender starts a gRPC sender, which
+// pumps messages from outQueue to the LB.
 func (ch *callHandle) spawnSender() {
 	go func() {
 		for {
@@ -283,14 +338,20 @@ func (ch *callHandle) spawnSender() {
 	}()
 }
 
+// Header implements http.ResponseWriter, which
+// is used by Agent to push headers to pure runner
 func (ch *callHandle) Header() http.Header {
 	return ch.headers
 }
 
+// WriteHeader implements http.ResponseWriter, which
+// is used by Agent to push http status to pure runner
 func (ch *callHandle) WriteHeader(status int) {
 	ch.status = status
 }
 
+// prepHeaders is a utility function to compile http headers
+// into a flat array.
 func (ch *callHandle) prepHeaders() []*runner.HttpHeader {
 	var headers []*runner.HttpHeader
 	for h, vals := range ch.headers {
@@ -304,6 +365,10 @@ func (ch *callHandle) prepHeaders() []*runner.HttpHeader {
 	return headers
 }
 
+// Write implements http.ResponseWriter, which
+// is used by Agent to push http data to pure runner. The
+// received data is pushed to LB via gRPC sender queue.
+// Write also sends http headers/state to the LB.
 func (ch *callHandle) Write(data []byte) (int, error) {
 	var err error
 	ch.headerOnce.Do(func() {
@@ -346,6 +411,8 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+// getTryMsg fetches/waits for a TryCall message from
+// the LB using inQueue (gRPC receiver)
 func (ch *callHandle) getTryMsg() *runner.TryCall {
 	var msg *runner.TryCall
 
@@ -363,6 +430,8 @@ func (ch *callHandle) getTryMsg() *runner.TryCall {
 	return msg
 }
 
+// getDataMsg fetches/waits for a DataFrame message from
+// the LB using inQueue (gRPC receiver)
 func (ch *callHandle) getDataMsg() *runner.DataFrame {
 	var msg *runner.DataFrame
 
@@ -478,6 +547,8 @@ func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	}()
 }
 
+// handleTryCall based on the TryCall message, allocates a resource/capacity reservation
+// and creates callHandle.c with agent.call.
 func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) (capacityDeallocator, error) {
 	state.receivedTime = strfmt.DateTime(time.Now())
 	var c models.Call
@@ -496,12 +567,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) (capa
 		pr.capacity.ReleaseCapacity(c.Memory)
 	}
 
-	// Proceed!
-	var w http.ResponseWriter
-	w = state
-	inR, inW := io.Pipe()
-	state.pipeToFn = inW
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, inR), WithWriter(w))
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state))
 	if err != nil {
 		return cleanup, err
 	}
