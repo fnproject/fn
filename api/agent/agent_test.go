@@ -3,6 +3,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -391,6 +392,17 @@ func TestLoggerTooBig(t *testing.T) {
 	logger.Close()
 }
 
+type testListener struct {
+	afterCall func(context.Context, *models.Call) error
+}
+
+func (l testListener) AfterCall(ctx context.Context, call *models.Call) error {
+	return l.afterCall(ctx, call)
+}
+func (l testListener) BeforeCall(context.Context, *models.Call) error {
+	return nil
+}
+
 func TestSubmitError(t *testing.T) {
 	app := &models.App{Name: "myapp"}
 	app.SetDefaults()
@@ -439,6 +451,23 @@ func TestSubmitError(t *testing.T) {
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	afterCall := func(ctx context.Context, call *models.Call) error {
+		defer wg.Done()
+		if cm.Status != "error" {
+			t.Fatal("expected status to be set to 'error' but was", cm.Status)
+		}
+
+		if cm.Error == "" {
+			t.Fatal("expected error string to be set on call")
+		}
+		return nil
+	}
+
+	a.AddCallListener(&testListener{afterCall: afterCall})
+
 	callI, err := a.GetCall(FromModel(cm))
 	if err != nil {
 		t.Fatal(err)
@@ -448,6 +477,8 @@ func TestSubmitError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error but got none")
 	}
+
+	wg.Wait()
 }
 
 // this implements io.Reader, but importantly, is not a strings.Reader or
