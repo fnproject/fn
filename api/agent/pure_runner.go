@@ -87,6 +87,15 @@ func (ch *callHandle) closePipeToFn() {
 	})
 }
 
+func (ch *callHandle) finalize() error {
+	// final sentinel nil msg for graceful shutdown
+	err := ch.enqueueMsg(nil)
+	if err != nil {
+		ch.shutdown(err)
+	}
+	return err
+}
+
 func (ch *callHandle) shutdown(err error) {
 
 	ch.closePipeToFn()
@@ -136,86 +145,64 @@ func (ch *callHandle) enqueueMsg(msg *runner.RunnerMsg) error {
 	return io.EOF
 }
 
-func (ch *callHandle) enqueueCallResponse(err error) {
-
+func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
+	err := ch.enqueueMsg(msg)
 	if err != nil {
-		err := ch.enqueueMsg(&runner.RunnerMsg{
+		ch.shutdown(err)
+	}
+	return err
+}
+
+func (ch *callHandle) enqueueCallResponse(err error) {
+	defer ch.finalize()
+
+	// Error response
+	if err != nil {
+		ch.enqueueMsgStrict(&runner.RunnerMsg{
 			Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 				Success: false,
 				Details: fmt.Sprintf("%v", err),
 			}}})
-		if err != nil {
-			ch.shutdown(err)
-			return
-		}
+		return
 	}
 
-	err = ch.enqueueMsg(&runner.RunnerMsg{
+	// EOF and Success response
+	ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
 			Data: &runner.DataFrame{
 				Eof: true,
 			},
 		},
 	})
-	if err != nil {
-		ch.shutdown(err)
-		return
-	}
 
-	err = ch.enqueueMsg(&runner.RunnerMsg{
+	ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
 			Success: true,
 			Details: ch.c.Model().ID,
 		}}})
-	if err != nil {
-		ch.shutdown(err)
-		return
-	}
-
-	// final sentinel nil msg
-	err = ch.enqueueMsg(nil)
-	if err != nil {
-		ch.shutdown(err)
-		return
-	}
 }
 
 func (ch *callHandle) enqueueAck(err error) error {
-
 	// NACK
 	if err != nil {
-		msg := &runner.RunnerMsg{
+		err = ch.enqueueMsgStrict(&runner.RunnerMsg{
 			Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
 				Committed: false,
 				Details:   fmt.Sprintf("%v", err),
-			}}}
-
-		err = ch.enqueueMsg(msg)
+			}}})
 		if err != nil {
-			ch.shutdown(err)
 			return err
 		}
-		err = ch.enqueueMsg(nil)
-		if err != nil {
-			ch.shutdown(err)
-			return err
-		}
-		return nil
+		return ch.finalize()
 	}
 
 	// ACK
-	msg := &runner.RunnerMsg{
+	return ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
 			Committed:             true,
 			Details:               ch.c.Model().ID,
 			SlotAllocationLatency: time.Time(ch.allocatedTime).Sub(time.Time(ch.receivedTime)).String(),
-		}}}
-
-	err = ch.enqueueMsg(msg)
-	if err != nil {
-		ch.shutdown(err)
-	}
-	return err
+		}}})
 }
 
 func (ch *callHandle) spawnPipeToFn() chan *runner.DataFrame {
@@ -326,7 +313,7 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		// protocol/json.go, agent.go, etc. In practice however, one go routine
 		// accesses them (which also compiles and writes headers), but this
 		// is fragile and needs to be fortified.
-		msg := &runner.RunnerMsg{
+		err = ch.enqueueMsg(&runner.RunnerMsg{
 			Body: &runner.RunnerMsg_ResultStart{
 				ResultStart: &runner.CallResultStart{
 					Meta: &runner.CallResultStart_Http{
@@ -337,25 +324,22 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 					},
 				},
 			},
-		}
-
-		err = ch.enqueueMsg(msg)
+		})
 	})
 
 	if err != nil {
 		return 0, err
 	}
 
-	msg := &runner.RunnerMsg{
+	err = ch.enqueueMsg(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
 			Data: &runner.DataFrame{
 				Data: data,
 				Eof:  false,
 			},
 		},
-	}
+	})
 
-	err = ch.enqueueMsg(msg)
 	if err != nil {
 		return 0, err
 	}
