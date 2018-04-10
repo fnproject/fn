@@ -145,7 +145,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	placer := agent.NewNaivePlacer()
+	placer := pool.NewNaivePlacer()
 	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
 	if err != nil {
 		return nil, err
