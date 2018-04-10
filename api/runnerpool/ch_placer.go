@@ -1,7 +1,7 @@
 /* The consistent hash ring from the original fnlb.
    The behaviour of this depends on changes to the runner list leaving it relatively stable.
 */
-package agent
+package runnerpool
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runnerpool"
 
 	"github.com/dchest/siphash"
 	"github.com/sirupsen/logrus"
@@ -17,7 +16,7 @@ import (
 
 type chPlacer struct{}
 
-func NewCHPlacer() runnerpool.Placer {
+func NewCHPlacer() Placer {
 	logrus.Info("Creating new CH runnerpool placer")
 	return &chPlacer{}
 }
@@ -25,7 +24,7 @@ func NewCHPlacer() runnerpool.Placer {
 // This borrows the CH placement algorithm from the original FNLB.
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
-func (p *chPlacer) PlaceCall(rp runnerpool.RunnerPool, ctx context.Context, call runnerpool.RunnerCall) error {
+func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
 	// The key is just the path in this case
 	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))

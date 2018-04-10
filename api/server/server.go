@@ -448,9 +448,9 @@ func WithAgentFromEnv() ServerOption {
 			var placer pool.Placer
 			switch getEnv(EnvLBPlacementAlg, "") {
 			case "ch":
-				placer = agent.NewCHPlacer()
+				placer = pool.NewCHPlacer()
 			default:
-				placer = agent.NewNaivePlacer()
+				placer = pool.NewNaivePlacer()
 			}
 
 			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)

@@ -1,4 +1,4 @@
-package agent
+package runnerpool
 
 import (
 	"context"
@@ -6,19 +6,23 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/fnproject/fn/api/runnerpool"
 
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	// sleep time to attempt placement across all runners before retrying
+	retryWaitInterval = 10 * time.Millisecond
+)
+
 type naivePlacer struct{}
 
-func NewNaivePlacer() runnerpool.Placer {
+func NewNaivePlacer() Placer {
 	logrus.Info("Creating new naive runnerpool placer")
 	return &naivePlacer{}
 }
 
-func (sp *naivePlacer) PlaceCall(rp runnerpool.RunnerPool, ctx context.Context, call runnerpool.RunnerCall) error {
+func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
 	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
 
 	for {
