@@ -298,6 +298,10 @@ func (ch *callHandle) spawnReceiver() {
 		for {
 			msg, err := ch.engagement.Recv()
 			if err != nil {
+				// engagement is close/cancelled from client.
+				if err == io.EOF {
+					return
+				}
 				ch.shutdown(err)
 				return
 			}
@@ -422,10 +426,10 @@ func (ch *callHandle) getTryMsg() *runner.TryCall {
 	case item := <-ch.inQueue:
 		if item != nil {
 			msg = item.GetTry()
-			if msg == nil {
-				ch.shutdown(ErrorExpectedTry)
-			}
 		}
+	}
+	if msg == nil {
+		ch.shutdown(ErrorExpectedTry)
 	}
 	return msg
 }
@@ -441,10 +445,10 @@ func (ch *callHandle) getDataMsg() *runner.DataFrame {
 	case item := <-ch.inQueue:
 		if item != nil {
 			msg = item.GetData()
-			if msg == nil {
-				ch.shutdown(ErrorExpectedData)
-			}
 		}
+	}
+	if msg == nil {
+		ch.shutdown(ErrorExpectedData)
 	}
 	return msg
 }
@@ -612,6 +616,7 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	}
 
 	var dataFeed chan *runner.DataFrame
+DataLoop:
 	for {
 		dataMsg := state.getDataMsg()
 		if dataMsg == nil {
@@ -625,10 +630,13 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 
 		select {
 		case dataFeed <- dataMsg:
+			if dataMsg.Eof {
+				break DataLoop
+			}
 		case <-state.doneQueue:
-			break
+			break DataLoop
 		case <-state.ctx.Done():
-			break
+			break DataLoop
 		}
 	}
 
