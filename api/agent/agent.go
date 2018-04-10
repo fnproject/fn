@@ -238,37 +238,68 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	slot, err := a.getSlot(ctx, call)
 	if err != nil {
-		handleStatsDequeue(ctx, err)
-		return transformTimeout(err, true)
+		return a.handleCallEnd(ctx, call, slot, err, false)
 	}
-	defer slot.Close(ctx) // notify our slot is free once we're done
 
 	err = call.Start(ctx)
 	if err != nil {
-		handleStatsDequeue(ctx, err)
-		return transformTimeout(err, true)
+		return a.handleCallEnd(ctx, call, slot, err, false)
 	}
 
 	statsDequeueAndStart(ctx)
 
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	err = slot.exec(ctx, call)
-	handleStatsEnd(ctx, err)
-	a.handleCallEnd(ctx, call, err)
-	return transformTimeout(err, false)
+	return a.handleCallEnd(ctx, call, slot, err, true)
 }
 
-func (a *agent) handleCallEnd(ctx context.Context, call *call, err error) {
+func (a *agent) scheduleCallEnd(fn func()) {
 	a.wg.Add(1)
 	atomic.AddInt64(&a.callEndCount, 1)
 	go func() {
-		ctx = common.BackgroundContext(ctx)
-		ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
-		call.End(ctx, err)
-		cancel()
+		fn()
 		atomic.AddInt64(&a.callEndCount, -1)
 		a.wg.Done()
 	}()
+}
+
+func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
+
+	// For hot-containers, slot close is a simple channel close... No need
+	// to handle it async. Execute it here ASAP
+	if slot != nil && protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		slot.Close(ctx)
+		slot = nil
+	}
+
+	// This means call was routed (executed), in order to reduce latency here
+	// we perform most of these tasks in go-routine asynchronously.
+	if isCommitted {
+		a.scheduleCallEnd(func() {
+			ctx = common.BackgroundContext(ctx)
+			if slot != nil {
+				slot.Close(ctx) // (no timeout)
+			}
+			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
+			call.End(ctx, err)
+			cancel()
+		})
+
+		handleStatsEnd(ctx, err)
+		return transformTimeout(err, false)
+	}
+
+	// The call did not succeed. And it is retriable. We close the slot
+	// ASAP in the background if we haven't already done so (cold-container case),
+	// in order to keep latency down.
+	if slot != nil {
+		a.scheduleCallEnd(func() {
+			slot.Close(common.BackgroundContext(ctx)) // (no timeout)
+		})
+	}
+
+	handleStatsDequeue(ctx, err)
+	return transformTimeout(err, true)
 }
 
 func transformTimeout(e error, isRetriable bool) error {
@@ -522,10 +553,6 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 
 func (s *coldSlot) Close(ctx context.Context) error {
 	if s.cookie != nil {
-		// call this from here so that in exec we don't have to eat container
-		// removal latency
-		// NOTE ensure container removal, no ctx timeout
-		ctx = common.BackgroundContext(ctx)
 		s.cookie.Close(ctx)
 	}
 	if s.tok != nil {

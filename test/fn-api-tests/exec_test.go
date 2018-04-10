@@ -314,11 +314,19 @@ func TestCanWriteLogs(t *testing.T) {
 	}
 
 	// TODO this test is redundant we have 3 tests for this?
-	_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Error(err.Error())
-	}
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
 
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	} else {
+		_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		if err != nil {
+			t.Error(err.Error())
+		}
+	}
 }
 
 func TestOversizedLog(t *testing.T) {
@@ -353,10 +361,18 @@ func TestOversizedLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Error(err.Error())
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
+
+	if retryErr != nil {
+		t.Error(retryErr.Error())
 	} else {
+		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		if err != nil {
+			t.Error(err.Error())
+		}
 		log := logObj.Payload.Log.Log
 		if len(log) >= size {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
