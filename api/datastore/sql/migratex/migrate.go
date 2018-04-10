@@ -12,6 +12,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -276,7 +277,8 @@ func unlock(ctx context.Context, tx *sqlx.Tx) error {
 func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) error {
 	err := ensureVersionTable(ctx, tx)
 	if err != nil {
-		return nil
+		logrus.WithError(err).Error("error ensuring version table")
+		return err
 	}
 
 	// TODO need to handle down migration better
@@ -284,12 +286,14 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 	// this just nukes the whole table which is kinda lame.
 	query := tx.Rebind("DELETE FROM " + MigrationsTable)
 	if _, err := tx.Exec(query); err != nil {
+		logrus.WithError(err).Error("error deleting version table")
 		return err
 	}
 
 	if version >= 0 {
 		query = tx.Rebind(`INSERT INTO ` + MigrationsTable + ` (version, dirty) VALUES (?, ?)`)
 		if _, err := tx.ExecContext(ctx, query, version, dirty); err != nil {
+			logrus.WithError(err).Error("error updating version table")
 			return err
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	logstoretest "github.com/fnproject/fn/api/logs/testing"
 	"github.com/fnproject/fn/api/models"
+	"github.com/jmoiron/sqlx"
 )
 
 // since New with fresh dbs skips all migrations:
@@ -25,18 +26,9 @@ func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		return nil, err
 	}
 
-	tx, err := ds.db.Beginx()
-	if err != nil {
-		return nil, err
-	}
-
-	err = migratex.Down(ctx, tx, migrations.Migrations)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	err = tx.Commit()
+	err = ds.Tx(func(tx *sqlx.Tx) error {
+		return migratex.Down(ctx, tx, migrations.Migrations)
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -228,27 +228,40 @@ func pingWithRetry(ctx context.Context, db *sqlx.DB) (err error) {
 // about the existence of the schema migration version (since migrations were
 // added to existing dbs, we need to know whether the db exists without migrations
 // or if it's brand new).
-func checkExistence(tx *sqlx.Tx) bool {
-	query := tx.Rebind(`SELECT name FROM apps LIMIT 1`)
+func checkExistence(tx *sqlx.Tx) (bool, error) {
+	query := tx.Rebind(`SELECT count(*)
+	FROM information_schema.TABLES
+	WHERE TABLE_NAME = 'apps'
+`)
+
+	if tx.DriverName() == "sqlite3" {
+		// sqlite3 is special, of course
+		query = tx.Rebind(`SELECT count(*)
+		FROM sqlite_master
+		WHERE name = 'apps'
+		`)
+	}
+
 	row := tx.QueryRow(query)
 
-	var dummy string
-	err := row.Scan(&dummy)
-	if err != nil && err != sql.ErrNoRows {
-		// TODO we should probably ensure this is a certain 'no such table' error
-		// and if it's not that or err no rows, we should probably block start up.
-		// if we return false here spuriously, then migrations could be skipped,
-		// which would be bad.
-		return false
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return false, err
 	}
-	return true
+
+	exists := count > 0
+	return exists, nil
 }
 
 // check if the db already existed, if the db is brand new then we can skip
 // over all the migrations BUT we must be sure to set the right migration
 // number so that only current migrations are skipped, not any future ones.
 func (ds *sqlStore) runMigrations(ctx context.Context, tx *sqlx.Tx, migrations []migratex.Migration) error {
-	dbExists := checkExistence(tx)
+	dbExists, err := checkExistence(tx)
+	if err != nil {
+		return err
+	}
 	if !dbExists {
 		// set to highest and bail
 		return migratex.SetVersion(ctx, tx, latestVersion(migrations), false)
