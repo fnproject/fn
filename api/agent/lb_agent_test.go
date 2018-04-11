@@ -201,7 +201,7 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 
 func TestEnforceSlotTimeout(t *testing.T) {
 	placer := pool.NewNaivePlacer()
-	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
+	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 1)
 
 	parallelCalls := 5
 	var wg sync.WaitGroup
