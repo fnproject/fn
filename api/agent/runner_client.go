@@ -40,7 +40,7 @@ func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool
 // Close waits until the context is closed for all inflight requests
 // to complete prior to terminating the underlying grpc connection
 func (r *gRPCRunner) Close(ctx context.Context) error {
-	err := make(chan error)
+	err := make(chan error, 1)
 	go func() {
 		defer close(err)
 		r.wg.Wait()
