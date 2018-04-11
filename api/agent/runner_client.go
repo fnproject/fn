@@ -58,6 +58,14 @@ func (r *gRPCRunner) Close(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err() // context timed out while waiting
 	}
+	return true
+}
+
+func (r *gRPCRunner) Close() error {
+	if !r.waitCloseSessions() {
+		return nil // already closed
+	}
+	return r.conn.Close()
 }
 
 func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
