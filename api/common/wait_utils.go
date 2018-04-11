@@ -1,7 +1,6 @@
 package common
 
 import (
-	"errors"
 	"math"
 	"sync"
 )
@@ -14,7 +13,7 @@ import (
 
    Once a shutdown is initiated via CloseGroup(), add/rm
    operations will still function correctly, where
-   AddSession would return ErrorWaitGroupClosed error.
+   AddSession would return false error.
    In this state, CloseGroup() blocks until sessions get drained
    via RmSession() calls.
 
@@ -41,11 +40,6 @@ import (
    group.CloseGroup()
 */
 
-var (
-	ErrorWaitGroupClosed   = errors.New("WaitGroup is closed")
-	ErrorWaitGroupOverflow = errors.New("WaitGroup is maxed out")
-)
-
 type WaitGroup struct {
 	cond     *sync.Cond
 	isClosed bool
@@ -58,19 +52,19 @@ func NewWaitGroup() *WaitGroup {
 	}
 }
 
-func (r *WaitGroup) AddSession() error {
+func (r *WaitGroup) AddSession() bool {
 	r.cond.L.Lock()
 	defer r.cond.L.Unlock()
 
 	if r.isClosed {
-		return ErrorWaitGroupClosed
+		return false
 	}
 	if r.sessions == math.MaxUint64 {
-		return ErrorWaitGroupOverflow
+		return false
 	}
 
 	r.sessions++
-	return nil
+	return true
 }
 
 func (r *WaitGroup) RmSession() {
