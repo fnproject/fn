@@ -63,6 +63,7 @@ const (
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
 
 	EnvProcessCollectorList = "FN_PROCESS_COLLECTOR_LIST"
+	EnvLBPlacementAlg       = "FN_PLACER"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -357,10 +358,6 @@ func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
 	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
 }
 
-func (s *Server) defaultPlacer() pool.Placer {
-	return agent.NewNaivePlacer()
-}
-
 func WithLogstoreFromDatastore() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		if s.datastore == nil {
@@ -446,7 +443,15 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			placer := s.defaultPlacer()
+
+			// Select the placement algorithm
+			var placer pool.Placer
+			switch getEnv(EnvLBPlacementAlg, "") {
+			case "ch":
+				placer = pool.NewCHPlacer()
+			default:
+				placer = pool.NewNaivePlacer()
+			}
 
 			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
 			if err != nil {

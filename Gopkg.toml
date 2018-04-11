@@ -77,3 +77,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 [[override]]
   name = "git.apache.org/thrift.git"
   revision = "272470790ad6db791bd6f9db399b2cd2d5879f74"
+
+[[constraint]]
+  name = "github.com/dchest/siphash"
+  version = "1.1.0"

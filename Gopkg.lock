@@ -104,6 +104,12 @@
   version = "v0.2.0"
 
 [[projects]]
+  name = "github.com/dchest/siphash"
+  packages = ["."]
+  revision = "4ebf1de738443ea7f45f02dc394c4df1942a126d"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -658,6 +664,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2eb445aa73b99916ee56e155b5461840a296d39be4869557099ff25bb68bec7b"
+  inputs-digest = "321ea984c523241adc23f36302d387cebbcc05a56812fc3555d82c9c5928274c"
   solver-name = "gps-cdcl"
   solver-version = 1

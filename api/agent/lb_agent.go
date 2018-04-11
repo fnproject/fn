@@ -13,59 +13,6 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
-type naivePlacer struct {
-}
-
-func NewNaivePlacer() pool.Placer {
-	return &naivePlacer{}
-}
-
-func minDuration(f, s time.Duration) time.Duration {
-	if f < s {
-		return f
-	}
-	return s
-}
-
-func (sp *naivePlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error {
-	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
-
-	for {
-		select {
-		case <-ctx.Done():
-			return models.ErrCallTimeoutServerBusy
-		case <-timeout:
-			return models.ErrCallTimeoutServerBusy
-		default:
-			runners, err := rp.Runners(call)
-			if err != nil {
-				logrus.WithError(err).Error("Failed to find runners for call")
-			} else {
-				for _, r := range runners {
-					placed, err := r.TryExec(ctx, call)
-					if placed {
-						return err
-					}
-				}
-			}
-
-			remaining := call.SlotDeadline().Sub(time.Now())
-			if remaining <= 0 {
-				return models.ErrCallTimeoutServerBusy
-			}
-
-			// backoff
-			select {
-			case <-ctx.Done():
-				return models.ErrCallTimeoutServerBusy
-			case <-timeout:
-				return models.ErrCallTimeoutServerBusy
-			case <-time.After(minDuration(retryWaitInterval, remaining)):
-			}
-		}
-	}
-}
-
 const (
 	runnerReconnectInterval = 5 * time.Second
 	// sleep time to attempt placement across all runners before retrying

@@ -150,7 +150,7 @@ func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxC
 }
 
 func TestOneRunner(t *testing.T) {
-	placer := NewNaivePlacer()
+	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 	call := &mockRunnerCall{slotDeadline: time.Now().Add(1 * time.Second)}
 	err := placer.PlaceCall(rp, context.Background(), call)
@@ -160,7 +160,7 @@ func TestOneRunner(t *testing.T) {
 }
 
 func TestEnforceTimeoutFromContext(t *testing.T) {
-	placer := NewNaivePlacer()
+	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
 	call := &mockRunnerCall{slotDeadline: time.Now().Add(1 * time.Second)}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
@@ -172,7 +172,7 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 }
 
 func TestSpilloverToSecondRunner(t *testing.T) {
-	placer := NewNaivePlacer()
+	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
 
 	parallelCalls := 3
@@ -200,7 +200,7 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 }
 
 func TestEnforceSlotTimeout(t *testing.T) {
-	placer := NewNaivePlacer()
+	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
 
 	parallelCalls := 5
