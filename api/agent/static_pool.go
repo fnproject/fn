@@ -64,11 +64,9 @@ func (rp *staticRunnerPool) shutdown() []pool.Runner {
 
 func (rp *staticRunnerPool) addRunner(runner pool.Runner) error {
 	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
 
 	if rp.isClosed {
-		rp.rMtx.Unlock()
-		// this should not block since we have not added it to the pool
-		r.Close()
 		return ErrorPoolClosed
 	}
 
@@ -83,7 +81,6 @@ func (rp *staticRunnerPool) addRunner(runner pool.Runner) error {
 		rp.runners = append(rp.runners, runner)
 	}
 
-	rp.rMtx.Unlock()
 	return nil
 }
 
@@ -108,7 +105,7 @@ func (rp *staticRunnerPool) getRunners() ([]pool.Runner, error) {
 		return nil, ErrorPoolClosed
 	}
 
-	r = make([]pool.Runner, len(rp.runners))
+	r := make([]pool.Runner, len(rp.runners))
 	copy(r, rp.runners)
 
 	return r, nil
@@ -125,7 +122,11 @@ func (rp *staticRunnerPool) AddRunner(address string) error {
 		return err
 	}
 
-	return rp.addRunner(r)
+	err = rp.addRunner(r)
+	if err != nil {
+		r.Close()
+	}
+	return err
 }
 
 func (rp *staticRunnerPool) RemoveRunner(address string) {
@@ -141,7 +142,7 @@ func (rp *staticRunnerPool) RemoveRunner(address string) {
 }
 
 func (rp *staticRunnerPool) Shutdown() error {
-	toRemove := rp.shutdown(address)
+	toRemove := rp.shutdown()
 
 	var retErr error
 	for _, r := range toRemove {
