@@ -49,8 +49,9 @@ func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN s
 
 func (rp *staticRunnerPool) shutdown() []pool.Runner {
 	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
+
 	if rp.isClosed {
-		rp.rMtx.Unlock()
 		return nil
 	}
 
@@ -58,7 +59,6 @@ func (rp *staticRunnerPool) shutdown() []pool.Runner {
 	toRemove := rp.runners[:]
 	rp.runners = nil
 
-	rp.rMtx.Unlock()
 	return toRemove
 }
 
