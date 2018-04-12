@@ -44,6 +44,41 @@ func TestWaitGroupEmpty(t *testing.T) {
 	}
 }
 
+func TestWaitGroupBlast(t *testing.T) {
+	wg := NewWaitGroup()
+	wg.AddSession(1)
+
+	for i := 0; i < 100; i++ {
+		go func(i int) {
+			if !wg.AddSession(1) {
+				t.Fatalf("%d failed to addSession", i)
+			}
+			if isClosed(wg.Closer()) {
+				t.Fatalf("Should not be closing state")
+			}
+			wg.DoneSession()
+		}(i)
+	}
+
+	if isClosed(wg.Closer()) {
+		t.Fatalf("Should not be closing state")
+	}
+
+	done := wg.CloseGroupNB()
+
+	if !isClosed(wg.Closer()) {
+		t.Fatalf("Should be closing state")
+	}
+
+	if isClosed(done) {
+		t.Fatalf("NB Chan should not be closed yet, since sum is 2")
+	}
+
+	wg.DoneSession()
+
+	<-done
+}
+
 func TestWaitGroupSingle(t *testing.T) {
 
 	wg := NewWaitGroup()
@@ -60,10 +95,7 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("Should not be closing state yet")
 	}
 
-	if !wg.DoneSession() {
-		t.Fatalf("Done should not fail")
-	}
-
+	wg.DoneSession()
 	// sum should be zero now.
 
 	if !wg.AddSession(2) {
@@ -78,9 +110,8 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("NB Chan should not be closed yet, since sum is 2")
 	}
 
-	if !wg.DoneSession() {
-		t.Fatalf("Done should not fail")
-	}
+	wg.DoneSession()
+
 	if wg.AddSession(1) {
 		t.Fatalf("Add 1 should fail (we are shutting down)")
 	}
@@ -106,9 +137,7 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("Should be closing state")
 	}
 
-	if !wg.DoneSession() {
-		t.Fatalf("Add -1 should not fail")
-	}
+	wg.DoneSession()
 
 	// sum is 0 now
 	<-done
@@ -120,5 +149,4 @@ func TestWaitGroupSingle(t *testing.T) {
 	if !isClosed(wg.Closer()) {
 		t.Fatalf("Should be closing state")
 	}
-
 }
