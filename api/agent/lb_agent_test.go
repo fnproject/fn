@@ -51,7 +51,7 @@ func (rp *mockRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
 	return rp.runners, nil
 }
 
-func (rp *mockRunnerPool) Shutdown(context.Context) error {
+func (rp *mockRunnerPool) Shutdown() error {
 	return nil
 }
 
@@ -105,7 +105,7 @@ func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	return true, nil
 }
 
-func (r *mockRunner) Close(ctx context.Context) error {
+func (r *mockRunner) Close() error {
 	go func() {
 		r.wg.Wait()
 	}()

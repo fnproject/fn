@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	pool "github.com/fnproject/fn/api/runnerpool"
@@ -10,6 +11,10 @@ import (
 func setupStaticPool(runners []string) pool.RunnerPool {
 	return NewStaticRunnerPool(runners, nil, "", mockRunnerFactory)
 }
+
+var (
+	ErrorGarbanzoBeans = errors.New("yes, that's right. Garbanzo beans...")
+)
 
 type mockStaticRunner struct {
 	address string
@@ -20,7 +25,7 @@ func (r *mockStaticRunner) TryExec(ctx context.Context, call pool.RunnerCall) (b
 }
 
 func (r *mockStaticRunner) Close() error {
-	return nil
+	return ErrorGarbanzoBeans
 }
 
 func (r *mockStaticRunner) Address() string {
@@ -65,16 +70,18 @@ func TestEmptyPool(t *testing.T) {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
 
-	np.Shutdown()
+	err = np.Shutdown()
+	if err != ErrorGarbanzoBeans {
+		t.Fatalf("Expected garbanzo beans error from shutdown %v", err)
+	}
 
 	runners, err = np.Runners(nil)
-	if err != nil {
-		t.Fatalf("Failed to list runners %v", err)
+	if err == nil {
+		t.Fatalf("Should fail to list runners (shutdown)")
 	}
 	if len(runners) != 0 {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
-
 }
 
 func TestAddNodeToPool(t *testing.T) {
@@ -92,11 +99,14 @@ func TestAddNodeToPool(t *testing.T) {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
 
-	np.Shutdown()
+	err = np.Shutdown()
+	if err != ErrorGarbanzoBeans {
+		t.Fatalf("Expected garbanzo beans error from shutdown %v", err)
+	}
 
 	runners, err = np.Runners(nil)
-	if err != nil {
-		t.Fatalf("Failed to list runners %v", err)
+	if err == nil {
+		t.Fatalf("Should fail to list runners (shutdown)")
 	}
 	if len(runners) != 0 {
 		t.Fatalf("Invalid number of runners %v", len(runners))
@@ -148,14 +158,21 @@ func TestRemoveNodeFromPool(t *testing.T) {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
 
-	np.Shutdown()
+	// Let's try a double shutdown
+	err = np.Shutdown()
+	if err != nil {
+		t.Fatalf("Not expected error from shutdown I (empty pool) %v", err)
+	}
+	err = np.Shutdown()
+	if err != nil {
+		t.Fatalf("Not expected error from shutdown II (empty pool) %v", err)
+	}
 
 	runners, err = np.Runners(nil)
-	if err != nil {
-		t.Fatalf("Failed to list runners %v", err)
+	if err == nil {
+		t.Fatalf("Should fail to list runners (shutdown)")
 	}
 	if len(runners) != 0 {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
-
 }

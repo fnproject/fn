@@ -149,7 +149,10 @@ func (rp *staticRunnerPool) Shutdown() error {
 		err := r.Close()
 		if err != nil {
 			logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Error closing runner")
-			retErr = err
+			// grab the first error only for now.
+			if retErr == nil {
+				retErr = err
+			}
 		}
 	}
 	return retErr
