@@ -271,8 +271,8 @@ type call struct {
 	containerState ContainerState
 }
 
-func (c *call) SlotDeadline() time.Time {
-	return c.slotDeadline
+func (c *call) LbDeadline() time.Time {
+	return c.lbDeadline
 }
 
 func (c *call) RequestBody() io.ReadCloser {

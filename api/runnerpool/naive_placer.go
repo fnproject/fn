@@ -23,7 +23,7 @@ func NewNaivePlacer() Placer {
 }
 
 func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
-	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
+	timeout := time.After(call.LbDeadline().Sub(time.Now()))
 
 	for {
 		select {
@@ -47,7 +47,7 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 				}
 			}
 
-			remaining := call.SlotDeadline().Sub(time.Now())
+			remaining := call.LbDeadline().Sub(time.Now())
 			if remaining <= 0 {
 				return models.ErrCallTimeoutServerBusy
 			}
