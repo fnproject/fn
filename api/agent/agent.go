@@ -121,7 +121,7 @@ type agent struct {
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess) Agent {
-	a := createAgent(da, nil).(*agent)
+	a := createAgent(da).(*agent)
 	if !a.shutWg.AddSession(1) {
 		logrus.Fatalf("cannot start agent, unable to add session")
 	}
@@ -129,7 +129,7 @@ func New(da DataAccess) Agent {
 	return a
 }
 
-func createAgent(da DataAccess, withShutWg *common.WaitGroup) Agent {
+func createAgent(da DataAccess) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -145,9 +145,6 @@ func createAgent(da DataAccess, withShutWg *common.WaitGroup) Agent {
 		PreForkUseOnce:  cfg.PreForkUseOnce,
 		PreForkNetworks: cfg.PreForkNetworks,
 	})
-	if withShutWg == nil {
-		withShutWg = common.NewWaitGroup()
-	}
 
 	a := &agent{
 		cfg:       *cfg,
@@ -155,7 +152,7 @@ func createAgent(da DataAccess, withShutWg *common.WaitGroup) Agent {
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
 		resources: NewResourceTracker(cfg),
-		shutWg:    withShutWg,
+		shutWg:    common.NewWaitGroup(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?

@@ -675,7 +675,7 @@ func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, ce
 }
 
 func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, gate CapacityGate) (Agent, error) {
-	a := createAgent(da, nil)
+	a := createAgent(da)
 	var pr *pureRunner
 	var err error
 	if cert != "" && key != "" && ca != "" {
