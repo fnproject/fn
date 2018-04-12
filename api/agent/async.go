@@ -12,8 +12,6 @@ import (
 )
 
 func (a *agent) asyncDequeue() {
-	defer a.wg.Done() // we can treat this thread like one big task and get safe shutdown fo free
-
 	// this is just so we can hang up the dequeue request if we get shut down
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -24,7 +22,8 @@ func (a *agent) asyncDequeue() {
 
 	for {
 		select {
-		case <-a.shutdown:
+		case <-a.shutWg.Closer():
+			a.shutWg.AddSession(-1)
 			return
 		case <-a.resources.WaitAsyncResource(ctx):
 			// TODO we _could_ return a token here to reserve the ram so that there's
@@ -35,15 +34,20 @@ func (a *agent) asyncDequeue() {
 
 		// we think we can get a cookie now, so go get a cookie
 		select {
-		case <-a.shutdown:
+		case <-a.shutWg.Closer():
+			a.shutWg.AddSession(-1)
 			return
 		case model, ok := <-a.asyncChew(ctx):
 			if ok {
-				a.wg.Add(1) // need to add 1 in this thread to ensure safe shutdown
 				go func(model *models.Call) {
 					a.asyncRun(ctx, model)
-					a.wg.Done() // can shed it after this is done, Submit will add 1 too but it's fine
+					a.shutWg.AddSession(-1) // can shed it after this is done, Submit will add 1 too but it's fine
 				}(model)
+
+				// WARNING: tricky. We reserve another session for next iteration of the loop
+				if !a.shutWg.AddSession(1) {
+					return
+				}
 			}
 		}
 	}

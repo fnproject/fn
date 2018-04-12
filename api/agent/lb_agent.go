@@ -2,12 +2,12 @@ package agent
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/fnext"
@@ -28,9 +28,7 @@ type lbAgent struct {
 	delegatedAgent Agent
 	rp             pool.RunnerPool
 	placer         pool.Placer
-
-	wg       sync.WaitGroup // Needs a good name
-	shutdown chan struct{}
+	shutWg         *common.WaitGroup
 }
 
 // NewLBAgent creates an Agent that knows how to load-balance function calls
@@ -41,6 +39,7 @@ func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error)
 		delegatedAgent: agent,
 		rp:             rp,
 		placer:         p,
+		shutWg:         common.NewWaitGroup(),
 	}
 	return a, nil
 }
@@ -63,18 +62,31 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 }
 
 func (a *lbAgent) Close() error {
-	// we should really be passing the server's context here
+
+	// start closing the front gate first
+	ch := a.shutWg.CloseGroupNB()
+
+	// delegated agent shutdown next, blocks here...
+	err1 := a.delegatedAgent.Close()
+	if err1 != nil {
+		logrus.WithError(err1).Warn("Delegated agent shutdown error")
+	}
+
+	// finally shutdown the runner pool
 	ctx, cancel := context.WithTimeout(context.Background(), runnerPoolShutdownTimeout)
 	defer cancel()
-
-	close(a.shutdown)
-	a.rp.Shutdown(ctx)
-	err := a.delegatedAgent.Close()
-	a.wg.Wait()
-	if err != nil {
-		return err
+	err2 := a.rp.Shutdown(ctx)
+	if err2 != nil {
+		logrus.WithError(err2).Warn("Runner pool shutdown error")
 	}
-	return nil
+
+	// gate-on front-gate, should be completed if delegated agent & runner pool is gone.
+	<-ch
+
+	if err1 != nil {
+		return err1
+	}
+	return err2
 }
 
 func GetGroupID(call *models.Call) string {
@@ -90,14 +102,11 @@ func GetGroupID(call *models.Call) string {
 }
 
 func (a *lbAgent) Submit(callI Call) error {
-	a.wg.Add(1)
-	defer a.wg.Done()
-
-	select {
-	case <-a.shutdown:
+	// we allocate 2 groups one for Submit and one for CallEnd (See HandleCallEnd)
+	if !a.shutWg.AddSession(2) {
 		return models.ErrCallTimeoutServerBusy
-	default:
 	}
+	defer a.shutWg.AddSession(-1)
 
 	call := callI.(*call)
 

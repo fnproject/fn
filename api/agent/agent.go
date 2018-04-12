@@ -112,16 +112,17 @@ type agent struct {
 	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
-	wg           sync.WaitGroup // TODO rename
+	shutWg       *common.WaitGroup
 	shutonce     sync.Once
-	shutdown     chan struct{}
 	callEndCount int64
 }
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess) Agent {
 	a := createAgent(da, true).(*agent)
-	a.wg.Add(1)
+	if !a.shutWg.AddSession(1) {
+		logrus.Fatalf("cannot start agent, unable to add session")
+	}
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 	return a
 }
@@ -154,7 +155,7 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
 		resources: NewResourceTracker(cfg),
-		shutdown:  make(chan struct{}),
+		shutWg:    common.NewWaitGroup(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -176,26 +177,26 @@ func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
 
 func (a *agent) Close() error {
 	var err error
+
+	// wait for ongoing sessions
+	a.shutWg.CloseGroup()
+
 	a.shutonce.Do(func() {
+		// now close docker layer
 		if a.driver != nil {
 			err = a.driver.Close()
 		}
-		close(a.shutdown)
 	})
 
-	a.wg.Wait()
 	return err
 }
 
 func (a *agent) Submit(callI Call) error {
-	a.wg.Add(1)
-	defer a.wg.Done()
-
-	select {
-	case <-a.shutdown:
+	// we allocate 2 groups one for Submit and one for CallEnd (See HandleCallEnd)
+	if !a.shutWg.AddSession(2) {
 		return models.ErrCallTimeoutServerBusy
-	default:
 	}
+	defer a.shutWg.AddSession(-1)
 
 	call := callI.(*call)
 
@@ -254,22 +255,30 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 }
 
 func (a *agent) scheduleCallEnd(fn func()) {
-	a.wg.Add(1)
 	atomic.AddInt64(&a.callEndCount, 1)
 	go func() {
 		fn()
 		atomic.AddInt64(&a.callEndCount, -1)
-		a.wg.Done()
+		a.shutWg.AddSession(-1)
 	}()
 }
 
 func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
-
 	// For hot-containers, slot close is a simple channel close... No need
 	// to handle it async. Execute it here ASAP
 	if slot != nil && protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		slot.Close(ctx)
 		slot = nil
+	}
+
+	finalize := func(isRetriable, isScheduled bool) error {
+		// if scheduled in background, let scheduleCallEnd() handle
+		// the shutWg group, otherwise decrement here.
+		if !isScheduled {
+			a.shutWg.AddSession(-1)
+		}
+		handleStatsEnd(ctx, err)
+		return transformTimeout(err, isRetriable)
 	}
 
 	// This means call was routed (executed), in order to reduce latency here
@@ -285,8 +294,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 			cancel()
 		})
 
-		handleStatsEnd(ctx, err)
-		return transformTimeout(err, false)
+		return finalize(false, true)
 	}
 
 	// The call did not succeed. And it is retriable. We close the slot
@@ -296,10 +304,10 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 		a.scheduleCallEnd(func() {
 			slot.Close(common.BackgroundContext(ctx)) // (no timeout)
 		})
+		return finalize(true, true)
 	}
 
-	handleStatsDequeue(ctx, err)
-	return transformTimeout(err, true)
+	return finalize(true, false)
 }
 
 func transformTimeout(e error, isRetriable bool) error {
@@ -400,7 +408,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		a.checkLaunch(ctx, call)
 
 		select {
-		case <-a.shutdown: // server shutdown
+		case <-a.shutWg.Closer(): // server shutdown
 			cancel()
 			return
 		case <-ctx.Done(): // timed out
@@ -431,17 +439,22 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
-		a.wg.Add(1) // add waiter in this thread
-		go func() {
-			// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
-			a.runHot(ctx, call, tok, state)
-			a.wg.Done()
-		}()
+		if a.shutWg.AddSession(1) {
+			go func() {
+				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
+				a.runHot(ctx, call, tok, state)
+				a.shutWg.AddSession(-1)
+			}()
+			return
+		}
+		if tok != nil {
+			tok.Close()
+		}
 	case <-ctx.Done(): // timeout
-		state.UpdateState(ctx, ContainerStateDone, call.slots)
-	case <-a.shutdown: // server shutdown
-		state.UpdateState(ctx, ContainerStateDone, call.slots)
+	case <-a.shutWg.Closer(): // server shutdown
 	}
+
+	state.UpdateState(ctx, ContainerStateDone, call.slots)
 }
 
 // waitHot pings and waits for a hot container from the slot queue
@@ -471,7 +484,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			// we failed to take ownership of the token (eg. container idle timeout) => try again
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-a.shutdown: // server shutdown
+		case <-a.shutWg.Closer(): // server shutdown
 			return nil, models.ErrCallTimeoutServerBusy
 		case <-time.After(sleep):
 			// ping dequeuer again
@@ -735,7 +748,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
 				return
-			case <-a.shutdown: // server shutdown
+			case <-a.shutWg.Closer(): // server shutdown
 				return
 			default: // ok
 			}
@@ -808,7 +821,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		select {
 		case <-s.trigger: // slot already consumed
 		case <-ctx.Done(): // container shutdown
-		case <-a.shutdown: // server shutdown
+		case <-a.shutWg.Closer(): // server shutdown
 		case <-idleTimer.C:
 		case <-freezeTimer.C:
 			if !isFrozen {
