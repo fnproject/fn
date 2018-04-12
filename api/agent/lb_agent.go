@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"errors"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -171,6 +170,10 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	statsDequeueAndStart(ctx)
 
+	// WARNING: isStarted (handleCallEnd) semantics
+	// need some consideration here. Similar to runner/agent
+	// we consider isCommitted true if call.Start() succeeds.
+	// isStarted=true means we will call Call.End().
 	err = a.placer.PlaceCall(a.rp, ctx, call)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to place call")
@@ -185,20 +188,16 @@ func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 }
 
 func (a *lbAgent) scheduleCallEnd(fn func()) {
-	a.wg.Add(1)
 	atomic.AddInt64(&a.callEndCount, 1)
 	go func() {
 		fn()
 		atomic.AddInt64(&a.callEndCount, -1)
-		a.wg.Done()
+		a.shutWg.AddSession(-1)
 	}()
 }
 
-func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isCommitted bool) error {
-
-	// This means call was routed (executed), in order to reduce latency here
-	// we perform most of these tasks in go-routine asynchronously.
-	if isCommitted {
+func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isStarted bool) error {
+	if isStarted {
 		a.scheduleCallEnd(func() {
 			ctx = common.BackgroundContext(ctx)
 			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
@@ -210,6 +209,7 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isCo
 		return transformTimeout(err, false)
 	}
 
+	a.shutWg.AddSession(-1)
 	handleStatsDequeue(ctx, err)
 	return transformTimeout(err, true)
 }
