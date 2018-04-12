@@ -3,22 +3,26 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/common"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	ErrorRunnerClosed = errors.New("Runner is closed")
+)
+
 type gRPCRunner struct {
-	// Need a WaitGroup of TryExec in flight
-	wg      sync.WaitGroup
+	shutWg  *common.WaitGroup
 	address string
 	conn    *grpc.ClientConn
 	client  pb.RunnerProtocolClient
@@ -31,6 +35,7 @@ func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool
 	}
 
 	return &gRPCRunner{
+		shutWg:  common.NewWaitGroup(),
 		address: addr,
 		conn:    conn,
 		client:  client,
@@ -43,7 +48,7 @@ func (r *gRPCRunner) Close(ctx context.Context) error {
 	err := make(chan error, 1)
 	go func() {
 		defer close(err)
-		r.wg.Wait()
+		r.shutWg.CloseGroup()
 		err <- r.conn.Close()
 	}()
 
@@ -86,8 +91,10 @@ func (r *gRPCRunner) Address() string {
 
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
-	r.wg.Add(1)
-	defer r.wg.Done()
+	if !r.shutWg.AddSession(1) {
+		return true, ErrorRunnerClosed
+	}
+	defer r.shutWg.AddSession(-1)
 
 	// extract the call's model data to pass on to the pure runner
 	modelJSON, err := json.Marshal(call.Model())
