@@ -47,73 +47,7 @@ func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN s
 	}
 }
 
-func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
-	rp.rMtx.RLock()
-	defer rp.rMtx.RUnlock()
-
-	r := make([]pool.Runner, len(rp.runners))
-	copy(r, rp.runners)
-	return r, nil
-}
-
-func (rp *staticRunnerPool) AddRunner(address string) error {
-	r, err := rp.generator(address, rp.runnerCN, rp.pki)
-	if err != nil {
-		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
-		return err
-	}
-
-	rp.rMtx.Lock()
-	if rp.isClosed {
-		rp.rMtx.Unlock()
-		// this should not block since we have not added it to the pool
-		r.Close()
-		return ErrorPoolClosed
-	}
-
-	isFound := false
-	for _, r := range rp.runners {
-		if r.Address() == address {
-			isFound = true
-			break
-		}
-	}
-	if !isFound {
-		rp.runners = append(rp.runners, r)
-	}
-
-	rp.rMtx.Unlock()
-	return nil
-}
-
-func (rp *staticRunnerPool) RemoveRunner(address string) {
-
-	var toRemove pool.Runner
-
-	rp.rMtx.Lock()
-
-	for i, r := range rp.runners {
-		if r.Address() == address {
-			toRemove = r
-			rp.runners = append(rp.runners[:i], rp.runners[i+1:]...)
-			break
-		}
-	}
-
-	rp.rMtx.Unlock()
-
-	if toRemove == nil {
-		return
-	}
-
-	err := toRemove.Close()
-	if err != nil {
-		logrus.WithError(err).WithField("runner_addr", toRemove.Address()).Error("Error closing runner")
-	}
-}
-
-func (rp *staticRunnerPool) Shutdown() error {
-
+func (rp *staticRunnerPool) shutdown() []pool.Runner {
 	rp.rMtx.Lock()
 	if rp.isClosed {
 		rp.rMtx.Unlock()
@@ -125,6 +59,89 @@ func (rp *staticRunnerPool) Shutdown() error {
 	rp.runners = nil
 
 	rp.rMtx.Unlock()
+	return toRemove
+}
+
+func (rp *staticRunnerPool) addRunner(runner pool.Runner) error {
+	rp.rMtx.Lock()
+
+	if rp.isClosed {
+		rp.rMtx.Unlock()
+		// this should not block since we have not added it to the pool
+		r.Close()
+		return ErrorPoolClosed
+	}
+
+	isFound := false
+	for _, r := range rp.runners {
+		if r.Address() == runner.Address() {
+			isFound = true
+			break
+		}
+	}
+	if !isFound {
+		rp.runners = append(rp.runners, runner)
+	}
+
+	rp.rMtx.Unlock()
+	return nil
+}
+
+func (rp *staticRunnerPool) removeRunner(address string) pool.Runner {
+	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
+
+	for i, r := range rp.runners {
+		if r.Address() == address {
+			rp.runners = append(rp.runners[:i], rp.runners[i+1:]...)
+			return r
+		}
+	}
+	return nil
+}
+
+func (rp *staticRunnerPool) getRunners() ([]pool.Runner, error) {
+	rp.rMtx.RLock()
+	defer rp.rMtx.RUnlock()
+
+	if rp.isClosed {
+		return nil, ErrorPoolClosed
+	}
+
+	r = make([]pool.Runner, len(rp.runners))
+	copy(r, rp.runners)
+
+	return r, nil
+}
+
+func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
+	return rp.getRunners()
+}
+
+func (rp *staticRunnerPool) AddRunner(address string) error {
+	r, err := rp.generator(address, rp.runnerCN, rp.pki)
+	if err != nil {
+		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
+		return err
+	}
+
+	return rp.addRunner(r)
+}
+
+func (rp *staticRunnerPool) RemoveRunner(address string) {
+	toRemove := rp.removeRunner(address)
+	if toRemove == nil {
+		return
+	}
+
+	err := toRemove.Close()
+	if err != nil {
+		logrus.WithError(err).WithField("runner_addr", toRemove.Address()).Error("Error closing runner")
+	}
+}
+
+func (rp *staticRunnerPool) Shutdown() error {
+	toRemove := rp.shutdown(address)
 
 	var retErr error
 	for _, r := range toRemove {

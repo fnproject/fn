@@ -42,29 +42,8 @@ func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool
 	}, nil
 }
 
-// Close waits until the context is closed for all inflight requests
-// to complete prior to terminating the underlying grpc connection
-func (r *gRPCRunner) Close(ctx context.Context) error {
-	err := make(chan error, 1)
-	go func() {
-		defer close(err)
-		r.shutWg.CloseGroup()
-		err <- r.conn.Close()
-	}()
-
-	select {
-	case e := <-err:
-		return e
-	case <-ctx.Done():
-		return ctx.Err() // context timed out while waiting
-	}
-	return true
-}
-
 func (r *gRPCRunner) Close() error {
-	if !r.waitCloseSessions() {
-		return nil // already closed
-	}
+	r.shutWg.CloseGroup()
 	return r.conn.Close()
 }
 
