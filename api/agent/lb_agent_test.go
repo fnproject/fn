@@ -117,15 +117,15 @@ func (r *mockRunner) Address() string {
 }
 
 type mockRunnerCall struct {
-	slotDeadline time.Time
-	r            *http.Request
-	rw           http.ResponseWriter
-	stdErr       io.ReadWriteCloser
-	model        *models.Call
+	lbDeadline time.Time
+	r          *http.Request
+	rw         http.ResponseWriter
+	stdErr     io.ReadWriteCloser
+	model      *models.Call
 }
 
-func (c *mockRunnerCall) SlotDeadline() time.Time {
-	return c.slotDeadline
+func (c *mockRunnerCall) LbDeadline() time.Time {
+	return c.lbDeadline
 }
 
 func (c *mockRunnerCall) RequestBody() io.ReadCloser {
@@ -152,7 +152,7 @@ func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxC
 func TestOneRunner(t *testing.T) {
 	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{slotDeadline: time.Now().Add(1 * time.Second)}
+	call := &mockRunnerCall{lbDeadline: time.Now().Add(1 * time.Second)}
 	err := placer.PlaceCall(rp, context.Background(), call)
 	if err != nil {
 		t.Fatalf("Failed to place call on runner %v", err)
@@ -162,7 +162,7 @@ func TestOneRunner(t *testing.T) {
 func TestEnforceTimeoutFromContext(t *testing.T) {
 	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{slotDeadline: time.Now().Add(1 * time.Second)}
+	call := &mockRunnerCall{lbDeadline: time.Now().Add(1 * time.Second)}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
 	err := placer.PlaceCall(rp, ctx, call)
@@ -182,7 +182,7 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			call := &mockRunnerCall{slotDeadline: time.Now().Add(10 * time.Millisecond)}
+			call := &mockRunnerCall{lbDeadline: time.Now().Add(10 * time.Millisecond)}
 			err := placer.PlaceCall(rp, context.Background(), call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
@@ -199,7 +199,7 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 	}
 }
 
-func TestEnforceSlotTimeout(t *testing.T) {
+func TestEnforceLbTimeout(t *testing.T) {
 	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 1)
 
@@ -210,7 +210,7 @@ func TestEnforceSlotTimeout(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			call := &mockRunnerCall{slotDeadline: time.Now().Add(10 * time.Millisecond)}
+			call := &mockRunnerCall{lbDeadline: time.Now().Add(10 * time.Millisecond)}
 			err := placer.PlaceCall(rp, context.Background(), call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
