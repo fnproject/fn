@@ -521,6 +521,10 @@ func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
 	return pr.a.GetCall(opts...)
 }
 
+func (pr *pureRunner) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
+	return pr.a.GetRoute(ctx, appID, path)
+}
+
 func (pr *pureRunner) Submit(Call) error {
 	return errors.New("Submit cannot be called directly in a Pure Runner.")
 }
@@ -671,7 +675,7 @@ func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, ce
 }
 
 func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, gate CapacityGate) (Agent, error) {
-	a := createAgent(da, true, nil)
+	a := createAgent(da, nil)
 	var pr *pureRunner
 	var err error
 	if cert != "" && key != "" && ca != "" {

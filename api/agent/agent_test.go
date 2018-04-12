@@ -114,7 +114,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(app, path, req),
+		FromRequest(a, app, path, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -530,7 +530,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, path, req), WithWriter(&out))
+	callI, err := a.GetCall(FromRequest(a, app, path, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -703,7 +703,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(a, app, ca.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -737,7 +737,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, ca.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(a, app, ca.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -844,7 +844,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(a, app, call.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -869,7 +869,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(app, call.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(a, app, call.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
