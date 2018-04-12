@@ -60,8 +60,8 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("Should not be closing state yet")
 	}
 
-	if !wg.AddSession(-1) {
-		t.Fatalf("Add -1 should not fail")
+	if !wg.DoneSession() {
+		t.Fatalf("Done should not fail")
 	}
 
 	// sum should be zero now.
@@ -78,8 +78,8 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("NB Chan should not be closed yet, since sum is 2")
 	}
 
-	if !wg.AddSession(-1) {
-		t.Fatalf("Add -1 should not fail")
+	if !wg.DoneSession() {
+		t.Fatalf("Done should not fail")
 	}
 	if wg.AddSession(1) {
 		t.Fatalf("Add 1 should fail (we are shutting down)")
@@ -106,7 +106,7 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("Should be closing state")
 	}
 
-	if !wg.AddSession(-1) {
+	if !wg.DoneSession() {
 		t.Fatalf("Add -1 should not fail")
 	}
 

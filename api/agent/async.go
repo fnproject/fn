@@ -23,7 +23,7 @@ func (a *agent) asyncDequeue() {
 	for {
 		select {
 		case <-a.shutWg.Closer():
-			a.shutWg.AddSession(-1)
+			a.shutWg.DoneSession()
 			return
 		case <-a.resources.WaitAsyncResource(ctx):
 			// TODO we _could_ return a token here to reserve the ram so that there's
@@ -35,13 +35,13 @@ func (a *agent) asyncDequeue() {
 		// we think we can get a cookie now, so go get a cookie
 		select {
 		case <-a.shutWg.Closer():
-			a.shutWg.AddSession(-1)
+			a.shutWg.DoneSession()
 			return
 		case model, ok := <-a.asyncChew(ctx):
 			if ok {
 				go func(model *models.Call) {
 					a.asyncRun(ctx, model)
-					a.shutWg.AddSession(-1)
+					a.shutWg.DoneSession()
 				}(model)
 
 				// WARNING: tricky. We reserve another session for next iteration of the loop

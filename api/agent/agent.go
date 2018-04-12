@@ -258,7 +258,7 @@ func (a *agent) scheduleCallEnd(fn func()) {
 	go func() {
 		fn()
 		atomic.AddInt64(&a.callEndCount, -1)
-		a.shutWg.AddSession(-1)
+		a.shutWg.DoneSession()
 	}()
 }
 
@@ -266,7 +266,7 @@ func (a *agent) finalizeCallEnd(ctx context.Context, err error, isRetriable, isS
 	// if scheduled in background, let scheduleCallEnd() handle
 	// the shutWg group, otherwise decrement here.
 	if !isScheduled {
-		a.shutWg.AddSession(-1)
+		a.shutWg.DoneSession()
 	}
 	handleStatsEnd(ctx, err)
 	return transformTimeout(err, isRetriable)
@@ -442,7 +442,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 			go func() {
 				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
 				a.runHot(ctx, call, tok, state)
-				a.shutWg.AddSession(-1)
+				a.shutWg.DoneSession()
 			}()
 			return
 		}
