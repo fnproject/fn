@@ -2,6 +2,7 @@ package common
 
 import (
 	"testing"
+	"time"
 )
 
 func isClosed(ch chan struct{}) bool {
@@ -48,14 +49,20 @@ func TestWaitGroupBlast(t *testing.T) {
 	wg := NewWaitGroup()
 	wg.AddSession(1)
 
-	for i := 0; i < 100; i++ {
+	blastRadius := 500
+	for i := 0; i < blastRadius; i++ {
 		go func(i int) {
 			if !wg.AddSession(1) {
-				t.Fatalf("%d failed to addSession", i)
+				// this is OK, we are creating a race
+				// and some cannot make it after main
+				// go-routine issues a CloseGroupNB()
+				return
 			}
+
 			if isClosed(wg.Closer()) {
 				t.Fatalf("Should not be closing state")
 			}
+
 			wg.DoneSession()
 		}(i)
 	}
@@ -70,13 +77,18 @@ func TestWaitGroupBlast(t *testing.T) {
 		t.Fatalf("Should be closing state")
 	}
 
-	if isClosed(done) {
-		t.Fatalf("NB Chan should not be closed yet, since sum is 2")
+	select {
+	case <-done:
+		t.Fatalf("NB Chan should not be closed yet, since sum is 1")
+	case <-time.After(time.Duration(1) * time.Second):
+		wg.DoneSession()
 	}
 
-	wg.DoneSession()
-
-	<-done
+	select {
+	case <-done:
+	case <-time.After(time.Duration(1) * time.Second):
+		t.Fatalf("NB Chan should be closed by now, since sum is 0")
+	}
 }
 
 func TestWaitGroupSingle(t *testing.T) {
