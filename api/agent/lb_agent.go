@@ -34,12 +34,13 @@ type lbAgent struct {
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
 func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
-	agent := createAgent(da, false)
+	wg := common.NewWaitGroup()
+	agent := createAgent(da, false, wg)
 	a := &lbAgent{
 		delegatedAgent: agent,
 		rp:             rp,
 		placer:         p,
-		shutWg:         common.NewWaitGroup(),
+		shutWg:         wg,
 	}
 	return a, nil
 }

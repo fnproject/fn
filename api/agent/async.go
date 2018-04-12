@@ -41,7 +41,7 @@ func (a *agent) asyncDequeue() {
 			if ok {
 				go func(model *models.Call) {
 					a.asyncRun(ctx, model)
-					a.shutWg.AddSession(-1) // can shed it after this is done, Submit will add 1 too but it's fine
+					a.shutWg.AddSession(-1)
 				}(model)
 
 				// WARNING: tricky. We reserve another session for next iteration of the loop

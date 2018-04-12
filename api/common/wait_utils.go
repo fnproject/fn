@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"math"
 	"sync"
 )
@@ -93,7 +94,8 @@ func (r *WaitGroup) AddSession(delta int64) bool {
 		// illegal operation, it's callers responsibility
 		// to make sure subtraction and addition math is correct.
 		if r.sessions < decr {
-			panic("WaitGroup misuse: no sessions to remove")
+			panic(fmt.Sprintf("common.WaitGroup misuse sum=%d decr=%d isClosed=%v",
+				r.sessions, decr, r.isClosed))
 		}
 
 		r.sessions -= decr

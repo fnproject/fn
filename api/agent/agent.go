@@ -119,7 +119,7 @@ type agent struct {
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess) Agent {
-	a := createAgent(da, true).(*agent)
+	a := createAgent(da, true, nil).(*agent)
 	if !a.shutWg.AddSession(1) {
 		logrus.Fatalf("cannot start agent, unable to add session")
 	}
@@ -127,7 +127,7 @@ func New(da DataAccess) Agent {
 	return a
 }
 
-func createAgent(da DataAccess, withDocker bool) Agent {
+func createAgent(da DataAccess, withDocker bool, withShutWg *common.WaitGroup) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -148,6 +148,9 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 	} else {
 		driver = mock.New()
 	}
+	if withShutWg == nil {
+		withShutWg = common.NewWaitGroup()
+	}
 
 	a := &agent{
 		cfg:       *cfg,
@@ -155,7 +158,7 @@ func createAgent(da DataAccess, withDocker bool) Agent {
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
 		resources: NewResourceTracker(cfg),
-		shutWg:    common.NewWaitGroup(),
+		shutWg:    withShutWg,
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -263,22 +266,23 @@ func (a *agent) scheduleCallEnd(fn func()) {
 	}()
 }
 
+func (a *agent) finalizeCallEnd(ctx context.Context, err error, isRetriable, isScheduled bool) error {
+	// if scheduled in background, let scheduleCallEnd() handle
+	// the shutWg group, otherwise decrement here.
+	if !isScheduled {
+		a.shutWg.AddSession(-1)
+	}
+	handleStatsEnd(ctx, err)
+	return transformTimeout(err, isRetriable)
+}
+
 func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
+
 	// For hot-containers, slot close is a simple channel close... No need
 	// to handle it async. Execute it here ASAP
 	if slot != nil && protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		slot.Close(ctx)
 		slot = nil
-	}
-
-	finalize := func(isRetriable, isScheduled bool) error {
-		// if scheduled in background, let scheduleCallEnd() handle
-		// the shutWg group, otherwise decrement here.
-		if !isScheduled {
-			a.shutWg.AddSession(-1)
-		}
-		handleStatsEnd(ctx, err)
-		return transformTimeout(err, isRetriable)
 	}
 
 	// This means call was routed (executed), in order to reduce latency here
@@ -293,8 +297,7 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 			call.End(ctx, err)
 			cancel()
 		})
-
-		return finalize(false, true)
+		return a.finalizeCallEnd(ctx, err, false, true)
 	}
 
 	// The call did not succeed. And it is retriable. We close the slot
@@ -304,10 +307,10 @@ func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err er
 		a.scheduleCallEnd(func() {
 			slot.Close(common.BackgroundContext(ctx)) // (no timeout)
 		})
-		return finalize(true, true)
+		return a.finalizeCallEnd(ctx, err, true, true)
 	}
 
-	return finalize(true, false)
+	return a.finalizeCallEnd(ctx, err, true, false)
 }
 
 func transformTimeout(e error, isRetriable bool) error {
