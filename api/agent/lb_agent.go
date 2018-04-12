@@ -103,11 +103,9 @@ func GetGroupID(call *models.Call) string {
 }
 
 func (a *lbAgent) Submit(callI Call) error {
-	// we allocate 2 groups one for Submit and one for CallEnd (See HandleCallEnd)
-	if !a.shutWg.AddSession(2) {
+	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
 	}
-	defer a.shutWg.AddSession(-1)
 
 	call := callI.(*call)
 

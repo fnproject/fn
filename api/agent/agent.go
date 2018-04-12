@@ -195,11 +195,9 @@ func (a *agent) Close() error {
 }
 
 func (a *agent) Submit(callI Call) error {
-	// we allocate 2 groups one for Submit and one for CallEnd (See HandleCallEnd)
-	if !a.shutWg.AddSession(2) {
+	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
 	}
-	defer a.shutWg.AddSession(-1)
 
 	call := callI.(*call)
 
