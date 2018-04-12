@@ -94,7 +94,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	if !r.shutWg.AddSession(1) {
 		return true, ErrorRunnerClosed
 	}
-	defer r.shutWg.AddSession(-1)
+	defer r.shutWg.DoneSession()
 
 	// extract the call's model data to pass on to the pure runner
 	modelJSON, err := json.Marshal(call.Model())

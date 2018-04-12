@@ -2,6 +2,7 @@ package common
 
 import (
 	"testing"
+	"time"
 )
 
 func isClosed(ch chan struct{}) bool {
@@ -44,6 +45,52 @@ func TestWaitGroupEmpty(t *testing.T) {
 	}
 }
 
+func TestWaitGroupBlast(t *testing.T) {
+	wg := NewWaitGroup()
+	wg.AddSession(1)
+
+	blastRadius := 500
+	for i := 0; i < blastRadius; i++ {
+		go func(i int) {
+			if !wg.AddSession(1) {
+				// this is OK, we are creating a race
+				// and some cannot make it after main
+				// go-routine issues a CloseGroupNB()
+				return
+			}
+
+			if isClosed(wg.Closer()) {
+				t.Fatalf("Should not be closing state")
+			}
+
+			wg.DoneSession()
+		}(i)
+	}
+
+	if isClosed(wg.Closer()) {
+		t.Fatalf("Should not be closing state")
+	}
+
+	done := wg.CloseGroupNB()
+
+	if !isClosed(wg.Closer()) {
+		t.Fatalf("Should be closing state")
+	}
+
+	select {
+	case <-done:
+		t.Fatalf("NB Chan should not be closed yet, since sum is 1")
+	case <-time.After(time.Duration(1) * time.Second):
+		wg.DoneSession()
+	}
+
+	select {
+	case <-done:
+	case <-time.After(time.Duration(1) * time.Second):
+		t.Fatalf("NB Chan should be closed by now, since sum is 0")
+	}
+}
+
 func TestWaitGroupSingle(t *testing.T) {
 
 	wg := NewWaitGroup()
@@ -60,10 +107,7 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("Should not be closing state yet")
 	}
 
-	if !wg.AddSession(-1) {
-		t.Fatalf("Add -1 should not fail")
-	}
-
+	wg.DoneSession()
 	// sum should be zero now.
 
 	if !wg.AddSession(2) {
@@ -78,9 +122,8 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("NB Chan should not be closed yet, since sum is 2")
 	}
 
-	if !wg.AddSession(-1) {
-		t.Fatalf("Add -1 should not fail")
-	}
+	wg.DoneSession()
+
 	if wg.AddSession(1) {
 		t.Fatalf("Add 1 should fail (we are shutting down)")
 	}
@@ -106,9 +149,7 @@ func TestWaitGroupSingle(t *testing.T) {
 		t.Fatalf("Should be closing state")
 	}
 
-	if !wg.AddSession(-1) {
-		t.Fatalf("Add -1 should not fail")
-	}
+	wg.DoneSession()
 
 	// sum is 0 now
 	<-done
@@ -120,5 +161,4 @@ func TestWaitGroupSingle(t *testing.T) {
 	if !isClosed(wg.Closer()) {
 		t.Fatalf("Should be closing state")
 	}
-
 }

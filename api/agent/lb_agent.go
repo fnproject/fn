@@ -192,7 +192,7 @@ func (a *lbAgent) scheduleCallEnd(fn func()) {
 	go func() {
 		fn()
 		atomic.AddInt64(&a.callEndCount, -1)
-		a.shutWg.AddSession(-1)
+		a.shutWg.DoneSession()
 	}()
 }
 
@@ -209,7 +209,7 @@ func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isSt
 		return transformTimeout(err, false)
 	}
 
-	a.shutWg.AddSession(-1)
+	a.shutWg.DoneSession()
 	handleStatsDequeue(ctx, err)
 	return transformTimeout(err, true)
 }

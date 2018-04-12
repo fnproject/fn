@@ -9,20 +9,19 @@ import (
 /*
    WaitGroup is used to manage and wait for a collection of
    sessions. It is similar to sync.WaitGroup, but
-   AddSession/CloseGroup session is not only thread
+   AddSession/DoneSession/CloseGroup session is not only thread
    safe but can be executed in any order unlike sync.WaitGroup.
 
-   Once a shutdown is initiated via CloseGroup(), add/rm
+   Once a shutdown is initiated via CloseGroup(), add/done
    operations will still function correctly, where
    AddSession would return false. In this state,
    CloseGroup() blocks until sessions get drained
-   via remove operations.
+   via DoneSession() operations.
 
-   It is an error to call AddSession() with invalid values.
-   For example, if current session count is 1, AddSession
-   can only add more or subtract 1 from this. Caller needs
-   to make sure addition/subtraction math is correct when
-   using WaitGroup.
+   It is callers responsibility to make sure AddSessions
+   and DoneSessions math adds up to >= 0. In other words,
+   calling more DoneSessions() than sum of AddSessions()
+   will cause panic.
 
    Example usage:
 
@@ -34,7 +33,7 @@ import (
                // group may be closing or full
                return
            }
-           defer group.AddSession(-1)
+           defer group.DoneSession()
 
            // do stuff
        }(item)
@@ -65,45 +64,44 @@ func (r *WaitGroup) Closer() chan struct{} {
 }
 
 // AddSession manipulates the session counter by
-// adding or subtracting the delta value. Incrementing
+// adding the delta value. Incrementing
 // the session counter is not possible and will set
 // return value to false if a close was initiated.
-// It's callers responsibility to make sure addition and
-// subtraction math is correct.
-func (r *WaitGroup) AddSession(delta int64) bool {
+func (r *WaitGroup) AddSession(delta uint64) bool {
 	r.cond.L.Lock()
 	defer r.cond.L.Unlock()
 
-	if delta >= 0 {
-		// we cannot add if we are being shutdown
-		if r.isClosed {
-			return false
-		}
+	// we cannot add if we are being shutdown
+	if r.isClosed {
+		return false
+	}
 
-		incr := uint64(delta)
+	// we have maxed out
+	if r.sessions == math.MaxUint64-delta {
+		return false
+	}
 
-		// we have maxed out
-		if r.sessions == math.MaxUint64-incr {
-			return false
-		}
+	r.sessions += delta
+	return true
+}
 
-		r.sessions += incr
-	} else {
-		decr := uint64(-delta)
+// DoneSession decrements 1 from accumulated
+// sessions and wakes up listeners when this reaches
+// zero.
+func (r *WaitGroup) DoneSession() {
+	r.cond.L.Lock()
+	defer r.cond.L.Unlock()
 
-		// illegal operation, it's callers responsibility
-		// to make sure subtraction and addition math is correct.
-		if r.sessions < decr {
-			panic(fmt.Sprintf("common.WaitGroup misuse sum=%d decr=%d isClosed=%v",
-				r.sessions, decr, r.isClosed))
-		}
+	// illegal operation, it's callers responsibility
+	// to make sure subtraction and addition math is correct.
+	if r.sessions == 0 {
+		panic(fmt.Sprintf("common.WaitGroup misuse isClosed=%v", r.isClosed))
+	}
 
-		r.sessions -= decr
-
-		// subtractions need to notify CloseGroup
+	r.sessions -= 1
+	if r.sessions == 0 {
 		r.cond.Broadcast()
 	}
-	return true
 }
 
 // CloseGroup initiates a close and blocks until
