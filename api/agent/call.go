@@ -41,7 +41,7 @@ type Call interface {
 }
 
 // TODO build w/o closures... lazy
-type CallOpt func(a *agent, c *call) error
+type CallOpt func(c *call) error
 
 type Param struct {
 	Key   string
@@ -49,9 +49,9 @@ type Param struct {
 }
 type Params []Param
 
-func FromRequest(app *models.App, path string, req *http.Request) CallOpt {
-	return func(a *agent, c *call) error {
-		route, err := a.da.GetRoute(req.Context(), app.ID, path)
+func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallOpt {
+	return func(c *call) error {
+		route, err := a.GetRoute(req.Context(), app.ID, path)
 		if err != nil {
 			return err
 		}
@@ -160,7 +160,7 @@ func reqURL(req *http.Request) string {
 // here, to be a fully qualified model. We probably should double check but having a way
 // to bypass will likely be what's used anyway unless forced.
 func FromModel(mCall *models.Call) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
@@ -176,7 +176,7 @@ func FromModel(mCall *models.Call) CallOpt {
 }
 
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, in)
@@ -193,22 +193,15 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.w = w
 		return nil
 	}
 }
 
 func WithContext(ctx context.Context) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.req = c.req.WithContext(ctx)
-		return nil
-	}
-}
-
-func WithoutPreemptiveCapacityCheck() CallOpt {
-	return func(a *agent, c *call) error {
-		c.disablePreemptiveCapacityCheck = true
 		return nil
 	}
 }
@@ -220,7 +213,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
 
 	for _, o := range opts {
-		err := o(a, &c)
+		err := o(&c)
 		if err != nil {
 			return nil, err
 		}
@@ -231,11 +224,9 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	if !c.disablePreemptiveCapacityCheck {
-		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-			// if we're not going to be able to run this call on this machine, bail here.
-			return nil, models.ErrCallTimeoutServerBusy
-		}
+	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+		// if we're not going to be able to run this call on this machine, bail here.
+		return nil, models.ErrCallTimeoutServerBusy
 	}
 
 	c.da = a.da
@@ -274,15 +265,14 @@ type call struct {
 	ct             callTrigger
 	slots          *slotQueue
 	slotDeadline   time.Time
+	lbDeadline     time.Time
 	execDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
-	// This can be used to disable the preemptive capacity check in GetCall
-	disablePreemptiveCapacityCheck bool
 }
 
-func (c *call) SlotDeadline() time.Time {
-	return c.slotDeadline
+func (c *call) LbDeadline() time.Time {
+	return c.lbDeadline
 }
 
 func (c *call) RequestBody() io.ReadCloser {
@@ -311,8 +301,11 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = strfmt.DateTime(time.Now())
 	c.Status = "running"
 
-	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+	// Do not write this header if lb-agent
+	if c.lbDeadline.IsZero() {
+		if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
+			rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+		}
 	}
 
 	if c.Type == models.TypeAsync {

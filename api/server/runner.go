@@ -75,7 +75,7 @@ func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 
 	call, err := s.agent.GetCall(
 		agent.WithWriter(&writer), // XXX (reed): order matters [for now]
-		agent.FromRequest(app, path, c.Request),
+		agent.FromRequest(s.agent, app, path, c.Request),
 	)
 	if err != nil {
 		return err

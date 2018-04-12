@@ -10,7 +10,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/docker"
-	"github.com/fnproject/fn/api/agent/drivers/mock"
 	"github.com/fnproject/fn/api/agent/protocol"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -98,6 +97,9 @@ type Agent interface {
 
 	// GetAppByID is to get the app by ID
 	GetAppByID(ctx context.Context, appID string) (*models.App, error)
+
+	// GetRoute is to get the route by appId and path
+	GetRoute(ctx context.Context, appID string, path string) (*models.Route, error)
 }
 
 type agent struct {
@@ -119,7 +121,7 @@ type agent struct {
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess) Agent {
-	a := createAgent(da, true, nil).(*agent)
+	a := createAgent(da).(*agent)
 	if !a.shutWg.AddSession(1) {
 		logrus.Fatalf("cannot start agent, unable to add session")
 	}
@@ -127,7 +129,7 @@ func New(da DataAccess) Agent {
 	return a
 }
 
-func createAgent(da DataAccess, withDocker bool, withShutWg *common.WaitGroup) Agent {
+func createAgent(da DataAccess) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -135,22 +137,14 @@ func createAgent(da DataAccess, withDocker bool, withShutWg *common.WaitGroup) A
 	logrus.Infof("agent starting cfg=%+v", cfg)
 
 	// TODO: Create drivers.New(runnerConfig)
-	var driver drivers.Driver
-	if withDocker {
-		driver = docker.NewDocker(drivers.Config{
-			ServerVersion:   cfg.MinDockerVersion,
-			PreForkPoolSize: cfg.PreForkPoolSize,
-			PreForkImage:    cfg.PreForkImage,
-			PreForkCmd:      cfg.PreForkCmd,
-			PreForkUseOnce:  cfg.PreForkUseOnce,
-			PreForkNetworks: cfg.PreForkNetworks,
-		})
-	} else {
-		driver = mock.New()
-	}
-	if withShutWg == nil {
-		withShutWg = common.NewWaitGroup()
-	}
+	driver := docker.NewDocker(drivers.Config{
+		ServerVersion:   cfg.MinDockerVersion,
+		PreForkPoolSize: cfg.PreForkPoolSize,
+		PreForkImage:    cfg.PreForkImage,
+		PreForkCmd:      cfg.PreForkCmd,
+		PreForkUseOnce:  cfg.PreForkUseOnce,
+		PreForkNetworks: cfg.PreForkNetworks,
+	})
 
 	a := &agent{
 		cfg:       *cfg,
@@ -158,7 +152,7 @@ func createAgent(da DataAccess, withDocker bool, withShutWg *common.WaitGroup) A
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
 		resources: NewResourceTracker(cfg),
-		shutWg:    withShutWg,
+		shutWg:    common.NewWaitGroup(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
@@ -171,6 +165,10 @@ func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, erro
 
 func (a *agent) GetAppID(ctx context.Context, appName string) (string, error) {
 	return a.da.GetAppID(ctx, appName)
+}
+
+func (a *agent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
+	return a.da.GetRoute(ctx, appID, path)
 }
 
 // TODO shuffle this around somewhere else (maybe)

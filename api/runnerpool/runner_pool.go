@@ -41,7 +41,7 @@ type Runner interface {
 // RunnerCall provides access to the necessary details of request in order for it to be
 // processed by a RunnerPool
 type RunnerCall interface {
-	SlotDeadline() time.Time
+	LbDeadline() time.Time
 	RequestBody() io.ReadCloser
 	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser

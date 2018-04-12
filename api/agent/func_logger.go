@@ -74,6 +74,20 @@ type nopCloser struct {
 
 func (n *nopCloser) Close() error { return nil }
 
+type nullReadWriter struct {
+	io.ReadCloser
+}
+
+func (n *nullReadWriter) Close() error {
+	return nil
+}
+func (n *nullReadWriter) Read(b []byte) (int, error) {
+	return 0, io.EOF
+}
+func (n *nullReadWriter) Write(b []byte) (int, error) {
+	return 0, io.EOF
+}
+
 // multiWriteCloser returns the first write or close that returns a non-nil
 // err, if no non-nil err is returned, then the returned bytes written will be
 // from the last call to write.
