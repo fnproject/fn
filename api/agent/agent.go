@@ -409,6 +409,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 	for {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		a.checkLaunch(ctx, call, notifyChan)
+		notifyChan = nil
 
 		select {
 		case <-a.shutWg.Closer(): // server shutdown
