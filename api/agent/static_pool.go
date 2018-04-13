@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	ErrorPoolClosed = errors.New("Runner pool closed")
+	ErrorPoolClosed       = errors.New("Runner pool closed")
+	ErrorPoolRunnerExists = errors.New("Runner already exists")
 )
 
 // manages a single set of runners ignoring lb groups
@@ -32,7 +33,7 @@ func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN s
 	for _, addr := range runnerAddresses {
 		r, err := runnerFactory(addr, runnerCN, pki)
 		if err != nil {
-			logrus.WithField("runner_addr", addr).Warn("Invalid runner")
+			logrus.WithError(err).WithField("runner_addr", addr).Warn("Invalid runner")
 			continue
 		}
 		logrus.WithField("runner_addr", addr).Debug("Adding runner to pool")
@@ -70,17 +71,13 @@ func (rp *staticRunnerPool) addRunner(runner pool.Runner) error {
 		return ErrorPoolClosed
 	}
 
-	isFound := false
 	for _, r := range rp.runners {
 		if r.Address() == runner.Address() {
-			isFound = true
-			break
+			return ErrorPoolRunnerExists
 		}
 	}
-	if !isFound {
-		rp.runners = append(rp.runners, runner)
-	}
 
+	rp.runners = append(rp.runners, runner)
 	return nil
 }
 
@@ -118,13 +115,16 @@ func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error)
 func (rp *staticRunnerPool) AddRunner(address string) error {
 	r, err := rp.generator(address, rp.runnerCN, rp.pki)
 	if err != nil {
-		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
+		logrus.WithError(err).WithField("runner_addr", address).Warn("Failed to add runner")
 		return err
 	}
 
 	err = rp.addRunner(r)
 	if err != nil {
-		r.Close()
+		err2 := r.Close()
+		if err2 != nil {
+			logrus.WithError(err2).WithField("runner_addr", address).Warn("Error closing runner on AddRunner failure")
+		}
 	}
 	return err
 }

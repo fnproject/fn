@@ -60,7 +60,10 @@ func TestEmptyPool(t *testing.T) {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
 
-	np.AddRunner("127.0.0.1:8082")
+	err = np.AddRunner("127.0.0.1:8082")
+	if err != nil {
+		t.Fatalf("Failed to add runner %v", err)
+	}
 
 	runners, err = np.Runners(nil)
 	if err != nil {
@@ -88,8 +91,15 @@ func TestAddNodeToPool(t *testing.T) {
 	addrs := []string{"127.0.0.1:8080", "127.0.0.1:8081"}
 	np := setupStaticPool(addrs).(*staticRunnerPool)
 
-	np.AddRunner("127.0.0.1:8082")
-	np.AddRunner("127.0.0.1:8082")
+	err := np.AddRunner("127.0.0.1:8082")
+	if err != nil {
+		t.Fatalf("Add Should not fail %v", err)
+	}
+
+	err = np.AddRunner("127.0.0.1:8082")
+	if err != ErrorPoolRunnerExists {
+		t.Fatalf("Add Should fail since duplicate %v", err)
+	}
 
 	runners, err := np.Runners(nil)
 	if err != nil {
