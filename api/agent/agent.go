@@ -451,7 +451,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
+	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync, isNB):
 		if tok != nil && tok.Error() != nil {
 			tryNotify(notifyChan, tok.Error())
 		} else if a.shutWg.AddSession(1) {
