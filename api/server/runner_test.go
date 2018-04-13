@@ -172,7 +172,7 @@ func TestRouteRunnerFastFail(t *testing.T) {
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/json", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 80, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+			{Path: "/json", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 70, Timeout: 30, IdleTimeout: 30, Config: rCfg},
 		},
 	)
 
