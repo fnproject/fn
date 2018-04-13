@@ -24,7 +24,7 @@ func (r *mockStaticRunner) TryExec(ctx context.Context, call pool.RunnerCall) (b
 	return true, nil
 }
 
-func (r *mockStaticRunner) Close() error {
+func (r *mockStaticRunner) Close(context.Context) error {
 	return ErrorGarbanzoBeans
 }
 
@@ -73,7 +73,7 @@ func TestEmptyPool(t *testing.T) {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
 
-	err = np.Shutdown()
+	err = np.Shutdown(context.Background())
 	if err != ErrorGarbanzoBeans {
 		t.Fatalf("Expected garbanzo beans error from shutdown %v", err)
 	}
@@ -109,7 +109,7 @@ func TestAddNodeToPool(t *testing.T) {
 		t.Fatalf("Invalid number of runners %v", len(runners))
 	}
 
-	err = np.Shutdown()
+	err = np.Shutdown(context.Background())
 	if err != ErrorGarbanzoBeans {
 		t.Fatalf("Expected garbanzo beans error from shutdown %v", err)
 	}
@@ -169,11 +169,11 @@ func TestRemoveNodeFromPool(t *testing.T) {
 	}
 
 	// Let's try a double shutdown
-	err = np.Shutdown()
+	err = np.Shutdown(context.Background())
 	if err != nil {
 		t.Fatalf("Not expected error from shutdown I (empty pool) %v", err)
 	}
-	err = np.Shutdown()
+	err = np.Shutdown(context.Background())
 	if err != nil {
 		t.Fatalf("Not expected error from shutdown II (empty pool) %v", err)
 	}

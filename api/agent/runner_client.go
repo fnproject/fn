@@ -42,7 +42,7 @@ func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool
 	}, nil
 }
 
-func (r *gRPCRunner) Close() error {
+func (r *gRPCRunner) Close(context.Context) error {
 	r.shutWg.CloseGroup()
 	return r.conn.Close()
 }

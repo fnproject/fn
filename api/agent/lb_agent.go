@@ -117,7 +117,7 @@ func (a *lbAgent) Close() error {
 	ch := a.shutWg.CloseGroupNB()
 
 	// finally shutdown the runner pool
-	err := a.rp.Shutdown()
+	err := a.rp.Shutdown(context.Background())
 	if err != nil {
 		logrus.WithError(err).Warn("Runner pool shutdown error")
 	}

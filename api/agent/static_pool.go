@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -121,7 +122,7 @@ func (rp *staticRunnerPool) AddRunner(address string) error {
 
 	err = rp.addRunner(r)
 	if err != nil {
-		err2 := r.Close()
+		err2 := r.Close(context.Background())
 		if err2 != nil {
 			logrus.WithError(err2).WithField("runner_addr", address).Warn("Error closing runner on AddRunner failure")
 		}
@@ -135,18 +136,18 @@ func (rp *staticRunnerPool) RemoveRunner(address string) {
 		return
 	}
 
-	err := toRemove.Close()
+	err := toRemove.Close(context.Background())
 	if err != nil {
 		logrus.WithError(err).WithField("runner_addr", toRemove.Address()).Error("Error closing runner")
 	}
 }
 
-func (rp *staticRunnerPool) Shutdown() error {
+func (rp *staticRunnerPool) Shutdown(ctx context.Context) error {
 	toRemove := rp.shutdown()
 
 	var retErr error
 	for _, r := range toRemove {
-		err := r.Close()
+		err := r.Close(ctx)
 		if err != nil {
 			logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Error closing runner")
 			// grab the first error only for now.
