@@ -22,8 +22,7 @@ const (
 	// sleep time when scaling from 0 to 1 runners
 	noCapacityWaitInterval = 1 * time.Second
 	// amount of time to wait to place a request on a runner
-	placementTimeout          = 15 * time.Second
-	runnerPoolShutdownTimeout = 5 * time.Second
+	placementTimeout = 15 * time.Second
 )
 
 type lbAgent struct {
@@ -118,9 +117,7 @@ func (a *lbAgent) Close() error {
 	ch := a.shutWg.CloseGroupNB()
 
 	// finally shutdown the runner pool
-	ctx, cancel := context.WithTimeout(context.Background(), runnerPoolShutdownTimeout)
-	defer cancel()
-	err := a.rp.Shutdown(ctx)
+	err := a.rp.Shutdown(context.Background())
 	if err != nil {
 		logrus.WithError(err).Warn("Runner pool shutdown error")
 	}

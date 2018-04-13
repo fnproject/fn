@@ -105,7 +105,7 @@ func (r *mockRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	return true, nil
 }
 
-func (r *mockRunner) Close(ctx context.Context) error {
+func (r *mockRunner) Close(context.Context) error {
 	go func() {
 		r.wg.Wait()
 	}()

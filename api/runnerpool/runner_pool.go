@@ -18,7 +18,7 @@ type Placer interface {
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
 type RunnerPool interface {
 	Runners(call RunnerCall) ([]Runner, error)
-	Shutdown(context.Context) error
+	Shutdown(ctx context.Context) error
 }
 
 // PKIData encapsulates TLS certificate data

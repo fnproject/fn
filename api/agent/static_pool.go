@@ -2,15 +2,16 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"sync"
-	"time"
 
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	staticPoolShutdownTimeout = 5 * time.Second
+var (
+	ErrorPoolClosed       = errors.New("Runner pool closed")
+	ErrorPoolRunnerExists = errors.New("Runner already exists")
 )
 
 // manages a single set of runners ignoring lb groups
@@ -20,6 +21,7 @@ type staticRunnerPool struct {
 	runnerCN  string
 	rMtx      *sync.RWMutex
 	runners   []pool.Runner
+	isClosed  bool
 }
 
 func DefaultStaticRunnerPool(runnerAddresses []string) pool.RunnerPool {
@@ -32,7 +34,7 @@ func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN s
 	for _, addr := range runnerAddresses {
 		r, err := runnerFactory(addr, runnerCN, pki)
 		if err != nil {
-			logrus.WithField("runner_addr", addr).Warn("Invalid runner")
+			logrus.WithError(err).WithField("runner_addr", addr).Warn("Invalid runner")
 			continue
 		}
 		logrus.WithField("runner_addr", addr).Debug("Adding runner to pool")
@@ -47,87 +49,112 @@ func NewStaticRunnerPool(runnerAddresses []string, pki *pool.PKIData, runnerCN s
 	}
 }
 
-func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
-	rp.rMtx.RLock()
-	defer rp.rMtx.RUnlock()
-
-	r := make([]pool.Runner, len(rp.runners))
-	copy(r, rp.runners)
-	return r, nil
-}
-
-func (rp *staticRunnerPool) AddRunner(address string) error {
+func (rp *staticRunnerPool) shutdown() []pool.Runner {
 	rp.rMtx.Lock()
 	defer rp.rMtx.Unlock()
 
-	r, err := rp.generator(address, rp.runnerCN, rp.pki)
-	if err != nil {
-		logrus.WithField("runner_addr", address).Warn("Failed to add runner")
-		return err
+	if rp.isClosed {
+		return nil
 	}
-	rp.runners = append(rp.runners, r)
+
+	rp.isClosed = true
+	toRemove := rp.runners[:]
+	rp.runners = nil
+
+	return toRemove
+}
+
+func (rp *staticRunnerPool) addRunner(runner pool.Runner) error {
+	rp.rMtx.Lock()
+	defer rp.rMtx.Unlock()
+
+	if rp.isClosed {
+		return ErrorPoolClosed
+	}
+
+	for _, r := range rp.runners {
+		if r.Address() == runner.Address() {
+			return ErrorPoolRunnerExists
+		}
+	}
+
+	rp.runners = append(rp.runners, runner)
 	return nil
 }
 
-func (rp *staticRunnerPool) RemoveRunner(address string) {
+func (rp *staticRunnerPool) removeRunner(address string) pool.Runner {
 	rp.rMtx.Lock()
 	defer rp.rMtx.Unlock()
-
-	ctx, cancel := context.WithTimeout(context.Background(), staticPoolShutdownTimeout)
-	defer cancel()
 
 	for i, r := range rp.runners {
 		if r.Address() == address {
-			err := r.Close(ctx)
-			if err != nil {
-				logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Failed to close runner")
-			}
-			// delete runner from list
 			rp.runners = append(rp.runners[:i], rp.runners[i+1:]...)
-			return
+			return r
 		}
+	}
+	return nil
+}
+
+func (rp *staticRunnerPool) getRunners() ([]pool.Runner, error) {
+	rp.rMtx.RLock()
+	defer rp.rMtx.RUnlock()
+
+	if rp.isClosed {
+		return nil, ErrorPoolClosed
+	}
+
+	r := make([]pool.Runner, len(rp.runners))
+	copy(r, rp.runners)
+
+	return r, nil
+}
+
+func (rp *staticRunnerPool) Runners(call pool.RunnerCall) ([]pool.Runner, error) {
+	return rp.getRunners()
+}
+
+func (rp *staticRunnerPool) AddRunner(address string) error {
+	r, err := rp.generator(address, rp.runnerCN, rp.pki)
+	if err != nil {
+		logrus.WithError(err).WithField("runner_addr", address).Warn("Failed to add runner")
+		return err
+	}
+
+	err = rp.addRunner(r)
+	if err != nil {
+		err2 := r.Close(context.Background())
+		if err2 != nil {
+			logrus.WithError(err2).WithField("runner_addr", address).Warn("Error closing runner on AddRunner failure")
+		}
+	}
+	return err
+}
+
+func (rp *staticRunnerPool) RemoveRunner(address string) {
+	toRemove := rp.removeRunner(address)
+	if toRemove == nil {
+		return
+	}
+
+	err := toRemove.Close(context.Background())
+	if err != nil {
+		logrus.WithError(err).WithField("runner_addr", toRemove.Address()).Error("Error closing runner")
 	}
 }
 
-// Shutdown blocks waiting for all runners to close, or until ctx is done
-func (rp *staticRunnerPool) Shutdown(ctx context.Context) (e error) {
-	rp.rMtx.Lock()
-	defer rp.rMtx.Unlock()
+func (rp *staticRunnerPool) Shutdown(ctx context.Context) error {
+	toRemove := rp.shutdown()
 
-	ctx, cancel := context.WithTimeout(context.Background(), staticPoolShutdownTimeout)
-	defer cancel()
-
-	errors := make(chan error, len(rp.runners))
-	var wg sync.WaitGroup
-	for _, r := range rp.runners {
-		wg.Add(1)
-		go func(runner pool.Runner) {
-			defer wg.Done()
-			err := runner.Close(ctx)
-			if err != nil {
-				logrus.WithError(err).WithField("runner_addr", runner.Address()).Error("Failed to close runner")
-				errors <- err
-			}
-		}(r)
-	}
-
-	done := make(chan interface{})
-	go func() {
-		defer close(done)
-		wg.Wait()
-	}()
-
-	select {
-	case <-done:
-		close(errors)
-		for e := range errors {
-			// return the first error
-			if e != nil {
-				return e
+	var retErr error
+	for _, r := range toRemove {
+		err := r.Close(ctx)
+		if err != nil {
+			logrus.WithError(err).WithField("runner_addr", r.Address()).Error("Error closing runner")
+			// grab the first error only for now.
+			if retErr == nil {
+				retErr = err
 			}
 		}
-		return nil
-	case <-ctx.Done():
-		return ctx.Err() // context timed out while waiting
 	}
+	return retErr
 }
