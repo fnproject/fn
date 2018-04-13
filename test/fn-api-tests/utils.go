@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -24,11 +23,7 @@ import (
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func GetAPIURL() (string, *url.URL) {
-	apiURL := os.Getenv("FN_API_URL")
-	if apiURL == "" {
-		apiURL = "http://localhost:8080"
-	}
-
+	apiURL := getEnv("FN_API_URL", "http://localhost:8080")
 	u, err := url.Parse(apiURL)
 	if err != nil {
 		log.Fatalf("Couldn't parse API URL: %s error: %s", apiURL, err)
@@ -79,12 +74,18 @@ func checkServer(ctx context.Context) error {
 	return ctx.Err()
 }
 
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 func startServer() {
 
 	getServer.Do(func() {
 		ctx := context.Background()
 
-		common.SetLogLevel("fatal")
 		timeString := time.Now().Format("2006_01_02_15_04_05")
 		dbURL := os.Getenv(server.EnvDBURL)
 		tmpDir := os.TempDir()
@@ -95,7 +96,12 @@ func startServer() {
 			dbURL = fmt.Sprintf("sqlite3://%s", tmpDb)
 		}
 
-		s = server.New(ctx, server.WithDBURL(dbURL), server.WithMQURL(mqURL), server.WithFullAgent())
+		s = server.New(ctx,
+			server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)),
+			server.WithDBURL(dbURL),
+			server.WithMQURL(mqURL),
+			server.WithFullAgent(),
+		)
 
 		go func() {
 			s.Start(ctx)
