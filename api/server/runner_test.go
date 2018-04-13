@@ -315,6 +315,80 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	}
 }
 
+func TestRouteRunnerExecEmptyBody(t *testing.T) {
+	buf := setLogBuffer()
+	isFailure := false
+
+	defer func() {
+		if isFailure {
+			t.Log(buf.String())
+		}
+	}()
+
+	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
+	rHdr := map[string][]string{"X-Function": {"Test"}}
+	rImg := "fnproject/fn-test-utils"
+
+	app := &models.App{Name: "soup"}
+	app.SetDefaults()
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{Path: "/cold", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/hothttp", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/hotjson", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+		},
+	)
+
+	rnr, cancelrnr := testRunner(t, ds)
+	defer cancelrnr()
+
+	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+
+	expHeaders := map[string][]string{"X-Function": {"Test"}}
+	emptyBody := `{"echoContent": "_TRX_ID_", "isDebug": true, "isEmptyBody": true}`
+
+	// Test hot cases twice to rule out hot-containers corrupting next request.
+	testCases := []struct {
+		path string
+	}{
+		{"/r/soup/cold/"},
+		{"/r/soup/hothttp"},
+		{"/r/soup/hothttp"},
+		{"/r/soup/hotjson"},
+		{"/r/soup/hotjson"},
+	}
+
+	for i, test := range testCases {
+		trx := fmt.Sprintf("_trx_%d_", i)
+		body := strings.NewReader(strings.Replace(emptyBody, "_TRX_ID_", trx, 1))
+		_, rec := routerRequest(t, srv.Router, "GET", test.path, body)
+		respBytes, _ := ioutil.ReadAll(rec.Body)
+		respBody := string(respBytes)
+		maxBody := len(respBody)
+		if maxBody > 1024 {
+			maxBody = 1024
+		}
+
+		if rec.Code != http.StatusOK {
+			isFailure = true
+			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+				i, http.StatusOK, rec.Code, respBody[:maxBody])
+		} else if len(respBytes) != 0 {
+			isFailure = true
+			t.Errorf("Test %d: Expected empty body but got %d. body: %s",
+				i, len(respBytes), respBody[:maxBody])
+		}
+
+		for name, header := range expHeaders {
+			if header[0] != rec.Header().Get(name) {
+				isFailure = true
+				t.Errorf("Test %d: Expected header `%s` to be %s but was %s. body: %s",
+					i, name, header[0], rec.Header().Get(name), respBody)
+			}
+		}
+	}
+}
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
