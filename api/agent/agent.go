@@ -450,6 +450,23 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 
 	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
+	// WARNING: Tricky flow below. We are here because: isNeeded is set,
+	// in other words, we need to launch a new container at this time due to high load.
+	//
+	// For non-blocking mode, this means, if we cannot acquire resources (cpu+mem), then we need
+	// to notify the caller through notifyChan. This is not perfect as the callers and
+	// checkLaunch do not match 1-1. But this is OK, we can notify *any* waiter that
+	// has signalled us, this is because non-blocking mode is a system wide setting.
+	// The notifications are lossy, but callers will signal/poll again if this is the case
+	// or this may not matter if they've already acquired an empty slot.
+	//
+	// For Non-blocking mode, a.cfg.HotPoll should not be set to too high since a missed
+	// notify event from here will add a.cfg.HotPoll msec latency. Setting a.cfg.HotPoll may
+	// be an acceptable workaround for the short term since non-blocking mode likely to reduce
+	// the number of waiters which perhaps could compensate for more frequent polling.
+	//
+	// Non-blocking mode only applies to cpu+mem, and if isNeeded decided that we do not
+	// need to start a new container, then waiters will wait.
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync, isNB):
 		if tok != nil && tok.Error() != nil {
