@@ -150,7 +150,7 @@ func (a *resourceTracker) GetResourceTokenWaiterCount() uint64 {
 	return waiters
 }
 
-func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync bool) (uint64, uint64, uint64, uint64) {
+func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync bool) ResourceToken {
 
 	var asyncMem, syncMem uint64
 	var asyncCPU, syncCPU uint64
@@ -168,7 +168,25 @@ func (a *resourceTracker) allocResourcesLocked(memory, cpuQuota uint64, isAsync 
 		asyncCPU = cpuQuota - syncCPU
 	}
 
-	return asyncMem, syncMem, asyncCPU, syncCPU
+	a.ramAsyncUsed += asyncMem
+	a.ramSyncUsed += syncMem
+	a.cpuAsyncUsed += asyncCPU
+	a.cpuSyncUsed += syncCPU
+
+	return &resourceToken{decrement: func() {
+
+		a.cond.L.Lock()
+		a.ramAsyncUsed -= asyncMem
+		a.ramSyncUsed -= syncMem
+		a.cpuAsyncUsed -= asyncCPU
+		a.cpuSyncUsed -= syncCPU
+		a.cond.L.Unlock()
+
+		// WARNING: yes, we wake up everyone even async waiters when only sync pool has space, but
+		// the cost of this spurious wake up is unlikely to impact much performance. Simpler
+		// to use one cond variable for the time being.
+		a.cond.Broadcast()
+	}}
 }
 
 func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota uint64, isAsync bool) ResourceToken {
@@ -177,28 +195,18 @@ func (a *resourceTracker) getResourceTokenNB(memory uint64, cpuQuota uint64, isA
 	}
 	memory = memory * Mem1MB
 
+	var t ResourceToken
+
 	a.cond.L.Lock()
-	defer a.cond.L.Unlock()
 
 	if !a.isResourceAvailableLocked(memory, cpuQuota, isAsync) {
-		return &resourceToken{decrement: func() {}, err: CapacityFull}
+		t = &resourceToken{decrement: func() {}, err: CapacityFull}
+	} else {
+		t = a.allocResourcesLocked(memory, cpuQuota, isAsync)
 	}
 
-	asyncMem, syncMem, asyncCPU, syncCPU := a.allocResourcesLocked(memory, cpuQuota, isAsync)
-
-	a.ramAsyncUsed += asyncMem
-	a.ramSyncUsed += syncMem
-	a.cpuAsyncUsed += asyncCPU
-	a.cpuSyncUsed += syncCPU
-
-	return &resourceToken{decrement: func() {
-		a.cond.L.Lock()
-		a.ramAsyncUsed -= asyncMem
-		a.ramSyncUsed -= syncMem
-		a.cpuAsyncUsed -= asyncCPU
-		a.cpuSyncUsed -= syncCPU
-		a.cond.L.Unlock()
-	}}
+	a.cond.L.Unlock()
+	return t
 }
 
 func (a *resourceTracker) getResourceTokenNBChan(ctx context.Context, memory uint64, cpuQuota uint64, isAsync bool) <-chan ResourceToken {
@@ -271,28 +279,8 @@ func (a *resourceTracker) GetResourceToken(ctx context.Context, memory uint64, c
 			return
 		}
 
-		asyncMem, syncMem, asyncCPU, syncCPU := a.allocResourcesLocked(memory, cpuQuota, isAsync)
-
-		a.ramAsyncUsed += asyncMem
-		a.ramSyncUsed += syncMem
-		a.cpuAsyncUsed += asyncCPU
-		a.cpuSyncUsed += syncCPU
+		t := a.allocResourcesLocked(memory, cpuQuota, isAsync)
 		c.L.Unlock()
-
-		t := &resourceToken{decrement: func() {
-
-			c.L.Lock()
-			a.ramAsyncUsed -= asyncMem
-			a.ramSyncUsed -= syncMem
-			a.cpuAsyncUsed -= asyncCPU
-			a.cpuSyncUsed -= syncCPU
-			c.L.Unlock()
-
-			// WARNING: yes, we wake up everyone even async waiters when only sync pool has space, but
-			// the cost of this spurious wake up is unlikely to impact much performance. Simpler
-			// to use one cond variable for the time being.
-			c.Broadcast()
-		}}
 
 		select {
 		case ch <- t:
