@@ -125,6 +125,9 @@ type Call struct {
 	// Headers are headers from the request that created this call
 	Headers http.Header `json:"headers,omitempty" db:"-"`
 
+	// SyslogURL is a syslog URL to send all logs to.
+	SyslogURL string `json:"syslog_url,omitempty" db:"-"`
+
 	// Time when call completed, whether it was successul or failed. Always in UTC.
 	CompletedAt strfmt.DateTime `json:"completed_at,omitempty" db:"completed_at"`
 
@@ -140,6 +143,7 @@ type Call struct {
 	// Error is the reason why the call failed, it is only non-empty if
 	// status is equal to "error".
 	Error string `json:"error,omitempty" db:"error"`
+
 	// App this call belongs to.
 	AppID string `json:"app_id" db:"app_id"`
 }

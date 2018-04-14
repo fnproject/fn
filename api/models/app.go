@@ -1,6 +1,10 @@
 package models
 
 import (
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 	"unicode"
 
@@ -13,6 +17,7 @@ type App struct {
 	Name        string          `json:"name" db:"name"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
+	SyslogURL   *string         `json:"syslog_url,omitempty" db:"syslog_url"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
@@ -48,6 +53,24 @@ func (a *App) Validate() error {
 	err := a.Annotations.Validate()
 	if err != nil {
 		return err
+	}
+
+	if a.SyslogURL != nil && *a.SyslogURL != "" {
+		sinks := strings.Split(*a.SyslogURL, ",")
+		for _, s := range sinks {
+			url, err := url.Parse(strings.TrimSpace(s))
+			fail := err != nil
+			if !fail {
+				switch url.Scheme {
+				case "udp", "tcp", "tls":
+				default:
+					fail = true
+				}
+			}
+			if fail {
+				return ErrInvalidSyslog(fmt.Sprintf(`invalid syslog url: "%v"`, s))
+			}
+		}
 	}
 	return nil
 }
@@ -100,12 +123,27 @@ func (a *App) Update(patch *App) {
 		}
 	}
 
+	if patch.SyslogURL != nil {
+		if *patch.SyslogURL == "" {
+			a.SyslogURL = nil // hides it from jason
+		} else {
+			a.SyslogURL = patch.SyslogURL
+		}
+	}
+
 	a.Annotations = a.Annotations.MergeChange(patch.Annotations)
 
 	if !a.Equals(original) {
 		a.UpdatedAt = strfmt.DateTime(time.Now())
 	}
 }
+
+var _ APIError = ErrInvalidSyslog("")
+
+type ErrInvalidSyslog string
+
+func (e ErrInvalidSyslog) Code() int     { return http.StatusBadRequest }
+func (e ErrInvalidSyslog) Error() string { return string(e) }
 
 // AppFilter is the filter used for querying apps
 type AppFilter struct {

@@ -62,6 +62,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	name varchar(256) NOT NULL PRIMARY KEY,
 	config text NOT NULL,
 	annotations text NOT NULL,
+	syslog_url text,
 	created_at varchar(256),
 	updated_at varchar(256)
 );`,
@@ -89,7 +90,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 const (
 	routeSelector     = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, annotations, created_at, updated_at FROM routes`
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
-	appIDSelector     = `SELECT id, name, config, annotations, created_at, updated_at FROM apps WHERE id=?`
+	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
@@ -333,6 +334,7 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 		name,
 		config,
 		annotations,
+		syslog_url,
 		created_at,
 		updated_at
 	)
@@ -341,6 +343,7 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 		:name,
 		:config,
 		:annotations,
+		:syslog_url,
 		:created_at,
 		:updated_at
 	);`)
@@ -389,7 +392,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 			return err
 		}
 
-		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, updated_at=:updated_at WHERE name=:name`)
+		query = tx.Rebind(`UPDATE apps SET config=:config, annotations=:annotations, syslog_url=:syslog_url, updated_at=:updated_at WHERE name=:name`)
 		res, err := tx.NamedExecContext(ctx, query, app)
 		if err != nil {
 			return err
@@ -466,7 +469,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	if err != nil {
 		return nil, err
 	}
-	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, annotations, created_at, updated_at FROM apps %s", query))
+	query = ds.db.Rebind(fmt.Sprintf("SELECT DISTINCT name, config, annotations, syslog_url, created_at, updated_at FROM apps %s", query))
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return nil, err

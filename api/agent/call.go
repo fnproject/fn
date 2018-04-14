@@ -103,6 +103,11 @@ func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallO
 			return err
 		}
 
+		var syslogURL string
+		if app.SyslogURL != nil {
+			syslogURL = *app.SyslogURL
+		}
+
 		c.Call = &models.Call{
 			ID:    id,
 			Path:  route.Path,
@@ -123,6 +128,7 @@ func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallO
 			URL:         reqURL(req),
 			Method:      req.Method,
 			AppID:       app.ID,
+			SyslogURL:   syslogURL,
 		}
 
 		c.req = req
@@ -258,9 +264,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
 	c.req = c.req.WithContext(ctx)
 
-	// setup stderr logger separate (don't inherit ctx vars)
-	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
-	c.stderr = setupLogger(logger, a.cfg.MaxLogSize)
+	c.stderr = setupLogger(ctx, a.cfg.MaxLogSize, c.Call)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
