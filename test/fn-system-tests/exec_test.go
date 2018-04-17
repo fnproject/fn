@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fnproject/fn/api/models"
+	apimodels "github.com/fnproject/fn/api/models"
 	apiutils "github.com/fnproject/fn/test/fn-api-tests"
-	"github.com/fnproject/fn_go/models"
+	sdkmodels "github.com/fnproject/fn_go/models"
 )
 
 func LB() (string, error) {
@@ -26,7 +26,7 @@ func LB() (string, error) {
 
 func TestCanExecuteFunction(t *testing.T) {
 	s := apiutils.SetupHarness()
-	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
@@ -62,7 +62,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 
 	s := apiutils.SetupHarness()
 
-	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
@@ -115,7 +115,7 @@ func TestSaturatedSystem(t *testing.T) {
 
 	s := apiutils.SetupHarness()
 
-	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
@@ -137,7 +137,7 @@ func TestSaturatedSystem(t *testing.T) {
 	output := &bytes.Buffer{}
 	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
-		if err != models.ErrCallTimeoutServerBusy {
+		if err != apimodels.ErrCallTimeoutServerBusy {
 			t.Errorf("Got unexpected error: %v", err)
 		}
 	}
