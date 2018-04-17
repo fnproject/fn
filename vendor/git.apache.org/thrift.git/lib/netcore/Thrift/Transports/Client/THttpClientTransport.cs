@@ -16,11 +16,9 @@
 // under the License.
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
@@ -151,7 +149,7 @@ namespace Thrift.Transports.Client
             }
 
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-thrift"));
-            httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("THttpClientTransport", "0.11.0"));
+            httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("THttpClientTransport", "1.0.0"));
 
             if (CustomHeaders != null)
             {
@@ -198,7 +196,7 @@ namespace Thrift.Transports.Client
                 {
                     throw new TTransportException(TTransportException.ExceptionType.Unknown, iox.ToString());
                 }
-                catch (WebException wx)
+                catch (HttpRequestException wx)
                 {
                     throw new TTransportException(TTransportException.ExceptionType.Unknown,
                         "Couldn't connect to server: " + wx);

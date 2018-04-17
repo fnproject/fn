@@ -18,6 +18,7 @@ package ocgrpc
 import (
 	"testing"
 
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -298,12 +299,12 @@ func TestClientDefaultCollections(t *testing.T) {
 
 	for _, tc := range tcs {
 		// Register views.
-		err := view.Subscribe(DefaultClientViews...)
-		if err != nil {
+		if err := view.Subscribe(DefaultClientViews...); err != nil {
 			t.Error(err)
 		}
 
-		h := &ClientHandler{NoTrace: true}
+		h := &ClientHandler{}
+		h.StartOptions.Sampler = trace.NeverSample()
 		for _, rpc := range tc.rpcs {
 			mods := []tag.Mutator{}
 			for _, t := range rpc.tags {

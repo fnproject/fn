@@ -38,7 +38,14 @@ func TestMigrateUp(t *testing.T) {
 
 	ctx := context.Background()
 
-	err = tx(ctx, db, func(tx *sqlx.Tx) error {
+	do := func() error {
+		tx, err := db.Beginx()
+		if err != nil {
+			return err
+		}
+
+		defer tx.Commit()
+
 		version, dirty, err := Version(ctx, tx)
 		if version != NilVersion || err != nil || dirty {
 			return fmt.Errorf("version err: %v %v", err, dirty)
@@ -48,7 +55,7 @@ func TestMigrateUp(t *testing.T) {
 			return errors.New("found existing version in db, nuke it")
 		}
 
-		err = Up(ctx, db, []Migration{x})
+		err = Up(ctx, tx, []Migration{x})
 		if err != nil {
 			return err
 		}
@@ -61,7 +68,15 @@ func TestMigrateUp(t *testing.T) {
 		if version != x.Version() {
 			return errors.New("version did not update, migration should have ran.")
 		}
+		return nil
+	}
 
+	err = do()
+	if err != nil {
+		t.Fatalf("couldn't run migrations: %v", err)
+	}
+
+	do = func() error {
 		// make sure the table is there.
 		// TODO find a db agnostic way of doing this.
 		//	query := db.Rebind(`SELECT foo FROM sqlite_master WHERE type = 'table'`)
@@ -76,9 +91,10 @@ func TestMigrateUp(t *testing.T) {
 			return fmt.Errorf("migration version worked but migration didn't work: %v", result)
 		}
 		return nil
-	})
+	}
 
+	err = do()
 	if err != nil {
-		t.Fatalf("bad things happened: %v", err)
+		t.Fatalf("migration check failed: %v", err)
 	}
 }

@@ -206,6 +206,20 @@ func GetsockoptInt(fd, level, opt int) (value int, err error) {
 	return int(n), err
 }
 
+func GetsockoptLinger(fd, level, opt int) (*Linger, error) {
+	var linger Linger
+	vallen := _Socklen(SizeofLinger)
+	err := getsockopt(fd, level, opt, unsafe.Pointer(&linger), &vallen)
+	return &linger, err
+}
+
+func GetsockoptTimeval(fd, level, opt int) (*Timeval, error) {
+	var tv Timeval
+	vallen := _Socklen(unsafe.Sizeof(tv))
+	err := getsockopt(fd, level, opt, unsafe.Pointer(&tv), &vallen)
+	return &tv, err
+}
+
 func Recvfrom(fd int, p []byte, flags int) (n int, from Sockaddr, err error) {
 	var rsa RawSockaddrAny
 	var len _Socklen = SizeofSockaddrAny
@@ -304,4 +318,13 @@ func SetNonblock(fd int, nonblocking bool) (err error) {
 	}
 	_, err = fcntl(fd, F_SETFL, flag)
 	return err
+}
+
+// Exec calls execve(2), which replaces the calling executable in the process
+// tree. argv0 should be the full path to an executable ("/bin/ls") and the
+// executable name should also be the first argument in argv (["ls", "-l"]).
+// envv are the environment variables that should be passed to the new
+// process (["USER=go", "PWD=/tmp"]).
+func Exec(argv0 string, argv []string, envv []string) error {
+	return syscall.Exec(argv0, argv, envv)
 }

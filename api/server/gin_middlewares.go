@@ -81,8 +81,8 @@ func loggerWrap(c *gin.Context) {
 	ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
 
 	if appName := c.Param(api.CApp); appName != "" {
-		c.Set(api.AppName, appName)
-		ctx = context.WithValue(ctx, api.AppName, appName)
+		c.Set(api.App, appName)
+		ctx = context.WithValue(ctx, api.App, appName)
 	}
 
 	if routePath := c.Param(api.CRoute); routePath != "" {
@@ -94,9 +94,49 @@ func loggerWrap(c *gin.Context) {
 	c.Next()
 }
 
+func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
+
+		appName := c.Param(api.CApp)
+		if appName != "" {
+			appID, err := s.agent.GetAppID(ctx, appName)
+			if err != nil {
+				handleErrorResponse(c, err)
+				c.Abort()
+				return
+			}
+			c.Set(api.AppID, appID)
+		}
+
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, _ := common.LoggerWithFields(c.Request.Context(), extractFields(c))
+
+		appName := c.MustGet(api.App).(string)
+		if appName != "" {
+			appID, err := s.datastore.GetAppID(ctx, appName)
+			if err != nil {
+				handleErrorResponse(c, err)
+				c.Abort()
+				return
+			}
+			c.Set(api.AppID, appID)
+		}
+
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
 func setAppNameInCtx(c *gin.Context) {
 	// add appName to context
-	appName := c.GetString(api.AppName)
+	appName := c.GetString(api.App)
 	if appName != "" {
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), fnext.AppNameKey, appName))
 	}
@@ -104,7 +144,7 @@ func setAppNameInCtx(c *gin.Context) {
 }
 
 func appNameCheck(c *gin.Context) {
-	appName := c.GetString(api.AppName)
+	appName := c.GetString(api.App)
 	if appName == "" {
 		handleErrorResponse(c, models.ErrAppsMissingName)
 		c.Abort()

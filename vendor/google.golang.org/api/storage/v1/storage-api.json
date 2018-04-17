@@ -26,7 +26,7 @@
   "description": "Stores and retrieves potentially large, immutable data objects.",
   "discoveryVersion": "v1",
   "documentationLink": "https://developers.google.com/storage/docs/json_api/",
-  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/jLupXEh5MvYeA2ibX_aBxLuxU28\"",
+  "etag": "\"-iA1DTNe4s-I6JZXPt1t1Ypy8IU/nD7tyZqYOGFELa4QRBOZJ8raFKA\"",
   "icons": {
     "x16": "https://www.google.com/images/icons/product/cloud_storage-16.png",
     "x32": "https://www.google.com/images/icons/product/cloud_storage-32.png"
@@ -219,7 +219,7 @@
           ]
         },
         "patch": {
-          "description": "Updates an ACL entry on the specified bucket. This method supports patch semantics.",
+          "description": "Patches an ACL entry on the specified bucket.",
           "httpMethod": "PATCH",
           "id": "storage.bucketAccessControls.patch",
           "parameterOrder": [
@@ -1050,7 +1050,7 @@
           ]
         },
         "patch": {
-          "description": "Updates a default object ACL entry on the specified bucket. This method supports patch semantics.",
+          "description": "Patches a default object ACL entry on the specified bucket.",
           "httpMethod": "PATCH",
           "id": "storage.defaultObjectAccessControls.patch",
           "parameterOrder": [
@@ -1456,7 +1456,7 @@
           ]
         },
         "patch": {
-          "description": "Updates an ACL entry on the specified object. This method supports patch semantics.",
+          "description": "Patches an ACL entry on the specified object.",
           "httpMethod": "PATCH",
           "id": "storage.objectAccessControls.patch",
           "parameterOrder": [
@@ -2756,7 +2756,7 @@
       }
     }
   },
-  "revision": "20180118",
+  "revision": "20180305",
   "rootUrl": "https://www.googleapis.com/",
   "schemas": {
     "Bucket": {

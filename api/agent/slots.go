@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"hash"
+	"reflect"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -284,7 +285,7 @@ func getSlotQueueKey(call *call) string {
 	hash.Reset()
 	defer shapool.Put(hash)
 
-	hash.Write(unsafeBytes(call.AppName))
+	hash.Write(unsafeBytes(call.AppID))
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Path))
 	hash.Write(unsafeBytes("\x00"))
@@ -325,6 +326,25 @@ func getSlotQueueKey(call *call) string {
 		hash.Write(unsafeBytes("\x00"))
 	}
 
+	// we need to additionally delimit config and annotations to eliminate overlap bug
+	hash.Write(unsafeBytes("\x00"))
+
+	keys = keys[:0] // clear keys
+	for k := range call.Annotations {
+		i := sort.SearchStrings(keys, k)
+		keys = append(keys, "")
+		copy(keys[i+1:], keys[i:])
+		keys[i] = k
+	}
+
+	for _, k := range keys {
+		hash.Write(unsafeBytes(k))
+		hash.Write(unsafeBytes("\x00"))
+		v, _ := call.Annotations.Get(k)
+		hash.Write(v)
+		hash.Write(unsafeBytes("\x00"))
+	}
+
 	var buf [sha1.Size]byte
 	hash.Sum(buf[:0])
 	return string(buf[:])
@@ -332,5 +352,17 @@ func getSlotQueueKey(call *call) string {
 
 // WARN: this is read only
 func unsafeBytes(a string) []byte {
-	return *(*[]byte)(unsafe.Pointer(&a))
+	strHeader := (*reflect.StringHeader)(unsafe.Pointer(&a))
+
+	var b []byte
+	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	byteHeader.Data = strHeader.Data
+
+	// need to take the length of `a` here to ensure it's alive until after we update b's Data
+	// field since the garbage collector can collect a variable once it is no longer used
+	// not when it goes out of scope, for more details see https://github.com/golang/go/issues/9046
+	l := len(a)
+	byteHeader.Len = l
+	byteHeader.Cap = l
+	return b
 }

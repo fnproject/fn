@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 )
 
@@ -266,6 +267,7 @@ func TestSlotQueueBasic3(t *testing.T) {
 
 func BenchmarkSlotKey(b *testing.B) {
 	appName := "myapp"
+	appID := id.New().String()
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
@@ -290,7 +292,7 @@ func BenchmarkSlotKey(b *testing.B) {
 
 	cm := &models.Call{
 		Config:      cfg,
-		AppName:     appName,
+		AppID:       appID,
 		Path:        path,
 		Image:       image,
 		Type:        typ,

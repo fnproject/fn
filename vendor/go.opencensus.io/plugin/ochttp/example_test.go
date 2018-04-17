@@ -25,20 +25,20 @@ import (
 )
 
 func ExampleTransport() {
-	err := view.Subscribe(
-		// Subscribe to a few default views, with renaming
+	if err := view.Subscribe(
+		// Subscribe to a few default views.
 		ochttp.ClientRequestCountByMethod,
 		ochttp.ClientResponseCountByStatusCode,
 		ochttp.ClientLatencyView,
-		// Subscribe to a custom view
+
+		// Subscribe to a custom view.
 		&view.View{
 			Name:        "httpclient_latency_by_hostpath",
 			TagKeys:     []tag.Key{ochttp.Host, ochttp.Path},
 			Measure:     ochttp.ClientLatency,
 			Aggregation: ochttp.DefaultLatencyDistribution,
 		},
-	)
-	if err != nil {
+	); err != nil {
 		log.Fatal(err)
 	}
 

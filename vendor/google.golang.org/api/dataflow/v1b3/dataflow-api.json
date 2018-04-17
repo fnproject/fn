@@ -1554,7 +1554,7 @@
       }
     }
   },
-  "revision": "20180220",
+  "revision": "20180314",
   "rootUrl": "https://dataflow.googleapis.com/",
   "schemas": {
     "ApproximateProgress": {
@@ -1826,7 +1826,8 @@
             "OR",
             "AND",
             "SET",
-            "DISTRIBUTION"
+            "DISTRIBUTION",
+            "LATEST_VALUE"
           ],
           "enumDescriptions": [
             "Counter aggregation kind was not set.",
@@ -1837,7 +1838,8 @@
             "Aggregated value represents the logical 'or' of all contributed values.",
             "Aggregated value represents the logical 'and' of all contributed values.",
             "Aggregated value is a set of unique contributed values.",
-            "Aggregated value captures statistics about a distribution."
+            "Aggregated value captures statistics about a distribution.",
+            "Aggregated value tracks the latest value of a variable."
           ],
           "type": "string"
         },
@@ -1985,6 +1987,10 @@
         "integer": {
           "$ref": "SplitInt64",
           "description": "Integer value for Sum, Max, Min."
+        },
+        "integerGauge": {
+          "$ref": "IntegerGauge",
+          "description": "Gauge data"
         },
         "integerList": {
           "$ref": "IntegerList",
@@ -2583,6 +2589,22 @@
         "systemName": {
           "description": "System-defined name of this output.\nUnique across the workflow.",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "IntegerGauge": {
+      "description": "A metric value representing temporal values of a variable.",
+      "id": "IntegerGauge",
+      "properties": {
+        "timestamp": {
+          "description": "The time at which this value was measured. Measured as msecs from epoch.",
+          "format": "google-datetime",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "SplitInt64",
+          "description": "The value of the variable represented by this gauge."
         }
       },
       "type": "object"
@@ -3197,7 +3219,8 @@
             "OR",
             "AND",
             "SET",
-            "DISTRIBUTION"
+            "DISTRIBUTION",
+            "LATEST_VALUE"
           ],
           "enumDescriptions": [
             "Counter aggregation kind was not set.",
@@ -3208,7 +3231,8 @@
             "Aggregated value represents the logical 'or' of all contributed values.",
             "Aggregated value represents the logical 'and' of all contributed values.",
             "Aggregated value is a set of unique contributed values.",
-            "Aggregated value captures statistics about a distribution."
+            "Aggregated value captures statistics about a distribution.",
+            "Aggregated value tracks the latest value of a variable."
           ],
           "type": "string"
         },

@@ -18,6 +18,7 @@ package ocgrpc
 import (
 	"testing"
 
+	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
 
 	"go.opencensus.io/stats/view"
@@ -54,6 +55,7 @@ func TestServerDefaultCollections(t *testing.T) {
 		rpcs  []*rpc
 		wants []*wantData
 	}
+
 	tcs := []testCase{
 		{
 			"1",
@@ -296,13 +298,12 @@ func TestServerDefaultCollections(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		for _, v := range DefaultServerViews {
-			if err := v.Subscribe(); err != nil {
-				t.Error(err)
-			}
+		if err := view.Subscribe(DefaultServerViews...); err != nil {
+			t.Fatal(err)
 		}
 
-		h := &ServerHandler{NoTrace: true}
+		h := &ServerHandler{}
+		h.StartOptions.Sampler = trace.NeverSample()
 		for _, rpc := range tc.rpcs {
 			mods := []tag.Mutator{}
 			for _, t := range rpc.tags {

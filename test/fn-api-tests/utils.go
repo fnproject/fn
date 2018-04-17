@@ -9,13 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
@@ -24,16 +22,17 @@ import (
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func Host() string {
-	apiURL := os.Getenv("FN_API_URL")
-	if apiURL == "" {
-		apiURL = "http://localhost:8080"
-	}
-
+func GetAPIURL() (string, *url.URL) {
+	apiURL := getEnv("FN_API_URL", "http://localhost:8080")
 	u, err := url.Parse(apiURL)
 	if err != nil {
-		log.Fatalln("Couldn't parse API URL:", err)
+		log.Fatalf("Couldn't parse API URL: %s error: %s", apiURL, err)
 	}
+	return apiURL, u
+}
+
+func Host() string {
+	_, u := GetAPIURL()
 	return u.Host
 }
 
@@ -48,20 +47,45 @@ func APIClient() *client.Fn {
 }
 
 var (
-	getServer     sync.Once
-	cancel2       context.CancelFunc
-	s             *server.Server
-	appsandroutes = make(map[string][]string)
-	approutesLock sync.Mutex
+	getServer sync.Once
+	s         *server.Server
 )
 
-func getServerWithCancel() (*server.Server, context.CancelFunc) {
+func checkServer(ctx context.Context) error {
+	if ctx.Err() != nil {
+		log.Print("Server check failed, timeout")
+		return ctx.Err()
+	}
+
+	apiURL, _ := GetAPIURL()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiURL+"/version", nil)
+	if err != nil {
+		log.Panicf("Server check new request failed: %s", err)
+	}
+
+	req = req.WithContext(ctx)
+	_, err = client.Do(req)
+	if err != nil {
+		log.Printf("Server is not up... err: %s", err)
+		return err
+	}
+	return ctx.Err()
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func startServer() {
+
 	getServer.Do(func() {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx := context.Background()
 
-		apiURL := "http://localhost:8080"
-
-		common.SetLogLevel("fatal")
 		timeString := time.Now().Format("2006_01_02_15_04_05")
 		dbURL := os.Getenv(server.EnvDBURL)
 		tmpDir := os.TempDir()
@@ -72,31 +96,50 @@ func getServerWithCancel() (*server.Server, context.CancelFunc) {
 			dbURL = fmt.Sprintf("sqlite3://%s", tmpDb)
 		}
 
-		s = server.New(ctx, server.WithDBURL(dbURL), server.WithMQURL(mqURL), server.WithFullAgent())
+		s = server.New(ctx,
+			server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)),
+			server.WithDBURL(dbURL),
+			server.WithMQURL(mqURL),
+			server.WithFullAgent(),
+		)
 
-		go s.Start(ctx)
-		started := false
-		time.AfterFunc(time.Second*10, func() {
-			if !started {
-				panic("Failed to start server.")
-			}
-		})
-		_, err := http.Get(apiURL + "/version")
-		for err != nil {
-			_, err = http.Get(apiURL + "/version")
-		}
-		started = true
-		cancel2 = context.CancelFunc(func() {
-			cancel()
+		go func() {
+			s.Start(ctx)
 			os.Remove(tmpMq)
 			os.Remove(tmpDb)
-		})
+		}()
+
+		startCtx, startCancel := context.WithDeadline(ctx, time.Now().Add(time.Duration(10)*time.Second))
+		defer startCancel()
+		for {
+			err := checkServer(startCtx)
+			if err == nil {
+				break
+			}
+			select {
+			case <-time.After(time.Second * 1):
+			case <-ctx.Done():
+			}
+			if ctx.Err() != nil {
+				log.Panic("Server check failed, timeout")
+			}
+		}
 	})
-	return s, cancel2
+
+	// check once
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(2)*time.Second))
+	defer cancel()
+	err := checkServer(ctx)
+	if err != nil {
+		log.Panicf("Server check failed: %s", err)
+	}
 }
 
-type SuiteSetup struct {
+// TestHarness provides context and pre-configured clients to an individual test, it has some helper functions to create Apps and Routes that mirror the underlying client operations and clean them up after the test is complete
+// This is not goroutine safe and each test case should use its own harness.
+type TestHarness struct {
 	Context      context.Context
+	Cancel       func()
 	Client       *client.Fn
 	AppName      string
 	RoutePath    string
@@ -108,7 +151,8 @@ type SuiteSetup struct {
 	IdleTimeout  int32
 	RouteConfig  map[string]string
 	RouteHeaders map[string][]string
-	Cancel       context.CancelFunc
+
+	createdApps map[string]bool
 }
 
 func RandStringBytes(n int) string {
@@ -119,10 +163,12 @@ func RandStringBytes(n int) string {
 	return strings.ToLower(string(b))
 }
 
-func SetupDefaultSuite() *SuiteSetup {
+// SetupHarness creates a test harness for a test case - this picks up external options and
+func SetupHarness() *TestHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	ss := &SuiteSetup{
+	ss := &TestHarness{
 		Context:      ctx,
+		Cancel:       cancel,
 		Client:       APIClient(),
 		AppName:      "fnintegrationtestapp" + RandStringBytes(10),
 		RoutePath:    "/fnintegrationtestroute" + RandStringBytes(10),
@@ -131,40 +177,26 @@ func SetupDefaultSuite() *SuiteSetup {
 		RouteType:    "async",
 		RouteConfig:  map[string]string{},
 		RouteHeaders: map[string][]string{},
-		Cancel:       cancel,
 		Memory:       uint64(256),
 		Timeout:      int32(30),
 		IdleTimeout:  int32(30),
+		createdApps:  make(map[string]bool),
 	}
 
-	if Host() != "localhost:8080" {
-		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
-		if ok != nil {
-			panic("Cannot reach remote api for functions")
-		}
-	} else {
-		_, ok := http.Get(fmt.Sprintf("http://%s/version", Host()))
-		if ok != nil {
-			_, cancel := getServerWithCancel()
-			ss.Cancel = cancel
-		}
-	}
-
+	startServer()
 	return ss
 }
 
-func Cleanup() {
+func (s *TestHarness) Cleanup() {
 	ctx := context.Background()
-	c := APIClient()
-	approutesLock.Lock()
-	defer approutesLock.Unlock()
-	for appName, rs := range appsandroutes {
-		for _, routePath := range rs {
-			deleteRoute(ctx, c, appName, routePath)
-		}
-		DeleteAppNoT(ctx, c, appName)
+
+	//for _,ar := range s.createdRoutes {
+	//	deleteRoute(ctx, s.Client, ar.appName, ar.routeName)
+	//}
+
+	for app, _ := range s.createdApps {
+		safeDeleteApp(ctx, s.Client, app)
 	}
-	appsandroutes = make(map[string][]string)
 }
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
@@ -212,20 +244,6 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-}
-
-func MyCaller() string {
-	fpcs := make([]uintptr, 1)
-	n := runtime.Callers(3, fpcs)
-	if n == 0 {
-		return "n/a"
-	}
-	fun := runtime.FuncForPC(fpcs[0] - 1)
-	if fun == nil {
-		return "n/a"
-	}
-	f, l := fun.FileLine(fpcs[0] - 1)
-	return fmt.Sprintf("%s:%d", f, l)
 }
 
 func APICallWithRetry(t *testing.T, attempts int, sleep time.Duration, callback func() error) (err error) {

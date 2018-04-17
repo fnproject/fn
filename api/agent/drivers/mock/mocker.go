@@ -1,3 +1,4 @@
+// Package mock provides a fake Driver implementation that is only used for testing.
 package mock
 
 import (
@@ -18,6 +19,10 @@ type Mocker struct {
 
 func (m *Mocker) Prepare(context.Context, drivers.ContainerTask) (drivers.Cookie, error) {
 	return &cookie{m}, nil
+}
+
+func (m *Mocker) Close() error {
+	return nil
 }
 
 type cookie struct {

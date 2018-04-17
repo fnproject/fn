@@ -34,26 +34,28 @@ Currently, OpenCensus supports:
 * [Jaeger][exporter-jaeger] for traces
 * [AWS X-Ray][exporter-xray] for traces
 
+
+## Overview
+
+![OpenCensus Overview](https://i.imgur.com/cf4ElHE.jpg)
+
+In a microservices environment, a user request may go through
+multiple services until there is a response. OpenCensus allows
+you to instrument your services and collect diagnostics data all
+through your services end-to-end.
+
+Start with instrumenting HTTP and gRPC clients and servers,
+then add additional custom instrumentation if needed.
+
+* [HTTP guide](https://github.com/census-instrumentation/opencensus-go/tree/master/examples/http)
+* [gRPC guide](https://github.com/census-instrumentation/opencensus-go/tree/master/examples/grpc)
+
+
 ## Tags
 
 Tags represent propagated key-value pairs. They are propagated using context.Context
 in the same process or can be encoded to be transmitted on the wire and decoded back
 to a tag.Map at the destination.
-
-### Getting a key by a name
-
-A key is defined by its name. To use a key, a user needs to know its name and type.
-
-[embedmd]:# (tags.go stringKey)
-```go
-// Get a key to represent user OS.
-key, err := tag.NewKey("my.org/keys/user-os")
-if err != nil {
-	log.Fatal(err)
-}
-```
-
-### Creating tags and propagating them
 
 Package tag provides a builder to create tag maps and put it
 into the current context.
@@ -63,15 +65,6 @@ If there is already a tag map in the current context, it will be replaced.
 
 [embedmd]:# (tags.go new)
 ```go
-osKey, err := tag.NewKey("my.org/keys/user-os")
-if err != nil {
-	log.Fatal(err)
-}
-userIDKey, err := tag.NewKey("my.org/keys/user-id")
-if err != nil {
-	log.Fatal(err)
-}
-
 ctx, err = tag.New(ctx,
 	tag.Insert(osKey, "macOS-10.12.5"),
 	tag.Upsert(userIDKey, "cde36753ed"),
@@ -81,49 +74,20 @@ if err != nil {
 }
 ```
 
-### Propagating a tag map in a context
-
-If you have access to a tag.Map, you can also
-propagate it in the current context:
-
-[embedmd]:# (tags.go newContext)
-```go
-m := tag.FromContext(ctx)
-```
-
-In order to update existing tags from the current context,
-use New and pass the returned context.
-
-[embedmd]:# (tags.go replaceTagMap)
-```go
-ctx, err = tag.New(ctx,
-	tag.Insert(osKey, "macOS-10.12.5"),
-	tag.Upsert(userIDKey, "fff0989878"),
-)
-if err != nil {
-	log.Fatal(err)
-}
-```
-
-
 ## Stats
 
-### Measures
+OpenCensus is a low-overhead framework even if instrumentation is always enabled.
+In order to be so, it is optimized to make recording of data points fast
+and separate from the data aggregation.
 
-Measures are used for recording data points with associated units.
-Creating a Measure:
+OpenCensus stats collection happens in two stages:
 
-[embedmd]:# (stats.go measure)
-```go
-videoSize, err := stats.Int64("my.org/video_size", "processed video size", "MB")
-if err != nil {
-	log.Fatal(err)
-}
-```
+* Definition of measures and recording of data points
+* Definition of views and aggregation of the recorded data
 
-### Recording Measurements
+### Recording
 
-Measurements are data points associated with Measures.
+Measurements are data points associated with a measure.
 Recording implicitly tags the set of Measurements with the tags from the
 provided context:
 
@@ -135,7 +99,7 @@ stats.Record(ctx, videoSize.M(102478))
 ### Views
 
 Views are how Measures are aggregated. You can think of them as queries over the
-set of recorded data points (Measurements).
+set of recorded data points (measurements).
 
 Views have two parts: the tags to group by and the aggregation type used.
 
@@ -147,15 +111,13 @@ Currently four types of aggregations are supported:
 
 [embedmd]:# (stats.go aggs)
 ```go
-distAgg := view.DistributionAggregation{0, 1 << 32, 2 << 32, 3 << 32}
-countAgg := view.CountAggregation{}
-sumAgg := view.SumAggregation{}
-meanAgg := view.MeanAggregation{}
+distAgg := view.Distribution(0, 1<<32, 2<<32, 3<<32)
+countAgg := view.Count()
+sumAgg := view.Sum()
+meanAgg := view.Mean()
 ```
 
-Here we create a view with the DistributionAggregation over our Measure.
-All Measurements will be aggregated together irrespective of their tags,
-i.e. no grouping by tag.
+Here we create a view with the DistributionAggregation over our measure.
 
 [embedmd]:# (stats.go view)
 ```go
@@ -163,7 +125,7 @@ if err = view.Subscribe(&view.View{
 	Name:        "my.org/video_size_distribution",
 	Description: "distribution of processed video size over time",
 	Measure:     videoSize,
-	Aggregation: view.DistributionAggregation([]float64{0, 1 << 32, 2 << 32, 3 << 32}),
+	Aggregation: view.Distribution(0, 1<<32, 2<<32, 3<<32),
 }); err != nil {
 	log.Fatalf("Failed to subscribe to view: %v", err)
 }
@@ -172,47 +134,13 @@ if err = view.Subscribe(&view.View{
 Subscribe begins collecting data for the view. Subscribed views' data will be
 exported via the registered exporters.
 
-[embedmd]:# (stats.go registerExporter)
-```go
-// Register an exporter to be able to retrieve
-// the data from the subscribed views.
-view.RegisterExporter(&exporter{})
-```
-
-An example logger exporter is below:
-
-[embedmd]:# (stats.go exporter)
-```go
-
-type exporter struct{}
-
-func (e *exporter) ExportView(vd *view.Data) {
-	log.Println(vd)
-}
-
-```
-
-Configure the default interval between reports of collected data.
-This is a system wide interval and impacts all views. The default
-interval duration is 10 seconds.
-
-[embedmd]:# (stats.go reportingPeriod)
-```go
-view.SetReportingPeriod(5 * time.Second)
-```
-
-
 ## Traces
-
-### Starting and ending a span
 
 [embedmd]:# (trace.go startend)
 ```go
 ctx, span := trace.StartSpan(ctx, "your choice of name")
 defer span.End()
 ```
-
-More tracing examples are coming soon...
 
 ## Profiles
 
@@ -239,7 +167,6 @@ A screenshot of the CPU profile from the program above:
 
 ![CPU profile](https://i.imgur.com/jBKjlkw.png)
 
-
 [travis-image]: https://travis-ci.org/census-instrumentation/opencensus-go.svg?branch=master
 [travis-url]: https://travis-ci.org/census-instrumentation/opencensus-go
 [appveyor-image]: https://ci.appveyor.com/api/projects/status/vgtt29ps1783ig38?svg=true
@@ -257,4 +184,4 @@ A screenshot of the CPU profile from the program above:
 [exporter-stackdriver]: https://godoc.org/go.opencensus.io/exporter/stackdriver
 [exporter-zipkin]: https://godoc.org/go.opencensus.io/exporter/zipkin
 [exporter-jaeger]: https://godoc.org/go.opencensus.io/exporter/jaeger
-[exporter-xray]: https://godoc.org/go.opencensus.io/exporter/xray
+[exporter-xray]: https://github.com/census-instrumentation/opencensus-go-exporter-aws

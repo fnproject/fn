@@ -21,7 +21,7 @@ type AppListener interface {
 	// AfterAppDelete called after deleting App in the database
 	AfterAppDelete(ctx context.Context, app *models.App) error
 	// BeforeAppGet called right before getting an app
-	BeforeAppGet(ctx context.Context, appName string) error
+	BeforeAppGet(ctx context.Context, appID string) error
 	// AfterAppGet called after getting app from database
 	AfterAppGet(ctx context.Context, app *models.App) error
 	// BeforeAppsList called right before getting a list of all user's apps. Modify the filter to adjust what gets returned.
@@ -39,6 +39,21 @@ type AppListener interface {
 	//     // do stuff after if you want
 	//     return app, err
 	// }
+}
+
+type RouteListener interface {
+	// BeforeRouteCreate called before route created in the datastore
+	BeforeRouteCreate(ctx context.Context, route *models.Route) error
+	// AfterRouteCreate called after route create in the datastore
+	AfterRouteCreate(ctx context.Context, route *models.Route) error
+	// BeforeRouteUpdate called before route update in datastore
+	BeforeRouteUpdate(ctx context.Context, route *models.Route) error
+	// AfterRouteUpdate called after route updated in datastore
+	AfterRouteUpdate(ctx context.Context, route *models.Route) error
+	// BeforeRouteDelete called before route deleted from the datastore
+	BeforeRouteDelete(ctx context.Context, appName string, routePath string) error
+	// AfterRouteDelete called after route deleted from the datastore
+	AfterRouteDelete(ctx context.Context, appName string, routePath string) error
 }
 
 // CallListener enables callbacks around Call events

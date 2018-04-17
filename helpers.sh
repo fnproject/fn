@@ -25,20 +25,3 @@ function remove_containers {
     docker rm -fv func-mysql-test 2>/dev/null || true
     docker rm -fv func-minio-test 2>/dev/null || true
 }
-
-function wait_for_db {
-  HOST="$1"
-  PORT="$2"
-  TIMEOUT="$3"
-  for i in `seq ${TIMEOUT}` ; do
-    ! nc -w 1 -z "${HOST}" "${PORT}" > /dev/null 2>&1
-    result=$?
-    if [ $result -ne 0 ] ; then
-      echo "DB listening on ${HOST}:${PORT}"
-      return
-    fi
-    sleep 1
-  done
-  echo "Failed to connect to DB on ${HOST}:${PORT}"
-  exit 1
-}

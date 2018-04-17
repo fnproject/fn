@@ -20,6 +20,7 @@
 package tests
 
 import (
+	"context"
 	"errors"
 	"errortest"
 	"testing"
@@ -212,7 +213,7 @@ func prepareClientCallReply(protocol *MockTProtocol, failAt int, failWith error)
 	if failAt == 25 {
 		err = failWith
 	}
-	last = protocol.EXPECT().Flush().Return(err).After(last)
+	last = protocol.EXPECT().Flush(context.Background()).Return(err).After(last)
 	if failAt == 25 {
 		return true
 	}
@@ -414,6 +415,7 @@ func TestClientReportTTransportErrors(t *testing.T) {
 		client := errortest.NewErrorTestClient(thrift.NewTStandardClient(protocol, protocol))
 		_, retErr := client.TestStruct(defaultCtx, thing)
 		mockCtrl.Finish()
+		mockCtrl = gomock.NewController(t)
 		err2, ok := retErr.(thrift.TTransportException)
 		if !ok {
 			t.Fatal("Expected a TTrasportException")
@@ -446,6 +448,7 @@ func TestClientReportTTransportErrorsLegacy(t *testing.T) {
 		client := errortest.NewErrorTestClientProtocol(transport, protocol, protocol)
 		_, retErr := client.TestStruct(defaultCtx, thing)
 		mockCtrl.Finish()
+		mockCtrl = gomock.NewController(t)
 		err2, ok := retErr.(thrift.TTransportException)
 		if !ok {
 			t.Fatal("Expected a TTrasportException")
@@ -477,6 +480,7 @@ func TestClientReportTProtocolErrors(t *testing.T) {
 		client := errortest.NewErrorTestClient(thrift.NewTStandardClient(protocol, protocol))
 		_, retErr := client.TestStruct(defaultCtx, thing)
 		mockCtrl.Finish()
+		mockCtrl = gomock.NewController(t)
 		err2, ok := retErr.(thrift.TProtocolException)
 		if !ok {
 			t.Fatal("Expected a TProtocolException")
@@ -508,6 +512,7 @@ func TestClientReportTProtocolErrorsLegacy(t *testing.T) {
 		client := errortest.NewErrorTestClientProtocol(transport, protocol, protocol)
 		_, retErr := client.TestStruct(defaultCtx, thing)
 		mockCtrl.Finish()
+		mockCtrl = gomock.NewController(t)
 		err2, ok := retErr.(thrift.TProtocolException)
 		if !ok {
 			t.Fatal("Expected a TProtocolException")
@@ -532,7 +537,7 @@ func prepareClientCallException(protocol *MockTProtocol, failAt int, failWith er
 	last = protocol.EXPECT().WriteFieldStop().After(last)
 	last = protocol.EXPECT().WriteStructEnd().After(last)
 	last = protocol.EXPECT().WriteMessageEnd().After(last)
-	last = protocol.EXPECT().Flush().After(last)
+	last = protocol.EXPECT().Flush(context.Background()).After(last)
 
 	// Reading the exception, might fail.
 	if failAt == 0 {
@@ -628,6 +633,7 @@ func TestClientCallException(t *testing.T) {
 		client := errortest.NewErrorTestClient(thrift.NewTStandardClient(protocol, protocol))
 		_, retErr := client.TestString(defaultCtx, "test")
 		mockCtrl.Finish()
+		mockCtrl = gomock.NewController(t)
 
 		if !willComplete {
 			err2, ok := retErr.(thrift.TTransportException)
@@ -663,6 +669,7 @@ func TestClientCallExceptionLegacy(t *testing.T) {
 		client := errortest.NewErrorTestClientProtocol(transport, protocol, protocol)
 		_, retErr := client.TestString(defaultCtx, "test")
 		mockCtrl.Finish()
+		mockCtrl = gomock.NewController(t)
 
 		if !willComplete {
 			err2, ok := retErr.(thrift.TTransportException)
@@ -698,7 +705,7 @@ func TestClientSeqIdMismatch(t *testing.T) {
 		protocol.EXPECT().WriteFieldStop(),
 		protocol.EXPECT().WriteStructEnd(),
 		protocol.EXPECT().WriteMessageEnd(),
-		protocol.EXPECT().Flush(),
+		protocol.EXPECT().Flush(context.Background()),
 		protocol.EXPECT().ReadMessageBegin().Return("testString", thrift.REPLY, int32(2), nil),
 	)
 
@@ -729,7 +736,7 @@ func TestClientSeqIdMismatchLegeacy(t *testing.T) {
 		protocol.EXPECT().WriteFieldStop(),
 		protocol.EXPECT().WriteStructEnd(),
 		protocol.EXPECT().WriteMessageEnd(),
-		protocol.EXPECT().Flush(),
+		protocol.EXPECT().Flush(context.Background()),
 		protocol.EXPECT().ReadMessageBegin().Return("testString", thrift.REPLY, int32(2), nil),
 	)
 
@@ -758,7 +765,7 @@ func TestClientWrongMethodName(t *testing.T) {
 		protocol.EXPECT().WriteFieldStop(),
 		protocol.EXPECT().WriteStructEnd(),
 		protocol.EXPECT().WriteMessageEnd(),
-		protocol.EXPECT().Flush(),
+		protocol.EXPECT().Flush(context.Background()),
 		protocol.EXPECT().ReadMessageBegin().Return("unknown", thrift.REPLY, int32(1), nil),
 	)
 
@@ -789,7 +796,7 @@ func TestClientWrongMethodNameLegacy(t *testing.T) {
 		protocol.EXPECT().WriteFieldStop(),
 		protocol.EXPECT().WriteStructEnd(),
 		protocol.EXPECT().WriteMessageEnd(),
-		protocol.EXPECT().Flush(),
+		protocol.EXPECT().Flush(context.Background()),
 		protocol.EXPECT().ReadMessageBegin().Return("unknown", thrift.REPLY, int32(1), nil),
 	)
 
@@ -818,7 +825,7 @@ func TestClientWrongMessageType(t *testing.T) {
 		protocol.EXPECT().WriteFieldStop(),
 		protocol.EXPECT().WriteStructEnd(),
 		protocol.EXPECT().WriteMessageEnd(),
-		protocol.EXPECT().Flush(),
+		protocol.EXPECT().Flush(context.Background()),
 		protocol.EXPECT().ReadMessageBegin().Return("testString", thrift.INVALID_TMESSAGE_TYPE, int32(1), nil),
 	)
 
@@ -849,7 +856,7 @@ func TestClientWrongMessageTypeLegacy(t *testing.T) {
 		protocol.EXPECT().WriteFieldStop(),
 		protocol.EXPECT().WriteStructEnd(),
 		protocol.EXPECT().WriteMessageEnd(),
-		protocol.EXPECT().Flush(),
+		protocol.EXPECT().Flush(context.Background()),
 		protocol.EXPECT().ReadMessageBegin().Return("testString", thrift.INVALID_TMESSAGE_TYPE, int32(1), nil),
 	)
 

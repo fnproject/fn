@@ -115,7 +115,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	opts := make([]server.ServerOption, 0)
 	opts = append(opts, server.WithWebPort(8085))
 	opts = append(opts, server.WithType(nodeType))
-	opts = append(opts, server.WithLogLevel(server.DefaultLogLevel))
+	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
 	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "API"))
 	opts = append(opts, server.WithDBURL(getEnv(server.EnvDBURL, defaultDB)))
 	opts = append(opts, server.WithMQURL(getEnv(server.EnvMQURL, defaultMQ)))
@@ -130,7 +130,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts := make([]server.ServerOption, 0)
 	opts = append(opts, server.WithWebPort(8081))
 	opts = append(opts, server.WithType(nodeType))
-	opts = append(opts, server.WithLogLevel(server.DefaultLogLevel))
+	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
 	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "LB"))
 	opts = append(opts, server.WithDBURL(""))
 	opts = append(opts, server.WithMQURL(""))
@@ -142,13 +142,12 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 	nodePool, err := NewSystemTestNodePool()
 	if err != nil {
 		return nil, err
 	}
-	placer := agent.NewNaivePlacer()
-	agent, err := agent.NewLBAgent(delegatedAgent, nodePool, placer)
+	placer := pool.NewNaivePlacer()
+	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +233,7 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, *tes
 	opts = append(opts, server.WithWebPort(8082+nodeNum))
 	opts = append(opts, server.WithGRPCPort(9190+nodeNum))
 	opts = append(opts, server.WithType(nodeType))
-	opts = append(opts, server.WithLogLevel(server.DefaultLogLevel))
+	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
 	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "PURE-RUNNER"))
 	opts = append(opts, server.WithDBURL(""))
 	opts = append(opts, server.WithMQURL(""))
@@ -246,10 +245,9 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, *tes
 		return nil, nil, err
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
-	delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 	cancelCtx, cancel := context.WithCancel(ctx)
 	capacityGate := NewTestCapacityGate(nodeNum, InitialTestCapacityUnitsPerRunner)
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, delegatedAgent, "", "", "", capacityGate)
+	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", capacityGate)
 	if err != nil {
 		return nil, nil, err
 	}

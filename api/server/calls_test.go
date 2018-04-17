@@ -18,23 +18,38 @@ import (
 
 func TestCallGet(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
 
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	call := &models.Call{
-		ID:      id.New().String(),
-		AppName: "myapp",
-		Path:    "/thisisatest",
+		AppID: app.ID,
+		ID:    id.New().String(),
+		Path:  "/thisisatest",
+		Image: "fnproject/hello",
+		// Delay: 0,
+		Type:   "sync",
+		Format: "default",
+		// Payload: TODO,
+		Priority:    new(int32), // TODO this is crucial, apparently
+		Timeout:     30,
+		IdleTimeout: 30,
+		Memory:      256,
+		CreatedAt:   strfmt.DateTime(time.Now()),
+		URL:         "http://localhost:8080/r/myapp/thisisatest",
+		Method:      "GET",
 	}
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: call.AppName},
-		},
-		nil,
-		[]*models.Call{call},
+		[]*models.App{app},
 	)
-	fnl := logs.NewMock()
+	fnl := logs.NewMock([]*models.Call{call})
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
@@ -44,14 +59,15 @@ func TestCallGet(t *testing.T) {
 		expectedError error
 	}{
 		{"/v1/apps//calls/" + call.ID, "", http.StatusBadRequest, models.ErrAppsMissingName},
-		{"/v1/apps/nodawg/calls/" + call.ID, "", http.StatusNotFound, models.ErrCallNotFound}, // TODO a little weird
+		{"/v1/apps/nodawg/calls/" + call.ID, "", http.StatusNotFound, models.ErrAppsNotFound},
+		{"/v1/apps/myapp/calls/" + id.New().String(), "", http.StatusNotFound, models.ErrCallNotFound},
 		{"/v1/apps/myapp/calls/" + call.ID[:3], "", http.StatusNotFound, models.ErrCallNotFound},
 		{"/v1/apps/myapp/calls/" + call.ID, "", http.StatusOK, nil},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
+			t.Log(rec.Body.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -60,7 +76,8 @@ func TestCallGet(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
+				t.Log(resp.Error.Message)
+				t.Log(rec.Body.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
 			}
@@ -71,31 +88,47 @@ func TestCallGet(t *testing.T) {
 
 func TestCallList(t *testing.T) {
 	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 
 	call := &models.Call{
-		ID:      id.New().String(),
-		AppName: "myapp",
-		Path:    "/thisisatest",
+		AppID: app.ID,
+		ID:    id.New().String(),
+		Path:  "/thisisatest",
+		Image: "fnproject/hello",
+		// Delay: 0,
+		Type:   "sync",
+		Format: "default",
+		// Payload: TODO,
+		Priority:    new(int32), // TODO this is crucial, apparently
+		Timeout:     30,
+		IdleTimeout: 30,
+		Memory:      256,
+		CreatedAt:   strfmt.DateTime(time.Now()),
+		URL:         "http://localhost:8080/r/myapp/thisisatest",
+		Method:      "GET",
 	}
 	c2 := *call
 	c3 := *call
-	c2.ID = id.New().String()
 	c2.CreatedAt = strfmt.DateTime(time.Now().Add(100 * time.Second))
+	c2.ID = id.New().String()
 	c2.Path = "test2"
-	c3.ID = id.New().String()
 	c3.CreatedAt = strfmt.DateTime(time.Now().Add(200 * time.Second))
+	c3.ID = id.New().String()
 	c3.Path = "/test3"
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: call.AppName},
-		},
-		nil,
-		[]*models.Call{call, &c2, &c3},
+		[]*models.App{app},
 	)
-	fnl := logs.NewMock()
+	fnl := logs.NewMock([]*models.Call{call, &c2, &c3})
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	// add / sub 1 second b/c unix time will lop off millis and mess up our comparisons
@@ -130,7 +163,6 @@ func TestCallList(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
-			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
 		}
@@ -139,7 +171,6 @@ func TestCallList(t *testing.T) {
 			resp := getErrorResponse(t, rec)
 
 			if resp.Error == nil || !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
-				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`, got: `%s`",
 					i, test.expectedError.Error(), resp.Error)
 			}

@@ -100,6 +100,13 @@ func WithSpan(parent context.Context, s *Span) context.Context {
 	return context.WithValue(parent, contextKey{}, s)
 }
 
+// All available span kinds. Span kind must be either one of these values.
+const (
+	SpanKindUnspecified = iota
+	SpanKindServer
+	SpanKindClient
+)
+
 // StartOptions contains options concerning how a span is started.
 type StartOptions struct {
 	// Sampler to consult for this Span. If provided, it is always consulted.
@@ -111,9 +118,11 @@ type StartOptions struct {
 	// when there is a non-remote parent, no new sampling decision will be made:
 	// we will preserve the sampling of the parent.
 	Sampler Sampler
-}
 
-// TODO(jbd): Remove start options.
+	// SpanKind represents the kind of a span. If none is set,
+	// SpanKindUnspecified is used.
+	SpanKind int
+}
 
 // StartSpan starts a new child span of the current span in the context. If
 // there is no span in the context, creates a new trace and span.
@@ -180,6 +189,7 @@ func startSpanInternal(name string, hasParent bool, parent SpanContext, remotePa
 	span.data = &SpanData{
 		SpanContext:     span.spanContext,
 		StartTime:       time.Now(),
+		SpanKind:        o.SpanKind,
 		Name:            name,
 		HasRemoteParent: remoteParent,
 	}
@@ -213,10 +223,10 @@ func (s *Span) End() {
 		if s.spanContext.IsSampled() {
 			// TODO: consider holding exportersMu for less time.
 			exportersMu.Lock()
-			defer exportersMu.Unlock()
 			for e := range exporters {
 				e.ExportSpan(sd)
 			}
+			exportersMu.Unlock()
 		}
 	})
 }
@@ -255,10 +265,10 @@ func (s *Span) SetStatus(status Status) {
 	s.mu.Unlock()
 }
 
-// SetAttributes sets attributes in the span.
+// AddAttributes sets attributes in the span.
 //
 // Existing attributes whose keys appear in the attributes parameter are overwritten.
-func (s *Span) SetAttributes(attributes ...Attribute) {
+func (s *Span) AddAttributes(attributes ...Attribute) {
 	if !s.IsRecordingEvents() {
 		return
 	}
@@ -273,14 +283,7 @@ func (s *Span) SetAttributes(attributes ...Attribute) {
 // copyAttributes copies a slice of Attributes into a map.
 func copyAttributes(m map[string]interface{}, attributes []Attribute) {
 	for _, a := range attributes {
-		switch a := a.(type) {
-		case boolAttribute:
-			m[a.key] = a.value
-		case int64Attribute:
-			m[a.key] = a.value
-		case stringAttribute:
-			m[a.key] = a.value
-		}
+		m[a.key] = a.value
 	}
 }
 

@@ -60,7 +60,7 @@ func NewBoltMQ(url *url.URL) (*BoltDbMQ, error) {
 		log.WithError(err).Errorln("Could not create data directory for mq")
 		return nil, err
 	}
-	db, err := bolt.Open(url.Path, 0655, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open(url.Path, 0666, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		log.WithError(err).Errorln("Could not open BoltDB file for MQ")
 		return nil, err

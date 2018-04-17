@@ -3,65 +3,57 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/common"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	ErrorRunnerClosed = errors.New("Runner is closed")
+)
+
 type gRPCRunner struct {
-	// Need a WaitGroup of TryExec in flight
-	wg      sync.WaitGroup
+	shutWg  *common.WaitGroup
 	address string
 	conn    *grpc.ClientConn
 	client  pb.RunnerProtocolClient
 }
 
-func SecureGRPCRunnerFactory(addr string, pki *pool.PKIData) (pool.Runner, error) {
-	conn, client, err := runnerConnection(addr, pki)
+func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool.Runner, error) {
+	conn, client, err := runnerConnection(addr, runnerCertCN, pki)
 	if err != nil {
 		return nil, err
 	}
 
 	return &gRPCRunner{
+		shutWg:  common.NewWaitGroup(),
 		address: addr,
 		conn:    conn,
 		client:  client,
 	}, nil
 }
 
-// Close waits until the context is closed for all inflight requests
-// to complete prior to terminating the underlying grpc connection
-func (r *gRPCRunner) Close(ctx context.Context) error {
-	err := make(chan error)
-	go func() {
-		defer close(err)
-		r.wg.Wait()
-		err <- r.conn.Close()
-	}()
-
-	select {
-	case e := <-err:
-		return e
-	case <-ctx.Done():
-		return ctx.Err() // context timed out while waiting
-	}
+func (r *gRPCRunner) Close(context.Context) error {
+	r.shutWg.CloseGroup()
+	return r.conn.Close()
 }
 
-func runnerConnection(address string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
+func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.ClientConn, pb.RunnerProtocolClient, error) {
 	ctx := context.Background()
 
 	var creds credentials.TransportCredentials
 	if pki != nil {
 		var err error
-		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca)
+		creds, err = grpcutil.CreateCredentials(pki.Cert, pki.Key, pki.Ca, runnerCertCN)
 		if err != nil {
 			logrus.WithError(err).Error("Unable to create credentials to connect to runner node")
 			return nil, nil, err
@@ -86,8 +78,10 @@ func (r *gRPCRunner) Address() string {
 
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
-	r.wg.Add(1)
-	defer r.wg.Done()
+	if !r.shutWg.AddSession(1) {
+		return true, ErrorRunnerClosed
+	}
+	defer r.shutWg.DoneSession()
 
 	// extract the call's model data to pass on to the pure runner
 	modelJSON, err := json.Marshal(call.Model())
@@ -135,7 +129,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 }
 
 func sendToRunner(call pool.RunnerCall, protocolClient pb.RunnerProtocol_EngageClient) error {
-	bodyReader := call.Request().Body
+	bodyReader := call.RequestBody()
 	writeBufferSize := 10 * 1024 // 10KB
 	writeBuffer := make([]byte, writeBufferSize)
 	for {
@@ -199,7 +193,12 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			if body.Finished.Success {
 				logrus.Infof("Call finished successfully: %v", body.Finished.Details)
 			} else {
-				logrus.Infof("Call finish unsuccessfully:: %v", body.Finished.Details)
+				logrus.Infof("Call finished unsuccessfully: %v", body.Finished.Details)
+			}
+			// There should be an EOF following the last packet
+			if _, err := protocolClient.Recv(); err != io.EOF {
+				logrus.WithError(err).Error("Did not receive expected EOF from runner stream")
+				done <- err
 			}
 			close(done)
 			return

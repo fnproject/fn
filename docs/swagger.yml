@@ -470,6 +470,9 @@ definitions:
   Route:
     type: object
     properties:
+      app_id:
+        type: string
+        description: App ID
       path:
         type: string
         description: URL path that will be matched to this route
@@ -519,6 +522,11 @@ definitions:
         default: 30
         format: int32
         description: Hot functions idle timeout before termination. Value in Seconds
+      annotations:
+        type: object
+        description: Route annotations - this is a map of annotations attached to this route, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time
@@ -533,15 +541,24 @@ definitions:
   App:
     type: object
     properties:
+      id:
+        type: string
+        description: App ID
+        readOnly: true
       name:
         type: string
         description: "Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _."
         readOnly: true
       config:
         type: object
-        description: Application configuration, applied to all routes.
+        description: Application function configuration, applied to all routes.
         additionalProperties:
           type: string
+      annotations:
+        type: object
+        description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time
@@ -665,9 +682,9 @@ definitions:
         type: string
         description: Call execution error, if status is 'error'.
         readOnly: true
-      app_name:
+      app_id:
         type: string
-        description: App name that is assigned to a route that is being executed.
+        description: App ID that is assigned to a route that is being executed.
         readOnly: true
       path:
         type: string

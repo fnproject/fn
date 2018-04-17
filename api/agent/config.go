@@ -15,11 +15,18 @@ type AgentConfig struct {
 	HotPoll            time.Duration `json:"hot_poll_msecs"`
 	HotLauncherTimeout time.Duration `json:"hot_launcher_timeout_msecs"`
 	AsyncChewPoll      time.Duration `json:"async_chew_poll_msecs"`
+	CallEndTimeout     time.Duration `json:"call_end_timeout"`
+	MaxCallEndStacking uint64        `json:"max_call_end_stacking"`
 	MaxResponseSize    uint64        `json:"max_response_size_bytes"`
 	MaxLogSize         uint64        `json:"max_log_size_bytes"`
 	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
 	MaxTotalMemory     uint64        `json:"max_total_memory_bytes"`
 	MaxFsSize          uint64        `json:"max_fs_size_mb"`
+	PreForkPoolSize    uint64        `json:"pre_fork_pool_size"`
+	PreForkImage       string        `json:"pre_fork_image"`
+	PreForkCmd         string        `json:"pre_fork_pool_cmd"`
+	PreForkUseOnce     uint64        `json:"pre_fork_use_once"`
+	PreForkNetworks    string        `json:"pre_fork_networks"`
 }
 
 const (
@@ -28,11 +35,18 @@ const (
 	EnvHotPoll            = "FN_HOT_POLL_MSECS"
 	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
 	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
+	EnvCallEndTimeout     = "FN_CALL_END_TIMEOUT_MSECS"
+	EnvMaxCallEndStacking = "FN_MAX_CALL_END_STACKING"
 	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE"
 	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
 	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
 	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
 	EnvMaxFsSize          = "FN_MAX_FS_SIZE_MB"
+	EnvPreForkPoolSize    = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
+	EnvPreForkImage       = "FN_EXPERIMENTAL_PREFORK_IMAGE"
+	EnvPreForkCmd         = "FN_EXPERIMENTAL_PREFORK_CMD"
+	EnvPreForkUseOnce     = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
+	EnvPreForkNetworks    = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -40,8 +54,11 @@ const (
 func NewAgentConfig() (*AgentConfig, error) {
 
 	cfg := &AgentConfig{
-		MinDockerVersion: "17.06.0-ce",
-		MaxLogSize:       1 * 1024 * 1024,
+		MinDockerVersion:   "17.10.0-ce",
+		MaxLogSize:         1 * 1024 * 1024,
+		MaxCallEndStacking: 8192,
+		PreForkImage:       "busybox",
+		PreForkCmd:         "tail -f /dev/null",
 	}
 
 	var err error
@@ -51,11 +68,18 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, 200*time.Millisecond)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
+	err = setEnvMsecs(err, EnvCallEndTimeout, &cfg.CallEndTimeout, time.Duration(10)*time.Minute)
 	err = setEnvUint(err, EnvMaxResponseSize, &cfg.MaxResponseSize)
 	err = setEnvUint(err, EnvMaxLogSize, &cfg.MaxLogSize)
 	err = setEnvUint(err, EnvMaxTotalCPU, &cfg.MaxTotalCPU)
 	err = setEnvUint(err, EnvMaxTotalMemory, &cfg.MaxTotalMemory)
 	err = setEnvUint(err, EnvMaxFsSize, &cfg.MaxFsSize)
+	err = setEnvUint(err, EnvPreForkPoolSize, &cfg.PreForkPoolSize)
+	err = setEnvUint(err, EnvMaxCallEndStacking, &cfg.MaxCallEndStacking)
+	err = setEnvStr(err, EnvPreForkImage, &cfg.PreForkImage)
+	err = setEnvStr(err, EnvPreForkCmd, &cfg.PreForkCmd)
+	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
+	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
 
 	if err != nil {
 		return cfg, err
@@ -70,6 +94,16 @@ func NewAgentConfig() (*AgentConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func setEnvStr(err error, name string, dst *string) error {
+	if err != nil {
+		return err
+	}
+	if tmp, ok := os.LookupEnv(name); ok {
+		*dst = tmp
+	}
+	return nil
 }
 
 func setEnvUint(err error, name string, dst *uint64) error {

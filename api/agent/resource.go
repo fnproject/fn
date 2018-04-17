@@ -388,7 +388,7 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 		}
 
 		// clamp the available memory by head room (for docker, ourselves, other processes)
-		headRoom, err := getMemoryHeadRoom(availMemory)
+		headRoom, err := getMemoryHeadRoom(availMemory, cfg)
 		if err != nil {
 			logrus.WithError(err).Fatal("Out of memory")
 		}
@@ -441,11 +441,19 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 }
 
 // headroom estimation in order not to consume entire RAM if possible
-func getMemoryHeadRoom(usableMemory uint64) (uint64, error) {
+func getMemoryHeadRoom(usableMemory uint64, cfg *AgentConfig) (uint64, error) {
 
 	// get %10 of the RAM
 	headRoom := uint64(usableMemory / 10)
 
+	// TODO: improve this pre-fork calculation, we should fetch/query this
+	// instead of estimate below.
+	// if pre-fork pool is enabled, add 1 MB per pool-item
+	if cfg != nil && cfg.PreForkPoolSize != 0 {
+		headRoom += Mem1MB * cfg.PreForkPoolSize
+	}
+
+	// TODO: improve these calculations.
 	// clamp this with 256MB min -- 5GB max
 	maxHeadRoom := uint64(5 * Mem1GB)
 	minHeadRoom := uint64(256 * Mem1MB)

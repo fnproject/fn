@@ -170,7 +170,7 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 		// note: Not returning err here since the job could have already finished successfully.
 	}
 
-	if err := s.logstore.InsertLog(ctx, call.AppName, call.ID, strings.NewReader(body.Log)); err != nil {
+	if err := s.logstore.InsertLog(ctx, call.AppID, call.ID, strings.NewReader(body.Log)); err != nil {
 		common.Logger(ctx).WithError(err).Error("error uploading log")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

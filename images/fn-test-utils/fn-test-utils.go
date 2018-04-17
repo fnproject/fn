@@ -60,6 +60,8 @@ type AppRequest struct {
 	PostOutGarbage string `json:"postOutGarbage,omitempty"`
 	// spit this out in stderr after processing each request
 	PostErrGarbage string `json:"postErrGarbage,omitempty"`
+	// test empty body
+	IsEmptyBody bool `json:"isEmptyBody,omitempty"`
 	// TODO: simulate slow read/slow write
 	// TODO: simulate partial IO write/read
 	// TODO: simulate high cpu usage (async and sync)
@@ -133,7 +135,9 @@ func finalizeRequest(out *fdkresponse, req *AppRequest, resp *AppResponse) {
 		out.JasonContentType = req.JasonContentType
 	}
 
-	json.NewEncoder(out).Encode(resp)
+	if !req.IsEmptyBody {
+		json.NewEncoder(out).Encode(resp)
+	}
 }
 
 func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppResponse) {

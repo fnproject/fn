@@ -101,11 +101,10 @@ type CallRequestHTTP struct {
 }
 
 type JsonIn struct {
-	Body        string          `json:"body"`
-	ContentType string          `json:"content_type"`
 	CallID      string          `json:"call_id"`
 	Deadline    string          `json:"deadline"`
-	Type        string          `json:"type"`
+	Body        string          `json:"body"`
+	ContentType string          `json:"content_type"`
 	Protocol    CallRequestHTTP `json:"protocol"`
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/fnproject/fn_go/client/call"
 	"github.com/fnproject/fn_go/client/operations"
+	"github.com/fnproject/fn_go/models"
 )
 
 func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
@@ -58,10 +59,13 @@ func CallSync(t *testing.T, u url.URL, content io.Reader) string {
 
 func TestCanCallfunction(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s := SetupHarness()
+	defer s.Cleanup()
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	rt := s.BasicRoute()
+	rt.Type = "sync"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
@@ -79,15 +83,15 @@ func TestCanCallfunction(t *testing.T) {
 	if !strings.Contains(expectedOutput, output.String()) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 	}
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestCallOutputMatch(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s := SetupHarness()
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	rt := s.BasicRoute()
+	rt.Type = "sync"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
@@ -108,16 +112,17 @@ func TestCallOutputMatch(t *testing.T) {
 	if !strings.Contains(expectedOutput, output.String()) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 	}
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestCanCallAsync(t *testing.T) {
 	newRouteType := "async"
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+
+	s := SetupHarness()
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	rt := s.BasicRoute()
+	rt.Type = "sync"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
@@ -125,25 +130,22 @@ func TestCanCallAsync(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	_, err := UpdateRoute(
-		t, s.Context, s.Client,
-		s.AppName, s.RoutePath,
-		s.Image, newRouteType, s.Format,
-		s.Memory, s.RouteConfig, s.RouteHeaders, "")
-
-	CheckRouteResponseError(t, err)
+	s.GivenRoutePatched(t, s.AppName, s.RoutePath, &models.Route{
+		Type: newRouteType,
+	})
 
 	CallAsync(t, u, &bytes.Buffer{})
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestCanGetAsyncState(t *testing.T) {
 	newRouteType := "async"
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, s.RoutePath, s.Image, "sync",
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s := SetupHarness()
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	rt := s.BasicRoute()
+	rt.Type = "sync"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
@@ -151,13 +153,9 @@ func TestCanGetAsyncState(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	_, err := UpdateRoute(
-		t, s.Context, s.Client,
-		s.AppName, s.RoutePath,
-		s.Image, newRouteType, s.Format,
-		s.Memory, s.RouteConfig, s.RouteHeaders, "")
-
-	CheckRouteResponseError(t, err)
+	s.GivenRoutePatched(t, s.AppName, rt.Path, &models.Route{
+		Type: newRouteType,
+	})
 
 	callID := CallAsync(t, u, &bytes.Buffer{})
 	cfg := &call.GetAppsAppCallsCallParams{
@@ -185,9 +183,6 @@ func TestCanGetAsyncState(t *testing.T) {
 		}
 		callObject := callResponse.Payload.Call
 
-		if callObject.AppName != s.AppName {
-			t.Errorf("Call object app name mismatch.\n\tExpected: %v\n\tActual:%v", s.AppName, callObject.AppName)
-		}
 		if callObject.ID != callID {
 			t.Errorf("Call object ID mismatch.\n\tExpected: %v\n\tActual:%v", callID, callObject.ID)
 		}
@@ -198,26 +193,27 @@ func TestCanGetAsyncState(t *testing.T) {
 			t.Errorf("Call object status mismatch.\n\tExpected: %v\n\tActual:%v", "success", callObject.Status)
 		}
 	}
-
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestCanCauseTimeout(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	routePath := "/" + RandStringBytes(10)
-	image := "funcy/timeout:0.0.1"
-	routeType := "sync"
+	s := SetupHarness()
+	defer s.Cleanup()
 
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-		s.Format, int32(10), s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+
+	rt := s.BasicRoute()
+	timeout := int32(10)
+	rt.Timeout = &timeout
+	rt.Type = "sync"
+	rt.Image = "funcy/timeout:0.0.1"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
 		Host:   Host(),
 	}
-	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
+	u.Path = path.Join(u.Path, "r", s.AppName, rt.Path)
 
 	content := &bytes.Buffer{}
 	json.NewEncoder(content).Encode(struct {
@@ -254,24 +250,24 @@ func TestCanCauseTimeout(t *testing.T) {
 				"output", "callObj.Payload.Call.Status")
 		}
 	}
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestCallResponseHeadersMatch(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	routePath := "/os.environ"
-	image := "denismakogon/os.environ"
-	routeType := "sync"
-	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	s := SetupHarness()
+	defer s.Cleanup()
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	rt := s.BasicRoute()
+	rt.Image = "denismakogon/os.environ"
+	rt.Type = "sync"
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
 		Host:   Host(),
 	}
-	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
+	u.Path = path.Join(u.Path, "r", s.AppName, rt.Path)
 	content := &bytes.Buffer{}
 	output := &bytes.Buffer{}
 	CallFN(u.String(), content, output, "POST",
@@ -284,26 +280,26 @@ func TestCallResponseHeadersMatch(t *testing.T) {
 		t.Errorf("HEADER_ACCEPT='application/xml, application/json; q=0.2' "+
 			"should be in output, have:%s\n", res)
 	}
-	DeleteRoute(t, s.Context, s.Client, s.AppName, routePath)
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }
 
 func TestCanWriteLogs(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	routePath := "/log"
-	image := "funcy/log:0.0.1"
-	routeType := "sync"
+	s := SetupHarness()
+	defer s.Cleanup()
 
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	rt := s.BasicRoute()
+	rt.Path = "/log"
+	rt.Image = "funcy/log:0.0.1"
+	rt.Type = "sync"
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	u := url.URL{
 		Scheme: "http",
 		Host:   Host(),
 	}
-	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
+	u.Path = path.Join(u.Path, "r", s.AppName, rt.Path)
 	content := &bytes.Buffer{}
 	json.NewEncoder(content).Encode(struct {
 		Size int
@@ -318,31 +314,40 @@ func TestCanWriteLogs(t *testing.T) {
 	}
 
 	// TODO this test is redundant we have 3 tests for this?
-	_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Error(err.Error())
-	}
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
 
-	DeleteApp(t, s.Context, s.Client, s.AppName)
+	if retryErr != nil {
+		t.Error(retryErr.Error())
+	} else {
+		_, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		if err != nil {
+			t.Error(err.Error())
+		}
+	}
 }
 
 func TestOversizedLog(t *testing.T) {
 	t.Parallel()
-	s := SetupDefaultSuite()
-	routePath := "/log"
-	image := "funcy/log:0.0.1"
-	routeType := "sync"
+	s := SetupHarness()
+	defer s.Cleanup()
 
-	CreateApp(t, s.Context, s.Client, s.AppName, map[string]string{})
-	CreateRoute(t, s.Context, s.Client, s.AppName, routePath, image, routeType,
-		s.Format, s.Timeout, s.IdleTimeout, s.RouteConfig, s.RouteHeaders)
+	rt := s.BasicRoute()
+	rt.Path = "/log"
+	rt.Image = "funcy/log:0.0.1"
+	rt.Type = "sync"
+
+	s.GivenAppExists(t, &models.App{Name: s.AppName})
+	s.GivenRouteExists(t, s.AppName, rt)
 
 	size := 1 * 1024 * 1024 * 1024
 	u := url.URL{
 		Scheme: "http",
 		Host:   Host(),
 	}
-	u.Path = path.Join(u.Path, "r", s.AppName, routePath)
+	u.Path = path.Join(u.Path, "r", s.AppName, rt.Path)
 	content := &bytes.Buffer{}
 	json.NewEncoder(content).Encode(struct {
 		Size int
@@ -356,15 +361,22 @@ func TestOversizedLog(t *testing.T) {
 		Context: s.Context,
 	}
 
-	logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
-	if err != nil {
-		t.Error(err.Error())
+	retryErr := APICallWithRetry(t, 10, time.Second*2, func() (err error) {
+		_, err = s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		return err
+	})
+
+	if retryErr != nil {
+		t.Error(retryErr.Error())
 	} else {
+		logObj, err := s.Client.Operations.GetAppsAppCallsCallLog(cfg)
+		if err != nil {
+			t.Error(err.Error())
+		}
 		log := logObj.Payload.Log.Log
 		if len(log) >= size {
 			t.Errorf("Log entry suppose to be truncated up to expected size %v, got %v",
 				size/1024, len(log))
 		}
 	}
-	DeleteApp(t, s.Context, s.Client, s.AppName)
 }

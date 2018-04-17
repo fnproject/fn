@@ -19,7 +19,6 @@ case "$1" in
     MYSQL_HOST=`host ${DB_CONTAINER}`
     MYSQL_PORT=3306
     export FN_DB_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
-    wait_for_db ${MYSQL_HOST} ${MYSQL_PORT} 5
     ;;
 
     "postgres" )
@@ -29,7 +28,6 @@ case "$1" in
     POSTGRES_HOST=`host ${DB_CONTAINER}`
     POSTGRES_PORT=5432
     export FN_DB_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable"
-    wait_for_db ${POSTGRES_HOST} ${POSTGRES_PORT} 5
     ;;
 esac
 
@@ -51,6 +49,7 @@ esac
 #fi
 #pwd
 #./fn-api-tests.test -test.v  -test.parallel ${2:-1} ./...; cd ../../
+export FN_DS_DB_PING_MAX_RETRIES=60
 cd test/fn-api-tests && FN_API_URL="http://localhost:8080"  FN_DB_URL=${FN_DB_URL} go test -v  -parallel ${2:-1} ./...; cd ../../
 
 remove_containers

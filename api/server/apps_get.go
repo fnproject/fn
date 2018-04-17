@@ -7,12 +7,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleAppGet(c *gin.Context) {
+func (s *Server) handleAppGetByName(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	appName := c.MustGet(api.AppName).(string)
+	app, err := s.datastore.GetAppByID(ctx, c.MustGet(api.AppID).(string))
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
 
-	app, err := s.datastore.GetApp(ctx, appName)
+	c.JSON(http.StatusOK, appResponse{"Successfully loaded app", app})
+}
+
+func (s *Server) handleAppGetByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	app, err := s.datastore.GetAppByID(ctx, c.Param(api.CApp))
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

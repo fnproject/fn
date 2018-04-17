@@ -22,7 +22,8 @@ import (
        update only
 	   Patch accepts partial updates / skips validation of zero values.
 */
-func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
+
+func (s *Server) handleRoutesPostPut(c *gin.Context) {
 	ctx := c.Request.Context()
 	method := strings.ToUpper(c.Request.Method)
 
@@ -32,14 +33,36 @@ func (s *Server) handleRoutesPostPutPatch(c *gin.Context) {
 		handleErrorResponse(c, err)
 		return
 	}
-	if method != http.MethodPatch {
-		err = s.ensureApp(ctx, &wroute, method)
-		if err != nil {
-			handleErrorResponse(c, err)
-			return
-		}
+	appName := c.MustGet(api.App).(string)
+
+	appID, err := s.ensureApp(ctx, appName, method)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
 	}
-	resp, err := s.ensureRoute(ctx, method, &wroute)
+
+	resp, err := s.ensureRoute(ctx, appID, &wroute, method)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (s *Server) handleRoutesPatch(c *gin.Context) {
+	ctx := c.Request.Context()
+	method := strings.ToUpper(c.Request.Method)
+
+	var wroute models.RouteWrapper
+	err := bindRoute(c, method, &wroute)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+	appID := c.MustGet(api.AppID).(string)
+
+	resp, err := s.ensureRoute(ctx, appID, &wroute, method)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
@@ -66,9 +89,10 @@ func (s *Server) changeRoute(ctx context.Context, wroute *models.RouteWrapper) e
 	return nil
 }
 
-// ensureApp will only execute if it is on put
-func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.RouteWrapper) (routeResponse, error) {
+func (s *Server) ensureRoute(ctx context.Context, appID string, wroute *models.RouteWrapper, method string) (routeResponse, error) {
 	bad := new(routeResponse)
+
+	wroute.Route.AppID = appID
 
 	switch method {
 	case http.MethodPost:
@@ -78,7 +102,7 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 		}
 		return routeResponse{"Route successfully created", wroute.Route}, nil
 	case http.MethodPut:
-		_, err := s.datastore.GetRoute(ctx, wroute.Route.AppName, wroute.Route.Path)
+		_, err := s.datastore.GetRoute(ctx, appID, wroute.Route.Path)
 		if err != nil && err == models.ErrRoutesNotFound {
 			err := s.submitRoute(ctx, wroute)
 			if err != nil {
@@ -102,19 +126,22 @@ func (s *Server) ensureRoute(ctx context.Context, method string, wroute *models.
 }
 
 // ensureApp will only execute if it is on post or put. Patch is not allowed to create apps.
-func (s *Server) ensureApp(ctx context.Context, wroute *models.RouteWrapper, method string) error {
-	app, err := s.datastore.GetApp(ctx, wroute.Route.AppName)
+func (s *Server) ensureApp(ctx context.Context, appName string, method string) (string, error) {
+	appID, err := s.datastore.GetAppID(ctx, appName)
 	if err != nil && err != models.ErrAppsNotFound {
-		return err
-	} else if app == nil {
-		// Create a new application
-		newapp := &models.App{Name: wroute.Route.AppName}
-		_, err = s.datastore.InsertApp(ctx, newapp)
+		return "", err
+	} else if appID == "" {
+		// Create a new application assuming that /:app/ is an app name
+		newapp := &models.App{Name: appName}
+
+		app, err := s.datastore.InsertApp(ctx, newapp)
 		if err != nil {
-			return err
+			return "", err
 		}
+		return app.ID, nil
 	}
-	return nil
+
+	return appID, nil
 }
 
 // bindRoute binds the RouteWrapper to the json from the request.
@@ -130,7 +157,6 @@ func bindRoute(c *gin.Context, method string, wroute *models.RouteWrapper) error
 	if wroute.Route == nil {
 		return models.ErrRoutesMissingNew
 	}
-	wroute.Route.AppName = c.MustGet(api.AppName).(string)
 
 	if method == http.MethodPut || method == http.MethodPatch {
 		p := path.Clean(c.MustGet(api.Path).(string))

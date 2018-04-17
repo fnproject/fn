@@ -551,9 +551,9 @@ type BuildStep struct {
 	// `wait_for`
 	// have completed successfully. If `wait_for` is empty, this build step
 	// will
-	// start when all previous build steps in the `Build.Steps` list have
-	// completed
-	// successfully.
+	// start when all previous build steps in the `Build.Steps` list
+	// have
+	// completed successfully.
 	WaitFor []string `json:"waitFor,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Args") to
@@ -2085,9 +2085,10 @@ type ProjectsBuildsCreateCall struct {
 // Create: Starts a build with the specified configuration.
 //
 // This method returns a long-running `Operation`, which includes the
-// build ID.
-// Pass the build ID to `GetBuild` to determine the build status
-// (such as `SUCCESS` or `FAILURE`).
+// build
+// ID. Pass the build ID to `GetBuild` to determine the build status
+// (such as
+// `SUCCESS` or `FAILURE`).
 func (r *ProjectsBuildsService) Create(projectId string, build *Build) *ProjectsBuildsCreateCall {
 	c := &ProjectsBuildsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -2181,7 +2182,7 @@ func (c *ProjectsBuildsCreateCall) Do(opts ...googleapi.CallOption) (*Operation,
 	}
 	return ret, nil
 	// {
-	//   "description": "Starts a build with the specified configuration.\n\nThis method returns a long-running `Operation`, which includes the build ID.\nPass the build ID to `GetBuild` to determine the build status\n(such as `SUCCESS` or `FAILURE`).",
+	//   "description": "Starts a build with the specified configuration.\n\nThis method returns a long-running `Operation`, which includes the build\nID. Pass the build ID to `GetBuild` to determine the build status (such as\n`SUCCESS` or `FAILURE`).",
 	//   "flatPath": "v1/projects/{projectId}/builds",
 	//   "httpMethod": "POST",
 	//   "id": "cloudbuild.projects.builds.create",

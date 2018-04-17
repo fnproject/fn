@@ -24,13 +24,12 @@ import (
 func Example() {
 	m, _ := stats.Int64("my.org/measure/openconns", "open connections", "")
 
-	err := view.Subscribe(&view.View{
+	if err := view.Subscribe(&view.View{
 		Name:        "my.org/views/openconns",
 		Description: "open connections",
 		Measure:     m,
-		Aggregation: view.DistributionAggregation{0, 1000, 2000},
-	})
-	if err != nil {
+		Aggregation: view.Distribution(0, 1000, 2000),
+	}); err != nil {
 		log.Fatal(err)
 	}
 

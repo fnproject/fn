@@ -41,7 +41,7 @@ func envTweaker(name, value string) func() {
 	}
 }
 
-func testRunner(t *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
+func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
 	ds := datastore.NewMock()
 	var mq models.MessageQueue = &mqs.Mock{}
 	for _, a := range args {
@@ -58,10 +58,10 @@ func testRunner(t *testing.T, args ...interface{}) (agent.Agent, context.CancelF
 
 func TestRouteRunnerGet(t *testing.T) {
 	buf := setLogBuffer()
+	app := &models.App{Name: "myapp", Config: models.Config{}}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-		}, nil, nil,
+		[]*models.App{app},
 	)
 
 	rnr, cancel := testRunner(t, ds)
@@ -102,10 +102,10 @@ func TestRouteRunnerGet(t *testing.T) {
 func TestRouteRunnerPost(t *testing.T) {
 	buf := setLogBuffer()
 
+	app := &models.App{Name: "myapp", Config: models.Config{}}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-		}, nil, nil,
+		[]*models.App{app},
 	)
 
 	rnr, cancel := testRunner(t, ds)
@@ -169,14 +169,15 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
 	rImg := "fnproject/fn-test-utils"
 
+	app := &models.App{Name: "zoo"}
+	app.SetDefaults()
+
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "zoo", Config: models.Config{}},
-		},
+		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/json", AppName: "zoo", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
-			{Path: "/http", AppName: "zoo", Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
-		}, nil,
+			{Path: "/json", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+			{Path: "/http", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Config: rCfg},
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -192,7 +193,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 	containerIds := make([]string, 0)
 
-	for i, test := range []struct {
+	testCases := []struct {
 		path               string
 		body               string
 		method             string
@@ -234,7 +235,11 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		// CASE IV: should land on CASE III container
 		{"/r/zoo/http/", ok, "GET", http.StatusOK, "", nil, 0},
-	} {
+	}
+
+	callIds := make([]string, len(testCases))
+
+	for i, test := range testCases {
 		body := strings.NewReader(test.body)
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
 		respBytes, _ := ioutil.ReadAll(rec.Body)
@@ -245,6 +250,7 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 		}
 
 		containerIds = append(containerIds, "N/A")
+		callIds[i] = rec.Header().Get("Fn_call_id")
 
 		if rec.Code != test.expectedCode {
 			isFailure = true
@@ -259,13 +265,6 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		}
 
-		if test.expectedLogsSubStr != nil {
-			callID := rec.Header().Get("Fn_call_id")
-			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
-				isFailure = true
-			}
-		}
-
 		if rec.Code == http.StatusOK {
 			dockerId, err := getDockerId(respBytes)
 			if err != nil {
@@ -278,6 +277,14 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 
 		t.Logf("Test %d: dockerId: %v", i, containerIds[i])
 		time.Sleep(test.sleepAmount)
+	}
+
+	for i, test := range testCases {
+		if test.expectedLogsSubStr != nil {
+			if !checkLogs(t, i, ds, callIds[i], test.expectedLogsSubStr) {
+				isFailure = true
+			}
+		}
 	}
 
 	jsonIds := containerIds[0:5]
@@ -308,6 +315,80 @@ func TestRouteRunnerIOPipes(t *testing.T) {
 	}
 }
 
+func TestRouteRunnerExecEmptyBody(t *testing.T) {
+	buf := setLogBuffer()
+	isFailure := false
+
+	defer func() {
+		if isFailure {
+			t.Log(buf.String())
+		}
+	}()
+
+	rCfg := map[string]string{"ENABLE_HEADER": "yes", "ENABLE_FOOTER": "yes"} // enable container start/end header/footer
+	rHdr := map[string][]string{"X-Function": {"Test"}}
+	rImg := "fnproject/fn-test-utils"
+
+	app := &models.App{Name: "soup"}
+	app.SetDefaults()
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{Path: "/cold", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/hothttp", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/hotjson", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+		},
+	)
+
+	rnr, cancelrnr := testRunner(t, ds)
+	defer cancelrnr()
+
+	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+
+	expHeaders := map[string][]string{"X-Function": {"Test"}}
+	emptyBody := `{"echoContent": "_TRX_ID_", "isDebug": true, "isEmptyBody": true}`
+
+	// Test hot cases twice to rule out hot-containers corrupting next request.
+	testCases := []struct {
+		path string
+	}{
+		{"/r/soup/cold/"},
+		{"/r/soup/hothttp"},
+		{"/r/soup/hothttp"},
+		{"/r/soup/hotjson"},
+		{"/r/soup/hotjson"},
+	}
+
+	for i, test := range testCases {
+		trx := fmt.Sprintf("_trx_%d_", i)
+		body := strings.NewReader(strings.Replace(emptyBody, "_TRX_ID_", trx, 1))
+		_, rec := routerRequest(t, srv.Router, "GET", test.path, body)
+		respBytes, _ := ioutil.ReadAll(rec.Body)
+		respBody := string(respBytes)
+		maxBody := len(respBody)
+		if maxBody > 1024 {
+			maxBody = 1024
+		}
+
+		if rec.Code != http.StatusOK {
+			isFailure = true
+			t.Errorf("Test %d: Expected status code to be %d but was %d. body: %s",
+				i, http.StatusOK, rec.Code, respBody[:maxBody])
+		} else if len(respBytes) != 0 {
+			isFailure = true
+			t.Errorf("Test %d: Expected empty body but got %d. body: %s",
+				i, len(respBytes), respBody[:maxBody])
+		}
+
+		for name, header := range expHeaders {
+			if header[0] != rec.Header().Get(name) {
+				isFailure = true
+				t.Errorf("Test %d: Expected header `%s` to be %s but was %s. body: %s",
+					i, name, header[0], rec.Header().Get(name), respBody)
+			}
+		}
+	}
+}
 func TestRouteRunnerExecution(t *testing.T) {
 	buf := setLogBuffer()
 	isFailure := false
@@ -326,26 +407,26 @@ func TestRouteRunnerExecution(t *testing.T) {
 	rHdr := map[string][]string{"X-Function": {"Test"}}
 	rImg := "fnproject/fn-test-utils"
 	rImgBs1 := "fnproject/imagethatdoesnotexist"
-	rImgBs2 := "localhost:5000/fnproject/imagethatdoesnotexist"
+	rImgBs2 := "localhost:5050/fnproject/imagethatdoesnotexist"
 
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-		},
+		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myhot", AppName: "myapp", Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myhotjason", AppName: "myapp", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myroute", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myerror", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mydne", AppName: "myapp", Image: rImgBs1, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mydnehot", AppName: "myapp", Image: rImgBs1, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mydneregistry", AppName: "myapp", Image: rImgBs2, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/myoom", AppName: "myapp", Image: rImg, Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
-			{Path: "/mybigoutputcold", AppName: "myapp", Image: rImg, Type: "sync", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
-			{Path: "/mybigoutputhttp", AppName: "myapp", Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
-			{Path: "/mybigoutputjson", AppName: "myapp", Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
-		}, nil,
+			{Path: "/", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myhot", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myhotjason", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myroute", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myerror", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydne", AppID: app.ID, Image: rImgBs1, Type: "sync", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydnehot", AppID: app.ID, Image: rImgBs1, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mydneregistry", AppID: app.ID, Image: rImgBs2, Type: "sync", Format: "http", Memory: 64, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/myoom", AppID: app.ID, Image: rImg, Type: "sync", Memory: 8, Timeout: 30, IdleTimeout: 30, Headers: rHdr, Config: rCfg},
+			{Path: "/mybigoutputcold", AppID: app.ID, Image: rImg, Type: "sync", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/mybigoutputhttp", AppID: app.ID, Image: rImg, Type: "sync", Format: "http", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+			{Path: "/mybigoutputjson", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -373,7 +454,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 	bigoutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1000}` // 1000 trailers to exceed 2K
 	smalloutput := `{"echoContent": "_TRX_ID_", "isDebug": true, "trailerRepeat": 1}`  // 1 trailer < 2K
 
-	for i, test := range []struct {
+	testCases := []struct {
 		path               string
 		body               string
 		method             string
@@ -408,11 +489,15 @@ func TestRouteRunnerExecution(t *testing.T) {
 		{"/r/myapp/", multiLog, "GET", http.StatusOK, nil, "", multiLogExpectCold},
 		{"/r/myapp/mybigoutputjson", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
 		{"/r/myapp/mybigoutputjson", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
+		{"/r/myapp/mybigoutputhttp", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
 		{"/r/myapp/mybigoutputhttp", smalloutput, "GET", http.StatusOK, nil, "", nil},
-		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "function response too large", nil},
+		{"/r/myapp/mybigoutputcold", bigoutput, "GET", http.StatusBadGateway, nil, "", nil},
 		{"/r/myapp/mybigoutputcold", smalloutput, "GET", http.StatusOK, nil, "", nil},
-	} {
+	}
+
+	callIds := make([]string, len(testCases))
+
+	for i, test := range testCases {
 		trx := fmt.Sprintf("_trx_%d_", i)
 		body := strings.NewReader(strings.Replace(test.body, "_TRX_ID_", trx, 1))
 		_, rec := routerRequest(t, srv.Router, test.method, test.path, body)
@@ -422,6 +507,8 @@ func TestRouteRunnerExecution(t *testing.T) {
 		if maxBody > 1024 {
 			maxBody = 1024
 		}
+
+		callIds[i] = rec.Header().Get("Fn_call_id")
 
 		if rec.Code != test.expectedCode {
 			isFailure = true
@@ -452,10 +539,11 @@ func TestRouteRunnerExecution(t *testing.T) {
 				}
 			}
 		}
+	}
 
+	for i, test := range testCases {
 		if test.expectedLogsSubStr != nil {
-			callID := rec.Header().Get("Fn_call_id")
-			if !checkLogs(t, i, ds, callID, test.expectedLogsSubStr) {
+			if !checkLogs(t, i, ds, callIds[i], test.expectedLogsSubStr) {
 				isFailure = true
 			}
 		}
@@ -531,13 +619,13 @@ func (mock *errorMQ) Code() int                                                {
 
 func TestFailedEnqueue(t *testing.T) {
 	buf := setLogBuffer()
+	app := &models.App{Name: "myapp", Config: models.Config{}}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-		},
+		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/dummy", AppName: "myapp", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30},
-		}, nil,
+			{Path: "/dummy", Image: "dummy/dummy", Type: "async", Memory: 128, Timeout: 30, IdleTimeout: 30, AppID: app.ID},
+		},
 	)
 	err := errors.New("Unable to push task to queue")
 	mq := &errorMQ{err, http.StatusInternalServerError}
@@ -580,17 +668,17 @@ func TestRouteRunnerTimeout(t *testing.T) {
 	models.RouteMaxMemory = uint64(1024 * 1024 * 1024) // 1024 TB
 	hugeMem := uint64(models.RouteMaxMemory - 1)
 
+	app := &models.App{Name: "myapp", Config: models.Config{}}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-		},
+		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/cold", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 4, IdleTimeout: 30},
-			{Path: "/hot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 4, IdleTimeout: 30},
-			{Path: "/hot-json", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 4, IdleTimeout: 30},
-			{Path: "/bigmem-cold", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
-			{Path: "/bigmem-hot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: hugeMem, Timeout: 1, IdleTimeout: 30},
-		}, nil,
+			{Path: "/cold", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
+			{Path: "/hot", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
+			{Path: "/hot-json", Image: "fnproject/fn-test-utils", Type: "sync", Format: "json", Memory: 128, Timeout: 4, IdleTimeout: 30, AppID: app.ID},
+			{Path: "/bigmem-cold", Image: "fnproject/fn-test-utils", Type: "sync", Memory: hugeMem, Timeout: 1, IdleTimeout: 30, AppID: app.ID},
+			{Path: "/bigmem-hot", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: hugeMem, Timeout: 1, IdleTimeout: 30, AppID: app.ID},
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -654,13 +742,13 @@ func TestRouteRunnerTimeout(t *testing.T) {
 func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 	buf := setLogBuffer()
 
+	app := &models.App{Name: "myapp", Config: models.Config{}}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-		},
+		[]*models.App{app},
 		[]*models.Route{
-			{Path: "/hot", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 5},
-		}, nil,
+			{Path: "/hot", AppID: app.ID, Image: "fnproject/fn-test-utils", Type: "sync", Format: "http", Memory: 128, Timeout: 30, IdleTimeout: 5},
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)

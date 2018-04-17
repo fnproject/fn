@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -67,18 +66,19 @@ func TestMiddlewareChaining(t *testing.T) {
 
 func TestRootMiddleware(t *testing.T) {
 
+	app1 := &models.App{Name: "myapp", Config: models.Config{}}
+	app1.SetDefaults()
+	app2 := &models.App{Name: "myapp2", Config: models.Config{}}
+	app2.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: "myapp", Config: models.Config{}},
-			{Name: "myapp2", Config: models.Config{}},
-		},
+		[]*models.App{app1, app2},
 		[]*models.Route{
-			{Path: "/", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, CPUs: 100, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/myroute", AppName: "myapp", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
-			{Path: "/app2func", AppName: "myapp2", Image: "fnproject/fn-test-utils", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
+			{Path: "/", AppID: app1.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/myroute", AppID: app1.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}}},
+			{Path: "/app2func", AppID: app2.ID, Image: "fnproject/hello", Type: "sync", Memory: 128, Timeout: 30, IdleTimeout: 30, Headers: map[string][]string{"X-Function": {"Test"}},
 				Config: map[string]string{"NAME": "johnny"},
 			},
-		}, nil,
+		},
 	)
 
 	rnr, cancelrnr := testRunner(t, ds)
@@ -90,10 +90,10 @@ func TestRootMiddleware(t *testing.T) {
 		// this one will override a call to the API based on a header
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("funcit") != "" {
-				fmt.Fprintf(os.Stderr, "breaker breaker!\n")
+				t.Log("breaker breaker!")
 				ctx := r.Context()
 				// TODO: this is a little dicey, should have some functions to set these in case the context keys change or something.
-				ctx = context.WithValue(ctx, "app_name", "myapp2")
+				ctx = context.WithValue(ctx, "app", "myapp2")
 				ctx = context.WithValue(ctx, "path", "/app2func")
 				mctx := fnext.GetMiddlewareController(ctx)
 				mctx.CallFunction(w, r.WithContext(ctx))
@@ -105,7 +105,7 @@ func TestRootMiddleware(t *testing.T) {
 	})
 	srv.AddRootMiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// fmt.Fprintf(os.Stderr, "middle log\n")
+			t.Log("middle log")
 			next.ServeHTTP(w, r)
 		})
 	})
@@ -131,7 +131,7 @@ func TestRootMiddleware(t *testing.T) {
 		for k, v := range test.headers {
 			req.Header.Add(k, v[0])
 		}
-		fmt.Println("TESTING:", req.URL.String())
+		t.Log("TESTING:", req.URL.String())
 		_, rec := routerRequest2(t, srv.Router, req)
 		// t.Log("REC: %+v\n", rec)
 
@@ -141,7 +141,7 @@ func TestRootMiddleware(t *testing.T) {
 		}
 
 		rbody := string(result)
-		t.Log("rbody:", rbody)
+		t.Logf("Test %v: response body: %v", i, rbody)
 		if !strings.Contains(rbody, test.expectedInBody) {
 			t.Fatal(i, "middleware didn't work correctly", string(result))
 		}

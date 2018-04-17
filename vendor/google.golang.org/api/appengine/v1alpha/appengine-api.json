@@ -705,7 +705,7 @@
       }
     }
   },
-  "revision": "20180222",
+  "revision": "20180307",
   "rootUrl": "https://appengine.googleapis.com/",
   "schemas": {
     "AuthorizedCertificate": {
@@ -937,6 +937,10 @@
       "description": "A resource that represents Google Cloud Platform location.",
       "id": "Location",
       "properties": {
+        "displayName": {
+          "description": "The friendly name for this location, typically a nearby city name. For example, \"Tokyo\".",
+          "type": "string"
+        },
         "labels": {
           "additionalProperties": {
             "type": "string"

@@ -35,6 +35,7 @@ type dockerClient interface {
 	AttachToContainerNonBlocking(ctx context.Context, opts docker.AttachToContainerOptions) (docker.CloseWaiter, error)
 	WaitContainerWithContext(id string, ctx context.Context) (int, error)
 	StartContainerWithContext(id string, hostConfig *docker.HostConfig, ctx context.Context) error
+	KillContainer(opts docker.KillContainerOptions) error
 	CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error)
 	RemoveContainer(opts docker.RemoveContainerOptions) error
 	PauseContainer(id string, ctx context.Context) error
@@ -127,7 +128,7 @@ func init() {
 			"number of times we've retried docker API upon failure",
 			[]tag.Key{appKey, pathKey},
 			dockerRetriesMeasure,
-			view.SumAggregation{},
+			view.Sum(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -147,7 +148,7 @@ func init() {
 			"number of times we've timed out calling docker API",
 			[]tag.Key{appKey, pathKey},
 			dockerTimeoutMeasure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -167,7 +168,7 @@ func init() {
 			"number of unrecoverable errors from docker API",
 			[]tag.Key{appKey, pathKey},
 			dockerErrorMeasure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -187,7 +188,7 @@ func init() {
 			"number of docker container oom",
 			[]tag.Key{appKey, pathKey},
 			dockerOOMMeasure,
-			view.CountAggregation{},
+			view.Count(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)
@@ -275,7 +276,7 @@ func filterNoSuchContainer(ctx context.Context, err error) error {
 	_, containerNotFound := err.(*docker.NoSuchContainer)
 	dockerErr, ok := err.(*docker.Error)
 	if containerNotFound || (ok && dockerErr.Status == 404) {
-		log.WithError(err).Error("filtering error")
+		log.WithError(err).Info("filtering error")
 		return nil
 	}
 	return err
@@ -334,6 +335,18 @@ func (d *dockerWrap) CreateContainer(opts docker.CreateContainerOptions) (c *doc
 		return err
 	})
 	return c, err
+}
+
+func (d *dockerWrap) KillContainer(opts docker.KillContainerOptions) (err error) {
+	ctx, span := trace.StartSpan(opts.Context, "docker_kill_container")
+	defer span.End()
+
+	logger := common.Logger(ctx).WithField("docker_cmd", "KillContainer")
+	err = d.retry(ctx, logger, func() error {
+		err = d.dockerNoTimeout.KillContainer(opts)
+		return err
+	})
+	return err
 }
 
 func (d *dockerWrap) PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) (err error) {

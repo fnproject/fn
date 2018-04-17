@@ -12,6 +12,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -21,8 +22,29 @@ var (
 	MigrationsTable = "schema_migrations"
 
 	ErrLocked = errors.New("database is locked")
-	ErrDirty  = errors.New("database is dirty")
 )
+
+func migrateErr(version int64, up bool, err error) ErrMigration {
+	dir := "up"
+	if !up {
+		dir = "down"
+	}
+	return ErrMigration(fmt.Sprintf("error running migration. version: %v direction: %v err: %v", version, dir, err))
+}
+
+// ErrMigration represents an error running a specific migration in a specific direction
+type ErrMigration string
+
+func (e ErrMigration) Error() string { return string(e) }
+
+func dirtyErr(version int64) ErrDirty {
+	return ErrDirty(fmt.Sprintf("database is dirty. version: %v", version))
+}
+
+// ErrDirty is an error that is returned when a db is dirty.
+type ErrDirty string
+
+func (e ErrDirty) Error() string { return string(e) }
 
 const (
 	NilVersion = -1
@@ -55,25 +77,19 @@ func (m MigFields) Version() int64                              { return m.Versi
 
 // TODO instance must have `multiStatements` set to true ?
 
-func Up(ctx context.Context, db *sqlx.DB, migs []Migration) error {
-	return migrate(ctx, db, migs, true)
+func Up(ctx context.Context, tx *sqlx.Tx, migs []Migration) error {
+	return migrate(ctx, tx, migs, true)
 }
 
-func Down(ctx context.Context, db *sqlx.DB, migs []Migration) error {
-	return migrate(ctx, db, migs, false)
+func Down(ctx context.Context, tx *sqlx.Tx, migs []Migration) error {
+	return migrate(ctx, tx, migs, false)
 }
 
-func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error {
-	var curVersion int64 // could be NilVersion, is ok
-	err := tx(ctx, db, func(tx *sqlx.Tx) error {
-		var dirty bool
-		var err error
-		curVersion, dirty, err = Version(ctx, tx)
-		if dirty {
-			return ErrDirty
-		}
-		return err
-	})
+func migrate(ctx context.Context, tx *sqlx.Tx, migs []Migration, up bool) error {
+	curVersion, dirty, err := Version(ctx, tx)
+	if dirty {
+		return dirtyErr(curVersion)
+	}
 	if err != nil {
 		return err
 	}
@@ -90,14 +106,15 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 	}
 	for _, m := range migs {
 		// skip over migrations we have run
-		if (up && curVersion < m.Version()) || (!up && curVersion >= m.Version()) {
+		mVersion := m.Version()
+		if (up && curVersion < mVersion) || (!up && curVersion >= mVersion) {
 
 			// do each individually, for large migrations it's better to checkpoint
 			// than to try to do them all in one big go.
 			// XXX(reed): we could more gracefully handle concurrent databases trying to
 			// run migrations here by handling error and feeding back the version.
 			// get something working mode for now...
-			err := run(ctx, db, m, up)
+			err := run(ctx, tx, m, up)
 			if err != nil {
 				return err
 			}
@@ -105,19 +122,6 @@ func migrate(ctx context.Context, db *sqlx.DB, migs []Migration, up bool) error 
 	}
 
 	return nil
-}
-
-func tx(ctx context.Context, db *sqlx.DB, f func(*sqlx.Tx) error) error {
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	err = f(tx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
 }
 
 func withLock(ctx context.Context, tx *sqlx.Tx, f func(*sqlx.Tx) error) error {
@@ -166,45 +170,43 @@ func (m MultiError) Error() string {
 	return strings.Join(strs, "\n")
 }
 
-func run(ctx context.Context, db *sqlx.DB, m Migration, up bool) error {
-	return tx(ctx, db, func(tx *sqlx.Tx) error {
-		return withLock(ctx, tx, func(tx *sqlx.Tx) error {
-			// within the transaction, we need to check the version and ensure this
-			// migration has not already been applied.
-			curVersion, dirty, err := Version(ctx, tx)
-			if dirty {
-				return ErrDirty
-			}
+func run(ctx context.Context, tx *sqlx.Tx, m Migration, up bool) error {
+	return withLock(ctx, tx, func(tx *sqlx.Tx) error {
+		// within the transaction, we need to check the version and ensure this
+		// migration has not already been applied.
+		curVersion, dirty, err := Version(ctx, tx)
+		if dirty {
+			return dirtyErr(curVersion)
+		}
 
-			// enforce monotonicity
-			if up && curVersion != NilVersion && m.Version() != curVersion+1 {
-				return fmt.Errorf("non-contiguous migration attempted up: %v != %v", m.Version(), curVersion+1)
-			} else if !up && m.Version() != curVersion { // down is always unraveling
-				return fmt.Errorf("non-contiguous migration attempted down: %v != %v", m.Version(), curVersion)
-			}
+		// enforce monotonicity
+		if up && curVersion != NilVersion && m.Version() != curVersion+1 {
+			return fmt.Errorf("non-contiguous migration attempted up: %v != %v", m.Version(), curVersion+1)
+		} else if !up && m.Version() != curVersion { // down is always unraveling
+			return fmt.Errorf("non-contiguous migration attempted down: %v != %v", m.Version(), curVersion)
+		}
 
-			// TODO is this robust enough? we could check
-			version := m.Version()
-			if !up {
-				version = m.Version() - 1
-			}
+		// TODO is this robust enough? we could check
+		version := m.Version()
+		if !up {
+			version = m.Version() - 1
+		}
 
-			// TODO we don't need the dirty bit anymore since we're using transactions?
-			err = SetVersion(ctx, tx, version, true)
+		// TODO we don't need the dirty bit anymore since we're using transactions?
+		err = SetVersion(ctx, tx, version, true)
 
-			if up {
-				err = m.Up(ctx, tx)
-			} else {
-				err = m.Down(ctx, tx)
-			}
+		if up {
+			err = m.Up(ctx, tx)
+		} else {
+			err = m.Down(ctx, tx)
+		}
 
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return migrateErr(version, up, err)
+		}
 
-			err = SetVersion(ctx, tx, version, false)
-			return err
-		})
+		err = SetVersion(ctx, tx, version, false)
+		return err
 	})
 }
 
@@ -275,7 +277,8 @@ func unlock(ctx context.Context, tx *sqlx.Tx) error {
 func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) error {
 	err := ensureVersionTable(ctx, tx)
 	if err != nil {
-		return nil
+		logrus.WithError(err).Error("error ensuring version table")
+		return err
 	}
 
 	// TODO need to handle down migration better
@@ -283,12 +286,14 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 	// this just nukes the whole table which is kinda lame.
 	query := tx.Rebind("DELETE FROM " + MigrationsTable)
 	if _, err := tx.Exec(query); err != nil {
+		logrus.WithError(err).Error("error deleting version table")
 		return err
 	}
 
 	if version >= 0 {
 		query = tx.Rebind(`INSERT INTO ` + MigrationsTable + ` (version, dirty) VALUES (?, ?)`)
 		if _, err := tx.ExecContext(ctx, query, version, dirty); err != nil {
+			logrus.WithError(err).Error("error updating version table")
 			return err
 		}
 	}

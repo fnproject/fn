@@ -24,7 +24,6 @@ case "$1" in
     MYSQL_HOST=`host ${DB_CONTAINER}`
     MYSQL_PORT=3307
     export FN_DB_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
-    wait_for_db ${MYSQL_HOST} ${MYSQL_PORT} 5
     ;;
 
     "postgres" )
@@ -34,12 +33,12 @@ case "$1" in
     POSTGRES_HOST=`host ${DB_CONTAINER}`
     POSTGRES_PORT=5433
     export FN_DB_URL="postgres://postgres:root@${POSTGRES_HOST}:${POSTGRES_PORT}/funcs?sslmode=disable"
-    wait_for_db ${POSTGRES_HOST} ${POSTGRES_PORT} 5
     ;;
 esac
 
 # avoid port conflicts with api_test.sh which are run in parallel
-FN_API_URL="http://localhost:8085"
+export FN_API_URL="http://localhost:8085"
+export FN_DS_DB_PING_MAX_RETRIES=60
 cd test/fn-system-tests && FN_DB_URL=${FN_DB_URL} FN_API_URL=${FN_API_URL} go test -v -parallel ${2:-1} ./...; cd ../../
 
 remove_system_containers

@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
@@ -42,17 +43,17 @@ import (
 // TODO it would be really nice if we made the ramToken wrap the driver cookie (less brittle,
 // if those leak the container leaks too...) -- not the allocation, but the token.Close and cookie.Close
 // TODO if machine is out of ram, just timeout immediately / wait for hot slot? (discuss policy)
-//
+
 // Agent exposes an api to create calls from various parameters and then submit
 // those calls, it also exposes a 'safe' shutdown mechanism via its Close method.
 // Agent has a few roles:
-// * manage the memory pool for a given server
-// * manage the container lifecycle for calls (hot+cold)
-// * execute calls against containers
-// * invoke Start and End for each call appropriately
-// * check the mq for any async calls, and submit them
+//	* manage the memory pool for a given server
+//	* manage the container lifecycle for calls (hot+cold)
+//	* execute calls against containers
+//	* invoke Start and End for each call appropriately
+//	* check the mq for any async calls, and submit them
 //
-// overview:
+// Overview:
 // Upon submission of a call, Agent will start the call's timeout timer
 // immediately. If the call is hot, Agent will attempt to find an active hot
 // container for that route, and if necessary launch another container. Cold
@@ -68,7 +69,6 @@ import (
 // sending any input, if hot. call.End will be called regardless of the
 // timeout timer's status if the call was executed, and that error returned may
 // be returned from Submit.
-
 type Agent interface {
 	// GetCall will return a Call that is executable by the Agent, which
 	// can be built via various CallOpt's provided to the method.
@@ -91,6 +91,15 @@ type Agent interface {
 	// Enqueue is to use the agent's sweet sweet client bindings to remotely
 	// queue async tasks and should be removed from Agent interface ASAP.
 	Enqueue(context.Context, *models.Call) error
+
+	// GetAppID is to get the match of an app name to its ID
+	GetAppID(ctx context.Context, appName string) (string, error)
+
+	// GetAppByID is to get the app by ID
+	GetAppByID(ctx context.Context, appID string) (*models.App, error)
+
+	// GetRoute is to get the route by appId and path
+	GetRoute(ctx context.Context, appID string, path string) (*models.Route, error)
 }
 
 type agent struct {
@@ -105,20 +114,22 @@ type agent struct {
 	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
-	wg       sync.WaitGroup // TODO rename
-	shutonce sync.Once
-	shutdown chan struct{}
+	shutWg       *common.WaitGroup
+	shutonce     sync.Once
+	callEndCount int64
 }
 
+// New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess) Agent {
-	a := NewSyncOnly(da).(*agent)
-	a.wg.Add(1)
+	a := createAgent(da).(*agent)
+	if !a.shutWg.AddSession(1) {
+		logrus.Fatalf("cannot start agent, unable to add session")
+	}
 	go a.asyncDequeue() // safe shutdown can nanny this fine
 	return a
 }
 
-func NewSyncOnly(da DataAccess) Agent {
-
+func createAgent(da DataAccess) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -127,7 +138,12 @@ func NewSyncOnly(da DataAccess) Agent {
 
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
-		ServerVersion: cfg.MinDockerVersion,
+		ServerVersion:   cfg.MinDockerVersion,
+		PreForkPoolSize: cfg.PreForkPoolSize,
+		PreForkImage:    cfg.PreForkImage,
+		PreForkCmd:      cfg.PreForkCmd,
+		PreForkUseOnce:  cfg.PreForkUseOnce,
+		PreForkNetworks: cfg.PreForkNetworks,
 	})
 
 	a := &agent{
@@ -136,11 +152,23 @@ func NewSyncOnly(da DataAccess) Agent {
 		driver:    driver,
 		slotMgr:   NewSlotQueueMgr(),
 		resources: NewResourceTracker(cfg),
-		shutdown:  make(chan struct{}),
+		shutWg:    common.NewWaitGroup(),
 	}
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
 	return a
+}
+
+func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return a.da.GetAppByID(ctx, appID)
+}
+
+func (a *agent) GetAppID(ctx context.Context, appName string) (string, error) {
+	return a.da.GetAppID(ctx, appName)
+}
+
+func (a *agent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
+	return a.da.GetRoute(ctx, appID, path)
 }
 
 // TODO shuffle this around somewhere else (maybe)
@@ -149,22 +177,24 @@ func (a *agent) Enqueue(ctx context.Context, call *models.Call) error {
 }
 
 func (a *agent) Close() error {
+	var err error
+
+	// wait for ongoing sessions
+	a.shutWg.CloseGroup()
+
 	a.shutonce.Do(func() {
-		close(a.shutdown)
+		// now close docker layer
+		if a.driver != nil {
+			err = a.driver.Close()
+		}
 	})
 
-	a.wg.Wait()
-	return nil
+	return err
 }
 
 func (a *agent) Submit(callI Call) error {
-	a.wg.Add(1)
-	defer a.wg.Done()
-
-	select {
-	case <-a.shutdown:
+	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
-	default:
 	}
 
 	call := callI.(*call)
@@ -208,28 +238,75 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	slot, err := a.getSlot(ctx, call)
 	if err != nil {
-		handleStatsDequeue(ctx, err)
-		return transformTimeout(err, true)
+		return a.handleCallEnd(ctx, call, slot, err, false)
 	}
-	defer slot.Close(ctx) // notify our slot is free once we're done
 
 	err = call.Start(ctx)
 	if err != nil {
-		handleStatsDequeue(ctx, err)
-		return transformTimeout(err, true)
+		return a.handleCallEnd(ctx, call, slot, err, false)
 	}
 
 	statsDequeueAndStart(ctx)
 
 	// pass this error (nil or otherwise) to end directly, to store status, etc
 	err = slot.exec(ctx, call)
-	handleStatsEnd(ctx, err)
+	return a.handleCallEnd(ctx, call, slot, err, true)
+}
 
-	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
-	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = common.BackgroundContext(ctx)
-	err = call.End(ctx, err)
-	return transformTimeout(err, false)
+func (a *agent) scheduleCallEnd(fn func()) {
+	atomic.AddInt64(&a.callEndCount, 1)
+	go func() {
+		fn()
+		atomic.AddInt64(&a.callEndCount, -1)
+		a.shutWg.DoneSession()
+	}()
+}
+
+func (a *agent) finalizeCallEnd(ctx context.Context, err error, isRetriable, isScheduled bool) error {
+	// if scheduled in background, let scheduleCallEnd() handle
+	// the shutWg group, otherwise decrement here.
+	if !isScheduled {
+		a.shutWg.DoneSession()
+	}
+	handleStatsEnd(ctx, err)
+	return transformTimeout(err, isRetriable)
+}
+
+func (a *agent) handleCallEnd(ctx context.Context, call *call, slot Slot, err error, isCommitted bool) error {
+
+	// For hot-containers, slot close is a simple channel close... No need
+	// to handle it async. Execute it here ASAP
+	if slot != nil && protocol.IsStreamable(protocol.Protocol(call.Format)) {
+		slot.Close(ctx)
+		slot = nil
+	}
+
+	// This means call was routed (executed), in order to reduce latency here
+	// we perform most of these tasks in go-routine asynchronously.
+	if isCommitted {
+		a.scheduleCallEnd(func() {
+			ctx = common.BackgroundContext(ctx)
+			if slot != nil {
+				slot.Close(ctx) // (no timeout)
+			}
+			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
+			call.End(ctx, err)
+			cancel()
+		})
+		return a.finalizeCallEnd(ctx, err, false, true)
+	}
+
+	// The call did not succeed. And it is retriable. We close the slot
+	// ASAP in the background if we haven't already done so (cold-container case),
+	// in order to keep latency down.
+	if slot != nil {
+		a.scheduleCallEnd(func() {
+			slot.Close(common.BackgroundContext(ctx)) // (no timeout)
+		})
+		return a.finalizeCallEnd(ctx, err, true, true)
+	}
+
+	return a.finalizeCallEnd(ctx, err, true, false)
 }
 
 func transformTimeout(e error, isRetriable bool) error {
@@ -282,6 +359,11 @@ func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
 	ctx, span := trace.StartSpan(ctx, "agent_get_slot")
 	defer span.End()
 
+	// first check any excess case of call.End() stacking.
+	if atomic.LoadInt64(&a.callEndCount) >= int64(a.cfg.MaxCallEndStacking) {
+		return nil, context.DeadlineExceeded
+	}
+
 	if protocol.IsStreamable(protocol.Protocol(call.Format)) {
 		// For hot requests, we use a long lived slot queue, which we use to manage hot containers
 		var isNew bool
@@ -325,7 +407,7 @@ func (a *agent) hotLauncher(ctx context.Context, call *call) {
 		a.checkLaunch(ctx, call)
 
 		select {
-		case <-a.shutdown: // server shutdown
+		case <-a.shutWg.Closer(): // server shutdown
 			cancel()
 			return
 		case <-ctx.Done(): // timed out
@@ -356,17 +438,22 @@ func (a *agent) checkLaunch(ctx context.Context, call *call) {
 
 	select {
 	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync):
-		a.wg.Add(1) // add waiter in this thread
-		go func() {
-			// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
-			a.runHot(ctx, call, tok, state)
-			a.wg.Done()
-		}()
+		if a.shutWg.AddSession(1) {
+			go func() {
+				// NOTE: runHot will not inherit the timeout from ctx (ignore timings)
+				a.runHot(ctx, call, tok, state)
+				a.shutWg.DoneSession()
+			}()
+			return
+		}
+		if tok != nil {
+			tok.Close()
+		}
 	case <-ctx.Done(): // timeout
-		state.UpdateState(ctx, ContainerStateDone, call.slots)
-	case <-a.shutdown: // server shutdown
-		state.UpdateState(ctx, ContainerStateDone, call.slots)
+	case <-a.shutWg.Closer(): // server shutdown
 	}
+
+	state.UpdateState(ctx, ContainerStateDone, call.slots)
 }
 
 // waitHot pings and waits for a hot container from the slot queue
@@ -396,7 +483,7 @@ func (a *agent) waitHot(ctx context.Context, call *call) (Slot, error) {
 			// we failed to take ownership of the token (eg. container idle timeout) => try again
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-a.shutdown: // server shutdown
+		case <-a.shutWg.Closer(): // server shutdown
 			return nil, models.ErrCallTimeoutServerBusy
 		case <-time.After(sleep):
 			// ping dequeuer again
@@ -478,10 +565,6 @@ func (s *coldSlot) exec(ctx context.Context, call *call) error {
 
 func (s *coldSlot) Close(ctx context.Context) error {
 	if s.cookie != nil {
-		// call this from here so that in exec we don't have to eat container
-		// removal latency
-		// NOTE ensure container removal, no ctx timeout
-		ctx = common.BackgroundContext(ctx)
 		s.cookie.Close(ctx)
 	}
 	if s.tok != nil {
@@ -633,7 +716,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	container, closer := NewHotContainer(call, &a.cfg)
 	defer closer()
 
-	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app": call.AppName, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
+	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
 	cookie, err := a.driver.Prepare(ctx, container)
@@ -664,7 +747,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			select { // make sure everything is up before trying to send slot
 			case <-ctx.Done(): // container shutdown
 				return
-			case <-a.shutdown: // server shutdown
+			case <-a.shutWg.Closer(): // server shutdown
 				return
 			default: // ok
 			}
@@ -737,7 +820,7 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 		select {
 		case <-s.trigger: // slot already consumed
 		case <-ctx.Done(): // container shutdown
-		case <-a.shutdown: // server shutdown
+		case <-a.shutWg.Closer(): // server shutdown
 		case <-idleTimer.C:
 		case <-freezeTimer.C:
 			if !isFrozen {
@@ -824,10 +907,10 @@ func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
 		// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
 		// reading from the other one without risking head-of-line blocking.
 		stderr.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))
 		stdout.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_name": call.AppName, "path": call.Path, "image": call.Image, "container_id": id}),
+			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
 		}))
 	}
 
@@ -924,7 +1007,7 @@ func init() {
 			"docker container stats for "+key,
 			[]tag.Key{appKey, pathKey},
 			dockerStatsDist,
-			view.DistributionAggregation{},
+			view.Distribution(),
 		)
 		if err != nil {
 			logrus.Fatalf("cannot create view: %v", err)

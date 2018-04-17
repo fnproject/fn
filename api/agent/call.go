@@ -41,7 +41,7 @@ type Call interface {
 }
 
 // TODO build w/o closures... lazy
-type CallOpt func(a *agent, c *call) error
+type CallOpt func(c *call) error
 
 type Param struct {
 	Key   string
@@ -49,14 +49,9 @@ type Param struct {
 }
 type Params []Param
 
-func FromRequest(appName, path string, req *http.Request) CallOpt {
-	return func(a *agent, c *call) error {
-		app, err := a.da.GetApp(req.Context(), appName)
-		if err != nil {
-			return err
-		}
-
-		route, err := a.da.GetRoute(req.Context(), appName, path)
+func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallOpt {
+	return func(c *call) error {
+		route, err := a.GetRoute(req.Context(), app.ID, path)
 		if err != nil {
 			return err
 		}
@@ -87,10 +82,9 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 		}
 
 		c.Call = &models.Call{
-			ID:      id,
-			AppName: appName,
-			Path:    route.Path,
-			Image:   route.Image,
+			ID:    id,
+			Path:  route.Path,
+			Image: route.Image,
 			// Delay: 0,
 			Type:   route.Type,
 			Format: route.Format,
@@ -101,10 +95,12 @@ func FromRequest(appName, path string, req *http.Request) CallOpt {
 			Memory:      route.Memory,
 			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
+			Annotations: buildAnnotations(app, route),
 			Headers:     req.Header,
 			CreatedAt:   strfmt.DateTime(time.Now()),
 			URL:         reqURL(req),
 			Method:      req.Method,
+			AppID:       app.ID,
 		}
 
 		c.req = req
@@ -135,6 +131,17 @@ func buildConfig(app *models.App, route *models.Route) models.Config {
 	return conf
 }
 
+func buildAnnotations(app *models.App, route *models.Route) models.Annotations {
+	ann := make(models.Annotations, len(app.Annotations)+len(route.Annotations))
+	for k, v := range app.Annotations {
+		ann[k] = v
+	}
+	for k, v := range route.Annotations {
+		ann[k] = v
+	}
+	return ann
+}
+
 func reqURL(req *http.Request) string {
 	if req.URL.Scheme == "" {
 		if req.TLS == nil {
@@ -153,7 +160,7 @@ func reqURL(req *http.Request) string {
 // here, to be a fully qualified model. We probably should double check but having a way
 // to bypass will likely be what's used anyway unless forced.
 func FromModel(mCall *models.Call) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, strings.NewReader(c.Payload))
@@ -169,7 +176,7 @@ func FromModel(mCall *models.Call) CallOpt {
 }
 
 func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.Call = mCall
 
 		req, err := http.NewRequest(c.Method, c.URL, in)
@@ -186,22 +193,15 @@ func FromModelAndInput(mCall *models.Call, in io.ReadCloser) CallOpt {
 
 // TODO this should be required
 func WithWriter(w io.Writer) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.w = w
 		return nil
 	}
 }
 
 func WithContext(ctx context.Context) CallOpt {
-	return func(a *agent, c *call) error {
+	return func(c *call) error {
 		c.req = c.req.WithContext(ctx)
-		return nil
-	}
-}
-
-func WithoutPreemptiveCapacityCheck() CallOpt {
-	return func(a *agent, c *call) error {
-		c.disablePreemptiveCapacityCheck = true
 		return nil
 	}
 }
@@ -213,7 +213,7 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	var c call
 
 	for _, o := range opts {
-		err := o(a, &c)
+		err := o(&c)
 		if err != nil {
 			return nil, err
 		}
@@ -224,22 +224,20 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	if !c.disablePreemptiveCapacityCheck {
-		if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
-			// if we're not going to be able to run this call on this machine, bail here.
-			return nil, models.ErrCallTimeoutServerBusy
-		}
+	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+		// if we're not going to be able to run this call on this machine, bail here.
+		return nil, models.ErrCallTimeoutServerBusy
 	}
 
 	c.da = a.da
 	c.ct = a
 
 	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app": c.AppName, "route": c.Path})
+		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
 	c.req = c.req.WithContext(ctx)
 
 	// setup stderr logger separate (don't inherit ctx vars)
-	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_name": c.AppName, "path": c.Path, "image": c.Image, "call_id": c.ID})
+	logger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
 	c.stderr = setupLogger(logger, a.cfg.MaxLogSize)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
@@ -267,19 +265,18 @@ type call struct {
 	ct             callTrigger
 	slots          *slotQueue
 	slotDeadline   time.Time
+	lbDeadline     time.Time
 	execDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
-	// This can be used to disable the preemptive capacity check in GetCall
-	disablePreemptiveCapacityCheck bool
 }
 
-func (c *call) SlotDeadline() time.Time {
-	return c.slotDeadline
+func (c *call) LbDeadline() time.Time {
+	return c.lbDeadline
 }
 
-func (c *call) Request() *http.Request {
-	return c.req
+func (c *call) RequestBody() io.ReadCloser {
+	return c.req.Body
 }
 
 func (c *call) ResponseWriter() http.ResponseWriter {
@@ -304,8 +301,11 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = strfmt.DateTime(time.Now())
 	c.Status = "running"
 
-	if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
-		rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+	// Do not write this header if lb-agent
+	if c.lbDeadline.IsZero() {
+		if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
+			rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
+		}
 	}
 
 	if c.Type == models.TypeAsync {

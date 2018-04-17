@@ -2349,7 +2349,6 @@ func (c *DeploymentsDeleteCall) Do(opts ...googleapi.CallOption) (*Operation, er
 	//     "deployment": {
 	//       "description": "The name of the deployment for this request.",
 	//       "location": "path",
-	//       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
 	//       "required": true,
 	//       "type": "string"
 	//     },
@@ -2696,6 +2695,17 @@ func (r *DeploymentsService) Insert(project string, deployment *Deployment) *Dep
 	return c
 }
 
+// CreatePolicy sets the optional parameter "createPolicy": Sets the
+// policy to use for creating new resources.
+//
+// Possible values:
+//   "ACQUIRE"
+//   "CREATE_OR_ACQUIRE" (default)
+func (c *DeploymentsInsertCall) CreatePolicy(createPolicy string) *DeploymentsInsertCall {
+	c.urlParams_.Set("createPolicy", createPolicy)
+	return c
+}
+
 // Preview sets the optional parameter "preview": If set to true,
 // creates a deployment and creates "shell" resources but does not
 // actually instantiate these resources. This allows you to preview what
@@ -2803,6 +2813,20 @@ func (c *DeploymentsInsertCall) Do(opts ...googleapi.CallOption) (*Operation, er
 	//     "project"
 	//   ],
 	//   "parameters": {
+	//     "createPolicy": {
+	//       "default": "CREATE_OR_ACQUIRE",
+	//       "description": "Sets the policy to use for creating new resources.",
+	//       "enum": [
+	//         "ACQUIRE",
+	//         "CREATE_OR_ACQUIRE"
+	//       ],
+	//       "enumDescriptions": [
+	//         "",
+	//         ""
+	//       ],
+	//       "location": "query",
+	//       "type": "string"
+	//     },
 	//     "preview": {
 	//       "description": "If set to true, creates a deployment and creates \"shell\" resources but does not actually instantiate these resources. This allows you to preview what your deployment looks like. After previewing a deployment, you can deploy your resources by making a request with the update() method or you can use the cancelPreview() method to cancel the preview altogether. Note that the deployment will still exist after you cancel the preview and you must separately delete this deployment if you want to remove it.",
 	//       "location": "query",

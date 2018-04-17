@@ -2068,6 +2068,10 @@ type JobStatistics2 struct {
 	// TotalBytesProcessed: [Output-only] Total bytes processed for the job.
 	TotalBytesProcessed int64 `json:"totalBytesProcessed,omitempty,string"`
 
+	// TotalPartitionsProcessed: [Output-only] Total number of partitions
+	// processed from all partitioned tables referenced in the job.
+	TotalPartitionsProcessed int64 `json:"totalPartitionsProcessed,omitempty,string"`
+
 	// TotalSlotMs: [Output-only] Slot-milliseconds for the job.
 	TotalSlotMs int64 `json:"totalSlotMs,omitempty,string"`
 

@@ -7524,8 +7524,8 @@ type VideoProperties struct {
 	// beginning
 	// of the video.
 	// If set, the end time should be after the start time.
-	// If not set or if you set this to a value that exceeds the video
-	// duration,
+	// If not set or if you set this to a value that exceeds the video's
+	// length,
 	// the video will be played until its end.
 	End int64 `json:"end,omitempty"`
 

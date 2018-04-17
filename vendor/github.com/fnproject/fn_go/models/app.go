@@ -17,7 +17,10 @@ import (
 // swagger:model App
 type App struct {
 
-	// Application configuration, applied to all routes.
+	// Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+	Annotations map[string]interface{} `json:"annotations,omitempty"`
+
+	// Application function configuration, applied to all routes.
 	Config map[string]string `json:"config,omitempty"`
 
 	// Time when app was created. Always in UTC.

@@ -346,10 +346,7 @@ type DataSource struct {
 	// to different BigQuery targets.
 	SupportsMultipleTransfers bool `json:"supportsMultipleTransfers,omitempty"`
 
-	// TransferType: Transfer type. Currently supports only batch
-	// transfers,
-	// which are transfers that use the BigQuery batch APIs (load or
-	// query) to ingest the data.
+	// TransferType: Deprecated. This field has no effect.
 	//
 	// Possible values:
 	//   "TRANSFER_TYPE_UNSPECIFIED" - Invalid or Unknown transfer type
@@ -1734,7 +1731,7 @@ type ProjectsLocationsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Get information about a location.
+// Get: Gets information about a location.
 func (r *ProjectsLocationsService) Get(name string) *ProjectsLocationsGetCall {
 	c := &ProjectsLocationsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -1835,7 +1832,7 @@ func (c *ProjectsLocationsGetCall) Do(opts ...googleapi.CallOption) (*Location, 
 	}
 	return ret, nil
 	// {
-	//   "description": "Get information about a location.",
+	//   "description": "Gets information about a location.",
 	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}",
 	//   "httpMethod": "GET",
 	//   "id": "bigquerydatatransfer.projects.locations.get",
@@ -2710,7 +2707,6 @@ func (c *ProjectsLocationsTransferConfigsCreateCall) Do(opts ...googleapi.CallOp
 	//     "$ref": "TransferConfig"
 	//   },
 	//   "scopes": [
-	//     "https://www.googleapis.com/auth/bigquery",
 	//     "https://www.googleapis.com/auth/cloud-platform"
 	//   ]
 	// }
@@ -3369,7 +3365,6 @@ func (c *ProjectsLocationsTransferConfigsPatchCall) Do(opts ...googleapi.CallOpt
 	//     "$ref": "TransferConfig"
 	//   },
 	//   "scopes": [
-	//     "https://www.googleapis.com/auth/bigquery",
 	//     "https://www.googleapis.com/auth/cloud-platform"
 	//   ]
 	// }
@@ -4406,7 +4401,6 @@ func (c *ProjectsTransferConfigsCreateCall) Do(opts ...googleapi.CallOption) (*T
 	//     "$ref": "TransferConfig"
 	//   },
 	//   "scopes": [
-	//     "https://www.googleapis.com/auth/bigquery",
 	//     "https://www.googleapis.com/auth/cloud-platform"
 	//   ]
 	// }
@@ -5065,7 +5059,6 @@ func (c *ProjectsTransferConfigsPatchCall) Do(opts ...googleapi.CallOption) (*Tr
 	//     "$ref": "TransferConfig"
 	//   },
 	//   "scopes": [
-	//     "https://www.googleapis.com/auth/bigquery",
 	//     "https://www.googleapis.com/auth/cloud-platform"
 	//   ]
 	// }

@@ -3,6 +3,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/sirupsen/logrus"
@@ -35,7 +37,7 @@ func init() {
 func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHeaders http.Header) {
 
 	checkMap := make([]string, 0, len(expectedHeaders))
-	for k, _ := range expectedHeaders {
+	for k := range expectedHeaders {
 		checkMap = append(checkMap, k)
 	}
 
@@ -46,7 +48,7 @@ func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHea
 			}
 		}
 
-		for i, _ := range checkMap {
+		for i := range checkMap {
 			if checkMap[i] == k {
 				checkMap = append(checkMap[:i], checkMap[i+1:]...)
 				break
@@ -72,15 +74,15 @@ func TestCallConfigurationRequest(t *testing.T) {
 	cfg := models.Config{"APP_VAR": "FOO"}
 	rCfg := models.Config{"ROUTE_VAR": "BAR"}
 
+	app := &models.App{Name: appName, Config: cfg}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: appName, Config: cfg},
-		},
+		[]*models.App{app},
 		[]*models.Route{
 			{
+				AppID:       app.ID,
 				Config:      rCfg,
 				Path:        path,
-				AppName:     appName,
 				Image:       image,
 				Type:        typ,
 				Format:      format,
@@ -88,7 +90,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 				IdleTimeout: idleTimeout,
 				Memory:      memory,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -112,7 +114,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 
 	call, err := a.GetCall(
 		WithWriter(w), // XXX (reed): order matters [for now]
-		FromRequest(appName, path, req),
+		FromRequest(a, app, path, req),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -124,8 +126,8 @@ func TestCallConfigurationRequest(t *testing.T) {
 	if model.ID == "" {
 		t.Fatal("model does not have id, GetCall should assign id")
 	}
-	if model.AppName != appName {
-		t.Fatal("app name mismatch", model.AppName, appName)
+	if model.AppID != app.ID {
+		t.Fatal("app ID mismatch", model.ID, app.ID)
 	}
 	if model.Path != path {
 		t.Fatal("path mismatch", model.Path, path)
@@ -191,7 +193,8 @@ func TestCallConfigurationRequest(t *testing.T) {
 }
 
 func TestCallConfigurationModel(t *testing.T) {
-	appName := "myapp"
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
@@ -199,13 +202,13 @@ func TestCallConfigurationModel(t *testing.T) {
 	const memory = 256
 	CPUs := models.MilliCPUs(1000)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
+	url := "http://127.0.0.1:8080/r/" + app.Name + path
 	payload := "payload"
 	typ := "sync"
 	format := "default"
 	cfg := models.Config{
 		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
+		"FN_APP_NAME": app.Name,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
@@ -215,8 +218,8 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 
 	cm := &models.Call{
+		AppID:       app.ID,
 		Config:      cfg,
-		AppName:     appName,
 		Path:        path,
 		Image:       image,
 		Type:        typ,
@@ -231,7 +234,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
@@ -252,7 +255,8 @@ func TestCallConfigurationModel(t *testing.T) {
 }
 
 func TestAsyncCallHeaders(t *testing.T) {
-	appName := "myapp"
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 1
@@ -260,7 +264,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	const memory = 256
 	CPUs := models.MilliCPUs(200)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
+	url := "http://127.0.0.1:8080/r/" + app.Name + path
 	payload := "payload"
 	typ := "async"
 	format := "http"
@@ -268,7 +272,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	contentLength := strconv.FormatInt(int64(len(payload)), 10)
 	config := map[string]string{
 		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
+		"FN_APP_NAME": app.Name,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
@@ -279,14 +283,14 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 	headers := map[string][]string{
 		// FromRequest would insert these from original HTTP request
-		"Content-Type":   []string{contentType},
-		"Content-Length": []string{contentLength},
+		"Content-Type":   {contentType},
+		"Content-Length": {contentLength},
 	}
 
 	cm := &models.Call{
+		AppID:       app.ID,
 		Config:      config,
 		Headers:     headers,
-		AppName:     appName,
 		Path:        path,
 		Image:       image,
 		Type:        typ,
@@ -301,7 +305,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
@@ -388,8 +392,20 @@ func TestLoggerTooBig(t *testing.T) {
 	logger.Close()
 }
 
+type testListener struct {
+	afterCall func(context.Context, *models.Call) error
+}
+
+func (l testListener) AfterCall(ctx context.Context, call *models.Call) error {
+	return l.afterCall(ctx, call)
+}
+func (l testListener) BeforeCall(context.Context, *models.Call) error {
+	return nil
+}
+
 func TestSubmitError(t *testing.T) {
-	appName := "myapp"
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	path := "/"
 	image := "fnproject/fn-test-utils"
 	const timeout = 10
@@ -397,13 +413,13 @@ func TestSubmitError(t *testing.T) {
 	const memory = 256
 	CPUs := models.MilliCPUs(200)
 	method := "GET"
-	url := "http://127.0.0.1:8080/r/" + appName + path
+	url := "http://127.0.0.1:8080/r/" + app.Name + path
 	payload := `{"sleepTime": 0, "isDebug": true, "isCrash": true}`
 	typ := "sync"
 	format := "default"
 	config := map[string]string{
 		"FN_FORMAT":   format,
-		"FN_APP_NAME": appName,
+		"FN_APP_NAME": app.Name,
 		"FN_PATH":     path,
 		"FN_MEMORY":   strconv.Itoa(memory),
 		"FN_CPUS":     CPUs.String(),
@@ -414,8 +430,8 @@ func TestSubmitError(t *testing.T) {
 	}
 
 	cm := &models.Call{
+		AppID:       app.ID,
 		Config:      config,
-		AppName:     appName,
 		Path:        path,
 		Image:       image,
 		Type:        typ,
@@ -430,10 +446,27 @@ func TestSubmitError(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
 	defer a.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	afterCall := func(ctx context.Context, call *models.Call) error {
+		defer wg.Done()
+		if cm.Status != "error" {
+			t.Fatal("expected status to be set to 'error' but was", cm.Status)
+		}
+
+		if cm.Error == "" {
+			t.Fatal("expected error string to be set on call")
+		}
+		return nil
+	}
+
+	a.AddCallListener(&testListener{afterCall: afterCall})
 
 	callI, err := a.GetCall(FromModel(cm))
 	if err != nil {
@@ -445,13 +478,7 @@ func TestSubmitError(t *testing.T) {
 		t.Fatal("expected error but got none")
 	}
 
-	if cm.Status != "error" {
-		t.Fatal("expected status to be set to 'error' but was", cm.Status)
-	}
-
-	if cm.Error == "" {
-		t.Fatal("expected error string to be set on call")
-	}
+	wg.Wait()
 }
 
 // this implements io.Reader, but importantly, is not a strings.Reader or
@@ -469,15 +496,15 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	path := "/hello"
 	url := "http://127.0.0.1:8080/r/" + appName + path
 
+	app := &models.App{Name: appName}
+	app.SetDefaults()
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: appName},
-		},
+		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        path,
-				AppName:     appName,
+				AppID:       app.ID,
 				Image:       "fnproject/fn-test-utils",
 				Type:        "sync",
 				Format:      "http", // this _is_ the test
@@ -485,7 +512,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 				IdleTimeout: 10,
 				Memory:      128,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -503,7 +530,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 	// grab a buffer so we can read what gets written to this guy
 	var out bytes.Buffer
-	callI, err := a.GetCall(FromRequest(appName, path, req), WithWriter(&out))
+	callI, err := a.GetCall(FromRequest(a, app, path, req), WithWriter(&out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +565,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 
 func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	call := &models.Call{
-		AppName:     "yo",
+		AppID:       id.New().String(),
 		Path:        "/yoyo",
 		Image:       "fnproject/fn-test-utils",
 		Type:        "sync",
@@ -549,7 +576,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	}
 
 	// FromModel doesn't need a datastore, for now...
-	ds := datastore.NewMockInit(nil, nil, nil)
+	ds := datastore.NewMockInit()
 
 	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
 	defer a.Close()
@@ -565,6 +592,8 @@ func testCall() *models.Call {
 	appName := "myapp"
 	path := "/"
 	image := "fnproject/fn-test-utils:latest"
+	app := &models.App{Name: appName}
+	app.SetDefaults()
 	const timeout = 10
 	const idleTimeout = 20
 	const memory = 256
@@ -594,9 +623,9 @@ func testCall() *models.Call {
 	}
 
 	return &models.Call{
+		AppID:       app.ID,
 		Config:      config,
 		Headers:     headers,
-		AppName:     appName,
 		Path:        path,
 		Image:       image,
 		Type:        typ,
@@ -637,16 +666,14 @@ func TestPipesAreClear(t *testing.T) {
 	ca.Format = "http"
 	ca.IdleTimeout = 60 // keep this bad boy alive
 	ca.Timeout = 4      // short
-
+	app := &models.App{Name: "myapp", ID: ca.AppID}
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: ca.AppName},
-		},
+		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        ca.Path,
-				AppName:     ca.AppName,
+				AppID:       ca.AppID,
 				Image:       ca.Image,
 				Type:        ca.Type,
 				Format:      ca.Format,
@@ -654,7 +681,7 @@ func TestPipesAreClear(t *testing.T) {
 				IdleTimeout: ca.IdleTimeout,
 				Memory:      ca.Memory,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -676,7 +703,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodOne)))
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(ca.AppName, ca.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(a, app, ca.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -710,7 +737,7 @@ func TestPipesAreClear(t *testing.T) {
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodTwo)))
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(ca.AppName, ca.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(a, app, ca.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -787,16 +814,16 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	call.Format = "http"
 	call.IdleTimeout = 60 // keep this bad boy alive
 	call.Timeout = 4      // short
-
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
+	app.ID = call.AppID
 	// we need to load in app & route so that FromRequest works
 	ds := datastore.NewMockInit(
-		[]*models.App{
-			{Name: call.AppName},
-		},
+		[]*models.App{app},
 		[]*models.Route{
 			{
 				Path:        call.Path,
-				AppName:     call.AppName,
+				AppID:       call.AppID,
 				Image:       call.Image,
 				Type:        call.Type,
 				Format:      call.Format,
@@ -804,7 +831,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 				IdleTimeout: call.IdleTimeout,
 				Memory:      call.Memory,
 			},
-		}, nil,
+		},
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
@@ -817,7 +844,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outOne bytes.Buffer
-	callI, err := a.GetCall(FromRequest(call.AppName, call.Path, req), WithWriter(&outOne))
+	callI, err := a.GetCall(FromRequest(a, app, call.Path, req), WithWriter(&outOne))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -842,7 +869,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	}
 
 	var outTwo bytes.Buffer
-	callI, err = a.GetCall(FromRequest(call.AppName, call.Path, req), WithWriter(&outTwo))
+	callI, err = a.GetCall(FromRequest(a, app, call.Path, req), WithWriter(&outTwo))
 	if err != nil {
 		t.Fatal(err)
 	}

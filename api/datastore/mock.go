@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
 	"github.com/fnproject/fn/api/logs"
@@ -15,23 +14,44 @@ import (
 type mock struct {
 	Apps   []*models.App
 	Routes []*models.Route
-	Calls  []*models.Call
-	data   map[string][]byte
 
 	models.LogStore
 }
 
 func NewMock() models.Datastore {
-	return NewMockInit(nil, nil, nil)
+	return NewMockInit()
 }
 
-func NewMockInit(apps []*models.App, routes []*models.Route, calls []*models.Call) models.Datastore {
-	return datastoreutil.NewValidator(&mock{apps, routes, calls, make(map[string][]byte), logs.NewMock()})
+// args helps break tests less if we change stuff
+func NewMockInit(args ...interface{}) models.Datastore {
+	var mocker mock
+	for _, a := range args {
+		switch x := a.(type) {
+		case []*models.App:
+			mocker.Apps = x
+		case []*models.Route:
+			mocker.Routes = x
+		default:
+			panic("not accounted for data type sent to mock init. add it")
+		}
+	}
+	mocker.LogStore = logs.NewMock()
+	return datastoreutil.NewValidator(&mocker)
 }
 
-func (m *mock) GetApp(ctx context.Context, appName string) (app *models.App, err error) {
+func (m *mock) GetAppID(ctx context.Context, appName string) (string, error) {
 	for _, a := range m.Apps {
 		if a.Name == appName {
+			return a.ID, nil
+		}
+	}
+
+	return "", models.ErrAppsNotFound
+}
+
+func (m *mock) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	for _, a := range m.Apps {
+		if a.ID == appID {
 			return a, nil
 		}
 	}
@@ -63,7 +83,7 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 }
 
 func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
-	if a, _ := m.GetApp(ctx, app.Name); a != nil {
+	if a, _ := m.GetAppByID(ctx, app.ID); a != nil {
 		return nil, models.ErrAppsAlreadyExists
 	}
 	m.Apps = append(m.Apps, app)
@@ -71,7 +91,7 @@ func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, err
 }
 
 func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
-	a, err := m.GetApp(ctx, app.Name)
+	a, err := m.GetAppByID(ctx, app.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -80,11 +100,10 @@ func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, err
 	return a.Clone(), nil
 }
 
-func (m *mock) RemoveApp(ctx context.Context, appName string) error {
-	m.batchDeleteCalls(ctx, appName)
-	m.batchDeleteRoutes(ctx, appName)
+func (m *mock) RemoveApp(ctx context.Context, appID string) error {
+	m.batchDeleteRoutes(ctx, appID)
 	for i, a := range m.Apps {
-		if a.Name == appName {
+		if a.ID == appID {
 			m.Apps = append(m.Apps[:i], m.Apps[i+1:]...)
 			return nil
 		}
@@ -92,9 +111,9 @@ func (m *mock) RemoveApp(ctx context.Context, appName string) error {
 	return models.ErrAppsNotFound
 }
 
-func (m *mock) GetRoute(ctx context.Context, appName, routePath string) (*models.Route, error) {
+func (m *mock) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	for _, r := range m.Routes {
-		if r.AppName == appName && r.Path == routePath {
+		if r.AppID == appID && r.Path == routePath {
 			return r, nil
 		}
 	}
@@ -107,7 +126,7 @@ func (s sortR) Len() int           { return len(s) }
 func (s sortR) Less(i, j int) bool { return strings.Compare(s[i].Path, s[j].Path) < 0 }
 func (s sortR) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *mock) GetRoutesByApp(ctx context.Context, appName string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
+func (m *mock) GetRoutesByApp(ctx context.Context, appID string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
 	sort.Sort(sortR(m.Routes))
 
@@ -116,7 +135,7 @@ func (m *mock) GetRoutesByApp(ctx context.Context, appName string, routeFilter *
 			break
 		}
 
-		if r.AppName == appName &&
+		if r.AppID == appID &&
 			//strings.HasPrefix(r.Path, routeFilter.PathPrefix) && // TODO
 			(routeFilter.Image == "" || routeFilter.Image == r.Image) &&
 			strings.Compare(routeFilter.Cursor, r.Path) < 0 {
@@ -128,11 +147,11 @@ func (m *mock) GetRoutesByApp(ctx context.Context, appName string, routeFilter *
 }
 
 func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	if _, err := m.GetApp(ctx, route.AppName); err != nil {
+	if _, err := m.GetAppByID(ctx, route.AppID); err != nil {
 		return nil, err
 	}
 
-	if r, _ := m.GetRoute(ctx, route.AppName, route.Path); r != nil {
+	if r, _ := m.GetRoute(ctx, route.AppID, route.Path); r != nil {
 		return nil, models.ErrRoutesAlreadyExists
 	}
 	m.Routes = append(m.Routes, route)
@@ -140,7 +159,7 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 }
 
 func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
-	r, err := m.GetRoute(ctx, route.AppName, route.Path)
+	r, err := m.GetRoute(ctx, route.AppID, route.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -154,9 +173,9 @@ func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Ro
 	return clone, nil
 }
 
-func (m *mock) RemoveRoute(ctx context.Context, appName, routePath string) error {
+func (m *mock) RemoveRoute(ctx context.Context, appID, routePath string) error {
 	for i, r := range m.Routes {
-		if r.AppName == appName && r.Path == routePath {
+		if r.AppID == appID && r.Path == routePath {
 			m.Routes = append(m.Routes[:i], m.Routes[i+1:]...)
 			return nil
 		}
@@ -164,108 +183,10 @@ func (m *mock) RemoveRoute(ctx context.Context, appName, routePath string) error
 	return models.ErrRoutesNotFound
 }
 
-func (m *mock) Put(ctx context.Context, key, value []byte) error {
-	if len(value) == 0 {
-		delete(m.data, string(key))
-	} else {
-		m.data[string(key)] = value
-	}
-	return nil
-}
-
-func (m *mock) Get(ctx context.Context, key []byte) ([]byte, error) {
-	return m.data[string(key)], nil
-}
-
-func (m *mock) InsertCall(ctx context.Context, call *models.Call) error {
-	m.Calls = append(m.Calls, call)
-	return nil
-}
-
-// This equivalence only makes sense in the context of the datastore, so it's
-// not in the model.
-func equivalentCalls(expected *models.Call, actual *models.Call) bool {
-	equivalentFields := expected.ID == actual.ID &&
-		time.Time(expected.CreatedAt).Unix() == time.Time(actual.CreatedAt).Unix() &&
-		time.Time(expected.StartedAt).Unix() == time.Time(actual.StartedAt).Unix() &&
-		time.Time(expected.CompletedAt).Unix() == time.Time(actual.CompletedAt).Unix() &&
-		expected.Status == actual.Status &&
-		expected.AppName == actual.AppName &&
-		expected.Path == actual.Path &&
-		expected.Error == actual.Error &&
-		len(expected.Stats) == len(actual.Stats)
-	// TODO: We don't do comparisons of individual Stats. We probably should.
-	return equivalentFields
-}
-
-func (m *mock) UpdateCall(ctx context.Context, from *models.Call, to *models.Call) error {
-	for _, t := range m.Calls {
-		if t.ID == from.ID && t.AppName == from.AppName {
-			if equivalentCalls(from, t) {
-				*t = *to
-				return nil
-			}
-			return models.ErrDatastoreCannotUpdateCall
-		}
-	}
-	return models.ErrCallNotFound
-}
-
-func (m *mock) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
-	for _, t := range m.Calls {
-		if t.ID == callID && t.AppName == appName {
-			return t, nil
-		}
-	}
-
-	return nil, models.ErrCallNotFound
-}
-
-type sortC []*models.Call
-
-func (s sortC) Len() int           { return len(s) }
-func (s sortC) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
-func (s sortC) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
-	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
-	// calls are in DESC order so use sort.Reverse
-	sort.Sort(sort.Reverse(sortC(m.Calls)))
-
-	var calls []*models.Call
-	for _, c := range m.Calls {
-		if len(calls) == filter.PerPage {
-			break
-		}
-
-		if (filter.AppName == "" || c.AppName == filter.AppName) &&
-			(filter.Path == "" || filter.Path == c.Path) &&
-			(time.Time(filter.FromTime).IsZero() || time.Time(filter.FromTime).Before(time.Time(c.CreatedAt))) &&
-			(time.Time(filter.ToTime).IsZero() || time.Time(c.CreatedAt).Before(time.Time(filter.ToTime))) &&
-			(filter.Cursor == "" || strings.Compare(filter.Cursor, c.ID) > 0) {
-
-			calls = append(calls, c)
-		}
-	}
-
-	return calls, nil
-}
-
-func (m *mock) batchDeleteCalls(ctx context.Context, appName string) error {
-	newCalls := []*models.Call{}
-	for _, c := range m.Calls {
-		if c.AppName != appName {
-			newCalls = append(newCalls, c)
-		}
-	}
-	m.Calls = newCalls
-	return nil
-}
-
-func (m *mock) batchDeleteRoutes(ctx context.Context, appName string) error {
+func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 	newRoutes := []*models.Route{}
 	for _, c := range m.Routes {
-		if c.AppName != appName {
+		if c.AppID != appID {
 			newRoutes = append(newRoutes, c)
 		}
 	}

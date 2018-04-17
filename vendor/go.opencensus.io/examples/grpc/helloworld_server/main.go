@@ -18,13 +18,16 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
+	"time"
 
 	"go.opencensus.io/examples/exporter"
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
 	"go.opencensus.io/zpages"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -38,17 +41,23 @@ type server struct{}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+	ctx, span := trace.StartSpan(ctx, "sleep")
+	time.Sleep(time.Duration(rand.Float64() * float64(time.Second)))
+	span.End()
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
 func main() {
-	go func() { log.Fatal(http.ListenAndServe(":8081", zpages.Handler)) }()
+	go func() {
+		http.Handle("/debug/", http.StripPrefix("/debug", zpages.Handler))
+		log.Fatal(http.ListenAndServe(":8081", nil))
+	}()
 	// Register stats and trace exporters to export
 	// the collected data.
 	view.RegisterExporter(&exporter.PrintExporter{})
 
 	// Subscribe to collect server request count.
-	if err := ocgrpc.ServerRequestCountView.Subscribe(); err != nil {
+	if err := view.Subscribe(ocgrpc.DefaultServerViews...); err != nil {
 		log.Fatal(err)
 	}
 

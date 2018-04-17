@@ -24,16 +24,6 @@ import (
 func tagsExamples() {
 	ctx := context.Background()
 
-	// START stringKey
-	// Get a key to represent user OS.
-	key, err := tag.NewKey("my.org/keys/user-os")
-	if err != nil {
-		log.Fatal(err)
-	}
-	// END stringKey
-	_ = key
-
-	// START new
 	osKey, err := tag.NewKey("my.org/keys/user-os")
 	if err != nil {
 		log.Fatal(err)
@@ -43,6 +33,7 @@ func tagsExamples() {
 		log.Fatal(err)
 	}
 
+	// START new
 	ctx, err = tag.New(ctx,
 		tag.Insert(osKey, "macOS-10.12.5"),
 		tag.Upsert(userIDKey, "cde36753ed"),
@@ -51,22 +42,6 @@ func tagsExamples() {
 		log.Fatal(err)
 	}
 	// END new
-
-	// START newContext
-	m := tag.FromContext(ctx)
-	// END newContext
-
-	_ = m
-
-	// START replaceTagMap
-	ctx, err = tag.New(ctx,
-		tag.Insert(osKey, "macOS-10.12.5"),
-		tag.Upsert(userIDKey, "fff0989878"),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// END replaceTagMap
 
 	// START profiler
 	ctx, err = tag.New(ctx,

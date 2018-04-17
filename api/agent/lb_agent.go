@@ -2,7 +2,8 @@ package agent
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,74 +15,6 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
-type remoteSlot struct {
-	lbAgent *lbAgent
-}
-
-func (s *remoteSlot) exec(ctx context.Context, call pool.RunnerCall) error {
-	a := s.lbAgent
-
-	err := a.placer.PlaceCall(a.rp, ctx, call)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to place call")
-	}
-	return err
-}
-
-func (s *remoteSlot) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *remoteSlot) Error() error {
-	return nil
-}
-
-type naivePlacer struct {
-}
-
-func NewNaivePlacer() pool.Placer {
-	return &naivePlacer{}
-}
-
-func minDuration(f, s time.Duration) time.Duration {
-	if f < s {
-		return f
-	}
-	return s
-}
-
-func (sp *naivePlacer) PlaceCall(rp pool.RunnerPool, ctx context.Context, call pool.RunnerCall) error {
-	timeout := time.After(call.SlotDeadline().Sub(time.Now()))
-
-	for {
-		select {
-		case <-ctx.Done():
-			return models.ErrCallTimeoutServerBusy
-		case <-timeout:
-			return models.ErrCallTimeoutServerBusy
-		default:
-			runners, err := rp.Runners(call)
-			if err != nil {
-				logrus.WithError(err).Error("Failed to find runners for call")
-			} else {
-				for _, r := range runners {
-					placed, err := r.TryExec(ctx, call)
-					if placed {
-						return err
-					}
-				}
-			}
-
-			remaining := call.SlotDeadline().Sub(time.Now())
-			if remaining <= 0 {
-				return models.ErrCallTimeoutServerBusy
-			}
-			// backoff
-			time.Sleep(minDuration(retryWaitInterval, remaining))
-		}
-	}
-}
-
 const (
 	runnerReconnectInterval = 5 * time.Second
 	// sleep time to attempt placement across all runners before retrying
@@ -89,46 +22,109 @@ const (
 	// sleep time when scaling from 0 to 1 runners
 	noCapacityWaitInterval = 1 * time.Second
 	// amount of time to wait to place a request on a runner
-	placementTimeout          = 15 * time.Second
-	runnerPoolShutdownTimeout = 5 * time.Second
+	placementTimeout = 15 * time.Second
 )
 
 type lbAgent struct {
-	delegatedAgent Agent
-	rp             pool.RunnerPool
-	placer         pool.Placer
+	cfg           AgentConfig
+	da            DataAccess
+	callListeners []fnext.CallListener
+	rp            pool.RunnerPool
+	placer        pool.Placer
 
-	wg       sync.WaitGroup // Needs a good name
-	shutdown chan struct{}
+	shutWg       *common.WaitGroup
+	callEndCount int64
 }
 
-func NewLBAgent(agent Agent, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
+// NewLBAgent creates an Agent that knows how to load-balance function calls
+// across a group of runner nodes.
+func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
+
+	// TODO: Move the constants above to Agent Config or an LB specific LBAgentConfig
+	cfg, err := NewAgentConfig()
+	if err != nil {
+		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
+	}
+	logrus.Infof("lb-agent starting cfg=%+v", cfg)
+
 	a := &lbAgent{
-		delegatedAgent: agent,
-		rp:             rp,
-		placer:         p,
+		cfg:    *cfg,
+		da:     da,
+		rp:     rp,
+		placer: p,
+		shutWg: common.NewWaitGroup(),
 	}
 	return a, nil
 }
 
-// GetCall delegates to the wrapped agent but disables the capacity check as
-// this agent isn't actually running the call.
+func (a *lbAgent) AddCallListener(listener fnext.CallListener) {
+	a.callListeners = append(a.callListeners, listener)
+}
+
+func (a *lbAgent) fireBeforeCall(ctx context.Context, call *models.Call) error {
+	return fireBeforeCallFun(a.callListeners, ctx, call)
+}
+
+func (a *lbAgent) fireAfterCall(ctx context.Context, call *models.Call) error {
+	return fireAfterCallFun(a.callListeners, ctx, call)
+}
+
+// GetAppID is to get the match of an app name to its ID
+func (a *lbAgent) GetAppID(ctx context.Context, appName string) (string, error) {
+	return a.da.GetAppID(ctx, appName)
+}
+
+// GetAppByID is to get the app by ID
+func (a *lbAgent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+	return a.da.GetAppByID(ctx, appID)
+}
+
+func (a *lbAgent) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
+	return a.da.GetRoute(ctx, appID, path)
+}
+
 func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
-	opts = append(opts, WithoutPreemptiveCapacityCheck())
-	return a.delegatedAgent.GetCall(opts...)
+	var c call
+
+	for _, o := range opts {
+		err := o(&c)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO typed errors to test
+	if c.req == nil || c.Call == nil {
+		return nil, errors.New("no model or request provided for call")
+	}
+
+	c.da = a.da
+	c.ct = a
+	c.stderr = &nullReadWriter{}
+
+	ctx, _ := common.LoggerWithFields(c.req.Context(),
+		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
+	c.req = c.req.WithContext(ctx)
+
+	c.lbDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
+
+	return &c, nil
 }
 
 func (a *lbAgent) Close() error {
-	// we should really be passing the server's context here
-	ctx, cancel := context.WithTimeout(context.Background(), runnerPoolShutdownTimeout)
-	defer cancel()
 
-	a.rp.Shutdown(ctx)
-	err := a.delegatedAgent.Close()
+	// start closing the front gate first
+	ch := a.shutWg.CloseGroupNB()
+
+	// finally shutdown the runner pool
+	err := a.rp.Shutdown(context.Background())
 	if err != nil {
-		return err
+		logrus.WithError(err).Warn("Runner pool shutdown error")
 	}
-	return nil
+
+	// gate-on front-gate, should be completed if delegated agent & runner pool is gone.
+	<-ch
+	return err
 }
 
 func GetGroupID(call *models.Call) string {
@@ -144,59 +140,43 @@ func GetGroupID(call *models.Call) string {
 }
 
 func (a *lbAgent) Submit(callI Call) error {
-	a.wg.Add(1)
-	defer a.wg.Done()
-
-	select {
-	case <-a.shutdown:
+	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
-	default:
 	}
 
 	call := callI.(*call)
 
-	ctx, cancel := context.WithDeadline(call.req.Context(), call.execDeadline)
+	ctx, cancel := context.WithDeadline(call.req.Context(), call.lbDeadline)
 	call.req = call.req.WithContext(ctx)
 	defer cancel()
 
 	ctx, span := trace.StartSpan(ctx, "agent_submit")
 	defer span.End()
 
-	err := a.submit(ctx, call)
-	return err
-}
-
-func (a *lbAgent) submit(ctx context.Context, call *call) error {
 	statsEnqueue(ctx)
 
-	a.startStateTrackers(ctx, call)
-	defer a.endStateTrackers(ctx, call)
-
-	slot := &remoteSlot{lbAgent: a}
-
-	defer slot.Close(ctx) // notify our slot is free once we're done
+	// first check any excess case of call.End() stacking.
+	if atomic.LoadInt64(&a.callEndCount) >= int64(a.cfg.MaxCallEndStacking) {
+		a.handleCallEnd(ctx, call, context.DeadlineExceeded, false)
+	}
 
 	err := call.Start(ctx)
 	if err != nil {
-		handleStatsDequeue(ctx, err)
-		return transformTimeout(err, true)
+		return a.handleCallEnd(ctx, call, err, false)
 	}
 
 	statsDequeueAndStart(ctx)
 
-	// pass this error (nil or otherwise) to end directly, to store status, etc
-	err = slot.exec(ctx, call)
-	handleStatsEnd(ctx, err)
+	// WARNING: isStarted (handleCallEnd) semantics
+	// need some consideration here. Similar to runner/agent
+	// we consider isCommitted true if call.Start() succeeds.
+	// isStarted=true means we will call Call.End().
+	err = a.placer.PlaceCall(a.rp, ctx, call)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to place call")
+	}
 
-	// TODO: we need to allocate more time to store the call + logs in case the call timed out,
-	// but this could put us over the timeout if the call did not reply yet (need better policy).
-	ctx = common.BackgroundContext(ctx)
-	err = call.End(ctx, err)
-	return transformTimeout(err, false)
-}
-
-func (a *lbAgent) AddCallListener(cl fnext.CallListener) {
-	a.delegatedAgent.AddCallListener(cl)
+	return a.handleCallEnd(ctx, call, err, true)
 }
 
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
@@ -204,12 +184,29 @@ func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
 	return nil
 }
 
-func (a *lbAgent) startStateTrackers(ctx context.Context, call *call) {
-	delegatedAgent := a.delegatedAgent.(*agent)
-	delegatedAgent.startStateTrackers(ctx, call)
+func (a *lbAgent) scheduleCallEnd(fn func()) {
+	atomic.AddInt64(&a.callEndCount, 1)
+	go func() {
+		fn()
+		atomic.AddInt64(&a.callEndCount, -1)
+		a.shutWg.DoneSession()
+	}()
 }
 
-func (a *lbAgent) endStateTrackers(ctx context.Context, call *call) {
-	delegatedAgent := a.delegatedAgent.(*agent)
-	delegatedAgent.endStateTrackers(ctx, call)
+func (a *lbAgent) handleCallEnd(ctx context.Context, call *call, err error, isStarted bool) error {
+	if isStarted {
+		a.scheduleCallEnd(func() {
+			ctx = common.BackgroundContext(ctx)
+			ctx, cancel := context.WithTimeout(ctx, a.cfg.CallEndTimeout)
+			call.End(ctx, err)
+			cancel()
+		})
+
+		handleStatsEnd(ctx, err)
+		return transformTimeout(err, false)
+	}
+
+	a.shutWg.DoneSession()
+	handleStatsDequeue(ctx, err)
+	return transformTimeout(err, true)
 }

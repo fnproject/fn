@@ -7,7 +7,7 @@ dep:
 dep-up:
 	dep ensure
 
-build:
+build: api/agent/grpc/runner.pb.go
 	go build -o fnserver
 
 install:
@@ -57,6 +57,8 @@ test-system: test-basic
 
 full-test: test test-api test-system
 
+img-busybox:
+	docker pull busybox
 img-hello:
 	docker pull fnproject/hello
 img-mysql:
@@ -66,7 +68,7 @@ img-postgres:
 img-minio:
 	docker pull minio/minio
 
-pull-images: img-hello img-mysql img-postgres img-minio
+pull-images: img-hello img-mysql img-postgres img-minio img-busybox
 
 test-datastore:
 	cd api/datastore && go test -v ./...
@@ -80,11 +82,8 @@ test-build-arm:
 	GOARCH=arm GOARM=7 $(MAKE) build
 	GOARCH=arm64 $(MAKE) build
 
-protos: api/agent/grpc/runner.pb.go poolmanager/grpc/poolmanager.pb.go
-
 %.pb.go: %.proto
-	protoc  --proto_path=$(@D) --proto_path=./vendor \
-    --go_out=plugins=grpc:$(@D) $<
+	protoc --proto_path=$(@D) --proto_path=./vendor --go_out=plugins=grpc:$(@D) $<
 
 run: build
 	GIN_MODE=debug ./fnserver

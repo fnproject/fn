@@ -1,5 +1,7 @@
 // Package pagespeedonline provides access to the PageSpeed Insights API.
 //
+// See https://developers.google.com/speed/docs/insights/v4/getting-started
+//
 // Usage example:
 //
 //   import "google.golang.org/api/pagespeedonline/v4"

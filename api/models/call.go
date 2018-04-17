@@ -27,12 +27,6 @@ const (
 
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
 
-type CallLog struct {
-	CallID  string `json:"call_id" db:"id"`
-	Log     string `json:"log" db:"log"`
-	AppName string `json:"app_name" db:"app_name"`
-}
-
 // Call is a representation of a specific invocation of a route.
 type Call struct {
 	// Unique identifier representing a specific call.
@@ -74,9 +68,6 @@ type Call struct {
 	// * cancelled - cancelled via API. More information in the reason field.
 	//   - client_request - Request was cancelled by a client.
 	Status string `json:"status" db:"status"`
-
-	// App this call belongs to.
-	AppName string `json:"app_name" db:"app_name"`
 
 	// Path of the route that is responsible for this call
 	Path string `json:"path" db:"path"`
@@ -126,6 +117,9 @@ type Call struct {
 	// Config is the set of configuration variables for the call
 	Config Config `json:"config,omitempty" db:"-"`
 
+	// Annotations is the set of annotations for the app/route of the call.
+	Annotations Annotations `json:"annotations,omitempty" db:"-"`
+
 	// Headers are headers from the request that created this call
 	Headers http.Header `json:"headers,omitempty" db:"-"`
 
@@ -144,11 +138,13 @@ type Call struct {
 	// Error is the reason why the call failed, it is only non-empty if
 	// status is equal to "error".
 	Error string `json:"error,omitempty" db:"error"`
+	// App this call belongs to.
+	AppID string `json:"app_id" db:"app_id"`
 }
 
 type CallFilter struct {
 	Path     string // match
-	AppName  string // match
+	AppID    string // match
 	FromTime strfmt.DateTime
 	ToTime   strfmt.DateTime
 	Cursor   string

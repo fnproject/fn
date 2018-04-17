@@ -17,7 +17,12 @@
 # under the License.
 #
 
+use 5.10.0;
+use strict;
+use warnings;
+
 use ExtUtils::MakeMaker;
+
 WriteMakefile( ABSTRACT => 'Apache Thrift is a software framework for scalable cross-language services development.',
                AUTHOR => 'Apache Thrift <dev@thrift.apache.org>',
                LICENSE => 'apache_2_0',

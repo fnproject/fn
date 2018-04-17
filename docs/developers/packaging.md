@@ -2,7 +2,7 @@
 
 ## Option 1 (recommended): Use the `fn` cli tool
 
-We recommend using the [fn cli tool](../fn/README.md) which will handle all of this for you. But if you'd like to dig in
+We recommend using the [fn cli tool](../../README.md#install-cli-tool) which will handle all of this for you. But if you'd like to dig in
 and customize your images, look at Option 2.
 
 ## Option 2: Build your own images

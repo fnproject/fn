@@ -3,6 +3,7 @@ package id
 import (
 	"errors"
 	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -11,7 +12,7 @@ type Id [16]byte
 
 var (
 	machineID uint64
-	counter   uint64
+	counter   uint32
 )
 
 // SetMachineId may only be called by one thread before any id generation
@@ -45,11 +46,21 @@ func SetMachineIdHost(addr net.IP, port uint16) {
 // Ids are sortable within (not between, thanks to clocks) each machine, with
 // a modified base32 encoding exposed for convenience in API usage.
 func New() Id {
-	var id Id
-	t := time.Now()
+	// NewWithTime will be inlined
+	return NewWithTime(time.Now())
+}
+
+// NewWithTime returns an id that uses the milliseconds from the given time.
+// New is identical to NewWithTime(time.Now())
+func NewWithTime(t time.Time) Id {
 	// NOTE compiler optimizes out division by constant for us
 	ms := uint64(t.Unix())*1000 + uint64(t.Nanosecond()/int(time.Millisecond))
-	count := atomic.AddUint64(&counter, 1)
+	count := atomic.AddUint32(&counter, 1)
+	return newID(ms, machineID, count)
+}
+
+func newID(ms, machineID uint64, count uint32) Id {
+	var id Id
 
 	id[0] = byte(ms >> 40)
 	id[1] = byte(ms >> 32)
@@ -58,18 +69,17 @@ func New() Id {
 	id[4] = byte(ms >> 8)
 	id[5] = byte(ms)
 
-	id[6] = byte(machineID >> 12)
-	id[7] = byte(machineID >> 4)
+	id[6] = byte(machineID >> 40)
+	id[7] = byte(machineID >> 32)
+	id[8] = byte(machineID >> 24)
+	id[9] = byte(machineID >> 16)
+	id[10] = byte(machineID >> 8)
+	id[11] = byte(machineID)
 
-	id[8] = byte(machineID<<4) | byte((count<<4)>>60)
-
-	id[8] = byte(count >> 48)
-	id[8] = byte(count >> 40)
-	id[8] = byte(count >> 32)
-	id[8] = byte(count >> 24)
-	id[8] = byte(count >> 16)
-	id[8] = byte(count >> 8)
-	id[8] = byte(count)
+	id[12] = byte(count >> 24)
+	id[13] = byte(count >> 16)
+	id[14] = byte(count >> 8)
+	id[15] = byte(count)
 
 	return id
 }
@@ -236,4 +246,43 @@ func (id *Id) UnmarshalText(v []byte) error {
 	(*id)[15] = ((dec[v[24]] << 5) | dec[v[25]])
 
 	return nil
+}
+
+// reverse encoding useful for sorting, descending
+var rEncoding = reverseString(Encoding)
+
+func reverseString(input string) string {
+	// rsc: http://groups.google.com/group/golang-nuts/browse_thread/thread/a0fb81698275eede
+
+	// Get Unicode code points.
+	n := 0
+	rune := make([]rune, len(input))
+	for _, r := range input {
+		rune[n] = r
+		n++
+	}
+	rune = rune[0:n]
+	// Reverse
+	for i := 0; i < n/2; i++ {
+		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
+	}
+
+	// Convert back to UTF-8.
+	return string(rune)
+}
+
+// EncodeDescending returns a lexicographically sortable descending encoding
+// of a given id, e.g. 000 -> ZZZ, which allows reversing the sort order when stored
+// contiguously since ids are lexicographically sortable. The returned string will
+// be of len(src), and assumes src is from the base32 crockford alphabet, otherwise
+// using 0xFF.
+func EncodeDescending(src string) string {
+	var buf [EncodedSize]byte
+	copy(buf[:], src)
+	for i, s := range buf[:len(src)] {
+		// XXX(reed): optimize as dec is
+		j := strings.Index(Encoding, string(s))
+		buf[i] = rEncoding[j]
+	}
+	return string(buf[:len(src)])
 }

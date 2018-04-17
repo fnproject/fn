@@ -19,8 +19,8 @@ func (s *Server) apiHandlerWrapperFunc(apiHandler fnext.ApiHandler) gin.HandlerF
 func (s *Server) apiAppHandlerWrapperFunc(apiHandler fnext.ApiAppHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get the app
-		appName := c.Param(api.CApp)
-		app, err := s.datastore.GetApp(c.Request.Context(), appName)
+		appID := c.MustGet(api.AppID).(string)
+		app, err := s.datastore.GetAppByID(c.Request.Context(), appID)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
@@ -39,22 +39,9 @@ func (s *Server) apiAppHandlerWrapperFunc(apiHandler fnext.ApiAppHandler) gin.Ha
 func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		context := c.Request.Context()
-		// get the app
-		appName := c.Param(api.CApp)
-		app, err := s.datastore.GetApp(context, appName)
-		if err != nil {
-			handleErrorResponse(c, err)
-			c.Abort()
-			return
-		}
-		if app == nil {
-			handleErrorResponse(c, models.ErrAppsNotFound)
-			c.Abort()
-			return
-		}
-		// get the route TODO
+		appID := c.MustGet(api.AppID).(string)
 		routePath := "/" + c.Param(api.CRoute)
-		route, err := s.datastore.GetRoute(context, appName, routePath)
+		route, err := s.datastore.GetRoute(context, appID, routePath)
 		if err != nil {
 			handleErrorResponse(c, err)
 			c.Abort()
@@ -62,6 +49,18 @@ func (s *Server) apiRouteHandlerWrapperFunc(apiHandler fnext.ApiRouteHandler) gi
 		}
 		if route == nil {
 			handleErrorResponse(c, models.ErrRoutesNotFound)
+			c.Abort()
+			return
+		}
+
+		app, err := s.datastore.GetAppByID(context, appID)
+		if err != nil {
+			handleErrorResponse(c, err)
+			c.Abort()
+			return
+		}
+		if app == nil {
+			handleErrorResponse(c, models.ErrAppsNotFound)
 			c.Abort()
 			return
 		}
@@ -85,6 +84,7 @@ func (s *Server) AddEndpointFunc(method, path string, handler func(w http.Respon
 // AddAppEndpoint adds an endpoints to /v1/apps/:app/x
 func (s *Server) AddAppEndpoint(method, path string, handler fnext.ApiAppHandler) {
 	v1 := s.Router.Group("/v1")
+	v1.Use(s.checkAppPresenceByName())
 	v1.Handle(method, "/apps/:app"+path, s.apiAppHandlerWrapperFunc(handler))
 }
 
@@ -96,6 +96,7 @@ func (s *Server) AddAppEndpointFunc(method, path string, handler func(w http.Res
 // AddRouteEndpoint adds an endpoints to /v1/apps/:app/routes/:route/x
 func (s *Server) AddRouteEndpoint(method, path string, handler fnext.ApiRouteHandler) {
 	v1 := s.Router.Group("/v1")
+	v1.Use(s.checkAppPresenceByName())
 	v1.Handle(method, "/apps/:app/routes/:route"+path, s.apiRouteHandlerWrapperFunc(handler)) // conflicts with existing wildcard
 }
 

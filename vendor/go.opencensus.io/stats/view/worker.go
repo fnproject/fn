@@ -79,6 +79,11 @@ func (v *View) Subscribe() error {
 // Subscribe begins collecting data for the given views.
 // Once a view is subscribed, it reports data to the registered exporters.
 func Subscribe(views ...*View) error {
+	for _, v := range views {
+		if err := v.canonicalize(); err != nil {
+			return err
+		}
+	}
 	req := &subscribeToViewReq{
 		views: views,
 		err:   make(chan error),
@@ -89,6 +94,8 @@ func Subscribe(views ...*View) error {
 
 // Unsubscribe the given views. Data will not longer be exported for these views
 // after Unsubscribe returns.
+// It is not necessary to unsubscribe from views you expect to collect for the
+// duration of your program execution.
 func Unsubscribe(views ...*View) {
 	names := make([]string, len(views))
 	for i := range views {

@@ -63,6 +63,7 @@ const (
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
 
 	EnvProcessCollectorList = "FN_PROCESS_COLLECTOR_LIST"
+	EnvLBPlacementAlg       = "FN_PLACER"
 
 	// Defaults
 	DefaultLogLevel = "info"
@@ -111,6 +112,7 @@ type Server struct {
 	certKey         string
 	certAuthority   string
 	appListeners    *appListeners
+	routeListeners  *routeListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
@@ -356,10 +358,6 @@ func (s *Server) defaultRunnerPool() (pool.RunnerPool, error) {
 	return agent.DefaultStaticRunnerPool(strings.Split(runnerAddresses, ",")), nil
 }
 
-func (s *Server) defaultPlacer() pool.Placer {
-	return agent.NewNaivePlacer()
-}
-
 func WithLogstoreFromDatastore() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		if s.datastore == nil {
@@ -416,9 +414,8 @@ func WithAgentFromEnv() ServerOption {
 				return err
 			}
 			grpcAddr := fmt.Sprintf(":%d", s.grpcListenPort)
-			delegatedAgent := agent.NewSyncOnly(agent.NewCachedDataAccess(ds))
 			cancelCtx, cancel := context.WithCancel(ctx)
-			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, delegatedAgent, s.cert, s.certKey, s.certAuthority)
+			prAgent, err := agent.DefaultPureRunner(cancel, grpcAddr, ds, s.cert, s.certKey, s.certAuthority)
 			if err != nil {
 				return err
 			}
@@ -441,15 +438,22 @@ func WithAgentFromEnv() ServerOption {
 			if err != nil {
 				return err
 			}
-			delegatedAgent := agent.New(agent.NewCachedDataAccess(cl))
 
 			runnerPool, err := s.defaultRunnerPool()
 			if err != nil {
 				return err
 			}
-			placer := s.defaultPlacer()
 
-			s.agent, err = agent.NewLBAgent(delegatedAgent, runnerPool, placer)
+			// Select the placement algorithm
+			var placer pool.Placer
+			switch getEnv(EnvLBPlacementAlg, "") {
+			case "ch":
+				placer = pool.NewCHPlacer()
+			default:
+				placer = pool.NewNaivePlacer()
+			}
+
+			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
 			}
@@ -518,7 +522,9 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	s.bindHandlers(ctx)
 
 	s.appListeners = new(appListeners)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners)
+	s.routeListeners = new(routeListeners)
+
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners)
 
 	return s
 }
@@ -805,7 +811,7 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 func (s *Server) bindHandlers(ctx context.Context) {
 	engine := s.Router
-	// now for extendible middleware
+	// now for extensible middleware
 	engine.Use(s.rootMiddlewareWrapper())
 
 	engine.GET("/", handlePing)
@@ -821,7 +827,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	// Pure runners don't have any route, they have grpc
 	if s.nodeType != ServerTypePureRunner {
 		if s.nodeType != ServerTypeRunner {
-			v1 := engine.Group("/v1")
+			clean := engine.Group("/v1")
+			v1 := clean.Group("")
 			v1.Use(setAppNameInCtx)
 			v1.Use(s.apiMiddlewareWrapper())
 			v1.GET("/apps", s.handleAppList)
@@ -831,39 +838,48 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				apps := v1.Group("/apps/:app")
 				apps.Use(appNameCheck)
 
-				apps.GET("", s.handleAppGet)
-				apps.PATCH("", s.handleAppUpdate)
-				apps.DELETE("", s.handleAppDelete)
+				{
+					withAppCheck := apps.Group("")
+					withAppCheck.Use(s.checkAppPresenceByName())
+					withAppCheck.GET("", s.handleAppGetByName)
+					withAppCheck.PATCH("", s.handleAppUpdate)
+					withAppCheck.DELETE("", s.handleAppDelete)
+					withAppCheck.GET("/routes", s.handleRouteList)
+					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
+					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
+					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
+					withAppCheck.GET("/calls/:call", s.handleCallGet)
+					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
+					withAppCheck.GET("/calls", s.handleCallList)
+				}
 
-				apps.GET("/routes", s.handleRouteList)
-				apps.POST("/routes", s.handleRoutesPostPutPatch)
-				apps.GET("/routes/:route", s.handleRouteGet)
-				apps.PATCH("/routes/*route", s.handleRoutesPostPutPatch)
-				apps.PUT("/routes/*route", s.handleRoutesPostPutPatch)
-				apps.DELETE("/routes/*route", s.handleRouteDelete)
-
-				apps.GET("/calls", s.handleCallList)
-
-				apps.GET("/calls/:call", s.handleCallGet)
-				apps.GET("/calls/:call/log", s.handleCallLogGet)
+				apps.POST("/routes", s.handleRoutesPostPut)
+				apps.PUT("/routes/*route", s.handleRoutesPostPut)
 			}
 
 			{
-				runner := v1.Group("/runner")
+				runner := clean.Group("/runner")
 				runner.PUT("/async", s.handleRunnerEnqueue)
 				runner.GET("/async", s.handleRunnerDequeue)
 
 				runner.POST("/start", s.handleRunnerStart)
 				runner.POST("/finish", s.handleRunnerFinish)
+
+				appsAPIV2 := runner.Group("/apps/:app")
+				appsAPIV2.Use(setAppNameInCtx)
+				appsAPIV2.GET("", s.handleAppGetByID)
+				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
+
 			}
 		}
 
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
-			runner.Use(appNameCheck)
+			runner.Use(s.checkAppPresenceByNameAtRunner())
 			runner.Any("/:app", s.handleFunctionCall)
 			runner.Any("/:app/*route", s.handleFunctionCall)
 		}
+
 	}
 
 	engine.NoRoute(func(c *gin.Context) {
@@ -879,6 +895,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		}
 		handleErrorResponse(c, err)
 	})
+
 }
 
 // implements fnext.ExtServer
