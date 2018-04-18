@@ -310,13 +310,13 @@ function:
   memory: 42
 
 trigger:
-  name: /sayhello
+  name: myApp/sayhello
   type: http
 ```
 
 trigger in yaml is optional. if trigger is not specified, it can be specified:
 
-`fn deploy --trigger-http /sayhello`
+`fn deploy --trigger-http sayhello`
 
 since namespace is not specified, this will create a function at:
 
@@ -327,18 +327,17 @@ since namespace is not specified, this will create a function at:
 and a trigger at:
 
 ```
-/ns/_/triggers/sayhello
+/ns/_/apps/myApp/triggers/sayhello
 {
-  func: _/yodawg:0.0.7
+  name: sayhello
+  func: yodawg:0.0.7
+  type: http
 }
 ```
 
 since the above `func: ` does not specify a host name, the func will be
 expected to exist on the fn service where this trigger exists. a full url is
 also possible, see below example.
-
-TODO what does the above look like with namespace specified? just extract from
-`name:` field?
 
 it is also possible to specify a `func.yaml` with a remote function, where the
 trigger will be deployed but the function in the working directory will not be
@@ -350,3 +349,10 @@ trigger:
   type: http
   func: hub.fnproject.io/funcytown/hello
 ```
+
+in all of the above examples, a user will end up with a route to call:
+
+`http://my.fn.com/sayhello`
+
+TODO do the above with namespace instead and don't have `_` magic?
+
