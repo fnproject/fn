@@ -291,68 +291,17 @@ Returns CloudEvent with response as “data” body, strips out all the extensio
 ## Models
 
 ```go
-type Function struct {
-            ID string `json:”id” db:”id”`
-	// repo-host/Namespace/Name:Tag make up the fully qualified name
-	Namespace string `json:”namespace”`
-	Name      string `json:"name" db:"name"`
-Image    string `json:”image”`
-	Resources ResourceConfig `json:”resources” db:”resources”`
-Config Config `json:”config”` // ???
-// TODO tell me there's not annotations here too?
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
-}
-```
-
-```go
-type ResourceConfig struct {
-	Memory     uint64         `json:"memory" db:"memory"`
-	CPUs        MilliCPUs    `json:"cpus" db:"cpus"` 
-	Disk 	      uint64 	 `json:”disk” db:”disk”
-	Timeout     int32           `json:"timeout" db:"timeout"`
-	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
-}
-```
-
-```go
-type Trigger struct {
-	// The grouping of routes into an app is specific to this type of trigger
-	AppID string `json:"app_id" db:"app_id"`
-	// FunctionName a fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`
-	FunctionName string `json:"function" db:"function"`
-	// Config is required by the function, but set in the trigger, ie: the caller.
-	Config Config `json:"config,omitempty" db:"config"`
-            // Override the function’s resource config
-Resources ResourceConfig `json:"config,omitempty" db:"config"`
-	// Annotations config for environment function will be running in
-	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
-}
-```
-
-```go
 type CloudEvent struct {
-	EventType string `json:”event-type”`
-	EventTypeVersion string `json:”event-type-version”`
-	CloudEventsVersion string `json:”cloud-events-version”`
-	Source string `json:”source”`
-EventID string `json:”event-id”`	
-	EventTime strfmt.DateTime `json:”event-time”`
-	SchemaURL string `json:”schema-url”`
-	ContentType string `json:”content-type”`
-	Extensions map[string]interface{} `json:”extensions”` // map[string]string ?
-Data string `json:”data”`
-}
-```
-
-```go
-type App struct {
-	ID string `json:”id”`
-	Name string `json:”name”`
-	Config Config `json:”config”`
-	Annotations Annotations `json:”annotations”`
+  EventType string `json:”event-type”`
+  EventTypeVersion string `json:”event-type-version”`
+  CloudEventsVersion string `json:”cloud-events-version”`
+  Source string `json:”source”`
+  EventID string `json:”event-id”`	
+  EventTime strfmt.DateTime `json:”event-time”`
+  SchemaURL string `json:”schema-url”`
+  ContentType string `json:”content-type”`
+  Extensions map[string]interface{} `json:”extensions”` // map[string]string ?
+  Data string `json:”data”`
 }
 ```
 
