@@ -184,11 +184,8 @@ See **Trigger** above for more information.
 
 #### HTTP Router
 
-Reads HTTP triggers to make routing table, mapping HTTP endpoints to triggers (or directly to functions?). 
-When matching request comes in, either through trigger manager or straight to LB/runner.
-
-TODO(reed): this could be bypassed since http is more 'push' and we can forward
-trigger to trigger manager?
+Turns http requests into trigger cloud events (see flow ex. below),
+passes them off to trigger manager / LB / runner.
 
 #### Scheduler
 
@@ -205,9 +202,7 @@ HTTP
 
 ### HTTP Router receives request
 
-Request comes into HTTP router. 
-Router looks at routing table for match (set on triggers). 
-If no match, return 404.
+Request comes into HTTP router under pretty url, e.g. `http://example.com/repomanager`
 Convert request to CloudEvent, eg:
 
 ```json
