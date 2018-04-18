@@ -6,11 +6,13 @@
 * Support CloudEvent messages as the native format throughout
 * Simplify everything
 * Modularize components
+* Namespacing
 
 ## Removals
 
 * Default, HTTP and JSON formats will be removed
 * Cold functions will be removed
+* Async, queues are event sources now
 
 ## Terminology
 
@@ -41,6 +43,7 @@ of the system and can run standalone; from the command line, etc. These can be w
 
 Errors will be returned as a CloudEvent with an “error” attribute, no “data” attribute, describing the error. 
 
+```
 {
   "cloud-events-version": "0.1",
   "event-id": "6480da1a-5028-4301-acc3-fbae628207b3",
@@ -61,6 +64,7 @@ Errors will be returned as a CloudEvent with an “error” attribute, no “dat
     }
   }
 }
+```
 
 Error map:
 * message - required
@@ -105,7 +109,8 @@ Applications are a grouping of triggers to make up a complete application. For e
 * schedule: run function f2 every day at 8am
 * queue: listen to topic t1 filtering on ff1, for every event run function f3
 
-All of these things make up the application. 
+All of these things make up the application. Applications also define 
+additional annotations and configuration to be added to each trigger.
 
 ## Components
 
@@ -148,8 +153,10 @@ A: It may seem this way now for just a few fields, but down the road, there coul
 
 CRUD for all the things.
 
+* Namespaces
 * Apps
 * Triggers
+* Functions
 * Calls
 * Logs
 
@@ -179,6 +186,9 @@ See **Trigger** above for more information.
 
 Reads HTTP triggers to make routing table, mapping HTTP endpoints to triggers (or directly to functions?). 
 When matching request comes in, either through trigger manager or straight to LB/runner.
+
+TODO(reed): this could be bypassed since http is more 'push' and we can forward
+trigger to trigger manager?
 
 #### Scheduler
 
@@ -288,69 +298,55 @@ Returns CloudEvent with response as “data” body, strips out all the extensio
 }
 ```
 
-## Models
+## Creating a function workflow
 
-```go
-type CloudEvent struct {
-  EventType string `json:”event-type”`
-  EventTypeVersion string `json:”event-type-version”`
-  CloudEventsVersion string `json:”cloud-events-version”`
-  Source string `json:”source”`
-  EventID string `json:”event-id”`	
-  EventTime strfmt.DateTime `json:”event-time”`
-  SchemaURL string `json:”schema-url”`
-  ContentType string `json:”content-type”`
-  Extensions map[string]interface{} `json:”extensions”` // map[string]string ?
-  Data string `json:”data”`
+func.yaml barely changes:
+
+```yaml
+function:
+  name: yodawg
+  image: hub.docker.com/fnproject/hello
+  version: 0.0.7
+  memory: 42
+
+trigger:
+  name: /sayhello
+  type: http
+```
+
+trigger in yaml is optional. if trigger is not specified, it can be specified:
+
+`fn deploy --trigger-http /sayhello`
+
+since namespace is not specified, this will create a function at:
+
+```
+/ns/_/funcs/yodawg
+```
+
+and a trigger at:
+
+```
+/ns/_/triggers/sayhello
+{
+  func: _/yodawg:0.0.7
 }
 ```
 
-### API Definitions (all components)
+since the above `func: ` does not specify a host name, the func will be
+expected to exist on the fn service where this trigger exists. a full url is
+also possible, see below example.
+
+TODO what does the above look like with namespace specified? just extract from
+`name:` field?
+
+it is also possible to specify a `func.yaml` with a remote function, where the
+trigger will be deployed but the function in the working directory will not be
+built and pushed to a docker registry, say if we had a func:
 
 ```
-// :ns is a URL safe user-generated string, e.g. `war-party`
-GET /ns
-GET /ns/:ns
-PUT /ns/:ns
-DELETE /ns/:ns
-
-// :app is a URL safe user-generated string, e.g. `operation-kino`
-GET /ns/:ns/apps
-GET /ns/:ns/apps/:app
-PUT /ns/:ns/apps/:app
-DELETE /ns/:ns/apps/:app
-
-// :trigger is a URL safe user-generated string, e.g. `himmler`
-GET /ns/:ns/apps/:app/triggers
-GET /ns/:ns/apps/:app/triggers/:trigger
-PUT /ns/:ns/apps/:app/triggers/:trigger
-DELETE /ns/:ns/apps/:app/triggers/:trigger
-
-// :function is a URL safe user-generated string, e.g. `bat`
-GET /ns/:ns/functions
-GET /ns/:ns/functions/:function
-PUT /ns/:ns/functions/:function
-DELETE /ns/:ns/functions/:function
-
-// TODO is this our only 'invoke' point? do we also have /cloudevent or something?
-// what is the format here, do we consume/produce raw cloud event or raw body?
-// it would be really nice to just input/output event here and let the router do other stuff. 
-ANY /r/:ns/:app/:trigger
-
-POST /fire (or /run to make it consistent with the all of the other components).
-INPUT: CloudEvent ce
-Trigger manager looks up ce.source in trigger db (or some field to look up on).
-If matching trigger, then fire it. 
-This way, an event source doesn’t need to know anything about the triggers or functions.
-This does not mean that Fn will eat queues or anything, it’s still a push model.
+trigger:
+  name: /sayhello
+  type: http
+  func: hub.fnproject.io/funcytown/hello
 ```
-
-
-# AN OBIT FOR THE DEATH OF GENERIC TRIGGERS
-
-After much discussion around making a generic triggering mechanism, we've relapsed to effectively splitting functions out from routes and naming routes 'triggers' for the sake of renaming things to be inline with the industry-recognized terminology. 
-
-The issue with creating a generic triggering mechanism was that any non-http type of event source (queue, scheduler, etc.) will effectively end up calling an http invoke endpoint (or something semantically equivalent, like grpc). Then there was the burden of the triggerer (a queue trigger, e.g.), having to look up a list of triggers that it needs to service in order to know which resources to look for events at (e.g. queue topics), this data set was challenging to normalize and the API for an event source to keep up to date was not obvious. Ultimately, having event source specific triggers was unsavory for these reasons as we would need an ingress point akin to the http invoke endpoint anyway for each trigger (as proposed here) in addition to mechanisms for the event sources to service their triggers. We decided it was better to put the onus of storing the the event sources themselves (like a route table, or which topics to service, or a list of schedules) onto the event sources themselves for these reasons. 
-
-For additional flexibility in this department, we may add a code interface ala `fnrunner.Invoke(Trigger, Event) (Event, error)` where a user could have extensions to do event processing without having to go through http (for, say, chewing on a queue), but this is not part of the immediate plan.
-

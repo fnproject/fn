@@ -9,11 +9,11 @@ swagger: '2.0'
 #           really need to figure this out, e.g. app right now has a weird mix of id and name. we should pick one.
 # TODO(?): 'type' is dead right, async is now external?
 # TODO(?): annotations & config & event.extensions redundant to a degree? naming confusing? discuss.
+# TODO(?): event sources need a way to look up trigger by type
 # TODO: put body and response objects have different required fields, etc; make 2 objects?
 # TODO: change all params to $ref's
 # TODO(orcl): 204 DELETE success
 # TODO(orcl): 401 - should we define this to delineate w/ 404 even tho we don't have auth by default?
-# TODO(orcl): operationId: each op?
 
 info:
   title: fn
@@ -34,10 +34,11 @@ produces:
   - application/json
 paths:
   /ns:
+    # TODO should this exist? result set will need to be attenuated in authed APIs
     get:
       operationId: "ListNamespaces"
-      summary: "Get all namespace names."
-      description: "Get a list of all the namespace names in alphabetical order."
+      summary: "Get all namespaces."
+      description: "Get a list of all the namespaces in alphabetical order."
       tags:
         - Namespaces
       parameters:
@@ -95,7 +96,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     patch:
-      operationId: "PatchNamespace"
+      operationId: "UpdateNamespace"
       summary: "Updates a namespace."
       description: "Updates any provided fields on the namespace."
       tags:
@@ -156,8 +157,8 @@ paths:
   /ns/{ns}/funcs:
     get:
       operationId: "ListFuncs"
-      summary: "Get all func names."
-      description: "Get a list of all the func names in alphabetical order."
+      summary: "Get all funcs."
+      description: "Get a list of all the funcs in alphabetical order."
       tags:
         - Funcs
       parameters:
@@ -218,7 +219,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     patch:
-      operationId: "PatchFunc"
+      operationId: "UpdateFunc"
       summary: "Updates a func."
       description: "Updates any provided fields on the func."
       tags:
@@ -280,7 +281,8 @@ paths:
 
   /ns/{ns}/apps:
     get:
-      summary: "Get all app names."
+      operationId: "ListApps"
+      summary: "Get all apps."
       description: "Get a list of all the apps per namespace, returned in alphabetical order."
       tags:
         - Apps
@@ -300,6 +302,7 @@ paths:
 
   /ns/{ns}/apps/{app}:
     delete:
+      operationId: "DeleteApp"
       summary: "Delete an app."
       description: "Delete an app."
       tags:
@@ -319,6 +322,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     get:
+      operationId: "GetApp"
       summary: "Get information for an app."
       description: "Get information for an app."
       tags:
@@ -340,6 +344,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     patch:
+      operationId: "UpdateApp"
       summary: "Updates an app."
       description: "Updates any provided fields on the app. App must exist."
       tags:
@@ -371,6 +376,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     put:
+      operationId: "UpsertApp"
       summary: "Create or update an app."
       description: "Creates an app if it does not exist, or updates the app if it does."
       tags:
@@ -400,6 +406,7 @@ paths:
 
   /ns/{ns}/apps/{app}/triggers:
     get:
+      operationId: "ListTriggers"
       summary: Get trigger list by app name.
       description: This will list triggers for a particular app, returned in alphabetical order.
       tags:
@@ -430,6 +437,7 @@ paths:
 
   /ns/{ns}/apps/{app}/triggers/{trigger}:
     put:
+      operationId: "UpsertTrigger"
       summary: Create or update a Trigger.
       description: Create a new trigger in an app or update it. If app doesn't exists, it creates the app.
       tags:
@@ -458,6 +466,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     patch:
+      operationId: "UpdateTrigger"
       summary: Update a Trigger, Fails if the trigger or app does not exist. Accepts partial updates / skips validation of zero values.
       description: Update a trigger
       tags:
@@ -495,6 +504,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     get:
+      operationId: "GetTrigger"
       summary: Gets trigger by name
       description: Gets a trigger by name.
       tags:
@@ -518,10 +528,11 @@ paths:
             $ref: '#/definitions/Error'
 
     delete:
+      operationId: "DeleteTrigger"
       summary: Deletes the trigger
+      description: Deletes the trigger.
       tags:
         - Triggers
-      description: Deletes the trigger.
       parameters:
         - $ref: '#/definitions/nsPathParam'
         - $ref: '#/definitions/appPathParam'
@@ -540,6 +551,7 @@ paths:
 
   /ns/{ns}/apps/{app}/calls/{call}/log:
     get:
+      operationId: "GetCallLog"
       summary: Get call logs
       description: Get call logs
       tags:
@@ -561,6 +573,7 @@ paths:
 
   /ns/{ns}/apps/{app}/calls/{call}:
     get:
+      operationId: "GetCall"
       summary: Get call information
       description: Get call information
       tags:
@@ -581,6 +594,7 @@ paths:
 
   /ns/{ns}/apps/{app}/calls:
     get:
+      operationId: "ListCalls"
       summary: Get app-bound calls.
       description: Get app-bound calls can filter to trigger-bound calls, results returned in created_at, descending order (newest first).
       tags:
@@ -620,6 +634,7 @@ definitions:
           type: object
       # TODO(?): what else? please no more config?
 
+  # TODO(reed): figure out how to inline this?
   ResourceConfig:
     name: resources
     type: object
@@ -695,6 +710,9 @@ definitions:
       name:
         type: string
         description: unique name for this trigger, used to identify this trigger
+      type:
+        type: string
+        description: class of trigger, e.g. schedule, http
       func:
         type: string
         description: fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`
@@ -889,7 +907,7 @@ definitions:
     properties:
       call_id:
         type: string
-        description: Call UUID ID
+        description: Call ID
       log:
         type: string # maybe bytes, long logs wouldn't fit into string type
 
@@ -898,7 +916,7 @@ definitions:
     properties:
       id:
         type: string
-        description: Call UUID ID.
+        description: Call ID.
         readOnly: true
       status:
         type: string
