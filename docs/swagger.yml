@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: fn
   description: The open source serverless platform.
-  version: "0.2.4"
+  version: "0.2.5"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -455,6 +455,10 @@ paths:
           description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
           required: false
           type: integer
+          in: query
+        - name: status
+          description: call status filtering option
+          required: false
           in: query
       responses:
         200:
