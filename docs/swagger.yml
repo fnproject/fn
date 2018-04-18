@@ -457,8 +457,9 @@ paths:
           type: integer
           in: query
         - name: status
-          description: call status filtering option
+          description: Call status filtering option.
           required: false
+          type: string
           in: query
       responses:
         200:
