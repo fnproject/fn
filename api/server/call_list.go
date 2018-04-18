@@ -17,7 +17,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 
 	appID := c.MustGet(api.AppID).(string)
 	// TODO api.CRoute needs to be escaped probably, since it has '/' a lot
-	filter := models.CallFilter{AppID: appID, Path: c.Query("path")}
+	filter := models.CallFilter{AppID: appID, Path: c.Query("path"), Status: c.Query("status")}
 	filter.Cursor, filter.PerPage = pageParams(c, false) // ids are url safe
 
 	filter.FromTime, filter.ToTime, err = timeParams(c)
