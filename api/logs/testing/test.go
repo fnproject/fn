@@ -62,6 +62,15 @@ func Test(t *testing.T, fnl models.LogStore) {
 			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v`", len(calls))
 		}
 
+		statusFilter := &models.CallFilter{AppID: call.AppID, Path: call.Path, PerPage: 100, Status: "error"}
+		newCalls, err := fnl.GetCalls(ctx, statusFilter)
+		if err != nil {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected error `%v`", err)
+		}
+		if len(newCalls) == 1 {
+			t.Fatalf("Test GetCalls(ctx, filter): unexpected length `%v` while filtering by status", len(newCalls))
+		}
+
 		c2 := *call
 		c3 := *call
 		now = time.Now().Add(100 * time.Millisecond)

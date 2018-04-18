@@ -403,8 +403,12 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 		if !toTime.IsZero() && !time.Time(call.CreatedAt).Before(toTime) {
 			continue
 		}
-
-		calls = append(calls, call)
+		// ensure: append the call object only if status is not an filter.Status
+		// is not an empty string and the call object match filter.Status
+		// todo: maybe there's a way to filter objects by content in S3?
+		if filter.Status == "" || filter.Status == call.Status {
+			calls = append(calls, call)
+		}
 	}
 
 	return calls, nil

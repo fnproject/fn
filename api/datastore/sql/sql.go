@@ -863,6 +863,9 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	}
 	where("app_id=", filter.AppID)
 	where("path=", filter.Path)
+	if filter.Status != "" {
+		where("status=", filter.Status)
+	}
 
 	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)
