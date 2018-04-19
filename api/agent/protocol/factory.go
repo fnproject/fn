@@ -125,10 +125,11 @@ type Protocol string
 
 // hot function protocols
 const (
-	Default Protocol = models.FormatDefault
-	HTTP    Protocol = models.FormatHTTP
-	JSON    Protocol = models.FormatJSON
-	Empty   Protocol = ""
+	Default     Protocol = models.FormatDefault
+	HTTP        Protocol = models.FormatHTTP
+	JSON        Protocol = models.FormatJSON
+	CloudEventP Protocol = models.FormatCloudEvent
+	Empty       Protocol = ""
 )
 
 func (p *Protocol) UnmarshalJSON(b []byte) error {
@@ -165,6 +166,8 @@ func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 		return &HTTPProtocol{in, out}
 	case JSON:
 		return &JSONProtocol{in, out}
+	case CloudEventP:
+		return &CloudEventProtocol{in, out}
 	case Default, Empty:
 		return &DefaultProtocol{}
 	}

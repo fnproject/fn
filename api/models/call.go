@@ -23,6 +23,8 @@ const (
 	FormatHTTP = "http"
 	// FormatJSON ...
 	FormatJSON = "json"
+	// FormatCloudEvent ...
+	FormatCloudEvent = "cloudevent"
 )
 
 var possibleStatuses = [...]string{"delayed", "queued", "running", "success", "error", "cancelled"}
