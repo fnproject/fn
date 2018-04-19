@@ -74,8 +74,11 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 	} else {
 		in = cloudEventIn{
 			CloudEvent: CloudEvent{
-				ContentType: ci.ContentType(),
-				EventID:     ci.CallID(),
+				ContentType:        ci.ContentType(),
+				EventID:            ci.CallID(),
+				EventType:          "http",
+				CloudEventsVersion: "0.1",
+				Source:             ci.RequestURL(),
 			},
 		}
 		if buf.Len() == 0 {
