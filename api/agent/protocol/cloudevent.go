@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -136,14 +135,13 @@ func (h *CloudEventProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Wri
 		p = pp.(map[string]interface{})
 		hh := p["headers"]
 		if hh != nil {
-			fmt.Printf("HEADERS: %+v\n", hh)
 			h, ok := hh.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("Invalid JSON for protocol headers, not a map")
 			}
 			for k, v := range h {
-				fmt.Printf("HEADER: %v: %v\n", k, v)
-				fmt.Printf("%v", reflect.TypeOf(v))
+				// fmt.Printf("HEADER: %v: %v\n", k, v)
+				// fmt.Printf("%v", reflect.TypeOf(v))
 				harray, ok := v.([]interface{})
 				if !ok {
 					return fmt.Errorf("Invalid JSON for protocol headers, not an array of strings for header value")
