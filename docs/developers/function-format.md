@@ -60,6 +60,103 @@ Cons:
 
 * Not very efficient resource utilization - one new container execution per event.
 
+### CloudEvent I/O Format
+
+`format: cloudevent`
+
+The CloudEvent format is a nice hot format as it is easy to parse in most languages. It's also a [CNCF
+defined format for events](https://github.com/cloudevents/spec/blob/master/spec.md).
+
+If a request comes in with the following body:
+
+```json
+{
+  "some": "input"
+}
+```
+
+then, the input will be:
+
+#### Input
+
+Internally functions receive data in the example format below:
+
+```json
+{
+  "cloudEventsVersion": "cloudEventsVersion value",
+  "eventID": "the call ID",
+  "source": "source value",
+  "eventType": "eventType value",
+  "eventTypeVersion": "eventTypeVersion value",
+  "eventTime": "eventTime value",
+  "schemaURL": "schemaURL value",
+  "contentType": "contentType",
+  "extensions": {
+    "deadline":"2018-01-30T16:52:39.786Z",
+    "protocol": {
+      "type": "http",
+      "method": "POST",
+      "request_url": "http://localhost:8080/r/myapp/myfunc?q=hi",
+      "headers": {
+        "Content-Type": ["application/json"],
+        "Other-Header": ["something"]
+      }
+    }
+  },
+  "data": {
+    "some": "input"
+  }
+}
+{
+  NEXT EVENT
+}
+```
+
+* data - the main contents. If HTTP is the protocol, this would be the request body.
+* eventID - the unique ID for the event/call.
+* contentType - format of the `data` parameter.
+* extensions:
+  * deadline - a time limit for the call, based on function timeout.
+  * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**. Under `protocol` => `headers` contains all of the HTTP headers exactly as defined in the incoming request.
+
+
+#### Output
+
+Function's output should be a copy of the input CloudEvent with any fields changed:
+
+```json
+{
+  "cloudEventsVersion": "cloudEventsVersion value",
+  "eventID": "the call ID",
+  "source": "source value",
+  "eventType": "eventType value",
+  "eventTypeVersion": "eventTypeVersion value",
+  "eventTime": "eventTime value",
+  "schemaURL": "schemaURL value",
+  "contentType": "contentType",
+  "extensions": {
+    "deadline":"2018-01-30T16:52:39.786Z",
+    "protocol": {
+      "type": "http",
+      "status_code": 200,
+      "headers": {
+        "Other-Header": ["something"]
+      }
+    }
+  },
+  "data": {
+    "some": "output"
+  }
+}
+{
+  NEXT OUTPUT OBJECT
+}
+```
+
+* data - required - the response body.
+* contentType - optional - format of `data`. Default is application/json.
+* protocol - optional - protocol specific response options. Entirely optional. Contents defined by each protocol.
+
 ### JSON I/O Format
 
 `format: json`
@@ -108,8 +205,6 @@ Internally functions receive data in the example format below:
 * protocol - arbitrary map of protocol specific data. The above example shows what the HTTP protocol handler passes in. Subject to change and reduces reusability of your functions. **USE AT YOUR OWN RISK**.
 
 Under `protocol`, `headers` contains all of the HTTP headers exactly as defined in the incoming request.
-
-Each request will be separated by a blank line.
 
 #### Output
 
