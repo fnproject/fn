@@ -183,16 +183,25 @@ func (h *CloudEventProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Wri
 		rw.WriteHeader(int(sc))
 	}
 
-	if jout.ContentType == "application/json" {
-		d, err := json.Marshal(jout.Data)
+	if ci.IsCloudEvent() {
+		// then it's already in the right format so just return it as is
+		d, err := json.Marshal(jout)
 		if err != nil {
-			return fmt.Errorf("Error marshalling function response 'data' to json. %v\n", err)
+			return fmt.Errorf("Error marshalling CloudEvent response to json. %v\n", err)
 		}
 		_, err = rw.Write(d)
-	} else if jout.ContentType == "text/plain" {
-		_, err = io.WriteString(rw, jout.Data.(string))
 	} else {
-		return fmt.Errorf("Error: Unknown content type: %v\n", jout.ContentType)
+		if jout.ContentType == "application/json" {
+			d, err := json.Marshal(jout.Data)
+			if err != nil {
+				return fmt.Errorf("Error marshalling function response 'data' to json. %v\n", err)
+			}
+			_, err = rw.Write(d)
+		} else if jout.ContentType == "text/plain" {
+			_, err = io.WriteString(rw, jout.Data.(string))
+		} else {
+			return fmt.Errorf("Error: Unknown content type: %v\n", jout.ContentType)
+		}
 	}
 	return isExcessData(err, decoder)
 }
