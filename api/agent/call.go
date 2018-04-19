@@ -49,11 +49,21 @@ type Param struct {
 }
 type Params []Param
 
+const (
+	CloudEventHeader = "FN_CLOUD_EVENT"
+)
+
 func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallOpt {
 	return func(c *call) error {
 		route, err := a.GetRoute(req.Context(), app.ID, path)
 		if err != nil {
 			return err
+		}
+
+		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
+		if req.Header.Get(CloudEventHeader) != "" {
+			c.IsCloudEvent = true
+			route.Format = models.FormatCloudEvent
 		}
 
 		if route.Format == "" {
@@ -257,6 +267,9 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 
 type call struct {
 	*models.Call
+
+	// IsCloudEvent flag whether this was ingested as a cloud event. This may become the default or only way.
+	IsCloudEvent bool `json:"is_cloud_event"`
 
 	da             DataAccess
 	w              io.Writer

@@ -63,35 +63,49 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 		return err
 	}
 
-	in := cloudEventIn{
-		CloudEvent: CloudEvent{
-			ContentType: ci.ContentType(),
-			EventID:     ci.CallID(),
-			Extensions: map[string]interface{}{
-				// note: protocol stuff should be set on first ingestion of the event in fn2.0, not here
-				"protocol": CallRequestHTTP{
-					Type:       ci.ProtocolType(),
-					Method:     ci.Method(),
-					RequestURL: ci.RequestURL(),
-					Headers:    ci.Headers(),
-				},
-				"deadline": ci.Deadline().String(),
-			},
-		},
-	}
-	if buf.Len() == 0 {
-		// nada
-		// todo: should we leave as null, pass in empty string, omitempty or some default for the content type, eg: {} for json?
-	} else if ci.ContentType() == "application/json" {
-		d := map[string]interface{}{}
-		err = json.NewDecoder(buf).Decode(&d)
+	var in cloudEventIn
+	// fmt.Printf("is cloudevent? %v\n", ci.IsCloudEvent())
+	if ci.IsCloudEvent() {
+		// then it's already in the right format, let's parse it, then modify
+		err = json.Unmarshal(buf.Bytes(), &in)
 		if err != nil {
-			return fmt.Errorf("Invalid json body with contentType 'application/json'. %v", err)
+			return fmt.Errorf("Invalid CloudEvent input. %v", err)
 		}
-		in.Data = d
 	} else {
-		in.Data = buf.String()
+		in = cloudEventIn{
+			CloudEvent: CloudEvent{
+				ContentType: ci.ContentType(),
+				EventID:     ci.CallID(),
+			},
+		}
+		if buf.Len() == 0 {
+			// nada
+			// todo: should we leave as null, pass in empty string, omitempty or some default for the content type, eg: {} for json?
+		} else if ci.ContentType() == "application/json" {
+			d := map[string]interface{}{}
+			err = json.NewDecoder(buf).Decode(&d)
+			if err != nil {
+				return fmt.Errorf("Invalid json body with contentType 'application/json'. %v", err)
+			}
+			in.Data = d
+		} else {
+			in.Data = buf.String()
+		}
 	}
+	// todo: deal with the dual ID's, one from outside, one from inside
+	if in.Extensions == nil {
+		in.Extensions = map[string]interface{}{}
+	}
+	// note: protocol stuff should be set on first ingestion of the event in fn2.0, the http router for example, not here
+	in.Extensions["protocol"] = CallRequestHTTP{
+		Type:       ci.ProtocolType(),
+		Method:     ci.Method(),
+		RequestURL: ci.RequestURL(),
+		Headers:    ci.Headers(),
+	}
+	in.Extensions["deadline"] = ci.Deadline().String()
+
+	fmt.Printf("SENDING IN: %+v\n", in)
 	return json.NewEncoder(h.in).Encode(in)
 }
 

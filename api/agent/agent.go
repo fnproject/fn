@@ -631,7 +631,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.Call, call.req)
+		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req)
 		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 
