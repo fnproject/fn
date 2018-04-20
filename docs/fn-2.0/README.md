@@ -351,3 +351,42 @@ in all of the above examples, a user will end up with a route to call:
 
 TODO do the above with namespace instead and don't have `_` magic?
 
+## FDKs
+
+There are some decisions to make around added sugar we want to sprinkle on top
+of cloud events. We also may want to allow users to receive/output raw cloud-events
+themselves if they would like to, or at least have a way to set each of the
+fields and extensions (the catch being if users can define their own they may
+add additional fields) -- of course, it's possible to not use FDK and do this,
+so my thinking is that we make FDKs more to simplify things than anything.
+We can add features we'd like to FDKs as we go down the road. My thinking for
+base level FDK functionality is:
+
+FDKs will simply handle the json version of cloud-events defined here: 
+https://github.com/cloudevents/spec/blob/master/json-format.md
+
+FDKs will in the same manner as now, decode one of these at a time into a
+$programming_language object from STDIN, after receiving one, will call a user
+specified handler function, and receive a $programming_language object as
+output, which it will then encode to json on STDOUT.
+
+Handlers will take the pseudo-form:
+
+```
+Handle(CloudEvent) CloudEvent
+```
+
+where the user is forced to construct a `CloudEvent` object. Obviously, we
+should have some helpful constructors like `NewCloudEvent(contentType, body string) CloudEvent` 
+that do things like handle the json magic and that fills in most of the
+fields. This seems like a viable option and is more flexible than just trying
+to scrape up the body and have some other kind of opaque object and set
+certain fields on it (as now).
+
+there are likely other ways, but trying to keep it simple out of the gate.
+there's also a possibility that I'm completely misguided on what FDKs should
+look like and if you feel that way please propose a comprehensive solution and
+I'd be delighted to see it. It does seem like FDKs will basically be a for
+loop, a cloud event object definition and json decoder / encoder, and a bunch
+of getter and setter methods (potentially, lang dependent). Maybe this doesn't
+provide as much utility as it once did, but that's for us to decide.
