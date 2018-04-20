@@ -13,10 +13,9 @@ func up11(ctx context.Context, tx *sqlx.Tx) error {
 	return err
 }
 
-
 func down11(ctx context.Context, tx *sqlx.Tx) error {
 	// annotations became not-null by accident in #10 we don't undo this here.
- 	return nil
+	return nil
 }
 
 func init() {
