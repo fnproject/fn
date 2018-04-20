@@ -20,7 +20,7 @@ case "$1" in
     "mysql" )
     DB_CONTAINER="func-mysql-system-test"
     docker rm -fv ${DB_CONTAINER} || echo No prev mysql test db container
-    docker run --name ${DB_CONTAINER} -p 3307:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql
+    docker run --name ${DB_CONTAINER} -p 3307:3306 -e MYSQL_DATABASE=funcs -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7.22
     MYSQL_HOST=`host ${DB_CONTAINER}`
     MYSQL_PORT=3307
     export FN_DB_URL="mysql://root:root@tcp(${MYSQL_HOST}:${MYSQL_PORT})/funcs"
