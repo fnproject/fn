@@ -2,10 +2,9 @@ package common
 
 import (
 	"context"
+	"time"
 
 	"github.com/sirupsen/logrus"
-	"go.opencensus.io/tag"
-	"go.opencensus.io/trace"
 )
 
 type contextKey string
@@ -34,25 +33,34 @@ func LoggerWithFields(ctx context.Context, fields logrus.Fields) (context.Contex
 	return ctx, l
 }
 
+// contextWithNoDeadline is an implementation of context.Context which delegates
+// Value() to its parent, but it has no deadline and it is never cancelled, just
+// like a context.Background().
+type contextWithNoDeadline struct {
+	original context.Context
+}
+
+func (ctx *contextWithNoDeadline) Deadline() (deadline time.Time, ok bool) {
+	return context.Background().Deadline()
+}
+
+func (ctx *contextWithNoDeadline) Done() <-chan struct{} {
+	return context.Background().Done()
+}
+
+func (ctx *contextWithNoDeadline) Err() error {
+	return context.Background().Err()
+}
+
+func (ctx *contextWithNoDeadline) Value(key interface{}) interface{} {
+	return ctx.original.Value(key)
+}
+
 // BackgroundContext returns a context that is specifically not a child of the
 // provided parent context wrt any cancellation or deadline of the parent,
-// returning a context that contains all values only. At present, this is a
-// best effort as there is not a great way to extract all values, known values:
-// * logger
-// * span
-// * tags
-// (TODO(reed): we could have our own context.Context implementer that stores
-// all values from WithValue in a bucket we could extract more easily?)
+// so that it contains all values only.
 func BackgroundContext(ctx context.Context) context.Context {
-	logger := Logger(ctx)
-	span := trace.FromContext(ctx)
-	tagMap := tag.FromContext(ctx)
-
-	// fresh context
-	ctx = context.Background()
-
-	ctx = tag.NewContext(ctx, tagMap)
-	ctx = trace.WithSpan(ctx, span)
-	ctx = WithLogger(ctx, logger)
-	return ctx
+	return &contextWithNoDeadline{
+		original: ctx,
+	}
 }
