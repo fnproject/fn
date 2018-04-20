@@ -64,7 +64,6 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 	}
 
 	var in cloudEventIn
-	// fmt.Printf("is cloudevent? %v\n", ci.IsCloudEvent())
 	if ci.IsCloudEvent() {
 		// then it's already in the right format, let's parse it, then modify
 		err = json.Unmarshal(buf.Bytes(), &in)
@@ -108,22 +107,21 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 	}
 	in.Extensions["deadline"] = ci.Deadline().String()
 
-	fmt.Printf("SENDING IN: %+v\n", in)
 	return json.NewEncoder(h.in).Encode(in)
 }
 
 func (h *CloudEventProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) error {
-	ctx, span := trace.StartSpan(ctx, "dispatch_json")
+	ctx, span := trace.StartSpan(ctx, "dispatch_cloudevent")
 	defer span.End()
 
-	_, span = trace.StartSpan(ctx, "dispatch_json_write_request")
+	_, span = trace.StartSpan(ctx, "dispatch_cloudevent_write_request")
 	err := h.writeJSONToContainer(ci)
 	span.End()
 	if err != nil {
 		return err
 	}
 
-	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
+	_, span = trace.StartSpan(ctx, "dispatch_cloudevent_read_response")
 	var jout cloudEventOut
 	decoder := json.NewDecoder(h.out)
 	err = decoder.Decode(&jout)
@@ -132,7 +130,7 @@ func (h *CloudEventProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Wri
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
 
-	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
+	_, span = trace.StartSpan(ctx, "dispatch_cloudevent_write_response")
 	defer span.End()
 
 	rw, ok := w.(http.ResponseWriter)
@@ -179,17 +177,19 @@ func (h *CloudEventProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Wri
 
 	// we must set all headers before writing the status, see http.ResponseWriter contract
 	if p != nil && p["status_code"] != nil {
-		sc := p["status_code"].(float64)
+		sc, ok := p["status_code"].(float64)
+		if !ok {
+			return fmt.Errorf("Invalid status_code type in protocol extension, must be an integer: %v\n", p["status_code"])
+		}
 		rw.WriteHeader(int(sc))
 	}
 
 	if ci.IsCloudEvent() {
 		// then it's already in the right format so just return it as is
-		d, err := json.Marshal(jout)
+		err = json.NewEncoder(rw).Encode(jout)
 		if err != nil {
 			return fmt.Errorf("Error marshalling CloudEvent response to json. %v\n", err)
 		}
-		_, err = rw.Write(d)
 	} else {
 		if jout.ContentType == "application/json" {
 			d, err := json.Marshal(jout.Data)
