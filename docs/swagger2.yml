@@ -9,7 +9,7 @@ swagger: '2.0'
 #           really need to figure this out, e.g. app right now has a weird mix of id and name. we should pick one.
 # TODO(?): 'type' is dead right, async is now external?
 # TODO(?): annotations & config & event.extensions redundant to a degree? naming confusing? discuss.
-# TODO(?): event sources need a way to look up trigger by type
+# TODO(?): add /run API to swagger doc?
 # TODO: put body and response objects have different required fields, etc; make 2 objects?
 # TODO: change all params to $ref's
 # TODO(orcl): 204 DELETE success
