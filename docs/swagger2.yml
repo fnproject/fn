@@ -4,12 +4,11 @@ swagger: '2.0'
 # TODO(?): triggers and functions OR trigs and funcs ?
 # TODO(?): version change? /v2 ?
 # TODO(?): remove stats from call?
-# TODO(?): amend log api? if we have /app/logs we could tail logs on an app (or trig?) or just point lookup for call
+# TODO(?): amend log api? if we have /app/logs we could tail logs on an app (or trig?) and have point lookup for call still
 # TODO(?): 'namespace' or 'ns_id' field in objects? 'app_id' or 'app_name' in objects (trigger, app, etc)?
 #           really need to figure this out, e.g. app right now has a weird mix of id and name. we should pick one.
-# TODO(?): 'type' is dead right, async is now external?
 # TODO(?): annotations & config & event.extensions redundant to a degree? naming confusing? discuss.
-# TODO(?): add /run API to swagger doc?
+# TODO(?): add /run API to swagger doc? (only covers API module atm)
 # TODO: put body and response objects have different required fields, etc; make 2 objects?
 # TODO: change all params to $ref's
 # TODO(orcl): 204 DELETE success

@@ -190,6 +190,7 @@ passes them off to trigger manager / LB / runner.
 #### Scheduler
 
 On schedule set by user, the trigger is fired.
+Scheduler would have its own API to manage schedule -> trigger mappings.
 
 #### Queue
 
@@ -293,7 +294,9 @@ Returns CloudEvent with response as “data” body, strips out all the extensio
 }
 ```
 
-## Creating a function workflow
+## CLI changes
+
+### fn deploy
 
 func.yaml barely changes:
 
@@ -350,6 +353,11 @@ in all of the above examples, a user will end up with a route to call:
 `http://my.fn.com/sayhello`
 
 TODO do the above with namespace instead and don't have `_` magic?
+
+### CRUD
+
+we'll need to change crud around routes to have CRUD for functions and
+triggers, and add namespaces.
 
 ## FDKs
 
