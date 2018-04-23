@@ -46,7 +46,7 @@ func setupRequest(data interface{}) *callInfoImpl {
 	// fixup URL in models.Call
 	call.URL = req.URL.String()
 
-	ci := &callInfoImpl{call, req}
+	ci := &callInfoImpl{call: call, req: req}
 	return ci
 }
 

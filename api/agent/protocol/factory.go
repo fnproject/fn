@@ -54,9 +54,9 @@ type CallInfo interface {
 }
 
 type callInfoImpl struct {
-	isCloudEvent bool
 	call         *models.Call
 	req          *http.Request
+	isCloudEvent bool
 }
 
 func (ci callInfoImpl) IsCloudEvent() bool {
