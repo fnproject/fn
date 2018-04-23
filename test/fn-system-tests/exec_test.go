@@ -51,7 +51,8 @@ func TestCanExecuteFunction(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 	expectedOutput := "Hello World!\n"
-	if !strings.Contains(expectedOutput, output.String()) {
+	actual := output.String()
+	if !strings.Contains(expectedOutput, actual) || len(expectedOutput) != len(actual) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 	}
 }
@@ -92,7 +93,8 @@ func TestBasicConcurrentExecution(t *testing.T) {
 				return
 			}
 			expectedOutput := "Hello World!\n"
-			if !strings.Contains(expectedOutput, output.String()) {
+			actual := output.String()
+			if !strings.Contains(expectedOutput, actual) || len(expectedOutput) != len(actual) {
 				results <- fmt.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 				return
 			}
@@ -142,7 +144,8 @@ func TestSaturatedSystem(t *testing.T) {
 		}
 	}
 	expectedOutput := "{\"error\":{\"message\":\"Timed out - server too busy\"}}\n"
-	if !strings.Contains(expectedOutput, output.String()) {
+	actual := output.String()
+	if !strings.Contains(expectedOutput, actual) || len(expectedOutput) != len(actual) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
 	}
 }
