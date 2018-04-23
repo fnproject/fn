@@ -36,6 +36,7 @@ type ContainerIO interface {
 
 // CallInfo is passed into dispatch with only the required data the protocols require
 type CallInfo interface {
+	IsCloudEvent() bool
 	CallID() string
 	ContentType() string
 	Input() io.Reader
@@ -53,8 +54,13 @@ type CallInfo interface {
 }
 
 type callInfoImpl struct {
-	call *models.Call
-	req  *http.Request
+	call         *models.Call
+	req          *http.Request
+	isCloudEvent bool
+}
+
+func (ci callInfoImpl) IsCloudEvent() bool {
+	return ci.isCloudEvent
 }
 
 func (ci callInfoImpl) CallID() string {
@@ -112,10 +118,11 @@ func (ci callInfoImpl) Headers() map[string][]string {
 	return ci.req.Header
 }
 
-func NewCallInfo(call *models.Call, req *http.Request) CallInfo {
+func NewCallInfo(isCloudEvent bool, call *models.Call, req *http.Request) CallInfo {
 	ci := &callInfoImpl{
-		call: call,
-		req:  req,
+		isCloudEvent: isCloudEvent,
+		call:         call,
+		req:          req,
 	}
 	return ci
 }
@@ -125,10 +132,11 @@ type Protocol string
 
 // hot function protocols
 const (
-	Default Protocol = models.FormatDefault
-	HTTP    Protocol = models.FormatHTTP
-	JSON    Protocol = models.FormatJSON
-	Empty   Protocol = ""
+	Default     Protocol = models.FormatDefault
+	HTTP        Protocol = models.FormatHTTP
+	JSON        Protocol = models.FormatJSON
+	CloudEventP Protocol = models.FormatCloudEvent
+	Empty       Protocol = ""
 )
 
 func (p *Protocol) UnmarshalJSON(b []byte) error {
@@ -165,6 +173,8 @@ func New(p Protocol, in io.Writer, out io.Reader) ContainerIO {
 		return &HTTPProtocol{in, out}
 	case JSON:
 		return &JSONProtocol{in, out}
+	case CloudEventP:
+		return &CloudEventProtocol{in, out}
 	case Default, Empty:
 		return &DefaultProtocol{}
 	}

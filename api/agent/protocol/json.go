@@ -115,7 +115,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if !ok {
 		// logs can just copy the full thing in there, headers and all.
 		err := json.NewEncoder(w).Encode(jout)
-		return h.isExcessData(err, decoder)
+		return isExcessData(err, decoder)
 	}
 
 	// this has to be done for pulling out:
@@ -144,10 +144,10 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	}
 
 	_, err = io.WriteString(rw, jout.Body)
-	return h.isExcessData(err, decoder)
+	return isExcessData(err, decoder)
 }
 
-func (h *JSONProtocol) isExcessData(err error, decoder *json.Decoder) error {
+func isExcessData(err error, decoder *json.Decoder) error {
 	if err == nil {
 		// Now check for excess output, if this is the case, we can be certain that the next request will fail.
 		reader, ok := decoder.Buffered().(*bytes.Reader)
