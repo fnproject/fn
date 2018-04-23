@@ -56,22 +56,26 @@ const (
 
 func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallOpt {
 	return func(c *call) error {
-		route, err := a.GetRoute(req.Context(), app.ID, path)
+		ctx := req.Context()
+		route, err := a.GetRoute(ctx, app.ID, path)
 		if err != nil {
 			return err
 		}
 
+		log := common.Logger(ctx)
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
 		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
 		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-type")
+		contentType := req.Header.Get("Content-Type")
 		t, _, err := mime.ParseMediaType(contentType)
 		if err != nil {
-			return fmt.Errorf("Could not parse Content-Type header: %v", err)
-		}
-		if t == ceMimeType {
-			c.IsCloudEvent = true
-			route.Format = models.FormatCloudEvent
+			// won't fail here, but log
+			log.Debugf("Could not parse Content-Type header: %v", err)
+		} else {
+			if t == ceMimeType {
+				c.IsCloudEvent = true
+				route.Format = models.FormatCloudEvent
+			}
 		}
 
 		if route.Format == "" {
