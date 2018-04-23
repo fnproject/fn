@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -50,7 +51,7 @@ type Param struct {
 type Params []Param
 
 const (
-	CloudEventHeader = "FN_CLOUD_EVENT"
+	ceMimeType = "application/cloudevents+json"
 )
 
 func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallOpt {
@@ -61,7 +62,14 @@ func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallO
 		}
 
 		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		if req.Header.Get(CloudEventHeader) != "" {
+		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
+		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
+		contentType := req.Header.Get("Content-type")
+		t, _, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			return fmt.Errorf("Could not parse Content-Type header: %v", err)
+		}
+		if t == ceMimeType {
 			c.IsCloudEvent = true
 			route.Format = models.FormatCloudEvent
 		}
