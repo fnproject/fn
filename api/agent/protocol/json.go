@@ -107,7 +107,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	if err != nil {
 		return err
 	}
-	fmt.Println("FUCK 2")
+	fmt.Println("2")
 	_, span = trace.StartSpan(ctx, "dispatch_json_read_response")
 	var jout jsonOut
 	// buf := new(bytes.Buffer)
@@ -118,10 +118,10 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 	err = decoder.Decode(&jout)
 	span.End()
 	if err != nil {
-		fmt.Println("FUCKER", err)
+		fmt.Println("ERROR", err)
 		return models.NewAPIError(http.StatusBadGateway, fmt.Errorf("invalid json response from function err: %v", err))
 	}
-	fmt.Println("FUCK 3")
+	fmt.Println("")
 	_, span = trace.StartSpan(ctx, "dispatch_json_write_response")
 	defer span.End()
 
@@ -131,7 +131,7 @@ func (h *JSONProtocol) Dispatch(ctx context.Context, ci CallInfo, w io.Writer) e
 		err := json.NewEncoder(w).Encode(jout)
 		return h.isExcessData(err, decoder)
 	}
-	fmt.Println("FUCK 4")
+	fmt.Println("4")
 	body := jout.Body
 	statusCode := 200
 	fmt.Printf("JOUT: %+v\n", jout)
