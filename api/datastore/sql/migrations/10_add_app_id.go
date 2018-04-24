@@ -10,6 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// routes.annotations is retconned to NULLABLE here to allow migrations to proceed
+// see migrations 11 and 12 that fix this back up to NOT NULL
 var sqlStatements = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_id varchar(256) NOT NULL,
 	path varchar(256) NOT NULL,
@@ -22,7 +24,7 @@ var sqlStatements = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
-	annotations text NOT NULL,
+	annotations text,
 	created_at text,
 	updated_at varchar(256),
 	PRIMARY KEY (app_id, path)
