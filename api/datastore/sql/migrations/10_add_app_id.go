@@ -9,6 +9,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
 )
+
 // routes.annotations is retconned to NULLABLE here to allow migrations to proceed
 // see migrations 11 and 12 that fix this back up to NOT NULL
 var sqlStatements = [...]string{`CREATE TABLE IF NOT EXISTS routes (
