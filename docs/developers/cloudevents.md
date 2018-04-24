@@ -4,18 +4,29 @@ Fn supports CloudEvents throughout the system, meaning on ingestion and/or as a 
 
 To use as a function I/O format, set `format: cloudevent`.
 
-To use as as the body of the HTTP request, the following header:
-
-```
-FN_CLOUD_EVENT: true
-```
+And to pass in a full cloud event to a function endpoint, you need to set the Content-Type to `application/cloudevents+json`.
 
 If that header is set, it is assumed that the function also supports the CloudEvents format (in other words, it will automatically set `format: cloudevent`).
 
-If you have a function that supports CloudEvents, you can test it with the example file in this directory:
+## Trying it out
+
+The Ruby FDK supports CloudEvents, so we'll use that:
 
 ```sh
-curl -X POST -H "Content-Type: application/json" -H "FN_CLOUD_EVENT: true" -d @ce-example.json http://localhost:8080/r/rapp/myfunc
+fn init --runtime ruby rfunc
+cd rfunc
 ```
 
-To make a function that supports CloudEvents, you can use an FDK that supports like fdk-ruby.
+Now edit the func.yaml file and change the format to `format: cloudevent`.
+
+Then deploy it:
+
+```
+fn deploy --app myapp
+```
+
+There's an example cloudevent in this directory so you can test it with this:
+
+```sh
+curl -X POST -H "Content-Type: application/cloudevents+json" -d @ce-example.json http://localhost:8080/r/myapp/rfunc
+```
