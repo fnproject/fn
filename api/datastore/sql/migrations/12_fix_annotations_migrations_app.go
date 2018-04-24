@@ -26,7 +26,7 @@ func up12(ctx context.Context, tx *sqlx.Tx) error {
 		_, err := tx.ExecContext(ctx, "ALTER TABLE apps ALTER COLUMN annotations DROP NOT NULL;")
 		return err
 	default: // nuclear option, replace the table using sqlite safe DDL
-		_, err := tx.ExecContext(ctx, "ALTER TABLE apps RENAME TO old_m_12_apps;")
+		_, err := tx.ExecContext(ctx, "ALTER TABLE apps RENAME TO old_apps;")
 
 		if err != nil {
 			return err
@@ -45,7 +45,7 @@ func up12(ctx context.Context, tx *sqlx.Tx) error {
 			return err
 		}
 		insertQuery := `INSERT INTO apps(id,name,config,annotations,created_at,updated_at) 
-	  					SELECT  id,name,config,annotations,created_at,updated_at FROM old_m_12_apps;`
+	  					SELECT  id,name,config,annotations,created_at,updated_at FROM old_apps;`
 
 		_, err = tx.ExecContext(ctx, insertQuery)
 		if err != nil {
