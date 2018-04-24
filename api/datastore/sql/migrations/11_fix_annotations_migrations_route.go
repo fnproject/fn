@@ -22,7 +22,7 @@ func up11(ctx context.Context, tx *sqlx.Tx) error {
 		// this implicitly commits but its the last command so should be safe.
 		_, err := tx.ExecContext(ctx, "ALTER TABLE routes MODIFY annotations TEXT NOT NULL;")
 		return err
-	case "postgres","pgx":
+	case "postgres", "pgx":
 		_, err := tx.ExecContext(ctx, "ALTER TABLE routes ALTER COLUMN annotations DROP NOT NULL;")
 		return err
 	default:
