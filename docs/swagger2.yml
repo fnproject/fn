@@ -9,6 +9,7 @@ swagger: '2.0'
 #           really need to figure this out, e.g. app right now has a weird mix of id and name. we should pick one.
 # TODO(?): annotations & config & event.extensions redundant to a degree? naming confusing? discuss.
 # TODO(?): add /run API to swagger doc? (only covers API module atm)
+# TODO(?): should trigger have an 'enabled' field to easily toggle on and off via API?
 # TODO: put body and response objects have different required fields, etc; make 2 objects?
 # TODO: change all params to $ref's
 # TODO(orcl): 204 DELETE success
@@ -633,28 +634,27 @@ definitions:
           type: object
       # TODO(?): what else? please no more config?
 
-  # TODO(reed): figure out how to inline this?
-  ResourceConfig:
-    name: resources
-    type: object
-    properties:
-      memory:
-        type: integer
-        format: uint64
-        description: Max usable memory given to function (MiB).
-      cpus:
-        type: string
-        description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
-      timeout:
-        type: integer
-        default: 30
-        format: int32
-        description: Timeout for executions of a function. Value in Seconds
-      idle_timeout:
-        type: integer
-        default: 30
-        format: int32
-        description: Hot functions idle timeout before container termination. Value in Seconds
+  MemoryResource:
+      name: memory
+      type: integer
+      format: uint64
+      description: Max usable memory given to function (MiB).
+  CPUResource:
+      name: cpus
+      type: string
+      description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
+  TimeoutResource:
+      name: timeout
+      type: integer
+      default: 30
+      format: int32
+      description: Timeout for executions of a function. Value in Seconds
+  IdleTimeoutResource:
+      name: idle_timeout
+      type: integer
+      default: 30
+      format: int32
+      description: Hot functions idle timeout before container termination. Value in Seconds
 
   Func:
     type: object
@@ -674,13 +674,16 @@ definitions:
         # FunctionName a fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`
       image:
         type: string
-        description: full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)
+        description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
       config:
         type: object
         description: Function configuration - this is the base configuration
         additionalProperties:
           type: string
-      $ref: '#/definitions/ResourceConfig'
+      $ref: '#/definitions/MemoryResource'
+      $ref: '#/definitions/CPUResource'
+      $ref: '#/definitions/TimeoutResource'
+      $ref: '#/definitions/IdleTimeoutResource'
       # TODO(?) annotations? 
       created_at:
         type: string
@@ -715,7 +718,10 @@ definitions:
       func:
         type: string
         description: fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`
-      $ref: '#/definitions/ResourceConfig'
+      $ref: '#/definitions/MemoryResource'
+      $ref: '#/definitions/CPUResource'
+      $ref: '#/definitions/TimeoutResource'
+      $ref: '#/definitions/IdleTimeoutResource'
       config:
         type: object
         description: Trigger configuration - overrides application configuration
