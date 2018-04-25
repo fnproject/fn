@@ -9,44 +9,46 @@ import (
 )
 
 type AgentConfig struct {
-	MinDockerVersion   string        `json:"min_docker_version"`
-	FreezeIdle         time.Duration `json:"freeze_idle_msecs"`
-	EjectIdle          time.Duration `json:"eject_idle_msecs"`
-	HotPoll            time.Duration `json:"hot_poll_msecs"`
-	HotLauncherTimeout time.Duration `json:"hot_launcher_timeout_msecs"`
-	AsyncChewPoll      time.Duration `json:"async_chew_poll_msecs"`
-	CallEndTimeout     time.Duration `json:"call_end_timeout"`
-	MaxCallEndStacking uint64        `json:"max_call_end_stacking"`
-	MaxResponseSize    uint64        `json:"max_response_size_bytes"`
-	MaxLogSize         uint64        `json:"max_log_size_bytes"`
-	MaxTotalCPU        uint64        `json:"max_total_cpu_mcpus"`
-	MaxTotalMemory     uint64        `json:"max_total_memory_bytes"`
-	MaxFsSize          uint64        `json:"max_fs_size_mb"`
-	PreForkPoolSize    uint64        `json:"pre_fork_pool_size"`
-	PreForkImage       string        `json:"pre_fork_image"`
-	PreForkCmd         string        `json:"pre_fork_pool_cmd"`
-	PreForkUseOnce     uint64        `json:"pre_fork_use_once"`
-	PreForkNetworks    string        `json:"pre_fork_networks"`
+	MinDockerVersion        string        `json:"min_docker_version"`
+	FreezeIdle              time.Duration `json:"freeze_idle_msecs"`
+	EjectIdle               time.Duration `json:"eject_idle_msecs"`
+	HotPoll                 time.Duration `json:"hot_poll_msecs"`
+	HotLauncherTimeout      time.Duration `json:"hot_launcher_timeout_msecs"`
+	AsyncChewPoll           time.Duration `json:"async_chew_poll_msecs"`
+	CallEndTimeout          time.Duration `json:"call_end_timeout"`
+	MaxCallEndStacking      uint64        `json:"max_call_end_stacking"`
+	MaxResponseSize         uint64        `json:"max_response_size_bytes"`
+	MaxLogSize              uint64        `json:"max_log_size_bytes"`
+	MaxTotalCPU             uint64        `json:"max_total_cpu_mcpus"`
+	MaxTotalMemory          uint64        `json:"max_total_memory_bytes"`
+	MaxFsSize               uint64        `json:"max_fs_size_mb"`
+	PreForkPoolSize         uint64        `json:"pre_fork_pool_size"`
+	PreForkImage            string        `json:"pre_fork_image"`
+	PreForkCmd              string        `json:"pre_fork_pool_cmd"`
+	PreForkUseOnce          uint64        `json:"pre_fork_use_once"`
+	PreForkNetworks         string        `json:"pre_fork_networks"`
+	EnableNBResourceTracker bool          `json:"enable_nb_resource_tracker"`
 }
 
 const (
-	EnvFreezeIdle         = "FN_FREEZE_IDLE_MSECS"
-	EnvEjectIdle          = "FN_EJECT_IDLE_MSECS"
-	EnvHotPoll            = "FN_HOT_POLL_MSECS"
-	EnvHotLauncherTimeout = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
-	EnvAsyncChewPoll      = "FN_ASYNC_CHEW_POLL_MSECS"
-	EnvCallEndTimeout     = "FN_CALL_END_TIMEOUT_MSECS"
-	EnvMaxCallEndStacking = "FN_MAX_CALL_END_STACKING"
-	EnvMaxResponseSize    = "FN_MAX_RESPONSE_SIZE"
-	EnvMaxLogSize         = "FN_MAX_LOG_SIZE_BYTES"
-	EnvMaxTotalCPU        = "FN_MAX_TOTAL_CPU_MCPUS"
-	EnvMaxTotalMemory     = "FN_MAX_TOTAL_MEMORY_BYTES"
-	EnvMaxFsSize          = "FN_MAX_FS_SIZE_MB"
-	EnvPreForkPoolSize    = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
-	EnvPreForkImage       = "FN_EXPERIMENTAL_PREFORK_IMAGE"
-	EnvPreForkCmd         = "FN_EXPERIMENTAL_PREFORK_CMD"
-	EnvPreForkUseOnce     = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
-	EnvPreForkNetworks    = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
+	EnvFreezeIdle              = "FN_FREEZE_IDLE_MSECS"
+	EnvEjectIdle               = "FN_EJECT_IDLE_MSECS"
+	EnvHotPoll                 = "FN_HOT_POLL_MSECS"
+	EnvHotLauncherTimeout      = "FN_HOT_LAUNCHER_TIMEOUT_MSECS"
+	EnvAsyncChewPoll           = "FN_ASYNC_CHEW_POLL_MSECS"
+	EnvCallEndTimeout          = "FN_CALL_END_TIMEOUT_MSECS"
+	EnvMaxCallEndStacking      = "FN_MAX_CALL_END_STACKING"
+	EnvMaxResponseSize         = "FN_MAX_RESPONSE_SIZE"
+	EnvMaxLogSize              = "FN_MAX_LOG_SIZE_BYTES"
+	EnvMaxTotalCPU             = "FN_MAX_TOTAL_CPU_MCPUS"
+	EnvMaxTotalMemory          = "FN_MAX_TOTAL_MEMORY_BYTES"
+	EnvMaxFsSize               = "FN_MAX_FS_SIZE_MB"
+	EnvPreForkPoolSize         = "FN_EXPERIMENTAL_PREFORK_POOL_SIZE"
+	EnvPreForkImage            = "FN_EXPERIMENTAL_PREFORK_IMAGE"
+	EnvPreForkCmd              = "FN_EXPERIMENTAL_PREFORK_CMD"
+	EnvPreForkUseOnce          = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
+	EnvPreForkNetworks         = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
+	EnvEnableNBResourceTracker = "FN_ENABLE_NB_RESOURCE_TRACKER"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 )
@@ -83,6 +85,10 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	if err != nil {
 		return cfg, err
+	}
+
+	if _, ok := os.LookupEnv(EnvEnableNBResourceTracker); ok {
+		cfg.EnableNBResourceTracker = true
 	}
 
 	if cfg.EjectIdle == time.Duration(0) {

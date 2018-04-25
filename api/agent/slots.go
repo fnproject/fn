@@ -50,7 +50,7 @@ type slotQueue struct {
 	cond      *sync.Cond
 	slots     []*slotToken
 	nextId    uint64
-	signaller chan bool
+	signaller chan chan error
 	statsLock sync.Mutex // protects stats below
 	stats     slotQueueStats
 }
@@ -67,7 +67,7 @@ func NewSlotQueue(key string) *slotQueue {
 		key:       key,
 		cond:      sync.NewCond(new(sync.Mutex)),
 		slots:     make([]*slotToken, 0),
-		signaller: make(chan bool, 1),
+		signaller: make(chan chan error, 1),
 	}
 
 	return obj
