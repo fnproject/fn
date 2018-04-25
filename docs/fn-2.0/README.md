@@ -392,9 +392,25 @@ to scrape up the body and have some other kind of opaque object and set
 certain fields on it (as now).
 
 there are likely other ways, but trying to keep it simple out of the gate.
+note that this is a divergence from the current cloud-event implementation,
+where the entire user output is shoved into the data section at the end.
 there's also a possibility that I'm completely misguided on what FDKs should
 look like and if you feel that way please propose a comprehensive solution and
 I'd be delighted to see it. It does seem like FDKs will basically be a for
 loop, a cloud event object definition and json decoder / encoder, and a bunch
 of getter and setter methods (potentially, lang dependent). Maybe this doesn't
 provide as much utility as it once did, but that's for us to decide.
+
+## Proposed dicing of the pieces
+
+* Implement HTTP router module, that takes an http request and constructs
+  a cloud event, with extensions and source set with annotations, config,
+  proper route, etc. (NOTE: this is NOT an LB)
+* Implement queue triggerer module
+* Implement trigger manager module that eats event and spits out event+sugar
+* Implement runner `/run` end-to-end cloud-event format (server, CLI, FDK)
+  * kill off json/http/default & runner should not construct cloud event in or out
+  * only parse out extensions needed to run
+* Implement functions / triggers / namespace API CRUD, datastore
+* ? i'm forgetting some stuff
+
