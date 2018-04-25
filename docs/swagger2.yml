@@ -10,6 +10,7 @@ swagger: '2.0'
 # TODO(?): annotations & config & event.extensions redundant to a degree? naming confusing? discuss.
 # TODO(?): add /run API to swagger doc? (only covers API module atm)
 # TODO(?): should trigger have an 'enabled' field to easily toggle on and off via API?
+# TODO: let's punt on adding a row for FuncVersions with snapshots of each func version? just a string field for now.
 # TODO: put body and response objects have different required fields, etc; make 2 objects?
 # TODO: change all params to $ref's
 # TODO(orcl): 204 DELETE success
@@ -634,28 +635,6 @@ definitions:
           type: object
       # TODO(?): what else? please no more config?
 
-  MemoryResource:
-      name: memory
-      type: integer
-      format: uint64
-      description: Max usable memory given to function (MiB).
-  CPUResource:
-      name: cpus
-      type: string
-      description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
-  TimeoutResource:
-      name: timeout
-      type: integer
-      default: 30
-      format: int32
-      description: Timeout for executions of a function. Value in Seconds
-  IdleTimeoutResource:
-      name: idle_timeout
-      type: integer
-      default: 30
-      format: int32
-      description: Hot functions idle timeout before container termination. Value in Seconds
-
   Func:
     type: object
     properties:
@@ -675,6 +654,9 @@ definitions:
       image:
         type: string
         description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
+      version:
+        type: string
+        descripton: version for this function, e.g. '0.0.42'
       config:
         type: object
         description: Function configuration - this is the base configuration
@@ -717,7 +699,7 @@ definitions:
         description: class of trigger, e.g. schedule, http
       func:
         type: string
-        description: fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`
+        description: "fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`"
       $ref: '#/definitions/MemoryResource'
       $ref: '#/definitions/CPUResource'
       $ref: '#/definitions/TimeoutResource'
@@ -755,7 +737,7 @@ definitions:
         readOnly: true
       name:
         type: string
-        description: "Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _."
+        description: Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _.
       config:
         type: object
         description: Application function configuration, applied to all triggers.
@@ -782,7 +764,7 @@ definitions:
     required:
       - funcs
     properties:
-      - $ref: '#/definitions/nextCursorParam'
+      $ref: '#/definitions/nextCursorParam'
       triggers:
         type: array
         items:
@@ -807,7 +789,7 @@ definitions:
     required:
       - funcs
     properties:
-      - $ref: '#/definitions/nextCursorParam'
+      $ref: '#/definitions/nextCursorParam'
       triggers:
         type: array
         items:
@@ -832,7 +814,7 @@ definitions:
     required:
       - triggers
     properties:
-      - $ref: '#/definitions/nextCursorParam'
+      $ref: '#/definitions/nextCursorParam'
       triggers:
         type: array
         items:
@@ -858,7 +840,7 @@ definitions:
     required:
       - apps
     properties:
-      - $ref: '#/definitions/nextCursorParam'
+      $ref: '#/definitions/nextCursorParam'
       apps:
         type: array
         items:
@@ -881,7 +863,7 @@ definitions:
     required:
       - calls
     properties:
-      - $ref: '#/definitions/nextCursorParam'
+      $ref: '#/definitions/nextCursorParam'
       calls:
         type: array
         items:
@@ -1077,4 +1059,28 @@ definitions:
     required: false
     type: integer
     in: query
+
+  # resources
+  MemoryResource:
+      name: memory
+      type: integer
+      format: uint64
+      description: Max usable memory given to function (MiB).
+  CPUResource:
+      name: cpus
+      type: string
+      description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
+  TimeoutResource:
+      name: timeout
+      type: integer
+      default: 30
+      format: int32
+      description: Timeout for executions of a function. Value in Seconds
+  IdleTimeoutResource:
+      name: idle_timeout
+      type: integer
+      default: 30
+      format: int32
+      description: Hot functions idle timeout before container termination. Value in Seconds
+
 
