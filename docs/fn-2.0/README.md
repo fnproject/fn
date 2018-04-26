@@ -198,10 +198,27 @@ passes them off to trigger manager / LB / runner.
 On schedule set by user, the trigger is fired.
 Scheduler would have its own API to manage schedule -> trigger mappings.
 
+NOTE: This specific piece is not part of the immediate scope of 2.0 but
+provided for illustration of other 'event sources' we'll have soon enough.
+
 #### Queue
 
 Listens on a stream/topic/channel, can have a filter
 For every message that passes filter, fire the trigger
+
+This will be a module that can configure which topics it would like
+to monitor for messages, its responsibility being to pull messages from the
+topic(s) and transform each payload into a cloud event; the message payload
+need not be a cloud event itself, it could be anything, it's up to the queue
+source to decide here; in general, fn doesn't dictate how events are acquired
+or created, nor what should be done with the response from execution of a
+trigger (e.g. it could be added as another message to a different configured
+topic). The cloud event is then passed to fn's routing layer (trigger manager
+/ lb) to be invoked with `/run`.  The module itself could be compiled into an
+fn server or run separately. Out of the gate, the plan is to have a simple
+example (probably redis) as a reference implementation, but this is not
+intended to be very fancy nor handle any resource scheduling (as is the case
+now), the latter getting pushed to the function routing layer.
 
 ## Example flow
 
@@ -267,7 +284,11 @@ Merges config and event to get this event:
 }
 ```
 
-Passes event to function router (aka LB) OR runner (whichever the trigger manager is configured for, they both have the same /run endpoint. Single machine setup would be direct to runner). 
+Passes event to function router (aka LB) OR runner (whichever the trigger
+manager is configured for, they both have the same /run endpoint. Single
+machine setup would be direct to runner). This could potentially be compiled
+directly into the LB or the runner and doesn't necessarily have to be an added
+hop. This probably uses a cache in higher scale deploys.
 
 ### Function Router gets event
 
