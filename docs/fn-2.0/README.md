@@ -160,6 +160,12 @@ CRUD for all the things.
 * Calls
 * Logs
 
+CRUD operations will all have extensions wrapping each operation. We could
+maybe make this simpler by having an interface with all of our handlers that
+extensions could implement instead of N*2 additional methods for `BeforeXXX`
+and `AfterXXX`, we could just let a user wrap the base set of handlers with
+whatever they want but need to figure out parameter parsing there.
+
 ### Function Router/LB
 
 Deals with sending event messages to the best runner.
@@ -308,11 +314,12 @@ function:
   memory: 42
 
 trigger:
-  name: myApp/sayhello
-  type: http
+  - name: myApp/sayhello
+    type: http
 ```
 
-trigger in yaml is optional. if trigger is not specified, it can be specified:
+trigger in yaml is optional. you may specify multiple triggers for each
+function. if trigger is not specified, it can be specified at runtime:
 
 `fn deploy --trigger-http sayhello`
 
@@ -343,9 +350,9 @@ built and pushed to a docker registry, say if we had a func:
 
 ```
 trigger:
-  name: /sayhello
-  type: http
-  func: hub.fnproject.io/funcytown/hello
+  - name: /sayhello
+    type: http
+    func: hub.fnproject.io/funcytown/hello
 ```
 
 in all of the above examples, a user will end up with a route to call:
