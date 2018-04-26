@@ -214,11 +214,17 @@ source to decide here; in general, fn doesn't dictate how events are acquired
 or created, nor what should be done with the response from execution of a
 trigger (e.g. it could be added as another message to a different configured
 topic). The cloud event is then passed to fn's routing layer (trigger manager
-/ lb) to be invoked with `/run`.  The module itself could be compiled into an
-fn server or run separately. Out of the gate, the plan is to have a simple
-example (probably redis) as a reference implementation, but this is not
-intended to be very fancy nor handle any resource scheduling (as is the case
-now), the latter getting pushed to the function routing layer.
+/ lb) to be invoked with `/run`, where the cloud event contains the
+`eventType` field is set to the user configured name of this event source
+(e.g. `myKafka`) and the `source` field is set to a user configured name of
+the trigger (e.g. `myTopic`) - this tuple of `eventType` and `source`
+uniquely ids a trigger in the trigger manager.
+
+The module itself could be compiled into an fn server or run separately. Out
+of the gate, the plan is to have a simple example (probably redis) as a
+reference implementation, but this is not intended to be very fancy nor handle
+any resource scheduling (as is the case now), the latter getting pushed to the
+function routing layer.
 
 ## Example flow
 
