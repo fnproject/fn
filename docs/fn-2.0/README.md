@@ -329,37 +329,63 @@ Picks runner to run it on and passes along event
 
 ## CLI changes
 
-### fn deploy
+### NEW IN 2.0
 
-func.yaml barely changes:
+The main changes here are related to [splitting functions and routes](https://github.com/fnproject/fn/issues/817).
+A route is now called a trigger and the route/trigger definition is no longer part of the function definition as it was before.
+
+### Function Definition File
+
+`func.yaml` barely changes, just removes route/trigger specific things. 
+
+A function does not know about triggers so it only has the information required to run the function.
 
 ```yaml
 function:
   name: yodawg
-  image: hub.docker.com/fnproject/hello
+
+  runtime: ruby
+  entrypoint: ruby func.rb
   version: 0.0.7
   memory: 42
+```
 
+`fn run` can run a function with this file only.
+
+### Trigger Definition File
+
+A `trigger.yaml` file defines the mapping from event sources to functions. A trigger
+binds one event source to one function, for instance an HTTP route to a function.
+
+```yaml
 trigger:
-  - name: myApp/sayhello
-    type: http
+  name: sayhello
+  type: http
+  # http specific param:
+  path: /sayhello
+  func: https://fnreg.com/namespace/myfunc
 ```
 
-trigger in yaml is optional. you may specify multiple triggers for each
-function. if trigger is not specified, it can be specified at runtime:
+On `fn deploy`:
 
-`fn deploy --trigger-http sayhello`
+* `trigger.yaml` must exist
+* if `func.yaml` exists:
+  * build and push function image
+  * update function registry with function definition
+  * use pushed function as `func` param for trigger
+* if `func.yaml` does not exist, `trigger.yaml` must have the `func` param set
+* Update trigger with Trigger definition
 
-since namespace is not specified, this will create a function at:
+This will create a function at:
 
 ```
-/ns/_/funcs/yodawg
+/ns/_/funcs/myfunc
 ```
 
 and a trigger at:
 
 ```
-/ns/_/apps/myApp/triggers/sayhello
+/ns/_/apps/myapp/triggers/sayhello
 {
   name: sayhello
   func: yodawg:0.0.7
@@ -367,20 +393,6 @@ and a trigger at:
 }
 ```
 
-since the above `func: ` does not specify a host name, the func will be
-expected to exist on the fn service where this trigger exists. a full url is
-also possible, see below example.
-
-it is also possible to specify a `func.yaml` with a remote function, where the
-trigger will be deployed but the function in the working directory will not be
-built and pushed to a docker registry, say if we had a func:
-
-```
-trigger:
-  - name: /sayhello
-    type: http
-    func: hub.fnproject.io/funcytown/hello
-```
 
 in all of the above examples, a user will end up with a route to call:
 
@@ -395,6 +407,27 @@ triggers, and add namespaces.
 
 ## FDKs
 
+FDKs will work in the same manner as they do now and from a user perspective probably don't need to change.
+This will be almost exactly the same as how the current JSON format works, just different fields as defined here: 
+https://github.com/cloudevents/spec/blob/master/json-format.md
+
+Handlers will take the pseudo-form:
+
+```
+handle(context, input) (output, err)
+```
+
+This form will change depending on what's right for the language, but they should all have the same 
+meaning and generally the same feel:
+
+* `context` will include all of the CloudEvent fields other than the `data` field. 
+* `input` will be the `data` field
+* `output` is the response `data` field
+* `err` is if an error occurred and will be returned with the `CloudEvent.error` field set (see above)
+
+
+### NOTES
+
 There are some decisions to make around added sugar we want to sprinkle on top
 of cloud events. We also may want to allow users to receive/output raw cloud-events
 themselves if they would like to, or at least have a way to set each of the
@@ -403,37 +436,6 @@ add additional fields) -- of course, it's possible to not use FDK and do this,
 so my thinking is that we make FDKs more to simplify things than anything.
 We can add features we'd like to FDKs as we go down the road. My thinking for
 base level FDK functionality is:
-
-FDKs will simply handle the json version of cloud-events defined here: 
-https://github.com/cloudevents/spec/blob/master/json-format.md
-
-FDKs will in the same manner as now, decode one of these at a time into a
-$programming_language object from STDIN, after receiving one, will call a user
-specified handler function, and receive a $programming_language object as
-output, which it will then encode to json on STDOUT.
-
-Handlers will take the pseudo-form:
-
-```
-Handle(CloudEvent) CloudEvent
-```
-
-where the user is forced to construct a `CloudEvent` object. Obviously, we
-should have some helpful constructors like `NewCloudEvent(contentType, body string) CloudEvent` 
-that do things like handle the json magic and that fills in most of the
-fields. This seems like a viable option and is more flexible than just trying
-to scrape up the body and have some other kind of opaque object and set
-certain fields on it (as now).
-
-there are likely other ways, but trying to keep it simple out of the gate.
-note that this is a divergence from the current cloud-event implementation,
-where the entire user output is shoved into the data section at the end.
-there's also a possibility that I'm completely misguided on what FDKs should
-look like and if you feel that way please propose a comprehensive solution and
-I'd be delighted to see it. It does seem like FDKs will basically be a for
-loop, a cloud event object definition and json decoder / encoder, and a bunch
-of getter and setter methods (potentially, lang dependent). Maybe this doesn't
-provide as much utility as it once did, but that's for us to decide.
 
 ## Proposed dicing of the pieces
 
