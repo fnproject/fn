@@ -195,16 +195,16 @@ passes them off to trigger manager / LB / runner.
 
 #### Scheduler
 
-On schedule set by user, the trigger is fired.
-Scheduler would have its own API to manage schedule -> trigger mappings.
+* On schedule set by user, the trigger is fired.
+* Scheduler would have its own API to manage schedule -> trigger mappings.
 
 NOTE: This specific piece is not part of the immediate scope of 2.0 but
 provided for illustration of other 'event sources' we'll have soon enough.
 
 #### Queue
 
-Listens on a stream/topic/channel, can have a filter
-For every message that passes filter, fire the trigger
+* Listens on a stream/topic/channel, can have a filter
+* For every message that passes filter, fire the trigger
 
 This will be a module that can configure which topics it would like
 to monitor for messages, its responsibility being to pull messages from the
@@ -232,8 +232,8 @@ HTTP
 
 ### HTTP Router receives request
 
-Request comes into HTTP router under pretty url, e.g. `http://example.com/repomanager`
-Convert request to CloudEvent, eg:
+* Request comes into HTTP router under pretty url, e.g. `http://example.com/repomanager`
+* Convert request to CloudEvent, eg:
 
 ```json
 {
@@ -256,14 +256,14 @@ Convert request to CloudEvent, eg:
 }
 ```
 
-Pass event to trigger manager.
+* Pass event to trigger manager.
 
 ### Trigger manager (TM) receives event
 
-TM looks up the matching trigger.
-Trigger has function URI + config data. 
-TM also get app config data.
-Merges config and event to get this event:
+* TM looks up the matching trigger.
+* Trigger has function URI + config data. 
+* TM also get app config data.
+* Merges config and event to get this event:
 
 ```json
 {
@@ -302,9 +302,9 @@ Picks runner to run it on and passes along event
 
 ### Runner gets event
 
-Takes function URL and looks up metadata from function registry. 
-Executes the function
-Returns CloudEvent with response as “data” body, strips out all the extension stuff and replace with response specific info.
+* Takes function URL and looks up metadata from function registry. 
+* Executes the function
+* Returns CloudEvent with response as “data” body, strips out all the extension stuff and replace with response specific info.
 
 ```json
 {
