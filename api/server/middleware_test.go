@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -110,6 +111,14 @@ func TestRootMiddleware(t *testing.T) {
 		})
 	})
 	srv.AddRootMiddleware(&middleWareStruct{"middle"})
+	srv.AddRootMiddlewareFunc(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			t.Log("body reader log")
+			bodyBytes, _ := ioutil.ReadAll(r.Body)
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	for i, test := range []struct {
 		path           string
@@ -145,5 +154,17 @@ func TestRootMiddleware(t *testing.T) {
 		if !strings.Contains(rbody, test.expectedInBody) {
 			t.Fatal(i, "middleware didn't work correctly", string(result))
 		}
+	}
+
+	req, err := http.NewRequest("POST", "http://127.0.0.1:8080/v1/apps", strings.NewReader("{\"app\": {\"name\": \"myapp3\"}}"))
+	if err != nil {
+		t.Fatalf("Test: Could not create create app request")
+	}
+	t.Log("TESTING: Create myapp3 when a middleware reads the body")
+	_, rec := routerRequest2(t, srv.Router, req)
+
+	res, _ := ioutil.ReadAll(rec.Result().Body)
+	if !strings.Contains(string(res), "myapp3") {
+		t.Fatal("Middleware did not pass the request correctly to route handler")
 	}
 }

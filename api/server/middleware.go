@@ -93,7 +93,7 @@ func (s *Server) runMiddleware(c *gin.Context, ms []fnext.Middleware) {
 			c.Abort()
 			return
 		}
-		c.Request = c.Request.WithContext(ctx)
+		c.Request = r.WithContext(ctx)
 		c.Next()
 	})
 
