@@ -21,11 +21,11 @@ type CloudEvent struct {
 	Source             string                 `json:"source"`
 	EventType          string                 `json:"eventType"`
 	EventTypeVersion   string                 `json:"eventTypeVersion"`
-	EventTime          time.Time              `json:"eventTime"` // TODO: ensure rfc3339 format
+	EventTime          time.Time              `json:"eventTime"`
 	SchemaURL          string                 `json:"schemaURL"`
 	ContentType        string                 `json:"contentType"`
 	Extensions         map[string]interface{} `json:"extensions"`
-	Data               interface{}            `json:"data"` // from docs: the payload is encoded into a media format which is specified by the contentType attribute (e.g. application/json)
+	Data               interface{}            `json:"data,omitempty"` // docs: the payload is encoded into a media format which is specified by the contentType attribute (e.g. application/json)
 }
 
 type cloudEventIn struct {
@@ -63,6 +63,8 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 		return err
 	}
 
+	// TODO: handle binary
+
 	var in cloudEventIn
 	if ci.IsCloudEvent() {
 		// then it's already in the right format, let's parse it, then modify
@@ -80,18 +82,13 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 				Source:             ci.RequestURL(),
 			},
 		}
-		if buf.Len() == 0 {
-			// nada
-			// todo: should we leave as null, pass in empty string, omitempty or some default for the content type, eg: {} for json?
-		} else if ci.ContentType() == "application/json" {
-			d := map[string]interface{}{}
-			err = json.NewDecoder(buf).Decode(&d)
+		// NOTE: data is an optional field, we can leave it as nil
+		if buf.Len() > 0 {
+			// NOTE: if it's not contentType=application/json, then a string is a valid json value, so this will work.
+			err := json.NewDecoder(buf).Decode(&in.Data)
 			if err != nil {
 				return fmt.Errorf("Invalid json body with contentType 'application/json'. %v", err)
 			}
-			in.Data = d
-		} else {
-			in.Data = buf.String()
 		}
 	}
 	// todo: deal with the dual ID's, one from outside, one from inside
