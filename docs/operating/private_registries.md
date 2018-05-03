@@ -3,6 +3,17 @@
 For local development, or a team that wishes to keep their images off of the public Docker registry, a private
 registry may be useful. This can be hosted on your own server or local machine. See the Docker docs [here](https://docs.docker.com/registry/) for information on setting this up. A registry on localhost may greatly speed up iterative development in environments where the network is constrained.
 
+To set up your fn service with authentication for any registry, you must
+provide fn with `DOCKER_AUTH` env var:
+
+```
+DOCKER_AUTH='{"auths":{"http://my.registry.com:80":{"auth":"yourauthbase64here"}}}'
+```
+
+You may provide multiple auths in this way, it's also possible to run the `fn`
+docker container with a volume mounted `~/docker/config.json` or use a local
+version of `fn` against your locally configured `dockerd`.
+
 This is where the `FN_REGISTRY` environment variable or `--registry` setting comes into play.
 
 ## The `FN_REGISTRY` or `--registry` setting.
