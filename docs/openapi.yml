@@ -1,0 +1,860 @@
+openapi: 3.0.0
+servers:
+  - url: 'https://127.0.0.1:8080/v1'
+  - url: 'http://127.0.0.1:8080/v1'
+info:
+  title: fn
+  description: The open source serverless platform.
+  version: 0.2.4
+paths:
+  /apps:
+    get:
+      summary: Get all app names.
+      description: >-
+        Get a list of all the apps in the system, returned in alphabetical
+        order.
+      tags:
+        - Apps
+      parameters:
+        - name: cursor
+          description: >-
+            Cursor from previous response.next_cursor to begin results after, if
+            any.
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: per_page
+          description: 'Number of results to return, defaults to 30. Max of 100.'
+          required: false
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of apps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppsWrapper'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Post new app
+      description: Insert a new app
+      tags:
+        - Apps
+      responses:
+        '200':
+          description: App details and stats.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppWrapper'
+        '400':
+          description: Parameters are missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: App already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: '#/components/requestBodies/AppWrapper'
+  '/apps/{app}':
+    delete:
+      summary: Delete an app.
+      description: Delete an app.
+      tags:
+        - Apps
+      parameters:
+        - name: app
+          in: path
+          description: Name of the app.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Apps successfully deleted.
+        '404':
+          description: App does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Get information for a app.
+      description: 'This gives more details about a app, such as statistics.'
+      tags:
+        - Apps
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: App details and stats.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppWrapper'
+        '404':
+          description: App does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Updates an app.
+      description: 'You can set app level settings here. '
+      tags:
+        - Apps
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: App details and stats.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppWrapper'
+        '400':
+          description: Parameters are missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: App does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: '#/components/requestBodies/AppWrapper'
+  '/apps/{app}/routes':
+    post:
+      summary: Create new Route
+      description: >-
+        Create a new route in an app, if app doesn't exists, it creates the app.
+        Post does not skip validation of zero values.
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteWrapper'
+        '400':
+          description: Invalid route due to parameters being missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Route already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: '#/components/requestBodies/RouteWrapper'
+    get:
+      summary: Get route list by app name.
+      description: >-
+        This will list routes for a particular app, returned in alphabetical
+        order.
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: Name of app for this set of routes.
+          required: true
+          schema:
+            type: string
+        - name: image
+          description: 'Route image to match, exact.'
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          description: >-
+            Cursor from previous response.next_cursor to begin results after, if
+            any.
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: per_page
+          description: 'Number of results to return, defaults to 30. Max of 100.'
+          required: false
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Route information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutesWrapper'
+        '404':
+          description: App does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/apps/{app}/routes/{route}':
+    put:
+      summary: >-
+        Create a Route if it does not exist. Update if it does. Will also create
+        app if it does not exist. Put does not skip validation of zero values
+      description: Update or Create a route
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          schema:
+            type: string
+        - name: route
+          in: path
+          description: route path.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteWrapper'
+        '400':
+          description: Invalid route due to parameters being missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: '#/components/requestBodies/RouteWrapper'
+    patch:
+      summary: >-
+        Update a Route, Fails if the route or app does not exist. Accepts
+        partial updates / skips validation of zero values.
+      description: Update a route
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          schema:
+            type: string
+        - name: route
+          in: path
+          description: route path.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteWrapper'
+        '400':
+          description: Invalid route due to parameters being missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: App / Route does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: '#/components/requestBodies/RouteWrapper'
+    get:
+      summary: Gets route by name
+      description: Gets a route by name.
+      tags:
+        - Routes
+      parameters:
+        - name: app
+          in: path
+          description: Name of app for this set of routes.
+          required: true
+          schema:
+            type: string
+        - name: route
+          in: path
+          description: Route name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteWrapper'
+        '404':
+          description: Route does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Deletes the route
+      tags:
+        - Routes
+      description: Deletes the route.
+      parameters:
+        - name: app
+          in: path
+          description: Name of app for this set of routes.
+          required: true
+          schema:
+            type: string
+        - name: route
+          in: path
+          description: Route name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route successfully deleted.
+        '404':
+          description: Route does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/apps/{app}/calls/{call}/log':
+    get:
+      summary: Get call logs
+      description: Get call logs
+      tags:
+        - Call
+        - Log
+      parameters:
+        - name: app
+          description: App Name
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: call
+          description: Call ID.
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Log found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogWrapper'
+        '404':
+          description: Log not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/apps/{app}/calls/{call}':
+    get:
+      summary: Get call information
+      description: Get call information
+      tags:
+        - Call
+      parameters:
+        - name: app
+          description: app name
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: call
+          description: Call ID.
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Call found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallWrapper'
+        '404':
+          description: Call not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/apps/{app}/calls':
+    get:
+      summary: Get app-bound calls.
+      description: >-
+        Get app-bound calls can filter to route-bound calls, results returned in
+        created_at, descending order (newest first).
+      tags:
+        - Call
+      parameters:
+        - name: app
+          description: App name.
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: path
+          description: 'Route path to match, exact.'
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          description: >-
+            Cursor from previous response.next_cursor to begin results after, if
+            any.
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: per_page
+          description: 'Number of results to return, defaults to 30. Max of 100.'
+          required: false
+          in: query
+          schema:
+            type: integer
+        - name: from_time
+          description: >-
+            Unix timestamp in seconds, of call.created_at to begin the results
+            at, default 0.
+          required: false
+          in: query
+          schema:
+            type: integer
+        - name: to_time
+          description: >-
+            Unix timestamp in seconds, of call.created_at to end the results at,
+            defaults to latest.
+          required: false
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Calls found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallsWrapper'
+        '404':
+          description: Calls not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  requestBodies:
+    AppWrapper:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppWrapper'
+      description: App to post.
+      required: true
+    RouteWrapper:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RouteWrapper'
+      description: One route to post.
+      required: true
+  schemas:
+    Route:
+      type: object
+      properties:
+        path:
+          type: string
+          description: URL path that will be matched to this route
+          readOnly: true
+        image:
+          description: >-
+            Name of Docker image to use in this route. You should include the
+            image tag, which should be a version number, to be more accurate.
+            Can be overridden on a per route basis with route.image.
+          type: string
+        headers:
+          type: object
+          description: Map of http headers that will be sent with the response
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        memory:
+          type: integer
+          format: uint64
+          description: Max usable memory for this route (MiB).
+        type:
+          enum:
+            - sync
+            - async
+          description: Route type
+          type: string
+        format:
+          enum:
+            - default
+            - http
+            - json
+          description: Payload format sent into function.
+          type: string
+        config:
+          type: object
+          description: Route configuration - overrides application configuration
+          additionalProperties:
+            type: string
+        timeout:
+          type: integer
+          default: 30
+          format: int32
+          description: Timeout for executions of this route. Value in Seconds
+        idle_timeout:
+          type: integer
+          default: 30
+          format: int32
+          description: Hot functions idle timeout before termination. Value in Seconds
+        created_at:
+          type: string
+          format: date-time
+          description: Time when route was created. Always in UTC.
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          description: Most recent time that route was updated. Always in UTC.
+          readOnly: true
+    App:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            Name of this app. Must be different than the image name. Can ony
+            contain alphanumeric, -, and _.
+          readOnly: true
+        config:
+          type: object
+          description: 'Application configuration, applied to all routes.'
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          description: Time when app was created. Always in UTC.
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          description: Most recent time that app was updated. Always in UTC.
+          readOnly: true
+    Version:
+      type: object
+      properties:
+        version:
+          type: string
+          readOnly: true
+    RoutesWrapper:
+      type: object
+      required:
+        - routes
+      properties:
+        next_cursor:
+          type: string
+          description: >-
+            cursor to send with subsequent request to receive the next page, if
+            non-empty
+          readOnly: true
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Route'
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    RouteWrapper:
+      type: object
+      required:
+        - route
+      properties:
+        message:
+          type: string
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        route:
+          $ref: '#/components/schemas/Route'
+    AppsWrapper:
+      type: object
+      required:
+        - apps
+      properties:
+        next_cursor:
+          type: string
+          description: >-
+            cursor to send with subsequent request to receive the next page, if
+            non-empty
+          readOnly: true
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/App'
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    AppWrapper:
+      type: object
+      required:
+        - app
+      properties:
+        app:
+          $ref: '#/components/schemas/App'
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    CallsWrapper:
+      type: object
+      required:
+        - calls
+      properties:
+        next_cursor:
+          type: string
+          description: >-
+            cursor to send with subsequent request to receive the next page, if
+            non-empty
+          readOnly: true
+        calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/Call'
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    CallWrapper:
+      type: object
+      required:
+        - call
+      properties:
+        call:
+          $ref: '#/components/schemas/Call'
+          description: Call object.
+    LogWrapper:
+      type: object
+      required:
+        - log
+      properties:
+        log:
+          $ref: '#/components/schemas/Log'
+          description: Call log entry.
+    Log:
+      type: object
+      properties:
+        call_id:
+          type: string
+          description: Call UUID ID
+        log:
+          type: string
+    Call:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Call UUID ID.
+          readOnly: true
+        status:
+          type: string
+          description: Call execution status.
+          readOnly: true
+        error:
+          type: string
+          description: 'Call execution error, if status is ''error''.'
+          readOnly: true
+        app_name:
+          type: string
+          description: App name that is assigned to a route that is being executed.
+          readOnly: true
+        path:
+          type: string
+          description: App route that is being executed.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          description: Time when call was submitted. Always in UTC.
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          description: Time when call started execution. Always in UTC.
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          description: >-
+            Time when call completed, whether it was successul or failed. Always
+            in UTC.
+          readOnly: true
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stat'
+          description: >-
+            A histogram of stats for a call, each is a snapshot of a calls state
+            at the timestamp.
+          readOnly: true
+    Stat:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        metrics:
+          type: object
+          properties:
+            net_rx:
+              type: integer
+              format: int64
+            net_tx:
+              type: integer
+              format: int64
+            mem_limit:
+              type: integer
+              format: int64
+            mem_usage:
+              type: integer
+              format: int64
+            disk_read:
+              type: integer
+              format: int64
+            disk_write:
+              type: integer
+              format: int64
+            cpu_user:
+              type: integer
+              format: int64
+            cpu_total:
+              type: integer
+              format: int64
+            cpu_kernel:
+              type: integer
+              format: int64
+    ErrorBody:
+      type: object
+      properties:
+        message:
+          type: string
+          readOnly: true
+        fields:
+          type: string
+          readOnly: true
+    Error:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
