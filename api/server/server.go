@@ -903,6 +903,10 @@ func (s *Server) Datastore() models.Datastore {
 	return s.datastore
 }
 
+func (s *Server) Agent() agent.Agent {
+	return s.agent
+}
+
 // returns the unescaped ?cursor and ?perPage values
 // pageParams clamps 0 < ?perPage <= 100 and defaults to 30 if 0
 // ignores parsing errors and falls back to defaults.
