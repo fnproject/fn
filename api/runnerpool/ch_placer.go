@@ -30,46 +30,47 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
 	timeout := time.After(call.LbDeadline().Sub(time.Now()))
 	for {
+		runners, err := rp.Runners(call)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to find runners for call")
+		} else {
+			i := int(jumpConsistentHash(sum64, int32(len(runners))))
+			for j := 0; j < len(runners); j++ {
 
+				select {
+				case <-ctx.Done():
+					return models.ErrCallTimeoutServerBusy
+				case <-timeout:
+					return models.ErrCallTimeoutServerBusy
+				default:
+				}
+
+				r := runners[i]
+
+				placed, err := r.TryExec(ctx, call)
+				if err != nil {
+					logrus.WithError(err).Error("Failed during call placement")
+				}
+				if placed {
+					return err
+				}
+
+				i = (i + 1) % len(runners)
+			}
+		}
+
+		remaining := call.LbDeadline().Sub(time.Now())
+		if remaining <= 0 {
+			return models.ErrCallTimeoutServerBusy
+		}
+
+		// backoff
 		select {
 		case <-ctx.Done():
 			return models.ErrCallTimeoutServerBusy
 		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
-		default:
-			runners, err := rp.Runners(call)
-			if err != nil {
-				logrus.WithError(err).Error("Failed to find runners for call")
-			} else {
-				i := int(jumpConsistentHash(sum64, int32(len(runners))))
-				for j := 0; j < len(runners); j++ {
-					r := runners[i]
-
-					placed, err := r.TryExec(ctx, call)
-					if err != nil {
-						logrus.WithError(err).Error("Failed during call placement")
-					}
-					if placed {
-						return err
-					}
-
-					i = (i + 1) % len(runners)
-				}
-			}
-
-			remaining := call.LbDeadline().Sub(time.Now())
-			if remaining <= 0 {
-				return models.ErrCallTimeoutServerBusy
-			}
-
-			// backoff
-			select {
-			case <-ctx.Done():
-				return models.ErrCallTimeoutServerBusy
-			case <-timeout:
-				return models.ErrCallTimeoutServerBusy
-			case <-time.After(common.MinDuration(retryWaitInterval, remaining)):
-			}
+		case <-time.After(common.MinDuration(retryWaitInterval, remaining)):
 		}
 	}
 }

@@ -171,11 +171,11 @@ func TestEnforceTimeoutFromContext(t *testing.T) {
 	}
 }
 
-func TestSpilloverToSecondRunner(t *testing.T) {
+func TestRRRunner(t *testing.T) {
 	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1", "171.19.0.2"}, 10*time.Millisecond, 2)
 
-	parallelCalls := 3
+	parallelCalls := 2
 	var wg sync.WaitGroup
 	failures := make(chan error, parallelCalls)
 	for i := 0; i < parallelCalls; i++ {
@@ -194,8 +194,11 @@ func TestSpilloverToSecondRunner(t *testing.T) {
 	close(failures)
 
 	err := <-failures
-	if err != nil || rp.runners[1].(*mockRunner).procCalls != 1 {
-		t.Fatal("Expected spillover to second runner")
+	if err != nil {
+		t.Fatalf("Expected no error %s", err.Error())
+	}
+	if rp.runners[1].(*mockRunner).procCalls != 1 && rp.runners[0].(*mockRunner).procCalls != 1 {
+		t.Fatal("Expected rr runner")
 	}
 }
 
