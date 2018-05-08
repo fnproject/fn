@@ -8,10 +8,10 @@ dep-up:
 	dep ensure
 
 build: api/agent/grpc/runner.pb.go
-	go build -o fnserver
+	go build -o fnserver ./cmd/fnserver 
 
 install:
-	go build -o ${GOPATH}/bin/fnserver
+	go build -o ${GOPATH}/bin/fnserver ./cmd/fnserver 
 
 checkfmt:
 	./go-fmt.sh
