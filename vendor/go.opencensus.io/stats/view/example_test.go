@@ -22,9 +22,11 @@ import (
 )
 
 func Example() {
-	m, _ := stats.Int64("my.org/measure/openconns", "open connections", "")
+	// Measures are usually declared and used by instrumented packages.
+	m := stats.Int64("my.org/measure/openconns", "open connections", stats.UnitDimensionless)
 
-	if err := view.Subscribe(&view.View{
+	// Views are usually subscribed in your application main function.
+	if err := view.Register(&view.View{
 		Name:        "my.org/views/openconns",
 		Description: "open connections",
 		Measure:     m,

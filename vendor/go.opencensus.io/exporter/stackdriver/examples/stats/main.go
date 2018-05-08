@@ -28,6 +28,10 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
+// Create measures. The program will record measures for the size of
+// processed videos and the nubmer of videos marked as spam.
+var videoSize = stats.Int64("my.org/measure/video_size", "size of processed videos", stats.UnitBytes)
+
 func main() {
 	ctx := context.Background()
 
@@ -49,20 +53,13 @@ func main() {
 	}
 	view.RegisterExporter(exporter)
 
-	// Create measures. The program will record measures for the size of
-	// processed videos and the nubmer of videos marked as spam.
-	videoSize, err := stats.Int64("my.org/measure/video_size", "size of processed videos", "MBy")
-	if err != nil {
-		log.Fatalf("Video size measure not created: %v", err)
-	}
-
 	// Set reporting period to report data at every second.
 	view.SetReportingPeriod(1 * time.Second)
 
 	// Create view to see the processed video size cumulatively.
 	// Subscribe will allow view data to be exported.
 	// Once no longer need, you can unsubscribe from the view.
-	if err := view.Subscribe(&view.View{
+	if err := view.Register(&view.View{
 		Name:        "my.org/views/video_size_cum",
 		Description: "processed video size over time",
 		Measure:     videoSize,
@@ -71,11 +68,15 @@ func main() {
 		log.Fatalf("Cannot subscribe to the view: %v", err)
 	}
 
-	// Record data points.
-	stats.Record(ctx, videoSize.M(25648))
+	processVideo(ctx)
 
 	// Wait for a duration longer than reporting duration to ensure the stats
 	// library reports the collected data.
 	fmt.Println("Wait longer than the reporting duration...")
 	time.Sleep(1 * time.Minute)
+}
+
+func processVideo(ctx context.Context) {
+	// Do some processing and record stats.
+	stats.Record(ctx, videoSize.M(25648))
 }

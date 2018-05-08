@@ -576,7 +576,7 @@ func WithJaeger(jaegerURL string) ServerOption {
 		logrus.WithFields(logrus.Fields{"url": jaegerURL}).Info("exporting spans to jaeger")
 
 		// TODO don't do this. testing parity.
-		trace.SetDefaultSampler(trace.AlwaysSample())
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		return nil
 	}
 }
@@ -595,7 +595,7 @@ func WithZipkin(zipkinURL string) ServerOption {
 		logrus.WithFields(logrus.Fields{"url": zipkinURL}).Info("exporting spans to zipkin")
 
 		// TODO don't do this. testing parity.
-		trace.SetDefaultSampler(trace.AlwaysSample())
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		return nil
 	}
 }

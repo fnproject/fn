@@ -1,10 +1,21 @@
 package ochttp
 
 import (
+	"bufio"
 	"bytes"
+	"context"
+	"crypto/tls"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
+
+	"golang.org/x/net/http2"
 
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
@@ -26,8 +37,8 @@ func updateMean(mean float64, sample, count int) float64 {
 }
 
 func TestHandlerStatsCollection(t *testing.T) {
-	for _, v := range DefaultServerViews {
-		v.Subscribe()
+	if err := view.Register(DefaultServerViews...); err != nil {
+		t.Fatalf("Failed to register ochttp.DefaultServerViews error: %v", err)
 	}
 
 	views := []string{
@@ -90,7 +101,7 @@ func TestHandlerStatsCollection(t *testing.T) {
 		var sum float64
 		switch data := data.(type) {
 		case *view.CountData:
-			count = int(*data)
+			count = int(data.Value)
 		case *view.DistributionData:
 			count = int(data.Count)
 			sum = data.Sum()
@@ -115,4 +126,228 @@ func TestHandlerStatsCollection(t *testing.T) {
 			}
 		}
 	}
+}
+
+type testResponseWriterHijacker struct {
+	httptest.ResponseRecorder
+}
+
+func (trw *testResponseWriterHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return nil, nil, nil
+}
+
+func TestUnitTestHandlerProxiesHijack(t *testing.T) {
+	tests := []struct {
+		w       http.ResponseWriter
+		wantErr string
+	}{
+		{httptest.NewRecorder(), "ResponseWriter does not implement http.Hijacker"},
+		{nil, "ResponseWriter does not implement http.Hijacker"},
+		{new(testResponseWriterHijacker), ""},
+	}
+
+	for i, tt := range tests {
+		tw := &trackingResponseWriter{writer: tt.w}
+		conn, buf, err := tw.Hijack()
+		if tt.wantErr != "" {
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("#%d got error (%v) want error substring (%q)", i, err, tt.wantErr)
+			}
+			if conn != nil {
+				t.Errorf("#%d inconsistent state got non-nil conn (%v)", i, conn)
+			}
+			if buf != nil {
+				t.Errorf("#%d inconsistent state got non-nil buf (%v)", i, buf)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d got unexpected error %v", i, err)
+		}
+	}
+}
+
+// Integration test with net/http to ensure that our Handler proxies to its
+// response the call to (http.Hijack).Hijacker() and that that successfully
+// passes with HTTP/1.1 connections. See Issue #642
+func TestHandlerProxiesHijack_HTTP1(t *testing.T) {
+	cst := httptest.NewServer(&Handler{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var writeMsg func(string)
+			defer func() {
+				err := recover()
+				writeMsg(fmt.Sprintf("Proto=%s\npanic=%v", r.Proto, err != nil))
+			}()
+			conn, _, _ := w.(http.Hijacker).Hijack()
+			writeMsg = func(msg string) {
+				fmt.Fprintf(conn, "%s 200\nContentLength: %d", r.Proto, len(msg))
+				fmt.Fprintf(conn, "\r\n\r\n%s", msg)
+				conn.Close()
+			}
+		}),
+	})
+	defer cst.Close()
+
+	testCases := []struct {
+		name string
+		tr   *http.Transport
+		want string
+	}{
+		{
+			name: "http1-transport",
+			tr:   new(http.Transport),
+			want: "Proto=HTTP/1.1\npanic=false",
+		},
+		{
+			name: "http2-transport",
+			tr: func() *http.Transport {
+				tr := new(http.Transport)
+				http2.ConfigureTransport(tr)
+				return tr
+			}(),
+			want: "Proto=HTTP/1.1\npanic=false",
+		},
+	}
+
+	for _, tc := range testCases {
+		c := &http.Client{Transport: &Transport{Base: tc.tr}}
+		res, err := c.Get(cst.URL)
+		if err != nil {
+			t.Errorf("(%s) unexpected error %v", tc.name, err)
+			continue
+		}
+		blob, _ := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		if g, w := string(blob), tc.want; g != w {
+			t.Errorf("(%s) got = %q; want = %q", tc.name, g, w)
+		}
+	}
+}
+
+// Integration test with net/http, x/net/http2 to ensure that our Handler proxies
+// to its response the call to (http.Hijack).Hijacker() and that that crashes
+// since http.Hijacker and HTTP/2.0 connections are incompatible, but the
+// detection is only at runtime and ensure that we can stream and flush to the
+// connection even after invoking Hijack(). See Issue #642.
+func TestHandlerProxiesHijack_HTTP2(t *testing.T) {
+	cst := httptest.NewUnstartedServer(&Handler{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if conn != nil {
+				data := fmt.Sprintf("Surprisingly got the Hijacker() Proto: %s", r.Proto)
+				fmt.Fprintf(conn, "%s 200\nContent-Length:%d\r\n\r\n%s", r.Proto, len(data), data)
+				conn.Close()
+				return
+			}
+
+			switch {
+			case err == nil:
+				fmt.Fprintf(w, "Unexpectedly did not encounter an error!")
+			default:
+				fmt.Fprintf(w, "Unexpected error: %v", err)
+			case strings.Contains(err.(error).Error(), "Hijack"):
+				// Confirmed HTTP/2.0, let's stream to it
+				for i := 0; i < 5; i++ {
+					fmt.Fprintf(w, "%d\n", i)
+					w.(http.Flusher).Flush()
+				}
+			}
+		}),
+	})
+	cst.TLS = &tls.Config{NextProtos: []string{"h2"}}
+	cst.StartTLS()
+	defer cst.Close()
+
+	if wantPrefix := "https://"; !strings.HasPrefix(cst.URL, wantPrefix) {
+		t.Fatalf("URL got = %q wantPrefix = %q", cst.URL, wantPrefix)
+	}
+
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	http2.ConfigureTransport(tr)
+	c := &http.Client{Transport: tr}
+	res, err := c.Get(cst.URL)
+	if err != nil {
+		t.Fatalf("Unexpected error %v", err)
+	}
+	blob, _ := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if g, w := string(blob), "0\n1\n2\n3\n4\n"; g != w {
+		t.Errorf("got = %q; want = %q", g, w)
+	}
+}
+
+func TestEnsureTrackingResponseWriterSetsStatusCode(t *testing.T) {
+	// Ensure that the trackingResponseWriter always sets the spanStatus on ending the span.
+	// Because we can only examine the Status after exporting, this test roundtrips a
+	// couple of requests and then later examines the exported spans.
+	// See Issue #700.
+	exporter := &spanExporter{cur: make(chan *trace.SpanData, 1)}
+	trace.RegisterExporter(exporter)
+	defer trace.UnregisterExporter(exporter)
+
+	tests := []struct {
+		res  *http.Response
+		want trace.Status
+	}{
+		{res: &http.Response{StatusCode: 200}, want: trace.Status{Code: trace.StatusCodeOK, Message: `"OK"`}},
+		{res: &http.Response{StatusCode: 500}, want: trace.Status{Code: trace.StatusCodeUnknown, Message: `"UNKNOWN"`}},
+		{res: &http.Response{StatusCode: 403}, want: trace.Status{Code: trace.StatusCodePermissionDenied, Message: `"PERMISSION_DENIED"`}},
+		{res: &http.Response{StatusCode: 401}, want: trace.Status{Code: trace.StatusCodeUnauthenticated, Message: `"UNAUTHENTICATED"`}},
+		{res: &http.Response{StatusCode: 429}, want: trace.Status{Code: trace.StatusCodeResourceExhausted, Message: `"RESOURCE_EXHAUSTED"`}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want.Message, func(t *testing.T) {
+			span := trace.NewSpan("testing", nil, trace.StartOptions{Sampler: trace.AlwaysSample()})
+			ctx := trace.WithSpan(context.Background(), span)
+			prc, pwc := io.Pipe()
+			go func() {
+				pwc.Write([]byte("Foo"))
+				pwc.Close()
+			}()
+			inRes := tt.res
+			inRes.Body = prc
+			tr := &traceTransport{base: &testResponseTransport{res: inRes}}
+			req, err := http.NewRequest("POST", "https://example.org", bytes.NewReader([]byte("testing")))
+			if err != nil {
+				t.Fatalf("NewRequest error: %v", err)
+			}
+			req = req.WithContext(ctx)
+			res, err := tr.RoundTrip(req)
+			if err != nil {
+				t.Fatalf("RoundTrip error: %v", err)
+			}
+			_, _ = ioutil.ReadAll(res.Body)
+			res.Body.Close()
+
+			cur := <-exporter.cur
+			if got, want := cur.Status, tt.want; got != want {
+				t.Fatalf("SpanData:\ngot =  (%#v)\nwant = (%#v)", got, want)
+			}
+		})
+	}
+}
+
+type spanExporter struct {
+	sync.Mutex
+	cur chan *trace.SpanData
+}
+
+var _ trace.Exporter = (*spanExporter)(nil)
+
+func (se *spanExporter) ExportSpan(sd *trace.SpanData) {
+	se.Lock()
+	se.cur <- sd
+	se.Unlock()
+}
+
+type testResponseTransport struct {
+	res *http.Response
+}
+
+var _ http.RoundTripper = (*testResponseTransport)(nil)
+
+func (rb *testResponseTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return rb.res, nil
 }

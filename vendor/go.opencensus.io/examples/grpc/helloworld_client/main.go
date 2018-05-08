@@ -37,8 +37,8 @@ func main() {
 	// the collected data.
 	view.RegisterExporter(&exporter.PrintExporter{})
 
-	// Subscribe to collect client request count.
-	if err := ocgrpc.ClientErrorCountView.Subscribe(); err != nil {
+	// Register the view to collect gRPC client stats.
+	if err := view.Register(ocgrpc.DefaultClientViews...); err != nil {
 		log.Fatal(err)
 	}
 

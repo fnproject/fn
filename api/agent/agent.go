@@ -19,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -1013,7 +1012,9 @@ func (c *container) FsSize() uint64                 { return c.fsSize }
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	for key, value := range stat.Metrics {
-		stats.Record(ctx, stats.FindMeasure("docker_stats_"+key).(*stats.Int64Measure).M(int64(value)))
+		if m, ok := measures[key]; ok {
+			stats.Record(ctx, m.M(int64(value)))
+		}
 	}
 
 	c.statsMu.Lock()
@@ -1023,42 +1024,19 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	c.statsMu.Unlock()
 }
 
+var measures map[string]*stats.Int64Measure
+
 func init() {
 	// TODO this is nasty figure out how to use opencensus to not have to declare these
 	keys := []string{"net_rx", "net_tx", "mem_limit", "mem_usage", "disk_read", "disk_write", "cpu_user", "cpu_total", "cpu_kernel"}
 
-	// TODO necessary?
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
+	measures = make(map[string]*stats.Int64Measure)
 	for _, key := range keys {
 		units := "bytes"
 		if strings.Contains(key, "cpu") {
 			units = "cpu"
 		}
-		dockerStatsDist, err := stats.Int64("docker_stats_"+key, "docker container stats for "+key, units)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"docker_stats_"+key,
-			"docker container stats for "+key,
-			[]tag.Key{appKey, pathKey},
-			dockerStatsDist,
-			view.Distribution(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
+		measures[key] = makeMeasure("docker_stats_"+key, "docker container stats for "+key, units, view.Distribution())
 	}
 }
 

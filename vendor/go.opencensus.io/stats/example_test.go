@@ -16,16 +16,16 @@ package stats_test
 
 import (
 	"context"
-	"log"
 
 	"go.opencensus.io/stats"
 )
 
 func ExampleRecord() {
 	ctx := context.Background()
-	openConns, err := stats.Int64("my.org/measure/openconns", "open connections", stats.UnitNone)
-	if err != nil {
-		log.Fatal(err)
-	}
+
+	// Measures are usually declared as package-private global variables.
+	openConns := stats.Int64("my.org/measure/openconns", "open connections", stats.UnitDimensionless)
+
+	// Instrumented packages call stats.Record() to record measuremens.
 	stats.Record(ctx, openConns.M(124)) // Record 124 open connections.
 }
