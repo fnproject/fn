@@ -30,6 +30,10 @@ ignored = ["github.com/fnproject/fn/cli"]
   version = "0.2.6"
 
 [[constraint]]
+  name = "github.com/fnproject/cloudevent"
+  branch = "master"
+
+[[constraint]]
   name = "github.com/gin-gonic/gin"
   version = "v1.2"
 

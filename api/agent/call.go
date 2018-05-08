@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/common"
-	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -53,130 +51,6 @@ type Params []Param
 const (
 	ceMimeType = "application/cloudevents+json"
 )
-
-func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallOpt {
-	return func(c *call) error {
-		ctx := req.Context()
-		route, err := a.GetRoute(ctx, app.ID, path)
-		if err != nil {
-			return err
-		}
-
-		log := common.Logger(ctx)
-		// Check whether this is a CloudEvent, if coming in via HTTP router (only way currently), then we'll look for a special header
-		// Content-Type header: https://github.com/cloudevents/spec/blob/master/http-transport-binding.md#32-structured-content-mode
-		// Expected Content-Type for a CloudEvent: application/cloudevents+json; charset=UTF-8
-		contentType := req.Header.Get("Content-Type")
-		t, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			// won't fail here, but log
-			log.Debugf("Could not parse Content-Type header: %v", err)
-		} else {
-			if t == ceMimeType {
-				c.IsCloudEvent = true
-				route.Format = models.FormatCloudEvent
-			}
-		}
-
-		if route.Format == "" {
-			route.Format = models.FormatDefault
-		}
-
-		id := id.New().String()
-
-		// TODO this relies on ordering of opts, but tests make sure it works, probably re-plumb/destroy headers
-		// TODO async should probably supply an http.ResponseWriter that records the logs, to attach response headers to
-		if rw, ok := c.w.(http.ResponseWriter); ok {
-			rw.Header().Add("FN_CALL_ID", id)
-			for k, vs := range route.Headers {
-				for _, v := range vs {
-					// pre-write in these headers to response
-					rw.Header().Add(k, v)
-				}
-			}
-		}
-
-		// this ensures that there is an image, path, timeouts, memory, etc are valid.
-		// NOTE: this means assign any changes above into route's fields
-		err = route.Validate()
-		if err != nil {
-			return err
-		}
-
-		c.Call = &models.Call{
-			ID:    id,
-			Path:  route.Path,
-			Image: route.Image,
-			// Delay: 0,
-			Type:   route.Type,
-			Format: route.Format,
-			// Payload: TODO,
-			Priority:    new(int32), // TODO this is crucial, apparently
-			Timeout:     route.Timeout,
-			IdleTimeout: route.IdleTimeout,
-			Memory:      route.Memory,
-			CPUs:        route.CPUs,
-			Config:      buildConfig(app, route),
-			Annotations: buildAnnotations(app, route),
-			Headers:     req.Header,
-			CreatedAt:   strfmt.DateTime(time.Now()),
-			URL:         reqURL(req),
-			Method:      req.Method,
-			AppID:       app.ID,
-		}
-
-		c.req = req
-		return nil
-	}
-}
-
-func buildConfig(app *models.App, route *models.Route) models.Config {
-	conf := make(models.Config, 8+len(app.Config)+len(route.Config))
-	for k, v := range app.Config {
-		conf[k] = v
-	}
-	for k, v := range route.Config {
-		conf[k] = v
-	}
-
-	conf["FN_FORMAT"] = route.Format
-	conf["FN_APP_NAME"] = app.Name
-	conf["FN_PATH"] = route.Path
-	// TODO: might be a good idea to pass in: "FN_BASE_PATH" = fmt.Sprintf("/r/%s", appName) || "/" if using DNS entries per app
-	conf["FN_MEMORY"] = fmt.Sprintf("%d", route.Memory)
-	conf["FN_TYPE"] = route.Type
-
-	CPUs := route.CPUs.String()
-	if CPUs != "" {
-		conf["FN_CPUS"] = CPUs
-	}
-	return conf
-}
-
-func buildAnnotations(app *models.App, route *models.Route) models.Annotations {
-	ann := make(models.Annotations, len(app.Annotations)+len(route.Annotations))
-	for k, v := range app.Annotations {
-		ann[k] = v
-	}
-	for k, v := range route.Annotations {
-		ann[k] = v
-	}
-	return ann
-}
-
-func reqURL(req *http.Request) string {
-	if req.URL.Scheme == "" {
-		if req.TLS == nil {
-			req.URL.Scheme = "http"
-		} else {
-			req.URL.Scheme = "https"
-		}
-	}
-	if req.URL.Host == "" {
-		req.URL.Host = req.Host
-	}
-	return req.URL.String()
-}
 
 // TODO this currently relies on FromRequest having happened before to create the model
 // here, to be a fully qualified model. We probably should double check but having a way

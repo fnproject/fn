@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 
+	"github.com/fnproject/cloudevent"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
@@ -55,6 +56,11 @@ func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error)
 		shutWg: common.NewWaitGroup(),
 	}
 	return a, nil
+}
+
+func (a *lbAgent) Handle(ctx context.Context, event cloudevent.CloudEvent) (cloudevent.CloudEvent, error) {
+	// TODO
+	return cloudevent.CloudEvent{}, errors.New("Handle not implemented")
 }
 
 func (a *lbAgent) AddCallListener(listener fnext.CallListener) {

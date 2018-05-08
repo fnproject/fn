@@ -82,6 +82,7 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 				Source:             ci.RequestURL(),
 			},
 		}
+		// TODO: THIS IS ALREADY DONE AT TOP LEVEL, SO CAN NOT DO A BUNCH OF THESE
 		// NOTE: data is an optional field, we can leave it as nil
 		if buf.Len() > 0 {
 			// NOTE: if it's not contentType=application/json, then a string is a valid json value, so this will work.
@@ -102,6 +103,7 @@ func (h *CloudEventProtocol) writeJSONToContainer(ci CallInfo) error {
 		RequestURL: ci.RequestURL(),
 		Headers:    ci.Headers(),
 	}
+	// TODO: still need to add this
 	in.Extensions["deadline"] = ci.Deadline().String()
 
 	return json.NewEncoder(h.in).Encode(in)

@@ -2,11 +2,14 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/fnproject/cloudevent"
 
 	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/drivers/docker"
@@ -80,6 +83,9 @@ type Agent interface {
 	// may be from the call's execution itself (if, say, the container dies,
 	// or the call times out).
 	Submit(Call) error
+
+	// The new school
+	Handle(ctx context.Context, event cloudevent.CloudEvent) (cloudevent.CloudEvent, error)
 
 	// Close will wait for any outstanding calls to complete and then exit.
 	// Close is not safe to be called from multiple threads.
@@ -226,6 +232,12 @@ func (a *agent) Submit(callI Call) error {
 
 	err := a.submit(ctx, call)
 	return err
+}
+
+func (a *agent) Handle(ctx context.Context, event cloudevent.CloudEvent) (cloudevent.CloudEvent, error) {
+	// TODO
+	// todo: need to check if async and if so, call Enqueue and return
+	return cloudevent.CloudEvent{}, errors.New("Handle not implemented")
 }
 
 func (a *agent) startStateTrackers(ctx context.Context, call *call) {

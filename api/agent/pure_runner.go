@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fnproject/cloudevent"
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
@@ -542,6 +543,11 @@ func (pr *pureRunner) Close() error {
 		return err
 	}
 	return nil
+}
+
+func (pr *pureRunner) Handle(ctx context.Context, event cloudevent.CloudEvent) (cloudevent.CloudEvent, error) {
+	// TODO
+	return cloudevent.CloudEvent{}, errors.New("Handle not implemented")
 }
 
 func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
