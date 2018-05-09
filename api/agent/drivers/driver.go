@@ -190,7 +190,8 @@ const (
 )
 
 type Config struct {
-	Docker string `json:"docker"`
+	Docker         string `json:"docker"`
+	DockerNetworks string `json:"docker_networks"`
 	// TODO CPUShares should likely be on a per container basis
 	CPUShares       int64  `json:"cpu_shares"`
 	ServerVersion   string `json:"server_version"`
