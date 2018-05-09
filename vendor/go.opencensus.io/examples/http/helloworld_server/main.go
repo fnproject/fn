@@ -37,7 +37,7 @@ func main() {
 	trace.RegisterExporter(exporter)
 
 	// Always trace for this demo.
-	trace.SetDefaultSampler(trace.AlwaysSample())
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	// Report stats at every second.
 	view.SetReportingPeriod(1 * time.Second)
@@ -50,12 +50,14 @@ func main() {
 		r, _ := http.NewRequest("GET", "https://example.com", nil)
 
 		// Propagate the trace header info in the outgoing requests.
-		r = req.WithContext(req.Context())
+		r = r.WithContext(req.Context())
 		resp, err := client.Do(r)
 		if err != nil {
 			log.Println(err)
+		} else {
+			// TODO: handle response
+			resp.Body.Close()
 		}
-		_ = resp // handle response
 	})
 	log.Fatal(http.ListenAndServe(":50030", &ochttp.Handler{}))
 }

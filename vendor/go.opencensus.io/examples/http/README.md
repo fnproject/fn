@@ -7,7 +7,7 @@ This example uses:
 * Debugging exporters to print stats and traces to stdout.
 
 ```
-$ go get go.opencensus.io/examples/http
+$ go get go.opencensus.io/examples/http/...
 ```
 
 First, run the server:

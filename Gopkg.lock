@@ -5,6 +5,7 @@
   name = "git.apache.org/thrift.git"
   packages = ["lib/go/thrift"]
   revision = "272470790ad6db791bd6f9db399b2cd2d5879f74"
+  source = "github.com/apache/thrift"
 
 [[projects]]
   branch = "master"
@@ -529,10 +530,11 @@
     "stats/view",
     "tag",
     "trace",
+    "trace/internal",
     "trace/propagation"
   ]
-  revision = "6e3f034057826b530038d93267906ec3c012183f"
-  version = "v0.6.0"
+  revision = "10cec2c05ea2cfb8b0d856711daedc49d8a45c56"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -664,6 +666,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "321ea984c523241adc23f36302d387cebbcc05a56812fc3555d82c9c5928274c"
+  inputs-digest = "5ff01d4a02d97ec5447f99d45f47e593bb94c4581f07baefad209f25d0b88785"
   solver-name = "gps-cdcl"
   solver-version = 1

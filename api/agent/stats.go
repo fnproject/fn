@@ -79,13 +79,17 @@ var (
 )
 
 func init() {
-	// TODO(reed): doing this at each call site seems not the intention of the library since measurements
-	// need to be created and views registered. doing this up front seems painful but maybe there
-	// are benefits?
+	queuedMeasure = makeMeasure(queuedMetricName, "calls currently queued against agent", "", view.Sum())
+	callsMeasure = makeMeasure(callsMetricName, "calls created in agent", "", view.Sum())
+	runningMeasure = makeMeasure(runningMetricName, "calls currently running in agent", "", view.Sum())
+	completedMeasure = makeMeasure(completedMetricName, "calls completed in agent", "", view.Sum())
+	failedMeasure = makeMeasure(failedMetricName, "calls failed in agent", "", view.Sum())
+	timedoutMeasure = makeMeasure(timedoutMetricName, "calls timed out in agent", "", view.Sum())
+	errorsMeasure = makeMeasure(errorsMetricName, "calls errored in agent", "", view.Sum())
+	serverBusyMeasure = makeMeasure(serverBusyMetricName, "calls where server was too busy in agent", "", view.Sum())
+}
 
-	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
-	// or we have to white list them in the view for them to show up? test...
-	var err error
+func makeMeasure(name string, desc string, unit string, agg *view.Aggregation) *stats.Int64Measure {
 	appKey, err := tag.NewKey("fn_appname")
 	if err != nil {
 		logrus.Fatal(err)
@@ -95,163 +99,18 @@ func init() {
 		logrus.Fatal(err)
 	}
 
-	{
-		queuedMeasure, err = stats.Int64(queuedMetricName, "calls currently queued against agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			queuedMetricName,
-			"calls currently queued to agent",
-			[]tag.Key{appKey, pathKey},
-			queuedMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
+	measure := stats.Int64(name, desc, unit)
+	err = view.Register(
+		&view.View{
+			Name:        name,
+			Description: desc,
+			TagKeys:     []tag.Key{appKey, pathKey},
+			Measure:     measure,
+			Aggregation: agg,
+		},
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot create view")
 	}
-
-	{
-		callsMeasure, err = stats.Int64(callsMetricName, "calls created in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			callsMetricName,
-			"calls created in agent",
-			[]tag.Key{appKey, pathKey},
-			callsMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		runningMeasure, err = stats.Int64(runningMetricName, "calls currently running in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			runningMetricName,
-			"calls currently running in agent",
-			[]tag.Key{appKey, pathKey},
-			runningMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		completedMeasure, err = stats.Int64(completedMetricName, "calls completed in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			completedMetricName,
-			"calls completed in agent",
-			[]tag.Key{appKey, pathKey},
-			completedMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		failedMeasure, err = stats.Int64(failedMetricName, "calls failed in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			failedMetricName,
-			"calls failed in agent",
-			[]tag.Key{appKey, pathKey},
-			failedMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		timedoutMeasure, err = stats.Int64(timedoutMetricName, "calls timed out in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			timedoutMetricName,
-			"calls timed out in agent",
-			[]tag.Key{appKey, pathKey},
-			timedoutMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		errorsMeasure, err = stats.Int64(errorsMetricName, "calls errored in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			errorsMetricName,
-			"calls errored in agent",
-			[]tag.Key{appKey, pathKey},
-			errorsMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		serverBusyMeasure, err = stats.Int64(serverBusyMetricName, "calls where server was too busy in agent", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			serverBusyMetricName,
-			"calls where server was too busy in agent",
-			[]tag.Key{appKey, pathKey},
-			serverBusyMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
+	return measure
 }

@@ -429,42 +429,34 @@ func init() {
 	}
 
 	{
-		uploadSizeMeasure, err = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"s3_log_upload_size",
-			"uploaded log size",
-			[]tag.Key{appKey, pathKey},
-			uploadSizeMeasure,
-			view.Distribution(),
+		uploadSizeMeasure = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
+		err = view.Register(
+			&view.View{
+				Name:        "s3_log_upload_size",
+				Description: "uploaded log size",
+				TagKeys:     []tag.Key{appKey, pathKey},
+				Measure:     uploadSizeMeasure,
+				Aggregation: view.Distribution(),
+			},
 		)
 		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
+			logrus.WithError(err).Fatal("cannot create view")
 		}
 	}
 
 	{
-		downloadSizeMeasure, err = stats.Int64("s3_log_download_size", "downloaded log size", "byte")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"s3_log_download_size",
-			"downloaded log size",
-			[]tag.Key{appKey, pathKey},
-			downloadSizeMeasure,
-			view.Distribution(),
+		downloadSizeMeasure = stats.Int64("s3_log_download_size", "downloaded log size", "byte")
+		err = view.Register(
+			&view.View{
+				Name:        "s3_log_download_size",
+				Description: "downloaded log size",
+				TagKeys:     []tag.Key{appKey, pathKey},
+				Measure:     uploadSizeMeasure,
+				Aggregation: view.Distribution(),
+			},
 		)
 		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
+			logrus.WithError(err).Fatal("cannot create view")
 		}
 	}
 }

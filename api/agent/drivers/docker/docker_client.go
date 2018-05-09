@@ -102,101 +102,10 @@ type dockerWrap struct {
 }
 
 func init() {
-	// TODO doing this at each call site seems not the intention of the library since measurements
-	// need to be created and views registered. doing this up front seems painful but maybe there
-	// are benefits?
-
-	// TODO do we have to do this? the measurements will be tagged on the context, will they be propagated
-	// or we have to white list them in the view for them to show up? test...
-	var err error
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	{
-		dockerRetriesMeasure, err = stats.Int64("docker_api_retries", "docker api retries", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"docker_api_retries",
-			"number of times we've retried docker API upon failure",
-			[]tag.Key{appKey, pathKey},
-			dockerRetriesMeasure,
-			view.Sum(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		dockerTimeoutMeasure, err = stats.Int64("docker_api_timeout", "docker api timeouts", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"docker_api_timeout_count",
-			"number of times we've timed out calling docker API",
-			[]tag.Key{appKey, pathKey},
-			dockerTimeoutMeasure,
-			view.Count(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		dockerErrorMeasure, err = stats.Int64("docker_api_error", "docker api errors", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"docker_api_error_count",
-			"number of unrecoverable errors from docker API",
-			[]tag.Key{appKey, pathKey},
-			dockerErrorMeasure,
-			view.Count(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
-
-	{
-		dockerOOMMeasure, err = stats.Int64("docker_oom", "docker oom", "")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		v, err := view.New(
-			"docker_oom_count",
-			"number of docker container oom",
-			[]tag.Key{appKey, pathKey},
-			dockerOOMMeasure,
-			view.Count(),
-		)
-		if err != nil {
-			logrus.Fatalf("cannot create view: %v", err)
-		}
-		if err := v.Subscribe(); err != nil {
-			logrus.Fatal(err)
-		}
-	}
+	dockerRetriesMeasure = makeMeasure("docker_api_retries", "docker api retries", "", view.Sum())
+	dockerTimeoutMeasure = makeMeasure("docker_api_timeout", "docker api timeouts", "", view.Count())
+	dockerErrorMeasure = makeMeasure("docker_api_error", "docker api errors", "", view.Count())
+	dockerOOMMeasure = makeMeasure("docker_oom", "docker oom", "", view.Count())
 }
 
 var (
@@ -446,4 +355,30 @@ func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
 	//return err
 	//})
 	//return err
+}
+
+func makeMeasure(name string, desc string, unit string, agg *view.Aggregation) *stats.Int64Measure {
+	appKey, err := tag.NewKey("fn_appname")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	pathKey, err := tag.NewKey("fn_path")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	measure := stats.Int64(name, desc, unit)
+	err = view.Register(
+		&view.View{
+			Name:        name,
+			Description: desc,
+			TagKeys:     []tag.Key{appKey, pathKey},
+			Measure:     measure,
+			Aggregation: agg,
+		},
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot create view")
+	}
+	return measure
 }
