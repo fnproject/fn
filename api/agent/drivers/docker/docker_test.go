@@ -68,6 +68,41 @@ func TestRunnerDocker(t *testing.T) {
 	}
 }
 
+func TestRunnerDockerNetworks(t *testing.T) {
+	dkr := NewDocker(drivers.Config{
+		DockerNetworks: "test1 test2",
+	})
+
+	ctx := context.Background()
+	var output bytes.Buffer
+	var errors bytes.Buffer
+
+	task1 := &taskDockerTest{"test-docker1", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
+	task2 := &taskDockerTest{"test-docker2", bytes.NewBufferString(`{"isDebug": true}`), &output, &errors}
+
+	cookie1, err := dkr.Prepare(ctx, task1)
+	if err != nil {
+		t.Fatal("Couldn't prepare task1 test")
+	}
+	defer cookie1.Close(ctx)
+
+	cookie2, err := dkr.Prepare(ctx, task2)
+	if err != nil {
+		t.Fatal("Couldn't prepare task2 test")
+	}
+	defer cookie2.Close(ctx)
+
+	c1 := cookie1.(*cookie)
+	c2 := cookie2.(*cookie)
+
+	if c1.netId != "test1" {
+		t.Fatalf("cookie1 netId should be %s but it is %s", "test1", c1.netId)
+	}
+	if c2.netId != "test2" {
+		t.Fatalf("cookie2 netId should be %s but it is %s", "test2", c2.netId)
+	}
+}
+
 func TestRunnerDockerVersion(t *testing.T) {
 
 	dkr := NewDocker(drivers.Config{

@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -48,11 +50,13 @@ func (r *runResult) Error() error   { return r.err }
 func (r *runResult) Status() string { return r.status }
 
 type DockerDriver struct {
-	conf     drivers.Config
-	docker   dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
-	hostname string
-	auths    map[string]docker.AuthConfiguration
-	pool     DockerPool
+	conf         drivers.Config
+	docker       dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
+	hostname     string
+	auths        map[string]docker.AuthConfiguration
+	pool         DockerPool
+	networksLock sync.Mutex
+	networks     map[string]uint64
 }
 
 // implements drivers.Driver
@@ -78,6 +82,14 @@ func NewDocker(conf drivers.Config) *DockerDriver {
 
 	if conf.PreForkPoolSize != 0 {
 		driver.pool = NewDockerPool(conf, driver)
+	}
+
+	nets := strings.Fields(conf.DockerNetworks)
+	if len(nets) > 0 {
+		driver.networks = make(map[string]uint64, len(nets))
+		for _, net := range nets {
+			driver.networks[net] = 0
+		}
 	}
 
 	return driver
@@ -131,27 +143,62 @@ func (drv *DockerDriver) Close() error {
 	return err
 }
 
-func (drv *DockerDriver) tryUsePool(ctx context.Context, container *docker.CreateContainerOptions) string {
+func (drv *DockerDriver) pickPool(ctx context.Context, container *docker.CreateContainerOptions) string {
 	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "tryUsePool"})
 
-	if drv.pool != nil {
-		id, err := drv.pool.AllocPoolId()
-		if err == nil {
-			linker := fmt.Sprintf("container:%s", id)
-			// We are able to fetch a container from pool. Now, use its
-			// network, ipc and pid namespaces.
-			container.HostConfig.NetworkMode = linker
-			//container.HostConfig.IpcMode = linker
-			//container.HostConfig.PidMode = linker
-			return id
-		}
-
-		log.WithError(err).Error("Could not fetch pre fork pool container")
+	if drv.pool == nil || container.HostConfig.NetworkMode != "" {
+		return ""
 	}
 
-	// hostname and container NetworkMode is not compatible.
-	container.Config.Hostname = drv.hostname
-	return ""
+	id, err := drv.pool.AllocPoolId()
+	if err != nil {
+		log.WithError(err).Error("Could not fetch pre fork pool container")
+		return ""
+	}
+
+	// We are able to fetch a container from pool. Now, use its
+	// network, ipc and pid namespaces.
+	container.HostConfig.NetworkMode = fmt.Sprintf("container:%s", id)
+	//container.HostConfig.IpcMode = linker
+	//container.HostConfig.PidMode = linker
+	return id
+}
+
+func (drv *DockerDriver) unpickPool(poolId string) {
+	if poolId != "" && drv.pool != nil {
+		drv.pool.FreePoolId(poolId)
+	}
+}
+
+func (drv *DockerDriver) pickNetwork(container *docker.CreateContainerOptions) string {
+
+	if len(drv.networks) == 0 || container.HostConfig.NetworkMode != "" {
+		return ""
+	}
+
+	var id string
+	min := uint64(math.MaxUint64)
+
+	drv.networksLock.Lock()
+	for key, val := range drv.networks {
+		if val < min {
+			id = key
+			min = val
+		}
+	}
+	drv.networks[id]++
+	drv.networksLock.Unlock()
+
+	container.HostConfig.NetworkMode = id
+	return id
+}
+
+func (drv *DockerDriver) unpickNetwork(netId string) {
+	if netId != "" {
+		drv.networksLock.Lock()
+		drv.networks[netId]--
+		drv.networksLock.Unlock()
+	}
 }
 
 func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
@@ -194,7 +241,13 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context: ctx,
 	}
 
-	poolId := drv.tryUsePool(ctx, &container)
+	poolId := drv.pickPool(ctx, &container)
+	netId := drv.pickNetwork(&container)
+
+	if container.HostConfig.NetworkMode == "" {
+		// hostname and container NetworkMode is not compatible.
+		container.Config.Hostname = drv.hostname
+	}
 
 	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
 	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
@@ -229,6 +282,8 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 
 	err := drv.ensureImage(ctx, task)
 	if err != nil {
+		drv.unpickPool(poolId)
+		drv.unpickNetwork(netId)
 		return nil, err
 	}
 
@@ -242,25 +297,30 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 			}).WithError(err).Error("Could not create container")
 
 			// NOTE: if the container fails to create we don't really want to show to user since they aren't directly configuring the container
+			drv.unpickPool(poolId)
+			drv.unpickNetwork(netId)
 			return nil, err
 		}
 	}
 
 	// discard removal error
-	return &cookie{id: task.Id(), task: task, drv: drv, poolId: poolId}, nil
+	return &cookie{id: task.Id(), task: task, drv: drv, poolId: poolId, netId: netId}, nil
 }
 
 type cookie struct {
 	id     string
 	poolId string
+	netId  string
 	task   drivers.ContainerTask
 	drv    *DockerDriver
 }
 
 func (c *cookie) Close(ctx context.Context) error {
-	if c.poolId != "" && c.drv.pool != nil {
-		defer c.drv.pool.FreePoolId(c.poolId)
-	}
+	defer func() {
+		c.drv.unpickPool(c.poolId)
+		c.drv.unpickNetwork(c.netId)
+	}()
+
 	return c.drv.removeContainer(ctx, c.id)
 }
 

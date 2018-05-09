@@ -137,6 +137,7 @@ func createAgent(da DataAccess) Agent {
 
 	// TODO: Create drivers.New(runnerConfig)
 	driver := docker.NewDocker(drivers.Config{
+		DockerNetworks:  cfg.DockerNetworks,
 		ServerVersion:   cfg.MinDockerVersion,
 		PreForkPoolSize: cfg.PreForkPoolSize,
 		PreForkImage:    cfg.PreForkImage,
