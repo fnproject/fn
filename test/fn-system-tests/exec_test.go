@@ -2,9 +2,10 @@ package tests
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
-	//"os"
 	"path"
 	"strings"
 	"testing"
@@ -24,12 +25,36 @@ func LB() (string, error) {
 	return u.Host, nil
 }
 
+func getEchoContent(respBytes []byte) (string, error) {
+
+	var respJs map[string]interface{}
+
+	err := json.Unmarshal(respBytes, &respJs)
+	if err != nil {
+		return "", err
+	}
+
+	req, ok := respJs["request"].(map[string]interface{})
+	if !ok {
+		return "", errors.New("unexpected json: request map")
+	}
+
+	echo, ok := req["echoContent"].(string)
+	if !ok {
+		return "", errors.New("unexpected json: echoContent string")
+	}
+
+	return echo, nil
+}
+
 func TestCanExecuteFunction(t *testing.T) {
 	s := apiutils.SetupHarness()
 	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
+	rt.Image = "fnproject/fn-test-utils"
+	rt.Format = "json"
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -44,16 +69,18 @@ func TestCanExecuteFunction(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	content := &bytes.Buffer{}
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
+
 	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
-	expectedOutput := "Hello World!\n"
-	actual := output.String()
-	if !strings.Contains(expectedOutput, actual) || len(expectedOutput) != len(actual) {
-		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+
+	echo, err := getEchoContent(output.Bytes())
+	if err != nil || echo != "HelloWorld" {
+		t.Fatalf("getEchoContent/HelloWorld check failed on %v", output)
 	}
 }
 
@@ -67,6 +94,8 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
+	rt.Image = "fnproject/fn-test-utils"
+	rt.Format = "json"
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -85,19 +114,21 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	concurrentFuncs := 10
 	for i := 0; i < concurrentFuncs; i++ {
 		go func() {
-			content := &bytes.Buffer{}
+			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
 			_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
 			}
-			expectedOutput := "Hello World!\n"
-			actual := output.String()
-			if !strings.Contains(expectedOutput, actual) || len(expectedOutput) != len(actual) {
-				results <- fmt.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+
+			echo, err := getEchoContent(output.Bytes())
+			if err != nil || echo != "HelloWorld" {
+				results <- fmt.Errorf("Assertion error.\n\tActual: %v", output.String())
 				return
 			}
+
 			results <- nil
 		}()
 	}
@@ -121,6 +152,8 @@ func TestSaturatedSystem(t *testing.T) {
 	defer s.Cleanup()
 
 	rt := s.BasicRoute()
+	rt.Image = "fnproject/fn-test-utils"
+	rt.Format = "json"
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -135,8 +168,10 @@ func TestSaturatedSystem(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	content := &bytes.Buffer{}
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
+	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
+
 	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		if err != apimodels.ErrCallTimeoutServerBusy {
