@@ -50,11 +50,12 @@ func (r *runResult) Error() error   { return r.err }
 func (r *runResult) Status() string { return r.status }
 
 type DockerDriver struct {
-	conf         drivers.Config
-	docker       dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
-	hostname     string
-	auths        map[string]docker.AuthConfiguration
-	pool         DockerPool
+	conf     drivers.Config
+	docker   dockerClient // retries on *docker.Client, restricts ad hoc *docker.Client usage / retries
+	hostname string
+	auths    map[string]docker.AuthConfiguration
+	pool     DockerPool
+	// protects networks map
 	networksLock sync.Mutex
 	networks     map[string]uint64
 }
