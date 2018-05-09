@@ -12,7 +12,7 @@ services:
       - ./data/logstore:/data
     command: server /data
   db:
-    image: "mysql"
+    image: "mysql:5.7.22"
     restart: always
     ports:
       - "3306:3306"
@@ -43,6 +43,7 @@ services:
       FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
+      FN_DOCKER_NETWORKS: "fn_default"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   grafana:
