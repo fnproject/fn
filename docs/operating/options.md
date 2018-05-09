@@ -37,6 +37,7 @@ docker run -e VAR_NAME=VALUE ...
 | `DOCKER_TLS_VERIFY` | Set this option to enable/disable Docker remote API over TLS/SSL. | 0 |
 | `DOCKER_CERT_PATH` | Set this option to specify where CA cert placeholder. | ~/.docker/cert.pem |
 | `FN_MAX_FS_SIZE_MB` | Set this option in MB to pass a `size` option to Docker storage driver. This limits the file system size for all containers on the system. See [Docker storage driver options per container](https://docs.docker.com/engine/reference/commandline/run/#set-storage-driver-options-per-container) documentation for details. | None |
+| `FN_DOCKER_NETWORKS` | Set this option with a list of docker networks for function containers to use. If unset, default docker network is used. | None |
 
 ## Starting without Docker in Docker
 
