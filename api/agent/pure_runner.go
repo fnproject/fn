@@ -400,10 +400,14 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		return 0, err
 	}
 
+	// we cannot retain 'data'
+	cpData := make([]byte, len(data))
+	copy(cpData, data)
+
 	err = ch.enqueueMsg(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Data{
 			Data: &runner.DataFrame{
-				Data: data,
+				Data: cpData,
 				Eof:  false,
 			},
 		},
