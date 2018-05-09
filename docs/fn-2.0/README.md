@@ -330,7 +330,7 @@ Picks runner to run it on and passes along event
 ### NEW IN 2.0
 
 The main changes here are related to [splitting functions and routes](https://github.com/fnproject/fn/issues/817).
-A route is now called a trigger and the route/trigger definition is no longer part of the function definition as it was before.
+A route is now called an http trigger and the route/trigger definition is no longer part of the function definition as it was before.
 
 ### Function Definition File
 
@@ -341,7 +341,7 @@ A function does not know about triggers so it only has the information required 
 ```yaml
 function:
   name: yodawg
-
+  image: fnproject/yofunc
   runtime: ruby
   entrypoint: ruby func.rb
   version: 0.0.7
@@ -352,16 +352,16 @@ function:
 
 ### Trigger Definition File
 
-A `trigger.yaml` file defines the mapping from event sources to functions. A trigger
-binds one event source to one function, for instance an HTTP route to a function.
+A `trigger.yaml` file defines the mapping from event sources to functions. A
+trigger binds one event source to one function, for instance an HTTP route to
+a function. Each type+name pair is unique.
 
 ```yaml
 trigger:
   name: sayhello
   type: http
-  # http specific param:
-  path: /sayhello
-  func: https://fnreg.com//myfunc
+  source: say/hello
+  func: https://fnreg.com/myfunc
 ```
 
 On `fn deploy`:
@@ -407,19 +407,23 @@ FDKs will work in the same manner as they do now and from a user perspective pro
 This will be almost exactly the same as how the current JSON format works, just different fields as defined here: 
 https://github.com/cloudevents/spec/blob/master/json-format.md
 
-Handlers will take the pseudo-form:
+Handlers will take 2 pseudo-forms:
 
 ```
 handle(context, input) (output, err)
+handle(context, cloudEvent) (cloudEvent, err)
 ```
 
-This form will change depending on what's right for the language, but they should all have the same 
+This form will change depending on what's right for the language, but they should all have the same
 meaning and generally the same feel:
 
 * `context` will include all of the CloudEvent fields other than the `data` field. 
 * `input` will be the `data` field
 * `output` is the response `data` field
 * `err` is if an error occurred and will be returned with the `CloudEvent.error` field set (see above)
+* `cloudEvent` is a full cloud event object, with an interface provided for
+    the user to have full control. it is optional for a user to use either of
+    the provided handlers, whichever is more convenient for them.
 
 
 ### NOTES
