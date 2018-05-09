@@ -6,7 +6,6 @@
 * Support CloudEvent messages as the native format throughout
 * Simplify everything
 * Modularize components
-* Namespacing
 
 ## Removals
 
@@ -153,7 +152,6 @@ A: It may seem this way now for just a few fields, but down the road, there coul
 
 CRUD for all the things.
 
-* Namespaces
 * Apps
 * Triggers
 * Functions
@@ -363,7 +361,7 @@ trigger:
   type: http
   # http specific param:
   path: /sayhello
-  func: https://fnreg.com/namespace/myfunc
+  func: https://fnreg.com//myfunc
 ```
 
 On `fn deploy`:
@@ -379,13 +377,13 @@ On `fn deploy`:
 This will create a function at:
 
 ```
-/ns/_/funcs/myfunc
+/funcs/myfunc
 ```
 
 and a trigger at:
 
 ```
-/ns/_/apps/myapp/triggers/sayhello
+/apps/myapp/triggers/sayhello
 {
   name: sayhello
   func: yodawg:0.0.7
@@ -398,12 +396,10 @@ in all of the above examples, a user will end up with a route to call:
 
 `http://my.fn.com/sayhello`
 
-TODO do the above with namespace instead and don't have `_` magic?
-
 ### CRUD
 
 we'll need to change crud around routes to have CRUD for functions and
-triggers, and add namespaces.
+triggers
 
 ## FDKs
 
@@ -447,6 +443,6 @@ base level FDK functionality is:
 * Implement runner `/run` end-to-end cloud-event format (server, CLI, FDK)
   * kill off json/http/default & runner should not construct cloud event in or out
   * only parse out extensions needed to run
-* Implement functions / triggers / namespace API CRUD, datastore
+* Implement functions / triggers API CRUD, datastore
 * ? i'm forgetting some stuff
 
