@@ -21,7 +21,7 @@ function quick() {
 }
 
 function build () {
-    docker run --rm -v ${pwd}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn golang:alpine go build -o fn-alpine
+    docker run --rm -v ${pwd}:/go/src/github.com/fnproject/fn -w /go/src/github.com/fnproject/fn/cmd/fnserver golang:alpine go build -o fn-alpine
     docker build -t fnproject/fnserver:latest .
 
 function run () {
