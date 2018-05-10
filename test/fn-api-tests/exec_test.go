@@ -272,11 +272,11 @@ func TestCallResponseHeadersMatch(t *testing.T) {
 	output := &bytes.Buffer{}
 	CallFN(u.String(), content, output, "POST",
 		[]string{
-			"ACCEPT: application/xml",
-			"ACCEPT: application/json; q=0.2",
+			"ACCEPT=application/xml",
+			"ACCEPT=application/json; q=0.2",
 		})
 	res := output.String()
-	if !strings.Contains("application/xml, application/json; q=0.2", res) {
+	if !strings.Contains(res, "application/xml, application/json; q=0.2") {
 		t.Errorf("HEADER_ACCEPT='application/xml, application/json; q=0.2' "+
 			"should be in output, have:%s\n", res)
 	}
