@@ -95,11 +95,18 @@ func TestRunnerDockerNetworks(t *testing.T) {
 	c1 := cookie1.(*cookie)
 	c2 := cookie2.(*cookie)
 
-	if c1.netId != "test1" {
-		t.Fatalf("cookie1 netId should be %s but it is %s", "test1", c1.netId)
+	var tally = map[string]uint64{
+		"test1": 0,
+		"test2": 0,
 	}
-	if c2.netId != "test2" {
-		t.Fatalf("cookie2 netId should be %s but it is %s", "test2", c2.netId)
+
+	tally[c1.netId]++
+	tally[c2.netId]++
+
+	for key, val := range tally {
+		if val != 1 {
+			t.Fatalf("netId unbalanced network usage for %s expected 1 got %d", key, val)
+		}
 	}
 }
 
