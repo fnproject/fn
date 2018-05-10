@@ -1,8 +1,13 @@
 version: '3'
+networks:
+  fn-network:
+    name: fn-network
 services:
   logstore:
     hostname: logstore
     image: minio/minio
+    networks:
+      - fn-network
     ports:
       - "9091:9000"
     environment:
@@ -12,8 +17,10 @@ services:
       - ./data/logstore:/data
     command: server /data
   db:
-    image: "mysql"
+    image: "mysql:5.7.22"
     restart: always
+    networks:
+      - fn-network
     ports:
       - "3306:3306"
     environment:
@@ -24,6 +31,8 @@ services:
   mq:
     image: "redis"
     restart: always
+    networks:
+      - fn-network
     ports:
       - "6379:6379"
   fnserver:
@@ -33,6 +42,8 @@ services:
       - db
       - logstore
     build: .
+    networks:
+      - fn-network
     ports:
       - "8080:8080"
     links:
@@ -43,11 +54,14 @@ services:
       FN_DB_URL: "mysql://root:root@tcp(db:3306)/funcs"
       FN_MQ_URL: "redis://mq:6379/"
       FN_LOGSTORE_URL: "s3://admin:password@logstore:9000/us-east-1/fnlogs"
+      FN_DOCKER_NETWORKS: "fn-network"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   grafana:
     image: grafana/grafana
     restart: always
+    networks:
+      - fn-network
     ports:
       - "3000:3000"
     links:
@@ -61,6 +75,8 @@ services:
     restart: always
     depends_on:
       - fnserver
+    networks:
+      - fn-network
     ports:
       - "9090:9090"
     links:
@@ -72,6 +88,8 @@ services:
       - fnserver
     image: fnproject/ui
     restart: always
+    networks:
+      - fn-network
     ports:
       - "4000:4000"
     links:
