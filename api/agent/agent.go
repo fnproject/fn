@@ -118,9 +118,11 @@ type agent struct {
 	callEndCount int64
 }
 
+type AgentOption func(*agent) error
+
 // New creates an Agent that executes functions locally as Docker containers.
-func New(da DataAccess) Agent {
-	a := createAgent(da).(*agent)
+func New(da DataAccess, options ...AgentOption) Agent {
+	a := createAgent(da, options...).(*agent)
 	if !a.shutWg.AddSession(1) {
 		logrus.Fatalf("cannot start agent, unable to add session")
 	}
@@ -128,32 +130,48 @@ func New(da DataAccess) Agent {
 	return a
 }
 
-func createAgent(da DataAccess) Agent {
+func WithConfig(cfg *AgentConfig) AgentOption {
+	return func(a *agent) error {
+		a.cfg = *cfg
+		return nil
+	}
+}
+
+func createAgent(da DataAccess, options ...AgentOption) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
 	}
-	logrus.Infof("agent starting cfg=%+v", cfg)
-
-	// TODO: Create drivers.New(runnerConfig)
-	driver := docker.NewDocker(drivers.Config{
-		DockerNetworks:  cfg.DockerNetworks,
-		ServerVersion:   cfg.MinDockerVersion,
-		PreForkPoolSize: cfg.PreForkPoolSize,
-		PreForkImage:    cfg.PreForkImage,
-		PreForkCmd:      cfg.PreForkCmd,
-		PreForkUseOnce:  cfg.PreForkUseOnce,
-		PreForkNetworks: cfg.PreForkNetworks,
-	})
 
 	a := &agent{
-		cfg:       *cfg,
-		da:        da,
-		driver:    driver,
-		slotMgr:   NewSlotQueueMgr(),
-		resources: NewResourceTracker(cfg),
-		shutWg:    common.NewWaitGroup(),
+		cfg: *cfg,
 	}
+
+	// Allow overriding config
+	for _, option := range options {
+		err = option(a)
+		if err != nil {
+			logrus.WithError(err).Fatalf("error in agent options")
+		}
+	}
+
+	logrus.Infof("agent starting cfg=%+v", a.cfg)
+
+	// TODO: Create drivers.New(runnerConfig)
+	a.driver = docker.NewDocker(drivers.Config{
+		DockerNetworks:  a.cfg.DockerNetworks,
+		ServerVersion:   a.cfg.MinDockerVersion,
+		PreForkPoolSize: a.cfg.PreForkPoolSize,
+		PreForkImage:    a.cfg.PreForkImage,
+		PreForkCmd:      a.cfg.PreForkCmd,
+		PreForkUseOnce:  a.cfg.PreForkUseOnce,
+		PreForkNetworks: a.cfg.PreForkNetworks,
+	})
+
+	a.da = da
+	a.slotMgr = NewSlotQueueMgr()
+	a.resources = NewResourceTracker(&a.cfg)
+	a.shutWg = common.NewWaitGroup()
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
 	return a

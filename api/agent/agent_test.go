@@ -902,3 +902,92 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 		t.Fatalf("body from second call was not what we wanted. boo. got wrong body: %v wanted: %v", resp.R.Body, "NODAWG")
 	}
 }
+
+func TestNBIOResourceTracker(t *testing.T) {
+
+	call := testCall()
+	call.Type = "sync"
+	call.Format = "http"
+	call.IdleTimeout = 60
+	call.Timeout = 30
+	call.Memory = 50
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
+	app.ID = call.AppID
+	// we need to load in app & route so that FromRequest works
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{
+				Path:        call.Path,
+				AppID:       call.AppID,
+				Image:       call.Image,
+				Type:        call.Type,
+				Format:      call.Format,
+				Timeout:     call.Timeout,
+				IdleTimeout: call.IdleTimeout,
+				Memory:      call.Memory,
+			},
+		},
+	)
+
+	cfg, err := NewAgentConfig()
+	if err != nil {
+		t.Fatalf("bad config %+v", cfg)
+	}
+
+	cfg.EnableNBResourceTracker = true
+	cfg.MaxTotalMemory = 280 * 1024 * 1024
+	cfg.HotPoll = 20 * time.Millisecond
+
+	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
+	defer a.Close()
+
+	reqCount := 20
+	errors := make(chan error, reqCount)
+	for i := 0; i < reqCount; i++ {
+		go func(i int) {
+			body := `{sleepTime": 10000, "isDebug": true}`
+			req, err := http.NewRequest("GET", call.URL, strings.NewReader(body))
+			if err != nil {
+				t.Fatal("unexpected error building request", err)
+			}
+
+			var outOne bytes.Buffer
+			callI, err := a.GetCall(FromRequest(a, app, call.Path, req), WithWriter(&outOne))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = a.Submit(callI)
+			errors <- err
+		}(i)
+	}
+
+	ok := 0
+	for i := 0; i < reqCount; i++ {
+		err := <-errors
+		t.Logf("Got response %v", err)
+		if err == nil {
+			ok++
+		} else if err == models.ErrCallTimeoutServerBusy {
+		} else {
+			t.Fatalf("Unexpected error %v", err)
+		}
+	}
+
+	// BUG: in theory, we should get 5 success. But due to hot polling/signalling,
+	// some requests may aggresively get 'too busy' since our req to slot relationship
+	// is not 1-to-1.
+	// This occurs in hot function request bursts (such as this test case).
+	// And when these requests repetitively poll the hotLauncher and system is
+	// likely to decide that a new container is needed (since many requests are waiting)
+	// which results in extra 'too busy' responses.
+	//
+	//
+	// 280MB total ram with 50MB functions... 5 should succeed, rest should
+	// get too busy
+	if ok < 4 || ok > 5 {
+		t.Fatalf("Expected successes, but got %d", ok)
+	}
+}
