@@ -18,7 +18,13 @@ import (
 )
 
 var (
-	ErrorRunnerClosed = errors.New("Runner is closed")
+	ErrorRunnerClosed   = errors.New("Runner is closed")
+	ErrorPureRunnerNACK = errors.New("Purerunner NACK response")
+)
+
+const (
+	// max buffer size for grpc data messages, 64K
+	MaxDataChunk = 64 * 1024
 )
 
 type gRPCRunner struct {
@@ -97,77 +103,81 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		return false, err
 	}
 
-	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
-	if err != nil {
-		logrus.WithError(err).Error("Failed to send message to runner node")
-		return false, err
-	}
-	msg, err := runnerConnection.Recv()
-	if err != nil {
-		logrus.WithError(err).Error("Failed to receive first message from runner node")
-		return false, err
+	// After this point, we assume "COMMITTED" unless pure runner
+	// send explicit NACK
+
+	recvDone := make(chan error, 1)
+	sendDone := make(chan error, 1)
+
+	// for safety, let's check if this call object is CachedReader. LB should
+	// use a CachedReader to allow retries, but let's guard against
+	// tools (runner-ping, etc) for compatibility.
+	cachedReader, isCachedReader := call.RequestBody().(common.CachedReader)
+	if isCachedReader {
+		// for potential retries, let's reset our cached reader
+		cachedReader.Reset()
 	}
 
-	switch body := msg.Body.(type) {
-	case *pb.RunnerMsg_Acknowledged:
-		if !body.Acknowledged.Committed {
-			logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
-			return false, nil
-			// Try the next runner
+	go receiveFromRunner(runnerConnection, call, recvDone)
+	go sendToRunner(runnerConnection, call, modelJSON, sendDone)
+
+	select {
+	case <-ctx.Done():
+		return true, ctx.Err()
+	case err := <-recvDone:
+		if err != nil && err == ErrorPureRunnerNACK && isCachedReader {
+			return false, err
 		}
-		logrus.Debug("Runner committed invocation request, sending data frames")
-		done := make(chan error)
-		go receiveFromRunner(runnerConnection, call, done)
-		sendToRunner(call, runnerConnection)
-		return true, <-done
-
-	default:
-		logrus.Errorf("Unhandled message type received from runner: %v\n", msg)
-		return true, nil
+		return true, err
+	case err := <-sendDone:
+		return true, err
 	}
-
 }
 
-func sendToRunner(call pool.RunnerCall, protocolClient pb.RunnerProtocol_EngageClient) error {
-	bodyReader := call.RequestBody()
-	writeBufferSize := 10 * 1024 // 10KB
-	writeBuffer := make([]byte, writeBufferSize)
-	for {
-		n, err := bodyReader.Read(writeBuffer)
-		logrus.Debugf("Wrote %v bytes to the runner", n)
+func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall, modelJSON []byte, done chan error) {
+	err := protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
+	if err != nil {
+		logrus.WithError(err).Error("Failed to send message to runner node")
+		done <- err
+		return
+	}
 
-		if err == io.EOF {
-			err = protocolClient.Send(&pb.ClientMsg{
-				Body: &pb.ClientMsg_Data{
-					Data: &pb.DataFrame{
-						Data: writeBuffer,
-						Eof:  true,
-					},
-				},
-			})
-			if err != nil {
-				logrus.WithError(err).Error("Failed to send data frame with EOF to runner")
-			}
-			break
+	isEOF := false
+	bodyReader := call.RequestBody()
+	writeBuffer := make([]byte, MaxDataChunk)
+
+	for !isEOF {
+		// WARNING: blocking read.
+		// IMPORTANT: make sure gin/agent actually times this out.
+		n, err := bodyReader.Read(writeBuffer)
+
+		if err != nil && err != io.EOF {
+			logrus.WithError(err).Error("Failed to receive data from http client body")
 		}
-		err = protocolClient.Send(&pb.ClientMsg{
+
+		// any IO error or n == 0 is an EOF for pure-runner
+		isEOF = err != nil || n == 0
+		data := writeBuffer[:n]
+
+		sendErr := protocolClient.Send(&pb.ClientMsg{
 			Body: &pb.ClientMsg_Data{
 				Data: &pb.DataFrame{
-					Data: writeBuffer,
-					Eof:  false,
+					Data: data,
+					Eof:  isEOF,
 				},
 			},
 		})
-		if err != nil {
-			logrus.WithError(err).Error("Failed to send data frame")
-			return err
+		if sendErr != nil {
+			logrus.WithError(sendErr).Error("Failed to send data frame with EOF to runner")
+			done <- sendErr
+			return
 		}
 	}
-	return nil
 }
 
 func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
 	w := c.ResponseWriter()
+	defer close(done)
 
 	for {
 		msg, err := protocolClient.Recv()
@@ -178,6 +188,15 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 		}
 
 		switch body := msg.Body.(type) {
+
+		// Check for NACK from server if request was rejected.
+		case *pb.RunnerMsg_Acknowledged:
+			if !body.Acknowledged.Committed {
+				logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
+				done <- ErrorPureRunnerNACK
+				return
+			}
+
 		case *pb.RunnerMsg_ResultStart:
 			switch meta := body.ResultStart.Meta.(type) {
 			case *pb.CallResultStart_Http:
@@ -186,8 +205,11 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 				}
 			default:
 				logrus.Errorf("Unhandled meta type in start message: %v", meta)
+				// WARNING: we ignore this case, test/re-evaluate this
 			}
 		case *pb.RunnerMsg_Data:
+			// WARNING: blocking write
+			// IMPORTANT: make sure gin/agent times this out if blocked.
 			w.Write(body.Data.Data)
 		case *pb.RunnerMsg_Finished:
 			if body.Finished.Success {
@@ -195,15 +217,10 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			} else {
 				logrus.Infof("Call finished unsuccessfully: %v", body.Finished.Details)
 			}
-			// There should be an EOF following the last packet
-			if _, err := protocolClient.Recv(); err != io.EOF {
-				logrus.WithError(err).Error("Did not receive expected EOF from runner stream")
-				done <- err
-			}
-			close(done)
 			return
 		default:
 			logrus.Errorf("Unhandled message type from runner: %v", body)
+			// WARNING: we ignore this case, test/re-evaluate this
 		}
 	}
 }

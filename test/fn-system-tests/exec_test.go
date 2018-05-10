@@ -85,8 +85,6 @@ func TestCanExecuteFunction(t *testing.T) {
 }
 
 func TestBasicConcurrentExecution(t *testing.T) {
-	SystemTweaker().ChangeNodeCapacities(512)
-	defer SystemTweaker().RestoreInitialNodeCapacities()
 
 	s := apiutils.SetupHarness()
 
@@ -96,6 +94,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	rt := s.BasicRoute()
 	rt.Image = "fnproject/fn-test-utils"
 	rt.Format = "json"
+	rt.Memory = 32
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -142,18 +141,19 @@ func TestBasicConcurrentExecution(t *testing.T) {
 }
 
 func TestSaturatedSystem(t *testing.T) {
-	// Set the capacity to 0 so we always look out of capacity.
-	SystemTweaker().ChangeNodeCapacities(0)
-	defer SystemTweaker().RestoreInitialNodeCapacities()
 
 	s := apiutils.SetupHarness()
 
 	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
 	defer s.Cleanup()
 
+	timeout := int32(5)
+
 	rt := s.BasicRoute()
 	rt.Image = "fnproject/fn-test-utils"
 	rt.Format = "json"
+	rt.Timeout = &timeout
+	rt.Memory = 300
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)

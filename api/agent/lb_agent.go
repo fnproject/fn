@@ -112,6 +112,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.lbDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
 
+	c.req.Body = common.NewCachedReader(c.req.Body, MaxDataChunk)
 	return &c, nil
 }
 

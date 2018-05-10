@@ -228,30 +228,24 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		}}})
 }
 
-// enqueueAck enqueues a ACK or NACK response to the LB for ClientMsg_Try
-// request. If NACK, then it also initiates a graceful shutdown of the
-// session.
-func (ch *callHandle) enqueueAck(err error) error {
+// enqueueNack enqueues a NACK response to the LB for ClientMsg_Try
+// request. It also initiates a graceful shutdown of the session.
+func (ch *callHandle) enqueueNack(err error) {
 	// NACK
-	if err != nil {
-		err = ch.enqueueMsgStrict(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
-				Committed: false,
-				Details:   fmt.Sprintf("%v", err),
-			}}})
-		if err != nil {
-			return err
-		}
-		return ch.finalize()
+	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
+			Committed: false,
+			Details:   fmt.Sprintf("%v", err),
+		}}})
+	if errTmp != nil {
+		logrus.WithError(err).Infof("enqueueNack Error %v", errTmp)
+		return
 	}
 
-	// ACK
-	return ch.enqueueMsgStrict(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
-			Committed:             true,
-			Details:               ch.c.Model().ID,
-			SlotAllocationLatency: time.Time(ch.allocatedTime).Sub(time.Time(ch.receivedTime)).String(),
-		}}})
+	errTmp = ch.finalize()
+	if errTmp != nil {
+		logrus.WithError(err).Infof("enqueueNack Finalize Error %v", errTmp)
+	}
 }
 
 // spawnPipeToFn pumps data to Function via callHandle io.PipeWriter (pipeToFnW)
@@ -457,50 +451,10 @@ func (ch *callHandle) getDataMsg() *runner.DataFrame {
 	return msg
 }
 
+// TODO: decomission/remove this once dependencies are cleaned up
 type CapacityGate interface {
-	// CheckAndReserveCapacity must perform an atomic check plus reservation. If an error is returned, then it is
-	// guaranteed that no capacity has been committed. If nil is returned, then it is guaranteed that the provided units
-	// of capacity have been committed.
 	CheckAndReserveCapacity(units uint64) error
-
-	// ReleaseCapacity must perform an atomic release of capacity. The units provided must not bring the capacity under
-	// zero; implementations are free to panic in that case.
 	ReleaseCapacity(units uint64)
-}
-
-type pureRunnerCapacityManager struct {
-	totalCapacityUnits     uint64
-	committedCapacityUnits uint64
-	mtx                    sync.Mutex
-}
-
-type capacityDeallocator func()
-
-func newPureRunnerCapacityManager(units uint64) *pureRunnerCapacityManager {
-	return &pureRunnerCapacityManager{
-		totalCapacityUnits:     units,
-		committedCapacityUnits: 0,
-	}
-}
-
-func (prcm *pureRunnerCapacityManager) CheckAndReserveCapacity(units uint64) error {
-	prcm.mtx.Lock()
-	defer prcm.mtx.Unlock()
-	if prcm.totalCapacityUnits-prcm.committedCapacityUnits >= units {
-		prcm.committedCapacityUnits = prcm.committedCapacityUnits + units
-		return nil
-	}
-	return models.ErrCallTimeoutServerBusy
-}
-
-func (prcm *pureRunnerCapacityManager) ReleaseCapacity(units uint64) {
-	prcm.mtx.Lock()
-	defer prcm.mtx.Unlock()
-	if units <= prcm.committedCapacityUnits {
-		prcm.committedCapacityUnits = prcm.committedCapacityUnits - units
-		return
-	}
-	panic("Fatal error in pure runner capacity calculation, getting to sub-zero capacity")
 }
 
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
@@ -510,7 +464,6 @@ type pureRunner struct {
 	listen     string
 	a          Agent
 	inflight   int32
-	capacity   CapacityGate
 }
 
 func (pr *pureRunner) GetAppID(ctx context.Context, appName string) (string, error) {
@@ -555,39 +508,35 @@ func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	go func() {
 		err := pr.a.Submit(state.c)
-		state.enqueueCallResponse(err)
+		if err != nil && err == models.ErrCallTimeoutServerBusy {
+			state.enqueueNack(err)
+		} else {
+			state.enqueueCallResponse(err)
+		}
 	}()
 }
 
-// handleTryCall based on the TryCall message, allocates a resource/capacity reservation
-// and creates callHandle.c with agent.call.
-func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) (capacityDeallocator, error) {
+// handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
+func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
 	state.receivedTime = strfmt.DateTime(time.Now())
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
-		return func() {}, err
-	}
-
-	// Capacity check first
-	err = pr.capacity.CheckAndReserveCapacity(c.Memory)
-	if err != nil {
-		return func() {}, err
-	}
-
-	cleanup := func() {
-		pr.capacity.ReleaseCapacity(c.Memory)
+		state.enqueueNack(err)
+		return err
 	}
 
 	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state))
 	if err != nil {
-		return cleanup, err
+		state.enqueueNack(err)
+		return err
 	}
 
 	state.c = agent_call.(*call)
 	state.allocatedTime = strfmt.DateTime(time.Now())
+	pr.spawnSubmit(state)
 
-	return cleanup, nil
+	return nil
 }
 
 // Handles a client engagement
@@ -615,25 +564,18 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 		return state.waitError()
 	}
 
-	dealloc, errTry := pr.handleTryCall(tryMsg, state)
-	defer dealloc()
-	// respond with handleTryCall response
-	err := state.enqueueAck(errTry)
-	if err != nil || errTry != nil {
+	errTry := pr.handleTryCall(tryMsg, state)
+	if errTry != nil {
 		return state.waitError()
 	}
 
-	var dataFeed chan *runner.DataFrame
+	dataFeed := state.spawnPipeToFn()
+
 DataLoop:
 	for {
 		dataMsg := state.getDataMsg()
 		if dataMsg == nil {
 			break
-		}
-
-		if dataFeed == nil {
-			pr.spawnSubmit(state)
-			dataFeed = state.spawnPipeToFn()
 		}
 
 		select {
@@ -678,8 +620,24 @@ func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, ce
 	return NewPureRunner(cancel, addr, da, cert, key, ca, nil)
 }
 
-func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, gate CapacityGate) (Agent, error) {
-	a := createAgent(da)
+func WithNBIOAgent() AgentOption {
+	return func(a *agent) error {
+
+		// pure runner requires a non-blocking resource tracker
+		a.cfg.EnableNBResourceTracker = true
+
+		// if set to default, adjust this to quicker nbio agent frequency
+		if a.cfg.HotPoll == DefaultHotPoll {
+			a.cfg.HotPoll = DefaultNBIOHotPoll
+		}
+		return nil
+	}
+}
+
+func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, unused CapacityGate) (Agent, error) {
+	// TODO: gate unused, decommission/remove it after cleaning up dependencies to it.
+
+	a := createAgent(da, WithNBIOAgent())
 	var pr *pureRunner
 	var err error
 	if cert != "" && key != "" && ca != "" {
@@ -688,13 +646,13 @@ func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert s
 			logrus.WithField("runner_addr", addr).Warn("Failed to create credentials!")
 			return nil, err
 		}
-		pr, err = createPureRunner(addr, a, c, gate)
+		pr, err = createPureRunner(addr, a, c)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		logrus.Warn("Running pure runner in insecure mode!")
-		pr, err = createPureRunner(addr, a, nil, gate)
+		pr, err = createPureRunner(addr, a, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -736,32 +694,20 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 	}), nil
 }
 
-func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials, gate CapacityGate) (*pureRunner, error) {
+func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
 	var srv *grpc.Server
 	if creds != nil {
 		srv = grpc.NewServer(grpc.Creds(creds))
 	} else {
 		srv = grpc.NewServer()
 	}
-	if gate == nil {
-		memUnits := getAvailableMemoryUnits()
-		gate = newPureRunnerCapacityManager(memUnits)
-	}
+
 	pr := &pureRunner{
 		gRPCServer: srv,
 		listen:     addr,
 		a:          a,
-		capacity:   gate,
 	}
 
 	runner.RegisterRunnerProtocolServer(srv, pr)
 	return pr, nil
-}
-
-const megabyte uint64 = 1024 * 1024
-
-func getAvailableMemoryUnits() uint64 {
-	// To reuse code - but it's a bit of a hack. TODO: refactor the OS-specific get memory funcs out of that.
-	throwawayRT := NewResourceTracker(nil).(*resourceTracker)
-	return throwawayRT.ramAsyncTotal / megabyte
 }
