@@ -44,12 +44,12 @@ func SetLogDest(to, prefix string) {
 	// expect: [scheme://][host][:port][/path]
 	// default scheme to udp:// if none given
 
-	url, err := url.Parse(to)
-	if url.Host == "" && url.Path == "" {
+	parsed, err := url.Parse(to)
+	if parsed.Host == "" && parsed.Path == "" {
 		logrus.WithFields(logrus.Fields{"to": to}).Warn("No scheme on logging url, adding udp://")
 		// this happens when no scheme like udp:// is present
 		to = "udp://" + to
-		url, err = url.Parse(to)
+		parsed, err = url.Parse(to)
 	}
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{"to": to}).Error("could not parse logging URI, defaulting to stderr")
@@ -57,26 +57,26 @@ func SetLogDest(to, prefix string) {
 	}
 
 	// File URL must contain only `url.Path`. Syslog location must contain only `url.Host`
-	if (url.Host == "" && url.Path == "") || (url.Host != "" && url.Path != "") {
-		logrus.WithFields(logrus.Fields{"to": to, "uri": url}).Error("invalid logging location, defaulting to stderr")
+	if (parsed.Host == "" && parsed.Path == "") || (parsed.Host != "" && parsed.Path != "") {
+		logrus.WithFields(logrus.Fields{"to": to, "uri": parsed}).Error("invalid logging location, defaulting to stderr")
 		return
 	}
 
-	switch url.Scheme {
+	switch parsed.Scheme {
 	case "udp", "tcp":
-		err = NewSyslogHook(url, prefix)
+		err = NewSyslogHook(parsed, prefix)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{"uri": url, "to": to}).WithError(err).Error("unable to connect to syslog, defaulting to stderr")
+			logrus.WithFields(logrus.Fields{"uri": parsed, "to": to}).WithError(err).Error("unable to connect to syslog, defaulting to stderr")
 			return
 		}
 	case "file":
-		f, err := os.OpenFile(url.Path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+		f, err := os.OpenFile(parsed.Path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"to": to, "path": url.Path}).Error("cannot open file, defaulting to stderr")
+			logrus.WithError(err).WithFields(logrus.Fields{"to": to, "path": parsed.Path}).Error("cannot open file, defaulting to stderr")
 			return
 		}
 		logrus.SetOutput(f)
 	default:
-		logrus.WithFields(logrus.Fields{"scheme": url.Scheme, "to": to}).Error("unknown logging location scheme, defaulting to stderr")
+		logrus.WithFields(logrus.Fields{"scheme": parsed.Scheme, "to": to}).Error("unknown logging location scheme, defaulting to stderr")
 	}
 }
