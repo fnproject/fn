@@ -112,17 +112,28 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	go receiveFromRunner(runnerConnection, call, recvDone)
 	go sendToRunner(runnerConnection, call, modelJSON, sendDone)
 
+	err = nil
+	isCommited := true
+
 	select {
 	case <-ctx.Done():
-		return true, ctx.Err()
-	case err := <-recvDone:
-		if err != nil && err == ErrorPureRunnerNACK {
-			return false, err
+		err = ctx.Err()
+	case err = <-recvDone:
+		if err == ErrorPureRunnerNACK {
+			isCommited = false
 		}
-		return true, err
-	case err := <-sendDone:
-		return true, err
+	case err = <-sendDone:
 	}
+
+	// context cancel/timeout should override any other error.
+	// This ensures upper layers get a consistent ctx timeout/cancel
+	// as opposed to errors from gRPC layers.
+	if ctx.Err() != nil && err != ctx.Err() {
+		logrus.WithError(err).Errorf("Overriding %v error with context %v", err, ctx.Err())
+		err = ctx.Err()
+	}
+
+	return isCommited, err
 }
 
 func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall, modelJSON []byte, done chan error) {
@@ -158,6 +169,8 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 		isEOF = err != nil || n == 0
 		data := writeBuffer[:n]
 
+		logrus.Debugf("Sending %d bytes of data isEOF=%d to runner", n, isEOF)
+
 		sendErr := protocolClient.Send(&pb.ClientMsg{
 			Body: &pb.ClientMsg_Data{
 				Data: &pb.DataFrame{
@@ -167,7 +180,7 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 			},
 		})
 		if sendErr != nil {
-			logrus.WithError(sendErr).Error("Failed to send data frame with EOF to runner")
+			logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
 			done <- sendErr
 			return
 		}
