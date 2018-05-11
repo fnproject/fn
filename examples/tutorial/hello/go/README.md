@@ -1,66 +1,187 @@
-# Tutorial 1: Go Function w/ Input (3 minutes)
+# Go Function Hello World
 
-This example will show you how to test and deploy Go (Golang) code to Fn. It will also demonstrate passing data in through stdin.
+This example will shows you how to test and deploy Go code to Fn. It will also demonstrate passing JSON data to your function through `stdin`. 
 
-### First, run the following commands:
+## Before you Begin
 
-```sh
-# Initialize your function creating a func.yaml file
-fn init --name hello-go
+This tutorial assumes you have installed Docker, Fn server, and Fn CLI.
 
-# Test your function. This will run inside a container exactly how it will on the server
-fn run
+## Start Fn Server
 
-# Now try with an input
-cat sample.payload.json | fn run
+Start up the Fn server so we can deploy our function.
 
-# Deploy your functions to the Fn server (default localhost:8080)
-# This will create a route to your function as well
-fn deploy --app myapp
+>```sh
+>fn start
+>```
+
+The command starts Fn in single server mode using an embedded database and message queue. You can find all the
+configuration options [here](../../../../docs/operating/options.md). 
+
+## Create your Function 
+
+1. Change into the directory where you want to create your function.
+1. Run the following command to create a boilerplate Go function: 
+
+>```sh
+>fn init --runtime go hello
+>```
+    
+>A directory named `hello` is created with several files in it.
+
+<ol start="3">
+  <li>Open the generated <code>func.go</code> file and you will see the following source code.</li>
+</ol>
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+type Person struct {
+	Name string
+}
+
+func main() {
+	p := &Person{Name: "World"}
+	json.NewDecoder(os.Stdin).Decode(p)
+	mapD := map[string]string{"message": fmt.Sprintf("Hello %s", p.Name)}
+	mapB, _ := json.Marshal(mapD)
+	fmt.Println(string(mapB))
+}
+```
+<ol start="4">
+  <li>The command also generates a <code>yaml</code> metadata file. Open the <code>func.yaml</code> file.</li>
+</ol>
+
+```yaml
+version: 0.0.1
+runtime: go
+entrypoint: ./func
 ```
 
-### Now call your function:
+The generated `func.yaml` file contains metadata about your function and declares a number of properties including:
 
-```sh
-curl http://localhost:8080/r/myapp/go
+* `version`: Automatically starting at 0.0.1.
+* `runtime`: Set automatically based on the presence of `func.go`.
+* `entrypoint`: Name of the function to invoke. In this case `./func` which will be the name of the compiled Go file.
+
+These fields are set by default when you run `init` on a function. For more details on [function files go here](../../../../docs/function-file.md).
+
+## Add Fn Registry Environment Variable
+
+Before we start developing we need to set the `FN_REGISTRY` environment variable. Normally, set the value to your Docker Hub username. However, you can work with Fn locally.  Set the `FN_REGISTRY` variable to an invented value: `noreg`.
+
+>```sh
+>export FN_REGISTRY=noreg
+>```
+
+The value is used to identify your Fn generated Docker images.
+
+## Test your Function
+
+Test your function using the following command.
+
+>```sh
+>fn run
+>```
+
+Fn runs your function inside a container exactly how it executes on the server. When execution is complete, the function returns output to `stout`. In this case, `fn run` returns:
+
+```javascript
+{"message":"Hello World"}
 ```
 
-Or call from a browser: [http://localhost:8080/r/myapp/go](http://localhost:8080/r/myapp/go)
+To pass data to our function, pass input to `stdin`. You could pass JSON data to your function like this:
 
-And now with the JSON input:
+>```sh
+>echo '{"name":"Johnny"}' | fn run
+>```
 
-```sh
-curl -H "Content-Type: application/json" -X POST -d @sample.payload.json http://localhost:8080/r/myapp/go
+Or with.
+
+>```sh
+>cat payload.json | fn run
+>```
+
+The function reads the JSON data and returns:
+
+```javascript
+{"message":"Hello Johnny"}
 ```
 
-That's it!
+## Deploy your Function to Fn Server
 
-### Note on Dependencies
+When you used `fn run` your function was run in your local environment. Now deploy your function to the Fn server we started previously. This server could be running in the cloud, in your datacenter, or on your local machine. In this case we are deploying to our local machine. Enter the following command: 
 
-In Go, simply put them all in the `vendor/` directory.
+>```sh
+>fn deploy --app goapp --local
+>```
 
-# In Review
+The command returns text similar to the following:
 
-1. We piped JSON data into the function at the command line
-    ```sh
-    cat sample.payload.json | fn run
-    ```
+```txt
+Deploying hello to app: goapp at path: /hello
+Bumped to version 0.0.2
+Building image noreg/hello:0.0.2 .
+Updating route /hello using image noreg/hello:0.0.2...
+```
 
-2. We received our function input through **stdin**
-    ```go
-    json.NewDecoder(os.Stdin).Decode(p)
-    ```
+The command creates an app on the server named `goapp`. In addition, a route to your function created based on your directory name: `/hello`. The `--local` option allows the application to deploy without a container registry.
 
-3. We wrote our output to **stdout**
-    ```go
-    fmt.Printf("Hello")
-    ```
+## Test your Function on the Server
 
-4. We sent **stderr** to the server logs
-    ```go
-    log.Println("here")
-    ```
+With the function deployed to the server, you can make calls to the function. 
 
+### Call your Function without Data
 
-# Next Up
-## [Part 2: Input Parameters](../../params)
+Call your function using the Fn CLI.
+
+>```sh
+>fn call goapp /hello
+>```
+
+Open a web browser and enter <http://localhost:8080/r/goapp/hello>.
+
+Or try `curl`.
+  
+>```sh    
+>curl http://localhost:8080/r/goapp/hello
+>```
+
+All of these options should return:
+
+```javascript
+{"message":"Hello World!"}
+```
+    
+### Call your Function with Data
+
+You can use `curl` to pass JSON data to your function.
+
+>```sh
+>curl -X POST -d '{"name":"Johnny"}' -H "Content-Type: application/json" http://localhost:8080/r/goapp/hello
+>```
+
+Or specify a file.
+
+>```sh
+>curl -X POST -d @payload.json -H "Content-Type: application/json" http://localhost:8080/r/goapp/hello
+>```
+
+Both commands should return:
+
+```javascript
+{"message":"Hello Johnny!"}
+```
+
+That's it! You have coded your first Go function.
+
+## Learn More
+
+* [Documentation](../../../../docs)
+* [Getting Started Series](../../../tutorial)
+* [Tutorials](https://github.com/fnproject/tutorials)
