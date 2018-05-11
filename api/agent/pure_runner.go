@@ -231,6 +231,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 // enqueueNack enqueues a NACK response to the LB for ClientMsg_Try
 // request. It also initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueNack(err error) {
+	logrus.WithError(err).Debugf("Sending NACK")
 	// NACK
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{

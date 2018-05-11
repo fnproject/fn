@@ -118,19 +118,12 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	select {
 	case <-ctx.Done():
 		err = ctx.Err()
+		logrus.WithError(err).Errorf("Overriding %v error with context %v", err, ctx.Err())
 	case err = <-recvDone:
 		if err == ErrorPureRunnerNACK {
 			isCommited = false
 		}
 	case err = <-sendDone:
-	}
-
-	// context cancel/timeout should override any other error.
-	// This ensures upper layers get a consistent ctx timeout/cancel
-	// as opposed to errors from gRPC layers.
-	if ctx.Err() != nil && err != ctx.Err() {
-		logrus.WithError(err).Errorf("Overriding %v error with context %v", err, ctx.Err())
-		err = ctx.Err()
 	}
 
 	return isCommited, err
@@ -145,6 +138,7 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 	}
 
 	isEOF := false
+	total := 0
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
 
@@ -168,8 +162,9 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 		// any IO error or n == 0 is an EOF for pure-runner
 		isEOF = err != nil || n == 0
 		data := writeBuffer[:n]
+		total += n
 
-		logrus.Debugf("Sending %d bytes of data isEOF=%d to runner", n, isEOF)
+		logrus.Debugf("Sending %d bytes of data isEOF=%v to runner", n, isEOF)
 
 		sendErr := protocolClient.Send(&pb.ClientMsg{
 			Body: &pb.ClientMsg_Data{
@@ -185,6 +180,8 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 			return
 		}
 	}
+
+	logrus.Debugf("send to runner completed totalBytes=%d", total)
 }
 
 func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
@@ -220,15 +217,12 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 				// WARNING: we ignore this case, test/re-evaluate this
 			}
 		case *pb.RunnerMsg_Data:
+			logrus.Debugf("Received data from runner len=%d isEOF=%v", len(body.Data.Data), body.Data.Eof)
 			// WARNING: blocking write
 			// IMPORTANT: make sure gin/agent times this out if blocked.
 			w.Write(body.Data.Data)
 		case *pb.RunnerMsg_Finished:
-			if body.Finished.Success {
-				logrus.Infof("Call finished successfully: %v", body.Finished.Details)
-			} else {
-				logrus.Infof("Call finished unsuccessfully: %v", body.Finished.Details)
-			}
+			logrus.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
 			return
 		default:
 			logrus.Errorf("Unhandled message type from runner: %v", body)
