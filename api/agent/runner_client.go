@@ -105,39 +105,61 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 
 	// After this point, we assume "COMMITTED" unless pure runner
 	// send explicit NACK
-
-	recvDone := make(chan error, 1)
-	sendDone := make(chan error, 1)
-
-	go receiveFromRunner(runnerConnection, call, recvDone)
-	go sendToRunner(runnerConnection, call, modelJSON, sendDone)
-
-	err = nil
-	isCommited := true
-
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-		logrus.WithError(err).Errorf("Overriding %v error with context %v", err, ctx.Err())
-	case err = <-recvDone:
-		if err == ErrorPureRunnerNACK {
-			isCommited = false
-		}
-	case err = <-sendDone:
-	}
-
-	return isCommited, err
-}
-
-func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall, modelJSON []byte, done chan error) {
-	err := protocolClient.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
+	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{ModelsCallJson: string(modelJSON)}}})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to send message to runner node")
-		done <- err
-		return
+		return true, err
 	}
 
-	isEOF := false
+	recvDone := make(chan error, 1)
+	sendErrs := make(chan error, 1)
+
+	go receiveFromRunner(runnerConnection, call, recvDone)
+	go sendToRunner(runnerConnection, call, sendErrs)
+
+	var recvErr error
+	var sendErr error
+
+MasterLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			break MasterLoop
+		case recvErr = <-recvDone:
+			break MasterLoop
+		case sendErr = <-sendErrs:
+			// we wait for receive side to receive errors
+		}
+	}
+
+	logrus.Debugf("Engagement ended with recvErr=%v sendErr=%v ctxErr=%v", recvErr, sendErr, ctx.Err())
+
+	// handle NACK & retriable case (This case overrides ctx.Err() and sendErr)
+	if recvErr == ErrorPureRunnerNACK {
+		return false, recvErr
+	}
+
+	// prefer failures from recvSide to report, filter EOF if ctx is done.
+	if recvErr != nil {
+		if recvErr == io.EOF && ctx.Err() != nil {
+			recvErr = ctx.Err()
+		}
+		return true, recvErr
+	}
+
+	// filter EOF if ctx is done.
+	if sendErr != nil {
+		if sendErr == io.EOF && ctx.Err() != nil {
+			sendErr = ctx.Err()
+		}
+		return true, sendErr
+	}
+
+	// no errors but only ctx is done.
+	return true, ctx.Err()
+}
+
+func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall, errs chan error) {
 	total := 0
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
@@ -150,22 +172,19 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 	// See lb_agent setRequestGetBody() which handles this. With GetBody installed,
 	// the 'Read' below is an actually non-blocking operation since GetBody() should hand out
 	// a new instance of io.ReadCloser() that allows repetitive reads on the http body.
-
-	for !isEOF {
+	for {
 		// WARNING: blocking read.
 		n, err := bodyReader.Read(writeBuffer)
-
 		if err != nil && err != io.EOF {
 			logrus.WithError(err).Error("Failed to receive data from http client body")
 		}
 
 		// any IO error or n == 0 is an EOF for pure-runner
-		isEOF = err != nil || n == 0
+		isEOF := err != nil || n == 0
 		data := writeBuffer[:n]
 		total += n
 
 		logrus.Debugf("Sending %d bytes of data isEOF=%v to runner", n, isEOF)
-
 		sendErr := protocolClient.Send(&pb.ClientMsg{
 			Body: &pb.ClientMsg_Data{
 				Data: &pb.DataFrame{
@@ -176,12 +195,14 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 		})
 		if sendErr != nil {
 			logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
-			done <- sendErr
+			errs <- sendErr
+			return
+		}
+		if isEOF {
+			logrus.Debugf("send to runner completed totalBytes=%d", total)
 			return
 		}
 	}
-
-	logrus.Debugf("send to runner completed totalBytes=%d", total)
 }
 
 func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
@@ -192,7 +213,11 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 		msg, err := protocolClient.Recv()
 		if err != nil {
 			logrus.WithError(err).Error("Failed to receive message from runner")
-			done <- err
+			// do not block if we already placed a nil/nack from Finish/NACK below.
+			select {
+			case done <- err:
+			default:
+			}
 			return
 		}
 
@@ -203,7 +228,6 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			if !body.Acknowledged.Committed {
 				logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
 				done <- ErrorPureRunnerNACK
-				return
 			}
 
 		case *pb.RunnerMsg_ResultStart:
@@ -223,7 +247,7 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			w.Write(body.Data.Data)
 		case *pb.RunnerMsg_Finished:
 			logrus.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
-			return
+			done <- nil
 		default:
 			logrus.Errorf("Unhandled message type from runner: %v", body)
 			// WARNING: we ignore this case, test/re-evaluate this

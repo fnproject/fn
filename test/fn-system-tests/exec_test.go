@@ -178,9 +178,18 @@ func TestSaturatedSystem(t *testing.T) {
 			t.Errorf("Got unexpected error: %v", err)
 		}
 	}
-	expectedOutput := "{\"error\":{\"message\":\"Timed out - server too busy\"}}\n"
+
+	// LB may respond either with:
+	//  timeout: a timeout during a call to a runner
+	//  too busy: a timeout during LB retry loop
+	exp1 := "{\"error\":{\"message\":\"Timed out - server too busy\"}}\n"
+	exp2 := "{\"error\":{\"message\":\"Timed out\"}}\n"
+
 	actual := output.String()
-	if !strings.Contains(expectedOutput, actual) || len(expectedOutput) != len(actual) {
-		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", expectedOutput, output.String())
+
+	if strings.Contains(exp1, actual) && len(exp1) == len(actual) {
+	} else if strings.Contains(exp2, actual) && len(exp2) == len(actual) {
+	} else {
+		t.Errorf("Assertion error.\n\tExpected: %v or %v\n\tActual: %v", exp1, exp2, output.String())
 	}
 }

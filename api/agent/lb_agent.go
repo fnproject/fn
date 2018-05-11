@@ -226,9 +226,9 @@ func (a *lbAgent) setRequestBody(ctx context.Context, call *call) error {
 	}()
 
 	select {
-	case err := <-errApp: // from dispatch
+	case err := <-errApp:
 		return err
-	case <-ctx.Done(): // call timeout
+	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
