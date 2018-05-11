@@ -1,8 +1,11 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"io/ioutil"
 	"sync/atomic"
 	"time"
 
@@ -112,7 +115,6 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 
 	c.lbDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
 
-	c.req.Body = common.NewCachedReader(c.req.Body, MaxDataChunk)
 	return &c, nil
 }
 
@@ -172,6 +174,14 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	statsDequeueAndStart(ctx)
 
+	// pre-read and buffer request body if already not done based
+	// on GetBody presence.
+	err = a.setRequestBody(ctx, call)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to process call body")
+		return a.handleCallEnd(ctx, call, err, true)
+	}
+
 	// WARNING: isStarted (handleCallEnd) semantics
 	// need some consideration here. Similar to runner/agent
 	// we consider isCommitted true if call.Start() succeeds.
@@ -182,6 +192,45 @@ func (a *lbAgent) Submit(callI Call) error {
 	}
 
 	return a.handleCallEnd(ctx, call, err, true)
+}
+
+// setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows
+// reading from the request body without mutating the state of the request.
+func (a *lbAgent) setRequestBody(ctx context.Context, call *call) error {
+
+	r := call.req
+	if r.Body == nil || r.GetBody != nil {
+		return nil
+	}
+
+	// WARNING: we need to handle IO in a separate go-routine below
+	// to be able to detect a ctx timeout. When we timeout, we
+	// let gin/http-server to unblock the go-routine below.
+	errApp := make(chan error, 1)
+	go func() {
+
+		buffer, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			errApp <- err
+			return
+		}
+
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(buffer))
+
+		// GetBody does not mutate the state of the request body
+		r.GetBody = func() (io.ReadCloser, error) {
+			return ioutil.NopCloser(bytes.NewBuffer(buffer)), nil
+		}
+
+		close(errApp)
+	}()
+
+	select {
+	case err := <-errApp: // from dispatch
+		return err
+	case <-ctx.Done(): // call timeout
+		return ctx.Err()
+	}
 }
 
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {

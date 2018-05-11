@@ -319,6 +319,12 @@ func (c *call) LbDeadline() time.Time {
 }
 
 func (c *call) RequestBody() io.ReadCloser {
+	if c.req.GetBody != nil {
+		rdr, err := c.req.GetBody()
+		if err == nil {
+			return rdr
+		}
+	}
 	return c.req.Body
 }
 

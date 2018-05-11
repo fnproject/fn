@@ -109,15 +109,6 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	recvDone := make(chan error, 1)
 	sendDone := make(chan error, 1)
 
-	// for safety, let's check if this call object is CachedReader. LB should
-	// use a CachedReader to allow retries, but let's guard against
-	// tools (runner-ping, etc) for compatibility.
-	cachedReader, isCachedReader := call.RequestBody().(common.CachedReader)
-	if isCachedReader {
-		// for potential retries, let's reset our cached reader
-		cachedReader.Reset()
-	}
-
 	go receiveFromRunner(runnerConnection, call, recvDone)
 	go sendToRunner(runnerConnection, call, modelJSON, sendDone)
 
@@ -125,7 +116,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	case <-ctx.Done():
 		return true, ctx.Err()
 	case err := <-recvDone:
-		if err != nil && err == ErrorPureRunnerNACK && isCachedReader {
+		if err != nil && err == ErrorPureRunnerNACK {
 			return false, err
 		}
 		return true, err
@@ -146,9 +137,17 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
 
+	// IMPORTANT: IO Read below can fail in multiple go-routine cases (in retry
+	// case especially if receiveFromRunner go-routine receives a NACK while sendToRunner is
+	// already blocked on a read) or in the case of reading the http body multiple times (retries.)
+	// Normally http.Request.Body can be read once. However runner_client users should implement/add
+	// http.Request.GetBody() function and cache the body content in the request.
+	// See lb_agent setRequestGetBody() which handles this. With GetBody installed,
+	// the 'Read' below is an actually non-blocking operation since GetBody() should hand out
+	// a new instance of io.ReadCloser() that allows repetitive reads on the http body.
+
 	for !isEOF {
 		// WARNING: blocking read.
-		// IMPORTANT: make sure gin/agent actually times this out.
 		n, err := bodyReader.Read(writeBuffer)
 
 		if err != nil && err != io.EOF {
