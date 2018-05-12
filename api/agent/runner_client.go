@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -209,15 +210,12 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 	w := c.ResponseWriter()
 	defer close(done)
 
+DataLoop:
 	for {
 		msg, err := protocolClient.Recv()
 		if err != nil {
 			logrus.WithError(err).Error("Failed to receive message from runner")
-			// do not block if we already placed a nil/nack from Finish/NACK below.
-			select {
-			case done <- err:
-			default:
-			}
+			done <- err
 			return
 		}
 
@@ -228,6 +226,10 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 			if !body.Acknowledged.Committed {
 				logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
 				done <- ErrorPureRunnerNACK
+				break DataLoop
+			} else {
+				// WARNING: we ignore this case, test/re-evaluate this
+				logrus.WithError(err).Error("ACK received from runner, possible client/server mismatch")
 			}
 
 		case *pb.RunnerMsg_ResultStart:
@@ -237,20 +239,35 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 					w.Header().Set(header.Key, header.Value)
 				}
 			default:
-				logrus.Errorf("Unhandled meta type in start message: %v", meta)
 				// WARNING: we ignore this case, test/re-evaluate this
+				logrus.Errorf("Unhandled meta type in start message: %v", meta)
 			}
 		case *pb.RunnerMsg_Data:
 			logrus.Debugf("Received data from runner len=%d isEOF=%v", len(body.Data.Data), body.Data.Eof)
+
 			// WARNING: blocking write
 			// IMPORTANT: make sure gin/agent times this out if blocked.
-			w.Write(body.Data.Data)
+			// TODO: fix this IO below
+			n, err := w.Write(body.Data.Data)
+			if n != len(body.Data.Data) || err != io.EOF {
+				err := fmt.Errorf("Error in writing response, err=%v while %d bytes of %d", err, n, len(body.Data.Data))
+				logrus.Error(err)
+				done <- err
+				break DataLoop
+			}
+
 		case *pb.RunnerMsg_Finished:
 			logrus.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
-			done <- nil
+			break DataLoop
+
 		default:
 			logrus.Errorf("Unhandled message type from runner: %v", body)
 			// WARNING: we ignore this case, test/re-evaluate this
 		}
+	}
+
+	// There should be an EOF following the last packet
+	if _, err := protocolClient.Recv(); err != io.EOF {
+		logrus.WithError(err).Error("Did not receive expected EOF from runner stream")
 	}
 }
