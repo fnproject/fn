@@ -17,7 +17,6 @@ const (
 
 	MaxSyncTimeout  = 120  // 2 minutes
 	MaxAsyncTimeout = 3600 // 1 hour
-	MaxIdleTimeout  = MaxAsyncTimeout
 )
 
 var RouteMaxMemory = uint64(8 * 1024)
