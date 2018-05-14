@@ -14,6 +14,7 @@ import (
 type mock struct {
 	Apps   []*models.App
 	Routes []*models.Route
+	Funcs  []*models.Func
 
 	models.LogStore
 }
@@ -31,6 +32,8 @@ func NewMockInit(args ...interface{}) models.Datastore {
 			mocker.Apps = x
 		case []*models.Route:
 			mocker.Routes = x
+		case []*models.Func:
+			mocker.Funcs = x
 		default:
 			panic("not accounted for data type sent to mock init. add it")
 		}
@@ -192,6 +195,75 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 	}
 	m.Routes = newRoutes
 	return nil
+}
+
+func (m *mock) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+	// update if exists
+	for _, f := range m.Funcs {
+		if f.Name == fn.Name {
+			copy := f.Clone()
+			copy.Update(fn)
+			err := copy.Validate()
+			if err != nil {
+				return nil, err
+			}
+			*f = *copy
+			return f, nil
+		}
+	}
+
+	// insert otherwise
+	fn.SetDefaults()
+	if err := fn.Validate(); err != nil {
+		return nil, err
+	}
+	m.Funcs = append(m.Funcs, fn)
+	return fn, nil
+}
+
+type sortF []*models.Func
+
+func (s sortF) Len() int           { return len(s) }
+func (s sortF) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
+func (s sortF) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+func (m *mock) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {
+	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
+	sort.Sort(sortF(m.Funcs))
+
+	funcs := []*models.Func{}
+
+	for _, f := range m.Funcs {
+		if len(funcs) == filter.PerPage {
+			break
+		}
+
+		if strings.Compare(filter.Cursor, f.ID) < 0 {
+			funcs = append(funcs, f)
+		}
+	}
+	return funcs, nil
+}
+
+func (m *mock) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {
+	for _, f := range m.Funcs {
+		if f.Name == funcName {
+			return f, nil
+		}
+	}
+
+	return nil, models.ErrFuncsNotFound
+}
+
+func (m *mock) RemoveFunc(ctx context.Context, funcName string) error {
+	for i, f := range m.Funcs {
+		if f.Name == funcName {
+			m.Funcs = append(m.Funcs[:i], m.Funcs[i+1:]...)
+			return nil
+		}
+	}
+
+	return models.ErrFuncsNotFound
 }
 
 // GetDatabase returns nil here since shouldn't really be used
