@@ -86,6 +86,22 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	app_id varchar(256) NOT NULL,
 	log text NOT NULL
 );`,
+
+	`CREATE TABLE IF NOT EXISTS funcs (
+	id varchar(256) NOT NULL,
+	name varchar(256) NOT NULL,
+	image varchar(256) NOT NULL,
+	format varchar(16) NOT NULL,
+	cpus int NOT NULL,
+	memory int NOT NULL,
+	timeout int NOT NULL,
+	idle_timeout int NOT NULL,
+	config text NOT NULL,
+	annotations text NOT NULL,
+	created_at varchar(256) NOT NULL,
+	updated_at varchar(256) NOT NULL,
+	PRIMARY KEY (name)
+);`,
 }
 
 const (
@@ -93,6 +109,7 @@ const (
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
+	funcSelector      = `SELECT id, name, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM funcs`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
@@ -689,6 +706,154 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 	return res, nil
 }
 
+func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+	err := ds.Tx(func(tx *sqlx.Tx) error {
+		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=?`, funcSelector))
+		row := tx.QueryRowxContext(ctx, query, fn.Name)
+
+		var dst models.Func
+		err := row.StructScan(&dst)
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		} else if err == sql.ErrNoRows {
+			// insert it
+
+			fn.SetDefaults()
+			err = fn.Validate()
+			if err != nil {
+				return err
+			}
+
+			query = tx.Rebind(`INSERT INTO funcs (
+				id,
+				name,
+				image,
+				format,
+				memory,
+				cpus,
+				timeout,
+				idle_timeout,
+				config,
+				annotations,
+				created_at,
+				updated_at
+			)
+			VALUES (
+				:id,
+				:name,
+				:image,
+				:format,
+				:memory,
+				:cpus,
+				:timeout,
+				:idle_timeout,
+				:config,
+				:annotations,
+				:created_at,
+				:updated_at
+			);`)
+
+		} else {
+			// update it
+			dst.Update(fn)
+			err = dst.Validate()
+			if err != nil {
+				return err
+			}
+			fn = &dst // set for query & to return
+
+			query = tx.Rebind(`UPDATE funcs SET
+				image = :image,
+				format = :format,
+				memory = :memory,
+				cpus = :cpus,
+				timeout = :timeout,
+				idle_timeout = :idle_timeout,
+				config = :config,
+				annotations = :annotations,
+				updated_at = :updated_at
+			WHERE name=:name;`)
+		}
+
+		_, err = tx.NamedExecContext(ctx, query, fn)
+		return err
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return fn, nil
+}
+
+func (ds *SQLStore) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {
+	res := []*models.Func{} // for json empty list
+	if filter == nil {
+		filter = new(models.FuncFilter)
+	}
+
+	filterQuery, args := buildFilterFuncQuery(filter)
+
+	query := fmt.Sprintf("%s %s", funcSelector, filterQuery)
+	query = ds.db.Rebind(query)
+	rows, err := ds.db.QueryxContext(ctx, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return res, nil // no error for empty list
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fn models.Func
+		err := rows.StructScan(&fn)
+		if err != nil {
+			continue
+		}
+		res = append(res, &fn)
+	}
+	if err := rows.Err(); err != nil {
+		if err == sql.ErrNoRows {
+			return res, nil // no error for empty list
+		}
+	}
+
+	return res, nil
+}
+
+func (ds *SQLStore) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {
+	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=?", funcSelector))
+	row := ds.db.QueryRowxContext(ctx, query, funcName)
+
+	var fn models.Func
+	err := row.StructScan(&fn)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrFuncsNotFound
+	} else if err != nil {
+		return nil, err
+	}
+	return &fn, nil
+}
+
+func (ds *SQLStore) RemoveFunc(ctx context.Context, funcName string) error {
+	query := ds.db.Rebind(`DELETE FROM funcs WHERE name = ?`)
+	res, err := ds.db.ExecContext(ctx, query, funcName)
+	if err != nil {
+		return err
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if n == 0 {
+		return models.ErrFuncsNotFound
+	}
+
+	return nil
+}
+
 func (ds *SQLStore) Tx(f func(*sqlx.Tx) error) error {
 	tx, err := ds.db.Beginx()
 	if err != nil {
@@ -813,20 +978,9 @@ func buildFilterRouteQuery(filter *models.RouteFilter) (string, []interface{}) {
 	var b bytes.Buffer
 	var args []interface{}
 
-	where := func(colOp, val string) {
-		if val != "" {
-			args = append(args, val)
-			if len(args) == 1 {
-				fmt.Fprintf(&b, `WHERE %s`, colOp)
-			} else {
-				fmt.Fprintf(&b, ` AND %s`, colOp)
-			}
-		}
-	}
-
-	where("app_id=? ", filter.AppID)
-	where("image=?", filter.Image)
-	where("path>?", filter.Cursor)
+	args = where(&b, args, "app_id=? ", filter.AppID)
+	args = where(&b, args, "image=?", filter.Image)
+	args = where(&b, args, "path>?", filter.Cursor)
 	// where("path LIKE ?%", filter.PathPrefix) TODO needs escaping
 
 	fmt.Fprintf(&b, ` ORDER BY path ASC`) // TODO assert this is indexed
@@ -844,32 +998,9 @@ func buildFilterAppQuery(filter *models.AppFilter) (string, []interface{}, error
 
 	var b bytes.Buffer
 
-	// todo: this same thing is in several places in here, DRY it up across this file
-	where := func(colOp, val interface{}) {
-		if val == nil {
-			return
-		}
-		switch v := val.(type) {
-		case string:
-			if v == "" {
-				return
-			}
-		case []string:
-			if len(v) == 0 {
-				return
-			}
-		}
-		args = append(args, val)
-		if len(args) == 1 {
-			fmt.Fprintf(&b, `WHERE %s`, colOp)
-		} else {
-			fmt.Fprintf(&b, ` AND %s`, colOp)
-		}
-	}
-
 	// where("name LIKE ?%", filter.Name) // TODO needs escaping?
-	where("name>?", filter.Cursor)
-	where("name IN (?)", filter.NameIn)
+	args = where(&b, args, "name>?", filter.Cursor)
+	args = where(&b, args, "name IN (?)", filter.NameIn)
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)
@@ -887,32 +1018,61 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	var b bytes.Buffer
 	var args []interface{}
 
-	where := func(colOp, val string) {
-		if val != "" {
-			args = append(args, val)
-			if len(args) == 1 {
-				fmt.Fprintf(&b, `WHERE %s?`, colOp)
-			} else {
-				fmt.Fprintf(&b, ` AND %s?`, colOp)
-			}
-		}
-	}
-
-	where("id<", filter.Cursor)
+	args = where(&b, args, "id<?", filter.Cursor)
 	if !time.Time(filter.ToTime).IsZero() {
-		where("created_at<", filter.ToTime.String())
+		args = where(&b, args, "created_at<?", filter.ToTime.String())
 	}
 	if !time.Time(filter.FromTime).IsZero() {
-		where("created_at>", filter.FromTime.String())
+		args = where(&b, args, "created_at>?", filter.FromTime.String())
 	}
-	where("app_id=", filter.AppID)
-	where("path=", filter.Path)
+	args = where(&b, args, "app_id=?", filter.AppID)
+	args = where(&b, args, "path=?", filter.Path)
 
 	fmt.Fprintf(&b, ` ORDER BY id DESC`) // TODO assert this is indexed
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
 
 	return b.String(), args
+}
+
+func buildFilterFuncQuery(filter *models.FuncFilter) (string, []interface{}) {
+	if filter == nil {
+		return "", nil
+	}
+	var b bytes.Buffer
+	var args []interface{}
+
+	// where(fmt.Sprintf("image LIKE '%s%%'"), filter.Image) // TODO needs escaping, prob we want prefix query to ignore tags
+	args = where(&b, args, "id>?", filter.Cursor)
+
+	fmt.Fprintf(&b, ` ORDER BY id ASC`)
+	fmt.Fprintf(&b, ` LIMIT ?`)
+	args = append(args, filter.PerPage)
+
+	return b.String(), args
+}
+
+func where(b *bytes.Buffer, args []interface{}, colOp string, val interface{}) []interface{} {
+	if val == nil {
+		return args
+	}
+	switch v := val.(type) {
+	case string:
+		if v == "" {
+			return args
+		}
+	case []string:
+		if len(v) == 0 {
+			return args
+		}
+	}
+	args = append(args, val)
+	if len(args) == 1 {
+		fmt.Fprintf(b, `WHERE %s`, colOp)
+	} else {
+		fmt.Fprintf(b, ` AND %s`, colOp)
+	}
+	return args
 }
 
 // GetDatabase returns the underlying sqlx database implementation

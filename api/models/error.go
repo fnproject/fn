@@ -76,6 +76,18 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
+	ErrDatastoreEmptyFunc = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing func"),
+	}
+	ErrDatastoreEmptyFuncName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing func name"),
+	}
+	ErrFuncsMissingNew = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing function body"),
+	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid payload"),
@@ -155,6 +167,34 @@ var (
 	ErrRoutesInvalidMemory = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
+	}
+	ErrFuncsInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Func name must be an RFC 3986 compliant path string"),
+	}
+	ErrFuncsMissingImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing func image"),
+	}
+	ErrFuncsInvalidFormat = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid func format"),
+	}
+	ErrInvalidTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("timeout value is out of range, must be between 0 and %d", MaxTimeout),
+	}
+	ErrInvalidIdleTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("idle_timeout value is out of range, must be between 0 and %d", MaxIdleTimeout),
+	}
+	ErrInvalidMemory = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
+	}
+	ErrFuncsNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Func not found"),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
