@@ -22,12 +22,22 @@ func optionalCorsWrap(r *gin.Engine) {
 	// By default no CORS are allowed unless one
 	// or more Origins are defined by the API_CORS
 	// environment variable.
-	corsStr := getEnv(EnvAPICORS, "")
+	corsStr := getEnv(EnvAPICORSOrigins, "")
 	if len(corsStr) > 0 {
 		origins := strings.Split(strings.Replace(corsStr, " ", "", -1), ",")
 
 		corsConfig := cors.DefaultConfig()
-		corsConfig.AllowOrigins = origins
+		if origins[0] == "*" {
+			corsConfig.AllowAllOrigins = true
+		} else {
+			corsConfig.AllowOrigins = origins
+		}
+
+		corsHeaders := getEnv(EnvAPICORSHeaders, "")
+		if len(corsHeaders) > 0 {
+			headers := strings.Split(strings.Replace(corsHeaders, " ", "", -1), ",")
+			corsConfig.AllowHeaders = headers
+		}
 
 		logrus.Infof("CORS enabled for domains: %s", origins)
 
