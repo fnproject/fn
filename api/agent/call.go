@@ -250,6 +250,10 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		// if we're not going to be able to run this call on this machine, bail here.
 		return nil, models.ErrCallTimeoutServerBusy
 	}
+	err := setMaxBodyLimit(&a.cfg, &c)
+	if err != nil {
+		return nil, err
+	}
 
 	c.da = a.da
 	c.ct = a
@@ -275,6 +279,16 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	c.execDeadline = execDeadline
 
 	return &c, nil
+}
+
+func setMaxBodyLimit(cfg *AgentConfig, c *call) error {
+	if cfg.MaxRequestSize > 0 && c.req.ContentLength > 0 && uint64(c.req.ContentLength) > cfg.MaxRequestSize {
+		return models.ErrRequestContentTooBig
+	}
+	if c.req.Body != nil {
+		c.req.Body = common.NewClampReadCloser(c.req.Body, cfg.MaxRequestSize, models.ErrRequestContentTooBig)
+	}
+	return nil
 }
 
 type call struct {

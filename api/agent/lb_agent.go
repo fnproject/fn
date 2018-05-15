@@ -97,6 +97,10 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	if c.req == nil || c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
 	}
+	err := setMaxBodyLimit(&a.cfg, &c)
+	if err != nil {
+		return nil, err
+	}
 
 	c.da = a.da
 	c.ct = a

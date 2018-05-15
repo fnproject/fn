@@ -185,6 +185,10 @@ var (
 		code:  http.StatusBadGateway,
 		error: fmt.Errorf("function response too large"),
 	}
+	ErrRequestContentTooBig = err{
+		code:  http.StatusRequestEntityTooLarge,
+		error: fmt.Errorf("Request content too large"),
+	}
 	ErrInvalidAnnotationKey = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid annotation key, annotation keys must be non-empty ascii strings excluding whitespace"),

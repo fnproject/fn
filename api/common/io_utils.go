@@ -11,9 +11,9 @@ type clampWriter struct {
 	overflowErr error
 }
 
-func NewClampWriter(buf io.Writer, maxResponseSize uint64, overflowErr error) io.Writer {
-	if maxResponseSize != 0 {
-		return &clampWriter{w: buf, remaining: int64(maxResponseSize), overflowErr: overflowErr}
+func NewClampWriter(buf io.Writer, max uint64, overflowErr error) io.Writer {
+	if max != 0 {
+		return &clampWriter{w: buf, remaining: int64(max), overflowErr: overflowErr}
 	}
 	return buf
 }
@@ -27,6 +27,39 @@ func (g *clampWriter) Write(p []byte) (int, error) {
 	}
 
 	n, err := g.w.Write(p)
+	g.remaining -= int64(n)
+	if g.remaining <= 0 {
+		err = g.overflowErr
+	}
+	return n, err
+}
+
+type clampReadCloser struct {
+	r           io.ReadCloser
+	remaining   int64
+	overflowErr error
+}
+
+func NewClampReadCloser(buf io.ReadCloser, max uint64, overflowErr error) io.ReadCloser {
+	if max != 0 {
+		return &clampReadCloser{r: buf, remaining: int64(max), overflowErr: overflowErr}
+	}
+	return buf
+}
+
+func (g *clampReadCloser) Close() error {
+	return g.r.Close()
+}
+
+func (g *clampReadCloser) Read(p []byte) (int, error) {
+	if g.remaining <= 0 {
+		return 0, g.overflowErr
+	}
+	if int64(len(p)) > g.remaining {
+		p = p[0:g.remaining]
+	}
+
+	n, err := g.r.Read(p)
 	g.remaining -= int64(n)
 	if g.remaining <= 0 {
 		err = g.overflowErr
