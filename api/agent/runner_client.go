@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -19,8 +18,9 @@ import (
 )
 
 var (
-	ErrorRunnerClosed   = errors.New("Runner is closed")
-	ErrorPureRunnerNACK = errors.New("Purerunner NACK response")
+	ErrorRunnerClosed    = errors.New("Runner is closed")
+	ErrorPureRunnerNACK  = errors.New("Purerunner NACK response")
+	ErrorPureRunnerNoEOF = errors.New("Purerunner missing EOF response")
 )
 
 const (
@@ -86,7 +86,8 @@ func (r *gRPCRunner) Address() string {
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
 	if !r.shutWg.AddSession(1) {
-		return true, ErrorRunnerClosed
+		// try another runner if this one is closed.
+		return false, ErrorRunnerClosed
 	}
 	defer r.shutWg.DoneSession()
 
@@ -97,6 +98,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		// If we can't encode the model, no runner will ever be able to run this. Give up.
 		return true, err
 	}
+
 	runnerConnection, err := r.client.Engage(ctx)
 	if err != nil {
 		logrus.WithError(err).Error("Unable to create client to runner node")
@@ -113,54 +115,23 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	}
 
 	recvDone := make(chan error, 1)
-	sendErrs := make(chan error, 1)
 
 	go receiveFromRunner(runnerConnection, call, recvDone)
-	go sendToRunner(runnerConnection, call, sendErrs)
+	go sendToRunner(runnerConnection, call)
 
-	var recvErr error
-	var sendErr error
-
-MasterLoop:
-	for {
-		select {
-		case <-ctx.Done():
-			break MasterLoop
-		case recvErr = <-recvDone:
-			break MasterLoop
-		case sendErr = <-sendErrs:
-			// we wait for receive side to receive errors
+	select {
+	case <-ctx.Done():
+		logrus.Infof("Engagement ended ctxErr=%v", ctx.Err())
+		return true, ctx.Err()
+	case recvErr := <-recvDone:
+		if recvErr != nil {
+			logrus.Infof("Engagement ended with recvErr=%v", recvErr)
 		}
+		return recvErr != ErrorPureRunnerNACK, recvErr
 	}
-
-	logrus.Debugf("Engagement ended with recvErr=%v sendErr=%v ctxErr=%v", recvErr, sendErr, ctx.Err())
-
-	// handle NACK & retriable case (This case overrides ctx.Err() and sendErr)
-	if recvErr == ErrorPureRunnerNACK {
-		return false, recvErr
-	}
-
-	// prefer failures from recvSide to report, filter EOF if ctx is done.
-	if recvErr != nil {
-		if recvErr == io.EOF && ctx.Err() != nil {
-			recvErr = ctx.Err()
-		}
-		return true, recvErr
-	}
-
-	// filter EOF if ctx is done.
-	if sendErr != nil {
-		if sendErr == io.EOF && ctx.Err() != nil {
-			sendErr = ctx.Err()
-		}
-		return true, sendErr
-	}
-
-	// no errors but only ctx is done.
-	return true, ctx.Err()
 }
 
-func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall, errs chan error) {
+func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall) {
 	total := 0
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
@@ -196,13 +167,19 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 		})
 		if sendErr != nil {
 			logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
-			errs <- sendErr
 			return
 		}
 		if isEOF {
-			logrus.Debugf("send to runner completed totalBytes=%d", total)
 			return
 		}
+	}
+}
+
+func tryQueueError(err error, done chan error) {
+	logrus.WithError(err).Debug("Detected receive side error")
+	select {
+	case done <- err:
+	default:
 	}
 }
 
@@ -214,8 +191,7 @@ DataLoop:
 	for {
 		msg, err := protocolClient.Recv()
 		if err != nil {
-			logrus.WithError(err).Error("Failed to receive message from runner")
-			done <- err
+			tryQueueError(err, done)
 			return
 		}
 
@@ -225,7 +201,7 @@ DataLoop:
 		case *pb.RunnerMsg_Acknowledged:
 			if !body.Acknowledged.Committed {
 				logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
-				done <- ErrorPureRunnerNACK
+				tryQueueError(ErrorPureRunnerNACK, done)
 				break DataLoop
 			} else {
 				// WARNING: we ignore this case, test/re-evaluate this
@@ -238,6 +214,9 @@ DataLoop:
 				for _, header := range meta.Http.Headers {
 					w.Header().Set(header.Key, header.Value)
 				}
+				if meta.Http.StatusCode > 0 {
+					w.WriteHeader(int(meta.Http.StatusCode))
+				}
 			default:
 				// WARNING: we ignore this case, test/re-evaluate this
 				logrus.Errorf("Unhandled meta type in start message: %v", meta)
@@ -246,13 +225,12 @@ DataLoop:
 			logrus.Debugf("Received data from runner len=%d isEOF=%v", len(body.Data.Data), body.Data.Eof)
 
 			// WARNING: blocking write
-			// IMPORTANT: make sure gin/agent times this out if blocked.
-			// TODO: fix this IO below
 			n, err := w.Write(body.Data.Data)
-			if n != len(body.Data.Data) || err != io.EOF {
-				err := fmt.Errorf("Error in writing response, err=%v while %d bytes of %d", err, n, len(body.Data.Data))
-				logrus.Error(err)
-				done <- err
+			if n != len(body.Data.Data) {
+				if err == nil {
+					err = io.ErrShortWrite
+				}
+				tryQueueError(err, done)
 				break DataLoop
 			}
 
@@ -267,7 +245,16 @@ DataLoop:
 	}
 
 	// There should be an EOF following the last packet
-	if _, err := protocolClient.Recv(); err != io.EOF {
-		logrus.WithError(err).Error("Did not receive expected EOF from runner stream")
+	for {
+		_, err := protocolClient.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			tryQueueError(err, done)
+			break
+		}
+
+		tryQueueError(ErrorPureRunnerNoEOF, done)
 	}
 }

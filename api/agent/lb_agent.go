@@ -176,10 +176,13 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	// pre-read and buffer request body if already not done based
 	// on GetBody presence.
-	err = a.setRequestBody(ctx, call)
+	buf, err := a.setRequestBody(ctx, call)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to process call body")
 		return a.handleCallEnd(ctx, call, err, true)
+	}
+	if buf != nil {
+		defer bufPool.Put(buf)
 	}
 
 	// WARNING: isStarted (handleCallEnd) semantics
@@ -196,12 +199,15 @@ func (a *lbAgent) Submit(callI Call) error {
 
 // setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows
 // reading from the request body without mutating the state of the request.
-func (a *lbAgent) setRequestBody(ctx context.Context, call *call) error {
+func (a *lbAgent) setRequestBody(ctx context.Context, call *call) (*bytes.Buffer, error) {
 
 	r := call.req
 	if r.Body == nil || r.GetBody != nil {
-		return nil
+		return nil, nil
 	}
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
 
 	// WARNING: we need to handle IO in a separate go-routine below
 	// to be able to detect a ctx timeout. When we timeout, we
@@ -209,17 +215,17 @@ func (a *lbAgent) setRequestBody(ctx context.Context, call *call) error {
 	errApp := make(chan error, 1)
 	go func() {
 
-		buffer, err := ioutil.ReadAll(r.Body)
+		_, err := buf.ReadFrom(r.Body)
 		if err != nil {
 			errApp <- err
 			return
 		}
 
-		r.Body = ioutil.NopCloser(bytes.NewBuffer(buffer))
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(buf.Bytes()))
 
 		// GetBody does not mutate the state of the request body
 		r.GetBody = func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewBuffer(buffer)), nil
+			return ioutil.NopCloser(bytes.NewBuffer(buf.Bytes())), nil
 		}
 
 		close(errApp)
@@ -227,9 +233,9 @@ func (a *lbAgent) setRequestBody(ctx context.Context, call *call) error {
 
 	select {
 	case err := <-errApp:
-		return err
+		return buf, err
 	case <-ctx.Done():
-		return ctx.Err()
+		return buf, ctx.Err()
 	}
 }
 
