@@ -54,7 +54,8 @@ const (
 	EnvNodeType        = "FN_NODE_TYPE"
 	EnvPort            = "FN_PORT" // be careful, Gin expects this variable to be "port"
 	EnvGRPCPort        = "FN_GRPC_PORT"
-	EnvAPICORS         = "FN_API_CORS"
+	EnvAPICORSOrigins  = "FN_API_CORS_ORIGINS"
+	EnvAPICORSHeaders  = "FN_API_CORS_HEADERS"
 	EnvZipkinURL       = "FN_ZIPKIN_URL"
 	EnvJaegerURL       = "FN_JAEGER_URL"
 	// Certificates to communicate with other FN nodes
