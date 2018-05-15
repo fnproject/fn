@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/common"
+	"go.opencensus.io/trace"
 )
 
 // syslogConns may return a non-nil io.WriteCloser and an error simultaneously,
@@ -21,6 +22,10 @@ import (
 // the returned io.WriteCloser is a Writer to each conn, it should be wrapped in another
 // writer that writes syslog formatted messages (by line).
 func syslogConns(ctx context.Context, syslogURLs string) (io.WriteCloser, error) {
+	// TODO(reed): we should likely add a trace per conn, need to plumb tagging better
+	ctx, span := trace.StartSpan(ctx, "syslog_conns")
+	defer span.End()
+
 	if len(syslogURLs) == 0 {
 		return nullReadWriter{}, nil
 	}
