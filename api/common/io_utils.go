@@ -61,9 +61,6 @@ func (g *clampReadCloser) Read(p []byte) (int, error) {
 
 	n, err := g.r.Read(p)
 	g.remaining -= int64(n)
-	if g.remaining <= 0 {
-		err = g.overflowErr
-	}
 	return n, err
 }
 
