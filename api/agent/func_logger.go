@@ -2,10 +2,12 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sync"
 
+	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,10 +16,15 @@ var (
 	logPool = &sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
-// setupLogger returns an io.ReadWriteCloser which may write to multiple io.Writer's,
-// and may be read from the returned io.Reader (singular). After Close is called,
-// the Reader is not safe to read from, nor the Writer to write to.
-func setupLogger(logger logrus.FieldLogger, maxSize uint64) io.ReadWriteCloser {
+// setupLogger returns a ReadWriteCloser that may have:
+// * [always] writes bytes to a size limited buffer, that can be read from using io.Reader
+// * [always] writes bytes per line to stderr as DEBUG
+//
+// To prevent write failures from failing the call or any other writes,
+// multiWriteCloser ignores errors. Close will flush the line writers
+// appropriately.  The returned io.ReadWriteCloser is not safe for use after
+// calling Close.
+func setupLogger(ctx context.Context, maxSize uint64, c *models.Call) io.ReadWriteCloser {
 	lbuf := bufPool.Get().(*bytes.Buffer)
 	dbuf := logPool.Get().(*bytes.Buffer)
 
@@ -30,17 +37,16 @@ func setupLogger(logger logrus.FieldLogger, maxSize uint64) io.ReadWriteCloser {
 		return nil
 	}
 
-	// we don't need to limit the log writer, but we do need it to dispense lines
-	linew := newLineWriterWithBuffer(lbuf, &logWriter{logger})
-
 	// we don't need to log per line to db, but we do need to limit it
 	limitw := &nopCloser{newLimitWriter(int(maxSize), dbuf)}
 
-	// TODO / NOTE: we want linew to be first because limitw may error if limit
-	// is reached but we still want to log. we should probably ignore hitting the
-	// limit error since we really just want to not write too much to db and
-	// that's handled as is. put buffers back last to avoid misuse, if there's
-	// an error they won't get put back and that's really okay too.
+	// accumulate all line writers, wrap in same line writer (to re-use buffer)
+	stderrLogger := logrus.WithFields(logrus.Fields{"user_log": true, "app_id": c.AppID, "path": c.Path, "image": c.Image, "call_id": c.ID})
+	loggo := &nopCloser{&logWriter{stderrLogger}}
+
+	// we don't need to limit the log writer(s), but we do need it to dispense lines
+	linew := newLineWriterWithBuffer(lbuf, loggo)
+
 	mw := multiWriteCloser{linew, limitw, &fCloser{close}}
 	return &rwc{mw, dbuf}
 }
@@ -78,39 +84,34 @@ type nullReadWriter struct {
 	io.ReadCloser
 }
 
-func (n *nullReadWriter) Close() error {
+func (n nullReadWriter) Close() error {
 	return nil
 }
-func (n *nullReadWriter) Read(b []byte) (int, error) {
+func (n nullReadWriter) Read(b []byte) (int, error) {
 	return 0, io.EOF
 }
-func (n *nullReadWriter) Write(b []byte) (int, error) {
-	return 0, io.EOF
+func (n nullReadWriter) Write(b []byte) (int, error) {
+	return len(b), io.EOF
 }
 
-// multiWriteCloser returns the first write or close that returns a non-nil
-// err, if no non-nil err is returned, then the returned bytes written will be
-// from the last call to write.
+// multiWriteCloser ignores all errors from inner writers. you say, oh, this is a bad idea?
+// yes, well, we were going to silence them all individually anyway, so let's not be shy about it.
+// the main thing we need to ensure is that every close is called, even if another errors.
+// XXX(reed): maybe we should log it (for syslog, it may help debug, maybe we just log that one)
 type multiWriteCloser []io.WriteCloser
 
 func (m multiWriteCloser) Write(b []byte) (n int, err error) {
 	for _, mw := range m {
-		n, err = mw.Write(b)
-		if err != nil {
-			return n, err
-		}
+		mw.Write(b)
 	}
-	return n, err
+	return len(b), nil
 }
 
 func (m multiWriteCloser) Close() (err error) {
 	for _, mw := range m {
-		err = mw.Close()
-		if err != nil {
-			return err
-		}
+		mw.Close()
 	}
-	return err
+	return nil
 }
 
 // logWriter will log (to real stderr) every call to Write as a line. it should
@@ -130,14 +131,14 @@ func (l *logWriter) Write(b []byte) (int, error) {
 // will be appended in Close if none is present.
 type lineWriter struct {
 	b *bytes.Buffer
-	w io.Writer
+	w io.WriteCloser
 }
 
-func newLineWriter(w io.Writer) io.WriteCloser {
+func newLineWriter(w io.WriteCloser) io.WriteCloser {
 	return &lineWriter{b: new(bytes.Buffer), w: w}
 }
 
-func newLineWriterWithBuffer(b *bytes.Buffer, w io.Writer) io.WriteCloser {
+func newLineWriterWithBuffer(b *bytes.Buffer, w io.WriteCloser) io.WriteCloser {
 	return &lineWriter{b: b, w: w}
 }
 
@@ -165,6 +166,8 @@ func (li *lineWriter) Write(ogb []byte) (int, error) {
 }
 
 func (li *lineWriter) Close() error {
+	defer li.w.Close() // MUST close this (after writing last line)
+
 	// flush the remaining bytes in the buffer to underlying writer, adding a
 	// newline if needed
 	b := li.b.Bytes()

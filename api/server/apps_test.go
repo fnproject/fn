@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -54,9 +55,12 @@ func TestAppCreate(t *testing.T) {
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "annotations" : { "":"val" }}}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "annotations" : { "key":"" }}}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "syslog_url":"yo"}}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo"`)},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "syslog_url":"yo://sup.com:1"}}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1"`)},
 		// success
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
 		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}}`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste", "syslog_url":"tcp://example.com:443" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -297,6 +301,9 @@ func TestAppUpdate(t *testing.T) {
 
 		// success
 		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "config": { "test": "1" } } }`, http.StatusOK, nil},
+
+		// success
+		{ds, logs.NewMock(), "/v1/apps/myapp", `{ "app": { "syslog_url":"tcp://example.com:443" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)

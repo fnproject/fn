@@ -559,6 +559,9 @@ definitions:
         description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
         additionalProperties:
           type: object
+      syslog_url:
+        type: string
+        description: A comma separated list of syslog urls to send all function logs to. supports tls, udp or tcp. e.g. tls://logs.papertrailapp.com:1
       created_at:
         type: string
         format: date-time

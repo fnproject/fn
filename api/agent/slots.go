@@ -287,6 +287,8 @@ func getSlotQueueKey(call *call) string {
 
 	hash.Write(unsafeBytes(call.AppID))
 	hash.Write(unsafeBytes("\x00"))
+	hash.Write(unsafeBytes(call.SyslogURL))
+	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Path))
 	hash.Write(unsafeBytes("\x00"))
 	hash.Write(unsafeBytes(call.Image))

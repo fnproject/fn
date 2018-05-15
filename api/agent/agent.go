@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"log/syslog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -687,8 +689,21 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 	// buffering overflows (json to a string, http to a buffer, etc)
 	stdoutWrite := common.NewClampWriter(stdoutWritePipe, s.maxRespSize, models.ErrFunctionResponseTooBig)
 
+	// get our own syslogger with THIS call id (cheap), using the container's already open syslog conns (expensive)
+	// TODO? we can basically just do this whether there are conns or not, this is relatively cheap (despite appearances)
+	buf1 := bufPool.Get().(*bytes.Buffer)
+	buf2 := bufPool.Get().(*bytes.Buffer)
+	defer bufPool.Put(buf1)
+	defer bufPool.Put(buf2)
+
+	sw := newSyslogWriter(call.ID, call.Path, call.AppID, syslog.LOG_ERR, s.container.syslogConns, buf1)
+	var syslog io.WriteCloser = &nopCloser{sw}
+	syslog = newLineWriterWithBuffer(buf2, syslog)
+	defer syslog.Close()                            // close syslogger from here, but NOT the call log stderr OR conns
+	stderr := multiWriteCloser{call.stderr, syslog} // use multiWriteCloser for its error ignoring properties
+
 	proto := protocol.New(protocol.Protocol(call.Format), stdinWrite, stdoutRead)
-	swapBack := s.container.swap(stdinRead, stdoutWrite, call.stderr, &call.Stats)
+	swapBack := s.container.swap(stdinRead, stdoutWrite, stderr, &call.Stats)
 	defer swapBack() // NOTE: it's important this runs before the pipes are closed.
 
 	errApp := make(chan error, 1)
@@ -775,7 +790,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	state.UpdateState(ctx, ContainerStateStart, call.slots)
 	defer state.UpdateState(ctx, ContainerStateDone, call.slots)
 
-	container, closer := NewHotContainer(call, &a.cfg)
+	container, closer := NewHotContainer(ctx, call, &a.cfg)
 	defer closer()
 
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
@@ -941,17 +956,17 @@ type container struct {
 	fsSize  uint64
 	timeout time.Duration // cold only (superfluous, but in case)
 
-	stdin  io.Reader
-	stdout io.Writer
-	stderr io.Writer
+	stdin       io.Reader
+	stdout      io.Writer
+	stderr      io.Writer
+	syslogConns io.WriteCloser
 
-	// lock protects the stats swapping
-	statsMu sync.Mutex
-	stats   *drivers.Stats
+	// swapMu protects the stats swapping
+	swapMu sync.Mutex
+	stats  *drivers.Stats
 }
 
-func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
-
+func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*container, func()) {
 	// if freezer is enabled, be consistent with freezer behavior and
 	// block stdout and stderr between calls.
 	isBlockIdleIO := MaxDisabledMsecs != cfg.FreezeIdle
@@ -962,34 +977,73 @@ func NewHotContainer(call *call, cfg *AgentConfig) (*container, func()) {
 	stderr := common.NewGhostWriter()
 	stdout := common.NewGhostWriter()
 
+	// these are only the conns, this doesn't write the syslog format (since it will change between calls)
+	syslogConns, err := syslogConns(ctx, call.SyslogURL)
+	if err != nil {
+		// TODO we could write this to between stderr but between stderr doesn't go to user either. kill me.
+		logrus.WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
+	}
+
+	// for use if no freezer (or we ever make up our minds)
+	var bufs []*bytes.Buffer
+
 	// when not processing a request, do we block IO?
 	if !isBlockIdleIO {
 		// IMPORTANT: we are not operating on a TTY allocated container. This means, stderr and stdout are multiplexed
 		// from the same stream internally via docker using a multiplexing protocol. Therefore, stderr/stdout *BOTH*
 		// have to be read or *BOTH* blocked consistently. In other words, we cannot block one and continue
 		// reading from the other one without risking head-of-line blocking.
-		stderr.Swap(newLineWriter(&logWriter{
-			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
-		}))
-		stdout.Swap(newLineWriter(&logWriter{
+
+		// wrap the syslog and debug loggers in the same (respective) line writer
+		// syslog complete chain for this (from top):
+		// stderr -> line writer -> syslog -> []conns
+
+		// TODO(reed): I guess this is worth it
+		// TODO(reed): there's a bug here where the between writers could have
+		// bytes in there, get swapped for real stdout/stderr, come back and write
+		// bytes in and the bytes are [really] stale. I played with fixing this
+		// and mostly came to the conclusion that life is meaningless.
+		buf1 := bufPool.Get().(*bytes.Buffer)
+		buf2 := bufPool.Get().(*bytes.Buffer)
+		buf3 := bufPool.Get().(*bytes.Buffer)
+		buf4 := bufPool.Get().(*bytes.Buffer)
+		bufs = []*bytes.Buffer{buf1, buf2, buf3, buf4}
+
+		// stdout = LOG_INFO, stderr = LOG_ERR -- ONLY for the between writers, normal stdout is a response
+		so := newSyslogWriter(call.ID, call.Path, call.AppID, syslog.LOG_INFO, syslogConns, buf1)
+		se := newSyslogWriter(call.ID, call.Path, call.AppID, syslog.LOG_ERR, syslogConns, buf2)
+
+		// use multiWriteCloser since it ignores errors (io.MultiWriter does not)
+		soc := multiWriteCloser{&nopCloser{so}, &nopCloser{&logWriter{
 			logrus.WithFields(logrus.Fields{"tag": "stdout", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
-		}))
+		}}}
+		sec := multiWriteCloser{&nopCloser{se}, &nopCloser{&logWriter{
+			logrus.WithFields(logrus.Fields{"tag": "stderr", "app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}),
+		}}}
+
+		stdout.Swap(newLineWriterWithBuffer(buf4, soc))
+		stderr.Swap(newLineWriterWithBuffer(buf3, sec))
 	}
 
 	return &container{
-			id:     id, // XXX we could just let docker generate ids...
-			image:  call.Image,
-			env:    map[string]string(call.Config),
-			memory: call.Memory,
-			cpus:   uint64(call.CPUs),
-			fsSize: cfg.MaxFsSize,
-			stdin:  stdin,
-			stdout: stdout,
-			stderr: stderr,
+			id:          id, // XXX we could just let docker generate ids...
+			image:       call.Image,
+			env:         map[string]string(call.Config),
+			memory:      call.Memory,
+			cpus:        uint64(call.CPUs),
+			fsSize:      cfg.MaxFsSize,
+			stdin:       stdin,
+			stdout:      stdout,
+			stderr:      stderr,
+			syslogConns: syslogConns,
 		}, func() {
 			stdin.Close()
 			stderr.Close()
 			stdout.Close()
+			for _, b := range bufs {
+				bufPool.Put(b)
+			}
+			syslogConns.Close()
 		}
 }
 
@@ -999,18 +1053,18 @@ func (c *container) swap(stdin io.Reader, stdout, stderr io.Writer, cs *drivers.
 	ostdout := c.stdout.(common.GhostWriter).Swap(stdout)
 	ostderr := c.stderr.(common.GhostWriter).Swap(stderr)
 
-	c.statsMu.Lock()
+	c.swapMu.Lock()
 	ocs := c.stats
 	c.stats = cs
-	c.statsMu.Unlock()
+	c.swapMu.Unlock()
 
 	return func() {
 		c.stdin.(common.GhostReader).Swap(ostdin)
 		c.stdout.(common.GhostWriter).Swap(ostdout)
 		c.stderr.(common.GhostWriter).Swap(ostderr)
-		c.statsMu.Lock()
+		c.swapMu.Lock()
 		c.stats = ocs
-		c.statsMu.Unlock()
+		c.swapMu.Unlock()
 	}
 }
 
@@ -1036,11 +1090,11 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 		}
 	}
 
-	c.statsMu.Lock()
+	c.swapMu.Lock()
 	if c.stats != nil {
 		*(c.stats) = append(*(c.stats), stat)
 	}
-	c.statsMu.Unlock()
+	c.swapMu.Unlock()
 }
 
 var measures map[string]*stats.Int64Measure
