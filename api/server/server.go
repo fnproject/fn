@@ -325,7 +325,7 @@ func WithNodeCertAuthority(ca string) ServerOption {
 
 func WithDatastore(ds models.Datastore) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		s.datastore = ds
+		s.datastore = datastore.Wrap(ds)
 		return nil
 	}
 }
