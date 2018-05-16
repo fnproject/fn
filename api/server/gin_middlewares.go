@@ -39,6 +39,8 @@ func optionalCorsWrap(r *gin.Engine) {
 			corsConfig.AllowHeaders = headers
 		}
 
+		corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "HEAD", "DELETE"}
+
 		logrus.Infof("CORS enabled for domains: %s", origins)
 
 		r.Use(cors.New(corsConfig))
