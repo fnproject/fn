@@ -21,7 +21,7 @@ func New(ctx context.Context, dbURL string) (models.Datastore, error) {
 	return Wrap(ds), nil
 }
 
-func Wrap(ds models.Datastore) (models.Datastore) {
+func Wrap(ds models.Datastore) models.Datastore {
 	return datastoreutil.MetricDS(datastoreutil.NewValidator(ds))
 }
 
