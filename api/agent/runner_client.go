@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -24,8 +25,8 @@ var (
 )
 
 const (
-	// max buffer size for grpc data messages, 64K
-	MaxDataChunk = 64 * 1024
+	// max buffer size for grpc data messages, 10K
+	MaxDataChunk = 10 * 1024
 )
 
 type gRPCRunner struct {
@@ -121,18 +122,14 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 
 	select {
 	case <-ctx.Done():
-		logrus.Infof("Engagement ended ctxErr=%v", ctx.Err())
+		logrus.Infof("Engagement Context ended ctxErr=%v", ctx.Err())
 		return true, ctx.Err()
 	case recvErr := <-recvDone:
-		if recvErr != nil {
-			logrus.Infof("Engagement ended with recvErr=%v", recvErr)
-		}
 		return recvErr != ErrorPureRunnerNACK, recvErr
 	}
 }
 
 func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall) {
-	total := 0
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
 
@@ -154,7 +151,6 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 		// any IO error or n == 0 is an EOF for pure-runner
 		isEOF := err != nil || n == 0
 		data := writeBuffer[:n]
-		total += n
 
 		logrus.Debugf("Sending %d bytes of data isEOF=%v to runner", n, isEOF)
 		sendErr := protocolClient.Send(&pb.ClientMsg{
@@ -176,7 +172,6 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 }
 
 func tryQueueError(err error, done chan error) {
-	logrus.WithError(err).Debug("Detected receive side error")
 	select {
 	case done <- err:
 	default:
@@ -187,30 +182,36 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 	w := c.ResponseWriter()
 	defer close(done)
 
+	isPartialWrite := false
+
 DataLoop:
 	for {
 		msg, err := protocolClient.Recv()
 		if err != nil {
+			logrus.WithError(err).Info("Receive error from runner")
 			tryQueueError(err, done)
 			return
 		}
 
 		switch body := msg.Body.(type) {
 
-		// Check for NACK from server if request was rejected.
+		// Check for NACK from server if request was rejected. Otherwise, we assume
+		// things are being processed OK
 		case *pb.RunnerMsg_Acknowledged:
 			if !body.Acknowledged.Committed {
-				logrus.Debugf("Runner didn't commit invocation request: %v", body.Acknowledged.Details)
+				logrus.Infof("Received NACK from runner: %v", body.Acknowledged.Details)
 				tryQueueError(ErrorPureRunnerNACK, done)
 				break DataLoop
 			} else {
-				// WARNING: we ignore this case, test/re-evaluate this
-				logrus.WithError(err).Error("ACK received from runner, possible client/server mismatch")
+				logrus.Error("Ignoring ACK from runner, possible client/server mismatch")
 			}
 
+		// Process HTTP header/status message. This may not arrive depending on
+		// pure runners behavior. (Eg. timeout & no IO received from function)
 		case *pb.RunnerMsg_ResultStart:
 			switch meta := body.ResultStart.Meta.(type) {
 			case *pb.CallResultStart_Http:
+				logrus.Debugf("Received meta http result from runner Status=%v", meta.Http.StatusCode)
 				for _, header := range meta.Http.Headers {
 					w.Header().Set(header.Key, header.Value)
 				}
@@ -218,43 +219,54 @@ DataLoop:
 					w.WriteHeader(int(meta.Http.StatusCode))
 				}
 			default:
-				// WARNING: we ignore this case, test/re-evaluate this
 				logrus.Errorf("Unhandled meta type in start message: %v", meta)
 			}
+
+		// May arrive if function has output. We ignore EOF.
 		case *pb.RunnerMsg_Data:
 			logrus.Debugf("Received data from runner len=%d isEOF=%v", len(body.Data.Data), body.Data.Eof)
-
-			// WARNING: blocking write
-			n, err := w.Write(body.Data.Data)
-			if n != len(body.Data.Data) {
-				if err == nil {
-					err = io.ErrShortWrite
+			if !isPartialWrite {
+				// WARNING: blocking write
+				n, err := w.Write(body.Data.Data)
+				if n != len(body.Data.Data) {
+					isPartialWrite = true
+					logrus.WithError(err).Infof("Failed to write full response (%d of %d) to client", n, len(body.Data.Data))
+					if err == nil {
+						err = io.ErrShortWrite
+					}
+					tryQueueError(err, done)
 				}
-				tryQueueError(err, done)
-				break DataLoop
 			}
 
+		// Finish messages required for finish/finalize the processing.
 		case *pb.RunnerMsg_Finished:
 			logrus.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
+			if !body.Finished.Success {
+				tryQueueError(fmt.Errorf("%s", body.Finished.Details), done)
+			}
 			break DataLoop
 
 		default:
-			logrus.Errorf("Unhandled message type from runner: %v", body)
-			// WARNING: we ignore this case, test/re-evaluate this
+			logrus.Error("Ignoring unknown message type %T from runner, possible client/server mismatch", body)
 		}
 	}
 
 	// There should be an EOF following the last packet
 	for {
-		_, err := protocolClient.Recv()
+		msg, err := protocolClient.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			logrus.WithError(err).Infof("Call Waiting EOF received error")
 			tryQueueError(err, done)
 			break
 		}
 
+		switch body := msg.Body.(type) {
+		default:
+			logrus.Infof("Call Waiting EOF ignoring message %T", body)
+		}
 		tryQueueError(ErrorPureRunnerNoEOF, done)
 	}
 }

@@ -200,52 +200,49 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
-	defer ch.finalize()
-
-	// Error response
+	details := ch.c.Model().ID
 	if err != nil {
-		ch.enqueueMsgStrict(&runner.RunnerMsg{
-			Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-				Success: false,
-				Details: fmt.Sprintf("%v", err),
-			}}})
+		details = err.Error()
+	}
+
+	logrus.Debugf("Sending Call Finish details=%v", details)
+
+	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
+		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
+			Success: err == nil,
+			Details: details,
+		}}})
+
+	if errTmp != nil {
+		logrus.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v", details)
 		return
 	}
 
-	// EOF and Success response
-	ch.enqueueMsgStrict(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_Data{
-			Data: &runner.DataFrame{
-				Eof: true,
-			},
-		},
-	})
-
-	ch.enqueueMsgStrict(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success: true,
-			Details: ch.c.Model().ID,
-		}}})
+	errTmp = ch.finalize()
+	if errTmp != nil {
+		logrus.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v", details)
+	}
 }
 
 // enqueueNack enqueues a NACK response to the LB for ClientMsg_Try
 // request. It also initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueNack(err error) {
 	logrus.WithError(err).Debugf("Sending NACK")
-	// NACK
+
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
 			Committed: false,
-			Details:   fmt.Sprintf("%v", err),
+			Details:   err.Error(),
 		}}})
+
 	if errTmp != nil {
-		logrus.WithError(err).Infof("enqueueNack Error %v", errTmp)
+		logrus.WithError(errTmp).Infof("enqueueNack Send Error %v", err)
 		return
 	}
 
 	errTmp = ch.finalize()
 	if errTmp != nil {
-		logrus.WithError(err).Infof("enqueueNack Finalize Error %v", errTmp)
+		logrus.WithError(errTmp).Infof("enqueueNack Finalize Error %v", err)
 	}
 }
 
@@ -395,23 +392,38 @@ func (ch *callHandle) Write(data []byte) (int, error) {
 		return 0, err
 	}
 
-	// we cannot retain 'data'
-	cpData := make([]byte, len(data))
-	copy(cpData, data)
+	total := 0
+	// split up data into gRPC chunks
+	for {
+		chunkSize := len(data)
+		if chunkSize > MaxDataChunk {
+			chunkSize = MaxDataChunk
+		}
+		if chunkSize == 0 {
+			break
+		}
 
-	err = ch.enqueueMsg(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_Data{
-			Data: &runner.DataFrame{
-				Data: cpData,
-				Eof:  false,
+		// we cannot retain 'data'
+		cpData := make([]byte, chunkSize)
+		copy(cpData, data[0:chunkSize])
+		data = data[chunkSize:]
+
+		err = ch.enqueueMsg(&runner.RunnerMsg{
+			Body: &runner.RunnerMsg_Data{
+				Data: &runner.DataFrame{
+					Data: cpData,
+					Eof:  false,
+				},
 			},
-		},
-	})
+		})
 
-	if err != nil {
-		return 0, err
+		if err != nil {
+			return total, err
+		}
+		total += chunkSize
 	}
-	return len(data), nil
+
+	return total, nil
 }
 
 // getTryMsg fetches/waits for a TryCall message from

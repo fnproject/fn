@@ -84,6 +84,46 @@ func TestCanExecuteFunction(t *testing.T) {
 	}
 }
 
+func TestCanExecuteBigOutput(t *testing.T) {
+	s := apiutils.SetupHarness()
+	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
+	defer s.Cleanup()
+
+	rt := s.BasicRoute()
+	rt.Image = "fnproject/fn-test-utils"
+	rt.Format = "json"
+	rt.Type = "sync"
+
+	s.GivenRouteExists(t, s.AppName, rt)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
+
+	// Approx 6.4MB output
+	body := `{"echoContent": "HelloBigWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 400000}`
+	content := bytes.NewBuffer([]byte(body))
+	output := &bytes.Buffer{}
+
+	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	t.Logf("getEchoContent/HelloWorld size %d", len(output.Bytes()))
+
+	echo, err := getEchoContent(output.Bytes())
+	if err != nil || echo != "HelloBigWorld" {
+		t.Fatalf("getEchoContent/HelloWorld check failed on %v", output)
+	}
+}
+
 func TestBasicConcurrentExecution(t *testing.T) {
 
 	s := apiutils.SetupHarness()
