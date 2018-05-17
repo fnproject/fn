@@ -197,12 +197,17 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
+func convertError(err error) string {
+	code := models.GetAPIErrorCode(err)
+	return fmt.Sprintf("%d:%s", code, err.Error())
+}
+
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
 	details := ch.c.Model().ID
 	if err != nil {
-		details = err.Error()
+		details = convertError(err)
 	}
 
 	logrus.Debugf("Sending Call Finish details=%v", details)
@@ -232,7 +237,7 @@ func (ch *callHandle) enqueueNack(err error) {
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
 			Committed: false,
-			Details:   err.Error(),
+			Details:   convertError(err),
 		}}})
 
 	if errTmp != nil {
@@ -633,16 +638,21 @@ func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, ce
 	return NewPureRunner(cancel, addr, da, cert, key, ca, nil)
 }
 
-func WithNBIOAgent() AgentOption {
+func ValidatePureRunnerConfig() AgentOption {
 	return func(a *agent) error {
 
-		// pure runner requires a non-blocking resource tracker
-		a.cfg.EnableNBResourceTracker = true
-
-		// if set to default, adjust this to quicker nbio agent frequency
-		if a.cfg.HotPoll == DefaultHotPoll {
-			a.cfg.HotPoll = DefaultNBIOHotPoll
+		if a.cfg.MaxResponseSize == 0 {
+			return errors.New("pure runner requires MaxResponseSize limits")
 		}
+		if a.cfg.MaxRequestSize == 0 {
+			return errors.New("pure runner requires MaxRequestSize limits")
+		}
+
+		// pure runner requires a non-blocking resource tracker
+		if !a.cfg.EnableNBResourceTracker {
+			return errors.New("pure runner requires EnableNBResourceTracker true")
+		}
+
 		return nil
 	}
 }
@@ -650,7 +660,7 @@ func WithNBIOAgent() AgentOption {
 func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, unused CapacityGate) (Agent, error) {
 	// TODO: gate unused, decommission/remove it after cleaning up dependencies to it.
 
-	a := createAgent(da, WithNBIOAgent())
+	a := createAgent(da, ValidatePureRunnerConfig())
 	var pr *pureRunner
 	var err error
 	if cert != "" && key != "" && ca != "" {

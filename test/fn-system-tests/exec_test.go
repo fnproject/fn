@@ -106,8 +106,8 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	// Approx 6.4MB output
-	body := `{"echoContent": "HelloBigWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 400000}`
+	// Approx 5.3MB output
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 410000}`
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
@@ -119,8 +119,48 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	t.Logf("getEchoContent/HelloWorld size %d", len(output.Bytes()))
 
 	echo, err := getEchoContent(output.Bytes())
-	if err != nil || echo != "HelloBigWorld" {
+	if err != nil || echo != "HelloWorld" {
 		t.Fatalf("getEchoContent/HelloWorld check failed on %v", output)
+	}
+}
+
+func TestCanExecuteTooBigOutput(t *testing.T) {
+	s := apiutils.SetupHarness()
+	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
+	defer s.Cleanup()
+
+	rt := s.BasicRoute()
+	rt.Image = "fnproject/fn-test-utils"
+	rt.Format = "json"
+	rt.Type = "sync"
+
+	s.GivenRouteExists(t, s.AppName, rt)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
+
+	// > 6MB output
+	body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true, "trailerRepeat": 600000}`
+	content := bytes.NewBuffer([]byte(body))
+	output := &bytes.Buffer{}
+
+	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	exp := "{\"error\":{\"message\":\"function response too large\"}}\n"
+	actual := output.String()
+
+	if !strings.Contains(exp, actual) || len(exp) != len(actual) {
+		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", exp, output.String())
 	}
 }
 

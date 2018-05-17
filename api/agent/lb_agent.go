@@ -39,12 +39,26 @@ type lbAgent struct {
 	callEndCount int64
 }
 
+func NewLBAgentConfig() (*AgentConfig, error) {
+	cfg, err := NewAgentConfig()
+	if err != nil {
+		return cfg, err
+	}
+	if cfg.MaxRequestSize == 0 {
+		return cfg, errors.New("lb-agent requires MaxRequestSize limit")
+	}
+	if cfg.MaxResponseSize == 0 {
+		return cfg, errors.New("lb-agent requires MaxResponseSize limit")
+	}
+	return cfg, nil
+}
+
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
 func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
 
 	// TODO: Move the constants above to Agent Config or an LB specific LBAgentConfig
-	cfg, err := NewAgentConfig()
+	cfg, err := NewLBAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
 	}

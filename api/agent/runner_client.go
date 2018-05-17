@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -13,6 +14,7 @@ import (
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/grpcutil"
 	"github.com/sirupsen/logrus"
@@ -20,7 +22,6 @@ import (
 
 var (
 	ErrorRunnerClosed    = errors.New("Runner is closed")
-	ErrorPureRunnerNACK  = errors.New("Purerunner NACK response")
 	ErrorPureRunnerNoEOF = errors.New("Purerunner missing EOF response")
 )
 
@@ -125,7 +126,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		logrus.Infof("Engagement Context ended ctxErr=%v", ctx.Err())
 		return true, ctx.Err()
 	case recvErr := <-recvDone:
-		return recvErr != ErrorPureRunnerNACK, recvErr
+		return recvErr != models.ErrCallTimeoutServerBusy, recvErr
 	}
 }
 
@@ -171,6 +172,21 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 	}
 }
 
+func parseError(details string) error {
+	tokens := strings.SplitN(details, ":", 2)
+	if len(tokens) != 2 || tokens[0] == "" || tokens[1] == "" {
+		return errors.New(details)
+	}
+	code, err := strconv.ParseInt(tokens[0], 10, 64)
+	if err != nil {
+		return errors.New(details)
+	}
+	if code != 0 {
+		return models.NewAPIError(int(code), errors.New(tokens[1]))
+	}
+	return errors.New(tokens[1])
+}
+
 func tryQueueError(err error, done chan error) {
 	select {
 	case done <- err:
@@ -200,7 +216,8 @@ DataLoop:
 		case *pb.RunnerMsg_Acknowledged:
 			if !body.Acknowledged.Committed {
 				logrus.Infof("Received NACK from runner: %v", body.Acknowledged.Details)
-				tryQueueError(ErrorPureRunnerNACK, done)
+				err := parseError(body.Acknowledged.GetDetails())
+				tryQueueError(err, done)
 				break DataLoop
 			} else {
 				logrus.Error("Ignoring ACK from runner, possible client/server mismatch")
@@ -242,7 +259,8 @@ DataLoop:
 		case *pb.RunnerMsg_Finished:
 			logrus.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
 			if !body.Finished.Success {
-				tryQueueError(fmt.Errorf("%s", body.Finished.Details), done)
+				err := parseError(body.Finished.GetDetails())
+				tryQueueError(err, done)
 			}
 			break DataLoop
 

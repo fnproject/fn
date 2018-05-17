@@ -39,6 +39,12 @@ esac
 # avoid port conflicts with api_test.sh which are run in parallel
 export FN_API_URL="http://localhost:8085"
 export FN_DS_DB_PING_MAX_RETRIES=60
+
+# pure runner and LB agent required settings below
+export FN_MAX_REQUEST_SIZE=6291456
+export FN_MAX_RESPONSE_SIZE=6291456
+export FN_ENABLE_NB_RESOURCE_TRACKER=1
+
 cd test/fn-system-tests && FN_DB_URL=${FN_DB_URL} FN_API_URL=${FN_API_URL} go test -v -parallel ${2:-1} ./...; cd ../../
 
 remove_system_containers
