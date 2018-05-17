@@ -85,6 +85,10 @@ func (r *gRPCRunner) Address() string {
 	return r.address
 }
 
+func isRetriable(err error) bool {
+	return models.GetAPIErrorCode(err) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy)
+}
+
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	logrus.WithField("runner_addr", r.address).Debug("Attempting to place call")
 	if !r.shutWg.AddSession(1) {
@@ -126,7 +130,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		logrus.Infof("Engagement Context ended ctxErr=%v", ctx.Err())
 		return true, ctx.Err()
 	case recvErr := <-recvDone:
-		return recvErr != models.ErrCallTimeoutServerBusy, recvErr
+		return !isRetriable(recvErr), recvErr
 	}
 }
 
