@@ -23,9 +23,11 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 /*
@@ -420,6 +422,10 @@ func (ch *callHandle) getTryMsg() *runner.TryCall {
 	select {
 	case <-ch.doneQueue:
 	case <-ch.ctx.Done():
+		// if ctx timed out while waiting, then this is a 503 (retriable)
+		err := status.Errorf(codes.Code(models.ErrCallTimeoutServerBusy.Code()), models.ErrCallTimeoutServerBusy.Error())
+		ch.shutdown(err)
+		return nil
 	case item := <-ch.inQueue:
 		if item != nil {
 			msg = item.GetTry()
