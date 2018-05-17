@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
@@ -86,7 +87,18 @@ func (r *gRPCRunner) Address() string {
 }
 
 func isRetriable(err error) bool {
-	return models.GetAPIErrorCode(err) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy)
+	// A formal API error returned from pure-runner
+	if models.GetAPIErrorCode(err) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy) {
+		return true
+	}
+	if err != nil {
+		// engagement/recv errors could also be a 503.
+		st := status.Convert(err)
+		if int(st.Code()) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
