@@ -47,7 +47,10 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 
 				r := runners[i]
 
-				placed, err := r.TryExec(ctx, call)
+				tryCtx, tryCancel := context.WithCancel(ctx)
+				placed, err := r.TryExec(tryCtx, call)
+				tryCancel()
+
 				if err != nil {
 					logrus.WithError(err).Error("Failed during call placement")
 				}

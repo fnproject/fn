@@ -49,7 +49,10 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 				i := atomic.AddUint64(&sp.rrIndex, uint64(1))
 				r := runners[int(i)%len(runners)]
 
-				placed, err := r.TryExec(ctx, call)
+				tryCtx, tryCancel := context.WithCancel(ctx)
+				placed, err := r.TryExec(tryCtx, call)
+				tryCancel()
+
 				if err != nil {
 					logrus.WithError(err).Error("Failed during call placement")
 				}

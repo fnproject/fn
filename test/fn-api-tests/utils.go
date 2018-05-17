@@ -212,7 +212,7 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) (http.Header, error) {
+func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) (*http.Response, error) {
 	if method == "" {
 		if content == nil {
 			method = "GET"
@@ -239,7 +239,7 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 
 	io.Copy(output, resp.Body)
 
-	return resp.Header, nil
+	return resp, nil
 }
 
 func init() {

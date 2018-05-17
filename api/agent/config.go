@@ -55,6 +55,11 @@ const (
 	EnvEnableNBResourceTracker = "FN_ENABLE_NB_RESOURCE_TRACKER"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
+
+	// defaults
+
+	DefaultHotPoll     = 200 * time.Millisecond
+	DefaultNBIOHotPoll = 20 * time.Millisecond
 )
 
 func NewAgentConfig() (*AgentConfig, error) {
@@ -71,7 +76,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	err = setEnvMsecs(err, EnvFreezeIdle, &cfg.FreezeIdle, 50*time.Millisecond)
 	err = setEnvMsecs(err, EnvEjectIdle, &cfg.EjectIdle, 1000*time.Millisecond)
-	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, 200*time.Millisecond)
+	err = setEnvMsecs(err, EnvHotPoll, &cfg.HotPoll, DefaultHotPoll)
 	err = setEnvMsecs(err, EnvHotLauncherTimeout, &cfg.HotLauncherTimeout, time.Duration(60)*time.Minute)
 	err = setEnvMsecs(err, EnvAsyncChewPoll, &cfg.AsyncChewPoll, time.Duration(60)*time.Second)
 	err = setEnvMsecs(err, EnvCallEndTimeout, &cfg.CallEndTimeout, time.Duration(10)*time.Minute)

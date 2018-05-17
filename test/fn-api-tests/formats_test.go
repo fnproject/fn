@@ -41,7 +41,7 @@ func TestFnJSONFormats(t *testing.T) {
 	})
 	content := bytes.NewBuffer(b)
 	output := &bytes.Buffer{}
-	headers, err := CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestFnJSONFormats(t *testing.T) {
 	expectedHeaderNames := []string{"Content-Type", "Content-Length"}
 	expectedHeaderValues := []string{"application/json; charset=utf-8", strconv.Itoa(output.Len())}
 	for i, name := range expectedHeaderNames {
-		actual := headers.Get(name)
+		actual := resp.Header.Get(name)
 		expected := expectedHeaderValues[i]
 		if !strings.Contains(expected, actual) {
 			t.Errorf("HTTP header assertion error for %v."+

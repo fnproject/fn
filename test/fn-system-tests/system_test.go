@@ -7,7 +7,6 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
-	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
 
@@ -18,7 +17,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -37,35 +35,42 @@ func NewSystemTestNodePool() (pool.RunnerPool, error) {
 	return agent.DefaultStaticRunnerPool(runners), nil
 }
 
-func SetUpSystem() error {
+type state struct {
+	memory string
+}
+
+func SetUpSystem() (*state, error) {
 	ctx := context.Background()
+	state := &state{}
 
 	api, err := SetUpAPINode(ctx)
 	if err != nil {
-		return err
+		return state, err
 	}
 	logrus.Info("Created API node")
 
 	lb, err := SetUpLBNode(ctx)
 	if err != nil {
-		return err
+		return state, err
 	}
 	logrus.Info("Created LB node")
 
-	pr0, nc0, err := SetUpPureRunnerNode(ctx, 0)
+	state.memory = os.Getenv(agent.EnvMaxTotalMemory)
+	os.Setenv(agent.EnvMaxTotalMemory, strconv.FormatUint(256*1024*1024, 10))
+
+	pr0, err := SetUpPureRunnerNode(ctx, 0)
 	if err != nil {
-		return err
+		return state, err
 	}
-	pr1, nc1, err := SetUpPureRunnerNode(ctx, 1)
+	pr1, err := SetUpPureRunnerNode(ctx, 1)
 	if err != nil {
-		return err
+		return state, err
 	}
-	pr2, nc2, err := SetUpPureRunnerNode(ctx, 2)
+	pr2, err := SetUpPureRunnerNode(ctx, 2)
 	if err != nil {
-		return err
+		return state, err
 	}
 	logrus.Info("Created Pure Runner nodes")
-	internalSystemTweaker.nodeCaps = []*testCapacityGate{nc0, nc1, nc2}
 
 	go func() { api.Start(ctx) }()
 	logrus.Info("Started API node")
@@ -77,10 +82,10 @@ func SetUpSystem() error {
 	logrus.Info("Started Pure Runner nodes")
 	// Wait for init - not great
 	time.Sleep(5 * time.Second)
-	return nil
+	return state, nil
 }
 
-func CleanUpSystem() error {
+func CleanUpSystem(st *state) error {
 	_, err := http.Get("http://127.0.0.1:8081/shutdown")
 	if err != nil {
 		return err
@@ -103,6 +108,13 @@ func CleanUpSystem() error {
 	}
 	// Wait for shutdown - not great
 	time.Sleep(5 * time.Second)
+
+	if st.memory != "" {
+		os.Setenv(agent.EnvMaxTotalMemory, st.memory)
+	} else {
+		os.Unsetenv(agent.EnvMaxTotalMemory)
+	}
+
 	return nil
 }
 
@@ -116,7 +128,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithWebPort(8085))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
-	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "API"))
+	opts = append(opts, server.WithLogDest(getEnv(server.EnvLogDest, server.DefaultLogDest), "API"))
 	opts = append(opts, server.WithDBURL(getEnv(server.EnvDBURL, defaultDB)))
 	opts = append(opts, server.WithMQURL(getEnv(server.EnvMQURL, defaultMQ)))
 	opts = append(opts, server.WithLogURL(""))
@@ -131,7 +143,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithWebPort(8081))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
-	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "LB"))
+	opts = append(opts, server.WithLogDest(getEnv(server.EnvLogDest, server.DefaultLogDest), "LB"))
 	opts = append(opts, server.WithDBURL(""))
 	opts = append(opts, server.WithMQURL(""))
 	opts = append(opts, server.WithLogURL(""))
@@ -156,85 +168,14 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	return server.New(ctx, opts...), nil
 }
 
-type testCapacityGate struct {
-	runnerNumber           int
-	committedCapacityUnits uint64
-	maxCapacityUnits       uint64
-	mtx                    sync.Mutex
-}
-
-const (
-	InitialTestCapacityUnitsPerRunner = 1024
-)
-
-func NewTestCapacityGate(nodeNum int, capacity uint64) *testCapacityGate {
-	return &testCapacityGate{
-		runnerNumber:           nodeNum,
-		maxCapacityUnits:       capacity,
-		committedCapacityUnits: 0,
-	}
-}
-
-func (tcg *testCapacityGate) CheckAndReserveCapacity(units uint64) error {
-	tcg.mtx.Lock()
-	defer tcg.mtx.Unlock()
-	if tcg.committedCapacityUnits+units <= tcg.maxCapacityUnits {
-		logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is committing capacity")
-		tcg.committedCapacityUnits = tcg.committedCapacityUnits + units
-		return nil
-	}
-	logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("currentlyCommitted", tcg.committedCapacityUnits).Debug("Runner is out of capacity")
-	return models.ErrCallTimeoutServerBusy
-}
-
-func (tcg *testCapacityGate) ReleaseCapacity(units uint64) {
-	tcg.mtx.Lock()
-	defer tcg.mtx.Unlock()
-	if units <= tcg.committedCapacityUnits {
-		logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("units", units).WithField("currentlyCommitted", tcg.committedCapacityUnits).Info("Runner is releasing capacity")
-		tcg.committedCapacityUnits = tcg.committedCapacityUnits - units
-		return
-	}
-	panic("Fatal error in test capacity calculation, getting to sub-zero capacity")
-}
-
-func (tcg *testCapacityGate) ChangeMaxCapacity(newCapacity uint64) {
-	tcg.mtx.Lock()
-	defer tcg.mtx.Unlock()
-	logrus.WithField("nodeNumber", tcg.runnerNumber).WithField("oldCapacity", tcg.maxCapacityUnits).WithField("newCapacity", newCapacity).Info("Runner is changing max capacity")
-	tcg.maxCapacityUnits = newCapacity
-}
-
-type systemTweaker struct {
-	nodeCaps []*testCapacityGate
-}
-
-var internalSystemTweaker systemTweaker
-
-func SystemTweaker() *systemTweaker {
-	return &internalSystemTweaker
-}
-
-func (twk *systemTweaker) ChangeNodeCapacities(newCapacity uint64) {
-	for _, nc := range twk.nodeCaps {
-		nc.ChangeMaxCapacity(newCapacity)
-	}
-}
-
-func (twk *systemTweaker) RestoreInitialNodeCapacities() {
-	for _, nc := range twk.nodeCaps {
-		nc.ChangeMaxCapacity(InitialTestCapacityUnitsPerRunner)
-	}
-}
-
-func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, *testCapacityGate, error) {
+func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
 	opts := make([]server.ServerOption, 0)
 	opts = append(opts, server.WithWebPort(8082+nodeNum))
 	opts = append(opts, server.WithGRPCPort(9190+nodeNum))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
-	opts = append(opts, server.WithLogDest(server.DefaultLogDest, "PURE-RUNNER"))
+	opts = append(opts, server.WithLogDest(getEnv(server.EnvLogDest, server.DefaultLogDest), "PURE-RUNNER"))
 	opts = append(opts, server.WithDBURL(""))
 	opts = append(opts, server.WithMQURL(""))
 	opts = append(opts, server.WithLogURL(""))
@@ -242,18 +183,18 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, *tes
 
 	ds, err := hybrid.NewNopDataStore()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
 	cancelCtx, cancel := context.WithCancel(ctx)
-	capacityGate := NewTestCapacityGate(nodeNum, InitialTestCapacityUnitsPerRunner)
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", capacityGate)
+
+	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	opts = append(opts, server.WithAgent(prAgent), server.WithExtraCtx(cancelCtx))
 
-	return server.New(ctx, opts...), capacityGate, nil
+	return server.New(ctx, opts...), nil
 }
 
 func pwd() string {
@@ -308,20 +249,15 @@ func whoAmI() net.IP {
 	return nil
 }
 
-func TestCanInstantiateSystem(t *testing.T) {
-	SystemTweaker().ChangeNodeCapacities(128)
-	defer SystemTweaker().RestoreInitialNodeCapacities()
-}
-
 func TestMain(m *testing.M) {
-	err := SetUpSystem()
+	state, err := SetUpSystem()
 	if err != nil {
 		logrus.WithError(err).Fatal("Could not initialize system")
 		os.Exit(1)
 	}
 	// call flag.Parse() here if TestMain uses flags
 	result := m.Run()
-	err = CleanUpSystem()
+	err = CleanUpSystem(state)
 	if err != nil {
 		logrus.WithError(err).Warn("Could not clean up system")
 	}

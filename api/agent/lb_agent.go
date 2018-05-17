@@ -1,8 +1,11 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"io/ioutil"
 	"sync/atomic"
 	"time"
 
@@ -36,12 +39,26 @@ type lbAgent struct {
 	callEndCount int64
 }
 
+func NewLBAgentConfig() (*AgentConfig, error) {
+	cfg, err := NewAgentConfig()
+	if err != nil {
+		return cfg, err
+	}
+	if cfg.MaxRequestSize == 0 {
+		return cfg, errors.New("lb-agent requires MaxRequestSize limit")
+	}
+	if cfg.MaxResponseSize == 0 {
+		return cfg, errors.New("lb-agent requires MaxResponseSize limit")
+	}
+	return cfg, nil
+}
+
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
 func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
 
 	// TODO: Move the constants above to Agent Config or an LB specific LBAgentConfig
-	cfg, err := NewAgentConfig()
+	cfg, err := NewLBAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
 	}
@@ -171,6 +188,17 @@ func (a *lbAgent) Submit(callI Call) error {
 
 	statsDequeueAndStart(ctx)
 
+	// pre-read and buffer request body if already not done based
+	// on GetBody presence.
+	buf, err := a.setRequestBody(ctx, call)
+	if buf != nil {
+		defer bufPool.Put(buf)
+	}
+	if err != nil {
+		logrus.WithError(err).Error("Failed to process call body")
+		return a.handleCallEnd(ctx, call, err, true)
+	}
+
 	// WARNING: isStarted (handleCallEnd) semantics
 	// need some consideration here. Similar to runner/agent
 	// we consider isCommitted true if call.Start() succeeds.
@@ -181,6 +209,48 @@ func (a *lbAgent) Submit(callI Call) error {
 	}
 
 	return a.handleCallEnd(ctx, call, err, true)
+}
+
+// setRequestGetBody sets GetBody function on the given http.Request if it is missing.  GetBody allows
+// reading from the request body without mutating the state of the request.
+func (a *lbAgent) setRequestBody(ctx context.Context, call *call) (*bytes.Buffer, error) {
+
+	r := call.req
+	if r.Body == nil || r.GetBody != nil {
+		return nil, nil
+	}
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+
+	// WARNING: we need to handle IO in a separate go-routine below
+	// to be able to detect a ctx timeout. When we timeout, we
+	// let gin/http-server to unblock the go-routine below.
+	errApp := make(chan error, 1)
+	go func() {
+
+		_, err := buf.ReadFrom(r.Body)
+		if err != nil && err != io.EOF {
+			errApp <- err
+			return
+		}
+
+		r.Body = ioutil.NopCloser(bytes.NewReader(buf.Bytes()))
+
+		// GetBody does not mutate the state of the request body
+		r.GetBody = func() (io.ReadCloser, error) {
+			return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
+		}
+
+		close(errApp)
+	}()
+
+	select {
+	case err := <-errApp:
+		return buf, err
+	case <-ctx.Done():
+		return buf, ctx.Err()
+	}
 }
 
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
