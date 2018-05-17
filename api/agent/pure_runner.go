@@ -197,19 +197,19 @@ func (ch *callHandle) enqueueMsgStrict(msg *runner.RunnerMsg) error {
 	return err
 }
 
-func convertError(err error) string {
-	code := models.GetAPIErrorCode(err)
-	return fmt.Sprintf("%d:%s", code, err.Error())
-}
-
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
 	var details string
+	var errCode int
+	var errStr string
 
 	if err != nil {
-		details = convertError(err)
-	} else if ch.c != nil {
+		errCode = models.GetAPIErrorCode(err)
+		errStr = err.Error()
+	}
+
+	if ch.c != nil {
 		details = ch.c.Model().ID
 	}
 
@@ -217,18 +217,20 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
-			Success: err == nil,
-			Details: details,
+			Success:   err == nil,
+			Details:   details,
+			ErrorCode: int32(errCode),
+			ErrorStr:  errStr,
 		}}})
 
 	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v", details)
+		logrus.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
 		return
 	}
 
 	errTmp = ch.finalize()
 	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v", details)
+		logrus.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
 	}
 }
 

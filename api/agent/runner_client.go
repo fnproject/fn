@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"strconv"
-	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -176,19 +174,16 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 	}
 }
 
-func parseError(details string) error {
-	tokens := strings.SplitN(details, ":", 2)
-	if len(tokens) != 2 || tokens[0] == "" || tokens[1] == "" {
-		return errors.New(details)
+func parseError(msg *pb.CallFinished) error {
+	if msg.GetSuccess() {
+		return nil
 	}
-	code, err := strconv.ParseInt(tokens[0], 10, 64)
-	if err != nil {
-		return errors.New(details)
+	eCode := msg.GetErrorCode()
+	eStr := msg.GetErrorStr()
+	if eStr == "" {
+		eStr = "Unknown Error From Pure Runner"
 	}
-	if code != 0 {
-		return models.NewAPIError(int(code), errors.New(tokens[1]))
-	}
-	return errors.New(tokens[1])
+	return models.NewAPIError(int(eCode), errors.New(eStr))
 }
 
 func tryQueueError(err error, done chan error) {
@@ -251,7 +246,7 @@ DataLoop:
 		case *pb.RunnerMsg_Finished:
 			logrus.Infof("Call finished Success=%v %v", body.Finished.Success, body.Finished.Details)
 			if !body.Finished.Success {
-				err := parseError(body.Finished.GetDetails())
+				err := parseError(body.Finished)
 				tryQueueError(err, done)
 			}
 			break DataLoop
