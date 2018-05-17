@@ -184,8 +184,8 @@ func (a *lbAgent) Submit(callI Call) error {
 }
 
 func (a *lbAgent) Enqueue(context.Context, *models.Call) error {
-	logrus.Fatal("Enqueue not implemented. Panicking.")
-	return nil
+	logrus.Error("Enqueue not implemented")
+	return errors.New("Enqueue not implemented")
 }
 
 func (a *lbAgent) scheduleCallEnd(fn func()) {
