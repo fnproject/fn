@@ -7,13 +7,6 @@ message TryCall {
     string models_call_json = 1;
 }
 
-// Call has been accepted and a slot allocated, or it's been rejected
-message CallAcknowledged {
-    bool committed = 1;
-    string details = 2;
-    string slot_allocation_latency = 3;
-}
-
 // Data sent C2S and S2C - as soon as the runner sees the first of these it
 // will start running. If empty content, there must be one of these with eof.
 // The runner will send these for the body of the response, AFTER it has sent
@@ -45,8 +38,9 @@ message CallResultStart {
 message CallFinished {
     bool success = 1;
     string details = 2;
+    int32 errorCode = 3;
+    string errorStr = 4;
 }
-
 
 message ClientMsg {
     oneof body {
@@ -57,10 +51,9 @@ message ClientMsg {
 
 message RunnerMsg {
     oneof body {
-        CallAcknowledged acknowledged = 1;
-        CallResultStart result_start = 2;
-        DataFrame data = 3;
-        CallFinished finished = 4;
+        CallResultStart result_start = 1;
+        DataFrame data = 2;
+        CallFinished finished = 3;
     }
 }
 
