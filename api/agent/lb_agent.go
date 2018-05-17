@@ -191,12 +191,12 @@ func (a *lbAgent) Submit(callI Call) error {
 	// pre-read and buffer request body if already not done based
 	// on GetBody presence.
 	buf, err := a.setRequestBody(ctx, call)
+	if buf != nil {
+		defer bufPool.Put(buf)
+	}
 	if err != nil {
 		logrus.WithError(err).Error("Failed to process call body")
 		return a.handleCallEnd(ctx, call, err, true)
-	}
-	if buf != nil {
-		defer bufPool.Put(buf)
 	}
 
 	// WARNING: isStarted (handleCallEnd) semantics
@@ -230,16 +230,16 @@ func (a *lbAgent) setRequestBody(ctx context.Context, call *call) (*bytes.Buffer
 	go func() {
 
 		_, err := buf.ReadFrom(r.Body)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			errApp <- err
 			return
 		}
 
-		r.Body = ioutil.NopCloser(bytes.NewBuffer(buf.Bytes()))
+		r.Body = ioutil.NopCloser(bytes.NewReader(buf.Bytes()))
 
 		// GetBody does not mutate the state of the request body
 		r.GetBody = func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewBuffer(buf.Bytes())), nil
+			return ioutil.NopCloser(bytes.NewReader(buf.Bytes())), nil
 		}
 
 		close(errApp)
