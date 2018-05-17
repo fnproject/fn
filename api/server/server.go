@@ -101,8 +101,10 @@ func (s ServerNodeType) String() string {
 type Server struct {
 	// TODO this one maybe we have `AddRoute` in extensions?
 	Router *gin.Engine
+	AdminRouter *gin.Engine
 
 	webListenPort   int
+	adminListenPort int
 	grpcListenPort  int
 	agent           agent.Agent
 	datastore       models.Datastore
@@ -480,6 +482,15 @@ func WithExtraCtx(extraCtx context.Context) ServerOption {
 	}
 }
 
+// WithAdminServer starts the admin server on the specified port.
+func WithAdminServer(port int) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.AdminRouter = gin.New()
+		s.adminListenPort = port
+		return nil
+	}
+}
+
 // New creates a new Functions server with the opts given. For convenience, users may
 // prefer to use NewFromEnv but New is more flexible if needed.
 func New(ctx context.Context, opts ...ServerOption) *Server {
@@ -487,10 +498,13 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	defer span.End()
 
 	log := common.Logger(ctx)
+	engine := gin.New()
 	s := &Server{
-		Router: gin.New(),
+		Router: engine,
+		AdminRouter: engine,
 		// Add default ports
 		webListenPort:  DefaultPort,
+		adminListenPort: DefaultPort,
 		grpcListenPort: DefaultGRPCPort,
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
@@ -779,6 +793,32 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		}
 	}()
 
+	if s.webListenPort != s.adminListenPort {
+		adminListen := fmt.Sprintf(":%d", s.adminListenPort)
+		logrus.WithField("type", s.nodeType).Infof("Fn Admin serving on `%v`", adminListen)
+		adminServer := http.Server{
+			Addr:    adminListen,
+			Handler: &ochttp.Handler{Handler: s.AdminRouter},
+		}
+
+		go func() {
+			err := adminServer.ListenAndServe()
+			if err != nil && err != http.ErrServerClosed {
+				logrus.WithError(err).Error("server error")
+				cancel()
+			} else {
+				logrus.Info("server stopped")
+			}
+		}()
+
+		defer func() {
+			if err := adminServer.Shutdown(context.Background()); err != nil {
+				logrus.WithError(err).Error("admin server shutdown error")
+			}
+		}()
+	}
+
+
 	// listening for signals or listener errors or cancellations on all registered contexts.
 	s.extraCtxs = append(s.extraCtxs, ctx)
 	cases := make([]reflect.SelectCase, len(s.extraCtxs))
@@ -812,18 +852,19 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 
 func (s *Server) bindHandlers(ctx context.Context) {
 	engine := s.Router
+	admin := s.AdminRouter
 	// now for extensible middleware
 	engine.Use(s.rootMiddlewareWrapper())
 
-	engine.GET("/", handlePing)
-	engine.GET("/version", handleVersion)
+	admin.GET("/", handlePing)
+	admin.GET("/version", handleVersion)
 
 	// TODO: move under v1 ?
 	if s.promExporter != nil {
-		engine.GET("/metrics", gin.WrapH(s.promExporter))
+		admin.GET("/metrics", gin.WrapH(s.promExporter))
 	}
 
-	profilerSetup(engine, "/debug")
+	profilerSetup(admin, "/debug")
 
 	// Pure runners don't have any route, they have grpc
 	if s.nodeType != ServerTypePureRunner {
