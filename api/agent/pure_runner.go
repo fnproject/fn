@@ -205,9 +205,12 @@ func convertError(err error) string {
 // enqueueCallResponse enqueues a Submit() response to the LB
 // and initiates a graceful shutdown of the session.
 func (ch *callHandle) enqueueCallResponse(err error) {
-	details := ch.c.Model().ID
+	var details string
+
 	if err != nil {
 		details = convertError(err)
+	} else if ch.c != nil {
+		details = ch.c.Model().ID
 	}
 
 	logrus.Debugf("Sending Call Finish details=%v", details)
@@ -226,28 +229,6 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	errTmp = ch.finalize()
 	if errTmp != nil {
 		logrus.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v", details)
-	}
-}
-
-// enqueueNack enqueues a NACK response to the LB for ClientMsg_Try
-// request. It also initiates a graceful shutdown of the session.
-func (ch *callHandle) enqueueNack(err error) {
-	logrus.WithError(err).Debugf("Sending NACK")
-
-	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
-		Body: &runner.RunnerMsg_Acknowledged{Acknowledged: &runner.CallAcknowledged{
-			Committed: false,
-			Details:   convertError(err),
-		}}})
-
-	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueNack Send Error %v", err)
-		return
-	}
-
-	errTmp = ch.finalize()
-	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueNack Finalize Error %v", err)
 	}
 }
 
@@ -526,11 +507,7 @@ func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
 func (pr *pureRunner) spawnSubmit(state *callHandle) {
 	go func() {
 		err := pr.a.Submit(state.c)
-		if err != nil && err == models.ErrCallTimeoutServerBusy {
-			state.enqueueNack(err)
-		} else {
-			state.enqueueCallResponse(err)
-		}
+		state.enqueueCallResponse(err)
 	}()
 }
 
@@ -540,13 +517,13 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
-		state.enqueueNack(err)
+		state.enqueueCallResponse(err)
 		return err
 	}
 
 	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state))
 	if err != nil {
-		state.enqueueNack(err)
+		state.enqueueCallResponse(err)
 		return err
 	}
 

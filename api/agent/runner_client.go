@@ -211,18 +211,6 @@ DataLoop:
 
 		switch body := msg.Body.(type) {
 
-		// Check for NACK from server if request was rejected. Otherwise, we assume
-		// things are being processed OK
-		case *pb.RunnerMsg_Acknowledged:
-			if !body.Acknowledged.Committed {
-				logrus.Infof("Received NACK from runner: %v", body.Acknowledged.Details)
-				err := parseError(body.Acknowledged.GetDetails())
-				tryQueueError(err, done)
-				break DataLoop
-			} else {
-				logrus.Error("Ignoring ACK from runner, possible client/server mismatch")
-			}
-
 		// Process HTTP header/status message. This may not arrive depending on
 		// pure runners behavior. (Eg. timeout & no IO received from function)
 		case *pb.RunnerMsg_ResultStart:

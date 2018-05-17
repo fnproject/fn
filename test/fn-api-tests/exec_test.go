@@ -43,14 +43,14 @@ func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 
 func CallSync(t *testing.T, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
-	hdrs, err := CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
-	callId := hdrs.Get("FN_CALL_ID")
+	callId := resp.Header.Get("FN_CALL_ID")
 	if callId == "" {
-		t.Errorf("Assertion error.\n\tExpected call id header in response, got: %v", hdrs)
+		t.Errorf("Assertion error.\n\tExpected call id header in response, got: %v", resp.Header)
 	}
 
 	t.Logf("Sync execution call ID: %v", callId)
@@ -221,13 +221,13 @@ func TestCanCauseTimeout(t *testing.T) {
 	}{Seconds: 11})
 	output := &bytes.Buffer{}
 
-	headers, _ := CallFN(u.String(), content, output, "POST", []string{})
+	resp, _ := CallFN(u.String(), content, output, "POST", []string{})
 
 	if !strings.Contains(output.String(), "Timed out") {
 		t.Errorf("Must fail because of timeout, but got error message: %v", output.String())
 	}
 	cfg := &call.GetAppsAppCallsCallParams{
-		Call:    headers.Get("FN_CALL_ID"),
+		Call:    resp.Header.Get("FN_CALL_ID"),
 		App:     s.AppName,
 		Context: s.Context,
 	}

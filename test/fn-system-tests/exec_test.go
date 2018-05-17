@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -55,6 +56,7 @@ func TestCanExecuteFunction(t *testing.T) {
 	rt := s.BasicRoute()
 	rt.Image = "fnproject/fn-test-utils"
 	rt.Format = "json"
+	rt.Memory = 64
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -73,7 +75,7 @@ func TestCanExecuteFunction(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -81,6 +83,10 @@ func TestCanExecuteFunction(t *testing.T) {
 	echo, err := getEchoContent(output.Bytes())
 	if err != nil || echo != "HelloWorld" {
 		t.Fatalf("getEchoContent/HelloWorld check failed on %v", output)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
 	}
 }
 
@@ -92,6 +98,7 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	rt := s.BasicRoute()
 	rt.Image = "fnproject/fn-test-utils"
 	rt.Format = "json"
+	rt.Memory = 64
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -111,7 +118,7 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -121,6 +128,10 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	echo, err := getEchoContent(output.Bytes())
 	if err != nil || echo != "HelloWorld" {
 		t.Fatalf("getEchoContent/HelloWorld check failed on %v", output)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
 	}
 }
 
@@ -132,6 +143,7 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	rt := s.BasicRoute()
 	rt.Image = "fnproject/fn-test-utils"
 	rt.Format = "json"
+	rt.Memory = 64
 	rt.Type = "sync"
 
 	s.GivenRouteExists(t, s.AppName, rt)
@@ -151,7 +163,7 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -161,6 +173,54 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 
 	if !strings.Contains(exp, actual) || len(exp) != len(actual) {
 		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", exp, output.String())
+	}
+
+	if resp.StatusCode != http.StatusBadGateway {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
+	}
+}
+
+func TestCanExecuteEmptyOutput(t *testing.T) {
+	s := apiutils.SetupHarness()
+	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
+	defer s.Cleanup()
+
+	rt := s.BasicRoute()
+	rt.Image = "fnproject/fn-test-utils"
+	rt.Format = "json"
+	rt.Memory = 64
+	rt.Type = "sync"
+
+	s.GivenRouteExists(t, s.AppName, rt)
+
+	lb, err := LB()
+	if err != nil {
+		t.Fatalf("Got unexpected error: %v", err)
+	}
+	u := url.URL{
+		Scheme: "http",
+		Host:   lb,
+	}
+	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
+
+	// empty body output
+	body := `{"sleepTime": 0, "isDebug": true, "isEmptyBody": true}`
+	content := bytes.NewBuffer([]byte(body))
+	output := &bytes.Buffer{}
+
+	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	actual := output.String()
+
+	if 0 != len(actual) {
+		t.Errorf("Assertion error.\n\tExpected empty\n\tActual: %v", output.String())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
 	}
 }
 
@@ -196,7 +256,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
-			_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+			resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
@@ -205,6 +265,10 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			echo, err := getEchoContent(output.Bytes())
 			if err != nil || echo != "HelloWorld" {
 				results <- fmt.Errorf("Assertion error.\n\tActual: %v", output.String())
+				return
+			}
+			if resp.StatusCode != http.StatusOK {
+				results <- fmt.Errorf("StatusCode check failed on %v", resp.StatusCode)
 				return
 			}
 
@@ -252,7 +316,7 @@ func TestSaturatedSystem(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	_, err = apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
 	if err != nil {
 		if err != apimodels.ErrCallTimeoutServerBusy {
 			t.Errorf("Got unexpected error: %v", err)
@@ -271,5 +335,9 @@ func TestSaturatedSystem(t *testing.T) {
 	} else if strings.Contains(exp2, actual) && len(exp2) == len(actual) {
 	} else {
 		t.Errorf("Assertion error.\n\tExpected: %v or %v\n\tActual: %v", exp1, exp2, output.String())
+	}
+
+	if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusGatewayTimeout {
+		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
 	}
 }
