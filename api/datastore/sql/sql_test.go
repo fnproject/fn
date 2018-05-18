@@ -127,4 +127,23 @@ func TestDatastore(t *testing.T) {
 
 		both(u)
 	}
+
+}
+
+func TestClose(t *testing.T) {
+	ctx := context.Background()
+	defer os.RemoveAll("sqlite_test_dir")
+	u, err := url.Parse("sqlite3://sqlite_test_dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.RemoveAll("sqlite_test_dir")
+	ds, err := newDS(ctx, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ds.Close(); err != nil {
+		t.Fatalf("Failed to close datastore: %v", err)
+	}
 }

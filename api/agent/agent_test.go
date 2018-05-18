@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -61,6 +62,12 @@ func checkExpectedHeaders(t *testing.T, expectedHeaders http.Header, receivedHea
 	}
 }
 
+func checkClose(t *testing.T, a Agent) {
+	if err := a.Close(); err != nil {
+		t.Fatalf("Failed to close agent: %v", err)
+	}
+}
+
 func TestCallConfigurationRequest(t *testing.T) {
 	appName := "myapp"
 	path := "/"
@@ -94,7 +101,7 @@ func TestCallConfigurationRequest(t *testing.T) {
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	w := httptest.NewRecorder()
 
@@ -237,7 +244,7 @@ func TestCallConfigurationModel(t *testing.T) {
 	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	callI, err := a.GetCall(FromModel(cm))
 	if err != nil {
@@ -308,7 +315,7 @@ func TestAsyncCallHeaders(t *testing.T) {
 	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	callI, err := a.GetCall(FromModel(cm))
 	if err != nil {
@@ -434,7 +441,7 @@ func TestReqTooLarge(t *testing.T) {
 	cfg.MaxRequestSize = 5
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	_, err = a.GetCall(FromModel(cm))
 	if err != models.ErrRequestContentTooBig {
@@ -487,7 +494,7 @@ func TestSubmitError(t *testing.T) {
 	ds := datastore.NewMockInit()
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -554,7 +561,7 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	bodOne := `{"echoContent":"yodawg"}`
 
@@ -617,7 +624,7 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	ds := datastore.NewMockInit()
 
 	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	_, err := a.GetCall(FromModel(call))
 	if err != models.ErrCallTimeoutServerBusy {
@@ -723,7 +730,7 @@ func TestPipesAreClear(t *testing.T) {
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	// test read this body after 5s (after call times out) and make sure we don't get yodawg
 	// TODO could read after 10 seconds, to make sure the 2nd task's input stream isn't blocked
@@ -873,7 +880,7 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 	)
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	bodOne := `{"echoContent":"yodawg"}`
 	req, err := http.NewRequest("GET", call.URL, strings.NewReader(bodOne))
@@ -979,7 +986,7 @@ func TestNBIOResourceTracker(t *testing.T) {
 	cfg.HotPoll = 20 * time.Millisecond
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
-	defer a.Close()
+	defer checkClose(t, a)
 
 	reqCount := 20
 	errors := make(chan error, reqCount)
@@ -1028,4 +1035,44 @@ func TestNBIOResourceTracker(t *testing.T) {
 	if ok < 4 || ok > 5 {
 		t.Fatalf("Expected successes, but got %d", ok)
 	}
+}
+
+type closingDataAccess struct {
+	DataAccess
+	closeReturn error
+	closed      chan struct{}
+}
+
+func newClosingDataAccess(closeReturn error) *closingDataAccess {
+	ds := datastore.NewMockInit()
+	return &closingDataAccess{
+		DataAccess:  NewDirectDataAccess(ds, ds, new(mqs.Mock)),
+		closed:      make(chan struct{}),
+		closeReturn: closeReturn,
+	}
+
+}
+
+func (da *closingDataAccess) Close() error {
+	close(da.closed)
+	return da.closeReturn
+}
+
+func TestClosesDataAccess(t *testing.T) {
+	da := newClosingDataAccess(nil)
+
+	a := New(da)
+	checkClose(t, a)
+	<-da.closed
+}
+
+func TestCloseReturnsDataAccessError(t *testing.T) {
+	err := errors.New("foo")
+	da := newClosingDataAccess(err)
+	a := New(da)
+
+	if cerr := a.Close(); cerr != err {
+		t.Fatalf("Wrong error returned, expected %v but got %v", err, cerr)
+	}
+	<-da.closed
 }
