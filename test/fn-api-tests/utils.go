@@ -10,11 +10,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/fnproject/fn/api/server"
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
@@ -76,107 +74,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-var (
-	srvLock     sync.Mutex
-	srvRefCount uint64
-	srvInstance *server.Server
-	srvDone     chan struct{}
-	srvCancel   func()
-)
-
-func stopServer(ctx context.Context) {
-	srvLock.Lock()
-	defer srvLock.Unlock()
-	if srvRefCount == 0 {
-		log.Printf("Server not running, ref count %v", srvRefCount)
-		return
-	}
-
-	srvRefCount--
-	if srvRefCount != 0 {
-		log.Printf("Server decrement ref count %v", srvRefCount)
-		return
-	}
-
-	srvCancel()
-
-	select {
-	case <-srvDone:
-	case <-ctx.Done():
-		log.Panic("Server Cleanup failed, timeout")
-	}
-}
-
-func startServer() {
-
-	srvLock.Lock()
-	srvRefCount++
-
-	if srvRefCount != 1 {
-		log.Printf("Server already running, ref count %v", srvRefCount)
-		srvLock.Unlock()
-
-		// check once
-		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(2)*time.Second))
-		defer cancel()
-		err := checkServer(ctx)
-		if err != nil {
-			log.Panicf("Server check failed: %s", err)
-		}
-
-		return
-	}
-
-	log.Printf("Starting server, ref count %v", srvRefCount)
-
-	srvDone = make(chan struct{})
-	ctx, cancel := context.WithCancel(context.Background())
-	srvCancel = cancel
-
-	timeString := time.Now().Format("2006_01_02_15_04_05")
-	dbURL := os.Getenv(server.EnvDBURL)
-	tmpDir := os.TempDir()
-	tmpMq := fmt.Sprintf("%s/fn_integration_test_%s_worker_mq.db", tmpDir, timeString)
-	tmpDb := fmt.Sprintf("%s/fn_integration_test_%s_fn.db", tmpDir, timeString)
-	mqURL := fmt.Sprintf("bolt://%s", tmpMq)
-	if dbURL == "" {
-		dbURL = fmt.Sprintf("sqlite3://%s", tmpDb)
-	}
-
-	srvInstance = server.New(ctx,
-		server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)),
-		server.WithDBURL(dbURL),
-		server.WithMQURL(mqURL),
-		server.WithFullAgent(),
-	)
-
-	go func() {
-		srvInstance.Start(ctx)
-		log.Print("Stopped server")
-		os.Remove(tmpMq)
-		os.Remove(tmpDb)
-		close(srvDone)
-	}()
-
-	srvLock.Unlock()
-
-	startCtx, startCancel := context.WithDeadline(ctx, time.Now().Add(time.Duration(10)*time.Second))
-	defer startCancel()
-	for {
-		err := checkServer(startCtx)
-		if err == nil {
-			break
-		}
-		select {
-		case <-time.After(time.Second * 1):
-		case <-ctx.Done():
-		}
-		if ctx.Err() != nil {
-			log.Panic("Server check failed, timeout")
-		}
-	}
-}
-
 // TestHarness provides context and pre-configured clients to an individual test, it has some helper functions to create Apps and Routes that mirror the underlying client operations and clean them up after the test is complete
 // This is not goroutine safe and each test case should use its own harness.
 type TestHarness struct {
@@ -209,8 +106,6 @@ func RandStringBytes(n int) string {
 func SetupHarness() *TestHarness {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
-	startServer()
-
 	ss := &TestHarness{
 		Context:      ctx,
 		Cancel:       cancel,
@@ -241,8 +136,6 @@ func (s *TestHarness) Cleanup() {
 	for app, _ := range s.createdApps {
 		safeDeleteApp(ctx, s.Client, app)
 	}
-
-	stopServer(ctx)
 }
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
