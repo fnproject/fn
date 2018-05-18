@@ -37,11 +37,14 @@ func NewSystemTestNodePool() (pool.RunnerPool, error) {
 
 type state struct {
 	memory string
+	cancel func()
 }
 
 func SetUpSystem() (*state, error) {
-	ctx := context.Background()
-	state := &state{}
+	ctx, cancel := context.WithCancel(context.Background())
+	state := &state{
+		cancel: cancel,
+	}
 
 	api, err := SetUpAPINode(ctx)
 	if err != nil {
@@ -106,6 +109,11 @@ func CleanUpSystem(st *state) error {
 	if err != nil {
 		return err
 	}
+
+	if st.cancel != nil {
+		st.cancel()
+	}
+
 	// Wait for shutdown - not great
 	time.Sleep(5 * time.Second)
 
