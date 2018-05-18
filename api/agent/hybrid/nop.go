@@ -58,3 +58,7 @@ func (cl *nopDataStore) GetRoute(ctx context.Context, appName, route string) (*m
 	defer span.End()
 	return nil, errors.New("Should not call GetRoute on a NOP data store")
 }
+
+func (cl *nopDataStore) Close() error {
+	return nil
+}

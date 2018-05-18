@@ -60,3 +60,8 @@ func (m *metricMQ) Delete(ctx context.Context, t *models.Call) error {
 	defer span.End()
 	return m.mq.Delete(ctx, t)
 }
+
+// Close closes the underlying message queue
+func (m *metricMQ) Close() error {
+	return m.mq.Close()
+}

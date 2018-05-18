@@ -84,6 +84,7 @@ type Agent interface {
 	Submit(Call) error
 
 	// Close will wait for any outstanding calls to complete and then exit.
+	// Closing the agent will invoke Close on the underlying DataAccess.
 	// Close is not safe to be called from multiple threads.
 	io.Closer
 
@@ -209,6 +210,12 @@ func (a *agent) Close() error {
 		}
 	})
 
+	// shutdown any db/queue resources
+	// associated with DataAccess
+	daErr := a.da.Close()
+	if daErr != nil {
+		return daErr
+	}
 	return err
 }
 

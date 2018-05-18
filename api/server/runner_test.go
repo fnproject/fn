@@ -446,7 +446,7 @@ func (mock *errorMQ) Push(context.Context, *models.Call) (*models.Call, error) {
 func (mock *errorMQ) Reserve(context.Context) (*models.Call, error)            { return nil, mock }
 func (mock *errorMQ) Delete(context.Context, *models.Call) error               { return mock }
 func (mock *errorMQ) Code() int                                                { return mock.code }
-
+func (mock *errorMQ) Close() error                                             { return nil }
 func TestFailedEnqueue(t *testing.T) {
 	buf := setLogBuffer()
 	app := &models.App{Name: "myapp", Config: models.Config{}}

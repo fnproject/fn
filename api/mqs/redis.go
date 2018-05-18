@@ -307,3 +307,10 @@ func (mq *RedisMQ) Delete(ctx context.Context, job *models.Call) error {
 	_, err = conn.Do("HDEL", "timeout", resID)
 	return err
 }
+
+// Close shuts down the redis connection pool and
+// stops the goroutine associated with the ticker
+func (mq *RedisMQ) Close() error {
+	mq.ticker.Stop()
+	return mq.pool.Close()
+}

@@ -38,6 +38,11 @@ type DataAccess interface {
 	// Finish will notify the system that the Call has been processed, and
 	// fulfill the reservation in the queue if the call came from a queue.
 	Finish(ctx context.Context, mCall *models.Call, stderr io.Reader, async bool) error
+
+	// Close will wait for any pending operations to complete and
+	// shuts down connections to the underlying datastore/queue resources.
+	// Close is not safe to be called from multiple threads.
+	io.Closer
 }
 
 // CachedDataAccess wraps a DataAccess and caches the results of GetApp and GetRoute.
@@ -108,6 +113,11 @@ func (da *CachedDataAccess) GetRoute(ctx context.Context, appID string, routePat
 	return r.(*models.Route), nil
 }
 
+// Close invokes close on the underlying DataAccess
+func (da *CachedDataAccess) Close() error {
+	return da.DataAccess.Close()
+}
+
 type directDataAccess struct {
 	mq models.MessageQueue
 	ds models.Datastore
@@ -176,4 +186,19 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 		// return da.mq.Delete(ctx, mCall)
 	}
 	return nil
+}
+
+// Close calls close on the underlying Datastore and MessageQueue. If the Logstore
+// and Datastore are different, it will call Close on the Logstore as well.
+func (da *directDataAccess) Close() error {
+	err := da.ds.Close()
+	if da.ds != da.ls {
+		if daErr := da.ls.Close(); daErr != nil {
+			err = daErr
+		}
+	}
+	if mqErr := da.mq.Close(); mqErr != nil {
+		err = mqErr
+	}
+	return err
 }

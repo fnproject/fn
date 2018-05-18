@@ -1,6 +1,9 @@
 package models
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
 // Message Queue is used to impose a total ordering on jobs that it will
 // execute in order. calls are added to the queue via the Push() interface. The
@@ -49,4 +52,8 @@ type MessageQueue interface {
 	// the job does not have an outstanding reservation, error. If a job did not
 	// exist, succeed.
 	Delete(context.Context, *Call) error
+
+	// Close will close any underlying connections as needed.
+	// Close is not safe to be called from multiple threads.
+	io.Closer
 }

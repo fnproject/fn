@@ -192,3 +192,9 @@ func (mq *MemoryMQ) Delete(ctx context.Context, job *models.Call) error {
 	log.Debugln("Deleted")
 	return nil
 }
+
+// Close stops the associated goroutines by stopping the ticker
+func (mq *MemoryMQ) Close() error {
+	mq.Ticker.Stop()
+	return nil
+}

@@ -89,3 +89,7 @@ func (m *mock) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mode
 
 	return calls, nil
 }
+
+func (m *mock) Close() error {
+	return nil
+}

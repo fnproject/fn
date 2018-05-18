@@ -116,3 +116,8 @@ func (m *metricds) GetLog(ctx context.Context, appName, callID string) (io.Reade
 
 // instant & no context ;)
 func (m *metricds) GetDatabase() *sqlx.DB { return m.ds.GetDatabase() }
+
+// Close calls Close on the underlying Datastore
+func (m *metricds) Close() error {
+	return m.ds.Close()
+}
