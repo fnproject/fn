@@ -122,10 +122,15 @@ type mockRunnerCall struct {
 	rw         http.ResponseWriter
 	stdErr     io.ReadWriteCloser
 	model      *models.Call
+	slotHashId string
 }
 
 func (c *mockRunnerCall) LbDeadline() time.Time {
 	return c.lbDeadline
+}
+
+func (c *mockRunnerCall) SlotHashId() string {
+	return c.slotHashId
 }
 
 func (c *mockRunnerCall) RequestBody() io.ReadCloser {
