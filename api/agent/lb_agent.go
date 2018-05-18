@@ -128,6 +128,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	c.req = c.req.WithContext(ctx)
 
 	c.lbDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
+	c.slotHashId = getSlotQueueKey(&c)
 
 	return &c, nil
 }

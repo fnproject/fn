@@ -312,10 +312,15 @@ type call struct {
 	execDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
+	slotHashId     string
 }
 
 func (c *call) LbDeadline() time.Time {
 	return c.lbDeadline
+}
+
+func (c *call) SlotHashId() string {
+	return c.slotHashId
 }
 
 func (c *call) RequestBody() io.ReadCloser {
