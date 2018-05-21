@@ -100,7 +100,7 @@ func (s ServerNodeType) String() string {
 
 type Server struct {
 	// TODO this one maybe we have `AddRoute` in extensions?
-	Router *gin.Engine
+	Router      *gin.Engine
 	AdminRouter *gin.Engine
 
 	webListenPort   int
@@ -500,12 +500,12 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	log := common.Logger(ctx)
 	engine := gin.New()
 	s := &Server{
-		Router: engine,
+		Router:      engine,
 		AdminRouter: engine,
 		// Add default ports
-		webListenPort:  DefaultPort,
+		webListenPort:   DefaultPort,
 		adminListenPort: DefaultPort,
-		grpcListenPort: DefaultGRPCPort,
+		grpcListenPort:  DefaultGRPCPort,
 		// Almost everything else is configured through opts (see NewFromEnv for ex.) or below
 	}
 
@@ -818,7 +818,6 @@ func (s *Server) startGears(ctx context.Context, cancel context.CancelFunc) {
 		}()
 	}
 
-
 	// listening for signals or listener errors or cancellations on all registered contexts.
 	s.extraCtxs = append(s.extraCtxs, ctx)
 	cases := make([]reflect.SelectCase, len(s.extraCtxs))
@@ -856,7 +855,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 	// now for extensible middleware
 	engine.Use(s.rootMiddlewareWrapper())
 
-	admin.GET("/", handlePing)
+	engine.GET("/", handlePing)
 	admin.GET("/version", handleVersion)
 
 	// TODO: move under v1 ?
