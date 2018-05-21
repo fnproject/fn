@@ -189,6 +189,9 @@ func pwd() string {
 
 func WithWebPort(port int) ServerOption {
 	return func(ctx context.Context, s *Server) error {
+		if s.adminListenPort == s.webListenPort {
+			s.adminListenPort = port
+		}
 		s.webListenPort = port
 		return nil
 	}
