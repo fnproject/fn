@@ -248,3 +248,7 @@ func (cl *client) once(ctx context.Context, request, result interface{}, method 
 func (cl *client) url(args ...string) string {
 	return cl.base + strings.Join(args, "/")
 }
+
+func (cl *client) Close() error {
+	return nil
+}

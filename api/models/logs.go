@@ -30,4 +30,8 @@ type LogStore interface {
 	// GetCalls returns a list of calls that satisfy the given CallFilter. If no
 	// calls exist, an empty list and a nil error are returned.
 	GetCalls(ctx context.Context, filter *CallFilter) ([]*Call, error)
+
+	// Close will close any underlying connections as needed.
+	// Close is not safe to be called from multiple threads.
+	io.Closer
 }

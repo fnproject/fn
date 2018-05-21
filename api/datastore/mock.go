@@ -198,3 +198,7 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 func (m *mock) GetDatabase() *sqlx.DB {
 	return nil
 }
+
+func (m *mock) Close() error {
+	return nil
+}

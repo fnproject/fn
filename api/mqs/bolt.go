@@ -347,3 +347,10 @@ func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Call) error {
 		return nil
 	})
 }
+
+// Close shuts down the bolt db connection and
+// stops the goroutine associated with the ticker
+func (mq *BoltDbMQ) Close() error {
+	mq.ticker.Stop()
+	return mq.db.Close()
+}

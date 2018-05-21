@@ -910,3 +910,8 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 func (ds *sqlStore) GetDatabase() *sqlx.DB {
 	return ds.db
 }
+
+// Close closes the database, releasing any open resources.
+func (ds *sqlStore) Close() error {
+	return ds.db.Close()
+}

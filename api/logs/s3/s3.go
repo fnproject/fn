@@ -460,3 +460,7 @@ func init() {
 		}
 	}
 }
+
+func (s *store) Close() error {
+	return nil
+}
