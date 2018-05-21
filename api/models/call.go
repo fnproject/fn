@@ -108,6 +108,9 @@ type Call struct {
 	// Hot function idle timeout in seconds before termination.
 	IdleTimeout int32 `json:"idle_timeout,omitempty" db:"-"`
 
+	// Tmpfs size in megabytes.
+	TmpFsSize uint32 `json:"tmpfs_size,omitempty" db:"-"`
+
 	// Memory is the amount of RAM this call is allocated.
 	Memory uint64 `json:"memory,omitempty" db:"-"`
 

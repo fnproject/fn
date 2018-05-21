@@ -119,6 +119,9 @@ type ContainerTask interface {
 	// Filesystem size limit for the container, in megabytes.
 	FsSize() uint64
 
+	// Tmpfs Filesystem size limit for the container, in megabytes.
+	TmpFsSize() uint64
+
 	// WorkDir returns the working directory to use for the task. Empty string
 	// leaves it unset.
 	WorkDir() string
@@ -190,16 +193,16 @@ const (
 )
 
 type Config struct {
-	Docker         string `json:"docker"`
-	DockerNetworks string `json:"docker_networks"`
-	// TODO CPUShares should likely be on a per container basis
-	CPUShares       int64  `json:"cpu_shares"`
-	ServerVersion   string `json:"server_version"`
-	PreForkPoolSize uint64 `json:"pre_fork_pool_size"`
-	PreForkImage    string `json:"pre_fork_image"`
-	PreForkCmd      string `json:"pre_fork_cmd"`
-	PreForkUseOnce  uint64 `json:"pre_fork_use_once"`
-	PreForkNetworks string `json:"pre_fork_networks"`
+	Docker               string `json:"docker"`
+	DockerNetworks       string `json:"docker_networks"`
+	ServerVersion        string `json:"server_version"`
+	PreForkPoolSize      uint64 `json:"pre_fork_pool_size"`
+	PreForkImage         string `json:"pre_fork_image"`
+	PreForkCmd           string `json:"pre_fork_cmd"`
+	PreForkUseOnce       uint64 `json:"pre_fork_use_once"`
+	PreForkNetworks      string `json:"pre_fork_networks"`
+	MaxTmpFsInodes       uint64 `json:"max_tmpfs_inodes"`
+	EnableReadOnlyRootFs bool   `json:"enable_readonly_rootfs"`
 }
 
 func average(samples []Stat) (Stat, bool) {

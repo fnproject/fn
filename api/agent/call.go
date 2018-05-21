@@ -119,6 +119,7 @@ func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallO
 			Priority:    new(int32), // TODO this is crucial, apparently
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
+			TmpFsSize:   route.TmpFsSize,
 			Memory:      route.Memory,
 			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),
@@ -252,7 +253,9 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		return nil, errors.New("no model or request provided for call")
 	}
 
-	if !a.resources.IsResourcePossible(c.Memory, uint64(c.CPUs), c.Type == models.TypeAsync) {
+	mem := c.Memory + uint64(c.TmpFsSize)
+
+	if !a.resources.IsResourcePossible(mem, uint64(c.CPUs), c.Type == models.TypeAsync) {
 		// if we're not going to be able to run this call on this machine, bail here.
 		return nil, models.ErrCallTimeoutServerBusy
 	}

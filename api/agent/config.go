@@ -30,6 +30,8 @@ type AgentConfig struct {
 	PreForkUseOnce          uint64        `json:"pre_fork_use_once"`
 	PreForkNetworks         string        `json:"pre_fork_networks"`
 	EnableNBResourceTracker bool          `json:"enable_nb_resource_tracker"`
+	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
+	EnableReadOnlyRootFs    bool          `json:"enable_readonly_rootfs"`
 }
 
 const (
@@ -53,6 +55,8 @@ const (
 	EnvPreForkUseOnce          = "FN_EXPERIMENTAL_PREFORK_USE_ONCE"
 	EnvPreForkNetworks         = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
 	EnvEnableNBResourceTracker = "FN_ENABLE_NB_RESOURCE_TRACKER"
+	EnvMaxTmpFsInodes          = "FN_MAX_TMPFS_INODES"
+	EnvEnableReadOnlyRootFs    = "FN_ENABLE_READONLY_ROOTFS"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 
@@ -93,6 +97,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	err = setEnvUint(err, EnvPreForkUseOnce, &cfg.PreForkUseOnce)
 	err = setEnvStr(err, EnvPreForkNetworks, &cfg.PreForkNetworks)
 	err = setEnvStr(err, EnvDockerNetworks, &cfg.DockerNetworks)
+	err = setEnvUint(err, EnvMaxTmpFsInodes, &cfg.MaxTmpFsInodes)
 
 	if err != nil {
 		return cfg, err
@@ -100,6 +105,10 @@ func NewAgentConfig() (*AgentConfig, error) {
 
 	if _, ok := os.LookupEnv(EnvEnableNBResourceTracker); ok {
 		cfg.EnableNBResourceTracker = true
+	}
+
+	if _, ok := os.LookupEnv(EnvEnableReadOnlyRootFs); ok {
+		cfg.EnableReadOnlyRootFs = true
 	}
 
 	if cfg.EjectIdle == time.Duration(0) {
