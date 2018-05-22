@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"io"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -58,9 +59,9 @@ type Datastore interface {
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appID, routePath string) error
 
-	// Implement LogStore methods for convenience
-	LogStore
-
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB
+
+	// implements io.Closer to shutdown
+	io.Closer
 }

@@ -49,7 +49,7 @@ jobs:
       # Rebuild fnserver if necessary
       - run: |
           if [[ -n "$FN_NEEDED" ]]; then
-            make full-test -j $(nproc)
+            make test -j $(nproc)
           fi
 
       - deploy:

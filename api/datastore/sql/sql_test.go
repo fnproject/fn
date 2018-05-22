@@ -20,7 +20,7 @@ import (
 // * run all down migrations
 // * run all up migrations
 // [ then run tests against that db ]
-func newWithMigrations(ctx context.Context, url *url.URL) (*sqlStore, error) {
+func newWithMigrations(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	ds, err := newDS(ctx, url)
 	if err != nil {
 		return nil, err
@@ -49,16 +49,20 @@ func TestDatastore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := func(t *testing.T) models.Datastore {
+	f := func(t *testing.T) *SQLStore {
 		os.RemoveAll("sqlite_test_dir")
 		ds, err := newDS(ctx, u)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// we don't want to test the validator, really
+		return ds
+	}
+	f2 := func(t *testing.T) models.Datastore {
+		ds := f(t)
 		return datastoreutil.NewValidator(ds)
 	}
-	datastoretest.Test(t, f)
+	datastoretest.Test(t, f2)
 
 	// also logs
 	logstoretest.Test(t, f(t))
@@ -72,7 +76,7 @@ func TestDatastore(t *testing.T) {
 	// will down migrate all migrations, up migrate, and run tests again.
 
 	both := func(u *url.URL) {
-		f := func(t *testing.T) models.Datastore {
+		f := func(t *testing.T) *SQLStore {
 			ds, err := newDS(ctx, u)
 			if err != nil {
 				t.Fatal(err)
@@ -81,16 +85,20 @@ func TestDatastore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			return ds
+		}
+		f2 := func(t *testing.T) models.Datastore {
+			ds := f(t)
 			return datastoreutil.NewValidator(ds)
 		}
 
 		// test fresh w/o migrations
-		datastoretest.Test(t, f)
+		datastoretest.Test(t, f2)
 
 		// also test sql implements logstore
 		logstoretest.Test(t, f(t))
 
-		f = func(t *testing.T) models.Datastore {
+		f = func(t *testing.T) *SQLStore {
 			t.Log("with migrations now!")
 			ds, err := newWithMigrations(ctx, u)
 			if err != nil {
@@ -100,11 +108,15 @@ func TestDatastore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			return ds
+		}
+		f2 = func(t *testing.T) models.Datastore {
+			ds := f(t)
 			return datastoreutil.NewValidator(ds)
 		}
 
 		// test that migrations work & things work with them
-		datastoretest.Test(t, f)
+		datastoretest.Test(t, f2)
 
 		// also test sql implements logstore
 		logstoretest.Test(t, f(t))

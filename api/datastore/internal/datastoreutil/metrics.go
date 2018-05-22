@@ -2,7 +2,6 @@ package datastoreutil
 
 import (
 	"context"
-	"io"
 
 	"go.opencensus.io/trace"
 
@@ -82,36 +81,6 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	ctx, span := trace.StartSpan(ctx, "ds_remove_route")
 	defer span.End()
 	return m.ds.RemoveRoute(ctx, appID, routePath)
-}
-
-func (m *metricds) InsertCall(ctx context.Context, call *models.Call) error {
-	ctx, span := trace.StartSpan(ctx, "ds_insert_call")
-	defer span.End()
-	return m.ds.InsertCall(ctx, call)
-}
-
-func (m *metricds) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_call")
-	defer span.End()
-	return m.ds.GetCall(ctx, appName, callID)
-}
-
-func (m *metricds) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_calls")
-	defer span.End()
-	return m.ds.GetCalls(ctx, filter)
-}
-
-func (m *metricds) InsertLog(ctx context.Context, appName, callID string, callLog io.Reader) error {
-	ctx, span := trace.StartSpan(ctx, "ds_insert_log")
-	defer span.End()
-	return m.ds.InsertLog(ctx, appName, callID, callLog)
-}
-
-func (m *metricds) GetLog(ctx context.Context, appName, callID string) (io.Reader, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_get_log")
-	defer span.End()
-	return m.ds.GetLog(ctx, appName, callID)
 }
 
 // instant & no context ;)

@@ -132,14 +132,6 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-// callID will never be empty.
-func (v *validator) GetCall(ctx context.Context, appName, callID string) (*models.Call, error) {
-	if callID == "" {
-		return nil, models.ErrDatastoreEmptyCallID
-	}
-	return v.Datastore.GetCall(ctx, appName, callID)
-}
-
 // GetDatabase returns the underlying sqlx database implementation
 func (v *validator) GetDatabase() *sqlx.DB {
 	return v.Datastore.GetDatabase()

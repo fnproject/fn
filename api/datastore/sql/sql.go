@@ -96,18 +96,23 @@ const (
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
 
-type sqlStore struct {
+var ( // compiler will yell nice things about our upbringing as a child
+	_ models.Datastore = new(SQLStore)
+	_ models.LogStore  = new(SQLStore)
+)
+
+type SQLStore struct {
 	db *sqlx.DB
 }
 
 // New will open the db specified by url, create any tables necessary
 // and return a models.Datastore safe for concurrent usage.
-func New(ctx context.Context, url *url.URL) (models.Datastore, error) {
+func New(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	return newDS(ctx, url)
 }
 
 // for test methods, return concrete type, but don't expose
-func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
+func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	driver := url.Scheme
 
 	log := common.Logger(ctx)
@@ -157,7 +162,7 @@ func newDS(ctx context.Context, url *url.URL) (*sqlStore, error) {
 		db.SetMaxOpenConns(1)
 	}
 
-	sdb := &sqlStore{db: db}
+	sdb := &SQLStore{db: db}
 
 	// NOTE: runMigrations happens before we create all the tables, so that it
 	// can detect whether the db did not exist and insert the latest version of
@@ -258,7 +263,7 @@ func checkExistence(tx *sqlx.Tx) (bool, error) {
 // check if the db already existed, if the db is brand new then we can skip
 // over all the migrations BUT we must be sure to set the right migration
 // number so that only current migrations are skipped, not any future ones.
-func (ds *sqlStore) runMigrations(ctx context.Context, tx *sqlx.Tx, migrations []migratex.Migration) error {
+func (ds *SQLStore) runMigrations(ctx context.Context, tx *sqlx.Tx, migrations []migratex.Migration) error {
 	dbExists, err := checkExistence(tx)
 	if err != nil {
 		return err
@@ -286,7 +291,7 @@ func latestVersion(migs []migratex.Migration) int64 {
 }
 
 // clear is for tests only, be careful, it deletes all records.
-func (ds *sqlStore) clear() error {
+func (ds *SQLStore) clear() error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`DELETE FROM routes`)
 		_, err := tx.Exec(query)
@@ -312,7 +317,7 @@ func (ds *sqlStore) clear() error {
 	})
 }
 
-func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error) {
+func (ds *SQLStore) GetAppID(ctx context.Context, appName string) (string, error) {
 	var app models.App
 	query := ds.db.Rebind(ensureAppSelector)
 	row := ds.db.QueryRowxContext(ctx, query, appName)
@@ -328,7 +333,7 @@ func (ds *sqlStore) GetAppID(ctx context.Context, appName string) (string, error
 	return app.ID, nil
 }
 
-func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
+func (ds *SQLStore) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
 	query := ds.db.Rebind(`INSERT INTO apps (
 		id,
 		name,
@@ -369,7 +374,7 @@ func (ds *sqlStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 	return app, nil
 }
 
-func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
+func (ds *SQLStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.App, error) {
 	var app models.App
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		// NOTE: must query whole object since we're returning app, Update logic
@@ -414,7 +419,7 @@ func (ds *sqlStore) UpdateApp(ctx context.Context, newapp *models.App) (*models.
 	return &app, nil
 }
 
-func (ds *sqlStore) RemoveApp(ctx context.Context, appID string) error {
+func (ds *SQLStore) RemoveApp(ctx context.Context, appID string) error {
 	return ds.Tx(func(tx *sqlx.Tx) error {
 		res, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM apps WHERE id=?`), appID)
 		if err != nil {
@@ -444,7 +449,7 @@ func (ds *sqlStore) RemoveApp(ctx context.Context, appID string) error {
 	})
 }
 
-func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
+func (ds *SQLStore) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	var app models.App
 	query := ds.db.Rebind(appIDSelector)
 	row := ds.db.QueryRowxContext(ctx, query, appID)
@@ -460,7 +465,7 @@ func (ds *sqlStore) GetAppByID(ctx context.Context, appID string) (*models.App, 
 }
 
 // GetApps retrieves an array of apps according to a specific filter.
-func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
+func (ds *SQLStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*models.App, error) {
 	res := []*models.App{}
 	if filter.NameIn != nil && len(filter.NameIn) == 0 { // this basically makes sure it doesn't return ALL apps
 		return res, nil
@@ -494,7 +499,7 @@ func (ds *sqlStore) GetApps(ctx context.Context, filter *models.AppFilter) ([]*m
 	return res, nil
 }
 
-func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
+func (ds *SQLStore) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
 		r := tx.QueryRowContext(ctx, query, route.AppID)
@@ -554,7 +559,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 	return route, err
 }
 
-func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
+func (ds *SQLStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
 	var route models.Route
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(fmt.Sprintf("%s WHERE app_id=? AND path=?", routeSelector))
@@ -608,7 +613,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 	return &route, nil
 }
 
-func (ds *sqlStore) RemoveRoute(ctx context.Context, appID string, routePath string) error {
+func (ds *SQLStore) RemoveRoute(ctx context.Context, appID string, routePath string) error {
 	query := ds.db.Rebind(`DELETE FROM routes WHERE path = ? AND app_id = ?`)
 	res, err := ds.db.ExecContext(ctx, query, routePath, appID)
 	if err != nil {
@@ -627,7 +632,7 @@ func (ds *sqlStore) RemoveRoute(ctx context.Context, appID string, routePath str
 	return nil
 }
 
-func (ds *sqlStore) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
+func (ds *SQLStore) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	rSelectCondition := "%s WHERE app_id=? AND path=?"
 	query := ds.db.Rebind(fmt.Sprintf(rSelectCondition, routeSelector))
 	row := ds.db.QueryRowxContext(ctx, query, appID, routePath)
@@ -643,7 +648,7 @@ func (ds *sqlStore) GetRoute(ctx context.Context, appID, routePath string) (*mod
 }
 
 // GetRoutesByApp retrieves a route with a specific app name.
-func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appID string, filter *models.RouteFilter) ([]*models.Route, error) {
+func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *models.RouteFilter) ([]*models.Route, error) {
 	res := []*models.Route{}
 	if filter == nil {
 		filter = new(models.RouteFilter)
@@ -680,7 +685,7 @@ func (ds *sqlStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 	return res, nil
 }
 
-func (ds *sqlStore) Tx(f func(*sqlx.Tx) error) error {
+func (ds *SQLStore) Tx(f func(*sqlx.Tx) error) error {
 	tx, err := ds.db.Beginx()
 	if err != nil {
 		return err
@@ -693,7 +698,7 @@ func (ds *sqlStore) Tx(f func(*sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
+func (ds *SQLStore) InsertCall(ctx context.Context, call *models.Call) error {
 	query := ds.db.Rebind(`INSERT INTO calls (
 		id,
 		created_at,
@@ -721,7 +726,7 @@ func (ds *sqlStore) InsertCall(ctx context.Context, call *models.Call) error {
 	return err
 }
 
-func (ds *sqlStore) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
+func (ds *SQLStore) GetCall(ctx context.Context, appID, callID string) (*models.Call, error) {
 	query := fmt.Sprintf(`%s WHERE id=? AND app_id=?`, callSelector)
 	query = ds.db.Rebind(query)
 	row := ds.db.QueryRowxContext(ctx, query, callID, appID)
@@ -737,7 +742,7 @@ func (ds *sqlStore) GetCall(ctx context.Context, appID, callID string) (*models.
 	return &call, nil
 }
 
-func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
+func (ds *SQLStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*models.Call, error) {
 	res := []*models.Call{}
 	query, args := buildFilterCallQuery(filter)
 	query = fmt.Sprintf("%s %s", callSelector, query)
@@ -762,7 +767,7 @@ func (ds *sqlStore) GetCalls(ctx context.Context, filter *models.CallFilter) ([]
 	return res, nil
 }
 
-func (ds *sqlStore) InsertLog(ctx context.Context, appID, callID string, logR io.Reader) error {
+func (ds *SQLStore) InsertLog(ctx context.Context, appID, callID string, logR io.Reader) error {
 	// coerce this into a string for sql
 	var log string
 	if stringer, ok := logR.(fmt.Stringer); ok {
@@ -781,7 +786,7 @@ func (ds *sqlStore) InsertLog(ctx context.Context, appID, callID string, logR io
 	return err
 }
 
-func (ds *sqlStore) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
+func (ds *SQLStore) GetLog(ctx context.Context, appID, callID string) (io.Reader, error) {
 	query := ds.db.Rebind(`SELECT log FROM logs WHERE id=? AND app_id=?`)
 	row := ds.db.QueryRowContext(ctx, query, callID, appID)
 
@@ -907,11 +912,11 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 }
 
 // GetDatabase returns the underlying sqlx database implementation
-func (ds *sqlStore) GetDatabase() *sqlx.DB {
+func (ds *SQLStore) GetDatabase() *sqlx.DB {
 	return ds.db
 }
 
 // Close closes the database, releasing any open resources.
-func (ds *sqlStore) Close() error {
+func (ds *SQLStore) Close() error {
 	return ds.db.Close()
 }

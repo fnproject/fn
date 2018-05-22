@@ -173,8 +173,10 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	if nodeType != ServerTypeAPI {
 		opts = append(opts, WithAgentFromEnv())
 	} else {
+		// NOTE: ensures logstore is set or there will be troubles
 		opts = append(opts, WithLogstoreFromDatastore())
 	}
+
 	return New(ctx, opts...)
 }
 
@@ -330,7 +332,7 @@ func WithNodeCertAuthority(ca string) ServerOption {
 
 func WithDatastore(ds models.Datastore) ServerOption {
 	return func(ctx context.Context, s *Server) error {
-		s.datastore = datastore.Wrap(ds)
+		s.datastore = ds
 		return nil
 	}
 }
@@ -370,7 +372,11 @@ func WithLogstoreFromDatastore() ServerOption {
 			return errors.New("Need a datastore in order to use it as a logstore")
 		}
 		if s.logstore == nil {
-			s.logstore = s.datastore
+			if ls, ok := s.datastore.(models.LogStore); ok {
+				s.logstore = ls
+			} else {
+				return errors.New("datastore must implement logstore interface")
+			}
 		}
 		return nil
 	}
@@ -380,9 +386,12 @@ func WithLogstoreFromDatastore() ServerOption {
 func WithFullAgent() ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.nodeType = ServerTypeFull
+
+		// ensure logstore is set (TODO compat only?)
 		if s.logstore == nil {
-			s.logstore = s.datastore
+			WithLogstoreFromDatastore()(ctx, s)
 		}
+
 		if s.datastore == nil || s.logstore == nil || s.mq == nil {
 			return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
 		}
@@ -464,14 +473,7 @@ func WithAgentFromEnv() ServerOption {
 				return errors.New("LBAgent creation failed")
 			}
 		default:
-			s.nodeType = ServerTypeFull
-			if s.logstore == nil { // TODO seems weird?
-				s.logstore = s.datastore
-			}
-			if s.datastore == nil || s.logstore == nil || s.mq == nil {
-				return errors.New("Full nodes must configure FN_DB_URL, FN_LOG_URL, FN_MQ_URL.")
-			}
-			s.agent = agent.New(agent.NewCachedDataAccess(agent.NewDirectDataAccess(s.datastore, s.logstore, s.mq)))
+			WithFullAgent()(ctx, s)
 		}
 		return nil
 	}
@@ -542,7 +544,9 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	s.appListeners = new(appListeners)
 	s.routeListeners = new(routeListeners)
 
+	s.datastore = datastore.Wrap(s.datastore)
 	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners)
+	s.logstore = logs.Wrap(s.logstore)
 
 	return s
 }

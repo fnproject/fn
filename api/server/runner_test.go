@@ -42,6 +42,7 @@ func envTweaker(name, value string) func() {
 
 func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelFunc) {
 	ds := datastore.NewMock()
+	ls := logs.NewMock()
 	var mq models.MessageQueue = &mqs.Mock{}
 	for _, a := range args {
 		switch arg := a.(type) {
@@ -49,9 +50,11 @@ func testRunner(_ *testing.T, args ...interface{}) (agent.Agent, context.CancelF
 			ds = arg
 		case models.MessageQueue:
 			mq = arg
+		case models.LogStore:
+			ls = arg
 		}
 	}
-	r := agent.New(agent.NewDirectDataAccess(ds, ds, mq))
+	r := agent.New(agent.NewDirectDataAccess(ds, ls, mq))
 	return r, func() { r.Close() }
 }
 
@@ -169,11 +172,12 @@ func TestRouteRunnerExecEmptyBody(t *testing.T) {
 			{Path: "/hotjson", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
 		},
 	)
+	ls := logs.NewMock()
 
-	rnr, cancelrnr := testRunner(t, ds)
+	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
 
 	expHeaders := map[string][]string{"X-Function": {"Test"}}
 	emptyBody := `{"echoContent": "_TRX_ID_", "isDebug": true, "isEmptyBody": true}`
@@ -258,11 +262,12 @@ func TestRouteRunnerExecution(t *testing.T) {
 			{Path: "/mybigoutputjson", AppID: app.ID, Image: rImg, Type: "sync", Format: "json", Memory: 64, Timeout: 10, IdleTimeout: 20, Headers: rHdr, Config: rCfg},
 		},
 	)
+	ls := logs.NewMock()
 
-	rnr, cancelrnr := testRunner(t, ds)
+	rnr, cancelrnr := testRunner(t, ds, ls)
 	defer cancelrnr()
 
-	srv := testServer(ds, &mqs.Mock{}, ds, rnr, ServerTypeFull)
+	srv := testServer(ds, &mqs.Mock{}, ls, rnr, ServerTypeFull)
 
 	expHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"application/json; charset=utf-8"}}
 	expCTHeaders := map[string][]string{"X-Function": {"Test"}, "Content-Type": {"foo/bar"}}
@@ -373,7 +378,7 @@ func TestRouteRunnerExecution(t *testing.T) {
 
 	for i, test := range testCases {
 		if test.expectedLogsSubStr != nil {
-			if !checkLogs(t, i, ds, callIds[i], test.expectedLogsSubStr) {
+			if !checkLogs(t, i, ls, callIds[i], test.expectedLogsSubStr) {
 				isFailure = true
 			}
 		}
@@ -403,7 +408,7 @@ func getDockerId(respBytes []byte) (string, error) {
 	return id, nil
 }
 
-func checkLogs(t *testing.T, tnum int, ds models.Datastore, callID string, expected []string) bool {
+func checkLogs(t *testing.T, tnum int, ds models.LogStore, callID string, expected []string) bool {
 
 	logReader, err := ds.GetLog(context.Background(), "myapp", callID)
 	if err != nil {
@@ -460,7 +465,7 @@ func TestFailedEnqueue(t *testing.T) {
 	err := errors.New("Unable to push task to queue")
 	mq := &errorMQ{err, http.StatusInternalServerError}
 	fnl := logs.NewMock()
-	rnr, cancelrnr := testRunner(t, ds, mq)
+	rnr, cancelrnr := testRunner(t, ds, mq, fnl)
 	defer cancelrnr()
 
 	srv := testServer(ds, mq, fnl, rnr, ServerTypeFull)
@@ -511,10 +516,10 @@ func TestRouteRunnerTimeout(t *testing.T) {
 		},
 	)
 
-	rnr, cancelrnr := testRunner(t, ds)
+	fnl := logs.NewMock()
+	rnr, cancelrnr := testRunner(t, ds, fnl)
 	defer cancelrnr()
 
-	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {
@@ -581,10 +586,10 @@ func TestRouteRunnerMinimalConcurrentHotSync(t *testing.T) {
 		},
 	)
 
-	rnr, cancelrnr := testRunner(t, ds)
+	fnl := logs.NewMock()
+	rnr, cancelrnr := testRunner(t, ds, fnl)
 	defer cancelrnr()
 
-	fnl := logs.NewMock()
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
 	for i, test := range []struct {

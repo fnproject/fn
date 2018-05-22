@@ -13,12 +13,7 @@ import (
 )
 
 func New(ctx context.Context, dbURL string) (models.Datastore, error) {
-	ds, err := newds(ctx, dbURL) // teehee
-	if err != nil {
-		return nil, err
-	}
-
-	return Wrap(ds), nil
+	return newds(ctx, dbURL) // teehee
 }
 
 func Wrap(ds models.Datastore) models.Datastore {
