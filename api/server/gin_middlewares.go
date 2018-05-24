@@ -80,8 +80,12 @@ func traceWrap(c *gin.Context) {
 
 func apiMetricsWrap(s *Server) {
 
-	measure := func(routes gin.RoutesInfo) func(*gin.Context) {
+	measure := func(engine *gin.Engine) func(*gin.Context) {
+		var routes gin.RoutesInfo
 		return func(c *gin.Context) {
+			if routes == nil {
+				routes = engine.Routes()
+			}
 			start := time.Now()
 			// get the handler url, example: /v1/apps/:app
 			url := ""
@@ -114,10 +118,10 @@ func apiMetricsWrap(s *Server) {
 	}
 
 	r := s.Router
-	r.Use(measure(r.Routes()))
+	r.Use(measure(r))
 	if s.webListenPort != s.adminListenPort {
 		a := s.AdminRouter
-		a.Use(measure(a.Routes()))
+		a.Use(measure(a))
 	}
 
 }
