@@ -23,7 +23,7 @@ var (
 )
 
 var (
-	apiRequestCountView = &view.View{
+	ApiRequestCountView = &view.View{
 		Name:        "api/request_count",
 		Description: "Count of API requests started",
 		Measure:     apiRequestCount,
@@ -31,7 +31,7 @@ var (
 		Aggregation: view.Count(),
 	}
 
-	apiResponseCountView = &view.View{
+	ApiResponseCountView = &view.View{
 		Name:        "api/response_count",
 		Description: "API response count",
 		TagKeys:     []tag.Key{pathKey, methodKey, statusKey},
@@ -39,7 +39,7 @@ var (
 		Aggregation: view.Count(),
 	}
 
-	apiLatencyView = &view.View{
+	ApiLatencyView = &view.View{
 		Name:        "api/latency",
 		Description: "Latency distribution of API requests",
 		Measure:     apiLatency,
@@ -50,9 +50,9 @@ var (
 
 func registerViews() {
 	err := view.Register(
-		apiRequestCountView,
-		apiResponseCountView,
-		apiLatencyView,
+		ApiRequestCountView,
+		ApiResponseCountView,
+		ApiLatencyView,
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot register view")
