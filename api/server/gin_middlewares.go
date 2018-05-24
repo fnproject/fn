@@ -14,8 +14,11 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
+	"strconv"
+	"time"
 )
 
 func optionalCorsWrap(r *gin.Engine) {
@@ -73,6 +76,51 @@ func traceWrap(c *gin.Context) {
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
+}
+
+func apiMetricsWrap(s *Server) {
+
+	// don't do anything if the exporter is not set
+	if s.promExporter == nil {
+		return
+	}
+
+	r := s.Router
+	r.Use(func(c *gin.Context) {
+		// ignore metrics path
+		if c.Request.URL.String() == "/metrics" {
+			c.Next()
+			return
+		}
+		start := time.Now()
+		// get the handler url, example: /apps/:id
+		url := ""
+		for _, r := range r.Routes() {
+			if r.Handler == c.HandlerName() {
+				url = r.Path
+				break
+			}
+		}
+
+		ctx, err := tag.New(c.Request.Context(),
+			tag.Upsert(pathKey, url),
+			tag.Upsert(methodKey, c.Request.Method),
+		)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		stats.Record(ctx, apiRequestCount.M(1))
+		c.Next()
+
+		status := strconv.Itoa(c.Writer.Status())
+		ctx, err = tag.New(ctx,
+			tag.Upsert(statusKey, status),
+		)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		stats.Record(ctx, apiLatency.M(float64(time.Since(start))/float64(time.Millisecond)))
+	})
 }
 
 func panicWrap(c *gin.Context) {

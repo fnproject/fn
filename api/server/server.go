@@ -537,6 +537,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	setMachineID()
 	s.Router.Use(loggerWrap, traceWrap, panicWrap) // TODO should be opts
 	optionalCorsWrap(s.Router)                     // TODO should be an opt
+	apiMetricsWrap(s)
 	s.bindHandlers(ctx)
 
 	s.appListeners = new(appListeners)
@@ -572,6 +573,7 @@ func WithPrometheus() ServerOption {
 		}
 		s.promExporter = exporter
 		view.RegisterExporter(exporter)
+		registerViews()
 		return nil
 	}
 }
