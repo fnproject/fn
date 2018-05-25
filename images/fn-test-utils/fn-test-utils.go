@@ -477,9 +477,27 @@ func createFile(name string, size int) error {
 	}
 
 	if size > 0 {
-		err := f.Truncate(int64(size))
-		if err != nil {
-			return err
+		// create a 1K block (keep this buffer small to keep
+		// memory usage small)
+		chunk := make([]byte, 1024)
+		for i := 0; i < 1024; i++ {
+			chunk[i] = byte(i)
+		}
+
+		for size > 0 {
+			dlen := size
+			if dlen > 1024 {
+				dlen = 1024
+			}
+
+			_, err := f.Write(chunk[:dlen])
+			if err != nil {
+				return err
+			}
+
+			// slightly modify the chunk to avoid any sparse file possibility
+			chunk[0]++
+			size = size - dlen
 		}
 	}
 	return nil

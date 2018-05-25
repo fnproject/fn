@@ -202,31 +202,124 @@ func (drv *DockerDriver) unpickNetwork(netId string) {
 	}
 }
 
-func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
-	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Prepare"})
-	var cmd []string
-	if task.Command() != "" {
-		// NOTE: this is hyper-sensitive and may not be correct like this even, but it passes old tests
-		cmd = strings.Fields(task.Command())
-		log.WithFields(logrus.Fields{"call_id": task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
+func (drv *DockerDriver) configureFs(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	if task.FsSize() != 0 {
+		// If defined, impose file system size limit. In MB units.
+		if container.HostConfig.StorageOpt == nil {
+			container.HostConfig.StorageOpt = make(map[string]string)
+		}
+
+		opt := fmt.Sprintf("%vM", task.FsSize())
+
+		log.WithFields(logrus.Fields{"size": opt, "call_id": task.Id()}).Debug("setting storage option")
+		container.HostConfig.StorageOpt["size"] = opt
 	}
 
+	container.HostConfig.ReadonlyRootfs = drv.conf.EnableReadOnlyRootFs
+}
+
+func (drv *DockerDriver) configureTmpFs(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	if task.TmpFsSize() == 0 {
+		return
+	}
+
+	if container.HostConfig.Tmpfs == nil {
+		container.HostConfig.Tmpfs = make(map[string]string)
+	}
+
+	var tmpFsOption string
+	if drv.conf.MaxTmpFsInodes != 0 {
+		tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", task.TmpFsSize(), drv.conf.MaxTmpFsInodes)
+	} else {
+		tmpFsOption = fmt.Sprintf("size=%dm", task.TmpFsSize())
+	}
+	target := "/tmp"
+
+	log.WithFields(logrus.Fields{"target": target, "options": tmpFsOption, "call_id": task.Id()}).Debug("setting tmpfs")
+	container.HostConfig.Tmpfs[target] = tmpFsOption
+}
+
+func (drv *DockerDriver) configureVolumes(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	if len(task.Volumes()) == 0 {
+		return
+	}
+
+	if container.Config.Volumes == nil {
+		container.Config.Volumes = map[string]struct{}{}
+	}
+
+	for _, mapping := range task.Volumes() {
+		hostDir := mapping[0]
+		containerDir := mapping[1]
+		container.Config.Volumes[containerDir] = struct{}{}
+		mapn := fmt.Sprintf("%s:%s", hostDir, containerDir)
+		container.HostConfig.Binds = append(container.HostConfig.Binds, mapn)
+		log.WithFields(logrus.Fields{"volumes": mapn, "call_id": task.Id()}).Debug("setting volumes")
+	}
+}
+
+func (drv *DockerDriver) configureCPU(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
+	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
+	// which is approx 8 CPUS in CFS world.
+	// Also see docker run options --cpu-quota and --cpu-period
+	if task.CPUs() == 0 {
+		return
+	}
+
+	quota := int64(task.CPUs() * 100)
+	period := int64(100000)
+
+	log.WithFields(logrus.Fields{"quota": quota, "period": period, "call_id": task.Id()}).Debug("setting CPU")
+	container.HostConfig.CPUQuota = quota
+	container.HostConfig.CPUPeriod = period
+}
+
+func (drv *DockerDriver) configureWorkDir(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	if wd := task.WorkDir(); wd != "" {
+		log.WithFields(logrus.Fields{"wd": wd, "call_id": task.Id()}).Debug("setting work dir")
+		container.Config.WorkingDir = wd
+	}
+}
+
+func (drv *DockerDriver) configureHostname(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	if container.HostConfig.NetworkMode == "" {
+		// hostname and container NetworkMode is not compatible.
+		log.WithFields(logrus.Fields{"hostname": drv.hostname, "call_id": task.Id()}).Debug("setting hostname")
+		container.Config.Hostname = drv.hostname
+	}
+}
+
+func (drv *DockerDriver) configureCmd(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
+	if task.Command() == "" {
+		return
+	}
+
+	// NOTE: this is hyper-sensitive and may not be correct like this even, but it passes old tests
+	cmd := strings.Fields(task.Command())
+	log.WithFields(logrus.Fields{"call_id": task.Id(), "cmd": cmd, "len": len(cmd)}).Debug("docker command")
+	container.Config.Cmd = cmd
+}
+
+func (drv *DockerDriver) configureEnv(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
 	envvars := make([]string, 0, len(task.EnvVars()))
 	for name, val := range task.EnvVars() {
 		envvars = append(envvars, name+"="+val)
 	}
 
+	container.Config.Env = envvars
+}
+
+func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
+	ctx, log := common.LoggerWithFields(ctx, logrus.Fields{"stack": "Prepare"})
+
 	container := docker.CreateContainerOptions{
 		Name: task.Id(),
 		Config: &docker.Config{
-			Env:          envvars,
-			Cmd:          cmd,
 			Memory:       int64(task.Memory()),
 			MemorySwap:   int64(task.Memory()), // disables swap
 			KernelMemory: int64(task.Memory()),
-			CPUShares:    drv.conf.CPUShares,
 			Image:        task.Image(),
-			Volumes:      map[string]struct{}{},
 			OpenStdin:    true,
 			AttachStdout: true,
 			AttachStderr: true,
@@ -242,44 +335,18 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		Context: ctx,
 	}
 
+	drv.configureCmd(log, &container, task)
+	drv.configureEnv(log, &container, task)
+	drv.configureCPU(log, &container, task)
+	drv.configureFs(log, &container, task)
+	drv.configureTmpFs(log, &container, task)
+	drv.configureVolumes(log, &container, task)
+	drv.configureWorkDir(log, &container, task)
+
 	poolId := drv.pickPool(ctx, &container)
 	netId := drv.pickNetwork(&container)
 
-	if container.HostConfig.NetworkMode == "" {
-		// hostname and container NetworkMode is not compatible.
-		container.Config.Hostname = drv.hostname
-	}
-
-	// Translate milli cpus into CPUQuota & CPUPeriod (see Linux cGroups CFS cgroup v1 documentation)
-	// eg: task.CPUQuota() of 8000 means CPUQuota of 8 * 100000 usecs in 100000 usec period,
-	// which is approx 8 CPUS in CFS world.
-	// Also see docker run options --cpu-quota and --cpu-period
-	if task.CPUs() != 0 {
-		container.HostConfig.CPUQuota = int64(task.CPUs() * 100)
-		container.HostConfig.CPUPeriod = 100000
-	}
-
-	// If defined, impose file system size limit. In MB units.
-	if task.FsSize() != 0 {
-		container.HostConfig.StorageOpt = make(map[string]string)
-		sizeOption := fmt.Sprintf("%vM", task.FsSize())
-		container.HostConfig.StorageOpt["size"] = sizeOption
-	}
-
-	volumes := task.Volumes()
-	for _, mapping := range volumes {
-		hostDir := mapping[0]
-		containerDir := mapping[1]
-		container.Config.Volumes[containerDir] = struct{}{}
-		mapn := fmt.Sprintf("%s:%s", hostDir, containerDir)
-		container.HostConfig.Binds = append(container.HostConfig.Binds, mapn)
-		log.WithFields(logrus.Fields{"volumes": mapn, "call_id": task.Id()}).Debug("setting volumes")
-	}
-
-	if wd := task.WorkDir(); wd != "" {
-		log.WithFields(logrus.Fields{"wd": wd, "call_id": task.Id()}).Debug("setting work dir")
-		container.Config.WorkingDir = wd
-	}
+	drv.configureHostname(log, &container, task)
 
 	err := drv.ensureImage(ctx, task)
 	if err != nil {
@@ -293,7 +360,7 @@ func (drv *DockerDriver) Prepare(ctx context.Context, task drivers.ContainerTask
 		// since we retry under the hood, if the container gets created and retry fails, we can just ignore error
 		if err != docker.ErrContainerAlreadyExists {
 			log.WithFields(logrus.Fields{"call_id": task.Id(), "command": container.Config.Cmd, "memory": container.Config.Memory,
-				"cpu_shares": container.Config.CPUShares, "cpu_quota": task.CPUs(), "hostname": container.Config.Hostname, "name": container.Name,
+				"cpu_quota": task.CPUs(), "hostname": container.Config.Hostname, "name": container.Name,
 				"image": container.Config.Image, "volumes": container.Config.Volumes, "binds": container.HostConfig.Binds, "container": container.Name,
 			}).WithError(err).Error("Could not create container")
 

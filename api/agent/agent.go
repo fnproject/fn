@@ -162,13 +162,15 @@ func createAgent(da DataAccess, options ...AgentOption) Agent {
 
 	// TODO: Create drivers.New(runnerConfig)
 	a.driver = docker.NewDocker(drivers.Config{
-		DockerNetworks:  a.cfg.DockerNetworks,
-		ServerVersion:   a.cfg.MinDockerVersion,
-		PreForkPoolSize: a.cfg.PreForkPoolSize,
-		PreForkImage:    a.cfg.PreForkImage,
-		PreForkCmd:      a.cfg.PreForkCmd,
-		PreForkUseOnce:  a.cfg.PreForkUseOnce,
-		PreForkNetworks: a.cfg.PreForkNetworks,
+		DockerNetworks:       a.cfg.DockerNetworks,
+		ServerVersion:        a.cfg.MinDockerVersion,
+		PreForkPoolSize:      a.cfg.PreForkPoolSize,
+		PreForkImage:         a.cfg.PreForkImage,
+		PreForkCmd:           a.cfg.PreForkCmd,
+		PreForkUseOnce:       a.cfg.PreForkUseOnce,
+		PreForkNetworks:      a.cfg.PreForkNetworks,
+		MaxTmpFsInodes:       a.cfg.MaxTmpFsInodes,
+		EnableReadOnlyRootFs: a.cfg.EnableReadOnlyRootFs,
 	})
 
 	a.da = da
@@ -478,6 +480,8 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 
 	common.Logger(ctx).WithFields(logrus.Fields{"currentStats": call.slots.getStats(), "isNeeded": isNeeded}).Info("Hot function launcher starting hot container")
 
+	mem := call.Memory + uint64(call.TmpFsSize)
+
 	// WARNING: Tricky flow below. We are here because: isNeeded is set,
 	// in other words, we need to launch a new container at this time due to high load.
 	//
@@ -496,7 +500,7 @@ func (a *agent) checkLaunch(ctx context.Context, call *call, notifyChan chan err
 	// Non-blocking mode only applies to cpu+mem, and if isNeeded decided that we do not
 	// need to start a new container, then waiters will wait.
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
 		if tok != nil && tok.Error() != nil {
 			tryNotify(notifyChan, tok.Error())
 		} else if a.shutWg.AddSession(1) {
@@ -577,8 +581,10 @@ func (a *agent) launchCold(ctx context.Context, call *call) (Slot, error) {
 
 	call.containerState.UpdateState(ctx, ContainerStateWait, call.slots)
 
+	mem := call.Memory + uint64(call.TmpFsSize)
+
 	select {
-	case tok := <-a.resources.GetResourceToken(ctx, call.Memory, uint64(call.CPUs), isAsync, isNB):
+	case tok := <-a.resources.GetResourceToken(ctx, mem, uint64(call.CPUs), isAsync, isNB):
 		if tok.Error() != nil {
 			return nil, tok.Error()
 		}
@@ -955,13 +961,14 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id      string // contrived
-	image   string
-	env     map[string]string
-	memory  uint64
-	cpus    uint64
-	fsSize  uint64
-	timeout time.Duration // cold only (superfluous, but in case)
+	id        string // contrived
+	image     string
+	env       map[string]string
+	memory    uint64
+	cpus      uint64
+	fsSize    uint64
+	tmpFsSize uint64
+	timeout   time.Duration // cold only (superfluous, but in case)
 
 	stdin       io.Reader
 	stdout      io.Writer
@@ -1039,6 +1046,7 @@ func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*contai
 			memory:      call.Memory,
 			cpus:        uint64(call.CPUs),
 			fsSize:      cfg.MaxFsSize,
+			tmpFsSize:   uint64(call.TmpFsSize),
 			stdin:       stdin,
 			stdout:      stdout,
 			stderr:      stderr,
@@ -1088,6 +1096,7 @@ func (c *container) EnvVars() map[string]string     { return c.env }
 func (c *container) Memory() uint64                 { return c.memory * 1024 * 1024 } // convert MB
 func (c *container) CPUs() uint64                   { return c.cpus }
 func (c *container) FsSize() uint64                 { return c.fsSize }
+func (c *container) TmpFsSize() uint64              { return c.tmpFsSize }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

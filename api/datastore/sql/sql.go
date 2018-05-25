@@ -48,6 +48,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	cpus int,
 	timeout int NOT NULL,
 	idle_timeout int NOT NULL,
+	tmpfs_size int,
 	type varchar(16) NOT NULL,
 	headers text NOT NULL,
 	config text NOT NULL,
@@ -88,7 +89,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 }
 
 const (
-	routeSelector     = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, headers, config, annotations, created_at, updated_at FROM routes`
+	routeSelector     = `SELECT app_id, path, image, format, memory, type, cpus, timeout, idle_timeout, tmpfs_size, headers, config, annotations, created_at, updated_at FROM routes`
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
@@ -523,6 +524,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			type,
 			timeout,
 			idle_timeout,
+			tmpfs_size,
 			headers,
 			config,
 			annotations,
@@ -539,6 +541,7 @@ func (ds *sqlStore) InsertRoute(ctx context.Context, route *models.Route) (*mode
 			:type,
 			:timeout,
 			:idle_timeout,
+			:tmpfs_size,
 			:headers,
 			:config,
 			:annotations,
@@ -581,6 +584,7 @@ func (ds *sqlStore) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 			type = :type,
 			timeout = :timeout,
 			idle_timeout = :idle_timeout,
+			tmpfs_size = :tmpfs_size,
 			headers = :headers,
 			config = :config,
 			annotations = :annotations,
