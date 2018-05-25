@@ -536,6 +536,9 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	}
 
 	state.c = agent_call.(*call)
+	if tc.SlotHashId != "" {
+		state.c.slotHashId = tc.SlotHashId
+	}
 	state.allocatedTime = strfmt.DateTime(time.Now())
 	pr.spawnSubmit(state)
 
