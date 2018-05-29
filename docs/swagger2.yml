@@ -1,16 +1,12 @@
 swagger: '2.0'
 
-# TODO(?): pagination should only list resource names or the entire resource?
-# TODO(?): triggers and functions OR trigs and funcs ?
-# TODO(?): version change? /v2 ?
 # TODO(?): remove stats from call?
 # TODO(?): amend log api? if we have /app/logs we could tail logs on an app (or trig?) and have point lookup for call still
-# TODO(?): annotations & config & event.extensions redundant to a degree? naming confusing? discuss.
 # TODO(?): add /run API to swagger doc? (only covers API module atm)
 # TODO(?): should trigger have an 'enabled' field to easily toggle on and off via API?
 # TODO: let's punt on adding a row for FuncVersions with snapshots of each func version? just a string field for now.
 # TODO: put body and response objects have different required fields, etc; make 2 objects?
-# TODO: change all params to $ref's
+# TODO: change all params to $ref's (few left)
 # TODO(orcl): 204 DELETE success
 # TODO(orcl): 401 - should we define this to delineate w/ 404 even tho we don't have auth by default?
 
@@ -25,8 +21,7 @@ schemes:
   - https
   - http
 # will be prefixed to all paths
-# TODO(discuss): should we bump this?
-basePath: /v42
+basePath: /v1
 consumes:
   - application/json
 produces:
