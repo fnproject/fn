@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -537,7 +538,12 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 
 	state.c = agent_call.(*call)
 	if tc.SlotHashId != "" {
-		state.c.slotHashId = tc.SlotHashId
+		hashId, err := hex.DecodeString(tc.SlotHashId)
+		if err != nil {
+			state.enqueueCallResponse(err)
+			return err
+		}
+		state.c.slotHashId = string(hashId[:])
 	}
 	state.allocatedTime = strfmt.DateTime(time.Now())
 	pr.spawnSubmit(state)
