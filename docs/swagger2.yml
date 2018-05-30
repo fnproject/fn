@@ -27,40 +27,59 @@ consumes:
 produces:
   - application/json
 paths:
-  /funcs:
+  /apps/{app}/fns:
     get:
-      operationId: "ListFuncs"
-      summary: "Get all funcs."
-      description: "Get a list of all the funcs in alphabetical order."
+      operationId: "ListFns"
+      summary: "Get all fns"
+      description: "Get a list of all the Functions in alphabetical order."
       tags:
-        - Funcs
+        - Fns
       parameters:
+        - $ref: '#/definitions/appIDParam'
         - $ref: '#/definitions/cursorParam'
         - $ref: '#/definitions/perPageParam'
       responses:
         200:
-          description: List of funcs.
+          description: List of fns.
           schema:
-            $ref: '#/definitions/FuncsWrapper'
+            $ref: '#/definitions/FnsWrapper'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      operationId: "CreateFn"
+      summary: "Create a fn"
+      description: "Create a new Function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/definitions/appIDParam'
+      responses:
+        201:
+          description: Created Functions metadata
+          schema:
+            $ref: '#/definitions/FnWrapper'
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
 
-  /funcs/{func}:
+  /apps/{app}/fns/{fn}:
     delete:
-      operationId: "DeleteFunc"
-      summary: "Delete a func."
-      description: "Delete a func."
+      operationId: "DeleteFn"
+      summary: "Delete a fn"
+      description: "Delete a function."
       tags:
-        - Funcs
+        - Fns
       parameters:
-        - $ref: '#/definitions/funcPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/fnIDParam'
       responses:
-        200:
-          description: Func successfully deleted.
+        204:
+          description: Fn successfully deleted
         404:
-          description: Func does not exist.
+          description: Fn does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -68,78 +87,73 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     get:
-      operationId: "GetFunc"
-      summary: "Get information for a func."
-      description: "Get information for a func."
+      operationId: "GetFn"
+      summary: "Get information for a fn"
+      description: "Get information for a Function."
       tags:
-        - Funcs
+        - Fns
       parameters:
-        - $ref: '#/definitions/funcPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/fnIDParam'
       responses:
         200:
-          description: Func details.
+          description: Fn metadata
           schema:
-            $ref: '#/definitions/FuncWrapper'
+            $ref: '#/definitions/FnWrapper'
         404:
-          description: Func does not exist.
+          description: Fn does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-    patch:
+    post:
       operationId: "UpdateFunc"
-      summary: "Updates a func."
-      description: "Updates any provided fields on the func."
+      summary: "Update a func"
+      description: "Updates a Function."
       tags:
-        - Funcs
+        - Fns
       parameters:
         - $ref: '#/definitions/funcPathParam'
         - name: body
           in: body
-          description: Func object.
+          description: Fn to update
           required: true
           schema:
             $ref: '#/definitions/FuncWrapper'
       responses:
         200:
-          description: Func details.
+          description: Fn metadata
           schema:
             $ref: '#/definitions/FuncWrapper'
         400:
           description: Parameters are missing or invalid.
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Func does not exist.
           schema:
             $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-    put:
-      operationId: "UpsertFunc"
-      summary: "Create or update a func."
-      description: "Creates a func if it does not exist, or updates the func if it does."
+
+  /apps/{app}/fns/{fn}/triggers:
+    get:
+      operationId: "GetFnsTriggers"
+      summary: "Get triggers for a fn"
+      description: "Get Triggers for a Function."
       tags:
-        - Func
+        - Fns
+        - Triggers
       parameters:
-        - $ref: '#/definitions/funcPathParam'
-        - name: body
-          in: body
-          description: Func to create or update.
-          required: true
-          schema:
-            $ref: '#/definitions/FuncWrapper'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/fnIDParam'
       responses:
         200:
-          description: Func details.
+          description: Trigger metadata
           schema:
-            $ref: '#/definitions/FuncWrapper'
-        400:
-          description: Parameters are missing or invalid.
+            $ref: '#/definitions/TriggerWrapper'
+        404:
+          description: Fn does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -150,8 +164,8 @@ paths:
   /apps:
     get:
       operationId: "ListApps"
-      summary: "Get all apps."
-      description: "Get a list of all the apps, returned in alphabetical order."
+      summary: "Get all apps"
+      description: "Get a list of all the Applications, returned in alphabetical order."
       tags:
         - Apps
       parameters:
@@ -170,17 +184,17 @@ paths:
   /apps/{app}:
     delete:
       operationId: "DeleteApp"
-      summary: "Delete an app."
-      description: "Delete an app."
+      summary: "Delete an app"
+      description: "Delete an Application."
       tags:
         - Apps
       parameters:
-        - $ref: '#/definitions/appPathParam'
+        - $ref: '#/definitions/appIDParam'
       responses:
         200:
-          description: Apps successfully deleted.
+          description: App successfully deleted
         404:
-          description: App does not exist.
+          description: App does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -189,28 +203,28 @@ paths:
             $ref: '#/definitions/Error'
     get:
       operationId: "GetApp"
-      summary: "Get information for an app."
-      description: "Get information for an app."
+      summary: "Get app metadata"
+      description: "Get metadata for an Application."
       tags:
         - Apps
       parameters:
-        - $ref: '#/definitions/appPathParam'
+        - $ref: '#/definitions/appIDParam'
       responses:
         200:
-          description: App details.
+          description: App metadata
           schema:
             $ref: '#/definitions/AppWrapper'
         404:
-          description: App does not exist.
+          description: App does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-    patch:
+    post:
       operationId: "UpdateApp"
-      summary: "Updates an app."
+      summary: "Updates an app"
       description: "Updates any provided fields on the app. App must exist."
       tags:
         - Apps
@@ -224,42 +238,15 @@ paths:
             $ref: '#/definitions/AppWrapper'
       responses:
         200:
-          description: App details.
+          description: App metadata
           schema:
             $ref: '#/definitions/AppWrapper'
         400:
-          description: Parameters are missing or invalid.
+          description: Parameters are missing or invalid
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: App does not exist.
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
-    put:
-      operationId: "UpsertApp"
-      summary: "Create or update an app."
-      description: "Creates an app if it does not exist, or updates the app if it does."
-      tags:
-        - Apps
-      parameters:
-        - $ref: '#/definitions/appPathParam'
-        - name: body
-          in: body
-          description: App to create or update.
-          required: true
-          schema:
-            $ref: '#/definitions/AppWrapper'
-      responses:
-        200:
-          description: App details.
-          schema:
-            $ref: '#/definitions/AppWrapper'
-        400:
-          description: Parameters are missing or invalid.
+          description: App does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -270,19 +257,15 @@ paths:
   /apps/{app}/triggers:
     get:
       operationId: "ListTriggers"
-      summary: Get trigger list by app name.
-      description: This will list triggers for a particular app, returned in alphabetical order.
+      summary: Get trigger list by app ID
+      description: This will list triggers for a particular Application, returned in alphabetical order.
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appPathParam'
-        - name: image
-          description: Trigger image to match, exact.
-          required: false
-          type: string
-          in: query
+        - $ref: '#/definitions/appIDParam'
         - $ref: '#/definitions/cursorParam'
         - $ref: '#/definitions/perPageParam'
+        # Can add type, route, etc as required
       responses:
         200:
           description: Trigger information
@@ -296,89 +279,52 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+     post:
+      operationId: "CreateTrigger"
+      summary: Create  a Trigger.
+      description: Create a new trigger in an app.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/definitions/appIDParam'
+        - name: body
+          in: body
+          description: Trigger to create.
+          required: true
+          schema:
+            $ref: '#/definitions/TriggerWrapper'
+      responses:
+        200:
+          description: Created Triggers metadata
+          schema:
+            $ref: '#/definitions/TriggerWrapper'
+        400:
+          description: Invalid trigger due to parameters being missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
 
   /apps/{app}/triggers/{trigger}:
-    put:
-      operationId: "UpsertTrigger"
-      summary: Create or update a Trigger.
-      description: Create a new trigger in an app or update it. If app doesn't exists, it creates the app.
-      tags:
-        - Triggers
-      parameters:
-        - $ref: '#/definitions/appPathParam'
-        - $ref: '#/definitions/triggerPathParam'
-        - name: body
-          in: body
-          description: Trigger to create or update.
-          required: true
-          schema:
-            $ref: '#/definitions/TriggerWrapper'
-      responses:
-        200:
-          description: Trigger created
-          schema:
-            $ref: '#/definitions/TriggerWrapper'
-        400:
-          description: Invalid trigger due to parameters being missing or invalid.
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
-    patch:
-      operationId: "UpdateTrigger"
-      summary: Update a Trigger, Fails if the trigger or app does not exist. Accepts partial updates / skips validation of zero values.
-      description: Update a trigger
-      tags:
-        - Triggers
-      parameters:
-        - $ref: '#/definitions/appPathParam'
-        - $ref: '#/definitions/triggerPathParam'
-        - name: trigger
-          in: path
-          description: trigger path.
-          required: true
-          type: string
-        - name: body
-          in: body
-          description: Trigger fields to update.
-          required: true
-          schema:
-            $ref: '#/definitions/TriggerWrapper'
-      responses:
-        200:
-          description: Trigger updated
-          schema:
-            $ref: '#/definitions/TriggerWrapper'
-        400:
-          description: Invalid trigger due to parameters being missing or invalid.
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App / Trigger does not exist.
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
     get:
       operationId: "GetTrigger"
-      summary: Gets trigger by name
-      description: Gets a trigger by name.
+      summary: Gets Trigger by ID
+      description: Gets a Trigger by ID.
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appPathParam'
-        - $ref: '#/definitions/triggerPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/triggerIDParam'
       responses:
         200:
           description: Trigger information
           schema:
             $ref: '#/definitions/TriggerWrapper'
         404:
-          description: Trigger does not exist.
+          description: Trigger does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -388,15 +334,15 @@ paths:
 
     delete:
       operationId: "DeleteTrigger"
-      summary: Deletes the trigger
-      description: Deletes the trigger.
+      summary: Deletes the Trigger
+      description: Deletes the Trigger.
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appPathParam'
-        - $ref: '#/definitions/triggerPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/triggerIDParam'
       responses:
-        200:
+        204:
           description: Trigger successfully deleted.
         404:
           description: Trigger does not exist.
@@ -407,17 +353,18 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls/{call}/log:
+  /apps/{app}/fns/{fn}/calls/{call}/log:
     get:
       operationId: "GetCallLog"
-      summary: Get call logs
-      description: Get call logs
+      summary: Get call log
+      description: Get call log
       tags:
         - Call
         - Log
       parameters:
-        - $ref: '#/definitions/appPathParam'
-        - $ref: '#/definitions/callPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/fnIDParam'
+        - $ref: '#/definitions/callIDParam'
       responses:
         200:
           description: Log found
@@ -428,7 +375,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls/{call}:
+  /apps/{app}/fns/{fn}/calls/{call}:
     get:
       operationId: "GetCall"
       summary: Get call information
@@ -436,8 +383,9 @@ paths:
       tags:
         - Call
       parameters:
-        - $ref: '#/definitions/appPathParam'
-        - $ref: '#/definitions/callPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/fnIDParam'
+        - $ref: '#/definitions/callIDParam'
       responses:
         200:
           description: Call found
@@ -448,7 +396,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls:
+  /apps/{app}/fn/{fn}/calls:
     get:
       operationId: "ListCalls"
       summary: Get app-bound calls.
@@ -456,7 +404,8 @@ paths:
       tags:
         - Call
       parameters:
-        - $ref: '#/definitions/appPathParam'
+        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/definitions/fnIDParam'
         - $ref: '#/definitions/triggerPathParam'
         - $ref: '#/definitions/cursorParam'
         - $ref: '#/definitions/perPageParam'
@@ -500,7 +449,7 @@ definitions:
       $ref: '#/definitions/CPUResource'
       $ref: '#/definitions/TimeoutResource'
       $ref: '#/definitions/IdleTimeoutResource'
-      # TODO(?) annotations? 
+      # TODO(?) annotations?
       created_at:
         type: string
         format: date-time
@@ -831,10 +780,10 @@ definitions:
     description: Trigger name.
     required: true
     type: string
-  funcPathParam:
-    name: func
+  fnIDParam:
+    name: fn
     in: path
-    description: Func name.
+    description: Funcution ID.
     required: true
     type: string
   callPathParam:
@@ -878,5 +827,3 @@ definitions:
       default: 30
       format: int32
       description: Hot functions idle timeout before container termination. Value in Seconds
-
-
