@@ -31,7 +31,7 @@ type AgentConfig struct {
 	PreForkNetworks         string        `json:"pre_fork_networks"`
 	EnableNBResourceTracker bool          `json:"enable_nb_resource_tracker"`
 	MaxTmpFsInodes          uint64        `json:"max_tmpfs_inodes"`
-	EnableReadOnlyRootFs    bool          `json:"enable_readonly_rootfs"`
+	DisableReadOnlyRootFs   bool          `json:"disable_readonly_rootfs"`
 }
 
 const (
@@ -56,14 +56,13 @@ const (
 	EnvPreForkNetworks         = "FN_EXPERIMENTAL_PREFORK_NETWORKS"
 	EnvEnableNBResourceTracker = "FN_ENABLE_NB_RESOURCE_TRACKER"
 	EnvMaxTmpFsInodes          = "FN_MAX_TMPFS_INODES"
-	EnvEnableReadOnlyRootFs    = "FN_ENABLE_READONLY_ROOTFS"
+	EnvDisableReadOnlyRootFs   = "FN_DISABLE_READONLY_ROOTFS"
 
 	MaxDisabledMsecs = time.Duration(math.MaxInt64)
 
 	// defaults
 
-	DefaultHotPoll     = 200 * time.Millisecond
-	DefaultNBIOHotPoll = 20 * time.Millisecond
+	DefaultHotPoll = 200 * time.Millisecond
 )
 
 func NewAgentConfig() (*AgentConfig, error) {
@@ -106,9 +105,8 @@ func NewAgentConfig() (*AgentConfig, error) {
 	if _, ok := os.LookupEnv(EnvEnableNBResourceTracker); ok {
 		cfg.EnableNBResourceTracker = true
 	}
-
-	if _, ok := os.LookupEnv(EnvEnableReadOnlyRootFs); ok {
-		cfg.EnableReadOnlyRootFs = true
+	if _, ok := os.LookupEnv(EnvDisableReadOnlyRootFs); ok {
+		cfg.DisableReadOnlyRootFs = true
 	}
 
 	if cfg.EjectIdle == time.Duration(0) {

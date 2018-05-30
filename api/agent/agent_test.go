@@ -666,7 +666,6 @@ func TestTmpFsSize(t *testing.T) {
 	}
 
 	cfg.MaxTmpFsInodes = 1024
-	cfg.EnableReadOnlyRootFs = true
 
 	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
