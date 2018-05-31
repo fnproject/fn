@@ -18,16 +18,6 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
-const (
-	runnerReconnectInterval = 5 * time.Second
-	// sleep time to attempt placement across all runners before retrying
-	retryWaitInterval = 10 * time.Millisecond
-	// sleep time when scaling from 0 to 1 runners
-	noCapacityWaitInterval = 1 * time.Second
-	// amount of time to wait to place a request on a runner
-	placementTimeout = 15 * time.Second
-)
-
 type lbAgent struct {
 	cfg           AgentConfig
 	da            DataAccess

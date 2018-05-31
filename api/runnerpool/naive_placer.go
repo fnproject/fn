@@ -5,26 +5,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// sleep time to attempt placement across all runners before retrying
-	retryWaitInterval = 10 * time.Millisecond
-)
-
 type naivePlacer struct {
-	rrIndex uint64
+	rrInterval time.Duration
+	rrIndex    uint64
 }
 
 func NewNaivePlacer() Placer {
 	rrIndex := uint64(time.Now().Nanosecond())
 	logrus.Infof("Creating new naive runnerpool placer rrIndex=%d", rrIndex)
 	return &naivePlacer{
-		rrIndex: rrIndex,
+		rrInterval: 10 * time.Millisecond,
+		rrIndex:    rrIndex,
 	}
 }
 
@@ -62,18 +58,13 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 			}
 		}
 
-		remaining := call.LbDeadline().Sub(time.Now())
-		if remaining <= 0 {
-			return models.ErrCallTimeoutServerBusy
-		}
-
 		// backoff
 		select {
 		case <-ctx.Done():
 			return models.ErrCallTimeoutServerBusy
 		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
-		case <-time.After(common.MinDuration(retryWaitInterval, remaining)):
+		case <-time.After(sp.rrInterval):
 		}
 	}
 }
