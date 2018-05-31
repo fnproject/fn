@@ -276,9 +276,9 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	}
 
 	if c.Type == models.TypeAsync {
-		// *) for async, slotDealine is also c.Call.timeout". This is because we would like to
+		// *) for async, slotDeadline is also c.Call.timeout. This is because we would like to
 		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
-		// and also carve c.Call.Timeout inside the container.
+		// and also make sure we have c.Call.Timeout inside the container as well..
 		// *) for sync, there's no slotDeadline, the timeout is controlled by http-client
 		// context (or runner gRPC context)
 		c.slotDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)

@@ -274,7 +274,9 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	statsDequeueAndStart(ctx)
 
-	// pass this error (nil or otherwise) to end directly, to store status, etc
+	// Pass this error (nil or otherwise) to end directly, to store status, etc.
+	// Reusing http.Request.Context for slot.exec() since call.Start() updates
+	// this with execution deadline.
 	err = slot.exec(call.req.Context(), call)
 	return a.handleCallEnd(ctx, call, slot, err, true)
 }
@@ -380,7 +382,9 @@ func handleStatsEnd(ctx context.Context, err error) {
 // request type, this may launch a new container or wait for other containers to become idle
 // or it may wait for resources to become available to launch a new container.
 func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
-	// start the deadline context for waiting for slots
+	// start the deadline context for waiting for slots, if slot deadline
+	// is not set, then this means, we will wait as long as the client is
+	// connected (via http.Request.Context())
 	if !call.slotDeadline.IsZero() {
 		tmp, cancel := context.WithDeadline(ctx, call.slotDeadline)
 		ctx = tmp
