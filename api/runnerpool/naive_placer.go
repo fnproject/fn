@@ -25,7 +25,6 @@ func NewNaivePlacer() Placer {
 }
 
 func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
-	timeout := time.After(call.LbDeadline().Sub(time.Now()))
 
 	for {
 		runners, err := rp.Runners(call)
@@ -36,8 +35,6 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 
 				select {
 				case <-ctx.Done():
-					return models.ErrCallTimeoutServerBusy
-				case <-timeout:
 					return models.ErrCallTimeoutServerBusy
 				default:
 				}
@@ -61,8 +58,6 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 		// backoff
 		select {
 		case <-ctx.Done():
-			return models.ErrCallTimeoutServerBusy
-		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
 		case <-time.After(sp.rrInterval):
 		}

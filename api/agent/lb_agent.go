@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
@@ -104,20 +103,18 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	if c.req == nil || c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
 	}
+
 	err := setMaxBodyLimit(&a.cfg, &c)
 	if err != nil {
 		return nil, err
 	}
 
+	setupCtx(&c)
+
+	c.isLB = true
 	c.da = a.da
 	c.ct = a
 	c.stderr = &nullReadWriter{}
-
-	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
-	c.req = c.req.WithContext(ctx)
-
-	c.lbDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
 	c.slotHashId = getSlotQueueKey(&c)
 
 	return &c, nil
@@ -157,12 +154,7 @@ func (a *lbAgent) Submit(callI Call) error {
 	}
 
 	call := callI.(*call)
-
-	ctx, cancel := context.WithDeadline(call.req.Context(), call.lbDeadline)
-	call.req = call.req.WithContext(ctx)
-	defer cancel()
-
-	ctx, span := trace.StartSpan(ctx, "agent_submit")
+	ctx, span := trace.StartSpan(call.req.Context(), "agent_submit")
 	defer span.End()
 
 	statsEnqueue(ctx)

@@ -117,16 +117,11 @@ func (r *mockRunner) Address() string {
 }
 
 type mockRunnerCall struct {
-	lbDeadline time.Time
 	r          *http.Request
 	rw         http.ResponseWriter
 	stdErr     io.ReadWriteCloser
 	model      *models.Call
 	slotHashId string
-}
-
-func (c *mockRunnerCall) LbDeadline() time.Time {
-	return c.lbDeadline
 }
 
 func (c *mockRunnerCall) SlotHashId() string {
@@ -157,8 +152,10 @@ func setupMockRunnerPool(expectedRunners []string, execSleep time.Duration, maxC
 func TestOneRunner(t *testing.T) {
 	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{lbDeadline: time.Now().Add(1 * time.Second)}
-	err := placer.PlaceCall(rp, context.Background(), call)
+	call := &mockRunnerCall{}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
+	defer cancel()
+	err := placer.PlaceCall(rp, ctx, call)
 	if err != nil {
 		t.Fatalf("Failed to place call on runner %v", err)
 	}
@@ -167,7 +164,7 @@ func TestOneRunner(t *testing.T) {
 func TestEnforceTimeoutFromContext(t *testing.T) {
 	placer := pool.NewNaivePlacer()
 	rp := setupMockRunnerPool([]string{"171.19.0.1"}, 10*time.Millisecond, 5)
-	call := &mockRunnerCall{lbDeadline: time.Now().Add(1 * time.Second)}
+	call := &mockRunnerCall{}
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
 	err := placer.PlaceCall(rp, ctx, call)
@@ -187,8 +184,10 @@ func TestRRRunner(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			call := &mockRunnerCall{lbDeadline: time.Now().Add(10 * time.Millisecond)}
-			err := placer.PlaceCall(rp, context.Background(), call)
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
+			defer cancel()
+			call := &mockRunnerCall{}
+			err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
 			}
@@ -218,8 +217,11 @@ func TestEnforceLbTimeout(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			call := &mockRunnerCall{lbDeadline: time.Now().Add(10 * time.Millisecond)}
-			err := placer.PlaceCall(rp, context.Background(), call)
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Millisecond))
+			defer cancel()
+
+			call := &mockRunnerCall{}
+			err := placer.PlaceCall(rp, ctx, call)
 			if err != nil {
 				failures <- fmt.Errorf("Timed out call %d", i)
 			}

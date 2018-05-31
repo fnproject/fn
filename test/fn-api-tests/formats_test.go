@@ -41,7 +41,7 @@ func TestFnJSONFormats(t *testing.T) {
 	})
 	content := bytes.NewBuffer(b)
 	output := &bytes.Buffer{}
-	resp, err := CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}

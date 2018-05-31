@@ -254,38 +254,43 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	}
 
 	mem := c.Memory + uint64(c.TmpFsSize)
-
 	if !a.resources.IsResourcePossible(mem, uint64(c.CPUs), c.Type == models.TypeAsync) {
 		// if we're not going to be able to run this call on this machine, bail here.
 		return nil, models.ErrCallTimeoutServerBusy
 	}
+
 	err := setMaxBodyLimit(&a.cfg, &c)
 	if err != nil {
 		return nil, err
 	}
 
+	setupCtx(&c)
+
 	c.da = a.da
 	c.ct = a
-
-	ctx, _ := common.LoggerWithFields(c.req.Context(),
-		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
-	c.req = c.req.WithContext(ctx)
-
-	c.stderr = setupLogger(ctx, a.cfg.MaxLogSize, c.Call)
+	c.stderr = setupLogger(c.req.Context(), a.cfg.MaxLogSize, c.Call)
 	if c.w == nil {
 		// send STDOUT to logs if no writer given (async...)
 		// TODO we could/should probably make this explicit to GetCall, ala 'WithLogger', but it's dupe code (who cares?)
 		c.w = c.stderr
 	}
 
-	now := time.Now()
-	slotDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second / 2)
-	execDeadline := now.Add(time.Duration(c.Call.Timeout) * time.Second)
-
-	c.slotDeadline = slotDeadline
-	c.execDeadline = execDeadline
+	if c.Type == models.TypeAsync {
+		// *) for async, slotDealine is also c.Call.timeout". This is because we would like to
+		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
+		// and also carve c.Call.Timeout inside the container.
+		// *) for sync, there's no slotDeadline, the timeout is controlled by http-client
+		// context (or runner gRPC context)
+		c.slotDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
+	}
 
 	return &c, nil
+}
+
+func setupCtx(c *call) {
+	ctx, _ := common.LoggerWithFields(c.req.Context(),
+		logrus.Fields{"id": c.ID, "app_id": c.AppID, "route": c.Path})
+	c.req = c.req.WithContext(ctx)
 }
 
 func setMaxBodyLimit(cfg *AgentConfig, c *call) error {
@@ -311,15 +316,11 @@ type call struct {
 	ct             callTrigger
 	slots          *slotQueue
 	slotDeadline   time.Time
-	lbDeadline     time.Time
-	execDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
 	slotHashId     string
-}
-
-func (c *call) LbDeadline() time.Time {
-	return c.lbDeadline
+	isLB           bool
+	cancelCtx      func()
 }
 
 func (c *call) SlotHashId() string {
@@ -358,8 +359,7 @@ func (c *call) Start(ctx context.Context) error {
 	c.StartedAt = strfmt.DateTime(time.Now())
 	c.Status = "running"
 
-	// Do not write this header if lb-agent
-	if c.lbDeadline.IsZero() {
+	if !c.isLB {
 		if rw, ok := c.w.(http.ResponseWriter); ok { // TODO need to figure out better way to wire response headers in
 			rw.Header().Set("XXX-FXLB-WAIT", time.Time(c.StartedAt).Sub(time.Time(c.CreatedAt)).String())
 		}
@@ -387,6 +387,15 @@ func (c *call) Start(ctx context.Context) error {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
 
+	// We are about to execute the function, set container Exec Deadline (call.Timeout)
+	// For LB, this does not apply, since execution time is on runners.
+	if c.cancelCtx == nil && !c.isLB {
+		execDeadline := time.Now().Add(time.Duration(c.Timeout) * time.Second)
+		ctx, cancel := context.WithDeadline(ctx, execDeadline)
+		c.req = c.req.WithContext(ctx)
+		c.cancelCtx = cancel
+	}
+
 	return nil
 }
 
@@ -404,6 +413,10 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	default:
 		c.Status = "error"
 		c.Error = errIn.Error()
+	}
+
+	if c.cancelCtx != nil {
+		c.cancelCtx()
 	}
 
 	// ensure stats histogram is reasonably bounded

@@ -2,12 +2,14 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/fnproject/fn/api/models"
 )
@@ -16,7 +18,7 @@ type RequestData struct {
 	A string `json:"a"`
 }
 
-func setupRequest(data interface{}) *callInfoImpl {
+func setupRequest(data interface{}) (*callInfoImpl, context.CancelFunc) {
 	req := &http.Request{
 		Method: http.MethodPost,
 		URL: &url.URL{
@@ -46,12 +48,14 @@ func setupRequest(data interface{}) *callInfoImpl {
 	// fixup URL in models.Call
 	call.URL = req.URL.String()
 
-	ci := &callInfoImpl{call: call, req: req}
-	return ci
+	ctx, cancel := context.WithTimeout(req.Context(), 1*time.Second)
+	ci := &callInfoImpl{call: call, req: req.WithContext(ctx)}
+	return ci, cancel
 }
 
 func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
-	ci := setupRequest(nil)
+	ci, cancel := setupRequest(nil)
+	defer cancel()
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
@@ -88,7 +92,8 @@ func TestJSONProtocolwriteJSONInputRequestBasicFields(t *testing.T) {
 
 func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 	rDataBefore := RequestData{A: "a"}
-	ci := setupRequest(rDataBefore)
+	ci, cancel := setupRequest(rDataBefore)
+	defer cancel()
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
@@ -133,7 +138,8 @@ func TestJSONProtocolwriteJSONInputRequestWithData(t *testing.T) {
 }
 
 func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
-	ci := setupRequest(nil)
+	ci, cancel := setupRequest(nil)
+	defer cancel()
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
@@ -177,7 +183,8 @@ func TestJSONProtocolwriteJSONInputRequestWithoutData(t *testing.T) {
 }
 
 func TestJSONProtocolwriteJSONInputRequestWithQuery(t *testing.T) {
-	ci := setupRequest(nil)
+	ci, cancel := setupRequest(nil)
+	defer cancel()
 	r, w := io.Pipe()
 	proto := JSONProtocol{w, r}
 	go func() {
