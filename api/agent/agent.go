@@ -170,7 +170,7 @@ func createAgent(da DataAccess, options ...AgentOption) Agent {
 		PreForkUseOnce:       a.cfg.PreForkUseOnce,
 		PreForkNetworks:      a.cfg.PreForkNetworks,
 		MaxTmpFsInodes:       a.cfg.MaxTmpFsInodes,
-		EnableReadOnlyRootFs: a.cfg.EnableReadOnlyRootFs,
+		EnableReadOnlyRootFs: !a.cfg.DisableReadOnlyRootFs,
 	})
 
 	a.da = da
