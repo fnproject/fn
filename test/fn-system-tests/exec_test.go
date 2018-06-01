@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,8 +11,8 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
-	apimodels "github.com/fnproject/fn/api/models"
 	apiutils "github.com/fnproject/fn/test/fn-api-tests"
 	sdkmodels "github.com/fnproject/fn_go/models"
 )
@@ -75,7 +76,7 @@ func TestCanExecuteFunction(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -118,7 +119,7 @@ func TestCanExecuteBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -163,7 +164,7 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -208,7 +209,7 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -256,7 +257,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 			body := `{"echoContent": "HelloWorld", "sleepTime": 0, "isDebug": true}`
 			content := bytes.NewBuffer([]byte(body))
 			output := &bytes.Buffer{}
-			resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
+			resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 			if err != nil {
 				results <- fmt.Errorf("Got unexpected error: %v", err)
 				return
@@ -288,10 +289,14 @@ func TestSaturatedSystem(t *testing.T) {
 
 	s := apiutils.SetupHarness()
 
+	// override default 60 secs with shorter.
+	s.Cancel()
+	s.Context, s.Cancel = context.WithTimeout(context.Background(), 4*time.Second)
+
 	s.GivenAppExists(t, &sdkmodels.App{Name: s.AppName})
 	defer s.Cleanup()
 
-	timeout := int32(5)
+	timeout := int32(1)
 
 	rt := s.BasicRoute()
 	rt.Image = "fnproject/fn-test-utils"
@@ -316,28 +321,8 @@ func TestSaturatedSystem(t *testing.T) {
 	content := bytes.NewBuffer([]byte(body))
 	output := &bytes.Buffer{}
 
-	resp, err := apiutils.CallFN(u.String(), content, output, "POST", []string{})
-	if err != nil {
-		if err != apimodels.ErrCallTimeoutServerBusy {
-			t.Errorf("Got unexpected error: %v", err)
-		}
-	}
-
-	// LB may respond either with:
-	//  timeout: a timeout during a call to a runner
-	//  too busy: a timeout during LB retry loop
-	exp1 := "{\"error\":{\"message\":\"Timed out - server too busy\"}}\n"
-	exp2 := "{\"error\":{\"message\":\"Timed out\"}}\n"
-
-	actual := output.String()
-
-	if strings.Contains(exp1, actual) && len(exp1) == len(actual) {
-	} else if strings.Contains(exp2, actual) && len(exp2) == len(actual) {
-	} else {
-		t.Errorf("Assertion error.\n\tExpected: %v or %v\n\tActual: %v", exp1, exp2, output.String())
-	}
-
-	if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusGatewayTimeout {
-		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
+	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
+	if resp != nil || err == nil || s.Context.Err() == nil {
+		t.Fatalf("Expected response: %v err:%v", resp, err)
 	}
 }

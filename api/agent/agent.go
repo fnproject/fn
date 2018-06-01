@@ -228,10 +228,7 @@ func (a *agent) Submit(callI Call) error {
 
 	call := callI.(*call)
 
-	ctx, cancel := context.WithDeadline(call.req.Context(), call.execDeadline)
-	call.req = call.req.WithContext(ctx)
-	defer cancel()
-
+	ctx := call.req.Context()
 	ctx, span := trace.StartSpan(ctx, "agent_submit")
 	defer span.End()
 
@@ -277,7 +274,11 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	statsDequeueAndStart(ctx)
 
-	// pass this error (nil or otherwise) to end directly, to store status, etc
+	// We are about to execute the function, set container Exec Deadline (call.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
+	defer cancel()
+
+	// Pass this error (nil or otherwise) to end directly, to store status, etc.
 	err = slot.exec(ctx, call)
 	return a.handleCallEnd(ctx, call, slot, err, true)
 }
@@ -383,9 +384,17 @@ func handleStatsEnd(ctx context.Context, err error) {
 // request type, this may launch a new container or wait for other containers to become idle
 // or it may wait for resources to become available to launch a new container.
 func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
-	// start the deadline context for waiting for slots
-	ctx, cancel := context.WithDeadline(ctx, call.slotDeadline)
-	defer cancel()
+	if call.Type == models.TypeAsync {
+		// *) for async, slot deadline is also call.Timeout. This is because we would like to
+		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
+		// and also make sure we have call.Timeout inside the container. Total time
+		// to run an async becomes 2 * call.Timeout.
+		// *) for sync, there's no slot deadline, the timeout is controlled by http-client
+		// context (or runner gRPC context)
+		tmp, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
+		ctx = tmp
+		defer cancel()
+	}
 
 	ctx, span := trace.StartSpan(ctx, "agent_get_slot")
 	defer span.End()
@@ -721,7 +730,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req)
+		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req.WithContext(ctx))
 		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 
@@ -752,8 +761,10 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 
 	call.containerState.UpdateState(ctx, ContainerStateStart, call.slots)
 
+	deadline := time.Now().Add(time.Duration(call.Timeout) * time.Second)
+
 	// add Fn-specific information to the config to shove everything into env vars for cold
-	call.Config["FN_DEADLINE"] = strfmt.DateTime(call.execDeadline).String()
+	call.Config["FN_DEADLINE"] = strfmt.DateTime(deadline).String()
 	call.Config["FN_METHOD"] = call.Model().Method
 	call.Config["FN_REQUEST_URL"] = call.Model().URL
 	call.Config["FN_CALL_ID"] = call.Model().ID

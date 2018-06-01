@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/fnproject/fn/api/models"
 )
@@ -42,7 +41,6 @@ type Runner interface {
 // processed by a RunnerPool
 type RunnerCall interface {
 	SlotHashId() string
-	LbDeadline() time.Time
 	RequestBody() io.ReadCloser
 	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser

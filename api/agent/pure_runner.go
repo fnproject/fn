@@ -67,8 +67,7 @@ type callHandle struct {
 	c          *call // the agent's version of call
 
 	// Timings, for metrics:
-	receivedTime  strfmt.DateTime // When was the call received?
-	allocatedTime strfmt.DateTime // When did we finish allocating capacity?
+	receivedTime strfmt.DateTime // When was the call received?
 
 	// For implementing http.ResponseWriter:
 	headers http.Header
@@ -530,7 +529,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		return err
 	}
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state))
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state), WithContext(state.ctx))
 	if err != nil {
 		state.enqueueCallResponse(err)
 		return err
@@ -545,7 +544,6 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		}
 		state.c.slotHashId = string(hashId[:])
 	}
-	state.allocatedTime = strfmt.DateTime(time.Now())
 	pr.spawnSubmit(state)
 
 	return nil

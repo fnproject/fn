@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/url"
@@ -15,9 +16,9 @@ import (
 	"github.com/fnproject/fn_go/models"
 )
 
-func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
+func CallAsync(t *testing.T, ctx context.Context, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
-	_, err := CallFN(u.String(), content, output, "POST", []string{})
+	_, err := CallFN(ctx, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -41,9 +42,9 @@ func CallAsync(t *testing.T, u url.URL, content io.Reader) string {
 	return callID.CallID
 }
 
-func CallSync(t *testing.T, u url.URL, content io.Reader) string {
+func CallSync(t *testing.T, ctx context.Context, u url.URL, content io.Reader) string {
 	output := &bytes.Buffer{}
-	resp, err := CallFN(u.String(), content, output, "POST", []string{})
+	resp, err := CallFN(ctx, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestCanCallfunction(t *testing.T) {
 
 	content := &bytes.Buffer{}
 	output := &bytes.Buffer{}
-	_, err := CallFN(u.String(), content, output, "POST", []string{})
+	_, err := CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestCallOutputMatch(t *testing.T) {
 		Name string
 	}{Name: "John"})
 	output := &bytes.Buffer{}
-	_, err := CallFN(u.String(), content, output, "POST", []string{})
+	_, err := CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -134,7 +135,7 @@ func TestCanCallAsync(t *testing.T) {
 		Type: newRouteType,
 	})
 
-	CallAsync(t, u, &bytes.Buffer{})
+	CallAsync(t, s.Context, u, &bytes.Buffer{})
 }
 
 func TestCanGetAsyncState(t *testing.T) {
@@ -157,7 +158,7 @@ func TestCanGetAsyncState(t *testing.T) {
 		Type: newRouteType,
 	})
 
-	callID := CallAsync(t, u, &bytes.Buffer{})
+	callID := CallAsync(t, s.Context, u, &bytes.Buffer{})
 	cfg := &call.GetAppsAppCallsCallParams{
 		Call:    callID,
 		App:     s.AppName,
@@ -221,7 +222,7 @@ func TestCanCauseTimeout(t *testing.T) {
 	}{Seconds: 11})
 	output := &bytes.Buffer{}
 
-	resp, _ := CallFN(u.String(), content, output, "POST", []string{})
+	resp, _ := CallFN(s.Context, u.String(), content, output, "POST", []string{})
 
 	if !strings.Contains(output.String(), "Timed out") {
 		t.Errorf("Must fail because of timeout, but got error message: %v", output.String())
@@ -270,7 +271,7 @@ func TestCallResponseHeadersMatch(t *testing.T) {
 	u.Path = path.Join(u.Path, "r", s.AppName, rt.Path)
 	content := &bytes.Buffer{}
 	output := &bytes.Buffer{}
-	CallFN(u.String(), content, output, "POST",
+	CallFN(s.Context, u.String(), content, output, "POST",
 		[]string{
 			"ACCEPT: application/xml",
 			"ACCEPT: application/json; q=0.2",
@@ -305,7 +306,7 @@ func TestCanWriteLogs(t *testing.T) {
 		Size int
 	}{Size: 20})
 
-	callID := CallSync(t, u, content)
+	callID := CallSync(t, s.Context, u, content)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
@@ -353,7 +354,7 @@ func TestOversizedLog(t *testing.T) {
 		Size int
 	}{Size: size}) //exceeding log by 1 symbol
 
-	callID := CallSync(t, u, content)
+	callID := CallSync(t, s.Context, u, content)
 
 	cfg := &operations.GetAppsAppCallsCallLogParams{
 		Call:    callID,
