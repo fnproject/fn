@@ -88,7 +88,7 @@ func apiMetricsWrap(s *Server) {
 			}
 			start := time.Now()
 			// get the handler url, example: /v1/apps/:app
-			url := ""
+			url := "invalid"
 			for _, r := range routes {
 				if r.Handler == c.HandlerName() {
 					url = r.Path
