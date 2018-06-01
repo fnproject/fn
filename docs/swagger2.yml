@@ -331,6 +331,38 @@ paths:
             $ref: '#/definitions/Error'
 
 definitions:
+
+  App:
+    type: object
+    properties:
+      id:
+        type: string
+        description: UUID
+        readOnly: true
+      name:
+        type: string
+        description: Name of this app. Can ony contain alphanumeric, -, and _.
+      config:
+        type: object
+        description: Application function configuration, applied to all triggers.
+        additionalProperties:
+          type: string
+      annotations:
+        type: object
+        description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
+      created_at:
+        type: string
+        format: date-time
+        description: Time when app was created. Always in UTC.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that app was updated. Always in UTC.
+        readOnly: true
+
   Fn:
     type: object
     properties:
@@ -354,13 +386,22 @@ definitions:
         description: Function configuration - this is the base configuration
         properties:
           mem:
-            $ref: '#/definitions/MemoryResource'
+            type: integer
+            format: uint64
+            description: Max usable memory given to function (MiB).
           cpu:
-            $ref: '#/definitions/CPUResource'
+            type: string
+            description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
           execution_timeout:
-            $ref: '#/definitions/TimeoutResource'
+            type: integer
+            default: 30
+            format: int32
+            description: Timeout for executions of a function. Value in Seconds
           idle_timeout:
-            $ref: '#/definitions/IdleTimeoutResource'
+            type: integer
+            default: 30
+            format: int32
+            description: Hot functions idle timeout before container termination. Value in Seconds
       # TODO(?) annotations?
       created_at:
         type: string
@@ -373,7 +414,8 @@ definitions:
         description: Most recent time that function was updated. Always in UTC RFC3339.
         readOnly: true
       status:
-        $ref: '#/definitions/FnStatus'
+        type: string
+        enum: [enabled, disabled]
 
   Trigger:
     type: object
@@ -412,38 +454,20 @@ definitions:
         description: Most recent time that trigger was updated. Always in UTC.
         readOnly: true
       status:
-        $ref: '#/definitions/TriggerStatus'
+        type: string
+        enum: [enabled, disabled]
 
-  App:
+  AppList:
     type: object
+    required:
+      - items
     properties:
-      id:
-        type: string
-        description: UUID
-        readOnly: true
-      name:
-        type: string
-        description: Name of this app. Can ony contain alphanumeric, -, and _.
-      config:
-        type: object
-        description: Application function configuration, applied to all triggers.
-        additionalProperties:
-          type: string
-      annotations:
-        type: object
-        description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
-        additionalProperties:
-          type: object
-      created_at:
-        type: string
-        format: date-time
-        description: Time when app was created. Always in UTC.
-        readOnly: true
-      updated_at:
-        type: string
-        format: date-time
-        description: Most recent time that app was updated. Always in UTC.
-        readOnly: true
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/App'
 
   FnList:
     type: object
@@ -468,18 +492,6 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Trigger'
-
-  AppList:
-    type: object
-    required:
-      - items
-    properties:
-      next:
-        $ref: '#/definitions/nextCursor'
-      items:
-        type: array
-        items:
-          $ref: '#/definitions/App'
 
   CallList:
     type: object
@@ -591,55 +603,28 @@ definitions:
             type: integer
             format: int64
 
-  ErrorBody:
-    type: object
-    properties:
-      type:
-        type: string
-        enum: [unauthorized, bad-request, server-error, unknown]
-      message:
-        type: string
-        readOnly: true
-      fields:
-        type: string
-        readOnly: true
-
   Error:
     type: object
     properties:
       error:
-        $ref: '#/definitions/ErrorBody'
+        type: object
+        properties:
+          type:
+            type: string
+            enum: [unauthorized, bad-request, server-error, unknown]
+          message:
+            type: string
+            readOnly: true
+          fields:
+            type: string
+            readOnly: true
 
   nextCursor:
     type: string
     description: cursor to send with subsequent request to receive the next page, if non-empty
     readOnly: true
 
-  FnStatus:
-    type: string
-    enum: [enabled, disabled]
-  TriggerStatus:
-    type: string
-    enum: [enabled, disabled]
-
   # resources
-  MemoryResource:
-      type: integer
-      format: uint64
-      description: Max usable memory given to function (MiB).
-  CPUResource:
-      type: string
-      description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
-  TimeoutResource:
-      type: integer
-      default: 30
-      format: int32
-      description: Timeout for executions of a function. Value in Seconds
-  IdleTimeoutResource:
-      type: integer
-      default: 30
-      format: int32
-      description: Hot functions idle timeout before container termination. Value in Seconds
 
 parameters:
   cursor:
