@@ -274,10 +274,12 @@ func (a *agent) submit(ctx context.Context, call *call) error {
 
 	statsDequeueAndStart(ctx)
 
+	// We are about to execute the function, set container Exec Deadline (call.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
+	defer cancel()
+
 	// Pass this error (nil or otherwise) to end directly, to store status, etc.
-	// Reusing http.Request.Context for slot.exec() since call.Start() updates
-	// this with execution deadline.
-	err = slot.exec(call.req.Context(), call)
+	err = slot.exec(ctx, call)
 	return a.handleCallEnd(ctx, call, slot, err, true)
 }
 
@@ -382,11 +384,14 @@ func handleStatsEnd(ctx context.Context, err error) {
 // request type, this may launch a new container or wait for other containers to become idle
 // or it may wait for resources to become available to launch a new container.
 func (a *agent) getSlot(ctx context.Context, call *call) (Slot, error) {
-	// start the deadline context for waiting for slots, if slot deadline
-	// is not set, then this means, we will wait as long as the client is
-	// connected (via http.Request.Context())
-	if !call.slotDeadline.IsZero() {
-		tmp, cancel := context.WithDeadline(ctx, call.slotDeadline)
+	if call.Type == models.TypeAsync {
+		// *) for async, slot deadline is also call.Timeout. This is because we would like to
+		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
+		// and also make sure we have call.Timeout inside the container. Total time
+		// to run an async becomes 2 * call.Timeout.
+		// *) for sync, there's no slot deadline, the timeout is controlled by http-client
+		// context (or runner gRPC context)
+		tmp, cancel := context.WithTimeout(ctx, time.Duration(call.Timeout)*time.Second)
 		ctx = tmp
 		defer cancel()
 	}
@@ -725,7 +730,7 @@ func (s *hotSlot) exec(ctx context.Context, call *call) error {
 
 	errApp := make(chan error, 1)
 	go func() {
-		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req)
+		ci := protocol.NewCallInfo(call.IsCloudEvent, call.Call, call.req.WithContext(ctx))
 		errApp <- proto.Dispatch(ctx, ci, call.w)
 	}()
 

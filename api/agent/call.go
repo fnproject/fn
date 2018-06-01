@@ -275,15 +275,6 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 		c.w = c.stderr
 	}
 
-	if c.Type == models.TypeAsync {
-		// *) for async, slotDeadline is also c.Call.timeout. This is because we would like to
-		// allocate enough time for docker-pull, slot-wait, docker-start, etc.
-		// and also make sure we have c.Call.Timeout inside the container as well..
-		// *) for sync, there's no slotDeadline, the timeout is controlled by http-client
-		// context (or runner gRPC context)
-		c.slotDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
-	}
-
 	return &c, nil
 }
 
@@ -315,12 +306,10 @@ type call struct {
 	stderr         io.ReadWriteCloser
 	ct             callTrigger
 	slots          *slotQueue
-	slotDeadline   time.Time
 	requestState   RequestState
 	containerState ContainerState
 	slotHashId     string
 	isLB           bool
-	cancelCtx      func()
 }
 
 func (c *call) SlotHashId() string {
@@ -387,15 +376,6 @@ func (c *call) Start(ctx context.Context) error {
 		return fmt.Errorf("BeforeCall: %v", err)
 	}
 
-	// We are about to execute the function, set container Exec Deadline (call.Timeout)
-	// For LB, this does not apply, since execution time is on runners.
-	if c.cancelCtx == nil && !c.isLB {
-		execDeadline := time.Now().Add(time.Duration(c.Timeout) * time.Second)
-		ctx, cancel := context.WithDeadline(ctx, execDeadline)
-		c.req = c.req.WithContext(ctx)
-		c.cancelCtx = cancel
-	}
-
 	return nil
 }
 
@@ -413,10 +393,6 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	default:
 		c.Status = "error"
 		c.Error = errIn.Error()
-	}
-
-	if c.cancelCtx != nil {
-		c.cancelCtx()
 	}
 
 	// ensure stats histogram is reasonably bounded
