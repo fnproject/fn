@@ -1,7 +1,6 @@
 swagger: '2.0'
 
 # TODO(?): add /run API to swagger doc? (only covers API module atm)
-# TODO(orcl): 401 - should we define this to delineate w/ 404 even tho we don't have auth by default?
 
 info:
   title: fn
@@ -36,6 +35,10 @@ paths:
           description: List of fns.
           schema:
             $ref: '#/definitions/FnList'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: App does not exist
           schema:
@@ -58,6 +61,10 @@ paths:
       responses:
         204:
           description: Fn successfully deleted
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Fn does not exist
           schema:
@@ -80,6 +87,10 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Fn does not exist
           schema:
@@ -112,29 +123,8 @@ paths:
           description: Parameters are missing or invalid
           schema:
             $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
-
-  /apps/{app}/fns/{fn}/triggers:
-    get:
-      operationId: "GetFnsTriggers"
-      summary: "Get triggers for a fn"
-      description: "Get Triggers for a Function."
-      tags:
-        - Fns
-        - Triggers
-      parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
-      responses:
-        200:
-          description: Trigger metadata
-          schema:
-            $ref: '#/definitions/TriggerList'
-        404:
-          description: Fn does not exist
+        401:
+          description: Unauthorized
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -157,6 +147,10 @@ paths:
           description: List of apps
           schema:
             $ref: '#/definitions/AppList'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
@@ -174,6 +168,10 @@ paths:
       responses:
         204:
           description: App successfully deleted
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: App does not exist
           schema:
@@ -195,6 +193,10 @@ paths:
           description: App data
           schema:
             $ref: '#/definitions/App'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: App does not exist
           schema:
@@ -226,6 +228,10 @@ paths:
           description: Parameters are missing or invalid
           schema:
             $ref: '#/definitions/Error'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: App does not exist
           schema:
@@ -246,12 +252,17 @@ paths:
         - $ref: '#/parameters/AppName'
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
+        - $ref: '#/parameters/FnNameQuery'
         # Can add type, route, etc qparams as required
       responses:
         200:
           description: Trigger data
           schema:
             $ref: '#/definitions/TriggerList'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: App does not exist.
           schema:
@@ -276,6 +287,10 @@ paths:
           description: Trigger information
           schema:
             $ref: '#/definitions/Trigger'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Trigger does not exist
           schema:
@@ -308,6 +323,10 @@ paths:
           description: Invalid trigger due to parameters being missing or invalid.
           schema:
             $ref: '#/definitions/Error'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
@@ -325,6 +344,10 @@ paths:
       responses:
         204:
           description: Trigger successfully deleted.
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Trigger does not exist.
           schema:
@@ -351,6 +374,10 @@ paths:
           description: Log found
           schema:
             $ref:  '#/definitions/Log'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Log not found.
           schema:
@@ -372,6 +399,10 @@ paths:
           description: Call found
           schema:
             $ref:  '#/definitions/Call'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Call not found.
           schema:
@@ -397,6 +428,10 @@ paths:
           description: Calls found
           schema:
             $ref:  '#/definitions/CallList'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
         404:
           description: Calls not found.
           schema:
@@ -751,6 +786,12 @@ parameters:
   FnName:
     name: fn
     in: path
+    description: Function Name.
+    required: true
+    type: string
+  FnNameQuery:
+    name: fn
+    in: query
     description: Function Name.
     required: true
     type: string
