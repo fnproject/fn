@@ -35,16 +35,8 @@ paths:
           description: List of fns.
           schema:
             $ref: '#/definitions/FnList'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -63,16 +55,8 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Fn does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
     put:
@@ -95,16 +79,8 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
-        400:
-          description: Parameters are missing or invalid
-          schema:
-            $ref: '#/definitions/Error'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
     delete:
@@ -119,16 +95,8 @@ paths:
       responses:
         204:
           description: Fn successfully deleted
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Fn does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -148,12 +116,8 @@ paths:
           description: List of apps
           schema:
             $ref: '#/definitions/AppList'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -171,16 +135,8 @@ paths:
           description: App data
           schema:
             $ref: '#/definitions/App'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
     put:
@@ -202,20 +158,8 @@ paths:
           description: App data
           schema:
             $ref: '#/definitions/App'
-        400:
-          description: Parameters are missing or invalid
-          schema:
-            $ref: '#/definitions/Error'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
     delete:
@@ -229,16 +173,8 @@ paths:
       responses:
         204:
           description: App successfully deleted
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -260,16 +196,8 @@ paths:
           description: Trigger data
           schema:
             $ref: '#/definitions/TriggerList'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App does not exist.
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -288,16 +216,8 @@ paths:
           description: Trigger information
           schema:
             $ref: '#/definitions/Trigger'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Trigger does not exist
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
     put:
@@ -320,16 +240,8 @@ paths:
           description: Created Triggers data
           schema:
             $ref: '#/definitions/Trigger'
-        400:
-          description: Invalid trigger due to parameters being missing or invalid.
-          schema:
-            $ref: '#/definitions/Error'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -345,16 +257,8 @@ paths:
       responses:
         204:
           description: Trigger successfully deleted.
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Trigger does not exist.
-          schema:
-            $ref: '#/definitions/Error'
         default:
-          description: Unexpected error
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -375,12 +279,8 @@ paths:
           description: Log found
           schema:
             $ref:  '#/definitions/Log'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Log not found.
+        default:
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -400,12 +300,8 @@ paths:
           description: Call found
           schema:
             $ref:  '#/definitions/Call'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Call not found.
+        default:
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -429,12 +325,8 @@ paths:
           description: Calls found
           schema:
             $ref:  '#/definitions/CallList'
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Calls not found.
+        default:
+          description: Error
           schema:
             $ref: '#/definitions/Error'
 
@@ -556,11 +448,11 @@ definitions:
   FnList:
     type: object
     required:
-      - fns
+      - items
     properties:
       next:
         $ref: '#/definitions/nextCursor'
-      fns:
+      items:
         type: array
         items:
           $ref: '#/definitions/Fn'
@@ -568,11 +460,11 @@ definitions:
   TriggerList:
     type: object
     required:
-      - triggers
+      - items
     properties:
       next:
         $ref: '#/definitions/nextCursor'
-      triggers:
+      items:
         type: array
         items:
           $ref: '#/definitions/Trigger'
@@ -580,11 +472,11 @@ definitions:
   AppList:
     type: object
     required:
-      - apps
+      - items
     properties:
       next:
         $ref: '#/definitions/nextCursor'
-      apps:
+      items:
         type: array
         items:
           $ref: '#/definitions/App'
@@ -592,16 +484,14 @@ definitions:
   CallList:
     type: object
     required:
-      - calls
+      - items
     properties:
       next:
         $ref: '#/definitions/nextCursor'
-      calls:
+      items:
         type: array
         items:
           $ref: '#/definitions/Call'
-      error:
-        $ref: '#/definitions/ErrorBody'
 
   Log:
     type: object
@@ -704,6 +594,9 @@ definitions:
   ErrorBody:
     type: object
     properties:
+      type:
+        type: string
+        enum: [unauthorized, bad-request, server-error, unknown]
       message:
         type: string
         readOnly: true
