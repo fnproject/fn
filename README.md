@@ -140,3 +140,4 @@ That's it! You just deployed your first function and called it. Try updating the
 * [Twitter](https://twitter.com/fnproj)
 * [YouTube](https://www.youtube.com/channel/UCo3fJqEGRx9PW_ODXk3b1nw)
 * [Events](http://events.fnproject.io)
+* [Has Oracle Fn Been Hacked](https://haveibeenpwned.com/)
