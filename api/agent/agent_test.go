@@ -667,7 +667,8 @@ func TestTmpFsRW(t *testing.T) {
 		},
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
@@ -771,7 +772,8 @@ func TestTmpFsSize(t *testing.T) {
 
 	cfg.MaxTmpFsInodes = 1024
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
