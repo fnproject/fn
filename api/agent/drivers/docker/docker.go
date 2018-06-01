@@ -219,7 +219,7 @@ func (drv *DockerDriver) configureFs(log logrus.FieldLogger, container *docker.C
 }
 
 func (drv *DockerDriver) configureTmpFs(log logrus.FieldLogger, container *docker.CreateContainerOptions, task drivers.ContainerTask) {
-	if task.TmpFsSize() == 0 {
+	if task.TmpFsSize() == 0 && !drv.conf.EnableReadOnlyRootFs {
 		return
 	}
 
@@ -228,10 +228,12 @@ func (drv *DockerDriver) configureTmpFs(log logrus.FieldLogger, container *docke
 	}
 
 	var tmpFsOption string
-	if drv.conf.MaxTmpFsInodes != 0 {
-		tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", task.TmpFsSize(), drv.conf.MaxTmpFsInodes)
-	} else {
-		tmpFsOption = fmt.Sprintf("size=%dm", task.TmpFsSize())
+	if task.TmpFsSize() != 0 {
+		if drv.conf.MaxTmpFsInodes != 0 {
+			tmpFsOption = fmt.Sprintf("size=%dm,nr_inodes=%d", task.TmpFsSize(), drv.conf.MaxTmpFsInodes)
+		} else {
+			tmpFsOption = fmt.Sprintf("size=%dm", task.TmpFsSize())
+		}
 	}
 	target := "/tmp"
 
