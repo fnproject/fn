@@ -503,11 +503,6 @@ definitions:
         $ref: '#/parameters/FnName'
       app_name:
         $ref: '#/parameters/AppName'
-      config:
-        type: object
-        description: Trigger configuration - overrides application configuration
-        additionalProperties:
-          type: string
       annotations:
         type: object
         description: Trigger annotations - this is a map of annotations attached to this trigger, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
