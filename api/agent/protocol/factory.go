@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/fnproject/fn/api/models"
 	"github.com/go-openapi/strfmt"
@@ -79,16 +78,8 @@ func (ci callInfoImpl) Input() io.Reader {
 func (ci callInfoImpl) Deadline() strfmt.DateTime {
 	deadline, ok := ci.req.Context().Deadline()
 	if !ok {
-		// In theory deadline must have been set here, but if it wasn't then
-		// at this point it is already too late to raise an error. Set it to
-		// something meaningful.
-		// This assumes StartedAt was set to something other than the default.
-		// If that isn't set either, then how many things have gone wrong?
-		if ci.call.StartedAt == strfmt.NewDateTime() {
-			// We just panic if StartedAt is the default (i.e. not set)
-			panic("No context deadline and zero-value StartedAt - this should never happen")
-		}
-		deadline = ((time.Time)(ci.call.StartedAt)).Add(time.Duration(ci.call.Timeout) * time.Second)
+		// In theory deadline must have been set here
+		panic("No context deadline is set in protocol, should never happen")
 	}
 	return strfmt.DateTime(deadline)
 }

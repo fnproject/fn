@@ -60,7 +60,7 @@ func TestGetExactCall(t *testing.T) {
 	}
 	u.Path = path.Join(u.Path, "r", s.AppName, s.RoutePath)
 
-	callID := CallAsync(t, u, &bytes.Buffer{})
+	callID := CallAsync(t, s.Context, u, &bytes.Buffer{})
 
 	cfg := &call.GetAppsAppCallsCallParams{
 		Call:    callID,

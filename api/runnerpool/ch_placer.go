@@ -31,7 +31,7 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 	// The key is just the path in this case
 	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
-	timeout := time.After(call.LbDeadline().Sub(time.Now()))
+
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
@@ -42,8 +42,6 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 
 				select {
 				case <-ctx.Done():
-					return models.ErrCallTimeoutServerBusy
-				case <-timeout:
 					return models.ErrCallTimeoutServerBusy
 				default:
 				}
@@ -68,8 +66,6 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 		// backoff
 		select {
 		case <-ctx.Done():
-			return models.ErrCallTimeoutServerBusy
-		case <-timeout:
 			return models.ErrCallTimeoutServerBusy
 		case <-time.After(p.rrInterval):
 		}

@@ -136,6 +136,8 @@ func (s *TestHarness) Cleanup() {
 	for app, _ := range s.createdApps {
 		safeDeleteApp(ctx, s.Client, app)
 	}
+
+	s.Cancel()
 }
 
 func EnvAsHeader(req *http.Request, selectedEnv []string) {
@@ -151,7 +153,7 @@ func EnvAsHeader(req *http.Request, selectedEnv []string) {
 	}
 }
 
-func CallFN(u string, content io.Reader, output io.Writer, method string, env []string) (*http.Response, error) {
+func CallFN(ctx context.Context, u string, content io.Reader, output io.Writer, method string, env []string) (*http.Response, error) {
 	if method == "" {
 		if content == nil {
 			method = "GET"
@@ -164,8 +166,8 @@ func CallFN(u string, content io.Reader, output io.Writer, method string, env []
 	if err != nil {
 		return nil, fmt.Errorf("error running route: %s", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
 
 	if len(env) > 0 {
 		EnvAsHeader(req, env)
