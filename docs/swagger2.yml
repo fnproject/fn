@@ -1,13 +1,6 @@
 swagger: '2.0'
 
-# TODO(?): remove stats from call?
-# TODO(?): amend log api? if we have /app/logs we could tail logs on an app (or trig?) and have point lookup for call still
 # TODO(?): add /run API to swagger doc? (only covers API module atm)
-# TODO(?): should trigger have an 'enabled' field to easily toggle on and off via API?
-# TODO: let's punt on adding a row for FuncVersions with snapshots of each func version? just a string field for now.
-# TODO: put body and response objects have different required fields, etc; make 2 objects?
-# TODO: change all params to $ref's (few left)
-# TODO(orcl): 204 DELETE success
 # TODO(orcl): 401 - should we define this to delineate w/ 404 even tho we don't have auth by default?
 
 info:
@@ -35,31 +28,18 @@ paths:
       tags:
         - Fns
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/cursorParam'
-        - $ref: '#/definitions/perPageParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
       responses:
         200:
           description: List of fns.
           schema:
-            $ref: '#/definitions/FnsWrapper'
-        default:
-          description: Unexpected error
+            $ref: '#/definitions/FnList'
+        404:
+          description: App does not exist
           schema:
             $ref: '#/definitions/Error'
-    post:
-      operationId: "CreateFn"
-      summary: "Create a fn"
-      description: "Create a new Function."
-      tags:
-        - Fns
-      parameters:
-        - $ref: '#/definitions/appIDParam'
-      responses:
-        201:
-          description: Created Functions metadata
-          schema:
-            $ref: '#/definitions/FnWrapper'
         default:
           description: Unexpected error
           schema:
@@ -73,8 +53,8 @@ paths:
       tags:
         - Fns
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/fnIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
       responses:
         204:
           description: Fn successfully deleted
@@ -88,18 +68,18 @@ paths:
             $ref: '#/definitions/Error'
     get:
       operationId: "GetFn"
-      summary: "Get information for a fn"
-      description: "Get information for a Function."
+      summary: "Get metadata for a fn"
+      description: "Get metadata for a Function."
       tags:
         - Fns
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/fnIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
       responses:
         200:
           description: Fn metadata
           schema:
-            $ref: '#/definitions/FnWrapper'
+            $ref: '#/definitions/Fn'
         404:
           description: Fn does not exist
           schema:
@@ -108,27 +88,28 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-    post:
-      operationId: "UpdateFunc"
-      summary: "Update a func"
-      description: "Updates a Function."
+    put:
+      operationId: "UpsertFn"
+      summary: "Upsert a fn"
+      description: "Creates or updates a Function."
       tags:
         - Fns
       parameters:
-        - $ref: '#/definitions/funcPathParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
         - name: body
           in: body
-          description: Fn to update
+          description: Fn to upsert
           required: true
           schema:
-            $ref: '#/definitions/FuncWrapper'
+            $ref: '#/definitions/Fn'
       responses:
         200:
           description: Fn metadata
           schema:
-            $ref: '#/definitions/FuncWrapper'
+            $ref: '#/definitions/Fn'
         400:
-          description: Parameters are missing or invalid.
+          description: Parameters are missing or invalid
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -145,13 +126,13 @@ paths:
         - Fns
         - Triggers
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/fnIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
       responses:
         200:
           description: Trigger metadata
           schema:
-            $ref: '#/definitions/TriggerWrapper'
+            $ref: '#/definitions/TriggerList'
         404:
           description: Fn does not exist
           schema:
@@ -169,13 +150,13 @@ paths:
       tags:
         - Apps
       parameters:
-        - $ref: '#/definitions/cursorParam'
-        - $ref: '#/definitions/perPageParam'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
       responses:
         200:
-          description: List of apps.
+          description: List of apps
           schema:
-            $ref: '#/definitions/AppsWrapper'
+            $ref: '#/definitions/AppList'
         default:
           description: Unexpected error
           schema:
@@ -189,9 +170,9 @@ paths:
       tags:
         - Apps
       parameters:
-        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/parameters/AppName'
       responses:
-        200:
+        204:
           description: App successfully deleted
         404:
           description: App does not exist
@@ -203,17 +184,17 @@ paths:
             $ref: '#/definitions/Error'
     get:
       operationId: "GetApp"
-      summary: "Get app metadata"
-      description: "Get metadata for an Application."
+      summary: "Get app data"
+      description: "Get data for an Application."
       tags:
         - Apps
       parameters:
-        - $ref: '#/definitions/appIDParam'
+        - $ref: '#/parameters/AppName'
       responses:
         200:
-          description: App metadata
+          description: App data
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
         404:
           description: App does not exist
           schema:
@@ -222,25 +203,25 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-    post:
-      operationId: "UpdateApp"
-      summary: "Updates an app"
-      description: "Updates any provided fields on the app. App must exist."
+    put:
+      operationId: "UpsertsApp"
+      summary: "Upserts an app"
+      description: "Creates or updates any provided fields on the app."
       tags:
         - Apps
       parameters:
-        - $ref: '#/definitions/appPathParam'
+        - $ref: '#/parameters/AppName'
         - name: body
           in: body
-          description: App object.
+          description: App data.
           required: true
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
       responses:
         200:
-          description: App metadata
+          description: App data
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
         400:
           description: Parameters are missing or invalid
           schema:
@@ -257,20 +238,20 @@ paths:
   /apps/{app}/triggers:
     get:
       operationId: "ListTriggers"
-      summary: Get trigger list by app ID
-      description: This will list triggers for a particular Application, returned in alphabetical order.
+      summary: List triggers associated with app
+      description: This will list all Triggers for a particular Application, returned in name alphabetical order.
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/cursorParam'
-        - $ref: '#/definitions/perPageParam'
-        # Can add type, route, etc as required
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+        # Can add type, route, etc qparams as required
       responses:
         200:
-          description: Trigger information
+          description: Trigger data
           schema:
-            $ref: '#/definitions/TriggerWrapper'
+            $ref: '#/definitions/TriggerList'
         404:
           description: App does not exist.
           schema:
@@ -279,52 +260,52 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-     post:
-      operationId: "CreateTrigger"
-      summary: Create  a Trigger.
-      description: Create a new trigger in an app.
+
+  /apps/{app}/triggers/{trigger}:
+    get:
+      operationId: "GetTrigger"
+      summary: Gets Trigger by Name
+      description: Gets a Trigger by Name.
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - name: body
-          in: body
-          description: Trigger to create.
-          required: true
-          schema:
-            $ref: '#/definitions/TriggerWrapper'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
       responses:
         200:
-          description: Created Triggers metadata
+          description: Trigger information
           schema:
-            $ref: '#/definitions/TriggerWrapper'
-        400:
-          description: Invalid trigger due to parameters being missing or invalid.
+            $ref: '#/definitions/Trigger'
+        404:
+          description: Trigger does not exist
           schema:
             $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-
-
-  /apps/{app}/triggers/{trigger}:
-    get:
-      operationId: "GetTrigger"
-      summary: Gets Trigger by ID
-      description: Gets a Trigger by ID.
+    put:
+      operationId: "UpsertTrigger"
+      summary: Create or Update a Trigger.
+      description: Creates or updates a Trigger in an Application.
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/triggerIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
+        - name: body
+          in: body
+          description: Trigger to upsert.
+          required: true
+          schema:
+            $ref: '#/definitions/Trigger'
       responses:
         200:
-          description: Trigger information
+          description: Created Triggers data
           schema:
-            $ref: '#/definitions/TriggerWrapper'
-        404:
-          description: Trigger does not exist
+            $ref: '#/definitions/Trigger'
+        400:
+          description: Invalid trigger due to parameters being missing or invalid.
           schema:
             $ref: '#/definitions/Error'
         default:
@@ -339,8 +320,8 @@ paths:
       tags:
         - Triggers
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/triggerIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
       responses:
         204:
           description: Trigger successfully deleted.
@@ -362,14 +343,14 @@ paths:
         - Call
         - Log
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/fnIDParam'
-        - $ref: '#/definitions/callIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/callID'
       responses:
         200:
           description: Log found
           schema:
-            $ref:  '#/definitions/LogWrapper'
+            $ref:  '#/definitions/Log'
         404:
           description: Log not found.
           schema:
@@ -383,14 +364,14 @@ paths:
       tags:
         - Call
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/fnIDParam'
-        - $ref: '#/definitions/callIDParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/callID'
       responses:
         200:
           description: Call found
           schema:
-            $ref:  '#/definitions/CallWrapper'
+            $ref:  '#/definitions/Call'
         404:
           description: Call not found.
           schema:
@@ -404,51 +385,54 @@ paths:
       tags:
         - Call
       parameters:
-        - $ref: '#/definitions/appIDParam'
-        - $ref: '#/definitions/fnIDParam'
-        - $ref: '#/definitions/triggerPathParam'
-        - $ref: '#/definitions/cursorParam'
-        - $ref: '#/definitions/perPageParam'
-        - $ref: '#/definitions/fromTimeQueryParam'
-        - $ref: '#/definitions/toTimeQueryParam'
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/TriggerNameQuery'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+        - $ref: '#/parameters/fromTimeQuery'
+        - $ref: '#/parameters/toTimeQuery'
       responses:
         200:
           description: Calls found
           schema:
-            $ref:  '#/definitions/CallsWrapper'
+            $ref:  '#/definitions/CallList'
         404:
           description: Calls not found.
           schema:
             $ref: '#/definitions/Error'
 
 definitions:
-  Func:
+  Fn:
     type: object
     properties:
       id:
         type: string
-        description: App ID
+        description: UUID
         readOnly: true
       name:
         type: string
         description: unique name for this function.
-        # TODO(travis): below implies version, is this a field too ?
-        # FunctionName a fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`
+      app_name:
+        $ref: '#/parameters/AppName'
       image:
         type: string
         description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
       version:
         type: string
-        descripton: version for this function, e.g. '0.0.42'
+        description: "version for this function, e.g. '0.0.42'"
       config:
         type: object
         description: Function configuration - this is the base configuration
-        additionalProperties:
-          type: string
-      $ref: '#/definitions/MemoryResource'
-      $ref: '#/definitions/CPUResource'
-      $ref: '#/definitions/TimeoutResource'
-      $ref: '#/definitions/IdleTimeoutResource'
+        properties:
+          mem:
+            $ref: '#/definitions/MemoryResource'
+          cpu:
+            $ref: '#/definitions/CPUResource'
+          execution_timeout:
+            $ref: '#/definitions/TimeoutResource'
+          idle_timeout:
+            $ref: '#/definitions/IdleTimeoutResource'
       # TODO(?) annotations?
       created_at:
         type: string
@@ -460,16 +444,15 @@ definitions:
         format: date-time
         description: Most recent time that function was updated. Always in UTC RFC3339.
         readOnly: true
+      status:
+        $ref: '#/definitions/FnStatus'
 
   Trigger:
     type: object
     properties:
-      app_id:
-        type: string
-        description: App ID
       id:
         type: string
-        description: App ID
+        description: UUID
         readOnly: true
       name:
         type: string
@@ -477,16 +460,14 @@ definitions:
       type:
         type: string
         description: class of trigger, e.g. schedule, http
+        enum: [http, stream]
       source:
         type: string
         description: uri path for this trigger. e.g. `sayHello`, `say/hello`
-      func:
-        type: string
-        description: "fully qualified function name referencing a function in a repository. eg: `funchub.fnproject.io/jimbo/somefunc:1.2.3`"
-      $ref: '#/definitions/MemoryResource'
-      $ref: '#/definitions/CPUResource'
-      $ref: '#/definitions/TimeoutResource'
-      $ref: '#/definitions/IdleTimeoutResource'
+      fn_name:
+        $ref: '#/parameters/FnName'
+      app_name:
+        $ref: '#/parameters/AppName'
       config:
         type: object
         description: Trigger configuration - overrides application configuration
@@ -507,17 +488,19 @@ definitions:
         format: date-time
         description: Most recent time that trigger was updated. Always in UTC.
         readOnly: true
+      status:
+        $ref: '#/definitions/TriggerStatus'
 
   App:
     type: object
     properties:
       id:
         type: string
-        description: App ID
+        description: UUID
         readOnly: true
       name:
         type: string
-        description: Name of this app. Must be different than the image name. Can ony contain alphanumeric, -, and _.
+        description: Name of this app. Can ony contain alphanumeric, -, and _.
       config:
         type: object
         description: Application function configuration, applied to all triggers.
@@ -539,110 +522,55 @@ definitions:
         description: Most recent time that app was updated. Always in UTC.
         readOnly: true
 
-  FuncsWrapper:
+  FnList:
     type: object
     required:
-      - funcs
+      - fns
     properties:
-      $ref: '#/definitions/nextCursorParam'
-      triggers:
+      next:
+        $ref: '#/definitions/nextCursor'
+      fns:
         type: array
         items:
-          $ref: '#/definitions/Func'
-      error:
-        $ref: '#/definitions/ErrorBody'
+          $ref: '#/definitions/Fn'
 
-  FuncWrapper:
-    type: object
-    required:
-      - func
-    properties:
-      message:
-        type: string
-      error:
-        $ref: '#/definitions/ErrorBody'
-      func:
-        $ref: '#/definitions/Func'
-
-  TriggersWrapper:
+  TriggerList:
     type: object
     required:
       - triggers
     properties:
-      $ref: '#/definitions/nextCursorParam'
+      next:
+        $ref: '#/definitions/nextCursor'
       triggers:
         type: array
         items:
           $ref: '#/definitions/Trigger'
-      error:
-        $ref: '#/definitions/ErrorBody'
 
-  TriggerWrapper:
-    type: object
-    required:
-      - trigger
-    properties:
-      message:
-        type: string
-      error:
-        $ref: '#/definitions/ErrorBody'
-      trigger:
-        $ref: '#/definitions/Trigger'
-
-  AppsWrapper:
-    # TODO(reed): change all wrappers to only return list of names (or call ids)?
+  AppList:
     type: object
     required:
       - apps
     properties:
-      $ref: '#/definitions/nextCursorParam'
+      next:
+        $ref: '#/definitions/nextCursor'
       apps:
         type: array
         items:
           $ref: '#/definitions/App'
-      error:
-        $ref: '#/definitions/ErrorBody'
 
-  AppWrapper:
-    type: object
-    required:
-      - app
-    properties:
-      app:
-        $ref: '#/definitions/App'
-      error:
-        $ref: '#/definitions/ErrorBody'
-
-  CallsWrapper:
+  CallList:
     type: object
     required:
       - calls
     properties:
-      $ref: '#/definitions/nextCursorParam'
+      next:
+        $ref: '#/definitions/nextCursor'
       calls:
         type: array
         items:
           $ref: '#/definitions/Call'
       error:
         $ref: '#/definitions/ErrorBody'
-
-  CallWrapper:
-    type: object
-    required:
-      - call
-    properties:
-      call:
-        $ref: '#/definitions/Call'
-        description: "Call object."
-
-  LogWrapper:
-    type: object
-    required:
-      - log
-    properties:
-      log:
-        $ref: '#/definitions/Log'
-        description: "Call log entry."
 
   Log:
     type: object
@@ -668,14 +596,21 @@ definitions:
         type: string
         description: Call execution error, if status is 'error'.
         readOnly: true
-      app_id:
+      app_name:
         type: string
-        description: App ID of trigger
+        description: App name
         readOnly: true
-      trigger_id:
+      trigger_name:
         type: string
-        description: App trigger that is being executed.
+        description: Trigger name the call was routed via
         readOnly: true
+      function_name:
+        type: string
+        description: Function name the call was executed by
+        readOnly: true
+      image_id:
+        type: string
+        description: Docker image sha of executing function
       created_at:
         type: string
         format: date-time
@@ -751,79 +686,89 @@ definitions:
       error:
         $ref: '#/definitions/ErrorBody'
 
-  cursorParam:
-    name: cursor
-    description: Cursor from previous response.next_cursor to begin results after, if any.
-    required: false
-    type: string
-    in: query
-  perPageParam:
-    name: per_page
-    description: Number of results to return, defaults to 30. Max of 100.
-    required: false
-    type: integer
-    in: query
-  nextCursorParam:
-    name: next_cursor
+  nextCursor:
     type: string
     description: cursor to send with subsequent request to receive the next page, if non-empty
     readOnly: true
-  appPathParam:
-    name: app
-    in: path
-    description: App name.
-    required: true
+
+  FnStatus:
     type: string
-  triggerPathParam:
-    name: trigger
-    in: path
-    description: Trigger name.
-    required: true
+    enum: [enabled, disabled]
+  TriggerStatus:
     type: string
-  fnIDParam:
-    name: fn
-    in: path
-    description: Funcution ID.
-    required: true
-    type: string
-  callPathParam:
-    name: call
-    description: Call ID.
-    required: true
-    type: string
-    in: path
-  fromTimeQueryParam:
-    name: from_time
-    description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
-    required: false
-    type: integer
-    in: query
-  toTimeQueryParam:
-    name: to_time
-    description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
-    required: false
-    type: integer
-    in: query
+    enum: [enabled, disabled]
 
   # resources
   MemoryResource:
-      name: memory
       type: integer
       format: uint64
       description: Max usable memory given to function (MiB).
   CPUResource:
-      name: cpus
       type: string
       description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
   TimeoutResource:
-      name: timeout
       type: integer
       default: 30
       format: int32
       description: Timeout for executions of a function. Value in Seconds
   IdleTimeoutResource:
-      name: idle_timeout
       type: integer
       default: 30
       format: int32
       description: Hot functions idle timeout before container termination. Value in Seconds
+
+parameters:
+  cursor:
+    name: cursor
+    description: Cursor from previous response.next_cursor to begin results after, if any.
+    required: false
+    type: string
+    in: query
+  perPage:
+    name: per_page
+    description: Number of results to return, defaults to 30. Max of 100.
+    required: false
+    type: integer
+    in: query
+  AppName:
+    name: app
+    in: path
+    description: App name.
+    required: true
+    type: string
+  TriggerName:
+    name: trigger
+    in: path
+    description: Trigger name.
+    required: true
+    type: string
+  TriggerNameQuery:
+    name: trigger
+    in: query
+    description: Trigger name.
+    required: true
+    type: string
+  FnName:
+    name: fn
+    in: path
+    description: Function Name.
+    required: true
+    type: string
+  callID:
+    name: call
+    description: Call ID.
+    required: true
+    type: string
+    in: path
+  fromTimeQuery:
+    name: from_time
+    description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
+    required: false
+    type: integer
+    in: query
+  toTimeQuery:
+    name: to_time
+    description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
+    required: false
+    type: integer
+    in: query
