@@ -18,16 +18,6 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
-const (
-	runnerReconnectInterval = 5 * time.Second
-	// sleep time to attempt placement across all runners before retrying
-	retryWaitInterval = 10 * time.Millisecond
-	// sleep time when scaling from 0 to 1 runners
-	noCapacityWaitInterval = 1 * time.Second
-	// amount of time to wait to place a request on a runner
-	placementTimeout = 15 * time.Second
-)
-
 type lbAgent struct {
 	cfg           AgentConfig
 	da            DataAccess
@@ -128,6 +118,7 @@ func (a *lbAgent) GetCall(opts ...CallOpt) (Call, error) {
 	c.req = c.req.WithContext(ctx)
 
 	c.lbDeadline = time.Now().Add(time.Duration(c.Call.Timeout) * time.Second)
+	c.slotHashId = getSlotQueueKey(&c)
 
 	return &c, nil
 }

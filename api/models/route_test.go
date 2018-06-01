@@ -17,6 +17,7 @@ func TestRouteSimple(t *testing.T) {
 		Format:      "http",
 		Timeout:     10,
 		IdleTimeout: 10,
+		TmpFsSize:   10,
 	}
 
 	err := route1.Validate()

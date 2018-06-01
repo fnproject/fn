@@ -245,7 +245,12 @@ func (a *slotQueue) exitContainerState(conType ContainerStateType) {
 // a container will be locked up forever waiting for slot to free.
 func (a *slotQueueMgr) getSlotQueue(call *call) (*slotQueue, bool) {
 
-	key := getSlotQueueKey(call)
+	var key string
+	if call.slotHashId != "" {
+		key = call.slotHashId
+	} else {
+		key = getSlotQueueKey(call)
+	}
 
 	a.hMu.Lock()
 	slots, ok := a.hot[key]
@@ -302,6 +307,9 @@ func getSlotQueueKey(call *call) string {
 	hash.Write(byt[:4])
 
 	binary.LittleEndian.PutUint32(byt[:4], uint32(call.IdleTimeout))
+	hash.Write(byt[:4])
+
+	binary.LittleEndian.PutUint32(byt[:4], uint32(call.TmpFsSize))
 	hash.Write(byt[:4])
 
 	binary.LittleEndian.PutUint64(byt[:], call.Memory)
