@@ -49,30 +49,6 @@ paths:
             $ref: '#/definitions/Error'
 
   /apps/{app}/fns/{fn}:
-    delete:
-      operationId: "DeleteFn"
-      summary: "Delete a fn"
-      description: "Delete a function."
-      tags:
-        - Fns
-      parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
-      responses:
-        204:
-          description: Fn successfully deleted
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: Fn does not exist
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
     get:
       operationId: "GetFn"
       summary: "Get metadata for a fn"
@@ -131,6 +107,31 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
+    delete:
+      operationId: "DeleteFn"
+      summary: "Delete a fn"
+      description: "Delete a function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+      responses:
+        204:
+          description: Fn successfully deleted
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Fn does not exist
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
 
   /apps:
     get:
@@ -157,29 +158,6 @@ paths:
             $ref: '#/definitions/Error'
 
   /apps/{app}:
-    delete:
-      operationId: "DeleteApp"
-      summary: "Delete an app"
-      description: "Delete an Application."
-      tags:
-        - Apps
-      parameters:
-        - $ref: '#/parameters/AppName'
-      responses:
-        204:
-          description: App successfully deleted
-        401:
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        404:
-          description: App does not exist
-          schema:
-            $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            $ref: '#/definitions/Error'
     get:
       operationId: "GetApp"
       summary: "Get app data"
@@ -228,6 +206,29 @@ paths:
           description: Parameters are missing or invalid
           schema:
             $ref: '#/definitions/Error'
+        401:
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: App does not exist
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      operationId: "DeleteApp"
+      summary: "Delete an app"
+      description: "Delete an Application."
+      tags:
+        - Apps
+      parameters:
+        - $ref: '#/parameters/AppName'
+      responses:
+        204:
+          description: App successfully deleted
         401:
           description: Unauthorized
           schema:
