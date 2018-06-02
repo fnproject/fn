@@ -12,6 +12,20 @@ else
   exit 1
 fi
 
+RELEASE_BRANCH=origin/master
+DIND_TAG="$(git tag --merged "$RELEASE_BRANCH" --sort='v:refname' 'dind-*' | tail -1)"
+[[ -z "$DIND_TAG" ]] && DIND_TAG="dind-0.0.0"
+
+set +e
+docker pull fnproject/dind:release-$DIND_TAG
+IMG_STATUS=$?
+set -e
+
+if [ $IMG_STATUS -eq 0 ]; then
+    echo "fnproject/dind:release-$DIND_TAG already exists in docker repo"
+    exit 0
+fi
+
 # This script should be run after its sibliing, build.sh, and
 # after any related tests have passed.
 
@@ -24,24 +38,17 @@ echo "Version: $version"
 M=$(echo $version | cut -d '.' -f 1)
 Mm=$(echo $version | cut -d '.' -f 1,2)
 
-# Calculate new release version
-DIND_NEW=$(echo "$DIND_PREV" | perl -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e')
-
 # Add appropriate docker tags
 docker tag fnproject/dind:latest fnproject/dind:$version
 # be nice to have bump image do all of this tagging and pushing too (mount docker sock and do it all)
 docker tag fnproject/dind:$version fnproject/dind:$Mm
 docker tag fnproject/dind:$version fnproject/dind:$M
-docker tag fnproject/dind:$version fnproject/dind:release-$DIND_NEW
+docker tag fnproject/dind:$version fnproject/dind:release-$DIND_TAG
  
 docker push fnproject/dind:$version
 docker push fnproject/dind:$Mm
 docker push fnproject/dind:$M
-docker push fnproject/dind:release-$DIND_NEW
+docker push fnproject/dind:release-$DIND_TAG
 docker push fnproject/dind:latest
 
-# Mark this release with a tag
-# No code changes so only the tag requires a push
-git tag -f -a "$DIND_NEW" -m "DIND release $DIND_NEW of $version"
-git push origin "$DIND_NEW"
 
