@@ -3,7 +3,6 @@ set -exuo pipefail
 
 user="fnproject"
 image="fnserver"
-image_deprecated="functions"
 
 # ensure working dir is clean
 git status
@@ -15,39 +14,25 @@ else
   exit 1
 fi
 
-version_file="api/version/version.go"
-if [ -z $(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file) ]; then
-  echo "did not find semantic version in $version_file"
-  exit 1
+#
+# check if fn tag is already on docker repo
+#
+RELEASE_BRANCH=origin/master
+FN_TAG="$(git tag --merged "$RELEASE_BRANCH" --sort='v:refname' '[0-9]*' | tail -1)"
+[[ -z "$FN_TAG" ]] && FN_TAG="0.0.0"
+
+set +e
+docker pull $user/$image:$FN_TAG
+IMG_STATUS=$?
+set -e
+
+if [ $IMG_STATUS -eq 0 ]; then
+    echo "$user/$image:$FN_TAG already exists in docker repo"
+    exit 0
 fi
-perl -i -pe 's/\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
-version=$(grep -m1 -Eo "[0-9]+\.[0-9]+\.[0-9]+" $version_file)
-echo "Version: $version"
-
-make docker-build
-
-git add -u
-git commit -m "$image: $version release [skip ci]"
-git tag -f -a "$version" -m "version $version"
-git push
-git push origin $version
-
-# Push the version bump and tags laid down previously
-gtag=$image-$version
-git push
-git push origin $version
 
 # Finally, push docker images
 docker tag $user/$image:latest $user/$image:$version
 docker push $user/$image:$version
 docker push $user/$image:latest
-
-# Deprecated images, should remove this sometime in near future
-docker tag $user/$image:latest $user/$image_deprecated:$version
-docker tag $user/$image:latest $user/$image_deprecated:latest
-docker push $user/$image_deprecated:$version
-docker push $user/$image_deprecated:latest
-
-# release test utils docker image
-(cd images/fn-test-utils && ./release.sh)
 
