@@ -17,11 +17,11 @@ fn build
 fn deploy --local --app spring-cloud-fn
 
 # Set up a couple of routes for different functions
-fn routes create spring-cloud-fn /upper
-fn routes config set spring-cloud-fn /upper FN_SPRING_FUNCTION upperCase
+fn create routes spring-cloud-fn /upper
+fn config routes spring-cloud-fn /upper FN_SPRING_FUNCTION upperCase
 
-fn routes create spring-cloud-fn /lower
-fn routes config set spring-cloud-fn /lower FN_SPRING_FUNCTION lowerCase
+fn create routes spring-cloud-fn /lower
+fn config routes spring-cloud-fn /lower FN_SPRING_FUNCTION lowerCase
 ```
 
 Now you can call those functions using `fn call` or curl:
