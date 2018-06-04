@@ -42,6 +42,19 @@ func NewLBAgentConfig() (*AgentConfig, error) {
 	return cfg, nil
 }
 
+// NewLBAgentWithConfig creates an Agent configured with a supplied AgentConfig
+func NewLBAgentWithConfig(da DataAccess, rp pool.RunnerPool, p pool.Placer, cfg *AgentConfig) (Agent, error) {
+	logrus.Infof("lb-agent starting cfg=%+v", cfg)
+	a := &lbAgent{
+		cfg:    *cfg,
+		da:     da,
+		rp:     rp,
+		placer: p,
+		shutWg: common.NewWaitGroup(),
+	}
+	return a, nil
+}
+
 // NewLBAgent creates an Agent that knows how to load-balance function calls
 // across a group of runner nodes.
 func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error) {
@@ -51,16 +64,7 @@ func NewLBAgent(da DataAccess, rp pool.RunnerPool, p pool.Placer) (Agent, error)
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in lb-agent config cfg=%+v", cfg)
 	}
-	logrus.Infof("lb-agent starting cfg=%+v", cfg)
-
-	a := &lbAgent{
-		cfg:    *cfg,
-		da:     da,
-		rp:     rp,
-		placer: p,
-		shutWg: common.NewWaitGroup(),
-	}
-	return a, nil
+	return NewLBAgentWithConfig(da, rp, p, cfg)
 }
 
 func (a *lbAgent) AddCallListener(listener fnext.CallListener) {
