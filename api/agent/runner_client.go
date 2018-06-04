@@ -85,7 +85,7 @@ func (r *gRPCRunner) Address() string {
 	return r.address
 }
 
-func isRetriable(err error) bool {
+func isTooBusy(err error) bool {
 	// A formal API error returned from pure-runner
 	if models.GetAPIErrorCode(err) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy) {
 		return true
@@ -144,7 +144,11 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		logrus.Infof("Engagement Context ended ctxErr=%v", ctx.Err())
 		return true, ctx.Err()
 	case recvErr := <-recvDone:
-		return !isRetriable(recvErr), recvErr
+		if isTooBusy(recvErr) {
+			// Try on next runner
+			return false, models.ErrCallTimeoutServerBusy
+		}
+		return true, recvErr
 	}
 }
 
