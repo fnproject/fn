@@ -262,74 +262,6 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/fns/{fn}/calls/{call}/log:
-    get:
-      operationId: "GetCallLog"
-      summary: Get call log
-      description: Get call log
-      tags:
-        - Call
-        - Log
-      parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
-        - $ref: '#/parameters/callID'
-      responses:
-        200:
-          description: Log found
-          schema:
-            $ref:  '#/definitions/Log'
-        default:
-          description: Error
-          schema:
-            $ref: '#/definitions/Error'
-
-  /apps/{app}/fns/{fn}/calls/{call}:
-    get:
-      operationId: "GetCall"
-      summary: Get call information
-      description: Get call information
-      tags:
-        - Call
-      parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
-        - $ref: '#/parameters/callID'
-      responses:
-        200:
-          description: Call found
-          schema:
-            $ref:  '#/definitions/Call'
-        default:
-          description: Error
-          schema:
-            $ref: '#/definitions/Error'
-
-  /apps/{app}/fn/{fn}/calls:
-    get:
-      operationId: "ListCalls"
-      summary: Get app-bound calls.
-      description: Get app-bound calls can filter to trigger-bound calls, results returned in created_at, descending order (newest first).
-      tags:
-        - Call
-      parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
-        - $ref: '#/parameters/TriggerNameQuery'
-        - $ref: '#/parameters/cursor'
-        - $ref: '#/parameters/perPage'
-        - $ref: '#/parameters/fromTimeQuery'
-        - $ref: '#/parameters/toTimeQuery'
-      responses:
-        200:
-          description: Calls found
-          schema:
-            $ref:  '#/definitions/CallList'
-        default:
-          description: Error
-          schema:
-            $ref: '#/definitions/Error'
-
 definitions:
 
   App:
@@ -496,18 +428,6 @@ definitions:
         items:
           $ref: '#/definitions/Trigger'
 
-  CallList:
-    type: object
-    required:
-      - items
-    properties:
-      next:
-        $ref: '#/definitions/nextCursor'
-      items:
-        type: array
-        items:
-          $ref: '#/definitions/Call'
-
   Log:
     type: object
     properties:
@@ -516,61 +436,6 @@ definitions:
         description: Call ID
       log:
         type: string # maybe bytes, long logs wouldn't fit into string type
-
-  Call:
-    type: object
-    properties:
-      id:
-        type: string
-        description: Call ID.
-        readOnly: true
-      status:
-        type: string
-        description: Call execution status.
-        readOnly: true
-      source:
-        type:string
-        enum: [trigger, user]
-      error:
-        type: string
-        description: Call execution error, if status is 'error'.
-        readOnly: true
-      app_name:
-        type: string
-        description: App name
-        readOnly: true
-      trigger_name:
-        type: string
-        description: Trigger name the call was routed via
-        readOnly: true
-      function_name:
-        type: string
-        description: Function name the call was executed by
-        readOnly: true
-      function_revision:
-        type: string
-        description: revision id of function
-      created_at:
-        type: string
-        format: date-time
-        description: Time when call was submitted. Always in UTC.
-        readOnly: true
-      started_at:
-        type: string
-        format: date-time
-        description: Time when call started execution. Always in UTC.
-        readOnly: true
-      completed_at:
-        type: string
-        format: date-time
-        description: Time when call completed, whether it was successul or failed. Always in UTC.
-        readOnly: true
-      stats:
-        type: array
-        items:
-          $ref: '#/definitions/Stat'
-        description: A histogram of stats for a call, each is a snapshot of a calls state at the timestamp.
-        readOnly: true
 
   Error:
     type: object
