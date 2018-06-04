@@ -378,9 +378,12 @@ definitions:
       image:
         type: string
         description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
-      version:
+      image_id:
         type: string
-        description: "version for this function, e.g. '0.0.42'"
+        description: "docker image id, sha hash"
+      revision:
+        type: string
+        description: "server generated version denoting image_id and configuration version."
       config:
         type: object
         description: Function configuration - this is the base configuration
@@ -525,6 +528,9 @@ definitions:
         type: string
         description: Call execution status.
         readOnly: true
+      source:
+        type:string
+        enum: [trigger, user]
       error:
         type: string
         description: Call execution error, if status is 'error'.
@@ -541,9 +547,9 @@ definitions:
         type: string
         description: Function name the call was executed by
         readOnly: true
-      image_id:
+      function_revision:
         type: string
-        description: Docker image sha of executing function
+        description: revision id of function
       created_at:
         type: string
         format: date-time
@@ -565,43 +571,6 @@ definitions:
           $ref: '#/definitions/Stat'
         description: A histogram of stats for a call, each is a snapshot of a calls state at the timestamp.
         readOnly: true
-
-  Stat:
-    type: object
-    properties:
-      timestamp:
-        type: string
-        format: date-time
-      metrics:
-        type: object
-        properties:
-          net_rx:
-            type: integer
-            format: int64
-          net_tx:
-            type: integer
-            format: int64
-          mem_limit:
-            type: integer
-            format: int64
-          mem_usage:
-            type: integer
-            format: int64
-          disk_read:
-            type: integer
-            format: int64
-          disk_write:
-            type: integer
-            format: int64
-          cpu_user:
-            type: integer
-            format: int64
-          cpu_total:
-            type: integer
-            format: int64
-          cpu_kernel:
-            type: integer
-            format: int64
 
   Error:
     type: object
