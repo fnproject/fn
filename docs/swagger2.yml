@@ -501,7 +501,6 @@ parameters:
     name: fn
     in: query
     description: Function Name.
-    required: true
     type: string
   callID:
     name: call
