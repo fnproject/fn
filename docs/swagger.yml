@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: fn
   description: The open source serverless platform.
-  version: "0.2.4"
+  version: "0.2.5"
 # the domain of the service
 host: "127.0.0.1:8080"
 # array of all schemes that your API supports
@@ -522,6 +522,10 @@ definitions:
         default: 30
         format: int32
         description: Hot functions idle timeout before termination. Value in Seconds
+      tmpfs_size:
+        type: integer
+        format: uint32
+        description: Tmpfs size (MiB).
       annotations:
         type: object
         description: Route annotations - this is a map of annotations attached to this route, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
