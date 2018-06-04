@@ -9,7 +9,7 @@ Applications are the top level object that groups routes together to create an A
 Using `fn`:
 
 ```sh
-fn apps create --config k1=v1 --config k2=v2 myapp
+fn create app --config k1=v1 --config k2=v2 myapp
 ```
 
 Or using a cURL:
@@ -58,7 +58,7 @@ Note: Route level configuration overrides app level configuration.
 Using `fn`:
 
 ```sh
-fn routes create myapp /path --config k1=v1 --config k2=v2 --image fnproject/hello
+fn create route myapp /path --config k1=v1 --config k2=v2 --image fnproject/hello
 ```
 
 Or using cURL:
