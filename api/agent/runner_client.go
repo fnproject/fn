@@ -181,7 +181,11 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 			},
 		})
 		if sendErr != nil {
-			logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
+			// It's often normal to receive an EOF here as we optimistically start sending body until a NACK
+			// from the runner. Let's ignore EOF and rely on recv side to catch premature EOF.
+			if sendErr != io.EOF {
+				logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
+			}
 			return
 		}
 		if isEOF {
