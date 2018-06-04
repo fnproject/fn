@@ -43,7 +43,7 @@ test-extensions: test-basic
 test-basic: checkfmt pull-images fn-test-utils
 	./test.sh
 
-test: checkfmt pull-images test-basic test-middleware test-extensions
+test: checkfmt pull-images test-basic test-middleware test-extensions test-api test-system
 
 test-api: test-basic
 	./api_test.sh sqlite3 4
@@ -54,8 +54,6 @@ test-system: test-basic
 	./system_test.sh sqlite3 4
 	./system_test.sh mysql 4 0
 	./system_test.sh postgres 4 0
-
-full-test: test test-api test-system
 
 img-busybox:
 	docker pull busybox

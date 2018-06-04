@@ -165,7 +165,7 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	// TODO this needs UpdateCall functionality to work for async and should only work if:
 	// running->error|timeout|success
 	// TODO all async will fail here :( all sync will work fine :) -- *feeling conflicted*
-	if err := s.datastore.InsertCall(ctx, &call); err != nil {
+	if err := s.logstore.InsertCall(ctx, &call); err != nil {
 		common.Logger(ctx).WithError(err).Error("error inserting call into datastore")
 		// note: Not returning err here since the job could have already finished successfully.
 	}

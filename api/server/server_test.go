@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/datastore/sql"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
@@ -94,11 +96,17 @@ func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.Erro
 
 func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogStore, func()) {
 	os.Remove(tmpDatastoreTests)
-	ds, err := datastore.New(ctx, "sqlite3://"+tmpDatastoreTests)
+	uri, err := url.Parse("sqlite3://" + tmpDatastoreTests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss, err := sql.New(ctx, uri)
 	if err != nil {
 		t.Fatalf("Error when creating datastore: %s", err)
 	}
-	logDB := ds
+	logDB := logs.Wrap(ss)
+	ds := datastore.Wrap(ss)
+
 	return ds, logDB, func() {
 		os.Remove(tmpDatastoreTests)
 	}

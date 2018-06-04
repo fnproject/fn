@@ -192,7 +192,7 @@ func (da *directDataAccess) Finish(ctx context.Context, mCall *models.Call, stde
 // and Datastore are different, it will call Close on the Logstore as well.
 func (da *directDataAccess) Close() error {
 	err := da.ds.Close()
-	if da.ds != da.ls {
+	if ls, ok := da.ds.(models.LogStore); ok && ls != da.ls {
 		if daErr := da.ls.Close(); daErr != nil {
 			err = daErr
 		}

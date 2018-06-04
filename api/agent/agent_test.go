@@ -19,6 +19,7 @@ import (
 
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
 	"github.com/sirupsen/logrus"
@@ -99,8 +100,9 @@ func TestCallConfigurationRequest(t *testing.T) {
 			},
 		},
 	)
+	ls := logs.NewMock()
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	w := httptest.NewRecorder()
@@ -242,8 +244,9 @@ func TestCallConfigurationModel(t *testing.T) {
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit()
+	ls := logs.NewMock()
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -313,8 +316,9 @@ func TestAsyncCallHeaders(t *testing.T) {
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit()
+	ls := logs.NewMock()
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	callI, err := a.GetCall(FromModel(cm))
@@ -439,8 +443,9 @@ func TestReqTooLarge(t *testing.T) {
 	}
 
 	cfg.MaxRequestSize = 5
+	ls := logs.NewMock()
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
 
 	_, err = a.GetCall(FromModel(cm))
@@ -492,8 +497,9 @@ func TestSubmitError(t *testing.T) {
 
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit()
+	ls := logs.NewMock()
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	var wg sync.WaitGroup
@@ -560,7 +566,8 @@ func TestHTTPWithoutContentLengthWorks(t *testing.T) {
 		},
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	bodOne := `{"echoContent":"yodawg"}`
@@ -623,7 +630,8 @@ func TestGetCallReturnsResourceImpossibility(t *testing.T) {
 	// FromModel doesn't need a datastore, for now...
 	ds := datastore.NewMockInit()
 
-	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ds, new(mqs.Mock))))
+	ls := logs.NewMock()
+	a := New(NewCachedDataAccess(NewDirectDataAccess(ds, ls, new(mqs.Mock))))
 	defer checkClose(t, a)
 
 	_, err := a.GetCall(FromModel(call))
@@ -659,7 +667,8 @@ func TestTmpFsRW(t *testing.T) {
 		},
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
@@ -763,7 +772,8 @@ func TestTmpFsSize(t *testing.T) {
 
 	cfg.MaxTmpFsInodes = 1024
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
 
 	// Here we tell fn-test-utils to read file /proc/mounts and create a /tmp/salsa of 4MB
@@ -932,7 +942,8 @@ func TestPipesAreClear(t *testing.T) {
 		},
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	// test read this body after 5s (after call times out) and make sure we don't get yodawg
@@ -1082,7 +1093,8 @@ func TestPipesDontMakeSpuriousCalls(t *testing.T) {
 		},
 	)
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
 	defer checkClose(t, a)
 
 	bodOne := `{"echoContent":"yodawg"}`
@@ -1188,7 +1200,8 @@ func TestNBIOResourceTracker(t *testing.T) {
 	cfg.MaxTotalMemory = 280 * 1024 * 1024
 	cfg.HotPoll = 20 * time.Millisecond
 
-	a := New(NewDirectDataAccess(ds, ds, new(mqs.Mock)), WithConfig(cfg))
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)), WithConfig(cfg))
 	defer checkClose(t, a)
 
 	reqCount := 20
@@ -1248,8 +1261,9 @@ type closingDataAccess struct {
 
 func newClosingDataAccess(closeReturn error) *closingDataAccess {
 	ds := datastore.NewMockInit()
+	ls := logs.NewMock()
 	return &closingDataAccess{
-		DataAccess:  NewDirectDataAccess(ds, ds, new(mqs.Mock)),
+		DataAccess:  NewDirectDataAccess(ds, ls, new(mqs.Mock)),
 		closed:      make(chan struct{}),
 		closeReturn: closeReturn,
 	}
