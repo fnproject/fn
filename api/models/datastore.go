@@ -63,7 +63,7 @@ type Datastore interface {
 	// updates a function that exists under the same name. Returns ErrDatastoreEmptyFunc if func is nil,
 	// ErrDatastoreEmptyFuncName is func.Name is empty.
 	// TODO(reed): should we allow rename if id provided?
-	PutFunc(ctx context.Context, fn *Func) (*Func, error)
+	PutFunc(ctx context.Context, fname string, fn *Func) (*Func, error)
 
 	// GetFuncs returns a list of funcs, applying any additional filters provided.
 	GetFuncs(ctx context.Context, filter *FuncFilter) ([]*Func, error)

@@ -132,14 +132,14 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-func (v *validator) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (v *validator) PutFunc(ctx context.Context, fname string, fn *models.Func) (*models.Func, error) {
 	if fn == nil {
 		return nil, models.ErrDatastoreEmptyFunc
 	}
-	if fn.Name == "" {
+	if fname == "" || fn.Name == "" {
 		return nil, models.ErrDatastoreEmptyFuncName
 	}
-	return v.Datastore.PutFunc(ctx, fn)
+	return v.Datastore.PutFunc(ctx, fname, fn)
 }
 
 func (v *validator) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {

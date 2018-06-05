@@ -197,10 +197,10 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 	return nil
 }
 
-func (m *mock) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (m *mock) PutFunc(ctx context.Context, fname string, fn *models.Func) (*models.Func, error) {
 	// update if exists
 	for _, f := range m.Funcs {
-		if f.Name == fn.Name {
+		if f.Name == fname {
 			copy := f.Clone()
 			copy.Update(fn)
 			err := copy.Validate()
@@ -224,7 +224,7 @@ func (m *mock) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, erro
 type sortF []*models.Func
 
 func (s sortF) Len() int           { return len(s) }
-func (s sortF) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
+func (s sortF) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
 func (s sortF) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (m *mock) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {
@@ -238,7 +238,7 @@ func (m *mock) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*mode
 			break
 		}
 
-		if strings.Compare(filter.Cursor, f.ID) < 0 {
+		if strings.Compare(filter.Cursor, f.Name) < 0 {
 			funcs = append(funcs, f)
 		}
 	}

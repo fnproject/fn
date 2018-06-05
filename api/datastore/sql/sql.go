@@ -88,19 +88,18 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 );`,
 
 	`CREATE TABLE IF NOT EXISTS funcs (
-	id varchar(256) NOT NULL,
-	name varchar(256) NOT NULL,
-	image varchar(256) NOT NULL,
-	format varchar(16) NOT NULL,
-	cpus int NOT NULL,
-	memory int NOT NULL,
-	timeout int NOT NULL,
-	idle_timeout int NOT NULL,
-	config text NOT NULL,
-	annotations text NOT NULL,
-	created_at varchar(256) NOT NULL,
-	updated_at varchar(256) NOT NULL,
-	PRIMARY KEY (name)
+	id            varchar(64)   NOT  NULL   PRIMARY  KEY,
+	name          varchar(256)  NOT  NULL   UNIQUE,
+	image         varchar(256)  NOT  NULL,
+	format        varchar(16)   NOT  NULL,
+	cpus          int           NOT  NULL,
+	memory        int           NOT  NULL,
+	timeout       int           NOT  NULL,
+	idle_timeout  int           NOT  NULL,
+	config        text          NOT  NULL,
+	annotations   text          NOT  NULL,
+	created_at    varchar(256)  NOT  NULL,
+	updated_at    varchar(256)  NOT  NULL
 );`,
 }
 
@@ -330,6 +329,12 @@ func (ds *SQLStore) clear() error {
 		}
 
 		query = tx.Rebind(`DELETE FROM logs`)
+		_, err = tx.Exec(query)
+		if err != nil {
+			return err
+		}
+
+		query = tx.Rebind(`DELETE FROM funcs`)
 		_, err = tx.Exec(query)
 		return err
 	})
@@ -706,10 +711,10 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 	return res, nil
 }
 
-func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (ds *SQLStore) PutFunc(ctx context.Context, fname string, fn *models.Func) (*models.Func, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=?`, funcSelector))
-		row := tx.QueryRowxContext(ctx, query, fn.Name)
+		row := tx.QueryRowxContext(ctx, query, fname)
 
 		var dst models.Func
 		err := row.StructScan(&dst)
@@ -763,6 +768,7 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 			fn = &dst // set for query & to return
 
 			query = tx.Rebind(`UPDATE funcs SET
+				name = :name,
 				image = :image,
 				format = :format,
 				memory = :memory,
@@ -772,7 +778,7 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 				config = :config,
 				annotations = :annotations,
 				updated_at = :updated_at
-			WHERE name=:name;`)
+			WHERE id=:id;`)
 		}
 
 		_, err = tx.NamedExecContext(ctx, query, fn)
@@ -1043,9 +1049,9 @@ func buildFilterFuncQuery(filter *models.FuncFilter) (string, []interface{}) {
 	var args []interface{}
 
 	// where(fmt.Sprintf("image LIKE '%s%%'"), filter.Image) // TODO needs escaping, prob we want prefix query to ignore tags
-	args = where(&b, args, "id>?", filter.Cursor)
+	args = where(&b, args, "name>?", filter.Cursor)
 
-	fmt.Fprintf(&b, ` ORDER BY id ASC`)
+	fmt.Fprintf(&b, ` ORDER BY name ASC`)
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
 

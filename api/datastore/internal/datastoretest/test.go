@@ -495,20 +495,26 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		ds := dsf(t)
 		// Testing insert func
 		{
-			_, err := ds.PutFunc(ctx, nil)
+			_, err := ds.PutFunc(ctx, "yo", nil)
 			if err != models.ErrDatastoreEmptyFunc {
 				t.Fatalf("Test PutFunc(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFunc, err)
 			}
 
 			testFunc2 := *testFunc
 			testFunc2.Name = ""
-			_, err = ds.PutFunc(ctx, &testFunc2)
+			_, err = ds.PutFunc(ctx, "yo", &testFunc2)
+			if err != models.ErrDatastoreEmptyFuncName {
+				t.Fatalf("Test PutFunc(empty func name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFuncName, err)
+			}
+
+			testFunc2.Name = "yo"
+			_, err = ds.PutFunc(ctx, "", &testFunc2)
 			if err != models.ErrDatastoreEmptyFuncName {
 				t.Fatalf("Test PutFunc(empty func name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFuncName, err)
 			}
 
 			// assign to make sure that PutFunc returns the right thing
-			testFunc, err = ds.PutFunc(ctx, testFunc)
+			testFunc, err = ds.PutFunc(ctx, testFunc.Name, testFunc)
 			if err != nil {
 				t.Fatalf("Test PutFunc: error when storing perfectly good func: %s", err)
 			}
@@ -533,7 +539,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		// Testing update
 		{
 			// Update some fields, and add 3 configs
-			updated, err := ds.PutFunc(ctx, &models.Func{
+			updated, err := ds.PutFunc(ctx, testFunc.Name, &models.Func{
 				Name: testFunc.Name,
 				Config: map[string]string{
 					"FIRST":  "1",
@@ -568,7 +574,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 
 			// Update a config var, remove another. Add one Header, remove another.
-			updated, err = ds.PutFunc(ctx, &models.Func{
+			updated, err = ds.PutFunc(ctx, testFunc.Name, &models.Func{
 				Name: testFunc.Name,
 				Config: map[string]string{
 					"FIRST":  "first",
@@ -623,10 +629,10 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		r3.ID = id.New().String()
 		r3.Name = "testb"
 
-		if _, err = ds.PutFunc(ctx, &r2); err != nil {
+		if _, err = ds.PutFunc(ctx, r2.Name, &r2); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = ds.PutFunc(ctx, &r3); err != nil {
+		if _, err = ds.PutFunc(ctx, r3.Name, &r3); err != nil {
 			t.Fatal(err)
 		}
 
@@ -640,7 +646,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", testFunc.Name, funcs[0].Name)
 		}
 
-		funcs, err = ds.GetFuncs(ctx, &models.FuncFilter{PerPage: 2, Cursor: funcs[0].ID})
+		funcs, err = ds.GetFuncs(ctx, &models.FuncFilter{PerPage: 2, Cursor: funcs[0].Name})
 		if err != nil {
 			t.Fatalf("Test GetFuncs: error: %s", err)
 		}
@@ -650,6 +656,24 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", r2.Name, funcs[0].Name)
 		} else if funcs[1].Name != r3.Name {
 			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", r3.Name, funcs[1].Name)
+		}
+
+		r4 := *testFunc
+		r4.ID = id.New().String()
+		r4.Name = "abcdefg" // < /test lexicographically, but not in length
+
+		if _, err = ds.PutFunc(ctx, r4.Name, &r4); err != nil {
+			t.Fatal(err)
+		}
+
+		funcs, err = ds.GetFuncs(ctx, &models.FuncFilter{PerPage: 100})
+		if err != nil {
+			t.Fatalf("Test GetFuncs: error: %s", err)
+		}
+		if len(funcs) != 4 {
+			t.Fatalf("Test GetFuncs: expected result count to be 4 but got %d", len(funcs))
+		} else if funcs[0].Name != r4.Name {
+			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", r4.Name, funcs[0].Name)
 		}
 
 		// TODO test weird ordering possibilities ?

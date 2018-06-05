@@ -83,10 +83,10 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	return m.ds.RemoveRoute(ctx, appID, routePath)
 }
 
-func (m *metricds) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (m *metricds) PutFunc(ctx context.Context, fname string, fn *models.Func) (*models.Func, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_put_func")
 	defer span.End()
-	return m.ds.PutFunc(ctx, fn)
+	return m.ds.PutFunc(ctx, fname, fn)
 }
 
 func (m *metricds) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {

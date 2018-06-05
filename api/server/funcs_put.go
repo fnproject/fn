@@ -26,11 +26,13 @@ func (s *Server) handleFuncsPut(c *gin.Context) {
 		return
 	}
 
-	fn := c.Param(api.Func)
-	// TODO: what about name changes? PutFunc(ctx, name, func) ?
-	wfunc.Func.Name = fn
+	// help them fill name if they aren't trying to change it
+	fname := c.Param(api.Func)
+	if wfunc.Func.Name == "" {
+		wfunc.Func.Name = fname
+	}
 
-	f, err := s.datastore.PutFunc(ctx, wfunc.Func)
+	f, err := s.datastore.PutFunc(ctx, fname, wfunc.Func)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

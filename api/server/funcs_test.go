@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -174,25 +175,29 @@ func TestFuncList(t *testing.T) {
 	defer cancel()
 
 	// ids are sortable, need to test cursoring works as expected
-	r1b := id.New().String()
-	r2b := id.New().String()
-	r3b := id.New().String()
+	r1n := "myfunc"
+	r2n := "myfunc1"
+	r3n := "myfunc2"
+
+	r1b := base64.RawURLEncoding.EncodeToString([]byte(r1n))
+	r2b := base64.RawURLEncoding.EncodeToString([]byte(r2n))
+	r3b := base64.RawURLEncoding.EncodeToString([]byte(r3n))
 
 	ds := datastore.NewMockInit(
 		[]*models.Func{
 			{
-				ID:    r1b,
-				Name:  "myfunc",
+				ID:    id.New().String(),
+				Name:  r1n,
 				Image: "fnproject/fn-test-utils",
 			},
 			{
-				ID:    r2b,
-				Name:  "myfunc1",
+				ID:    id.New().String(),
+				Name:  r2n,
 				Image: "fnproject/fn-test-utils",
 			},
 			{
-				ID:    r3b,
-				Name:  "myfunc2",
+				ID:    id.New().String(),
+				Name:  r3n,
 				Image: "fnproject/yo",
 			},
 		},
@@ -220,6 +225,7 @@ func TestFuncList(t *testing.T) {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
 		if rec.Code != test.expectedCode {
+			t.Log(test.path, test.nextCursor)
 			t.Log(buf.String())
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
