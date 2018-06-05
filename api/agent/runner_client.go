@@ -85,7 +85,7 @@ func (r *gRPCRunner) Address() string {
 	return r.address
 }
 
-func isRetriable(err error) bool {
+func isTooBusy(err error) bool {
 	// A formal API error returned from pure-runner
 	if models.GetAPIErrorCode(err) == models.GetAPIErrorCode(models.ErrCallTimeoutServerBusy) {
 		return true
@@ -144,7 +144,11 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		logrus.Infof("Engagement Context ended ctxErr=%v", ctx.Err())
 		return true, ctx.Err()
 	case recvErr := <-recvDone:
-		return !isRetriable(recvErr), recvErr
+		if isTooBusy(recvErr) {
+			// Try on next runner
+			return false, models.ErrCallTimeoutServerBusy
+		}
+		return true, recvErr
 	}
 }
 
@@ -181,7 +185,11 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 			},
 		})
 		if sendErr != nil {
-			logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
+			// It's often normal to receive an EOF here as we optimistically start sending body until a NACK
+			// from the runner. Let's ignore EOF and rely on recv side to catch premature EOF.
+			if sendErr != io.EOF {
+				logrus.WithError(sendErr).Errorf("Failed to send data frame size=%d isEOF=%v", n, isEOF)
+			}
 			return
 		}
 		if isEOF {

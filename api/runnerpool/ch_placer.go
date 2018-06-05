@@ -52,7 +52,7 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 				placed, err := r.TryExec(tryCtx, call)
 				tryCancel()
 
-				if err != nil {
+				if err != nil && err != models.ErrCallTimeoutServerBusy {
 					logrus.WithError(err).Error("Failed during call placement")
 				}
 				if placed {
