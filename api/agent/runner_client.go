@@ -123,16 +123,18 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		return false, err
 	}
 
-	// After this point, we assume "COMMITTED" unless pure runner
-	// send explicit NACK
 	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{
 		ModelsCallJson: string(modelJSON),
 		SlotHashId:     hex.EncodeToString([]byte(call.SlotHashId())),
 	}}})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to send message to runner node")
-		return true, err
+		// Try on next runner
+		return false, err
 	}
+
+	// After this point TryCall was sent, we assume "COMMITTED" unless pure runner
+	// send explicit NACK
 
 	recvDone := make(chan error, 1)
 
