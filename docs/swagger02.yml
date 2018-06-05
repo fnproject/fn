@@ -1,0 +1,542 @@
+swagger: '2.0'
+
+# TODO(?): add /run API to swagger doc? (only covers API module atm)
+
+info:
+  title: fn
+  description: The open source serverless platform.
+  version: "0.3.0"
+# the domain of the service
+host: "127.0.0.1:8080"
+# array of all schemes that your API supports
+schemes:
+  - https
+  - http
+# will be prefixed to all paths
+basePath: /v1
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /apps/{app}/fns:
+    get:
+      operationId: "ListFns"
+      summary: "Get all fns"
+      description: "Get a list of all the Functions in alphabetical order."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+      responses:
+        200:
+          description: List of fns.
+          schema:
+            $ref: '#/definitions/FnList'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /apps/{app}/fns/{fn}:
+    get:
+      operationId: "GetFn"
+      summary: "Get metadata for a fn"
+      description: "Get metadata for a Function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+      responses:
+        200:
+          description: Fn metadata
+          schema:
+            $ref: '#/definitions/Fn'
+          headers:
+            'ETag':
+              $ref: '#/components/headers/ETag'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      operationId: "UpsertFn"
+      summary: "Upsert a fn"
+      description: "Creates or updates a Function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/If-Match'
+        - name: body
+          in: body
+          description: Fn to upsert
+          required: true
+          schema:
+            $ref: '#/definitions/Fn'
+      responses:
+        200:
+          description: Fn metadata
+          schema:
+            $ref: '#/definitions/Fn'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      operationId: "DeleteFn"
+      summary: "Delete a fn"
+      description: "Delete a function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/If-Match'
+      responses:
+        204:
+          description: Fn successfully deleted
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+
+  /apps:
+    get:
+      operationId: "ListApps"
+      summary: "Get all apps"
+      description: "Get a list of all the Applications, returned in alphabetical order."
+      tags:
+        - Apps
+      parameters:
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+      responses:
+        200:
+          description: List of apps
+          schema:
+            $ref: '#/definitions/AppList'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /apps/{app}:
+    get:
+      operationId: "GetApp"
+      summary: "Get app data"
+      description: "Get data for an Application."
+      tags:
+        - Apps
+      parameters:
+        - $ref: '#/parameters/AppName'
+      responses:
+        200:
+          description: App data
+          schema:
+            $ref: '#/definitions/App'
+          headers:
+            'ETag':
+              $ref: '#/components/headers/ETag'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      operationId: "UpsertsApp"
+      summary: "Upserts an app"
+      description: "Creates or updates any provided fields on the app."
+      tags:
+        - Apps
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/If-Match'
+        - name: body
+          in: body
+          description: App data.
+          required: true
+          schema:
+            $ref: '#/definitions/App'
+      responses:
+        200:
+          description: App data
+          schema:
+            $ref: '#/definitions/App'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      operationId: "DeleteApp"
+      summary: "Delete an app"
+      description: "Delete an Application."
+      tags:
+        - Apps
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/If-Match'
+      responses:
+        204:
+          description: App successfully deleted
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /apps/{app}/triggers:
+    get:
+      operationId: "ListTriggers"
+      summary: List triggers associated with app
+      description: This will list all Triggers for a particular Application, returned in name alphabetical order.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+        - $ref: '#/parameters/FnNameQuery'
+        # Can add type, route, etc qparams as required
+      responses:
+        200:
+          description: Trigger data
+          schema:
+            $ref: '#/definitions/TriggerList'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /apps/{app}/triggers/{trigger}:
+    get:
+      operationId: "GetTrigger"
+      summary: Gets Trigger by Name
+      description: Gets a Trigger by Name.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
+      responses:
+        200:
+          description: Trigger information
+          schema:
+            $ref: '#/definitions/Trigger'
+          headers:
+            'ETag':
+              $ref: '#/components/headers/ETag'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      operationId: "UpsertTrigger"
+      summary: Create or Update a Trigger.
+      description: Creates or updates a Trigger in an Application.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
+        - $ref: '#/parameters/If-Match'
+        - name: body
+          in: body
+          description: Trigger to upsert.
+          required: true
+          schema:
+            $ref: '#/definitions/Trigger'
+      responses:
+        200:
+          description: Created Triggers data
+          schema:
+            $ref: '#/definitions/Trigger'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+    delete:
+      operationId: "DeleteTrigger"
+      summary: Deletes the Trigger
+      description: Deletes the Trigger.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
+        - $ref: '#/parameters/If-Match'
+      responses:
+        204:
+          description: Trigger successfully deleted.
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+definitions:
+  App:
+    type: object
+    properties:
+      id:
+        type: string
+        description: UUID
+        readOnly: true
+      name:
+        type: string
+        description: Name of this app. Can ony contain alphanumeric, -, and _.
+      config:
+        type: object
+        description: Application function configuration, applied to all triggers.
+        additionalProperties:
+          type: string
+      annotations:
+        type: object
+        description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
+      revision_id:
+        type: string
+        description: server generated version
+      created_at:
+        type: string
+        format: date-time
+        description: Time when app was created. Always in UTC.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that app was updated. Always in UTC.
+        readOnly: true
+
+  Fn:
+    type: object
+    properties:
+      id:
+        type: string
+        description: UUID
+        readOnly: true
+      name:
+        type: string
+        description: unique name for this function.
+      app_name:
+        $ref: '#/parameters/AppName'
+      image:
+        type: string
+        description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
+      image_id:
+        type: string
+        description: "docker image id, sha hash"
+      revision_id:
+        type: string
+        description: server generated version
+      config:
+        type: object
+        description: Function configuration - this is the base configuration
+        properties:
+          mem:
+            type: integer
+            format: uint64
+            description: Max usable memory given to function (MiB).
+          cpu:
+            type: string
+            description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
+          execution_timeout:
+            type: integer
+            default: 30
+            format: int32
+            description: Timeout for executions of a function. Value in Seconds
+          idle_timeout:
+            type: integer
+            default: 30
+            format: int32
+            description: Hot functions idle timeout before container termination. Value in Seconds
+      # TODO(?) annotations?
+      created_at:
+        type: string
+        format: date-time
+        description: Time when function was created. Always in UTC RFC3339.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that function was updated. Always in UTC RFC3339.
+        readOnly: true
+      status:
+        type: string
+        enum: [enabled, disabled]
+
+  Trigger:
+    type: object
+    properties:
+      id:
+        type: string
+        description: UUID
+        readOnly: true
+      name:
+        type: string
+        description: unique name for this trigger, used to identify this trigger
+      type:
+        type: string
+        description: class of trigger, e.g. schedule, http
+        enum: [http, stream]
+      source:
+        type: string
+        description: uri path for this trigger. e.g. `sayHello`, `say/hello`
+      fn_name:
+        $ref: '#/parameters/FnName'
+      app_name:
+        $ref: '#/parameters/AppName'
+      annotations:
+        type: object
+        description: Trigger annotations - this is a map of annotations attached to this trigger, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
+      revision_id:
+        type: string
+        description: server generated version
+      created_at:
+        type: string
+        format: date-time
+        description: Time when trigger was created. Always in UTC.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that trigger was updated. Always in UTC.
+        readOnly: true
+      status:
+        type: string
+        enum: [enabled, disabled]
+
+  AppList:
+    type: object
+    required:
+      - items
+    properties:
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/App'
+
+  FnList:
+    type: object
+    required:
+      - items
+    properties:
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/Fn'
+
+  TriggerList:
+    type: object
+    required:
+      - items
+    properties:
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/Trigger'
+
+  Error:
+    type: object
+    properties:
+      error:
+        type: object
+        properties:
+          type:
+            type: string
+            enum: [unauthorized, bad-request, server-error, unknown]
+          message:
+            type: string
+            readOnly: true
+          fields:
+            type: string
+            readOnly: true
+
+  nextCursor:
+    type: string
+    description: cursor to send with subsequent request to receive the next page, if non-empty
+    readOnly: true
+
+  # resources
+
+parameters:
+  cursor:
+    name: cursor
+    description: Cursor from previous response.next_cursor to begin results after, if any.
+    required: false
+    type: string
+    in: query
+  perPage:
+    name: per_page
+    description: Number of results to return, defaults to 30. Max of 100.
+    required: false
+    type: integer
+    in: query
+  AppName:
+    name: app
+    in: path
+    description: App name.
+    required: true
+    type: string
+  TriggerName:
+    name: trigger
+    in: path
+    description: Trigger name.
+    required: true
+    type: string
+  TriggerNameQuery:
+    name: trigger
+    in: query
+    description: Trigger name.
+    required: true
+    type: string
+  FnName:
+    name: fn
+    in: path
+    description: Function Name.
+    required: true
+    type: string
+  FnNameQuery:
+    name: fn
+    in: query
+    description: Function Name.
+    type: string
+
+  fromTimeQuery:
+    name: from_time
+    description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
+    required: false
+    type: integer
+    in: query
+  toTimeQuery:
+    name: to_time
+    description: Unix timestamp in seconds, of call.created_at to end the results at, defaults to latest.
+    required: false
+    type: integer
+    in: query
+
+  If-Match:
+    name: If-Match
+    in: header
+    description: Expected revision id of stored version to be updated.
+    schema:
+      type: string
+
+components:
+  headers:
+    ETag:
+      description: Revision id of current version.
+      schema:
+        type: string
