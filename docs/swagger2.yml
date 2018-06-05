@@ -55,6 +55,9 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
+          headers:
+            'ETag':
+              $ref: '#/components/headers/ETag'
         default:
           description: Error
           schema:
@@ -68,6 +71,7 @@ paths:
       parameters:
         - $ref: '#/parameters/AppName'
         - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/If-Match'
         - name: body
           in: body
           description: Fn to upsert
@@ -92,6 +96,7 @@ paths:
       parameters:
         - $ref: '#/parameters/AppName'
         - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/If-Match'
       responses:
         204:
           description: Fn successfully deleted
@@ -135,6 +140,9 @@ paths:
           description: App data
           schema:
             $ref: '#/definitions/App'
+          headers:
+            'ETag':
+              $ref: '#/components/headers/ETag'
         default:
           description: Error
           schema:
@@ -147,6 +155,7 @@ paths:
         - Apps
       parameters:
         - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/If-Match'
         - name: body
           in: body
           description: App data.
@@ -170,6 +179,7 @@ paths:
         - Apps
       parameters:
         - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/If-Match'
       responses:
         204:
           description: App successfully deleted
@@ -216,6 +226,9 @@ paths:
           description: Trigger information
           schema:
             $ref: '#/definitions/Trigger'
+          headers:
+            'ETag':
+              $ref: '#/components/headers/ETag'
         default:
           description: Error
           schema:
@@ -229,6 +242,7 @@ paths:
       parameters:
         - $ref: '#/parameters/AppName'
         - $ref: '#/parameters/TriggerName'
+        - $ref: '#/parameters/If-Match'
         - name: body
           in: body
           description: Trigger to upsert.
@@ -254,6 +268,7 @@ paths:
       parameters:
         - $ref: '#/parameters/AppName'
         - $ref: '#/parameters/TriggerName'
+        - $ref: '#/parameters/If-Match'
       responses:
         204:
           description: Trigger successfully deleted.
@@ -263,7 +278,6 @@ paths:
             $ref: '#/definitions/Error'
 
 definitions:
-
   App:
     type: object
     properties:
@@ -284,6 +298,9 @@ definitions:
         description: Application annotations - this is a map of annotations attached to this app, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
         additionalProperties:
           type: object
+      revision_id:
+        type: string
+        description: server generated version
       created_at:
         type: string
         format: date-time
@@ -313,9 +330,9 @@ definitions:
       image_id:
         type: string
         description: "docker image id, sha hash"
-      revision:
+      revision_id:
         type: string
-        description: "server generated version denoting image_id and configuration version."
+        description: server generated version
       config:
         type: object
         description: Function configuration - this is the base configuration
@@ -378,6 +395,9 @@ definitions:
         description: Trigger annotations - this is a map of annotations attached to this trigger, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
         additionalProperties:
           type: object
+      revision_id:
+        type: string
+        description: server generated version
       created_at:
         type: string
         format: date-time
@@ -508,6 +528,7 @@ parameters:
     required: true
     type: string
     in: path
+
   fromTimeQuery:
     name: from_time
     description: Unix timestamp in seconds, of call.created_at to begin the results at, default 0.
@@ -520,3 +541,17 @@ parameters:
     required: false
     type: integer
     in: query
+
+  If-Match:
+    name: If-Match
+    in: header
+    description: Expected revision id of stored version to be updated.
+    schema:
+      type: string
+
+components:
+  headers:
+    ETag:
+      description: Revision id of current version.
+      schema:
+        type: string
