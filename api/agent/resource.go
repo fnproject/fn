@@ -21,6 +21,9 @@ import (
 const (
 	Mem1MB = 1024 * 1024
 	Mem1GB = 1024 * 1024 * 1024
+
+	// Assume 2GB RAM on non-linux systems
+	DefaultNonLinuxMemory = 2048 * Mem1MB
 )
 
 var CapacityFull = errors.New("max capacity reached")
@@ -357,7 +360,12 @@ func clampUint64(val, min, max uint64) uint64 {
 func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
 
 	var maxSyncCPU, maxAsyncCPU, cpuAsyncHWMark uint64
-	var totalCPU, availCPU uint64
+
+	// Use all available CPU from go.runtime in non-linux systems. We ignore
+	// non-linux container implementations and their limits on CPU if there's any.
+	// (This is also the default if we cannot determine limits from proc or sysfs)
+	totalCPU := uint64(runtime.NumCPU() * 1000)
+	availCPU := totalCPU
 
 	if runtime.GOOS == "linux" {
 
@@ -367,11 +375,10 @@ func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
 		numCPU, err := checkProcCPU()
 		if err != nil {
 			logrus.WithError(err).Error("Error checking for CPU, falling back to runtime CPU count.")
-			numCPU = uint64(runtime.NumCPU())
+		} else {
+			totalCPU = 1000 * numCPU
+			availCPU = totalCPU
 		}
-
-		totalCPU = 1000 * numCPU
-		availCPU = totalCPU
 
 		// Clamp further if cgroups CFS quota/period limits are in place
 		cgroupCPU := checkCgroupCPU()
@@ -379,18 +386,15 @@ func (a *resourceTracker) initializeCPU(cfg *AgentConfig) {
 			availCPU = minUint64(availCPU, cgroupCPU)
 		}
 
-		// now based on cfg, further clamp on calculated values
-		if cfg != nil && cfg.MaxTotalCPU != 0 {
-			availCPU = minUint64(cfg.MaxTotalCPU, availCPU)
-		}
-
 		// TODO: check cgroup cpuset to clamp this further. We might be restricted into
 		// a subset of CPUs. (eg. /sys/fs/cgroup/cpuset/cpuset.effective_cpus)
 
 		// TODO: skip CPU headroom for ourselves for now
-	} else {
-		totalCPU = uint64(runtime.NumCPU() * 1000)
-		availCPU = totalCPU
+	}
+
+	// now based on cfg, further clamp on calculated values
+	if cfg != nil && cfg.MaxTotalCPU != 0 {
+		availCPU = minUint64(cfg.MaxTotalCPU, availCPU)
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -428,6 +432,8 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 
 	var maxSyncMemory, maxAsyncMemory, ramAsyncHWMark uint64
 
+	availMemory := uint64(DefaultNonLinuxMemory)
+
 	if runtime.GOOS == "linux" {
 
 		// system wide available memory
@@ -436,7 +442,7 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 			logrus.WithError(err).Fatal("Cannot get the proper memory information to size server.")
 		}
 
-		availMemory := totalMemory
+		availMemory = totalMemory
 
 		// cgroup limit restriction on memory usage
 		cGroupLimit, err := checkCgroupMem()
@@ -453,32 +459,26 @@ func (a *resourceTracker) initializeMemory(cfg *AgentConfig) {
 		}
 		availMemory = availMemory - headRoom
 
-		// now based on cfg, further clamp on calculated values
-		if cfg != nil && cfg.MaxTotalMemory != 0 {
-			availMemory = minUint64(cfg.MaxTotalMemory, availMemory)
-		}
-
 		logrus.WithFields(logrus.Fields{
 			"totalMemory": totalMemory,
-			"availMemory": availMemory,
 			"headRoom":    headRoom,
 			"cgroupLimit": cGroupLimit,
 		}).Info("available memory")
-
-		// %20 of ram for sync only reserve
-		maxSyncMemory = uint64(availMemory * 2 / 10)
-		maxAsyncMemory = availMemory - maxSyncMemory
-		ramAsyncHWMark = maxAsyncMemory * 8 / 10
-
-	} else {
-		// non-linux: assume 512MB sync only memory and 1.5GB async + sync memory
-		maxSyncMemory = 512 * Mem1MB
-		maxAsyncMemory = (1024 + 512) * Mem1MB
-		ramAsyncHWMark = 1024 * Mem1MB
 	}
+
+	// now based on cfg, further clamp on calculated values
+	if cfg != nil && cfg.MaxTotalMemory != 0 {
+		availMemory = minUint64(cfg.MaxTotalMemory, availMemory)
+	}
+
+	// %20 of ram for sync only reserve
+	maxSyncMemory = uint64(availMemory * 2 / 10)
+	maxAsyncMemory = availMemory - maxSyncMemory
+	ramAsyncHWMark = maxAsyncMemory * 8 / 10
 
 	// For non-linux OS, we expect these (or their defaults) properly configured from command-line/env
 	logrus.WithFields(logrus.Fields{
+		"availMemory":    availMemory,
 		"ramSync":        maxSyncMemory,
 		"ramAsync":       maxAsyncMemory,
 		"ramAsyncHWMark": ramAsyncHWMark,
