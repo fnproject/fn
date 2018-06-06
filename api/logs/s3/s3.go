@@ -410,57 +410,61 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 	return calls, nil
 }
 
+const (
+	uploadSizeMetricName   = "s3_log_upload_size"
+	downloadSizeMetricName = "s3_log_download_size"
+)
+
 var (
-	uploadSizeMeasure   *stats.Int64Measure
-	downloadSizeMeasure *stats.Int64Measure
+	uploadSizeMeasure   = stats.Int64(uploadSizeMetricName, "uploaded log size", "byte")
+	downloadSizeMeasure = stats.Int64(downloadSizeMetricName, "downloaded log size", "byte")
+)
+
+var (
+	appKey  = makeKey("fn_appname")
+	pathKey = makeKey("fn_path")
+)
+
+var (
+	uploadSizeDistributionView = &view.View{
+		Name:        uploadSizeMetricName,
+		Description: "uploaded log size",
+		TagKeys:     []tag.Key{appKey, pathKey},
+		Measure:     uploadSizeMeasure,
+		Aggregation: view.Distribution(),
+	}
+
+	downloadSizeDistributionView = &view.View{
+		Name:        downloadSizeMetricName,
+		Description: "downloaded log size",
+		TagKeys:     []tag.Key{appKey, pathKey},
+		Measure:     uploadSizeMeasure,
+		Aggregation: view.Distribution(),
+	}
 )
 
 func init() {
-	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
-	// or we have to white list them in the view for them to show up? test...
-	var err error
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	registerViews()
+}
 
-	{
-		uploadSizeMeasure = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
-		err = view.Register(
-			&view.View{
-				Name:        "s3_log_upload_size",
-				Description: "uploaded log size",
-				TagKeys:     []tag.Key{appKey, pathKey},
-				Measure:     uploadSizeMeasure,
-				Aggregation: view.Distribution(),
-			},
-		)
-		if err != nil {
-			logrus.WithError(err).Fatal("cannot create view")
-		}
-	}
-
-	{
-		downloadSizeMeasure = stats.Int64("s3_log_download_size", "downloaded log size", "byte")
-		err = view.Register(
-			&view.View{
-				Name:        "s3_log_download_size",
-				Description: "downloaded log size",
-				TagKeys:     []tag.Key{appKey, pathKey},
-				Measure:     uploadSizeMeasure,
-				Aggregation: view.Distribution(),
-			},
-		)
-		if err != nil {
-			logrus.WithError(err).Fatal("cannot create view")
-		}
+func registerViews() {
+	err := view.Register(
+		downloadSizeDistributionView,
+		uploadSizeDistributionView,
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot create view")
 	}
 }
 
 func (s *store) Close() error {
 	return nil
+}
+
+func makeKey(name string) tag.Key {
+	key, err := tag.NewKey(name)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	return key
 }

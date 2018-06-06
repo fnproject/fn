@@ -10,12 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+
 	"github.com/fnproject/fn/api/common"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -102,11 +103,16 @@ type dockerWrap struct {
 }
 
 func init() {
-	dockerRetriesMeasure = makeMeasure("docker_api_retries", "docker api retries", "", view.Sum())
-	dockerTimeoutMeasure = makeMeasure("docker_api_timeout", "docker api timeouts", "", view.Count())
-	dockerErrorMeasure = makeMeasure("docker_api_error", "docker api errors", "", view.Count())
-	dockerOOMMeasure = makeMeasure("docker_oom", "docker oom", "", view.Count())
+	dockerRetriesMeasure = makeMeasure("docker_api_retries", "docker api retries", "")
+	dockerTimeoutMeasure = makeMeasure("docker_api_timeout", "docker api timeouts", "")
+	dockerErrorMeasure = makeMeasure("docker_api_error", "docker api errors", "")
+	dockerOOMMeasure = makeMeasure("docker_oom", "docker oom", "")
 }
+
+var (
+	appKey  = makeKey("fn_appname")
+	pathKey = makeKey("fn_path")
+)
 
 var (
 	// TODO it's either this or stats.FindMeasure("string").M() -- this is safer but painful
@@ -115,6 +121,45 @@ var (
 	dockerErrorMeasure   *stats.Int64Measure
 	dockerOOMMeasure     *stats.Int64Measure
 )
+
+var (
+	dockerRetriesSumView = &view.View{
+		Name:        dockerRetriesMeasure.Name(),
+		Description: dockerRetriesMeasure.Description(),
+		Measure:     dockerRetriesMeasure,
+		TagKeys:     []tag.Key{appKey, pathKey},
+		Aggregation: view.Sum(),
+	}
+	dockerTimeoutCountView = &view.View{
+		Name:        dockerTimeoutMeasure.Name(),
+		Description: dockerTimeoutMeasure.Description(),
+		Measure:     dockerTimeoutMeasure,
+		TagKeys:     []tag.Key{appKey, pathKey},
+		Aggregation: view.Count(),
+	}
+	dockerErrorCountView = &view.View{
+		Name:        dockerErrorMeasure.Name(),
+		Description: dockerErrorMeasure.Description(),
+		Measure:     dockerErrorMeasure,
+		TagKeys:     []tag.Key{appKey, pathKey},
+		Aggregation: view.Count(),
+	}
+	dockerOOMCountView = &view.View{
+		Name:        dockerOOMMeasure.Name(),
+		Description: dockerOOMMeasure.Description(),
+		Measure:     dockerOOMMeasure,
+		TagKeys:     []tag.Key{appKey, pathKey},
+		Aggregation: view.Count(),
+	}
+)
+
+// TODO (peterj, figure out where to call this from)
+func registerViews() {
+	err := view.Register(dockerRetriesSumView, dockerTimeoutCountView, dockerErrorCountView, dockerOOMCountView)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot register view")
+	}
+}
 
 func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f func() error) error {
 	var i int
@@ -357,28 +402,14 @@ func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
 	//return err
 }
 
-func makeMeasure(name string, desc string, unit string, agg *view.Aggregation) *stats.Int64Measure {
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
+func makeMeasure(name string, desc string, unit string) *stats.Int64Measure {
+	return stats.Int64(name, desc, unit)
+}
 
-	measure := stats.Int64(name, desc, unit)
-	err = view.Register(
-		&view.View{
-			Name:        name,
-			Description: desc,
-			TagKeys:     []tag.Key{appKey, pathKey},
-			Measure:     measure,
-			Aggregation: agg,
-		},
-	)
+func makeKey(name string) tag.Key {
+	key, err := tag.NewKey(name)
 	if err != nil {
-		logrus.WithError(err).Fatal("cannot create view")
+		logrus.Fatal(err)
 	}
-	return measure
+	return key
 }
