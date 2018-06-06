@@ -1006,7 +1006,7 @@ func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*contai
 	syslogConns, err := syslogConns(ctx, call.SyslogURL)
 	if err != nil {
 		// TODO we could write this to between stderr but between stderr doesn't go to user either. kill me.
-		logrus.WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
+		common.Logger(ctx).WithError(err).WithFields(logrus.Fields{"app_id": call.AppID, "path": call.Path, "image": call.Image, "container_id": id}).Error("error dialing syslog urls")
 	}
 
 	// for use if no freezer (or we ever make up our minds)

@@ -10,6 +10,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 
 	"github.com/dchest/siphash"
+	"github.com/fnproject/fn/api/common"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,6 +29,9 @@ func NewCHPlacer() Placer {
 // Because we ask a runner to accept load (queuing on the LB rather than on the nodes), we don't use
 // the LB_WAIT to drive placement decisions: runners only accept work if they have the capacity for it.
 func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
+
+	log := common.Logger(ctx)
+
 	// The key is just the path in this case
 	key := call.Model().Path
 	sum64 := siphash.Hash(0, 0x4c617279426f6174, []byte(key))
@@ -35,7 +39,7 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to find runners for call")
+			log.WithError(err).Error("Failed to find runners for call")
 		} else {
 			i := int(jumpConsistentHash(sum64, int32(len(runners))))
 			for j := 0; j < len(runners); j++ {
@@ -53,7 +57,7 @@ func (p *chPlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall
 				tryCancel()
 
 				if err != nil && err != models.ErrCallTimeoutServerBusy {
-					logrus.WithError(err).Error("Failed during call placement")
+					log.WithError(err).Error("Failed during call placement")
 				}
 				if placed {
 					return err

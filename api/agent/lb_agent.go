@@ -181,8 +181,9 @@ func (a *lbAgent) Submit(callI Call) error {
 	if buf != nil {
 		defer bufPool.Put(buf)
 	}
+
 	if err != nil {
-		logrus.WithError(err).Error("Failed to process call body")
+		common.Logger(call.req.Context()).WithError(err).Error("Failed to process call body")
 		return a.handleCallEnd(ctx, call, err, true)
 	}
 
@@ -192,7 +193,7 @@ func (a *lbAgent) Submit(callI Call) error {
 	// isStarted=true means we will call Call.End().
 	err = a.placer.PlaceCall(a.rp, ctx, call)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to place call")
+		common.Logger(call.req.Context()).WithError(err).Error("Failed to place call")
 	}
 
 	return a.handleCallEnd(ctx, call, err, true)

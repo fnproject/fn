@@ -18,6 +18,7 @@ import (
 	"time"
 
 	runner "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/go-openapi/strfmt"
@@ -142,7 +143,7 @@ func (ch *callHandle) shutdown(err error) {
 	ch.closePipeToFn()
 
 	ch.shutOnce.Do(func() {
-		logrus.WithError(err).Debugf("Shutting down call handle")
+		common.Logger(ch.ctx).WithError(err).Debugf("Shutting down call handle")
 
 		// try to queue an error message if it's not already queued.
 		if err != nil {
@@ -215,7 +216,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		details = ch.c.Model().ID
 	}
 
-	logrus.Debugf("Sending Call Finish details=%v", details)
+	common.Logger(ch.ctx).Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
@@ -226,13 +227,13 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		}}})
 
 	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
+		common.Logger(ch.ctx).WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
 		return
 	}
 
 	errTmp = ch.finalize()
 	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
+		common.Logger(ch.ctx).WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
 	}
 }
 
@@ -557,14 +558,15 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	atomic.AddInt32(&pr.inflight, 1)
 	defer atomic.AddInt32(&pr.inflight, -1)
 
+	log := common.Logger(engagement.Context())
 	pv, ok := peer.FromContext(engagement.Context())
-	logrus.Debug("Starting engagement")
+	log.Debug("Starting engagement")
 	if ok {
-		logrus.Debug("Peer is ", pv)
+		log.Debug("Peer is ", pv)
 	}
 	md, ok := metadata.FromIncomingContext(engagement.Context())
 	if ok {
-		logrus.Debug("MD is ", md)
+		log.Debug("MD is ", md)
 	}
 
 	state := NewCallHandle(engagement)
