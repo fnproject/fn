@@ -333,28 +333,33 @@ definitions:
       revision_id:
         type: string
         description: server generated version
+      mem:
+        type: integer
+        format: uint64
+        description: Max usable memory given to function (MiB).
+      cpu:
+        type: string
+        description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
+      timeout:
+        type: integer
+        default: 30
+        format: int32
+        description: Timeout for executions of a function. Value in Seconds
+      idle_timeout:
+        type: integer
+        default: 30
+        format: int32
+        description: Hot functions idle timeout before container termination. Value in Seconds
       config:
         type: object
-        description: Function configuration - this is the base configuration
-        properties:
-          mem:
-            type: integer
-            format: uint64
-            description: Max usable memory given to function (MiB).
-          cpu:
-            type: string
-            description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
-          execution_timeout:
-            type: integer
-            default: 30
-            format: int32
-            description: Timeout for executions of a function. Value in Seconds
-          idle_timeout:
-            type: integer
-            default: 30
-            format: int32
-            description: Hot functions idle timeout before container termination. Value in Seconds
-      # TODO(?) annotations?
+        description: Func configuration key values
+        additionalProperties:
+          type: string
+      annotations:
+        type: object
+        description: Func annotations - this is a map of annotations attached to this func, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
       created_at:
         type: string
         format: date-time
