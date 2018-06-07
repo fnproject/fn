@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
@@ -10,6 +11,7 @@ import (
 
 func (s *Server) handleFnsPut(c *gin.Context) {
 	ctx := c.Request.Context()
+	method := strings.ToUpper(c.Request.Method)
 
 	var wfn models.FnWrapper
 	err := c.BindJSON(&wfn)
@@ -26,8 +28,16 @@ func (s *Server) handleFnsPut(c *gin.Context) {
 		return
 	}
 
+	appName := c.MustGet(api.App).(string)
+	appID, err := s.ensureApp(ctx, appName, method)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
 	fn := c.Param(api.Fn)
 	// TODO: what about name changes? PutFn(ctx, name, func) ?
+	wfn.Fn.AppID = appID
 	wfn.Fn.Name = fn
 
 	f, err := s.datastore.PutFn(ctx, wfn.Fn)
