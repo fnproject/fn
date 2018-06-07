@@ -10,6 +10,8 @@ import (
 
 type ServerOption func(context.Context, *Server) error
 
+type RIDHandler func(string) func(c *gin.Context)
+
 func EnableShutdownEndpoint(ctx context.Context, halt context.CancelFunc) ServerOption {
 	return func(ctx context.Context, s *Server) error {
 		s.Router.GET("/shutdown", s.handleShutdown(halt))
@@ -40,6 +42,13 @@ func limitRequestBody(max int64) func(c *gin.Context) {
 		// read http.MaxBytesReader for gritty details..
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, max)
 		c.Next()
+	}
+}
+
+func HandleRequestID(ridGen RIDHandler, ridHeader string) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.Router.Use(ridGen(ridHeader))
+		return nil
 	}
 }
 

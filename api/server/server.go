@@ -62,6 +62,8 @@ const (
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
+	// The header name of the incoming request which holds the request ID
+	EnvRidHeader = "FN_RID_HEADER"
 
 	EnvProcessCollectorList = "FN_PROCESS_COLLECTOR_LIST"
 	EnvLBPlacementAlg       = "FN_PLACER"
@@ -167,6 +169,7 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
 	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
 	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
+	opts = append(opts, HandleRequestID(common.RequestIDInCtxAndLogger, getEnv(EnvRidHeader, "request-id")))
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
 	// Also we only need to create an agent if this is not an API node.
