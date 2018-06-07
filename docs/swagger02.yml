@@ -55,9 +55,6 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
-          headers:
-            'ETag':
-              $ref: '#/components/headers/ETag'
         default:
           description: Error
           schema:
@@ -138,9 +135,6 @@ paths:
           description: App data
           schema:
             $ref: '#/definitions/App'
-          headers:
-            'ETag':
-              $ref: '#/components/headers/ETag'
         default:
           description: Error
           schema:
@@ -222,9 +216,6 @@ paths:
           description: Trigger information
           schema:
             $ref: '#/definitions/Trigger'
-          headers:
-            'ETag':
-              $ref: '#/components/headers/ETag'
         default:
           description: Error
           schema:
@@ -521,10 +512,3 @@ parameters:
     required: false
     type: integer
     in: query
-
-components:
-  headers:
-    ETag:
-      description: Revision id of current version.
-      schema:
-        type: string
