@@ -410,6 +410,10 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 	return calls, nil
 }
 
+func (s *store) Close() error {
+	return nil
+}
+
 const (
 	uploadSizeMetricName   = "s3_log_upload_size"
 	downloadSizeMetricName = "s3_log_download_size"
@@ -420,51 +424,35 @@ var (
 	downloadSizeMeasure = stats.Int64(downloadSizeMetricName, "downloaded log size", "byte")
 )
 
-var (
-	appKey  = makeKey("fn_appname")
-	pathKey = makeKey("fn_path")
-)
-
-var (
-	uploadSizeDistributionView = &view.View{
-		Name:        uploadSizeMetricName,
-		Description: "uploaded log size",
-		TagKeys:     []tag.Key{appKey, pathKey},
-		Measure:     uploadSizeMeasure,
-		Aggregation: view.Distribution(),
-	}
-
-	downloadSizeDistributionView = &view.View{
-		Name:        downloadSizeMetricName,
-		Description: "downloaded log size",
-		TagKeys:     []tag.Key{appKey, pathKey},
-		Measure:     uploadSizeMeasure,
-		Aggregation: view.Distribution(),
-	}
-)
-
-func init() {
-	registerViews()
-}
-
-func registerViews() {
+// RegisterViews registers views for s3 measures
+func RegisterViews(tagKeys []string) {
 	err := view.Register(
-		downloadSizeDistributionView,
-		uploadSizeDistributionView,
+		createView(uploadSizeMeasure, view.Distribution(), tagKeys),
+		createView(downloadSizeMeasure, view.Distribution(), tagKeys),
 	)
 	if err != nil {
 		logrus.WithError(err).Fatal("cannot create view")
 	}
 }
 
-func (s *store) Close() error {
-	return nil
+func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) *view.View {
+	return &view.View{
+		Name:        measure.Name(),
+		Description: measure.Description(),
+		Measure:     measure,
+		TagKeys:     makeKeys(tagKeys),
+		Aggregation: agg,
+	}
 }
 
-func makeKey(name string) tag.Key {
-	key, err := tag.NewKey(name)
-	if err != nil {
-		logrus.Fatal(err)
+func makeKeys(names []string) []tag.Key {
+	tagKeys := make([]tag.Key, len(names))
+	for i, name := range names {
+		key, err := tag.NewKey(name)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		tagKeys[i] = key
 	}
-	return key
+	return tagKeys
 }
