@@ -14,7 +14,7 @@ import (
 type mock struct {
 	Apps   []*models.App
 	Routes []*models.Route
-	Funcs  []*models.Func
+	Fns    []*models.Fn
 
 	models.LogStore
 }
@@ -32,8 +32,8 @@ func NewMockInit(args ...interface{}) models.Datastore {
 			mocker.Apps = x
 		case []*models.Route:
 			mocker.Routes = x
-		case []*models.Func:
-			mocker.Funcs = x
+		case []*models.Fn:
+			mocker.Fns = x
 		default:
 			panic("not accounted for data type sent to mock init. add it")
 		}
@@ -197,9 +197,9 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 	return nil
 }
 
-func (m *mock) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	// update if exists
-	for _, f := range m.Funcs {
+	for _, f := range m.Fns {
 		if f.Name == fn.Name {
 			copy := f.Clone()
 			copy.Update(fn)
@@ -217,23 +217,23 @@ func (m *mock) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, erro
 	if err := fn.Validate(); err != nil {
 		return nil, err
 	}
-	m.Funcs = append(m.Funcs, fn)
+	m.Fns = append(m.Fns, fn)
 	return fn, nil
 }
 
-type sortF []*models.Func
+type sortF []*models.Fn
 
 func (s sortF) Len() int           { return len(s) }
 func (s sortF) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
 func (s sortF) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *mock) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {
+func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
 	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
-	sort.Sort(sortF(m.Funcs))
+	sort.Sort(sortF(m.Fns))
 
-	funcs := []*models.Func{}
+	funcs := []*models.Fn{}
 
-	for _, f := range m.Funcs {
+	for _, f := range m.Fns {
 		if len(funcs) == filter.PerPage {
 			break
 		}
@@ -245,25 +245,25 @@ func (m *mock) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*mode
 	return funcs, nil
 }
 
-func (m *mock) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {
-	for _, f := range m.Funcs {
+func (m *mock) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
+	for _, f := range m.Fns {
 		if f.Name == funcName {
 			return f, nil
 		}
 	}
 
-	return nil, models.ErrFuncsNotFound
+	return nil, models.ErrFnsNotFound
 }
 
-func (m *mock) RemoveFunc(ctx context.Context, funcName string) error {
-	for i, f := range m.Funcs {
+func (m *mock) RemoveFn(ctx context.Context, funcName string) error {
+	for i, f := range m.Fns {
 		if f.Name == funcName {
-			m.Funcs = append(m.Funcs[:i], m.Funcs[i+1:]...)
+			m.Fns = append(m.Fns[:i], m.Fns[i+1:]...)
 			return nil
 		}
 	}
 
-	return models.ErrFuncsNotFound
+	return models.ErrFnsNotFound
 }
 
 // GetDatabase returns nil here since shouldn't really be used

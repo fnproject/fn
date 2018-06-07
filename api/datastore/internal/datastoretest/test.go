@@ -219,7 +219,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	t.Run("routes", func(t *testing.T) {
 		ds := dsf(t)
-		// Insert app again to test funcs
+		// Insert app again to test fns
 		testApp, err := ds.InsertApp(ctx, testApp)
 		if err != nil && err != models.ErrAppsAlreadyExists {
 			t.Fatal("Test InsertRoute Prep: failed to insert app: ", err)
@@ -363,7 +363,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 		}
 
-		// Testing list funcs
+		// Testing list fns
 		routes, err := ds.GetRoutesByApp(ctx, testApp.ID, &models.RouteFilter{PerPage: 1})
 		if err != nil {
 			t.Fatalf("Test GetRoutesByApp: unexpected error %v", err)
@@ -491,50 +491,50 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 	})
 
-	t.Run("funcs", func(t *testing.T) {
+	t.Run("fns", func(t *testing.T) {
 		ds := dsf(t)
 		// Testing insert func
 		{
-			_, err := ds.PutFunc(ctx, nil)
-			if err != models.ErrDatastoreEmptyFunc {
-				t.Fatalf("Test PutFunc(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFunc, err)
+			_, err := ds.PutFn(ctx, nil)
+			if err != models.ErrDatastoreEmptyFn {
+				t.Fatalf("Test PutFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
 			}
 
-			testFunc2 := *testFunc
-			testFunc2.Name = ""
-			_, err = ds.PutFunc(ctx, &testFunc2)
-			if err != models.ErrDatastoreEmptyFuncName {
-				t.Fatalf("Test PutFunc(empty func name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFuncName, err)
+			testFn2 := *testFn
+			testFn2.Name = ""
+			_, err = ds.PutFn(ctx, &testFn2)
+			if err != models.ErrDatastoreEmptyFnName {
+				t.Fatalf("Test PutFn(empty func name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 			}
 
-			// assign to make sure that PutFunc returns the right thing
-			testFunc, err = ds.PutFunc(ctx, testFunc)
+			// assign to make sure that PutFn returns the right thing
+			testFn, err = ds.PutFn(ctx, testFn)
 			if err != nil {
-				t.Fatalf("Test PutFunc: error when storing perfectly good func: %s", err)
+				t.Fatalf("Test PutFn: error when storing perfectly good func: %s", err)
 			}
 		}
 
 		// Testing get
 		{
-			_, err := ds.GetFunc(ctx, "")
-			if err != models.ErrDatastoreEmptyFuncName {
-				t.Fatalf("Test GetRoute(empty func path): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFuncName, err)
+			_, err := ds.GetFn(ctx, "")
+			if err != models.ErrDatastoreEmptyFnName {
+				t.Fatalf("Test GetRoute(empty func path): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 			}
 
-			fn, err := ds.GetFunc(ctx, testFunc.Name)
+			fn, err := ds.GetFn(ctx, testFn.Name)
 			if err != nil {
-				t.Fatalf("Test GetFunc: unexpected error %v", err)
+				t.Fatalf("Test GetFn: unexpected error %v", err)
 			}
-			if !fn.Equals(testFunc) {
-				t.Fatalf("Test GetFunc: expected to get the right func:\n%v\nbut got:\n%v", testFunc, fn)
+			if !fn.Equals(testFn) {
+				t.Fatalf("Test GetFn: expected to get the right func:\n%v\nbut got:\n%v", testFn, fn)
 			}
 		}
 
 		// Testing update
 		{
 			// Update some fields, and add 3 configs
-			updated, err := ds.PutFunc(ctx, &models.Func{
-				Name: testFunc.Name,
+			updated, err := ds.PutFn(ctx, &models.Fn{
+				Name: testFn.Name,
 				Config: map[string]string{
 					"FIRST":  "1",
 					"SECOND": "2",
@@ -544,17 +544,17 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			if err != nil {
 				t.Fatalf("Test UpdateRoute: unexpected error: %v", err)
 			}
-			expected := &models.Func{
+			expected := &models.Fn{
 				// unchanged
-				ID:     testFunc.ID,
-				Name:   testFunc.Name,
+				ID:     testFn.ID,
+				Name:   testFn.Name,
 				Image:  "fnproject/fn-test-utils",
 				Format: "http",
 				ResourceConfig: models.ResourceConfig{
-					Timeout:     testFunc.Timeout,
-					IdleTimeout: testFunc.IdleTimeout,
-					Memory:      testFunc.Memory,
-					CPUs:        testFunc.CPUs,
+					Timeout:     testFn.Timeout,
+					IdleTimeout: testFn.IdleTimeout,
+					Memory:      testFn.Memory,
+					CPUs:        testFn.CPUs,
 				},
 				// updated
 				Config: map[string]string{
@@ -568,8 +568,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 
 			// Update a config var, remove another. Add one Header, remove another.
-			updated, err = ds.PutFunc(ctx, &models.Func{
-				Name: testFunc.Name,
+			updated, err = ds.PutFn(ctx, &models.Fn{
+				Name: testFn.Name,
 				Config: map[string]string{
 					"FIRST":  "first",
 					"SECOND": "",
@@ -579,16 +579,16 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			if err != nil {
 				t.Fatalf("Test UpdateRoute: unexpected error: %v", err)
 			}
-			expected = &models.Func{
+			expected = &models.Fn{
 				// unchanged
-				Name:   testFunc.Name,
+				Name:   testFn.Name,
 				Image:  "fnproject/fn-test-utils",
 				Format: "http",
 				ResourceConfig: models.ResourceConfig{
-					Timeout:     testFunc.Timeout,
-					IdleTimeout: testFunc.IdleTimeout,
-					Memory:      testFunc.Memory,
-					CPUs:        testFunc.CPUs,
+					Timeout:     testFn.Timeout,
+					IdleTimeout: testFn.IdleTimeout,
+					Memory:      testFn.Memory,
+					CPUs:        testFn.CPUs,
 				},
 				// updated
 				Config: map[string]string{
@@ -601,77 +601,77 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 		}
 
-		// Testing list funcs
-		funcs, err := ds.GetFuncs(ctx, &models.FuncFilter{PerPage: 1})
+		// Testing list fns
+		fns, err := ds.GetFns(ctx, &models.FnFilter{PerPage: 1})
 		if err != nil {
-			t.Fatalf("Test GetFuncs: unexpected error %v", err)
+			t.Fatalf("Test GetFns: unexpected error %v", err)
 		}
-		if len(funcs) == 0 {
-			t.Fatal("Test GetFuncs: expected result count to be greater than 0")
+		if len(fns) == 0 {
+			t.Fatal("Test GetFns: expected result count to be greater than 0")
 		}
-		if funcs[0] == nil {
-			t.Fatalf("Test GetFuncs: expected non-nil func")
-		} else if funcs[0].Name != testFunc.Name {
-			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", testFunc.Name, funcs[0].Name)
+		if fns[0] == nil {
+			t.Fatalf("Test GetFns: expected non-nil func")
+		} else if fns[0].Name != testFn.Name {
+			t.Fatalf("Test GetFns: expected `func.Name` to be `%s` but it was `%s`", testFn.Name, fns[0].Name)
 		}
 
 		// test pagination stuff
-		r2 := *testFunc
+		r2 := *testFn
 		r2.ID = id.New().String()
 		r2.Name = "testa"
-		r3 := *testFunc
+		r3 := *testFn
 		r3.ID = id.New().String()
 		r3.Name = "testb"
 
-		if _, err = ds.PutFunc(ctx, &r2); err != nil {
+		if _, err = ds.PutFn(ctx, &r2); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = ds.PutFunc(ctx, &r3); err != nil {
+		if _, err = ds.PutFn(ctx, &r3); err != nil {
 			t.Fatal(err)
 		}
 
-		funcs, err = ds.GetFuncs(ctx, &models.FuncFilter{PerPage: 1})
+		fns, err = ds.GetFns(ctx, &models.FnFilter{PerPage: 1})
 		if err != nil {
-			t.Fatalf("Test GetFuncs: error: %s", err)
+			t.Fatalf("Test GetFns: error: %s", err)
 		}
-		if len(funcs) != 1 {
-			t.Fatalf("Test GetFuncs: expected result count to be 1 but got %d", len(funcs))
-		} else if funcs[0].Name != testFunc.Name {
-			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", testFunc.Name, funcs[0].Name)
+		if len(fns) != 1 {
+			t.Fatalf("Test GetFns: expected result count to be 1 but got %d", len(fns))
+		} else if fns[0].Name != testFn.Name {
+			t.Fatalf("Test GetFns: expected `func.Name` to be `%s` but it was `%s`", testFn.Name, fns[0].Name)
 		}
 
-		funcs, err = ds.GetFuncs(ctx, &models.FuncFilter{PerPage: 2, Cursor: funcs[0].ID})
+		fns, err = ds.GetFns(ctx, &models.FnFilter{PerPage: 2, Cursor: fns[0].ID})
 		if err != nil {
-			t.Fatalf("Test GetFuncs: error: %s", err)
+			t.Fatalf("Test GetFns: error: %s", err)
 		}
-		if len(funcs) != 2 {
-			t.Fatalf("Test GetFuncs: expected result count to be 2 but got %d", len(funcs))
-		} else if funcs[0].Name != r2.Name {
-			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", r2.Name, funcs[0].Name)
-		} else if funcs[1].Name != r3.Name {
-			t.Fatalf("Test GetFuncs: expected `func.Name` to be `%s` but it was `%s`", r3.Name, funcs[1].Name)
+		if len(fns) != 2 {
+			t.Fatalf("Test GetFns: expected result count to be 2 but got %d", len(fns))
+		} else if fns[0].Name != r2.Name {
+			t.Fatalf("Test GetFns: expected `func.Name` to be `%s` but it was `%s`", r2.Name, fns[0].Name)
+		} else if fns[1].Name != r3.Name {
+			t.Fatalf("Test GetFns: expected `func.Name` to be `%s` but it was `%s`", r3.Name, fns[1].Name)
 		}
 
 		// TODO test weird ordering possibilities ?
 		// TODO test prefix filtering
 
 		// Testing func delete
-		err = ds.RemoveFunc(ctx, "")
-		if err != models.ErrDatastoreEmptyFuncName {
-			t.Fatalf("Test RemoveFunc(empty name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFuncName, err)
+		err = ds.RemoveFn(ctx, "")
+		if err != models.ErrDatastoreEmptyFnName {
+			t.Fatalf("Test RemoveFn(empty name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 		}
 
-		err = ds.RemoveFunc(ctx, testFunc.Name)
+		err = ds.RemoveFn(ctx, testFn.Name)
 		if err != nil {
 			t.Fatalf("Test RemoveApp: unexpected error: %v", err)
 		}
 
-		fn, err := ds.GetFunc(ctx, testFunc.Name)
-		if err != nil && err != models.ErrFuncsNotFound {
-			t.Fatalf("Test GetFunc: expected error `%v`, but it was `%v`", models.ErrFuncsNotFound, err)
+		fn, err := ds.GetFn(ctx, testFn.Name)
+		if err != nil && err != models.ErrFnsNotFound {
+			t.Fatalf("Test GetFn: expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
 		}
 		if fn != nil {
-			t.Fatalf("Test RemoveFunc: failed to remove the func: %v", fn)
+			t.Fatalf("Test RemoveFn: failed to remove the func: %v", fn)
 		}
 	})
 }
@@ -690,7 +690,7 @@ var testRoute = &models.Route{
 	Memory:      models.DefaultMemory,
 }
 
-var testFunc = &models.Func{
+var testFn = &models.Fn{
 	ID:     id.New().String(),
 	Name:   "test",
 	Image:  "fnproject/fn-test-utils",

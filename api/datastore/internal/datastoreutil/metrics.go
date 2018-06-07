@@ -83,28 +83,28 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	return m.ds.RemoveRoute(ctx, appID, routePath)
 }
 
-func (m *metricds) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (m *metricds) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_put_func")
 	defer span.End()
-	return m.ds.PutFunc(ctx, fn)
+	return m.ds.PutFn(ctx, fn)
 }
 
-func (m *metricds) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {
+func (m *metricds) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_funcs")
 	defer span.End()
-	return m.ds.GetFuncs(ctx, filter)
+	return m.ds.GetFns(ctx, filter)
 }
 
-func (m *metricds) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {
+func (m *metricds) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_func")
 	defer span.End()
-	return m.ds.GetFunc(ctx, funcName)
+	return m.ds.GetFn(ctx, funcName)
 }
 
-func (m *metricds) RemoveFunc(ctx context.Context, funcName string) error {
+func (m *metricds) RemoveFn(ctx context.Context, funcName string) error {
 	ctx, span := trace.StartSpan(ctx, "ds_remove_func")
 	defer span.End()
-	return m.ds.RemoveFunc(ctx, funcName)
+	return m.ds.RemoveFn(ctx, funcName)
 }
 
 // instant & no context ;)

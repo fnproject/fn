@@ -7,26 +7,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleFuncsList(c *gin.Context) {
+func (s *Server) handleFnsList(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var filter models.FuncFilter
+	var filter models.FnFilter
 	filter.Cursor, filter.PerPage = pageParams(c, false)
 
-	funcs, err := s.datastore.GetFuncs(ctx, &filter)
+	fns, err := s.datastore.GetFns(ctx, &filter)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
 	var nextCursor string
-	if len(funcs) > 0 && len(funcs) == filter.PerPage {
-		nextCursor = funcs[len(funcs)-1].ID
+	if len(fns) > 0 && len(fns) == filter.PerPage {
+		nextCursor = fns[len(fns)-1].ID
 	}
 
-	c.JSON(http.StatusOK, funcsResponse{
+	c.JSON(http.StatusOK, fnsResponse{
 		Message:    "Successfully listed applications",
 		NextCursor: nextCursor,
-		Funcs:      funcs,
+		Fns:        fns,
 	})
 }

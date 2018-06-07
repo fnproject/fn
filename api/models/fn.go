@@ -18,16 +18,18 @@ var (
 )
 
 // FuncWrapper makes jason purrty for a Func.
-type FuncWrapper struct {
-	Func *Func `json:"func"`
+type FnWrapper struct {
+	Fn *Fn `json:"fn"`
 }
 
-// Func contains information about a function configuration.
-type Func struct {
+// Fn contains information about a function configuration.
+type Fn struct {
 	// ID is the generated resource id.
 	ID string `json:"id" db:"id"`
-	// Name is a user provided name for this func.
+	// Name is a user provided name for this fn.
 	Name string `json:"name" db:"name"`
+	// AppID is the ID of the app this fn belongs to.
+	AppID string `json:"app_id" db:"app_id"`
 	// Image is the fully qualified container registry address to execute.
 	// examples: hub.docker.io/me/myfunc, me/myfunc, me/func:0.0.1
 	Image string `json:"image" db:"image"`
@@ -65,7 +67,7 @@ type ResourceConfig struct {
 }
 
 // SetDefaults sets zeroed field to defaults.
-func (f *Func) SetDefaults() {
+func (f *Fn) SetDefaults() {
 	if f.ID == "" {
 		f.ID = id.New().String()
 	}
@@ -101,19 +103,23 @@ func (f *Func) SetDefaults() {
 }
 
 // Validate validates all field values, returning the first error, if any.
-func (f *Func) Validate() error {
+func (f *Fn) Validate() error {
 	if url.PathEscape(f.Name) != f.Name {
-		return ErrFuncsInvalidName
+		return ErrFnsInvalidName
+	}
+
+	if f.AppID == "" {
+		return ErrFnsMissingAppID
 	}
 
 	if f.Image == "" {
-		return ErrFuncsMissingImage
+		return ErrFnsMissingImage
 	}
 
 	switch f.Format {
 	case FormatDefault, FormatHTTP, FormatJSON, FormatCloudEvent:
 	default:
-		return ErrFuncsInvalidFormat
+		return ErrFnsInvalidFormat
 	}
 
 	if f.Timeout <= 0 || f.Timeout > MaxTimeout {
@@ -131,8 +137,8 @@ func (f *Func) Validate() error {
 	return f.Annotations.Validate()
 }
 
-func (f *Func) Clone() *Func {
-	clone := new(Func)
+func (f *Fn) Clone() *Fn {
+	clone := new(Fn)
 	*clone = *f // shallow copy
 
 	// now deep copy the maps
@@ -152,11 +158,12 @@ func (f *Func) Clone() *Func {
 	return clone
 }
 
-func (f1 *Func) Equals(f2 *Func) bool {
+func (f1 *Fn) Equals(f2 *Fn) bool {
 	// start off equal, check equivalence of each field.
 	// the RHS of && won't eval if eq==false so config/headers checking is lazy
 
 	eq := true
+	eq = eq && f1.AppID == f2.AppID
 	eq = eq && f1.Image == f2.Image
 	eq = eq && f1.Memory == f2.Memory
 	eq = eq && f1.CPUs == f2.CPUs
@@ -175,9 +182,12 @@ func (f1 *Func) Equals(f2 *Func) bool {
 // Update updates fields in f with non-zero field values from new, and sets
 // updated_at if any of the fields change. 0-length slice Header values, and
 // empty-string Config values trigger removal of map entry.
-func (f *Func) Update(patch *Func) {
+func (f *Fn) Update(patch *Fn) {
 	original := f.Clone()
 
+	if patch.AppID != "" {
+		f.AppID = patch.AppID
+	}
 	if patch.Image != "" {
 		f.Image = patch.Image
 	}
@@ -216,7 +226,8 @@ func (f *Func) Update(patch *Func) {
 	}
 }
 
-type FuncFilter struct {
+type FnFilter struct {
+	AppID string // this is exact match
 	Image string // this is exact match
 
 	Cursor  string

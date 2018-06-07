@@ -53,14 +53,14 @@ func (test *funcTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	}
 
 	if test.expectedCode == http.StatusOK {
-		var fwrap models.FuncWrapper
+		var fwrap models.FnWrapper
 		err := json.NewDecoder(rec.Body).Decode(&fwrap)
 		if err != nil {
 			t.Log(buf.String())
 			t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
 		}
 
-		fn := fwrap.Func
+		fn := fwrap.Fn
 		if test.method == http.MethodPut {
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(fn.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
@@ -82,55 +82,57 @@ func (test *funcTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	buf.Reset()
 }
 
-func TestFuncPut(t *testing.T) {
+func TestFnPut(t *testing.T) {
 	buf := setLogBuffer()
 
-	ds := datastore.NewMockInit()
+	a := &models.App{Name: "a"}
+	a.SetDefaults()
+	ds := datastore.NewMockInit([]*models.App{a})
 	ls := logs.NewMock()
 	for i, test := range []funcTestCase{
 		// errors
-		{ds, ls, http.MethodPut, "/v1/funcs/a", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ }`, http.StatusBadRequest, models.ErrFuncsMissingNew},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "image": "yo" }`, http.StatusBadRequest, models.ErrFuncsMissingNew},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "func": { } }`, http.StatusBadRequest, models.ErrFuncsMissingImage},
-		{ds, ls, http.MethodPut, "/v1/funcs/ ", `{ "func": { "image": "fnproject/fn-test-utils" } }`, http.StatusBadRequest, models.ErrFuncsInvalidName},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "func": { "image": "fnproject/fn-test-utils", "format": "wazzup" } }`, http.StatusBadRequest, models.ErrFuncsInvalidFormat},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "func": { "image": "fnproject/fn-test-utils", "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "func": { "image": "fnproject/fn-test-utils", "timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidTimeout},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "func": { "image": "fnproject/fn-test-utils", "idle_timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidIdleTimeout},
-		{ds, ls, http.MethodPut, "/v1/funcs/a", `{ "func": { "image": "fnproject/fn-test-utils", "memory": 100000000000000 } }`, http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ }`, http.StatusBadRequest, models.ErrFnsMissingNew},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "image": "yo" }`, http.StatusBadRequest, models.ErrFnsMissingNew},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "fn": { } }`, http.StatusBadRequest, models.ErrFnsMissingImage},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/ ", `{ "fn": { "image": "fnproject/fn-test-utils" } }`, http.StatusBadRequest, models.ErrFnsInvalidName},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "fn": { "image": "fnproject/fn-test-utils", "format": "wazzup" } }`, http.StatusBadRequest, models.ErrFnsInvalidFormat},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "fn": { "image": "fnproject/fn-test-utils", "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "fn": { "image": "fnproject/fn-test-utils", "timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidTimeout},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "fn": { "image": "fnproject/fn-test-utils", "idle_timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidIdleTimeout},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/a", `{ "fn": { "image": "fnproject/fn-test-utils", "memory": 100000000000000 } }`, http.StatusBadRequest, models.ErrInvalidMemory},
 
 		// success create & update
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "image": "fnproject/fn-test-utils" } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "image": "fnproject/fn-test-utils" } }`, http.StatusOK, nil},
 
 		// TODO(reed): discuss on #988 do we want to allow partial modifications still?
 		// partial updates should work
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "image": "fnproject/test" } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "format": "http" } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "cpus": "100m" } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "cpus": "0.2" } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "memory": 1000 } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "timeout": 10 } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "idle_timeout": 10 } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "config": {"k":"v"} } }`, http.StatusOK, nil},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "annotations": {"k":"v"} } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "image": "fnproject/test" } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "format": "http" } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "cpus": "100m" } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "cpus": "0.2" } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "memory": 1000 } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "timeout": 10 } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "idle_timeout": 10 } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "config": {"k":"v"} } }`, http.StatusOK, nil},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "annotations": {"k":"v"} } }`, http.StatusOK, nil},
 
 		// test that partial update fails w/ same errors as create
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "format": "wazzup" } }`, http.StatusBadRequest, models.ErrFuncsInvalidFormat},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidTimeout},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "idle_timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidIdleTimeout},
-		{ds, ls, http.MethodPut, "/v1/funcs/myfunc", `{ "func": { "memory": 100000000000000 } }`, http.StatusBadRequest, models.ErrInvalidMemory},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "format": "wazzup" } }`, http.StatusBadRequest, models.ErrFnsInvalidFormat},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "cpus": "-100" } }`, http.StatusBadRequest, models.ErrInvalidCPUs},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidTimeout},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "idle_timeout": 3601 } }`, http.StatusBadRequest, models.ErrInvalidIdleTimeout},
+		{ds, ls, http.MethodPut, "/v1/apps/a/fns/myfunc", `{ "fn": { "memory": 100000000000000 } }`, http.StatusBadRequest, models.ErrInvalidMemory},
 	} {
 		test.run(t, i, buf)
 	}
 }
 
-func TestFuncDelete(t *testing.T) {
+func TestFnDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	funcs := []*models.Func{{Name: "myfunc"}}
-	commonDS := datastore.NewMockInit(funcs)
+	fns := []*models.Fn{{Name: "myfunc"}}
+	commonDS := datastore.NewMockInit(fns)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -140,8 +142,8 @@ func TestFuncDelete(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{commonDS, logs.NewMock(), "/v1/funcs/missing", "", http.StatusNotFound, models.ErrFuncsNotFound},
-		{commonDS, logs.NewMock(), "/v1/funcs/myfunc", "", http.StatusOK, nil},
+		{commonDS, logs.NewMock(), "/v1/apps/a/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
+		{commonDS, logs.NewMock(), "/v1/apps/a/fns/myfunc", "", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -167,7 +169,7 @@ func TestFuncDelete(t *testing.T) {
 	}
 }
 
-func TestFuncList(t *testing.T) {
+func TestFnList(t *testing.T) {
 	buf := setLogBuffer()
 
 	rnr, cancel := testRunner(t)
@@ -179,7 +181,7 @@ func TestFuncList(t *testing.T) {
 	r3b := id.New().String()
 
 	ds := datastore.NewMockInit(
-		[]*models.Func{
+		[]*models.Fn{
 			{
 				ID:    r1b,
 				Name:  "myfunc",
@@ -210,12 +212,12 @@ func TestFuncList(t *testing.T) {
 		expectedLen   int
 		nextCursor    string
 	}{
-		{"/v1/funcs", "", http.StatusOK, nil, 3, ""},
-		{"/v1/funcs?per_page=1", "", http.StatusOK, nil, 1, r1b},
-		{"/v1/funcs?per_page=1&cursor=" + r1b, "", http.StatusOK, nil, 1, r2b},
-		{"/v1/funcs?per_page=1&cursor=" + r2b, "", http.StatusOK, nil, 1, r3b},
-		{"/v1/funcs?per_page=100&cursor=" + r2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
-		{"/v1/funcs?per_page=1&cursor=" + r3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+		{"/v1/apps/a/fns", "", http.StatusOK, nil, 3, ""},
+		{"/v1/apps/a/fns?per_page=1", "", http.StatusOK, nil, 1, r1b},
+		{"/v1/apps/a/fns?per_page=1&cursor=" + r1b, "", http.StatusOK, nil, 1, r2b},
+		{"/v1/apps/a/fns?per_page=1&cursor=" + r2b, "", http.StatusOK, nil, 1, r3b},
+		{"/v1/apps/a/fns?per_page=100&cursor=" + r2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
+		{"/v1/apps/a/fns?per_page=1&cursor=" + r3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -236,13 +238,13 @@ func TestFuncList(t *testing.T) {
 		} else {
 			// normal path
 
-			var resp funcsResponse
+			var resp fnsResponse
 			err := json.NewDecoder(rec.Body).Decode(&resp)
 			if err != nil {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
 			}
-			if len(resp.Funcs) != test.expectedLen {
-				t.Errorf("Test %d: Expected funcs length to be %d, but got %d", i, test.expectedLen, len(resp.Funcs))
+			if len(resp.Fns) != test.expectedLen {
+				t.Errorf("Test %d: Expected fns length to be %d, but got %d", i, test.expectedLen, len(resp.Fns))
 			}
 			if resp.NextCursor != test.nextCursor {
 				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
@@ -251,13 +253,13 @@ func TestFuncList(t *testing.T) {
 	}
 }
 
-func TestFuncGet(t *testing.T) {
+func TestFnGet(t *testing.T) {
 	buf := setLogBuffer()
 
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	ds := datastore.NewMockInit([]*models.Func{
+	ds := datastore.NewMockInit([]*models.Fn{
 		{
 			Name:  "myfunc",
 			Image: "fnproject/fn-test-utils",
@@ -273,8 +275,8 @@ func TestFuncGet(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{"/v1/funcs/missing", "", http.StatusNotFound, models.ErrFuncsNotFound},
-		{"/v1/funcs/myfunc", "", http.StatusOK, nil},
+		{"/v1/apps/a/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
+		{"/v1/apps/a/fns/myfunc", "", http.StatusOK, nil},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
