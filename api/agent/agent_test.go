@@ -845,6 +845,181 @@ func TestTmpFsSize(t *testing.T) {
 	}
 }
 
+//
+// Here we clamp MaxRequests to 2 and run 4 requests. We expect
+// two hot-containers each taking about 2 requests.
+//
+func TestMaxRequestsI(t *testing.T) {
+	appName := "myapp"
+	path := "/hello"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+
+	app := &models.App{Name: appName}
+	app.SetDefaults()
+
+	reqCount := 4
+	maxRequests := uint64(2)
+
+	// let's create a MaxRequests 1 route. And every request should be
+	// handled by a new hot-container.
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{
+				Path:        path,
+				AppID:       app.ID,
+				Image:       "fnproject/fn-test-utils",
+				Type:        "sync",
+				Format:      "http", // this _is_ the test
+				Timeout:     5,
+				IdleTimeout: 100,
+				MaxRequests: maxRequests,
+				Memory:      64,
+			},
+		},
+	)
+
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
+	defer checkClose(t, a)
+
+	idSet := make(map[string]uint64)
+
+	body := `{"isDebug": true}`
+
+	// Let's run a few requests. They all should land on a different docker id
+	for i := 0; i < reqCount; i++ {
+
+		req, err := http.NewRequest("GET", url, strings.NewReader(body))
+		if err != nil {
+			t.Fatal("unexpected error building request", err)
+		}
+
+		var out bytes.Buffer
+		callI, err := a.GetCall(FromRequest(a, app, path, req), WithWriter(&out))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = a.Submit(callI)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res, err := http.ReadResponse(bufio.NewReader(&out), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+
+		var resp struct {
+			R struct {
+				DockerId string `json:"DockerId"`
+			} `json:"data"`
+		}
+
+		err = json.NewDecoder(res.Body).Decode(&resp)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		count := idSet[resp.R.DockerId]
+		idSet[resp.R.DockerId] = count + 1
+	}
+
+	for key, val := range idSet {
+		if val != maxRequests {
+			t.Fatalf("DockerId: %v seen %v != %v", key, maxRequests, val)
+		}
+	}
+}
+
+// Set MaxRequests to 1 for each request. This means every request should
+// land on a different docker id.
+func TestMaxRequestsII(t *testing.T) {
+	appName := "myapp"
+	path := "/hello"
+	url := "http://127.0.0.1:8080/r/" + appName + path
+
+	app := &models.App{Name: appName}
+	app.SetDefaults()
+	maxRequests := uint64(1)
+
+	// let's create a MaxRequests 1 route. And every request should be
+	// handled by a new hot-container.
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Route{
+			{
+				Path:        path,
+				AppID:       app.ID,
+				Image:       "fnproject/fn-test-utils",
+				Type:        "sync",
+				Format:      "http", // this _is_ the test
+				Timeout:     5,
+				IdleTimeout: 100,
+				MaxRequests: maxRequests,
+				Memory:      64,
+			},
+		},
+	)
+
+	ls := logs.NewMock()
+	a := New(NewDirectDataAccess(ds, ls, new(mqs.Mock)))
+	defer checkClose(t, a)
+
+	idSet := make(map[string]uint64)
+
+	body := `{"isDebug": true}`
+	reqCount := 5
+
+	// Let's run a few requests. They all should land on a different docker id
+	for i := 0; i < reqCount; i++ {
+
+		req, err := http.NewRequest("GET", url, strings.NewReader(body))
+		if err != nil {
+			t.Fatal("unexpected error building request", err)
+		}
+
+		var out bytes.Buffer
+		callI, err := a.GetCall(FromRequest(a, app, path, req), WithWriter(&out))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = a.Submit(callI)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res, err := http.ReadResponse(bufio.NewReader(&out), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+
+		var resp struct {
+			R struct {
+				DockerId string `json:"DockerId"`
+			} `json:"data"`
+		}
+
+		err = json.NewDecoder(res.Body).Decode(&resp)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		count := idSet[resp.R.DockerId]
+		idSet[resp.R.DockerId] = count + 1
+	}
+
+	for key, val := range idSet {
+		if val != maxRequests {
+			t.Fatalf("DockerId: %v seen (%v) > more than %v", key, val, maxRequests)
+		}
+	}
+}
+
 // return a model with all fields filled in with fnproject/fn-test-utils:latest image, change as needed
 func testCall() *models.Call {
 	appName := "myapp"

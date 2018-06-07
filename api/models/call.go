@@ -111,6 +111,9 @@ type Call struct {
 	// Tmpfs size in megabytes.
 	TmpFsSize uint32 `json:"tmpfs_size,omitempty" db:"-"`
 
+	// Maximum number of requests allowed in a hot container
+	MaxRequests uint64 `json:"max_requests,omitempty" db:"-"`
+
 	// Memory is the amount of RAM this call is allocated.
 	Memory uint64 `json:"memory,omitempty" db:"-"`
 

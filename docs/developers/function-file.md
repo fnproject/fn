@@ -84,3 +84,5 @@ hot functions support also adds two extra options to this configuration file.
 
 `idle_timeout` (optional) is the time in seconds a container will remain alive without receiving any new requests; 
 hot functions will stay alive as long as they receive a request in this interval. Default: `30`.
+
+`max_requests` (optional) max number of requests a container can execute. After max_requests of requests are handled, the container will be terminated. Default: `0` unlimited.

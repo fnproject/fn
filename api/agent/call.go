@@ -120,6 +120,7 @@ func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallO
 			Timeout:     route.Timeout,
 			IdleTimeout: route.IdleTimeout,
 			TmpFsSize:   route.TmpFsSize,
+			MaxRequests: route.MaxRequests,
 			Memory:      route.Memory,
 			CPUs:        route.CPUs,
 			Config:      buildConfig(app, route),

@@ -36,6 +36,7 @@ type Route struct {
 	Timeout     int32           `json:"timeout" db:"timeout"`
 	IdleTimeout int32           `json:"idle_timeout" db:"idle_timeout"`
 	TmpFsSize   uint32          `json:"tmpfs_size" db:"tmpfs_size"`
+	MaxRequests uint64          `json:"max_requests" db:"max_requests"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
@@ -176,6 +177,7 @@ func (r1 *Route) Equals(r2 *Route) bool {
 	eq = eq && r1.Timeout == r2.Timeout
 	eq = eq && r1.IdleTimeout == r2.IdleTimeout
 	eq = eq && r1.TmpFsSize == r2.TmpFsSize
+	eq = eq && r1.MaxRequests == r2.MaxRequests
 	eq = eq && r1.Config.Equals(r2.Config)
 	eq = eq && r1.Annotations.Equals(r2.Annotations)
 	// NOTE: datastore tests are not very fun to write with timestamp checks,
@@ -211,6 +213,9 @@ func (r *Route) Update(patch *Route) {
 	}
 	if patch.TmpFsSize != 0 {
 		r.TmpFsSize = patch.TmpFsSize
+	}
+	if patch.MaxRequests != 0 {
+		r.MaxRequests = patch.MaxRequests
 	}
 	if patch.Format != "" {
 		r.Format = patch.Format

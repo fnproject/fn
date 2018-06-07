@@ -842,6 +842,7 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	ctx, shutdownContainer := context.WithCancel(ctx)
 	defer shutdownContainer() // close this if our waiter returns, to call off slots
 	go func() {
+		remaining := call.MaxRequests
 		defer shutdownContainer() // also close if we get an agent shutdown / idle timeout
 
 		for {
@@ -870,6 +871,13 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 			if slot.fatalErr != nil {
 				logger.WithError(slot.fatalErr).Info("hot function terminating")
 				return
+			}
+
+			if remaining != 0 {
+				remaining--
+				if remaining == 0 {
+					return
+				}
 			}
 		}
 	}()
