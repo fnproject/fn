@@ -132,28 +132,28 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-func (v *validator) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (v *validator) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	if fn == nil {
-		return nil, models.ErrDatastoreEmptyFunc
+		return nil, models.ErrDatastoreEmptyFn
 	}
 	if fn.Name == "" {
-		return nil, models.ErrDatastoreEmptyFuncName
+		return nil, models.ErrDatastoreEmptyFnName
 	}
-	return v.Datastore.PutFunc(ctx, fn)
+	return v.Datastore.PutFn(ctx, fn)
 }
 
-func (v *validator) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {
+func (v *validator) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
 	if funcName == "" {
-		return nil, models.ErrDatastoreEmptyFuncName
+		return nil, models.ErrDatastoreEmptyFnName
 	}
-	return v.Datastore.GetFunc(ctx, funcName)
+	return v.Datastore.GetFn(ctx, funcName)
 }
 
-func (v *validator) RemoveFunc(ctx context.Context, funcName string) error {
+func (v *validator) RemoveFn(ctx context.Context, funcName string) error {
 	if funcName == "" {
-		return models.ErrDatastoreEmptyFuncName
+		return models.ErrDatastoreEmptyFnName
 	}
-	return v.Datastore.RemoveFunc(ctx, funcName)
+	return v.Datastore.RemoveFn(ctx, funcName)
 }
 
 // GetDatabase returns the underlying sqlx database implementation

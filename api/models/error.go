@@ -76,15 +76,15 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
-	ErrDatastoreEmptyFunc = err{
+	ErrDatastoreEmptyFn = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing func"),
 	}
-	ErrDatastoreEmptyFuncName = err{
+	ErrDatastoreEmptyFnName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing func name"),
 	}
-	ErrFuncsMissingNew = err{
+	ErrFnsMissingNew = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing function body"),
 	}
@@ -168,15 +168,19 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
-	ErrFuncsInvalidName = err{
+	ErrFnsInvalidName = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Func name must be an RFC 3986 compliant path string"),
+		error: errors.New("Fn name must be an RFC 3986 compliant path string"),
 	}
-	ErrFuncsMissingImage = err{
+	ErrFnsMissingAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing function AppName"),
+	}
+	ErrFnsMissingImage = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing func image"),
 	}
-	ErrFuncsInvalidFormat = err{
+	ErrFnsInvalidFormat = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid func format"),
 	}
@@ -192,9 +196,9 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
-	ErrFuncsNotFound = err{
+	ErrFnsNotFound = err{
 		code:  http.StatusNotFound,
-		error: errors.New("Func not found"),
+		error: errors.New("Fn not found"),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,

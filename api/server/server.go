@@ -889,11 +889,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v1.GET("/apps", s.handleAppList)
 			v1.POST("/apps", s.handleAppCreate)
 
-			v1.GET("/funcs", s.handleFuncsList)
-			v1.GET("/funcs/:func", s.handleFuncsGet)
-			v1.PUT("/funcs/:func", s.handleFuncsPut)
-			v1.DELETE("/funcs/:func", s.handleFuncsDelete)
-
 			{
 				apps := v1.Group("/apps/:app")
 				apps.Use(appNameCheck)
@@ -905,6 +900,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.PATCH("", s.handleAppUpdate)
 					withAppCheck.DELETE("", s.handleAppDelete)
 
+					withAppCheck.GET("/fns", s.handleFnsList)
+					withAppCheck.GET("/fns/:fn", s.handleFnsGet)
+					withAppCheck.PUT("/fns/:fn", s.handleFnsPut)
+					withAppCheck.DELETE("/fns/:fn", s.handleFnsDelete)
+
 					withAppCheck.GET("/routes", s.handleRouteList)
 					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
 					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
@@ -914,10 +914,10 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
 
-					withAppCheck.GET("/triggers", s.handleFuncsList)
-					withAppCheck.GET("/triggers/:trigger", s.handleFuncsGet)
-					withAppCheck.PUT("/triggers/:trigger", s.handleFuncsPut)
-					withAppCheck.DELETE("/triggers/:trigger", s.handleFuncsDelete)
+					withAppCheck.GET("/triggers", s.handleFnsList)
+					withAppCheck.GET("/triggers/:trigger", s.handleFnsGet)
+					withAppCheck.PUT("/triggers/:trigger", s.handleFnsPut)
+					withAppCheck.DELETE("/triggers/:trigger", s.handleFnsDelete)
 				}
 
 				apps.POST("/routes", s.handleRoutesPostPut)
@@ -1026,13 +1026,13 @@ type callsResponse struct {
 	Calls      []*models.Call `json:"calls"`
 }
 
-type funcResponse struct {
-	Message string       `json:"message"`
-	Func    *models.Func `json:"func"`
+type fnResponse struct {
+	Message string     `json:"message"`
+	Fn      *models.Fn `json:"fn"`
 }
 
-type funcsResponse struct {
-	Message    string         `json:"message"`
-	NextCursor string         `json:"next_cursor"`
-	Funcs      []*models.Func `json:"funcs"`
+type fnsResponse struct {
+	Message    string       `json:"message"`
+	NextCursor string       `json:"next_cursor"`
+	Fns        []*models.Fn `json:"fns"`
 }

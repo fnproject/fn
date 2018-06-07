@@ -59,23 +59,23 @@ type Datastore interface {
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appID, routePath string) error
 
-	// PutFunc inserts a new function if one does not exist, applying any defaults necessary, or
-	// updates a function that exists under the same name. Returns ErrDatastoreEmptyFunc if func is nil,
-	// ErrDatastoreEmptyFuncName is func.Name is empty.
+	// PutFn inserts a new function if one does not exist, applying any defaults necessary, or
+	// updates a function that exists under the same name. Returns ErrDatastoreEmptyFn if func is nil,
+	// ErrDatastoreEmptyFnName is func.Name is empty.
 	// TODO(reed): should we allow rename if id provided?
-	PutFunc(ctx context.Context, fn *Func) (*Func, error)
+	PutFn(ctx context.Context, fn *Fn) (*Fn, error)
 
-	// GetFuncs returns a list of funcs, applying any additional filters provided.
-	GetFuncs(ctx context.Context, filter *FuncFilter) ([]*Func, error)
+	// GetFns returns a list of funcs, applying any additional filters provided.
+	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)
 
-	// GetFunc returns a function by name. Returns ErrDatastoreEmptyFuncName if funcName is empty.
-	// Returns ErrFuncsNotFound if a func is not found.
+	// GetFn returns a function by name. Returns ErrDatastoreEmptyFnName if funcName is empty.
+	// Returns ErrFnsNotFound if a func is not found.
 	// TODO(reed): figure out addressable by id or name biz. iff 1 query, name works.
-	GetFunc(ctx context.Context, funcName string) (*Func, error)
+	GetFn(ctx context.Context, funcName string) (*Fn, error)
 
-	// RemoveFunc removes a function. Returns ErrDatastoreEmptyFuncName if funcName is empty.
-	// Returns ErrFuncsNotFound if a func is not found.
-	RemoveFunc(ctx context.Context, funcName string) error
+	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnName if funcName is empty.
+	// Returns ErrFnsNotFound if a func is not found.
+	RemoveFn(ctx context.Context, funcName string) error
 
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB

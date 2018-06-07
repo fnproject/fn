@@ -83,9 +83,10 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	log text NOT NULL
 );`,
 
-	`CREATE TABLE IF NOT EXISTS funcs (
+	`CREATE TABLE IF NOT EXISTS fns (
 	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL UNIQUE,
+	app_id varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
 	cpus int NOT NULL,
@@ -683,12 +684,12 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 	return res, nil
 }
 
-func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func, error) {
+func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=?`, funcSelector))
 		row := tx.QueryRowxContext(ctx, query, fn.Name)
 
-		var dst models.Func
+		var dst models.Fn
 		err := row.StructScan(&dst)
 		if err != nil && err != sql.ErrNoRows {
 			return err
@@ -701,9 +702,10 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 				return err
 			}
 
-			query = tx.Rebind(`INSERT INTO funcs (
+			query = tx.Rebind(`INSERT INTO fns (
 				id,
 				name,
+				app_id,
 				image,
 				format,
 				memory,
@@ -718,6 +720,7 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 			VALUES (
 				:id,
 				:name,
+				:app_id,
 				:image,
 				:format,
 				:memory,
@@ -739,7 +742,9 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 			}
 			fn = &dst // set for query & to return
 
-			query = tx.Rebind(`UPDATE funcs SET
+			query = tx.Rebind(`UPDATE fns SET
+				name = :name,
+				app_id = :app_id,
 				image = :image,
 				format = :format,
 				memory = :memory,
@@ -749,7 +754,7 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 				config = :config,
 				annotations = :annotations,
 				updated_at = :updated_at
-			WHERE name=:name;`)
+			WHERE id=:id;`)
 		}
 
 		_, err = tx.NamedExecContext(ctx, query, fn)
@@ -762,13 +767,13 @@ func (ds *SQLStore) PutFunc(ctx context.Context, fn *models.Func) (*models.Func,
 	return fn, nil
 }
 
-func (ds *SQLStore) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]*models.Func, error) {
-	res := []*models.Func{} // for json empty list
+func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+	res := []*models.Fn{} // for json empty list
 	if filter == nil {
-		filter = new(models.FuncFilter)
+		filter = new(models.FnFilter)
 	}
 
-	filterQuery, args := buildFilterFuncQuery(filter)
+	filterQuery, args := buildFilterFnQuery(filter)
 
 	query := fmt.Sprintf("%s %s", funcSelector, filterQuery)
 	query = ds.db.Rebind(query)
@@ -782,7 +787,7 @@ func (ds *SQLStore) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]
 	defer rows.Close()
 
 	for rows.Next() {
-		var fn models.Func
+		var fn models.Fn
 		err := rows.StructScan(&fn)
 		if err != nil {
 			continue
@@ -798,21 +803,21 @@ func (ds *SQLStore) GetFuncs(ctx context.Context, filter *models.FuncFilter) ([]
 	return res, nil
 }
 
-func (ds *SQLStore) GetFunc(ctx context.Context, funcName string) (*models.Func, error) {
+func (ds *SQLStore) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
 	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=?", funcSelector))
 	row := ds.db.QueryRowxContext(ctx, query, funcName)
 
-	var fn models.Func
+	var fn models.Fn
 	err := row.StructScan(&fn)
 	if err == sql.ErrNoRows {
-		return nil, models.ErrFuncsNotFound
+		return nil, models.ErrFnsNotFound
 	} else if err != nil {
 		return nil, err
 	}
 	return &fn, nil
 }
 
-func (ds *SQLStore) RemoveFunc(ctx context.Context, funcName string) error {
+func (ds *SQLStore) RemoveFn(ctx context.Context, funcName string) error {
 	query := ds.db.Rebind(`DELETE FROM funcs WHERE name = ?`)
 	res, err := ds.db.ExecContext(ctx, query, funcName)
 	if err != nil {
@@ -825,7 +830,7 @@ func (ds *SQLStore) RemoveFunc(ctx context.Context, funcName string) error {
 	}
 
 	if n == 0 {
-		return models.ErrFuncsNotFound
+		return models.ErrFnsNotFound
 	}
 
 	return nil
@@ -1012,7 +1017,7 @@ func buildFilterCallQuery(filter *models.CallFilter) (string, []interface{}) {
 	return b.String(), args
 }
 
-func buildFilterFuncQuery(filter *models.FuncFilter) (string, []interface{}) {
+func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}) {
 	if filter == nil {
 		return "", nil
 	}
