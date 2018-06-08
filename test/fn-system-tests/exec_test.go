@@ -78,7 +78,7 @@ func TestCanExecuteFunction(t *testing.T) {
 
 	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
-		t.Errorf("Got unexpected error: %v", err)
+		t.Fatalf("Got unexpected error: %v", err)
 	}
 
 	echo, err := getEchoContent(output.Bytes())
@@ -121,7 +121,7 @@ func TestCanExecuteBigOutput(t *testing.T) {
 
 	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
-		t.Errorf("Got unexpected error: %v", err)
+		t.Fatalf("Got unexpected error: %v", err)
 	}
 
 	t.Logf("getEchoContent/HelloWorld size %d", len(output.Bytes()))
@@ -166,14 +166,14 @@ func TestCanExecuteTooBigOutput(t *testing.T) {
 
 	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
-		t.Errorf("Got unexpected error: %v", err)
+		t.Fatalf("Got unexpected error: %v", err)
 	}
 
 	exp := "{\"error\":{\"message\":\"function response too large\"}}\n"
 	actual := output.String()
 
 	if !strings.Contains(exp, actual) || len(exp) != len(actual) {
-		t.Errorf("Assertion error.\n\tExpected: %v\n\tActual: %v", exp, output.String())
+		t.Fatalf("Assertion error.\n\tExpected: %v\n\tActual: %v", exp, output.String())
 	}
 
 	if resp.StatusCode != http.StatusBadGateway {
@@ -211,13 +211,13 @@ func TestCanExecuteEmptyOutput(t *testing.T) {
 
 	resp, err := apiutils.CallFN(s.Context, u.String(), content, output, "POST", []string{})
 	if err != nil {
-		t.Errorf("Got unexpected error: %v", err)
+		t.Fatalf("Got unexpected error: %v", err)
 	}
 
 	actual := output.String()
 
 	if 0 != len(actual) {
-		t.Errorf("Assertion error.\n\tExpected empty\n\tActual: %v", output.String())
+		t.Fatalf("Assertion error.\n\tExpected empty\n\tActual: %v", output.String())
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -279,7 +279,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	for i := 0; i < concurrentFuncs; i++ {
 		err := <-results
 		if err != nil {
-			t.Errorf("Error in basic concurrency execution test: %v", err)
+			t.Fatalf("Error in basic concurrency execution test: %v", err)
 		}
 	}
 
