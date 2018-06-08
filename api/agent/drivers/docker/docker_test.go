@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/fsouza/go-dockerclient"
 )
 
 type taskDockerTest struct {
