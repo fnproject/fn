@@ -1,20 +1,29 @@
-// +build !ds_sql_off , !db_sql_some db_sql_sqlite
-
 package dbhelper
 
 import (
-	"net/url"
-	"path/filepath"
-	"os"
-	"github.com/jmoiron/sqlx"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"github.com/mattn/go-sqlite3"
+	"github.com/prometheus/common/log"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
 type sqliteDriver int
 
 const theSqliteDriver = sqliteDriver(0)
+
+func (sqliteDriver) Supports(scheme string) bool {
+	log.Debugf("Checking %s", scheme)
+	switch scheme {
+	case "sqlite3":
+	case "sqlite":
+		return true
+	}
+	return false
+}
 
 func (sqliteDriver) PreInit(url *url.URL) (string, error) {
 	// make all the dirs so we can make the file..
@@ -24,20 +33,19 @@ func (sqliteDriver) PreInit(url *url.URL) (string, error) {
 		return "", err
 	}
 
-	return strings.TrimPrefix(url.String(), url.Scheme+"://"),nil
+	return strings.TrimPrefix(url.String(), url.Scheme+"://"), nil
 }
 
 func (sqliteDriver) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
 	db.SetMaxOpenConns(1)
-	return db,nil
+	return db, nil
 
 }
 func (sqliteDriver) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
 	query := tx.Rebind(fmt.Sprintf(`SELECT count(*)
 		FROM sqlite_master
 		WHERE name = '%s'
-		`,table))
-
+		`, table))
 
 	row := tx.QueryRow(query)
 
@@ -51,10 +59,9 @@ func (sqliteDriver) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
 	return exists, nil
 }
 
-
 func (sqliteDriver) IsDuplicateKeyError(err error) bool {
-	sqliteErr,ok  := err.(sqlite3.Error)
-	if ok{
+	sqliteErr, ok := err.(sqlite3.Error)
+	if ok {
 		if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique || sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
 			return true
 		}
@@ -62,7 +69,6 @@ func (sqliteDriver) IsDuplicateKeyError(err error) bool {
 	return false
 }
 
-
 func init() {
-	RegisterSqlDriver("sqlite", theSqliteDriver)
+	Add(theSqliteDriver)
 }

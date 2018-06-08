@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
-	"github.com/fnproject/fn/api/datastore/dbhelper"
 )
 
 var (
@@ -301,15 +301,15 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 }
 
 func Version(ctx context.Context, tx *sqlx.Tx) (version int64, dirty bool, err error) {
-	helper,ok:= dbhelper.GetHelper(tx.DriverName())
+	helper, ok := dbhelper.GetHelper(tx.DriverName())
 	if !ok {
-		return 0,false, fmt.Errorf("no db helper registered for for %s",tx.DriverName())
+		return 0, false, fmt.Errorf("no db helper registered for for %s", tx.DriverName())
 	}
 
-	tableExists,err := helper.CheckTableExists(tx,MigrationsTable)
+	tableExists, err := helper.CheckTableExists(tx, MigrationsTable)
 
-	if err !=nil {
-		return 0,false,err
+	if err != nil {
+		return 0, false, err
 	}
 
 	if !tableExists {

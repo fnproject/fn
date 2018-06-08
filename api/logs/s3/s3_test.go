@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"context"
 	logTesting "github.com/fnproject/fn/api/logs/testing"
 )
 
@@ -20,7 +21,7 @@ func TestS3(t *testing.T) {
 		t.Fatalf("failed to parse url: %v", err)
 	}
 
-	ls, err := New(uLog)
+	ls, err := s3StoreProvider(0).New(context.Background(), uLog)
 	if err != nil {
 		t.Fatalf("failed to create s3 datastore: %v", err)
 	}

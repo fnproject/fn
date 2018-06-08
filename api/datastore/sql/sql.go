@@ -18,8 +18,10 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
+	"github.com/fnproject/fn/api/logs"
 	"github.com/sirupsen/logrus"
-	"github.com/fnproject/fn/api/datastore/dbhelper"
 )
 
 // this aims to be an ANSI-SQL compliant package that uses only question
@@ -97,14 +99,34 @@ var ( // compiler will yell nice things about our upbringing as a child
 )
 
 type SQLStore struct {
-	driver dbhelper.SqlDriver
+	driver dbhelper.SqlHelper
 	db     *sqlx.DB
 }
 
-// New will open the db specified by url, create any tables necessary
-// and return a models.Datastore safe for concurrent usage.
-func New(ctx context.Context, url *url.URL) (*SQLStore, error) {
-	return newDS(ctx, url)
+type sqlDsProvider int
+
+func New(ctx context.Context, u *url.URL) (*SQLStore, error) {
+	return newDS(ctx, u)
+}
+
+func (sqlDsProvider) Supports(u *url.URL) bool {
+	_, ok := dbhelper.GetHelper(u.Scheme)
+	return ok
+}
+
+func (sqlDsProvider) New(ctx context.Context, u *url.URL) (models.Datastore, error) {
+	return newDS(ctx, u)
+}
+
+type sqlLogsProvider int
+
+func (sqlLogsProvider) Supports(u *url.URL) bool {
+	_, ok := dbhelper.GetHelper(u.Scheme)
+	return ok
+}
+
+func (sqlLogsProvider) New(ctx context.Context, u *url.URL) (models.LogStore, error) {
+	return newDS(ctx, u)
 }
 
 // for test methods, return concrete type, but don't expose
@@ -116,10 +138,8 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 
 	sqlDriver, ok := dbhelper.GetHelper(driver)
 
-
 	if !ok {
-
-		return nil, fmt.Errorf("invalid db '%s'  driver, supported drivers are %s", driver, strings.Join(dbhelper.ListHelpers(), ","))
+		return nil, fmt.Errorf("invalid db  driver '%s'", driver)
 	}
 
 	uri, err := sqlDriver.PreInit(url)
@@ -866,4 +886,9 @@ func (ds *SQLStore) GetDatabase() *sqlx.DB {
 // Close closes the database, releasing any open resources.
 func (ds *SQLStore) Close() error {
 	return ds.db.Close()
+}
+
+func init() {
+	datastore.AddProvider(sqlDsProvider(0))
+	logs.AddProvider(sqlLogsProvider(0))
 }

@@ -1,0 +1,56 @@
+package dbhelper
+
+import (
+	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
+	"net/url"
+)
+
+type mysqlHelper int
+
+const MysqlHelper = mysqlHelper(0)
+
+func (mysqlHelper) Supports(scheme string) bool {
+	return scheme == "mysql"
+}
+
+func (mysqlHelper) PreInit(url *url.URL) (string, error) {
+	return url.String(), nil
+}
+
+func (mysqlHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
+	return db, nil
+
+}
+func (mysqlHelper) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
+	query := tx.Rebind(`SELECT count(*)
+	FROM information_schema.TABLES
+	WHERE TABLE_NAME = 'apps'
+`)
+
+	row := tx.QueryRow(query)
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	exists := count > 0
+	return exists, nil
+}
+
+func (mysqlHelper) IsDuplicateKeyError(err error) bool {
+	switch mErr := err.(type) {
+	case *mysql.MySQLError:
+		if mErr.Number == 1062 {
+			return true
+		}
+	}
+	return false
+}
+
+func init() {
+	Add(MysqlHelper)
+}
