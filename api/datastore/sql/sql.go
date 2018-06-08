@@ -96,7 +96,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	config text NOT NULL,
 	annotations text NOT NULL,
 	created_at varchar(256) NOT NULL,
-	updated_at varchar(256) NOT NULL
+	updated_at varchar(256) NOT NULL,
+	CONSTRAINT fk_app_id FOREIGN KEY (app_id) REFERENCES apps(id)
 );`,
 }
 
@@ -105,7 +106,7 @@ const (
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
-	funcSelector      = `SELECT id, name, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM funcs`
+	fnSelector        = `SELECT id, name, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
@@ -686,7 +687,7 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 
 func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=?`, funcSelector))
+		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=?`, fnSelector))
 		row := tx.QueryRowxContext(ctx, query, fn.Name)
 
 		var dst models.Fn
@@ -775,7 +776,7 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 
 	filterQuery, args := buildFilterFnQuery(filter)
 
-	query := fmt.Sprintf("%s %s", funcSelector, filterQuery)
+	query := fmt.Sprintf("%s %s", fnSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)
 	if err != nil {
@@ -804,7 +805,7 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 }
 
 func (ds *SQLStore) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
-	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=?", funcSelector))
+	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=?", fnSelector))
 	row := ds.db.QueryRowxContext(ctx, query, funcName)
 
 	var fn models.Fn
