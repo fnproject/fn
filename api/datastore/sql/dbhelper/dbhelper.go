@@ -10,11 +10,12 @@ import (
 var sqlHelpers []Helper
 
 //Add registers a new SQL helper
-func Add(driver Helper) {
-	logrus.Infof("Registering DB helper %s", driver)
-	sqlHelpers = append(sqlHelpers, driver)
+func Add(helper Helper) {
+	logrus.Infof("Registering DB helper %s", helper)
+	sqlHelpers = append(sqlHelpers, helper)
 }
 
+//Helper provides DB-specific SQL capabilities
 type Helper interface {
 	fmt.Stringer
 	Supports(driverName string) bool
@@ -24,6 +25,7 @@ type Helper interface {
 	IsDuplicateKeyError(err error) bool
 }
 
+//GetHelper returns a helper for a specific driver
 func GetHelper(driverName string) (Helper, bool) {
 	for _, helper := range sqlHelpers {
 		if helper.Supports(driverName) {

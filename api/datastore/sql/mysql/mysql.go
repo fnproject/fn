@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"fmt"
 	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
@@ -23,10 +24,10 @@ func (mysqlHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
 
 }
 func (mysqlHelper) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
-	query := tx.Rebind(`SELECT count(*)
+	query := tx.Rebind(fmt.Sprintf(`SELECT count(*)
 	FROM information_schema.TABLES
-	WHERE TABLE_NAME = 'apps'
-`)
+	WHERE TABLE_NAME = '%s'
+`, table))
 
 	row := tx.QueryRow(query)
 

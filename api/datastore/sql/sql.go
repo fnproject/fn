@@ -105,6 +105,8 @@ type SQLStore struct {
 
 type sqlDsProvider int
 
+// New will open the db specified by url, create any tables necessary
+// and return a models.Datastore safe for concurrent usage.
 func New(ctx context.Context, u *url.URL) (*SQLStore, error) {
 	return newDS(ctx, u)
 }
@@ -138,19 +140,19 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	driver := url.Scheme
 
 	log := common.Logger(ctx)
-	// helper must be one of these for sqlx to work, double check:
-
-	sqlDriver, ok := dbhelper.GetHelper(driver)
+	helper, ok := dbhelper.GetHelper(driver)
 
 	if !ok {
 		return nil, fmt.Errorf("DB helper '%s' is not supported", driver)
 	}
 
-	uri, err := sqlDriver.PreInit(url)
+	uri, err := helper.PreInit(url)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialise db helper %s : %s", driver, err)
 	}
+
+	log.WithFields(logrus.Fields{"url": uri}).Info("Connecting to DB")
 
 	sqldb, err := sql.Open(driver, uri)
 	if err != nil {
@@ -159,6 +161,12 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	}
 
 	db := sqlx.NewDb(sqldb, driver)
+
+	db, err = helper.PostCreate(db)
+	if err != nil {
+		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't initialize db")
+		return nil, err
+	}
 
 	// force a connection and test that it worked
 	err = pingWithRetry(ctx, db)
@@ -171,7 +179,7 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
-	sdb := &SQLStore{db: db, helper: sqlDriver}
+	sdb := &SQLStore{db: db, helper: helper}
 
 	// NOTE: runMigrations happens before we create all the tables, so that it
 	// can detect whether the db did not exist and insert the latest version of
