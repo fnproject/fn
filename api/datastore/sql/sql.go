@@ -59,8 +59,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 );`,
 
 	`CREATE TABLE IF NOT EXISTS apps (
-	id varchar(256),
-	name varchar(256) NOT NULL PRIMARY KEY,
+	id varchar(256) NOT NULL PRIMARY KEY,
+	name varchar(256) NOT NULL UNIQUE,
 	config text NOT NULL,
 	annotations text NOT NULL,
 	syslog_url text,
