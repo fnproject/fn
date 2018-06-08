@@ -22,8 +22,8 @@ cat post.json | fn run -e DB_USER=root -e DB_PASS=pass posts/create
 fn run -e DB_USER=root -e DB_PASS=pass posts
 
 # Set app configs
-fn apps config set blog DB_USER root
-fn apps config set blog DB_PASS pass
+fn config app blog DB_USER root
+fn config app blog DB_PASS pass
 
 # fn deploy it!
 fn deploy --all
