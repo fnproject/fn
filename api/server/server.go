@@ -169,7 +169,11 @@ func NewFromEnv(ctx context.Context, opts ...ServerOption) *Server {
 	opts = append(opts, WithNodeCert(getEnv(EnvCert, "")))
 	opts = append(opts, WithNodeCertKey(getEnv(EnvCertKey, "")))
 	opts = append(opts, WithNodeCertAuthority(getEnv(EnvCertAuth, "")))
-	opts = append(opts, HandleRequestID(common.RequestIDInCtxAndLogger, getEnv(EnvRidHeader, "request-id")))
+	ridProvider := &RIDProvider{
+		HeaderName:   getEnv(EnvRidHeader, "fn-request-id"),
+		RIDGenerator: common.FnRequestID,
+	}
+	opts = append(opts, WithRIDProvider(ridProvider))
 
 	// Agent handling depends on node type and several other options so it must be the last processed option.
 	// Also we only need to create an agent if this is not an API node.

@@ -17,8 +17,9 @@ import (
 )
 
 // DialWithBackoff creates a grpc connection using backoff strategy for reconnections
-func DialWithBackoff(ctx context.Context, address string, creds credentials.TransportCredentials, timeout time.Duration, backoffCfg grpc.BackoffConfig) (*grpc.ClientConn, error) {
-	return dial(ctx, address, creds, timeout, grpc.WithBackoffConfig(backoffCfg))
+func DialWithBackoff(ctx context.Context, address string, creds credentials.TransportCredentials, timeout time.Duration, backoffCfg grpc.BackoffConfig, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	opts = append(opts, grpc.WithBackoffConfig(backoffCfg))
+	return dial(ctx, address, creds, timeout, opts...)
 }
 
 // uses grpc connection backoff protocol https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md

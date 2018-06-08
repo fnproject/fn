@@ -18,6 +18,7 @@ import (
 	"time"
 
 	runner "github.com/fnproject/fn/api/agent/grpc"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/go-openapi/strfmt"
@@ -205,6 +206,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var details string
 	var errCode int
 	var errStr string
+	log := loggerWithRID(ch.ctx)
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
@@ -214,8 +216,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	if ch.c != nil {
 		details = ch.c.Model().ID
 	}
-
-	logrus.Debugf("Sending Call Finish details=%v", details)
+	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
@@ -226,13 +227,13 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		}}})
 
 	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
+		log.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
 		return
 	}
 
 	errTmp = ch.finalize()
 	if errTmp != nil {
-		logrus.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
+		log.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
 	}
 }
 
@@ -552,19 +553,17 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 // Handles a client engagement
 func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) error {
 	grpc.EnableTracing = false
-
+	ctx := engagement.Context()
+	log := loggerWithRID(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
 	atomic.AddInt32(&pr.inflight, 1)
 	defer atomic.AddInt32(&pr.inflight, -1)
 
-	pv, ok := peer.FromContext(engagement.Context())
-	logrus.Debug("Starting engagement")
+	pv, ok := peer.FromContext(ctx)
+
+	log.Debug("Starting engagement")
 	if ok {
-		logrus.Debug("Peer is ", pv)
-	}
-	md, ok := metadata.FromIncomingContext(engagement.Context())
-	if ok {
-		logrus.Debug("MD is ", md)
+		log.Debug("Peer is ", pv)
 	}
 
 	state := NewCallHandle(engagement)
@@ -725,4 +724,16 @@ func createPureRunner(addr string, a Agent, creds credentials.TransportCredentia
 
 	runner.RegisterRunnerProtocolServer(srv, pr)
 	return pr, nil
+}
+
+func loggerWithRID(ctx context.Context) logrus.FieldLogger {
+	log := common.Logger(ctx)
+	//Get the request ID out of the metadata
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		ridKeyToString := string(common.RIDContextKey())
+		rid := md[ridKeyToString][0]
+		log = log.WithFields(logrus.Fields{ridKeyToString: rid})
+	}
+	return log
 }

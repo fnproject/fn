@@ -9,6 +9,16 @@ import (
 
 type contextKey string
 
+//RidKey is the context key to use to store a request ID
+type RidKey string
+
+const ridCtxKey = RidKey("fn_request_id")
+
+//RIDContextKey returns the context key to use for dealing with request IDs
+func RIDContextKey() RidKey {
+	return ridCtxKey
+}
+
 // WithLogger stores the logger.
 func WithLogger(ctx context.Context, l logrus.FieldLogger) context.Context {
 	return context.WithValue(ctx, contextKey("logger"), l)
