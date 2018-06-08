@@ -7,7 +7,7 @@ This is a more detailed explanation of the main commands you'll use in Fn as a d
 An application is essentially a grouping of functions, that put together, form an API. Here's how to create an app.
 
 ```sh
-fn apps create myapp
+fn create app myapp
 ```
 
 Or using a cURL:
@@ -29,7 +29,7 @@ A route is a way to define a path in your application that maps to a function. I
 can use -- yes, you can share functions! The source code for this function is in the [examples directory](/examples/hello/go).
 
 ```sh
-fn routes create myapp /hello -i fnproject/hello
+fn create route myapp /hello -i fnproject/hello
 ```
 
 Or using cURL:
