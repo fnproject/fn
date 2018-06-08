@@ -198,9 +198,13 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 }
 
 func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	if fn.AppID == "" {
+		return nil, models.ErrFnsMissingAppID
+	}
+
 	// update if exists
 	for _, f := range m.Fns {
-		if f.Name == fn.Name {
+		if f.AppID == fn.AppID && f.Name == fn.Name {
 			copy := f.Clone()
 			copy.Update(fn)
 			err := copy.Validate()
@@ -212,6 +216,10 @@ func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 		}
 	}
 
+	_, err := m.GetAppByID(ctx, fn.AppID)
+	if err != nil {
+		return nil, err
+	}
 	// insert otherwise
 	fn.SetDefaults()
 	if err := fn.Validate(); err != nil {

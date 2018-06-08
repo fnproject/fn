@@ -219,7 +219,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	t.Run("routes", func(t *testing.T) {
 		ds := dsf(t)
-		// Insert app again to test fns
+		// Insert app again to test routes
 		testApp, err := ds.InsertApp(ctx, testApp)
 		if err != nil && err != models.ErrAppsAlreadyExists {
 			t.Fatal("Test InsertRoute Prep: failed to insert app: ", err)
@@ -493,24 +493,37 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	t.Run("fns", func(t *testing.T) {
 		ds := dsf(t)
+		testApp, err := ds.InsertApp(ctx, testApp)
+		if err != nil && err != models.ErrAppsAlreadyExists {
+			t.Fatal("Test InsertFn Prep: failed to insert app: ", err)
+		}
 		// Testing insert fn
 		{
-			testApp.SetDefaults()
-			testFn.AppID = testApp.ID
-
 			_, err := ds.PutFn(ctx, nil)
 			if err != models.ErrDatastoreEmptyFn {
 				t.Fatalf("Test PutFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
 			}
 
-			testFn2 := *testFn
-			testFn2.Name = ""
-			_, err = ds.PutFn(ctx, &testFn2)
+			_, err = ds.PutFn(ctx, testFn)
+			if err != models.ErrFnsMissingAppID {
+				t.Fatalf("Test PutFn(empty app ID): expected error `%v`, but it was `%v`", models.ErrFnsMissingAppID, err)
+			}
+
+			newTestFn := testFn.Clone()
+			newTestFn.AppID = "notreal"
+			_, err = ds.PutFn(ctx, newTestFn)
+			if err != models.ErrAppsNotFound {
+				t.Fatalf("Test PutFn(missing app): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+			}
+			newTestFn.AppID = testApp.ID
+			newTestFn.Name = ""
+			_, err = ds.PutFn(ctx, newTestFn)
 			if err != models.ErrDatastoreEmptyFnName {
 				t.Fatalf("Test PutFn(empty func name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 			}
 
 			// assign to make sure that PutFn returns the right thing
+			testFn.AppID = testApp.ID
 			testFn, err = ds.PutFn(ctx, testFn)
 			if err != nil {
 				t.Fatalf("Test PutFn: error when storing perfectly good func: %s", err)
@@ -537,7 +550,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		{
 			// Update some fields, and add 3 configs
 			updated, err := ds.PutFn(ctx, &models.Fn{
-				Name: testFn.Name,
+				Name:  testFn.Name,
+				AppID: testFn.AppID,
 				Config: map[string]string{
 					"FIRST":  "1",
 					"SECOND": "2",
@@ -573,7 +587,8 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 			// Update a config var, remove another. Add one Header, remove another.
 			updated, err = ds.PutFn(ctx, &models.Fn{
-				Name: testFn.Name,
+				Name:  testFn.Name,
+				AppID: testFn.AppID,
 				Config: map[string]string{
 					"FIRST":  "first",
 					"SECOND": "",
