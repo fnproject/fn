@@ -493,8 +493,11 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 	t.Run("fns", func(t *testing.T) {
 		ds := dsf(t)
-		// Testing insert func
+		// Testing insert fn
 		{
+			testApp.SetDefaults()
+			testFn.AppID = testApp.ID
+
 			_, err := ds.PutFn(ctx, nil)
 			if err != models.ErrDatastoreEmptyFn {
 				t.Fatalf("Test PutFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
@@ -542,12 +545,13 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("Test UpdateRoute: unexpected error: %v", err)
+				t.Fatalf("Test UpdateFn: unexpected error: %v", err)
 			}
 			expected := &models.Fn{
 				// unchanged
 				ID:     testFn.ID,
 				Name:   testFn.Name,
+				AppID:  testApp.ID,
 				Image:  "fnproject/fn-test-utils",
 				Format: "http",
 				ResourceConfig: models.ResourceConfig{
@@ -564,7 +568,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				},
 			}
 			if !updated.Equals(expected) {
-				t.Fatalf("Test UpdateRoute: expected updated `%v` but got `%v`", expected, updated)
+				t.Fatalf("Test UpdateFn: expected updated `%v` but got `%v`", expected, updated)
 			}
 
 			// Update a config var, remove another. Add one Header, remove another.
@@ -577,11 +581,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("Test UpdateRoute: unexpected error: %v", err)
+				t.Fatalf("Test UpdateFn: unexpected error: %v", err)
 			}
 			expected = &models.Fn{
 				// unchanged
 				Name:   testFn.Name,
+				AppID:  testApp.ID,
 				Image:  "fnproject/fn-test-utils",
 				Format: "http",
 				ResourceConfig: models.ResourceConfig{
@@ -597,7 +602,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 				},
 			}
 			if !updated.Equals(expected) {
-				t.Fatalf("Test UpdateRoute: expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
+				t.Fatalf("Test UpdateFn: expected updated:\n`%v`\nbut got:\n`%v`", expected, updated)
 			}
 		}
 
@@ -663,7 +668,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		err = ds.RemoveFn(ctx, testFn.Name)
 		if err != nil {
-			t.Fatalf("Test RemoveApp: unexpected error: %v", err)
+			t.Fatalf("Test RemoveFn: unexpected error: %v", err)
 		}
 
 		fn, err := ds.GetFn(ctx, testFn.Name)
