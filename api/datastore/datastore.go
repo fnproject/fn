@@ -32,6 +32,7 @@ func Wrap(ds models.Datastore) models.Datastore {
 }
 
 type Provider interface {
+	fmt.Stringer
 	Supports(url *url.URL) bool
 	New(ctx context.Context, url *url.URL) (models.Datastore, error)
 }
@@ -39,5 +40,6 @@ type Provider interface {
 var providers []Provider
 
 func AddProvider(provider Provider) {
+	logrus.Infof("Adding DataStore provider %s", provider)
 	providers = append(providers, provider)
 }

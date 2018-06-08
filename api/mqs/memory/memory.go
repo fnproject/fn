@@ -1,4 +1,4 @@
-package mqs
+package memory
 
 import (
 	"context"
@@ -9,9 +9,13 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
 	"github.com/google/btree"
 	"github.com/sirupsen/logrus"
+	"net/url"
 )
+
+type memoryProvider int
 
 type MemoryMQ struct {
 	// WorkQueue A buffered channel that we can send work requests on.
@@ -39,7 +43,15 @@ func randSeq(n int) string {
 
 const NumPriorities = 3
 
-func NewMemoryMQ() *MemoryMQ {
+func (memoryProvider) Supports(url *url.URL) bool {
+	switch url.Scheme {
+	case "memory":
+		return true
+	}
+	return false
+}
+
+func (memoryProvider) New(url *url.URL) (models.MessageQueue, error) {
 	var queues []chan *models.Call
 	for i := 0; i < NumPriorities; i++ {
 		queues = append(queues, make(chan *models.Call, 5000))
@@ -53,7 +65,11 @@ func NewMemoryMQ() *MemoryMQ {
 	}
 	mq.start()
 	logrus.Info("MemoryMQ initialized")
-	return mq
+	return mq, nil
+}
+
+func (memoryProvider) String() string {
+	return "memory"
 }
 
 func (mq *MemoryMQ) start() {
@@ -197,4 +213,8 @@ func (mq *MemoryMQ) Delete(ctx context.Context, job *models.Call) error {
 func (mq *MemoryMQ) Close() error {
 	mq.Ticker.Stop()
 	return nil
+}
+
+func init() {
+	mqs.AddProvider(memoryProvider(0))
 }

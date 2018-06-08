@@ -99,7 +99,7 @@ var ( // compiler will yell nice things about our upbringing as a child
 )
 
 type SQLStore struct {
-	driver dbhelper.SqlHelper
+	helper dbhelper.Helper
 	db     *sqlx.DB
 }
 
@@ -118,6 +118,10 @@ func (sqlDsProvider) New(ctx context.Context, u *url.URL) (models.Datastore, err
 	return newDS(ctx, u)
 }
 
+func (sqlDsProvider) String() string {
+	return "sql"
+}
+
 type sqlLogsProvider int
 
 func (sqlLogsProvider) Supports(u *url.URL) bool {
@@ -134,18 +138,18 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	driver := url.Scheme
 
 	log := common.Logger(ctx)
-	// driver must be one of these for sqlx to work, double check:
+	// helper must be one of these for sqlx to work, double check:
 
 	sqlDriver, ok := dbhelper.GetHelper(driver)
 
 	if !ok {
-		return nil, fmt.Errorf("invalid db  driver '%s'", driver)
+		return nil, fmt.Errorf("DB helper '%s' is not supported", driver)
 	}
 
 	uri, err := sqlDriver.PreInit(url)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialise db driver %s : %s", driver, err)
+		return nil, fmt.Errorf("failed to initialise db helper %s : %s", driver, err)
 	}
 
 	sqldb, err := sql.Open(driver, uri)
@@ -167,7 +171,7 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
-	sdb := &SQLStore{db: db, driver: sqlDriver}
+	sdb := &SQLStore{db: db, helper: sqlDriver}
 
 	// NOTE: runMigrations happens before we create all the tables, so that it
 	// can detect whether the db did not exist and insert the latest version of
@@ -239,7 +243,7 @@ func pingWithRetry(ctx context.Context, db *sqlx.DB) (err error) {
 // over all the migrations BUT we must be sure to set the right migration
 // number so that only current migrations are skipped, not any future ones.
 func (ds *SQLStore) runMigrations(ctx context.Context, tx *sqlx.Tx, migrations []migratex.Migration) error {
-	dbExists, err := ds.driver.CheckTableExists(tx, "apps")
+	dbExists, err := ds.helper.CheckTableExists(tx, "apps")
 	if err != nil {
 		return err
 	}
@@ -329,7 +333,7 @@ func (ds *SQLStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 	);`)
 	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
-		if ds.driver.IsDuplicateKeyError(err) {
+		if ds.helper.IsDuplicateKeyError(err) {
 			return nil, models.ErrAppsAlreadyExists
 		}
 		return nil, err

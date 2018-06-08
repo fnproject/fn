@@ -1,6 +1,7 @@
-package dbhelper
+package mysql
 
 import (
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -8,8 +9,6 @@ import (
 )
 
 type mysqlHelper int
-
-const MysqlHelper = mysqlHelper(0)
 
 func (mysqlHelper) Supports(scheme string) bool {
 	return scheme == "mysql"
@@ -41,6 +40,10 @@ func (mysqlHelper) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) {
 	return exists, nil
 }
 
+func (mysqlHelper) String() string {
+	return "mysql"
+}
+
 func (mysqlHelper) IsDuplicateKeyError(err error) bool {
 	switch mErr := err.(type) {
 	case *mysql.MySQLError:
@@ -52,5 +55,5 @@ func (mysqlHelper) IsDuplicateKeyError(err error) bool {
 }
 
 func init() {
-	Add(MysqlHelper)
+	dbhelper.Add(mysqlHelper(0))
 }

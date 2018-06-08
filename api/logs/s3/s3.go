@@ -1,4 +1,4 @@
-// +build !ls_s3_off
+// +build !ls_no_default ls_s3
 
 // Package s3 implements an s3 api compatible log store
 package s3

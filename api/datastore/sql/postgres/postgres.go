@@ -1,6 +1,7 @@
-package dbhelper
+package postgres
 
 import (
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -8,8 +9,6 @@ import (
 )
 
 type postgresHelper int
-
-const PostgresHelper = postgresHelper(0)
 
 func (postgresHelper) Supports(scheme string) bool {
 	switch scheme {
@@ -45,6 +44,10 @@ func (postgresHelper) CheckTableExists(tx *sqlx.Tx, table string) (bool, error) 
 	return exists, nil
 }
 
+func (postgresHelper) String() string {
+	return "postgres"
+}
+
 func (postgresHelper) IsDuplicateKeyError(err error) bool {
 	switch dbErr := err.(type) {
 	case *pq.Error:
@@ -56,6 +59,6 @@ func (postgresHelper) IsDuplicateKeyError(err error) bool {
 }
 
 func init() {
-	Add(PostgresHelper)
+	dbhelper.Add(postgresHelper(0))
 
 }

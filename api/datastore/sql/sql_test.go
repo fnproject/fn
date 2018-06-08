@@ -8,9 +8,11 @@ import (
 
 	"github.com/fnproject/fn/api/datastore/internal/datastoretest"
 	"github.com/fnproject/fn/api/datastore/internal/datastoreutil"
-	_ "github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
+	_ "github.com/fnproject/fn/api/datastore/sql/mysql"
+	_ "github.com/fnproject/fn/api/datastore/sql/postgres"
+	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
 	logstoretest "github.com/fnproject/fn/api/logs/testing"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"

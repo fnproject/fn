@@ -1,4 +1,4 @@
-package mqs
+package redis
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
 	"github.com/garyburd/redigo/redis"
 	"github.com/sirupsen/logrus"
 )
@@ -22,7 +23,21 @@ type RedisMQ struct {
 	prefix    string
 }
 
-func NewRedisMQ(url *url.URL) (*RedisMQ, error) {
+type redisProvider int
+
+func (redisProvider) Supports(url *url.URL) bool {
+	switch url.Scheme {
+	case "redis":
+		return true
+	}
+	return false
+}
+
+func (redisProvider) String() string {
+	return "redis"
+}
+
+func (redisProvider) New(url *url.URL) (models.MessageQueue, error) {
 	pool := &redis.Pool{
 		MaxIdle: 512,
 		// I'm not sure if allowing the pool to block if more than 16 connections are required is a good idea.
@@ -313,4 +328,8 @@ func (mq *RedisMQ) Delete(ctx context.Context, job *models.Call) error {
 func (mq *RedisMQ) Close() error {
 	mq.ticker.Stop()
 	return mq.pool.Close()
+}
+
+func init() {
+	mqs.AddProvider(redisProvider(0))
 }

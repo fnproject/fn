@@ -1,4 +1,4 @@
-package mqs
+package bolt
 
 import (
 	"context"
@@ -14,8 +14,11 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
+	"github.com/fnproject/fn/api/mqs"
 	"github.com/sirupsen/logrus"
 )
+
+type boltProvider int
 
 type BoltDbMQ struct {
 	db     *bolt.DB
@@ -52,7 +55,19 @@ func timeoutName(i int) []byte {
 	return []byte(fmt.Sprintf("functions_%d_timeout", i))
 }
 
-func NewBoltMQ(url *url.URL) (*BoltDbMQ, error) {
+func (boltProvider) Supports(url *url.URL) bool {
+	switch url.Scheme {
+	case "bolt":
+		return true
+	}
+	return false
+}
+
+func (boltProvider) String() string {
+	return "bolt"
+}
+
+func (boltProvider) New(url *url.URL) (models.MessageQueue, error) {
 	dir := filepath.Dir(url.Path)
 	log := logrus.WithFields(logrus.Fields{"mq": url.Scheme, "dir": dir})
 	err := os.MkdirAll(dir, 0755)
@@ -353,4 +368,8 @@ func (mq *BoltDbMQ) Delete(ctx context.Context, job *models.Call) error {
 func (mq *BoltDbMQ) Close() error {
 	mq.ticker.Stop()
 	return mq.db.Close()
+}
+
+func init() {
+	mqs.AddProvider(boltProvider(0))
 }
