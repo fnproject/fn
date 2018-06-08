@@ -131,8 +131,10 @@ func TestFnPut(t *testing.T) {
 func TestFnDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	fns := []*models.Fn{{Name: "myfunc"}}
-	commonDS := datastore.NewMockInit(fns)
+	a := &models.App{Name: "a"}
+	a.SetDefaults()
+	fns := []*models.Fn{{Name: "myfunc", AppID: a.ID}}
+	commonDS := datastore.NewMockInit([]*models.App{a}, fns)
 
 	for i, test := range []struct {
 		ds            models.Datastore
@@ -180,21 +182,27 @@ func TestFnList(t *testing.T) {
 	r2b := id.New().String()
 	r3b := id.New().String()
 
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
 	ds := datastore.NewMockInit(
+		[]*models.App{app},
 		[]*models.Fn{
 			{
 				ID:    r1b,
 				Name:  "myfunc",
+				AppID: app.ID,
 				Image: "fnproject/fn-test-utils",
 			},
 			{
 				ID:    r2b,
 				Name:  "myfunc1",
+				AppID: app.ID,
 				Image: "fnproject/fn-test-utils",
 			},
 			{
 				ID:    r3b,
 				Name:  "myfunc2",
+				AppID: app.ID,
 				Image: "fnproject/yo",
 			},
 		},
@@ -212,12 +220,14 @@ func TestFnList(t *testing.T) {
 		expectedLen   int
 		nextCursor    string
 	}{
-		{"/v1/apps/a/fns", "", http.StatusOK, nil, 3, ""},
-		{"/v1/apps/a/fns?per_page=1", "", http.StatusOK, nil, 1, r1b},
-		{"/v1/apps/a/fns?per_page=1&cursor=" + r1b, "", http.StatusOK, nil, 1, r2b},
-		{"/v1/apps/a/fns?per_page=1&cursor=" + r2b, "", http.StatusOK, nil, 1, r3b},
-		{"/v1/apps/a/fns?per_page=100&cursor=" + r2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
-		{"/v1/apps/a/fns?per_page=1&cursor=" + r3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+		{"/v1/apps//fns", "", http.StatusBadRequest, models.ErrAppsMissingName, 0, ""},
+		{"/v1/apps/a/fns", "", http.StatusNotFound, models.ErrAppsNotFound, 0, ""},
+		{"/v1/apps/myapp/fns", "", http.StatusOK, nil, 3, ""},
+		{"/v1/apps/myapp/fns?per_page=1", "", http.StatusOK, nil, 1, r1b},
+		{"/v1/apps/myapp/fns?per_page=1&cursor=" + r1b, "", http.StatusOK, nil, 1, r2b},
+		{"/v1/apps/myapp/fns?per_page=1&cursor=" + r2b, "", http.StatusOK, nil, 1, r3b},
+		{"/v1/apps/myapp/fns?per_page=100&cursor=" + r2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
+		{"/v1/apps/myapp/fns?per_page=1&cursor=" + r3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -259,12 +269,16 @@ func TestFnGet(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	ds := datastore.NewMockInit([]*models.Fn{
-		{
-			Name:  "myfunc",
-			Image: "fnproject/fn-test-utils",
-		},
-	})
+	app := &models.App{Name: "myapp"}
+	app.SetDefaults()
+	ds := datastore.NewMockInit(
+		[]*models.App{app},
+		[]*models.Fn{
+			{
+				Name:  "myfunc",
+				Image: "fnproject/fn-test-utils",
+			},
+		})
 	fnl := logs.NewMock()
 
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
@@ -275,8 +289,10 @@ func TestFnGet(t *testing.T) {
 		expectedCode  int
 		expectedError error
 	}{
-		{"/v1/apps/a/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
-		{"/v1/apps/a/fns/myfunc", "", http.StatusOK, nil},
+		{"/v1/apps//fns/myfunc", "", http.StatusBadRequest, models.ErrAppsMissingName},
+		{"/v1/apps/a/fns/myfunc", "", http.StatusNotFound, models.ErrAppsNotFound},
+		{"/v1/apps/myapp/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
+		{"/v1/apps/myapp/fns/myfunc", "", http.StatusOK, nil},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
