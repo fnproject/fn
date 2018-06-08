@@ -29,7 +29,7 @@ func (s *Server) handleFnsPut(c *gin.Context) {
 	}
 
 	appName := c.MustGet(api.App).(string)
-	appID, err := s.ensureApp(ctx, appName, method)
+	appID, err := s.datastore.GetAppID(ctx, appName)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
