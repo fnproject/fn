@@ -3,7 +3,6 @@ package memory
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -28,17 +27,6 @@ type MemoryMQ struct {
 	// goroutine to clear up timed out messages could also become a bottleneck at
 	// some point. May need to switch to bucketing of some sort.
 	Mutex sync.Mutex
-}
-
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func randSeq(n int) string {
-	rand.Seed(time.Now().Unix())
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
 }
 
 const NumPriorities = 3

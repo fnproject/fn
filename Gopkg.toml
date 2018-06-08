@@ -19,7 +19,8 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-ignored = ["github.com/fnproject/fn/cli"]
+# we cut out many of the
+ignored = ["github.com/fnproject/fn/cli","github.com/Microsoft/go-winio*","github.com/Azure/go-ansiterm*","github.com/containerd/continuity"]
 
 [[constraint]]
   name = "github.com/boltdb/bolt"
@@ -49,9 +50,6 @@ ignored = ["github.com/fnproject/fn/cli"]
   name = "github.com/sirupsen/logrus"
   revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
 
-[[constraint]]
-  name = "github.com/docker/distribution"
-  revision = "bc3c7b0525e59d3ecfab3e1568350895fd4a462f"
 
 [[constraint]]
   # NOTE: locked for a reason - https://github.com/go-sql-driver/mysql/issues/657
