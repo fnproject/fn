@@ -162,12 +162,6 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 
 	db := sqlx.NewDb(sqldb, driver)
 
-	db, err = helper.PostCreate(db)
-	if err != nil {
-		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't initialize db")
-		return nil, err
-	}
-
 	// force a connection and test that it worked
 	err = pingWithRetry(ctx, db)
 	if err != nil {
@@ -179,6 +173,11 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
+	db, err = helper.PostCreate(db)
+	if err != nil {
+		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't initialize db")
+		return nil, err
+	}
 	sdb := &SQLStore{db: db, helper: helper}
 
 	// NOTE: runMigrations happens before we create all the tables, so that it
