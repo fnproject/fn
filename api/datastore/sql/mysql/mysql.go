@@ -7,6 +7,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"net/url"
+	"strings"
 )
 
 type mysqlHelper int
@@ -16,7 +17,7 @@ func (mysqlHelper) Supports(scheme string) bool {
 }
 
 func (mysqlHelper) PreInit(url *url.URL) (string, error) {
-	return url.String(), nil
+	return strings.TrimPrefix(url.String(), url.Scheme+"://"), nil
 }
 
 func (mysqlHelper) PostCreate(db *sqlx.DB) (*sqlx.DB, error) {
