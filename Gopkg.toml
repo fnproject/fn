@@ -19,8 +19,10 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-# we cut out many of the
-ignored = ["github.com/fnproject/fn/cli","github.com/Microsoft/go-winio*","github.com/Azure/go-ansiterm*","github.com/containerd/continuity"]
+# filter out unused transitive deps
+ignored = ["github.com/fnproject/fn/cli",
+           "github.com/Microsoft/go-winio*",
+           "github.com/Azure/go-ansiterm*"]
 
 [[constraint]]
   name = "github.com/boltdb/bolt"

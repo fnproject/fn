@@ -81,7 +81,7 @@
   branch = "master"
   name = "github.com/containerd/continuity"
   packages = ["pathdriver"]
-  revision = "3e8f2ea4b190484acb976a5b378d373429639a1a"
+  revision = "d3c23511c1bf5851696cba83143d9cbcd666869b"
 
 [[projects]]
   name = "github.com/coreos/go-semver"
@@ -613,6 +613,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9dea19f150ec15f04192e8f55f48411243b1c691cfa192dbe20223ca8e4b61df"
+  inputs-digest = "c988af213ce5e034443bccfd948933a7f8ac9caf98a7c8a4730202dbf32372e7"
   solver-name = "gps-cdcl"
   solver-version = 1
