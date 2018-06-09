@@ -126,6 +126,10 @@ func (sqlDsProvider) String() string {
 
 type sqlLogsProvider int
 
+func (sqlLogsProvider) String() string {
+	return "sql"
+}
+
 func (sqlLogsProvider) Supports(u *url.URL) bool {
 	_, ok := dbhelper.GetHelper(u.Scheme)
 	return ok
@@ -146,7 +150,7 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 		return nil, fmt.Errorf("DB helper '%s' is not supported", driver)
 	}
 
-	uri, err := helper.PreInit(url)
+	uri, err := helper.PreConnect(url)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialise db helper %s : %s", driver, err)

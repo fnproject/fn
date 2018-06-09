@@ -83,6 +83,10 @@ func createStore(bucketName, endpoint, region, accessKeyID, secretAccessKey stri
 	}
 }
 
+func (s3StoreProvider) String() string {
+	return "s3"
+}
+
 func (s3StoreProvider) Supports(u *url.URL) bool {
 	return u.Scheme == "s3"
 }

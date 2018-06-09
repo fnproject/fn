@@ -1,4 +1,4 @@
-// defaultexts are the extensions that are auto-loaded in to the default fn binary
+// defaultexts are the extensions that are auto-loaded in to the default fnserver binary
 // included here as a package to simplify inclusion in testing
 package defaultexts
 

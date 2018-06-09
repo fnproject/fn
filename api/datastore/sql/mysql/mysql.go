@@ -16,7 +16,7 @@ func (mysqlHelper) Supports(scheme string) bool {
 	return scheme == "mysql"
 }
 
-func (mysqlHelper) PreInit(url *url.URL) (string, error) {
+func (mysqlHelper) PreConnect(url *url.URL) (string, error) {
 	return strings.TrimPrefix(url.String(), url.Scheme+"://"), nil
 }
 

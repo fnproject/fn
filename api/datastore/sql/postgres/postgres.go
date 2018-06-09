@@ -18,7 +18,7 @@ func (postgresHelper) Supports(scheme string) bool {
 	return false
 }
 
-func (postgresHelper) PreInit(url *url.URL) (string, error) {
+func (postgresHelper) PreConnect(url *url.URL) (string, error) {
 	return url.String(), nil
 }
 
@@ -60,5 +60,4 @@ func (postgresHelper) IsDuplicateKeyError(err error) bool {
 
 func init() {
 	dbhelper.Add(postgresHelper(0))
-
 }

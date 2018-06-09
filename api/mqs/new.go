@@ -11,14 +11,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Provider for message queue extensions
 type Provider interface {
 	fmt.Stringer
+	//Supports indicates if this provider can handle a specific URL scheme
 	Supports(url *url.URL) bool
+	//New creates a new message queue from a given URL
 	New(url *url.URL) (models.MessageQueue, error)
 }
 
 var mqProviders []Provider
 
+// AddProvider registers a new global message queue provider
 func AddProvider(p Provider) {
 	mqProviders = append(mqProviders, p)
 }

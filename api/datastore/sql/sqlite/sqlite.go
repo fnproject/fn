@@ -21,7 +21,7 @@ func (sqliteHelper) Supports(scheme string) bool {
 	return false
 }
 
-func (sqliteHelper) PreInit(url *url.URL) (string, error) {
+func (sqliteHelper) PreConnect(url *url.URL) (string, error) {
 	// make all the dirs so we can make the file..
 	dir := filepath.Dir(url.Path)
 	err := os.MkdirAll(dir, 0755)

@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// New creates a DataStore from the specified URL
 func New(ctx context.Context, dbURL string) (models.Datastore, error) {
 	log := common.Logger(ctx)
 	u, err := url.Parse(dbURL)
@@ -31,14 +32,18 @@ func Wrap(ds models.Datastore) models.Datastore {
 	return datastoreutil.MetricDS(datastoreutil.NewValidator(ds))
 }
 
+// Provider is a datastore provider
 type Provider interface {
 	fmt.Stringer
+	// Supports indicates if this provider can handle a given data store.
 	Supports(url *url.URL) bool
+	// New creates a new data store from the specified URL
 	New(ctx context.Context, url *url.URL) (models.Datastore, error)
 }
 
 var providers []Provider
 
+// AddProvider globally registers a data store provider
 func AddProvider(provider Provider) {
 	logrus.Infof("Adding DataStore provider %s", provider)
 	providers = append(providers, provider)

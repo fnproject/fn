@@ -15,13 +15,16 @@ import (
 
 // Provider defines a source that can create log stores
 type Provider interface {
+	fmt.Stringer
+	// Supports indicates if this provider can handle a specific URL scheme
 	Supports(url *url.URL) bool
+	//Create a new log store from the corresponding URL
 	New(ctx context.Context, url *url.URL) (models.LogStore, error)
 }
 
 var providers []Provider
 
-// AddProvider registers a new logstore provider
+// AddProvider globally registers a new LogStore provider
 func AddProvider(pf Provider) {
 	logrus.Info("Adding log provider %s", pf)
 	providers = append(providers, pf)
