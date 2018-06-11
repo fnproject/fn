@@ -9,12 +9,15 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 )
 
 type mock struct {
 	Apps   []*models.App
 	Routes []*models.Route
 	Fns    []*models.Fn
+
+	Triggers []*models.Trigger
 
 	models.LogStore
 }
@@ -296,6 +299,102 @@ func (m *mock) RemoveFn(ctx context.Context, appID string, funcName string) erro
 	}
 
 	return models.ErrFnsNotFound
+}
+
+func (m *mock) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	if _, err := m.GetAppByID(ctx, trigger.AppID); err != nil {
+		return nil, err
+	}
+
+	//TODO when fn merged
+	// if _, err := m.GetAppByID(ctx, trigger.AppID); err != nil {
+	// 	return nil, err
+	// }
+
+	if r, _ := m.GetTriggerByID(ctx, trigger.ID); r != nil {
+		// update if exists
+		for _, t := range m.Triggers {
+			if t.ID == t.ID {
+				copy := t.Clone()
+				copy.Update(trigger)
+				err := copy.Validate()
+				if err != nil {
+					return nil, err
+				}
+				*t = *copy
+				return t, nil
+			}
+		}
+
+		return nil, models.ErrTriggerAlreadyExists
+	} else {
+		trigger.SetDefaults()
+		m.Triggers = append(m.Triggers, trigger)
+		return trigger, nil
+	}
+}
+
+func (m *mock) GetTriggerByID(ctx context.Context, triggerId string) (*models.Trigger, error) {
+	if triggerId == "" {
+		return nil, nil
+	}
+	for _, t := range m.Triggers {
+		if t.ID == triggerId {
+			return t, nil
+		}
+	}
+	return nil, models.ErrTriggerNotFound
+}
+
+type sortT []*models.Trigger
+
+func (s sortT) Len() int           { return len(s) }
+func (s sortT) Less(i, j int) bool { return strings.Compare(s[i].ID, s[j].ID) < 0 }
+func (s sortT) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+	sort.Sort(sortT(m.Triggers))
+
+	logrus.Errorf("Mock Trigger count: %d", len(m.Triggers))
+
+	res := []*models.Trigger{}
+	for _, t := range m.Triggers {
+		matched := true
+		if filter.Cursor != "" && t.ID < filter.Cursor {
+			matched = false
+		}
+		if t.AppID != filter.AppID {
+			matched = false
+		}
+		if filter.FnID != "" && filter.FnID != t.FnID {
+			matched = false
+		}
+		if filter.Name != "" && filter.Name != t.Name {
+			matched = false
+		}
+		if filter.Type != 0 && filter.Type != t.Type {
+			matched = false
+		}
+		if filter.Source != "" && filter.Source != t.Source {
+			matched = false
+		}
+
+		if matched {
+			res = append(res, t)
+		}
+	}
+
+	return res, nil
+}
+
+func (m *mock) RemoveTrigger(ctx context.Context, triggerID string) error {
+	for i, t := range m.Triggers {
+		if t.ID == triggerID {
+			m.Triggers = append(m.Triggers[:i], m.Triggers[i+1:]...)
+			return nil
+		}
+	}
+	return models.ErrRoutesNotFound
 }
 
 // GetDatabase returns nil here since shouldn't really be used

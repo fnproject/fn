@@ -29,7 +29,7 @@ type Datastore interface {
 
 	// UpdateApp updates an App's Config. Returns ErrDatastoreEmptyApp when app is nil, and
 	// ErrDatastoreEmptyAppName when app.Name is empty.
-	// nReturns ErrAppsNotFound if an App is not found.
+	// Returns ErrAppsNotFound if an App is not found.
 	UpdateApp(ctx context.Context, app *App) (*App, error)
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
@@ -77,6 +77,22 @@ type Datastore interface {
 	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnName if funcName is empty.
 	// Returns ErrFnsNotFound if a func is not found.
 	RemoveFn(ctx context.Context, appID string, funcName string) error
+
+	// InsertTrigger inserts a trigger. Returns ErrDatastoreEmptyTrigger when trigger is nil, and specific errors for each field
+	// Returns ErrTriggerAlreadyExists if the exact apiID, fnID, source, type combination already exists
+	PutTrigger(ctx context.Context, trigger *Trigger) (*Trigger, error)
+
+	// Removes a Trigger. Returns field specific errors if they are empty.
+	// Returns nil if successful
+	RemoveTrigger(ctx context.Context, triggerID string) error
+
+	// GetTriggerByID gets a trigger by it's id.
+	// Returns ErrTriggerNotFound when no matching trigger is found
+	GetTriggerByID(ctx context.Context, triggerID string) (*Trigger, error)
+
+	// GetTriggers gets a list of triggers that match the specified filter
+	// Return ErrDatastoreEmptyAppId if no AppID set in the filter
+	GetTriggers(ctx context.Context, filter *TriggerFilter) ([]*Trigger, error)
 
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB

@@ -3,15 +3,15 @@ package datastoretest
 import (
 	"bytes"
 	"context"
-	"log"
-	"testing"
-
 	"fmt"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"log"
 	"sync/atomic"
+	"testing"
+	"time"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -28,11 +28,18 @@ type ResourceProvider interface {
 	ValidApp() *models.App
 	ValidFunc(appId string) *models.Fn
 	ValidRoute(appId string) *models.Route
+	ValidTrigger(appId string, fnId string) *models.Trigger
 	DefaultCtx() context.Context
 }
 
 type BasicResourceProvider struct {
 	idCount int32
+}
+
+type DataStoreFunc func(*testing.T) models.Datastore
+
+func NewBasicResourceProvider() ResourceProvider {
+	return &BasicResourceProvider{}
 }
 
 func (brp *BasicResourceProvider) NextID() int32 {
@@ -52,6 +59,23 @@ func (brp *BasicResourceProvider) ValidApp() *models.App {
 	app.SetDefaults()
 
 	return app
+}
+
+// Creates a valid app which always has a sequential named
+func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Trigger {
+
+	trigger := &models.Trigger{
+		ID:     "",
+		Name:   fmt.Sprintf("trigger_%09d", brp.NextID()),
+		AppID:  appId,
+		FnID:   funcId,
+		Type:   models.HTTP,
+		Source: "ASource",
+	}
+
+	trigger.SetDefaults()
+
+	return trigger
 }
 
 // Creates a valid route which always has a sequential named
@@ -131,6 +155,16 @@ func (h *Harness) GivenFuncInDb(validFunc *models.Fn) *models.Fn {
 		return nil
 	}
 	return fn
+
+}
+
+func (h *Harness) GivenTriggerInDb(validTrigger *models.Trigger) *models.Trigger {
+	trigger, err := h.ds.PutTrigger(h.ctx, validTrigger)
+	if err != nil {
+		h.t.Fatalf("Failed to insert trigger %s", err)
+		return nil
+	}
+	return trigger
 
 }
 
@@ -741,7 +775,6 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("RunAllTests PutFn(empty func name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 			}
 		})
-
 		t.Run("Insert function with valid func", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
@@ -981,7 +1014,225 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	})
 }
 
-type DataStoreFunc func(*testing.T) models.Datastore
+func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
+	t.Run("triggers", func(t *testing.T) {
+		ds := dsf(t)
+		ctx := rp.DefaultCtx()
+
+		// 	// Insert Fn again to test Triggers TODO post merge
+		// 	//		testFn, err := ds.InsertApp(ctx, testApp)
+		// 	//	if err != nil && err != models.ErrAppsAlreadyExists {
+		// 	//	t.Fatal("Test PutTrigger Prep: failed to insert app: ", err)
+		// 	//		}
+
+		// Testing insert trigger
+		t.Run("insert empty", func(t *testing.T) {
+
+			_, err := ds.PutTrigger(ctx, nil)
+			if err != models.ErrDatastoreEmptyTrigger {
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyTrigger, err)
+			}
+		})
+
+		t.Run("insert invalid app ID", func(t *testing.T) {
+			newTestTrigger := rp.ValidTrigger("notreal", "fnId")
+			_, err := ds.PutTrigger(ctx, newTestTrigger)
+			if err != models.ErrAppsNotFound {
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+			}
+		})
+
+		t.Run("invalid func ID", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+
+			newTestTrigger := rp.ValidTrigger(testApp.ID, "notReal")
+			_, err := ds.PutTrigger(ctx, newTestTrigger)
+			if err != models.ErrAppsNotFound {
+				t.Fatalf("expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
+			}
+		})
+
+		t.Run("valid func", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
+			gotTrigger, err := ds.PutTrigger(ctx, newTrigger)
+			if err != nil {
+				t.Errorf("Test PutTrigger(insert): error when storing new trigger: %s", err)
+			}
+			if !gotTrigger.Equals(newTrigger) {
+				t.Errorf("Expecting returned trigger %#v to equal %#v", gotTrigger, newTrigger)
+			}
+		})
+
+		t.Run("get trigger invalid ID", func(t *testing.T) {
+			_, err := ds.GetTriggerByID(ctx, "notreal")
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Test GetTriggerByID(notPresentError): was expecting models.ErrTriggerNotFound : %s", err)
+			}
+		})
+
+		t.Run("get existing trigger", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
+			h.GivenTriggerInDb(newTrigger)
+
+			gotTrigger, err := ds.GetTriggerByID(ctx, newTrigger.ID)
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Test GetTriggerByID(notPresentError): was expecting models.ErrTriggerNotFound : %s", err)
+			}
+
+			if !gotTrigger.Equals(newTrigger) {
+				t.Errorf("Expecting returned trigger %#v to equal %#v", gotTrigger, newTrigger)
+			}
+		})
+
+		t.Run("empty filter", func(t *testing.T) {
+			_, err := ds.GetTriggers(ctx, nil)
+			if err != models.ErrDatastoreEmptyTriggerFilter {
+				t.Fatalf("Test GetTriggers (nil filter): expected models.ErrDatastoreEmptyTriggerFilter, but got %s", err)
+			}
+		})
+
+		t.Run("missing app Id", func(t *testing.T) {
+			emptyFilter := &models.TriggerFilter{}
+			_, err := ds.GetTriggers(ctx, emptyFilter)
+			if err != models.ErrDatastoreEmptyAppID {
+				t.Fatalf("Test GetTriggers (empty filter): expected models.ErrDatastoreEmptyAppID, but got %s", err)
+			}
+		})
+
+		t.Run("non-existant app", func(t *testing.T) {
+			nonMatchingFilter := &models.TriggerFilter{AppID: "notexist"}
+			triggers, err := ds.GetTriggers(ctx, nonMatchingFilter)
+			if len(triggers) != 0 && err == nil {
+				t.Fatalf("Test GetTriggers (nonmatching filter): expected empty trigger list and no error, but got list [%v] and err %s", triggers, err)
+			}
+		})
+
+		t.Run("filter triggers", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
+			h.GivenTriggerInDb(newTrigger)
+
+			var storedTriggers []*models.Trigger
+
+			for i := 0; i < 10; i++ {
+				storedTriggers = append(storedTriggers, h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID)))
+			}
+
+			appIDFilter := &models.TriggerFilter{AppID: testApp.ID}
+			triggers, err := ds.GetTriggers(ctx, appIDFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(get all triggers for app), not expecting err %s", err)
+			}
+
+			if len(triggers) != 10 {
+				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 10 results, got %d", len(triggers))
+			}
+
+			for i := 1; i < 10; i++ {
+				if !storedTriggers[i].Equals(triggers[i]) {
+					t.Fatalf("Test GetTrigggers(get all triggers), expecting ordered by names, but aren't: %d, %d", storedTriggers[i].Name, triggers[i].Name)
+
+				}
+			}
+		})
+
+		t.Run("update triggers", func(t *testing.T) {
+
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
+
+			testTrigger.Name = "newName"
+			testTrigger.Source = "newSource"
+
+			time.Sleep(10 * time.Millisecond)
+			gotTrigger, err := ds.PutTrigger(ctx, testTrigger)
+			if err != nil {
+				t.Fatalf("Test PutTrigger(update all): error when updating trigger: %s", err)
+			}
+
+			if !gotTrigger.Equals(testTrigger) {
+				t.Fatalf("expecting returned triggers equal, got  : %v : %v", testTrigger, gotTrigger)
+			}
+
+			gotTrigger, err = ds.GetTriggerByID(ctx, testTrigger.ID)
+			if err != nil {
+				t.Fatalf("Test PutTrigger(update all get): wasn't expecting an error : %s", err)
+			}
+			if !gotTrigger.Equals(testTrigger) {
+				t.Fatalf("expecting fetch trigger tot be updated got  : %v : %v", testTrigger, gotTrigger)
+			}
+
+			if testTrigger.CreatedAt != gotTrigger.CreatedAt {
+				t.Fatalf("create timestamps should match : %v : %v", testTrigger, gotTrigger)
+			}
+
+			if testTrigger.UpdatedAt == gotTrigger.UpdatedAt {
+				t.Fatalf("update timestamps shouldn't match : %v : %v", testTrigger, gotTrigger)
+			}
+
+		})
+
+		t.Run("remove non-existant", func(t *testing.T) {
+			err := ds.RemoveTrigger(ctx, "nonexistant")
+
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Expecting trigger not found , got %v ", err)
+			}
+		})
+
+		t.Run("Remove existing", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
+			err := ds.RemoveTrigger(ctx, testTrigger.ID)
+
+			if err != nil {
+				t.Fatalf("expecting no error, got %s", err)
+			}
+
+			_, err = ds.GetTriggerByID(ctx, testTrigger.ID)
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Test RemoveTrigger(remove trigger): was expecting ErrTRiggerNotFound : %s", err)
+			}
+		})
+
+		t.Run("Remove function should remove triggers", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
+			err := ds.RemoveFn(ctx, testApp.ID, testFn.Name)
+			if err != nil {
+				t.Fatalf("expecting no error, got %s", err)
+			}
+
+			_, err = ds.GetTriggerByID(ctx, testTrigger.ID)
+			if err != models.ErrTriggerNotFound {
+				t.Fatalf("Test RemoveTrigger(remove trigger): was expecting ErrTRiggerNotFound : %s", err)
+			}
+		})
+
+	})
+}
 
 func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	buf := setLogBuffer()
@@ -994,9 +1245,6 @@ func RunAllTests(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	RunAppsTest(t, dsf, rp)
 	RunRoutesTest(t, dsf, rp)
 	RunFnsTest(t, dsf, rp)
+	RunTriggersTest(t, dsf, rp)
 
-}
-
-func NewBasicResourceProvider() ResourceProvider {
-	return &BasicResourceProvider{}
 }

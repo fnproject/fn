@@ -83,6 +83,30 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	return m.ds.RemoveRoute(ctx, appID, routePath)
 }
 
+func (m *metricds) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_insert_trigger")
+	defer span.End()
+	return m.ds.PutTrigger(ctx, trigger)
+}
+
+func (m *metricds) RemoveTrigger(ctx context.Context, triggerID string) error {
+	ctx, span := trace.StartSpan(ctx, "ds_remove_trigger")
+	defer span.End()
+	return m.ds.RemoveTrigger(ctx, triggerID)
+}
+
+func (m *metricds) GetTriggerByID(ctx context.Context, triggerID string) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_trigger_by_id")
+	defer span.End()
+	return m.ds.GetTriggerByID(ctx, triggerID)
+}
+
+func (m *metricds) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_triggers")
+	defer span.End()
+	return m.ds.GetTriggers(ctx, filter)
+}
+
 func (m *metricds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_put_func")
 	defer span.End()

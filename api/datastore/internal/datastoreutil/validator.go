@@ -132,6 +132,33 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
+func (v *validator) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	if trigger == nil {
+		return nil, models.ErrDatastoreEmptyTrigger
+	}
+	return v.Datastore.PutTrigger(ctx, trigger)
+}
+
+func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
+
+	if filter == nil {
+		return nil, models.ErrDatastoreEmptyTriggerFilter
+	}
+
+	if filter.AppID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
+
+	return v.Datastore.GetTriggers(ctx, filter)
+}
+func (v *validator) RemoveTrigger(ctx context.Context, triggerID string) error {
+	if triggerID == "" {
+		return models.ErrTriggerMissingID
+	}
+
+	return v.Datastore.RemoveTrigger(ctx, triggerID)
+}
+
 func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	if fn == nil {
 		return nil, models.ErrDatastoreEmptyFn
