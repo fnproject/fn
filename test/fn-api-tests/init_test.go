@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api/server"
+	_ "github.com/fnproject/fn/api/server/defaultexts"
 )
 
 func stopServer(done chan struct{}, stop func()) {

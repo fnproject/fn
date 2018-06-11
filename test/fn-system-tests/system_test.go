@@ -9,6 +9,7 @@ import (
 	"github.com/fnproject/fn/api/agent/hybrid"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
+	_ "github.com/fnproject/fn/api/server/defaultexts"
 
 	"github.com/sirupsen/logrus"
 
