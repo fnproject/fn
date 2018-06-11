@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
@@ -48,6 +49,8 @@ type store struct {
 	downloader *s3manager.Downloader
 	bucket     string
 }
+
+type s3StoreProvider int
 
 // decorator around the Reader interface that keeps track of the number of bytes read
 // in order to avoid double buffering and track Reader size
@@ -80,10 +83,18 @@ func createStore(bucketName, endpoint, region, accessKeyID, secretAccessKey stri
 	}
 }
 
+func (s3StoreProvider) String() string {
+	return "s3"
+}
+
+func (s3StoreProvider) Supports(u *url.URL) bool {
+	return u.Scheme == "s3"
+}
+
 // New returns an s3 api compatible log store.
 // url format: s3://access_key_id:secret_access_key@host/region/bucket_name?ssl=true
 // Note that access_key_id and secret_access_key must be URL encoded if they contain unsafe characters!
-func New(u *url.URL) (models.LogStore, error) {
+func (s3StoreProvider) New(ctx context.Context, u *url.URL) (models.LogStore, error) {
 	endpoint := u.Host
 
 	var accessKeyID, secretAccessKey string
@@ -455,4 +466,8 @@ func makeKeys(names []string) []tag.Key {
 		tagKeys[i] = key
 	}
 	return tagKeys
+}
+
+func init() {
+	logs.AddProvider(s3StoreProvider(0))
 }

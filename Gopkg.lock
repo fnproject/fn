@@ -9,21 +9,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/Azure/go-ansiterm"
-  packages = [
-    ".",
-    "winterm"
-  ]
-  revision = "d6e3b3328b783f23731bc4d058875b0371ff8109"
-
-[[projects]]
-  name = "github.com/Microsoft/go-winio"
-  packages = ["."]
-  revision = "7da180ee92d8bd8bb8c37fc560e673e6557c392f"
-  version = "v0.4.7"
-
-[[projects]]
-  branch = "master"
   name = "github.com/Nvveen/Gotty"
   packages = ["."]
   revision = "cd527374f1e5bff4938207604a14f2e38a9cf512"
@@ -96,7 +81,7 @@
   branch = "master"
   name = "github.com/containerd/continuity"
   packages = ["pathdriver"]
-  revision = "3e8f2ea4b190484acb976a5b378d373429639a1a"
+  revision = "d3c23511c1bf5851696cba83143d9cbcd666869b"
 
 [[projects]]
   name = "github.com/coreos/go-semver"
@@ -109,26 +94,6 @@
   packages = ["."]
   revision = "4ebf1de738443ea7f45f02dc394c4df1942a126d"
   version = "v1.1.0"
-
-[[projects]]
-  name = "github.com/docker/distribution"
-  packages = [
-    ".",
-    "digestset",
-    "manifest",
-    "manifest/schema1",
-    "manifest/schema2",
-    "reference",
-    "registry/api/errcode",
-    "registry/api/v2",
-    "registry/client",
-    "registry/client/auth",
-    "registry/client/auth/challenge",
-    "registry/client/transport",
-    "registry/storage/cache",
-    "registry/storage/cache/memory"
-  ]
-  revision = "bc3c7b0525e59d3ecfab3e1568350895fd4a462f"
 
 [[projects]]
   branch = "master"
@@ -173,12 +138,6 @@
   packages = ["."]
   revision = "0dadbb0345b35ec7ef35e228dabb8de89a65bf52"
   version = "v0.3.2"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/docker/libtrust"
-  packages = ["."]
-  revision = "aabc10ec26b754e797f9028f4589c5b7bd90dc20"
 
 [[projects]]
   branch = "master"
@@ -344,18 +303,6 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
-  name = "github.com/gorilla/context"
-  packages = ["."]
-  revision = "1ea25387ff6f684839d82767c1733ff4d4d15d0a"
-  version = "v1.1"
-
-[[projects]]
-  name = "github.com/gorilla/mux"
-  packages = ["."]
-  revision = "53c1911da2b537f792e7cafcb446b05ffe33b996"
-  version = "v1.6.1"
-
-[[projects]]
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   revision = "0b12d6b5"
@@ -376,7 +323,7 @@
     ".",
     "oid"
   ]
-  revision = "614cb7963ff8ee90114d039a0f92dcd6a79292f9"
+  revision = "90697d60dd844d5ef6ff15135d0203f65d2f53b8"
 
 [[projects]]
   branch = "master"
@@ -666,6 +613,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5ff01d4a02d97ec5447f99d45f47e593bb94c4581f07baefad209f25d0b88785"
+  inputs-digest = "c988af213ce5e034443bccfd948933a7f8ac9caf98a7c8a4730202dbf32372e7"
   solver-name = "gps-cdcl"
   solver-version = 1

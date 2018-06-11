@@ -11,6 +11,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Provider for message queue extensions
+type Provider interface {
+	fmt.Stringer
+	//Supports indicates if this provider can handle a specific URL scheme
+	Supports(url *url.URL) bool
+	//New creates a new message queue from a given URL
+	New(url *url.URL) (models.MessageQueue, error)
+}
+
+var mqProviders []Provider
+
+// AddProvider registers a new global message queue provider
+func AddProvider(p Provider) {
+	mqProviders = append(mqProviders, p)
+}
+
 // New will parse the URL and return the correct MQ implementation.
 func New(mqURL string) (models.MessageQueue, error) {
 	mq, err := newmq(mqURL)
@@ -27,15 +43,11 @@ func newmq(mqURL string) (models.MessageQueue, error) {
 		logrus.WithError(err).WithFields(logrus.Fields{"url": mqURL}).Fatal("bad MQ URL")
 	}
 	logrus.WithFields(logrus.Fields{"mq": u.Scheme}).Debug("selecting MQ")
-	switch u.Scheme {
-	case "memory":
-		return NewMemoryMQ(), nil
-	case "redis":
-		return NewRedisMQ(u)
-	case "bolt":
-		return NewBoltMQ(u)
+	for _, p := range mqProviders {
+		if p.Supports(u) {
+			return p.New(u)
+		}
 	}
-
 	return nil, fmt.Errorf("mq type not supported %v", u.Scheme)
 }
 
