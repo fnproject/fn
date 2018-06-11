@@ -81,3 +81,7 @@ ignored = ["github.com/fnproject/fn/cli"]
 [[constraint]]
   name = "github.com/dchest/siphash"
   version = "1.1.0"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/net"

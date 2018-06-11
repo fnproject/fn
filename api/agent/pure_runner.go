@@ -19,15 +19,16 @@ import (
 
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
+
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
+	"github.com/fnproject/fn/grpcutil"
 	"github.com/go-openapi/strfmt"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
@@ -206,7 +207,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var details string
 	var errCode int
 	var errStr string
-	log := loggerWithRID(ch.ctx)
+	log := common.Logger(ch.ctx)
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
@@ -554,7 +555,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) error {
 	grpc.EnableTracing = false
 	ctx := engagement.Context()
-	log := loggerWithRID(ctx)
+	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
 	atomic.AddInt32(&pr.inflight, 1)
 	defer atomic.AddInt32(&pr.inflight, -1)
@@ -710,11 +711,16 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 
 func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
 	var srv *grpc.Server
+	var opts []grpc.ServerOption
+
+	sInterceptor := grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor)
+	uInterceptor := grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor)
+	opts = append(opts, sInterceptor)
+	opts = append(opts, uInterceptor)
 	if creds != nil {
-		srv = grpc.NewServer(grpc.Creds(creds))
-	} else {
-		srv = grpc.NewServer()
+		opts = append(opts, grpc.Creds(creds))
 	}
+	srv = grpc.NewServer(opts...)
 
 	pr := &pureRunner{
 		gRPCServer: srv,
@@ -724,16 +730,4 @@ func createPureRunner(addr string, a Agent, creds credentials.TransportCredentia
 
 	runner.RegisterRunnerProtocolServer(srv, pr)
 	return pr, nil
-}
-
-func loggerWithRID(ctx context.Context) logrus.FieldLogger {
-	log := common.Logger(ctx)
-	//Get the request ID out of the metadata
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		ridKeyToString := string(common.RIDContextKey())
-		rid := md[ridKeyToString][0]
-		log = log.WithFields(logrus.Fields{ridKeyToString: rid})
-	}
-	return log
 }
