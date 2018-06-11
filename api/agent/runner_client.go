@@ -102,9 +102,9 @@ func isTooBusy(err error) bool {
 }
 
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
-	// We get the common logger so we can log the request-id if present
-	log := common.Logger(ctx)
-	log.WithField("runner_addr", r.address).Debug("Attempting to place call")
+	log := common.Logger(ctx).WithField("runner_addr", r.address)
+
+	log.Debug("Attempting to place call")
 	if !r.shutWg.AddSession(1) {
 		// try another runner if this one is closed.
 		return false, ErrorRunnerClosed
@@ -143,8 +143,8 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 
 	recvDone := make(chan error, 1)
 
-	go receiveFromRunner(runnerConnection, call, recvDone, log)
-	go sendToRunner(runnerConnection, call, log)
+	go receiveFromRunner(ctx, runnerConnection, call, recvDone)
+	go sendToRunner(ctx, runnerConnection, call)
 
 	select {
 	case <-ctx.Done():
@@ -159,7 +159,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	}
 }
 
-func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall, log logrus.FieldLogger) {
+func sendToRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, call pool.RunnerCall) {
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
 
@@ -225,7 +225,7 @@ func tryQueueError(err error, done chan error) {
 	}
 }
 
-func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error, log logrus.FieldLogger) {
+func receiveFromRunner(ctx context.Context, protocolClient pb.RunnerProtocol_EngageClient, c pool.RunnerCall, done chan error) {
 	w := c.ResponseWriter()
 	defer close(done)
 
