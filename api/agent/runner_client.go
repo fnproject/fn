@@ -163,6 +163,7 @@ func sendToRunner(protocolClient pb.RunnerProtocol_EngageClient, call pool.Runne
 	bodyReader := call.RequestBody()
 	writeBuffer := make([]byte, MaxDataChunk)
 
+	log := common.Logger(ctx)
 	// IMPORTANT: IO Read below can fail in multiple go-routine cases (in retry
 	// case especially if receiveFromRunner go-routine receives a NACK while sendToRunner is
 	// already blocked on a read) or in the case of reading the http body multiple times (retries.)
@@ -228,6 +229,7 @@ func receiveFromRunner(protocolClient pb.RunnerProtocol_EngageClient, c pool.Run
 	w := c.ResponseWriter()
 	defer close(done)
 
+	log := common.Logger(ctx)
 	isPartialWrite := false
 
 DataLoop:

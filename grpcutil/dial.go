@@ -10,10 +10,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/fnproject/fn/api/common"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -27,23 +26,24 @@ func DialWithBackoff(ctx context.Context, address string, creds credentials.Tran
 
 // uses grpc connection backoff protocol https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md
 func dial(ctx context.Context, address string, creds credentials.TransportCredentials, timeoutDialer time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-
 	dialer := func(address string, timeout time.Duration) (net.Conn, error) {
+		log := common.Logger(ctx).WithField("grpc_addr", address)
+
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		conn, err := (&net.Dialer{Cancel: ctx.Done(), Timeout: timeoutDialer}).Dial("tcp", address)
 		if err != nil {
-			logrus.WithError(err).WithField("grpc_addr", address).Warn("Failed to dial grpc connection")
+			log.WithError(err).Warn("Failed to dial grpc connection")
 			return nil, err
 		}
 		if creds == nil {
-			logrus.WithField("grpc_addr", address).Warn("Created insecure grpc connection")
+			log.Warn("Created insecure grpc connection")
 			return conn, nil
 		}
 
 		conn, _, err = creds.ClientHandshake(ctx, address, conn)
 		if err != nil {
-			logrus.WithError(err).WithField("grpc_addr", address).Warn("Failed grpc TLS handshake")
+			log.Warn("Failed grpc TLS handshake")
 			return nil, err
 		}
 		return conn, nil

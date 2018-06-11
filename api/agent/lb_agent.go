@@ -140,18 +140,6 @@ func (a *lbAgent) Close() error {
 	return err
 }
 
-func GetGroupID(call *models.Call) string {
-	// TODO until fn supports metadata, allow LB Group ID to
-	// be overridden via configuration.
-	// Note that employing this mechanism will expose the value of the
-	// LB Group ID to the function as an environment variable!
-	lbgID := call.Config["FN_LB_GROUP_ID"]
-	if lbgID == "" {
-		return "default"
-	}
-	return lbgID
-}
-
 func (a *lbAgent) Submit(callI Call) error {
 	if !a.shutWg.AddSession(1) {
 		return models.ErrCallTimeoutServerBusy
@@ -181,8 +169,9 @@ func (a *lbAgent) Submit(callI Call) error {
 	if buf != nil {
 		defer bufPool.Put(buf)
 	}
+
 	if err != nil {
-		logrus.WithError(err).Error("Failed to process call body")
+		common.Logger(call.req.Context()).WithError(err).Error("Failed to process call body")
 		return a.handleCallEnd(ctx, call, err, true)
 	}
 
@@ -192,7 +181,7 @@ func (a *lbAgent) Submit(callI Call) error {
 	// isStarted=true means we will call Call.End().
 	err = a.placer.PlaceCall(a.rp, ctx, call)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to place call")
+		common.Logger(call.req.Context()).WithError(err).Error("Failed to place call")
 	}
 
 	return a.handleCallEnd(ctx, call, err, true)

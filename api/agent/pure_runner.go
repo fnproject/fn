@@ -19,7 +19,6 @@ import (
 
 	runner "github.com/fnproject/fn/api/agent/grpc"
 	"github.com/fnproject/fn/api/common"
-
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fnproject/fn/grpcutil"
@@ -145,7 +144,7 @@ func (ch *callHandle) shutdown(err error) {
 	ch.closePipeToFn()
 
 	ch.shutOnce.Do(func() {
-		logrus.WithError(err).Debugf("Shutting down call handle")
+		common.Logger(ch.ctx).WithError(err).Debugf("Shutting down call handle")
 
 		// try to queue an error message if it's not already queued.
 		if err != nil {
@@ -562,7 +561,6 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	defer atomic.AddInt32(&pr.inflight, -1)
 
 	pv, ok := peer.FromContext(ctx)
-
 	log.Debug("Starting engagement")
 	if ok {
 		log.Debug("Peer is ", pv)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/fnproject/fn/api/models"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,10 +27,11 @@ func NewNaivePlacer() Placer {
 
 func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call RunnerCall) error {
 
+	log := common.Logger(ctx)
 	for {
 		runners, err := rp.Runners(call)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to find runners for call")
+			log.WithError(err).Error("Failed to find runners for call")
 		} else {
 			for j := 0; j < len(runners); j++ {
 
@@ -47,7 +49,7 @@ func (sp *naivePlacer) PlaceCall(rp RunnerPool, ctx context.Context, call Runner
 				tryCancel()
 
 				if err != nil && err != models.ErrCallTimeoutServerBusy {
-					logrus.WithError(err).Error("Failed during call placement")
+					log.WithError(err).Error("Failed during call placement")
 				}
 				if placed {
 					return err

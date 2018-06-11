@@ -246,7 +246,7 @@ func getEnvInt(key string, fallback int) int {
 func whoAmI() net.IP {
 	ints, _ := net.Interfaces()
 	for _, i := range ints {
-		if i.Name == "docker0" || i.Name == "lo" {
+		if i.Name == "docker0" || i.Name == "vboxnet0" || i.Name == "lo" {
 			// not perfect
 			continue
 		}
