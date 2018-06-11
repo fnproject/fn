@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
@@ -566,7 +567,10 @@ func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) erro
 	if ok {
 		log.Debug("Peer is ", pv)
 	}
-
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		log.Debug("MD is ", md)
+	}
 	state := NewCallHandle(engagement)
 
 	tryMsg := state.getTryMsg()
