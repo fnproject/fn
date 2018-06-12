@@ -16,6 +16,7 @@ type Placer interface {
 
 // RunnerPool is the abstraction for getting an ordered list of runners to try for a call
 type RunnerPool interface {
+	// returns an error for unrecoverable errors that should not be retried
 	Runners(call RunnerCall) ([]Runner, error)
 	Shutdown(ctx context.Context) error
 }
