@@ -16,6 +16,6 @@ func FnRequestID(ridFound string) string {
 
 //RequestIDFromContext extract the request id from the context
 func RequestIDFromContext(ctx context.Context) string {
-	rid, _ := ctx.Value(RequestIDContextKey).(string)
+	rid, _ := ctx.Value(contextKey(RequestIDContextKey)).(string)
 	return rid
 }
