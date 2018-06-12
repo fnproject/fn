@@ -20,7 +20,6 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 )
 
@@ -1112,7 +1111,7 @@ func (c *container) TmpFsSize() uint64              { return c.tmpFsSize }
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 	for key, value := range stat.Metrics {
-		if m, ok := measures[key]; ok {
+		if m, ok := dockerMeasures[key]; ok {
 			stats.Record(ctx, m.M(int64(value)))
 		}
 	}
@@ -1122,22 +1121,6 @@ func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {
 		*(c.stats) = append(*(c.stats), stat)
 	}
 	c.swapMu.Unlock()
-}
-
-var measures map[string]*stats.Int64Measure
-
-func init() {
-	// TODO this is nasty figure out how to use opencensus to not have to declare these
-	keys := []string{"net_rx", "net_tx", "mem_limit", "mem_usage", "disk_read", "disk_write", "cpu_user", "cpu_total", "cpu_kernel"}
-
-	measures = make(map[string]*stats.Int64Measure)
-	for _, key := range keys {
-		units := "bytes"
-		if strings.Contains(key, "cpu") {
-			units = "cpu"
-		}
-		measures[key] = makeMeasure("docker_stats_"+key, "docker container stats for "+key, units, view.Distribution())
-	}
 }
 
 //func (c *container) DockerAuth() (docker.AuthConfiguration, error) {
