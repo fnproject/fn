@@ -100,7 +100,7 @@ OutTries:
 
 	// Cancel Exit Path / Client cancelled/timedout
 	stats.Record(ctx, cancelCountMeasure.M(0))
-	tracker.finalizeAttempts(true)
+	tracker.finalizeAttempts(false)
 	return models.ErrCallTimeoutServerBusy
 }
 
