@@ -9,14 +9,12 @@ import (
 
 type contextKey string
 
-//RidKey is the context key to use to store a request ID
-type RidKey string
+// RequestIDContextKey is the name of the key used to store the request ID into the context
+const RequestIDContextKey = "fn_request_id"
 
-const ridCtxKey = RidKey("fn_request_id")
-
-//RIDContextKey returns the context key to use for dealing with request IDs
-func RIDContextKey() RidKey {
-	return ridCtxKey
+//WithRequestID stores a request ID into the context
+func WithRequestID(ctx context.Context, rid string) context.Context {
+	return context.WithValue(ctx, contextKey(RequestIDContextKey), rid)
 }
 
 // WithLogger stores the logger.

@@ -118,9 +118,13 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		// If we can't encode the model, no runner will ever be able to run this. Give up.
 		return true, err
 	}
-	// Adding the request-Id to the gRPC metadata
-	mp := metadata.Pairs(string(common.RIDContextKey()), common.IncomingRID(ctx))
-	ctx = metadata.NewOutgoingContext(ctx, mp)
+
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		// Create a new gRPC metadata where we store the request ID
+		mp := metadata.Pairs(common.RequestIDContextKey, rid)
+		ctx = metadata.NewOutgoingContext(ctx, mp)
+	}
 	runnerConnection, err := r.client.Engage(ctx)
 	if err != nil {
 		log.WithError(err).Error("Unable to create client to runner node")

@@ -158,7 +158,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
 	ridProvider := &server.RIDProvider{
-		HeaderName:   "fn-request-id",
+		HeaderName:   "fn_request_id",
 		RIDGenerator: common.FnRequestID,
 	}
 	opts = append(opts, server.WithRIDProvider(ridProvider))

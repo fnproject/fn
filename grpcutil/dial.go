@@ -88,24 +88,28 @@ func CreateCredentials(certPath, keyPath, caCertPath, certCommonName string) (cr
 
 // RIDStreamServerInterceptor is a gRPC stream interceptor which gets the request ID out of the context and put a logger with request ID logged into the common logger in the context
 func RIDStreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	ctx := stream.Context()
 	newStream := grpc_middleware.WrapServerStream(stream)
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		ridKeyToString := string(common.RIDContextKey())
-		rid := md[ridKeyToString][0]
-		newStream.WrappedContext, _ = common.LoggerWithFields(newStream.WrappedContext, logrus.Fields{ridKeyToString: rid})
+	rid := ridFromMetadata(stream.Context())
+	if rid != "" {
+		newStream.WrappedContext, _ = common.LoggerWithFields(newStream.WrappedContext, logrus.Fields{common.RequestIDContextKey: rid})
 	}
 	return handler(srv, newStream)
 }
 
 // RIDUnaryServerInterceptor is an unary gRPC interceptor which gets the request ID out of the context and put a logger with request ID logged into the common logger in the context
 func RIDUnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		ridKeyToString := string(common.RIDContextKey())
-		rid := md[ridKeyToString][0]
-		ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{ridKeyToString: rid})
+	rid := ridFromMetadata(ctx)
+	if rid != "" {
+		ctx, _ = common.LoggerWithFields(ctx, logrus.Fields{common.RequestIDContextKey: rid})
 	}
 	return handler(ctx, req)
+}
+
+func ridFromMetadata(ctx context.Context) string {
+	rid := ""
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok && len(md[common.RequestIDContextKey]) > 0 {
+		rid = md[common.RequestIDContextKey][0]
+	}
+	return rid
 }

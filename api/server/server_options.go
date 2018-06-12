@@ -28,9 +28,9 @@ func WithRIDProvider(ridProvider *RIDProvider) ServerOption {
 func withRIDProvider(ridp *RIDProvider) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		rid := ridp.RIDGenerator(c.Request.Header.Get(ridp.HeaderName))
-		ctx := context.WithValue(c.Request.Context(), common.RIDContextKey(), rid)
+		ctx := common.WithRequestID(c.Request.Context(), rid)
 		// We set the rid in the common logger so it is always logged when the common logger is used
-		l := common.Logger(ctx).WithFields(logrus.Fields{string(common.RIDContextKey()): rid})
+		l := common.Logger(ctx).WithFields(logrus.Fields{common.RequestIDContextKey: rid})
 		ctx = common.WithLogger(ctx, l)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
