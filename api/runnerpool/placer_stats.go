@@ -1,6 +1,10 @@
 package runnerpool
 
 import (
+	"context"
+	"math"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -8,7 +12,7 @@ import (
 )
 
 var (
-	fullScanCountMeasure     = stats.Int64("lb_placer_fullscan_count", "LB Placer Full RunnerList Scan Count", "")
+	attemptCountMeasure      = stats.Int64("lb_placer_attempt_count", "LB Placer Number of Runners Attempted Count", "")
 	errorPoolCountMeasure    = stats.Int64("lb_placer_rp_error_count", "LB Placer RunnerPool RunnerList Error Count", "")
 	emptyPoolCountMeasure    = stats.Int64("lb_placer_rp_empty_count", "LB Placer RunnerPool RunnerList Empty Count", "")
 	cancelCountMeasure       = stats.Int64("lb_placer_client_cancelled_count", "LB Placer Client Cancel Count", "")
@@ -18,6 +22,46 @@ var (
 	retryErrorCountMeasure   = stats.Int64("lb_placer_retry_error_count", "LB Placer Retry Count - Errors", "")
 	placerLatencyMeasure     = stats.Int64("lb_placer_latency", "LB Placer Latency", "msecs")
 )
+
+// Helper struct for tracking LB Placer latency and attempt counts
+type attemptTracker struct {
+	ctx             context.Context
+	startTime       time.Time
+	lastAttemptTime time.Time
+	attemptCount    int64
+}
+
+func newAttemptTracker(ctx context.Context) *attemptTracker {
+	return &attemptTracker{
+		ctx:       ctx,
+		startTime: time.Now(),
+	}
+}
+
+func (data *attemptTracker) finalizeAttempts(isSuccess bool) {
+	stats.Record(data.ctx, attemptCountMeasure.M(data.attemptCount))
+
+	// IMPORTANT: here we use (lastAttemptTime - startTime). We want to exclude TryExec
+	// latency *if* TryExec() goes through with success. Placer latency metric only shows
+	// how much time are spending in Placer loop/retries. The metric includes rtt/latency of
+	// *all* unsuccessful NACK (retriable) responses from runners as well. For example, if
+	// Placer loop here retries 4 runners (which takes 5 msecs each) and then 5th runner
+	// succeeds (but takes 35 seconds to finish execution), we report 20 msecs as our LB
+	// latency.
+	endTime := data.lastAttemptTime
+	if !isSuccess {
+		endTime = time.Now()
+	}
+
+	stats.Record(data.ctx, placerLatencyMeasure.M(int64(endTime.Sub(data.startTime)/time.Millisecond)))
+}
+
+func (data *attemptTracker) recordAttempt() {
+	data.lastAttemptTime = time.Now()
+	if data.attemptCount != math.MaxInt64 {
+		data.attemptCount++
+	}
+}
 
 func makeKeys(names []string) []tag.Key {
 	var tagKeys []tag.Key
@@ -43,7 +87,7 @@ func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) 
 
 func RegisterPlacerViews(tagKeys []string) {
 	err := view.Register(
-		createView(fullScanCountMeasure, view.Count(), tagKeys),
+		createView(attemptCountMeasure, view.Distribution(0, 1, 2, 4, 8, 32, 64, 256), tagKeys),
 		createView(errorPoolCountMeasure, view.Count(), tagKeys),
 		createView(emptyPoolCountMeasure, view.Count(), tagKeys),
 		createView(cancelCountMeasure, view.Count(), tagKeys),
