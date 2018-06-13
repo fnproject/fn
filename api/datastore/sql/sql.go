@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -18,13 +16,11 @@ import (
 	"github.com/fnproject/fn/api/datastore/sql/migratex"
 	"github.com/fnproject/fn/api/datastore/sql/migrations"
 	"github.com/fnproject/fn/api/models"
-	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
-	_ "github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
-	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/fnproject/fn/api/datastore"
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
+	"github.com/fnproject/fn/api/logs"
 	"github.com/sirupsen/logrus"
 )
 
@@ -103,13 +99,44 @@ var ( // compiler will yell nice things about our upbringing as a child
 )
 
 type SQLStore struct {
-	db *sqlx.DB
+	helper dbhelper.Helper
+	db     *sqlx.DB
 }
+
+type sqlDsProvider int
 
 // New will open the db specified by url, create any tables necessary
 // and return a models.Datastore safe for concurrent usage.
-func New(ctx context.Context, url *url.URL) (*SQLStore, error) {
-	return newDS(ctx, url)
+func New(ctx context.Context, u *url.URL) (*SQLStore, error) {
+	return newDS(ctx, u)
+}
+
+func (sqlDsProvider) Supports(u *url.URL) bool {
+	_, ok := dbhelper.GetHelper(u.Scheme)
+	return ok
+}
+
+func (sqlDsProvider) New(ctx context.Context, u *url.URL) (models.Datastore, error) {
+	return newDS(ctx, u)
+}
+
+func (sqlDsProvider) String() string {
+	return "sql"
+}
+
+type sqlLogsProvider int
+
+func (sqlLogsProvider) String() string {
+	return "sql"
+}
+
+func (sqlLogsProvider) Supports(u *url.URL) bool {
+	_, ok := dbhelper.GetHelper(u.Scheme)
+	return ok
+}
+
+func (sqlLogsProvider) New(ctx context.Context, u *url.URL) (models.LogStore, error) {
+	return newDS(ctx, u)
 }
 
 // for test methods, return concrete type, but don't expose
@@ -117,27 +144,19 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	driver := url.Scheme
 
 	log := common.Logger(ctx)
-	// driver must be one of these for sqlx to work, double check:
-	switch driver {
-	case "postgres", "pgx", "mysql", "sqlite3":
-	default:
-		return nil, errors.New("invalid db driver, refer to the code")
+	helper, ok := dbhelper.GetHelper(driver)
+
+	if !ok {
+		return nil, fmt.Errorf("DB helper '%s' is not supported", driver)
 	}
 
-	if driver == "sqlite3" {
-		// make all the dirs so we can make the file..
-		dir := filepath.Dir(url.Path)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			return nil, err
-		}
+	uri, err := helper.PreConnect(url)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialise db helper %s : %s", driver, err)
 	}
 
-	uri := url.String()
-	if driver != "postgres" {
-		// postgres seems to need this as a prefix in lib/pq, everyone else wants it stripped of scheme
-		uri = strings.TrimPrefix(url.String(), url.Scheme+"://")
-	}
+	log.WithFields(logrus.Fields{"url": uri}).Info("Connecting to DB")
 
 	sqldb, err := sql.Open(driver, uri)
 	if err != nil {
@@ -158,12 +177,12 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	db.SetMaxIdleConns(maxIdleConns)
 	log.WithFields(logrus.Fields{"max_idle_connections": maxIdleConns, "datastore": driver}).Info("datastore dialed")
 
-	switch driver { // NOTE: fixes weird sqlite3 behavior
-	case "sqlite3":
-		db.SetMaxOpenConns(1)
+	db, err = helper.PostCreate(db)
+	if err != nil {
+		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't initialize db")
+		return nil, err
 	}
-
-	sdb := &SQLStore{db: db}
+	sdb := &SQLStore{db: db, helper: helper}
 
 	// NOTE: runMigrations happens before we create all the tables, so that it
 	// can detect whether the db did not exist and insert the latest version of
@@ -231,41 +250,11 @@ func pingWithRetry(ctx context.Context, db *sqlx.DB) (err error) {
 	return err
 }
 
-// checkExistence checks if tables have been created yet, it is not concerned
-// about the existence of the schema migration version (since migrations were
-// added to existing dbs, we need to know whether the db exists without migrations
-// or if it's brand new).
-func checkExistence(tx *sqlx.Tx) (bool, error) {
-	query := tx.Rebind(`SELECT count(*)
-	FROM information_schema.TABLES
-	WHERE TABLE_NAME = 'apps'
-`)
-
-	if tx.DriverName() == "sqlite3" {
-		// sqlite3 is special, of course
-		query = tx.Rebind(`SELECT count(*)
-		FROM sqlite_master
-		WHERE name = 'apps'
-		`)
-	}
-
-	row := tx.QueryRow(query)
-
-	var count int
-	err := row.Scan(&count)
-	if err != nil {
-		return false, err
-	}
-
-	exists := count > 0
-	return exists, nil
-}
-
 // check if the db already existed, if the db is brand new then we can skip
 // over all the migrations BUT we must be sure to set the right migration
 // number so that only current migrations are skipped, not any future ones.
 func (ds *SQLStore) runMigrations(ctx context.Context, tx *sqlx.Tx, migrations []migratex.Migration) error {
-	dbExists, err := checkExistence(tx)
+	dbExists, err := ds.helper.CheckTableExists(tx, "apps")
 	if err != nil {
 		return err
 	}
@@ -355,19 +344,8 @@ func (ds *SQLStore) InsertApp(ctx context.Context, app *models.App) (*models.App
 	);`)
 	_, err := ds.db.NamedExecContext(ctx, query, app)
 	if err != nil {
-		switch err := err.(type) {
-		case *mysql.MySQLError:
-			if err.Number == 1062 {
-				return nil, models.ErrAppsAlreadyExists
-			}
-		case *pq.Error:
-			if err.Code == "23505" {
-				return nil, models.ErrAppsAlreadyExists
-			}
-		case sqlite3.Error:
-			if err.ExtendedCode == sqlite3.ErrConstraintUnique || err.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
-				return nil, models.ErrAppsAlreadyExists
-			}
+		if ds.helper.IsDuplicateKeyError(err) {
+			return nil, models.ErrAppsAlreadyExists
 		}
 		return nil, err
 	}
@@ -923,4 +901,9 @@ func (ds *SQLStore) GetDatabase() *sqlx.DB {
 // Close closes the database, releasing any open resources.
 func (ds *SQLStore) Close() error {
 	return ds.db.Close()
+}
+
+func init() {
+	datastore.AddProvider(sqlDsProvider(0))
+	logs.AddProvider(sqlLogsProvider(0))
 }

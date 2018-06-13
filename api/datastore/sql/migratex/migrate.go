@@ -9,9 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-sql-driver/mysql"
+	"github.com/fnproject/fn/api/datastore/sql/dbhelper"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
 
@@ -302,28 +301,29 @@ func SetVersion(ctx context.Context, tx *sqlx.Tx, version int64, dirty bool) err
 }
 
 func Version(ctx context.Context, tx *sqlx.Tx) (version int64, dirty bool, err error) {
+	helper, ok := dbhelper.GetHelper(tx.DriverName())
+	if !ok {
+		return 0, false, fmt.Errorf("no db helper registered for for %s", tx.DriverName())
+	}
+
+	tableExists, err := helper.CheckTableExists(tx, MigrationsTable)
+
+	if err != nil {
+		return 0, false, err
+	}
+
+	if !tableExists {
+		return NilVersion, false, nil
+	}
+
 	query := tx.Rebind(`SELECT version, dirty FROM ` + MigrationsTable + ` LIMIT 1`)
+
 	err = tx.QueryRowContext(ctx, query).Scan(&version, &dirty)
 	switch {
 	case err == sql.ErrNoRows:
 		return NilVersion, false, nil
 
 	case err != nil:
-		if e, ok := err.(*mysql.MySQLError); ok {
-			if e.Number == 0 {
-				return NilVersion, false, nil
-			}
-		}
-		if e, ok := err.(*pq.Error); ok {
-			if e.Code.Name() == "undefined_table" {
-				return NilVersion, false, nil
-			}
-		}
-		// sqlite3 returns 'no such table' but the error is not typed
-		if strings.Contains(err.Error(), "no such table") {
-			return NilVersion, false, nil
-		}
-
 		return 0, false, err
 
 	default:

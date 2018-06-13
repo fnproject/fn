@@ -10,7 +10,9 @@ function remove_system_containers {
 
 remove_system_containers
 
-case "$1" in
+DB_NAME=$1
+
+case "$DB_NAME" in
     "sqlite3" )
     rm -fr /tmp/fn_system_tests.db
     touch /tmp/fn_system_tests.db
@@ -44,6 +46,11 @@ export FN_DS_DB_PING_MAX_RETRIES=60
 export FN_MAX_REQUEST_SIZE=6291456
 export FN_MAX_RESPONSE_SIZE=6291456
 export FN_ENABLE_NB_RESOURCE_TRACKER=1
+
+#
+# dump prometheus metrics to this file
+#
+export SYSTEM_TEST_PROMETHEUS_FILE=./prometheus.${DB_NAME}.txt
 
 cd test/fn-system-tests && FN_DB_URL=${FN_DB_URL} FN_API_URL=${FN_API_URL} go test -v -parallel ${2:-1} ./...; cd ../../
 

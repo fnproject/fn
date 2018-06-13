@@ -17,16 +17,6 @@ import (
 	sdkmodels "github.com/fnproject/fn_go/models"
 )
 
-func LB() (string, error) {
-	lbURL := "http://127.0.0.1:8081"
-
-	u, err := url.Parse(lbURL)
-	if err != nil {
-		return "", err
-	}
-	return u.Host, nil
-}
-
 func getEchoContent(respBytes []byte) (string, error) {
 
 	var respJs map[string]interface{}

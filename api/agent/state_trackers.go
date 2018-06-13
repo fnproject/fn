@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
 )
 
 type RequestStateType int
@@ -150,32 +149,5 @@ func (c *containerState) UpdateState(ctx context.Context, newState ContainerStat
 	gaugeKey = containerGaugeKeys[newState]
 	if gaugeKey != "" {
 		stats.Record(ctx, containerGaugeMeasures[newState].M(1))
-	}
-}
-
-var (
-	containerGaugeMeasures []*stats.Int64Measure
-	containerTimeMeasures  []*stats.Int64Measure
-)
-
-func init() {
-	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
-	// or we have to white list them in the view for them to show up? test...
-
-	containerGaugeMeasures = make([]*stats.Int64Measure, len(containerGaugeKeys))
-	for i, key := range containerGaugeKeys {
-		if key == "" { // leave nil intentionally, let it panic
-			continue
-		}
-		containerGaugeMeasures[i] = makeMeasure(key, "containers in state "+key, "", view.Count())
-	}
-
-	containerTimeMeasures = make([]*stats.Int64Measure, len(containerTimeKeys))
-
-	for i, key := range containerTimeKeys {
-		if key == "" {
-			continue
-		}
-		containerTimeMeasures[i] = makeMeasure(key, "time spent in container state "+key, "ms", view.Distribution())
 	}
 }

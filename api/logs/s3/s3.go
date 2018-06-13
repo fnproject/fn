@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
@@ -48,6 +49,8 @@ type store struct {
 	downloader *s3manager.Downloader
 	bucket     string
 }
+
+type s3StoreProvider int
 
 // decorator around the Reader interface that keeps track of the number of bytes read
 // in order to avoid double buffering and track Reader size
@@ -80,10 +83,18 @@ func createStore(bucketName, endpoint, region, accessKeyID, secretAccessKey stri
 	}
 }
 
+func (s3StoreProvider) String() string {
+	return "s3"
+}
+
+func (s3StoreProvider) Supports(u *url.URL) bool {
+	return u.Scheme == "s3"
+}
+
 // New returns an s3 api compatible log store.
 // url format: s3://access_key_id:secret_access_key@host/region/bucket_name?ssl=true
 // Note that access_key_id and secret_access_key must be URL encoded if they contain unsafe characters!
-func New(u *url.URL) (models.LogStore, error) {
+func (s3StoreProvider) New(ctx context.Context, u *url.URL) (models.LogStore, error) {
 	endpoint := u.Host
 
 	var accessKeyID, secretAccessKey string
@@ -410,57 +421,53 @@ func (s *store) GetCalls(ctx context.Context, filter *models.CallFilter) ([]*mod
 	return calls, nil
 }
 
-var (
-	uploadSizeMeasure   *stats.Int64Measure
-	downloadSizeMeasure *stats.Int64Measure
+func (s *store) Close() error {
+	return nil
+}
+
+const (
+	uploadSizeMetricName   = "s3_log_upload_size"
+	downloadSizeMetricName = "s3_log_download_size"
 )
 
-func init() {
-	// TODO(reed): do we have to do this? the measurements will be tagged on the context, will they be propagated
-	// or we have to white list them in the view for them to show up? test...
-	var err error
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
+var (
+	uploadSizeMeasure   = stats.Int64(uploadSizeMetricName, "uploaded log size", "byte")
+	downloadSizeMeasure = stats.Int64(downloadSizeMetricName, "downloaded log size", "byte")
+)
 
-	{
-		uploadSizeMeasure = stats.Int64("s3_log_upload_size", "uploaded log size", "byte")
-		err = view.Register(
-			&view.View{
-				Name:        "s3_log_upload_size",
-				Description: "uploaded log size",
-				TagKeys:     []tag.Key{appKey, pathKey},
-				Measure:     uploadSizeMeasure,
-				Aggregation: view.Distribution(),
-			},
-		)
-		if err != nil {
-			logrus.WithError(err).Fatal("cannot create view")
-		}
-	}
-
-	{
-		downloadSizeMeasure = stats.Int64("s3_log_download_size", "downloaded log size", "byte")
-		err = view.Register(
-			&view.View{
-				Name:        "s3_log_download_size",
-				Description: "downloaded log size",
-				TagKeys:     []tag.Key{appKey, pathKey},
-				Measure:     uploadSizeMeasure,
-				Aggregation: view.Distribution(),
-			},
-		)
-		if err != nil {
-			logrus.WithError(err).Fatal("cannot create view")
-		}
+// RegisterViews registers views for s3 measures
+func RegisterViews(tagKeys []string) {
+	err := view.Register(
+		createView(uploadSizeMeasure, view.Distribution(), tagKeys),
+		createView(downloadSizeMeasure, view.Distribution(), tagKeys),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot create view")
 	}
 }
 
-func (s *store) Close() error {
-	return nil
+func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) *view.View {
+	return &view.View{
+		Name:        measure.Name(),
+		Description: measure.Description(),
+		Measure:     measure,
+		TagKeys:     makeKeys(tagKeys),
+		Aggregation: agg,
+	}
+}
+
+func makeKeys(names []string) []tag.Key {
+	tagKeys := make([]tag.Key, len(names))
+	for i, name := range names {
+		key, err := tag.NewKey(name)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		tagKeys[i] = key
+	}
+	return tagKeys
+}
+
+func init() {
+	logs.AddProvider(s3StoreProvider(0))
 }

@@ -10,11 +10,14 @@ import (
 	"github.com/fnproject/fn/api/common"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
+	_ "github.com/fnproject/fn/api/server/defaultexts"
 
 	"github.com/sirupsen/logrus"
 
+	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -22,8 +25,20 @@ import (
 	"time"
 )
 
+const (
+	LBAddress = "http://127.0.0.1:8081"
+)
+
 type SystemTestNodePool struct {
 	runners []pool.Runner
+}
+
+func LB() (string, error) {
+	u, err := url.Parse(LBAddress)
+	if err != nil {
+		return "", err
+	}
+	return u.Host, nil
 }
 
 func NewSystemTestNodePool() (pool.RunnerPool, error) {
@@ -89,7 +104,33 @@ func SetUpSystem() (*state, error) {
 	return state, nil
 }
 
+func downloadMetrics() {
+
+	fileName, ok := os.LookupEnv("SYSTEM_TEST_PROMETHEUS_FILE")
+	if !ok || fileName == "" {
+		return
+	}
+
+	resp, err := http.Get(LBAddress + "/metrics")
+	if err != nil {
+		logrus.WithError(err).Fatal("Fetching metrics, got unexpected error")
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logrus.WithError(err).Fatal("Reading metrics body, got unexpected error")
+	}
+
+	err = ioutil.WriteFile(fileName, body, 0644)
+	if err != nil {
+		logrus.WithError(err).Fatalf("Writing metrics body to %v, got unexpected error", fileName)
+	}
+}
+
 func CleanUpSystem(st *state) error {
+
+	downloadMetrics()
+
 	_, err := http.Get("http://127.0.0.1:8081/shutdown")
 	if err != nil {
 		return err
@@ -162,6 +203,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 		RIDGenerator: common.FnRequestID,
 	}
 	opts = append(opts, server.WithRIDProvider(ridProvider))
+	opts = append(opts, server.WithPrometheus())
 
 	apiURL := "http://127.0.0.1:8085"
 	cl, err := hybrid.NewClient(apiURL)
@@ -173,6 +215,10 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 		return nil, err
 	}
 	placer := pool.NewNaivePlacer()
+
+	keys := []string{"fn_appname", "fn_path"}
+	pool.RegisterPlacerViews(keys)
+
 	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
 	if err != nil {
 		return nil, err

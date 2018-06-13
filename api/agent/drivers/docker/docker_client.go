@@ -10,12 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+
 	"github.com/fnproject/fn/api/common"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 )
 
@@ -102,10 +103,10 @@ type dockerWrap struct {
 }
 
 func init() {
-	dockerRetriesMeasure = makeMeasure("docker_api_retries", "docker api retries", "", view.Sum())
-	dockerTimeoutMeasure = makeMeasure("docker_api_timeout", "docker api timeouts", "", view.Count())
-	dockerErrorMeasure = makeMeasure("docker_api_error", "docker api errors", "", view.Count())
-	dockerOOMMeasure = makeMeasure("docker_oom", "docker oom", "", view.Count())
+	dockerRetriesMeasure = makeMeasure("docker_api_retries", "docker api retries", "")
+	dockerTimeoutMeasure = makeMeasure("docker_api_timeout", "docker api timeouts", "")
+	dockerErrorMeasure = makeMeasure("docker_api_error", "docker api errors", "")
+	dockerOOMMeasure = makeMeasure("docker_oom", "docker oom", "")
 }
 
 var (
@@ -115,6 +116,41 @@ var (
 	dockerErrorMeasure   *stats.Int64Measure
 	dockerOOMMeasure     *stats.Int64Measure
 )
+
+// RegisterViews creates and registers views with provided tag keys
+func RegisterViews(tagKeys []string) {
+	err := view.Register(
+		createView(dockerRetriesMeasure, view.Sum(), tagKeys),
+		createView(dockerTimeoutMeasure, view.Count(), tagKeys),
+		createView(dockerErrorMeasure, view.Count(), tagKeys),
+		createView(dockerOOMMeasure, view.Count(), tagKeys),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatal("cannot register view")
+	}
+}
+
+func createView(measure stats.Measure, agg *view.Aggregation, tagKeys []string) *view.View {
+	return &view.View{
+		Name:        measure.Name(),
+		Description: measure.Description(),
+		Measure:     measure,
+		TagKeys:     makeKeys(tagKeys),
+		Aggregation: agg,
+	}
+}
+
+func makeKeys(names []string) []tag.Key {
+	tagKeys := make([]tag.Key, len(names))
+	for i, name := range names {
+		key, err := tag.NewKey(name)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		tagKeys[i] = key
+	}
+	return tagKeys
+}
 
 func (d *dockerWrap) retry(ctx context.Context, logger logrus.FieldLogger, f func() error) error {
 	var i int
@@ -357,28 +393,6 @@ func (d *dockerWrap) Stats(opts docker.StatsOptions) (err error) {
 	//return err
 }
 
-func makeMeasure(name string, desc string, unit string, agg *view.Aggregation) *stats.Int64Measure {
-	appKey, err := tag.NewKey("fn_appname")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	pathKey, err := tag.NewKey("fn_path")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	measure := stats.Int64(name, desc, unit)
-	err = view.Register(
-		&view.View{
-			Name:        name,
-			Description: desc,
-			TagKeys:     []tag.Key{appKey, pathKey},
-			Measure:     measure,
-			Aggregation: agg,
-		},
-	)
-	if err != nil {
-		logrus.WithError(err).Fatal("cannot create view")
-	}
-	return measure
+func makeMeasure(name string, desc string, unit string) *stats.Int64Measure {
+	return stats.Int64(name, desc, unit)
 }

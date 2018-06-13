@@ -16,6 +16,7 @@ import (
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/datastore/sql"
+	_ "github.com/fnproject/fn/api/datastore/sql/sqlite"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"

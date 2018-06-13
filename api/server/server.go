@@ -470,6 +470,9 @@ func WithAgentFromEnv() ServerOption {
 				placer = pool.NewNaivePlacer()
 			}
 
+			keys := []string{"fn_appname", "fn_path"}
+			pool.RegisterPlacerViews(keys)
+
 			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
 			if err != nil {
 				return errors.New("LBAgent creation failed")
