@@ -466,6 +466,88 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
+  /apps/{app}/fns:
+    get:
+      operationId: "ListFns"
+      summary: "Get all fns"
+      description: "Get a list of all the Functions in alphabetical order."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+      responses:
+        200:
+          description: List of fns.
+          schema:
+            $ref: '#/definitions/FnList'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /apps/{app}/fns/{fn}:
+    get:
+      operationId: "GetFn"
+      summary: "Get metadata for a fn"
+      description: "Get metadata for a Function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+      responses:
+        200:
+          description: Fn metadata
+          schema:
+            $ref: '#/definitions/Fn'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      operationId: "UpsertFn"
+      summary: "Upsert a fn"
+      description: "Creates or updates a Function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+        - name: body
+          in: body
+          description: Fn to upsert
+          required: true
+          schema:
+            $ref: '#/definitions/Fn'
+      responses:
+        200:
+          description: Fn metadata
+          schema:
+            $ref: '#/definitions/Fn'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      operationId: "DeleteFn"
+      summary: "Delete a fn"
+      description: "Delete a function."
+      tags:
+        - Fns
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/FnName'
+      responses:
+        204:
+          description: Fn successfully deleted
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+
 definitions:
   Route:
     type: object
@@ -573,6 +655,80 @@ definitions:
         description: Most recent time that app was updated. Always in UTC.
         readOnly: true
 
+  Fn:
+    type: object
+    properties:
+      id:
+        type: string
+        description: UUID
+        readOnly: true
+      name:
+        type: string
+        description: unique name for this function.
+      app_name:
+        type: string
+        description: App name.
+      image:
+        type: string
+        description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
+      mem:
+        type: integer
+        format: uint64
+        description: Max usable memory given to function (MiB).
+      cpu:
+        type: string
+        description: Max usable CPU cores for this trigger. Value in MilliCPUs (eg. 500m) or as floating-point (eg. 0.5)
+      timeout:
+        type: integer
+        default: 30
+        format: int32
+        description: Timeout for executions of a function. Value in Seconds
+      idle_timeout:
+        type: integer
+        default: 30
+        format: int32
+        description: Hot functions idle timeout before container termination. Value in Seconds
+      config:
+        type: object
+        description: Func configuration key values
+        additionalProperties:
+          type: string
+      format:
+        enum:
+          - default
+          - http
+          - json
+          - cloudevent
+        description: Payload format sent into function.
+        type: string
+      annotations:
+        type: object
+        description: Func annotations - this is a map of annotations attached to this func, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
+      created_at:
+        type: string
+        format: date-time
+        description: Time when function was created. Always in UTC RFC3339.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that function was updated. Always in UTC RFC3339.
+        readOnly: true
+
+  FnList:
+    type: object
+    required:
+      - items
+    properties:
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/Fn'
+
   RoutesWrapper:
     type: object
     required:
@@ -650,7 +806,6 @@ definitions:
     properties:
       call:
         $ref: '#/definitions/Call'
-        description: "Call object."
 
   LogWrapper:
     type: object
@@ -659,7 +814,6 @@ definitions:
     properties:
       log:
         $ref: '#/definitions/Log'
-        description: "Call log entry."
 
   Log:
     type: object
@@ -767,3 +921,34 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/ErrorBody'
+
+  nextCursor:
+    type: string
+    description: cursor to send with subsequent request to receive the next page, if non-empty
+    readOnly: true
+
+parameters:
+  cursor:
+    name: cursor
+    description: Cursor from previous response.next_cursor to begin results after, if any.
+    required: false
+    type: string
+    in: query
+  perPage:
+    name: per_page
+    description: Number of results to return, defaults to 30. Max of 100.
+    required: false
+    type: integer
+    in: query
+  AppName:
+    name: app
+    in: path
+    description: App name.
+    required: true
+    type: string
+  FnName:
+    name: fn
+    in: path
+    description: Function Name.
+    required: true
+    type: string
