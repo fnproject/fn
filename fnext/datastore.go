@@ -6,6 +6,8 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
+// NewDatastore returns a Datastore that wraps the provided Datastore, calling any relevant
+// listeners around any of the Datastore methods.
 func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnListener, tl TriggerListener) models.Datastore {
 	return &extds{
 		Datastore: ds,

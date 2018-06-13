@@ -6,7 +6,7 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-// AppListener is an interface used to inject custom code at key points in app lifecycle.
+// AppListener is an interface used to inject custom code at key points in the app lifecycle.
 type AppListener interface {
 	// BeforeAppCreate called right before creating App in the database
 	BeforeAppCreate(ctx context.Context, app *models.App) error
@@ -41,6 +41,7 @@ type AppListener interface {
 	// }
 }
 
+// RouteListener is an interface used to inject custom code at key points in the route lifecycle.
 type RouteListener interface {
 	// BeforeRouteCreate called before route created in the datastore
 	BeforeRouteCreate(ctx context.Context, route *models.Route) error
@@ -88,7 +89,7 @@ type TriggerListener interface {
 	AfterTriggerDelete(ctx context.Context, triggerId string) error
 }
 
-// CallListener enables callbacks around Call events
+// CallListener enables callbacks around Call events.
 type CallListener interface {
 	// BeforeCall called before a function is executed
 	BeforeCall(ctx context.Context, call *models.Call) error

@@ -19,9 +19,12 @@ import (
 )
 
 const (
+	// InvalidResponseStr is a string that isn't one of the 'hot' formats.
 	InvalidResponseStr = "Olive oil is a liquid fat obtained from olives...\n"
 )
 
+// AppRequest is the body of the input of a function, it can be used to change
+// behavior of this function.
 type AppRequest struct {
 	// if specified we 'sleep' the specified msecs
 	SleepTime int `json:"sleepTime,omitempty"`
@@ -69,12 +72,13 @@ type AppRequest struct {
 	// TODO: infinite loop
 }
 
-// ever growing memory leak chunks
+// Leaks are ever growing memory leak chunks
 var Leaks []*[]byte
 
-// memory to hold on to at every request, new requests overwrite it.
+// Hold is memory to hold on to at every request, new requests overwrite it.
 var Hold []byte
 
+// AppResponse is the output of this function, in JSON
 type AppResponse struct {
 	Request AppRequest        `json:"request"`
 	Headers http.Header       `json:"header"`
@@ -89,12 +93,13 @@ func init() {
 
 func getTotalLeaks() int {
 	total := 0
-	for idx, _ := range Leaks {
+	for idx := range Leaks {
 		total += len(*(Leaks[idx]))
 	}
 	return total
 }
 
+// AppHandler is the fdk.Handler used by this package
 func AppHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	req, resp := processRequest(ctx, in)
 
@@ -208,7 +213,7 @@ func processRequest(ctx context.Context, in io.Reader) (*AppRequest, *AppRespons
 	if request.IsDebug {
 		info := getDockerInfo()
 		log.Printf("DockerInfo %+v", info)
-		data["DockerId"] = info.Id
+		data["DockerId"] = info.ID
 		data["DockerHostname"] = info.Hostname
 	}
 
@@ -451,7 +456,7 @@ func testDoHTTPOnce(ctx context.Context, in io.Reader, out io.Writer, buf *bytes
 func getChunk(size int) []byte {
 	chunk := make([]byte, size)
 	// fill it
-	for idx, _ := range chunk {
+	for idx := range chunk {
 		chunk[idx] = 1
 	}
 	return chunk
@@ -503,13 +508,13 @@ func createFile(name string, size int) error {
 	return nil
 }
 
-type DockerInfo struct {
+type dockerInfo struct {
 	Hostname string
-	Id       string
+	ID       string
 }
 
-func getDockerInfo() DockerInfo {
-	var info DockerInfo
+func getDockerInfo() dockerInfo {
+	var info dockerInfo
 
 	info.Hostname, _ = os.Hostname()
 
@@ -530,7 +535,7 @@ func getDockerInfo() DockerInfo {
 			tokens := bytes.Split(line, []byte("/"))
 			tokLen := len(tokens)
 			if tokLen >= 3 && bytes.Compare(tokens[tokLen-2], []byte("docker")) == 0 {
-				info.Id = string(tokens[tokLen-1])
+				info.ID = string(tokens[tokLen-1])
 				break
 			}
 		}

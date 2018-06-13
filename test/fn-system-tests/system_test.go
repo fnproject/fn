@@ -57,7 +57,7 @@ type state struct {
 	cancel func()
 }
 
-func SetUpSystem() (*state, error) {
+func setUpSystem() (*state, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	state := &state{
 		cancel: cancel,
@@ -175,7 +175,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 	defaultDB = fmt.Sprintf("sqlite3://%s/data/fn.db", curDir)
 	defaultMQ = fmt.Sprintf("bolt://%s/data/fn.mq", curDir)
 	nodeType := server.ServerTypeAPI
-	opts := make([]server.ServerOption, 0)
+	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(8085))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -191,7 +191,7 @@ func SetUpAPINode(ctx context.Context) (*server.Server, error) {
 
 func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	nodeType := server.ServerTypeLB
-	opts := make([]server.ServerOption, 0)
+	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(8081))
 	opts = append(opts, server.WithType(nodeType))
 	opts = append(opts, server.WithLogLevel(getEnv(server.EnvLogLevel, server.DefaultLogLevel)))
@@ -235,7 +235,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 
 func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, error) {
 	nodeType := server.ServerTypePureRunner
-	opts := make([]server.ServerOption, 0)
+	opts := make([]server.Option, 0)
 	opts = append(opts, server.WithWebPort(8082+nodeNum))
 	opts = append(opts, server.WithGRPCPort(9190+nodeNum))
 	opts = append(opts, server.WithType(nodeType))
@@ -335,7 +335,7 @@ func whoAmI() net.IP {
 }
 
 func TestMain(m *testing.M) {
-	state, err := SetUpSystem()
+	state, err := setUpSystem()
 	if err != nil {
 		logrus.WithError(err).Fatal("Could not initialize system")
 		os.Exit(1)

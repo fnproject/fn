@@ -79,7 +79,6 @@ func traceWrap(c *gin.Context) {
 }
 
 func apiMetricsWrap(s *Server) {
-
 	measure := func(engine *gin.Engine) func(*gin.Context) {
 		var routes gin.RoutesInfo
 		return func(c *gin.Context) {
@@ -145,16 +144,46 @@ func loggerWrap(c *gin.Context) {
 
 	if appName := c.Param(api.ParamAppName); appName != "" {
 		c.Set(api.AppName, appName)
-		ctx = context.WithValue(ctx, api.AppName, appName)
+		ctx = ContextWithApp(ctx, appName)
 	}
 
 	if routePath := c.Param(api.ParamRouteName); routePath != "" {
 		c.Set(api.Path, routePath)
-		ctx = context.WithValue(ctx, api.Path, routePath)
+		ctx = ContextWithPath(ctx, routePath)
 	}
 
 	c.Request = c.Request.WithContext(ctx)
 	c.Next()
+}
+
+type ctxPathKey string
+
+// ContextWithPath sets the routePath value on a context, it may be retrieved
+// using PathFromContext.
+// TODO this is also used as a gin.Key -- stop one of these two things.
+func ContextWithPath(ctx context.Context, routePath string) context.Context {
+	return context.WithValue(ctx, ctxPathKey(api.Path), routePath)
+}
+
+// PathFromContext returns the path from a context, if set.
+func PathFromContext(ctx context.Context) string {
+	r, _ := ctx.Value(ctxPathKey(api.Path)).(string)
+	return r
+}
+
+type ctxAppKey string
+
+// ContextWithApp sets the app name value on a context, it may be retrieved
+// using AppFromContext.
+// TODO this is also used as a gin.Key -- stop one of these two things.
+func ContextWithApp(ctx context.Context, app string) context.Context {
+	return context.WithValue(ctx, ctxAppKey(api.AppName), app)
+}
+
+// AppFromContext returns the app from a context, if set.
+func AppFromContext(ctx context.Context) string {
+	r, _ := ctx.Value(ctxAppKey(api.AppName)).(string)
+	return r
 }
 
 func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {

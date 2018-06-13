@@ -32,11 +32,11 @@ func (s *Server) handleFunctionCall(c *gin.Context) {
 func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
 	var p string
-	r := ctx.Value(api.Path)
-	if r == nil {
+	r := PathFromContext(ctx)
+	if r == "" {
 		p = "/"
 	} else {
-		p = r.(string)
+		p = r
 	}
 
 	appID := c.MustGet(api.AppID).(string)
