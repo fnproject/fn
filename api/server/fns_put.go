@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
@@ -11,7 +10,6 @@ import (
 
 func (s *Server) handleFnsPut(c *gin.Context) {
 	ctx := c.Request.Context()
-	method := strings.ToUpper(c.Request.Method)
 
 	var wfn models.FnWrapper
 	err := c.BindJSON(&wfn)
