@@ -468,11 +468,8 @@ func WithAgentFromEnv() ServerOption {
 				placer = pool.NewNaivePlacer()
 			}
 
-			// If prometheus is enabled, add LB placer metrics to the views
-			if s.promExporter != nil {
-				keys := []string{"fn_appname", "fn_path"}
-				pool.RegisterPlacerViews(keys)
-			}
+			keys := []string{"fn_appname", "fn_path"}
+			pool.RegisterPlacerViews(keys)
 
 			s.agent, err = agent.NewLBAgent(agent.NewCachedDataAccess(cl), runnerPool, placer)
 			if err != nil {
