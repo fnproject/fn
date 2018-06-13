@@ -499,6 +499,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 		// Testing insert fn
 		{
+			testFn.AppID = ""
 			_, err := ds.PutFn(ctx, nil)
 			if err != models.ErrDatastoreEmptyFn {
 				t.Fatalf("Test PutFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
@@ -526,7 +527,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			testFn.AppID = testApp.ID
 			testFn, err = ds.PutFn(ctx, testFn)
 			if err != nil {
-				t.Fatalf("Test PutFn: error when storing perfectly good func: %s", err)
+				t.Fatalf("Test PutFn: error when storing perfectly good fn: %s", err)
 			}
 		}
 

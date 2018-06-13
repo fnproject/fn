@@ -106,7 +106,7 @@ const (
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
-	fnSelector        = `SELECT id, name, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
+	fnSelector        = `SELECT id, name, app_id, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
@@ -696,11 +696,21 @@ func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 			return err
 		} else if err == sql.ErrNoRows {
 			// insert it
-
 			fn.SetDefaults()
 			err = fn.Validate()
 			if err != nil {
 				return err
+			}
+
+			// Check that the app exists
+			query = tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
+			r := tx.QueryRowContext(ctx, query, fn.AppID)
+			if err := r.Scan(new(int)); err != nil {
+				if err == sql.ErrNoRows {
+					return models.ErrAppsNotFound
+				} else {
+					return err
+				}
 			}
 
 			query = tx.Rebind(`INSERT INTO fns (
@@ -819,7 +829,7 @@ func (ds *SQLStore) GetFn(ctx context.Context, funcName string) (*models.Fn, err
 }
 
 func (ds *SQLStore) RemoveFn(ctx context.Context, funcName string) error {
-	query := ds.db.Rebind(`DELETE FROM funcs WHERE name = ?`)
+	query := ds.db.Rebind(`DELETE FROM fns WHERE name = ?`)
 	res, err := ds.db.ExecContext(ctx, query, funcName)
 	if err != nil {
 		return err
