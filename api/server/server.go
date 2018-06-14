@@ -62,6 +62,8 @@ const (
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
+	// The header name of the incoming request which holds the request ID
+	EnvRidHeader = "FN_RID_HEADER"
 
 	EnvProcessCollectorList = "FN_PROCESS_COLLECTOR_LIST"
 	EnvLBPlacementAlg       = "FN_PLACER"

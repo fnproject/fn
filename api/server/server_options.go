@@ -5,10 +5,37 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type ServerOption func(context.Context, *Server) error
+
+//RIDProvider is used to manage request ID
+type RIDProvider struct {
+	HeaderName   string              //The name of the header where the reques id is stored in the incoming request
+	RIDGenerator func(string) string // Function to generate the requestID
+}
+
+func WithRIDProvider(ridProvider *RIDProvider) ServerOption {
+	return func(ctx context.Context, s *Server) error {
+		s.Router.Use(withRIDProvider(ridProvider))
+		return nil
+	}
+}
+
+func withRIDProvider(ridp *RIDProvider) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		rid := ridp.RIDGenerator(c.Request.Header.Get(ridp.HeaderName))
+		ctx := common.WithRequestID(c.Request.Context(), rid)
+		// We set the rid in the common logger so it is always logged when the common logger is used
+		l := common.Logger(ctx).WithFields(logrus.Fields{common.RequestIDContextKey: rid})
+		ctx = common.WithLogger(ctx, l)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
 
 func EnableShutdownEndpoint(ctx context.Context, halt context.CancelFunc) ServerOption {
 	return func(ctx context.Context, s *Server) error {

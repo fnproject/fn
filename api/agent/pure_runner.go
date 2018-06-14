@@ -21,6 +21,7 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
+	"github.com/fnproject/fn/grpcutil"
 	"github.com/go-openapi/strfmt"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
@@ -206,6 +207,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	var details string
 	var errCode int
 	var errStr string
+	log := common.Logger(ch.ctx)
 
 	if err != nil {
 		errCode = models.GetAPIErrorCode(err)
@@ -215,8 +217,7 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 	if ch.c != nil {
 		details = ch.c.Model().ID
 	}
-
-	common.Logger(ch.ctx).Debugf("Sending Call Finish details=%v", details)
+	log.Debugf("Sending Call Finish details=%v", details)
 
 	errTmp := ch.enqueueMsgStrict(&runner.RunnerMsg{
 		Body: &runner.RunnerMsg_Finished{Finished: &runner.CallFinished{
@@ -227,13 +228,13 @@ func (ch *callHandle) enqueueCallResponse(err error) {
 		}}})
 
 	if errTmp != nil {
-		common.Logger(ch.ctx).WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
+		log.WithError(errTmp).Infof("enqueueCallResponse Send Error details=%v err=%v:%v", details, errCode, errStr)
 		return
 	}
 
 	errTmp = ch.finalize()
 	if errTmp != nil {
-		common.Logger(ch.ctx).WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
+		log.WithError(errTmp).Infof("enqueueCallResponse Finalize Error details=%v err=%v:%v", details, errCode, errStr)
 	}
 }
 
@@ -553,22 +554,21 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 // Handles a client engagement
 func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) error {
 	grpc.EnableTracing = false
-
+	ctx := engagement.Context()
+	log := common.Logger(ctx)
 	// Keep lightweight tabs on what this runner is doing: for draindown tests
 	atomic.AddInt32(&pr.inflight, 1)
 	defer atomic.AddInt32(&pr.inflight, -1)
 
-	log := common.Logger(engagement.Context())
-	pv, ok := peer.FromContext(engagement.Context())
+	pv, ok := peer.FromContext(ctx)
 	log.Debug("Starting engagement")
 	if ok {
 		log.Debug("Peer is ", pv)
 	}
-	md, ok := metadata.FromIncomingContext(engagement.Context())
+	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		log.Debug("MD is ", md)
 	}
-
 	state := NewCallHandle(engagement)
 
 	tryMsg := state.getTryMsg()
@@ -713,11 +713,16 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 
 func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
 	var srv *grpc.Server
+	var opts []grpc.ServerOption
+
+	sInterceptor := grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor)
+	uInterceptor := grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor)
+	opts = append(opts, sInterceptor)
+	opts = append(opts, uInterceptor)
 	if creds != nil {
-		srv = grpc.NewServer(grpc.Creds(creds))
-	} else {
-		srv = grpc.NewServer()
+		opts = append(opts, grpc.Creds(creds))
 	}
+	srv = grpc.NewServer(opts...)
 
 	pr := &pureRunner{
 		gRPCServer: srv,

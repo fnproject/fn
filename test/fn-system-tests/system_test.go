@@ -7,6 +7,7 @@ import (
 
 	"github.com/fnproject/fn/api/agent"
 	"github.com/fnproject/fn/api/agent/hybrid"
+	"github.com/fnproject/fn/api/common"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
 	_ "github.com/fnproject/fn/api/server/defaultexts"
@@ -197,6 +198,11 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	opts = append(opts, server.WithMQURL(""))
 	opts = append(opts, server.WithLogURL(""))
 	opts = append(opts, server.EnableShutdownEndpoint(ctx, func() {})) // TODO: do it properly
+	ridProvider := &server.RIDProvider{
+		HeaderName:   "fn_request_id",
+		RIDGenerator: common.FnRequestID,
+	}
+	opts = append(opts, server.WithRIDProvider(ridProvider))
 	opts = append(opts, server.WithPrometheus())
 
 	apiURL := "http://127.0.0.1:8085"

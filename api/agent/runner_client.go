@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pb "github.com/fnproject/fn/api/agent/grpc"
@@ -118,6 +119,12 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 		return true, err
 	}
 
+	rid := common.RequestIDFromContext(ctx)
+	if rid != "" {
+		// Create a new gRPC metadata where we store the request ID
+		mp := metadata.Pairs(common.RequestIDContextKey, rid)
+		ctx = metadata.NewOutgoingContext(ctx, mp)
+	}
 	runnerConnection, err := r.client.Engage(ctx)
 	if err != nil {
 		log.WithError(err).Error("Unable to create client to runner node")
