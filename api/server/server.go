@@ -884,6 +884,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v1.GET("/apps", s.handleAppList)
 			v1.POST("/apps", s.handleAppCreate)
 
+			v1.GET("/funcs", s.handleFuncsList)
+			v1.GET("/funcs/:func", s.handleFuncsGet)
+			v1.PUT("/funcs/:func", s.handleFuncsPut)
+			v1.DELETE("/funcs/:func", s.handleFuncsDelete)
+
 			{
 				apps := v1.Group("/apps/:app")
 				apps.Use(appNameCheck)
@@ -894,13 +899,20 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("", s.handleAppGetByName)
 					withAppCheck.PATCH("", s.handleAppUpdate)
 					withAppCheck.DELETE("", s.handleAppDelete)
+
 					withAppCheck.GET("/routes", s.handleRouteList)
 					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
 					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
 					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
+
 					withAppCheck.GET("/calls/:call", s.handleCallGet)
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
+
+					withAppCheck.GET("/triggers", s.handleFuncsList)
+					withAppCheck.GET("/triggers/:trigger", s.handleFuncsGet)
+					withAppCheck.PUT("/triggers/:trigger", s.handleFuncsPut)
+					withAppCheck.DELETE("/triggers/:trigger", s.handleFuncsDelete)
 				}
 
 				apps.POST("/routes", s.handleRoutesPostPut)
@@ -1007,4 +1019,15 @@ type callsResponse struct {
 	Message    string         `json:"message"`
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
+}
+
+type funcResponse struct {
+	Message string       `json:"message"`
+	Func    *models.Func `json:"func"`
+}
+
+type funcsResponse struct {
+	Message    string         `json:"message"`
+	NextCursor string         `json:"next_cursor"`
+	Funcs      []*models.Func `json:"funcs"`
 }

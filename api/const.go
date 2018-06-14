@@ -6,6 +6,7 @@ const (
 	AppID string = "app_id"
 	Path  string = "path"
 	Call  string = "call"
+	Func  string = "func"
 	// Short forms for API URLs
 	CApp   string = "app"
 	CRoute string = "route"
