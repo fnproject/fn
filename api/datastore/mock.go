@@ -9,7 +9,6 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 )
 
 type mock struct {
@@ -355,12 +354,10 @@ func (s sortT) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
 	sort.Sort(sortT(m.Triggers))
 
-	logrus.Errorf("Mock Trigger count: %d", len(m.Triggers))
-
 	res := []*models.Trigger{}
 	for _, t := range m.Triggers {
 		matched := true
-		if filter.Cursor != "" && t.ID < filter.Cursor {
+		if filter.Cursor != "" && t.ID <= filter.Cursor {
 			matched = false
 		}
 		if t.AppID != filter.AppID {
@@ -384,6 +381,9 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 		}
 	}
 
+	if filter.PerPage != 0 {
+		return res[0:filter.PerPage], nil
+	}
 	return res, nil
 }
 

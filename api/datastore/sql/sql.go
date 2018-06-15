@@ -1243,24 +1243,24 @@ func buildFilterTriggerQuery(filter *models.TriggerFilter) (string, []interface{
 	args = append(args, filter.AppID)
 
 	if filter.FnID != "" {
-		fmt.Fprintf(&b, `, fn_id = ?`)
+		fmt.Fprintf(&b, ` AND fn_id = ?`)
 		args = append(args, filter.FnID)
 	}
 	if filter.Name != "" {
-		fmt.Fprintf(&b, `, name = ?`)
+		fmt.Fprintf(&b, ` AND name = ?`)
 		args = append(args, filter.Name)
 	}
 	if filter.Type != 0 {
-		fmt.Fprintf(&b, `, type = ?`)
+		fmt.Fprintf(&b, ` AND type = ?`)
 		args = append(args, filter.Type)
 	}
 	if filter.Source != "" {
-		fmt.Fprintf(&b, `, source = ?`)
+		fmt.Fprintf(&b, ` AND source = ?`)
 		args = append(args, filter.Source)
 	}
 
 	if filter.Cursor != "" {
-		fmt.Fprintf(&b, ", id > ?")
+		fmt.Fprintf(&b, ` AND id > ?`)
 		args = append(args, filter.Cursor)
 	}
 
@@ -1281,7 +1281,9 @@ func (ds *SQLStore) GetTriggers(ctx context.Context, filter *models.TriggerFilte
 	}
 
 	filterQuery, args := buildFilterTriggerQuery(filter)
-	logrus.Error("%s : %v", filterQuery, args)
+
+	logrus.Error(filterQuery, args)
+
 	query := fmt.Sprintf("%s WHERE %s", triggerSelector, filterQuery)
 	query = ds.db.Rebind(query)
 	rows, err := ds.db.QueryxContext(ctx, query, args...)

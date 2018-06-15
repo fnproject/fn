@@ -1147,6 +1147,36 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 				}
 			}
+
+			appIDPagedFilter := &models.TriggerFilter{AppID: testApp.ID,
+				PerPage: 5}
+			triggers, err = ds.GetTriggers(ctx, appIDPagedFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)
+			}
+
+			if len(triggers) != 5 {
+				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers))
+			}
+
+			if !triggers[4].Equals(storedTriggers[4]) {
+				t.Fatalf("expect 5th result to equal 5th stored result : %#v != %#v", triggers[4], storedTriggers[4])
+			}
+
+			appIDPagedFilter.Cursor = triggers[4].ID
+			triggers, err = ds.GetTriggers(ctx, appIDPagedFilter)
+
+			if err != nil {
+				t.Fatalf("Test GetTriggers(page triggers for app), not expecting err %s", err)
+			}
+
+			if len(triggers) != 5 {
+				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 5 results, got %d", len(triggers))
+			}
+
+			if !triggers[4].Equals(storedTriggers[9]) {
+				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers[4], storedTriggers[9])
+			}
 		})
 
 		t.Run("update triggers", func(t *testing.T) {
