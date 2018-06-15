@@ -6,6 +6,7 @@ import "google/protobuf/empty.proto";
 message TryCall {
     string models_call_json = 1;
     string slot_hash_id = 2;
+    map<string,string> extensions = 3;
 }
 
 // Data sent C2S and S2C - as soon as the runner sees the first of these it

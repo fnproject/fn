@@ -128,6 +128,10 @@ func (c *mockRunnerCall) SlotHashId() string {
 	return c.slotHashId
 }
 
+func (c *mockRunnerCall) Extensions() map[string]string {
+	return nil
+}
+
 func (c *mockRunnerCall) RequestBody() io.ReadCloser {
 	return c.r.Body
 }

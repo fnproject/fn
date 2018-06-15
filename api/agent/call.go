@@ -235,6 +235,14 @@ func WithContext(ctx context.Context) CallOpt {
 	}
 }
 
+// Pure runner can use this to pass an extension to the call
+func WithExtensions(extensions map[string]string) CallOpt {
+	return func(c *call) error {
+		c.extensions = extensions
+		return nil
+	}
+}
+
 // GetCall builds a Call that can be used to submit jobs to the agent.
 //
 // TODO where to put this? async and sync both call this
@@ -310,10 +318,17 @@ type call struct {
 	containerState ContainerState
 	slotHashId     string
 	isLB           bool
+
+	// LB & Pure Runner Extra Config
+	extensions map[string]string
 }
 
 func (c *call) SlotHashId() string {
 	return c.slotHashId
+}
+
+func (c *call) Extensions() map[string]string {
+	return c.extensions
 }
 
 func (c *call) RequestBody() io.ReadCloser {

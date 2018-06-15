@@ -6,12 +6,17 @@ import (
 	"fmt"
 
 	"github.com/fnproject/fn/api/agent"
+	"github.com/fnproject/fn/api/agent/drivers"
 	"github.com/fnproject/fn/api/agent/hybrid"
 	"github.com/fnproject/fn/api/common"
+	"github.com/fnproject/fn/api/models"
 	pool "github.com/fnproject/fn/api/runnerpool"
 	"github.com/fnproject/fn/api/server"
 	_ "github.com/fnproject/fn/api/server/defaultexts"
 
+	// We need docker client here, since we have a custom driver that wraps generic
+	// docker driver.
+	"github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
 
 	"io/ioutil"
@@ -219,12 +224,14 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 	keys := []string{"fn_appname", "fn_path"}
 	pool.RegisterPlacerViews(keys)
 
-	agent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer)
+	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
+	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.
+	lbAgent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer, agent.WithCallOverrider(LBCallOverrider))
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, server.WithAgent(agent))
 
+	opts = append(opts, server.WithAgent(lbAgent))
 	return server.New(ctx, opts...), nil
 }
 
@@ -246,14 +253,30 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 		return nil, err
 	}
 	grpcAddr := fmt.Sprintf(":%d", 9190+nodeNum)
-	cancelCtx, cancel := context.WithCancel(ctx)
 
-	prAgent, err := agent.NewPureRunner(cancel, grpcAddr, ds, "", "", "", nil)
+	// This is our Agent config, which we will use for both inner agent and docker.
+	cfg, err := agent.NewAgentConfig()
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, server.WithAgent(prAgent), server.WithExtraCtx(cancelCtx))
 
+	// customer driver that overrides generic docker driver
+	drv := &customDriver{
+		drv: agent.NewDockerDriver(cfg),
+	}
+
+	// inner agent for pure-runners
+	innerAgent := agent.New(ds, agent.WithConfig(cfg), agent.WithDockerDriver(drv), agent.WithoutAsyncDequeue())
+
+	cancelCtx, cancel := context.WithCancel(ctx)
+
+	// now create pure-runner that wraps agent.
+	pureRunner, err := agent.NewPureRunner(cancel, grpcAddr, agent.PureRunnerWithAgent(innerAgent))
+	if err != nil {
+		return nil, err
+	}
+
+	opts = append(opts, server.WithAgent(pureRunner), server.WithExtraCtx(cancelCtx))
 	return server.New(ctx, opts...), nil
 }
 
@@ -326,3 +349,65 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(result)
 }
+
+// Memory Only LB Agent Call Option
+func LBCallOverrider(c *models.Call, exts map[string]string) (map[string]string, error) {
+
+	// Set TmpFsSize and CPU to unlimited. This means LB operates on Memory
+	// only. Operators/Service providers are expected to override this
+	// and apply their own filter to set/override CPU/TmpFsSize/Memory
+	// and Extension variables.
+	c.TmpFsSize = 0
+	c.CPUs = models.MilliCPUs(0)
+	delete(c.Config, "FN_CPUS")
+
+	if exts == nil {
+		exts = make(map[string]string)
+	}
+
+	// Add an FN_CHEESE extension to be intercepted and specially handled by Pure Runner customDriver below
+	exts["FN_CHEESE"] = "Tete de Moine"
+	return exts, nil
+}
+
+// An example Pure Runner docker driver. Using CreateCookie, it intercepts a generated cookie to
+// add an environment variable FN_CHEESE if it finds a FN_CHEESE extension.
+type customDriver struct {
+	drv drivers.Driver
+}
+
+// implements Driver
+func (d *customDriver) CreateCookie(ctx context.Context, task drivers.ContainerTask) (drivers.Cookie, error) {
+	cookie, err := d.drv.CreateCookie(ctx, task)
+	if err != nil {
+		return cookie, err
+	}
+
+	// if call extensions include 'foo', then let's add FN_CHEESE env vars, which should
+	// end up in Env/Config.
+	ext := task.Extensions()
+	cheese, ok := ext["FN_CHEESE"]
+	if ok {
+		// docker driver specific data
+		obj := cookie.ContainerOptions()
+		opts, ok := obj.(docker.CreateContainerOptions)
+		if !ok {
+			logrus.Fatal("Unexpected driver, should be docker")
+		}
+		opts.Config.Env = append(opts.Config.Env, "FN_CHEESE="+cheese)
+	}
+
+	return cookie, nil
+}
+
+// implements Driver
+func (d *customDriver) PrepareCookie(ctx context.Context, cookie drivers.Cookie) error {
+	return d.drv.PrepareCookie(ctx, cookie)
+}
+
+// implements Driver
+func (d *customDriver) Close() error {
+	return d.drv.Close()
+}
+
+var _ drivers.Driver = &customDriver{}
