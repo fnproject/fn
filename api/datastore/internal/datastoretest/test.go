@@ -299,10 +299,10 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 					return
 				}
 			}
-			t.Fatalf("RunAllTests GetApps: expected app list to contain app %s, got %#v", testApp.Name, apps)
+			t.Fatalf("GetApps: expected app list to contain app %s, got %#v", testApp.Name, apps)
 		})
 
-		t.Run("RunAllTests Simple Pagination", func(t *testing.T) {
+		t.Run(" Simple Pagination", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			// test pagination stuff (ordering / limits / cursoring)
@@ -1176,6 +1176,28 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			if !triggers[4].Equals(storedTriggers[9]) {
 				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers[4], storedTriggers[9])
+			}
+
+			nameFilter := &models.TriggerFilter{AppID: testApp.ID, Name: storedTriggers[4].Name}
+			triggers, err = ds.GetTriggers(ctx, nameFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(name filtering), not expecting err %s", err)
+			}
+			if len(triggers) != 1 {
+				t.Fatalf("Test GetTriggers(name filtering), expecting 1 results, got %d", len(triggers))
+			}
+			if !triggers[0].Equals(storedTriggers[4]) {
+				t.Fatalf("expect  result to equal 4th stored result : %#v != %#v", triggers[0], storedTriggers[4])
+			}
+
+			// components are AND'd
+			findNothingFilter := &models.TriggerFilter{AppID: testApp.ID, Name: storedTriggers[4].Name, Source: triggers[5].Source}
+			triggers, err = ds.GetTriggers(ctx, findNothingFilter)
+			if err != nil {
+				t.Fatalf("Test GetTriggers(AND filtering), not expecting err %s", err)
+			}
+			if len(triggers) != 0 {
+				t.Fatalf("Test GetTriggers(AND filtering), expecting 0 results, got %d", len(triggers))
 			}
 		})
 
