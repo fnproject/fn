@@ -17,13 +17,19 @@ type Mocker struct {
 	count int
 }
 
-func (m *Mocker) Prepare(context.Context, drivers.ContainerTask) (drivers.Cookie, error) {
+func (m *Mocker) CreateCookie(context.Context, drivers.ContainerTask) (drivers.Cookie, error) {
 	return &cookie{m}, nil
+}
+
+func (m *Mocker) PrepareCookie(context.Context, drivers.Cookie) error {
+	return nil
 }
 
 func (m *Mocker) Close() error {
 	return nil
 }
+
+var _ drivers.Driver = &Mocker{}
 
 type cookie struct {
 	m *Mocker
@@ -39,6 +45,8 @@ func (c *cookie) Unfreeze(context.Context) error {
 
 func (c *cookie) Close(context.Context) error { return nil }
 
+func (c *cookie) ContainerOptions() interface{} { return nil }
+
 func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 	c.m.count++
 	if c.m.count%100 == 0 {
@@ -50,6 +58,8 @@ func (c *cookie) Run(ctx context.Context) (drivers.WaitResult, error) {
 		start:  time.Now(),
 	}, nil
 }
+
+var _ drivers.Cookie = &cookie{}
 
 type runResult struct {
 	err    error

@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/syslog"
 	"strings"
@@ -115,31 +116,17 @@ type agent struct {
 	resources ResourceTracker
 
 	// used to track running calls / safe shutdown
-	shutWg       *common.WaitGroup
-	shutonce     sync.Once
-	callEndCount int64
+	shutWg              *common.WaitGroup
+	shutonce            sync.Once
+	callEndCount        int64
+	disableAsyncDequeue bool
 }
 
 type AgentOption func(*agent) error
 
 // New creates an Agent that executes functions locally as Docker containers.
 func New(da DataAccess, options ...AgentOption) Agent {
-	a := createAgent(da, options...).(*agent)
-	if !a.shutWg.AddSession(1) {
-		logrus.Fatalf("cannot start agent, unable to add session")
-	}
-	go a.asyncDequeue() // safe shutdown can nanny this fine
-	return a
-}
 
-func WithConfig(cfg *AgentConfig) AgentOption {
-	return func(a *agent) error {
-		a.cfg = *cfg
-		return nil
-	}
-}
-
-func createAgent(da DataAccess, options ...AgentOption) Agent {
 	cfg, err := NewAgentConfig()
 	if err != nil {
 		logrus.WithError(err).Fatalf("error in agent config cfg=%+v", cfg)
@@ -159,18 +146,9 @@ func createAgent(da DataAccess, options ...AgentOption) Agent {
 
 	logrus.Infof("agent starting cfg=%+v", a.cfg)
 
-	// TODO: Create drivers.New(runnerConfig)
-	a.driver = docker.NewDocker(drivers.Config{
-		DockerNetworks:       a.cfg.DockerNetworks,
-		ServerVersion:        a.cfg.MinDockerVersion,
-		PreForkPoolSize:      a.cfg.PreForkPoolSize,
-		PreForkImage:         a.cfg.PreForkImage,
-		PreForkCmd:           a.cfg.PreForkCmd,
-		PreForkUseOnce:       a.cfg.PreForkUseOnce,
-		PreForkNetworks:      a.cfg.PreForkNetworks,
-		MaxTmpFsInodes:       a.cfg.MaxTmpFsInodes,
-		EnableReadOnlyRootFs: !a.cfg.DisableReadOnlyRootFs,
-	})
+	if a.driver == nil {
+		a.driver = NewDockerDriver(&a.cfg)
+	}
 
 	a.da = da
 	a.slotMgr = NewSlotQueueMgr()
@@ -178,7 +156,57 @@ func createAgent(da DataAccess, options ...AgentOption) Agent {
 	a.shutWg = common.NewWaitGroup()
 
 	// TODO assert that agent doesn't get started for API nodes up above ?
+	if a.disableAsyncDequeue {
+		return a
+	}
+
+	if !a.shutWg.AddSession(1) {
+		logrus.Fatalf("cannot start agent, unable to add session")
+	}
+	go a.asyncDequeue() // safe shutdown can nanny this fine
+
 	return a
+}
+
+func WithConfig(cfg *AgentConfig) AgentOption {
+	return func(a *agent) error {
+		a.cfg = *cfg
+		return nil
+	}
+}
+
+// Provide a customer driver to agent
+func WithDockerDriver(drv drivers.Driver) AgentOption {
+	return func(a *agent) error {
+		if a.driver != nil {
+			return errors.New("cannot add driver to agent, driver already exists")
+		}
+
+		a.driver = drv
+		return nil
+	}
+}
+
+func WithoutAsyncDequeue() AgentOption {
+	return func(a *agent) error {
+		a.disableAsyncDequeue = true
+		return nil
+	}
+}
+
+// Create a default docker driver from agent config
+func NewDockerDriver(cfg *AgentConfig) *docker.DockerDriver {
+	return docker.NewDocker(drivers.Config{
+		DockerNetworks:       cfg.DockerNetworks,
+		ServerVersion:        cfg.MinDockerVersion,
+		PreForkPoolSize:      cfg.PreForkPoolSize,
+		PreForkImage:         cfg.PreForkImage,
+		PreForkCmd:           cfg.PreForkCmd,
+		PreForkUseOnce:       cfg.PreForkUseOnce,
+		PreForkNetworks:      cfg.PreForkNetworks,
+		MaxTmpFsInodes:       cfg.MaxTmpFsInodes,
+		EnableReadOnlyRootFs: !cfg.DisableReadOnlyRootFs,
+	})
 }
 
 func (a *agent) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
@@ -788,9 +816,12 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 		stats:   &call.Stats,
 	}
 
-	// pull & create container before we return a slot, so as to be friendly
-	// about timing out if this takes a while...
-	cookie, err := a.driver.Prepare(ctx, container)
+	cookie, err := a.driver.CreateCookie(ctx, container)
+	if err == nil {
+		// pull & create container before we return a slot, so as to be friendly
+		// about timing out if this takes a while...
+		err = a.driver.PrepareCookie(ctx, cookie)
+	}
 
 	call.containerState.UpdateState(ctx, ContainerStateIdle, call.slots)
 
@@ -819,12 +850,19 @@ func (a *agent) runHot(ctx context.Context, call *call, tok ResourceToken, state
 	logger := logrus.WithFields(logrus.Fields{"id": container.id, "app_id": call.AppID, "route": call.Path, "image": call.Image, "memory": call.Memory, "cpus": call.CPUs, "format": call.Format, "idle_timeout": call.IdleTimeout})
 	ctx = common.WithLogger(ctx, logger)
 
-	cookie, err := a.driver.Prepare(ctx, container)
+	cookie, err := a.driver.CreateCookie(ctx, container)
 	if err != nil {
 		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
 		return
 	}
+
 	defer cookie.Close(ctx) // NOTE ensure this ctx doesn't time out
+
+	err = a.driver.PrepareCookie(ctx, cookie)
+	if err != nil {
+		call.slots.queueSlot(&hotSlot{done: make(chan struct{}), fatalErr: err})
+		return
+	}
 
 	waiter, err := cookie.Run(ctx)
 	if err != nil {
@@ -971,14 +1009,15 @@ func (a *agent) runHotReq(ctx context.Context, call *call, state ContainerState,
 // and stderr can be swapped out by new calls in the container.  input and
 // output must be copied in and out.
 type container struct {
-	id        string // contrived
-	image     string
-	env       map[string]string
-	memory    uint64
-	cpus      uint64
-	fsSize    uint64
-	tmpFsSize uint64
-	timeout   time.Duration // cold only (superfluous, but in case)
+	id         string // contrived
+	image      string
+	env        map[string]string
+	extensions map[string]string
+	memory     uint64
+	cpus       uint64
+	fsSize     uint64
+	tmpFsSize  uint64
+	timeout    time.Duration // cold only (superfluous, but in case)
 
 	stdin       io.Reader
 	stdout      io.Writer
@@ -1053,6 +1092,7 @@ func NewHotContainer(ctx context.Context, call *call, cfg *AgentConfig) (*contai
 			id:          id, // XXX we could just let docker generate ids...
 			image:       call.Image,
 			env:         map[string]string(call.Config),
+			extensions:  call.extensions,
 			memory:      call.Memory,
 			cpus:        uint64(call.CPUs),
 			fsSize:      cfg.MaxFsSize,
@@ -1107,6 +1147,7 @@ func (c *container) Memory() uint64                 { return c.memory * 1024 * 1
 func (c *container) CPUs() uint64                   { return c.cpus }
 func (c *container) FsSize() uint64                 { return c.fsSize }
 func (c *container) TmpFsSize() uint64              { return c.tmpFsSize }
+func (c *container) Extensions() map[string]string  { return c.extensions }
 
 // WriteStat publishes each metric in the specified Stats structure as a histogram metric
 func (c *container) WriteStat(ctx context.Context, stat drivers.Stat) {

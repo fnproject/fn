@@ -42,6 +42,7 @@ type Runner interface {
 // processed by a RunnerPool
 type RunnerCall interface {
 	SlotHashId() string
+	Extensions() map[string]string
 	RequestBody() io.ReadCloser
 	ResponseWriter() http.ResponseWriter
 	StdErr() io.ReadWriteCloser

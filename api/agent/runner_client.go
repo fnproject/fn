@@ -52,6 +52,7 @@ func SecureGRPCRunnerFactory(addr, runnerCertCN string, pki *pool.PKIData) (pool
 	}, nil
 }
 
+// implements Runner
 func (r *gRPCRunner) Close(context.Context) error {
 	r.shutWg.CloseGroup()
 	return r.conn.Close()
@@ -82,6 +83,7 @@ func runnerConnection(address, runnerCertCN string, pki *pool.PKIData) (*grpc.Cl
 	return conn, protocolClient, nil
 }
 
+// implements Runner
 func (r *gRPCRunner) Address() string {
 	return r.address
 }
@@ -101,6 +103,7 @@ func isTooBusy(err error) bool {
 	return false
 }
 
+// implements Runner
 func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, error) {
 	log := common.Logger(ctx).WithField("runner_addr", r.address)
 
@@ -135,6 +138,7 @@ func (r *gRPCRunner) TryExec(ctx context.Context, call pool.RunnerCall) (bool, e
 	err = runnerConnection.Send(&pb.ClientMsg{Body: &pb.ClientMsg_Try{Try: &pb.TryCall{
 		ModelsCallJson: string(modelJSON),
 		SlotHashId:     hex.EncodeToString([]byte(call.SlotHashId())),
+		Extensions:     call.Extensions(),
 	}}})
 	if err != nil {
 		log.WithError(err).Error("Failed to send message to runner node")
@@ -312,3 +316,5 @@ DataLoop:
 		tryQueueError(ErrorPureRunnerNoEOF, done)
 	}
 }
+
+var _ pool.Runner = &gRPCRunner{}

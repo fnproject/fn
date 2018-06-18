@@ -17,6 +17,7 @@ import (
 	sdkmodels "github.com/fnproject/fn_go/models"
 )
 
+// See fn-test-utils for json response
 func getEchoContent(respBytes []byte) (string, error) {
 
 	var respJs map[string]interface{}
@@ -37,6 +38,29 @@ func getEchoContent(respBytes []byte) (string, error) {
 	}
 
 	return echo, nil
+}
+
+// See fn-test-utils for json response
+func getConfigContent(key string, respBytes []byte) (string, error) {
+
+	var respJs map[string]interface{}
+
+	err := json.Unmarshal(respBytes, &respJs)
+	if err != nil {
+		return "", err
+	}
+
+	cfg, ok := respJs["config"].(map[string]interface{})
+	if !ok {
+		return "", errors.New("unexpected json: config map")
+	}
+
+	val, ok := cfg[key].(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected json: %s string", key)
+	}
+
+	return val, nil
 }
 
 func TestCanExecuteFunction(t *testing.T) {
@@ -78,6 +102,13 @@ func TestCanExecuteFunction(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("StatusCode check failed on %v", resp.StatusCode)
+	}
+
+	// Now let's check FN_CHEESE, since LB and runners have override/extension mechanism
+	// to insert FN_CHEESE into config
+	cheese, err := getConfigContent("FN_CHEESE", output.Bytes())
+	if err != nil || cheese != "Tete de Moine" {
+		t.Fatalf("getConfigContent/FN_CHEESE check failed (%v) on %v", err, output)
 	}
 }
 

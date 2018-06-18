@@ -460,41 +460,41 @@ func (ch *callHandle) getDataMsg() *runner.DataFrame {
 	return msg
 }
 
-// TODO: decomission/remove this once dependencies are cleaned up
-type CapacityGate interface {
-	CheckAndReserveCapacity(units uint64) error
-	ReleaseCapacity(units uint64)
-}
-
 // pureRunner implements Agent and delegates execution of functions to an internal Agent; basically it wraps around it
 // and provides the gRPC server that implements the LB <-> Runner protocol.
 type pureRunner struct {
 	gRPCServer *grpc.Server
-	listen     string
+	creds      credentials.TransportCredentials
 	a          Agent
 	inflight   int32
 }
 
+// implements Agent
 func (pr *pureRunner) GetAppID(ctx context.Context, appName string) (string, error) {
 	return pr.a.GetAppID(ctx, appName)
 }
 
+// implements Agent
 func (pr *pureRunner) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	return pr.a.GetAppByID(ctx, appID)
 }
 
+// implements Agent
 func (pr *pureRunner) GetCall(opts ...CallOpt) (Call, error) {
 	return pr.a.GetCall(opts...)
 }
 
+// implements Agent
 func (pr *pureRunner) GetRoute(ctx context.Context, appID string, path string) (*models.Route, error) {
 	return pr.a.GetRoute(ctx, appID, path)
 }
 
+// implements Agent
 func (pr *pureRunner) Submit(Call) error {
 	return errors.New("Submit cannot be called directly in a Pure Runner.")
 }
 
+// implements Agent
 func (pr *pureRunner) Close() error {
 	// First stop accepting requests
 	pr.gRPCServer.GracefulStop()
@@ -506,10 +506,12 @@ func (pr *pureRunner) Close() error {
 	return nil
 }
 
+// implements Agent
 func (pr *pureRunner) AddCallListener(cl fnext.CallListener) {
 	pr.a.AddCallListener(cl)
 }
 
+// implements Agent
 func (pr *pureRunner) Enqueue(context.Context, *models.Call) error {
 	return errors.New("Enqueue cannot be called directly in a Pure Runner.")
 }
@@ -531,7 +533,11 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 		return err
 	}
 
-	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR), WithWriter(state), WithContext(state.ctx))
+	agent_call, err := pr.a.GetCall(FromModelAndInput(&c, state.pipeToFnR),
+		WithWriter(state),
+		WithContext(state.ctx),
+		WithExtensions(tc.GetExtensions()),
+	)
 	if err != nil {
 		state.enqueueCallResponse(err)
 		return err
@@ -551,6 +557,7 @@ func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error
 	return nil
 }
 
+// implements RunnerProtocolServer
 // Handles a client engagement
 func (pr *pureRunner) Engage(engagement runner.RunnerProtocol_EngageServer) error {
 	grpc.EnableTracing = false
@@ -605,80 +612,87 @@ DataLoop:
 	return state.waitError()
 }
 
+// implements RunnerProtocolServer
 func (pr *pureRunner) Status(ctx context.Context, _ *empty.Empty) (*runner.RunnerStatus, error) {
 	return &runner.RunnerStatus{
 		Active: atomic.LoadInt32(&pr.inflight),
 	}, nil
 }
 
-func (pr *pureRunner) Start() error {
-	logrus.Info("Pure Runner listening on ", pr.listen)
-	lis, err := net.Listen("tcp", pr.listen)
-	if err != nil {
-		return fmt.Errorf("Could not listen on %s: %s", pr.listen, err)
-	}
-
-	if err := pr.gRPCServer.Serve(lis); err != nil {
-		return fmt.Errorf("grpc serve error: %s", err)
-	}
-	return err
-}
-
-func UnsecuredPureRunner(cancel context.CancelFunc, addr string, da DataAccess) (Agent, error) {
-	return NewPureRunner(cancel, addr, da, "", "", "", nil)
-}
-
 func DefaultPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string) (Agent, error) {
-	return NewPureRunner(cancel, addr, da, cert, key, ca, nil)
+
+	agent := New(da, WithoutAsyncDequeue())
+
+	// WARNING: SSL creds are optional.
+	if cert == "" || key == "" || ca == "" {
+		return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent))
+	}
+	return NewPureRunner(cancel, addr, PureRunnerWithAgent(agent), PureRunnerWithSSL(cert, key, ca))
 }
 
-func ValidatePureRunnerConfig() AgentOption {
-	return func(a *agent) error {
+type PureRunnerOption func(*pureRunner) error
 
-		if a.cfg.MaxResponseSize == 0 {
-			return errors.New("pure runner requires MaxResponseSize limits")
+func PureRunnerWithSSL(cert string, key string, ca string) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		c, err := createCreds(cert, key, ca)
+		if err != nil {
+			return fmt.Errorf("Failed to create pure runner credentials: %s", err)
 		}
-		if a.cfg.MaxRequestSize == 0 {
-			return errors.New("pure runner requires MaxRequestSize limits")
-		}
-
-		// pure runner requires a non-blocking resource tracker
-		if !a.cfg.EnableNBResourceTracker {
-			return errors.New("pure runner requires EnableNBResourceTracker true")
-		}
-
+		pr.creds = c
 		return nil
 	}
 }
 
-func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert string, key string, ca string, unused CapacityGate) (Agent, error) {
-	// TODO: gate unused, decommission/remove it after cleaning up dependencies to it.
+func PureRunnerWithAgent(a Agent) PureRunnerOption {
+	return func(pr *pureRunner) error {
+		if pr.a != nil {
+			return errors.New("Failed to create pure runner: agent already created")
+		}
 
-	a := createAgent(da, ValidatePureRunnerConfig())
-	var pr *pureRunner
-	var err error
-	if cert != "" && key != "" && ca != "" {
-		c, err := creds(cert, key, ca)
+		pr.a = a
+		return nil
+	}
+}
+
+func NewPureRunner(cancel context.CancelFunc, addr string, options ...PureRunnerOption) (Agent, error) {
+
+	pr := &pureRunner{}
+
+	for _, option := range options {
+		err := option(pr)
 		if err != nil {
-			logrus.WithField("runner_addr", addr).Warn("Failed to create credentials!")
-			return nil, err
-		}
-		pr, err = createPureRunner(addr, a, c)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		logrus.Warn("Running pure runner in insecure mode!")
-		pr, err = createPureRunner(addr, a, nil)
-		if err != nil {
-			return nil, err
+			logrus.WithError(err).Fatalf("error in pure runner options")
 		}
 	}
 
+	if pr.a == nil {
+		logrus.Fatal("agent not provided in pure runner options")
+	}
+
+	var opts []grpc.ServerOption
+
+	opts = append(opts, grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor))
+	opts = append(opts, grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor))
+
+	if pr.creds != nil {
+		opts = append(opts, grpc.Creds(pr.creds))
+	} else {
+		logrus.Warn("Running pure runner in insecure mode!")
+	}
+
+	pr.gRPCServer = grpc.NewServer(opts...)
+	runner.RegisterRunnerProtocolServer(pr.gRPCServer, pr)
+
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		logrus.WithError(err).Fatalf("Could not listen on %s", addr)
+	}
+
+	logrus.Info("Pure Runner listening on ", addr)
+
 	go func() {
-		err := pr.Start()
-		if err != nil {
-			logrus.WithError(err).Error("Failed to start pure runner")
+		if err := pr.gRPCServer.Serve(lis); err != nil {
+			logrus.WithError(err).Error("grpc serve error")
 			cancel()
 		}
 	}()
@@ -686,7 +700,11 @@ func NewPureRunner(cancel context.CancelFunc, addr string, da DataAccess, cert s
 	return pr, nil
 }
 
-func creds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
+func createCreds(cert string, key string, ca string) (credentials.TransportCredentials, error) {
+	if cert == "" || key == "" || ca == "" {
+		return nil, errors.New("Failed to create credentials, cert/key/ca not provided")
+	}
+
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -711,25 +729,5 @@ func creds(cert string, key string, ca string) (credentials.TransportCredentials
 	}), nil
 }
 
-func createPureRunner(addr string, a Agent, creds credentials.TransportCredentials) (*pureRunner, error) {
-	var srv *grpc.Server
-	var opts []grpc.ServerOption
-
-	sInterceptor := grpc.StreamInterceptor(grpcutil.RIDStreamServerInterceptor)
-	uInterceptor := grpc.UnaryInterceptor(grpcutil.RIDUnaryServerInterceptor)
-	opts = append(opts, sInterceptor)
-	opts = append(opts, uInterceptor)
-	if creds != nil {
-		opts = append(opts, grpc.Creds(creds))
-	}
-	srv = grpc.NewServer(opts...)
-
-	pr := &pureRunner{
-		gRPCServer: srv,
-		listen:     addr,
-		a:          a,
-	}
-
-	runner.RegisterRunnerProtocolServer(srv, pr)
-	return pr, nil
-}
+var _ runner.RunnerProtocolServer = &pureRunner{}
+var _ Agent = &pureRunner{}

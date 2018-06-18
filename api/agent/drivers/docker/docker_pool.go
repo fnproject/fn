@@ -70,6 +70,7 @@ func (c *poolTask) Memory() uint64                                   { return 0 
 func (c *poolTask) CPUs() uint64                                     { return 0 }
 func (c *poolTask) FsSize() uint64                                   { return 0 }
 func (c *poolTask) TmpFsSize() uint64                                { return 0 }
+func (c *poolTask) Extensions() map[string]string                    { return nil }
 func (c *poolTask) WriteStat(ctx context.Context, stat drivers.Stat) {}
 
 type dockerPoolItem struct {
