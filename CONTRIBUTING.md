@@ -51,9 +51,7 @@ These include:
 - Executing functions (sync and async)
 - Extension points (callbacks, middleware, API additions)
 
-That's it. Everything else should be built as an extension.
-
-This does not include:
+This does __not__ include:
 
 - authentication
 - stats/metrics
