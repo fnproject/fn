@@ -118,6 +118,7 @@ type Server struct {
 	certAuthority   string
 	appListeners    *appListeners
 	routeListeners  *routeListeners
+	fnListeners     *fnListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
@@ -549,9 +550,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 	s.appListeners = new(appListeners)
 	s.routeListeners = new(routeListeners)
+	s.fnListeners = new(fnListeners)
 
 	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
 	return s

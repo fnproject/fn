@@ -9,10 +9,9 @@ import (
 
 func up16(ctx context.Context, tx *sqlx.Tx) error {
 	createQuery := `CREATE TABLE IF NOT EXISTS fns (
-	id varchar(256) NOT NULL,
+	id varchar(256) NOT NULL PRIMARY KEY,
 	name varchar(256) NOT NULL,
 	app_id varchar(256) NOT NULL,
-	app_name varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
 	cpus int NOT NULL,
@@ -23,9 +22,7 @@ func up16(ctx context.Context, tx *sqlx.Tx) error {
 	annotations text NOT NULL,
 	created_at varchar(256) NOT NULL,
 	updated_at varchar(256) NOT NULL,
-  PRIMARY KEY (app_name, name),
-	CONSTRAINT fk_app_name FOREIGN KEY (app_name) REFERENCES apps(name),
-  CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
+    CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
 );`
 	_, err := tx.ExecContext(ctx, createQuery)
 	return err

@@ -192,22 +192,19 @@ func TestFnList(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Fn{
 			{
-				ID:      r1b,
-				Name:    fn1,
-				AppName: app.Name,
-				Image:   "fnproject/fn-test-utils",
+				ID:    r1b,
+				Name:  fn1,
+				Image: "fnproject/fn-test-utils",
 			},
 			{
-				ID:      r2b,
-				Name:    fn2,
-				AppName: app.Name,
-				Image:   "fnproject/fn-test-utils",
+				ID:    r2b,
+				Name:  fn2,
+				Image: "fnproject/fn-test-utils",
 			},
 			{
-				ID:      r3b,
-				Name:    fn3,
-				AppName: app.Name,
-				Image:   "fnproject/yo",
+				ID:    r3b,
+				Name:  fn3,
+				Image: "fnproject/yo",
 			},
 		},
 	)
@@ -289,9 +286,8 @@ func TestFnGet(t *testing.T) {
 	nilFn := new(models.Fn)
 
 	expectedFn := &models.Fn{
-		Name:    "myfunc",
-		AppName: "myapp",
-		Image:   "fnproject/fn-test-utils"}
+		Name:  "myfunc",
+		Image: "fnproject/fn-test-utils"}
 
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 

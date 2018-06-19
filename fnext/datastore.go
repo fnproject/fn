@@ -6,11 +6,12 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener) models.Datastore {
+func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnListener) models.Datastore {
 	return &extds{
 		Datastore: ds,
 		al:        al,
 		rl:        rl,
+		fl:        fl,
 	}
 }
 
@@ -18,6 +19,7 @@ type extds struct {
 	models.Datastore
 	al AppListener
 	rl RouteListener
+	fl FnListener
 }
 
 func (e *extds) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
@@ -136,4 +138,60 @@ func (e *extds) RemoveRoute(ctx context.Context, appName string, routePath strin
 		return err
 	}
 	return e.rl.AfterRouteDelete(ctx, appName, routePath)
+}
+
+func (e *extds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	err := e.fl.BeforeFnCreate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := e.Datastore.InsertFn(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.fl.AfterFnCreate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (e *extds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	err := e.fl.BeforeFnUpdate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := e.Datastore.UpdateFn(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.fl.AfterFnUpdate(ctx, fn)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+
+}
+
+func (e *extds) RemoveFn(ctx context.Context, appID string, funcName string) error {
+	err := e.fl.BeforeFnDelete(ctx, appID, funcName)
+
+	if err != nil {
+		return err
+	}
+
+	err = e.Datastore.RemoveFn(ctx, appID, funcName)
+	if err != nil {
+		return err
+	}
+
+	err = e.fl.AfterFnDelete(ctx, appID, funcName)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -36,7 +36,18 @@ func (s *Server) handleFnsPut(c *gin.Context) {
 	}
 	wfn.Fn.AppID = appID
 
-	f, err := s.datastore.PutFn(ctx, wfn.Fn)
+	_, err = s.datastore.GetFn(ctx, appID, fnName)
+
+	if err != nil && err != models.ErrFnsNotFound {
+		handleErrorResponse(c, err)
+	}
+
+	var f *models.Fn
+	if err == models.ErrFnsNotFound {
+		f, err = s.datastore.InsertFn(ctx, wfn.Fn)
+	} else {
+		f, err = s.datastore.UpdateFn(ctx, wfn.Fn)
+	}
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

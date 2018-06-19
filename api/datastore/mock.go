@@ -55,7 +55,7 @@ func (m *mock) GetAppID(ctx context.Context, appName string) (string, error) {
 func (m *mock) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	for _, a := range m.Apps {
 		if a.ID == appID {
-			return a, nil
+			return a.Clone(), nil
 		}
 	}
 
@@ -78,7 +78,7 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 			break
 		}
 		if strings.Compare(appFilter.Cursor, a.Name) < 0 {
-			apps = append(apps, a)
+			apps = append(apps, a.Clone())
 		}
 	}
 
@@ -90,17 +90,25 @@ func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, err
 		return nil, models.ErrAppsAlreadyExists
 	}
 	m.Apps = append(m.Apps, app)
-	return app, nil
+	return app.Clone(), nil
 }
 
 func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
-	a, err := m.GetAppByID(ctx, app.ID)
-	if err != nil {
-		return nil, err
+	for idx, a := range m.Apps {
+		if a.ID == app.ID {
+			c := a.Clone()
+			c.Update(app)
+			err := c.Validate()
+			if err != nil {
+				return nil, err
+			}
+			m.Apps[idx] = c
+			return c.Clone(), nil
+		}
 	}
-	a.Update(app)
 
-	return a.Clone(), nil
+	return nil, models.ErrAppsNotFound
+
 }
 
 func (m *mock) RemoveApp(ctx context.Context, appID string) error {
@@ -117,7 +125,7 @@ func (m *mock) RemoveApp(ctx context.Context, appID string) error {
 func (m *mock) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	for _, r := range m.Routes {
 		if r.AppID == appID && r.Path == routePath {
-			return r, nil
+			return r.Clone(), nil
 		}
 	}
 	return nil, models.ErrRoutesNotFound
@@ -143,7 +151,7 @@ func (m *mock) GetRoutesByApp(ctx context.Context, appID string, routeFilter *mo
 			(routeFilter.Image == "" || routeFilter.Image == r.Image) &&
 			strings.Compare(routeFilter.Cursor, r.Path) < 0 {
 
-			routes = append(routes, r)
+			routes = append(routes, r.Clone())
 		}
 	}
 	return
@@ -158,7 +166,7 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 		return nil, models.ErrRoutesAlreadyExists
 	}
 	m.Routes = append(m.Routes, route)
-	return route, nil
+	return route.Clone(), nil
 }
 
 func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
@@ -197,18 +205,11 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 	return nil
 }
 
-func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	// update if exists
 	for _, f := range m.Fns {
 		if f.AppID == fn.AppID && f.Name == fn.Name {
-			copy := f.Clone()
-			copy.Update(fn)
-			err := copy.Validate()
-			if err != nil {
-				return nil, err
-			}
-			*f = *copy
-			return f, nil
+			return nil, models.ErrFnsExists
 		}
 	}
 
@@ -216,14 +217,37 @@ func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	if err != nil {
 		return nil, err
 	}
+	clone := fn.Clone()
 	// insert otherwise
-	fn.SetDefaults()
-	fn.AppID = app.ID
-	if err := fn.Validate(); err != nil {
+	clone.SetDefaults()
+	clone.AppID = app.ID
+	if err := clone.Validate(); err != nil {
 		return nil, err
 	}
-	m.Fns = append(m.Fns, fn)
-	return fn, nil
+	m.Fns = append(m.Fns, clone)
+	return clone.Clone(), nil
+}
+
+func (m *mock) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	// update if exists
+	for _, f := range m.Fns {
+		if f.AppID == fn.AppID && f.Name == fn.Name {
+			if fn.ID != "" && f.ID != fn.ID {
+				return nil, models.ErrFnsInvalidFieldChange
+			}
+
+			clone := f.Clone()
+			clone.Update(fn)
+			err := clone.Validate()
+			if err != nil {
+				return nil, err
+			}
+			*f = *clone
+			return f, nil
+		}
+	}
+
+	return nil, models.ErrFnsNotFound
 }
 
 type sortF []*models.Fn
@@ -243,9 +267,12 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 			break
 		}
 
-		if strings.Compare(filter.Cursor, f.Name) < 0 {
+		if strings.Compare(filter.Cursor, f.Name) < 0 &&
+			(filter.Image == "" || filter.Image == f.Image) &&
+			(filter.AppID == "" || filter.AppID == f.AppID) {
 			funcs = append(funcs, f)
 		}
+
 	}
 	return funcs, nil
 }

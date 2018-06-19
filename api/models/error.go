@@ -178,7 +178,11 @@ var (
 	}
 	ErrFnsInvalidName = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Fn name must be an RFC 3986 compliant path string"),
+		error: errors.New("Fn name must be a valid string"),
+	}
+	ErrFnsInvalidFieldChange = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Fn names and ids cannot be modified"),
 	}
 	ErrFnsMissingAppID = err{
 		code:  http.StatusBadRequest,
@@ -207,6 +211,10 @@ var (
 	ErrFnsNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Fn not found"),
+	}
+	ErrFnsExists = err{
+		code:  http.StatusConflict,
+		error: errors.New("Fn with specified name already exists"),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,

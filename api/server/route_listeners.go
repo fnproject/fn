@@ -27,7 +27,7 @@ func (a *routeListeners) BeforeRouteCreate(ctx context.Context, route *models.Ro
 
 func (a *routeListeners) AfterRouteCreate(ctx context.Context, route *models.Route) error {
 	for _, l := range *a {
-		err := l.BeforeRouteCreate(ctx, route)
+		err := l.AfterRouteCreate(ctx, route)
 		if err != nil {
 			return err
 		}
