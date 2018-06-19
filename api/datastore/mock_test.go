@@ -11,5 +11,5 @@ func TestDatastore(t *testing.T) {
 	f := func(t *testing.T) models.Datastore {
 		return NewMock()
 	}
-	datastoretest.Test(t, f)
+	datastoretest.RunAllTests(t, f, datastoretest.NewBasicResourceProvider())
 }

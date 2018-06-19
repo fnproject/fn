@@ -132,7 +132,7 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-func (v *validator) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	if fn == nil {
 		return nil, models.ErrDatastoreEmptyFn
 	}
@@ -142,7 +142,20 @@ func (v *validator) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 	if fn.Name == "" {
 		return nil, models.ErrDatastoreEmptyFnName
 	}
-	return v.Datastore.PutFn(ctx, fn)
+	return v.Datastore.InsertFn(ctx, fn)
+}
+
+func (v *validator) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	if fn == nil {
+		return nil, models.ErrDatastoreEmptyFn
+	}
+	if fn.AppID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
+	if fn.Name == "" {
+		return nil, models.ErrDatastoreEmptyFnName
+	}
+	return v.Datastore.UpdateFn(ctx, fn)
 }
 
 func (v *validator) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {

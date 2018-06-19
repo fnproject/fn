@@ -28,8 +28,6 @@ type Fn struct {
 	ID string `json:"id" db:"id"`
 	// Name is a user provided name for this fn.
 	Name string `json:"name" db:"name"`
-	// AppName is the name of the app this fn belongs to.
-	AppName string `json:"app_name" db:"app_name"`
 	// AppID is the name of the app this fn belongs to.
 	AppID string `json:"app_id" db:"app_id"`
 	// Image is the fully qualified container registry address to execute.
@@ -106,6 +104,7 @@ func (f *Fn) SetDefaults() {
 
 // Validate validates all field values, returning the first error, if any.
 func (f *Fn) Validate() error {
+
 	if url.PathEscape(f.Name) != f.Name {
 		return ErrFnsInvalidName
 	}
@@ -172,7 +171,6 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 	eq = eq && f1.ID == f2.ID
 	eq = eq && f1.Name == f2.Name
 	eq = eq && f1.AppID == f2.AppID
-	eq = eq && f1.AppName == f2.AppName
 	eq = eq && f1.Image == f2.Image
 	eq = eq && f1.Memory == f2.Memory
 	eq = eq && f1.CPUs == f2.CPUs

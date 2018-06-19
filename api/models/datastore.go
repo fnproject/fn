@@ -59,11 +59,12 @@ type Datastore interface {
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appID, routePath string) error
 
-	// PutFn inserts a new function if one does not exist, applying any defaults necessary, or
-	// updates a function that exists under the same name. Returns ErrDatastoreEmptyFn if func is nil,
+	// InsertFn inserts a new function if one does not exist, applying any defaults necessary,
+	InsertFn(ctx context.Context, fn *Fn) (*Fn, error)
+
+	// UpdateFn  updates a function that exists under the same name. Returns ErrDatastoreEmptyFn if func is nil,
 	// ErrDatastoreEmptyFnName is func.Name is empty.
-	// TODO(reed): should we allow rename if id provided?
-	PutFn(ctx context.Context, fn *Fn) (*Fn, error)
+	UpdateFn(ctx context.Context, fn *Fn) (*Fn, error)
 
 	// GetFns returns a list of funcs, applying any additional filters provided.
 	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)

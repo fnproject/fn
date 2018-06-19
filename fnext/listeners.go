@@ -51,9 +51,25 @@ type RouteListener interface {
 	// AfterRouteUpdate called after route updated in datastore
 	AfterRouteUpdate(ctx context.Context, route *models.Route) error
 	// BeforeRouteDelete called before route deleted from the datastore
-	BeforeRouteDelete(ctx context.Context, appName string, routePath string) error
+	BeforeRouteDelete(ctx context.Context, appId string, routePath string) error
 	// AfterRouteDelete called after route deleted from the datastore
-	AfterRouteDelete(ctx context.Context, appName string, routePath string) error
+	AfterRouteDelete(ctx context.Context, appId string, routePath string) error
+}
+
+// FnListener enables callbacks around Fn events
+type FnListener interface {
+	// BeforeFnCreate called before fn created in the datastore
+	BeforeFnCreate(ctx context.Context, fn *models.Fn) error
+	// AfterFnCreate called after fn create in the datastore
+	AfterFnCreate(ctx context.Context, fn *models.Fn) error
+	// BeforeFnUpdate called before fn update in datastore
+	BeforeFnUpdate(ctx context.Context, fn *models.Fn) error
+	// AfterFnUpdate called after fn updated in datastore
+	AfterFnUpdate(ctx context.Context, fn *models.Fn) error
+	// BeforeFnDelete called before fn deleted from the datastore
+	BeforeFnDelete(ctx context.Context, appId string, funcName string) error
+	// AfterFnDelete called after fn deleted from the datastore
+	AfterFnDelete(ctx context.Context, appId string, funcName string) error
 }
 
 // CallListener enables callbacks around Call events
