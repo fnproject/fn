@@ -41,6 +41,9 @@ type Call interface {
 	End(ctx context.Context, err error) error
 }
 
+// Interceptor in GetCall
+type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
+
 // TODO build w/o closures... lazy
 type CallOpt func(c *call) error
 
@@ -259,6 +262,16 @@ func (a *agent) GetCall(opts ...CallOpt) (Call, error) {
 	// TODO typed errors to test
 	if c.req == nil || c.Call == nil {
 		return nil, errors.New("no model or request provided for call")
+	}
+
+	// If overrider is present, let's allow it to modify models.Call
+	// and call extensions
+	if a.callOverrider != nil {
+		ext, err := a.callOverrider(c.Call, c.extensions)
+		if err != nil {
+			return nil, err
+		}
+		c.extensions = ext
 	}
 
 	mem := c.Memory + uint64(c.TmpFsSize)

@@ -120,6 +120,8 @@ type agent struct {
 	shutonce            sync.Once
 	callEndCount        int64
 	disableAsyncDequeue bool
+
+	callOverrider CallOverrider
 }
 
 type AgentOption func(*agent) error
@@ -190,6 +192,17 @@ func WithDockerDriver(drv drivers.Driver) AgentOption {
 func WithoutAsyncDequeue() AgentOption {
 	return func(a *agent) error {
 		a.disableAsyncDequeue = true
+		return nil
+	}
+}
+
+// Agents can use this to register a CallOverrider to modify a Call and extensions
+func WithCallOverrider(fn CallOverrider) AgentOption {
+	return func(a *agent) error {
+		if a.callOverrider != nil {
+			return errors.New("lb-agent call overriders already exists")
+		}
+		a.callOverrider = fn
 		return nil
 	}
 }

@@ -226,7 +226,7 @@ func SetUpLBNode(ctx context.Context) (*server.Server, error) {
 
 	// Create an LB Agent with a Call Overrider to intercept calls in GetCall(). Overrider in this example
 	// scrubs CPU/TmpFsSize and adds FN_CHEESE key/value into extensions.
-	lbAgent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer, agent.WithCallOverrider(LBCallOverrider))
+	lbAgent, err := agent.NewLBAgent(agent.NewCachedDataAccess(cl), nodePool, placer, agent.WithLBCallOverrider(LBCallOverrider))
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,11 @@ func SetUpPureRunnerNode(ctx context.Context, nodeNum int) (*server.Server, erro
 	}
 
 	// inner agent for pure-runners
-	innerAgent := agent.New(ds, agent.WithConfig(cfg), agent.WithDockerDriver(drv), agent.WithoutAsyncDequeue())
+	innerAgent := agent.New(ds,
+		agent.WithConfig(cfg),
+		agent.WithDockerDriver(drv),
+		agent.WithoutAsyncDequeue(),
+		agent.WithCallOverrider(PureRunnerCallOverrider))
 
 	cancelCtx, cancel := context.WithCancel(ctx)
 
@@ -370,6 +374,18 @@ func LBCallOverrider(c *models.Call, exts map[string]string) (map[string]string,
 	return exts, nil
 }
 
+// Pure Runner Agent Call Option
+func PureRunnerCallOverrider(c *models.Call, exts map[string]string) (map[string]string, error) {
+
+	if exts == nil {
+		exts = make(map[string]string)
+	}
+
+	// Add an FN_WINE extension, just an example...
+	exts["FN_WINE"] = "1982 Margaux"
+	return exts, nil
+}
+
 // An example Pure Runner docker driver. Using CreateCookie, it intercepts a generated cookie to
 // add an environment variable FN_CHEESE if it finds a FN_CHEESE extension.
 type customDriver struct {
@@ -383,18 +399,24 @@ func (d *customDriver) CreateCookie(ctx context.Context, task drivers.ContainerT
 		return cookie, err
 	}
 
+	// docker driver specific data
+	obj := cookie.ContainerOptions()
+	opts, ok := obj.(docker.CreateContainerOptions)
+	if !ok {
+		logrus.Fatal("Unexpected driver, should be docker")
+	}
+
 	// if call extensions include 'foo', then let's add FN_CHEESE env vars, which should
 	// end up in Env/Config.
 	ext := task.Extensions()
 	cheese, ok := ext["FN_CHEESE"]
 	if ok {
-		// docker driver specific data
-		obj := cookie.ContainerOptions()
-		opts, ok := obj.(docker.CreateContainerOptions)
-		if !ok {
-			logrus.Fatal("Unexpected driver, should be docker")
-		}
 		opts.Config.Env = append(opts.Config.Env, "FN_CHEESE="+cheese)
+	}
+
+	wine, ok := ext["FN_WINE"]
+	if ok {
+		opts.Config.Env = append(opts.Config.Env, "FN_WINE="+wine)
 	}
 
 	return cookie, nil
