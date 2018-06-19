@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 func TestAverage(t *testing.T) {
@@ -12,7 +12,7 @@ func TestAverage(t *testing.T) {
 	stats := make([]Stat, 10)
 	for i := 0; i < len(stats); i++ {
 		stats[i] = Stat{
-			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Minute)),
+			Timestamp: common.DateTime(start.Add(time.Duration(i) * time.Minute)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -38,7 +38,7 @@ func TestDecimate(t *testing.T) {
 	stats := make([]Stat, 480)
 	for i := range stats {
 		stats[i] = Stat{
-			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
+			Timestamp: common.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -55,7 +55,7 @@ func TestDecimate(t *testing.T) {
 	stats = make([]Stat, 700)
 	for i := range stats {
 		stats[i] = Stat{
-			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
+			Timestamp: common.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -67,7 +67,7 @@ func TestDecimate(t *testing.T) {
 	stats = make([]Stat, 300)
 	for i := range stats {
 		stats[i] = Stat{
-			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
+			Timestamp: common.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}
@@ -83,7 +83,7 @@ func TestDecimate(t *testing.T) {
 			start = start.Add(20 * time.Minute)
 		}
 		stats[i] = Stat{
-			Timestamp: strfmt.DateTime(start.Add(time.Duration(i) * time.Second)),
+			Timestamp: common.DateTime(start.Add(time.Duration(i) * time.Second)),
 			Metrics:   map[string]uint64{"x": uint64(i)},
 		}
 	}

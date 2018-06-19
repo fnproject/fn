@@ -22,7 +22,6 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 )
 
@@ -536,7 +535,7 @@ func cherryPick(ds *docker.Stats) drivers.Stat {
 	}
 
 	return drivers.Stat{
-		Timestamp: strfmt.DateTime(ds.Read),
+		Timestamp: common.DateTime(ds.Read),
 		Metrics: map[string]uint64{
 			// source: https://godoc.org/github.com/fsouza/go-dockerclient#Stats
 			// ex (for future expansion): {"read":"2016-08-03T18:08:05Z","pids_stats":{},"network":{},"networks":{"eth0":{"rx_bytes":508,"tx_packets":6,"rx_packets":6,"tx_bytes":508}},"memory_stats":{"stats":{"cache":16384,"pgpgout":281,"rss":8826880,"pgpgin":2440,"total_rss":8826880,"hierarchical_memory_limit":536870912,"total_pgfault":3809,"active_anon":8843264,"total_active_anon":8843264,"total_pgpgout":281,"total_cache":16384,"pgfault":3809,"total_pgpgin":2440},"max_usage":8953856,"usage":8953856,"limit":536870912},"blkio_stats":{"io_service_bytes_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}],"io_serviced_recursive":[{"major":202,"op":"Read"},{"major":202,"op":"Write"},{"major":202,"op":"Sync"},{"major":202,"op":"Async"},{"major":202,"op":"Total"}]},"cpu_stats":{"cpu_usage":{"percpu_usage":[47641874],"usage_in_usermode":30000000,"total_usage":47641874},"system_cpu_usage":8880800500000000,"throttling_data":{}},"precpu_stats":{"cpu_usage":{"percpu_usage":[44946186],"usage_in_usermode":30000000,"total_usage":44946186},"system_cpu_usage":8880799510000000,"throttling_data":{}}}

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 // A DriverCookie identifies a unique request to run a task.
@@ -146,7 +146,7 @@ type ContainerTask interface {
 
 // Stat is a bucket of stats from a driver at a point in time for a certain task.
 type Stat struct {
-	Timestamp strfmt.DateTime   `json:"timestamp"`
+	Timestamp common.DateTime   `json:"timestamp"`
 	Metrics   map[string]uint64 `json:"metrics"`
 }
 
@@ -237,7 +237,7 @@ func average(samples []Stat) (Stat, bool) {
 		}
 	}
 
-	s.Timestamp = strfmt.DateTime(time.Unix(0, t))
+	s.Timestamp = common.DateTime(time.Unix(0, t))
 	for k, v := range s.Metrics {
 		s.Metrics[k] = v / uint64(l)
 	}

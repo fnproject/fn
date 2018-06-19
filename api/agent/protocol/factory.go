@@ -6,8 +6,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
-	"github.com/go-openapi/strfmt"
 )
 
 var errInvalidProtocol = errors.New("Invalid Protocol")
@@ -39,7 +39,7 @@ type CallInfo interface {
 	CallID() string
 	ContentType() string
 	Input() io.Reader
-	Deadline() strfmt.DateTime
+	Deadline() common.DateTime
 	CallType() string
 
 	// ProtocolType let's function/fdk's know what type original request is. Only 'http' for now.
@@ -75,13 +75,13 @@ func (ci callInfoImpl) Input() io.Reader {
 	return ci.req.Body
 }
 
-func (ci callInfoImpl) Deadline() strfmt.DateTime {
+func (ci callInfoImpl) Deadline() common.DateTime {
 	deadline, ok := ci.req.Context().Deadline()
 	if !ok {
 		// In theory deadline must have been set here
 		panic("No context deadline is set in protocol, should never happen")
 	}
-	return strfmt.DateTime(deadline)
+	return common.DateTime(deadline)
 }
 
 // CallType returns whether the function call was "sync" or "async".

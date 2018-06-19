@@ -15,7 +15,6 @@ import (
 
 	"github.com/fnproject/fn_go/client"
 	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/go-openapi/strfmt"
 )
 
 const lBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -41,7 +40,7 @@ func APIClient() *client.Fn {
 	}
 
 	// create the API client, with the transport
-	return client.New(transport, strfmt.Default)
+	return client.New(transport, nil)
 }
 
 func checkServer(ctx context.Context) error {

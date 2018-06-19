@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 const (
@@ -38,8 +38,8 @@ type Route struct {
 	TmpFsSize   uint32          `json:"tmpfs_size" db:"tmpfs_size"`
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 // SetDefaults sets zeroed field to defaults.
@@ -74,11 +74,11 @@ func (r *Route) SetDefaults() {
 	}
 
 	if time.Time(r.CreatedAt).IsZero() {
-		r.CreatedAt = strfmt.DateTime(time.Now())
+		r.CreatedAt = common.DateTime(time.Now())
 	}
 
 	if time.Time(r.UpdatedAt).IsZero() {
-		r.UpdatedAt = strfmt.DateTime(time.Now())
+		r.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 
@@ -243,7 +243,7 @@ func (r *Route) Update(patch *Route) {
 	r.Annotations = r.Annotations.MergeChange(patch.Annotations)
 
 	if !r.Equals(original) {
-		r.UpdatedAt = strfmt.DateTime(time.Now())
+		r.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 

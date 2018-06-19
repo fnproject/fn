@@ -22,7 +22,6 @@ import (
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
 	"github.com/fnproject/fn/grpcutil"
-	"github.com/go-openapi/strfmt"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -69,7 +68,7 @@ type callHandle struct {
 	c          *call // the agent's version of call
 
 	// Timings, for metrics:
-	receivedTime strfmt.DateTime // When was the call received?
+	receivedTime common.DateTime // When was the call received?
 
 	// For implementing http.ResponseWriter:
 	headers http.Header
@@ -525,7 +524,7 @@ func (pr *pureRunner) spawnSubmit(state *callHandle) {
 
 // handleTryCall based on the TryCall message, tries to place the call on NBIO Agent
 func (pr *pureRunner) handleTryCall(tc *runner.TryCall, state *callHandle) error {
-	state.receivedTime = strfmt.DateTime(time.Now())
+	state.receivedTime = common.DateTime(time.Now())
 	var c models.Call
 	err := json.Unmarshal([]byte(tc.ModelsCallJson), &c)
 	if err != nil {
