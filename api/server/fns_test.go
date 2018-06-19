@@ -131,7 +131,7 @@ func TestFnPut(t *testing.T) {
 func TestFnDelete(t *testing.T) {
 	buf := setLogBuffer()
 
-	a := &models.App{Name: "a"}
+	a := &models.App{Name: "a", ID: "appid"}
 	a.SetDefaults()
 	fns := []*models.Fn{{Name: "myfunc", AppID: a.ID}}
 	commonDS := datastore.NewMockInit([]*models.App{a}, fns)
@@ -188,22 +188,22 @@ func TestFnList(t *testing.T) {
 		[]*models.App{app},
 		[]*models.Fn{
 			{
-				ID:    r1b,
-				Name:  "myfunc",
-				AppID: app.ID,
-				Image: "fnproject/fn-test-utils",
+				ID:      r1b,
+				Name:    "myfunc",
+				AppName: app.Name,
+				Image:   "fnproject/fn-test-utils",
 			},
 			{
-				ID:    r2b,
-				Name:  "myfunc1",
-				AppID: app.ID,
-				Image: "fnproject/fn-test-utils",
+				ID:      r2b,
+				Name:    "myfunc1",
+				AppName: app.Name,
+				Image:   "fnproject/fn-test-utils",
 			},
 			{
-				ID:    r3b,
-				Name:  "myfunc2",
-				AppID: app.ID,
-				Image: "fnproject/yo",
+				ID:      r3b,
+				Name:    "myfunc2",
+				AppName: app.Name,
+				Image:   "fnproject/yo",
 			},
 		},
 	)
@@ -269,17 +269,25 @@ func TestFnGet(t *testing.T) {
 	rnr, cancel := testRunner(t)
 	defer cancel()
 
-	app := &models.App{Name: "myapp"}
+	app := &models.App{Name: "myapp", ID: "appid"}
 	app.SetDefaults()
 	ds := datastore.NewMockInit(
 		[]*models.App{app},
 		[]*models.Fn{
 			{
 				Name:  "myfunc",
+				AppID: "appid",
 				Image: "fnproject/fn-test-utils",
 			},
 		})
 	fnl := logs.NewMock()
+
+	nilFn := new(models.Fn)
+
+	expectedFn := &models.Fn{
+		Name:    "myfunc",
+		AppName: "myapp",
+		Image:   "fnproject/fn-test-utils"}
 
 	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
 
@@ -288,11 +296,12 @@ func TestFnGet(t *testing.T) {
 		body          string
 		expectedCode  int
 		expectedError error
+		desiredFn     *models.Fn
 	}{
-		{"/v1/apps//fns/myfunc", "", http.StatusBadRequest, models.ErrAppsMissingName},
-		{"/v1/apps/a/fns/myfunc", "", http.StatusNotFound, models.ErrAppsNotFound},
-		{"/v1/apps/myapp/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound},
-		{"/v1/apps/myapp/fns/myfunc", "", http.StatusOK, nil},
+		{"/v1/apps//fns/myfunc", "", http.StatusBadRequest, models.ErrAppsMissingName, nilFn},
+		{"/v1/apps/a/fns/myfunc", "", http.StatusNotFound, models.ErrAppsNotFound, nilFn},
+		{"/v1/apps/myapp/fns/missing", "", http.StatusNotFound, models.ErrFnsNotFound, nilFn},
+		{"/v1/apps/myapp/fns/myfunc", "", http.StatusOK, nil, expectedFn},
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 
@@ -309,6 +318,17 @@ func TestFnGet(t *testing.T) {
 				t.Log(buf.String())
 				t.Errorf("Test %d: Expected error message to have `%s`",
 					i, test.expectedError.Error())
+			}
+		}
+
+		if !test.desiredFn.Equals(nilFn) {
+			var fnrap models.FnWrapper
+			err := json.NewDecoder(rec.Body).Decode(&fnrap)
+			if err != nil {
+				t.Errorf("Unexpected error: %s", err)
+			}
+			if test.desiredFn.Equals(fnrap.Fn) {
+				t.Errorf("Test %d: Expected fn [%v] got [%v]", i, test.desiredFn, fnrap.Fn)
 			}
 		}
 	}

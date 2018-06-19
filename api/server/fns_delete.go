@@ -11,7 +11,15 @@ func (s *Server) handleFnsDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	fn := c.Param(api.Fn)
-	err := s.datastore.RemoveFn(ctx, fn)
+	appName := c.Param(api.CApp)
+
+	appID, err := s.datastore.GetAppID(ctx, appName)
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	err = s.datastore.RemoveFn(ctx, appID, fn)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

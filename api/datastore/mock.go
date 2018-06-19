@@ -9,6 +9,7 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 )
 
 type mock struct {
@@ -198,10 +199,6 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 }
 
 func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
-	if fn.AppID == "" {
-		return nil, models.ErrFnsMissingAppID
-	}
-
 	// update if exists
 	for _, f := range m.Fns {
 		if f.AppID == fn.AppID && f.Name == fn.Name {
@@ -216,12 +213,13 @@ func (m *mock) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 		}
 	}
 
-	_, err := m.GetAppByID(ctx, fn.AppID)
+	app, err := m.GetAppByID(ctx, fn.AppID)
 	if err != nil {
 		return nil, err
 	}
 	// insert otherwise
 	fn.SetDefaults()
+	fn.AppID = app.ID
 	if err := fn.Validate(); err != nil {
 		return nil, err
 	}
@@ -253,9 +251,10 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 	return funcs, nil
 }
 
-func (m *mock) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
+func (m *mock) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
 	for _, f := range m.Fns {
-		if f.Name == funcName {
+		logrus.Errorf("ffff: %v", f)
+		if f.Name == funcName && f.AppID == appID {
 			return f, nil
 		}
 	}
@@ -263,9 +262,9 @@ func (m *mock) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
 	return nil, models.ErrFnsNotFound
 }
 
-func (m *mock) RemoveFn(ctx context.Context, funcName string) error {
+func (m *mock) RemoveFn(ctx context.Context, appID string, funcName string) error {
 	for i, f := range m.Fns {
-		if f.Name == funcName {
+		if f.Name == funcName && f.AppID == appID {
 			m.Fns = append(m.Fns[:i], m.Fns[i+1:]...)
 			return nil
 		}
