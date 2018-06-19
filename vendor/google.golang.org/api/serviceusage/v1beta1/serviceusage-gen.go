@@ -416,22 +416,9 @@ func (s *Authentication) MarshalJSON() ([]byte, error) {
 // will be
 // ignored.
 type AuthenticationRule struct {
-	// AllowWithoutCredential: Whether to allow requests without a
-	// credential. The credential can be
-	// an OAuth token, Google cookies (first-party auth) or
-	// EndUserCreds.
-	//
-	// For requests without credentials, if the service control environment
-	// is
-	// specified, each incoming request **must** be associated with a
-	// service
-	// consumer. This can be done by passing an API key that belongs to a
-	// consumer
-	// project.
+	// AllowWithoutCredential: If true, the service accepts API keys without
+	// any other credential.
 	AllowWithoutCredential bool `json:"allowWithoutCredential,omitempty"`
-
-	// CustomAuth: Configuration for custom authentication.
-	CustomAuth *CustomAuthRequirements `json:"customAuth,omitempty"`
 
 	// Oauth: The requirements for OAuth credentials.
 	Oauth *OAuthRequirements `json:"oauth,omitempty"`
@@ -711,6 +698,43 @@ func (s *BatchEnableServicesRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// BatchEnableServicesResponse: Response message for the
+// `BatchEnableServices` method.
+// This response message is assigned to the `response` field of the
+// returned
+// Operation when that operation is done.
+type BatchEnableServicesResponse struct {
+	// Failures: If allow_partial_success is true, and one or more services
+	// could not be
+	// enabled, this field contains the details about each failure.
+	Failures []*EnableFailure `json:"failures,omitempty"`
+
+	// Services: The new state of the services after enabling.
+	Services []*GoogleApiServiceusageV1Service `json:"services,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Failures") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Failures") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *BatchEnableServicesResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod BatchEnableServicesResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // Billing: Billing related configuration of the service.
 //
 // The following example shows how to configure monitored resources and
@@ -968,39 +992,6 @@ func (s *Control) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// CustomAuthRequirements: Configuration for a custom authentication
-// provider.
-type CustomAuthRequirements struct {
-	// Provider: A configuration string containing connection information
-	// for the
-	// authentication provider, typically formatted as a SmartService
-	// string
-	// (go/smartservice).
-	Provider string `json:"provider,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "Provider") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "Provider") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *CustomAuthRequirements) MarshalJSON() ([]byte, error) {
-	type NoMethod CustomAuthRequirements
-	raw := NoMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
 // CustomError: Customize service error responses.  For example, list
 // any service
 // specific protobuf types that can appear in error detail lists
@@ -1119,6 +1110,38 @@ func (s *CustomHttpPattern) MarshalJSON() ([]byte, error) {
 // DisableServiceRequest: Request message for the `DisableService`
 // method.
 type DisableServiceRequest struct {
+}
+
+// DisableServiceResponse: Response message for the `DisableService`
+// method.
+// This response message is assigned to the `response` field of the
+// returned
+// Operation when that operation is done.
+type DisableServiceResponse struct {
+	// Service: The new state of the service after disabling.
+	Service *GoogleApiServiceusageV1Service `json:"service,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Service") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Service") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DisableServiceResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod DisableServiceResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
 // Documentation: `Documentation` provides the information for
@@ -1296,8 +1319,86 @@ func (s *DocumentationRule) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// Empty: A generic empty message that you can re-use to avoid defining
+// duplicated
+// empty messages in your APIs. A typical example is to use it as the
+// request
+// or the response type of an API method. For instance:
+//
+//     service Foo {
+//       rpc Bar(google.protobuf.Empty) returns
+// (google.protobuf.Empty);
+//     }
+//
+// The JSON representation for `Empty` is empty JSON object `{}`.
+type Empty struct {
+}
+
+type EnableFailure struct {
+	// ErrorMessage: An error message describing why the service could not
+	// be enabled.
+	ErrorMessage string `json:"errorMessage,omitempty"`
+
+	// ServiceId: The service id of a service that could not be enabled.
+	ServiceId string `json:"serviceId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "ErrorMessage") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ErrorMessage") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EnableFailure) MarshalJSON() ([]byte, error) {
+	type NoMethod EnableFailure
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // EnableServiceRequest: Request message for the `EnableService` method.
 type EnableServiceRequest struct {
+}
+
+// EnableServiceResponse: Response message for the `EnableService`
+// method.
+// This response message is assigned to the `response` field of the
+// returned
+// Operation when that operation is done.
+type EnableServiceResponse struct {
+	// Service: The new state of the service after enabling.
+	Service *GoogleApiServiceusageV1Service `json:"service,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Service") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Service") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EnableServiceResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod EnableServiceResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
 // Endpoint: `Endpoint` describes a network endpoint that serves a set
@@ -1764,6 +1865,128 @@ type GoogleApiService struct {
 
 func (s *GoogleApiService) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleApiService
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GoogleApiServiceusageV1Service: A service that is available for use
+// by the consumer.
+type GoogleApiServiceusageV1Service struct {
+	// Config: The service configuration of the available service.
+	// Some fields may be filtered out of the configuration in responses
+	// to
+	// the `ListServices` method. These fields are present only in responses
+	// to
+	// the `GetService` method.
+	Config *GoogleApiServiceusageV1ServiceConfig `json:"config,omitempty"`
+
+	// Name: The resource name of the consumer and service.
+	//
+	// A valid name would be:
+	// - projects/123/services/serviceusage.googleapis.com
+	Name string `json:"name,omitempty"`
+
+	// Parent: The resource name of the consumer.
+	//
+	// A valid name would be:
+	// - projects/123
+	Parent string `json:"parent,omitempty"`
+
+	// State: Whether or not the service has been enabled for use by the
+	// consumer.
+	//
+	// Possible values:
+	//   "STATE_UNSPECIFIED" - The default value, which indicates that the
+	// enabled state of the service
+	// is unspecified or not meaningful. Currently, all consumers other
+	// than
+	// projects (such as folders and organizations) are always in this
+	// state.
+	//   "DISABLED" - The service cannot be used by this consumer. It has
+	// either been explicitly
+	// disabled, or has never been enabled.
+	//   "ENABLED" - The service has been explicitly enabled for use by this
+	// consumer.
+	State string `json:"state,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Config") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Config") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GoogleApiServiceusageV1Service) MarshalJSON() ([]byte, error) {
+	type NoMethod GoogleApiServiceusageV1Service
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GoogleApiServiceusageV1ServiceConfig: The configuration of the
+// service.
+type GoogleApiServiceusageV1ServiceConfig struct {
+	// Apis: A list of API interfaces exported by this service. Contains
+	// only the names,
+	// versions, and method names of the interfaces.
+	Apis []*Api `json:"apis,omitempty"`
+
+	// Authentication: Auth configuration. Contains only the OAuth rules.
+	Authentication *Authentication `json:"authentication,omitempty"`
+
+	// Documentation: Additional API documentation. Contains only the
+	// summary and the
+	// documentation URL.
+	Documentation *Documentation `json:"documentation,omitempty"`
+
+	// Endpoints: Configuration for network endpoints. Contains only the
+	// names and aliases
+	// of the endpoints.
+	Endpoints []*Endpoint `json:"endpoints,omitempty"`
+
+	// Name: The DNS address at which this service is available.
+	//
+	// An example DNS address would be:
+	// `calendar.googleapis.com`.
+	Name string `json:"name,omitempty"`
+
+	// Quota: Quota configuration.
+	Quota *Quota `json:"quota,omitempty"`
+
+	// Title: The product title for this service.
+	Title string `json:"title,omitempty"`
+
+	// Usage: Configuration controlling usage of this service.
+	Usage *Usage `json:"usage,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Apis") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Apis") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GoogleApiServiceusageV1ServiceConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod GoogleApiServiceusageV1ServiceConfig
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }

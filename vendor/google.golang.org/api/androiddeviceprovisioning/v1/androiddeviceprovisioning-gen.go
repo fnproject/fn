@@ -307,6 +307,23 @@ type Company struct {
 	// delete, and edit your organization's portal users.
 	OwnerEmails []string `json:"ownerEmails,omitempty"`
 
+	// TermsStatus: Output only. Whether any user from the company has
+	// accepted the latest
+	// Terms of Service (ToS). See
+	// TermsStatus.
+	//
+	// Possible values:
+	//   "TERMS_STATUS_UNSPECIFIED" - Default value. This value should never
+	// be set if the enum is present.
+	//   "TERMS_STATUS_NOT_ACCEPTED" - None of the company's users have
+	// accepted the ToS.
+	//   "TERMS_STATUS_ACCEPTED" - One (or more) of the company's users has
+	// accepted the ToS.
+	//   "TERMS_STATUS_STALE" - None of the company's users has accepted the
+	// current ToS but at least one
+	// user accepted a previous ToS.
+	TermsStatus string `json:"termsStatus,omitempty"`
+
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
 	googleapi.ServerResponse `json:"-"`
@@ -1044,8 +1061,10 @@ func (s *DevicesLongRunningOperationResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Dpc: An EMM's DPC ([device policy
-// controller](/android/work/dpc/build-dpc)).
+// Dpc: An EMM's DPC ([device
+// policy
+// controller](http://developer.android.com/work/dpc/build-dpc.htm
+// l)).
 // Zero-touch enrollment installs a DPC (listed in the `Configuration`)
 // on a
 // device to maintain the customer's mobile policies. All the DPCs

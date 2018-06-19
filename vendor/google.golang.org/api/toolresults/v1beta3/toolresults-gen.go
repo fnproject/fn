@@ -2528,6 +2528,7 @@ type TestIssue struct {
 	//   "anr"
 	//   "compatibleWithOrchestrator"
 	//   "completeRoboScriptExecution"
+	//   "failedToInstall"
 	//   "fatalException"
 	//   "incompleteRoboScriptExecution"
 	//   "launcherActivityNotFound"
