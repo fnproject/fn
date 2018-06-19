@@ -711,7 +711,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 }
 
 var testApp = &models.App{
-	Name: "TestApp",
+	Name: "Test",
 }
 
 var testRoute = &models.Route{

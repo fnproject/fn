@@ -182,6 +182,10 @@ func TestFnList(t *testing.T) {
 	r2b := id.New().String()
 	r3b := id.New().String()
 
+	fn1 := "myfunc1"
+	fn2 := "myfunc2"
+	fn3 := "myfunc3"
+
 	app := &models.App{Name: "myapp"}
 	app.SetDefaults()
 	ds := datastore.NewMockInit(
@@ -189,19 +193,19 @@ func TestFnList(t *testing.T) {
 		[]*models.Fn{
 			{
 				ID:      r1b,
-				Name:    "myfunc",
+				Name:    fn1,
 				AppName: app.Name,
 				Image:   "fnproject/fn-test-utils",
 			},
 			{
 				ID:      r2b,
-				Name:    "myfunc1",
+				Name:    fn2,
 				AppName: app.Name,
 				Image:   "fnproject/fn-test-utils",
 			},
 			{
 				ID:      r3b,
-				Name:    "myfunc2",
+				Name:    fn3,
 				AppName: app.Name,
 				Image:   "fnproject/yo",
 			},
@@ -223,11 +227,11 @@ func TestFnList(t *testing.T) {
 		{"/v1/apps//fns", "", http.StatusBadRequest, models.ErrAppsMissingName, 0, ""},
 		{"/v1/apps/a/fns", "", http.StatusNotFound, models.ErrAppsNotFound, 0, ""},
 		{"/v1/apps/myapp/fns", "", http.StatusOK, nil, 3, ""},
-		{"/v1/apps/myapp/fns?per_page=1", "", http.StatusOK, nil, 1, r1b},
-		{"/v1/apps/myapp/fns?per_page=1&cursor=" + r1b, "", http.StatusOK, nil, 1, r2b},
-		{"/v1/apps/myapp/fns?per_page=1&cursor=" + r2b, "", http.StatusOK, nil, 1, r3b},
-		{"/v1/apps/myapp/fns?per_page=100&cursor=" + r2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
-		{"/v1/apps/myapp/fns?per_page=1&cursor=" + r3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+		{"/v1/apps/myapp/fns?per_page=1", "", http.StatusOK, nil, 1, fn1},
+		{"/v1/apps/myapp/fns?per_page=1&cursor=" + fn1, "", http.StatusOK, nil, 1, fn2},
+		{"/v1/apps/myapp/fns?per_page=1&cursor=" + fn2, "", http.StatusOK, nil, 1, fn3},
+		{"/v1/apps/myapp/fns?per_page=100&cursor=" + fn3, "", http.StatusOK, nil, 0, ""}, // cursor is empty if per_page > len(results)
+		{"/v1/apps/myapp/fns?per_page=1&cursor=" + fn3, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
 	} {
 		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
 

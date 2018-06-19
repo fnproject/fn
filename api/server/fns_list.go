@@ -21,7 +21,7 @@ func (s *Server) handleFnsList(c *gin.Context) {
 
 	var nextCursor string
 	if len(fns) > 0 && len(fns) == filter.PerPage {
-		nextCursor = fns[len(fns)-1].ID
+		nextCursor = fns[len(fns)-1].Name
 	}
 
 	c.JSON(http.StatusOK, fnsResponse{
