@@ -9,7 +9,6 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 )
 
 type mock struct {
@@ -253,7 +252,6 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 
 func (m *mock) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
 	for _, f := range m.Fns {
-		logrus.Errorf("ffff: %v", f)
 		if f.Name == funcName && f.AppID == appID {
 			return f, nil
 		}
