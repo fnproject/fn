@@ -915,6 +915,11 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("/calls/:call", s.handleCallGet)
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
+
+					withAppCheck.GET("/triggers", s.handleTriggerList)
+					withAppCheck.GET("/triggers/:trigger", s.handleTriggerGet)
+					withAppCheck.PUT("/triggers/:trigger", s.handleTriggerPut)
+					withAppCheck.DELETE("/triggers/:trigger", s.handleTriggerDelete)
 				}
 
 				apps.POST("/routes", s.handleRoutesPostPut)
@@ -1032,4 +1037,10 @@ type fnsResponse struct {
 	Message    string       `json:"message"`
 	NextCursor string       `json:"next_cursor"`
 	Fns        []*models.Fn `json:"fns"`
+}
+
+type triggersResponse struct {
+	Message    string            `json:"message"`
+	NextCursor string            `json:"next_cursor"`
+	Triggers   []*models.Trigger `json:"triggers"`
 }
