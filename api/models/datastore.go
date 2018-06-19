@@ -29,7 +29,7 @@ type Datastore interface {
 
 	// UpdateApp updates an App's Config. Returns ErrDatastoreEmptyApp when app is nil, and
 	// ErrDatastoreEmptyAppName when app.Name is empty.
-	// Returns ErrAppsNotFound if an App is not found.
+	// nReturns ErrAppsNotFound if an App is not found.
 	UpdateApp(ctx context.Context, app *App) (*App, error)
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
@@ -71,11 +71,11 @@ type Datastore interface {
 	// GetFn returns a function by name. Returns ErrDatastoreEmptyFnName if funcName is empty.
 	// Returns ErrFnsNotFound if a func is not found.
 	// TODO(reed): figure out addressable by id or name biz. iff 1 query, name works.
-	GetFn(ctx context.Context, funcName string) (*Fn, error)
+	GetFn(ctx context.Context, appID string, funcName string) (*Fn, error)
 
 	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnName if funcName is empty.
 	// Returns ErrFnsNotFound if a func is not found.
-	RemoveFn(ctx context.Context, funcName string) error
+	RemoveFn(ctx context.Context, appID string, funcName string) error
 
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB

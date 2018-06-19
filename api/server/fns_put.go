@@ -6,11 +6,12 @@ import (
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Server) handleFnsPut(c *gin.Context) {
 	ctx := c.Request.Context()
-
+	logrus.Errorf("PUTTING")
 	var wfn models.FnWrapper
 	err := c.BindJSON(&wfn)
 	if err != nil {
@@ -26,17 +27,18 @@ func (s *Server) handleFnsPut(c *gin.Context) {
 		return
 	}
 
-	appName := c.MustGet(api.App).(string)
+	appName := c.Param(api.CApp)
+	fnName := c.Param(api.Fn)
+	wfn.Fn.Name = fnName
+
+	logrus.Errorf("PUTTING: %s, %s", fnName, appName)
+
 	appID, err := s.datastore.GetAppID(ctx, appName)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
-
-	fn := c.Param(api.Fn)
-	// TODO: what about name changes? PutFn(ctx, name, func) ?
 	wfn.Fn.AppID = appID
-	wfn.Fn.Name = fn
 
 	f, err := s.datastore.PutFn(ctx, wfn.Fn)
 	if err != nil {

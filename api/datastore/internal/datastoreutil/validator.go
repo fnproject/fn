@@ -136,24 +136,34 @@ func (v *validator) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 	if fn == nil {
 		return nil, models.ErrDatastoreEmptyFn
 	}
+	if fn.AppID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
 	if fn.Name == "" {
 		return nil, models.ErrDatastoreEmptyFnName
 	}
 	return v.Datastore.PutFn(ctx, fn)
 }
 
-func (v *validator) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
+func (v *validator) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
+	if appID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
 	if funcName == "" {
 		return nil, models.ErrDatastoreEmptyFnName
 	}
-	return v.Datastore.GetFn(ctx, funcName)
+
+	return v.Datastore.GetFn(ctx, appID, funcName)
 }
 
-func (v *validator) RemoveFn(ctx context.Context, funcName string) error {
+func (v *validator) RemoveFn(ctx context.Context, appID, funcName string) error {
+	if appID == "" {
+		return models.ErrDatastoreEmptyAppID
+	}
 	if funcName == "" {
 		return models.ErrDatastoreEmptyFnName
 	}
-	return v.Datastore.RemoveFn(ctx, funcName)
+	return v.Datastore.RemoveFn(ctx, appID, funcName)
 }
 
 // GetDatabase returns the underlying sqlx database implementation

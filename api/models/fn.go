@@ -28,7 +28,9 @@ type Fn struct {
 	ID string `json:"id" db:"id"`
 	// Name is a user provided name for this fn.
 	Name string `json:"name" db:"name"`
-	// AppID is the ID of the app this fn belongs to.
+	// AppName is the name of the app this fn belongs to.
+	AppName string `json:"app_name" db:"app_name"`
+	// AppID is the name of the app this fn belongs to.
 	AppID string `json:"app_id" db:"app_id"`
 	// Image is the fully qualified container registry address to execute.
 	// examples: hub.docker.io/me/myfunc, me/myfunc, me/func:0.0.1
@@ -108,6 +110,10 @@ func (f *Fn) Validate() error {
 		return ErrFnsInvalidName
 	}
 
+	if f.Name == "" {
+		return ErrDatastoreEmptyFnName
+	}
+
 	if f.AppID == "" {
 		return ErrFnsMissingAppID
 	}
@@ -163,7 +169,10 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 	// the RHS of && won't eval if eq==false so config/headers checking is lazy
 
 	eq := true
+	eq = eq && f1.ID == f2.ID
+	eq = eq && f1.Name == f2.Name
 	eq = eq && f1.AppID == f2.AppID
+	eq = eq && f1.AppName == f2.AppName
 	eq = eq && f1.Image == f2.Image
 	eq = eq && f1.Memory == f2.Memory
 	eq = eq && f1.CPUs == f2.CPUs
@@ -185,9 +194,6 @@ func (f1 *Fn) Equals(f2 *Fn) bool {
 func (f *Fn) Update(patch *Fn) {
 	original := f.Clone()
 
-	if patch.AppID != "" {
-		f.AppID = patch.AppID
-	}
 	if patch.Image != "" {
 		f.Image = patch.Image
 	}

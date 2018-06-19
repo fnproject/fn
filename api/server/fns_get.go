@@ -11,7 +11,16 @@ func (s *Server) handleFnsGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	fn := c.Param(api.Fn)
-	f, err := s.datastore.GetFn(ctx, fn)
+	appName := c.Param(api.CApp)
+
+	appID, err := s.datastore.GetAppID(ctx, appName)
+
+	if err != nil {
+		handleErrorResponse(c, err)
+		return
+	}
+
+	f, err := s.datastore.GetFn(ctx, appID, fn)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

@@ -85,8 +85,9 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 
 	`CREATE TABLE IF NOT EXISTS fns (
 	id varchar(256) NOT NULL PRIMARY KEY,
-	name varchar(256) NOT NULL UNIQUE,
+	name varchar(256) NOT NULL,
 	app_id varchar(256) NOT NULL,
+	app_name varchar(256) NOT NULL,
 	image varchar(256) NOT NULL,
 	format varchar(16) NOT NULL,
 	cpus int NOT NULL,
@@ -97,7 +98,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	annotations text NOT NULL,
 	created_at varchar(256) NOT NULL,
 	updated_at varchar(256) NOT NULL,
-	CONSTRAINT fk_app_id FOREIGN KEY (app_id) REFERENCES apps(id)
+	CONSTRAINT fk_app_id FOREIGN KEY (app_id) REFERENCES apps(id),
+  CONSTRAINT name_app_id_unique UNIQUE (app_id, name)
 );`,
 }
 
@@ -106,7 +108,7 @@ const (
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
-	fnSelector        = `SELECT id, name, app_id, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
+	fnSelector        = `SELECT id, name, app_id, app_name, image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
@@ -687,8 +689,9 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 
 func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=?`, fnSelector))
-		row := tx.QueryRowxContext(ctx, query, fn.Name)
+
+		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=? AND app_id=?`, fnSelector))
+		row := tx.QueryRowxContext(ctx, query, fn.Name, fn.AppID)
 
 		var dst models.Fn
 		err := row.StructScan(&dst)
@@ -696,27 +699,25 @@ func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 			return err
 		} else if err == sql.ErrNoRows {
 			// insert it
+			appQuery := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
+			r := tx.QueryRowContext(ctx, appQuery, fn.AppID)
+			if err := r.Scan(new(int)); err != nil {
+				if err == sql.ErrNoRows {
+					return models.ErrAppsNotFound
+				}
+			}
+
 			fn.SetDefaults()
 			err = fn.Validate()
 			if err != nil {
 				return err
 			}
 
-			// Check that the app exists
-			query = tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
-			r := tx.QueryRowContext(ctx, query, fn.AppID)
-			if err := r.Scan(new(int)); err != nil {
-				if err == sql.ErrNoRows {
-					return models.ErrAppsNotFound
-				} else {
-					return err
-				}
-			}
-
 			query = tx.Rebind(`INSERT INTO fns (
 				id,
 				name,
 				app_id,
+				app_name,
 				image,
 				format,
 				memory,
@@ -732,6 +733,7 @@ func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 				:id,
 				:name,
 				:app_id,
+				:app_name,
 				:image,
 				:format,
 				:memory,
@@ -754,8 +756,6 @@ func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 			fn = &dst // set for query & to return
 
 			query = tx.Rebind(`UPDATE fns SET
-				name = :name,
-				app_id = :app_id,
 				image = :image,
 				format = :format,
 				memory = :memory,
@@ -765,9 +765,8 @@ func (ds *SQLStore) PutFn(ctx context.Context, fn *models.Fn) (*models.Fn, error
 				config = :config,
 				annotations = :annotations,
 				updated_at = :updated_at
-			WHERE id=:id;`)
+			WHERE name=:name AND app_id=:app_id;`)
 		}
-
 		_, err = tx.NamedExecContext(ctx, query, fn)
 		return err
 	})
@@ -814,9 +813,9 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 	return res, nil
 }
 
-func (ds *SQLStore) GetFn(ctx context.Context, funcName string) (*models.Fn, error) {
-	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=?", fnSelector))
-	row := ds.db.QueryRowxContext(ctx, query, funcName)
+func (ds *SQLStore) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
+	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=? AND app_id=?", fnSelector))
+	row := ds.db.QueryRowxContext(ctx, query, funcName, appID)
 
 	var fn models.Fn
 	err := row.StructScan(&fn)
@@ -828,9 +827,9 @@ func (ds *SQLStore) GetFn(ctx context.Context, funcName string) (*models.Fn, err
 	return &fn, nil
 }
 
-func (ds *SQLStore) RemoveFn(ctx context.Context, funcName string) error {
-	query := ds.db.Rebind(`DELETE FROM fns WHERE name = ?`)
-	res, err := ds.db.ExecContext(ctx, query, funcName)
+func (ds *SQLStore) RemoveFn(ctx context.Context, appID string, funcName string) error {
+	query := ds.db.Rebind(`DELETE FROM fns WHERE name = ? AND app_id = ?`)
+	res, err := ds.db.ExecContext(ctx, query, funcName, appID)
 	if err != nil {
 		return err
 	}
@@ -1036,9 +1035,10 @@ func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}) {
 	var args []interface{}
 
 	// where(fmt.Sprintf("image LIKE '%s%%'"), filter.Image) // TODO needs escaping, prob we want prefix query to ignore tags
-	args = where(&b, args, "id>?", filter.Cursor)
+	args = where(&b, args, "app_id=? ", filter.AppID)
+	args = where(&b, args, "name>?", filter.Cursor)
 
-	fmt.Fprintf(&b, ` ORDER BY id ASC`)
+	fmt.Fprintf(&b, ` ORDER BY name ASC`)
 	fmt.Fprintf(&b, ` LIMIT ?`)
 	args = append(args, filter.PerPage)
 

@@ -64,6 +64,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app ID"),
 	}
+	ErrDatastoreEmptyAppName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app Name"),
+	}
 	ErrDatastoreEmptyRoute = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route"),
@@ -79,6 +83,10 @@ var (
 	ErrDatastoreEmptyFn = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing func"),
+	}
+	ErrFnsMissingAppName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app name"),
 	}
 	ErrDatastoreEmptyFnName = err{
 		code:  http.StatusBadRequest,
@@ -174,7 +182,7 @@ var (
 	}
 	ErrFnsMissingAppID = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing function AppName"),
+		error: errors.New("Missing function AppID"),
 	}
 	ErrFnsMissingImage = err{
 		code:  http.StatusBadRequest,

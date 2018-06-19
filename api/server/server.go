@@ -913,11 +913,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("/calls/:call", s.handleCallGet)
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
-
-					withAppCheck.GET("/triggers", s.handleFnsList)
-					withAppCheck.GET("/triggers/:trigger", s.handleFnsGet)
-					withAppCheck.PUT("/triggers/:trigger", s.handleFnsPut)
-					withAppCheck.DELETE("/triggers/:trigger", s.handleFnsDelete)
 				}
 
 				apps.POST("/routes", s.handleRoutesPostPut)

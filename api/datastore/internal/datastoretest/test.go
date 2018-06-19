@@ -499,15 +499,15 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		}
 		// Testing insert fn
 		{
-			testFn.AppID = ""
 			_, err := ds.PutFn(ctx, nil)
 			if err != models.ErrDatastoreEmptyFn {
 				t.Fatalf("Test PutFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
 			}
 
+			testFn.AppID = ""
 			_, err = ds.PutFn(ctx, testFn)
-			if err != models.ErrFnsMissingAppID {
-				t.Fatalf("Test PutFn(empty app ID): expected error `%v`, but it was `%v`", models.ErrFnsMissingAppID, err)
+			if err != models.ErrDatastoreEmptyAppID {
+				t.Fatalf("Test PutFn(empty app ID): expected error `%v`, but it was `%v`", models.ErrFnsMissingAppName, err)
 			}
 
 			newTestFn := testFn.Clone()
@@ -516,7 +516,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			if err != models.ErrAppsNotFound {
 				t.Fatalf("Test PutFn(missing app): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
 			}
-			newTestFn.AppID = testApp.ID
+
 			newTestFn.Name = ""
 			_, err = ds.PutFn(ctx, newTestFn)
 			if err != models.ErrDatastoreEmptyFnName {
@@ -525,6 +525,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 			// assign to make sure that PutFn returns the right thing
 			testFn.AppID = testApp.ID
+			testFn.AppName = testApp.Name
 			testFn, err = ds.PutFn(ctx, testFn)
 			if err != nil {
 				t.Fatalf("Test PutFn: error when storing perfectly good fn: %s", err)
@@ -533,12 +534,16 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 
 		// Testing get
 		{
-			_, err := ds.GetFn(ctx, "")
+			_, err := ds.GetFn(ctx, "", "")
+			if err != models.ErrDatastoreEmptyAppID {
+				t.Fatalf("Test GetRoute(empty func path): expected error `%v`, but it was `%v`", models.ErrFnsMissingAppID, err)
+			}
+			_, err = ds.GetFn(ctx, "abc", "")
 			if err != models.ErrDatastoreEmptyFnName {
 				t.Fatalf("Test GetRoute(empty func path): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 			}
 
-			fn, err := ds.GetFn(ctx, testFn.Name)
+			fn, err := ds.GetFn(ctx, testApp.ID, testFn.Name)
 			if err != nil {
 				t.Fatalf("Test GetFn: unexpected error %v", err)
 			}
@@ -564,11 +569,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 			expected := &models.Fn{
 				// unchanged
-				ID:     testFn.ID,
-				Name:   testFn.Name,
-				AppID:  testApp.ID,
-				Image:  "fnproject/fn-test-utils",
-				Format: "http",
+				ID:      testFn.ID,
+				Name:    testFn.Name,
+				AppID:   testApp.ID,
+				AppName: testApp.Name,
+				Image:   "fnproject/fn-test-utils",
+				Format:  "http",
 				ResourceConfig: models.ResourceConfig{
 					Timeout:     testFn.Timeout,
 					IdleTimeout: testFn.IdleTimeout,
@@ -601,10 +607,12 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			}
 			expected = &models.Fn{
 				// unchanged
-				Name:   testFn.Name,
-				AppID:  testApp.ID,
-				Image:  "fnproject/fn-test-utils",
-				Format: "http",
+				ID:      testFn.ID,
+				Name:    testFn.Name,
+				AppID:   testApp.ID,
+				AppName: testApp.Name,
+				Image:   "fnproject/fn-test-utils",
+				Format:  "http",
 				ResourceConfig: models.ResourceConfig{
 					Timeout:     testFn.Timeout,
 					IdleTimeout: testFn.IdleTimeout,
@@ -661,7 +669,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 			t.Fatalf("Test GetFns: expected `func.Name` to be `%s` but it was `%s`", testFn.Name, fns[0].Name)
 		}
 
-		fns, err = ds.GetFns(ctx, &models.FnFilter{PerPage: 2, Cursor: fns[0].ID})
+		fns, err = ds.GetFns(ctx, &models.FnFilter{PerPage: 2, Cursor: fns[0].Name})
 		if err != nil {
 			t.Fatalf("Test GetFns: error: %s", err)
 		}
@@ -677,17 +685,22 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 		// TODO test prefix filtering
 
 		// Testing func delete
-		err = ds.RemoveFn(ctx, "")
+		err = ds.RemoveFn(ctx, "abc", "")
 		if err != models.ErrDatastoreEmptyFnName {
 			t.Fatalf("Test RemoveFn(empty name): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnName, err)
 		}
 
-		err = ds.RemoveFn(ctx, testFn.Name)
-		if err != nil {
-			t.Fatalf("Test RemoveFn: unexpected error: %v", err)
+		err = ds.RemoveFn(ctx, "", testFn.Name)
+		if err != models.ErrDatastoreEmptyAppID {
+			t.Fatalf("Test RemoveFn(empty app id): unexpected error: %v", err)
 		}
 
-		fn, err := ds.GetFn(ctx, testFn.Name)
+		err = ds.RemoveFn(ctx, testFn.AppID, testFn.Name)
+		if err != nil {
+			t.Fatalf("Test RemoveFn(should work): unexpected error: %v", err)
+		}
+
+		fn, err := ds.GetFn(ctx, testFn.AppID, testFn.Name)
 		if err != nil && err != models.ErrFnsNotFound {
 			t.Fatalf("Test GetFn: expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
 		}
@@ -698,7 +711,7 @@ func Test(t *testing.T, dsf func(t *testing.T) models.Datastore) {
 }
 
 var testApp = &models.App{
-	Name: "Test",
+	Name: "TestApp",
 }
 
 var testRoute = &models.Route{
