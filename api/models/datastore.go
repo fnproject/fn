@@ -29,7 +29,7 @@ type Datastore interface {
 
 	// UpdateApp updates an App's Config. Returns ErrDatastoreEmptyApp when app is nil, and
 	// ErrDatastoreEmptyAppName when app.Name is empty.
-	// Returns ErrAppsNotFound if an App is not found.
+	// nReturns ErrAppsNotFound if an App is not found.
 	UpdateApp(ctx context.Context, app *App) (*App, error)
 
 	// RemoveApp removes the App named appName. Returns ErrDatastoreEmptyAppName if appName is empty.
@@ -58,6 +58,25 @@ type Datastore interface {
 	// RemoveRoute removes a route. Returns ErrDatastoreEmptyAppID when appName is empty, and
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appID, routePath string) error
+
+	// InsertFn inserts a new function if one does not exist, applying any defaults necessary,
+	InsertFn(ctx context.Context, fn *Fn) (*Fn, error)
+
+	// UpdateFn  updates a function that exists under the same name. Returns ErrDatastoreEmptyFn if func is nil,
+	// ErrDatastoreEmptyFnName is func.Name is empty.
+	UpdateFn(ctx context.Context, fn *Fn) (*Fn, error)
+
+	// GetFns returns a list of funcs, applying any additional filters provided.
+	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)
+
+	// GetFn returns a function by name. Returns ErrDatastoreEmptyFnName if funcName is empty.
+	// Returns ErrFnsNotFound if a func is not found.
+	// TODO(reed): figure out addressable by id or name biz. iff 1 query, name works.
+	GetFn(ctx context.Context, appID string, funcName string) (*Fn, error)
+
+	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnName if funcName is empty.
+	// Returns ErrFnsNotFound if a func is not found.
+	RemoveFn(ctx context.Context, appID string, funcName string) error
 
 	// GetDatabase returns the underlying sqlx database implementation
 	GetDatabase() *sqlx.DB

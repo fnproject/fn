@@ -132,6 +132,53 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
+func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	if fn == nil {
+		return nil, models.ErrDatastoreEmptyFn
+	}
+	if fn.AppID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
+	if fn.Name == "" {
+		return nil, models.ErrDatastoreEmptyFnName
+	}
+	return v.Datastore.InsertFn(ctx, fn)
+}
+
+func (v *validator) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	if fn == nil {
+		return nil, models.ErrDatastoreEmptyFn
+	}
+	if fn.AppID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
+	if fn.Name == "" {
+		return nil, models.ErrDatastoreEmptyFnName
+	}
+	return v.Datastore.UpdateFn(ctx, fn)
+}
+
+func (v *validator) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
+	if appID == "" {
+		return nil, models.ErrDatastoreEmptyAppID
+	}
+	if funcName == "" {
+		return nil, models.ErrDatastoreEmptyFnName
+	}
+
+	return v.Datastore.GetFn(ctx, appID, funcName)
+}
+
+func (v *validator) RemoveFn(ctx context.Context, appID, funcName string) error {
+	if appID == "" {
+		return models.ErrDatastoreEmptyAppID
+	}
+	if funcName == "" {
+		return models.ErrDatastoreEmptyFnName
+	}
+	return v.Datastore.RemoveFn(ctx, appID, funcName)
+}
+
 // GetDatabase returns the underlying sqlx database implementation
 func (v *validator) GetDatabase() *sqlx.DB {
 	return v.Datastore.GetDatabase()

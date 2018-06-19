@@ -118,6 +118,7 @@ type Server struct {
 	certAuthority   string
 	appListeners    *appListeners
 	routeListeners  *routeListeners
+	fnListeners     *fnListeners
 	rootMiddlewares []fnext.Middleware
 	apiMiddlewares  []fnext.Middleware
 	promExporter    *prometheus.Exporter
@@ -549,9 +550,10 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 
 	s.appListeners = new(appListeners)
 	s.routeListeners = new(routeListeners)
+	s.fnListeners = new(fnListeners)
 
 	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
 	return s
@@ -899,10 +901,17 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("", s.handleAppGetByName)
 					withAppCheck.PATCH("", s.handleAppUpdate)
 					withAppCheck.DELETE("", s.handleAppDelete)
+
+					withAppCheck.GET("/fns", s.handleFnsList)
+					withAppCheck.GET("/fns/:fn", s.handleFnsGet)
+					withAppCheck.PUT("/fns/:fn", s.handleFnsPut)
+					withAppCheck.DELETE("/fns/:fn", s.handleFnsDelete)
+
 					withAppCheck.GET("/routes", s.handleRouteList)
 					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
 					withAppCheck.PATCH("/routes/*route", s.handleRoutesPatch)
 					withAppCheck.DELETE("/routes/*route", s.handleRouteDelete)
+
 					withAppCheck.GET("/calls/:call", s.handleCallGet)
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
@@ -1012,4 +1021,15 @@ type callsResponse struct {
 	Message    string         `json:"message"`
 	NextCursor string         `json:"next_cursor"`
 	Calls      []*models.Call `json:"calls"`
+}
+
+type fnResponse struct {
+	Message string     `json:"message"`
+	Fn      *models.Fn `json:"fn"`
+}
+
+type fnsResponse struct {
+	Message    string       `json:"message"`
+	NextCursor string       `json:"next_cursor"`
+	Fns        []*models.Fn `json:"fns"`
 }

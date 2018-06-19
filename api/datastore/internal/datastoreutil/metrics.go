@@ -83,6 +83,36 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	return m.ds.RemoveRoute(ctx, appID, routePath)
 }
 
+func (m *metricds) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_put_func")
+	defer span.End()
+	return m.ds.InsertFn(ctx, fn)
+}
+
+func (m *metricds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_put_func")
+	defer span.End()
+	return m.ds.UpdateFn(ctx, fn)
+}
+
+func (m *metricds) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_funcs")
+	defer span.End()
+	return m.ds.GetFns(ctx, filter)
+}
+
+func (m *metricds) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_get_func")
+	defer span.End()
+	return m.ds.GetFn(ctx, appID, funcName)
+}
+
+func (m *metricds) RemoveFn(ctx context.Context, appID string, funcName string) error {
+	ctx, span := trace.StartSpan(ctx, "ds_remove_func")
+	defer span.End()
+	return m.ds.RemoveFn(ctx, appID, funcName)
+}
+
 // instant & no context ;)
 func (m *metricds) GetDatabase() *sqlx.DB { return m.ds.GetDatabase() }
 

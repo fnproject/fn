@@ -64,6 +64,10 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app ID"),
 	}
+	ErrDatastoreEmptyAppName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app Name"),
+	}
 	ErrDatastoreEmptyRoute = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route"),
@@ -75,6 +79,22 @@ var (
 	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
+	}
+	ErrDatastoreEmptyFn = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing func"),
+	}
+	ErrFnsMissingAppName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app name"),
+	}
+	ErrDatastoreEmptyFnName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing func name"),
+	}
+	ErrFnsMissingNew = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing function body"),
 	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
@@ -155,6 +175,46 @@ var (
 	ErrRoutesInvalidMemory = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
+	}
+	ErrFnsInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Fn name must be a valid string"),
+	}
+	ErrFnsInvalidFieldChange = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Fn names and ids cannot be modified"),
+	}
+	ErrFnsMissingAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing function AppID"),
+	}
+	ErrFnsMissingImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing func image"),
+	}
+	ErrFnsInvalidFormat = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid func format"),
+	}
+	ErrInvalidTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("timeout value is out of range, must be between 0 and %d", MaxTimeout),
+	}
+	ErrInvalidIdleTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("idle_timeout value is out of range, must be between 0 and %d", MaxIdleTimeout),
+	}
+	ErrInvalidMemory = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
+	}
+	ErrFnsNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Fn not found"),
+	}
+	ErrFnsExists = err{
+		code:  http.StatusConflict,
+		error: errors.New("Fn with specified name already exists"),
 	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,

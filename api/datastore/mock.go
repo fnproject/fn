@@ -14,6 +14,7 @@ import (
 type mock struct {
 	Apps   []*models.App
 	Routes []*models.Route
+	Fns    []*models.Fn
 
 	models.LogStore
 }
@@ -31,6 +32,8 @@ func NewMockInit(args ...interface{}) models.Datastore {
 			mocker.Apps = x
 		case []*models.Route:
 			mocker.Routes = x
+		case []*models.Fn:
+			mocker.Fns = x
 		default:
 			panic("not accounted for data type sent to mock init. add it")
 		}
@@ -52,7 +55,7 @@ func (m *mock) GetAppID(ctx context.Context, appName string) (string, error) {
 func (m *mock) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	for _, a := range m.Apps {
 		if a.ID == appID {
-			return a, nil
+			return a.Clone(), nil
 		}
 	}
 
@@ -75,7 +78,7 @@ func (m *mock) GetApps(ctx context.Context, appFilter *models.AppFilter) ([]*mod
 			break
 		}
 		if strings.Compare(appFilter.Cursor, a.Name) < 0 {
-			apps = append(apps, a)
+			apps = append(apps, a.Clone())
 		}
 	}
 
@@ -87,17 +90,25 @@ func (m *mock) InsertApp(ctx context.Context, app *models.App) (*models.App, err
 		return nil, models.ErrAppsAlreadyExists
 	}
 	m.Apps = append(m.Apps, app)
-	return app, nil
+	return app.Clone(), nil
 }
 
 func (m *mock) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
-	a, err := m.GetAppByID(ctx, app.ID)
-	if err != nil {
-		return nil, err
+	for idx, a := range m.Apps {
+		if a.ID == app.ID {
+			c := a.Clone()
+			c.Update(app)
+			err := c.Validate()
+			if err != nil {
+				return nil, err
+			}
+			m.Apps[idx] = c
+			return c.Clone(), nil
+		}
 	}
-	a.Update(app)
 
-	return a.Clone(), nil
+	return nil, models.ErrAppsNotFound
+
 }
 
 func (m *mock) RemoveApp(ctx context.Context, appID string) error {
@@ -114,7 +125,7 @@ func (m *mock) RemoveApp(ctx context.Context, appID string) error {
 func (m *mock) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	for _, r := range m.Routes {
 		if r.AppID == appID && r.Path == routePath {
-			return r, nil
+			return r.Clone(), nil
 		}
 	}
 	return nil, models.ErrRoutesNotFound
@@ -140,7 +151,7 @@ func (m *mock) GetRoutesByApp(ctx context.Context, appID string, routeFilter *mo
 			(routeFilter.Image == "" || routeFilter.Image == r.Image) &&
 			strings.Compare(routeFilter.Cursor, r.Path) < 0 {
 
-			routes = append(routes, r)
+			routes = append(routes, r.Clone())
 		}
 	}
 	return
@@ -155,7 +166,7 @@ func (m *mock) InsertRoute(ctx context.Context, route *models.Route) (*models.Ro
 		return nil, models.ErrRoutesAlreadyExists
 	}
 	m.Routes = append(m.Routes, route)
-	return route, nil
+	return route.Clone(), nil
 }
 
 func (m *mock) UpdateRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
@@ -192,6 +203,99 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 	}
 	m.Routes = newRoutes
 	return nil
+}
+
+func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	// update if exists
+	for _, f := range m.Fns {
+		if f.AppID == fn.AppID && f.Name == fn.Name {
+			return nil, models.ErrFnsExists
+		}
+	}
+
+	app, err := m.GetAppByID(ctx, fn.AppID)
+	if err != nil {
+		return nil, err
+	}
+	clone := fn.Clone()
+	// insert otherwise
+	clone.SetDefaults()
+	clone.AppID = app.ID
+	if err := clone.Validate(); err != nil {
+		return nil, err
+	}
+	m.Fns = append(m.Fns, clone)
+	return clone.Clone(), nil
+}
+
+func (m *mock) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	// update if exists
+	for _, f := range m.Fns {
+		if f.AppID == fn.AppID && f.Name == fn.Name {
+			if fn.ID != "" && f.ID != fn.ID {
+				return nil, models.ErrFnsInvalidFieldChange
+			}
+
+			clone := f.Clone()
+			clone.Update(fn)
+			err := clone.Validate()
+			if err != nil {
+				return nil, err
+			}
+			*f = *clone
+			return f, nil
+		}
+	}
+
+	return nil, models.ErrFnsNotFound
+}
+
+type sortF []*models.Fn
+
+func (s sortF) Len() int           { return len(s) }
+func (s sortF) Less(i, j int) bool { return strings.Compare(s[i].Name, s[j].Name) < 0 }
+func (s sortF) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+	// sort them all first for cursoring (this is for testing, n is small & mock is not concurrent..)
+	sort.Sort(sortF(m.Fns))
+
+	funcs := []*models.Fn{}
+
+	for _, f := range m.Fns {
+		if len(funcs) == filter.PerPage {
+			break
+		}
+
+		if strings.Compare(filter.Cursor, f.Name) < 0 &&
+			(filter.Image == "" || filter.Image == f.Image) &&
+			(filter.AppID == "" || filter.AppID == f.AppID) {
+			funcs = append(funcs, f)
+		}
+
+	}
+	return funcs, nil
+}
+
+func (m *mock) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
+	for _, f := range m.Fns {
+		if f.Name == funcName && f.AppID == appID {
+			return f, nil
+		}
+	}
+
+	return nil, models.ErrFnsNotFound
+}
+
+func (m *mock) RemoveFn(ctx context.Context, appID string, funcName string) error {
+	for i, f := range m.Fns {
+		if f.Name == funcName && f.AppID == appID {
+			m.Fns = append(m.Fns[:i], m.Fns[i+1:]...)
+			return nil
+		}
+	}
+
+	return models.ErrFnsNotFound
 }
 
 // GetDatabase returns nil here since shouldn't really be used
