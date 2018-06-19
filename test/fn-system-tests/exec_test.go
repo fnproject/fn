@@ -353,7 +353,7 @@ func ensureRoute(t *testing.T, rts ...*models.Route) *models.Route {
 		rt = rts[0]
 	} else {
 		rt = &models.Route{
-			Path:   routeName,
+			Path:   routeName + "yabbadabbadoo",
 			Image:  image,
 			Format: format,
 			Memory: memory,
@@ -372,7 +372,7 @@ func ensureRoute(t *testing.T, rts ...*models.Route) *models.Route {
 		t.Fatal("error encoding body", err)
 	}
 
-	urlStr := host() + "/v1/apps/" + appName + "/routes/" + routeName
+	urlStr := host() + "/v1/apps/" + appName + "/routes" + rt.Path
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		t.Fatal("error creating url", urlStr, err)
@@ -394,6 +394,7 @@ func ensureRoute(t *testing.T, rts ...*models.Route) *models.Route {
 		t.Fatal("error creating/updating app or otherwise ensuring it exists:", resp.StatusCode, buf.String())
 	}
 
+	wrapped.Route = nil
 	err = json.NewDecoder(&buf).Decode(&wrapped)
 	if err != nil {
 		t.Fatal("error decoding response")
