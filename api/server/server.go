@@ -926,6 +926,30 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				apps.PUT("/routes/*route", s.handleRoutesPostPut)
 			}
 
+			cleanv2 := engine.Group("/v2")
+			v2 := cleanv2.Group("")
+			v2.Use(s.apiMiddlewareWrapper())
+
+			{
+				// v2.GET("/apps", s.handleAppList)
+				// v2.GET("/apps", s.handleAppCreate)
+				// v2.GET("/apps/:app", s.handleAppGetByID)
+				// v2.PUT("/apps/:app", s.handleAppUpdate)
+				// v2.DELETE("/apps/:app", s.handleAppDelete)
+
+				v2.GET("/fns", s.handleFnsList)
+				v2.PUT("/fns", s.handleFnsCreate)
+				v2.GET("/fns/:fn", s.handleFnsGet)
+				v2.PUT("/fns/:fn", s.handleFnsUpdate)
+				v2.DELETE("/fns/:fn", s.handleFnsDelete)
+
+				v2.GET("/triggers", s.handleTriggersList)
+				v2.PUT("/triggers", s.handleTriggersCreate)
+				v2.GET("/triggers/:trigger", s.handleTriggersGet)
+				v2.PUT("/triggers/:trigger", s.handleTriggersUpdate)
+				v2.DELETE("/triggers/:trigger", s.handleTriggersDelete)
+			}
+
 			{
 				runner := clean.Group("/runner")
 				runner.PUT("/async", s.handleRunnerEnqueue)
