@@ -10,13 +10,12 @@ schemes:
   - https
   - http
 # will be prefixed to all paths
-basePath: /v1
 consumes:
   - application/json
 produces:
   - application/json
 paths:
-  /apps:
+  /v1/apps:
     get:
       summary: "Get all app names."
       description: "Get a list of all the apps in the system, returned in alphabetical order."
@@ -73,7 +72,7 @@ paths:
             $ref: '#/definitions/Error'
 
 
-  /apps/{app}:
+  /v1/apps/{app}:
     delete:
       summary: "Delete an app."
       description: "Delete an app."
@@ -155,7 +154,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/routes:
+  /v1/apps/{app}/routes:
     post:
       summary: Create new Route
       description: Create a new route in an app, if app doesn't exists, it creates the app. Post does not skip validation of zero values.
@@ -231,7 +230,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/routes/{route}:
+  /v1/apps/{app}/routes/{route}:
     put:
       summary: Create a Route if it does not exist. Update if it does. Will also create app if it does not exist. Put does not skip validation of zero values
       description: Update or Create a route
@@ -364,7 +363,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls/{call}/log:
+  /v1/apps/{app}/calls/{call}/log:
     get:
       summary: Get call logs
       description: Get call logs
@@ -392,7 +391,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls/{call}:
+  /v1/apps/{app}/calls/{call}:
     get:
       summary: Get call information
       description: Get call information
@@ -419,7 +418,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/calls:
+  /v1/apps/{app}/calls:
     get:
       summary: Get app-bound calls.
       description: Get app-bound calls can filter to route-bound calls, results returned in created_at, descending order (newest first).
@@ -466,7 +465,137 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /apps/{app}/fns:
+  /v2/apps:
+    get:
+      summary: "Get all app names."
+      description: "Get a list of all the apps in the system, returned in alphabetical order."
+      tags:
+        - Apps
+      parameters:
+        - name: cursor
+          description: Cursor from previous response.next_cursor to begin results after, if any.
+          required: false
+          type: string
+          in: query
+        - name: per_page
+          description: Number of results to return, defaults to 30. Max of 100.
+          required: false
+          type: integer
+          in: query
+      responses:
+        200:
+          description: List of apps.
+          schema:
+            $ref: '#/definitions/AppsWrapper'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: "Post new app"
+      description: "Insert a new app"
+      tags:
+        - Apps
+      parameters:
+        - name: body
+          in: body
+          description: App to post.
+          required: true
+          schema:
+            $ref: '#/definitions/AppWrapper'
+      responses:
+        200:
+          description: App details and stats.
+          schema:
+            $ref: '#/definitions/AppWrapper'
+        400:
+          description: Parameters are missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
+        409:
+          description: App already exists.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /v2/apps/{appID}:
+    delete:
+      summary: "Delete an app."
+      description: "Delete an app."
+      tags:
+        - Apps
+      parameters:
+        - name: app
+          in: path
+          description: Name of the app.
+          required: true
+          type: string
+      responses:
+        200:
+          description: Apps successfully deleted.
+        404:
+          description: App does not exist.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    get:
+      summary: "Get information for a app."
+      description: "This gives more details about a app, such as statistics."
+      tags:
+        - Apps
+      parameters:
+        - name: app
+          in: path
+          description: name of the app.
+          required: true
+          type: string
+      responses:
+        200:
+          description: App details and stats.
+          schema:
+            $ref: '#/definitions/AppWrapper'
+        404:
+          description: App does not exist.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: "Update an app."
+      description: "Updates and application."
+      tags:
+        - Apps
+      parameters:
+        - $ref: '#/parameters/appID'
+        - name: body
+          in: body
+          description: App to post.
+          required: true
+          schema:
+            $ref: '#/definitions/AppWrapper'
+      responses:
+        200:
+          description: App details and stats.
+          schema:
+            $ref: '#/definitions/AppWrapper'
+        404:
+          description: App does not exist.
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /v2/fns:
     get:
       operationId: "ListFns"
       summary: "Get all fns"
@@ -474,7 +603,7 @@ paths:
       tags:
         - Fns
       parameters:
-        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/AppID'
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
       responses:
@@ -486,8 +615,23 @@ paths:
           description: Error
           schema:
             $ref: '#/definitions/Error'
+    post:
+      operationId: "CreateFn"
+      summary: "Create a fn"
+      description: "Creates a new Function, returning the complete entity."
+      tags:
+        - Fns
+      responses:
+        200:
+          description: Fn.
+          schema:
+            $ref: '#/definitions/FnWrapper'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
 
-  /apps/{app}/fns/{fn}:
+  /v2/fns/{fn}:
     get:
       operationId: "GetFn"
       summary: "Get metadata for a fn"
@@ -495,8 +639,7 @@ paths:
       tags:
         - Fns
       parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/FnID'
       responses:
         200:
           description: Fn metadata
@@ -507,14 +650,12 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     put:
-      operationId: "UpsertFn"
-      summary: "Upsert a fn"
-      description: "Creates or updates a Function."
+      operationId: "UpdateFn"
+      summary: "Updates a fn"
+      description: "Updates a Function."
       tags:
         - Fns
       parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
         - name: body
           in: body
           description: Fn to upsert
@@ -546,7 +687,110 @@ paths:
           description: Error
           schema:
             $ref: '#/definitions/Error'
+  /v2/triggers:
+    get:
+      operationId: "ListTriggers"
+      summary: List triggers associated with app
+      description: This will list all Triggers for a particular Application, returned in name alphabetical order.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppID'
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
+        - $ref: '#/parameters/FnIDQuery'
+        # Can add type, route, etc qparams as required
+      responses:
+        200:
+          description: Trigger data
+          schema:
+            $ref: '#/definitions/TriggerList'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      operationId: "CreateTrigger"
+      summary: Create a Trigger.
+      description: Creates a Trigger.
+      tags:
+        - Triggers
+      parameters:
+        - name: body
+          in: body
+          description: Trigger to create.
+          required: true
+          schema:
+            $ref: '#/definitions/Trigger'
+      responses:
+        200:
+          description: Created Triggers data
+          schema:
+            $ref: '#/definitions/Trigger'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
 
+  /v2/triggers/{trigger}:
+    get:
+      operationId: "GetTrigger"
+      summary: Gets Trigger by Name
+      description: Gets a Trigger by Name.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
+      responses:
+        200:
+          description: Trigger information
+          schema:
+            $ref: '#/definitions/Trigger'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      operationId: "UpdateTrigger"
+      summary: Update a Trigger.
+      description: Updates a Trigger.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/TriggerID'
+        - name: body
+          in: body
+          description: Trigger to update.
+          required: true
+          schema:
+            $ref: '#/definitions/Trigger'
+      responses:
+        200:
+          description: Created Triggers data
+          schema:
+            $ref: '#/definitions/Trigger'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+
+    delete:
+      operationId: "DeleteTrigger"
+      summary: Deletes the Trigger
+      description: Deletes the Trigger.
+      tags:
+        - Triggers
+      parameters:
+        - $ref: '#/parameters/AppName'
+        - $ref: '#/parameters/TriggerName'
+      responses:
+        204:
+          description: Trigger successfully deleted.
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
 
 definitions:
   Route:
@@ -660,14 +904,14 @@ definitions:
     properties:
       id:
         type: string
-        description: UUID
+        description: Unique identifier
         readOnly: true
       name:
         type: string
         description: unique name for this function.
-      app_name:
+      app_id:
         type: string
-        description: App name.
+        description: App ID.
       image:
         type: string
         description: "full container image name, e.g. hub.docker.com/fnproject/yo or fnproject/yo (default registry: hub.docker.com)"
@@ -728,6 +972,55 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Fn'
+
+  Trigger:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique identifier.
+        readOnly: true
+      name:
+        type: string
+        description: unique name for this trigger, used to identify this trigger
+      type:
+        type: string
+        description: class of trigger, e.g. schedule, http
+        enum: [http, stream]
+      source:
+        type: string
+        description: uri path for this trigger. e.g. `sayHello`, `say/hello`
+      fn_id:
+        $ref: '#/parameters/FnID'
+      app_id:
+        $ref: '#/parameters/AppID'
+      annotations:
+        type: object
+        description: Trigger annotations - this is a map of annotations attached to this trigger, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
+        additionalProperties:
+          type: object
+      created_at:
+        type: string
+        format: date-time
+        description: Time when trigger was created. Always in UTC.
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        description: Most recent time that trigger was updated. Always in UTC.
+        readOnly: true
+
+  TriggerList:
+    type: object
+    required:
+      - items
+    properties:
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/Trigger'
 
   RoutesWrapper:
     type: object
@@ -946,9 +1239,26 @@ parameters:
     description: App name.
     required: true
     type: string
-  FnName:
-    name: fn
+  AppID:
+    name: appID
     in: path
-    description: Function Name.
+    description: App ID.
     required: true
     type: string
+  FnID:
+    name: fn
+    in: path
+    description: Function ID.
+    required: true
+    type: string
+  TriggerID:
+    name: trigger
+    in: path
+    description: Trigger ID.
+    required: true
+    type: string
+  TriggerIDQuery:
+    name: trigger
+    in: query
+    description: Trigger ID.
+    required: true
