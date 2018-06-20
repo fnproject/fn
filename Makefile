@@ -60,7 +60,7 @@ img-busybox:
 img-hello:
 	docker pull fnproject/hello
 img-mysql:
-	docker pull mysql
+	docker pull mysql:5.7.22
 img-postgres:
 	docker pull postgres:9.3-alpine
 img-minio:
