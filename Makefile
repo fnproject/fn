@@ -46,25 +46,25 @@ test-basic: checkfmt pull-images fn-test-utils
 test: checkfmt pull-images test-basic test-middleware test-extensions test-api test-system
 
 test-api: test-basic
-	./api_test.sh sqlite3 4
-	./api_test.sh mysql 4 0
-	./api_test.sh postgres 4 0
+	./api_test.sh sqlite3
+	./api_test.sh mysql
+	./api_test.sh postgres
 
 test-system: test-basic
-	./system_test.sh sqlite3 4
-	./system_test.sh mysql 4 0
-	./system_test.sh postgres 4 0
+	./system_test.sh sqlite3
+	./system_test.sh mysql
+	./system_test.sh postgres
 
 img-busybox:
 	docker pull busybox
 img-hello:
 	docker pull fnproject/hello
 img-mysql:
-	docker pull mysql:5.7.22
+	/bin/bash -c "source ./helpers.sh && docker_pull_mysql"
 img-postgres:
-	docker pull postgres:9.3-alpine
+	/bin/bash -c "source ./helpers.sh && docker_pull_postgres"
 img-minio:
-	docker pull minio/minio
+	/bin/bash -c "source ./helpers.sh && docker_pull_minio"
 
 pull-images: img-hello img-mysql img-postgres img-minio img-busybox
 
@@ -91,15 +91,6 @@ docker-build:
 
 docker-run: docker-build
 	docker run --rm --privileged -it -e NO_PROXY -e HTTP_PROXY -e FN_LOG_LEVEL=debug -e "FN_DB_URL=sqlite3:///app/data/fn.db" -v ${CURDIR}/data:/app/data -p 8080:8080 fnproject/fnserver
-
-docker-test-run-with-sqlite3:
-	./api_test.sh sqlite3 4
-
-docker-test-run-with-mysql:
-	./api_test.sh mysql 4
-
-docker-test-run-with-postgres:
-	./api_test.sh postgres 4
 
 docker-test:
 	docker run -ti --privileged --rm -e FN_LOG_LEVEL=debug \

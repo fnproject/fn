@@ -30,6 +30,8 @@ jobs:
           docker version
       - run: docker version
       - run: nproc
+      # fixes git-diff warning: "warning: inexact rename detection was skipped due to too many files.""
+      - run: git config diff.renamelimit 65535
       - run: make clear-images
 
       # Work out what needs rebuilding and what has changed
