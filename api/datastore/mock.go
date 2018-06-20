@@ -36,6 +36,9 @@ func NewMockInit(args ...interface{}) models.Datastore {
 			mocker.Routes = x
 		case []*models.Fn:
 			mocker.Fns = x
+		case []*models.Trigger:
+			mocker.Triggers = x
+
 		default:
 			panic("not accounted for data type sent to mock init. add it")
 		}
