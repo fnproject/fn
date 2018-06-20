@@ -28,6 +28,6 @@ export FN_DB_URL=$(spawn_${DB_NAME} ${CONTEXT})
 #./fn-api-tests.test -test.v  -test.parallel ${2:-1} ./...; cd ../../
 
 export FN_DS_DB_PING_MAX_RETRIES=60
-cd test/fn-api-tests && FN_API_URL="http://localhost:8080"  FN_DB_URL=${FN_DB_URL} go test -v  -parallel ${2:-1} ./...; cd ../../
+cd test/fn-api-tests && FN_API_URL="http://localhost:8080"  FN_DB_URL=${FN_DB_URL} go test -v  ./...; cd ../../
 
 remove_containers ${CONTEXT}

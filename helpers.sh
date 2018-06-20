@@ -95,6 +95,18 @@ function spawn_minio {
     echo "s3://admin:password@${HOST}:${PORT}/us-east-1/fnlogs"
 }
 
+function docker_pull_postgres {
+	docker pull postgres:9.3-alpine
+}
+
+function docker_pull_mysql {
+	docker pull mysql:5.7.22
+}
+
+function docker_pull_minio {
+	docker pull minio/minio
+}
+
 function remove_containers {
     local CONTEXT=$1
     for i in mysql minio postgres
