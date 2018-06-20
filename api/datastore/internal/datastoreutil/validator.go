@@ -132,11 +132,18 @@ func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath str
 	return v.Datastore.RemoveRoute(ctx, appID, routePath)
 }
 
-func (v *validator) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+func (v *validator) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
 	if trigger == nil {
 		return nil, models.ErrDatastoreEmptyTrigger
 	}
-	return v.Datastore.PutTrigger(ctx, trigger)
+	return v.Datastore.InsertTrigger(ctx, trigger)
+}
+
+func (v *validator) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	if trigger == nil {
+		return nil, models.ErrDatastoreEmptyTrigger
+	}
+	return v.Datastore.UpdateTrigger(ctx, trigger)
 }
 
 func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {

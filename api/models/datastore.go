@@ -80,7 +80,9 @@ type Datastore interface {
 
 	// InsertTrigger inserts a trigger. Returns ErrDatastoreEmptyTrigger when trigger is nil, and specific errors for each field
 	// Returns ErrTriggerAlreadyExists if the exact apiID, fnID, source, type combination already exists
-	PutTrigger(ctx context.Context, trigger *Trigger) (*Trigger, error)
+	InsertTrigger(ctx context.Context, trigger *Trigger) (*Trigger, error)
+
+	UpdateTrigger(ctx context.Context, trigger *Trigger) (*Trigger, error)
 
 	// Removes a Trigger. Returns field specific errors if they are empty.
 	// Returns nil if successful
@@ -89,6 +91,10 @@ type Datastore interface {
 	// GetTriggerByID gets a trigger by it's id.
 	// Returns ErrTriggerNotFound when no matching trigger is found
 	GetTriggerByID(ctx context.Context, triggerID string) (*Trigger, error)
+
+	// GetTrigger gets a trigger by it's name
+	// Returns ErrTriggerNotFound when no matching trigger is found
+	GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*Trigger, error)
 
 	// GetTriggers gets a list of triggers that match the specified filter
 	// Return ErrDatastoreEmptyAppId if no AppID set in the filter

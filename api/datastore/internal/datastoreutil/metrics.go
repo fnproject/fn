@@ -17,6 +17,23 @@ type metricds struct {
 	ds models.Datastore
 }
 
+func (m *metricds) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_insert_trigger")
+	defer span.End()
+	return m.ds.InsertTrigger(ctx, trigger)
+
+}
+
+func (m *metricds) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	ctx, span := trace.StartSpan(ctx, "ds_update_trigger")
+	defer span.End()
+	return m.ds.UpdateTrigger(ctx, trigger)
+}
+
+func (m *metricds) GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*models.Trigger, error) {
+	panic("implement me")
+}
+
 func (m *metricds) GetAppID(ctx context.Context, appName string) (string, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_app_id")
 	defer span.End()
@@ -81,12 +98,6 @@ func (m *metricds) RemoveRoute(ctx context.Context, appID string, routePath stri
 	ctx, span := trace.StartSpan(ctx, "ds_remove_route")
 	defer span.End()
 	return m.ds.RemoveRoute(ctx, appID, routePath)
-}
-
-func (m *metricds) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	ctx, span := trace.StartSpan(ctx, "ds_insert_trigger")
-	defer span.End()
-	return m.ds.PutTrigger(ctx, trigger)
 }
 
 func (m *metricds) RemoveTrigger(ctx context.Context, triggerID string) error {

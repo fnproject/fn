@@ -122,8 +122,9 @@ const (
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 	fnSelector        = `SELECT id, name, app_id,  image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
 
-	triggerIDSelector = `SELECT * FROM triggers WHERE id=?`
-	triggerSelector   = `SELECT * FROM triggers`
+	triggerIDSelector   = `SELECT * FROM triggers WHERE id=?`
+	triggerNameSelector = `SELECT * FROM triggers `
+	triggerSelector     = `SELECT * FROM triggers`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
@@ -700,6 +701,7 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 		}
 		res = append(res, &route)
 	}
+
 	if err := rows.Err(); err != nil {
 		if err == sql.ErrNoRows {
 			return res, nil // no error for empty list
@@ -879,22 +881,32 @@ func (ds *SQLStore) GetFn(ctx context.Context, appID string, funcName string) (*
 }
 
 func (ds *SQLStore) RemoveFn(ctx context.Context, appID string, funcName string) error {
-	query := ds.db.Rebind(`DELETE FROM fns WHERE name = ? AND app_id = ?`)
-	res, err := ds.db.ExecContext(ctx, query, funcName, appID)
-	if err != nil {
+
+	return ds.Tx(func(tx *sqlx.Tx) error {
+
+		query := tx.Rebind(fmt.Sprintf("%s WHERE name=? AND app_id=?", fnSelector))
+		row := tx.QueryRowxContext(ctx, query, funcName, appID)
+
+		var fn models.Fn
+		err := row.StructScan(&fn)
+		if err == sql.ErrNoRows {
+			return models.ErrFnsNotFound
+		}
+
+		query = tx.Rebind(`DELETE FROM fns WHERE id= ?`)
+		_, err = tx.ExecContext(ctx, query, fn.ID)
+
+		if err != nil {
+			return err
+		}
+
+		query = tx.Rebind(`DELETE FROM triggers WHERE app_id = ? AND fn_id = ?`)
+
+		_, err = tx.ExecContext(ctx, query, fn.AppID, fn.ID)
+
 		return err
-	}
+	})
 
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if n == 0 {
-		return models.ErrFnsNotFound
-	}
-
-	return nil
 }
 
 func (ds *SQLStore) Tx(f func(*sqlx.Tx) error) error {
@@ -1119,7 +1131,7 @@ func where(b *bytes.Buffer, args []interface{}, colOp string, val interface{}) [
 	return args
 }
 
-func (ds *SQLStore) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
 		r := tx.QueryRowContext(ctx, query, trigger.AppID)
@@ -1129,14 +1141,13 @@ func (ds *SQLStore) PutTrigger(ctx context.Context, trigger *models.Trigger) (*m
 			}
 		}
 
-		// TODO after Fn work merged
-		// query = tx.Rebind(`SELECT 1 FROM fns WHERE id=?`)
-		// r = tx.QueryRowContext(ctx, query, trigger.FnID)
-		// if err := r.Scan(new(int)); err != nil {
-		// 	if err == sql.ErrNoRows {
-		// 		return models.ErrFnsNotFound
-		// 	}
-		// }
+		query = tx.Rebind(`SELECT 1 FROM fns WHERE id=?`)
+		r = tx.QueryRowContext(ctx, query, trigger.FnID)
+		if err := r.Scan(new(int)); err != nil {
+			if err == sql.ErrNoRows {
+				return models.ErrFnsNotFound
+			}
+		}
 
 		//determine if insert or update
 		var dst models.Trigger
@@ -1146,15 +1157,15 @@ func (ds *SQLStore) PutTrigger(ctx context.Context, trigger *models.Trigger) (*m
 
 		if err != nil && err != sql.ErrNoRows {
 			return err
-		} else if err == sql.ErrNoRows {
+		}
 
-			trigger.SetDefaults()
-			err = trigger.Validate()
-			if err != nil {
-				return err
-			}
+		trigger.SetDefaults()
+		err = trigger.Validate()
+		if err != nil {
+			return err
+		}
 
-			query = tx.Rebind(`INSERT INTO triggers (
+		query = tx.Rebind(`INSERT INTO triggers (
 			id,
 			name,
 		  app_id,
@@ -1176,28 +1187,64 @@ func (ds *SQLStore) PutTrigger(ctx context.Context, trigger *models.Trigger) (*m
 		  :source,
 		  :annotations
 		);`)
-		} else {
-			dst.Update(trigger)
-			err = dst.Validate()
-			if err != nil {
-				return err
-			}
-			trigger = &dst // set for query & to return
 
-			query = tx.Rebind(`UPDATE triggers SET
-			name = :name,
-			fn_id = :fn_id,
-			updated_at = :updated_at,
-		  source = :source,
-		  annotations = :annotations
-      WHERE id = :id;`)
-		}
-		logrus.Error("Putting Trigger: %v", trigger)
 		_, err = tx.NamedExecContext(ctx, query, trigger)
 		return err
 	})
 
 	return trigger, err
+}
+
+func (ds *SQLStore) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	err := ds.Tx(func(tx *sqlx.Tx) error {
+
+		//determine if insert or update
+		var dst models.Trigger
+		query := tx.Rebind(triggerIDSelector)
+		row := tx.QueryRowxContext(ctx, query, trigger.ID)
+		err := row.StructScan(&dst)
+
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		} else if err == sql.ErrNoRows {
+			return models.ErrTriggerNotFound
+		}
+
+		dst.Update(trigger)
+		err = dst.Validate()
+		if err != nil {
+			return err
+		}
+		trigger = &dst // set for query & to return
+
+		query = tx.Rebind(`UPDATE triggers SET
+			name = :name,
+			fn_id = :fn_id,
+			updated_at = :updated_at,
+			source = :source,
+			annotations = :annotations
+			WHERE id = :id;`)
+		_, err = tx.NamedExecContext(ctx, query, trigger)
+		return err
+	})
+
+	return trigger, err
+}
+
+func (ds *SQLStore) GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*models.Trigger, error) {
+	var trigger models.Trigger
+	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=? AND app_id=? AND fn_id=?", fnSelector))
+	row := ds.db.QueryRowxContext(ctx, query, triggerName, appId, fnId)
+
+	err := row.StructScan(&trigger)
+	if err == sql.ErrNoRows {
+		return nil, models.ErrTriggerNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &trigger, nil
 }
 
 func (ds *SQLStore) RemoveTrigger(ctx context.Context, triggerId string) error {

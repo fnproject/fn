@@ -197,7 +197,7 @@ func (m *mock) RemoveRoute(ctx context.Context, appID, routePath string) error {
 }
 
 func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
-	newRoutes := []*models.Route{}
+	var newRoutes []*models.Route
 	for _, c := range m.Routes {
 		if c.AppID != appID {
 			newRoutes = append(newRoutes, c)
@@ -279,6 +279,15 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 	return funcs, nil
 }
 
+func (m *mock) GetFnById(ctx context.Context, fnId string) (*models.Fn, error) {
+	for _, f := range m.Fns {
+		if f.ID == fnId {
+			return f, nil
+		}
+	}
+
+	return nil, models.ErrFnsNotFound
+}
 func (m *mock) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
 	for _, f := range m.Fns {
 		if f.Name == funcName && f.AppID == appID {
@@ -293,6 +302,14 @@ func (m *mock) RemoveFn(ctx context.Context, appID string, funcName string) erro
 	for i, f := range m.Fns {
 		if f.Name == funcName && f.AppID == appID {
 			m.Fns = append(m.Fns[:i], m.Fns[i+1:]...)
+			var newTriggers []*models.Trigger
+			for _, t := range m.Triggers {
+				if t.FnID != f.ID {
+					newTriggers = append(newTriggers, t)
+				}
+			}
+
+			m.Triggers = newTriggers
 			return nil
 		}
 	}
@@ -300,46 +317,78 @@ func (m *mock) RemoveFn(ctx context.Context, appID string, funcName string) erro
 	return models.ErrFnsNotFound
 }
 
-func (m *mock) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	if _, err := m.GetAppByID(ctx, trigger.AppID); err != nil {
+func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	_, err := m.GetAppByID(ctx, trigger.AppID)
+	if err != nil {
+		return nil, err
+	}
+	_, err = m.GetFnById(ctx, trigger.FnID)
+	if err != nil {
 		return nil, err
 	}
 
-	//TODO when fn merged
-	// if _, err := m.GetAppByID(ctx, trigger.AppID); err != nil {
-	// 	return nil, err
-	// }
+	for _, t := range m.Triggers {
+		if t.ID == trigger.ID ||
+			(t.AppID == trigger.AppID &&
+				t.FnID == trigger.FnID &&
+				t.Name == trigger.Name) {
+			return nil, models.ErrTriggerAlreadyExists
+		}
+	}
+	err = trigger.Validate()
+	if err != nil {
+		return nil, err
+	}
+	cl := trigger.Clone()
+	cl.SetDefaults()
+	m.Triggers = append(m.Triggers, cl)
+
+	return cl.Clone(), nil
+
+}
+
+func (m *mock) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	for _, t := range m.Triggers {
+		if t.ID == trigger.ID {
+			cl := t.Clone()
+			cl.Update(trigger)
+			err := cl.Validate()
+			if err != nil {
+				return nil, err
+			}
+			*t = *cl
+			return cl.Clone(), nil
+		}
+	}
+	return nil, models.ErrTriggerNotFound
+}
+
+func (m *mock) GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*models.Trigger, error) {
+	for _, t := range m.Triggers {
+		if t.AppID == appId && t.FnID == fnId && t.Name == triggerName {
+			return t.Clone(), nil
+		}
+	}
+	return nil, models.ErrTriggerNotFound
+}
+
+func (m *mock) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
 
 	if r, _ := m.GetTriggerByID(ctx, trigger.ID); r != nil {
 		// update if exists
-		for _, t := range m.Triggers {
-			if t.ID == t.ID {
-				copy := t.Clone()
-				copy.Update(trigger)
-				err := copy.Validate()
-				if err != nil {
-					return nil, err
-				}
-				*t = *copy
-				return t, nil
-			}
-		}
-
 		return nil, models.ErrTriggerAlreadyExists
 	} else {
-		trigger.SetDefaults()
-		m.Triggers = append(m.Triggers, trigger)
-		return trigger, nil
+		cl := trigger.Clone()
+		cl.SetDefaults()
+		m.Triggers = append(m.Triggers, cl)
+		return cl.Clone(), nil
 	}
 }
 
 func (m *mock) GetTriggerByID(ctx context.Context, triggerId string) (*models.Trigger, error) {
-	if triggerId == "" {
-		return nil, nil
-	}
 	for _, t := range m.Triggers {
 		if t.ID == triggerId {
-			return t, nil
+			return t.Clone(), nil
 		}
 	}
 	return nil, models.ErrTriggerNotFound
@@ -394,7 +443,7 @@ func (m *mock) RemoveTrigger(ctx context.Context, triggerID string) error {
 			return nil
 		}
 	}
-	return models.ErrRoutesNotFound
+	return models.ErrTriggerNotFound
 }
 
 // GetDatabase returns nil here since shouldn't really be used
