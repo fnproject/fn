@@ -143,7 +143,7 @@ func (sqlLogsProvider) New(ctx context.Context, u *url.URL) (models.LogStore, er
 func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	driver := url.Scheme
 
-	log := common.Logger(ctx)
+	log := common.Logger(ctx).WithFields(logrus.Fields{"url": common.MaskPassword(url)})
 	helper, ok := dbhelper.GetHelper(driver)
 
 	if !ok {
@@ -160,7 +160,7 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 
 	sqldb, err := sql.Open(driver, uri)
 	if err != nil {
-		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't open db")
+		log.WithError(err).Error("couldn't open db")
 		return nil, err
 	}
 
@@ -169,7 +169,7 @@ func newDS(ctx context.Context, url *url.URL) (*SQLStore, error) {
 	// force a connection and test that it worked
 	err = pingWithRetry(ctx, db)
 	if err != nil {
-		log.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't ping db")
+		log.WithError(err).Error("couldn't ping db")
 		return nil, err
 	}
 
