@@ -467,8 +467,8 @@ paths:
 
   /v2/apps:
     get:
-      summary: "Get all app names."
-      description: "Get a list of all the apps in the system, returned in alphabetical order."
+      summary: "Get applications "
+      description: "Get a filtered applications returned in alphabetical order."
       tags:
         - Apps
       parameters:
@@ -482,11 +482,16 @@ paths:
           required: false
           type: integer
           in: query
+        - name: name
+          in: query
+          description: Application name to filter by
+          required: false
+          type: string
       responses:
         200:
           description: List of apps.
           schema:
-            $ref: '#/definitions/AppsWrapper'
+            $ref: '#/definitions/AppList'
         default:
           description: Unexpected error
           schema:
@@ -497,17 +502,17 @@ paths:
       tags:
         - Apps
       parameters:
-        - name: body
+        - name: app_body
           in: body
-          description: App to post.
+          description: App to modify.
           required: true
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
       responses:
         200:
           description: App details and stats.
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
         400:
           description: Parameters are missing or invalid.
           schema:
@@ -528,11 +533,7 @@ paths:
       tags:
         - Apps
       parameters:
-        - name: app
-          in: path
-          description: Name of the app.
-          required: true
-          type: string
+         - $ref: '#/parameters/AppID'
       responses:
         200:
           description: Apps successfully deleted.
@@ -550,16 +551,12 @@ paths:
       tags:
         - Apps
       parameters:
-        - name: app
-          in: path
-          description: name of the app.
-          required: true
-          type: string
+        - $ref: '#/parameters/AppID'
       responses:
         200:
           description: App details and stats.
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
         404:
           description: App does not exist.
           schema:
@@ -574,18 +571,18 @@ paths:
       tags:
         - Apps
       parameters:
-        - $ref: '#/parameters/appID'
+        - $ref: '#/parameters/AppID'
         - name: body
           in: body
-          description: App to post.
+          description: App to modify.
           required: true
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
       responses:
         200:
           description: App details and stats.
           schema:
-            $ref: '#/definitions/AppWrapper'
+            $ref: '#/definitions/App'
         404:
           description: App does not exist.
           schema:
@@ -603,9 +600,15 @@ paths:
       tags:
         - Fns
       parameters:
-        - $ref: '#/parameters/AppID'
+        - $ref: '#/parameters/AppIDQuery'
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
+        - name: name
+          in: query
+          description: Function name to filter by
+          required: false
+          type: string
+
       responses:
         200:
           description: List of fns.
@@ -621,28 +624,35 @@ paths:
       description: "Creates a new Function, returning the complete entity."
       tags:
         - Fns
+      parameters:
+        - name: body
+          in: body
+          description: Fn to upsert
+          required: true
+          schema:
+            $ref: '#/definitions/Fn'
       responses:
         200:
           description: Fn.
           schema:
-            $ref: '#/definitions/FnWrapper'
+            $ref: '#/definitions/Fn'
         default:
           description: Error
           schema:
             $ref: '#/definitions/Error'
 
-  /v2/fns/{fn}:
+  /v2/fns/{fnID}:
     get:
       operationId: "GetFn"
-      summary: "Get metadata for a fn"
-      description: "Get metadata for a Function."
+      summary: "Get definition for a function"
+      description: "Get definition for a function."
       tags:
         - Fns
       parameters:
         - $ref: '#/parameters/FnID'
       responses:
         200:
-          description: Fn metadata
+          description: Function definition
           schema:
             $ref: '#/definitions/Fn'
         default:
@@ -656,6 +666,7 @@ paths:
       tags:
         - Fns
       parameters:
+        - $ref: '#/parameters/FnID'
         - name: body
           in: body
           description: Fn to upsert
@@ -678,8 +689,7 @@ paths:
       tags:
         - Fns
       parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/FnName'
+        - $ref: '#/parameters/FnID'
       responses:
         204:
           description: Fn successfully deleted
@@ -695,10 +705,10 @@ paths:
       tags:
         - Triggers
       parameters:
-        - $ref: '#/parameters/AppID'
+        - $ref: '#/parameters/AppIDQuery'
+        - $ref: '#/parameters/FnIDQuery'
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
-        - $ref: '#/parameters/FnIDQuery'
         # Can add type, route, etc qparams as required
       responses:
         200:
@@ -732,7 +742,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /v2/triggers/{trigger}:
+  /v2/triggers/{triggerID}:
     get:
       operationId: "GetTrigger"
       summary: Gets Trigger by Name
@@ -740,8 +750,7 @@ paths:
       tags:
         - Triggers
       parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/TriggerName'
+        - $ref: '#/parameters/TriggerID'
       responses:
         200:
           description: Trigger information
@@ -782,8 +791,7 @@ paths:
       tags:
         - Triggers
       parameters:
-        - $ref: '#/parameters/AppName'
-        - $ref: '#/parameters/TriggerName'
+        - $ref: '#/parameters/TriggerID'
       responses:
         204:
           description: Trigger successfully deleted.
@@ -966,7 +974,7 @@ definitions:
     required:
       - items
     properties:
-      next:
+      next_cursor:
         $ref: '#/definitions/nextCursor'
       items:
         type: array
@@ -978,7 +986,7 @@ definitions:
     properties:
       id:
         type: string
-        description: Unique identifier.
+        description: Unique trigger identifier
         readOnly: true
       name:
         type: string
@@ -991,9 +999,9 @@ definitions:
         type: string
         description: uri path for this trigger. e.g. `sayHello`, `say/hello`
       fn_id:
-        $ref: '#/parameters/FnID'
+        $ref: '#/definitions/FnID'
       app_id:
-        $ref: '#/parameters/AppID'
+        $ref: '#/definitions/AppID'
       annotations:
         type: object
         description: Trigger annotations - this is a map of annotations attached to this trigger, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
@@ -1015,12 +1023,24 @@ definitions:
     required:
       - items
     properties:
-      next:
+      next_cursor:
         $ref: '#/definitions/nextCursor'
       items:
         type: array
         items:
           $ref: '#/definitions/Trigger'
+
+  AppList:
+    type: object
+    required:
+      - items
+    properties:
+      next:
+        $ref: '#/definitions/nextCursor'
+      items:
+        type: array
+        items:
+          $ref: '#/definitions/App'
 
   RoutesWrapper:
     type: object
@@ -1220,6 +1240,30 @@ definitions:
     description: cursor to send with subsequent request to receive the next page, if non-empty
     readOnly: true
 
+  AppID:
+    type: string
+    description: opaque, unique application identifier
+    readOnly: true
+
+  FnID:
+    type: string
+    description: opaque, unique function identifier
+    readOnly: true
+
+  TriggerID:
+    type: string
+    description: opaque, unique trigger identifier
+    readOnly: true
+
+  FnWrapper:
+    type: object
+    required:
+      - fn
+    properties:
+      fn:
+        $ref: '#/definitions/Fn'
+      error:
+        $ref: '#/definitions/ErrorBody'
 parameters:
   cursor:
     name: cursor
@@ -1242,23 +1286,36 @@ parameters:
   AppID:
     name: appID
     in: path
-    description: App ID.
+    description: Opaque Unique application ID
     required: true
     type: string
   FnID:
-    name: fn
+    name: fnID
     in: path
     description: Function ID.
     required: true
     type: string
+  FnIDQuery:
+    name: fn_id
+    in: query
+    description: Function ID.
+    required: false
+    type: string
+  AppIDQuery:
+    name: app_id
+    in: query
+    description: Function ID.
+    required: false
+    type: string
   TriggerID:
-    name: trigger
+    name: triggerID
     in: path
     description: Trigger ID.
     required: true
     type: string
   TriggerIDQuery:
     name: trigger
+    type: string
     in: query
     description: Trigger ID.
     required: true
