@@ -110,6 +110,12 @@ func TestCanExecuteFunction(t *testing.T) {
 	if err != nil || cheese != "Tete de Moine" {
 		t.Fatalf("getConfigContent/FN_CHEESE check failed (%v) on %v", err, output)
 	}
+
+	// Now let's check FN_WINE, since runners have override to insert this.
+	wine, err := getConfigContent("FN_WINE", output.Bytes())
+	if err != nil || wine != "1982 Margaux" {
+		t.Fatalf("getConfigContent/FN_WINE check failed (%v) on %v", err, output)
+	}
 }
 
 func TestCanExecuteBigOutput(t *testing.T) {

@@ -17,8 +17,6 @@ import (
 	"github.com/fnproject/fn/fnext"
 )
 
-type CallOverrider func(*models.Call, map[string]string) (map[string]string, error)
-
 type lbAgent struct {
 	cfg           AgentConfig
 	da            DataAccess
@@ -40,7 +38,7 @@ func WithLBAgentConfig(cfg *AgentConfig) LBAgentOption {
 }
 
 // LB agents can use this to register a CallOverrider to modify a Call and extensions
-func WithCallOverrider(fn CallOverrider) LBAgentOption {
+func WithLBCallOverrider(fn CallOverrider) LBAgentOption {
 	return func(a *lbAgent) error {
 		if a.callOverrider != nil {
 			return errors.New("lb-agent call overriders already exists")
