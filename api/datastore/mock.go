@@ -394,6 +394,10 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 
 	res := []*models.Trigger{}
 	for _, t := range m.Triggers {
+		if len(res) == filter.PerPage {
+			break
+		}
+
 		matched := true
 		if filter.Cursor != "" && t.ID <= filter.Cursor {
 			matched = false
@@ -417,10 +421,6 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 		if matched {
 			res = append(res, t)
 		}
-	}
-
-	if filter.PerPage != 0 {
-		return res[0:filter.PerPage], nil
 	}
 	return res, nil
 }

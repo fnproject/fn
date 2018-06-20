@@ -32,12 +32,12 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 
 	var nextCursor string
 	if len(triggers) > 0 && len(triggers) == filter.PerPage {
-		last := []byte(triggers[len(triggers)-1].Name)
+		last := []byte(triggers[len(triggers)-1].ID)
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
 	c.JSON(http.StatusOK, triggersResponse{
-		Message:    "Successfully listed triggersp",
+		Message:    "Successfully listed triggers",
 		NextCursor: nextCursor,
 		Triggers:   triggers,
 	})

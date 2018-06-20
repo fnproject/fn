@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -161,5 +162,77 @@ func TestTriggerDelete(t *testing.T) {
 			}
 		}
 		cancel()
+	}
+}
+
+func TestTriggerList(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+
+	rnr, cancel := testRunner(t)
+	defer cancel()
+	ds := datastore.NewMockInit(
+		[]*models.Trigger{
+			{ID: "trigger1", AppID: "appid"},
+			{ID: "trigger2", AppID: "appid"},
+			{ID: "trigger3", AppID: "appid"},
+		},
+	)
+	fnl := logs.NewMock()
+	srv := testServer(ds, &mqs.Mock{}, fnl, rnr, ServerTypeFull)
+
+	a1b := base64.RawURLEncoding.EncodeToString([]byte("trigger1"))
+	a2b := base64.RawURLEncoding.EncodeToString([]byte("trigger2"))
+	a3b := base64.RawURLEncoding.EncodeToString([]byte("trigger3"))
+
+	for i, test := range []struct {
+		path          string
+		body          string
+		expectedCode  int
+		expectedError error
+		expectedLen   int
+		nextCursor    string
+	}{
+		{"/v2/triggers?per_page", "", http.StatusBadRequest, nil, 0, ""},
+		{"/v2/triggers?app_id=appid&per_page", "", http.StatusOK, nil, 3, ""},
+		{"/v2/triggers?app_id=appid&per_page=1", "", http.StatusOK, nil, 1, a1b},
+		{"/v2/triggers?app_id=appid&per_page=1&cursor=" + a1b, "", http.StatusOK, nil, 1, a2b},
+		{"/v2/triggers?app_id=appid&per_page=1&cursor=" + a2b, "", http.StatusOK, nil, 1, a3b},
+		{"/v2/triggers?app_id=appid&per_page=100&cursor=" + a2b, "", http.StatusOK, nil, 1, ""}, // cursor is empty if per_page > len(results)
+		{"/v2/triggers?app_id=appid&per_page=1&cursor=" + a3b, "", http.StatusOK, nil, 0, ""},   // cursor could point to empty page
+	} {
+		_, rec := routerRequest(t, srv.Router, "GET", test.path, nil)
+
+		if rec.Code != test.expectedCode {
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
+		}
+
+		if test.expectedError != nil {
+			resp := getErrorResponse(t, rec)
+
+			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+				t.Errorf("Test %d: Expected error message to have `%s`",
+					i, test.expectedError.Error())
+			}
+		} else {
+			// normal path
+
+			var resp triggersResponse
+			err := json.NewDecoder(rec.Body).Decode(&resp)
+			if err != nil {
+				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
+			}
+			if len(resp.Triggers) != test.expectedLen {
+				t.Errorf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Triggers))
+			}
+			if resp.NextCursor != test.nextCursor {
+				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
+			}
+		}
 	}
 }
