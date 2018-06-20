@@ -26,7 +26,7 @@ var providers []Provider
 
 // AddProvider globally registers a new LogStore provider
 func AddProvider(pf Provider) {
-	logrus.Info("Adding log provider %s", pf)
+	logrus.Infof("Adding log provider %s", pf)
 	providers = append(providers, pf)
 }
 
