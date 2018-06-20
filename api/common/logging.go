@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 func SetLogLevel(ll string) {
@@ -79,4 +80,15 @@ func SetLogDest(to, prefix string) {
 	default:
 		logrus.WithFields(logrus.Fields{"scheme": parsed.Scheme, "to": to}).Error("unknown logging location scheme, defaulting to stderr")
 	}
+}
+
+// MaskPassword returns a stringified URL without its password visible
+func MaskPassword(u *url.URL) string {
+	if u.User != nil {
+		p, set := u.User.Password()
+		if set {
+			return strings.Replace(u.String(), p+"@", "***@", 1)
+		}
+	}
+	return u.String()
 }
