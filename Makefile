@@ -60,11 +60,11 @@ img-busybox:
 img-hello:
 	docker pull fnproject/hello
 img-mysql:
-	source ./helpers.sh && docker_pull_mysql
+	/bin/bash -c "source ./helpers.sh && docker_pull_mysql"
 img-postgres:
-	source ./helpers.sh && docker_pull_postgres
+	/bin/bash -c "source ./helpers.sh && docker_pull_postgres"
 img-minio:
-	source ./helpers.sh && docker_pull_minio
+	/bin/bash -c "source ./helpers.sh && docker_pull_minio"
 
 pull-images: img-hello img-mysql img-postgres img-minio img-busybox
 
