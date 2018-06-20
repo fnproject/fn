@@ -8,7 +8,8 @@ import (
 
 // TODO we can put constants all in this file too
 const (
-	maxAppName = 30
+	maxAppName     = 30
+	maxTriggerName = 30
 )
 
 var (

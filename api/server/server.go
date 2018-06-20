@@ -915,11 +915,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 					withAppCheck.GET("/calls/:call", s.handleCallGet)
 					withAppCheck.GET("/calls/:call/log", s.handleCallLogGet)
 					withAppCheck.GET("/calls", s.handleCallList)
-
-					withAppCheck.GET("/triggers", s.handleTriggerList)
-					withAppCheck.GET("/triggers/:trigger", s.handleTriggerGet)
-					withAppCheck.PUT("/triggers/:trigger", s.handleTriggerPut)
-					withAppCheck.DELETE("/triggers/:trigger", s.handleTriggerDelete)
 				}
 
 				apps.POST("/routes", s.handleRoutesPostPut)
@@ -938,16 +933,16 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				// v2.DELETE("/apps/:app", s.handleAppDelete)
 
 				v2.GET("/fns", s.handleFnsList)
-				v2.PUT("/fns", s.handleFnsCreate)
+				//				v2.PUT("/fns", s.handleFnsCreate)
 				v2.GET("/fns/:fn", s.handleFnsGet)
-				v2.PUT("/fns/:fn", s.handleFnsUpdate)
+				//			v2.PUT("/fns/:fn", s.handleFnsUpdate)
 				v2.DELETE("/fns/:fn", s.handleFnsDelete)
 
-				v2.GET("/triggers", s.handleTriggersList)
-				v2.PUT("/triggers", s.handleTriggersCreate)
-				v2.GET("/triggers/:trigger", s.handleTriggersGet)
-				v2.PUT("/triggers/:trigger", s.handleTriggersUpdate)
-				v2.DELETE("/triggers/:trigger", s.handleTriggersDelete)
+				v2.GET("/triggers", s.handleTriggerList)
+				v2.PUT("/triggers", s.handleTriggerCreate)
+				v2.GET("/triggers/:trigger", s.handleTriggerGet)
+				v2.PUT("/triggers/:trigger", s.handleTriggerUpdate)
+				v2.DELETE("/triggers/:trigger", s.handleTriggerDelete)
 			}
 
 			{
@@ -1061,6 +1056,11 @@ type fnsResponse struct {
 	Message    string       `json:"message"`
 	NextCursor string       `json:"next_cursor"`
 	Fns        []*models.Fn `json:"fns"`
+}
+
+type triggerResponse struct {
+	Message string          `json:"message"`
+	Trigger *models.Trigger `json:"trigger"`
 }
 
 type triggersResponse struct {

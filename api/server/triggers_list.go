@@ -15,7 +15,11 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 	filter := &models.TriggerFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
 
-	filter.AppID = c.MustGet(api.AppID).(string)
+	filter.AppID = c.Query(api.AppID)
+
+	if filter.AppID == "" {
+		handleErrorResponse(c, models.ErrTriggerMissingAppID)
+	}
 
 	//TODO when FN's merged
 	//	filter.fnName = c.Query("fnName")

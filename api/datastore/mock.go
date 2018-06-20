@@ -344,7 +344,6 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 	m.Triggers = append(m.Triggers, cl)
 
 	return cl.Clone(), nil
-
 }
 
 func (m *mock) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
@@ -370,19 +369,6 @@ func (m *mock) GetTrigger(ctx context.Context, appId, fnId, triggerName string) 
 		}
 	}
 	return nil, models.ErrTriggerNotFound
-}
-
-func (m *mock) PutTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-
-	if r, _ := m.GetTriggerByID(ctx, trigger.ID); r != nil {
-		// update if exists
-		return nil, models.ErrTriggerAlreadyExists
-	} else {
-		cl := trigger.Clone()
-		cl.SetDefaults()
-		m.Triggers = append(m.Triggers, cl)
-		return cl.Clone(), nil
-	}
 }
 
 func (m *mock) GetTriggerByID(ctx context.Context, triggerId string) (*models.Trigger, error) {

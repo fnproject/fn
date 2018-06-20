@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"time"
+	"unicode"
 
 	"github.com/fnproject/fn/api/id"
 	"github.com/go-openapi/strfmt"
@@ -63,6 +64,12 @@ var (
 	ErrTriggerMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger Name")}
+	ErrTriggerTooLongName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger Name Too Long")}
+	ErrTriggerInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger Name Invalid")}
 	ErrTriggerMissingAppID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger AppID")}
@@ -117,7 +124,53 @@ func (t *Trigger) Validate() error {
 		return ErrTriggerMissingSource
 	}
 
-	t.Annotations.Validate()
+	err := t.Annotations.Validate()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *Trigger) ValidCreate() error {
+
+	if t.ID != "" {
+		return ErrTriggerMissingID
+	}
+
+	if t.Name == "" {
+		return ErrTriggerMissingName
+	}
+
+	if len(t.Name) > maxTriggerName {
+		return ErrTriggerTooLongName
+	}
+	for _, c := range t.Name {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
+			return ErrTriggerInvalidName
+		}
+	}
+
+	if t.AppID == "" {
+		return ErrTriggerMissingAppID
+	}
+
+	if t.FnID == "" {
+		return ErrTriggerMissingFnID
+	}
+
+	if t.Type == Unknown {
+		return ErrTriggerTypeUnknown
+	}
+
+	if t.Source == "" {
+		return ErrTriggerMissingSource
+	}
+
+	err := t.Annotations.Validate()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
