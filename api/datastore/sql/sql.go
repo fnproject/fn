@@ -86,9 +86,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS routes (
 	updated_at varchar(256) NOT NULL,
 	type varchar(256) NOT NULL,
 	source varchar(256) NOT NULL,
-    annotations text NOT NULL,
-    CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
-
+  annotations text NOT NULL,
+  CONSTRAINT name_app_id_fn_id_unique UNIQUE (app_id, fn_id,name)
 );`,
 
 	`CREATE TABLE IF NOT EXISTS logs (
@@ -122,9 +121,8 @@ const (
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
 	fnSelector        = `SELECT id, name, app_id,  image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
 
-	triggerIDSelector   = `SELECT * FROM triggers WHERE id=?`
-	triggerNameSelector = `SELECT * FROM triggers `
-	triggerSelector     = `SELECT * FROM triggers`
+	triggerSelector   = `SELECT * FROM triggers`
+	triggerIDSelector = triggerSelector + ` WHERE id=?`
 
 	EnvDBPingMaxRetries = "FN_DS_DB_PING_MAX_RETRIES"
 )
@@ -1150,20 +1148,11 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) 
 			}
 		}
 
-		var dst models.Trigger
-		query = tx.Rebind(triggerIDSelector)
-		row := tx.QueryRowxContext(ctx, query, trigger.ID)
-		err := row.StructScan(&dst)
-
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-
-		trigger.SetDefaults()
-		err = trigger.ValidCreate()
+		err := trigger.ValidCreate()
 		if err != nil {
 			return err
 		}
+		trigger.SetDefaults()
 
 		query = tx.Rebind(`INSERT INTO triggers (
 			id,
@@ -1192,13 +1181,19 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) 
 		return err
 	})
 
+	if err != nil {
+		if ds.helper.IsDuplicateKeyError(err) {
+			return nil, models.ErrTriggerExists
+		}
+		return nil, err
+	}
+
 	return trigger, err
 }
 
 func (ds *SQLStore) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 
-		//determine if insert or update
 		var dst models.Trigger
 		query := tx.Rebind(triggerIDSelector)
 		row := tx.QueryRowxContext(ctx, query, trigger.ID)
@@ -1228,7 +1223,10 @@ func (ds *SQLStore) UpdateTrigger(ctx context.Context, trigger *models.Trigger) 
 		return err
 	})
 
-	return trigger, err
+	if err != nil {
+		return nil, err
+	}
+	return trigger, nil
 }
 
 func (ds *SQLStore) GetTrigger(ctx context.Context, appId, fnId, triggerName string) (*models.Trigger, error) {

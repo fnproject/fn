@@ -91,7 +91,7 @@ var (
 	ErrTriggerNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Trigger not found")}
-	ErrTriggerAlreadyExists = err{
+	ErrTriggerExists = err{
 		code:  http.StatusConflict,
 		error: errors.New("Trigger already exists")}
 	ErrDatastoreEmptyTrigger = err{

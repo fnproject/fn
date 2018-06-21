@@ -1058,19 +1058,41 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			}
 		})
 
+		t.Run("repeat name", func(t *testing.T) {
+			h := NewHarness(t, ctx, ds)
+			defer h.Cleanup()
+			testApp := h.GivenAppInDb(rp.ValidApp())
+			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
+			insertedTrigger, err := ds.InsertTrigger(ctx, newTrigger)
+			if err != nil {
+				t.Fatalf("error when storing new trigger: %s", err)
+			}
+			newTrigger.ID = insertedTrigger.ID
+			if !insertedTrigger.Equals(newTrigger) {
+				t.Errorf("Expecting returned trigger %#v to equal %#v", insertedTrigger, newTrigger)
+			}
+
+			newTrigger.ID = ""
+			_, err = ds.InsertTrigger(ctx, newTrigger)
+			if err != models.ErrTriggerExists {
+				t.Errorf("Expected ErrTriggerExists, not %s", err)
+			}
+		})
+
 		t.Run("valid func", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
 			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
 			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
-			gotTrigger, err := ds.InsertTrigger(ctx, newTrigger)
+			insertedTrigger, err := ds.InsertTrigger(ctx, newTrigger)
 			if err != nil {
 				t.Fatalf("error when storing new trigger: %s", err)
 			}
-			newTrigger.ID = gotTrigger.ID
-			if !gotTrigger.Equals(newTrigger) {
-				t.Errorf("Expecting returned trigger %#v to equal %#v", gotTrigger, newTrigger)
+			newTrigger.ID = insertedTrigger.ID
+			if !insertedTrigger.Equals(newTrigger) {
+				t.Errorf("Expecting returned trigger %#v to equal %#v", insertedTrigger, newTrigger)
 			}
 		})
 

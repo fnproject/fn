@@ -335,7 +335,7 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 			(t.AppID == trigger.AppID &&
 				t.FnID == trigger.FnID &&
 				t.Name == trigger.Name) {
-			return nil, models.ErrTriggerAlreadyExists
+			return nil, models.ErrTriggerExists
 		}
 	}
 	err = trigger.ValidCreate()
