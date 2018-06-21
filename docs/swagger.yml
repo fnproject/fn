@@ -112,10 +112,6 @@ paths:
           description: App details and stats.
           schema:
             $ref: '#/definitions/AppWrapper'
-        404:
-          description: App does not exist.
-          schema:
-            $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
