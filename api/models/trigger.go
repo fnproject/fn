@@ -6,8 +6,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
-	"github.com/go-openapi/strfmt"
 )
 
 //go:generate jsonenums -type=TriggerType
@@ -23,8 +23,8 @@ type Trigger struct {
 	Name        string          `json:"name" db:"name"`
 	AppID       string          `json:"app_id" db:"app_id"`
 	FnID        string          `json:"fn_id" db:"fn_id"`
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 	Type        TriggerType     `json:"type" db:"type"`
 	Source      string          `json:"source" db:"source"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
@@ -32,10 +32,10 @@ type Trigger struct {
 
 func (t *Trigger) SetDefaults() {
 	if time.Time(t.CreatedAt).IsZero() {
-		t.CreatedAt = strfmt.DateTime(time.Now())
+		t.CreatedAt = common.DateTime(time.Now())
 	}
 	if time.Time(t.UpdatedAt).IsZero() {
-		t.UpdatedAt = strfmt.DateTime(time.Now())
+		t.UpdatedAt = common.DateTime(time.Now())
 	}
 	if t.ID == "" {
 		t.ID = id.New().String()
@@ -230,7 +230,7 @@ func (t *Trigger) Update(patch *Trigger) {
 	t.Annotations = t.Annotations.MergeChange(patch.Annotations)
 
 	if !t.Equals(original) {
-		t.UpdatedAt = strfmt.DateTime(time.Now())
+		t.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 

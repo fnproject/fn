@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
-	"github.com/go-openapi/strfmt"
 )
 
 var (
@@ -40,9 +40,9 @@ type Fn struct {
 	// Annotations allow additional configuration of a function, these are not passed to the function.
 	Annotations Annotations `json:"annotations,omitempty" db:"annotations"`
 	// CreatedAt is the UTC timestamp when this function was created.
-	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	CreatedAt common.DateTime `json:"created_at,omitempty" db:"created_at"`
 	// UpdatedAt is the UTC timestamp of the last time this func was modified.
-	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	UpdatedAt common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 
 	// TODO wish to kill but not yet ?
 	// Format is the container protocol the function will accept,
@@ -94,11 +94,11 @@ func (f *Fn) SetDefaults() {
 	}
 
 	if time.Time(f.CreatedAt).IsZero() {
-		f.CreatedAt = strfmt.DateTime(time.Now())
+		f.CreatedAt = common.DateTime(time.Now())
 	}
 
 	if time.Time(f.UpdatedAt).IsZero() {
-		f.UpdatedAt = strfmt.DateTime(time.Now())
+		f.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 
@@ -226,7 +226,7 @@ func (f *Fn) Update(patch *Fn) {
 	f.Annotations = f.Annotations.MergeChange(patch.Annotations)
 
 	if !f.Equals(original) {
-		f.UpdatedAt = strfmt.DateTime(time.Now())
+		f.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 
