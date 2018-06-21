@@ -24,16 +24,8 @@ paths:
       tags:
         - Apps
       parameters:
-        - name: cursor
-          description: Cursor from previous response.next_cursor to begin results after, if any.
-          required: false
-          type: string
-          in: query
-        - name: per_page
-          description: Number of results to return, defaults to 30. Max of 100.
-          required: false
-          type: integer
-          in: query
+        - $ref: '#/parameters/cursor'
+        - $ref: '#/parameters/perPage'
         - name: name
           in: query
           description: Application name to filter by
@@ -261,7 +253,11 @@ paths:
         - $ref: '#/parameters/FnIDQuery'
         - $ref: '#/parameters/cursor'
         - $ref: '#/parameters/perPage'
-        # Can add type, route, etc qparams as required
+        - name: name
+          in: query
+          description: Trigger name to filter by
+          required: false
+          type: string
       responses:
         200:
           description: Trigger data
@@ -527,7 +523,9 @@ definitions:
       - items
     properties:
       next_cursor:
-        $ref: '#/definitions/nextCursor'
+        type: string
+        description: cursor to send with subsequent request to receive the next page, if non-empty
+        readOnly: true
       items:
         type: array
         items:
@@ -551,9 +549,13 @@ definitions:
         type: string
         description: uri path for this trigger. e.g. `sayHello`, `say/hello`
       fn_id:
-        $ref: '#/definitions/FnID'
+        type: string
+        description: opaque, unique function identifier
+        readOnly: true
       app_id:
-        $ref: '#/definitions/AppID'
+        type: string
+        description: opaque, unique application identifier
+        readOnly: true
       annotations:
         type: object
         description: Trigger annotations - this is a map of annotations attached to this trigger, keys must not exceed 128 bytes and must consist of non-whitespace printable ascii characters, and the seralized representation of individual values must not exeed 512 bytes
@@ -576,7 +578,9 @@ definitions:
       - items
     properties:
       next_cursor:
-        $ref: '#/definitions/nextCursor'
+        type: string
+        description: cursor to send with subsequent request to receive the next page, if non-empty
+        readOnly: true
       items:
         type: array
         items:
@@ -587,8 +591,10 @@ definitions:
     required:
       - items
     properties:
-      next:
-        $ref: '#/definitions/nextCursor'
+      next_cursor:
+        type: string
+        description: cursor to send with subsequent request to receive the next page, if non-empty
+        readOnly: true
       items:
         type: array
         items:
@@ -611,35 +617,6 @@ definitions:
       error:
         $ref: '#/definitions/ErrorBody'
 
-  nextCursor:
-    type: string
-    description: cursor to send with subsequent request to receive the next page, if non-empty
-    readOnly: true
-
-  AppID:
-    type: string
-    description: opaque, unique application identifier
-    readOnly: true
-
-  FnID:
-    type: string
-    description: opaque, unique function identifier
-    readOnly: true
-
-  TriggerID:
-    type: string
-    description: opaque, unique trigger identifier
-    readOnly: true
-
-  FnWrapper:
-    type: object
-    required:
-      - fn
-    properties:
-      fn:
-        $ref: '#/definitions/Fn'
-      error:
-        $ref: '#/definitions/ErrorBody'
 parameters:
   cursor:
     name: cursor
@@ -653,12 +630,7 @@ parameters:
     required: false
     type: integer
     in: query
-  AppName:
-    name: app
-    in: path
-    description: App name.
-    required: true
-    type: string
+
   AppID:
     name: appID
     in: path
@@ -689,9 +661,3 @@ parameters:
     description: Trigger ID.
     required: true
     type: string
-  TriggerIDQuery:
-    name: trigger
-    type: string
-    in: query
-    description: Trigger ID.
-    required: true
