@@ -47,13 +47,15 @@ func TestTriggerCreate(t *testing.T) {
 		{commonDS, logs.NewMock(), BaseRoute, `{}`, http.StatusBadRequest, models.ErrTriggerMissingName},
 
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test" }`, http.StatusBadRequest, models.ErrTriggerMissingAppID},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo" }`, http.StatusBadRequest, models.ErrTriggerMissingFnID},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo", "fn_id": "foo "}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
 
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrTriggerTooLongName},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrTriggerInvalidName},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},
 
-		// success
+		// // success
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src"}`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
@@ -234,6 +236,49 @@ func TestTriggerList(t *testing.T) {
 			if resp.NextCursor != test.nextCursor {
 				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)
 			}
+		}
+	}
+}
+
+func TestTriggerGet(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+
+	a := &models.App{ID: "appid"}
+	a.SetDefaults()
+
+	fn := &models.Fn{ID: "fnid"}
+	fn.SetDefaults()
+
+	trig := &models.Trigger{ID: "triggerid"}
+	trig.SetDefaults()
+	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
+
+	for i, test := range []struct {
+		mock         models.Datastore
+		logDB        models.LogStore
+		path         string
+		body         string
+		expectedCode int
+	}{
+		{commonDS, logs.NewMock(), BaseRoute + "/noexit", ``, http.StatusNotFound},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", ``, http.StatusOK},
+	} {
+		rnr, cancel := testRunner(t)
+		defer cancel()
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		router := srv.Router
+
+		body := bytes.NewBuffer([]byte(test.body))
+		_, rec := routerRequest(t, router, "GET", test.path, body)
+
+		if rec.Code != test.expectedCode {
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
 		}
 	}
 }
