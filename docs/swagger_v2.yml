@@ -131,6 +131,10 @@ paths:
           description: App does not exist.
           schema:
             $ref: '#/definitions/Error'
+        400:
+          description: Parameters are missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Unexpected error
           schema:
@@ -222,6 +226,10 @@ paths:
           description: Fn metadata
           schema:
             $ref: '#/definitions/Fn'
+        400:
+          description: Parameters are missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
@@ -327,6 +335,10 @@ paths:
           description: Created Triggers data
           schema:
             $ref: '#/definitions/Trigger'
+        400:
+          description: Parameters are missing or invalid.
+          schema:
+            $ref: '#/definitions/Error'
         default:
           description: Error
           schema:
