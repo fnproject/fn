@@ -349,7 +349,7 @@ const (
 	routeName = "/systemtestroute"
 	image     = "fnproject/fn-test-utils"
 	format    = "json"
-	memory    = 64
+	memory    = 128
 	typ       = "sync"
 )
 

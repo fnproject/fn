@@ -1,5 +1,5 @@
 # Just builds
-.PHONY: all test dep build test-log-datastore checkfmt pull-images api-test fn-test-utils test-middleware test-extensions test-basic test-api
+.PHONY: all test dep build test-log-datastore checkfmt pull-images fn-test-utils test-middleware test-extensions test-basic
 
 dep:
 	dep ensure --vendor-only
@@ -43,12 +43,7 @@ test-extensions: test-basic
 test-basic: checkfmt pull-images fn-test-utils
 	./test.sh
 
-test: checkfmt pull-images test-basic test-middleware test-extensions test-api test-system
-
-test-api: test-basic
-	./api_test.sh sqlite3
-	./api_test.sh mysql
-	./api_test.sh postgres
+test: checkfmt pull-images test-basic test-middleware test-extensions test-system
 
 test-system: test-basic
 	./system_test.sh sqlite3
