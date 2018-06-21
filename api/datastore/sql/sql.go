@@ -1150,7 +1150,6 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) 
 			}
 		}
 
-		//determine if insert or update
 		var dst models.Trigger
 		query = tx.Rebind(triggerIDSelector)
 		row := tx.QueryRowxContext(ctx, query, trigger.ID)

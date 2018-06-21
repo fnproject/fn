@@ -8,6 +8,7 @@ import (
 )
 
 func (s *Server) handleTriggerCreate(c *gin.Context) {
+	ctx := c.Request.Context()
 	trigger := &models.Trigger{}
 
 	err := c.BindJSON(trigger)
@@ -25,11 +26,11 @@ func (s *Server) handleTriggerCreate(c *gin.Context) {
 		return
 	}
 
-	triggerUpdated, err := s.datastore.InsertTrigger(c, trigger)
+	triggerCreated, err := s.datastore.InsertTrigger(ctx, trigger)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, triggerResponse{"Trigger successfully created", triggerUpdated})
+	c.JSON(http.StatusOK, triggerResponse{"Trigger successfully created", triggerCreated})
 }
