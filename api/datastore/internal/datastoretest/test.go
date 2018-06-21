@@ -1073,8 +1073,9 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Errorf("Expecting returned trigger %#v to equal %#v", insertedTrigger, newTrigger)
 			}
 
-			newTrigger.ID = ""
-			_, err = ds.InsertTrigger(ctx, newTrigger)
+			repeatTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
+			repeatTrigger.Name = newTrigger.Name
+			_, err = ds.InsertTrigger(ctx, repeatTrigger)
 			if err != models.ErrTriggerExists {
 				t.Errorf("Expected ErrTriggerExists, not %s", err)
 			}

@@ -82,6 +82,12 @@ var (
 	ErrTriggerIDProvided = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger ID Provided for Create")}
+	ErrTriggerCreatedAtProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger Created At Provided for Create")}
+	ErrTriggerUpdatedAtProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger ID Provided for Create")}
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Type Unknown")}
@@ -139,6 +145,13 @@ func (t *Trigger) ValidCreate() error {
 
 	if t.ID != "" {
 		return ErrTriggerIDProvided
+	}
+
+	if !time.Time(t.CreatedAt).IsZero() {
+		return ErrTriggerCreatedAtProvided
+	}
+	if !time.Time(t.UpdatedAt).IsZero() {
+		return ErrTriggerUpdatedAtProvided
 	}
 
 	if t.Name == "" {
