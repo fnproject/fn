@@ -46,7 +46,7 @@ paths:
       tags:
         - Apps
       parameters:
-        - name: app_body
+        - name: body
           in: body
           description: App to modify.
           required: true
