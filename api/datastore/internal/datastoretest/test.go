@@ -74,8 +74,6 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 		Source: "ASource",
 	}
 
-	trigger.SetDefaults()
-
 	return trigger
 }
 
@@ -1070,6 +1068,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			if err != nil {
 				t.Fatalf("error when storing new trigger: %s", err)
 			}
+			newTrigger.ID = gotTrigger.ID
 			if !gotTrigger.Equals(newTrigger) {
 				t.Errorf("Expecting returned trigger %#v to equal %#v", gotTrigger, newTrigger)
 			}
@@ -1088,13 +1087,14 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			testApp := h.GivenAppInDb(rp.ValidApp())
 			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
 			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
-			h.GivenTriggerInDb(newTrigger)
+			insertedTrigger := h.GivenTriggerInDb(newTrigger)
 
-			gotTrigger, err := ds.GetTriggerByID(ctx, newTrigger.ID)
+			gotTrigger, err := ds.GetTriggerByID(ctx, insertedTrigger.ID)
 			if err != nil {
 				t.Fatalf("expecting no error, got: %s", err)
 			}
 
+			newTrigger.ID = insertedTrigger.ID
 			if !gotTrigger.Equals(newTrigger) {
 				t.Errorf("Expecting returned trigger %#v to equal %#v", gotTrigger, newTrigger)
 			}

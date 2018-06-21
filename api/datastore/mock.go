@@ -338,7 +338,7 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 			return nil, models.ErrTriggerAlreadyExists
 		}
 	}
-	err = trigger.Validate()
+	err = trigger.ValidCreate()
 	if err != nil {
 		return nil, err
 	}
