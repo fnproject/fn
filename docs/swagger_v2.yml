@@ -543,8 +543,7 @@ definitions:
         description: unique name for this trigger, used to identify this trigger
       type:
         type: string
-        description: class of trigger, e.g. schedule, http
-        enum: [http, stream]
+        description: class of trigger, e.g. schedule, http, queue
       source:
         type: string
         description: uri path for this trigger. e.g. `sayHello`, `say/hello`
