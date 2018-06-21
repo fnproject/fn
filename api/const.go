@@ -7,6 +7,7 @@ const (
 	Path      string = "path"
 	Call      string = "call"
 	Fn        string = "fn"
+	FnID      string = "fn_id"
 	TriggerID string = "trigger"
 	// Short forms for API URLs
 	CApp   string = "app"

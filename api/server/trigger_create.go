@@ -32,5 +32,5 @@ func (s *Server) handleTriggerCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, triggerResponse{"Trigger successfully created", triggerCreated})
+	c.JSON(http.StatusOK, triggerCreated)
 }

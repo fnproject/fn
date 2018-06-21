@@ -21,8 +21,7 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 		handleErrorResponse(c, models.ErrTriggerMissingAppID)
 	}
 
-	//TODO when FN's merged
-	//	filter.fnName = c.Query("fnName")
+	filter.FnID = c.Query(api.FnID)
 
 	triggers, err := s.datastore.GetTriggers(ctx, filter)
 	if err != nil {
@@ -36,9 +35,8 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
-	c.JSON(http.StatusOK, triggersResponse{
-		Message:    "Successfully listed triggers",
+	c.JSON(http.StatusOK, triggerListResponse{
 		NextCursor: nextCursor,
-		Triggers:   triggers,
+		Items:      triggers,
 	})
 }

@@ -63,7 +63,7 @@ func TestTriggerCreate(t *testing.T) {
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
-		_, rec := routerRequest(t, router, "PUT", test.path, body)
+		_, rec := routerRequest(t, router, "POST", test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
@@ -80,14 +80,12 @@ func TestTriggerCreate(t *testing.T) {
 		}
 
 		if test.expectedCode == http.StatusOK {
-			var triggerResp triggerResponse
-			err := json.NewDecoder(rec.Body).Decode(&triggerResp)
+			var trigger models.Trigger
+			err := json.NewDecoder(rec.Body).Decode(&trigger)
 			if err != nil {
 				t.Log(buf.String())
 				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
 			}
-
-			trigger := triggerResp.Trigger
 
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(trigger.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
@@ -106,15 +104,15 @@ func TestTriggerCreate(t *testing.T) {
 				t.Errorf("Test %d: Expected to be able to GET trigger after successful PUT: %d", i, rec.Code)
 			}
 
-			var triggerGet triggerResponse
+			var triggerGet models.Trigger
 			err = json.NewDecoder(rec.Body).Decode(&triggerGet)
 			if err != nil {
 				t.Log(buf.String())
 				t.Errorf("Test %d: error decoding body for GET 'ok' json, it was a lie: %v", i, err)
 			}
 
-			if !triggerGet.Trigger.Equals(trigger) {
-				t.Errorf("Test %d: GET trigger should match result of PUT trigger: %v, %v", i, triggerGet.Trigger, trigger)
+			if !triggerGet.Equals(&trigger) {
+				t.Errorf("Test %d: GET trigger should match result of PUT trigger: %v, %v", i, triggerGet, trigger)
 			}
 
 			cancel()
@@ -144,7 +142,7 @@ func TestTriggerDelete(t *testing.T) {
 		expectedError error
 	}{
 		{datastore.NewMock(), logs.NewMock(), BaseRoute + "/triggerid", "", http.StatusNotFound, nil},
-		{ds, logs.NewMock(), BaseRoute + "/triggerid", "", http.StatusOK, nil},
+		{ds, logs.NewMock(), BaseRoute + "/triggerid", "", http.StatusNoContent, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.ds, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -180,7 +178,7 @@ func TestTriggerList(t *testing.T) {
 	defer cancel()
 	ds := datastore.NewMockInit(
 		[]*models.Trigger{
-			{ID: "trigger1", AppID: "appid"},
+			{ID: "trigger1", AppID: "appid", FnID: "fnid"},
 			{ID: "trigger2", AppID: "appid"},
 			{ID: "trigger3", AppID: "appid"},
 		},
@@ -202,6 +200,7 @@ func TestTriggerList(t *testing.T) {
 	}{
 		{"/v2/triggers?per_page", "", http.StatusBadRequest, nil, 0, ""},
 		{"/v2/triggers?app_id=appid&per_page", "", http.StatusOK, nil, 3, ""},
+		{"/v2/triggers?app_id=appid&fn_id=fnid&per_page", "", http.StatusOK, nil, 1, ""},
 		{"/v2/triggers?app_id=appid&per_page=1", "", http.StatusOK, nil, 1, a1b},
 		{"/v2/triggers?app_id=appid&per_page=1&cursor=" + a1b, "", http.StatusOK, nil, 1, a2b},
 		{"/v2/triggers?app_id=appid&per_page=1&cursor=" + a2b, "", http.StatusOK, nil, 1, a3b},
@@ -225,13 +224,13 @@ func TestTriggerList(t *testing.T) {
 		} else {
 			// normal path
 
-			var resp triggersResponse
+			var resp triggerListResponse
 			err := json.NewDecoder(rec.Body).Decode(&resp)
 			if err != nil {
 				t.Errorf("Test %d: Expected response body to be a valid json object. err: %v", i, err)
 			}
-			if len(resp.Triggers) != test.expectedLen {
-				t.Errorf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Triggers))
+			if len(resp.Items) != test.expectedLen {
+				t.Errorf("Test %d: Expected apps length to be %d, but got %d", i, test.expectedLen, len(resp.Items))
 			}
 			if resp.NextCursor != test.nextCursor {
 				t.Errorf("Test %d: Expected next_cursor to be %s, but got %s", i, test.nextCursor, resp.NextCursor)

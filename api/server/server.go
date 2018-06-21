@@ -939,7 +939,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				v2.DELETE("/fns/:fn", s.handleFnsDelete)
 
 				v2.GET("/triggers", s.handleTriggerList)
-				v2.PUT("/triggers", s.handleTriggerCreate)
+				v2.POST("/triggers", s.handleTriggerCreate)
 				v2.GET("/triggers/:trigger", s.handleTriggerGet)
 				v2.PUT("/triggers/:trigger", s.handleTriggerUpdate)
 				v2.DELETE("/triggers/:trigger", s.handleTriggerDelete)
@@ -1058,13 +1058,7 @@ type fnsResponse struct {
 	Fns        []*models.Fn `json:"fns"`
 }
 
-type triggerResponse struct {
-	Message string          `json:"message"`
-	Trigger *models.Trigger `json:"trigger"`
-}
-
-type triggersResponse struct {
-	Message    string            `json:"message"`
+type triggerListResponse struct {
 	NextCursor string            `json:"next_cursor"`
-	Triggers   []*models.Trigger `json:"triggers"`
+	Items      []*models.Trigger `json:"items"`
 }

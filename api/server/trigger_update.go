@@ -26,5 +26,5 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, triggerResponse{"Trigger successfully updated", triggerUpdated})
+	c.JSON(http.StatusOK, triggerUpdated)
 }

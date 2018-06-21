@@ -16,5 +16,5 @@ func (s *Server) handleTriggerDelete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Trigger deleted"})
+	c.JSON(http.StatusNoContent, nil)
 }

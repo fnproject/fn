@@ -1160,7 +1160,7 @@ func (ds *SQLStore) InsertTrigger(ctx context.Context, trigger *models.Trigger) 
 		}
 
 		trigger.SetDefaults()
-		err = trigger.Validate()
+		err = trigger.ValidCreate()
 		if err != nil {
 			return err
 		}

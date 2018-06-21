@@ -16,5 +16,5 @@ func (s *Server) handleTriggerGet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, triggerResponse{"Successfully loaded app", trigger})
+	c.JSON(http.StatusOK, trigger)
 }
