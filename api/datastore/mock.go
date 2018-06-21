@@ -409,15 +409,6 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 		if filter.FnID != "" && filter.FnID != t.FnID {
 			matched = false
 		}
-		if filter.Name != "" && filter.Name != t.Name {
-			matched = false
-		}
-		if filter.Type != 0 && filter.Type != t.Type {
-			matched = false
-		}
-		if filter.Source != "" && filter.Source != t.Source {
-			matched = false
-		}
 
 		if matched {
 			res = append(res, t)

@@ -70,7 +70,7 @@ func (brp *BasicResourceProvider) ValidTrigger(appId, funcId string) *models.Tri
 		Name:   fmt.Sprintf("trigger_%09d", brp.NextID()),
 		AppID:  appId,
 		FnID:   funcId,
-		Type:   models.HTTP,
+		Type:   "HTTP",
 		Source: "ASource",
 	}
 
@@ -1151,6 +1151,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
 			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn2 := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
 
 			var storedTriggers []*models.Trigger
 
@@ -1160,13 +1161,17 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				storedTriggers = append(storedTriggers, h.GivenTriggerInDb(trigger))
 			}
 
+			trigger := rp.ValidTrigger(testApp.ID, testFn2.ID)
+			trigger.Source = fmt.Sprintf("src_%v", 11)
+			h.GivenTriggerInDb(trigger)
+
 			appIDFilter := &models.TriggerFilter{AppID: testApp.ID}
 			triggers, err := ds.GetTriggers(ctx, appIDFilter)
 			if err != nil {
 				t.Fatalf("Test GetTriggers(get all triggers for app), not expecting err %s", err)
 			}
 
-			if len(triggers) != 10 {
+			if len(triggers) != 11 {
 				t.Fatalf("Test GetTriggers(get all triggers for app), expecting 10 results, got %d", len(triggers))
 			}
 
@@ -1207,26 +1212,14 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("expect 5th result to equal 9th stored result : %#v != %#v", triggers[4], storedTriggers[9])
 			}
 
-			nameFilter := &models.TriggerFilter{AppID: testApp.ID, Name: storedTriggers[4].Name}
-			triggers, err = ds.GetTriggers(ctx, nameFilter)
-			if err != nil {
-				t.Fatalf("Test GetTriggers(name filtering), not expecting err %s", err)
-			}
-			if len(triggers) != 1 {
-				t.Fatalf("Test GetTriggers(name filtering), expecting 1 results, got %d", len(triggers))
-			}
-			if !triggers[0].Equals(storedTriggers[4]) {
-				t.Fatalf("expect  result to equal 4th stored result : %#v != %#v", triggers[0], storedTriggers[4])
-			}
-
 			// components are AND'd
-			findNothingFilter := &models.TriggerFilter{AppID: testApp.ID, Name: storedTriggers[4].Name, Source: storedTriggers[5].Source}
+			findNothingFilter := &models.TriggerFilter{AppID: testApp.ID, FnID: testFn.ID}
 			triggers, err = ds.GetTriggers(ctx, findNothingFilter)
 			if err != nil {
 				t.Fatalf("Test GetTriggers(AND filtering), not expecting err %s", err)
 			}
-			if len(triggers) != 0 {
-				t.Fatalf("Test GetTriggers(AND filtering), expecting 0 results, got %d", len(triggers))
+			if len(triggers) != 10 {
+				t.Fatalf("Test GetTriggers(AND filtering), expecting 10 results, got %d", len(triggers))
 			}
 		})
 

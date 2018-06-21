@@ -10,14 +10,6 @@ import (
 	"github.com/fnproject/fn/api/id"
 )
 
-//go:generate jsonenums -type=TriggerType
-type TriggerType int
-
-const (
-	Unknown TriggerType = iota
-	HTTP
-)
-
 type Trigger struct {
 	ID          string          `json:"id" db:"id"`
 	Name        string          `json:"name" db:"name"`
@@ -25,7 +17,7 @@ type Trigger struct {
 	FnID        string          `json:"fn_id" db:"fn_id"`
 	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
-	Type        TriggerType     `json:"type" db:"type"`
+	Type        string          `json:"type" db:"type"`
 	Source      string          `json:"source" db:"source"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 }
@@ -58,6 +50,21 @@ func (t1 *Trigger) Equals(t2 *Trigger) bool {
 	//eq = eq && time.Time(t1.CreatedAt).Equal(time.Time(t2.CreatedAt))
 	//eq = eq && time.Time(t1.UpdatedAt).Equal(time.Time(t2.UpdatedAt))
 	return eq
+}
+
+var triggerTypes = [1]string{"HTTP"}
+
+func ValidTriggerTypes() [1]string {
+	return triggerTypes
+}
+
+func validTriggerType(a string) bool {
+	for _, b := range triggerTypes {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 var (
@@ -93,7 +100,7 @@ var (
 		error: errors.New("Trigger ID Provided for Create")}
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Trigger Type Unknown")}
+		error: errors.New("Trigger Type Not Supported")}
 	ErrTriggerMissingSource = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger Source")}
@@ -128,7 +135,7 @@ func (t *Trigger) Validate() error {
 		return ErrTriggerMissingFnID
 	}
 
-	if t.Type == Unknown {
+	if !validTriggerType(t.Type) {
 		return ErrTriggerTypeUnknown
 	}
 
@@ -178,7 +185,7 @@ func (t *Trigger) ValidCreate() error {
 		return ErrTriggerMissingFnID
 	}
 
-	if t.Type == Unknown {
+	if !validTriggerType(t.Type) {
 		return ErrTriggerTypeUnknown
 	}
 
@@ -237,10 +244,6 @@ func (t *Trigger) Update(patch *Trigger) {
 type TriggerFilter struct {
 	AppID string // this is exact match
 	FnID  string // this is exact match
-	Name  string
-
-	Type   TriggerType
-	Source string
 
 	Cursor  string
 	PerPage int

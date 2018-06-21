@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var openEmptyJson = `{"id":"","name":"","app_id":"","fn_id":"","created_at":"0001-01-01T00:00:00.000Z","updated_at":"0001-01-01T00:00:00.000Z","type":"Unknown","source":""`
+var openEmptyJson = `{"id":"","name":"","app_id":"","fn_id":"","created_at":"0001-01-01T00:00:00.000Z","updated_at":"0001-01-01T00:00:00.000Z","type":"","source":""`
 
 var triggerJsonCases = []struct {
 	val       *Trigger
@@ -26,13 +26,15 @@ func TestTriggerJsonMarshalling(t *testing.T) {
 	}
 }
 
-var httpTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: HTTP, Source: "baz"}
+var httpTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "HTTP", Source: "baz"}
+var invalidTrigger = &Trigger{Name: "name", AppID: "foo", FnID: "bar", Type: "error", Source: "baz"}
 
 var triggerValidateCases = []struct {
 	val   *Trigger
 	valid bool
 }{
 	{val: &Trigger{}, valid: false},
+	{val: invalidTrigger, valid: false},
 	{val: httpTrigger, valid: true},
 }
 
