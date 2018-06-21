@@ -1,5 +1,5 @@
 #!/bin/bash
-set -exo pipefail
+set -exuo pipefail
 
 export CONTEXT="fn_system_tests"
 source ./helpers.sh
@@ -22,6 +22,8 @@ export FN_ENABLE_NB_RESOURCE_TRACKER=1
 #
 export SYSTEM_TEST_PROMETHEUS_FILE=./prometheus.${DB_NAME}.txt
 
-cd test/fn-system-tests && FN_DB_URL=${FN_DB_URL} FN_API_URL=${FN_API_URL} go test -v ./...; cd ../../
+cd test/fn-system-tests
+go test -v ./...
+cd ../../
 
 remove_containers ${CONTEXT}
