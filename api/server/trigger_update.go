@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,16 @@ func (s *Server) handleTriggerUpdate(c *gin.Context) {
 			handleErrorResponse(c, models.ErrInvalidJSON)
 		}
 		return
+	}
+
+	pathTriggerID := c.Param(api.TriggerID)
+
+	if trigger.ID == "" {
+		trigger.ID = pathTriggerID
+	} else {
+		if pathTriggerID != trigger.ID {
+			handleErrorResponse(c, models.ErrTriggerIDMismatch)
+		}
 	}
 
 	triggerUpdated, err := s.datastore.UpdateTrigger(c, trigger)

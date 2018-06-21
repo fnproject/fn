@@ -261,11 +261,69 @@ func TestTriggerGet(t *testing.T) {
 		mock         models.Datastore
 		logDB        models.LogStore
 		path         string
-		body         string
 		expectedCode int
 	}{
-		{commonDS, logs.NewMock(), BaseRoute + "/noexit", ``, http.StatusNotFound},
-		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", ``, http.StatusOK},
+		{commonDS, logs.NewMock(), BaseRoute + "/notexist", http.StatusNotFound},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", http.StatusOK},
+	} {
+		rnr, cancel := testRunner(t)
+		defer cancel()
+		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
+		router := srv.Router
+
+		_, rec := routerRequest(t, router, "GET", test.path, bytes.NewBuffer([]byte("")))
+
+		if rec.Code != test.expectedCode {
+			t.Errorf("Test %d: Expected status code to be %d but was %d",
+				i, test.expectedCode, rec.Code)
+		}
+
+		var triggerGet models.Trigger
+		err := json.NewDecoder(rec.Body).Decode(&triggerGet)
+		if err != nil {
+			t.Errorf("Test %d: Expected to decode json: %s", i, err)
+		}
+	}
+}
+
+func TestTriggerUpdate(t *testing.T) {
+	buf := setLogBuffer()
+	defer func() {
+		if t.Failed() {
+			t.Log(buf.String())
+		}
+	}()
+
+	a := &models.App{ID: "appid"}
+	a.SetDefaults()
+
+	fn := &models.Fn{ID: "fnid"}
+	fn.SetDefaults()
+
+	trig := &models.Trigger{ID: "triggerid",
+		Name:   "Name",
+		AppID:  "appid",
+		FnID:   "fnid",
+		Type:   1,
+		Source: "source"}
+
+	trig.SetDefaults()
+	commonDS := datastore.NewMockInit([]*models.App{a}, []*models.Fn{fn}, []*models.Trigger{trig})
+
+	for i, test := range []struct {
+		mock          models.Datastore
+		logDB         models.LogStore
+		path          string
+		body          string
+		name          string
+		expectedCode  int
+		expectedError error
+	}{
+		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "triggerid", "name":"changed"}`, "", http.StatusBadRequest, nil},
+		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "notexist", "name":"changed"}`, "", http.StatusNotFound, nil},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "nonmatching", "name":"changed}`, "", http.StatusBadRequest, models.ErrTriggerIDMismatch},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "triggerid", "name":"changed"}`, "changed", http.StatusOK, nil},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"name":"again"}`, "again", http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		defer cancel()
@@ -273,11 +331,34 @@ func TestTriggerGet(t *testing.T) {
 		router := srv.Router
 
 		body := bytes.NewBuffer([]byte(test.body))
-		_, rec := routerRequest(t, router, "GET", test.path, body)
+		_, rec := routerRequest(t, router, "PUT", test.path, body)
 
 		if rec.Code != test.expectedCode {
 			t.Errorf("Test %d: Expected status code to be %d but was %d",
 				i, test.expectedCode, rec.Code)
+
+			if test.expectedError != nil {
+				resp := getErrorResponse(t, rec)
+				if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
+					t.Errorf("Test %d: Expected error message to have `%s` but got `%s`",
+						i, test.expectedError.Error(), resp.Error.Message)
+				}
+			}
+		}
+
+		if rec.Code == http.StatusOK {
+			_, rec := routerRequest(t, router, "GET", BaseRoute+"/triggerid", bytes.NewBuffer([]byte("")))
+
+			var triggerGet models.Trigger
+			err := json.NewDecoder(rec.Body).Decode(&triggerGet)
+			if err != nil {
+				t.Errorf("Test %d: Expected to decode json: %s", i, err)
+			}
+
+			trig.Name = test.name
+			if !triggerGet.Equals(trig) {
+				t.Errorf("Test%d: trigger should be updated: %v : %v", i, trig, triggerGet)
+			}
 		}
 	}
 }

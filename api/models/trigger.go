@@ -79,6 +79,9 @@ var (
 	ErrTriggerMissingID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger ID")}
+	ErrTriggerIDMismatch = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger ID in path does not match that in body")}
 	ErrTriggerIDProvided = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger ID Provided for Create")}
