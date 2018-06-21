@@ -15,7 +15,7 @@
     }
   },
   "basePath": "",
-  "baseUrl": "https://content-serviceuser.googleapis.com/",
+  "baseUrl": "https://serviceuser.googleapis.com/",
   "batchPath": "batch",
   "canonicalName": "Service User",
   "description": "Enables services that service consumers want to use on Google Cloud Platform, lists the available or enabled services, or disables services that service consumers no longer use.",
@@ -256,8 +256,8 @@
       }
     }
   },
-  "revision": "20180316",
-  "rootUrl": "https://content-serviceuser.googleapis.com/",
+  "revision": "20180525",
+  "rootUrl": "https://serviceuser.googleapis.com/",
   "schemas": {
     "Api": {
       "description": "Api is a light-weight descriptor for an API Interface.\n\nInterfaces are also described as \"protocol buffer services\" in some contexts,\nsuch as by the \"service\" keyword in a .proto file, but they are different\nfrom API Services, which represent a concrete implementation of an interface\nas opposed to simply a description of methods and bindings. They are also\nsometimes simply referred to as \"APIs\" in other contexts, such as the name of\nthis message itself. See https://cloud.google.com/apis/design/glossary for\ndetailed terminology.",
@@ -379,12 +379,8 @@
       "id": "AuthenticationRule",
       "properties": {
         "allowWithoutCredential": {
-          "description": "Whether to allow requests without a credential. The credential can be\nan OAuth token, Google cookies (first-party auth) or EndUserCreds.\n\nFor requests without credentials, if the service control environment is\nspecified, each incoming request **must** be associated with a service\nconsumer. This can be done by passing an API key that belongs to a consumer\nproject.",
+          "description": "If true, the service accepts API keys without any other credential.",
           "type": "boolean"
-        },
-        "customAuth": {
-          "$ref": "CustomAuthRequirements",
-          "description": "Configuration for custom authentication."
         },
         "oauth": {
           "$ref": "OAuthRequirements",
@@ -545,17 +541,6 @@
       "properties": {
         "environment": {
           "description": "The service control environment to use. If empty, no control plane\nfeature (like quota and billing) will be enabled.",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "CustomAuthRequirements": {
-      "description": "Configuration for a custom authentication provider.",
-      "id": "CustomAuthRequirements",
-      "properties": {
-        "provider": {
-          "description": "A configuration string containing connection information for the\nauthentication provider, typically formatted as a SmartService string\n(go/smartservice).",
           "type": "string"
         }
       },

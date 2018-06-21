@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/fnproject/fn/api"
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"github.com/go-openapi/strfmt"
 )
 
 func (s *Server) handleCallList(c *gin.Context) {
@@ -42,7 +42,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 }
 
 // "" gets parsed to a zero time, which is fine (ignored in query)
-func timeParams(c *gin.Context) (fromTime, toTime strfmt.DateTime, err error) {
+func timeParams(c *gin.Context) (fromTime, toTime common.DateTime, err error) {
 	fromStr := c.Query("from_time")
 	toStr := c.Query("to_time")
 	var ok bool
@@ -61,10 +61,10 @@ func timeParams(c *gin.Context) (fromTime, toTime strfmt.DateTime, err error) {
 	return fromTime, toTime, nil
 }
 
-func strToTime(str string) (strfmt.DateTime, bool) {
+func strToTime(str string) (common.DateTime, bool) {
 	sec, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		return strfmt.DateTime(time.Time{}), false
+		return common.DateTime(time.Time{}), false
 	}
-	return strfmt.DateTime(time.Unix(sec, 0)), true
+	return common.DateTime(time.Unix(sec, 0)), true
 }

@@ -119,7 +119,7 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	// cover our tracks since if the db is down we can't run anything anyway (treat as such).
 	// TODO do this client side and validate it here?
 	//call.Status = "running"
-	//call.StartedAt = strfmt.DateTime(time.Now())
+	//call.StartedAt = common.DateTime(time.Now())
 	//err := s.datastore.UpdateCall(c.Request.Context(), &call)
 	//if err != nil {
 	//if err == InvalidStatusChange {

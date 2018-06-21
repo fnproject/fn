@@ -18,7 +18,6 @@ import (
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/fnext"
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
@@ -804,7 +803,7 @@ func (a *agent) prepCold(ctx context.Context, call *call, tok ResourceToken, ch 
 	deadline := time.Now().Add(time.Duration(call.Timeout) * time.Second)
 
 	// add Fn-specific information to the config to shove everything into env vars for cold
-	call.Config["FN_DEADLINE"] = strfmt.DateTime(deadline).String()
+	call.Config["FN_DEADLINE"] = common.DateTime(deadline).String()
 	call.Config["FN_METHOD"] = call.Model().Method
 	call.Config["FN_REQUEST_URL"] = call.Model().URL
 	call.Config["FN_CALL_ID"] = call.Model().ID

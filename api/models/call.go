@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fnproject/fn/api/agent/drivers"
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 const (
@@ -132,13 +132,13 @@ type Call struct {
 	SyslogURL string `json:"syslog_url,omitempty" db:"-"`
 
 	// Time when call completed, whether it was successul or failed. Always in UTC.
-	CompletedAt strfmt.DateTime `json:"completed_at,omitempty" db:"completed_at"`
+	CompletedAt common.DateTime `json:"completed_at,omitempty" db:"completed_at"`
 
 	// Time when call was submitted. Always in UTC.
-	CreatedAt strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
+	CreatedAt common.DateTime `json:"created_at,omitempty" db:"created_at"`
 
 	// Time when call started execution. Always in UTC.
-	StartedAt strfmt.DateTime `json:"started_at,omitempty" db:"started_at"`
+	StartedAt common.DateTime `json:"started_at,omitempty" db:"started_at"`
 
 	// Stats is a list of metrics from this call's execution, possibly empty.
 	Stats drivers.Stats `json:"stats,omitempty" db:"stats"`
@@ -154,8 +154,8 @@ type Call struct {
 type CallFilter struct {
 	Path     string // match
 	AppID    string // match
-	FromTime strfmt.DateTime
-	ToTime   strfmt.DateTime
+	FromTime common.DateTime
+	ToTime   common.DateTime
 	Cursor   string
 	PerPage  int
 }

@@ -29,16 +29,8 @@ ignored = ["github.com/fnproject/fn/cli",
   revision = "fa5367d20c994db73282594be0146ab221657943"
 
 [[constraint]]
-  name = "github.com/fnproject/fn_go"
-  version = "0.2.6"
-
-[[constraint]]
   name = "github.com/gin-gonic/gin"
   version = "v1.2"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/go-openapi/strfmt"
 
 [[constraint]]
   branch = "master"
@@ -82,3 +74,6 @@ ignored = ["github.com/fnproject/fn/cli",
   name = "github.com/dchest/siphash"
   version = "1.1.0"
 
+[[override]]
+  name = "github.com/docker/docker"
+  revision = "29fc64b590badcb1c3f5beff7563ffd31eb58974"

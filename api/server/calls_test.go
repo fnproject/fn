@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/datastore"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"github.com/go-openapi/strfmt"
 )
 
 func TestCallGet(t *testing.T) {
@@ -39,7 +39,7 @@ func TestCallGet(t *testing.T) {
 		Timeout:     30,
 		IdleTimeout: 30,
 		Memory:      256,
-		CreatedAt:   strfmt.DateTime(time.Now()),
+		CreatedAt:   common.DateTime(time.Now()),
 		URL:         "http://localhost:8080/r/myapp/thisisatest",
 		Method:      "GET",
 	}
@@ -110,16 +110,16 @@ func TestCallList(t *testing.T) {
 		Timeout:     30,
 		IdleTimeout: 30,
 		Memory:      256,
-		CreatedAt:   strfmt.DateTime(time.Now()),
+		CreatedAt:   common.DateTime(time.Now()),
 		URL:         "http://localhost:8080/r/myapp/thisisatest",
 		Method:      "GET",
 	}
 	c2 := *call
 	c3 := *call
-	c2.CreatedAt = strfmt.DateTime(time.Now().Add(100 * time.Second))
+	c2.CreatedAt = common.DateTime(time.Now().Add(100 * time.Second))
 	c2.ID = id.New().String()
 	c2.Path = "test2"
-	c3.CreatedAt = strfmt.DateTime(time.Now().Add(200 * time.Second))
+	c3.CreatedAt = common.DateTime(time.Now().Add(200 * time.Second))
 	c3.ID = id.New().String()
 	c3.Path = "/test3"
 

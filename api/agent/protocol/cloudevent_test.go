@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/fnproject/fn/api/common"
 )
 
 // implements CallInfo, modify as needed
@@ -23,8 +23,8 @@ func (t *testCall) IsCloudEvent() bool  { return t.cloud }
 func (t *testCall) CallID() string      { return "foo" }
 func (t *testCall) ContentType() string { return t.contentType }
 func (t *testCall) Input() io.Reader    { return t.input }
-func (t *testCall) Deadline() strfmt.DateTime {
-	return strfmt.DateTime(time.Now().Add(30 * time.Second))
+func (t *testCall) Deadline() common.DateTime {
+	return common.DateTime(time.Now().Add(30 * time.Second))
 }
 func (t *testCall) CallType() string             { return "sync" }
 func (t *testCall) ProtocolType() string         { return "http" }

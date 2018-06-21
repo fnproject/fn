@@ -16,7 +16,6 @@ import (
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 )
 
@@ -128,7 +127,7 @@ func FromRequest(a Agent, app *models.App, path string, req *http.Request) CallO
 			Config:      buildConfig(app, route),
 			Annotations: buildAnnotations(app, route),
 			Headers:     req.Header,
-			CreatedAt:   strfmt.DateTime(time.Now()),
+			CreatedAt:   common.DateTime(time.Now()),
 			URL:         reqURL(req),
 			Method:      req.Method,
 			AppID:       app.ID,
@@ -373,7 +372,7 @@ func (c *call) Start(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	c.StartedAt = strfmt.DateTime(time.Now())
+	c.StartedAt = common.DateTime(time.Now())
 	c.Status = "running"
 
 	if !c.isLB {
@@ -411,7 +410,7 @@ func (c *call) End(ctx context.Context, errIn error) error {
 	ctx, span := trace.StartSpan(ctx, "agent_call_end")
 	defer span.End()
 
-	c.CompletedAt = strfmt.DateTime(time.Now())
+	c.CompletedAt = common.DateTime(time.Now())
 
 	switch errIn {
 	case nil:

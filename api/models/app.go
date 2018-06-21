@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
-	"github.com/go-openapi/strfmt"
 )
 
 type App struct {
@@ -18,16 +18,16 @@ type App struct {
 	Config      Config          `json:"config,omitempty" db:"config"`
 	Annotations Annotations     `json:"annotations,omitempty" db:"annotations"`
 	SyslogURL   *string         `json:"syslog_url,omitempty" db:"syslog_url"`
-	CreatedAt   strfmt.DateTime `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt   strfmt.DateTime `json:"updated_at,omitempty" db:"updated_at"`
+	CreatedAt   common.DateTime `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt   common.DateTime `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 func (a *App) SetDefaults() {
 	if time.Time(a.CreatedAt).IsZero() {
-		a.CreatedAt = strfmt.DateTime(time.Now())
+		a.CreatedAt = common.DateTime(time.Now())
 	}
 	if time.Time(a.UpdatedAt).IsZero() {
-		a.UpdatedAt = strfmt.DateTime(time.Now())
+		a.UpdatedAt = common.DateTime(time.Now())
 	}
 	if a.Config == nil {
 		// keeps the json from being nil
@@ -134,7 +134,7 @@ func (a *App) Update(patch *App) {
 	a.Annotations = a.Annotations.MergeChange(patch.Annotations)
 
 	if !a.Equals(original) {
-		a.UpdatedAt = strfmt.DateTime(time.Now())
+		a.UpdatedAt = common.DateTime(time.Now())
 	}
 }
 

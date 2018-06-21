@@ -24,23 +24,29 @@ func (f HandlerFunc) Serve(ctx context.Context, in io.Reader, out io.Writer) {
 func Context(ctx context.Context) *Ctx {
 	utilsCtx := utils.Context(ctx)
 	return &Ctx{
-		Header: utilsCtx.Header,
-		Config: utilsCtx.Config,
+		Header:     utilsCtx.Header,
+		Config:     utilsCtx.Config,
+		RequestURL: utilsCtx.RequestURL,
+		Method:     utilsCtx.Method,
 	}
 }
 
 func WithContext(ctx context.Context, fnctx *Ctx) context.Context {
 	utilsCtx := &utils.Ctx{
-		Header: fnctx.Header,
-		Config: fnctx.Config,
+		Header:     fnctx.Header,
+		Config:     fnctx.Config,
+		RequestURL: fnctx.RequestURL,
+		Method:     fnctx.Method,
 	}
 	return utils.WithContext(ctx, utilsCtx)
 }
 
 // Ctx provides access to Config and Headers from fn.
 type Ctx struct {
-	Header http.Header
-	Config map[string]string
+	Header     http.Header
+	Config     map[string]string
+	RequestURL string
+	Method     string
 }
 
 // AddHeader will add a header on the function response, for hot function

@@ -1,5 +1,0 @@
-name: funcy/log
-version: 0.0.1
-runtime: go
-entrypoint: ./func
-path: /log

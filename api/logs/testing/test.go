@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
 	"github.com/fnproject/fn/api/models"
-	"github.com/go-openapi/strfmt"
 )
 
 var testApp = &models.App{
@@ -30,10 +30,10 @@ func SetupTestCall(t *testing.T, ctx context.Context, ls models.LogStore) *model
 
 	var call models.Call
 	call.AppID = testApp.ID
-	call.CreatedAt = strfmt.DateTime(time.Now())
+	call.CreatedAt = common.DateTime(time.Now())
 	call.Status = "success"
-	call.StartedAt = strfmt.DateTime(time.Now())
-	call.CompletedAt = strfmt.DateTime(time.Now())
+	call.StartedAt = common.DateTime(time.Now())
+	call.CompletedAt = common.DateTime(time.Now())
 	call.Path = testRoute.Path
 	return &call
 }
@@ -48,7 +48,7 @@ func Test(t *testing.T, fnl models.LogStore) {
 	t.Run("calls-get", func(t *testing.T) {
 		filter := &models.CallFilter{AppID: call.AppID, Path: call.Path, PerPage: 100}
 		now := time.Now()
-		call.CreatedAt = strfmt.DateTime(now)
+		call.CreatedAt = common.DateTime(now)
 		call.ID = id.New().String()
 		err := fnl.InsertCall(ctx, call)
 		if err != nil {
@@ -65,11 +65,11 @@ func Test(t *testing.T, fnl models.LogStore) {
 		c2 := *call
 		c3 := *call
 		now = time.Now().Add(100 * time.Millisecond)
-		c2.CreatedAt = strfmt.DateTime(now) // add ms cuz db uses it for sort
+		c2.CreatedAt = common.DateTime(now) // add ms cuz db uses it for sort
 		c2.ID = id.New().String()
 
 		now = time.Now().Add(200 * time.Millisecond)
-		c3.CreatedAt = strfmt.DateTime(now)
+		c3.CreatedAt = common.DateTime(now)
 		c3.ID = id.New().String()
 
 		err = fnl.InsertCall(ctx, &c2)
@@ -177,11 +177,11 @@ func Test(t *testing.T, fnl models.LogStore) {
 	})
 
 	call = new(models.Call)
-	call.CreatedAt = strfmt.DateTime(time.Now())
+	call.CreatedAt = common.DateTime(time.Now())
 	call.Status = "error"
 	call.Error = "ya dun goofed"
-	call.StartedAt = strfmt.DateTime(time.Now())
-	call.CompletedAt = strfmt.DateTime(time.Now())
+	call.StartedAt = common.DateTime(time.Now())
+	call.CompletedAt = common.DateTime(time.Now())
 	call.AppID = testApp.Name
 	call.Path = testRoute.Path
 

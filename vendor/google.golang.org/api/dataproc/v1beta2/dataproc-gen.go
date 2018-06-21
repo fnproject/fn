@@ -1,4 +1,4 @@
-// Package dataproc provides access to the Google Cloud Dataproc API.
+// Package dataproc provides access to the Cloud Dataproc API.
 //
 // See https://cloud.google.com/dataproc/
 //
@@ -180,8 +180,8 @@ type AcceleratorConfig struct {
 	// accelerator type resource to expose to this instance. See Compute
 	// Engine AcceleratorTypes(
 	// /compute/docs/reference/beta/acceleratorTypes)Examples *
-	// https://www.googleapis.com/compute/beta/projects/[project_id]/zones/us-east1-a/acceleratorTypes/nvidia-tesla-k80 * projects/[project_id]/zones/us-east1-a/acceleratorTypes/nvidia-tesla-k80 *
-	// nvidia-tesla-k80
+	// https://www.googleapis.com/compute/beta/projects/[project_id]/zones/us-east1-a/acceleratorTypes/nvidia-tesla-k80 * projects/[project_id]/zones/us-east1-a/acceleratorTypes/nvidia-tesla-k80 * nvidia-tesla-k80Auto Zone Exception: If you are using the Cloud Dataproc Auto Zone Placement feature, you must use the short name of the accelerator type resource, for example,
+	// nvidia-tesla-k80.
 	AcceleratorTypeUri string `json:"acceleratorTypeUri,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "AcceleratorCount") to
@@ -218,8 +218,7 @@ type Binding struct {
 	// who is authenticated with a Google account or a service
 	// account.
 	// user:{emailid}: An email address that represents a specific Google
-	// account. For example, alice@gmail.com or
-	// joe@example.com.
+	// account. For example, alice@gmail.com .
 	// serviceAccount:{emailid}: An email address that represents a service
 	// account. For example,
 	// my-other-app@appspot.gserviceaccount.com.
@@ -336,6 +335,9 @@ type ClusterConfig struct {
 	// deployed, and then it will create and manage this project-level,
 	// per-location bucket for you.
 	ConfigBucket string `json:"configBucket,omitempty"`
+
+	// EncryptionConfig: Optional. Encryption settings for the cluster.
+	EncryptionConfig *EncryptionConfig `json:"encryptionConfig,omitempty"`
 
 	// GceClusterConfig: Required. The shared Compute Engine config settings
 	// for all instances in a cluster.
@@ -750,6 +752,36 @@ type Empty struct {
 	googleapi.ServerResponse `json:"-"`
 }
 
+// EncryptionConfig: Encryption settings for the cluster.
+type EncryptionConfig struct {
+	// GcePdKmsKeyName: Optional. The Cloud KMS key name to use for PD disk
+	// encryption for all instances in the cluster.
+	GcePdKmsKeyName string `json:"gcePdKmsKeyName,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "GcePdKmsKeyName") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "GcePdKmsKeyName") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EncryptionConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod EncryptionConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // GceClusterConfig: Common config settings for resources of Compute
 // Engine cluster instances, applicable to all instances in the cluster.
 type GceClusterConfig struct {
@@ -784,7 +816,7 @@ type GceClusterConfig struct {
 
 	// ServiceAccount: Optional. The service account of the instances.
 	// Defaults to the default Compute Engine service account. Custom
-	// service accounts need permissions equivalent to the folloing IAM
+	// service accounts need permissions equivalent to the following IAM
 	// roles:
 	// roles/logging.logWriter
 	// roles/storage.objectAdmin(see
@@ -793,8 +825,8 @@ type GceClusterConfig struct {
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
 	// ServiceAccountScopes: Optional. The URIs of service account scopes to
-	// be included in Google Compute Engine instances. The following base
-	// set of scopes is always
+	// be included in Compute Engine instances. The following base set of
+	// scopes is always
 	// included:
 	// https://www.googleapis.com/auth/cloud.useraccounts.readonly
 	//
@@ -860,6 +892,10 @@ func (s *GceClusterConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod GceClusterConfig
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GetIamPolicyRequest: Request message for GetIamPolicy method.
+type GetIamPolicyRequest struct {
 }
 
 // HadoopJob: A Cloud Dataproc job for running Apache Hadoop MapReduce
@@ -1002,10 +1038,9 @@ type InstanceGroupConfig struct {
 	// cluster instances. Inferred from SoftwareConfig.image_version.
 	ImageUri string `json:"imageUri,omitempty"`
 
-	// InstanceNames: Optional. The list of instance names. Cloud Dataproc
-	// derives the names from cluster_name, num_instances, and the instance
-	// group if not set by user (recommended practice is to let Cloud
-	// Dataproc derive the name).
+	// InstanceNames: Output only. The list of instance names. Cloud
+	// Dataproc derives the names from cluster_name, num_instances, and the
+	// instance group.
 	InstanceNames []string `json:"instanceNames,omitempty"`
 
 	// IsPreemptible: Optional. Specifies that this instance group contains
@@ -1019,7 +1054,9 @@ type InstanceGroupConfig struct {
 	// zones/us-east1-a/machineTypes/n1-standard-2
 	// projects/[project_id]/zone
 	// s/us-east1-a/machineTypes/n1-standard-2
-	// n1-standard-2
+	// n1-standard-2Auto Zone Exception: If you are using the Cloud Dataproc
+	// Auto Zone Placement feature, you must use the short name of the
+	// machine type resource, for example, n1-standard-2.
 	MachineTypeUri string `json:"machineTypeUri,omitempty"`
 
 	// ManagedGroupConfig: Output only. The config for Compute Engine
@@ -1069,6 +1106,10 @@ type InstantiateWorkflowTemplateRequest struct {
 	// must contain only letters (a-z, A-Z), numbers (0-9), underscores (_),
 	// and hyphens (-). The maximum length is 40 characters.
 	InstanceId string `json:"instanceId,omitempty"`
+
+	// Parameters: Optional. Map from parameter names to values that should
+	// be used for those parameters.
+	Parameters map[string]string `json:"parameters,omitempty"`
 
 	// Version: Optional. The version of workflow template to instantiate.
 	// If specified, the workflow will be instantiated only if the current
@@ -1833,6 +1874,37 @@ func (s *OrderedJob) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// ParameterValidation: Configuration for parameter validation.
+type ParameterValidation struct {
+	// Regex: Validation based on regular expressions.
+	Regex *RegexValidation `json:"regex,omitempty"`
+
+	// Values: Validation based on a list of allowed values.
+	Values *ValueValidation `json:"values,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Regex") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Regex") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ParameterValidation) MarshalJSON() ([]byte, error) {
+	type NoMethod ParameterValidation
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // PigJob: A Cloud Dataproc job for running Apache Pig
 // (https://pig.apache.org/) queries on YARN.
 type PigJob struct {
@@ -1893,10 +1965,10 @@ func (s *PigJob) MarshalJSON() ([]byte, error) {
 
 // Policy: Defines an Identity and Access Management (IAM) policy. It is
 // used to specify access control policies for Cloud Platform
-// resources.A Policy consists of a list of bindings. A Binding binds a
+// resources.A Policy consists of a list of bindings. A binding binds a
 // list of members to a role, where the members can be user accounts,
 // Google groups, Google domains, and service accounts. A role is a
-// named list of permissions defined by IAM.Example
+// named list of permissions defined by IAM.JSON Example
 // {
 //   "bindings": [
 //     {
@@ -1905,7 +1977,7 @@ func (s *PigJob) MarshalJSON() ([]byte, error) {
 //         "user:mike@example.com",
 //         "group:admins@example.com",
 //         "domain:google.com",
-//         "serviceAccount:my-other-app@appspot.gserviceaccount.com",
+//         "serviceAccount:my-other-app@appspot.gserviceaccount.com"
 //       ]
 //     },
 //     {
@@ -1914,6 +1986,17 @@ func (s *PigJob) MarshalJSON() ([]byte, error) {
 //     }
 //   ]
 // }
+// YAML Example
+// bindings:
+// - members:
+//   - user:mike@example.com
+//   - group:admins@example.com
+//   - domain:google.com
+//   - serviceAccount:my-other-app@appspot.gserviceaccount.com
+//   role: roles/owner
+// - members:
+//   - user:sean@example.com
+//   role: roles/viewer
 // For a description of IAM and its features, see the IAM developer's
 // guide (https://cloud.google.com/iam/docs).
 type Policy struct {
@@ -2066,6 +2149,36 @@ func (s *QueryList) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// RegexValidation: Validation based on regular expressions.
+type RegexValidation struct {
+	// Regexes: Required. RE2 regular expressions used to validate the
+	// parameter's value. The provided value must match the regexes in its
+	// entirety, e.g. substring matches are not enough.
+	Regexes []string `json:"regexes,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Regexes") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Regexes") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *RegexValidation) MarshalJSON() ([]byte, error) {
+	type NoMethod RegexValidation
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // SetIamPolicyRequest: Request message for SetIamPolicy method.
 type SetIamPolicyRequest struct {
 	// Policy: REQUIRED: The complete policy to be applied to the resource.
@@ -2101,8 +2214,9 @@ func (s *SetIamPolicyRequest) MarshalJSON() ([]byte, error) {
 // the cluster.
 type SoftwareConfig struct {
 	// ImageVersion: Optional. The version of software inside the cluster.
-	// It must match the regular expression [0-9]+\.[0-9]+. If unspecified,
-	// it defaults to the latest version (see Cloud Dataproc Versioning).
+	// It must be one of the supported Cloud Dataproc Versions, such as
+	// "1.2" (including a subminor version, such as "1.2.29"), or the
+	// "preview" version. If unspecified, it defaults to the latest version.
 	ImageVersion string `json:"imageVersion,omitempty"`
 
 	// Properties: Optional. The properties to set on daemon config
@@ -2368,6 +2482,84 @@ func (s *SubmitJobRequest) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// TemplateParameter: A configurable parameter that replaces one or more
+// fields in the template.
+type TemplateParameter struct {
+	// Description: Optional. User-friendly description of the parameter.
+	// Must not exceed 1024 characters.
+	Description string `json:"description,omitempty"`
+
+	// Fields: Required. Paths to all fields that this parameter replaces.
+	// Each field may appear in at most one Parameter's fields list.Field
+	// path syntax:A field path is similar to a FieldMask. For example, a
+	// field path that references the zone field of the template's cluster
+	// selector would look like:placement.clusterSelector.zoneThe only
+	// differences between field paths and standard field masks are
+	// that:
+	// Values in maps can be referenced by key.Example:
+	// placement.clusterSelector.clusterLabels'key'
+	// Jobs in the jobs list can be referenced by step id.Example:
+	// jobs'step-id'.hadoopJob.mainJarFileUri
+	// Items in repeated fields can be referenced by zero-based
+	// index.Example: jobs'step-id'.sparkJob.args0NOTE: Maps and repeated
+	// fields may not be parameterized in their entirety. Only individual
+	// map values and items in repeated fields may be referenced. For
+	// example, the following field paths are invalid: -
+	// placement.clusterSelector.clusterLabels -
+	// jobs'step-id'.sparkJob.argsParameterizable fields:Only certain types
+	// of fields may be parameterized, specifically: - Labels - File uris -
+	// Job properties - Job arguments - Script variables - Main class (in
+	// HadoopJob and SparkJob) - Zone (in ClusterSelector)Examples of
+	// parameterizable fields:Labels:labels'key'
+	// placement.managedCluster.labels'key'
+	// placement.clusterSelector.clusterLabels'key'
+	// jobs'step-id'.labels'key'File
+	// uris:jobs'step-id'.hadoopJob.mainJarFileUri
+	// jobs'step-id'.hiveJob.queryFileUri
+	// jobs'step-id'.pySparkJob.mainPythonFileUri
+	// jobs'step-id'.hadoopJob.jarFileUris0
+	// jobs'step-id'.hadoopJob.archiveUris0
+	// jobs'step-id'.hadoopJob.fileUris0
+	// jobs'step-id'.pySparkJob.pythonFileUris0Other:jobs'step-id'.hadoopJob.
+	// properties'key' jobs'step-id'.hadoopJob.args0
+	// jobs'step-id'.hiveJob.scriptVariables'key'
+	// jobs'step-id'.hadoopJob.mainJarFileUri placement.clusterSelector.zone
+	Fields []string `json:"fields,omitempty"`
+
+	// Name: Required. User-friendly parameter name. This name is used as a
+	// key when providing a value for this parameter when the template is
+	// instantiated. Must contain only capital letters (A-Z), numbers (0-9),
+	// and underscores (_), and must not start with a number. The maximum
+	// length is 40 characters.
+	Name string `json:"name,omitempty"`
+
+	// Validation: Optional. Validation rules to be applied to this
+	// parameter's value.
+	Validation *ParameterValidation `json:"validation,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Description") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Description") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *TemplateParameter) MarshalJSON() ([]byte, error) {
+	type NoMethod TemplateParameter
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // TestIamPermissionsRequest: Request message for TestIamPermissions
 // method.
 type TestIamPermissionsRequest struct {
@@ -2430,6 +2622,34 @@ type TestIamPermissionsResponse struct {
 
 func (s *TestIamPermissionsResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod TestIamPermissionsResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// ValueValidation: Validation based on a list of allowed values.
+type ValueValidation struct {
+	// Values: Required. List of allowed values for this parameter.
+	Values []string `json:"values,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Values") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Values") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ValueValidation) MarshalJSON() ([]byte, error) {
+	type NoMethod ValueValidation
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -2597,6 +2817,11 @@ type WorkflowTemplate struct {
 	// in https://cloud.google.com/apis/design/resource_names of the form
 	// projects/{project_id}/regions/{region}/workflowTemplates/{template_id}
 	Name string `json:"name,omitempty"`
+
+	// Parameters: Optional. Template parameters whose values are
+	// substituted into the template. Values for these parameters must be
+	// provided when the template is instantiated.
+	Parameters []*TemplateParameter `json:"parameters,omitempty"`
 
 	// Placement: Required. WorkflowTemplate scheduling information.
 	Placement *WorkflowTemplatePlacement `json:"placement,omitempty"`

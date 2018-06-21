@@ -1,4 +1,4 @@
-// Package firestore provides access to the Google Cloud Firestore API.
+// Package firestore provides access to the Cloud Firestore API.
 //
 // See https://cloud.google.com/firestore
 //
@@ -1133,6 +1133,9 @@ type IndexField struct {
 	//   "DESCENDING" - The field's values are indexed so as to support
 	// sequencing in
 	// descending order and also query by <, >, <=, >=, and =.
+	//   "ARRAY_CONTAINS" - The field's array values are indexed so as to
+	// support membership using
+	// ARRAY_CONTAINS queries.
 	Mode string `json:"mode,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "FieldPath") to
@@ -2307,7 +2310,9 @@ func (s *UnaryFilter) MarshalJSON() ([]byte, error) {
 type Value struct {
 	// ArrayValue: An array value.
 	//
-	// Cannot contain another array value.
+	// Cannot directly contain another array value, though can contain
+	// an
+	// map which contains another array.
 	ArrayValue *ArrayValue `json:"arrayValue,omitempty"`
 
 	// BooleanValue: A boolean value.

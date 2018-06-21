@@ -52,7 +52,7 @@ func myHandler(ctx context.Context, in io.Reader, out io.Writer) {
     return
   }
 
-  if fnctx.Config["FN_METHOD"] != "PUT" {
+  if fnctx.Method != "PUT" {
     fdk.WriteStatus(out, 404)
     fdk.SetHeader(out, "Content-Type", "application/json")
     io.WriteString(out, `{"error":"route not found"}`)
