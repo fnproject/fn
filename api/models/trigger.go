@@ -79,6 +79,9 @@ var (
 	ErrTriggerMissingID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Trigger ID")}
+	ErrTriggerIDProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger ID Provided for Create")}
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Type Unknown")}
@@ -135,7 +138,7 @@ func (t *Trigger) Validate() error {
 func (t *Trigger) ValidCreate() error {
 
 	if t.ID != "" {
-		return ErrTriggerMissingID
+		return ErrTriggerIDProvided
 	}
 
 	if t.Name == "" {
