@@ -268,7 +268,7 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 	funcs := []*models.Fn{}
 
 	for _, f := range m.Fns {
-		if len(funcs) == filter.PerPage {
+		if filter.PerPage > 0 && len(funcs) == filter.PerPage {
 			break
 		}
 
@@ -394,7 +394,7 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 
 	res := []*models.Trigger{}
 	for _, t := range m.Triggers {
-		if len(res) == filter.PerPage {
+		if filter.PerPage > 0 && len(res) == filter.PerPage {
 			break
 		}
 
@@ -402,6 +402,7 @@ func (m *mock) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([
 		if filter.Cursor != "" && t.ID <= filter.Cursor {
 			matched = false
 		}
+
 		if t.AppID != filter.AppID {
 			matched = false
 		}

@@ -1102,9 +1102,10 @@ func buildFilterFnQuery(filter *models.FnFilter) (string, []interface{}) {
 	args = where(&b, args, "name>?", filter.Cursor)
 
 	fmt.Fprintf(&b, ` ORDER BY name ASC`)
-	fmt.Fprintf(&b, ` LIMIT ?`)
-	args = append(args, filter.PerPage)
-
+	if filter.PerPage > 0 {
+		fmt.Fprintf(&b, ` LIMIT ?`)
+		args = append(args, filter.PerPage)
+	}
 	return b.String(), args
 }
 

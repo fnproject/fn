@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/fnproject/fn/api/id"
-	"github.com/fnproject/fn/api/models"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"log"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/fnproject/fn/api/id"
+	"github.com/fnproject/fn/api/models"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func setLogBuffer() *bytes.Buffer {
@@ -950,12 +951,19 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			f3 := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
 
 			// Testing list fns
-			fns, err := ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 1})
+			fns, err := ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID})
+			if err != nil {
+				t.Fatalf("RunAllTests GetFns: unexpected error %v", err)
+			}
+			if len(fns) != 3 {
+				t.Fatalf("RunAllTests GetFns: expected result count to be 3, but was %d", len(fns))
+			}
+			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 1})
 			if err != nil {
 				t.Fatalf("RunAllTests GetFns: unexpected error %v", err)
 			}
 			if len(fns) != 1 {
-				t.Fatal("RunAllTests GetFns: expected result count to be  1")
+				t.Fatalf("RunAllTests GetFns: expected result count to be 1, but was %d", len(fns))
 			}
 
 			if !f1.Equals(fns[0]) {
