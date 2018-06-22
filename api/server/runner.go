@@ -27,7 +27,7 @@ func (s *Server) handleFunctionCall(c *gin.Context) {
 
 // handleFunctionCall2 executes the function and returns an error
 // Requires the following in the context:
-// * "app_name"
+// * "app"
 // * "path"
 func (s *Server) handleFunctionCall2(c *gin.Context) error {
 	ctx := c.Request.Context()
