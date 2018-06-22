@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleAppGetByID(c *gin.Context) {
+func (s *Server) handleAppGet(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	app, err := s.datastore.GetAppByID(ctx, c.Param(api.AppID))

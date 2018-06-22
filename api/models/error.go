@@ -9,7 +9,7 @@ import (
 // TODO we can put constants all in this file too
 const (
 	maxAppName     = 30
-	maxFuncName    = 30
+	maxFnName      = 30
 	maxTriggerName = 30
 )
 
@@ -17,6 +17,14 @@ var (
 	ErrInvalidJSON = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),
+	}
+	ErrCallTimeout = err{
+		code:  http.StatusGatewayTimeout,
+		error: errors.New("Timed out"),
+	}
+	ErrCallTimeoutServerBusy = err{
+		code:  http.StatusServiceUnavailable,
+		error: errors.New("Timed out - server too busy"),
 	}
 	ErrIDMismatch = err{
 		code:  http.StatusBadRequest,
@@ -30,6 +38,9 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("ID Provided for Create")}
 
+	ErrMissingAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing App ID")}
 	ErrMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing Name")}
@@ -47,55 +58,25 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger ID Provided for Create")}
 
-	ErrCallTimeout = err{
-		code:  http.StatusGatewayTimeout,
-		error: errors.New("Timed out"),
-	}
-	ErrCallTimeoutServerBusy = err{
-		code:  http.StatusServiceUnavailable,
-		error: errors.New("Timed out - server too busy"),
-	}
-
-	ErrAppsMissingName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing app name"),
-	}
-	ErrAppsTooLongName = err{
-		code:  http.StatusBadRequest,
-		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
-	}
-	ErrAppsInvalidName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid app name"),
-	}
-	ErrAppsAlreadyExists = err{
-		code:  http.StatusConflict,
-		error: errors.New("App already exists"),
-	}
-	ErrAppsMissingNew = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing new application"),
-	}
-	ErrAppsNameImmutable = err{
-		code:  http.StatusConflict,
-		error: errors.New("Could not update - name is immutable"),
-	}
-
-	ErrAppsNotFound = err{
-		code:  http.StatusNotFound,
-		error: errors.New("App not found"),
-	}
-	ErrAppIDNotFound = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("App with specified ID does not exist"),
-	}
 	ErrDatastoreEmptyApp = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app"),
 	}
+	ErrDatastoreEmptyAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app ID"),
+	}
 	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
+	}
+	ErrDatastoreEmptyFn = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn"),
+	}
+	ErrDatastoreEmptyFnID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn ID"),
 	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
@@ -177,50 +158,18 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
-
-	ErrInvalidName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("name must be a valid string"),
-	}
-	ErrInvalidFieldChange = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("names and ids cannot be modified"),
-	}
-	ErrMissingAppID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing AppID"),
-	}
-	ErrFnsMissingImage = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing func image"),
-	}
-	ErrFnsInvalidFormat = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Invalid func format"),
-	}
-	ErrInvalidTimeout = err{
-		code:  http.StatusBadRequest,
-		error: fmt.Errorf("timeout value is out of range, must be between 0 and %d", MaxTimeout),
-	}
-	ErrInvalidIdleTimeout = err{
-		code:  http.StatusBadRequest,
-		error: fmt.Errorf("idle_timeout value is out of range, must be between 0 and %d", MaxIdleTimeout),
-	}
 	ErrInvalidMemory = err{
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
-	ErrFnsNotFound = err{
-		code:  http.StatusNotFound,
-		error: errors.New("Fn not found"),
-	}
-	ErrFnsExists = err{
-		code:  http.StatusConflict,
-		error: errors.New("Fn with specified name already exists"),
-	}
 	ErrCallNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Call not found"),
+	}
+	ErrInvalidCPUs = err{
+		code: http.StatusBadRequest,
+		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
+			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
 	}
 	ErrCallLogNotFound = err{
 		code:  http.StatusNotFound,
@@ -237,11 +186,6 @@ var (
 	ErrPathNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("Path not found"),
-	}
-	ErrInvalidCPUs = err{
-		code: http.StatusBadRequest,
-		error: fmt.Errorf("Cpus is invalid. Value should be either between [%.3f and %.3f] or [%dm and %dm] milliCPU units",
-			float64(MinMilliCPUs)/1000.0, float64(MaxMilliCPUs)/1000.0, MinMilliCPUs, MaxMilliCPUs),
 	}
 	ErrFunctionResponseTooBig = err{
 		code:  http.StatusBadGateway,

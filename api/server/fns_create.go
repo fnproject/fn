@@ -9,8 +9,9 @@ import (
 
 func (s *Server) handleFnCreate(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	fn := &models.Fn{}
-	err := c.BindJSON(&fn)
+	err := c.BindJSON(fn)
 	if err != nil {
 		if !models.IsAPIError(err) {
 			err = models.ErrInvalidJSON
@@ -19,12 +20,10 @@ func (s *Server) handleFnCreate(c *gin.Context) {
 		return
 	}
 
-	fn, err = s.datastore.InsertFn(ctx, fn)
-
+	fnCreated, err := s.datastore.InsertFn(ctx, fn)
 	if err != nil {
 		handleErrorResponse(c, err)
-		return
-
 	}
-	c.JSON(http.StatusOK, fn)
+
+	c.JSON(http.StatusOK, fnCreated)
 }

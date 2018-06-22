@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,42 @@ import (
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
+)
+
+var (
+	ErrAppsMissingID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app ID"),
+	}
+	ErrAppsMissingName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app name"),
+	}
+	ErrAppsTooLongName = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("App name must be %v characters or less", maxAppName),
+	}
+	ErrAppsInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid app name"),
+	}
+	ErrAppsAlreadyExists = err{
+		code:  http.StatusConflict,
+		error: errors.New("App already exists"),
+	}
+	ErrAppsMissingNew = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing new application"),
+	}
+	ErrAppsNameImmutable = err{
+		code:  http.StatusConflict,
+		error: errors.New("Could not update - name is immutable"),
+	}
+
+	ErrAppsNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("App not found"),
+	}
 )
 
 type App struct {

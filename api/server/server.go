@@ -898,6 +898,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				{
 					withAppCheck := apps.Group("")
 					withAppCheck.Use(s.checkAppPresenceByName())
+
 					withAppCheck.GET("", s.handleV1AppGetByName)
 					withAppCheck.PATCH("", s.handleV1AppUpdate)
 					withAppCheck.DELETE("", s.handleV1AppDelete)
@@ -923,21 +924,21 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			{
 				v2.GET("/apps", s.handleAppList)
 				v2.POST("/apps", s.handleAppCreate)
-				v2.GET("/apps/:app_id", s.handleAppGetByID)
-				v2.PUT("/apps/:app_id", s.handleAppUpdate)
-				v2.DELETE("/apps/:app_id", s.handleAppDelete)
+				v2.GET("/apps/:app", s.handleAppGet)
+				v2.PUT("/apps/:app", s.handleAppUpdate)
+				v2.DELETE("/apps/:app", s.handleAppDelete)
 
 				v2.GET("/fns", s.handleFnList)
-				v2.POST("/fns", s.handleFnCreate)
-				v2.GET("/fns/:fn_id", s.handleFnGet)
-				v2.PUT("/fns/:fn_id", s.handleFnPut)
-				v2.DELETE("/fns/:fn_id", s.handleFnDelete)
+				v2.PUT("/fns", s.handleFnCreate)
+				v2.GET("/fns/:fn", s.handleFnGet)
+				v2.PUT("/fns/:fn", s.handleFnUpdate)
+				v2.DELETE("/fns/:fn", s.handleFnDelete)
 
 				v2.GET("/triggers", s.handleTriggerList)
 				v2.POST("/triggers", s.handleTriggerCreate)
-				v2.GET("/triggers/:trigger_id", s.handleTriggerGet)
-				v2.PUT("/triggers/:trigger_id", s.handleTriggerUpdate)
-				v2.DELETE("/triggers/:trigger_id", s.handleTriggerDelete)
+				v2.GET("/triggers/:trigger", s.handleTriggerGet)
+				v2.PUT("/triggers/:trigger", s.handleTriggerUpdate)
+				v2.DELETE("/triggers/:trigger", s.handleTriggerDelete)
 			}
 
 			{
@@ -950,7 +951,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 				appsAPIV2 := runner.Group("/apps/:app")
 				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.GET("", s.handleAppGetByID)
+				appsAPIV2.GET("", s.handleAppGet)
 				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
@@ -959,8 +960,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 		if s.nodeType != ServerTypeAPI {
 			runner := engine.Group("/r")
 			runner.Use(s.checkAppPresenceByNameAtRunner())
-			runner.Any("/:app", s.handleFunctionCall)
-			runner.Any("/:app/*route", s.handleFunctionCall)
+			runner.Any("/:app_name", s.handleFunctionCall)
+			runner.Any("/:app_name/*route", s.handleFunctionCall)
 		}
 
 	}

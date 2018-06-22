@@ -211,39 +211,33 @@ func (m *mock) batchDeleteRoutes(ctx context.Context, appID string) error {
 }
 
 func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
-	// update if exists
+	_, err := m.GetAppByID(ctx, fn.AppID)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, f := range m.Fns {
-		if f.AppID == fn.AppID && f.Name == fn.Name {
+		if f.ID == fn.ID ||
+			(f.AppID == fn.AppID &&
+				f.Name == fn.Name) {
 			return nil, models.ErrFnsExists
 		}
 	}
-
-	app, err := m.GetAppByID(ctx, fn.AppID)
+	err = fn.ValidCreate()
 	if err != nil {
-		if err == models.ErrAppsNotFound {
-			return nil, models.ErrAppIDNotFound
-		}
 		return nil, err
 	}
-	clone := fn.Clone()
-	// insert otherwise
-	clone.SetDefaults()
-	clone.AppID = app.ID
-	if err := clone.Validate(); err != nil {
-		return nil, err
-	}
-	m.Fns = append(m.Fns, clone)
-	return clone.Clone(), nil
+	cl := fn.Clone()
+	cl.SetDefaults()
+	m.Fns = append(m.Fns, cl)
+
+	return cl.Clone(), nil
 }
 
 func (m *mock) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	// update if exists
 	for _, f := range m.Fns {
-		if f.AppID == fn.AppID && f.Name == fn.Name {
-			if fn.ID != "" && f.ID != fn.ID {
-				return nil, models.ErrInvalidFieldChange
-			}
-
+		if f.ID == fn.ID {
 			clone := f.Clone()
 			clone.Update(fn)
 			err := clone.Validate()
@@ -285,9 +279,9 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 	return funcs, nil
 }
 
-func (m *mock) GetFnByID(ctx context.Context, fnId string) (*models.Fn, error) {
+func (m *mock) GetFn(ctx context.Context, fnID string) (*models.Fn, error) {
 	for _, f := range m.Fns {
-		if f.ID == fnId {
+		if f.ID == fnID {
 			return f, nil
 		}
 	}
@@ -319,7 +313,7 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 	if err != nil {
 		return nil, err
 	}
-	_, err = m.GetFnByID(ctx, trigger.FnID)
+	_, err = m.GetFn(ctx, trigger.FnID)
 	if err != nil {
 		return nil, err
 	}

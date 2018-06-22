@@ -1,8 +1,12 @@
 package models
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
 	"net/url"
 	"time"
+	"unicode"
 
 	"github.com/fnproject/fn/api/common"
 	"github.com/fnproject/fn/api/id"
@@ -15,6 +19,63 @@ var (
 	MaxMemory      uint64 = 8 * 1024 // 8GB
 	MaxTimeout     int32  = 300      // 5m
 	MaxIdleTimeout int32  = 3600     // 1h
+
+	ErrFnsIDMismatch = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Fn ID in path does not match that in body"),
+	}
+	ErrFnsIDProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("ID cannot be provided for Fn creation"),
+	}
+	ErrFnsMissingID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn ID"),
+	}
+	ErrFnsMissingName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn name"),
+	}
+	ErrFnsInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("name must be a valid string"),
+	}
+	ErrFnsTooLongName = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Fn name must be %v characters or less", maxFnName),
+	}
+	ErrFnsInvalidFieldChange = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Fn names and IDs cannot be modified"),
+	}
+	ErrFnsMissingAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing AppID on Fn"),
+	}
+	ErrFnsMissingImage = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing image on Fn"),
+	}
+	ErrFnsInvalidFormat = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid format on Fn"),
+	}
+	ErrFnsInvalidTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("timeout value is out of range, must be between 0 and %d", MaxTimeout),
+	}
+	ErrFnsInvalidIdleTimeout = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("idle_timeout value is out of range, must be between 0 and %d", MaxIdleTimeout),
+	}
+	ErrFnsNotFound = err{
+		code:  http.StatusNotFound,
+		error: errors.New("Fn not found"),
+	}
+	ErrFnsExists = err{
+		code:  http.StatusConflict,
+		error: errors.New("Fn with specified name already exists"),
+	}
 )
 
 // Fn contains information about a function configuration.
@@ -100,16 +161,16 @@ func (f *Fn) SetDefaults() {
 // Validate validates all field values, returning the first error, if any.
 func (f *Fn) Validate() error {
 
-	if url.PathEscape(f.Name) != f.Name {
-		return ErrInvalidName
+	if f.Name == "" {
+		return ErrFnsMissingName
 	}
 
-	if f.Name == "" {
-		return ErrMissingName
+	if url.PathEscape(f.Name) != f.Name {
+		return ErrFnsInvalidName
 	}
 
 	if f.AppID == "" {
-		return ErrMissingAppID
+		return ErrFnsMissingAppID
 	}
 
 	if f.Image == "" {
@@ -123,11 +184,11 @@ func (f *Fn) Validate() error {
 	}
 
 	if f.Timeout <= 0 || f.Timeout > MaxTimeout {
-		return ErrInvalidTimeout
+		return ErrFnsInvalidTimeout
 	}
 
 	if f.IdleTimeout <= 0 || f.IdleTimeout > MaxIdleTimeout {
-		return ErrInvalidIdleTimeout
+		return ErrFnsInvalidIdleTimeout
 	}
 
 	if f.Memory < 1 || f.Memory > MaxMemory {
@@ -136,6 +197,55 @@ func (f *Fn) Validate() error {
 
 	return f.Annotations.Validate()
 }
+
+func (f *Fn) ValidCreate() error {
+
+	if f.ID != "" {
+		return ErrFnsIDProvided
+	}
+
+	if f.Name == "" {
+		return ErrFnsMissingName
+	}
+
+	if len(f.Name) > maxFnName {
+		return ErrFnsTooLongName
+	}
+	for _, c := range f.Name {
+		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
+			return ErrFnsInvalidName
+		}
+	}
+
+	if f.AppID == "" {
+		return ErrFnsMissingAppID
+	}
+
+	if f.Image == "" {
+		return ErrFnsMissingImage
+	}
+
+	switch f.Format {
+	case "", FormatDefault, FormatHTTP, FormatJSON, FormatCloudEvent:
+	default:
+		return ErrFnsInvalidFormat
+	}
+
+	if f.Timeout < 0 || f.Timeout > MaxTimeout {
+		return ErrFnsInvalidTimeout
+	}
+
+	if f.IdleTimeout < 0 || f.IdleTimeout > MaxIdleTimeout {
+		return ErrFnsInvalidIdleTimeout
+	}
+
+	if f.Memory < 0 || f.Memory > MaxMemory {
+		return ErrInvalidMemory
+	}
+
+	return f.Annotations.Validate()
+}
+
 func (f *Fn) Clone() *Fn {
 	clone := new(Fn)
 	*clone = *f // shallow copy

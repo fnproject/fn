@@ -15,10 +15,10 @@ func (s *Server) handleTriggerList(c *gin.Context) {
 	filter := &models.TriggerFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
 
-	filter.AppID = c.Query(api.AppID)
+	filter.AppID = c.Query("app_id")
 
 	if filter.AppID == "" {
-		handleV1ErrorResponse(c, models.ErrMissingAppID)
+		handleV1ErrorResponse(c, models.ErrTriggerMissingAppID)
 	}
 
 	filter.FnID = c.Query(api.FnID)

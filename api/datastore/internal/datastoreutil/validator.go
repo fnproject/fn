@@ -3,10 +3,8 @@ package datastoreutil
 import (
 	"context"
 
-	"github.com/jmoiron/sqlx"
-
-	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
+	"github.com/jmoiron/sqlx"
 )
 
 // NewValidator returns a models.Datastore which validates certain arguments before delegating to ds.
@@ -27,7 +25,7 @@ func (v *validator) GetAppID(ctx context.Context, appName string) (string, error
 
 func (v *validator) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
 	if appID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrAppsMissingID
 	}
 
 	return v.Datastore.GetAppByID(ctx, appID)
@@ -57,7 +55,7 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 		return nil, models.ErrDatastoreEmptyApp
 	}
 	if app.ID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrAppsMissingID
 	}
 
 	return v.Datastore.UpdateApp(ctx, app)
@@ -66,7 +64,7 @@ func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App
 // name will never be empty.
 func (v *validator) RemoveApp(ctx context.Context, appID string) error {
 	if appID == "" {
-		return models.ErrMissingAppID
+		return models.ErrAppsMissingID
 	}
 
 	return v.Datastore.RemoveApp(ctx, appID)
@@ -75,7 +73,7 @@ func (v *validator) RemoveApp(ctx context.Context, appID string) error {
 // appName and routePath will never be empty.
 func (v *validator) GetRoute(ctx context.Context, appID, routePath string) (*models.Route, error) {
 	if appID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrRoutesMissingAppID
 	}
 	if routePath == "" {
 		return nil, models.ErrRoutesMissingPath
@@ -87,7 +85,7 @@ func (v *validator) GetRoute(ctx context.Context, appID, routePath string) (*mod
 // appName will never be empty
 func (v *validator) GetRoutesByApp(ctx context.Context, appID string, routeFilter *models.RouteFilter) (routes []*models.Route, err error) {
 	if appID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrRoutesMissingAppID
 	}
 
 	return v.Datastore.GetRoutesByApp(ctx, appID, routeFilter)
@@ -124,7 +122,7 @@ func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*m
 // appName and routePath will never be empty.
 func (v *validator) RemoveRoute(ctx context.Context, appID string, routePath string) error {
 	if appID == "" {
-		return models.ErrMissingAppID
+		return models.ErrRoutesMissingAppID
 	}
 	if routePath == "" {
 		return models.ErrRoutesMissingPath
@@ -144,7 +142,7 @@ func (v *validator) UpdateTrigger(ctx context.Context, trigger *models.Trigger) 
 func (v *validator) GetTriggers(ctx context.Context, filter *models.TriggerFilter) ([]*models.Trigger, error) {
 
 	if filter.AppID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrTriggerMissingAppID
 	}
 
 	return v.Datastore.GetTriggers(ctx, filter)
@@ -158,30 +156,43 @@ func (v *validator) RemoveTrigger(ctx context.Context, triggerID string) error {
 }
 
 func (v *validator) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
+	if fn == nil {
+		return nil, models.ErrDatastoreEmptyFn
+	}
 	if fn.AppID == "" {
-		return nil, models.ErrMissingAppID
+		return nil, models.ErrFnsMissingAppID
 	}
 	if fn.Name == "" {
-		return nil, models.ErrMissingName
+		return nil, models.ErrFnsMissingName
 	}
 	return v.Datastore.InsertFn(ctx, fn)
 }
 
 func (v *validator) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
-	if fn.AppID == "" {
-		return nil, models.ErrMissingAppID
-	}
-	if fn.Name == "" {
-		return nil, models.ErrMissingName
-	}
 	return v.Datastore.UpdateFn(ctx, fn)
 }
 
 func (v *validator) GetFn(ctx context.Context, fnID string) (*models.Fn, error) {
-	return v.Datastore.GetFnByID(ctx, api.FnID)
+	if fnID == "" {
+		return nil, models.ErrDatastoreEmptyFnID
+	}
+
+	return v.Datastore.GetFn(ctx, fnID)
+}
+
+func (v *validator) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.Fn, error) {
+
+	if filter.AppID == "" {
+		return nil, models.ErrFnsMissingAppID
+	}
+
+	return v.Datastore.GetFns(ctx, filter)
 }
 
 func (v *validator) RemoveFn(ctx context.Context, fnID string) error {
+	if fnID == "" {
+		return models.ErrDatastoreEmptyFnID
+	}
 	return v.Datastore.RemoveFn(ctx, fnID)
 }
 

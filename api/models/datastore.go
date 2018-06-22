@@ -67,13 +67,13 @@ type Datastore interface {
 	// GetFns returns a list of funcs, applying any additional filters provided.
 	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)
 
-	// GetFnByID returns a function by id.
-	// Returns ErrFnsNotFound if a func is not found.
-	GetFnByID(ctx context.Context, fnId string) (*Fn, error)
+	// GetFn returns a function by ID. Returns ErrDatastoreEmptyFnID if fnID is empty.
+	// Returns ErrFnsNotFound if a fn is not found.
+	GetFn(ctx context.Context, fnID string) (*Fn, error)
 
-	// RemoveFn removes a function.
+	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnID if fnID is empty.
 	// Returns ErrFnsNotFound if a func is not found.
-	RemoveFn(ctx context.Context, fnId string) error
+	RemoveFn(ctx context.Context, fnID string) error
 
 	// InsertTrigger inserts a trigger. Returns ErrDatastoreEmptyTrigger when trigger is nil, and specific errors for each field
 	// Returns ErrTriggerAlreadyExists if the exact apiID, fnID, source, type combination already exists

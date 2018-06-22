@@ -27,7 +27,7 @@ func setLogBuffer() *bytes.Buffer {
 
 type ResourceProvider interface {
 	ValidApp() *models.App
-	ValidFunc(appId string) *models.Fn
+	ValidFn(appId string) *models.Fn
 	ValidRoute(appId string) *models.Route
 	ValidTrigger(appId string, fnId string) *models.Trigger
 	DefaultCtx() context.Context
@@ -96,11 +96,11 @@ func (brp *BasicResourceProvider) ValidRoute(appId string) *models.Route {
 	return testRoute
 }
 
-// Creates a valid func with a sequentially increasing name
-func (brp *BasicResourceProvider) ValidFunc(appId string) *models.Fn {
+// Creates a valid fn with a sequentially increasing name
+func (brp *BasicResourceProvider) ValidFn(appId string) *models.Fn {
 	return &models.Fn{
 		AppID:  appId,
-		ID:     id.New().String(),
+		ID:     "",
 		Name:   fmt.Sprintf("test_%09d", brp.NextID()),
 		Image:  "fnproject/fn-test-utils",
 		Format: "http",
@@ -147,7 +147,7 @@ func (h *Harness) Cleanup() {
 	}
 }
 
-func (h *Harness) GivenFuncInDb(validFunc *models.Fn) *models.Fn {
+func (h *Harness) GivenFnInDb(validFunc *models.Fn) *models.Fn {
 	fn, err := h.ds.InsertFn(h.ctx, validFunc)
 	if err != nil {
 		h.t.Fatalf("Failed to insert function %s", err)
@@ -254,8 +254,8 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 		t.Run("Get with empty App ID", func(t *testing.T) {
 			_, err := ds.GetAppByID(ctx, "")
-			if err != models.ErrMissingAppID {
-				t.Fatalf("RunAllTests GetApp: expected error to be %v, but it was %s", models.ErrMissingAppID, err)
+			if err != models.ErrAppsMissingID {
+				t.Fatalf("RunAllTests GetApp: expected error to be %v, but it was %s", models.ErrAppsMissingID, err)
 			}
 		})
 
@@ -349,8 +349,8 @@ func RunAppsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("delete app with empty Id", func(t *testing.T) {
 			// Testing app delete
 			err := ds.RemoveApp(ctx, "")
-			if err != models.ErrMissingAppID {
-				t.Fatalf("RunAllTests RemoveApp: expected error `%v`, but it was `%v`", models.ErrMissingAppID, err)
+			if err != models.ErrAppsMissingID {
+				t.Fatalf("RunAllTests RemoveApp: expected error `%v`, but it was `%v`", models.ErrAppsMissingID, err)
 			}
 		})
 
@@ -436,8 +436,8 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("get route with empty app id", func(t *testing.T) {
 
 			_, err := ds.GetRoute(ctx, "", "a")
-			if err != models.ErrMissingAppID {
-				t.Fatalf("RunAllTests GetRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrRoutesMissingPath, err)
+			if err != models.ErrRoutesMissingAppID {
+				t.Fatalf("RunAllTests GetRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
 			}
 		})
 		t.Run("get valid route", func(t *testing.T) {
@@ -668,8 +668,8 @@ func RunRoutesTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 			// Testing route delete
 			err := ds.RemoveRoute(ctx, "", "")
-			if err != models.ErrMissingAppID {
-				t.Fatalf("RunAllTests RemoveRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrMissingAppID, err)
+			if err != models.ErrRoutesMissingAppID {
+				t.Fatalf("RunAllTests RemoveRoute(empty app name): expected error `%v`, but it was `%v`", models.ErrRoutesMissingAppID, err)
 			}
 
 		})
@@ -724,42 +724,43 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 	t.Run("fns", func(t *testing.T) {
 
 		// Testing insert fn
-		t.Run("empty app name ", func(t *testing.T) {
-			testFn := rp.ValidFunc("")
-			_, err := ds.InsertFn(ctx, testFn)
-			if err != models.ErrMissingAppID {
-				t.Fatalf("RunAllTests PutFn(empty app ID): expected error `%v`, but it was `%v`", models.ErrMissingAppID, err)
-			}
-		})
-
-		t.Run("invalid app name", func(t *testing.T) {
-			testFn := rp.ValidFunc("notreal")
-			_, err := ds.InsertFn(ctx, testFn)
-			if err != models.ErrAppIDNotFound {
-				t.Fatalf("RunAllTests PutFn(missing app): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+		t.Run("empty function", func(t *testing.T) {
+			_, err := ds.InsertFn(ctx, nil)
+			if err != models.ErrDatastoreEmptyFn {
+				t.Fatalf("RunAllTests InsertFn(nil): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFn, err)
 			}
 
 		})
 
-		t.Run("empty function name", func(t *testing.T) {
+		t.Run("invalid app ID", func(t *testing.T) {
+			testFn := rp.ValidFn("notreal")
+			_, err := ds.InsertFn(ctx, testFn)
+			if err != models.ErrAppsNotFound {
+				t.Fatalf("RunAllTests InsertFn(missing app): expected error `%v`, but it was `%v`", models.ErrAppsNotFound, err)
+			}
+
+		})
+
+		t.Run("non-empty function ID", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
 
-			testFn := rp.ValidFunc(testApp.ID)
-			testFn.Name = ""
+			testFn := rp.ValidFn(testApp.ID)
+			testFn.ID = "abc"
 
 			_, err := ds.InsertFn(ctx, testFn)
-			if err != models.ErrMissingName {
-				t.Fatalf("RunAllTests PutFn(empty func name): expected error `%v`, but it was `%v`", models.ErrMissingName, err)
+			if err != models.ErrFnsIDProvided {
+				t.Fatalf("RunAllTests InsertFn(non-empty fn ID): expected error `%v`, but it was `%v`", models.ErrFnsIDProvided, err)
 			}
 		})
+
 		t.Run("Insert function with valid func", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
 
-			testFn := rp.ValidFunc(testApp.ID)
+			testFn := rp.ValidFn(testApp.ID)
 			testFn, err := ds.InsertFn(ctx, testFn)
 			if err != nil {
 				t.Fatalf("RunAllTests InsertFn: error when storing perfectly good fn: %s", err)
@@ -767,11 +768,10 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		})
 
 		// Testing get
-
-		t.Run("Get with empty function id", func(t *testing.T) {
-			_, err := ds.GetFnByID(ctx, "")
-			if err != models.ErrFnsNotFound {
-				t.Fatalf("RunAllTests GetRoute(empty func path): expected error `%v`, but it was `%v`", models.ErrMissingName, err)
+		t.Run("Get with empty function ID", func(t *testing.T) {
+			_, err := ds.GetFn(ctx, "")
+			if err != models.ErrDatastoreEmptyFnID {
+				t.Fatalf("RunAllTests GetRoute(empty fn ID): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
 			}
 		})
 
@@ -779,8 +779,8 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
-			fn, err := ds.GetFnByID(ctx, testFn.ID)
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			fn, err := ds.GetFn(ctx, testFn.ID)
 			if err != nil {
 				t.Fatalf("RunAllTests GetFnByID: unexpected error %v", err)
 			}
@@ -794,7 +794,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 
 			// Update some fields, and add 3 configs
 			updated, err := ds.UpdateFn(ctx, &models.Fn{
@@ -836,23 +836,11 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 
 		})
 
-		t.Run("Update function ID", func(t *testing.T) {
-			h := NewHarness(t, ctx, ds)
-			defer h.Cleanup()
-			testApp := h.GivenAppInDb(rp.ValidApp())
-			fn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
-			fn.ID = "otherId"
-			_, err := ds.UpdateFn(ctx, fn)
-			if err != models.ErrInvalidFieldChange {
-				t.Fatalf("Expecting function ID update to be invalid got %s", err)
-			}
-		})
-
 		t.Run("Update function modify and remove values", func(t *testing.T) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			fn := rp.ValidFunc(testApp.ID)
+			fn := rp.ValidFn(testApp.ID)
 
 			fn.Config = map[string]string{
 				"FIRST":  "1",
@@ -860,7 +848,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				"THIRD":  "3",
 			}
 
-			testFn := h.GivenFuncInDb(fn)
+			testFn := h.GivenFnInDb(fn)
 
 			// Update a config var, remove another. Add one Header, remove another.
 			updated, err := ds.UpdateFn(ctx, &models.Fn{
@@ -918,9 +906,9 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			f1 := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
-			f2 := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
-			f3 := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			f1 := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			f2 := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			f3 := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 
 			// Testing list fns
 			fns, err := ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID})
@@ -942,7 +930,7 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 				t.Fatalf("Expecting function to be %#v but was %#v", f1, fns[0])
 			}
 
-			fns, err = ds.GetFns(ctx, &models.FnFilter{PerPage: 2, Cursor: fns[0].Name})
+			fns, err = ds.GetFns(ctx, &models.FnFilter{AppID: testApp.ID, PerPage: 2, Cursor: fns[0].Name})
 			if err != nil {
 				t.Fatalf("RunAllTests GetFns: error: %s", err)
 			}
@@ -958,8 +946,8 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("delete with empty fn name", func(t *testing.T) {
 			// Testing func delete
 			err := ds.RemoveFn(ctx, "")
-			if err != models.ErrFnsNotFound {
-				t.Fatalf("RunAllTests RemoveFn(empty name): expected error `%v`, but it was `%v`", models.ErrMissingName, err)
+			if err != models.ErrDatastoreEmptyFnID {
+				t.Fatalf("RunAllTests RemoveFn(empty ID): expected error `%v`, but it was `%v`", models.ErrDatastoreEmptyFnID, err)
 			}
 
 		})
@@ -968,13 +956,13 @@ func RunFnsTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			err := ds.RemoveFn(ctx, testFn.ID)
 			if err != nil {
 				t.Fatalf("RunAllTests RemoveFn(should work): unexpected error: %v", err)
 			}
 
-			fn, err := ds.GetFnByID(ctx, testFn.ID)
+			fn, err := ds.GetFn(ctx, testFn.ID)
 			if err != nil && err != models.ErrFnsNotFound {
 				t.Fatalf("RunAllTests GetFnByID: expected error `%v`, but it was `%v`", models.ErrFnsNotFound, err)
 			}
@@ -1021,7 +1009,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
 			insertedTrigger, err := ds.InsertTrigger(ctx, newTrigger)
 			if err != nil {
@@ -1044,7 +1032,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
 			insertedTrigger, err := ds.InsertTrigger(ctx, newTrigger)
 			if err != nil {
@@ -1067,7 +1055,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			newTrigger := rp.ValidTrigger(testApp.ID, testFn.ID)
 			insertedTrigger := h.GivenTriggerInDb(newTrigger)
 
@@ -1085,8 +1073,8 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 		t.Run("missing app Id", func(t *testing.T) {
 			emptyFilter := &models.TriggerFilter{}
 			_, err := ds.GetTriggers(ctx, emptyFilter)
-			if err != models.ErrMissingAppID {
-				t.Fatalf("Test GetTriggers (empty filter): expected models.ErrMissingAppID, but got %s", err)
+			if err != models.ErrTriggerMissingAppID {
+				t.Fatalf("Test GetTriggers (empty filter): expected models.ErrTriggerMissingAppID, but got %s", err)
 			}
 		})
 
@@ -1102,8 +1090,8 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
-			testFn2 := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
+			testFn2 := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 
 			var storedTriggers []*models.Trigger
 
@@ -1180,7 +1168,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
 
 			testTrigger.Name = "newName"
@@ -1226,7 +1214,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
 			err := ds.RemoveTrigger(ctx, testTrigger.ID)
 
@@ -1244,7 +1232,7 @@ func RunTriggersTest(t *testing.T, dsf DataStoreFunc, rp ResourceProvider) {
 			h := NewHarness(t, ctx, ds)
 			defer h.Cleanup()
 			testApp := h.GivenAppInDb(rp.ValidApp())
-			testFn := h.GivenFuncInDb(rp.ValidFunc(testApp.ID))
+			testFn := h.GivenFnInDb(rp.ValidFn(testApp.ID))
 			testTrigger := h.GivenTriggerInDb(rp.ValidTrigger(testApp.ID, testFn.ID))
 			err := ds.RemoveFn(ctx, testFn.ID)
 			if err != nil {

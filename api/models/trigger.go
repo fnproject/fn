@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 	"unicode"
@@ -68,6 +69,25 @@ func validTriggerType(a string) bool {
 }
 
 var (
+	ErrTriggerIDProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("ID cannot be provided for Trigger creation"),
+	}
+	ErrTriggerMissingName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing name on Trigger")}
+	ErrTriggerTooLongName = err{
+		code:  http.StatusBadRequest,
+		error: fmt.Errorf("Trigger name must be %v characters or less", maxTriggerName)}
+	ErrTriggerInvalidName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Invalid name for Trigger")}
+	ErrTriggerMissingAppID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing App ID on Trigger")}
+	ErrTriggerMissingFnID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Fn ID on Trigger")}
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Type Not Supported")}
@@ -84,15 +104,15 @@ var (
 
 func (t *Trigger) Validate() error {
 	if t.Name == "" {
-		return ErrMissingName
+		return ErrTriggerMissingName
 	}
 
 	if t.AppID == "" {
-		return ErrMissingAppID
+		return ErrTriggerMissingAppID
 	}
 
 	if t.FnID == "" {
-		return ErrMissingFnID
+		return ErrTriggerMissingFnID
 	}
 
 	if !validTriggerType(t.Type) {
@@ -114,7 +134,7 @@ func (t *Trigger) Validate() error {
 func (t *Trigger) ValidCreate() error {
 
 	if t.ID != "" {
-		return ErrIDProvided
+		return ErrTriggerIDProvided
 	}
 
 	if !time.Time(t.CreatedAt).IsZero() {
@@ -125,24 +145,24 @@ func (t *Trigger) ValidCreate() error {
 	}
 
 	if t.Name == "" {
-		return ErrMissingName
+		return ErrTriggerMissingName
 	}
 
 	if len(t.Name) > maxTriggerName {
-		return ErrTooLongName
+		return ErrTriggerTooLongName
 	}
 	for _, c := range t.Name {
 		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
-			return ErrInvalidName
+			return ErrTriggerInvalidName
 		}
 	}
 
 	if t.AppID == "" {
-		return ErrMissingAppID
+		return ErrTriggerMissingAppID
 	}
 
 	if t.FnID == "" {
-		return ErrMissingFnID
+		return ErrTriggerMissingFnID
 	}
 
 	if !validTriggerType(t.Type) {

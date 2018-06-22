@@ -119,7 +119,8 @@ const (
 	callSelector      = `SELECT id, created_at, started_at, completed_at, status, app_id, path, stats, error FROM calls`
 	appIDSelector     = `SELECT id, name, config, annotations, syslog_url, created_at, updated_at FROM apps WHERE id=?`
 	ensureAppSelector = `SELECT id FROM apps WHERE name=?`
-	fnSelector        = `SELECT id, name, app_id,  image, format, cpus, memory, timeout, idle_timeout, config, annotations, created_at, updated_at FROM fns`
+	fnIDSelector      = `SELECT * FROM fns WHERE id=?`
+	fnSelector        = `SELECT * FROM fns`
 
 	triggerSelector   = `SELECT * FROM triggers`
 	triggerIDSelector = triggerSelector + ` WHERE id=?`
@@ -711,27 +712,19 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 
 func (ds *SQLStore) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
-
-		query := tx.Rebind(`SELECT 1 from fns WHERE name=? AND app_id=?`)
-		row := tx.QueryRowContext(ctx, query, fn.Name, fn.AppID)
-		if err := row.Scan(new(int)); err == nil {
-			return models.ErrFnsExists
-		}
-
-		// insert it
-		appQuery := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
-		r := tx.QueryRowContext(ctx, appQuery, fn.AppID)
+		query := tx.Rebind(`SELECT 1 FROM apps WHERE id=?`)
+		r := tx.QueryRowContext(ctx, query, fn.AppID)
 		if err := r.Scan(new(int)); err != nil {
 			if err == sql.ErrNoRows {
-				return models.ErrAppIDNotFound
+				return models.ErrAppsNotFound
 			}
 		}
 
-		fn.SetDefaults()
-		err := fn.Validate()
+		err := fn.ValidCreate()
 		if err != nil {
 			return err
 		}
+		fn.SetDefaults()
 
 		query = tx.Rebind(`INSERT INTO fns (
 				id,
@@ -780,22 +773,17 @@ func (ds *SQLStore) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 
-		// TODO use ID here
-		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=? AND app_id=?`, fnSelector))
-		row := tx.QueryRowxContext(ctx, query, fn.Name, fn.AppID)
-
 		var dst models.Fn
+		query := tx.Rebind(fnIDSelector)
+		row := tx.QueryRowxContext(ctx, query, fn.ID)
 		err := row.StructScan(&dst)
+
 		if err == sql.ErrNoRows {
 			return models.ErrFnsNotFound
 		} else if err != nil {
 			return err
 		}
 
-		if fn.ID != "" && fn.ID != dst.ID {
-			return models.ErrInvalidFieldChange
-		}
-		// update it
 		dst.Update(fn)
 		err = dst.Validate()
 		if err != nil {
@@ -813,7 +801,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 				config = :config,
 				annotations = :annotations,
 				updated_at = :updated_at
-			    WHERE id=:id AND app_id=:app_id;`)
+			    WHERE id=:id;`)
 
 		_, err = tx.NamedExecContext(ctx, query, fn)
 		return err
@@ -861,7 +849,7 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 	return res, nil
 }
 
-func (ds *SQLStore) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
+func (ds *SQLStore) GetFn(ctx context.Context, fnID string) (*models.Fn, error) {
 	query := ds.db.Rebind(fmt.Sprintf("%s WHERE id=?", fnSelector))
 	row := ds.db.QueryRowxContext(ctx, query, fnID)
 
@@ -888,16 +876,15 @@ func (ds *SQLStore) RemoveFn(ctx context.Context, fnID string) error {
 			return models.ErrFnsNotFound
 		}
 
-		query = tx.Rebind(`DELETE FROM fns WHERE id= ?`)
-		_, err = tx.ExecContext(ctx, query, fn.ID)
+		query = tx.Rebind(`DELETE FROM triggers WHERE fn_id=?`)
+		_, err = tx.ExecContext(ctx, query, fnID)
 
 		if err != nil {
 			return err
 		}
 
-		query = tx.Rebind(`DELETE FROM triggers WHERE app_id = ? AND fn_id = ?`)
-
-		_, err = tx.ExecContext(ctx, query, fn.AppID, fn.ID)
+		query = tx.Rebind(`DELETE FROM fns WHERE id=?`)
+		_, err = tx.ExecContext(ctx, query, fnID)
 
 		return err
 	})

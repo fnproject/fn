@@ -1,37 +1,41 @@
 package server
 
 import (
+	"net/http"
+
 	"github.com/fnproject/fn/api"
 	"github.com/fnproject/fn/api/models"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
-func (s *Server) handleFnPut(c *gin.Context) {
+func (s *Server) handleFnUpdate(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	fn := &models.Fn{}
-	err := c.BindJSON(&fn)
+	err := c.BindJSON(fn)
 	if err != nil {
 		if !models.IsAPIError(err) {
-			// TODO this error message sucks
 			err = models.ErrInvalidJSON
 		}
 		handleErrorResponse(c, err)
 		return
 	}
 
-	fnId := c.Param(api.FnID)
+	pathFnID := c.Param(api.FnID)
 
-	if fnId != fn.ID {
-		handleErrorResponse(c, models.ErrIDMismatch)
+	if fn.ID == "" {
+		fn.ID = pathFnID
+	} else {
+		if pathFnID != fn.ID {
+			handleErrorResponse(c, models.ErrFnsIDMismatch)
+		}
 	}
 
-	fn, err = s.datastore.UpdateFn(ctx, fn)
-
+	fnUpdated, err := s.datastore.UpdateFn(ctx, fn)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, fn)
+	c.JSON(http.StatusOK, fnUpdated)
 }

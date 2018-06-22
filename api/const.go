@@ -3,11 +3,11 @@ package api
 // Request context key names
 const (
 	App       string = "app_name"
-	AppID     string = "app_id"
+	AppID     string = "app"
 	Path      string = "path"
 	Call      string = "call"
-	FnID      string = "fn_id"
-	TriggerID string = "trigger_id"
+	FnID      string = "fn"
+	TriggerID string = "trigger"
 	// Short forms for API URLs
 	CApp   string = "app"
 	CRoute string = "route"
