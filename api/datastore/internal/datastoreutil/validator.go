@@ -39,6 +39,10 @@ func (v *validator) GetApps(ctx context.Context, appFilter *models.AppFilter) ([
 
 // app and app.Name will never be nil/empty.
 func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App, error) {
+	if app == nil {
+		return nil, models.ErrDatastoreEmptyApp
+	}
+
 	app.SetDefaults()
 	if err := app.Validate(); err != nil {
 		return nil, err
@@ -49,6 +53,9 @@ func (v *validator) InsertApp(ctx context.Context, app *models.App) (*models.App
 
 // app and app.Name will never be nil/empty.
 func (v *validator) UpdateApp(ctx context.Context, app *models.App) (*models.App, error) {
+	if app == nil {
+		return nil, models.ErrDatastoreEmptyApp
+	}
 	if app.ID == "" {
 		return nil, models.ErrMissingAppID
 	}
@@ -88,6 +95,9 @@ func (v *validator) GetRoutesByApp(ctx context.Context, appID string, routeFilte
 
 // route will never be nil and route's AppName and Path will never be empty.
 func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*models.Route, error) {
+	if route == nil {
+		return nil, models.ErrDatastoreEmptyRoute
+	}
 
 	route.SetDefaults()
 	if err := route.Validate(); err != nil {
@@ -99,7 +109,9 @@ func (v *validator) InsertRoute(ctx context.Context, route *models.Route) (*mode
 
 // route will never be nil and route's AppName and Path will never be empty.
 func (v *validator) UpdateRoute(ctx context.Context, newroute *models.Route) (*models.Route, error) {
-
+	if newroute == nil {
+		return nil, models.ErrDatastoreEmptyRoute
+	}
 	if newroute.AppID == "" {
 		return nil, models.ErrRoutesMissingAppID
 	}

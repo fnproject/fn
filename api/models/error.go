@@ -89,19 +89,21 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("App with specified ID does not exist"),
 	}
-
+	ErrDatastoreEmptyApp = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing app"),
+	}
 	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
-
-	ErrFnsMissingNew = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing function body"),
-	}
 	ErrInvalidPayload = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid payload"),
+	}
+	ErrDatastoreEmptyRoute = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing route"),
 	}
 	ErrRoutesAlreadyExists = err{
 		code:  http.StatusConflict,

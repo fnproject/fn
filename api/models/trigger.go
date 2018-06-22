@@ -52,9 +52,9 @@ func (t1 *Trigger) Equals(t2 *Trigger) bool {
 	return eq
 }
 
-var triggerTypes = [1]string{"HTTP"}
+var triggerTypes = []string{"HTTP"}
 
-func ValidTriggerTypes() [1]string {
+func ValidTriggerTypes() []string {
 	return triggerTypes
 }
 

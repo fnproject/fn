@@ -6,12 +6,13 @@ import (
 	"github.com/fnproject/fn/api/models"
 )
 
-func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnListener) models.Datastore {
+func NewDatastore(ds models.Datastore, al AppListener, rl RouteListener, fl FnListener, tl TriggerListener) models.Datastore {
 	return &extds{
 		Datastore: ds,
 		al:        al,
 		rl:        rl,
 		fl:        fl,
+		tl:        tl,
 	}
 }
 

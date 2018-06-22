@@ -553,7 +553,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	s.triggerListeners = new(triggerListeners)
 
 	s.datastore = datastore.Wrap(s.datastore)
-	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners)
+	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners, s.triggerListeners)
 	s.logstore = logs.Wrap(s.logstore)
 
 	return s
