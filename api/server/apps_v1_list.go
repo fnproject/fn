@@ -8,15 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleAppList(c *gin.Context) {
+// TODO: Deprecate with V1 API
+func (s *Server) handleV1AppList(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	filter := &models.AppFilter{}
 	filter.Cursor, filter.PerPage = pageParams(c, true)
-	filter.Name = c.Query("name")
+
 	apps, err := s.datastore.GetApps(ctx, filter)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
@@ -26,8 +27,9 @@ func (s *Server) handleAppList(c *gin.Context) {
 		nextCursor = base64.RawURLEncoding.EncodeToString(last)
 	}
 
-	c.JSON(http.StatusOK, appListResponse{
+	c.JSON(http.StatusOK, appsV1Response{
+		Message:    "Successfully listed applications",
 		NextCursor: nextCursor,
-		Items:      apps,
+		Apps:       apps,
 	})
 }

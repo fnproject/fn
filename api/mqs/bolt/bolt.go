@@ -85,24 +85,24 @@ func (boltProvider) New(url *url.URL) (models.MessageQueue, error) {
 		for i := 0; i < 3; i++ {
 			_, err := tx.CreateBucketIfNotExists(queueName(i))
 			if err != nil {
-				log.WithError(err).Errorln("Error creating bucket")
+				log.WithError(err).Errorln("ErrorWrapper creating bucket")
 				return err
 			}
 			_, err = tx.CreateBucketIfNotExists(timeoutName(i))
 			if err != nil {
-				log.WithError(err).Errorln("Error creating timeout bucket")
+				log.WithError(err).Errorln("ErrorWrapper creating timeout bucket")
 				return err
 			}
 		}
 		_, err = tx.CreateBucketIfNotExists(delayQueueName)
 		if err != nil {
-			log.WithError(err).Errorln("Error creating delay bucket")
+			log.WithError(err).Errorln("ErrorWrapper creating delay bucket")
 			return err
 		}
 		return nil
 	})
 	if err != nil {
-		log.WithError(err).Errorln("Error creating timeout bucket")
+		log.WithError(err).Errorln("ErrorWrapper creating timeout bucket")
 		return nil, err
 	}
 

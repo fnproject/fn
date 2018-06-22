@@ -55,9 +55,9 @@ func (a *fnListeners) AfterFnUpdate(ctx context.Context, fn *models.Fn) error {
 	return nil
 }
 
-func (a *fnListeners) BeforeFnDelete(ctx context.Context, appName string, routePath string) error {
+func (a *fnListeners) BeforeFnDelete(ctx context.Context, fnID string) error {
 	for _, l := range *a {
-		err := l.BeforeFnDelete(ctx, appName, routePath)
+		err := l.BeforeFnDelete(ctx, fnID)
 		if err != nil {
 			return err
 		}
@@ -65,9 +65,9 @@ func (a *fnListeners) BeforeFnDelete(ctx context.Context, appName string, routeP
 	return nil
 }
 
-func (a *fnListeners) AfterFnDelete(ctx context.Context, appName string, routePath string) error {
+func (a *fnListeners) AfterFnDelete(ctx context.Context, fnID string) error {
 	for _, l := range *a {
-		err := l.AfterFnDelete(ctx, appName, routePath)
+		err := l.AfterFnDelete(ctx, fnID)
 		if err != nil {
 			return err
 		}

@@ -67,27 +67,26 @@ type FnListener interface {
 	// AfterFnUpdate called after fn updated in datastore
 	AfterFnUpdate(ctx context.Context, fn *models.Fn) error
 	// BeforeFnDelete called before fn deleted from the datastore
-	BeforeFnDelete(ctx context.Context, appId string, funcName string) error
+	BeforeFnDelete(ctx context.Context, fnID string) error
 	// AfterFnDelete called after fn deleted from the datastore
-	AfterFnDelete(ctx context.Context, appId string, funcName string) error
+	AfterFnDelete(ctx context.Context, fnID string) error
 }
 
-// TODO: add trigger listener
 //// TriggerListener enables callbacks around Trigger events
-//type TriggerListener interface {
-//	// BeforeTriggerCreate called before trigger created in the datastore
-//	BeforeTriggerCreate(ctx context.Context, trigger *models.Trigger) error
-//	// AfterTriggerCreate called after trigger create in the datastore
-//	AfterTriggerCreate(ctx context.Context, trigger *models.Trigger) error
-//	// BeforeTriggerUpdate called before trigger update in datastore
-//	BeforeTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
-//	// AfterTriggerUpdate called after trigger updated in datastore
-//	AfterTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
-//	// BeforeTriggerDelete called before trigger deleted from the datastore
-//	BeforeTriggerDelete(ctx context.Context, appId string, triggerName string) error
-//	// AfterTriggerDelete called after trigger deleted from the datastore
-//	AfterTriggerDelete(ctx context.Context, appId string, triggerName string) error
-//}
+type TriggerListener interface {
+	// BeforeTriggerCreate called before trigger created in the datastore
+	BeforeTriggerCreate(ctx context.Context, trigger *models.Trigger) error
+	// AfterTriggerCreate called after trigger create in the datastore
+	AfterTriggerCreate(ctx context.Context, trigger *models.Trigger) error
+	// BeforeTriggerUpdate called before trigger update in datastore
+	BeforeTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
+	// AfterTriggerUpdate called after trigger updated in datastore
+	AfterTriggerUpdate(ctx context.Context, trigger *models.Trigger) error
+	// BeforeTriggerDelete called before trigger deleted from the datastore
+	BeforeTriggerDelete(ctx context.Context, triggerId string) error
+	// AfterTriggerDelete called after trigger deleted from the datastore
+	AfterTriggerDelete(ctx context.Context, triggerId string) error
+}
 
 // CallListener enables callbacks around Call events
 type CallListener interface {

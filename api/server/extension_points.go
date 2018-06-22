@@ -22,12 +22,12 @@ func (s *Server) apiAppHandlerWrapperFn(apiHandler fnext.ApiAppHandler) gin.Hand
 		appID := c.MustGet(api.AppID).(string)
 		app, err := s.datastore.GetAppByID(c.Request.Context(), appID)
 		if err != nil {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 			c.Abort()
 			return
 		}
 		if app == nil {
-			handleErrorResponse(c, models.ErrAppsNotFound)
+			handleV1ErrorResponse(c, models.ErrAppsNotFound)
 			c.Abort()
 			return
 		}
@@ -43,24 +43,24 @@ func (s *Server) apiRouteHandlerWrapperFn(apiHandler fnext.ApiRouteHandler) gin.
 		routePath := "/" + c.Param(api.CRoute)
 		route, err := s.datastore.GetRoute(context, appID, routePath)
 		if err != nil {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 			c.Abort()
 			return
 		}
 		if route == nil {
-			handleErrorResponse(c, models.ErrRoutesNotFound)
+			handleV1ErrorResponse(c, models.ErrRoutesNotFound)
 			c.Abort()
 			return
 		}
 
 		app, err := s.datastore.GetAppByID(context, appID)
 		if err != nil {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 			c.Abort()
 			return
 		}
 		if app == nil {
-			handleErrorResponse(c, models.ErrAppsNotFound)
+			handleV1ErrorResponse(c, models.ErrAppsNotFound)
 			c.Abort()
 			return
 		}

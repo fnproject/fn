@@ -9,6 +9,7 @@ import (
 // TODO we can put constants all in this file too
 const (
 	maxAppName     = 30
+	maxFuncName    = 30
 	maxTriggerName = 30
 )
 
@@ -17,6 +18,35 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Invalid JSON"),
 	}
+	ErrIDMismatch = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("ID in path does not match ID in body")}
+
+	ErrMissingID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing ID")}
+
+	ErrIDProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("ID Provided for Create")}
+
+	ErrMissingName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing Name")}
+	ErrTooLongName = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Name Too Long")}
+
+	ErrMissingFnID = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Missing FnID")}
+	ErrCreatedAtProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger Created At Provided for Create")}
+	ErrUpdatedAtProvided = err{
+		code:  http.StatusBadRequest,
+		error: errors.New("Trigger ID Provided for Create")}
+
 	ErrCallTimeout = err{
 		code:  http.StatusGatewayTimeout,
 		error: errors.New("Timed out"),
@@ -25,6 +55,7 @@ var (
 		code:  http.StatusServiceUnavailable,
 		error: errors.New("Timed out - server too busy"),
 	}
+
 	ErrAppsMissingName = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing app name"),
@@ -49,50 +80,21 @@ var (
 		code:  http.StatusConflict,
 		error: errors.New("Could not update - name is immutable"),
 	}
+
 	ErrAppsNotFound = err{
 		code:  http.StatusNotFound,
 		error: errors.New("App not found"),
 	}
-	ErrDeleteAppsWithRoutes = err{
-		code:  http.StatusConflict,
-		error: errors.New("Cannot remove apps with routes"),
-	}
-	ErrDatastoreEmptyApp = err{
+	ErrAppIDNotFound = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing app"),
+		error: errors.New("App with specified ID does not exist"),
 	}
-	ErrDatastoreEmptyAppID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing app ID"),
-	}
-	ErrDatastoreEmptyAppName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing app Name"),
-	}
-	ErrDatastoreEmptyRoute = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route"),
-	}
-	ErrDatastoreEmptyKey = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing key"),
-	}
+
 	ErrDatastoreEmptyCallID = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing call ID"),
 	}
-	ErrDatastoreEmptyFn = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing func"),
-	}
-	ErrFnsMissingAppName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing app name"),
-	}
-	ErrDatastoreEmptyFnName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing func name"),
-	}
+
 	ErrFnsMissingNew = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing function body"),
@@ -149,10 +151,6 @@ var (
 		code:  http.StatusBadRequest,
 		error: errors.New("Missing route Path"),
 	}
-	ErrRoutesMissingType = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing route Type"),
-	}
 	ErrPathMalformed = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Path malformed"),
@@ -177,17 +175,18 @@ var (
 		code:  http.StatusBadRequest,
 		error: fmt.Errorf("memory value is out of range. It should be between 0 and %d", RouteMaxMemory),
 	}
-	ErrFnsInvalidName = err{
+
+	ErrInvalidName = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Fn name must be a valid string"),
+		error: errors.New("name must be a valid string"),
 	}
-	ErrFnsInvalidFieldChange = err{
+	ErrInvalidFieldChange = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Fn names and ids cannot be modified"),
+		error: errors.New("names and ids cannot be modified"),
 	}
-	ErrFnsMissingAppID = err{
+	ErrMissingAppID = err{
 		code:  http.StatusBadRequest,
-		error: errors.New("Missing function AppID"),
+		error: errors.New("Missing AppID"),
 	}
 	ErrFnsMissingImage = err{
 		code:  http.StatusBadRequest,
@@ -301,11 +300,11 @@ func GetAPIErrorCode(e error) int {
 	return 0
 }
 
-// Error uniform error output
-type Error struct {
-	Error *ErrorBody `json:"error,omitempty"`
+// ErrorWrapper uniform error output
+type ErrorWrapper struct {
+	Error *Error `json:"error,omitempty"`
 }
 
-func (m *Error) Validate() error {
+func (m *ErrorWrapper) Validate() error {
 	return nil
 }

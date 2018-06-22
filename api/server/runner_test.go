@@ -90,7 +90,7 @@ func TestRouteRunnerGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -136,7 +136,7 @@ func TestRouteRunnerPost(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 			respMsg := resp.Error.Message
 			expMsg := test.expectedError.Error()
 			if respMsg != expMsg && !strings.Contains(respMsg, expMsg) {

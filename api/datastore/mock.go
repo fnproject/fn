@@ -220,6 +220,9 @@ func (m *mock) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) 
 
 	app, err := m.GetAppByID(ctx, fn.AppID)
 	if err != nil {
+		if err == models.ErrAppsNotFound {
+			return nil, models.ErrAppIDNotFound
+		}
 		return nil, err
 	}
 	clone := fn.Clone()
@@ -238,7 +241,7 @@ func (m *mock) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) 
 	for _, f := range m.Fns {
 		if f.AppID == fn.AppID && f.Name == fn.Name {
 			if fn.ID != "" && f.ID != fn.ID {
-				return nil, models.ErrFnsInvalidFieldChange
+				return nil, models.ErrInvalidFieldChange
 			}
 
 			clone := f.Clone()
@@ -273,8 +276,8 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 		}
 
 		if strings.Compare(filter.Cursor, f.Name) < 0 &&
-			(filter.Image == "" || filter.Image == f.Image) &&
-			(filter.AppID == "" || filter.AppID == f.AppID) {
+			(filter.AppID == "" || filter.AppID == f.AppID) &&
+			(filter.Name == "" || filter.Name == f.Name) {
 			funcs = append(funcs, f)
 		}
 
@@ -282,7 +285,7 @@ func (m *mock) GetFns(ctx context.Context, filter *models.FnFilter) ([]*models.F
 	return funcs, nil
 }
 
-func (m *mock) GetFnById(ctx context.Context, fnId string) (*models.Fn, error) {
+func (m *mock) GetFnByID(ctx context.Context, fnId string) (*models.Fn, error) {
 	for _, f := range m.Fns {
 		if f.ID == fnId {
 			return f, nil
@@ -291,19 +294,10 @@ func (m *mock) GetFnById(ctx context.Context, fnId string) (*models.Fn, error) {
 
 	return nil, models.ErrFnsNotFound
 }
-func (m *mock) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
-	for _, f := range m.Fns {
-		if f.Name == funcName && f.AppID == appID {
-			return f, nil
-		}
-	}
 
-	return nil, models.ErrFnsNotFound
-}
-
-func (m *mock) RemoveFn(ctx context.Context, appID string, funcName string) error {
+func (m *mock) RemoveFn(ctx context.Context, fnID string) error {
 	for i, f := range m.Fns {
-		if f.Name == funcName && f.AppID == appID {
+		if f.ID == fnID {
 			m.Fns = append(m.Fns[:i], m.Fns[i+1:]...)
 			var newTriggers []*models.Trigger
 			for _, t := range m.Triggers {
@@ -325,7 +319,7 @@ func (m *mock) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*mod
 	if err != nil {
 		return nil, err
 	}
-	_, err = m.GetFnById(ctx, trigger.FnID)
+	_, err = m.GetFnByID(ctx, trigger.FnID)
 	if err != nil {
 		return nil, err
 	}

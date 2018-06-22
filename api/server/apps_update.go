@@ -11,9 +11,9 @@ import (
 func (s *Server) handleAppUpdate(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	wapp := models.AppWrapper{}
+	app := &models.App{}
 
-	err := c.BindJSON(&wapp)
+	err := c.BindJSON(app)
 	if err != nil {
 		if models.IsAPIError(err) {
 			handleErrorResponse(c, err)
@@ -23,24 +23,17 @@ func (s *Server) handleAppUpdate(c *gin.Context) {
 		return
 	}
 
-	if wapp.App == nil {
-		handleErrorResponse(c, models.ErrAppsMissingNew)
+	id := c.MustGet(api.AppID).(string)
+
+	if app.ID != id {
+		handleErrorResponse(c, models.ErrIDMismatch)
 		return
 	}
-
-	if wapp.App.Name != "" {
-		handleErrorResponse(c, models.ErrAppsNameImmutable)
-		return
-	}
-
-	wapp.App.Name = c.MustGet(api.App).(string)
-	wapp.App.ID = c.MustGet(api.AppID).(string)
-
-	app, err := s.datastore.UpdateApp(ctx, wapp.App)
+	app, err = s.datastore.UpdateApp(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, appResponse{"App successfully updated", app})
+	c.JSON(http.StatusOK, app)
 }

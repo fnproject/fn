@@ -10,9 +10,9 @@ import (
 func (s *Server) handleAppCreate(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var wapp models.AppWrapper
+	app := &models.App{}
 
-	err := c.BindJSON(&wapp)
+	err := c.BindJSON(app)
 	if err != nil {
 		if models.IsAPIError(err) {
 			handleErrorResponse(c, err)
@@ -22,17 +22,11 @@ func (s *Server) handleAppCreate(c *gin.Context) {
 		return
 	}
 
-	app := wapp.App
-	if app == nil {
-		handleErrorResponse(c, models.ErrAppsMissingNew)
-		return
-	}
-
 	app, err = s.datastore.InsertApp(ctx, app)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, appResponse{"App successfully created", app})
+	c.JSON(http.StatusOK, app)
 }

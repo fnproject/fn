@@ -40,7 +40,7 @@ func (a *App) SetDefaults() {
 
 func (a *App) Validate() error {
 	if a.Name == "" {
-		return ErrAppsMissingName
+		return ErrMissingName
 	}
 	if len(a.Name) > maxAppName {
 		return ErrAppsTooLongName
@@ -150,6 +150,12 @@ type AppFilter struct {
 	Name string
 	// NameIn will filter by all names in the list (IN query)
 	NameIn  []string
+	PerPage int
+	Cursor  string
+}
+
+type AppV2Filter struct {
+	Name    string
 	PerPage int
 	Cursor  string
 }

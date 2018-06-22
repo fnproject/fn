@@ -7,19 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleFnsDelete(c *gin.Context) {
+func (s *Server) handleFnDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	fn := c.Param(api.Fn)
-	appName := c.Param(api.CApp)
+	fnID := c.Param(api.FnID)
 
-	appID, err := s.datastore.GetAppID(ctx, appName)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	err = s.datastore.RemoveFn(ctx, appID, fn)
+	err := s.datastore.RemoveFn(ctx, fnID)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return

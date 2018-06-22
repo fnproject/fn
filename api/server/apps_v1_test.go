@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,21 +14,9 @@ import (
 	"github.com/fnproject/fn/api/logs"
 	"github.com/fnproject/fn/api/models"
 	"github.com/fnproject/fn/api/mqs"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
-func setLogBuffer() *bytes.Buffer {
-	var buf bytes.Buffer
-	buf.WriteByte('\n')
-	logrus.SetOutput(&buf)
-	gin.DefaultErrorWriter = &buf
-	gin.DefaultWriter = &buf
-	log.SetOutput(&buf)
-	return &buf
-}
-
-func TestAppCreate(t *testing.T) {
+func TestV1AppCreate(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {
 		if t.Failed() {
@@ -46,20 +33,21 @@ func TestAppCreate(t *testing.T) {
 		expectedError error
 	}{
 		// errors
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{}`, http.StatusBadRequest, models.ErrMissingName},
-		//{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "id":"badId"}`, http.StatusBadRequest, models.ErrIDProvided}, //FIXME
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "" }`, http.StatusBadRequest, models.ErrMissingName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "1234567890123456789012345678901" }`, http.StatusBadRequest, models.ErrAppsTooLongName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "&&%@!#$#@$" }`, http.StatusBadRequest, models.ErrAppsInvalidName},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "app", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "annotations" : { "key":"" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "app", "syslog_url":"yo"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo"`)},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "app", "syslog_url":"yo://sup.com:1"}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1"`)},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", ``, http.StatusBadRequest, models.ErrInvalidJSON},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{}`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "name": "Test" }`, http.StatusBadRequest, models.ErrAppsMissingNew},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "" } }`, http.StatusBadRequest, models.ErrMissingName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrAppsTooLongName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrAppsInvalidName},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "annotations" : { "":"val" }}}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "annotations" : { "key":"" }}}`, http.StatusBadRequest, models.ErrInvalidAnnotationValue},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "syslog_url":"yo"}}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo"`)},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "app", "syslog_url":"yo://sup.com:1"}}`, http.StatusBadRequest, errors.New(`invalid syslog url: "yo://sup.com:1"`)},
 		// success
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{ "name": "teste"  }`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{  "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}`, http.StatusOK, nil},
-		{datastore.NewMock(), logs.NewMock(), "/v2/apps", `{"name": "teste", "syslog_url":"tcp://example.com:443" } `, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" } }`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste" , "annotations": {"k1":"v1", "k2":[]}}}`, http.StatusOK, nil},
+		{datastore.NewMock(), logs.NewMock(), "/v1/apps", `{ "app": { "name": "teste", "syslog_url":"tcp://example.com:443" } }`, http.StatusOK, nil},
 	} {
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
@@ -74,21 +62,23 @@ func TestAppCreate(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
-			if !strings.Contains(resp.Message, test.expectedError.Error()) {
+			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s` but got `%s`",
-					i, test.expectedError.Error(), resp.Message)
+					i, test.expectedError.Error(), resp.Error.Message)
 			}
 		}
 
 		if test.expectedCode == http.StatusOK {
-			var app models.App
-			err := json.NewDecoder(rec.Body).Decode(&app)
+			var awrap models.AppWrapper
+			err := json.NewDecoder(rec.Body).Decode(&awrap)
 			if err != nil {
 				t.Log(buf.String())
 				t.Errorf("Test %d: error decoding body for 'ok' json, it was a lie: %v", i, err)
 			}
+
+			app := awrap.App
 
 			// IsZero() doesn't really work, this ensures it's not unset as long as we're not in 1970
 			if time.Time(app.CreatedAt).Before(time.Now().Add(-1 * time.Hour)) {
@@ -105,7 +95,7 @@ func TestAppCreate(t *testing.T) {
 	}
 }
 
-func TestAppDelete(t *testing.T) {
+func TestV1AppDelete(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {
 		if t.Failed() {
@@ -151,7 +141,7 @@ func TestAppDelete(t *testing.T) {
 	}
 }
 
-func TestAppList(t *testing.T) {
+func TestV1AppList(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {
 		if t.Failed() {
@@ -222,7 +212,7 @@ func TestAppList(t *testing.T) {
 	}
 }
 
-func TestAppGet(t *testing.T) {
+func TestV1AppGet(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {
 		if t.Failed() {
@@ -262,7 +252,7 @@ func TestAppGet(t *testing.T) {
 	}
 }
 
-func TestAppUpdate(t *testing.T) {
+func TestV1AppUpdate(t *testing.T) {
 	buf := setLogBuffer()
 	defer func() {
 		if t.Failed() {

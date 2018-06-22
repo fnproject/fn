@@ -9,7 +9,6 @@ import (
 
 type Datastore interface {
 	// GetAppByID gets an App by ID.
-	// Returns ErrDatastoreEmptyAppID for empty appID.
 	// Returns ErrAppsNotFound if no app is found.
 	GetAppByID(ctx context.Context, appID string) (*App, error)
 
@@ -55,28 +54,26 @@ type Datastore interface {
 	// ErrDatastoreEmptyAppName or ErrDatastoreEmptyRoutePath for empty AppName or Path.
 	UpdateRoute(ctx context.Context, route *Route) (*Route, error)
 
-	// RemoveRoute removes a route. Returns ErrDatastoreEmptyAppID when appName is empty, and
 	// ErrDatastoreEmptyRoutePath when routePath is empty. Returns ErrRoutesNotFound when no route exists.
 	RemoveRoute(ctx context.Context, appID, routePath string) error
 
 	// InsertFn inserts a new function if one does not exist, applying any defaults necessary,
 	InsertFn(ctx context.Context, fn *Fn) (*Fn, error)
 
-	// UpdateFn  updates a function that exists under the same name. Returns ErrDatastoreEmptyFn if func is nil,
-	// ErrDatastoreEmptyFnName is func.Name is empty.
+	// UpdateFn  updates a function that exists under the same id.
+	// ErrMissingName is func.Name is empty.
 	UpdateFn(ctx context.Context, fn *Fn) (*Fn, error)
 
 	// GetFns returns a list of funcs, applying any additional filters provided.
 	GetFns(ctx context.Context, filter *FnFilter) ([]*Fn, error)
 
-	// GetFn returns a function by name. Returns ErrDatastoreEmptyFnName if funcName is empty.
+	// GetFnByID returns a function by id.
 	// Returns ErrFnsNotFound if a func is not found.
-	// TODO(reed): figure out addressable by id or name biz. iff 1 query, name works.
-	GetFn(ctx context.Context, appID string, funcName string) (*Fn, error)
+	GetFnByID(ctx context.Context, fnId string) (*Fn, error)
 
-	// RemoveFn removes a function. Returns ErrDatastoreEmptyFnName if funcName is empty.
+	// RemoveFn removes a function.
 	// Returns ErrFnsNotFound if a func is not found.
-	RemoveFn(ctx context.Context, appID string, funcName string) error
+	RemoveFn(ctx context.Context, fnId string) error
 
 	// InsertTrigger inserts a trigger. Returns ErrDatastoreEmptyTrigger when trigger is nil, and specific errors for each field
 	// Returns ErrTriggerAlreadyExists if the exact apiID, fnID, source, type combination already exists

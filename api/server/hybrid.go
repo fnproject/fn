@@ -18,9 +18,9 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	err := c.BindJSON(&call)
 	if err != nil {
 		if models.IsAPIError(err) {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 		} else {
-			handleErrorResponse(c, models.ErrInvalidJSON)
+			handleV1ErrorResponse(c, models.ErrInvalidJSON)
 		}
 		return
 	}
@@ -39,7 +39,7 @@ func (s *Server) handleRunnerEnqueue(c *gin.Context) {
 	call.Status = "queued"
 	_, err = s.mq.Push(ctx, &call)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (s *Server) handleRunnerDequeue(c *gin.Context) {
 	for {
 		call, err := s.mq.Reserve(ctx)
 		if err != nil {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 			return
 		}
 		if call != nil {
@@ -97,9 +97,9 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	err := c.BindJSON(&call)
 	if err != nil {
 		if models.IsAPIError(err) {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 		} else {
-			handleErrorResponse(c, models.ErrInvalidJSON)
+			handleV1ErrorResponse(c, models.ErrInvalidJSON)
 		}
 		return
 	}
@@ -129,11 +129,11 @@ func (s *Server) handleRunnerStart(c *gin.Context) {
 	// TODO change this to only delete message if the status change fails b/c it already ran
 	// after messaging semantics change
 	if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 	//}
-	//handleErrorResponse(c, err)
+	//handleV1ErrorResponse(c, err)
 	//return
 	//}
 
@@ -152,9 +152,9 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	err := c.BindJSON(&body)
 	if err != nil {
 		if models.IsAPIError(err) {
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 		} else {
-			handleErrorResponse(c, models.ErrInvalidJSON)
+			handleV1ErrorResponse(c, models.ErrInvalidJSON)
 		}
 		return
 	}
@@ -180,7 +180,7 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	// arg in params for a message id and can detect based on this. for now, delete messages
 	// for sync and async even though sync doesn't have any (ignore error)
 	//if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
-	//common.Logger(ctx).WithError(err).Error("error deleting mq msg")
+	//common.Logger(ctx).WithError(err).ErrorWrapper("error deleting mq msg")
 	//// note: Not returning err here since the job could have already finished successfully.
 	//}
 

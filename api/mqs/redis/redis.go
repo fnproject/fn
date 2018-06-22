@@ -56,7 +56,7 @@ func (redisProvider) New(url *url.URL) (models.MessageQueue, error) {
 	// Force a connection so we can fail in case of error.
 	conn := pool.Get()
 	if err := conn.Err(); err != nil {
-		logrus.WithError(err).Fatal("Error connecting to redis")
+		logrus.WithError(err).Fatal("ErrorWrapper connecting to redis")
 	}
 	conn.Close()
 
@@ -138,7 +138,7 @@ func (mq *RedisMQ) processDelayedCalls() {
 	now := time.Now().UTC().Unix()
 	resIds, err := redis.Strings(conn.Do("ZRANGEBYSCORE", mq.k("delays"), "-inf", now))
 	if err != nil {
-		logrus.WithError(err).Error("Error getting delayed jobs")
+		logrus.WithError(err).Error("ErrorWrapper getting delayed jobs")
 		return
 	}
 
@@ -152,14 +152,14 @@ func (mq *RedisMQ) processDelayedCalls() {
 		if err == redis.ErrNil {
 			continue
 		} else if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resID}).Error("Error HGET delayed_jobs")
+			logrus.WithError(err).WithFields(logrus.Fields{"reservationId": resID}).Error("ErrorWrapper HGET delayed_jobs")
 			continue
 		}
 
 		var job models.Call
 		err = json.Unmarshal(buf, &job)
 		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservationId": resID}).Error("Error unmarshaling job")
+			logrus.WithError(err).WithFields(logrus.Fields{"buf": buf, "reservationId": resID}).Error("ErrorWrapper unmarshaling job")
 			return
 		}
 

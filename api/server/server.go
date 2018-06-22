@@ -62,8 +62,6 @@ const (
 	EnvCert     = "FN_NODE_CERT"
 	EnvCertKey  = "FN_NODE_CERT_KEY"
 	EnvCertAuth = "FN_NODE_CERT_AUTHORITY"
-	// The header name of the incoming request which holds the request ID
-	EnvRidHeader = "FN_RID_HEADER"
 
 	EnvProcessCollectorList = "FN_PROCESS_COLLECTOR_LIST"
 	EnvLBPlacementAlg       = "FN_PLACER"
@@ -105,23 +103,24 @@ type Server struct {
 	Router      *gin.Engine
 	AdminRouter *gin.Engine
 
-	webListenPort   int
-	adminListenPort int
-	grpcListenPort  int
-	agent           agent.Agent
-	datastore       models.Datastore
-	mq              models.MessageQueue
-	logstore        models.LogStore
-	nodeType        ServerNodeType
-	cert            string
-	certKey         string
-	certAuthority   string
-	appListeners    *appListeners
-	routeListeners  *routeListeners
-	fnListeners     *fnListeners
-	rootMiddlewares []fnext.Middleware
-	apiMiddlewares  []fnext.Middleware
-	promExporter    *prometheus.Exporter
+	webListenPort    int
+	adminListenPort  int
+	grpcListenPort   int
+	agent            agent.Agent
+	datastore        models.Datastore
+	mq               models.MessageQueue
+	logstore         models.LogStore
+	nodeType         ServerNodeType
+	cert             string
+	certKey          string
+	certAuthority    string
+	appListeners     *appListeners
+	routeListeners   *routeListeners
+	fnListeners      *fnListeners
+	triggerListeners *triggerListeners
+	rootMiddlewares  []fnext.Middleware
+	apiMiddlewares   []fnext.Middleware
+	promExporter     *prometheus.Exporter
 	// Extensions can append to this list of contexts so that cancellations are properly handled.
 	extraCtxs []context.Context
 }
@@ -526,7 +525,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		}
 		err := opt(ctx, s)
 		if err != nil {
-			log.WithError(err).Fatal("Error during server opt initialization.")
+			log.WithError(err).Fatal("ErrorWrapper during server opt initialization.")
 		}
 	}
 
@@ -551,6 +550,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 	s.appListeners = new(appListeners)
 	s.routeListeners = new(routeListeners)
 	s.fnListeners = new(fnListeners)
+	s.triggerListeners = new(triggerListeners)
 
 	s.datastore = datastore.Wrap(s.datastore)
 	s.datastore = fnext.NewDatastore(s.datastore, s.appListeners, s.routeListeners, s.fnListeners)
@@ -888,8 +888,8 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v1 := clean.Group("")
 			v1.Use(setAppNameInCtx)
 			v1.Use(s.apiMiddlewareWrapper())
-			v1.GET("/apps", s.handleAppList)
-			v1.POST("/apps", s.handleAppCreate)
+			v1.GET("/apps", s.handleV1AppList)
+			v1.POST("/apps", s.handleV1AppCreate)
 
 			{
 				apps := v1.Group("/apps/:app")
@@ -898,14 +898,9 @@ func (s *Server) bindHandlers(ctx context.Context) {
 				{
 					withAppCheck := apps.Group("")
 					withAppCheck.Use(s.checkAppPresenceByName())
-					withAppCheck.GET("", s.handleAppGetByName)
-					withAppCheck.PATCH("", s.handleAppUpdate)
-					withAppCheck.DELETE("", s.handleAppDelete)
-
-					withAppCheck.GET("/fns", s.handleFnsList)
-					withAppCheck.GET("/fns/:fn", s.handleFnsGet)
-					withAppCheck.PUT("/fns/:fn", s.handleFnsPut)
-					withAppCheck.DELETE("/fns/:fn", s.handleFnsDelete)
+					withAppCheck.GET("", s.handleV1AppGetByName)
+					withAppCheck.PATCH("", s.handleV1AppUpdate)
+					withAppCheck.DELETE("", s.handleV1AppDelete)
 
 					withAppCheck.GET("/routes", s.handleRouteList)
 					withAppCheck.GET("/routes/:route", s.handleRouteGetAPI)
@@ -926,23 +921,23 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			v2.Use(s.apiMiddlewareWrapper())
 
 			{
-				// v2.GET("/apps", s.handleAppList)
-				// v2.GET("/apps", s.handleAppCreate)
-				// v2.GET("/apps/:app", s.handleAppGetByID)
-				// v2.PUT("/apps/:app", s.handleAppUpdate)
-				// v2.DELETE("/apps/:app", s.handleAppDelete)
+				v2.GET("/apps", s.handleAppList)
+				v2.POST("/apps", s.handleAppCreate)
+				v2.GET("/apps/:app_id", s.handleAppGetByID)
+				v2.PUT("/apps/:app_id", s.handleAppUpdate)
+				v2.DELETE("/apps/:app_id", s.handleAppDelete)
 
-				v2.GET("/fns", s.handleFnsList)
-				//				v2.PUT("/fns", s.handleFnsCreate)
-				v2.GET("/fns/:fn", s.handleFnsGet)
-				//			v2.PUT("/fns/:fn", s.handleFnsUpdate)
-				v2.DELETE("/fns/:fn", s.handleFnsDelete)
+				v2.GET("/fns", s.handleFnList)
+				v2.POST("/fns", s.handleFnCreate)
+				v2.GET("/fns/:fn_id", s.handleFnGet)
+				v2.PUT("/fns/:fn_id", s.handleFnPut)
+				v2.DELETE("/fns/:fn_id", s.handleFnDelete)
 
 				v2.GET("/triggers", s.handleTriggerList)
 				v2.POST("/triggers", s.handleTriggerCreate)
-				v2.GET("/triggers/:trigger", s.handleTriggerGet)
-				v2.PUT("/triggers/:trigger", s.handleTriggerUpdate)
-				v2.DELETE("/triggers/:trigger", s.handleTriggerDelete)
+				v2.GET("/triggers/:trigger_id", s.handleTriggerGet)
+				v2.PUT("/triggers/:trigger_id", s.handleTriggerUpdate)
+				v2.DELETE("/triggers/:trigger_id", s.handleTriggerDelete)
 			}
 
 			{
@@ -952,11 +947,6 @@ func (s *Server) bindHandlers(ctx context.Context) {
 
 				runner.POST("/start", s.handleRunnerStart)
 				runner.POST("/finish", s.handleRunnerFinish)
-
-				appsAPIV2 := runner.Group("/apps/:app")
-				appsAPIV2.Use(setAppNameInCtx)
-				appsAPIV2.GET("", s.handleAppGetByID)
-				appsAPIV2.GET("/routes/:route", s.handleRouteGetRunner)
 
 			}
 		}
@@ -981,7 +971,7 @@ func (s *Server) bindHandlers(ctx context.Context) {
 			var e models.APIError = models.ErrPathNotFound
 			err = models.NewAPIError(e.Code(), fmt.Errorf("%v: %s", e.Error(), c.Request.URL.Path))
 		}
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 	})
 
 }
@@ -1019,7 +1009,8 @@ type appResponse struct {
 	App     *models.App `json:"app"`
 }
 
-type appsResponse struct {
+//TODO deprecate with V1
+type appsV1Response struct {
 	Message    string        `json:"message"`
 	NextCursor string        `json:"next_cursor"`
 	Apps       []*models.App `json:"apps"`
@@ -1047,15 +1038,14 @@ type callsResponse struct {
 	Calls      []*models.Call `json:"calls"`
 }
 
-type fnResponse struct {
-	Message string     `json:"message"`
-	Fn      *models.Fn `json:"fn"`
+type appListResponse struct {
+	NextCursor string        `json:"next_cursor"`
+	Items      []*models.App `json:"items"`
 }
 
-type fnsResponse struct {
-	Message    string       `json:"message"`
+type fnListResponse struct {
 	NextCursor string       `json:"next_cursor"`
-	Fns        []*models.Fn `json:"fns"`
+	Fns        []*models.Fn `json:"items"`
 }
 
 type triggerListResponse struct {

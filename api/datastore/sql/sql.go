@@ -712,13 +712,10 @@ func (ds *SQLStore) GetRoutesByApp(ctx context.Context, appID string, filter *mo
 func (ds *SQLStore) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, error) {
 	err := ds.Tx(func(tx *sqlx.Tx) error {
 
-		query := tx.Rebind(fmt.Sprintf(`%s WHERE name=? AND app_id=?`, fnSelector))
-		row := tx.QueryRowxContext(ctx, query, fn.Name, fn.AppID)
-
-		var dst models.Fn
-		err := row.StructScan(&dst)
-		if err != nil && err != sql.ErrNoRows {
-			return err
+		query := tx.Rebind(`SELECT 1 from fns WHERE name=? AND app_id=?`)
+		row := tx.QueryRowContext(ctx, query, fn.Name, fn.AppID)
+		if err := row.Scan(new(int)); err == nil {
+			return models.ErrFnsExists
 		}
 
 		// insert it
@@ -726,12 +723,12 @@ func (ds *SQLStore) InsertFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		r := tx.QueryRowContext(ctx, appQuery, fn.AppID)
 		if err := r.Scan(new(int)); err != nil {
 			if err == sql.ErrNoRows {
-				return models.ErrAppsNotFound
+				return models.ErrAppIDNotFound
 			}
 		}
 
 		fn.SetDefaults()
-		err = fn.Validate()
+		err := fn.Validate()
 		if err != nil {
 			return err
 		}
@@ -796,7 +793,7 @@ func (ds *SQLStore) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, er
 		}
 
 		if fn.ID != "" && fn.ID != dst.ID {
-			return models.ErrFnsInvalidFieldChange
+			return models.ErrInvalidFieldChange
 		}
 		// update it
 		dst.Update(fn)
@@ -864,9 +861,9 @@ func (ds *SQLStore) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mod
 	return res, nil
 }
 
-func (ds *SQLStore) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
-	query := ds.db.Rebind(fmt.Sprintf("%s WHERE name=? AND app_id=?", fnSelector))
-	row := ds.db.QueryRowxContext(ctx, query, funcName, appID)
+func (ds *SQLStore) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
+	query := ds.db.Rebind(fmt.Sprintf("%s WHERE id=?", fnSelector))
+	row := ds.db.QueryRowxContext(ctx, query, fnID)
 
 	var fn models.Fn
 	err := row.StructScan(&fn)
@@ -878,12 +875,12 @@ func (ds *SQLStore) GetFn(ctx context.Context, appID string, funcName string) (*
 	return &fn, nil
 }
 
-func (ds *SQLStore) RemoveFn(ctx context.Context, appID string, funcName string) error {
+func (ds *SQLStore) RemoveFn(ctx context.Context, fnID string) error {
 
 	return ds.Tx(func(tx *sqlx.Tx) error {
 
-		query := tx.Rebind(fmt.Sprintf("%s WHERE name=? AND app_id=?", fnSelector))
-		row := tx.QueryRowxContext(ctx, query, funcName, appID)
+		query := tx.Rebind(fmt.Sprintf("%s WHERE id=?", fnSelector))
+		row := tx.QueryRowxContext(ctx, query, fnID)
 
 		var fn models.Fn
 		err := row.StructScan(&fn)

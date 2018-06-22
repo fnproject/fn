@@ -19,7 +19,7 @@ func (s *Server) handleRouteList(c *gin.Context) {
 
 	routes, err := s.datastore.GetRoutesByApp(ctx, c.MustGet(api.AppID).(string), &filter)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 

@@ -7,24 +7,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleFnsGet(c *gin.Context) {
+func (s *Server) handleFnGet(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	fn := c.Param(api.Fn)
-	appName := c.Param(api.CApp)
-
-	appID, err := s.datastore.GetAppID(ctx, appName)
+	f, err := s.datastore.GetFnByID(ctx, c.Param(api.FnID))
 
 	if err != nil {
 		handleErrorResponse(c, err)
 		return
 	}
 
-	f, err := s.datastore.GetFn(ctx, appID, fn)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, fnResponse{"Successfully loaded func", f})
+	c.JSON(http.StatusOK, f)
 }

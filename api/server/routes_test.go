@@ -40,7 +40,7 @@ func (test *routeTestCase) run(t *testing.T, i int, buf *bytes.Buffer) {
 	}
 
 	if test.expectedError != nil {
-		resp := getErrorResponse(t, rec)
+		resp := getV1ErrorResponse(t, rec)
 		if resp.Error == nil {
 			t.Log(buf.String())
 			t.Errorf("Test %d: Expected error message to have `%s`, but it was nil",
@@ -188,7 +188,7 @@ func TestRouteDelete(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -262,7 +262,7 @@ func TestRouteList(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())
@@ -315,7 +315,7 @@ func TestRouteGet(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Log(buf.String())

@@ -136,16 +136,16 @@ func (m *metricds) GetFns(ctx context.Context, filter *models.FnFilter) ([]*mode
 	return m.ds.GetFns(ctx, filter)
 }
 
-func (m *metricds) GetFn(ctx context.Context, appID string, funcName string) (*models.Fn, error) {
+func (m *metricds) GetFnByID(ctx context.Context, fnID string) (*models.Fn, error) {
 	ctx, span := trace.StartSpan(ctx, "ds_get_func")
 	defer span.End()
-	return m.ds.GetFn(ctx, appID, funcName)
+	return m.ds.GetFnByID(ctx, fnID)
 }
 
-func (m *metricds) RemoveFn(ctx context.Context, appID string, funcName string) error {
+func (m *metricds) RemoveFn(ctx context.Context, fnID string) error {
 	ctx, span := trace.StartSpan(ctx, "ds_remove_func")
 	defer span.End()
-	return m.ds.RemoveFn(ctx, appID, funcName)
+	return m.ds.RemoveFn(ctx, fnID)
 }
 
 // instant & no context ;)

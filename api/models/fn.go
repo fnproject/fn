@@ -17,11 +17,6 @@ var (
 	MaxIdleTimeout int32  = 3600     // 1h
 )
 
-// FuncWrapper makes jason purrty for a Func.
-type FnWrapper struct {
-	Fn *Fn `json:"fn"`
-}
-
 // Fn contains information about a function configuration.
 type Fn struct {
 	// ID is the generated resource id.
@@ -106,15 +101,15 @@ func (f *Fn) SetDefaults() {
 func (f *Fn) Validate() error {
 
 	if url.PathEscape(f.Name) != f.Name {
-		return ErrFnsInvalidName
+		return ErrInvalidName
 	}
 
 	if f.Name == "" {
-		return ErrDatastoreEmptyFnName
+		return ErrMissingName
 	}
 
 	if f.AppID == "" {
-		return ErrFnsMissingAppID
+		return ErrMissingAppID
 	}
 
 	if f.Image == "" {
@@ -141,7 +136,6 @@ func (f *Fn) Validate() error {
 
 	return f.Annotations.Validate()
 }
-
 func (f *Fn) Clone() *Fn {
 	clone := new(Fn)
 	*clone = *f // shallow copy
@@ -231,9 +225,8 @@ func (f *Fn) Update(patch *Fn) {
 }
 
 type FnFilter struct {
-	AppID string // this is exact match
-	Image string // this is exact match
-
+	AppID   string // this is exact match
+	Name    string //exact match
 	Cursor  string
 	PerPage int
 }

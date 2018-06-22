@@ -265,7 +265,7 @@ func TestBasicConcurrentExecution(t *testing.T) {
 	for i := 0; i < concurrentFuncs; i++ {
 		err := <-results
 		if err != nil {
-			t.Fatalf("Error in basic concurrency execution test: %v", err)
+			t.Fatalf("ErrorWrapper in basic concurrency execution test: %v", err)
 		}
 	}
 

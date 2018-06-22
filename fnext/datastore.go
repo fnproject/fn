@@ -20,6 +20,52 @@ type extds struct {
 	al AppListener
 	rl RouteListener
 	fl FnListener
+	tl TriggerListener
+}
+
+func (e *extds) InsertTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	err := e.tl.BeforeTriggerCreate(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := e.Datastore.InsertTrigger(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.tl.AfterTriggerCreate(ctx, t)
+	return t, err
+}
+
+func (e *extds) UpdateTrigger(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
+	err := e.tl.BeforeTriggerUpdate(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := e.Datastore.UpdateTrigger(ctx, trigger)
+	if err != nil {
+		return nil, err
+	}
+
+	err = e.tl.AfterTriggerUpdate(ctx, t)
+	return t, err
+}
+
+func (e *extds) RemoveTrigger(ctx context.Context, triggerID string) error {
+	err := e.tl.BeforeTriggerDelete(ctx, triggerID)
+	if err != nil {
+		return err
+	}
+
+	err = e.Datastore.RemoveTrigger(ctx, triggerID)
+	if err != nil {
+		return err
+	}
+
+	err = e.tl.AfterTriggerDelete(ctx, triggerID)
+	return err
 }
 
 func (e *extds) GetAppByID(ctx context.Context, appID string) (*models.App, error) {
@@ -177,19 +223,19 @@ func (e *extds) UpdateFn(ctx context.Context, fn *models.Fn) (*models.Fn, error)
 
 }
 
-func (e *extds) RemoveFn(ctx context.Context, appID string, funcName string) error {
-	err := e.fl.BeforeFnDelete(ctx, appID, funcName)
+func (e *extds) RemoveFn(ctx context.Context, fnID string) error {
+	err := e.fl.BeforeFnDelete(ctx, fnID)
 
 	if err != nil {
 		return err
 	}
 
-	err = e.Datastore.RemoveFn(ctx, appID, funcName)
+	err = e.Datastore.RemoveFn(ctx, fnID)
 	if err != nil {
 		return err
 	}
 
-	err = e.fl.AfterFnDelete(ctx, appID, funcName)
+	err = e.fl.AfterFnDelete(ctx, fnID)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ func (s *Server) handleCallGet(c *gin.Context) {
 
 	callObj, err := s.logstore.GetCall(ctx, appID, callID)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 

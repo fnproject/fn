@@ -22,7 +22,7 @@ func (s *Server) handleCallList(c *gin.Context) {
 
 	filter.FromTime, filter.ToTime, err = timeParams(c)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 

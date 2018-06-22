@@ -7,14 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) handleAppDelete(c *gin.Context) {
+// TODO: Deprecate with v1
+func (s *Server) handleV1AppDelete(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	err := s.datastore.RemoveApp(ctx, c.MustGet(api.AppID).(string))
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 		return
 	}
 
-	c.String(http.StatusNoContent, "")
+	c.JSON(http.StatusOK, gin.H{"message": "App deleted"})
 }

@@ -44,21 +44,22 @@ func TestTriggerCreate(t *testing.T) {
 	}{
 		// errors
 		{commonDS, logs.NewMock(), BaseRoute, ``, http.StatusBadRequest, models.ErrInvalidJSON},
-		{commonDS, logs.NewMock(), BaseRoute, `{}`, http.StatusBadRequest, models.ErrTriggerMissingName},
+		{commonDS, logs.NewMock(), BaseRoute, `{}`, http.StatusBadRequest, models.ErrMissingName},
 
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test" }`, http.StatusBadRequest, models.ErrTriggerMissingAppID},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo" }`, http.StatusBadRequest, models.ErrTriggerMissingFnID},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test" }`, http.StatusBadRequest, models.ErrMissingAppID},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo" }`, http.StatusBadRequest, models.ErrMissingFnID},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "Test", "app_id": "foo", "fn_id": "foo "}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
 
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrTriggerTooLongName},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrTriggerInvalidName},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "1234567890123456789012345678901" } }`, http.StatusBadRequest, models.ErrTooLongName},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "&&%@!#$#@$" } }`, http.StatusBadRequest, models.ErrInvalidName},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src", "annotations" : { "":"val" }}`, http.StatusBadRequest, models.ErrInvalidAnnotationKey},
-		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerIDProvided},
+		{commonDS, logs.NewMock(), BaseRoute, `{ "id": "asdasca", "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src"}`, http.StatusBadRequest, models.ErrIDProvided},
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "unsupported", "source": "src"}`, http.StatusBadRequest, models.ErrTriggerTypeUnknown},
 
 		// // success
 		{commonDS, logs.NewMock(), BaseRoute, `{ "name": "trigger", "app_id": "appid", "fn_id": "fnid", "type": "HTTP", "source": "src"}`, http.StatusOK, nil},
 	} {
+
 		rnr, cancel := testRunner(t)
 		srv := testServer(test.mock, &mqs.Mock{}, test.logDB, rnr, ServerTypeFull)
 		router := srv.Router
@@ -72,7 +73,7 @@ func TestTriggerCreate(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s` but got `%s`",
@@ -156,7 +157,7 @@ func TestTriggerDelete(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`",
@@ -216,7 +217,7 @@ func TestTriggerList(t *testing.T) {
 		}
 
 		if test.expectedError != nil {
-			resp := getErrorResponse(t, rec)
+			resp := getV1ErrorResponse(t, rec)
 
 			if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 				t.Errorf("Test %d: Expected error message to have `%s`",
@@ -322,7 +323,7 @@ func TestTriggerUpdate(t *testing.T) {
 	}{
 		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "triggerid", "name":"changed"}`, "", http.StatusBadRequest, nil},
 		{commonDS, logs.NewMock(), BaseRoute + "/notexist", `{"id": "notexist", "name":"changed"}`, "", http.StatusNotFound, nil},
-		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "nonmatching", "name":"changed}`, "", http.StatusBadRequest, models.ErrTriggerIDMismatch},
+		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "nonmatching", "name":"changed}`, "", http.StatusBadRequest, models.ErrIDMismatch},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"id": "triggerid", "name":"changed"}`, "changed", http.StatusOK, nil},
 		{commonDS, logs.NewMock(), BaseRoute + "/triggerid", `{"name":"again"}`, "again", http.StatusOK, nil},
 	} {
@@ -339,7 +340,7 @@ func TestTriggerUpdate(t *testing.T) {
 				i, test.expectedCode, rec.Code)
 
 			if test.expectedError != nil {
-				resp := getErrorResponse(t, rec)
+				resp := getV1ErrorResponse(t, rec)
 				if !strings.Contains(resp.Error.Message, test.expectedError.Error()) {
 					t.Errorf("Test %d: Expected error message to have `%s` but got `%s`",
 						i, test.expectedError.Error(), resp.Error.Message)

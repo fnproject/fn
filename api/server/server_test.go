@@ -86,6 +86,15 @@ func newRouterRequest(t *testing.T, method, path string, body io.Reader) (*http.
 	return req, rec
 }
 
+func getV1ErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.ErrorWrapper {
+	var err models.ErrorWrapper
+	decodeErr := json.NewDecoder(rec.Body).Decode(&err)
+	if decodeErr != nil {
+		t.Error("Test: Expected not empty response body")
+	}
+	return &err
+}
+
 func getErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) *models.Error {
 	var err models.Error
 	decodeErr := json.NewDecoder(rec.Body).Decode(&err)
@@ -103,7 +112,7 @@ func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogS
 	}
 	ss, err := sql.New(ctx, uri)
 	if err != nil {
-		t.Fatalf("Error when creating datastore: %s", err)
+		t.Fatalf("ErrorWrapper when creating datastore: %s", err)
 	}
 	logDB := logs.Wrap(ss)
 	ds := datastore.Wrap(ss)

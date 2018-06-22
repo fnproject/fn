@@ -68,36 +68,6 @@ func validTriggerType(a string) bool {
 }
 
 var (
-	ErrTriggerMissingName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing Trigger Name")}
-	ErrTriggerTooLongName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger Name Too Long")}
-	ErrTriggerInvalidName = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger Name Invalid")}
-	ErrTriggerMissingAppID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing Trigger AppID")}
-	ErrTriggerMissingFnID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing Trigger FnID")}
-	ErrTriggerMissingID = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Missing Trigger ID")}
-	ErrTriggerIDMismatch = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger ID in path does not match that in body")}
-	ErrTriggerIDProvided = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger ID Provided for Create")}
-	ErrTriggerCreatedAtProvided = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger Created At Provided for Create")}
-	ErrTriggerUpdatedAtProvided = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger ID Provided for Create")}
 	ErrTriggerTypeUnknown = err{
 		code:  http.StatusBadRequest,
 		error: errors.New("Trigger Type Not Supported")}
@@ -110,29 +80,19 @@ var (
 	ErrTriggerExists = err{
 		code:  http.StatusConflict,
 		error: errors.New("Trigger already exists")}
-	ErrDatastoreEmptyTrigger = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger empty")}
-	// move to Fn when merged
-	ErrDatastoreFnNotFound = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger empty")}
-	ErrDatastoreEmptyTriggerFilter = err{
-		code:  http.StatusBadRequest,
-		error: errors.New("Trigger filter empty")}
 )
 
 func (t *Trigger) Validate() error {
 	if t.Name == "" {
-		return ErrTriggerMissingName
+		return ErrMissingName
 	}
 
 	if t.AppID == "" {
-		return ErrTriggerMissingAppID
+		return ErrMissingAppID
 	}
 
 	if t.FnID == "" {
-		return ErrTriggerMissingFnID
+		return ErrMissingFnID
 	}
 
 	if !validTriggerType(t.Type) {
@@ -154,35 +114,35 @@ func (t *Trigger) Validate() error {
 func (t *Trigger) ValidCreate() error {
 
 	if t.ID != "" {
-		return ErrTriggerIDProvided
+		return ErrIDProvided
 	}
 
 	if !time.Time(t.CreatedAt).IsZero() {
-		return ErrTriggerCreatedAtProvided
+		return ErrCreatedAtProvided
 	}
 	if !time.Time(t.UpdatedAt).IsZero() {
-		return ErrTriggerUpdatedAtProvided
+		return ErrUpdatedAtProvided
 	}
 
 	if t.Name == "" {
-		return ErrTriggerMissingName
+		return ErrMissingName
 	}
 
 	if len(t.Name) > maxTriggerName {
-		return ErrTriggerTooLongName
+		return ErrTooLongName
 	}
 	for _, c := range t.Name {
 		if !(unicode.IsLetter(c) || unicode.IsNumber(c) || c == '_' || c == '-') {
-			return ErrTriggerInvalidName
+			return ErrInvalidName
 		}
 	}
 
 	if t.AppID == "" {
-		return ErrTriggerMissingAppID
+		return ErrMissingAppID
 	}
 
 	if t.FnID == "" {
-		return ErrTriggerMissingFnID
+		return ErrMissingFnID
 	}
 
 	if !validTriggerType(t.Type) {

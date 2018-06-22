@@ -133,7 +133,7 @@ func panicWrap(c *gin.Context) {
 			if !ok {
 				err = fmt.Errorf("fn: %v", rec)
 			}
-			handleErrorResponse(c, err)
+			handleV1ErrorResponse(c, err)
 			c.Abort()
 		}
 	}(c)
@@ -165,7 +165,7 @@ func (s *Server) checkAppPresenceByNameAtRunner() gin.HandlerFunc {
 		if appName != "" {
 			appID, err := s.agent.GetAppID(ctx, appName)
 			if err != nil {
-				handleErrorResponse(c, err)
+				handleV1ErrorResponse(c, err)
 				c.Abort()
 				return
 			}
@@ -185,7 +185,7 @@ func (s *Server) checkAppPresenceByName() gin.HandlerFunc {
 		if appName != "" {
 			appID, err := s.datastore.GetAppID(ctx, appName)
 			if err != nil {
-				handleErrorResponse(c, err)
+				handleV1ErrorResponse(c, err)
 				c.Abort()
 				return
 			}
@@ -209,7 +209,7 @@ func setAppNameInCtx(c *gin.Context) {
 func appNameCheck(c *gin.Context) {
 	appName := c.GetString(api.App)
 	if appName == "" {
-		handleErrorResponse(c, models.ErrAppsMissingName)
+		handleV1ErrorResponse(c, models.ErrAppsMissingName)
 		c.Abort()
 		return
 	}

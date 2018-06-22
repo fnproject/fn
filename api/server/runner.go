@@ -21,7 +21,7 @@ import (
 func (s *Server) handleFunctionCall(c *gin.Context) {
 	err := s.handleFunctionCall2(c)
 	if err != nil {
-		handleErrorResponse(c, err)
+		handleV1ErrorResponse(c, err)
 	}
 }
 
@@ -81,7 +81,7 @@ func (s *Server) serve(c *gin.Context, app *models.App, path string) error {
 		return err
 	}
 	model := call.Model()
-	{ // scope this, to disallow ctx use outside of this scope. add id for handleErrorResponse logger
+	{ // scope this, to disallow ctx use outside of this scope. add id for handleV1ErrorResponse logger
 		ctx, _ := common.LoggerWithFields(c.Request.Context(), logrus.Fields{"id": model.ID})
 		c.Request = c.Request.WithContext(ctx)
 	}
