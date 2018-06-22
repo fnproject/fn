@@ -180,7 +180,7 @@ func (s *Server) handleRunnerFinish(c *gin.Context) {
 	// arg in params for a message id and can detect based on this. for now, delete messages
 	// for sync and async even though sync doesn't have any (ignore error)
 	//if err := s.mq.Delete(ctx, &call); err != nil { // TODO change this to take some string(s), not a whole call
-	//common.Logger(ctx).WithError(err).ErrorWrapper("error deleting mq msg")
+	//common.Logger(ctx).WithError(err).Error("error deleting mq msg")
 	//// note: Not returning err here since the job could have already finished successfully.
 	//}
 

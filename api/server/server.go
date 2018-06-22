@@ -525,7 +525,7 @@ func New(ctx context.Context, opts ...ServerOption) *Server {
 		}
 		err := opt(ctx, s)
 		if err != nil {
-			log.WithError(err).Fatal("ErrorWrapper during server opt initialization.")
+			log.WithError(err).Fatal("Error during server opt initialization.")
 		}
 	}
 

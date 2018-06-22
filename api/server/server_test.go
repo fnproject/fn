@@ -112,7 +112,7 @@ func prepareDB(ctx context.Context, t *testing.T) (models.Datastore, models.LogS
 	}
 	ss, err := sql.New(ctx, uri)
 	if err != nil {
-		t.Fatalf("ErrorWrapper when creating datastore: %s", err)
+		t.Fatalf("Errorwhen creating datastore: %s", err)
 	}
 	logDB := logs.Wrap(ss)
 	ds := datastore.Wrap(ss)
