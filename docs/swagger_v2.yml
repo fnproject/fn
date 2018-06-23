@@ -19,7 +19,7 @@ produces:
 paths:
   /apps:
     get:
-      summary: "Get applications "
+      summary: "Get applications"
       description: "Get a filtered applications returned in alphabetical order."
       tags:
         - Apps

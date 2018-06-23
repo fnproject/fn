@@ -172,7 +172,6 @@ func (e ErrInvalidSyslog) Error() string { return string(e) }
 
 // AppFilter is the filter used for querying apps
 type AppFilter struct {
-	Name string
 	// NameIn will filter by all names in the list (IN query)
 	NameIn  []string
 	PerPage int
